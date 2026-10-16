@@ -361,26 +361,37 @@
 
 	// While a provider that supports SCIM is set up, its directory parameters choose how it gets its
 	// users and groups: omitting them provisions through SCIM, and providing them fetches groups at
-	// sign-in. A configured provider keeps the way it has, which only Enable and Enforce change.
+	// sign-in. A provider with a SCIM connection, or a configured one, keeps the way it has, which
+	// only Enable and Enforce change, so its choice is shown as made, with a link to the SCIM tab
+	// where those happen. A provider staged in a switch gets no link: following it abandons the
+	// switch, and SCIM setup continues only after it.
 	const scimParameterChoice = $derived.by((): ParameterChoice | undefined => {
 		const provider = configuringAuthProvider;
 		const scim = provider?.scim;
-		if (!provider || !scim || provider.scimState || provider.configured) return undefined;
+		if (!provider || !scim) return undefined;
 
+		const name = provider.name;
+		const made = provider.scimState ? 'without' : provider.configured ? 'with' : undefined;
+		const linked = made && !isSwitching;
 		return {
 			title: m.identity_access_auth_providers_scim_choice_title(),
-			parameters: scim.directoryParameters,
+			// With a SCIM connection, directory parameters that are still stored are served as optional
+			// ones that can be removed, and they are kept unless they are, so the choice leaves them to
+			// the optional configuration.
+			parameters: provider.scimState ? [] : scim.directoryParameters,
+			made,
+			link: linked ? { path: SCIM_VIEW_PATH, label: m.identity_access_scim_go_to() } : undefined,
 			without: {
 				label: m.identity_access_auth_providers_scim_choice_scim_label(),
-				description: m.identity_access_auth_providers_scim_choice_scim_description({
-					name: provider.name
-				})
+				description: linked
+					? m.identity_access_auth_providers_scim_choice_scim_configured_description({ name })
+					: m.identity_access_auth_providers_scim_choice_scim_description({ name })
 			},
 			with: {
-				label: m.identity_access_auth_providers_scim_choice_api_label({ name: provider.name }),
-				description: m.identity_access_auth_providers_scim_choice_api_description({
-					name: provider.name
-				})
+				label: m.identity_access_auth_providers_scim_choice_api_label({ name }),
+				description: linked
+					? m.identity_access_auth_providers_scim_choice_api_configured_description({ name })
+					: m.identity_access_auth_providers_scim_choice_api_description({ name })
 			}
 		};
 	});

@@ -628,47 +628,113 @@ describe('Identity & Access Page', () => {
 						.toHaveValue('service-client');
 				});
 
-				it('is not offered once Okta synchronizes its directory', async () => {
-					await openOktaForm(
-						{
-							...oktaProvider,
-							configured: true,
-							requiredConfigurationParameters: [
-								...oktaProvider.requiredConfigurationParameters!,
-								...oktaProvider.optionalConfigurationParameters!
-							],
-							optionalConfigurationParameters: []
-						},
-						{
-							OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
-							OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com',
-							OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
-							OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
-						}
-					);
+				// The server serves the directory parameters of a provider that synchronizes its directory
+				// as required ones.
+				const oktaSynchronizing: AuthProvider = {
+					...oktaProvider,
+					configured: true,
+					requiredConfigurationParameters: [
+						...oktaProvider.requiredConfigurationParameters!,
+						...oktaProvider.optionalConfigurationParameters!
+					],
+					optionalConfigurationParameters: []
+				};
+				const oktaSynchronizingValues = {
+					OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+					OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com',
+					OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+					OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+				};
+				const oktaSCIMConnected: AuthProvider = {
+					...oktaProvider,
+					configured: true,
+					scimState: 'connected',
+					optionalConfigurationParameters: []
+				};
+				const oktaSCIMConnectedValues = {
+					OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+					OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com'
+				};
+
+				function directoryIntegration() {
+					return page.getByRole('dialog').getByText('Directory integration:').locator('..');
+				}
+
+				it('shows the Okta API as made once Okta synchronizes its directory', async () => {
+					await openOktaForm(oktaSynchronizing, oktaSynchronizingValues);
 
 					await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
+					await expect.element(choiceButton('Okta API')).not.toBeInTheDocument();
+					await expect
+						.element(directoryIntegration().getByText('Okta API', { exact: true }))
+						.toBeVisible();
+					await expect.element(page.getByText(/An Owner can move Okta to SCIM/)).toBeVisible();
+					await expect
+						.element(page.getByRole('link', { name: 'Go to SCIM', exact: true }))
+						.toHaveAttribute('href', expect.stringContaining('subview=scim'));
 					await expect
 						.element(page.getByLabelText('API Services Client ID', { exact: true }))
 						.toHaveValue('service-client');
 				});
 
-				it('is not offered once Okta has a SCIM connection', async () => {
-					await openOktaForm(
-						{
-							...oktaProvider,
-							configured: true,
-							scimState: 'connected',
-							optionalConfigurationParameters: []
-						},
-						{
-							OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
-							OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com'
-						}
-					);
+				it('still requires and submits the API Services credentials once Okta synchronizes its directory', async () => {
+					await openOktaForm(oktaSynchronizing, oktaSynchronizingValues);
+
+					await confirm();
+					await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+					expect(configure.mock.calls[0][0]).toMatchObject({
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+					});
+				});
+
+				it('shows SCIM as made once Okta has a SCIM connection', async () => {
+					await openOktaForm(oktaSCIMConnected, oktaSCIMConnectedValues);
 
 					await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
 					await expect.element(choiceButton('Okta API')).not.toBeInTheDocument();
+					await expect
+						.element(directoryIntegration().getByText('SCIM', { exact: true }))
+						.toBeVisible();
+					await expect
+						.element(page.getByText(/Its SCIM token, provisioning status, and enforcement/))
+						.toBeVisible();
+					await expect
+						.element(page.getByRole('link', { name: 'Go to SCIM', exact: true }))
+						.toHaveAttribute('href', expect.stringContaining('subview=scim'));
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.not.toBeInTheDocument();
+				});
+
+				// The server serves API Services credentials that are still stored as optional ones, and
+				// removes them unless they are submitted again.
+				it('keeps the API Services credentials still stored once Okta has a SCIM connection', async () => {
+					await openOktaForm(
+						{
+							...oktaSCIMConnected,
+							optionalConfigurationParameters: oktaProvider.optionalConfigurationParameters
+						},
+						{
+							...oktaSCIMConnectedValues,
+							OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+							OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+						}
+					);
+
+					await expect
+						.element(directoryIntegration().getByText('SCIM', { exact: true }))
+						.toBeVisible();
+					await expect
+						.element(page.getByLabelText('API Services Client ID', { exact: true }))
+						.toHaveValue('service-client');
+
+					await confirm();
+					await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+					expect(configure.mock.calls[0][0]).toMatchObject({
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'service-client',
+						OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY: 'private-key'
+					});
 				});
 			});
 
@@ -792,6 +858,55 @@ describe('Identity & Access Page', () => {
 						.element(page.getByRole('button', { name: 'Remove leftover group data' }))
 						.toBeVisible();
 				});
+			});
+
+			// Following a link out of the switch would abandon it, and SCIM setup continues only after it.
+			it('shows SCIM as made without a link for a staged provider with a SCIM connection', async () => {
+				const localActive: AuthProvider = {
+					...googleProvider,
+					id: CommonAuthProviderIds.LOCAL,
+					name: 'Local',
+					configured: true,
+					missingEntitlements: []
+				};
+				worker.use(
+					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
+						HttpResponse.json({
+							OBOT_OKTA_AUTH_PROVIDER_CLIENT_ID: 'oidc-client',
+							OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL: 'https://example.okta.com'
+						})
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [
+						localActive,
+						{
+							...oktaProvider,
+							staged: true,
+							scimState: 'connected',
+							optionalConfigurationParameters: []
+						}
+					],
+					groups: [Group.ADMIN, Group.OWNER]
+				});
+				// The switch dialog reopens by itself at the sign-in step of a staged provider.
+				await page.getByRole('button', { name: 'Configuration', exact: true }).click();
+
+				const dialog = page.getByRole('dialog').filter({ hasText: 'Switch to Okta' });
+				await expect
+					.element(
+						dialog
+							.getByText('Directory integration:')
+							.locator('..')
+							.getByText('SCIM', { exact: true })
+					)
+					.toBeVisible();
+				await expect
+					.element(dialog.getByRole('radio', { name: 'SCIM', exact: true }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(dialog.getByRole('link', { name: 'Go to SCIM', exact: true }))
+					.not.toBeInTheDocument();
 			});
 
 			it('shows a refused switch in the dialog and keeps what was entered', async () => {

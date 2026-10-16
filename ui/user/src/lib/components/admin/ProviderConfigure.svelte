@@ -1,4 +1,6 @@
 <script module lang="ts">
+	import { resolve } from '$app/paths';
+
 	// A notice shown below a configuration parameter.
 	export interface ParameterNotice {
 		kind: 'info' | 'warning';
@@ -14,6 +16,11 @@
 		parameters: string[];
 		without: ParameterChoiceOption;
 		with: ParameterChoiceOption;
+		// Set when the choice is already made and cannot be changed in this form. Only that option is
+		// shown.
+		made?: 'with' | 'without';
+		// A link shown after the description, such as to where the choice is managed.
+		link?: { path: Parameters<typeof resolve>[0]; label: string };
 	}
 
 	export interface ParameterChoiceOption {
@@ -253,8 +260,9 @@
 				form[param.name] = initParamValue(param);
 			}
 		}
-		choiceProvides =
-			parameterChoice?.parameters.some((name) => Boolean(values?.[name]?.trim())) ?? false;
+		choiceProvides = parameterChoice?.made
+			? parameterChoice.made === 'with'
+			: (parameterChoice?.parameters.some((name) => Boolean(values?.[name]?.trim())) ?? false);
 	}
 
 	function onClose() {
@@ -556,23 +564,43 @@
 				</div>
 			{/if}
 
-			{#if parameterChoice && choiceParameters.length > 0}
+			<!-- A made choice is shown even without parameters of its own, so that the way the provider
+			works stays visible. -->
+			{#if parameterChoice && (choiceParameters.length > 0 || parameterChoice.made)}
 				{@const option = choiceProvides ? parameterChoice.with : parameterChoice.without}
 				<!-- Outlined rather than filled, so that the choice and the fields it brings in read as one
 				section, apart from the filled inputs around them. -->
 				<div class="border-base-300 dark:border-base-400 flex flex-col gap-3 rounded-lg border p-3">
-					<div class="flex flex-wrap items-center justify-between gap-2">
-						<p id={`${uid}-choice-title`} class="text-sm font-semibold">{parameterChoice.title}</p>
-						<div
-							role="radiogroup"
-							aria-labelledby={`${uid}-choice-title`}
-							class="tabs tabs-box tabs-sm"
-						>
-							{@render choiceOption(parameterChoice.without, false)}
-							{@render choiceOption(parameterChoice.with, true)}
+					{#if parameterChoice.made}
+						<!-- Inline with its title, and not filled like a selected tab, so that it reads as a
+						value rather than as a switch with one option. -->
+						<p class="flex flex-wrap items-center gap-2 text-sm">
+							<span class="font-semibold">{parameterChoice.title}</span>
+							<span class="badge badge-soft badge-primary badge-sm">{option.label}</span>
+						</p>
+					{:else}
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<p id={`${uid}-choice-title`} class="text-sm font-semibold">
+								{parameterChoice.title}
+							</p>
+							<div
+								role="radiogroup"
+								aria-labelledby={`${uid}-choice-title`}
+								class="tabs tabs-box tabs-sm"
+							>
+								{@render choiceOption(parameterChoice.without, false)}
+								{@render choiceOption(parameterChoice.with, true)}
+							</div>
 						</div>
-					</div>
-					<span class="text-gray text-xs">{option.description}</span>
+					{/if}
+					<span class="text-gray text-xs">
+						{option.description}
+						{#if parameterChoice.link}
+							<a class="text-link" href={resolve(parameterChoice.link.path)}>
+								{parameterChoice.link.label}
+							</a>
+						{/if}
+					</span>
 					{#if choiceProvides}
 						<ul class="flex flex-col gap-4" in:slide={{ axis: 'y' }}>
 							{#each choiceParameters as parameter (parameter.name)}
