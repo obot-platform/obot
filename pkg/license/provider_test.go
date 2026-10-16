@@ -32,6 +32,9 @@ type fakeKeygen struct {
 
 	// activationCode, if set, is the error code machine activation is refused with.
 	activationCode string
+
+	// expiry, if set, is the license's expiry.
+	expiry *time.Time
 }
 
 func (k *fakeKeygen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -51,10 +54,10 @@ func (k *fakeKeygen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, licenseResponse())
 	case "/v1/licenses/license-1/actions/validate":
 		if k.validationCode != "" {
-			_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", k.validationCode, false))
+			_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", k.validationCode, false, nil))
 			return
 		}
-		_, _ = fmt.Fprint(w, validationResponse())
+		_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "VALID", true, k.expiry))
 	case "/v1/machines":
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		_, _ = fmt.Fprintf(w, `{"errors":[{"title":"Unprocessable resource","code":%q}]}`, k.activationCode)
@@ -241,7 +244,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 			validationCount++
 			machineFingerprint = assertValidateFingerprint(t, r, machineFingerprint)
 			if validationCount == 1 {
-				_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "NO_MACHINE", false))
+				_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "NO_MACHINE", false, nil))
 				return
 			}
 			_, _ = fmt.Fprint(w, validationResponse())
@@ -657,6 +660,94 @@ func TestKeygenFailuresKeepEntitlements(t *testing.T) {
 	}
 }
 
+func TestKeygenFailuresDropExpiredLicense(t *testing.T) {
+	tests := []struct {
+		name   string
+		expiry time.Time
+		want   bool
+	}{
+		{
+			name:   "expired",
+			expiry: time.Now().Add(-time.Hour),
+			want:   false,
+		},
+		{
+			name:   "not expired",
+			expiry: time.Now().Add(time.Hour),
+			want:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keygen := &fakeKeygen{expiry: &tt.expiry}
+			server := httptest.NewServer(keygen)
+			defer server.Close()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			gatewayClient := newTestLicenseGatewayClient(t)
+
+			provider := newTestProvider(ctx, t, gatewayClient, server.URL)
+			if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
+				t.Fatal("expected Keygen's verdict to be used while it's reachable")
+			}
+
+			keygen.fail = unavailable
+			if err := provider.Validate(ctx); !errors.Is(err, ErrLicenseCheckFailed) {
+				t.Fatalf("expected the failed check to be reported, got %v", err)
+			}
+			if got := provider.hasEntitlement(EnterpriseAuthProvidersEntitlement); got != tt.want {
+				t.Fatalf("expected entitlement kept to be %t, got %t", tt.want, got)
+			}
+
+			restarted := newTestProvider(ctx, t, gatewayClient, server.URL)
+			if got := restarted.hasEntitlement(EnterpriseAuthProvidersEntitlement); got != tt.want {
+				t.Fatalf("expected restarted provider's entitlement kept to be %t, got %t", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestKeygenFailuresDropLicenseAfterGracePeriod(t *testing.T) {
+	tests := []struct {
+		name      string
+		validated time.Time
+		want      bool
+	}{
+		{
+			name:      "within the grace period",
+			validated: time.Now().Add(-time.Hour),
+			want:      true,
+		},
+		{
+			name:      "after the grace period",
+			validated: time.Now().Add(-offlineGracePeriod - time.Hour),
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(&fakeKeygen{fail: unavailable})
+			defer server.Close()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			gatewayClient := newTestLicenseGatewayClient(t)
+
+			saved := fmt.Sprintf(`{"entitlements":{%q:{}},"validated":%q}`,
+				EnterpriseAuthProvidersEntitlement, tt.validated.Format(time.RFC3339Nano))
+			if _, err := gatewayClient.SetProperty(ctx, licenseStatePropertyKey("license-key"), saved); err != nil {
+				t.Fatalf("failed to save license state: %v", err)
+			}
+
+			provider := newTestProvider(ctx, t, gatewayClient, server.URL)
+			if got := provider.hasEntitlement(EnterpriseAuthProvidersEntitlement); got != tt.want {
+				t.Fatalf("expected entitlement kept to be %t, got %t", tt.want, got)
+			}
+		})
+	}
+}
+
 func TestKeygenRejectionsDegrade(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -778,7 +869,7 @@ func TestValidateKeepsCachedStateWhenSavedEntitlementsUnreadable(t *testing.T) {
 	gatewayClient := newTestLicenseGatewayClient(t)
 
 	provider := newTestProvider(ctx, t, gatewayClient, server.URL)
-	if _, err := gatewayClient.SetProperty(ctx, entitlementsPropertyKey("license-key"), "corrupt"); err != nil {
+	if _, err := gatewayClient.SetProperty(ctx, licenseStatePropertyKey("license-key"), "corrupt"); err != nil {
 		t.Fatalf("failed to corrupt saved entitlements: %v", err)
 	}
 
@@ -839,10 +930,11 @@ func licenseResponse() string {
 }
 
 func validationResponse() string {
-	return validationResponseWithCode("license-1", "VALID", true)
+	return validationResponseWithCode("license-1", "VALID", true, nil)
 }
 
-func validationResponseWithCode(id, code string, valid bool) string {
+func validationResponseWithCode(id, code string, valid bool, expiry *time.Time) string {
+	expiryJSON, _ := json.Marshal(expiry)
 	return fmt.Sprintf(`{
   "data": {
     "id": %q,
@@ -850,7 +942,7 @@ func validationResponseWithCode(id, code string, valid bool) string {
     "attributes": {
       "name": "Test License",
       "key": "license-key",
-      "expiry": null,
+      "expiry": %s,
       "scheme": null,
       "requireHeartbeat": false,
       "lastValidated": "2026-01-01T00:00:00Z",
@@ -867,7 +959,7 @@ func validationResponseWithCode(id, code string, valid bool) string {
     "code": %q,
     "detail": "validation result"
   }
-}`, id, valid, code)
+}`, id, expiryJSON, valid, code)
 }
 
 func machineResponse(id, fingerprint string) string {
