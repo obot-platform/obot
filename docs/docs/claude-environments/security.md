@@ -9,7 +9,7 @@ These controls are experimental. Validate access restrictions and credential han
 
 ## Allowed destinations
 
-The internal Obot service and `api.anthropic.com` are always allowed for the integration to function. Additional hosts are configured on the environment and its profiles. Profiles add destinations; they cannot remove the environment's destinations. Matching profiles combine by union.
+The internal Obot service and `api.anthropic.com` are always allowed for the integration to function, except that Obot blocks Anthropic's `/v2/ccr-sessions/<session-id>/mcp` relay endpoint, and every path beneath it, with HTTP 403. Profiles can enable **Allow Claude MCP** (`allowClaudeMCP`, default `false`) to permit this endpoint. Any matching profile can grant access. Without that grant, this restriction applies even when all web destinations are allowed and is recorded as a denied request in the egress audit log. Other Anthropic requests continue through the normal policy checks. Additional hosts are configured on the environment and its profiles. Profiles add destinations; they cannot remove the environment's destinations. Matching profiles combine by union.
 
 Enter hostnames rather than URLs. A wildcard such as `*.github.com` matches **one subdomain level**, such as `api.github.com`. It does not match `github.com` or `a.b.github.com`; add those separately when needed. The environment and profiles support up to 100 unique additional hosts in total. Remember to allow destinations needed for repository cloning, dependencies, and third-party tools.
 

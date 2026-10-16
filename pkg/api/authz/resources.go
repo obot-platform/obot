@@ -108,6 +108,8 @@ var (
 			"PUT    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 		},
 		types.GroupMCP: {
+			// Component OAuth uses the same current-user and MCP scope checks as connecting.
+			"GET    /api/oauth/vmcp/{mcp_id}",
 			"GET    /mcp-connect/{mcp_id}",
 			"POST   /mcp-connect/{mcp_id}",
 			"DELETE /mcp-connect/{mcp_id}",

@@ -206,5 +206,7 @@
 	"hosted_agents_slack_channel": "Slack 채널",
 	"hosted_agents_slack_thread": "Slack 스레드 열기",
 	"hosted_agents_kubernetes_required": "Claude Environments는 Kubernetes 배포에서만 사용할 수 있습니다. 이 Obot 인스턴스는 Docker에서 실행 중입니다.",
-	"hosted_agents_egress_host_allowed": "외부 호스트 {host}로의 트래픽이 허용됩니다."
+	"hosted_agents_egress_host_allowed": "외부 호스트 {host}로의 트래픽이 허용됩니다.",
+	"hosted_agents_allow_claude_mcp": "Claude MCP 허용",
+	"hosted_agents_allow_claude_mcp_help": "Claude MCP 릴레이에 대한 접근을 허용합니다. 모든 웹 대상을 허용해도 기본적으로 차단됩니다. 일치하는 프로필 중 하나라도 접근을 허용하면 사용할 수 있습니다."
 }

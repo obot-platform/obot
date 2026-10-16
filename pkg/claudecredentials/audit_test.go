@@ -13,7 +13,10 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ext "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	api "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/clauderunner"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gt "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/substrate"
@@ -139,4 +142,185 @@ func TestEgressAuditInterruptedResponse(t *testing.T) {
 	var body []byte
 	require.NoError(t, json.Unmarshal(entry.ResponseBody, &body))
 	require.Equal(t, "partial", string(body))
+}
+
+func TestAnthropicMCPEgress(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		host      string
+		path      string
+		deny      bool
+		allow     bool
+		unmatched bool
+	}{
+		{
+			name:  "explicitly allowed MCP relay",
+			host:  "api.anthropic.com",
+			path:  "/v2/ccr-sessions/cse_123/mcp",
+			allow: true,
+		},
+		{
+			name:      "unmatched profile cannot allow MCP relay",
+			host:      "api.anthropic.com",
+			path:      "/v2/ccr-sessions/cse_123/mcp",
+			allow:     true,
+			unmatched: true,
+			deny:      true,
+		},
+		{
+			name: "MCP relay",
+			host: "api.anthropic.com",
+			path: "/v2/ccr-sessions/cse_123/mcp?mcp_server_id=secret&mcp_url=secret&toolbox_mcp_server_id=secret",
+			deny: true,
+		},
+		{
+			name: "normalized host and explicit port",
+			host: "API.ANTHROPIC.COM.:443",
+			path: "/v2/ccr-sessions/cse_456/mcp",
+			deny: true,
+		},
+		{
+			name: "escaped path",
+			host: "api.anthropic.com",
+			path: "/v2/ccr-sessions/cse_123/%6dcp",
+			deny: true,
+		},
+		{
+			name: "normalized path",
+			host: "api.anthropic.com",
+			path: "/v2//ccr-sessions/cse_123/other/../mcp/",
+			deny: true,
+		},
+		{
+			name: "MCP relay subpath",
+			host: "api.anthropic.com",
+			path: "/v2/ccr-sessions/cse_123/mcp/servers/one",
+			deny: true,
+		},
+		{
+			name: "escaped MCP relay subpath",
+			host: "api.anthropic.com",
+			path: "/v2/ccr-sessions/cse_123/mcp%2Fservers",
+			deny: true,
+		},
+		{
+			name: "messages API",
+			host: "api.anthropic.com",
+			path: "/v1/messages",
+		},
+		{
+			name: "session API",
+			host: "api.anthropic.com",
+			path: "/v2/ccr-sessions/cse_123",
+		},
+		{
+			name: "different endpoint",
+			host: "api.anthropic.com",
+			path: "/v2/ccr-sessions/cse_123/mcp-status",
+		},
+		{
+			name: "path only in query",
+			host: "api.anthropic.com",
+			path: "/v1/messages?next=/v2/ccr-sessions/cse_123/mcp",
+		},
+		{
+			name: "other host",
+			host: "example.com",
+			path: "/v2/ccr-sessions/cse_123/mcp",
+		},
+		{
+			name: "hostname suffix",
+			host: "api.anthropic.com.example.com",
+			path: "/v2/ccr-sessions/cse_123/mcp",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gateway, _ := newCredentialTestGateway(t)
+			env := &gt.ClaudeEnvironment{
+				ID:               "environment",
+				EnvironmentID:    "pool",
+				OrganizationID:   "org",
+				ClaudeTagEnabled: true,
+				Runtime:          gt.ClaudeRuntime{AllowAllEgress: true},
+			}
+			require.NoError(t, gateway.SaveClaudeEnvironment(t.Context(), env, nil))
+			require.NoError(t, gateway.EnsureClaudeTagUser(t.Context(), env))
+			subject := env.ClaudeTagUserID
+			if tc.unmatched {
+				subject = "other"
+			}
+			env.Profiles = []gt.ClaudeEnvironmentProfile{
+				{
+					Name:     "default",
+					Subjects: []api.Subject{{Type: api.SubjectTypeUser, ID: env.ClaudeTagUserID}},
+				},
+				{
+					Name:           "grant",
+					Subjects:       []api.Subject{{Type: api.SubjectTypeUser, ID: subject}},
+					AllowClaudeMCP: tc.allow,
+				},
+			}
+			require.NoError(t, gateway.SaveClaudeEnvironment(t.Context(), env, nil))
+			inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{
+				UserID:            env.ClaudeTagUserID,
+				ClaudeEnvironment: env.ID,
+				ClaudeAccount:     clauderunner.ClaudeTagAccount,
+				ClaudeSession:     "session",
+			}}
+			inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
+			processor := &AuditProcessor{Provider: &CredentialProvider{
+				Gateway: gateway,
+				Storage: fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build(),
+			}}
+			ref := substrate.Ref(inst)
+			attrs, err := structpb.NewStruct(map[string]any{"filter_state['dev.ate.actor.identity']": "spiffe://substrate-actor.local/ateom-for-actor/" + ref.Atespace + "/" + ref.Name})
+			require.NoError(t, err)
+			stream := &auditStream{
+				ctx: auditContext(t),
+				messages: []*ext.ProcessingRequest{
+					{
+						Attributes: map[string]*structpb.Struct{"audit": attrs},
+						Request: &ext.ProcessingRequest_RequestHeaders{RequestHeaders: auditHeaders(map[string]string{
+							":method":    "POST",
+							":scheme":    "https",
+							":authority": tc.host,
+							":path":      tc.path,
+						})},
+					},
+					{
+						Request: &ext.ProcessingRequest_ResponseHeaders{ResponseHeaders: &ext.HttpHeaders{
+							Headers:     auditHeaders(map[string]string{":status": "200"}).Headers,
+							EndOfStream: true,
+						}},
+					},
+				},
+			}
+
+			require.NoError(t, processor.Process(stream))
+			if tc.deny {
+				require.Len(t, stream.sent, 1)
+				response := stream.sent[0].GetImmediateResponse()
+				require.NotNil(t, response)
+				require.EqualValues(t, 403, response.Status.Code)
+				require.Equal(t, "obot_anthropic_mcp_denied", response.Details)
+				require.Len(t, stream.messages, 1, "denial must stop processing immediately")
+			} else {
+				require.Len(t, stream.sent, 2)
+				require.NotNil(t, stream.sent[0].GetRequestHeaders())
+			}
+
+			require.NoError(t, gateway.FlushEgressAuditLogs())
+			entries, _, err := gateway.ListEgressAuditLogs(t.Context(), gclient.EgressAuditLogOptions{Limit: 1})
+			require.NoError(t, err)
+			require.Len(t, entries, 1)
+			require.NotContains(t, entries[0].Path, "secret")
+			if tc.deny {
+				require.Equal(t, "denied", entries[0].Outcome)
+				require.Equal(t, 403, entries[0].ResponseStatus)
+			} else {
+				require.Equal(t, "complete", entries[0].Outcome)
+				require.Equal(t, 200, entries[0].ResponseStatus)
+			}
+		})
+	}
 }

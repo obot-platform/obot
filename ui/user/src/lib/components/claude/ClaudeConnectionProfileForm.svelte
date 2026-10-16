@@ -296,6 +296,7 @@
 			subjects: copy.subjects ?? [],
 			mcpServerIDs: copy.mcpServerIDs,
 			allowAllEgress: Boolean(copy.allowAllEgress),
+			allowClaudeMCP: Boolean(copy.allowClaudeMCP),
 			egressHosts: (copy.egressHosts ?? []).map((host) => host.trim()).filter(Boolean),
 			egressSecrets: (copy.egressSecrets ?? []).map((secret) => ({
 				id: secret.id ?? '',
@@ -497,6 +498,25 @@
 					{m.hosted_agents_profile_egress_help()}
 				</p>
 			</div>
+			<label
+				for="allow-claude-mcp"
+				class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4 dark:border-base-400"
+			>
+				<div>
+					<p class="text-sm font-semibold">{m.hosted_agents_allow_claude_mcp()}</p>
+					<p class="text-muted-content text-xs leading-tight font-light">
+						{m.hosted_agents_allow_claude_mcp_help()}
+					</p>
+				</div>
+				<input
+					id="allow-claude-mcp"
+					type="checkbox"
+					class="toggle toggle-sm shrink-0"
+					bind:checked={draft.allowClaudeMCP}
+					disabled={saving}
+					aria-label={m.hosted_agents_allow_claude_mcp()}
+				/>
+			</label>
 			<label
 				for="allow-all-egress"
 				class="flex items-center justify-between gap-4 rounded-lg border border-base-300 p-4 dark:border-base-400"

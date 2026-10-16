@@ -206,5 +206,7 @@
 	"hosted_agents_slack_channel": "Slackチャンネル",
 	"hosted_agents_slack_thread": "Slackスレッドを開く",
 	"hosted_agents_kubernetes_required": "Claude EnvironmentsはKubernetesデプロイメントでのみ利用できます。このObotインスタンスはDockerで実行されています。",
-	"hosted_agents_egress_host_allowed": "外部ホスト {host} への通信が許可されています。"
+	"hosted_agents_egress_host_allowed": "外部ホスト {host} への通信が許可されています。",
+	"hosted_agents_allow_claude_mcp": "Claude MCP を許可",
+	"hosted_agents_allow_claude_mcp_help": "Claude の MCP リレーへのアクセスを許可します。すべてのウェブ接続先を許可していても、デフォルトではブロックされます。一致するいずれかのプロファイルでアクセスを許可できます。"
 }

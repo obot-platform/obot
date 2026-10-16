@@ -41,6 +41,7 @@ type ClaudeEgressSecret struct {
 }
 
 type ClaudeEnvironmentProfile struct {
+	AllowClaudeMCP bool                 `json:"allowClaudeMCP,omitempty"`
 	EgressSecrets  []ClaudeEgressSecret `json:"egressSecrets,omitempty"`
 	Name           string               `json:"name"`
 	Subjects       []api.Subject        `json:"subjects"`

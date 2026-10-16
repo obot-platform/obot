@@ -13,9 +13,11 @@ function envoy_on_request(handle)
     return
   end
 
-  -- Only canonical MCP paths can receive a key; pin their upstream in the route.
+  -- Only MCP connections and the component OAuth check can receive a key.
+  -- The OAuth check returns pending authorization links, or an empty list when complete.
   local path = (headers:get(":path") or ""):match("^[^?]*")
-  if not path:match("^/mcp%-connect/[%w_/-]+$") or path:find("//", 1, true) then
+  local oauth = headers:get(":method") == "GET" and path:match("^/api/oauth/vmcp/[%w_-]+$")
+  if (not path:match("^/mcp%-connect/[%w_/-]+$") and not oauth) or path:find("//", 1, true) then
     handle:respond({[":status"] = "403"}, "Invalid Obot MCP credential destination")
     return
   end

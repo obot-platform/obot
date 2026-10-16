@@ -160,3 +160,97 @@ func TestMCPGroupDeniesNonMCPAPIRoutes(t *testing.T) {
 		})
 	}
 }
+
+func TestMCPScopedComponentOAuth(t *testing.T) {
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
+		&v1.VMCP{
+			Name:      "vmcp1allowed",
+			Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPSpec{
+				UserID:   "7",
+				Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{ID: "gmail"}}},
+			},
+		},
+		&v1.VMCPInstance{
+			Name:      "vmcpi1allowed",
+			Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPInstanceSpec{
+				UserID:   "7",
+				Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1allowed"},
+			},
+		},
+	).Build()
+	a := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	for _, tc := range []struct {
+		name    string
+		method  string
+		path    string
+		userID  string
+		scope   string
+		allowed bool
+	}{
+		{
+			name:    "pending URLs and completion status",
+			method:  http.MethodGet,
+			path:    "/api/oauth/vmcp/vmcp1allowed",
+			userID:  "7",
+			scope:   "vmcp1allowed",
+			allowed: true,
+		},
+		{
+			name:    "own instance",
+			method:  http.MethodGet,
+			path:    "/api/oauth/vmcp/vmcpi1allowed",
+			userID:  "7",
+			scope:   "vmcp1allowed",
+			allowed: true,
+		},
+		{
+			name:   "outside key scope",
+			method: http.MethodGet,
+			path:   "/api/oauth/vmcp/vmcp1allowed",
+			userID: "7",
+			scope:  "vmcp1other",
+		},
+		{
+			name:   "another user's connection",
+			method: http.MethodGet,
+			path:   "/api/oauth/vmcp/vmcpi1allowed",
+			userID: "8",
+			scope:  "vmcp1allowed",
+		},
+		{
+			name:   "no current access",
+			method: http.MethodGet,
+			path:   "/api/oauth/vmcp/vmcp1allowed",
+			userID: "8",
+			scope:  "vmcp1allowed",
+		},
+		{
+			name:   "cannot reset credentials",
+			method: http.MethodDelete,
+			path:   "/api/vmcps/vmcp1allowed/oauth",
+			userID: "7",
+			scope:  "vmcp1allowed",
+		},
+		{
+			name:   "cannot manage vMCP",
+			method: http.MethodPut,
+			path:   "/api/vmcps/vmcp1allowed",
+			userID: "7",
+			scope:  "vmcp1allowed",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			caller := &user.DefaultInfo{
+				Name:   "runner",
+				UID:    tc.userID,
+				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
+				Extra:  map[string][]string{"authorized_mcp_ids": {tc.scope}},
+			}
+			if got := a.Authorize(httptest.NewRequest(tc.method, tc.path, nil), caller); got != tc.allowed {
+				t.Fatalf("Authorize() = %v, want %v", got, tc.allowed)
+			}
+		})
+	}
+}

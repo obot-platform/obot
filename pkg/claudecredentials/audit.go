@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	ext "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -115,6 +117,27 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			entry.Path = redactPath(firstHeader(headers, ":path"))
 			entry.RequestHeaders = redactedEgressHeaders(headers)
 			started = true
+
+			// Recheck current profile grants before forwarding to Claude's MCP relay.
+			if anthropicMCPRequest(entry.Host, firstHeader(headers, ":path")) {
+				env, err := clauderunner.AuthorizedEnvironment(stream.Context(), p.Provider.Gateway, entry.EnvironmentID, entry.ClaudeAccount, entry.UserID)
+				if err != nil && !clauderunner.AccessDenied(err) {
+					return status.Error(codes.Unavailable, "Cannot check Claude MCP access")
+				}
+
+				if env == nil || !env.AllowClaudeMCP {
+					entry.ResponseStatus = 403
+					entry.Outcome = "denied"
+					return stream.Send(&ext.ProcessingResponse{
+						Response: &ext.ProcessingResponse_ImmediateResponse{ImmediateResponse: &ext.ImmediateResponse{
+							Status:  &typev3.HttpStatus{Code: typev3.StatusCode_Forbidden},
+							Body:    []byte("Anthropic MCP relay requests are blocked by Obot"),
+							Details: "obot_anthropic_mcp_denied",
+						}},
+					})
+				}
+			}
+
 			mutation, err := p.secretPlaceholders(stream.Context(), &entry)
 			if err != nil {
 				return status.Error(codes.Unavailable, "Cannot prepare egress headers")
@@ -159,6 +182,24 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			return err
 		}
 	}
+}
+
+func anthropicMCPRequest(authority, requestPath string) bool {
+	destination, err := url.Parse("https://" + authority)
+	if err != nil || !strings.EqualFold(strings.TrimSuffix(destination.Hostname(), "."), "api.anthropic.com") {
+		return false
+	}
+
+	parsed, err := url.ParseRequestURI(requestPath)
+	if err != nil {
+		return false
+	}
+
+	// Match decoded, normalized paths so escaping and dot segments cannot bypass the block.
+	// The relay endpoint and every path beneath it require the grant.
+	remainder, ok := strings.CutPrefix(path.Clean(parsed.Path), "/v2/ccr-sessions/")
+	session, endpoint, _ := strings.Cut(remainder, "/")
+	return ok && session != "" && (endpoint == "mcp" || strings.HasPrefix(endpoint, "mcp/"))
 }
 
 func egressOutcome(code int) string {

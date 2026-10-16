@@ -1,6 +1,6 @@
 -- Run after chart/files/obot-egress.lua with obot_authority set to obot.obot.svc:8080.
-local function check(host, path, key, want_status, want_auth)
-  local values = {[":authority"] = host, [":path"] = path,
+local function check(host, path, key, want_status, want_auth, method)
+  local values = {[":authority"] = host, [":path"] = path, [":method"] = method or "GET",
                   ["x-obot-egress-key"] = key, authorization = "actor-supplied"}
   local metadata = {}
   local headers = {
@@ -33,3 +33,10 @@ check("obot.obot.svc:8080", "/api/claude-runners/credentials", "Bearer secret", 
 check("obot.obot.svc:8080", "/mcp-connect/vmcp_one/../../echo", "Bearer secret", "403", nil)
 check("obot.obot.svc:8080", "/mcp-connect/%2e%2e", "Bearer secret", "403", nil)
 check("obot.obot.svc:8080", "/mcp-connect/vmcp_one", nil, nil, nil)
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcp1one", "Bearer secret", nil, "Bearer secret")
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcpi1one", "Bearer secret", nil, "Bearer secret")
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcp1one", "Bearer secret", "403", nil, "POST")
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcp1one/components/ms1one", "Bearer secret", "403", nil)
+check("obot.obot.svc:8080", "/api/oauth/vmcp/../echo", "Bearer secret", "403", nil)
+check("obot.obot.svc:8080", "/api/oauth/vmcp/%2e%2e", "Bearer secret", "403", nil)
+check("other.example:8080", "/api/oauth/vmcp/vmcp1one", "Bearer secret", nil, nil)

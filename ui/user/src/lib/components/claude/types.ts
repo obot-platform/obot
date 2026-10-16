@@ -13,6 +13,7 @@ export type EgressSecret = {
 	value?: string;
 };
 export type EnvironmentProfile = {
+	allowClaudeMCP?: boolean;
 	egressSecrets?: EgressSecret[];
 	name: string;
 	subjects: AccessControlRuleSubject[];
