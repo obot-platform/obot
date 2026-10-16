@@ -659,6 +659,19 @@ export interface CommunityLicenseEnrollment {
 
 // LLM audit logs
 
+// LLMAuditGuardrailFinding is what one guardrail policy did to an LLM request. It never
+// includes the content that was found.
+export interface LLMAuditGuardrailFinding {
+	stage: 'input' | 'output';
+	policyID: string;
+	policyName: string;
+	guardrailName?: string;
+	guardrailType?: string;
+	outcome: 'blocked' | 'redacted' | 'logged' | 'error';
+	categories?: string[];
+	error?: string;
+}
+
 export interface LLMAuditLog {
 	apiKeyID?: number;
 	apiKeyName?: string;
@@ -669,6 +682,7 @@ export interface LLMAuditLog {
 	createdAt: string;
 	duration: number;
 	error?: string;
+	guardrailFindings?: LLMAuditGuardrailFinding[];
 	id: string;
 	messagePolicyTriggered: boolean;
 	inputTokens: number;
@@ -687,7 +701,14 @@ export interface LLMAuditLog {
 	responseHeaders?: Record<string, string | string[]>;
 	responseID: string;
 	responseStatus: number;
+	// targetModel is the requested model; servedProvider and servedModel are the provider and
+	// model that served the request, which routing rules and fallbacks can make differ.
 	targetModel: string;
+	servedProvider?: string;
+	servedModel?: string;
+	// providerKey names the gateway key the request was served with.
+	providerKey?: string;
+	fallback?: boolean;
 	userID: string;
 }
 
@@ -704,6 +725,7 @@ export type LLMAuditLogURLFilters = {
 	query?: string | null;
 	request_path?: string | null;
 	response_status?: string | null;
+	served_provider?: string | null;
 	sort_by?: string | null;
 	sort_order?: string | null;
 	start_time?: string | null;
@@ -931,7 +953,42 @@ export interface MCPFilterManifest {
 	selectors?: MCPFilterWebhookSelector[];
 	disabled?: boolean;
 	allowedToMutate?: boolean;
+	/** Set for guardrail filters, which run in-process with guardrails and have no server. */
+	guardrail?: MCPGuardrailFilterConfig;
 }
+export type MCPGuardrailFilterAction = 'block' | 'redact';
+export type MCPGuardrailFilterDirection = 'request' | 'response' | 'both';
+export interface MCPGuardrailFilterSubject {
+	type: 'user' | 'group' | 'everyone';
+	id?: string;
+}
+export interface MCPGuardrailFilterConfig {
+	guardrailIDs: string[];
+	action: MCPGuardrailFilterAction;
+	direction?: MCPGuardrailFilterDirection;
+	failClosed?: boolean;
+	samplingRate?: number;
+	subjects?: MCPGuardrailFilterSubject[];
+	condition?: string;
+	blockMessage?: string;
+}
+/** A guardrail, as used by a guardrail filter. */
+export interface MCPGuardrail {
+	id: string;
+	name: string;
+	description?: string;
+	type: string;
+	error?: string;
+}
+/** A guardrail provider type, used to label guardrails and check redaction support. */
+export interface MCPGuardrailProvider {
+	type: string;
+	label: string;
+	description?: string;
+	category?: string;
+	redacts: boolean;
+}
+export type MCPFilterKind = 'guardrail' | 'webhook' | 'builtin' | 'mcpServer';
 export interface MCPFilterResource {
 	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector' | 'mcpCatalog';
 	id: string;
@@ -1017,84 +1074,6 @@ export interface MCPTunnelManifest {
 }
 export interface TunnelConnection {
 	name: string;
-}
-
-// Message policies
-
-export type PolicyDirection = 'user-message' | 'tool-calls' | 'both';
-export const PolicyDirectionLabels: Record<PolicyDirection, string> = {
-	'user-message': m.core_policy_direction_user_messages(),
-	'tool-calls': m.core_policy_direction_tool_calls(),
-	both: m.core_policy_direction_both()
-};
-export interface MessagePolicyManifest {
-	id?: string;
-	displayName: string;
-	definition: string;
-	direction: PolicyDirection;
-	subjects?: AccessControlRuleSubject[];
-}
-export interface MessagePolicy extends Omit<MessagePolicyManifest, 'id'> {
-	id: string;
-	created: string;
-	deleted?: string;
-	links?: Record<string, string>;
-	metadata?: Record<string, string>;
-}
-
-// Message policy violations
-
-export interface MessagePolicyViolation {
-	id: number;
-	createdAt: string;
-	userID: string;
-	policyID: string;
-	policyName: string;
-	policyDefinition: string;
-	direction: string;
-	violationExplanation: string;
-	blockedContent?: unknown;
-	projectID: string;
-	threadID: string;
-}
-export interface MessagePolicyViolationFilters {
-	user_id?: string | null;
-	policy_id?: string | null;
-	direction?: string | null;
-	project_id?: string | null;
-	thread_id?: string | null;
-	start_time?: string | null;
-	end_time?: string | null;
-	query?: string | null;
-	limit?: number | null;
-	offset?: number | null;
-	sort_by?: string | null;
-	sort_order?: string | null;
-	time_group_by?: string | null;
-}
-export interface MessagePolicyViolationTimeBucket {
-	time: string;
-	category: string;
-	count: number;
-}
-export interface MessagePolicyViolationPolicyCount {
-	policyID: string;
-	policyName: string;
-	count: number;
-}
-export interface MessagePolicyViolationUserCount {
-	userID: string;
-	count: number;
-}
-export interface MessagePolicyViolationDirectionCounts {
-	userMessage: number;
-	toolCalls: number;
-}
-export interface MessagePolicyViolationStats {
-	byTime: MessagePolicyViolationTimeBucket[];
-	byPolicy: MessagePolicyViolationPolicyCount[];
-	byUser: MessagePolicyViolationUserCount[];
-	byDirection: MessagePolicyViolationDirectionCounts;
 }
 
 // Model access policies
@@ -1369,6 +1348,12 @@ export interface TokenUsage {
 	model?: string;
 	apiKeyID?: number;
 	apiKeyName?: string;
+	// provider is the provider that served the request.
+	provider?: string;
+	// outcome is success, error or canceled; empty on older records, which were all successes.
+	outcome?: string;
+	durationMs?: number;
+	fallback?: boolean;
 	inputTokens: number;
 	cacheReadTokens: number;
 	cacheWriteTokens: number;
@@ -1399,6 +1384,50 @@ export interface TotalTokenUsage {
 	outputSpend?: number;
 	totalSpend?: number;
 }
+// Usage statistics over LLM gateway requests, from Obot's token usage records.
+export interface TokenUsageStatsTotals {
+	requests: number;
+	// successes are the requests that succeeded; the others failed or were canceled.
+	successes: number;
+	// fallbacks are the requests a fallback served.
+	fallbacks: number;
+	avgDurationMs: number;
+	inputTokens: number;
+	outputTokens: number;
+	totalTokens: number;
+	totalSpend: number;
+}
+
+export interface TokenUsageStatsBucket extends TokenUsageStatsTotals {
+	time: string;
+}
+
+export interface TokenUsageStatsProvider extends TokenUsageStatsTotals {
+	provider: string;
+}
+
+export interface TokenUsageStatsModel extends TokenUsageStatsTotals {
+	model: string;
+	provider: string;
+}
+
+export interface TokenUsageStats {
+	start: string;
+	end: string;
+	bucketSeconds: number;
+	totals: TokenUsageStatsTotals;
+	buckets: TokenUsageStatsBucket[] | null;
+	providers: TokenUsageStatsProvider[] | null;
+	topModelsByRequests: TokenUsageStatsModel[] | null;
+	topModelsBySpend: TokenUsageStatsModel[] | null;
+}
+
+export interface TokenUsageStatsFilters {
+	userIDs?: string[];
+	models?: string[];
+	apiKeyIDs?: string[];
+}
+
 export interface TotalTokenUsageByUser extends TotalTokenUsage {
 	userID: string;
 }
@@ -1653,7 +1682,8 @@ export interface GroupReference {
 		| 'messagePolicy'
 		| 'hostedAgentAccessRule'
 		| 'groupRoleAssignment'
-		| 'vmcpProfile';
+		| 'vmcpProfile'
+		| 'mcpGuardrailFilter';
 	id: string;
 	displayName?: string;
 	detail?: string;

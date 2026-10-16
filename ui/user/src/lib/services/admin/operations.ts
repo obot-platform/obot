@@ -59,6 +59,8 @@ import type {
 	SCIMSetupUser,
 	MCPFilter,
 	MCPFilterManifest,
+	MCPGuardrail,
+	MCPGuardrailProvider,
 	TempUser,
 	ScheduledAuditLogExport,
 	StorageCredentials,
@@ -84,6 +86,8 @@ import type {
 	MCPCapacityInfo,
 	MCPServerOAuthCredentialRequest,
 	MCPServerOAuthCredentialStatus,
+	TokenUsageStats,
+	TokenUsageStatsFilters,
 	TokenUsageTimeRange,
 	TotalTokenUsage,
 	TokenUsage,
@@ -91,11 +95,6 @@ import type {
 	SkillRepositoryManifest,
 	SkillAccessPolicy,
 	SkillAccessPolicyManifest,
-	MessagePolicy,
-	MessagePolicyManifest,
-	MessagePolicyViolation,
-	MessagePolicyViolationFilters,
-	MessagePolicyViolationStats,
 	SystemMCPCatalog,
 	SystemMCPCatalogManifest,
 	SystemMCPServer,
@@ -1519,6 +1518,36 @@ export async function restartMCPFilter(id: string, opts?: { fetch?: Fetcher }): 
 	await doPost(`/mcp-webhook-validations/${id}/restart`, {}, opts);
 }
 
+// Guardrail filters run in-process with guardrails, which are managed under the LLM gateway
+// guardrails API.
+
+export async function listMCPGuardrails(opts?: { fetch?: Fetcher }): Promise<MCPGuardrail[]> {
+	const response = (await doGet('/llm-gateway/guardrails', opts)) as {
+		items: MCPGuardrail[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function listMCPGuardrailProviders(opts?: {
+	fetch?: Fetcher;
+}): Promise<MCPGuardrailProvider[]> {
+	const response = (await doGet('/llm-gateway/guardrails/providers', opts)) as {
+		items: MCPGuardrailProvider[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function validateMCPGuardrailCondition(
+	condition: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<{ valid: boolean; error?: string }> {
+	return (await doPost(
+		'/llm-gateway/guardrails/validate-condition',
+		{ target: 'mcp', condition },
+		opts
+	)) as { valid: boolean; error?: string };
+}
+
 export async function getMCPFilterDetails(
 	id: string,
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
@@ -1629,88 +1658,6 @@ export async function updateMCPTunnel(
 	return (await doPut(`/mcp-tunnels/${id}`, input, opts)) as MCPTunnel;
 }
 
-// Message policies
-
-export async function listMessagePolicies(opts?: { fetch?: Fetcher }): Promise<MessagePolicy[]> {
-	const response = (await doGet('/message-policies', opts)) as ItemsResponse<MessagePolicy>;
-	return response.items ?? [];
-}
-
-export async function getMessagePolicy(
-	id: string,
-	opts?: { fetch?: Fetcher }
-): Promise<MessagePolicy> {
-	return (await doGet(`/message-policies/${id}`, opts)) as MessagePolicy;
-}
-
-export async function createMessagePolicy(manifest: MessagePolicyManifest): Promise<MessagePolicy> {
-	return (await doPost('/message-policies', manifest)) as MessagePolicy;
-}
-
-export async function updateMessagePolicy(
-	id: string,
-	manifest: MessagePolicyManifest
-): Promise<MessagePolicy> {
-	return (await doPut(`/message-policies/${id}`, manifest)) as MessagePolicy;
-}
-
-export async function deleteMessagePolicy(id: string): Promise<void> {
-	await doDelete(`/message-policies/${id}`);
-}
-
-// Message policy violations
-
-function buildMessagePolicyViolationParams(filters?: MessagePolicyViolationFilters): string {
-	if (!filters) return '';
-	const params = new URLSearchParams();
-	for (const [key, value] of Object.entries(filters)) {
-		if (value != null && value !== '') {
-			params.set(key, String(value));
-		}
-	}
-	const str = params.toString();
-	return str ? `?${str}` : '';
-}
-
-export async function listMessagePolicyViolations(
-	filters?: MessagePolicyViolationFilters,
-	opts?: { fetch?: Fetcher }
-): Promise<PaginatedResponse<MessagePolicyViolation>> {
-	return (await doGet(
-		`/message-policy-violations${buildMessagePolicyViolationParams(filters)}`,
-		opts
-	)) as PaginatedResponse<MessagePolicyViolation>;
-}
-
-export async function getMessagePolicyViolation(
-	id: number | string,
-	opts?: { fetch?: Fetcher }
-): Promise<MessagePolicyViolation> {
-	return (await doGet(`/message-policy-violations/${id}`, opts)) as MessagePolicyViolation;
-}
-
-export async function listMessagePolicyViolationFilterOptions(
-	filter: string,
-	filters?: MessagePolicyViolationFilters,
-	opts?: { fetch?: Fetcher }
-): Promise<string[]> {
-	const response = (await doGet(
-		`/message-policy-violations/filter-options/${filter}${buildMessagePolicyViolationParams(filters)}`,
-		opts
-	)) as { options: string[] };
-	return response.options ?? [];
-}
-
-export async function getMessagePolicyViolationStats(
-	filters?: MessagePolicyViolationFilters,
-	opts?: { fetch?: Fetcher }
-): Promise<MessagePolicyViolationStats> {
-	return (await doGet(
-		`/message-policy-violation-stats${buildMessagePolicyViolationParams(filters)}`,
-		opts
-	)) as MessagePolicyViolationStats;
-}
-
 // Model access policies
 
 export async function listModelAccessPolicies(opts?: {
@@ -1754,55 +1701,6 @@ export async function deleteModelAccessPolicy(id: string): Promise<void> {
 export async function listModelProviders(opts?: { fetch?: Fetcher }): Promise<ModelProvider[]> {
 	const response = (await doGet('/model-providers', opts)) as ItemsResponse<ModelProvider>;
 	return response.items ?? [];
-}
-
-export async function getModelProvider(
-	providerID: string,
-	opts?: { fetch?: Fetcher }
-): Promise<ModelProvider> {
-	const response = (await doGet(`/model-providers/${providerID}`, opts)) as ModelProvider;
-	return response;
-}
-
-export async function configureModelProvider(
-	providerID: string,
-	envs: Record<string, string>,
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/model-providers/${providerID}/configure`, envs, opts);
-}
-
-export async function deconfigureModelProvider(
-	providerID: string,
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/model-providers/${providerID}/deconfigure`, {}, opts);
-}
-
-export async function revealModelProvider(
-	providerID: string,
-	opts?: { fetch?: Fetcher }
-): Promise<Record<string, string> | undefined> {
-	const response = (await doPost(
-		`/model-providers/${providerID}/reveal`,
-		{},
-		{
-			...opts,
-			dontLogErrors: true
-		}
-	)) as Record<string, string> | undefined;
-	return response;
-}
-
-export async function validateModelProvider(
-	providerID: string,
-	envs: Record<string, string>,
-	opts?: { fetch?: Fetcher }
-): Promise<void> {
-	await doPost(`/model-providers/${providerID}/validate`, envs, {
-		...opts,
-		dontLogErrors: true
-	});
 }
 
 // Model proxy
@@ -2255,9 +2153,17 @@ export async function listTokenUsage(
 	return unwrapTokenUsageList(response);
 }
 
-export async function listRemainingTokenUsageForUser(userId: string, opts?: { fetch?: Fetcher }) {
-	const response = await doGet(`/users/${userId}/remaining-token-usage`, opts);
-	return response;
+/** Returns request, latency, token and spend statistics for LLM gateway requests in the time range. */
+export async function getTokenUsageStats(
+	timeRange: TokenUsageTimeRange,
+	filters: TokenUsageStatsFilters = {},
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<TokenUsageStats> {
+	const params = new URLSearchParams(tokenUsageQueryString(timeRange));
+	for (const id of filters.userIDs ?? []) params.append('user_id', id);
+	for (const model of filters.models ?? []) params.append('model', model);
+	for (const id of filters.apiKeyIDs ?? []) params.append('api_key_id', id);
+	return (await doGet(`/token-usage-stats?${params}`, opts)) as TokenUsageStats;
 }
 
 export async function listTotalTokenUsageForUser(userId: string, opts?: { fetch?: Fetcher }) {

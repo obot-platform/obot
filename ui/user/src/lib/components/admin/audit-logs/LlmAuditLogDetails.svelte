@@ -4,6 +4,8 @@
 	import { m } from '$lib/i18n';
 	import { AdminService, type LLMAuditLog } from '$lib/services';
 	import AuditLogDetails from './AuditLogDetails.svelte';
+	import LlmAuditLogGuardrails from './LlmAuditLogGuardrails.svelte';
+	import LlmAuditLogRouting, { servedBy } from './LlmAuditLogRouting.svelte';
 	import { CircleAlert } from '@lucide/svelte';
 
 	export type LlmAuditLogDetail = LLMAuditLog & { user: string };
@@ -84,6 +86,16 @@
 				{/if}
 			{/each}
 		</div>
+		{#if servedBy(data) || data.providerKey}
+			<div class="px-5 pb-4">
+				<LlmAuditLogRouting auditLog={data} />
+			</div>
+		{/if}
+		{#if data.guardrailFindings?.length}
+			<div class="px-5 pb-4">
+				<LlmAuditLogGuardrails findings={data.guardrailFindings} />
+			</div>
+		{/if}
 	{/snippet}
 
 	{#snippet additRequestContent(data)}

@@ -36,7 +36,7 @@
 	views={profile.current.hasAdminAccess?.()
 		? [
 				{ label: 'MCP', value: 'mcp', content: mcp },
-				{ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm },
+				{ label: m.audit_usage_audit_logs_llm_tab(), value: 'llm', content: llm },
 				...(version.current.engine === 'kubernetes' && version.current.claudeEnvironmentsEnabled
 					? [
 							{

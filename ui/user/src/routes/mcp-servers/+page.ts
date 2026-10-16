@@ -8,7 +8,6 @@ import {
 	type GitCredential,
 	type MCPFilter,
 	type MCPTunnel,
-	type MessagePolicy,
 	type SystemMCPServerCatalogEntry,
 	type TunnelConnection
 } from '$lib/services';
@@ -21,13 +20,12 @@ const views = new Set([
 	'deployments',
 	'filters',
 	'tunnels',
-	'ai-judge-policies',
 	'access-policies'
 ]);
 
 export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
-	const { profile, version } = await parent();
 	const requestedView = url.searchParams.get('view');
+	const { profile } = await parent();
 	const view = requestedView && views.has(requestedView) ? requestedView : 'servers';
 
 	const isPowerUserOrAdmin = profile.groups.includes(Group.POWERUSER) || profile.hasAdminAccess?.();
@@ -38,7 +36,6 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	let mcpTunnels: MCPTunnel[] = [];
 	let tunnelConnections: TunnelConnection[] | undefined;
 	let accessControlRules: AccessControlRule[] = [];
-	let messagePolicies: MessagePolicy[] = [];
 
 	if (!isPowerUserOrAdmin) {
 		throw redirect(307, '/vmcps'); // redirect basic user to vmcps
@@ -69,14 +66,6 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 					}).catch(() => undefined)
 				]);
 				break;
-			case 'ai-judge-policies':
-				if (!version?.messagePoliciesEnabled) break;
-				try {
-					messagePolicies = await AdminService.listMessagePolicies({ fetch });
-				} catch (err) {
-					handleRouteError(err, '/mcp-servers', profile);
-				}
-				break;
 			case 'access-policies':
 				depends('mcp-access-policies:data');
 				try {
@@ -102,8 +91,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 			systemCatalogEntries,
 			mcpTunnels,
 			tunnelConnections,
-			accessControlRules,
-			messagePolicies
+			accessControlRules
 		};
 	}
 
@@ -126,8 +114,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 			systemCatalogEntries,
 			mcpTunnels,
 			tunnelConnections,
-			accessControlRules,
-			messagePolicies
+			accessControlRules
 		};
 	} catch (_err) {
 		return {
@@ -137,8 +124,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 			systemCatalogEntries,
 			mcpTunnels,
 			tunnelConnections,
-			accessControlRules,
-			messagePolicies
+			accessControlRules
 		};
 	}
 };

@@ -5,7 +5,6 @@
 	import TabLayout from '$lib/components/TabLayout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
-	import MessagePoliciesView from '$lib/components/admin/MessagePoliciesView.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import {
 		DEFAULT_MCP_CATALOG_ID,
@@ -23,7 +22,7 @@
 		type OrgUser
 	} from '$lib/services';
 	import type { OpenAPIImportDraft } from '$lib/services/openapi';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -51,7 +50,6 @@
 		'deployments',
 		'filters',
 		'tunnels',
-		'ai-judge-policies',
 		'access-policies'
 	] as const;
 	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote', 'openapi'];
@@ -74,7 +72,6 @@
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
-	let messagePoliciesEnabled = $derived(version.current.messagePoliciesEnabled === true);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let isPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
@@ -108,12 +105,7 @@
 		if (isPowerUser && isNewEntry) return true;
 		if (isPowerUserPlus && (isNewEntry || selectedView === 'access-policies')) return true;
 		if (hasAdminAccess && !isAdminReadonly) {
-			const adminCreateViews = [
-				'access-policies',
-				'filters',
-				'tunnels',
-				...(messagePoliciesEnabled ? ['ai-judge-policies'] : [])
-			];
+			const adminCreateViews = ['access-policies', 'filters', 'tunnels'];
 			return isNewEntry || adminCreateViews.includes(selectedView);
 		}
 		return false;
@@ -124,11 +116,11 @@
 			case 'entries':
 				return m.mcps_add_mcp_server();
 			case 'filters':
-				return m.mcps_filters_create_filter();
+				return page.url.searchParams.get('new') === 'guardrail'
+					? m.mcps_filters_create_guardrail_filter()
+					: m.mcps_filters_create_filter();
 			case 'tunnels':
 				return m.mcps_tunnels_create_mcp_tunnel();
-			case 'ai-judge-policies':
-				return m.mcps_create_ai_judge_policy();
 			case 'access-policies':
 				return m.mcps_create_mcp_access_policy();
 			default:
@@ -181,16 +173,6 @@
 						value: 'access-policies',
 						content: accessPolicy,
 						tooltip: m.mcps_access_policies_tab_tooltip()
-					}
-				]
-			: []),
-		...(hasAdminAccess && messagePoliciesEnabled
-			? [
-					{
-						label: m.mcps_ai_judge_policies_tab(),
-						value: 'ai-judge-policies',
-						content: messagePolicies,
-						tooltip: m.mcps_ai_judge_policies_tab_tooltip()
 					}
 				]
 			: [])
@@ -303,8 +285,6 @@
 			{@render filters()}
 		{:else if selectedView === 'tunnels'}
 			{@render tunnels()}
-		{:else if selectedView === 'ai-judge-policies'}
-			{@render messagePolicies()}
 		{:else if selectedView === 'access-policies'}
 			{@render accessPolicy()}
 		{/if}
@@ -346,39 +326,48 @@
 			<Plus class="size-4" />
 			{m.mcps_add_source_url()}
 		</button>
-	{:else if view === 'filters' && !isAdminReadonly}
+	{:else if view === 'filters'}
 		{#if filtersLoading}
 			<Loading class="size-4" />
 		{/if}
-		<DotDotDot
-			class="btn btn-block btn-primary w-full text-sm md:w-fit"
-			placement="bottom"
-			classes={{ popover: 'z-50' }}
-			id={MCP_FILTERS_FIELD_IDS.addFilterBtn}
-			ariaLabel={m.mcps_add_new_filter()}
-		>
-			{#snippet icon()}
-				<span class="flex items-center justify-center gap-1">
-					<Plus class="size-4" />
-					{m.mcps_add_new_filter()}
-				</span>
-			{/snippet}
-			<button
-				id={MCP_FILTERS_FIELD_IDS.createCustomBtn}
-				class="menu-button"
-				onclick={() => openCreate('filters')}
+		{#if !isAdminReadonly}
+			<DotDotDot
+				class="btn btn-block btn-primary w-full text-sm md:w-fit"
+				placement="bottom"
+				classes={{ popover: 'z-50' }}
+				id={MCP_FILTERS_FIELD_IDS.addFilterBtn}
+				ariaLabel={m.mcps_add_new_filter()}
 			>
-				{m.mcps_create_custom()}
-			</button>
-			<button
-				id={MCP_FILTERS_FIELD_IDS.createBuiltInBtn}
-				class="menu-button"
-				disabled={data.systemCatalogEntries.length === 0}
-				onclick={() => filtersTab?.openBuiltInPicker()}
-			>
-				{m.mcps_create_from_built_in()}
-			</button>
-		</DotDotDot>
+				{#snippet icon()}
+					<span class="flex items-center justify-center gap-1">
+						<Plus class="size-4" />
+						{m.mcps_add_new_filter()}
+					</span>
+				{/snippet}
+				<button
+					id={MCP_FILTERS_FIELD_IDS.createCustomBtn}
+					class="menu-button"
+					onclick={() => openCreate('filters')}
+				>
+					{m.mcps_create_custom()}
+				</button>
+				<button
+					id={MCP_FILTERS_FIELD_IDS.createBuiltInBtn}
+					class="menu-button"
+					disabled={data.systemCatalogEntries.length === 0}
+					onclick={() => filtersTab?.openBuiltInPicker()}
+				>
+					{m.mcps_create_from_built_in()}
+				</button>
+				<button
+					id={MCP_FILTERS_FIELD_IDS.createGuardrailBtn}
+					class="menu-button"
+					onclick={() => openCreate('filters', 'guardrail')}
+				>
+					{m.mcps_filters_create_guardrail()}
+				</button>
+			</DotDotDot>
+		{/if}
 	{:else if view === 'tunnels' && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
@@ -386,14 +375,6 @@
 		>
 			<Plus class="size-4" />
 			{m.mcps_tunnels_create_mcp_tunnel()}
-		</button>
-	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
-		<button
-			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => openCreate('ai-judge-policies')}
-		>
-			<Plus class="size-4" />
-			{m.mcps_add_ai_judge_policy()}
 		</button>
 	{:else if view === 'access-policies' && !isAdminReadonly}
 		<button
@@ -453,14 +434,6 @@
 
 {#snippet tunnels()}
 	<TunnelsView mcpTunnels={data.mcpTunnels} tunnelConnections={data.tunnelConnections} />
-{/snippet}
-
-{#snippet messagePolicies()}
-	<MessagePoliciesView
-		messagePolicies={data.messagePolicies ?? []}
-		policyDirection="tool-calls"
-		creating={creating && selectedView === 'ai-judge-policies'}
-	/>
 {/snippet}
 
 {#snippet accessPolicy()}

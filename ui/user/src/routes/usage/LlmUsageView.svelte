@@ -4,6 +4,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import TokenUsageRequestStats from '$lib/components/admin/token-usage/TokenUsageRequestStats.svelte';
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import {
 		ALL_API_KEYS,
@@ -125,6 +126,12 @@
 			);
 		}
 		return result;
+	});
+	// The request statistics are filtered on the server, by the same filters.
+	const statsFilters = $derived({
+		userIDs: selectedUserIds.filter((id) => id !== ALL_USERS),
+		models: selectedTargetModels ? [...selectedTargetModels] : [],
+		apiKeyIDs: selectedAPIKeyIDs.filter((id) => id !== ALL_API_KEYS)
 	});
 	let groupBy = $derived(
 		(page.url.searchParams.get(TOKEN_USAGE_PARAMS.GROUP_BY) as TokenGroupBy) ??
@@ -841,6 +848,12 @@
 					{/if}
 				</div>
 			{/if}
+			<TokenUsageRequestStats
+				{startDate}
+				{endDate}
+				filters={statsFilters}
+				modelLabel={(model) => targetModelToDisplayName.get(model) ?? model}
+			/>
 			<TokenUsageTimelineCard
 				{startDate}
 				{endDate}

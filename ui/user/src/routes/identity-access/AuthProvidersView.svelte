@@ -15,12 +15,7 @@
 	import LicenseProviderDialog from '$lib/components/admin/license/LicenseProviderDialog.svelte';
 	import { describeGroupReference } from '$lib/components/admin/scim/groupReferences';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import {
-		CommonAuthProviderIds,
-		PAGE_TRANSITION_DURATION,
-		RecommendedModelProviders,
-		SCIM_VIEW_PATH
-	} from '$lib/constants';
+	import { CommonAuthProviderIds, PAGE_TRANSITION_DURATION, SCIM_VIEW_PATH } from '$lib/constants';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
@@ -737,7 +732,6 @@
 						: undefined}
 					provider={authProvider}
 					staged={authProvider.staged}
-					recommended={RecommendedModelProviders.includes(authProvider.id)}
 					onConfigure={() => handleClickConfigure(authProvider)}
 					onDeconfigure={activeProvider?.id === authProvider.id
 						? undefined
