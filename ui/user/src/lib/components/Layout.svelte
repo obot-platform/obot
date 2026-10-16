@@ -12,7 +12,6 @@
 		noteIcon?: Component;
 		note?: Snippet;
 		beta?: boolean;
-		experimental?: boolean;
 		nodes?: NavLink[];
 	};
 
@@ -270,7 +269,7 @@
 								id: 'claude-environments',
 								label: m.nav_claude_environments(),
 								href: '/claude-environments',
-								experimental: true
+								beta: true
 							}
 						]
 					: [])
@@ -335,21 +334,11 @@
 		]);
 	}
 
-	function collectExperimentalHrefs(links: NavLink[]): string[] {
-		return links.flatMap((link) => [
-			...(link.experimental && link.href ? [link.href] : []),
-			...(link.items ? collectExperimentalHrefs(link.items) : [])
-		]);
-	}
-
 	let betaRoutes = $derived(collectBetaHrefs(routes));
-	let experimentalRoutes = $derived(collectExperimentalHrefs(routes));
 	let isBetaRoute = $derived(
 		betaRoutes.some((href) => pathname === href || pathname.startsWith(`${href}/`))
 	);
-	let isExperimentalRoute = $derived(
-		experimentalRoutes.some((href) => pathname === href || pathname.startsWith(`${href}/`))
-	);
+
 	let logoVariant = $derived.by(() => {
 		if (version.current.enterprise) return 'enterprise' as const;
 		return 'community' as const;
@@ -793,10 +782,6 @@
 					{#if isBetaRoute}
 						<span class="badge badge-primary badge-sm font-medium uppercase">{m.common_beta()}</span
 						>
-					{:else if isExperimentalRoute}
-						<span class="badge badge-warning badge-sm font-medium uppercase"
-							>{m.core_experimental()}</span
-						>
 					{/if}
 				{/if}
 			</h1>
@@ -983,8 +968,6 @@
 	{link.label}
 	{#if link.beta}
 		<span class="badge badge-primary badge-xs font-medium uppercase">{m.common_beta()}</span>
-	{:else if link.experimental}
-		<span class="badge badge-warning badge-xs font-medium uppercase">{m.core_experimental()}</span>
 	{/if}
 {/snippet}
 
