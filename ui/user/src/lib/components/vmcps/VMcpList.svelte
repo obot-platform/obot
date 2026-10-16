@@ -41,7 +41,6 @@
 		items: VMCP[];
 		filterItems?: VMCP[];
 		components: (vmcp: VMCP) => VMcpComponentView[];
-		onConnect?: (vmcp: VMCP, options?: VMcpConnectOptions) => void;
 		onDelete?: (vmcp: VMCP) => void;
 		onDeleted?: (vmcp: VMCP) => void;
 		onUpdate?: (vmcp: VMCP) => void;
@@ -59,7 +58,6 @@
 		items: initialItems,
 		filterItems,
 		components,
-		onConnect,
 		onDelete,
 		onDeleted,
 		onUpdate,
@@ -172,10 +170,6 @@
 
 	function connectHandler(vmcp: VMCP, options?: VMcpConnectOptions) {
 		const connectOptions: VMcpConnectOptions = { connectReturn: 'list', ...options };
-		if (onConnect) {
-			onConnect(vmcp, connectOptions);
-			return;
-		}
 		vmcpActions?.openConnect(vmcp, undefined, connectOptions);
 	}
 
@@ -643,7 +637,7 @@
 								<Ellipsis class="size-4" />
 							{/snippet}
 
-							{#snippet children({ toggle })}
+							{#snippet children({ toggle, open })}
 								{#if responsive.isMobile}
 									<button
 										class="menu-button"
@@ -675,6 +669,8 @@
 									<VMcpMenuActions
 										vmcp={row.vmcp}
 										{toggle}
+										menuOpen={open}
+										openReauthenticate={vmcpActions?.openReauthenticate}
 										onDelete={() => onDelete?.(row.vmcp)}
 										onUpdated={onUpdate}
 										openSelectInstance={vmcpActions?.openSelectInstance}
@@ -728,6 +724,7 @@
 			toggleSelected(card);
 		}}
 		onConnect={(options) => connectHandler(card.vmcp, options)}
+		openReauthenticate={vmcpActions?.openReauthenticate}
 		onDelete={() => onDelete?.(card.vmcp)}
 		{onUpdate}
 		openSelectInstance={vmcpActions?.openSelectInstance}

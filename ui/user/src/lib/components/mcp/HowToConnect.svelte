@@ -203,7 +203,11 @@
 						aria-label={m.mcps_connect_edit_configuration()}
 						onclick={onEdit}>{m.mcps_connect_click_here()}</button
 					>{m.mcps_connect_update_suffix()}
-				{:else if onReauthenticate}
+				{/if}
+				{#if onEdit && onReauthenticate}
+					<br class="md:block hidden" />
+				{/if}
+				{#if onReauthenticate}
 					{m.mcps_connect_reauth_prefix()}<button
 						class="text-blue-500 underline hover:text-blue-400"
 						aria-label={m.mcps_connect_reauthenticate()}
