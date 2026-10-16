@@ -68,6 +68,10 @@ func registryUserAuthenticated(u user.Info) bool {
 // Anonymous discovery deliberately publishes only shared definitions with an explicit
 // wildcard profile, without interpreting anonymous user IDs or groups as grants.
 func registryVMCPVisible(u user.Info, definition *v1.VMCP) bool {
+	// Empty drafts cannot accept connections through the advertised remote.
+	if len(definition.Spec.Manifest.Components) == 0 {
+		return false
+	}
 	if registryUserAuthenticated(u) {
 		return authz.UserCanReadVMCP(u, definition)
 	}

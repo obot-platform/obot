@@ -18,6 +18,14 @@
 	let enabled = $state(untrack(() => settings?.anonymousAccessEnabled ?? false));
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	$effect(() => {
+		const savedEnabled = settings?.anonymousAccessEnabled;
+		// Refresh clean state without subscribing to local edits or save results.
+		if (savedEnabled !== undefined && untrack(() => enabled === persistedEnabled)) {
+			enabled = savedEnabled;
+			persistedEnabled = savedEnabled;
+		}
+	});
+	$effect(() => {
 		dirty = settings !== undefined && enabled !== persistedEnabled;
 	});
 	export function reset() {

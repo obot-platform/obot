@@ -314,6 +314,61 @@ func TestRegistrySearchFullDescription(t *testing.T) {
 	}
 }
 
+func TestRegistryExcludesEmptyDefinitions(t *testing.T) {
+	ready := registryDefinition("vmcp1ready", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	draft := registryDefinition("vmcp1draft", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	draft.Spec.Manifest.Components = nil
+	draft.Spec.LegacySlug = "ms1draft"
+	empty := registryDefinition("vmcp1empty", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	empty.Spec.Manifest.Components = []types.VMCPComponent{}
+	personal := registryDefinition("vmcp1personal", "user-1")
+	personal.Spec.Manifest.Components = nil
+	storage := newRegistryTestStorage(ready, draft, empty, personal)
+	for _, tc := range []struct {
+		name string
+		user user.Info
+	}{
+		{
+			name: "anonymous",
+		},
+		{
+			name: "authenticated",
+			user: &user.DefaultInfo{
+				UID: "user-1",
+			},
+		},
+		{
+			name: "admin",
+			user: &user.DefaultInfo{
+				UID:    "user-1",
+				Groups: []string{types.GroupAdmin},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := registryRequest(t, storage, tc.user, "/v0.1/servers?limit=1")
+			var list types.RegistryServerList
+			decodeRegistryResponse(t, response, &list)
+			if !slices.Equal(registryIDs(list), []string{ready.Name}) || list.Metadata.NextCursor != "" {
+				t.Fatalf("empty definitions must not affect results or pagination: %+v", list)
+			}
+			response = registryRequest(t, storage, tc.user, "/v0.1/servers?search=draft")
+			decodeRegistryResponse(t, response, &list)
+			if len(list.Servers) != 0 {
+				t.Fatalf("empty draft matched search: %+v", list)
+			}
+			for _, id := range []string{draft.Name, draft.Spec.LegacySlug, empty.Name, personal.Name} {
+				for _, suffix := range []string{"/versions", "/versions/latest"} {
+					response := registryRequest(t, storage, tc.user, registryDetailPath(id)+suffix)
+					if response.Code != http.StatusNotFound {
+						t.Fatalf("%s%s: status = %d, want 404", id, suffix, response.Code)
+					}
+				}
+			}
+		})
+	}
+}
+
 func registryDefinition(id, owner string, subjects ...types.Subject) *v1.VMCP {
 	return &v1.VMCP{
 		ObjectMeta: registryObjectMeta(id),
@@ -321,6 +376,9 @@ func registryDefinition(id, owner string, subjects ...types.Subject) *v1.VMCP {
 			UserID: owner,
 			Manifest: types.VMCPManifest{
 				DisplayName: id,
+				Components: []types.VMCPComponent{
+					{ID: "component-1"},
+				},
 				Profiles: []types.VMCPProfile{
 					{
 						Name:     "access",

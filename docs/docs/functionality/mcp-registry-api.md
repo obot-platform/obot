@@ -7,7 +7,7 @@ title: MCP Registry API
 
 Obot implements the [MCP Registry specification](https://github.com/modelcontextprotocol/registry/blob/main/docs/reference/api/generic-registry-api.md), enabling MCP clients such as VS Code to discover and connect to vMCPs.
 
-Each vMCP appears once with its display name, description, icon, and canonical connection URL. Catalog templates, individual user connections, and backing component servers are not registry entries.
+Each discoverable vMCP appears once with its display name, description, icon, and canonical connection URL. vMCPs must contain at least one component to appear in discovery; empty drafts are excluded from both listing and detail requests. Catalog templates, individual user connections, and backing component servers are not registry entries.
 
 ## API Endpoint
 
