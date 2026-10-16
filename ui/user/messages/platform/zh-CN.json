@@ -295,6 +295,7 @@
 	"platform_settings_model_proxy_output_tokens": "输出 Token",
 	"platform_settings_model_proxy_remaining": "剩余 {percent}%",
 	"platform_settings_model_proxy_resets": "{relative}重置（{date}）",
+	"platform_settings_model_proxy_unused": "由于已配置模型提供商，因此不会使用模型代理。vMCP Inspector 将改用模型提供商。",
 	"platform_settings_model_proxy_updated": "模型代理设置已成功更新。",
 	"platform_settings_model_proxy_usage": "用量",
 	"platform_settings_notifications": "通知",

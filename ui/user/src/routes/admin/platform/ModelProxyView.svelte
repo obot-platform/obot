@@ -8,10 +8,10 @@
 		type ModelProxyTokenUsage,
 		type ModelProxyUsage
 	} from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { profile, version } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { formatTimeUntil } from '$lib/time';
-	import { TriangleAlert } from '@lucide/svelte';
+	import { Info, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
@@ -32,6 +32,8 @@
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isModelProxyConfigured = $derived(!!settings.url);
+	// The vMCP Inspector only falls back to the model proxy when no model provider is configured.
+	let hasModelProvider = $derived(version.current.hasModelProvider === true);
 	let isDirty = $derived(enabled !== persistedEnabled);
 	let canSave = $derived(isDirty && (isModelProxyConfigured || (settings.enabled && !enabled)));
 
@@ -78,17 +80,24 @@
 		<div class="paper gap-5">
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">{m.platform_settings_model_proxy_usage()}</p>
-				<div class="grid grid-cols-1 gap-5 @xl:grid-cols-2">
-					{@render usageCard(m.platform_settings_model_proxy_input_tokens(), usage?.input)}
-					{@render usageCard(m.platform_settings_model_proxy_output_tokens(), usage?.output)}
-				</div>
-				{#if usage}
-					<p class="font-light text-muted-content text-xs">
-						{m.platform_settings_model_proxy_resets({
-							relative: formatTimeUntil(usage?.resetAt).relativeTime,
-							date: formatTimeUntil(usage?.resetAt).fullDate
-						})}
-					</p>
+				{#if hasModelProvider}
+					<div class="flex items-center gap-2 text-sm text-muted-content">
+						<Info class="size-4 shrink-0" />
+						<p>{m.platform_settings_model_proxy_unused()}</p>
+					</div>
+				{:else}
+					<div class="grid grid-cols-1 gap-5 @xl:grid-cols-2">
+						{@render usageCard(m.platform_settings_model_proxy_input_tokens(), usage?.input)}
+						{@render usageCard(m.platform_settings_model_proxy_output_tokens(), usage?.output)}
+					</div>
+					{#if usage}
+						<p class="font-light text-muted-content text-xs">
+							{m.platform_settings_model_proxy_resets({
+								relative: formatTimeUntil(usage?.resetAt).relativeTime,
+								date: formatTimeUntil(usage?.resetAt).fullDate
+							})}
+						</p>
+					{/if}
 				{/if}
 			</div>
 			<div class="divider my-0"></div>

@@ -295,6 +295,7 @@
 	"platform_settings_model_proxy_output_tokens": "Output tokens",
 	"platform_settings_model_proxy_remaining": "{percent}% remaining",
 	"platform_settings_model_proxy_resets": "Resets {relative} ({date})",
+	"platform_settings_model_proxy_unused": "The model proxy isn't used because a model provider is configured. The vMCP Inspector uses the model provider instead.",
 	"platform_settings_model_proxy_updated": "Model proxy settings updated successfully.",
 	"platform_settings_model_proxy_usage": "Usage",
 	"platform_settings_notifications": "Notifications",

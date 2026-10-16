@@ -98,6 +98,18 @@ export const load: PageLoad = async ({ depends, fetch, parent, url }) => {
 						handleRouteError(err, '/admin/platform?view=settings', profile);
 					}
 
+					// The model proxy is only used when it's enabled, no model provider is configured,
+					// and the installation is licensed, so don't contact it otherwise. Don't use
+					// version.mcpTesterModelProxyAvailable here: version isn't reloaded when the
+					// enabled setting changes, so usage would stay hidden after enabling it.
+					if (
+						modelProxySettings?.enabled !== true ||
+						version?.hasModelProvider !== false ||
+						version?.hasValidLicense !== true
+					) {
+						return;
+					}
+
 					try {
 						modelProxyUsage = await AdminService.getModelProxyUsage({
 							fetch,

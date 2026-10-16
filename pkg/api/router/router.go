@@ -102,7 +102,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		GatewayClient: services.GatewayClient,
 		Settings:      services.GatewayClient,
 	})
-	modelProxy := handlers.NewModelProxyHandler(services.GatewayClient, services.ModelProxyConfiguredURL, services.ModelProxyURL, services.LicenseProvider)
+	modelProxy := handlers.NewModelProxyHandler(services.GatewayClient, services.ModelProxyConfiguredURL, services.ModelProxyURL, services.ProviderDispatcher, services.LicenseProvider)
 
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)

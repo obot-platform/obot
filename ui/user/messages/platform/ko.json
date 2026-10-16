@@ -295,6 +295,7 @@
 	"platform_settings_model_proxy_output_tokens": "출력 토큰",
 	"platform_settings_model_proxy_remaining": "{percent}% 남음",
 	"platform_settings_model_proxy_resets": "{relative} 재설정 ({date})",
+	"platform_settings_model_proxy_unused": "모델 제공자가 구성되어 있으므로 모델 프록시는 사용되지 않습니다. vMCP Inspector는 대신 모델 제공자를 사용합니다.",
 	"platform_settings_model_proxy_updated": "모델 프록시 설정을 업데이트했습니다.",
 	"platform_settings_model_proxy_usage": "사용량",
 	"platform_settings_notifications": "알림",

@@ -295,6 +295,7 @@
 	"platform_settings_model_proxy_output_tokens": "出力トークン",
 	"platform_settings_model_proxy_remaining": "残り {percent}%",
 	"platform_settings_model_proxy_resets": "{relative}にリセット（{date}）",
+	"platform_settings_model_proxy_unused": "モデルプロバイダーが設定されているため、モデルプロキシは使用されません。vMCP Inspector は代わりにモデルプロバイダーを使用します。",
 	"platform_settings_model_proxy_updated": "モデルプロキシの設定を更新しました。",
 	"platform_settings_model_proxy_usage": "使用状況",
 	"platform_settings_notifications": "通知",

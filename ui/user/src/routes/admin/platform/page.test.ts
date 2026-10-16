@@ -1,6 +1,6 @@
-import { AdminService, Group, UserService } from '$lib/services';
+import { AdminService, Group, UserService, type Version } from '$lib/services';
 import { createPageData, createMockProfile } from '../../../tests/helpers/pageData';
-import { getAppNotificationResponse } from '../../../tests/mocks/data';
+import { getAppNotificationResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { load } from './+page';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,8 +9,9 @@ function loadPlatform(
 	{
 		groups = [Group.ADMIN],
 		available = true,
-		consent = false
-	}: { groups?: string[]; available?: boolean; consent?: boolean } = {}
+		consent = false,
+		version = {}
+	}: { groups?: string[]; available?: boolean; consent?: boolean; version?: Partial<Version> } = {}
 ) {
 	return load({
 		depends: vi.fn(),
@@ -19,7 +20,8 @@ function loadPlatform(
 			createPageData({
 				profile: createMockProfile(groups),
 				productTelemetryConsentAvailable: available,
-				productTelemetryConsent: { consent }
+				productTelemetryConsent: { consent },
+				version: { ...getVersionResponse, ...version }
 			}),
 		url: new URL(`http://localhost/admin/platform?view=${view}`)
 	} as unknown as Parameters<NonNullable<typeof load>>[0]);
@@ -28,10 +30,10 @@ function loadPlatform(
 describe('Platform loader settings view', () => {
 	afterEach(() => vi.restoreAllMocks());
 
-	function mockSettingsApis() {
+	function mockSettingsApis({ modelProxyEnabled = false }: { modelProxyEnabled?: boolean } = {}) {
 		vi.spyOn(UserService, 'getAppNotification').mockResolvedValue(getAppNotificationResponse);
 		vi.spyOn(AdminService, 'getModelProxySettings').mockResolvedValue({
-			enabled: false,
+			enabled: modelProxyEnabled,
 			url: 'https://model-service.obot.ai'
 		});
 		vi.spyOn(AdminService, 'getModelProxyUsage').mockResolvedValue({
@@ -67,5 +69,35 @@ describe('Platform loader settings view', () => {
 		await loadPlatform('settings', { groups, available });
 
 		expect(getConsent).not.toHaveBeenCalled();
+	});
+
+	it('fetches model proxy usage when the model proxy can be used', async () => {
+		mockSettingsApis({ modelProxyEnabled: true });
+		vi.spyOn(AdminService, 'getProductTelemetryConsent').mockResolvedValue({ consent: false });
+
+		await loadPlatform('settings', {
+			version: { hasModelProvider: false, hasValidLicense: true }
+		});
+
+		expect(AdminService.getModelProxyUsage).toHaveBeenCalledOnce();
+	});
+
+	it.each([
+		['the model proxy is disabled', false, { hasModelProvider: false, hasValidLicense: true }],
+		['a model provider is configured', true, { hasModelProvider: true, hasValidLicense: true }],
+		[
+			'model provider configuration is unknown',
+			true,
+			{ hasModelProvider: null, hasValidLicense: true }
+		],
+		['the installation is unlicensed', true, { hasModelProvider: false, hasValidLicense: false }]
+	])('does not fetch model proxy usage when %s', async (_scenario, modelProxyEnabled, version) => {
+		mockSettingsApis({ modelProxyEnabled });
+		vi.spyOn(AdminService, 'getProductTelemetryConsent').mockResolvedValue({ consent: false });
+
+		const result = await loadPlatform('settings', { version });
+
+		expect(AdminService.getModelProxyUsage).not.toHaveBeenCalled();
+		expect(result).toHaveProperty('modelProxyUsage', undefined);
 	});
 });

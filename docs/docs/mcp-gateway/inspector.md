@@ -104,9 +104,9 @@ Chat works as follows:
 
 The hosted model service receives the chat conversation, including the vMCP's tool definitions and
 any tool results you approve. To disable this, configure your own model provider, or turn
-off **Enable Model Proxy** under **Platform > Settings > Model Proxy**. That section also shows
-usage against the service quota. To remove the service entirely, set `OBOT_SERVER_MODEL_PROXY_URL`
-to an empty string. See [Server configuration](../configuration/server-configuration.md).
+off **Enable Model Proxy** under **Platform > Settings > Model Proxy**. When no model provider is
+configured, that section also shows usage against the service quota. To remove the service
+entirely, set `OBOT_SERVER_MODEL_PROXY_URL` to an empty string. See [Server configuration](../configuration/server-configuration.md).
 
 ## MCP Log
 

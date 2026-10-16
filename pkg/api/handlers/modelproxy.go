@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -20,15 +21,17 @@ type ModelProxyHandler struct {
 	settings      modelProxySettingsStore
 	configuredURL string
 	responsesURL  *url.URL
+	providers     mcptester.ProviderConfigurationResolver
 	license       mcptester.LicenseSource
 	client        mcpTesterHTTPClient
 }
 
-func NewModelProxyHandler(settings modelProxySettingsStore, configuredURL string, responsesURL *url.URL, license mcptester.LicenseSource) *ModelProxyHandler {
+func NewModelProxyHandler(settings modelProxySettingsStore, configuredURL string, responsesURL *url.URL, providers mcptester.ProviderConfigurationResolver, license mcptester.LicenseSource) *ModelProxyHandler {
 	return &ModelProxyHandler{
 		settings:      settings,
 		configuredURL: configuredURL,
 		responsesURL:  responsesURL,
+		providers:     providers,
 		license:       license,
 		client:        mcptester.NewModelProxyUsageHTTPClient(),
 	}
@@ -56,17 +59,30 @@ func (h *ModelProxyHandler) Update(req api.Context) error {
 	return req.Write(types.ModelProxySettings{Enabled: *input.Enabled, URL: h.configuredURL})
 }
 
+// Usage handles GET /api/model-proxy/usage and returns this installation's model proxy token usage.
 func (h *ModelProxyHandler) Usage(req api.Context) error {
 	if h.responsesURL == nil {
 		return types.NewErrHTTP(http.StatusConflict, "model proxy is disabled")
 	}
 
-	enabled, err := h.settings.ModelProxyEnabled(req.Context())
+	// Only contact the model proxy when the MCP server tester could use it, which
+	// requires confirming that no model provider is configured.
+	availability, err := mcptester.ResolveModelProxyAvailability(req.Context(), h.responsesURL, h.providers, h.settings)
 	if err != nil {
-		return types.NewErrHTTP(http.StatusServiceUnavailable, "model proxy settings unavailable")
+		slog.Warn("model proxy availability unresolved", "error", err)
+		return types.NewErrHTTP(http.StatusServiceUnavailable, "model proxy availability unavailable")
 	}
 
-	if !enabled {
+	// A nil value means provider configuration is unknown, which never permits the model proxy.
+	if availability.HasModelProvider == nil {
+		return types.NewErrHTTP(http.StatusServiceUnavailable, "model proxy availability unavailable")
+	}
+
+	if *availability.HasModelProvider {
+		return types.NewErrHTTP(http.StatusConflict, "model proxy is not used when a model provider is configured")
+	}
+
+	if !availability.Enabled {
 		return types.NewErrHTTP(http.StatusConflict, "model proxy is disabled")
 	}
 

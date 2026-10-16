@@ -89,10 +89,12 @@ To allow all of them, allow outbound HTTPS to:
 ### MCP server tester model
 
 - **Destination:** `https://model-service.obot.ai`
-- **When:** When a user runs the [MCP server tester](../mcp-gateway/inspector.md) and no model provider is configured.
-  Requires a valid license.
-- **If it fails:** The tester can't generate.
-- **To change or avoid it:** Set `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off.
+- **When:** When a user runs the [MCP server tester](../mcp-gateway/inspector.md), and when an admin opens
+  **Platform > Settings** to show model service usage. Only when no model provider is configured, a valid license is
+  present, and **Enable Model Proxy** is on under **Platform > Settings > Model Proxy**.
+- **If it fails:** The tester can't generate, and **Platform > Settings** shows model service usage as N/A.
+- **To change or avoid it:** Configure a model provider, turn off **Enable Model Proxy**, or set
+  `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off.
 
 Startup doesn't depend on any of these. Obot starts without internet access, and the affected features recover once
 the destination is reachable.

@@ -18,6 +18,10 @@ import (
 
 type failingModelProxySettings struct{}
 
+type unreadModelProxyLicense struct {
+	t *testing.T
+}
+
 func (failingModelProxySettings) ModelProxyEnabled(context.Context) (bool, error) {
 	return false, errors.New("private database details")
 }
@@ -26,11 +30,21 @@ func (failingModelProxySettings) SetModelProxyEnabled(context.Context, bool) err
 	return errors.New("private database details")
 }
 
+func (l unreadModelProxyLicense) LicenseKey(context.Context) (string, error) {
+	l.t.Error("license key was read while a model provider is configured")
+	return "", errors.New("private database details")
+}
+
+func (l unreadModelProxyLicense) MachineFingerprint() string {
+	l.t.Error("machine fingerprint was read while a model provider is configured")
+	return ""
+}
+
 func TestModelProxySettingsAPI(t *testing.T) {
 	for _, configuredURL := range []string{"", "https://model-service.obot.ai", "https://proxy.example/prefix/", "https://proxy.example/prefix/v1/responses"} {
 		t.Run(configuredURL, func(t *testing.T) {
 			store := newHandlerTestGateway(t)
-			handler := NewModelProxyHandler(store, configuredURL, nil, nil)
+			handler := NewModelProxyHandler(store, configuredURL, nil, nil, nil)
 
 			get := func(want bool) {
 				t.Helper()
@@ -109,8 +123,9 @@ func TestModelProxyUsageAPI(t *testing.T) {
 	}
 
 	store := newHandlerTestGateway(t)
+	providers := &fakeTesterProviders{}
 	license := &fakeTesterLicense{key: "key-one"}
-	h := NewModelProxyHandler(store, upstream.URL+"/prefix", endpoint, license)
+	h := NewModelProxyHandler(store, upstream.URL+"/prefix", endpoint, providers, license)
 
 	call := func() (*httptest.ResponseRecorder, error) {
 		t.Helper()
@@ -173,10 +188,65 @@ func TestModelProxyUsageAPI(t *testing.T) {
 	requireModelProxyHTTPError(t, err, http.StatusConflict)
 
 	h.responsesURL = endpoint
+	providers.configured = true
+	_, err = call()
+	requireModelProxyHTTPError(t, err, http.StatusConflict)
+	providers.configured = false
+
+	providers.err = errors.New("private database details")
+	_, err = call()
+	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
+	providers.err = nil
+
+	h.providers = nil
+	_, err = call()
+	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
+	h.providers = providers
+
 	h.settings = failingModelProxySettings{}
 	_, err = call()
 	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
 	if len(keys) != 2 {
-		t.Fatal("disabled or unavailable usage sent an outbound request")
+		t.Fatal("disabled, unavailable, or unused model proxy sent an outbound usage request")
+	}
+}
+
+func TestModelProxyUsageAPIWithModelProvider(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		t.Error("model proxy usage was requested while a model provider is configured")
+	}))
+	defer upstream.Close()
+
+	endpoint, err := mcptester.ParseModelProxyURL(upstream.URL, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name            string
+		failingSettings bool
+	}{
+		{
+			name:            "settings available",
+			failingSettings: false,
+		},
+		{
+			name:            "settings unavailable",
+			failingSettings: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var settings modelProxySettingsStore = failingModelProxySettings{}
+			if !tt.failingSettings {
+				settings = newHandlerTestGateway(t)
+			}
+
+			h := NewModelProxyHandler(settings, upstream.URL, endpoint, &fakeTesterProviders{configured: true}, unreadModelProxyLicense{t: t})
+
+			err := h.Usage(api.Context{Request: httptest.NewRequest(http.MethodGet, "/api/model-proxy/usage", nil), ResponseWriter: httptest.NewRecorder()})
+			requireModelProxyHTTPError(t, err, http.StatusConflict)
+		})
 	}
 }
