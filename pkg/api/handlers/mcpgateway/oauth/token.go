@@ -27,6 +27,7 @@ import (
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -255,36 +256,49 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	})
 }
 
-// revokeIfUserDenied deletes a refresh token it was just issued if its user was disabled or deleted while it was
-// being issued. Delivery of the disable event may already have looked for the user's refresh tokens without seeing
-// this one, and would otherwise leave it to work again if the user is reactivated.
+// revokeIfUserDenied checks the owner again before delivering tokens. A disable
+// event can finish scanning grants before an authorization-code exchange creates
+// its grant, so issuance must also revoke a grant whose owner is now denied.
 func revokeIfUserDenied(req api.Context, token *v1.OAuthToken) error {
 	err := req.GatewayClient.CheckCredentialOwner(req.Context(), token.Spec.UserID)
 	if err == nil {
 		return nil
 	}
+	// A canceled or unavailable lookup is not a revocation decision.
+	if _, denied := errors.AsType[*gateway.UserAccessDeniedError](err); !denied {
+		return err
+	}
 	if deleteErr := req.Storage.Delete(req.Context(), token); deleteErr != nil && !apierrors.IsNotFound(deleteErr) {
 		return errors.Join(err, fmt.Errorf("failed to revoke oauth token: %w", deleteErr))
 	}
-	if _, ok := errors.AsType[*gateway.UserAccessDeniedError](err); ok {
-		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
-	}
-	return err
+	return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
 }
 
 func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, refreshToken string) error {
+	// Revalidate the grant after conflicts; another replica may have rotated or revoked it.
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		return h.doRefreshTokenAttempt(req, oauthClient, refreshToken)
+	})
+}
+
+func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthClient, refreshToken string) error {
 	if refreshToken == "" {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is required", ""))
 	}
 
+	name, err := refreshTokenName(refreshToken)
+	if err != nil {
+		return err
+	}
+
 	var oauthToken v1.OAuthToken
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken)))}, &oauthToken); err != nil {
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: name}, &oauthToken); err != nil {
 		if apierrors.IsNotFound(err) {
 			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 		}
-		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is invalid", ""))
+		return fmt.Errorf("failed to retrieve oauth token: %w", err)
 	}
-	if oauthToken.Spec.ClientID != oauthClient.Name {
+	if oauthToken.Spec.ClientID != oauthClient.Name || !validRefreshToken(&oauthToken, refreshToken) {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 	}
 
@@ -326,13 +340,6 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		return invalidGrant("invalid MCP server")
 	}
 
-	if err := req.Storage.Delete(req.Context(), &oauthToken); err != nil {
-		if apierrors.IsNotFound(err) {
-			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
-		}
-		return fmt.Errorf("failed to refresh oauth token: %w", err)
-	}
-
 	// For backwards compatibility, if the Audience field isn't set on the oauthToken, then set it from the Resource field.
 	if oauthToken.Spec.Audience == "" {
 		oauthToken.Spec.Audience, _ = strings.CutPrefix(oauthToken.Spec.Resource, h.baseURL+"/mcp-connect/")
@@ -358,31 +365,16 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		tknCtx.AuthorizedMCPIDs = []string{oauthToken.Spec.Audience}
 	}
 
+	// Mint the access token first so a signing or owner-check failure leaves the
+	// current refresh token usable. Neither token is delivered until rotation succeeds.
 	_, tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
 
-	refreshToken = strings.ToLower(rand.Text() + rand.Text())
-
-	oauthToken = v1.OAuthToken{
-		Namespace: oauthClient.Namespace,
-		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
-		Spec: v1.OAuthTokenSpec{
-			Scope:                 oauthToken.Spec.Scope,
-			Resource:              oauthToken.Spec.Resource,
-			ClientID:              oauthClient.Name,
-			UserID:                oauthToken.Spec.UserID,
-			AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
-			AuthProviderName:      oauthToken.Spec.AuthProviderName,
-			AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
-			MCPID:                 oauthToken.Spec.MCPID,
-			Audience:              oauthToken.Spec.Audience,
-		},
-	}
-
-	if err = req.Create(&oauthToken); err != nil {
-		return fmt.Errorf("failed to create new oauth token: %w", err)
+	refreshToken, err = rotateRefreshToken(req, &oauthToken, refreshToken)
+	if err != nil {
+		return err
 	}
 	if err := revokeIfUserDenied(req, &oauthToken); err != nil {
 		return err

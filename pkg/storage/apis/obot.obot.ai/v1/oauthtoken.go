@@ -27,6 +27,13 @@ type OAuthTokenSpec struct {
 	AuthProviderUserID    string `json:"authProviderUserID"`
 	AuthProviderName      string `json:"authProviderName"`
 	AuthProviderNamespace string `json:"authProviderNamespace"`
+
+	// The record survives rotation so a lost response can be recovered with the previous token.
+	CurrentTokenHash  string `json:"currentTokenHash,omitempty"`
+	PreviousTokenHash string `json:"previousTokenHash,omitempty"`
+	// +optional
+	PreviousValidUntil    metav1.Time `json:"previousValidUntil,omitzero"`
+	EncryptedCurrentToken string      `json:"encryptedCurrentToken,omitempty"`
 }
 
 type OAuthTokenStatus struct{}

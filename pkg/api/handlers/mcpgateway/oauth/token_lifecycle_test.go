@@ -38,9 +38,9 @@ var (
 	}
 )
 
-// disableOnTokenCreateStorage disables a user as soon as an OAuth token is created for them, as a disable that
+// disableOnTokenWriteStorage disables a user as soon as an OAuth token is created or rotated, as a disable that
 // commits while the token is being issued would, after its delivery already looked for the user's refresh tokens.
-type disableOnTokenCreateStorage struct {
+type disableOnTokenWriteStorage struct {
 	storage.Client
 	t             *testing.T
 	gatewayClient *gatewayclient.Client
@@ -49,7 +49,7 @@ type disableOnTokenCreateStorage struct {
 	email    string
 }
 
-func (s *disableOnTokenCreateStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
+func (s *disableOnTokenWriteStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
 	if err := s.Client.Create(ctx, obj, opts...); err != nil {
 		return err
 	}
@@ -57,6 +57,16 @@ func (s *disableOnTokenCreateStorage) Create(ctx context.Context, obj kclient.Ob
 		if err := deactivateThroughSCIM(s.t, s.gatewayClient, oauthLifecycleTestProvider, s.nativeID, s.email); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (s *disableOnTokenWriteStorage) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	if err := s.Client.Update(ctx, obj, opts...); err != nil {
+		return err
+	}
+	if _, ok := obj.(*v1.OAuthToken); ok {
+		return deactivateThroughSCIM(s.t, s.gatewayClient, oauthLifecycleTestProvider, s.nativeID, s.email)
 	}
 	return nil
 }
@@ -267,7 +277,7 @@ func TestRefreshTokensIssuedWhileTheUserIsDisabledAreRevoked(t *testing.T) {
 			req := api.Context{
 				ResponseWriter: httptest.NewRecorder(),
 				Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
-				Storage: &disableOnTokenCreateStorage{
+				Storage: &disableOnTokenWriteStorage{
 					Client:        baseStorage,
 					t:             t,
 					gatewayClient: gatewayClient,

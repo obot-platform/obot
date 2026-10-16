@@ -210,7 +210,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	assert.Equal(t, persistent.StringSlice{audience}, claims.AuthorizedMCPIDs)
 
 	var refreshed v1.OAuthToken
-	refreshedName := fmt.Sprintf("%x", sha256.Sum256([]byte(response.RefreshToken)))
+	refreshedName := tokenName
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: refreshedName}, &refreshed))
 	assert.Equal(t, "profile email", refreshed.Spec.Scope)
 	assert.Equal(t, audience, refreshed.Spec.Audience)
@@ -240,9 +240,24 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	assert.Equal(t, persistent.StringSlice{audience}, claims.AuthorizedMCPIDs)
 
 	var legacyRefreshed v1.OAuthToken
-	legacyRefreshedName := fmt.Sprintf("%x", sha256.Sum256([]byte(response.RefreshToken)))
+	legacyRefreshedName := fmt.Sprintf("%x", sha256.Sum256([]byte(emptyAudienceRefreshToken)))
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: legacyRefreshedName}, &legacyRefreshed))
 	assert.Equal(t, audience, legacyRefreshed.Spec.Audience)
+
+	// A retry of the legacy token recovers the same successor without extending its deadline.
+	retryRecorder := httptest.NewRecorder()
+	err = h.doRefreshToken(api.Context{
+		ResponseWriter: retryRecorder,
+		Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+	}, oauthClient, refreshToken)
+	require.NoError(t, err)
+	require.NoError(t, json.NewDecoder(retryRecorder.Body).Decode(&response))
+	assert.Equal(t, refreshed.Spec.CurrentTokenHash, refreshTokenHash(response.RefreshToken))
+
+	refreshed.Spec.PreviousValidUntil.Time = time.Now().Add(-time.Second)
+	require.NoError(t, storage.Update(t.Context(), &refreshed))
 
 	err = h.doRefreshToken(api.Context{
 		ResponseWriter: httptest.NewRecorder(),

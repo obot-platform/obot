@@ -24457,10 +24457,36 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"currentTokenHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The record survives rotation so a lost response can be recovered with the previous token.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"previousTokenHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"previousValidUntil": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"encryptedCurrentToken": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"scope", "resource", "clientID", "userID", "mcpID", "audience", "authProviderUserID", "authProviderName", "authProviderNamespace"},
 			},
 		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
