@@ -204,6 +204,9 @@
 						onclick={onEdit}>{m.mcps_connect_click_here()}</button
 					>{m.mcps_connect_update_suffix()}
 				{/if}
+				{#if onEdit && onReauthenticate}
+					<br class="md:block hidden" />
+				{/if}
 				{#if onReauthenticate}
 					{m.mcps_connect_reauth_prefix()}<button
 						class="text-blue-500 underline hover:text-blue-400"

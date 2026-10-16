@@ -637,7 +637,7 @@
 								<Ellipsis class="size-4" />
 							{/snippet}
 
-							{#snippet children({ toggle })}
+							{#snippet children({ toggle, open })}
 								{#if responsive.isMobile}
 									<button
 										class="menu-button"
@@ -669,6 +669,8 @@
 									<VMcpMenuActions
 										vmcp={row.vmcp}
 										{toggle}
+										menuOpen={open}
+										openReauthenticate={vmcpActions?.openReauthenticate}
 										onDelete={() => onDelete?.(row.vmcp)}
 										onUpdated={onUpdate}
 										openSelectInstance={vmcpActions?.openSelectInstance}
@@ -722,6 +724,7 @@
 			toggleSelected(card);
 		}}
 		onConnect={(options) => connectHandler(card.vmcp, options)}
+		openReauthenticate={vmcpActions?.openReauthenticate}
 		onDelete={() => onDelete?.(card.vmcp)}
 		{onUpdate}
 		openSelectInstance={vmcpActions?.openSelectInstance}

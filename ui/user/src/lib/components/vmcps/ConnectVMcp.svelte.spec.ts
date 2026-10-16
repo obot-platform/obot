@@ -833,6 +833,170 @@ describe('ConnectVMcp.svelte', () => {
 		}
 	);
 
+	it.each([
+		{ selection: 'All', pendingStep: 'clear' },
+		{ selection: 'Outlook', pendingStep: 'clear' },
+		{ selection: 'All', pendingStep: 'oauth-url' },
+		{ selection: 'Outlook', pendingStep: 'oauth-url' }
+	])(
+		'ignores superseded reauthentication of $selection during $pendingStep',
+		async ({ selection, pendingStep }) => {
+			const vmcp = createVMCP({ id: `vmcp1stale-${selection}-${pendingStep}` }, [
+				createMCPCatalogEntry({ id: 'entry-outlook', name: 'Outlook', runtime: 'remote' }),
+				createMCPCatalogEntry({ id: 'entry-brave', name: 'Brave Search', runtime: 'remote' })
+			]);
+			let releaseOld!: () => void;
+			const oldRequest = new Promise<void>((resolve) => (releaseOld = resolve));
+			let releaseStatus!: () => void;
+			const newStatus = new Promise<void>((resolve) => (releaseStatus = resolve));
+			const pendingStarted = vi.fn();
+			const clear = async () => {
+				if (pendingStep === 'clear') {
+					pendingStarted();
+					await oldRequest;
+				}
+				return HttpResponse.json({});
+			};
+			worker.use(
+				http.delete(`/api/vmcps/${vmcp.id}/oauth`, clear),
+				http.delete(`/api/vmcps/${vmcp.id}/components/:componentID/oauth`, clear),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-url`, async () => {
+					if (pendingStep === 'oauth-url') {
+						pendingStarted();
+						await oldRequest;
+					}
+					return HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' });
+				}),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-status`, async () => {
+					await newStatus;
+					return HttpResponse.json({ authenticatedComponents: [] });
+				})
+			);
+			const status = vi.spyOn(UserService, 'getVMCPOAuthStatus');
+			try {
+				await preparePageData();
+				const { component } = await render(ConnectVMcp);
+				component.openReauthenticate(vmcp, ['component-entry-outlook', 'component-entry-brave']);
+				await page
+					.getByRole('button', { name: `Reauthenticate ${selection}`, exact: true })
+					.click();
+				await vi.waitFor(() => expect(pendingStarted).toHaveBeenCalledOnce());
+				await userEvent.keyboard('{Escape}');
+				// Reopening the same vMCP must also supersede the earlier operation.
+				component.open(vmcp, createdInstance(vmcp, { configured: true }));
+				expect(status).toHaveBeenCalledOnce();
+				const signal = status.mock.calls[0][1]?.signal;
+				releaseOld();
+				// Allow the old response and picker close event to finish their continuations.
+				await new Promise((resolve) => setTimeout(resolve, 250));
+				expect(status).toHaveBeenCalledOnce();
+				expect(signal?.aborted).toBe(false);
+				await expect
+					.element(page.getByRole('link', { name: 'Authenticate' }))
+					.not.toBeInTheDocument();
+				await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+			} finally {
+				releaseOld();
+				releaseStatus();
+				status.mockRestore();
+			}
+		}
+	);
+
+	it('cancels the previous OAuth status request when another starts', async () => {
+		const vmcp = configurableVMcp();
+		vmcp.id = 'vmcp1cancelstatus';
+		const existing = createdInstance(vmcp, { configured: true });
+		let release!: () => void;
+		const pending = new Promise<void>((resolve) => (release = resolve));
+		worker.use(
+			http.get(`/api/vmcps/${vmcp.id}/oauth-status`, async () => {
+				await pending;
+				return HttpResponse.json({ authenticatedComponents: [] });
+			})
+		);
+		const status = vi.spyOn(UserService, 'getVMCPOAuthStatus');
+		try {
+			const { component } = await renderDialog(vmcp, existing);
+			const firstSignal = status.mock.calls[0][1]?.signal;
+			expect(firstSignal?.aborted).toBe(false);
+			component.open(vmcp, existing);
+			expect(firstSignal?.aborted).toBe(true);
+			expect(status.mock.calls[1][1]?.signal?.aborted).toBe(false);
+		} finally {
+			release();
+			status.mockRestore();
+		}
+	});
+
+	it('does not finish a newer flow after cancelling an OAuth completion status request', async () => {
+		const vmcp = configurableVMcp();
+		vmcp.id = 'vmcp1cancelcompletion';
+		let release!: () => void;
+		const pending = new Promise<void>((resolve) => (release = resolve));
+		const statusStarted = vi.fn();
+		worker.use(
+			http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+				HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' })
+			),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-status`, async () => {
+				statusStarted();
+				await pending;
+				return HttpResponse.json({ authenticatedComponents: [] });
+			})
+		);
+		try {
+			const { component } = await renderDialog(vmcp);
+			await component.authenticate();
+			await page.getByRole('button', { name: 'Close dialog' }).click();
+			await vi.waitFor(() => expect(statusStarted).toHaveBeenCalledOnce());
+			const onConnected = vi.fn();
+			component.open(createVMCP({ id: 'vmcp1newflow' }), undefined, { onConnected });
+			release();
+			await expect.element(introSetupText()).toBeVisible();
+			// Allow the previous dialog's close event and aborted fetch continuation to settle.
+			await new Promise((resolve) => setTimeout(resolve, 250));
+			expect(onConnected).not.toHaveBeenCalled();
+			await component.authenticate();
+			expect(onConnected).toHaveBeenCalledOnce();
+		} finally {
+			release();
+		}
+	});
+
+	it('returns to connection instructions after editing then reauthenticating all', async () => {
+		const vmcp = configurableVMcp();
+		const extra = createVMCP({}, [
+			createMCPCatalogEntry({ id: 'entry-extra', name: 'Extra', runtime: 'remote' })
+		]);
+		vmcp.components!.push(...extra.components!);
+		const existing = createdInstance(vmcp, { configured: true });
+		worker.use(
+			http.get(`/api/vmcps/${vmcp.id}`, () => HttpResponse.json(vmcp)),
+			http.delete(`/api/vmcps/${vmcp.id}/oauth`, () => HttpResponse.json({})),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-status`, () =>
+				HttpResponse.json({ authenticatedComponents: [] })
+			),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+				HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' })
+			)
+		);
+		const { component } = await renderDialog(vmcp);
+		await component.openEditConfiguration(vmcp, existing);
+		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+		await expect.element(page.getByCSS('input[name="API token"]')).not.toBeInTheDocument();
+		component.openReauthenticate(
+			vmcp,
+			vmcp.components!.map((component) => component.id!),
+			existing
+		);
+		await page.getByRole('button', { name: 'Reauthenticate All' }).click();
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+		await page.getByRole('button', { name: 'Close dialog' }).click();
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+	});
+
 	it('hides reauthentication when no component is authenticated', async () => {
 		const vmcp = createVMCP({ id: 'vmcp1reauthnone', displayName: 'Remote vMCP' }, [
 			createMCPCatalogEntry({ id: 'entry-remote', name: 'Remote', runtime: 'remote' })

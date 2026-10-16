@@ -14,12 +14,13 @@
 		type OpenSelectInstance,
 		type OpenUpdateConfirm
 	} from '$lib/runes/vmcps/vmcpItem.svelte';
-	import type { VMCP } from '$lib/services';
+	import { UserService, type VMCP } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import {
 		CircleFadingArrowUp,
 		ExternalLink,
 		GitCompare,
+		KeyRound,
 		Power,
 		ServerCog,
 		Trash2
@@ -29,6 +30,8 @@
 
 	interface Props {
 		vmcp: VMCP;
+		menuOpen?: boolean;
+		openReauthenticate?: (vmcp: VMCP, componentIDs: string[]) => void;
 		toggle: (open?: boolean) => void;
 		onDelete?: () => void;
 		onUpdated?: (vmcp: VMCP) => void;
@@ -40,6 +43,8 @@
 
 	let {
 		vmcp,
+		menuOpen = false,
+		openReauthenticate,
 		toggle,
 		onDelete,
 		onUpdated,
@@ -61,6 +66,33 @@
 	let canEditInstanceConfiguration = $derived(
 		Boolean(openEditInstanceConfiguration) && ctx.canEditInstanceConfiguration
 	);
+
+	let authenticatedComponents = $state<string[]>([]);
+	let checkingOauth = $state(false);
+
+	$effect(() => {
+		const vmcpID = vmcp.id;
+		authenticatedComponents = [];
+		checkingOauth = false;
+		if (!menuOpen || !openReauthenticate || !ctx.connected) return;
+
+		const controller = new AbortController();
+		checkingOauth = true;
+		void UserService.getVMCPOAuthStatus(vmcpID, {
+			signal: controller.signal,
+			dontLogErrors: true
+		})
+			.then((ids) => {
+				if (!controller.signal.aborted) authenticatedComponents = ids;
+			})
+			.catch(() => {
+				// Leave the other actions available if OAuth status cannot be loaded.
+			})
+			.finally(() => {
+				if (!controller.signal.aborted) checkingOauth = false;
+			});
+		return () => controller.abort();
+	});
 
 	onDestroy(() => {
 		destroyed = true;
@@ -121,6 +153,27 @@
 		{m.vmcps_deployments_edit_configuration()}
 	</button>
 {/if}
+
+{#if openReauthenticate && (checkingOauth || authenticatedComponents.length > 0)}
+	<button
+		class="menu-button"
+		disabled={checkingOauth}
+		onclick={(e) => {
+			e.stopPropagation();
+			if (checkingOauth || authenticatedComponents.length === 0) return;
+			openReauthenticate?.(vmcp, authenticatedComponents);
+			toggle(false);
+		}}
+	>
+		{#if checkingOauth}
+			<Loading class="size-4" />
+		{:else}
+			<KeyRound class="size-4" />
+		{/if}
+		{m.vmcps_reauthenticate()}
+	</button>
+{/if}
+
 {#if openDiff && ctx.needsUpdate}
 	<button
 		class="menu-button-primary"

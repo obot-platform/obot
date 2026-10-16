@@ -79,11 +79,11 @@
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
-	// Components the user has authenticated with OAuth; only these offer reauthentication.
 	let authenticatedComponents = $state<string[]>([]);
-	// Only the latest request may update the status, so a slow, older response
-	// cannot hide a component the user has since authenticated.
+
 	let statusRequest = 0;
+	let connectionFlow = 0;
+	let oauthStatusController: AbortController | undefined;
 	let reauthenticatingTarget = $state<'all' | string>();
 	let reauthenticateChoices = $state<(VMcpComponentView & { id: string })[]>([]);
 	let reauthenticatableComponents = $derived(
@@ -121,6 +121,8 @@
 		targetInstance?: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
+		connectionFlow += 1;
+		oauthStatusController?.abort();
 		vmcp = target;
 		instance = targetInstance;
 		onConnected = options?.onConnected;
@@ -142,14 +144,26 @@
 	}
 
 	async function refreshOAuthStatus(vmcpID: string) {
+		oauthStatusController?.abort();
+		const controller = new AbortController();
+		oauthStatusController = controller;
 		const request = ++statusRequest;
 		try {
-			const ids = await UserService.getVMCPOAuthStatus(vmcpID, { dontLogErrors: true });
-			if (request === statusRequest && vmcpID === vmcp?.id) {
+			const ids = await UserService.getVMCPOAuthStatus(vmcpID, {
+				dontLogErrors: true,
+				signal: controller.signal
+			});
+			if (!controller.signal.aborted && request === statusRequest && vmcpID === vmcp?.id) {
 				authenticatedComponents = ids;
 			}
 		} catch (err) {
-			if (isAbortError(err) || request !== statusRequest || vmcpID !== vmcp?.id) return;
+			if (
+				controller.signal.aborted ||
+				isAbortError(err) ||
+				request !== statusRequest ||
+				vmcpID !== vmcp?.id
+			)
+				return;
 			authenticatedComponents = [];
 		}
 	}
@@ -461,7 +475,12 @@
 		oauthDialog?.close();
 		oauthURL = '';
 		const vmcpID = vmcp?.id;
-		if (vmcpID) await refreshOAuthStatus(vmcpID);
+		if (vmcpID) {
+			const refresh = refreshOAuthStatus(vmcpID);
+			const request = statusRequest;
+			await refresh;
+			if (request !== statusRequest || oauthStatusController?.signal.aborted) return;
+		}
 		finishLaunch();
 	}
 
@@ -474,9 +493,12 @@
 
 	export async function authenticate(opts?: { beforeOauthPrompt?: () => void }) {
 		if (!vmcp) return;
+		const flow = connectionFlow;
 		ensureOauthVisibilityListener();
 		oauthVerifying = false;
-		oauthURL = await getOauthURL();
+		const url = await getOauthURL();
+		if (flow !== connectionFlow) return;
+		oauthURL = url;
 		opts?.beforeOauthPrompt?.();
 		if (oauthURL) {
 			connectDialog?.close();
@@ -498,20 +520,22 @@
 		}
 	) {
 		resetDialogState(target, targetInstance, options);
+		const flow = connectionFlow;
 		skipConnectDialog = !options?.returnToConnectDialog;
-		// Keep the instructions open until OAuth needs to replace them. Closing
-		// now can finish its animation after an immediate return from authenticate().
+
 		if (skipConnectDialog) connectDialog?.close();
 		try {
 			await UserService.clearVMCPComponentOAuth(target.id, componentID);
 		} catch (err) {
+			if (flow !== connectionFlow) return;
 			dismissConnect();
 			throw err;
 		}
+		if (flow !== connectionFlow) return;
 		try {
 			await authenticate({ beforeOauthPrompt: options?.beforeOauthPrompt });
 		} finally {
-			await refreshOAuthStatus(target.id);
+			if (flow === connectionFlow) await refreshOAuthStatus(target.id);
 		}
 	}
 
@@ -523,12 +547,14 @@
 
 	async function reauthenticate(beforeOauthPrompt?: () => void) {
 		if (!vmcp) return;
+		const flow = connectionFlow;
 		const vmcpID = vmcp.id;
 		try {
 			await UserService.clearMcpServerOAuth(vmcpID);
+			if (flow !== connectionFlow) return;
 			await authenticate({ beforeOauthPrompt });
 		} finally {
-			await refreshOAuthStatus(vmcpID);
+			if (flow === connectionFlow) await refreshOAuthStatus(vmcpID);
 		}
 	}
 
@@ -536,6 +562,18 @@
 		reauthenticateChoices = [...reauthenticatableComponents];
 		connectDialog?.close();
 		reauthenticateDialog?.open();
+	}
+
+	export function openReauthenticate(
+		target: VMCP,
+		componentIDs: string[],
+		targetInstance?: VMCPInstance,
+		options?: VMcpConnectOptions
+	) {
+		resetDialogState(target, targetInstance, options);
+		skipConnectDialog = Boolean(options?.onConnected);
+		authenticatedComponents = componentIDs;
+		if (reauthenticatableComponents.length > 0) handleReauthenticate();
 	}
 
 	function handleReauthenticate() {
@@ -613,6 +651,7 @@
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
+			oauthStatusController?.abort();
 			document.removeEventListener('visibilitychange', handleOauthTabReturn);
 		};
 	});

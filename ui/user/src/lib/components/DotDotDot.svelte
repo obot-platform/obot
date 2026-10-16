@@ -9,7 +9,7 @@
 
 	interface Props {
 		id?: string;
-		children: Snippet<[{ toggle: (newOpenValue?: boolean) => void }]>;
+		children: Snippet<[{ toggle: (newOpenValue?: boolean) => void; open: boolean }]>;
 		class?: string;
 		classes?: {
 			menu?: string;
@@ -36,11 +36,12 @@
 		ariaLabel = m.core_row_actions()
 	}: Props = $props();
 
-	const { tooltip, ref, toggle } = popover({
+	const menu = popover({
 		get placement() {
 			return placement;
 		}
 	});
+	const { tooltip, ref, toggle } = menu;
 </script>
 
 <button
@@ -76,6 +77,6 @@
 	class={twMerge(responsive.isMobile ? 'bottom-0 left-0 w-full' : '', classes?.popover)}
 >
 	<div class={twMerge('dropdown-menu flex min-w-max flex-col p-2 gap-1', classes?.menu)}>
-		{@render children({ toggle })}
+		{@render children({ toggle, open: menu.open })}
 	</div>
 </div>

@@ -58,23 +58,23 @@ describe('VMcpListSettings.svelte', () => {
 		await expect.element(page.getByRole('combobox', { name: 'Filter By Creator' })).toBeVisible();
 	});
 
-	it('writes sortBy and direction when a sort option is selected', async () => {
+	it.each([
+		{ label: 'Sort By', option: 'Created', property: 'sortBy', value: 'created' },
+		{ label: 'Sort Direction', option: 'Descending', property: 'sortDirection', value: 'desc' }
+	])('writes $property when $option is selected', async ({ label, option, property, value }) => {
 		const onChange = vi.fn();
 		await preparePageData({
 			profile: createMockProfile([Group.USER])
 		});
-		render(VMcpListSettings, {
+		await render(VMcpListSettings, {
 			filters: defaultFilters,
 			onChange
 		});
 		await openFilters();
-		await page.getByRole('combobox', { name: 'Sort By' }).click();
-		await page.getByRole('button', { name: 'Created', exact: true }).click();
-		await page.getByRole('combobox', { name: 'Sort Direction' }).click();
-		await page.getByRole('button', { name: 'Descending', exact: true }).click();
+		await page.getByRole('combobox', { name: label }).click();
+		await page.getByRole('button', { name: option, exact: true }).click();
 
-		expect(onChange).toHaveBeenCalledWith('sortBy', ['created']);
-		expect(onChange).toHaveBeenCalledWith('sortDirection', ['desc']);
+		expect(onChange).toHaveBeenCalledWith(property, [value]);
 	});
 
 	it('shows an active filter pill when show my vMCPs only is enabled', async () => {
