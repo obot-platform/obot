@@ -2,11 +2,14 @@ package claudecredentials
 
 import (
 	"io"
+	"log/slog"
 	"time"
+	"uuid"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	als "github.com/envoyproxy/go-control-plane/envoy/service/accesslog/v3"
 )
@@ -28,6 +31,37 @@ func (p *AccessLogger) StreamAccessLogs(stream als.AccessLogService_StreamAccess
 		}
 		if err != nil {
 			return err
+		}
+		for _, event := range batch.GetTcpLogs().GetLogEntry() {
+			common := event.GetCommonProperties()
+			host := common.GetTlsProperties().GetTlsSniHostname()
+			if !common.GetResponseFlags().GetNoRouteFound() || host == "" {
+				continue
+			}
+
+			identity := &wrapperspb.StringValue{}
+			value := common.GetFilterStateObjects()["dev.ate.actor.identity"]
+			if value == nil || value.UnmarshalTo(identity) != nil {
+				continue
+			}
+
+			// TLS was rejected before HTTP existed: do not invent a method, path, or status.
+			entry := types.EgressAuditLog{
+				ID:         uuid.New().String(),
+				CreatedAt:  common.GetStartTime().AsTime(),
+				Scheme:     "tls",
+				Host:       host,
+				DurationMs: common.GetDuration().AsDuration().Milliseconds(),
+				Outcome:    "denied",
+				Finalized:  true,
+			}
+			processor := AuditProcessor{Provider: p.Provider}
+			if err := processor.attribute(stream.Context(), identity.Value, &entry); err != nil {
+				// One unattributable denial, such as a deleted session, must not drop the rest of the batch.
+				slog.WarnContext(stream.Context(), "Cannot attribute Claude egress TLS denial", "host", host, "error", err)
+				continue
+			}
+			p.Provider.Gateway.LogEgressAuditEntry(entry)
 		}
 		for _, event := range batch.GetHttpLogs().GetLogEntry() {
 			meta := event.GetCommonProperties().GetMetadata().GetFilterMetadata()["obot.audit"]

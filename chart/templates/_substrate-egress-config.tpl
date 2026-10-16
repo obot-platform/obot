@@ -215,6 +215,24 @@ data:
       - name: inner_listener
         stat_prefix: inner
         internal_listener: {}
+        {{- if $enabled }}
+        # SNI denials have no HTTP filter chain, so capture them at the listener.
+        access_log:
+        - name: envoy.access_loggers.tcp_grpc
+          filter:
+            response_flag_filter:
+              flags: ["NR"]
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.access_loggers.grpc.v3.TcpGrpcAccessLogConfig
+            common_config:
+              log_name: obot_egress_denied
+              transport_api_version: V3
+              grpc_service:
+                envoy_grpc:
+                  cluster_name: obot_audit
+              filter_state_objects_to_log:
+              - dev.ate.actor.identity
+        {{- end }}
         # An inspector timeout must not fall through to an unchecked TCP route.
         listener_filters_timeout: 1s
         continue_on_listener_filters_timeout: true

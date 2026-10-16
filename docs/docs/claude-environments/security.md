@@ -53,6 +53,8 @@ Open **Audit Logs → Claude Environments** as an administrator. Filter by user,
 
 HTTP and HTTPS passing through the egress gateway are audited. HTTPS interception uses Substrate's certificate infrastructure and still verifies upstream certificates. Certificate-pinned clients or clients that ignore the provided trust configuration can fail.
 
+HTTPS hostname denials during the TLS handshake are also recorded with outcome **denied** and scheme `tls`. These records include the requested hostname and session identity, but no HTTP method, path, response status, or payload because the connection was rejected before an HTTP request could be read.
+
 Obot buffers streamed captures and persists them in batches after streams close. Graceful shutdown stops handlers and flushes partial captures. Retention is separate from session retention: `config.OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS` defaults to **90 days**, and **0 disables audit cleanup**. Age is measured from the record's last update.
 
 Capture is best effort:
