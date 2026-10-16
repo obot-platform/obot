@@ -292,10 +292,10 @@
 		const idRef = {
 			[CommonAuthProviderIds.GOOGLE]: 'google',
 			[CommonAuthProviderIds.GITHUB]: 'github',
-			[CommonAuthProviderIds.OKTA]: 'okta-enterprise-only',
-			[CommonAuthProviderIds.ENTRA]: 'entra-enterprise-only',
-			[CommonAuthProviderIds.AUTH0]: 'auth0-enterprise-only',
-			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud-enterprise-only'
+			[CommonAuthProviderIds.OKTA]: 'okta',
+			[CommonAuthProviderIds.ENTRA]: 'entra',
+			[CommonAuthProviderIds.AUTH0]: 'auth0',
+			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud'
 		};
 		return idRef[authProviderId as keyof typeof idRef]
 			? `https://docs.obot.ai/configuration/auth-providers/#${idRef[authProviderId as keyof typeof idRef]}`
