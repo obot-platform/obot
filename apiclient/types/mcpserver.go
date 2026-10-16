@@ -569,6 +569,8 @@ type MCPServerOAuthCredentialStatus struct {
 	Configured bool `json:"configured"`
 	// ClientID is the configured client ID (never includes secret)
 	ClientID string `json:"clientID,omitempty"`
+	// Source identifies the effective credentials for a vMCP component.
+	Source string `json:"source,omitempty"`
 }
 
 // IsSingleUser returns true if the type represents a single-user server.

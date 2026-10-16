@@ -211,6 +211,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
 
+	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/components/{component_id}/oauth-credentials", vmcps.GetOAuthCredentials)
+	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/oauth-credentials", vmcps.SetOAuthCredentials)
+	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}/components/{component_id}/oauth-credentials", vmcps.DeleteOAuthCredentials)
+
 	// Virtual MCP instances
 	mux.HandleFunc("GET /api/vmcp-instances", vmcpInstances.List)
 	mux.HandleFunc("POST /api/vmcp-instances", vmcpInstances.Create)

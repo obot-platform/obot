@@ -67,20 +67,20 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 			status.ConfigurationCheckHash = checkHash
 		}
 		status.Ready, status.Error = true, status.ConfigurationError
-		if ref := vmcpconfig.ComponentOAuthCredentialReference(component); status.Error == "" && ref != "" {
-			checkHash, err := vmcpconfig.OAuthCredentialCheckHash(req, vmcp.Namespace, ref, component.MCPServerCatalogEntryID)
+		if contexts := vmcpconfig.ComponentOAuthCredentialContexts(vmcp.Name, component); status.Error == "" && len(contexts) > 0 {
+			checkHash, err := vmcpconfig.ComponentOAuthCredentialCheckHash(req, *vmcp, component)
 			if err != nil {
 				return err
 			}
 			if status.OAuthCredentialCheckHash != checkHash {
-				_, err := h.credentials.RevealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
+				_, err := h.credentials.RevealCredential(req.Ctx, contexts, system.StaticOAuthCredentialName)
 				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 					return err
 				}
 				status.OAuthCredentialConfigured = err == nil
 				status.OAuthCredentialCheckHash = checkHash
 			}
-			if !status.OAuthCredentialConfigured {
+			if component.CatalogEntry.Manifest.RemoteConfig != nil && component.CatalogEntry.Manifest.RemoteConfig.StaticOAuthRequired && !status.OAuthCredentialConfigured {
 				status.Error = "static OAuth credentials are not configured"
 			}
 		}

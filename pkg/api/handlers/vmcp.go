@@ -414,7 +414,7 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 			if err := authz.CheckVMCPComponentAccess(req.Context(), req.User, ownerID, &entry, h.acrHelper, req.GatewayClient.UserInfoByID); err != nil {
 				return err
 			}
-			if previous == nil && rejectUnconfiguredOAuth && entryRequiresStaticOAuthCreds(entry) {
+			if previous == nil && rejectUnconfiguredOAuth && !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
 				name := entry.Spec.Manifest.Name
 				if name == "" {
 					name = entry.Name

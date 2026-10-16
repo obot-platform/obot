@@ -54,11 +54,9 @@ type mcpOAuthHandler struct {
 	oauthAuthRequestID string
 	urlChan            chan string
 
-	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
-	catalogEntryName  string
-	credentialContext string
-	redirectURL       string
-	localLogin        bool
+	redirectURL        string
+	localLogin         bool
+	credentialContexts []string
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -192,20 +190,20 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, mcpServerConfig.TunnelName, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
 	oauthHandler.localLogin = mcpServerConfig.LocalhostCallbackEnabled
 	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
-		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
+		credentialContexts, err := vmcpconfig.ServerOAuthCredentialContexts(req.Context(), f.client, mcpServer)
 		if err != nil {
 			return "", fmt.Errorf("resolve VMCP OAuth credential: %w", err)
 		}
-		oauthHandler.credentialContext = credentialContext
+		oauthHandler.credentialContexts = credentialContexts
 	}
-	if remote := mcpServer.Spec.Manifest.RemoteConfig; remote != nil && remote.StaticOAuthRequired {
-		if _, _, err := oauthHandler.Lookup(req.Context()); err != nil {
-			if errors.Is(err, errStaticOAuthCredentialsNotConfigured) {
-				return "", types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration", mcpServer.Name)
-			}
-			return "", fmt.Errorf("check static OAuth credentials for MCP server %s: %w", mcpServer.Name, err)
-		}
+	_, _, lookupErr := oauthHandler.Lookup(req.Context())
+	if lookupErr != nil && !errors.Is(lookupErr, errStaticOAuthCredentialsNotConfigured) {
+		return "", fmt.Errorf("check static OAuth credentials for MCP server %s: %w", mcpServer.Name, lookupErr)
 	}
+	if remote := mcpServer.Spec.Manifest.RemoteConfig; remote != nil && remote.StaticOAuthRequired && lookupErr != nil {
+		return "", types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration", mcpServer.Name)
+	}
+	mcpServer.Status.OAuthCredentialConfigured = lookupErr == nil
 	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
 	if err != nil {
 		return "", err
@@ -412,6 +410,11 @@ func staticOAuthMetadata(metadata mcp.OAuthMetadata, redirectURL string) (mcp.Au
 }
 
 func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, tunnelName, oauthAuthRequestID, catalogEntryName string) *mcpOAuthHandler {
+	var credentialContexts []string
+	if catalogEntryName != "" {
+		credentialContexts = []string{system.MCPOAuthCredentialName(catalogEntryName)}
+	}
+
 	return &mcpOAuthHandler{
 		gatewayClient:      gatewayClient,
 		stateMgr:           f.stateMgr,
@@ -420,7 +423,7 @@ func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client
 		mcpURL:             mcpURL,
 		tunnelName:         tunnelName,
 		oauthAuthRequestID: oauthAuthRequestID,
-		catalogEntryName:   catalogEntryName,
+		credentialContexts: credentialContexts,
 		urlChan:            make(chan string, 1),
 	}
 }
@@ -456,13 +459,8 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
-	// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
-	credentialContext := m.credentialContext
-	if credentialContext == "" && m.catalogEntryName != "" {
-		credentialContext = system.MCPOAuthCredentialName(m.catalogEntryName)
-	}
-	if credentialContext != "" {
-		cred, err := m.gatewayClient.RevealCredential(ctx, []string{credentialContext}, system.StaticOAuthCredentialName)
+	if len(m.credentialContexts) > 0 {
+		cred, err := m.gatewayClient.RevealCredential(ctx, m.credentialContexts, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
 			return "", "", fmt.Errorf("failed to retrieve static OAuth credentials for MCP server %q: %w", m.mcpID, err)
 		}

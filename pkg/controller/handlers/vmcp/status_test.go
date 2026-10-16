@@ -62,11 +62,16 @@ func TestSyncReadiness(t *testing.T) {
 	values := map[string]string{}
 	oauthConfigured := false
 	reveals := 0
+	oauthReveals := 0
 	handler := &Handler{credentials: fakeCredentials{
 		reveal: func(_ context.Context, _ []string, name string) (gatewaytypes.Credential, error) {
-			reveals++
-			if name == system.StaticOAuthCredentialName && !oauthConfigured {
-				return gatewaytypes.Credential{}, gateway.CredentialNotFoundError{}
+			if name == system.StaticOAuthCredentialName {
+				oauthReveals++
+				if !oauthConfigured {
+					return gatewaytypes.Credential{}, gateway.CredentialNotFoundError{}
+				}
+			} else {
+				reveals++
 			}
 			return gatewaytypes.Credential{Secrets: values}, nil
 		},
@@ -131,14 +136,15 @@ func TestSyncReadiness(t *testing.T) {
 	}
 	check(true, "") // Each user's missing input is instance-scoped.
 	vmcp.Spec.Manifest.Components[0].OAuthCredentialID = "oauth-ref"
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.StaticOAuthRequired = true
 	vmcp.Spec.Manifest.Components[0].MCPServerCatalogEntryID = "deleted-entry"
 	if err := client.Update(t.Context(), vmcp); err != nil {
 		t.Fatal(err)
 	}
 	check(false, "static OAuth credentials")
-	previousReveals := reveals
+	previousReveals, previousOAuthReveals := reveals, oauthReveals
 	check(false, "static OAuth credentials")
-	if reveals != previousReveals {
+	if reveals != previousReveals || oauthReveals != previousOAuthReveals {
 		t.Fatal("unchanged missing OAuth credential was revealed again")
 	}
 	oauthConfigured = true

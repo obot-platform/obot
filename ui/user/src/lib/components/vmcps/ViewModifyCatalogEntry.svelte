@@ -111,7 +111,7 @@
 	}
 
 	let needsConfiguration = $derived(
-		Boolean(catalogEntry && mcpServerNeedsStaticOAuthConfiguration(catalogEntry))
+		Boolean(!isAdmin && catalogEntry && mcpServerNeedsStaticOAuthConfiguration(catalogEntry))
 	);
 	let showAddToVMcp = $derived(
 		Boolean(onAddToVMcp && catalogEntry && !creating && responsive.isMobile)

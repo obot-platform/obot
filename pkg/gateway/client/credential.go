@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -27,8 +28,9 @@ var (
 )
 
 type ListCredentialsOptions struct {
-	CredentialContexts []string
-	AllContexts        bool
+	CredentialContexts      []string
+	CredentialContextPrefix string
+	AllContexts             bool
 }
 
 type CredentialNotFoundError struct {
@@ -41,13 +43,18 @@ type CredentialNotFoundError struct {
 // The secrets in the returned credentials are blanked out for security; use RevealCredential to get the secrets for a specific credential.
 func (c *Client) ListCredentials(ctx context.Context, opts ListCredentialsOptions) ([]types.Credential, error) {
 	var credentials []types.Credential
-	if len(opts.CredentialContexts) == 0 && !opts.AllContexts {
+	if len(opts.CredentialContexts) == 0 && opts.CredentialContextPrefix == "" && !opts.AllContexts {
 		return credentials, nil
 	}
 
 	db := c.db.WithContext(ctx)
 	if !opts.AllContexts {
-		db = db.Where("context IN ?", opts.CredentialContexts)
+		if opts.CredentialContextPrefix != "" {
+			prefix := strings.NewReplacer("!", "!!", "%", "!%", "_", "!_").Replace(opts.CredentialContextPrefix)
+			db = db.Where("context LIKE ? ESCAPE '!'", prefix+"%")
+		} else {
+			db = db.Where("context IN ?", opts.CredentialContexts)
+		}
 	}
 
 	if err := db.Find(&credentials).Error; err != nil {
@@ -171,6 +178,46 @@ func (c *Client) DeleteCredential(ctx context.Context, context, name string) (bo
 		return false, fmt.Errorf("failed to delete credential: %w", result.Error)
 	}
 	return result.RowsAffected > 0, nil
+}
+
+// DeleteCredentialAndMCPOAuthTokens invalidates authorization only when a credential
+// is actually removed. Pending callbacks and tokens are deleted in the same
+// transaction, so a failure to publish a resource revision cannot retain old tokens.
+func (c *Client) DeleteCredentialAndMCPOAuthTokens(ctx context.Context, credentialContext, name string, mcpIDs []string) (bool, error) {
+	deleted := false
+
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Where("context = ? AND name = ?", credentialContext, name).Delete(&types.Credential{})
+		if result.Error != nil {
+			return result.Error
+		}
+
+		deleted = result.RowsAffected > 0
+		if !deleted || len(mcpIDs) == 0 {
+			return nil
+		}
+
+		// Match callback completion's lock order: consume pending state before tokens.
+		if err := tx.Delete(&types.MCPOAuthPendingState{}, "mcp_id IN ?", mcpIDs).Error; err != nil {
+			return err
+		}
+
+		return tx.Delete(&types.MCPOAuthToken{}, "mcp_id IN ?", mcpIDs).Error
+	}); err != nil {
+		return false, err
+	}
+
+	if deleted {
+		var errs []error
+
+		for _, id := range mcpIDs {
+			errs = append(errs, c.triggerMCPOAuthTokenChange(ctx, id))
+		}
+
+		return true, errors.Join(errs...)
+	}
+
+	return false, nil
 }
 
 func (c *Client) encryptCredential(ctx context.Context, credential *types.Credential) error {

@@ -395,6 +395,9 @@
 <VMcpComponentConfigurationDialog
 	bind:this={configurationDialog}
 	{readonly}
+	vmcpID={flow.modifyingVMcp?.id}
+	component={flow.configuringComponent}
+	gitManaged={Boolean(flow.modifyingVMcp?.sourceURL)}
 	onNext={flow.saveConfiguration}
 	onClose={() => handleDialogClose('configure')}
 />

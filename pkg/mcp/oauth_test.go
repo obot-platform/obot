@@ -54,6 +54,8 @@ func TestRequiresStaticOAuth(t *testing.T) {
 	server.Status.UserHasAuthenticated = false
 	server.Spec.Manifest.RemoteConfig.StaticOAuthRequired = false
 	require.False(t, RequiresStaticOAuth(server))
+	server.Status.OAuthCredentialConfigured = true
+	require.True(t, RequiresStaticOAuth(server), "optional configured clients still require authorization")
 }
 
 func TestServerConfigHeadersCanonicalizesNames(t *testing.T) {

@@ -721,9 +721,14 @@ export function createVMcpToolFlow() {
 			return excludedComponentIds;
 		},
 		get canSeeComponentConfiguration() {
-			if (!configuringEntry || !hasVMcpComponentConfiguration(configuringEntry)) return false;
+			if (!configuringEntry) return false;
 			const vmcp = modifyingVMcp;
 			if (!vmcp) return false;
+			const canConfigureOAuth =
+				profile.current.isAdmin?.() &&
+				!vmcp.sourceURL &&
+				configuringEntry.manifest.runtime === 'remote';
+			if (!hasVMcpComponentConfiguration(configuringEntry) && !canConfigureOAuth) return false;
 			return Boolean(profile.current.isAdmin?.() || profile.current.id === vmcp.userID);
 		},
 		get postCreateConfiguration() {

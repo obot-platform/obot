@@ -39,6 +39,7 @@ func TestStaticOAuthLookupUsesCurrentReferencedCredential(t *testing.T) {
 	require.NoError(t, db.AutoMigrate())
 	gw := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, gw.Close()) })
+	factory := NewMCPOAuthHandlerFactory("", nil, nil, gw, nil, "", false)
 	ref := system.MCPOAuthCredentialName("source")
 	for _, secret := range []string{"first-secret", "rotated-secret"} {
 		require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{
@@ -48,13 +49,10 @@ func TestStaticOAuthLookupUsesCurrentReferencedCredential(t *testing.T) {
 		}))
 		for _, handler := range []mcpOAuthHandler{
 			{
-				gatewayClient:     gw,
-				credentialContext: ref,
+				gatewayClient:      gw,
+				credentialContexts: []string{ref},
 			},
-			{
-				gatewayClient:    gw,
-				catalogEntryName: "source",
-			},
+			*factory.newMCPOAuthHandler(gw, "user", "mcp", "", "", "", "source"),
 		} {
 			id, got, err := handler.Lookup(t.Context())
 			require.NoError(t, err)
@@ -195,13 +193,13 @@ func TestStaticOAuthPendingUsesStoredAuthentication(t *testing.T) {
 	require.False(t, pending)
 }
 
-func TestNewMCPOAuthHandlerCarriesCatalogEntry(t *testing.T) {
+func TestNewMCPOAuthHandlerCarriesCatalogCredentialContexts(t *testing.T) {
 	factory := &MCPOAuthHandlerFactory{}
 
 	// Tool preview servers are never written to storage, so the catalog entry name is the
 	// only thing tying them back to the credentials the admin configured.
 	handler := factory.newMCPOAuthHandler(nil, "user", "tool-preview-63cb5f4336ed0dcf", "https://example.com/mcp", "", "", "slack-entry")
-	require.Equal(t, "slack-entry", handler.catalogEntryName)
+	require.Equal(t, []string{system.MCPOAuthCredentialName("slack-entry")}, handler.credentialContexts)
 }
 
 func TestStaticOAuthMetadataDefaultsMissingClientRegistration(t *testing.T) {

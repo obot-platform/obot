@@ -1291,7 +1291,7 @@ func vmcpCatalogEntryForTest(id string) *v1.MCPServerCatalogEntry {
 	}
 }
 
-func TestLoadComponentSnapshotsRejectsNewServerWithoutStaticOAuth(t *testing.T) {
+func TestLoadComponentSnapshotsStaticOAuthAdmission(t *testing.T) {
 	entry := vmcpCatalogEntryForTest("entry")
 	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp", StaticOAuthRequired: true}
 	for _, tt := range []struct {
@@ -1300,10 +1300,16 @@ func TestLoadComponentSnapshotsRejectsNewServerWithoutStaticOAuth(t *testing.T) 
 		existing           bool
 		rejectUnconfigured bool
 		wantError          bool
+		nonAdmin           bool
 	}{
 		{
-			name:               "new server missing OAuth",
+			name:               "admin may add a server before configuring OAuth",
 			rejectUnconfigured: true,
+		},
+		{
+			name:               "non-admin admission still requires configured OAuth",
+			rejectUnconfigured: true,
+			nonAdmin:           true,
 			wantError:          true,
 		},
 		{
@@ -1331,10 +1337,14 @@ func TestLoadComponentSnapshotsRejectsNewServerWithoutStaticOAuth(t *testing.T) 
 			if tt.existing {
 				existing = []types.VMCPComponent{{ID: "component", MCPServerCatalogEntryID: entry.Name}}
 			}
+			groups := []string{types.GroupAdmin}
+			if tt.nonAdmin {
+				groups = []string{types.GroupAPI}
+			}
 			err := vmcpHandlerForTest(t, storage).loadComponentSnapshots(api.Context{
 				Request: httptest.NewRequest(http.MethodPost, "/api/vmcps", nil),
 				Storage: storage,
-				User:    &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}},
+				User:    &user.DefaultInfo{UID: "user-1", Groups: groups},
 			}, &manifest, "", existing, tt.rejectUnconfigured)
 			if tt.wantError {
 				require.ErrorContains(t, err, `MCP server "Stored entry" requires administrator OAuth configuration before it can be added to a vMCP`)
@@ -1345,7 +1355,7 @@ func TestLoadComponentSnapshotsRejectsNewServerWithoutStaticOAuth(t *testing.T) 
 	}
 }
 
-func TestVMCPCreateRejectsUnconfiguredStaticOAuthServer(t *testing.T) {
+func TestVMCPCreateAllowsAdminToConfigureComponentOAuthLater(t *testing.T) {
 	entry := vmcpCatalogEntryForTest("entry")
 	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp", StaticOAuthRequired: true}
 	storage := newVMCPTestStorage(entry)
@@ -1357,12 +1367,13 @@ func TestVMCPCreateRejectsUnconfiguredStaticOAuthServer(t *testing.T) {
 		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
 		ResponseWriter: httptest.NewRecorder(),
 		Storage:        storage,
+		GatewayClient:  newHandlerTestGateway(t),
 		User:           &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}},
 	})
-	require.ErrorContains(t, err, "requires administrator OAuth configuration")
+	require.NoError(t, err)
 	var vmcps v1.VMCPList
 	require.NoError(t, storage.List(t.Context(), &vmcps))
-	require.Empty(t, vmcps.Items)
+	require.Len(t, vmcps.Items, 1)
 }
 
 func vmcpHandlerForTest(t *testing.T, storage kclient.Client) *VMCPHandler {
