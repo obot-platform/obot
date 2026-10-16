@@ -14,5 +14,6 @@ export const mcpServerActionHandlers = [
 	http.post('/api/mcp-servers/:id/launch', () => HttpResponse.json({})),
 	http.get('/api/mcp-servers/:id/oauth-url', () => HttpResponse.json({ oauthURL: '' })),
 	http.post('/api/vmcps/:id/launch', () => HttpResponse.json({})),
-	http.get('/api/vmcps/:id/oauth-url', () => HttpResponse.json({ oauthURL: '' }))
+	http.get('/api/vmcps/:id/oauth-url', () => HttpResponse.json({ oauthURL: '' })),
+	http.get('/api/vmcps/:id/oauth-status', () => HttpResponse.json({ authenticatedComponents: [] }))
 ];

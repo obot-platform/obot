@@ -12,9 +12,10 @@
 	import McpLocalAuth from '$lib/components/mcp/McpLocalAuth.svelte';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import { isMcpLoginURL } from '$lib/services/user/mcp';
-	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { vmcpLocalhostCallbackPaths } from '$lib/services/vmcps/utils';
 	import {
 		configureOAuthPath,
@@ -37,6 +38,7 @@
 	let vmcp = $state<VMCP>();
 	let instance = $state<VMCPInstance>();
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let reauthenticateDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configureDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let howToConnect = $state<ReturnType<typeof HowToConnect>>();
 	let connectionUrlField = $state<ReturnType<typeof CopyField>>();
@@ -77,22 +79,23 @@
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
+	// Components the user has authenticated with OAuth; only these offer reauthentication.
+	let authenticatedComponents = $state<string[]>([]);
+	// Only the latest request may update the status, so a slow, older response
+	// cannot hide a component the user has since authenticated.
+	let statusRequest = 0;
+	let reauthenticatingTarget = $state<'all' | string>();
+	let reauthenticateChoices = $state<(VMcpComponentView & { id: string })[]>([]);
+	let reauthenticatableComponents = $derived(
+		componentViews.filter((component): component is VMcpComponentView & { id: string } =>
+			Boolean(component.id && authenticatedComponents.includes(component.id))
+		)
+	);
 	let missingOAuthComponent = $derived(vmcp ? vmcpMissingStaticOAuthComponent(vmcp) : undefined);
 	let hasUserConfiguration = $derived(
 		vmcp?.components?.some((component) =>
 			component.configuration?.find((field) => field.policy === 'userAllowed')
 		)
-	);
-	let isReauthenticatable = $derived(
-		Boolean(instance) &&
-			!hasUserConfiguration &&
-			Boolean(
-				vmcp?.components?.some(
-					(component) =>
-						component.catalogEntry?.manifest?.runtime === 'remote' ||
-						Boolean(component.oauthCredentialID)
-				)
-			)
 	);
 	let hasConfiguredInstance = $derived.by(() => {
 		if (!vmcp) return false;
@@ -134,6 +137,21 @@
 		ignoreNextConfigureClose = false;
 		connectionUrlField?.clear?.();
 		howToConnect?.resetCopied?.();
+		statusRequest += 1;
+		authenticatedComponents = [];
+	}
+
+	async function refreshOAuthStatus(vmcpID: string) {
+		const request = ++statusRequest;
+		try {
+			const ids = await UserService.getVMCPOAuthStatus(vmcpID, { dontLogErrors: true });
+			if (request === statusRequest && vmcpID === vmcp?.id) {
+				authenticatedComponents = ids;
+			}
+		} catch (err) {
+			if (isAbortError(err) || request !== statusRequest || vmcpID !== vmcp?.id) return;
+			authenticatedComponents = [];
+		}
 	}
 
 	export function open(target: VMCP, targetInstance?: VMCPInstance, options?: VMcpConnectOptions) {
@@ -144,6 +162,17 @@
 			initLaunch();
 		} else {
 			connectDialog?.open();
+			const candidates = targetInstance ? [targetInstance] : vmcpInstances.current.items;
+			if (
+				candidates.some(
+					(candidate) =>
+						candidate.vmcpID === target.id &&
+						candidate.userID === profile.current.id &&
+						!candidate.deleted
+				)
+			) {
+				void refreshOAuthStatus(target.id);
+			}
 		}
 	}
 
@@ -426,11 +455,13 @@
 		oauthDialog?.open();
 	}
 
-	function finishOauthPrompt() {
+	async function finishOauthPrompt() {
 		if (!oauthPromptOpen) return;
 		oauthPromptOpen = false;
 		oauthDialog?.close();
 		oauthURL = '';
+		const vmcpID = vmcp?.id;
+		if (vmcpID) await refreshOAuthStatus(vmcpID);
 		finishLaunch();
 	}
 
@@ -441,12 +472,14 @@
 		finishOauthPrompt();
 	}
 
-	export async function authenticate() {
+	export async function authenticate(opts?: { beforeOauthPrompt?: () => void }) {
 		if (!vmcp) return;
 		ensureOauthVisibilityListener();
 		oauthVerifying = false;
 		oauthURL = await getOauthURL();
+		opts?.beforeOauthPrompt?.();
 		if (oauthURL) {
+			connectDialog?.close();
 			showOauthPrompt();
 		} else {
 			finishLaunch();
@@ -459,24 +492,87 @@
 		target: VMCP,
 		targetInstance: VMCPInstance | undefined,
 		componentID: string,
-		options?: VMcpConnectOptions
+		options?: VMcpConnectOptions & {
+			returnToConnectDialog?: boolean;
+			beforeOauthPrompt?: () => void;
+		}
 	) {
 		resetDialogState(target, targetInstance, options);
-		skipConnectDialog = true;
-		connectDialog?.close();
+		skipConnectDialog = !options?.returnToConnectDialog;
+		// Keep the instructions open until OAuth needs to replace them. Closing
+		// now can finish its animation after an immediate return from authenticate().
+		if (skipConnectDialog) connectDialog?.close();
 		try {
 			await UserService.clearVMCPComponentOAuth(target.id, componentID);
 		} catch (err) {
 			dismissConnect();
 			throw err;
 		}
-		await authenticate();
+		try {
+			await authenticate({ beforeOauthPrompt: options?.beforeOauthPrompt });
+		} finally {
+			await refreshOAuthStatus(target.id);
+		}
 	}
 
-	async function reauthenticate() {
+	function finishReauthenticateDialogHandoff() {
+		reauthenticateDialog?.close();
+		reauthenticateChoices = [];
+		reauthenticatingTarget = undefined;
+	}
+
+	async function reauthenticate(beforeOauthPrompt?: () => void) {
 		if (!vmcp) return;
-		await UserService.clearMcpServerOAuth(vmcp.id);
-		await authenticate();
+		const vmcpID = vmcp.id;
+		try {
+			await UserService.clearMcpServerOAuth(vmcpID);
+			await authenticate({ beforeOauthPrompt });
+		} finally {
+			await refreshOAuthStatus(vmcpID);
+		}
+	}
+
+	function openReauthenticateDialog() {
+		reauthenticateChoices = [...reauthenticatableComponents];
+		connectDialog?.close();
+		reauthenticateDialog?.open();
+	}
+
+	function handleReauthenticate() {
+		if (reauthenticatableComponents.length > 1) {
+			openReauthenticateDialog();
+		} else {
+			reauthenticateSelected(reauthenticatableComponents[0].id);
+		}
+	}
+
+	function closeReauthenticateDialog() {
+		reauthenticateChoices = [];
+		reauthenticatingTarget = undefined;
+	}
+
+	async function reauthenticateAll() {
+		if (reauthenticatingTarget || !vmcp) return;
+		reauthenticatingTarget = 'all';
+		try {
+			await reauthenticate(finishReauthenticateDialogHandoff);
+		} finally {
+			if (reauthenticatingTarget === 'all') reauthenticatingTarget = undefined;
+		}
+	}
+
+	async function reauthenticateSelected(componentID: string) {
+		if (reauthenticatingTarget || !vmcp) return;
+		reauthenticatingTarget = componentID;
+		try {
+			await reauthenticateComponent(vmcp, instance, componentID, {
+				connectReturn,
+				returnToConnectDialog: true,
+				beforeOauthPrompt: finishReauthenticateDialogHandoff
+			});
+		} finally {
+			if (reauthenticatingTarget === componentID) reauthenticatingTarget = undefined;
+		}
 	}
 
 	async function saveConfiguration() {
@@ -605,12 +701,7 @@
 			{displayName}
 			onLaunch={!instance ? initLaunch : undefined}
 			onEdit={instance && hasUserConfiguration ? initConfigureForm : undefined}
-			onReauthenticate={isReauthenticatable
-				? () => {
-						connectDialog?.close();
-						void reauthenticate();
-					}
-				: undefined}
+			onReauthenticate={reauthenticatableComponents.length > 0 ? handleReauthenticate : undefined}
 		/>
 	{:else if missingOAuthComponent}
 		<div class="flex flex-col items-start gap-3 md:p-0 p-4 text-sm">
@@ -626,6 +717,48 @@
 			>
 		</div>
 	{/if}
+</ResponsiveDialog>
+
+<ResponsiveDialog
+	bind:this={reauthenticateDialog}
+	class="md:w-sm"
+	id="vmcp-reauthenticate-dialog"
+	title={m.vmcps_reauthenticate()}
+	animate="slide"
+	onClose={closeReauthenticateDialog}
+>
+	<div class="flex flex-col gap-2 px-4 md:px-0">
+		<p class="mb-1 text-center text-sm">{m.vmcps_reauthenticate_choose()}</p>
+		{#each reauthenticateChoices as component (component.id)}
+			<button
+				type="button"
+				class="btn btn-secondary w-full justify-center gap-1"
+				disabled={Boolean(reauthenticatingTarget)}
+				aria-label={m.vmcps_reauthenticate_named({ name: component.name })}
+				onclick={() => void reauthenticateSelected(component.id)}
+			>
+				{#if reauthenticatingTarget === component.id}
+					<Loading class="size-4" />
+				{:else}
+					<span class="truncate">{component.name}</span>
+				{/if}
+			</button>
+		{/each}
+		{#if reauthenticateChoices.length > 1}
+			<button
+				type="button"
+				class="btn btn-secondary w-full"
+				disabled={Boolean(reauthenticatingTarget)}
+				onclick={() => void reauthenticateAll()}
+			>
+				{#if reauthenticatingTarget === 'all'}
+					<Loading class="size-4" />
+				{:else}
+					{m.vmcps_reauthenticate_all()}
+				{/if}
+			</button>
+		{/if}
+	</div>
 </ResponsiveDialog>
 
 <CatalogConfigureForm

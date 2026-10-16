@@ -1,5 +1,5 @@
 import { page as appPage } from '$app/state';
-import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
+import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
 import { vmcpInstances } from '$lib/stores';
@@ -105,6 +105,56 @@ describe('ConnectVMcp.svelte', () => {
 			status
 		};
 	}
+
+	it.each(['none', 'deleted', 'other user', 'other vMCP'])(
+		'does not check OAuth status when the only connection is %s',
+		async (connection) => {
+			const vmcp = configurableVMcp();
+			const candidate = createdInstance(vmcp, { configured: true });
+			if (connection === 'deleted') candidate.deleted = '2026-01-02T00:00:00Z';
+			if (connection === 'other user') candidate.userID = 'another-user';
+			if (connection === 'other vMCP') candidate.vmcpID = 'another-vmcp';
+			worker.use(
+				http.get('/api/vmcp-instances', () =>
+					HttpResponse.json({ items: connection === 'none' ? [] : [candidate] })
+				)
+			);
+			const status = vi.spyOn(UserService, 'getVMCPOAuthStatus');
+			try {
+				await renderDialog(vmcp);
+				await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+				expect(status).not.toHaveBeenCalled();
+			} finally {
+				status.mockRestore();
+			}
+		}
+	);
+
+	it.each([
+		{ source: 'argument', configured: true },
+		{ source: 'argument', configured: false },
+		{ source: 'store', configured: true },
+		{ source: 'store', configured: false }
+	])(
+		'checks OAuth status for an existing $source connection (configured: $configured)',
+		async ({ source, configured }) => {
+			const vmcp = configurableVMcp();
+			const existing = createdInstance(vmcp, { configured });
+			const status = vi.fn();
+			worker.use(
+				http.get('/api/vmcp-instances', () =>
+					HttpResponse.json({ items: source === 'store' ? [existing] : [] })
+				),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-status`, () => {
+					status();
+					return HttpResponse.json({ authenticatedComponents: [] });
+				})
+			);
+
+			await renderDialog(vmcp, source === 'argument' ? existing : undefined);
+			await vi.waitFor(() => expect(status).toHaveBeenCalledOnce());
+		}
+	);
 
 	it('opens the inspector only after the instance reports configured', async () => {
 		const vmcp = createVMCP({ id: 'vmcp1delayed', displayName: 'Plain vMCP' });
@@ -611,7 +661,7 @@ describe('ConnectVMcp.svelte', () => {
 		expect(onDismissed).not.toHaveBeenCalled();
 	}, 4000);
 
-	it('clears OAuth and prompts to authenticate from Reauthenticate', async () => {
+	it('reauthenticates the only authenticated component without the picker', async () => {
 		const vmcp = createVMCP({ id: 'vmcp1reauth', displayName: 'Remote vMCP' }, [
 			createMCPCatalogEntry({ id: 'entry-remote', name: 'Remote', runtime: 'remote' })
 		]);
@@ -622,9 +672,73 @@ describe('ConnectVMcp.svelte', () => {
 			created: '2026-01-01T00:00:00Z',
 			status: { configured: true }
 		};
-		const cleared = vi.fn();
+		const clearedAll = vi.fn();
+		const clearedComponent = vi.fn();
+		let statusReads = 0;
 		worker.use(
 			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [existing] })),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-status`, () => {
+				statusReads += 1;
+				return HttpResponse.json({
+					authenticatedComponents: statusReads === 1 ? ['component-entry-remote'] : []
+				});
+			}),
+			http.delete(`/api/vmcps/${vmcp.id}/oauth`, () => {
+				clearedAll();
+				return HttpResponse.json({});
+			}),
+			http.delete(`/api/vmcps/${vmcp.id}/components/:componentID/oauth`, ({ params }) => {
+				clearedComponent(params.componentID);
+				return HttpResponse.json({});
+			}),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+				HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' })
+			)
+		);
+
+		await renderDialog(vmcp, existing);
+		await expect
+			.element(page.getByRole('button', { name: 'Reauthenticate', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Edit configuration' }))
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(clearedComponent).toHaveBeenCalledExactlyOnceWith('component-entry-remote')
+		);
+		expect(clearedAll).not.toHaveBeenCalled();
+		await expect
+			.element(page.getByRole('button', { name: 'Reauthenticate All' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+		await vi.waitFor(() => expect(statusReads).toBeGreaterThan(1));
+	});
+
+	it('clears OAuth and prompts to authenticate from Reauthenticate All', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1reauthall', displayName: 'Remote vMCP' }, [
+			createMCPCatalogEntry({ id: 'entry-outlook', name: 'Outlook', runtime: 'remote' }),
+			createMCPCatalogEntry({ id: 'entry-brave', name: 'Brave Search', runtime: 'remote' })
+		]);
+		const existing: VMCPInstance = {
+			id: 'vmcpi-existing',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status: { configured: true }
+		};
+		const cleared = vi.fn();
+		let statusReads = 0;
+		worker.use(
+			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [existing] })),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-status`, () => {
+				statusReads += 1;
+				return HttpResponse.json({
+					authenticatedComponents:
+						statusReads === 1 ? ['component-entry-outlook', 'component-entry-brave'] : []
+				});
+			}),
 			http.delete(`/api/vmcps/${vmcp.id}/oauth`, () => {
 				cleared();
 				return HttpResponse.json({});
@@ -635,14 +749,116 @@ describe('ConnectVMcp.svelte', () => {
 		);
 
 		await renderDialog(vmcp, existing);
-		await expect.element(page.getByRole('button', { name: 'Reauthenticate' })).toBeVisible();
-		await expect
-			.element(page.getByRole('button', { name: 'Edit configuration' }))
-			.not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Reauthenticate' }).click();
+		await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
+		await expect.element(page.getByRole('button', { name: 'Reauthenticate All' })).toBeVisible();
+		await page.getByRole('button', { name: 'Reauthenticate All' }).click();
 
 		await vi.waitFor(() => expect(cleared).toHaveBeenCalledOnce());
 		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+		await vi.waitFor(() => expect(statusReads).toBeGreaterThan(1));
+	});
+
+	it.each(['completion', 'close button', 'Escape', 'no OAuth required'])(
+		'returns to the connect dialog after single-server reauthentication: %s',
+		async (exit) => {
+			const vmcp = createVMCP({ id: 'vmcp1reauthpick', displayName: 'Remote vMCP' }, [
+				createMCPCatalogEntry({ id: 'entry-outlook', name: 'Outlook', runtime: 'remote' }),
+				createMCPCatalogEntry({ id: 'entry-brave', name: 'Brave Search', runtime: 'remote' })
+			]);
+			const existing: VMCPInstance = {
+				id: 'vmcpi-existing',
+				vmcpID: vmcp.id,
+				userID: getProfileResponse.id,
+				created: '2026-01-01T00:00:00Z',
+				status: { configured: true }
+			};
+			const clearedAll = vi.fn();
+			const clearedComponent = vi.fn();
+			let statusReads = 0;
+			let authenticated = ['component-entry-outlook', 'component-entry-brave'];
+			let oauthChecks = 0;
+			worker.use(
+				http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [existing] })),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-status`, () => {
+					statusReads += 1;
+					return HttpResponse.json({ authenticatedComponents: authenticated });
+				}),
+				http.delete(`/api/vmcps/${vmcp.id}/oauth`, () => {
+					clearedAll();
+					return HttpResponse.json({});
+				}),
+				http.delete(`/api/vmcps/${vmcp.id}/components/:componentID/oauth`, ({ params }) => {
+					clearedComponent(params.componentID);
+					authenticated = authenticated.filter((id) => id !== params.componentID);
+					return HttpResponse.json({});
+				}),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () => {
+					oauthChecks += 1;
+					return HttpResponse.json({
+						oauthURL:
+							exit !== 'no OAuth required' && oauthChecks === 1
+								? 'https://auth.example.com/authorize'
+								: ''
+					});
+				})
+			);
+
+			await renderDialog(vmcp, existing);
+			await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Reauthenticate Outlook' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Reauthenticate Brave Search' }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Reauthenticate Outlook' }).click();
+
+			await vi.waitFor(() =>
+				expect(clearedComponent).toHaveBeenCalledExactlyOnceWith('component-entry-outlook')
+			);
+			expect(clearedAll).not.toHaveBeenCalled();
+			if (exit !== 'no OAuth required') {
+				await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+				await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+				// Let the connect dialog's native close event finish before completing OAuth.
+				await new Promise((resolve) => setTimeout(resolve, 250));
+				if (exit === 'completion') document.dispatchEvent(new Event('visibilitychange'));
+				else if (exit === 'Escape') await userEvent.keyboard('{Escape}');
+				else await page.getByRole('button', { name: 'Close dialog' }).click();
+			}
+			await vi.waitFor(() => expect(statusReads).toBeGreaterThan(1));
+			await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+			await expect.element(page.getByText('Connection URL', { exact: true })).toBeVisible();
+			expect(authenticated).toEqual(['component-entry-brave']);
+		}
+	);
+
+	it('hides reauthentication when no component is authenticated', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1reauthnone', displayName: 'Remote vMCP' }, [
+			createMCPCatalogEntry({ id: 'entry-remote', name: 'Remote', runtime: 'remote' })
+		]);
+		const existing: VMCPInstance = {
+			id: 'vmcpi-existing',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status: { configured: true }
+		};
+		const status = vi.fn();
+		worker.use(
+			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [existing] })),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-status`, () => {
+				status();
+				return HttpResponse.json({ authenticatedComponents: [] });
+			})
+		);
+
+		await renderDialog(vmcp, existing);
+		await expect.element(page.getByText('Connection URL', { exact: true })).toBeVisible();
+		await vi.waitFor(() => expect(status).toHaveBeenCalledOnce());
+		await expect
+			.element(page.getByRole('button', { name: 'Reauthenticate', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('clears only the chosen component and prompts to authenticate it', async () => {

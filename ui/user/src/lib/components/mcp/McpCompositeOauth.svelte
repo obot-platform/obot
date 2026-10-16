@@ -228,7 +228,7 @@
 				{error}
 			</div>
 		{:else}
-			<div class="flex flex-col gap-4">
+			<div class="flex flex-col gap-2">
 				{#each pending as item (item.mcpServerID)}
 					{@const name = componentLabel(item)}
 					{@const icon = item.icon || componentInfos[item.catalogEntryID || '']?.icon}
@@ -236,7 +236,7 @@
 					<div
 						role="group"
 						aria-label={name}
-						class="dark:bg-base-300 dark:border-base-400 bg-base-100 min-w-0 rounded-lg border border-transparent shadow-sm"
+						class="dark:bg-base-300 bg-base-100 min-w-0 rounded-lg border border-base-400"
 					>
 						{#if isMcpLoginURL(item.authURL)}
 							<McpLocalAuth
