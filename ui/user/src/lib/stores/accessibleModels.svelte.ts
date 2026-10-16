@@ -1,10 +1,9 @@
+import { CommonModelProviderIds } from '$lib/constants';
 import { UserService, type Model } from '$lib/services';
-import { SUPPORTED_PROVIDER_IDS } from '$lib/services/llm-gateway/types';
 
-const SUPPORTED_MODEL_PROVIDER_IDS = new Set<string>(SUPPORTED_PROVIDER_IDS);
-
+// Every model is served through the LLM gateway, so only its models are callable.
 export function filterAccessibleModels(models: Model[]): Model[] {
-	return models.filter((m) => m.active && SUPPORTED_MODEL_PROVIDER_IDS.has(m.modelProvider));
+	return models.filter((m) => m.active && m.modelProvider === CommonModelProviderIds.LLM_GATEWAY);
 }
 
 const store = $state<{

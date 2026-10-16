@@ -5,6 +5,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
+	import GuardrailFilterForm from '$lib/components/admin/GuardrailFilterForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { m } from '$lib/i18n';
@@ -21,6 +22,7 @@
 	} from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import BuiltInFilters from './BuiltInFilters.svelte';
+	import { getMCPFilterKind, MCP_FILTER_KIND_LABELS, mcpFilterKindDisplay } from './utils';
 	import { Funnel, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -37,6 +39,7 @@
 	}: Props = $props();
 
 	let showCreateFilter = $derived(page.url.searchParams.has('new'));
+	let createGuardrailFilter = $derived(page.url.searchParams.get('new') === 'guardrail');
 	let filterToDelete = $state<MCPFilter>();
 	let builtInFiltersDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let query = $derived(page.url.searchParams.get('query') || '');
@@ -45,6 +48,7 @@
 	let tableData = $derived(
 		localFilters.map((filter) => ({
 			...filter,
+			kind: MCP_FILTER_KIND_LABELS[getMCPFilterKind(filter)],
 			status: filter.disabled ? 'Disabled' : 'Enabled'
 		}))
 	);
@@ -86,7 +90,9 @@
 	}
 </script>
 
-{#if showCreateFilter}
+{#if showCreateFilter && createGuardrailFilter}
+	<GuardrailFilterForm onCreate={navigateAfterCreated} />
+{:else if showCreateFilter}
 	<FilterForm onCreate={navigateAfterCreated} />
 {:else if loading}
 	<Skeleton
@@ -116,11 +122,11 @@
 
 		<Table
 			data={filteredTableData}
-			fields={['name', 'selectors', 'status']}
+			fields={['name', 'kind', 'selectors', 'status']}
 			onClickRow={(d, isCtrlClick) => {
 				openUrl(`/mcp-servers/filters/${d.id}`, isCtrlClick);
 			}}
-			filterable={['name', 'status']}
+			filterable={['name', 'kind', 'status']}
 			filters={urlFilters}
 			onFilter={setFilterUrlParams}
 			onClearAllFilters={clearUrlParams}
@@ -128,6 +134,10 @@
 				{
 					title: m.core_name(),
 					property: 'name'
+				},
+				{
+					title: m.mcps_filters_col_type(),
+					property: 'kind'
 				},
 				{
 					title: m.mcps_filters_col_selectors(),
@@ -138,7 +148,9 @@
 					property: 'status'
 				}
 			]}
-			sortable={['name', 'status']}
+			sortable={['name', 'kind', 'status']}
+			displayValue={(property, value) =>
+				property === 'kind' ? mcpFilterKindDisplay(value) : String(value ?? '')}
 			onSort={setSortUrlParams}
 			{initSort}
 		>
@@ -159,6 +171,8 @@
 			{#snippet onRenderColumn(property, d: (typeof tableData)[number])}
 				{#if property === 'name'}
 					{d.name || '-'}
+				{:else if property === 'kind'}
+					{mcpFilterKindDisplay(d.kind)}
 				{:else if property === 'url'}
 					{d.url || '-'}
 				{:else if property === 'selectors'}

@@ -1187,5 +1187,12 @@
 	"mcps_login_new_command": "Generate new command",
 	"mcps_login_expires_in": "Command expires in {time}",
 	"mcps_login_expired": "This command has expired. Select Generate new command, then copy and run the new command in your terminal.",
-	"mcps_login_expired_status": "Command expired"
+	"mcps_login_expired_status": "Command expired",
+	"mcps_filters_col_type": "Type",
+	"mcps_filters_kind_guardrail": "Guardrail",
+	"mcps_filters_kind_webhook": "Webhook",
+	"mcps_filters_kind_builtin": "Built-in",
+	"mcps_filters_kind_mcp_server": "MCP server",
+	"mcps_filters_create_guardrail_filter": "Create Guardrail Filter",
+	"mcps_filters_create_guardrail": "Create From Guardrail"
 }

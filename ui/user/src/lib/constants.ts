@@ -37,32 +37,8 @@ export function isSCIMView(searchParams: URLSearchParams): boolean {
 export const SEEN_SPLASH_DIALOG_KEY = 'seenSplashDialog';
 
 export const CommonModelProviderIds = {
-	OLLAMA: 'ollama-model-provider',
-	GENERIC_RESPONSES: 'generic-responses-model-provider',
-	GROQ: 'groq-model-provider',
-	VLLM: 'vllm-model-provider',
-	ANTHROPIC: 'anthropic-model-provider',
-	OPENAI: 'openai-model-provider',
-	AZURE_OPENAI: 'azure-openai-model-provider',
-	AMAZON_BEDROCK: 'amazon-bedrock-model-provider',
-	AMAZON_BEDROCK_API_KEY: 'amazon-bedrock-api-key-model-provider',
-	ANTHROPIC_BEDROCK: 'anthropic-bedrock-model-provider',
-	XAI: 'xai-model-provider',
-	DEEPSEEK: 'deepseek-model-provider',
-	GEMINI_VERTEX: 'gemini-vertex-model-provider',
-	GENERIC_OPENAI: 'generic-openai-model-provider',
-	AZURE: 'azure-model-provider',
-	AZURE_ENTRA: 'azure-entra-model-provider'
+	LLM_GATEWAY: 'llm-gateway-model-provider'
 };
-
-export const RecommendedModelProviders = [
-	CommonModelProviderIds.OPENAI,
-	CommonModelProviderIds.ANTHROPIC,
-	CommonModelProviderIds.AMAZON_BEDROCK,
-	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
-	CommonModelProviderIds.AZURE,
-	CommonModelProviderIds.AZURE_ENTRA
-];
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
 export const DEFAULT_MCP_CATALOG_ID = 'default';
@@ -457,6 +433,7 @@ export const MCP_FILTERS_FIELD_IDS = {
 	addFilterBtn: 'filter-add-button',
 	createCustomBtn: 'filter-create-custom-button',
 	createBuiltInBtn: 'filter-create-built-in-button',
+	createGuardrailBtn: 'filter-create-guardrail-button',
 	basicDetails: 'filter-basic-details',
 	runtimeFormDetails: 'filter-runtime-form-details',
 	filterSelectors: 'filter-selectors',

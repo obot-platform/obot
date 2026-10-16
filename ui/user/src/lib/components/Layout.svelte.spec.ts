@@ -127,6 +127,51 @@ describe('Layout.svelte', () => {
 		await expectNoAdminOnlyNavigation();
 	});
 
+	describe('LLM gateway navigation', () => {
+		it('names the models page LLM Gateway, marked beta', async () => {
+			await renderLayout([Group.ADMIN]);
+			await expandSection('ai-resources', '/models');
+			await expect
+				.element(page.getByCSS('a.sidebar-link[href="/models"]'))
+				.toHaveTextContent('LLM Gateway Beta');
+		});
+	});
+
+	describe('message policy navigation', () => {
+		it('is replaced by guardrails', async () => {
+			await renderLayout([Group.ADMIN]);
+
+			await expandSection('ai-resources', '/models');
+			await expandSection('operations', '/audit-logs');
+			await expectNoLink('/admin/message-policies');
+			await expectNoLink('/admin/policy-violations');
+		});
+	});
+
+	describe('guardrails navigation', () => {
+		it('has no Guardrails entry; guardrails are on the LLM Gateway and MCP Servers tabs', async () => {
+			await renderLayout([Group.ADMIN]);
+			await expandSection('ai-resources', '/models');
+			await expectNoLink('/guardrails');
+		});
+
+		it('no longer has a separate LLM Gateway section', async () => {
+			await renderLayout([Group.ADMIN]);
+			await expect.element(page.getByCSS('#sidebar-collapse-llm-gateway')).not.toBeInTheDocument();
+			for (const href of [
+				'/llm-gateway/overview',
+				'/llm-gateway/providers',
+				'/llm-gateway/budgets',
+				'/llm-gateway/guardrails',
+				'/llm-gateway/routing',
+				'/llm-gateway/logs',
+				'/llm-gateway/settings'
+			]) {
+				await expectNoLink(href);
+			}
+		});
+	});
+
 	describe('based on user role', () => {
 		describe('when the user is an administrator', () => {
 			it('shows administrator-only navigation', async () => {

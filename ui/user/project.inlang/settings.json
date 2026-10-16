@@ -13,6 +13,7 @@
 			"./messages/claude_environments/{locale}.json",
 			"./messages/core/{locale}.json",
 			"./messages/dashboard/{locale}.json",
+			"./messages/guardrails/{locale}.json",
 			"./messages/identity_access/{locale}.json",
 			"./messages/install_cli/{locale}.json",
 			"./messages/inventory_enforcement/{locale}.json",

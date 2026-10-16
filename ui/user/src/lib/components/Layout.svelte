@@ -22,7 +22,6 @@
 		'skills-management': true,
 		'device-management': true,
 		'user-management': true,
-		'llm-gateway': true,
 		advanced: true
 	};
 
@@ -259,8 +258,9 @@
 				},
 				{
 					id: 'models',
-					label: m.nav_models(),
-					href: '/models'
+					label: m.nav_llm_gateway(),
+					href: '/models',
+					beta: true
 				},
 				...(version.current.engine === 'docker' ||
 				(version.current.engine === 'kubernetes' && version.current.claudeEnvironmentsEnabled)

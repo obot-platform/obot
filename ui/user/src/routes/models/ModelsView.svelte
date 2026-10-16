@@ -1,23 +1,35 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
-	import LLMGatewayProviderSection from '$lib/components/llm-gateway/LLMGatewayProviderSection.svelte';
-	import { CommonModelProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import GatewayConnect from '$lib/components/llm-gateway/GatewayConnect.svelte';
+	import GatewayModelsDialog, {
+		gatewayModelNames
+	} from '$lib/components/llm-gateway/GatewayModelsDialog.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import type { Model } from '$lib/services';
-	import {
-		PROVIDER_CONNECTIONS,
-		type ProviderShortKey,
-		type RenderContext
-	} from '$lib/services/llm-gateway/types';
+	import { doGet } from '$lib/services/http';
+	import { profile } from '$lib/stores';
 	import accessibleModels from '$lib/stores/accessibleModels.svelte';
+	import { goto } from '$lib/url';
+	import { Cpu, Plus } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	let obotURL = $state('');
-	let models = $derived(accessibleModels.current);
+	// The store only holds the LLM gateway's models.
+	let gatewayModels = $derived(accessibleModels.current);
+	let subscriptionPassthrough = $state(false);
 
 	onMount(() => {
 		obotURL = window.location.origin;
+		// Without it, the setup instructions just leave out the Claude subscription option.
+		(
+			doGet('/llm-gateway/settings', { dontLogErrors: true }) as Promise<{
+				subscriptionPassthrough: boolean;
+			}>
+		)
+			.then((s) => (subscriptionPassthrough = s.subscriptionPassthrough))
+			.catch(() => {});
 	});
 
 	afterNavigate(({ type }) => {
@@ -26,170 +38,77 @@
 		}
 	});
 
-	let openaiModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.OPENAI)
-	);
-	let anthropicModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.ANTHROPIC)
-	);
-	let genericResponsesModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.GENERIC_RESPONSES)
-	);
-	let genericResponsesDisplayModels = $derived(toCallableModelNames(genericResponsesModels));
-	let bedrockModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK)
-	);
-	let bedrockAPIKeyModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.AMAZON_BEDROCK_API_KEY)
-	);
-	let bedrockAnthropicModels = $derived(bedrockModels.filter(isBedrockAnthropicModel));
-	let bedrockOpenAIModels = $derived(bedrockModels.filter(isBedrockOpenAICompatibleModel));
-	let bedrockAPIKeyAnthropicModels = $derived(bedrockAPIKeyModels.filter(isBedrockAnthropicModel));
-	let bedrockAPIKeyOpenAIModels = $derived(
-		bedrockAPIKeyModels.filter(isBedrockOpenAICompatibleModel)
-	);
-	let bedrockAnthropicDisplayModels = $derived(toCallableModelNames(bedrockAnthropicModels));
-	let bedrockOpenAIDisplayModels = $derived(toCallableModelNames(bedrockOpenAIModels));
-	let bedrockAPIKeyAnthropicDisplayModels = $derived(
-		toCallableModelNames(bedrockAPIKeyAnthropicModels)
-	);
-	let bedrockAPIKeyOpenAIDisplayModels = $derived(toCallableModelNames(bedrockAPIKeyOpenAIModels));
-	let azureModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.AZURE)
-	);
-	let azureEntraModels = $derived(
-		models.filter((model) => model.modelProvider === CommonModelProviderIds.AZURE_ENTRA)
-	);
-	let azureAnthropicModels = $derived(azureModels.filter(isAnthropicDialect));
-	let azureOpenAIModels = $derived(azureModels.filter(isOpenAIDialect));
-	let azureEntraAnthropicModels = $derived(azureEntraModels.filter(isAnthropicDialect));
-	let azureEntraOpenAIModels = $derived(azureEntraModels.filter(isOpenAIDialect));
-	let azureAnthropicDisplayModels = $derived(toCallableModelNames(azureAnthropicModels));
-	let azureOpenAIDisplayModels = $derived(toCallableModelNames(azureOpenAIModels));
-	let azureEntraAnthropicDisplayModels = $derived(toCallableModelNames(azureEntraAnthropicModels));
-	let azureEntraOpenAIDisplayModels = $derived(toCallableModelNames(azureEntraOpenAIModels));
-
-	function modelID(model: Model) {
-		return model.targetModel || model.name;
-	}
-
-	function isBedrockAnthropicModel(model: Model) {
-		return modelID(model).startsWith('anthropic.');
-	}
-
-	function isBedrockOpenAICompatibleModel(model: Model) {
-		const id = modelID(model);
-		return id.startsWith('openai.') || id.startsWith('google.');
-	}
-
-	function isAnthropicDialect(model: Model) {
-		return model.dialect === 'AnthropicMessages';
-	}
-
-	function isOpenAIDialect(model: Model) {
-		return model.dialect === 'OpenAIResponses';
-	}
-
-	function toCallableModelNames(models: Model[]): Model[] {
-		return models.map((model) => ({
-			...model,
-			name: modelID(model)
-		}));
-	}
-
-	function buildCtx(shortKey: ProviderShortKey, models: Model[]): RenderContext {
-		const provider = PROVIDER_CONNECTIONS[shortKey];
-		return {
-			provider,
-			obotURL,
-			baseURL: `${obotURL}/api/llm-proxy/${provider.routePath}`,
-			exampleModel: models[0]?.name
-		};
-	}
-
-	let openaiCtx = $derived(buildCtx('openai', openaiModels));
-	let anthropicCtx = $derived(buildCtx('anthropic', anthropicModels));
-	let genericResponsesCtx = $derived(buildCtx('generic-responses', genericResponsesDisplayModels));
-	let bedrockAnthropicCtx = $derived(
-		buildCtx('aws-bedrock-anthropic', bedrockAnthropicDisplayModels)
-	);
-	let bedrockOpenAICtx = $derived(buildCtx('aws-bedrock-openai', bedrockOpenAIDisplayModels));
-	let bedrockAPIKeyAnthropicCtx = $derived(
-		buildCtx('aws-bedrock-api-key-anthropic', bedrockAPIKeyAnthropicDisplayModels)
-	);
-	let bedrockAPIKeyOpenAICtx = $derived(
-		buildCtx('aws-bedrock-api-key-openai', bedrockAPIKeyOpenAIDisplayModels)
-	);
-	let azureAnthropicCtx = $derived(buildCtx('azure-anthropic', azureAnthropicDisplayModels));
-	let azureOpenAICtx = $derived(buildCtx('azure-openai', azureOpenAIDisplayModels));
-	let azureEntraAnthropicCtx = $derived(
-		buildCtx('azure-entra-anthropic', azureEntraAnthropicDisplayModels)
-	);
-	let azureEntraOpenAICtx = $derived(buildCtx('azure-entra-openai', azureEntraOpenAIDisplayModels));
-
 	let ready = $derived(obotURL !== '');
+	let modelCount = $derived(gatewayModelNames(gatewayModels).length);
+	let modelsDialog = $state<ReturnType<typeof GatewayModelsDialog>>();
+	// Only administrators can add the providers the gateway serves models from.
+	let canAddProvider = $derived(profile.current.isAdmin?.() ?? false);
 
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
 <div class="flex h-full w-full flex-col gap-6" in:fade={{ duration }}>
-	<p class="text-muted-content max-w-3xl text-sm">
-		{m.models_gateway_intro()}
-	</p>
-
 	{#if ready}
-		<div class="flex flex-col gap-4">
-			{#if anthropicModels.length > 0}
-				<LLMGatewayProviderSection ctx={anthropicCtx} models={anthropicModels} />
-			{/if}
-			{#if openaiModels.length > 0}
-				<LLMGatewayProviderSection ctx={openaiCtx} models={openaiModels} />
-			{/if}
-			{#if genericResponsesModels.length > 0}
-				<LLMGatewayProviderSection
-					ctx={genericResponsesCtx}
-					models={genericResponsesDisplayModels}
-				/>
-			{/if}
-			{#if bedrockAnthropicModels.length > 0}
-				<LLMGatewayProviderSection
-					ctx={bedrockAnthropicCtx}
-					models={bedrockAnthropicDisplayModels}
-				/>
-			{/if}
-			{#if bedrockOpenAIModels.length > 0}
-				<LLMGatewayProviderSection ctx={bedrockOpenAICtx} models={bedrockOpenAIDisplayModels} />
-			{/if}
-			{#if bedrockAPIKeyAnthropicModels.length > 0}
-				<LLMGatewayProviderSection
-					ctx={bedrockAPIKeyAnthropicCtx}
-					models={bedrockAPIKeyAnthropicDisplayModels}
-				/>
-			{/if}
-			{#if bedrockAPIKeyOpenAIModels.length > 0}
-				<LLMGatewayProviderSection
-					ctx={bedrockAPIKeyOpenAICtx}
-					models={bedrockAPIKeyOpenAIDisplayModels}
-				/>
-			{/if}
-			{#if azureAnthropicModels.length > 0}
-				<LLMGatewayProviderSection ctx={azureAnthropicCtx} models={azureAnthropicDisplayModels} />
-			{/if}
-			{#if azureOpenAIModels.length > 0}
-				<LLMGatewayProviderSection ctx={azureOpenAICtx} models={azureOpenAIDisplayModels} />
-			{/if}
-			{#if azureEntraAnthropicModels.length > 0}
-				<LLMGatewayProviderSection
-					ctx={azureEntraAnthropicCtx}
-					models={azureEntraAnthropicDisplayModels}
-				/>
-			{/if}
-			{#if azureEntraOpenAIModels.length > 0}
-				<LLMGatewayProviderSection
-					ctx={azureEntraOpenAICtx}
-					models={azureEntraOpenAIDisplayModels}
-				/>
-			{/if}
-		</div>
+		{#if gatewayModels.length > 0}
+			<div class="paper flex flex-col gap-3 p-4">
+				<div class="flex items-center gap-3">
+					<img src="/admin/assets/llm_gateway_icon.svg" alt="" class="size-8 rounded-md" />
+					<div class="flex flex-col">
+						<h3 class="text-base font-semibold">{m.models_page_title()}</h3>
+						<button
+							type="button"
+							class="text-link self-start text-xs"
+							onclick={() => modelsDialog?.open()}
+						>
+							{modelCount === 1
+								? m.models_gateway_models_available_one({ count: modelCount })
+								: m.models_gateway_models_available_other({ count: modelCount })}
+						</button>
+					</div>
+				</div>
+				<!-- OpenAI clients append /chat/completions or /responses to the base URL, and
+				Anthropic clients /v1/messages, so each needs its own. -->
+				{#each [{ label: m.models_gateway_base_url_openai(), url: `${obotURL}/api/llm-proxy/v1` }, { label: m.models_gateway_base_url_anthropic(), url: `${obotURL}/api/llm-proxy` }] as base (base.url)}
+					<div class="flex min-w-0 items-center gap-2 text-sm">
+						<span class="text-muted-content w-32 shrink-0 text-xs font-medium">{base.label}</span>
+						<code class="bg-base-200 dark:bg-base-300 truncate rounded px-2 py-0.5 text-xs"
+							>{base.url}</code
+						>
+						<CopyButton text={base.url} tooltipText={m.models_gateway_copy_base_url()} />
+					</div>
+				{/each}
+				<p class="text-muted-content text-xs">
+					{m.models_connect_formats_note()}
+					{m.models_connect_naming_prefix()}
+					<code>provider/model</code>{m.models_connect_naming_middle()}
+					<code>claude-sonnet-4-5</code>
+					{m.models_connect_naming_suffix()}
+				</p>
+			</div>
+			<GatewayConnect {obotURL} models={gatewayModels} {subscriptionPassthrough} />
+			<GatewayModelsDialog bind:this={modelsDialog} models={gatewayModels} />
+		{:else}
+			<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
+				<Cpu class="text-muted-content size-24 opacity-25" />
+				<div>
+					<h4 class="text-muted-content text-lg font-semibold">
+						{canAddProvider
+							? m.models_gateway_no_models_admin_title()
+							: m.models_gateway_no_models_title()}
+					</h4>
+					<p class="text-muted-content text-sm font-light">
+						{canAddProvider
+							? m.models_gateway_no_models_admin_description()
+							: m.models_gateway_no_models_description()}
+					</p>
+				</div>
+				{#if canAddProvider}
+					<button class="btn btn-primary" onclick={() => goto('/models?view=providers')}>
+						<Plus class="size-4" />
+						{m.models_providers_add_provider()}
+					</button>
+				{/if}
+			</div>
+		{/if}
 	{/if}
 </div>
