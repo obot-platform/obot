@@ -17,7 +17,7 @@ Obot deploys and manages hosted MCP server workloads on Kubernetes or Docker. Fo
 
 Open **MCP Servers**, then select **Add MCP Server**.
 
-Choose **Hosted Server**, then select its runtime and launch settings. To expose an HTTP API from its schema, administrators can choose **OpenAPI** instead. Define the configuration fields, save the catalog entry, then add it to a vMCP to choose how the values are supplied.
+Choose **Hosted Server**, then select its runtime and launch settings. To expose an HTTP API from its OpenAPI schema, administrators can choose **OpenAPI** instead. Define the configuration fields, save the catalog entry, then add it to a vMCP to choose how the values are supplied.
 
 ![Hosted Server and Remote Server choices in the catalog entry selector](/img/add-mcp-hosted-or-remote.png)
 
