@@ -28,8 +28,7 @@ To allow all of them, allow outbound HTTPS to:
 - **Destination:** `https://api.keygen.sh`
 - **When:** At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is
   configured.
-- **If it fails:** Obot keeps the entitlements from the last successful check for up to three days, and never past
-  the license's expiration date. See
+- **If it fails:** Obot keeps the entitlements from the last successful check until the license's last known expiration date. See
   [How Obot validates a license](../enterprise/overview.md#how-obot-validates-a-license).
 - **To change or avoid it:** Required to use a license key. Air-gapped installations can't validate a key yet.
   Support for offline license key validation is coming soon.

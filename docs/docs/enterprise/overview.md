@@ -83,7 +83,7 @@ Each check has one of three outcomes:
 |---|---|
 | The license service accepts the license | Obot applies the license's entitlements and saves them in the database |
 | The license service rejects the license | Obot removes the license's entitlements and the installation falls back to unregistered Obot Community. See [License compliance](#license-compliance). |
-| The license service can't be reached or doesn't give an answer | Obot keeps using the entitlements saved from the last successful check, for up to three days and never past the license's expiration date |
+| The license service can't be reached or doesn't give an answer | Obot keeps using the entitlements saved from the last successful check, until the license's last known expiration date |
 
 ### When the license service can't be reached
 
@@ -91,13 +91,13 @@ A check that times out, fails on the network, or gets an error from the license 
 itself doesn't change the license. Obot keeps using the entitlements saved from the last successful check, and tries
 again at the next scheduled check.
 
-The fallback has two limits. Obot stops using the saved entitlements when:
+Obot saves the license's expiration date with the entitlements, and the fallback lasts until that date, however
+long the license service is unreachable. A license with no expiration date keeps working for as long as the outage
+lasts. Changes made to the license while Obot can't reach the license service, such as a new expiration date, take
+effect at the next check that gets through.
 
-- The last successful check was more than three days ago.
-- The license's expiration date, saved with the entitlements, has passed.
-
-Obot applies these limits at each check that fails, so the installation falls back to unregistered Obot Community at
-the first failed check after either limit is reached. Both limits are measured against the Obot server's system clock.
+Obot compares the expiration date with the server's system clock at each check that fails, so an installation whose
+license expires during an outage falls back to unregistered Obot Community at the first failed check after that date.
 Once a check reaches the license service again, Obot applies its answer right away.
 
 This is the same whether the check happens at startup or while Obot is running. A failed check at startup doesn't
@@ -172,16 +172,15 @@ provider without a license that includes it.
   unregistered Obot Community. An installation with 250 users is then over the 100-user limit, and any configured
   enterprise auth provider is no longer covered.
 - **An administrator deletes the license key.** The effect is the same as a license that's no longer valid.
-- **The license service has been unreachable for more than three days**, or the license expired while it was
-  unreachable. See
+- **The license expires while the license service is unreachable.** See
   [When the license service can't be reached](#when-the-license-service-cant-be-reached).
 - **A license key was never validated**, for example on an air-gapped installation. See
   [When the license service can't be reached](#when-the-license-service-cant-be-reached).
 - **The installation grows** past the user or device limit of its license.
 
 :::note
-A short license service outage doesn't put an installation out of compliance. Obot keeps the entitlements from the
-last successful check for up to three days, and never past the license's expiration date. See
+A license service outage doesn't put an installation out of compliance. Obot keeps the entitlements from the last
+successful check until the license's last known expiration date. See
 [When the license service can't be reached](#when-the-license-service-cant-be-reached).
 :::
 
