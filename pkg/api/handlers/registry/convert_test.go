@@ -161,36 +161,40 @@ func assertRegistryRemote(t *testing.T, got types.RegistryServerResponse, id str
 	}
 }
 
-func TestLocalhostCallbackCatalogEntryHasNoDirectRemote(t *testing.T) {
-	entry := registryTestCatalogEntry(types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"})
-	entry.Spec.Manifest.RemoteConfig.LocalhostCallbackEnabled = true
-	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Meta.Obot == nil || !got.Meta.Obot.ConfigurationRequired {
-		t.Fatalf("expected vMCP connection to be required, got %#v", got.Meta.Obot)
-	}
-	if len(got.Server.Remotes) != 0 {
-		t.Fatalf("expected no direct remote, got %#v", got.Server.Remotes)
-	}
-}
-
-func TestLocalhostCallbackServerHasNoDirectRemote(t *testing.T) {
-	server := v1.MCPServer{}
-	server.Spec.Manifest.Runtime = types.RuntimeRemote
-	server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
-		URL:                      "https://example.com/mcp",
-		LocalhostCallbackEnabled: true,
-	}
-	got, err := ConvertMCPServerToRegistry(t.Context(), server, nil, "https://obot.example.com", server.Name, "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got.Meta.Obot == nil || !got.Meta.Obot.ConfigurationRequired {
-		t.Fatalf("expected vMCP connection to be required, got %#v", got.Meta.Obot)
-	}
-	if len(got.Server.Remotes) != 0 {
-		t.Fatalf("expected no direct remote, got %#v", got.Server.Remotes)
+// Localhost callback setup must go through vMCP consent for both shared and
+// dedicated components; registry clients must never connect to the upstream URL.
+func TestLocalhostCallbackUsesVMCPRemote(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		forceSingleUser bool
+	}{
+		{
+			name: "shared component",
+		},
+		{
+			name:            "dedicated component",
+			forceSingleUser: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			definition := registryDefinition("vmcp1callback", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+			definition.Spec.Manifest.Components = []types.VMCPComponent{
+				{
+					ID:              "component-1",
+					ForceSingleUser: tc.forceSingleUser,
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+						Manifest: types.MCPServerCatalogEntryManifest{
+							Runtime: types.RuntimeRemote,
+							RemoteConfig: &types.RemoteCatalogConfig{
+								FixedURL:                 "https://example.com/mcp",
+								LocalhostCallbackEnabled: true,
+							},
+						},
+					},
+				},
+			}
+			got := ConvertVMCPToRegistry(t.Context(), *definition, "https://obot.example.com", "com.example.obot", nil)
+			assertRegistryRemote(t, got, definition.Name)
+		})
 	}
 }

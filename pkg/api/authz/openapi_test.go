@@ -14,7 +14,7 @@ import (
 
 func TestOpenAPIImportAuthorization(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil)
 	for _, test := range []struct {
 		name    string
 		role    types.Role
