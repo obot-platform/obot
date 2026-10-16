@@ -38,7 +38,7 @@ API keys can grant access to:
 |------------|----------------|
 | Selected MCP servers | MCP server connections via the `/mcp-connect/` endpoints |
 | API access | Obot API endpoints allowed by your user role |
-| LLM proxy access | LLM proxy endpoints such as `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` |
+| LLM proxy access | The [LLM gateway](../llm-gateway/connect-clients.md) endpoints under `/api/llm-proxy`, such as `/api/llm-proxy/v1` |
 | Skill access | Skill discovery and downloads |
 | Device scan access | Device scan submission and retrieval |
 

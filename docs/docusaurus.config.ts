@@ -100,11 +100,7 @@ const config: Config = {
           },
           {
             from: "/next/functionality/ai-judge-policies",
-            to: "/next/security/policy-coverage",
-          },
-          {
-            from: "/next/functionality/message-policies",
-            to: "/next/security/policy-coverage",
+            to: "/next/functionality/message-policies",
           },
           {
             from: "/functionality/mcp-registries",
