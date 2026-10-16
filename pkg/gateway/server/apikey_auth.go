@@ -15,6 +15,14 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+const (
+	// HeaderObotAPIKey carries an Obot API key alongside another credential, on LLM proxy
+	// requests.
+	HeaderObotAPIKey = "X-Obot-Api-Key"
+
+	llmProxyPathPrefix = "/api/llm-proxy/"
+)
+
 // APIKeyAuthenticator authenticates requests using API keys.
 // API key users have restricted access - they only get GroupAPIKey,
 // not the full authenticated user groups.
@@ -29,7 +37,17 @@ func NewAPIKeyAuthenticator(client *client.Client) *APIKeyAuthenticator {
 
 // AuthenticateRequest implements authenticator.Request.
 func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	authHeader := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	// X-Obot-Api-Key lets a client whose Authorization header carries another credential,
+	// such as Claude Code signed in with a Claude subscription, send its Obot API key too. It
+	// is only for the LLM proxy, which strips it before forwarding; elsewhere, such as on MCP
+	// connections, it would travel on to an upstream server.
+	var authHeader string
+	if strings.HasPrefix(req.URL.Path, llmProxyPathPrefix) {
+		authHeader = req.Header.Get(HeaderObotAPIKey)
+	}
+	if authHeader == "" {
+		authHeader = strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	}
 	if authHeader == "" {
 		authHeader = req.Header.Get("X-API-Key")
 		if authHeader == "" {

@@ -6,11 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
 	"uuid"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -157,6 +159,53 @@ func TestGetLLMAuditLogStripsSensitiveFields(t *testing.T) {
 	}
 	if len(got.RequestHeaders) != 0 || len(got.RequestBody) != 0 || len(got.PolicyModifiedRequestBody) != 0 || len(got.ResponseHeaders) != 0 || len(got.ResponseBody) != 0 {
 		t.Fatalf("expected sensitive fields to be stripped, got %#v", got)
+	}
+}
+
+// Guardrail findings hold no content, so they are kept unencrypted and returned without the
+// sensitive fields, in the list and the detail view.
+func TestLLMAuditLogGuardrailFindingsAreNotSensitive(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			llmAuditLogGroupResource: testTransformer{},
+		},
+	}
+	findings := []apitypes.LLMAuditGuardrailFinding{
+		{
+			Stage:         "input",
+			PolicyID:      "r1",
+			PolicyName:    "block secrets",
+			GuardrailName: "secrets",
+			GuardrailType: "secrets",
+			Outcome:       "blocked",
+			Categories:    []string{"secret"},
+		},
+	}
+	entry := types.LLMAuditLog{
+		ID:                uuid.New().String(),
+		CreatedAt:         time.Now().UTC(),
+		UserID:            "user-1",
+		RequestBody:       json.RawMessage(`{"prompt":"secret"}`),
+		GuardrailFindings: findings,
+	}
+	if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+		t.Fatalf("failed to insert LLM audit log: %v", err)
+	}
+
+	got, err := c.GetLLMAuditLog(t.Context(), entry.ID, false)
+	if err != nil {
+		t.Fatalf("failed to get LLM audit log: %v", err)
+	}
+	if !reflect.DeepEqual(got.GuardrailFindings, findings) {
+		t.Fatalf("expected guardrail findings %v, got %v", findings, got.GuardrailFindings)
+	}
+	logs, _, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{})
+	if err != nil {
+		t.Fatalf("failed to list LLM audit logs: %v", err)
+	}
+	if len(logs) != 1 || !reflect.DeepEqual(logs[0].GuardrailFindings, findings) {
+		t.Fatalf("expected guardrail findings %v in the list, got %#v", findings, logs)
 	}
 }
 
@@ -508,7 +557,8 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 		c.LogLLMAuditEntry(types.LLMAuditLog{
 			ID:            uuid.New().String(),
 			CreatedAt:     time.Now().UTC(),
-			ModelProvider: system.OpenAIModelProvider,
+			ModelProvider: system.LLMGatewayModelProvider,
+			RequestPath:   "/api/llm-proxy/v1/responses",
 			RequestBody:   json.RawMessage(fmt.Sprintf(`{"prompt":"secret-%d"}`, i)),
 		}, []byte(`data: {"type":"response.created","response":{"id":"resp_async","output":[]}}`+"\n"))
 	}

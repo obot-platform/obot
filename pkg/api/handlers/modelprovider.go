@@ -1,20 +1,16 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,105 +61,6 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
-}
-
-func (mp *ModelProviderHandler) Validate(req api.Context) error {
-	var modelProvider v1.ModelProvider
-	if err := req.Get(&modelProvider, req.PathValue("model_provider_id")); err != nil {
-		return err
-	}
-
-	if err := mp.license.RequireEntitlements(req.Context(), modelProvider.Spec.RequiredEntitlements); err != nil {
-		return err
-	}
-
-	slog.Debug("Validating model provider", "modelProviderName", modelProvider.Name)
-
-	var envVars map[string]string
-	if err := req.Read(&envVars); err != nil {
-		return err
-	}
-
-	if err := mp.dispatcher.ValidateModelProvider(req.Context(), modelProvider.Namespace, modelProvider.Name, envVars); err != nil {
-		return types.NewErrBadRequest("%s", apiMessage(req, "model_validation_failed",
-			"provider", fmt.Sprintf("%q", modelProvider.Name),
-			"detail", err.Error()))
-	}
-
-	return nil
-}
-
-func (mp *ModelProviderHandler) Configure(req api.Context) error {
-	var modelProvider v1.ModelProvider
-	if err := req.Get(&modelProvider, req.PathValue("model_provider_id")); err != nil {
-		return err
-	}
-
-	if err := mp.license.RequireEntitlements(req.Context(), modelProvider.Spec.RequiredEntitlements); err != nil {
-		return err
-	}
-
-	var envVars map[string]string
-	if err := req.Read(&envVars); err != nil {
-		return err
-	} else if envVars == nil {
-		envVars = make(map[string]string)
-	}
-	for key, value := range envVars {
-		if value == "" {
-			delete(envVars, key)
-		}
-	}
-
-	stagedName, err := stageProviderCredential(req, envVars)
-	if err != nil {
-		return err
-	}
-
-	return submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
-		Name:      modelProviderConfigurationChangeName(modelProvider.Name),
-		Namespace: modelProvider.Namespace,
-		Spec: v1.ProviderConfigurationChangeSpec{
-			ProviderType:         v1.ProviderTypeModel,
-			ProviderName:         modelProvider.Name,
-			DesiredState:         v1.ProviderDesiredStateConfigured,
-			StagedCredentialName: stagedName,
-		},
-	})
-}
-
-func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
-	var modelProvider v1.ModelProvider
-	if err := req.Get(&modelProvider, req.PathValue("model_provider_id")); err != nil {
-		return err
-	}
-
-	return submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
-		Name:      modelProviderConfigurationChangeName(modelProvider.Name),
-		Namespace: modelProvider.Namespace,
-		Spec: v1.ProviderConfigurationChangeSpec{
-			ProviderType: v1.ProviderTypeModel,
-			ProviderName: modelProvider.Name,
-			DesiredState: v1.ProviderDesiredStateDeconfigured,
-		},
-	})
-}
-
-func (mp *ModelProviderHandler) Reveal(req api.Context) error {
-	var modelProvider v1.ModelProvider
-	if err := req.Get(&modelProvider, req.PathValue("model_provider_id")); err != nil {
-		return err
-	}
-
-	// If this is a "global" model provider, then the generic model provider context is added to handle more git-ops-ian deployments.
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return fmt.Errorf("failed to reveal credential: %w", err)
-	} else if err == nil {
-		return req.Write(cred.Secrets)
-	}
-
-	return types.NewErrNotFound("%s", apiMessage(req, "model_credential_not_found", "provider", fmt.Sprintf("%q", modelProvider.Name)))
 }
 
 func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {

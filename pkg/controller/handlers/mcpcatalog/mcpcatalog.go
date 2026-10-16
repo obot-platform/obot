@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -27,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/openapi"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/version"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1009,6 +1011,14 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 			}
 
 			if !hasAccess && server.Spec.CompositeName == "" {
+				// The rule helper reads an index fed by a watch, which can lag behind a rule
+				// created moments ago. Confirm against the stored rules before deleting, so a
+				// server created right after its rule isn't deleted when another rule changes.
+				if granted, err := storedRulesGrantCatalogEntry(req, user, server.Spec.MCPServerCatalogEntryName, entry.Spec.MCPCatalogName); err != nil {
+					return fmt.Errorf("failed to confirm access for user %s to catalog entry %s: %w", server.Spec.UserID, server.Spec.MCPServerCatalogEntryName, err)
+				} else if granted {
+					continue
+				}
 				slog.Info("Deleting MCP server because it is no longer authorized to exist", "server", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
@@ -1018,6 +1028,51 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 	}
 
 	return nil
+}
+
+// storedRulesGrantCatalogEntry reports whether an access control rule read from storage, not
+// from the rule helper's index, lets user use a catalog entry in a catalog.
+func storedRulesGrantCatalogEntry(req router.Request, user kuser.Info, entryName, catalogID string) (bool, error) {
+	var rules v1.AccessControlRuleList
+	if err := req.List(untriggered.UncachedList(&rules), &kclient.ListOptions{
+		Namespace:     req.Object.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", catalogID),
+	}); err != nil {
+		return false, err
+	}
+	// Subjects match as they do in accesscontrolrule.Helper: groups against the auth
+	// provider's groups, Obot groups against Obot's.
+	groups, obotGroups := subjectgroups.Sets(user)
+	for _, rule := range rules.Items {
+		if !rule.DeletionTimestamp.IsZero() || rule.Spec.MCPCatalogID != catalogID {
+			continue
+		}
+		coversEntry := slices.ContainsFunc(rule.Spec.Manifest.Resources, func(r types.Resource) bool {
+			return r.Type == types.ResourceTypeSelector && r.ID == "*" ||
+				r.Type == types.ResourceTypeMCPServerCatalogEntry && r.ID == entryName
+		})
+		if !coversEntry {
+			continue
+		}
+		if slices.ContainsFunc(rule.Spec.Manifest.Subjects, func(s types.Subject) bool {
+			switch s.Type {
+			case types.SubjectTypeUser:
+				return s.ID == user.GetUID()
+			case types.SubjectTypeGroup:
+				_, ok := groups[s.ID]
+				return ok
+			case types.SubjectTypeObotGroup:
+				_, ok := obotGroups[s.ID]
+				return ok
+			case types.SubjectTypeSelector:
+				return s.ID == "*"
+			}
+			return false
+		}) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // DeleteUnauthorizedMCPServersForWorkspace is a handler that deletes MCP servers that are no longer authorized to exist

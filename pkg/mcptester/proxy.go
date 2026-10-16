@@ -28,7 +28,7 @@ func NewLLMProxyRequest(ctx context.Context, serverURL string, model ResolvedMod
 	if err != nil {
 		return nil, fmt.Errorf("parse Obot server URL: %w", err)
 	}
-	base.Path = strings.TrimSuffix(base.Path, "/") + "/api/llm-proxy/" + model.ProxyPath + model.APIPath
+	base.Path = strings.TrimSuffix(strings.TrimSuffix(base.Path, "/")+"/api/llm-proxy/"+model.ProxyPath, "/") + model.APIPath
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, base.String(), bytes.NewReader(body))
 	if err != nil {

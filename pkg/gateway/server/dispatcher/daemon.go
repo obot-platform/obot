@@ -1,7 +1,6 @@
 package dispatcher
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -192,25 +191,6 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 	}
 
 	return u, fmt.Errorf("timeout waiting for 200 response from GET %s", u.String())
-}
-
-func (d *Dispatcher) runCommand(ctx context.Context, envMap map[string]string, command string, args ...string) error {
-	cmd, stop, err := d.newCommand(ctx, envMap, command, args...)
-	if err != nil {
-		return err
-	}
-	defer stop()
-
-	var stdOutAndErr bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdOutAndErr)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stdOutAndErr)
-
-	slog.Info("Launched provider command", "command", command, "args", cmd.Args)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ERROR: %v: %w", stdOutAndErr.String(), err)
-	}
-
-	return nil
 }
 
 func (d *Dispatcher) newCommand(ctx context.Context, envMap map[string]string, command string, args ...string) (*exec.Cmd, func(), error) {

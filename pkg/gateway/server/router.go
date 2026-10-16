@@ -4,9 +4,9 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/nah/pkg/router"
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
-	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
@@ -44,7 +44,6 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("GET /api/users/{user_id}/activities", wrap(s.activitiesByUser))
 	mux.HandleFunc("GET /api/users/{user_id}/token-usage", wrap(s.usageForUser))
 	mux.HandleFunc("GET /api/users/{user_id}/total-token-usage", wrap(s.totalUsageForUser))
-	mux.HandleFunc("GET /api/users/{user_id}/remaining-token-usage", wrap(s.remainingUsageForUser))
 	mux.HandleFunc("PATCH /api/users/{user_id}", wrap(s.updateUser))
 	mux.HandleFunc("POST /api/users/{user_id}/internal", wrap(s.markUserInternal))
 	mux.HandleFunc("POST /api/users/{user_id}/external", wrap(s.markUserExternal))
@@ -54,6 +53,7 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 
 	mux.HandleFunc("GET /api/token-usage", wrap(s.systemTokenUsageByUser))
 	mux.HandleFunc("GET /api/total-token-usage", wrap(s.totalSystemTokenUsage))
+	mux.HandleFunc("GET /api/token-usage-stats", wrap(s.tokenUsageStats))
 
 	mux.HandleFunc("POST /api/token-request", s.tokenRequest)
 	mux.HandleFunc("GET /api/token-request/{id}", s.checkForToken)
@@ -66,14 +66,24 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("GET /api/oauth/start/{id}/{namespace}/{name}", wrap(s.oauth))
 	mux.HandleFunc("/api/oauth/redirect/{namespace}/{name}", wrap(s.redirect))
 
-	// LLM proxy
-	mux.HandleFunc("/api/llm-proxy/openai/{path...}", s.newLLMProviderProxy(mustParseURL(openAIBaseURL), system.OpenAIModelProvider).proxy)
-	mux.HandleFunc("/api/llm-proxy/anthropic/{path...}", s.newLLMProviderProxy(mustParseURL(anthropicBaseURL), system.AnthropicModelProvider).proxy)
-	mux.HandleFunc("/api/llm-proxy/generic-responses/{path...}", s.newGenericResponsesLLMProviderProxy().proxy)
-	mux.HandleFunc("/api/llm-proxy/aws-bedrock/{path...}", s.newAWSBedrockLLMProviderProxy().proxy)
-	mux.HandleFunc("/api/llm-proxy/aws-bedrock-api-key/{path...}", s.newAWSBedrockAPIKeyLLMProviderProxy().proxy)
-	mux.HandleFunc("/api/llm-proxy/azure/{path...}", s.newAzureLLMProviderProxy(system.AzureModelProvider).proxy)
-	mux.HandleFunc("/api/llm-proxy/azure-entra/{path...}", s.newAzureLLMProviderProxy(system.AzureEntraModelProvider).proxy)
+	// LLM proxy. The LLM gateway serves every model, in every API format, at the root of the
+	// LLM proxy.
+	gatewayProxy := s.newBifrostLLMProviderProxy()
+	mux.HandleFunc("/api/llm-proxy/v1/{path...}", func(req api.Context) error {
+		req.SetPathValue("path", "v1/"+req.PathValue("path"))
+		return gatewayProxy.proxy(req)
+	})
+	// Clients set up for the former OpenAI and Anthropic routes speak those APIs, which the
+	// gateway serves too, so they keep working.
+	for _, prefix := range []string{"/api/llm-proxy/openai/", "/api/llm-proxy/anthropic/"} {
+		mux.HandleFunc(prefix+"{path...}", gatewayProxy.proxy)
+	}
+	// The other former per-provider routes spoke provider-specific APIs.
+	for _, prefix := range []string{"/api/llm-proxy/generic-responses/", "/api/llm-proxy/aws-bedrock/", "/api/llm-proxy/aws-bedrock-api-key/", "/api/llm-proxy/azure/", "/api/llm-proxy/azure-entra/"} {
+		mux.HandleFunc(prefix+"{path...}", func(api.Context) error {
+			return types2.NewErrHTTP(http.StatusGone, "this LLM proxy route was removed; send requests to /api/llm-proxy/v1, which serves every model in the OpenAI and Anthropic API formats")
+		})
+	}
 
 	// API Keys for MCP server access - user's own keys
 	mux.HandleFunc("POST /api/api-keys", wrap(s.createAPIKey))

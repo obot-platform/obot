@@ -131,9 +131,10 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 			return err
 		}
 	case v1.ProviderTypeModel:
-		if err := h.reconcileModelProvider(req.Ctx, req.Client, change, stagedSecrets); err != nil {
-			return err
-		}
+		// Model providers were replaced by the LLM gateway, whose providers are configured in
+		// the gateway itself.
+		change.Status.Error = "model providers are configured in the LLM gateway"
+		return nil
 	}
 
 	// Moving a provider to SCIM changes no configuration that its daemon runs with.
@@ -579,44 +580,6 @@ func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Cl
 	return nil
 }
 
-func (h *Handler) reconcileModelProvider(ctx context.Context, client kclient.Client, change *v1.ProviderConfigurationChange, stagedSecrets map[string]string) error {
-	var modelProvider v1.ModelProvider
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: change.Namespace, Name: change.Spec.ProviderName}, &modelProvider); err != nil {
-		return fmt.Errorf("get model provider %q: %w", change.Spec.ProviderName, err)
-	}
-
-	if change.Spec.DesiredState == v1.ProviderDesiredStateConfigured {
-		if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
-			Context: modelProvider.Name,
-			Name:    modelProvider.Name,
-			Secrets: stagedSecrets,
-		}); err != nil {
-			return fmt.Errorf("promote credential for model provider %q: %w", modelProvider.Name, err)
-		}
-	} else if err := deleteResolvedCredential(ctx, h.gatewayClient, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name); err != nil {
-		return fmt.Errorf("remove credential for model provider %q: %w", modelProvider.Name, err)
-	}
-
-	modelProvider.Status.Error = ""
-	modelProvider.Status.ModelsBackPopulated = nil
-	if err := provider.SetModelProviderConfiguredStatus(ctx, h.gatewayClient, h.licenseProvider, &modelProvider); err != nil {
-		return fmt.Errorf("recompute model provider %q status: %w", modelProvider.Name, err)
-	}
-	if change.Spec.DesiredState == v1.ProviderDesiredStateConfigured && modelProvider.Status.Configured {
-		modelProvider.Status.ModelsBackPopulated = new(true)
-		if err := provider.BackPopulateModels(ctx, client, h.dispatcher, &modelProvider); err != nil {
-			return fmt.Errorf("refresh models for model provider %q: %w", modelProvider.Name, err)
-		}
-		if modelProvider.Status.Error != "" {
-			modelProvider.Status.ModelsBackPopulated = new(false)
-		}
-	}
-	if err := client.Status().Update(ctx, &modelProvider); err != nil {
-		return fmt.Errorf("update model provider %q status: %w", modelProvider.Name, err)
-	}
-	return nil
-}
-
 func deleteResolvedCredential(ctx context.Context, gatewayClient *gateway.Client, contexts []string, credentialName string) error {
 	credential, err := gatewayClient.RevealCredential(ctx, contexts, credentialName)
 	if err != nil {
@@ -756,11 +719,25 @@ func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client, 
 // AdvanceDaemonRevision bumps a provider's revision so every replica drops its daemon and restarts
 // it with the current configuration on the next request.
 func AdvanceDaemonRevision(ctx context.Context, client kclient.Client, providerType v1.ProviderType, namespace, providerName string) error {
+	_, err := advanceRevision(ctx, client, providerType, namespace, providerName)
+	return err
+}
+
+// AdvanceLLMGatewayRevision bumps the LLM gateway's configuration revision so every other
+// replica reloads its gateway, and returns the new revision.
+func AdvanceLLMGatewayRevision(ctx context.Context, client kclient.Client) (int64, error) {
+	return advanceRevision(ctx, client, v1.ProviderTypeLLMGateway, system.DefaultNamespace, system.LLMGatewayModelProvider)
+}
+
+func advanceRevision(ctx context.Context, client kclient.Client, providerType v1.ProviderType, namespace, providerName string) (int64, error) {
 	if err := EnsureDaemonSync(ctx, client); err != nil {
-		return err
+		return 0, err
 	}
 	revisionKey := providerDaemonRevisionKey(providerType, namespace, providerName)
-	var daemonSync v1.ProviderSync
+	var (
+		daemonSync v1.ProviderSync
+		advanced   int64
+	)
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}, &daemonSync); err != nil {
 			// EnsureDaemonSync above created the singleton if it was missing, so
@@ -776,12 +753,25 @@ func AdvanceDaemonRevision(ctx context.Context, client kclient.Client, providerT
 		revision.ProviderName = providerName
 		revision.Revision++
 		daemonSync.Spec.Revisions[revisionKey] = revision
+		advanced = revision.Revision
 		return client.Update(ctx, &daemonSync)
 	})
 	if err != nil {
-		return fmt.Errorf("advance provider daemon sync: %w", err)
+		return 0, fmt.Errorf("advance provider daemon sync: %w", err)
 	}
-	return nil
+	return advanced, nil
+}
+
+// CurrentLLMGatewayRevision returns the latest LLM gateway configuration revision announced
+// to the replicas.
+func CurrentLLMGatewayRevision(ctx context.Context, client kclient.Client) (int64, error) {
+	var daemonSync v1.ProviderSync
+	if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}, &daemonSync); apierrors.IsNotFound(err) {
+		return 0, nil
+	} else if err != nil {
+		return 0, err
+	}
+	return daemonSync.Spec.Revisions[providerDaemonRevisionKey(v1.ProviderTypeLLMGateway, system.DefaultNamespace, system.LLMGatewayModelProvider)].Revision, nil
 }
 
 func providerDaemonRevisionKey(providerType v1.ProviderType, namespace, providerName string) string {

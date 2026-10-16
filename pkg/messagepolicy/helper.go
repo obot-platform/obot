@@ -1,156 +1,26 @@
 package messagepolicy
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/gateway/azure"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/subjectgroups"
-	kuser "k8s.io/apiserver/pkg/authentication/user"
-	gocache "k8s.io/client-go/tools/cache"
+	"github.com/obot-platform/obot/pkg/llmengine"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	userIndex      = "user-id"
-	groupIndex     = "group-id"
-	obotGroupIndex = "obot-group-id"
-	selectorIndex  = "selector-id"
-)
-
+// Helper evaluates natural-language policies with an LLM judge: the LLM judge guardrail,
+// which message policies became.
 type Helper struct {
-	indexer         gocache.Indexer
-	client          kclient.Client
-	dispatcher      *dispatcher.Dispatcher
-	gatewayClient   *gateway.Client
-	entraCredential azure.EntraCredentialCache
+	client     kclient.Client
+	llmGateway *llmengine.Engine
 }
 
-// ApplicablePolicy pairs a policy's Kubernetes resource name with its manifest.
+// ApplicablePolicy pairs a policy's ID with its manifest.
 type ApplicablePolicy struct {
-	ID       string // Kubernetes resource name (e.g., "mp1-abc123")
+	ID       string
 	Manifest types.MessagePolicyManifest
 }
 
-func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Client, dispatcher *dispatcher.Dispatcher, gatewayClient *gateway.Client) (*Helper, error) {
-	gvk, err := backend.GroupVersionKindFor(&v1.MessagePolicy{})
-	if err != nil {
-		return nil, err
-	}
-
-	informer, err := backend.GetInformerForKind(ctx, gvk)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := informer.AddIndexers(gocache.Indexers{
-		userIndex:      subjectIndexFunc(types.SubjectTypeUser),
-		groupIndex:     subjectIndexFunc(types.SubjectTypeGroup),
-		obotGroupIndex: subjectIndexFunc(types.SubjectTypeObotGroup),
-		selectorIndex:  subjectIndexFunc(types.SubjectTypeSelector),
-	}); err != nil {
-		return nil, err
-	}
-
-	return &Helper{
-		indexer:       informer.GetIndexer(),
-		client:        client,
-		dispatcher:    dispatcher,
-		gatewayClient: gatewayClient,
-	}, nil
-}
-
-// GetApplicablePolicies returns all policies that apply to the given user and direction.
-func (h *Helper) GetApplicablePolicies(user kuser.Info, direction types.PolicyDirection) ([]ApplicablePolicy, error) {
-	seen := make(map[string]struct{})
-	var result []ApplicablePolicy
-
-	collect := func(policies []v1.MessagePolicy) {
-		for _, p := range policies {
-			if _, ok := seen[p.Name]; ok {
-				continue
-			}
-			d := p.Spec.Manifest.Direction
-			if d == direction || d == types.PolicyDirectionBoth {
-				seen[p.Name] = struct{}{}
-				result = append(result, ApplicablePolicy{
-					ID:       p.Name,
-					Manifest: p.Spec.Manifest,
-				})
-			}
-		}
-	}
-
-	// Wildcard policies
-	wildcardPolicies, err := h.getIndexedPolicies(selectorIndex, "*")
-	if err != nil {
-		return nil, err
-	}
-	collect(wildcardPolicies)
-
-	// User-specific policies
-	userPolicies, err := h.getIndexedPolicies(userIndex, user.GetUID())
-	if err != nil {
-		return nil, err
-	}
-	collect(userPolicies)
-
-	// Group-based policies
-	groups, obotGroups := subjectgroups.Sets(user)
-	for groupID := range groups {
-		groupPolicies, err := h.getIndexedPolicies(groupIndex, groupID)
-		if err != nil {
-			return nil, err
-		}
-		collect(groupPolicies)
-	}
-
-	for groupID := range obotGroups {
-		groupPolicies, err := h.getIndexedPolicies(obotGroupIndex, groupID)
-		if err != nil {
-			return nil, err
-		}
-		collect(groupPolicies)
-	}
-
-	return result, nil
-}
-
-func (h *Helper) getIndexedPolicies(index, key string) ([]v1.MessagePolicy, error) {
-	policies, err := h.indexer.ByIndex(index, key)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get message policies for index %s/%s: %w", index, key, err)
-	}
-
-	result := make([]v1.MessagePolicy, 0, len(policies))
-	for _, policy := range policies {
-		if res, ok := policy.(*v1.MessagePolicy); ok {
-			result = append(result, *res)
-		}
-	}
-
-	return result, nil
-}
-
-func subjectIndexFunc(subjectType types.SubjectType) gocache.IndexFunc {
-	return func(obj any) ([]string, error) {
-		policy := obj.(*v1.MessagePolicy)
-		if !policy.DeletionTimestamp.IsZero() {
-			return nil, nil
-		}
-
-		var keys []string
-		for _, subject := range policy.Spec.Manifest.Subjects {
-			if subject.Type == subjectType {
-				keys = append(keys, subject.ID)
-			}
-		}
-
-		return keys, nil
-	}
+// NewHelper returns a judge that calls the default model aliases' models through the LLM
+// gateway.
+func NewHelper(client kclient.Client, llmGateway *llmengine.Engine) *Helper {
+	return &Helper{client: client, llmGateway: llmGateway}
 }

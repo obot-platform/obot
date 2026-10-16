@@ -164,6 +164,28 @@ func (c *Client) UpsertCredential(ctx context.Context, credential types.Credenti
 	}).Create(&credential).Error
 }
 
+// EnsureCredential stores credential unless one with the same context and name already
+// exists, and returns the stored credential. Concurrent callers all get the same one.
+func (c *Client) EnsureCredential(ctx context.Context, credential types.Credential) (types.Credential, error) {
+	if credential.Context == "" || credential.Name == "" {
+		return types.Credential{}, fmt.Errorf("credential context and name are required")
+	}
+	if credential.Secrets == nil {
+		credential.Secrets = map[string]string{}
+	}
+	credential.Encrypted = false
+	if err := c.encryptCredential(ctx, &credential); err != nil {
+		return types.Credential{}, fmt.Errorf("failed to encrypt credential: %w", err)
+	}
+	if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "context"}, {Name: "name"}},
+		DoNothing: true,
+	}).Create(&credential).Error; err != nil {
+		return types.Credential{}, err
+	}
+	return c.RevealCredential(ctx, []string{credential.Context}, credential.Name)
+}
+
 // DeleteCredential deletes a credential if it exists and returns whether a credential was deleted.
 func (c *Client) DeleteCredential(ctx context.Context, context, name string) (bool, error) {
 	result := c.db.WithContext(ctx).Where("context = ? AND name = ?", context, name).Delete(&types.Credential{})

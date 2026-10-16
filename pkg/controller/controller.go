@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secretbinding"
 	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
+	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
@@ -35,14 +36,13 @@ import (
 )
 
 type Controller struct {
-	services               *services.Services
-	providerHandler        *provider.Handler
-	mcpCatalogHandler      *mcpcatalog.Handler
-	mdmAssetSourceHandler  *mdmassetsource.Handler
-	modelInfoSourceHandler *modelinfosource.Handler
-	adminWorkspaceHandler  *adminworkspace.Handler
-	providerInstaller      networkPolicyProviderInstaller
-	now                    func() time.Time
+	services              *services.Services
+	providerHandler       *provider.Handler
+	mcpCatalogHandler     *mcpcatalog.Handler
+	mdmAssetSourceHandler *mdmassetsource.Handler
+	adminWorkspaceHandler *adminworkspace.Handler
+	providerInstaller     networkPolicyProviderInstaller
+	now                   func() time.Time
 }
 
 func New(services *services.Services) (*Controller, error) {
@@ -209,28 +209,13 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		panic(err)
 	}
 	go c.providerHandler.PollRegistries(ctx, client)
-	var err error
-	for range 3 {
-		err = c.providerHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
-		if err == nil {
-			break
-		}
-		time.Sleep(500 * time.Millisecond) // wait a bit before retrying
-	}
-	if err != nil {
-		panic(fmt.Errorf("failed to ensure openai env credential and defaults: %w", err))
-	}
 
 	if err := c.services.PersistentTokenServer.EnsureJWK(ctx); err != nil {
 		panic(fmt.Errorf("failed to ensure JWK: %w", err))
 	}
 
-	if err = c.providerHandler.EnsureAnthropicCredentialAndDefaults(ctx, client); err != nil {
-		panic(fmt.Errorf("failed to ensure anthropic credential and defaults: %w", err))
-	}
-
-	if err := c.modelInfoSourceHandler.SetUpDefaultModelInfoSource(ctx, client); err != nil {
-		panic(fmt.Errorf("failed to set up default model info source: %w", err))
+	if err := modelinfosource.DeleteDefaultSource(ctx, client); err != nil {
+		panic(err)
 	}
 	if err := c.mdmAssetSourceHandler.SetUpDefaultMDMAssetSource(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default MDM asset source: %w", err))
@@ -640,9 +625,37 @@ func (c *Controller) ensureLocalAuthProvider(ctx context.Context) error {
 	return c.services.StorageClient.Update(ctx, &existing)
 }
 
+// ensureBifrostModelProvider creates the ModelProvider resource for the embedded LLM
+// gateway. Like the local auth provider it runs inside this process, so it doesn't come
+// from the provider registry.
+func (c *Controller) ensureBifrostModelProvider(ctx context.Context) error {
+	modelProvider := llmengine.ModelProviderResource()
+
+	var existing v1.ModelProvider
+	if err := c.services.StorageClient.Get(ctx, kclient.ObjectKeyFromObject(modelProvider), &existing); apierrors.IsNotFound(err) {
+		// Replicas starting together race to create it; the one that loses has nothing to do.
+		if err := c.services.StorageClient.Create(ctx, modelProvider); err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to get LLM gateway model provider: %w", err)
+	}
+
+	if equality.Semantic.DeepEqual(existing.Spec, modelProvider.Spec) {
+		return nil
+	}
+
+	existing.Spec = modelProvider.Spec
+	return c.services.StorageClient.Update(ctx, &existing)
+}
+
 func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) error {
 	if err := c.ensureLocalAuthProvider(ctx); err != nil {
 		return fmt.Errorf("failed to ensure local auth provider: %w", err)
+	}
+	if err := c.ensureBifrostModelProvider(ctx); err != nil {
+		return fmt.Errorf("failed to ensure LLM gateway model provider: %w", err)
 	}
 
 	var authProviders v1.AuthProviderList
@@ -673,24 +686,15 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 				return fmt.Errorf("failed to update auth provider: %w", err)
 			}
 		}
-
-		var modelProviders v1.ModelProviderList
-		if err := c.services.StorageClient.List(ctx, &modelProviders); err != nil {
-			return fmt.Errorf("failed to get model provider: %w", err)
-		}
-
-		for _, modelProvider := range modelProviders.Items {
-			if err := provider.SetModelProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.LicenseProvider, &modelProvider); err != nil {
-				return fmt.Errorf("failed to set model provider configured status: %w", err)
-			}
-			if err := provider.BackPopulateModels(ctx, c.services.StorageClient, c.services.ProviderDispatcher, &modelProvider); err != nil {
-				return fmt.Errorf("failed to back populate models: %w", err)
-			}
-			if err := c.services.StorageClient.Status().Update(ctx, &modelProvider); err != nil {
-				return fmt.Errorf("failed to update model provider status: %w", err)
-			}
-		}
 	}
 
+	storage := c.services.StorageClient
+	go c.services.BifrostEngine.RunStartupTasks(ctx, storage, c.services.GatewayClient,
+		func(ctx context.Context) (int64, error) {
+			return providerconfigurationchange.CurrentLLMGatewayRevision(ctx, storage)
+		},
+		func(ctx context.Context) (int64, error) {
+			return providerconfigurationchange.AdvanceLLMGatewayRevision(ctx, storage)
+		})
 	return nil
 }

@@ -61,6 +61,9 @@ func (c *Client) cleanupRetainedData(ctx context.Context, now time.Time, mcpAudi
 	if err := c.deleteOldRevokedAPIKeys(ctx, now, apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays)); err != nil {
 		return fmt.Errorf("delete old revoked API keys: %w", err)
 	}
+	if err := c.deleteOldLLMGatewayBudgetUsage(ctx, now); err != nil {
+		return fmt.Errorf("delete old LLM gateway budget usage: %w", err)
+	}
 	return nil
 }
 

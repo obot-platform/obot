@@ -17,17 +17,16 @@ func TestNewLLMProxyRequestPreservesIdentityAndAuditAttribution(t *testing.T) {
 	inbound.Set("User-Agent", "browser-agent")
 
 	req, err := NewLLMProxyRequest(ctx, "https://obot.example/base", ResolvedModel{
-		ID:        "m1default",
-		Target:    "gpt-test",
-		Provider:  "openai-model-provider",
-		Dialect:   llmtypes.DialectOpenAIResponses,
-		ProxyPath: "openai",
-		APIPath:   "/v1/responses",
+		ID:       "m1default",
+		Target:   "gpt-test",
+		Provider: "llm-gateway-model-provider",
+		Dialect:  llmtypes.DialectOpenAIResponses,
+		APIPath:  "/v1/responses",
 	}, []byte(`{"model":"gpt-test","stream":true}`), inbound)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := req.URL.String(), "https://obot.example/base/api/llm-proxy/openai/v1/responses"; got != want {
+	if got, want := req.URL.String(), "https://obot.example/base/api/llm-proxy/v1/responses"; got != want {
 		t.Fatalf("URL = %q, want %q", got, want)
 	}
 	if got := req.Header.Get("Authorization"); got != "Bearer user-token" {
@@ -51,12 +50,11 @@ func TestNewLLMProxyRequestPreservesIdentityAndAuditAttribution(t *testing.T) {
 
 func TestNewLLMProxyRequestSetsAnthropicVersion(t *testing.T) {
 	req, err := NewLLMProxyRequest(t.Context(), "https://obot.example", ResolvedModel{
-		ID:        "m1default",
-		Target:    "claude-test",
-		Provider:  "anthropic-model-provider",
-		Dialect:   llmtypes.DialectAnthropicMessages,
-		ProxyPath: "anthropic",
-		APIPath:   "/v1/messages",
+		ID:       "m1default",
+		Target:   "claude-test",
+		Provider: "llm-gateway-model-provider",
+		Dialect:  llmtypes.DialectAnthropicMessages,
+		APIPath:  "/v1/messages",
 	}, []byte(`{"model":"claude-test","stream":true}`), nil)
 	if err != nil {
 		t.Fatal(err)

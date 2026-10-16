@@ -37,6 +37,10 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 
 	var oModels openai.ModelsList
 	for _, modelProvider := range modelProviders.Items {
+		if _, ok := a.dispatcher.BuiltinModelProvider(modelProvider.Namespace, modelProvider.Name); !ok {
+			// A legacy model provider the LLM gateway hasn't migrated yet; it serves nothing.
+			continue
+		}
 		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, a.licenseProvider)
 		if err != nil {
 			return err

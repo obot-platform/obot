@@ -67,6 +67,7 @@ jobs:
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
           build-args: |
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
+            MODEL_DATA_URL=https://upgrade-server.obot.ai/v1/model-data
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1

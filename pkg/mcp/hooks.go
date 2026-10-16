@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 const (
@@ -32,6 +34,18 @@ type HookMapping struct {
 type HookTarget struct {
 	Target           string
 	MutateDisallowed bool
+	// Name is the filter's display name, recorded in audit logs.
+	Name string
+	// Guardrail is set for a guardrail filter, which Obot runs in-process instead of
+	// calling Target on a filter MCP server.
+	Guardrail *GuardrailTarget
+}
+
+// GuardrailTarget is a guardrail filter in a hook chain.
+type GuardrailTarget struct {
+	// FilterName is the filter's resource name (its ID).
+	FilterName string
+	Config     types.MCPGuardrailFilterConfig
 }
 
 // Message is the JSON-RPC envelope sent to and returned by MCP hooks.
@@ -62,6 +76,37 @@ type RPCError struct {
 	Code    int             `json:"code,omitempty"`
 	Message string          `json:"message,omitempty"`
 	Data    json.RawMessage `json:"data,omitempty"`
+}
+
+// HasGuardrails reports whether any hook target is a guardrail filter.
+func (h Hooks) HasGuardrails() bool {
+	for _, hook := range h {
+		for _, target := range hook.Targets {
+			if target.Guardrail != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// GuardrailsOnly returns the hooks with only their guardrail filter targets, which need no
+// hook runner.
+func (h Hooks) GuardrailsOnly() Hooks {
+	var result Hooks
+	for _, hook := range h {
+		var targets []HookTarget
+		for _, target := range hook.Targets {
+			if target.Guardrail != nil {
+				targets = append(targets, target)
+			}
+		}
+		if len(targets) > 0 {
+			hook.Targets = targets
+			result = append(result, hook)
+		}
+	}
+	return result
 }
 
 func (h HookMapping) Matches(name string, params map[string]string) bool {

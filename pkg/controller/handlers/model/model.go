@@ -44,6 +44,12 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	// The built-in LLM gateway keeps upstream credentials in Bifrost rather than in an Obot
+	// credential, and its model sync prunes models that are no longer served.
+	if modelProvider.Name == system.LLMGatewayModelProvider {
+		return nil
+	}
+
 	// If the credential is not found then the model provider has been deconfigured.
 	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
 	if _, ok := errors.AsType[client.CredentialNotFoundError](err); ok {

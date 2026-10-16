@@ -12,6 +12,14 @@ RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
 FROM base AS bin
 WORKDIR /app
 COPY . .
+# With MODEL_DATA_URL set, as CI sets it for the main and release images, the LLM gateway's
+# model prices and capabilities are downloaded and embedded in the binary (see
+# pkg/modeldata), and the build fails if they can't be. Without it, the image downloads them
+# when it starts.
+ARG MODEL_DATA_URL=
+RUN --mount=type=cache,target=/root/.cache/go-build \
+  --mount=type=cache,target=/root/go/pkg/mod \
+  MODEL_DATA_URL="${MODEL_DATA_URL}" go run ./tools/fetch-model-data
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
   --mount=type=cache,target=/root/.cache/go-build \
   --mount=type=cache,target=/root/go/pkg/mod \

@@ -247,17 +247,16 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 			errorMsg:    "duplicate subject: group/group1",
 		},
 
-		// Validation failures - models
+		// Models
 		{
-			name: "empty models list",
+			name: "empty models list, for a profile with only budgets or guardrails",
 			manifest: ModelAccessPolicyManifest{
 				Subjects: []Subject{
 					{Type: SubjectTypeUser, ID: "user1"},
 				},
 				Models: []ModelResource{},
 			},
-			expectError: true,
-			errorMsg:    "at least one model resource is required",
+			expectError: false,
 		},
 		{
 			name: "nil models list",
@@ -267,8 +266,7 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 				},
 				Models: nil,
 			},
-			expectError: true,
-			errorMsg:    "at least one model resource is required",
+			expectError: false,
 		},
 		{
 			name: "invalid model - empty ID",
@@ -477,5 +475,25 @@ func TestModelAccessPolicyManifestValidate(t *testing.T) {
 				assert.NoError(t, err, "expected validation to pass")
 			}
 		})
+	}
+}
+
+func TestMatchesTargetModel(t *testing.T) {
+	for _, tt := range []struct {
+		pattern, target string
+		want            bool
+	}{
+		{pattern: "anthropic/claude-haiku-4-5*", target: "anthropic/claude-haiku-4-5-20251001", want: true},
+		// A pattern written for provider-native names still matches gateway models.
+		{pattern: "claude-haiku-4-5*", target: "anthropic/claude-haiku-4-5-20251001", want: true},
+		{pattern: "claude-haiku-4-5*", target: "claude-haiku-4-5", want: true},
+		{pattern: "anthropic/claude*", target: "bedrock/claude-x"},
+		{pattern: "gpt-5*", target: "openai/gpt-4.1"},
+		{pattern: "*", target: "openai/gpt-5"},
+		{pattern: "gpt-5", target: "openai/gpt-5"},
+	} {
+		if got := (ModelResource{ID: tt.pattern}).MatchesTargetModel(tt.target); got != tt.want {
+			t.Errorf("%q matches %q = %v, want %v", tt.pattern, tt.target, got, tt.want)
+		}
 	}
 }
