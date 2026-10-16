@@ -1187,5 +1187,12 @@
 	"mcps_login_new_command": "生成新命令",
 	"mcps_login_expires_in": "命令将在 {time} 后过期",
 	"mcps_login_expired": "此命令已过期。请选择“生成新命令”，然后复制新命令并在终端中运行。",
-	"mcps_login_expired_status": "命令已过期"
+	"mcps_login_expired_status": "命令已过期",
+	"mcps_filters_col_type": "类型",
+	"mcps_filters_kind_guardrail": "护栏",
+	"mcps_filters_kind_webhook": "Webhook",
+	"mcps_filters_kind_builtin": "内置",
+	"mcps_filters_kind_mcp_server": "MCP 服务器",
+	"mcps_filters_create_guardrail_filter": "创建护栏过滤器",
+	"mcps_filters_create_guardrail": "从护栏创建"
 }
