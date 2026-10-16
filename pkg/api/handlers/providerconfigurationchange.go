@@ -10,7 +10,6 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -24,10 +23,6 @@ import (
 const (
 	providerConfigurationChangeTimeout = 2 * time.Minute
 )
-
-func modelProviderConfigurationChangeName(providerName string) string {
-	return name.SafeConcatName(system.ProviderChangePrefix, providerName)
-}
 
 func stageProviderCredential(req api.Context, secrets map[string]string) (string, error) {
 	stagedName := strings.ReplaceAll(uuid.NewV4().String(), "-", "")

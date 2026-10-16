@@ -2,6 +2,12 @@ version: 2
 
 project_name: "obot"
 
+before:
+  hooks:
+    # With MODEL_DATA_URL set, as the release workflow sets it, download the LLM gateway's
+    # model prices and capabilities, which the binary embeds (see pkg/modeldata).
+    - go run ./tools/fetch-model-data
+
 builds:
   - id: build-darwin
     main: .

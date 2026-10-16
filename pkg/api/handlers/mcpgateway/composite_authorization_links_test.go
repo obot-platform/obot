@@ -26,7 +26,7 @@ func TestCompositeAuthorizationLinksPreservesRequestIdentity(t *testing.T) {
 				require.Equal(t, "42", req.User.GetUID())
 				require.Equal(t, "vmcpi1user", req.PathValue("mcp_id"))
 				return []mmmcp.AuthorizationURL{{URL: "https://obot.example/auth/mcp/composite/vmcpi1user", Message: "Connect Gmail"}}, nil
-			})
+			}, nil)
 			require.NoError(t, err)
 			defer gateway.Close()
 			cfg := &config.Config{DeferAuthorization: true, Servers: []config.Server{{Name: "Gmail", URL: component.URL}}}

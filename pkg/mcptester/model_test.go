@@ -93,20 +93,27 @@ func TestResolveDefaultModelRequiresUserAccess(t *testing.T) {
 	}
 }
 
-func TestResolveDefaultModelBuildsExistingProxyRoute(t *testing.T) {
+func TestResolveDefaultModelBuildsGatewayProxyRoute(t *testing.T) {
 	resolver := &fakeModelResolver{
 		allowed: true,
 	}
 	model := testModel(true, llmtypes.DialectAnthropicMessages)
-	model.Spec.Manifest.ModelProvider = system.AnthropicModelProvider
 	client := testModelClient(model)
 
 	got, err := ResolveDefaultModel(t.Context(), client, resolver, &kuser.DefaultInfo{UID: "user-1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ProxyPath != "anthropic" || got.APIPath != "/v1/messages" {
-		t.Fatalf("proxy route = %q%q, want anthropic/v1/messages", got.ProxyPath, got.APIPath)
+	if got.ProxyPath != "" || got.APIPath != "/v1/messages" {
+		t.Fatalf("proxy route = %q%q, want /v1/messages at the proxy's root", got.ProxyPath, got.APIPath)
+	}
+}
+
+func TestResolveDefaultModelRejectsOtherProviders(t *testing.T) {
+	model := testModel(true, llmtypes.DialectAnthropicMessages)
+	model.Spec.Manifest.ModelProvider = "anthropic-model-provider"
+	if _, err := ResolveDefaultModel(t.Context(), testModelClient(model), &fakeModelResolver{allowed: true}, &kuser.DefaultInfo{UID: "user-1"}); err == nil {
+		t.Fatal("a model from a removed legacy provider resolved")
 	}
 }
 
@@ -131,8 +138,8 @@ func testModel(active bool, dialect llmtypes.Dialect) *v1.Model {
 		Name:      "m1default",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
-			TargetModel:   "model-target",
-			ModelProvider: system.OpenAIModelProvider,
+			TargetModel:   "openai/model-target",
+			ModelProvider: system.LLMGatewayModelProvider,
 			Active:        active,
 			Usage:         types.ModelUsageLLM,
 			Dialect:       string(dialect),

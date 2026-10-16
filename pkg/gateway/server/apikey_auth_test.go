@@ -124,3 +124,38 @@ func TestOnlyClaudeCredentialsEnableDeferredMCPAuthorization(t *testing.T) {
 		})
 	}
 }
+
+// X-Obot-Api-Key authenticates only LLM proxy requests: the LLM proxy strips it before
+// forwarding, but on other routes, such as MCP connections, it would reach an upstream server.
+func TestAPIKeyAuthenticatorReadsObotAPIKeyHeaderOnlyOnTheLLMProxy(t *testing.T) {
+	_, client := newTokenRequestTestServer(t)
+	keyOwner, err := client.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{
+		ProviderUsername: "alice",
+		ProviderUserID:   "alice",
+		Email:            "alice@example.com",
+	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := client.CreateAPIKey(t.Context(), keyOwner.ID, "Claude Code", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true, MCPServerIDs: []string{"*"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authenticate := func(path string) bool {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		req.Header.Set("Authorization", "Bearer sk-ant-oat01-subscription")
+		req.Header.Set(HeaderObotAPIKey, created.Key)
+		_, ok, err := NewAPIKeyAuthenticator(client).AuthenticateRequest(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ok
+	}
+	if !authenticate("/api/llm-proxy/v1/messages") {
+		t.Error("X-Obot-Api-Key didn't authenticate an LLM proxy request")
+	}
+	if authenticate("/mcp-connect/ms1example") {
+		t.Error("X-Obot-Api-Key authenticated an MCP connection")
+	}
+}

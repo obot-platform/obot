@@ -23,6 +23,53 @@ type MCPWebhookValidationManifest struct {
 	Selectors                     MCPSelectors             `json:"selectors,omitempty"`
 	AllowedToMutate               bool                     `json:"allowedToMutate,omitempty"`
 	Disabled                      bool                     `json:"disabled,omitempty"`
+	// Guardrail makes this a guardrail filter: Obot checks matching traffic in-process with
+	// guardrails instead of calling a filter MCP server. It is mutually exclusive
+	// with URL, SystemMCPServerManifest and SystemMCPServerCatalogEntryID.
+	Guardrail *MCPGuardrailFilterConfig `json:"guardrail,omitempty"`
+}
+
+const (
+	// Guardrail filter actions.
+	MCPGuardrailActionBlock  = "block"
+	MCPGuardrailActionRedact = "redact"
+
+	// Guardrail filter directions.
+	MCPGuardrailDirectionRequest  = "request"
+	MCPGuardrailDirectionResponse = "response"
+	MCPGuardrailDirectionBoth     = "both"
+
+	// Guardrail filter subject types.
+	MCPGuardrailSubjectUser     = "user"
+	MCPGuardrailSubjectGroup    = "group"
+	MCPGuardrailSubjectEveryone = "everyone"
+)
+
+// MCPGuardrailFilterConfig configures a guardrail filter.
+type MCPGuardrailFilterConfig struct {
+	// GuardrailIDs are the guardrails that check the traffic.
+	GuardrailIDs []string `json:"guardrailIDs"`
+	// Action is block or redact.
+	Action string `json:"action"`
+	// Direction is request, response or both. It defaults to both.
+	Direction string `json:"direction,omitempty"`
+	// FailClosed blocks the message when a guardrail can't be evaluated.
+	FailClosed bool `json:"failClosed,omitempty"`
+	// SamplingRate is the percentage (1-100) of matching messages that are checked. It
+	// defaults to 100.
+	SamplingRate int `json:"samplingRate,omitempty"`
+	// Subjects limits the filter to users and groups. Empty means everyone.
+	Subjects []MCPGuardrailFilterSubject `json:"subjects,omitempty"`
+	// Condition is an optional CEL expression that must be true for the filter to apply.
+	Condition string `json:"condition,omitempty"`
+	// BlockMessage replaces the default message returned when the filter blocks.
+	BlockMessage string `json:"blockMessage,omitempty"`
+}
+
+// MCPGuardrailFilterSubject is a user, a group or everyone.
+type MCPGuardrailFilterSubject struct {
+	Type string `json:"type"`
+	ID   string `json:"id,omitempty"`
 }
 
 type MCPWebhookValidationList List[MCPWebhookValidation]

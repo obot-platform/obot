@@ -31,7 +31,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	upstream := httptest.NewServer(gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 		return obotmcp.SessionMessageHook{Accept: false, Message: input.Message, Reason: "blocked by policy"}, true, nil
 	}}
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file", "direction": "request"}, Targets: []obotmcp.HookTarget{{Target: "policy/delete"}}}}
-	processor, err := newHookProcessor(req, runner, hooks, nil, audit, nil, resolved)
+	processor, err := newHookProcessor(req, runner, hooks, nil, audit, nil, resolved, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestHookProcessorRejectsCaseVariantFieldNames(t *testing.T) {
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file"}, Targets: []obotmcp.HookTarget{{Target: "policy/deny"}}}}
 	for _, tt := range caseVariantMCPRequests() {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := newHookProcessor(mustMCPHookRequest(t, tt.body), runner, hooks, nil, nil, nil, nil)
+			_, err := newHookProcessor(mustMCPHookRequest(t, tt.body), runner, hooks, nil, nil, nil, nil, nil)
 			if !errors.Is(err, errMCPCaseVariantFieldNames) {
 				t.Fatalf("case variant field was not rejected: %v", err)
 			}
@@ -352,13 +352,13 @@ func TestHookProcessorRejectsCaseVariantFieldNames(t *testing.T) {
 
 	// Unrelated keys, including ones inside tool arguments, are still allowed.
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"delete_file","arguments":{"Name":"a","NAME":"b"},"_meta":{}}}`
-	if _, err := newHookProcessor(mustMCPHookRequest(t, body), runner, hooks, nil, nil, nil, nil); err != nil {
+	if _, err := newHookProcessor(mustMCPHookRequest(t, body), runner, hooks, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("exact field names were rejected: %v", err)
 	}
 }
 
 func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestGenericToolCallGzipDiscoveryFailureKeepsRequestIDAndAudit(t *testing.T)
 	}))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +513,7 @@ func TestGenericToolCallHookMutationPreservesWrapper(t *testing.T) {
 	}}
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file"}, Targets: []obotmcp.HookTarget{{Target: "policy/redact"}}}}
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{"path":"one"}}}}`)
-	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, resolved)
+	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, resolved, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -553,7 +553,7 @@ func TestGenericToolCallResponseHookUsesUnderlyingName(t *testing.T) {
 	runner := new(scriptedMCPHookRunner)
 	hooks := obotmcp.Hooks{{Name: "tools/call", Params: map[string]string{"name": "delete_file", "direction": "response"}, Targets: []obotmcp.HookTarget{{Target: "policy/response"}}}}
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
-	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, resolved)
+	processor, err := newHookProcessor(req, runner, hooks, nil, nil, nil, resolved, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -581,7 +581,7 @@ func TestGenericToolCallNamedSearchToolsMatchesCallToolHooksAcrossRequests(t *te
 	metadata := map[string]string{"mcpID": "vmcp", "userID": "user-1"}
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"search_tools","revision":"revision","arguments":{}}}}`)
 	req.Header.Set(mcpSessionHeader, "session-1")
-	_, err := newHookProcessor(req, runner, hooks, nil, nil, newHookCorrelationStore(storage, metadata), resolved)
+	_, err := newHookProcessor(req, runner, hooks, nil, nil, newHookCorrelationStore(storage, metadata), resolved, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -592,7 +592,7 @@ func TestGenericToolCallNamedSearchToolsMatchesCallToolHooksAcrossRequests(t *te
 
 	responseReq := httptest.NewRequest(http.MethodGet, "http://obot.example/mcp", nil)
 	responseReq.Header.Set(mcpSessionHeader, "session-1")
-	responseProcessor, err := newHookProcessor(responseReq, runner, hooks, nil, nil, newHookCorrelationStore(storage, metadata), nil)
+	responseProcessor, err := newHookProcessor(responseReq, runner, hooks, nil, nil, newHookCorrelationStore(storage, metadata), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -607,7 +607,7 @@ func TestGenericToolCallNamedSearchToolsMatchesCallToolHooksAcrossRequests(t *te
 
 	searchRunner := new(scriptedMCPHookRunner)
 	searchReq := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_tools","arguments":{"query":"test"}}}`)
-	if _, err := newHookProcessor(searchReq, searchRunner, hooks, nil, nil, nil, nil); err != nil {
+	if _, err := newHookProcessor(searchReq, searchRunner, hooks, nil, nil, nil, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -623,7 +623,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 	}))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

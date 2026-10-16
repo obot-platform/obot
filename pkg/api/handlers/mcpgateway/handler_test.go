@@ -35,7 +35,7 @@ func TestVMCPToolSearchThroughEmbeddedMMMCP(t *testing.T) {
 	upstream := httptest.NewServer(gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestCompositeUpstreamClientIdentity(t *testing.T) {
 	})
 	upstream := httptest.NewServer(gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil))
 	defer upstream.Close()
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,6 +304,7 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 			request.Header.Set("Cookie", "obot_access_token=local-session-secret")
 			request.Header.Set("Proxy-Authorization", "Bearer obot-proxy-token")
 			request.Header.Set("X-API-Key", "obot-api-key")
+			request.Header.Set("X-Obot-Api-Key", "ok1-obot-api-key")
 
 			response, err := http.DefaultClient.Do(request)
 			if err != nil {
@@ -330,7 +331,17 @@ func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 			if got.Get("X-API-Key") != tt.wantAPIKey {
 				t.Fatalf("X-API-Key = %q, want %q", got.Get("X-API-Key"), tt.wantAPIKey)
 			}
+			if got.Get("X-Obot-Api-Key") != "" {
+				t.Fatalf("X-Obot-Api-Key = %q, want empty", got.Get("X-Obot-Api-Key"))
+			}
 		})
+	}
+}
+
+func TestSanitizedMCPHeadersRedactsObotAPIKey(t *testing.T) {
+	got := sanitizedMCPHeaders(http.Header{"X-Obot-Api-Key": {"ok1-secret"}, "Accept": {"application/json"}})
+	if got.Get("X-Obot-Api-Key") != "[REDACTED]" || got.Get("Accept") != "application/json" {
+		t.Fatalf("headers = %v, want the Obot API key redacted", got)
 	}
 }
 

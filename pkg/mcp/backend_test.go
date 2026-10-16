@@ -148,6 +148,39 @@ func TestServerHookConfigBuildsScopedHooks(t *testing.T) {
 	}
 }
 
+func TestServerHookConfigRunsGuardrailFiltersInProcess(t *testing.T) {
+	config := types.MCPGuardrailFilterConfig{GuardrailIDs: []string{"secrets"}, Action: types.MCPGuardrailActionRedact}
+	hooks, servers := ServerHookConfig(ServerConfig{UserID: "user-1", Webhooks: []Webhook{
+		{
+			Name: "mwv1a", DisplayName: "Policy", URL: "https://policy.example/mcp", ToolName: "validate",
+		},
+		{
+			Name: "mwv1b", DisplayName: "No secrets", Guardrail: &config,
+			Definitions: types.MCPSelectors{{Method: "tools/call", Identifiers: []string{"echo"}}},
+		},
+	}})
+
+	if _, ok := servers["mwv1b"]; ok || len(servers) != 1 {
+		t.Fatalf("a guardrail filter must not have a hook server: %#v", servers)
+	}
+	if len(hooks) != 2 || !hooks.HasGuardrails() {
+		t.Fatalf("unexpected hooks: %#v", hooks)
+	}
+	if target := hooks[0].Targets[0]; target.Guardrail != nil || target.Name != "Policy" || target.Target != "mwv1a/validate" {
+		t.Fatalf("unexpected webhook target: %#v", target)
+	}
+	target := hooks[1].Targets[0]
+	if target.Guardrail == nil || target.Guardrail.FilterName != "mwv1b" || target.Name != "No secrets" || target.MutateDisallowed || target.Guardrail.Config.Action != types.MCPGuardrailActionRedact {
+		t.Fatalf("unexpected guardrail target: %#v", target)
+	}
+	if !hooks[1].Matches("tools/call", map[string]string{"name": "echo"}) || hooks[1].Matches("tools/call", map[string]string{"name": "search"}) {
+		t.Fatal("guardrail filter selectors did not scope by tool name")
+	}
+	if only := hooks.GuardrailsOnly(); len(only) != 1 || only[0].Targets[0].Guardrail == nil {
+		t.Fatalf("GuardrailsOnly = %#v", only)
+	}
+}
+
 func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 	var healthzCalls, mcpCalls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

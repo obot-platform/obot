@@ -14,6 +14,10 @@ type ModelAccessPolicy struct {
 	ModelAccessPolicyManifest `json:",inline"`
 }
 
+// ModelAccessPolicyManifest is an LLM gateway profile: the users and groups it applies to and
+// the models they may use. Budgets and guardrail policies belong to profiles too. Models may be
+// empty, for a profile that only applies guardrail policies: a budget covers only its own
+// profile's models.
 type ModelAccessPolicyManifest struct {
 	DisplayName string          `json:"displayName,omitempty"`
 	Subjects    []Subject       `json:"subjects,omitempty"`
@@ -55,10 +59,6 @@ func (m ModelAccessPolicyManifest) Validate() error {
 			return fmt.Errorf("duplicate subject: %s/%s", subject.Type, subject.ID)
 		}
 		subjects[subject] = struct{}{}
-	}
-
-	if len(m.Models) == 0 {
-		return fmt.Errorf("at least one model resource is required")
 	}
 
 	models := make(map[ModelResource]struct{}, len(m.Models))
@@ -121,9 +121,17 @@ func (m ModelResource) IsWildcardSuffix() (string, bool) {
 }
 
 // MatchesTargetModel returns true if this model resource is a wildcard suffix
-// pattern whose prefix matches the given provider-native target model
-// (case-sensitive).
+// pattern whose prefix matches the given target model (case-sensitive). LLM gateway
+// targets are provider-qualified ("anthropic/claude-haiku-4-5"); a pattern without a
+// provider, such as "claude-haiku-4-5*", matches the part after the provider too.
 func (m ModelResource) MatchesTargetModel(targetModel string) bool {
 	prefix, ok := m.IsWildcardSuffix()
-	return ok && strings.HasPrefix(targetModel, prefix)
+	if !ok {
+		return false
+	}
+	if strings.HasPrefix(targetModel, prefix) {
+		return true
+	}
+	_, native, qualified := strings.Cut(targetModel, "/")
+	return qualified && !strings.Contains(prefix, "/") && strings.HasPrefix(native, prefix)
 }

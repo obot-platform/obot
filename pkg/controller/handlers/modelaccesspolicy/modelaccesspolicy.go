@@ -1,8 +1,11 @@
 package modelaccesspolicy
 
 import (
+	"fmt"
+
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	accesspolicy "github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -69,4 +72,21 @@ func PruneDefaultPolicy(req router.Request, _ router.Response) error {
 	policy.Spec.Manifest.Models = resources
 
 	return req.Client.Update(req.Ctx, policy)
+}
+
+// DeleteProfileBudgetsAndGuardrailPolicies returns the finalizer of a model access policy, which is a
+// gateway profile: it deletes the profile's budgets and guardrail policies, retrying until it
+// succeeds. Until then the policy isn't removed, so a policy created later with the same
+// name, such as the Default Policy, can't take over another's budgets and guardrail policies. A policy
+// marked for deletion already applies to no one.
+func DeleteProfileBudgetsAndGuardrailPolicies(gateway *gatewayclient.Client) router.HandlerFunc {
+	return func(req router.Request, _ router.Response) error {
+		if err := gateway.DeleteLLMGatewayBudgetsForProfile(req.Ctx, req.Name); err != nil {
+			return fmt.Errorf("failed to delete the budgets of profile %s: %w", req.Name, err)
+		}
+		if err := gateway.DeleteGuardrailPoliciesForProfile(req.Ctx, req.Name); err != nil {
+			return fmt.Errorf("failed to delete the guardrail policies of profile %s: %w", req.Name, err)
+		}
+		return nil
+	}
 }
