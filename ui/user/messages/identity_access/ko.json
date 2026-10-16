@@ -382,6 +382,7 @@
 	"identity_access_scim_ref_group_role": "그룹 역할 할당",
 	"identity_access_scim_ref_hosted_agent_access_rule": "호스팅 에이전트 액세스 규칙",
 	"identity_access_scim_ref_id": "{label} {id}",
+	"identity_access_scim_ref_mcp_guardrail_filter": "가드레일 필터",
 	"identity_access_scim_ref_message_policy": "메시지 정책",
 	"identity_access_scim_ref_model_access_policy": "모델 액세스 정책",
 	"identity_access_scim_ref_named": "{label} “{name}”",

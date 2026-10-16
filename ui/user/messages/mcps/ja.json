@@ -1187,5 +1187,12 @@
 	"mcps_login_new_command": "新しいコマンドを生成",
 	"mcps_login_expires_in": "コマンドの有効期限まで {time}",
 	"mcps_login_expired": "このコマンドの有効期限が切れました。「新しいコマンドを生成」を選択し、新しいコマンドをコピーしてターミナルで実行してください。",
-	"mcps_login_expired_status": "コマンドの有効期限が切れました"
+	"mcps_login_expired_status": "コマンドの有効期限が切れました",
+	"mcps_filters_col_type": "種類",
+	"mcps_filters_kind_guardrail": "ガードレール",
+	"mcps_filters_kind_webhook": "Webhook",
+	"mcps_filters_kind_builtin": "組み込み",
+	"mcps_filters_kind_mcp_server": "MCP サーバー",
+	"mcps_filters_create_guardrail_filter": "ガードレールフィルターを作成",
+	"mcps_filters_create_guardrail": "ガードレールから作成"
 }

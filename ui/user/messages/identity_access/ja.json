@@ -382,6 +382,7 @@
 	"identity_access_scim_ref_group_role": "グループのロール割り当て",
 	"identity_access_scim_ref_hosted_agent_access_rule": "ホステッドエージェントのアクセスルール",
 	"identity_access_scim_ref_id": "{label} {id}",
+	"identity_access_scim_ref_mcp_guardrail_filter": "ガードレールフィルター",
 	"identity_access_scim_ref_message_policy": "メッセージポリシー",
 	"identity_access_scim_ref_model_access_policy": "モデルアクセスポリシー",
 	"identity_access_scim_ref_named": "{label}「{name}」",
