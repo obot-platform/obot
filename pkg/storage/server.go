@@ -2,12 +2,12 @@ package storage
 
 import (
 	"context"
-	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/obot-platform/kinm/pkg/db"
 	mserver "github.com/obot-platform/kinm/pkg/server"
 	"github.com/obot-platform/obot/pkg/storage/openapi/generated"
@@ -50,30 +50,26 @@ func Start(ctx context.Context, config sservices.Config) (Client, *rest.Config, 
 // replicas that start together would fail with a duplicate key error on the catalog (for
 // example pg_type_typname_nsp_index) whenever a table is new. On Postgres, a session
 // advisory lock makes replicas take turns.
-func buildAPIGroups(ctx context.Context, services *sservices.Services) ([]*genericapiserver.APIGroupInfo, error) {
+func buildAPIGroups(ctx context.Context, dsn string, services *sservices.Services) ([]*genericapiserver.APIGroupInfo, error) {
 	if services.DB.DB.Name() == "postgres" {
-		conn, err := services.DB.SQLDB.Conn(ctx)
+		// The lock is held on a connection of its own, outside the pool that kinm migrates
+		// with, so it can't take the last connection that the migrations need. Closing the
+		// connection releases the lock.
+		conn, err := pgx.Connect(ctx, dsn)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get a connection to lock the storage schema: %w", err)
+			return nil, fmt.Errorf("failed to connect to lock the storage schema: %w", err)
 		}
-		defer conn.Close()
-		if _, err := conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", schemaLockID); err != nil {
+		defer conn.Close(context.WithoutCancel(ctx))
+		if _, err := conn.Exec(ctx, "SELECT pg_advisory_lock($1)", schemaLockID); err != nil {
 			return nil, fmt.Errorf("failed to lock the storage schema: %w", err)
 		}
-		defer func() {
-			// The connection goes back to the pool, and the lock would stay with it. If it
-			// can't be released, drop the connection instead, which releases it.
-			if _, unlockErr := conn.ExecContext(context.WithoutCancel(ctx), "SELECT pg_advisory_unlock($1)", schemaLockID); unlockErr != nil {
-				_ = conn.Raw(func(any) error { return driver.ErrBadConn })
-			}
-		}()
 	}
 
 	return mserver.BuildAPIGroups(services, agent.APIGroup, agent.LeasesAPIGroup)
 }
 
 func startMinkServer(ctx context.Context, config sservices.Config, services *sservices.Services) (Client, *rest.Config, error) {
-	apiGroups, err := buildAPIGroups(ctx, services)
+	apiGroups, err := buildAPIGroups(ctx, config.DSN, services)
 	if err != nil {
 		return nil, nil, err
 	}

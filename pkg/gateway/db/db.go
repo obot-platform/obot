@@ -9,6 +9,12 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	// migrationLockID is the Postgres advisory lock that serializes the gateway migrations
+	// across Obot replicas.
+	migrationLockID int64 = 0x6f626f7467776d // "obotgwm"
+)
+
 type DB struct {
 	gormDB      *gorm.DB
 	sqlDB       *sql.DB
@@ -36,6 +42,16 @@ func (db *DB) AutoMigrate() (err error) {
 			tx.Commit()
 		}
 	}()
+
+	// Replicas that start together would all run the migrations at once, and Postgres
+	// doesn't make creating the same table concurrently safe: all but one fail with a
+	// duplicate key on pg_type_typname_nsp_index. The lock makes them take turns, and
+	// commit or rollback releases it.
+	if db.gormDB.Name() == "postgres" {
+		if err = tx.Exec("SELECT pg_advisory_xact_lock(?)", migrationLockID).Error; err != nil {
+			return fmt.Errorf("failed to lock the gateway migrations: %w", err)
+		}
+	}
 
 	if err = tx.AutoMigrate(&types.Migration{}); err != nil {
 		return fmt.Errorf("failed to migrate migration table: %w", err)

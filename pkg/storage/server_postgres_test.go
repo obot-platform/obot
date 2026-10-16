@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 )
 
@@ -15,10 +16,12 @@ const (
 	postgresTestDSNEnv = "OBOT_TEST_POSTGRES_DSN"
 )
 
-// Replicas that start together on a database without the storage tables all create them.
-// Postgres doesn't make CREATE TABLE IF NOT EXISTS safe to run concurrently, so without the
-// schema lock all but one fail with a duplicate key on pg_type_typname_nsp_index.
-func TestBuildAPIGroupsConcurrentlyOnAFreshPostgresSchema(t *testing.T) {
+// Replicas that start together on a database without the storage tables all create them,
+// and then all run the gateway migrations. Postgres doesn't make CREATE TABLE IF NOT EXISTS
+// safe to run concurrently, so without the locks all but one fail with a duplicate key on
+// pg_type_typname_nsp_index. Each replica's pool has one connection, so the test also hangs
+// if a lock takes the connection that the migrations need.
+func TestStartReplicasConcurrentlyOnAFreshPostgresSchema(t *testing.T) {
 	dsn := os.Getenv(postgresTestDSNEnv)
 	if dsn == "" {
 		t.Skipf("set %s to a PostgreSQL URL whose user can create schemas", postgresTestDSNEnv)
@@ -57,15 +60,24 @@ func TestBuildAPIGroupsConcurrentlyOnAFreshPostgresSchema(t *testing.T) {
 		if err != nil {
 			t.Fatalf("opening replica %d's connection: %v", i, err)
 		}
+		services.DB.SQLDB.SetMaxOpenConns(1)
 		t.Cleanup(func() { _ = services.DB.SQLDB.Close() })
 		wg.Go(func() {
-			_, errs[i] = buildAPIGroups(t.Context(), services)
+			if _, errs[i] = buildAPIGroups(t.Context(), u.String(), services); errs[i] != nil {
+				return
+			}
+			gatewayDB, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			errs[i] = gatewayDB.AutoMigrate()
 		})
 	}
 	wg.Wait()
 	for i, err := range errs {
 		if err != nil {
-			t.Errorf("replica %d failed to set up the storage tables: %v", i, err)
+			t.Errorf("replica %d failed to set up the database: %v", i, err)
 		}
 	}
 }
