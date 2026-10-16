@@ -110,7 +110,7 @@ Existing legacy single-user and multi-user connections remain available during t
 
 ## Tool search
 
-The **Tool search** setting is off by default, so clients list and call the selected tools directly. Enable it in the vMCP's create or edit dialog to expose two tools instead of the full set:
+The **Tool search** setting is off by default, so clients list and call the selected tools directly. Tool search can be enabled in the vMCP's create or edit dialog to expose two tools instead of the full set:
 
 | Tool | What the client does |
 |---|---|
