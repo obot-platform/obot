@@ -116,7 +116,7 @@ secret:
   # Optional: generated automatically when omitted from the chart-managed Secret
   OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
 
-  # Optionally configure model providers
+  # Optional: configures the LLM gateway's OpenAI provider at startup
   OPENAI_API_KEY: "<your openai api key>"
 
 # Non-sensitive configuration

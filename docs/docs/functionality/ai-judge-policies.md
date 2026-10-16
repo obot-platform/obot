@@ -3,150 +3,39 @@ displayed_sidebar: sidebar
 title: AI Judge Policies
 ---
 
-## Overview
+Message policies, later called AI judge policies, are now part of [Guardrails](./guardrails.md). A message policy is an **LLM Judge Policy** guardrail used by a blocking guardrail policy, and guardrails can apply it to MCP tool calls as well as to LLM traffic.
 
-AI Judge Policies let administrators enforce content rules written in natural language on traffic through the LLM proxy. A policy can apply to:
+When Obot starts, it converts each existing message policy into guardrails, once:
 
-- **User messages** before they are sent to the model
-- **Tool calls** before the client is allowed to execute them
+| Message policy | Guardrail |
+| --- | --- |
+| Display name and definition | An **LLM Judge Policy** guardrail with the same name and policy |
+| Applies to *User Messages* | A guardrail policy that blocks on **input** |
+| Applies to *Tool Calls* | A guardrail policy that blocks on **output** |
+| Applies to *Both* | A guardrail policy that blocks on input and output |
+| Subjects (users, groups, Obot groups, all users) | The guardrail policy's [profile](./model-access-policies.md): the profile for everyone if the policy applied to all users, otherwise a new profile named after the policy with its subjects and no models |
 
-AI Judge Policies are an **experimental feature** and are disabled by default.
-To enable them, set `OBOT_SERVER_ENABLE_MESSAGE_POLICIES=true` and restart Obot.
+The converted guardrail policies start **disabled**. Review them under **LLM Gateway** → **Profiles** and turn on **Enabled**, next to the policy's name, for the ones you want. Once enabled, they fail closed, as message policies did: when the judge's model is unavailable, the request is blocked.
 
-When enabled, Obot adds **AI Judge Policies** and **AI Judge Policy Violations** under **MCP Servers** and **Models** in **AI Resources**.
+The original MessagePolicy resources are kept for the conversion but no longer enforced, and the message policy and violation APIs were removed. Earlier violation records stay in the database but are not carried over to the new UI or API. New findings are recorded in the [LLM audit log](./guardrails.md#events).
 
-## How Policies Work
+The `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` setting is removed. Guardrails are always available.
 
-Each policy defines four things:
+## How LLM judge policies are evaluated
 
-- **Display name** - The label shown in the UI and violation logs
-- **Definition** - A natural language rule describing what is or is not allowed
-- **Applies to** - `User Messages` or `Tool Calls`
-- **Subjects** - The users or groups the policy applies to
+Each policy is evaluated in two stages:
 
-### Subjects
+1. A fast screening pass using the `Chat - Fast` default model returns only `yes` or `no`.
+2. If the first pass says the content should be blocked, the full `Chat` default model confirms or overturns that result and writes the explanation.
 
-A policy can apply to:
+Input policies judge the latest user message in the context of the conversation. Output policies judge the tool calls the model makes. On MCP tool calls, they judge the tool's arguments and results.
 
-- **Individual users**
-- **Groups** from the authentication provider
-- **All Obot Users**
+Policy evaluation consumes tokens and adds latency. The tokens don't count against users' budgets.
 
-If a user matches multiple policies, Obot evaluates all of them in parallel.
-A message or tool call is allowed only if it passes every applicable policy.
+## Writing effective policies
 
-## Enforcement Flow
-
-### Subject Matching
-
-Obot determines applicable policies from:
-
-- The authenticated user ID
-- The user's authentication-provider groups
-- Any wildcard policy for all users
-
-### Two-Stage Review
-
-Obot evaluates each applicable policy in two stages:
-
-1. A fast screening pass using the `Chat - Fast` default language model returns only `yes` or `no`.
-2. If the first pass says the content should be blocked, a second review uses the full `Chat` default language model to confirm or overturn that result and produce the user-facing explanation.
-
-If policy evaluation cannot run correctly, Obot fails closed and blocks the content.
-
-## User Message Policies
-
-For user-message enforcement, Obot checks only the **most recent text message** in the request, and only when it is the final message in the conversation payload. This avoids re-evaluating an already-approved user prompt during tool-calling continuations.
-
-If one or more policies are violated:
-
-- The violation is logged
-- The upstream model receives a fixed refusal instruction instead of the original user message
-- The UI receives a policy-violation notice containing the explanation returned by policy review
-
-## Tool Call Policies
-
-For tool-call enforcement, Obot evaluates the tool calls produced by the model rather than normal assistant text.
-
-Behavior differs slightly by response type, but the effective result is the same:
-
-- Assistant text can continue streaming normally
-- Tool call data is buffered and evaluated before execution
-- If the tool call violates a policy, Obot signals to the client that the tool call cannot be executed
-- The violation is logged with the blocked tool call payload
-
-Obot preserves the tool-call events in the response so conversation state remains valid, but execution is prevented.
-
-## Violation Logging
-
-Every confirmed violation is stored as an **AI Judge Policy Violation** record. Each record includes:
-
-- Time of the violation
-- User ID
-- Policy ID and policy name
-- Policy definition
-- Direction (`user-message` or `tool-calls`)
-- User-facing explanation
-- Blocked content
-- Project ID and thread ID when available
-
-Blocked-content payloads are encrypted at rest when Obot encryption is configured; otherwise they may be stored unencrypted. See the Obot encryption configuration documentation for setup details.
-
-## Reviewing Violations
-
-When the feature is enabled, administrators can open **Policy Violations** within the **AI Judge Policies** tab to review enforcement activity.
-
-The violations view includes:
-
-- Aggregate counts
-- Breakdown by direction
-- Timeline charts grouped by policy or user
-- Filters for user, policy, project, thread, and time range
-
-### Visibility of Blocked Content
-
-Admins, Owners, and Auditors can view violation records.
-
-Only users with the **Auditor** role can see the stored blocked content in the violation detail view. Other admins can see the metadata and explanation, but not the blocked payload itself.
-
-## Managing Policies
-
-To manage policies, go to **AI Judge Policies** under **AI Resources** > **MCP Servers** or **AI Resources** > **Models**.
-
-### Creating a Policy
-
-1. Click **Add AI Judge Policy**
-2. Enter a descriptive name
-3. Write the policy definition in natural language. Be as specific as you can about specific actions that are or are not allowed.
-4. Add the users or groups the policy should cover
-5. Save the policy
-
-### Editing a Policy
-
-Click a policy in the list to update its definition or subjects. Changes take effect immediately.
-
-### Deleting a Policy
-
-Deleting a policy removes that enforcement rule immediately for the affected users and groups.
-
-## Writing Effective Policies
-
-- Be specific about what is disallowed or required
-- Write the rule as a natural language instruction, not as implementation notes
-- Prefer separate policies for distinct concerns instead of one broad policy
-- Use tool-call policies for operational constraints such as purchase, booking, or outbound-action limits
-- Use user-message policies for input restrictions such as prohibited data sharing or disallowed requests
-
-## Tokens and Latency
-
-Each additional policy added to the system will increase the overall token usage, due to tokens spent during policy evaluation.
-The tokens consumed do not count against the user's token usage.
-
-Adding policies also increases latency between request and response, but since they are executed in parallel,
-latency will not scale as much as token usage will when more than one policy is evaluated.
-
-## Related Topics
-
-- [Model Providers](../configuration/model-providers.md) - Configure the default `llm` and `llm-mini` aliases used for policy evaluation
-- [Obot Configuration Reference](../configuration/server-configuration.md) - Enable the feature with server configuration
-- [User Roles](../security/policy-coverage.md) - Understand Admin, Owner, and Auditor permissions
+- Be specific about what is disallowed or required.
+- Write the rule as a natural language instruction, not as implementation notes.
+- Prefer separate policies for distinct concerns instead of one broad policy.
+- Use output (tool call) policies for operational constraints, such as limits on purchases, bookings or outbound actions.
+- Use input policies for input restrictions, such as prohibited data sharing or disallowed requests.
