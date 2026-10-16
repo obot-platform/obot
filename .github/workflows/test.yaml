@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - 'feat/*'
+    paths-ignore:
+      - docs/**
 
 jobs:
   test:

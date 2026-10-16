@@ -11,8 +11,10 @@ on:
     branches:
       - main
       - 'feat/*'
+    # Workflows for the ignored paths run their own job named lint, which branch protection requires.
     paths-ignore:
       - chart/**
+      - docs/**
       - ui/user/**
 
 jobs:
