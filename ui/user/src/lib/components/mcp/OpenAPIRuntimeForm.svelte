@@ -157,9 +157,11 @@
 						{ id: 'url', label: m.mcps_openapi_source_url_option() },
 						{ id: 'file', label: m.mcps_openapi_source_file_option() }
 					]}
-					bind:selected={sourceType}
+					selected={sourceType}
 					disabled={readonly || busy}
-					onSelect={() => {
+					onSelect={(option) => {
+						if (option.id === sourceType) return;
+						sourceType = option.id;
 						config.source = {};
 						fileName = '';
 						invalidate();
