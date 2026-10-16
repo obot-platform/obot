@@ -125,7 +125,7 @@ Supported credentials are header API keys and pre-issued bearer tokens. The runt
 
 #### Schema requirements and updates
 
-Schemas must use OpenAPI 3.0.0–3.0.4 or 3.1.0–3.1.2, fit within 1 MiB, and be self-contained: external references are unsupported. Callbacks and referenced path items are also unsupported. Webhook declarations are retained, but the runtime does not receive webhook events.
+Schemas must use OpenAPI version >= 3.0.0, fit within 1 MiB, and be self-contained: external references are unsupported. Callbacks and referenced path items are also unsupported. Webhook declarations are retained, but the runtime does not receive webhook events.
 
 Schema URLs and API destinations must use HTTPS and pass Obot's configured localhost, private-IP, and link-local restrictions. Schema downloads do not follow redirects or receive API credentials. If a schema requires authentication to download, upload a self-contained copy instead.
 
