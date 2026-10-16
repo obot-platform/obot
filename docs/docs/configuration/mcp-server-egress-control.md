@@ -71,10 +71,10 @@ Example `npx` catalog entry:
 ```yaml
 runtime: npx
 npxConfig:
-  package: "@modelcontextprotocol/server-github"
+  package: "<your-npm-package>" # placeholder: replace with your package name
   egressDomains:
-    - api.github.com
-    - "*.githubusercontent.com"
+    - api.example.com
+    - "*.example-cdn.com"
 ```
 
 Example `uvx` configuration:
@@ -82,7 +82,7 @@ Example `uvx` configuration:
 ```yaml
 runtime: uvx
 uvxConfig:
-  package: "example-mcp-server"
+  package: "<your-pypi-package>" # placeholder: replace with your package name
   egressDomains:
     - api.example.com
 ```
@@ -131,7 +131,7 @@ To block all external egress for a server, set `denyAllEgress: true` and leave `
 ```yaml
 runtime: npx
 npxConfig:
-  package: "example-mcp-server"
+  package: "<your-npm-package>" # placeholder: replace with your package name
   denyAllEgress: true
 ```
 
