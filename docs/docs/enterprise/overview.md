@@ -9,8 +9,7 @@ includes every edition. There is no separate closed-source enterprise build. Obo
 Obot Enterprise all run the same open source code from the same container image.
 
 The editions differ only in their license key. The key gates the user and device limits, the enterprise auth
-providers, and support. You can add, change, or remove it from the **License** page in the admin UI without
-reinstalling.
+providers, and support. You can add or change it from the **License** page in the admin UI without reinstalling.
 
 ## Editions
 
@@ -56,7 +55,9 @@ Add an Enterprise license key in one of two ways:
   way takes precedence over one stored in the database. The **License** page shows it as locked: you can't change,
   delete, or register over it in the UI.
 
-Removing the license key from the **License** page returns the installation to unregistered Obot Community.
+Deleting an Enterprise license key from the **License** page returns the installation to unregistered Obot Community.
+The page has no option to delete a registered Community key: replace it by adding an Enterprise key, or delete it with
+`DELETE /api/license`.
 
 ## How Obot validates a license
 
@@ -102,6 +103,8 @@ entitlements and treats the installation as unregistered Obot Community until a 
 - `OBOT_SERVER_LICENSE_KEY` is set on a new installation, or on one with a new database, that can't reach
   `https://api.keygen.sh`. Air-gapped installations can't validate a license key yet. Support for offline
   licensing is coming soon.
+- The installation was upgraded from v0.26.3 or earlier, which didn't save entitlements, and the license service
+  can't be reached at the first startup after the upgrade.
 - An administrator adds a key in the admin UI while the license service can't be reached. Obot doesn't save the key
   and shows "couldn't reach the license server to check the license key, try again later". The previous key, if any,
   stays in effect.
@@ -123,7 +126,8 @@ The **License** page in the admin UI shows:
 - **License Status**: for an Enterprise key, **Active** when Obot has entitlements for it and **Invalid** when it
   doesn't. Without a key, or with a Community license, it shows **N/A (Open-Source)**.
 - **Entitlements**: the capabilities the license grants
-- **User Limits** and **Device Limits**: current usage against the limits that apply
+- **User Limits** and **Device Limits**: current usage against the limits, without an Enterprise license. With an
+  Enterprise license the page shows **-**, even when the license sets limits.
 
 From the API, `GET /api/license` returns the key, status, and entitlements, and `POST /api/license` runs a manual
 check. Usage and limits come from `GET /api/version`, which reports `userCount`, `deviceCount`, `userLimit`,
@@ -161,7 +165,7 @@ provider without a license that includes it.
 - **An Enterprise license expires, or is revoked or suspended.** At the next check, the installation falls back to
   unregistered Obot Community. An installation with 250 users is then over the 100-user limit, and any configured
   enterprise auth provider is no longer covered.
-- **An administrator removes the license key.** The effect is the same as a license that's no longer valid.
+- **An administrator deletes the license key.** The effect is the same as a license that's no longer valid.
 - **A license key was never validated**, for example on an air-gapped installation. See
   [When the license service can't be reached](#when-the-license-service-cant-be-reached).
 - **The installation grows** past the user or device limit of its license.
@@ -177,9 +181,12 @@ successful check until the license service answers again. See
 | Situation | Administrators | Users |
 |---|---|---|
 | An enterprise auth provider isn't covered by the license | A banner that the license is missing or invalid, with a **Resolve** button | "We're sorry, this system is currently operating with limited functionality. Please contact your administrator." |
-| 10% or fewer user seats remain, or the user limit is exceeded | A banner about the user limit, with a **Resolve** button | Nothing, until a new user tries to sign in |
+| 10% or fewer user seats remain, or the user limit is exceeded, without an Enterprise license | A banner about the user limit, with a **Resolve** button | Nothing, until a new user tries to sign in |
 | A new user can't be created | — | "Unable to provision your account. Please contact your administrator." |
-| A new device can't be enrolled | The **License** page shows device usage against the limit | Obot Sentry reports "Unable to enroll your device. Please contact your administrator." |
+| A new device can't be enrolled | Nothing. Without an Enterprise license, the **License** page shows device usage against the limit. | Obot Sentry reports "Unable to enroll your device. Please contact your administrator." |
+
+With an Enterprise license that sets user or device limits, Obot enforces those limits but doesn't show a banner or
+usage on the **License** page, so new users and devices are refused without warning once a limit is reached.
 
 ### Getting back into compliance
 

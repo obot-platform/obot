@@ -39,8 +39,8 @@ To allow all of them, allow outbound HTTPS to:
 
 - **Destination:** `https://upgrade-server.obot.ai`
 - **When:** Update checks every 24 hours. [Community registration](../enterprise/overview.md#registering-obot-community)
-  when an administrator registers. [Product analytics](../configuration/product-analytics.md) once a day, only with
-  consent.
+  when an administrator registers. [Product analytics](../configuration/product-analytics.md) once a day, with
+  administrator consent, or always when `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=on`.
 - **If it fails:** Not fatal. Registration fails with an error.
 - **To change or avoid it:** `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` stops update checks, and
   `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off` stops analytics. `OBOT_UPGRADE_SERVER_URL` changes the host for all three.
@@ -51,8 +51,11 @@ To allow all of them, allow outbound HTTPS to:
 - **When:** At startup and every hour.
 - **If it fails:** The catalog keeps its existing entries and shows a sync error.
 - **To change or avoid it:** Set `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` and `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH`
-  to a local directory or an internal mirror before first startup. They only take effect when the catalogs are first
-  created.
+  to a local directory or an internal Git mirror before first startup. They only take effect when the catalogs are first
+  created. On a host other than GitHub, GitLab, or Bitbucket, the repository path in a mirror URL must end in `.git`,
+  optionally followed by `/<branch>`. Otherwise Obot fetches it as a single file instead of cloning it. Without a
+  branch, Obot uses `main`, but the default catalogs use the `v2-schema` branch, so include it, for example
+  `https://git.example.com/obot/mcp-catalog.git/v2-schema`.
 
 ### Default skill repository
 
@@ -60,8 +63,9 @@ To allow all of them, allow outbound HTTPS to:
 - **When:** Every hour. The repository is created on first startup.
 - **If it fails:** The repository shows a sync error.
 - **To change or avoid it:** Set `OBOT_DEFAULT_SKILL_REPO_URL` to the HTTPS URL of an internal Git mirror before first
-  startup, or delete the skill repository in the admin UI. A local path isn't supported, and Obot doesn't start if the
-  value isn't an HTTPS Git URL.
+  startup, or delete the skill repository in the admin UI. On a host other than GitHub, GitLab, or Bitbucket, the URL
+  must end in `.git`, for example `https://git.example.com/obot/skills.git`. A local path isn't supported, and Obot
+  doesn't start if the value isn't an HTTPS Git URL.
 
 ### Obot Sentry MDM assets
 
@@ -172,9 +176,16 @@ Some connections don't go through the proxy:
 
 Proxy support for model providers, auth providers, and MCP servers is coming soon.
 
-Obot resolves the destination hostname with its own DNS before sending a request through the proxy, so it needs DNS
-resolution for external hosts. If your proxy has a private IP address, Obot's protection against requests to private
-networks blocks connections to remote MCP servers through it unless `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP` is `false`.
+Remote MCP servers, MCP OAuth, model pricing, OpenAPI imports, and catalogs fetched from a plain URL go through Obot's
+protection against requests to local and private networks. For those connections:
+
+- Obot resolves the destination hostname with its own DNS before sending the request through the proxy, so it needs
+  DNS resolution for external hosts.
+- A proxy on a private IP address is blocked unless `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP` is `false`, and a proxy on
+  localhost is blocked unless `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` is `false`. Either setting also allows remote MCP
+  servers on those addresses.
+
+License validation, update checks, and Git clones don't have these restrictions.
 
 ## Restricted and air-gapped installations
 
@@ -182,7 +193,8 @@ To run Obot without internet access:
 
 1. Before first startup, point `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` and `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH`
    at local copies or internal Git mirrors of the catalogs, and `OBOT_DEFAULT_SKILL_REPO_URL` at the HTTPS URL of an
-   internal Git mirror of the skills repository.
+   internal Git mirror of the skills repository. Mirror repository paths must end in `.git`, followed by the
+   `v2-schema` branch for the catalogs.
 2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` at a local copy or an internal URL, and `OBOT_SERVER_MODEL_INFO_SOURCE_URL` at
    an internal HTTP(S) mirror. See [Model pricing](#model-pricing) for mirrors on private IP addresses.
 3. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true`, `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off`, and
