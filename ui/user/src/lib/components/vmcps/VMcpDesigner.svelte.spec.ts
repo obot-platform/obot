@@ -610,7 +610,7 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('component without stored tool overrides', () => {
-		it('hides configuration actions when a remote server has nothing to configure', async () => {
+		it('offers advanced OAuth configuration for remote servers without ordinary settings', async () => {
 			const entry = createMCPCatalogEntry({
 				id: 'entry-remote',
 				name: 'Remote Server',
@@ -625,16 +625,32 @@ describe('VMcpDesigner.svelte', () => {
 				},
 				[entry]
 			);
+			worker.use(
+				http.get('/api/vmcps/:id/components/:componentId/oauth-credentials', () =>
+					HttpResponse.json({ configured: false, source: 'none' })
+				)
+			);
 			await renderDesigner([entry], vmcp);
 
 			await page.getByRole('button', { name: 'Remote Server', exact: true }).click();
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.element(page.getByRole('button', { name: 'Configure Static OAuth', exact: true }))
 				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
+				.toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'View Configuration' }))
 				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Change Configuration' }).click();
+			await page.getByRole('checkbox', { name: 'Advanced', exact: true }).click();
+			await expect
+				.element(page.getByRole('checkbox', { name: 'Static OAuth', exact: true }))
+				.toBeEnabled();
+			await expect.element(page.getByLabelText('Client ID', { exact: true })).toBeDisabled();
+			await page.getByRole('checkbox', { name: 'Static OAuth', exact: true }).click();
+			await expect.element(page.getByLabelText('Client ID', { exact: true })).toBeEnabled();
 		});
 
 		it('offers modifying tools or deleting the server', async () => {

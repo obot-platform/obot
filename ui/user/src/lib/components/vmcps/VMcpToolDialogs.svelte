@@ -12,7 +12,6 @@
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpComponentDetailsDialog from './VMcpComponentDetailsDialog.svelte';
-	import VMcpComponentOAuth from './VMcpComponentOAuth.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
 	import { ArrowRightLeft, RefreshCcw, Server, Settings2 } from '@lucide/svelte';
 	import { tick } from 'svelte';
@@ -317,7 +316,6 @@
 	bind:this={setupDialog}
 	component={flow.configuringComponent}
 	vmcpID={flow.modifyingVMcp?.id}
-	gitManaged={Boolean(flow.modifyingVMcp?.sourceURL)}
 	refresh={flow.refresh}
 	existingTools={flow.tools}
 	existingToolPrefix={flow.existingToolPrefix}
@@ -357,11 +355,6 @@
 		>
 			{readonly ? m.vmcps_view_tools() : m.vmcps_modify_tools()}
 		</button>
-		<VMcpComponentOAuth
-			vmcpID={flow.modifyingVMcp?.id}
-			component={flow.configuringComponent}
-			disabled={Boolean(readonly || flow.modifyingVMcp?.sourceURL)}
-		/>
 		{#if flow.canSeeComponentConfiguration}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
 				{readonly ? m.vmcps_view_configuration() : m.vmcps_change_configuration()}
@@ -402,6 +395,9 @@
 <VMcpComponentConfigurationDialog
 	bind:this={configurationDialog}
 	{readonly}
+	vmcpID={flow.modifyingVMcp?.id}
+	component={flow.configuringComponent}
+	gitManaged={Boolean(flow.modifyingVMcp?.sourceURL)}
 	onNext={flow.saveConfiguration}
 	onClose={() => handleDialogClose('configure')}
 />

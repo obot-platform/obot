@@ -56,7 +56,7 @@ func TestDeletingAbsentComponentOAuthOverridePreservesAuthorization(t *testing.T
 				req := httptest.NewRequest(http.MethodDelete, "/", nil).WithContext(t.Context())
 				req.SetPathValue("vmcp_id", vmcp.Name)
 				req.SetPathValue("component_id", component.ID)
-				require.NoError(t, NewVMCPHandler(nil).DeleteOAuthCredentials(api.Context{Request: req, ResponseWriter: httptest.NewRecorder(), Storage: storage, GatewayClient: gw, User: &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}}))
+				require.NoError(t, NewVMCPHandler(nil, "", "").DeleteOAuthCredentials(api.Context{Request: req, ResponseWriter: httptest.NewRecorder(), Storage: storage, GatewayClient: gw, User: &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}}))
 			}
 			if tt.removeFirst {
 				require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{
@@ -68,7 +68,7 @@ func TestDeletingAbsentComponentOAuthOverridePreservesAuthorization(t *testing.T
 			}
 			conf := &oauth2.Config{ClientID: "catalog-client"}
 			require.NoError(t, gw.ReplaceMCPOAuthToken(t.Context(), "user", server.Name, "url", "", conf, &oauth2.Token{AccessToken: "authorized"}))
-			require.NoError(t, gw.CreateMCPOAuthPendingState(t.Context(), "user", server.Name, "url", "", "pending", "verifier", "", conf))
+			require.NoError(t, gw.CreateMCPOAuthPendingState(t.Context(), "user", server.Name, "url", "", "", "pending", "verifier", "", conf))
 			var before v1.VMCP
 			require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &before))
 			remove()
@@ -107,7 +107,7 @@ func TestVMCPComponentOAuthCredentialsIsolationAndFallback(t *testing.T) {
 		Name:    system.StaticOAuthCredentialName,
 		Secrets: map[string]string{"CLIENT_ID": "catalog-client", "CLIENT_SECRET": "catalog-secret"},
 	}))
-	handler := NewVMCPHandler(nil)
+	handler := NewVMCPHandler(nil, "", "")
 	call := func(vmcpID, method, body string, action func(api.Context) error) (types.MCPServerOAuthCredentialStatus, error) {
 		t.Helper()
 		req := httptest.NewRequest(method, "/", strings.NewReader(body)).WithContext(t.Context())
@@ -129,7 +129,7 @@ func TestVMCPComponentOAuthCredentialsIsolationAndFallback(t *testing.T) {
 		for _, uid := range []string{"alice", "bob"} {
 			require.NoError(t, gw.ReplaceMCPOAuthToken(t.Context(), uid, id, "url", "", &oauth2.Config{ClientID: "old"}, &oauth2.Token{AccessToken: "old-token"}))
 		}
-		require.NoError(t, gw.CreateMCPOAuthPendingState(t.Context(), "alice", id, "url", "", id, "verifier", "", &oauth2.Config{ClientID: "old"}))
+		require.NoError(t, gw.CreateMCPOAuthPendingState(t.Context(), "alice", id, "url", "", "", id, "verifier", "", &oauth2.Config{ClientID: "old"}))
 	}
 	status, err = call(first.Name, http.MethodPost, `{"clientID":"first-client","clientSecret":"first-secret"}`, handler.SetOAuthCredentials)
 	require.NoError(t, err)
@@ -151,8 +151,61 @@ func TestVMCPComponentOAuthCredentialsIsolationAndFallback(t *testing.T) {
 			require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 		}
 	}
-	_, err = call(first.Name, http.MethodPost, `{"clientID":"replacement"}`, handler.SetOAuthCredentials)
-	require.ErrorContains(t, err, "already exist")
+	for _, replacement := range []struct {
+		name         string
+		clientID     string
+		clientSecret string
+	}{
+		{
+			name:         "rotate secret",
+			clientID:     "first-client",
+			clientSecret: "rotated-secret",
+		},
+		{
+			name:     "replace with public client",
+			clientID: "replacement",
+		},
+	} {
+		t.Run(replacement.name, func(t *testing.T) {
+			for _, id := range []string{shared.Name, dedicated.Name, connection.Name} {
+				for _, uid := range []string{"alice", "bob"} {
+					require.NoError(t, gw.ReplaceMCPOAuthToken(t.Context(), uid, id, "url", "", &oauth2.Config{ClientID: "old"}, &oauth2.Token{AccessToken: "old-token"}))
+				}
+
+				require.NoError(t, gw.CreateMCPOAuthPendingState(t.Context(), "alice", id, "url", "", "", id, "verifier", "", &oauth2.Config{ClientID: "old"}))
+			}
+
+			body, err := json.Marshal(types.MCPServerOAuthCredentialRequest{
+				ClientID:     replacement.clientID,
+				ClientSecret: replacement.clientSecret,
+			})
+			require.NoError(t, err)
+			status, err := call(first.Name, http.MethodPost, string(body), handler.SetOAuthCredentials)
+			require.NoError(t, err)
+			require.Equal(t, "component", status.Source)
+			require.Equal(t, replacement.clientID, status.ClientID)
+
+			credential, err := gw.RevealCredential(t.Context(), []string{vmcpconfig.ComponentOAuthCredentialContext(first.Name, component.ID)}, system.StaticOAuthCredentialName)
+			require.NoError(t, err)
+			require.Equal(t, replacement.clientID, credential.Secrets["CLIENT_ID"])
+			require.Equal(t, replacement.clientSecret, credential.Secrets["CLIENT_SECRET"])
+
+			for _, id := range []string{shared.Name, dedicated.Name, connection.Name} {
+				for _, uid := range []string{"alice", "bob"} {
+					_, err := gw.GetMCPOAuthToken(t.Context(), uid, id, "url")
+					require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+				}
+
+				_, err := gw.GetMCPOAuthPendingState(t.Context(), id)
+				require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+			}
+
+			_, err = gw.GetMCPOAuthToken(t.Context(), "alice", unrelated.Name, "url")
+			require.NoError(t, err)
+			_, err = gw.GetMCPOAuthPendingState(t.Context(), unrelated.Name)
+			require.NoError(t, err)
+		})
+	}
 	status, err = call(second.Name, http.MethodPost, `{"clientID":"second-client"}`, handler.SetOAuthCredentials)
 	require.NoError(t, err)
 	require.Equal(t, "second-client", status.ClientID)
@@ -161,7 +214,7 @@ func TestVMCPComponentOAuthCredentialsIsolationAndFallback(t *testing.T) {
 		require.NoError(t, err)
 		credential, err := gw.RevealCredential(t.Context(), contexts, system.StaticOAuthCredentialName)
 		require.NoError(t, err)
-		want := "first-client"
+		want := "replacement"
 		if server == unrelated {
 			want = "second-client"
 		}
@@ -202,17 +255,6 @@ func TestVMCPComponentOAuthCredentialValidation(t *testing.T) {
 		wantError   string
 	}{
 		{
-			name:        "basic",
-			componentID: "one",
-			wantError:   "only administrators",
-		},
-		{
-			name:        "power user owner",
-			groups:      []string{types.GroupPowerUser},
-			componentID: "one",
-			wantError:   "only administrators",
-		},
-		{
 			name:        "git managed",
 			groups:      []string{types.GroupAdmin},
 			sourceURL:   "https://git.example/repo",
@@ -247,7 +289,7 @@ func TestVMCPComponentOAuthCredentialValidation(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(tt.body))
 			req.SetPathValue("vmcp_id", vmcp.Name)
 			req.SetPathValue("component_id", tt.componentID)
-			err := NewVMCPHandler(nil).SetOAuthCredentials(api.Context{Request: req, Storage: storage, User: &user.DefaultInfo{UID: "owner", Groups: tt.groups}})
+			err := NewVMCPHandler(nil, "", "").SetOAuthCredentials(api.Context{Request: req, Storage: storage, User: &user.DefaultInfo{UID: "owner", Groups: tt.groups}})
 			require.ErrorContains(t, err, tt.wantError)
 		})
 	}

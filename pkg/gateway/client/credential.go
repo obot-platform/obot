@@ -185,30 +185,38 @@ func (c *Client) DeleteCredential(ctx context.Context, context, name string) (bo
 // transaction, so a failure to publish a resource revision cannot retain old tokens.
 func (c *Client) DeleteCredentialAndMCPOAuthTokens(ctx context.Context, credentialContext, name string, mcpIDs []string) (bool, error) {
 	deleted := false
+
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Where("context = ? AND name = ?", credentialContext, name).Delete(&types.Credential{})
 		if result.Error != nil {
 			return result.Error
 		}
+
 		deleted = result.RowsAffected > 0
 		if !deleted || len(mcpIDs) == 0 {
 			return nil
 		}
+
 		// Match callback completion's lock order: consume pending state before tokens.
 		if err := tx.Delete(&types.MCPOAuthPendingState{}, "mcp_id IN ?", mcpIDs).Error; err != nil {
 			return err
 		}
+
 		return tx.Delete(&types.MCPOAuthToken{}, "mcp_id IN ?", mcpIDs).Error
 	}); err != nil {
 		return false, err
 	}
+
 	if deleted {
 		var errs []error
+
 		for _, id := range mcpIDs {
 			errs = append(errs, c.triggerMCPOAuthTokenChange(ctx, id))
 		}
+
 		return true, errors.Join(errs...)
 	}
+
 	return false, nil
 }
 

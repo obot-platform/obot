@@ -41,7 +41,7 @@ func TestStateManagerRejectsCallbackInvalidatedDuringExchange(t *testing.T) {
 	require.NoError(t, db.AutoMigrate())
 	gatewayClient := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
-	state := newStateManager(gatewayClient)
+	state := newStateManager(gatewayClient, fixedTokenClient(tokenServer.Client()))
 	conf := &oauth2.Config{
 		ClientID: "old-client",
 		Endpoint: oauth2.Endpoint{
@@ -49,7 +49,7 @@ func TestStateManagerRejectsCallbackInvalidatedDuringExchange(t *testing.T) {
 			AuthStyle: oauth2.AuthStyleInParams,
 		},
 	}
-	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://upstream.example/mcp", "request", "state", "verifier", "", conf))
+	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://upstream.example/mcp", "", "request", "state", "verifier", "", conf))
 
 	callbackDone := make(chan error, 1)
 	go func() {

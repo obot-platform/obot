@@ -21,7 +21,7 @@ func TestCompleteMCPOAuthPendingState(t *testing.T) {
 	ctx := t.Context()
 	conf := &oauth2.Config{ClientID: "client"}
 	token := &oauth2.Token{AccessToken: "access", TokenType: "Bearer"}
-	require.NoError(t, c.CreateMCPOAuthPendingState(ctx, "user", "mcp", "https://upstream.example/mcp", "request", "state", "verifier", "", conf))
+	require.NoError(t, c.CreateMCPOAuthPendingState(ctx, "user", "mcp", "https://upstream.example/mcp", "", "request", "state", "verifier", "", conf))
 	ps, err := c.GetMCPOAuthPendingState(ctx, "state")
 	require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestCompleteMCPOAuthPendingStateRollsBackOnSaveFailure(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
 	conf := &oauth2.Config{ClientID: "client"}
-	require.NoError(t, c.CreateMCPOAuthPendingState(ctx, "user", "mcp", "https://upstream.example/mcp", "request", "state", "verifier", "", conf))
+	require.NoError(t, c.CreateMCPOAuthPendingState(ctx, "user", "mcp", "https://upstream.example/mcp", "", "request", "state", "verifier", "", conf))
 	ps, err := c.GetMCPOAuthPendingState(ctx, "state")
 	require.NoError(t, err)
 	saveErr := errors.New("token save failed")

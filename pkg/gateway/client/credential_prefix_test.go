@@ -36,7 +36,7 @@ func TestDeleteCredentialAndOAuthAuthorizationIsAtomic(t *testing.T) {
 	conf := &oauth2.Config{ClientID: "client"}
 	require.NoError(t, c.UpsertCredential(ctx, credential))
 	require.NoError(t, c.ReplaceMCPOAuthToken(ctx, "user", "mcp", "url", "", conf, &oauth2.Token{AccessToken: "token"}))
-	require.NoError(t, c.CreateMCPOAuthPendingState(ctx, "user", "mcp", "url", "", "pending", "verifier", "", conf))
+	require.NoError(t, c.CreateMCPOAuthPendingState(ctx, "user", "mcp", "url", "", "", "pending", "verifier", "", conf))
 	require.NoError(t, c.ReplaceMCPOAuthToken(ctx, "user", "other", "url", "", conf, &oauth2.Token{AccessToken: "unrelated"}))
 	notifications := 0
 	c.mcpOAuthTokenTrigger = func(context.Context, string) error {

@@ -17,21 +17,21 @@ import (
 )
 
 func vmcpOAuthComponent(req api.Context) (*v1.VMCP, types.VMCPComponent, error) {
-	if !req.UserIsAdmin() {
-		return nil, types.VMCPComponent{}, types.NewErrForbidden("only administrators can manage component OAuth credentials")
-	}
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return nil, types.VMCPComponent{}, err
 	}
+
 	if vmcp.Spec.SourceURL != "" {
 		return nil, types.VMCPComponent{}, types.NewErrBadRequest("component OAuth configuration is not supported for Git-managed vMCPs")
 	}
+
 	for _, component := range vmcp.Spec.Manifest.Components {
 		if component.ID == req.PathValue("component_id") {
 			if component.CatalogEntry.Manifest.Runtime != types.RuntimeRemote {
 				return nil, component, types.NewErrBadRequest("static OAuth is only supported for remote components")
 			}
+
 			return &vmcp, component, nil
 		}
 	}
@@ -47,6 +47,7 @@ func writeComponentOAuthStatus(req api.Context, vmcp *v1.VMCP, component types.V
 	if err != nil {
 		return err
 	}
+
 	source := "catalog"
 	if cred.Context == contexts[0] {
 		source = "component"
@@ -67,25 +68,22 @@ func (*VMCPHandler) SetOAuthCredentials(req api.Context) error {
 	if err != nil {
 		return err
 	}
+
 	var input types.MCPServerOAuthCredentialRequest
 	if err := req.Read(&input); err != nil {
 		return err
 	}
+
 	clientID := strings.TrimSpace(input.ClientID)
 	if clientID == "" {
 		return types.NewErrBadRequest("clientID is required")
 	}
+
 	credentialContext := vmcpconfig.ComponentOAuthCredentialContext(vmcp.Name, component.ID)
-	_, err = req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, system.StaticOAuthCredentialName)
-	if err == nil {
-		return types.NewErrBadRequest("credentials already exist; clear the component override before replacing it")
-	}
-	if !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return err
-	}
 	if err := markComponentOAuthChange(req, vmcp, component, true); err != nil {
 		return err
 	}
+
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: credentialContext,
 		Name:    system.StaticOAuthCredentialName,
@@ -93,6 +91,7 @@ func (*VMCPHandler) SetOAuthCredentials(req api.Context) error {
 	}); err != nil {
 		return err
 	}
+
 	if err := finishComponentOAuthChange(req, vmcp, component); err != nil {
 		return err
 	}
@@ -104,10 +103,12 @@ func (*VMCPHandler) DeleteOAuthCredentials(req api.Context) error {
 	if err != nil {
 		return err
 	}
+
 	ids, err := vmcpconfig.ComponentOAuthTokenIDs(req.Context(), req.Storage, *vmcp, component.ID)
 	if err != nil {
 		return err
 	}
+
 	deleted, deleteErr := req.GatewayClient.DeleteCredentialAndMCPOAuthTokens(req.Context(), vmcpconfig.ComponentOAuthCredentialContext(vmcp.Name, component.ID), system.StaticOAuthCredentialName, ids)
 	if !deleted {
 		if deleteErr != nil {
@@ -115,6 +116,7 @@ func (*VMCPHandler) DeleteOAuthCredentials(req api.Context) error {
 		}
 		return writeComponentOAuthStatus(req, vmcp, component)
 	}
+
 	// Authorization cleanup has committed with the deletion, even if publishing
 	// the revision fails. A no-op retry cannot leave the previous tokens valid.
 	finishErr := finishComponentOAuthChange(req, vmcp, component)
@@ -129,21 +131,27 @@ func markComponentOAuthChange(req api.Context, vmcp *v1.VMCP, component types.VM
 		if err := req.Get(vmcp, vmcp.Name); err != nil {
 			return err
 		}
+
 		// Revalidate after fetching the current definition, including component removal.
 		if validate && vmcp.Spec.SourceURL != "" {
 			return types.NewErrBadRequest("cannot configure a Git-managed vMCP")
 		}
+
 		found := false
 		for _, current := range vmcp.Spec.Manifest.Components {
 			found = found || (current.ID == component.ID && current.MCPServerCatalogEntryID == component.MCPServerCatalogEntryID && current.CatalogEntry.Manifest.Runtime == types.RuntimeRemote)
 		}
+
 		if validate && !found {
 			return types.NewErrNotFound("remote vMCP component was removed or replaced")
 		}
+
 		if vmcp.Annotations == nil {
 			vmcp.Annotations = map[string]string{}
 		}
+
 		vmcp.Annotations[vmcpconfig.ComponentOAuthAnnotation(component.ID)] = "pending:" + uuid.New().String()
+
 		return req.Update(vmcp)
 	})
 }
@@ -157,19 +165,25 @@ func finishComponentOAuthChange(req api.Context, vmcp *v1.VMCP, component types.
 		}
 		return err
 	}
+
 	key := vmcpconfig.ComponentOAuthAnnotation(component.ID)
 	revision := vmcp.Annotations[key]
+
 	if err := vmcpconfig.InvalidateComponentOAuthTokens(req.Context(), req.Storage, req.GatewayClient, *vmcp, component.ID); err != nil {
 		return err
 	}
+
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := req.Get(vmcp, vmcp.Name); err != nil {
 			return err
 		}
+
 		if vmcp.Annotations[key] != revision {
 			return nil
 		}
+
 		vmcp.Annotations[key] = strings.Replace(revision, "pending:", "ready:", 1)
+
 		return req.Update(vmcp)
 	})
 }

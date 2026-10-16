@@ -1215,6 +1215,7 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 		OAuthRevision:       oauthRevision,
 	})[:16]
 	server.Name = tempName
+	server.Namespace = vmcp.Namespace
 	server.Spec.VMCPID = vmcp.Name
 	server.Spec.VMCPComponentID = component.ID
 	serverConfig.MCPServerName = tempName

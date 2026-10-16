@@ -406,5 +406,7 @@
 	"vmcps_zoom_out": "缩小",
 	"vmcps_oauth_scope": "可为此组件配置 OAuth 客户端。对于使用此 vMCP 的所有用户，这些凭据将优先于目录默认凭据。每位用户仍需授权自己的账户。保存或清除覆盖配置后，用户需要重新授权。",
 	"vmcps_oauth_inherited": "当前使用目录客户端 {clientID}。在下方配置独立客户端，可覆盖此组件的目录设置。",
-	"vmcps_oauth_clear_confirmation": "清除此组件的 OAuth 覆盖配置？连接将使用可用的目录凭据，或在允许时使用自动注册。用户需要重新授权。"
+	"vmcps_oauth_clear_confirmation": "清除此组件的 OAuth 覆盖配置？连接将使用可用的目录凭据，或在允许时使用自动注册。用户需要重新授权。",
+	"vmcps_tools_oauth_component_action": "关闭此对话框，打开“更改配置”，然后在“高级”中配置静态 OAuth。",
+	"vmcps_oauth_replacement_help": "更改客户端 ID 时，请同时输入其密钥；对于公共客户端，可将密钥留空。两个字段均未更改时，将保留已保存的凭据。"
 }

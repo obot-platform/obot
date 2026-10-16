@@ -1,4 +1,3 @@
-import { page as appPage } from '$app/state';
 import { goto, replaceState } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -15,14 +14,6 @@ vi.mock('$lib/url', async (importOriginal) => ({
 	goto: vi.fn().mockResolvedValue(undefined),
 	replaceState: vi.fn()
 }));
-
-function expectedOAuthPath(entryID: string, modifyToolsID: string) {
-	const params = new URLSearchParams({ 'configure-oauth': 'true' });
-	const returnURL = new URL(appPage.url);
-	returnURL.searchParams.set('modify-tools', modifyToolsID);
-	params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
-	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;
-}
 
 const entry = createMCPCatalogEntry({
 	id: 'preview-entry',
@@ -68,6 +59,30 @@ const component = createVMCPComponent(entry, {
 	]
 });
 const previewURL = `/api/vmcps/vmcp-preview/components/${component.id}/generate-tool-previews`;
+
+it('keeps static OAuth management out of the tool confirmation dialog', async () => {
+	await preparePageData();
+	const remote = createMCPCatalogEntry({
+		id: 'atlassian',
+		name: 'Atlassian',
+		runtime: 'remote',
+		manifest: { config: [], remoteConfig: { fixedURL: 'https://example.com/mcp' } }
+	});
+	const result = await render(VMcpToolsSetup, {
+		component: createVMCPComponent(remote),
+		vmcpID: 'vmcp-preview'
+	});
+	untrack(() => result.component.open());
+	await expect
+		.element(page.getByRole('heading', { name: 'Configure Atlassian Tools' }))
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('button', { name: 'Configure Tools', exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('button', { name: 'Configure Static OAuth', exact: true }))
+		.not.toBeInTheDocument();
+});
 
 async function openSetup() {
 	await preparePageData();
@@ -126,14 +141,15 @@ describe('VMcpToolsSetup preview credentials', () => {
 			.element(page.getByText('Salesforce requires administrator OAuth setup.', { exact: false }))
 			.toBeVisible();
 		await expect
-			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
-			.toHaveAttribute(
-				'href',
-				expectedOAuthPath(
-					'salesforce',
-					salesforceComponent.id || salesforceComponent.mcpServerCatalogEntryID
+			.element(
+				page.getByText(
+					'Close this dialog and open Change Configuration, then Advanced, to configure static OAuth.'
 				)
-			);
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+			.not.toBeInTheDocument();
 		expect(preview).not.toHaveBeenCalled();
 	});
 
@@ -141,8 +157,8 @@ describe('VMcpToolsSetup preview credentials', () => {
 		{ componentID: 'component-salesforce', expectedReturnID: 'component-salesforce' },
 		{ componentID: '', expectedReturnID: 'salesforce' }
 	])(
-		'stores modify-tools for component ID "$componentID" before OAuth setup',
-		async ({ componentID, expectedReturnID }) => {
+		'directs component "$componentID" to inline OAuth setup without navigating',
+		async ({ componentID }) => {
 			vi.mocked(goto).mockClear();
 			vi.mocked(replaceState).mockClear();
 
@@ -174,13 +190,18 @@ describe('VMcpToolsSetup preview credentials', () => {
 				refresh: true
 			});
 			untrack(() => result.component.open());
-			await page.getByRole('link', { name: 'Configure Salesforce OAuth' }).click();
-
-			const url = vi.mocked(replaceState).mock.calls[0]?.[0] as URL;
-			expect(url.searchParams.get('modify-tools')).toBe(expectedReturnID);
-			expect(vi.mocked(goto)).toHaveBeenCalledWith(
-				expectedOAuthPath('salesforce', expectedReturnID)
-			);
+			await expect
+				.element(
+					page.getByText(
+						'Close this dialog and open Change Configuration, then Advanced, to configure static OAuth.'
+					)
+				)
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'Configure Salesforce OAuth' }))
+				.not.toBeInTheDocument();
+			expect(goto).not.toHaveBeenCalled();
+			expect(replaceState).not.toHaveBeenCalled();
 		}
 	);
 

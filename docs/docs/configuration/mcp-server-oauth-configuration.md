@@ -27,13 +27,13 @@ When static OAuth is configured for a remote MCP server:
 Administrators can configure a separate OAuth client for any remote component of a UI-managed vMCP, including servers that do not require static OAuth.
 
 1. Add the remote MCP server to a vMCP and save it.
-2. Open the component's actions or tool setup and select **Configure Static OAuth**.
+2. Open the component's actions, select **Change Configuration**, and expand **Advanced**. Enable **Static OAuth** to edit the credential fields.
 3. Enter the **Client ID** and, for a confidential client, the **Client Secret**. Public clients can leave the secret empty.
 4. Save. Every user connecting through this component uses that OAuth client, while authorizing their own account.
 
 Different vMCPs can reference the same catalog entry with different OAuth clients. Credential lookup uses the component override first, then existing catalog credentials, then automatic registration if the server permits it. The dialog identifies inherited catalog credentials before an override is configured.
 
-Saving or clearing an override requires all users of that component to authorize again. To replace an override, clear it first and enter the replacement. Clearing restores catalog credentials when available; otherwise, automatic registration is used unless static OAuth is required. Other vMCPs and components are unaffected.
+Changing or clearing an override requires all users of that component to authorize again. Saving unchanged credentials preserves existing authorizations. To clear an override, uncheck **Static OAuth** and save. To replace it, edit the Client ID or secret and save; clearing the override first is not required. When changing the Client ID, re-enter the replacement secret, or leave it blank for a public client. A replacement request writes both values, so a blank replacement secret removes the previous secret. Clearing restores catalog credentials when available; otherwise, automatic registration is used unless static OAuth is required. Other vMCPs and components are unaffected.
 
 Admins can add a component that requires static OAuth before credentials are configured. It remains unavailable for connections until either component or catalog credentials exist. Basic users and power users cannot manage component OAuth clients. Component overrides are not configurable for Git-managed vMCPs in this version.
 

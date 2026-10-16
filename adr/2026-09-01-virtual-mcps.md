@@ -3,7 +3,7 @@
 - **Status:** Superseded
 - **Date:** 2026-09-01
 - **Supersedes:** None
-- **Superseded by:** [Allow empty vMCP drafts](2026-09-08-vmcp-drafts.md) (minimum component count only); [vMCP component OAuth](2026-10-14-vmcp-component-oauth.md) (exclusive catalog ownership of static OAuth credentials only)
+- **Superseded by:** [Allow empty vMCP drafts](2026-09-08-vmcp-drafts.md) (minimum component count only)
 
 The remaining decisions in this record continue to apply. Read the linked record for the exception to the minimum-component rule below.
 

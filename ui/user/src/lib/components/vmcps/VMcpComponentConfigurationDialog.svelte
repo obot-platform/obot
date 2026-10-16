@@ -19,12 +19,14 @@
 		type MCPAllowedSecretBindingTarget,
 		type MCPCatalogEntry,
 		type MCPConfig,
+		type VMCPComponent,
 		type VMCPConfigurationPolicy,
 		type VMCPConfigurationPolicyType
 	} from '$lib/services';
 	import { isKubernetesRuntimeBackend } from '$lib/services/user/mcp';
 	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
 	import { errors, profile, version } from '$lib/stores';
+	import VMcpComponentOAuth from './VMcpComponentOAuth.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -34,9 +36,19 @@
 		) => void | Promise<void>;
 		onClose?: () => void;
 		readonly?: boolean;
+		vmcpID?: string;
+		component?: VMCPComponent;
+		gitManaged?: boolean;
 	}
 
-	let { onNext, onClose, readonly = false }: Props = $props();
+	let {
+		onNext,
+		onClose,
+		readonly = false,
+		vmcpID,
+		component,
+		gitManaged = false
+	}: Props = $props();
 
 	type SecretBindingInput = MCPConfig & { secretBindingSource?: 'value' | 'secret' };
 
@@ -98,11 +110,26 @@
 	let displayName = $derived(entry?.manifest.name || entry?.id || m.vmcps_mcp_server_lower());
 	let requiredDrafts = $derived(drafts.filter((draft) => draft.field.required));
 	let optionalDrafts = $derived(drafts.filter((draft) => !draft.field.required));
-	let hasAdvanced = $derived(
+	let oauth = $state<ReturnType<typeof VMcpComponentOAuth>>();
+	let canConfigureOAuth = $derived(
+		Boolean(
+			!readonly &&
+			!gitManaged &&
+			profile.current.isAdmin?.() &&
+			vmcpID &&
+			component?.id &&
+			entry?.manifest.runtime === 'remote'
+		)
+	);
+	let hasForceSingleUser = $derived(
 		!hasUserAllowedNonHeaderConfiguration && entry?.manifest.runtime !== 'remote'
 	);
+	let hasAdvanced = $derived(hasForceSingleUser || canConfigureOAuth);
 	let hasConfiguration = $derived(
-		!entry || entry.manifest.runtime !== 'remote' || catalogConfigurationFields(entry).length > 0
+		canConfigureOAuth ||
+			!entry ||
+			entry.manifest.runtime !== 'remote' ||
+			catalogConfigurationFields(entry).length > 0
 	);
 	let dismissHidden = $derived(hideCancel && !readonly && hasConfiguration);
 
@@ -275,13 +302,14 @@
 		if (readonly || saving || !validate()) return;
 		saving = true;
 		try {
+			if (oauth) await oauth.save();
 			await onNext?.(
 				configurationPayload(),
 				!hasUserAllowedNonHeaderConfiguration && forceSingleUser
 			);
 			dialog?.close();
-		} catch {
-			error = failureMessage;
+		} catch (err) {
+			error = err instanceof Error ? err.message : failureMessage;
 		} finally {
 			saving = false;
 		}
@@ -474,20 +502,27 @@
 					/>
 					<div class="collapse-title text-sm font-medium">{m.platform_advanced()}</div>
 					<div class="collapse-content">
-						<div class="flex flex-col gap-2">
-							<label class="flex items-center gap-2">
-								<input
-									type="checkbox"
-									class="checkbox checkbox-sm"
-									bind:checked={forceSingleUser}
-									disabled={saving || readonly}
-								/>
-								<span>{m.vmcps_force_single_user()}</span>
-							</label>
-							<p class="text-xs font-light text-muted-content">
-								{m.vmcps_force_single_user_description()}
-							</p>
-						</div>
+						{#if hasForceSingleUser}
+							<div class="flex flex-col gap-2">
+								<label class="flex items-center gap-2">
+									<input
+										type="checkbox"
+										class="checkbox checkbox-sm"
+										bind:checked={forceSingleUser}
+										disabled={saving || readonly}
+									/>
+									<span>{m.vmcps_force_single_user()}</span>
+								</label>
+								<p class="text-xs font-light text-muted-content">
+									{m.vmcps_force_single_user_description()}
+								</p>
+							</div>
+						{/if}
+						{#if canConfigureOAuth && entry}
+							{#key entry}
+								<VMcpComponentOAuth bind:this={oauth} {vmcpID} {component} {saving} />
+							{/key}
+						{/if}
 					</div>
 				</div>
 			{/if}
