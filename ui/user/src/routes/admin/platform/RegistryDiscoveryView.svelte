@@ -3,7 +3,6 @@
 	import { AdminService, type RegistrySettings } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
 	let {
@@ -42,21 +41,22 @@
 </script>
 
 <div class="paper flex flex-col gap-4">
-	<div class="notification-alert text-sm" role="note" aria-labelledby="registry-discovery-risk">
-		<TriangleAlert class="size-5 shrink-0 text-warning" />
-		<div class="flex flex-col gap-2">
-			<p id="registry-discovery-risk" class="font-semibold">
-				{m.platform_registry_discovery_risk_title()}
-			</p>
-			<p>{m.platform_registry_discovery_risk()}</p>
-			<p>{m.platform_registry_discovery_permissions()}</p>
-			<a
-				class="text-link"
-				href="https://docs.obot.ai/functionality/mcp-registry-api"
-				target="_blank"
-				rel="external noopener noreferrer">{m.platform_learn_more()}</a
-			>
-		</div>
+	<div
+		class="flex flex-col gap-2 text-sm text-muted-content"
+		role="note"
+		aria-labelledby="registry-discovery-risk"
+	>
+		<p id="registry-discovery-risk" class="font-medium">
+			{m.platform_registry_discovery_risk_title()}
+		</p>
+		<p>{m.platform_registry_discovery_risk()}</p>
+		<p>{m.platform_registry_discovery_permissions()}</p>
+		<a
+			class="text-link"
+			href="https://docs.obot.ai/functionality/mcp-registry-api"
+			target="_blank"
+			rel="external noopener noreferrer">{m.platform_learn_more()}</a
+		>
 	</div>
 	{#if settings}
 		<label for="anonymous-registry-discovery" class="flex items-start justify-between gap-4">

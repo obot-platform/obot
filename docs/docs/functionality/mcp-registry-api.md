@@ -32,9 +32,9 @@ Authenticated requests receive their personalized view in both modes, including 
 ### Risks of anonymous discovery
 
 :::warning Public metadata exposure
-Anyone who can reach the registry endpoints can read eligible vMCPs' names, descriptions, **full README content**, icons, and connection URLs without signing in. The response description is limited to 100 characters, but the full description is included in publisher-provided README metadata.
+Anyone who can reach the registry endpoints can read eligible vMCPs' names, **full descriptions**, icons, and connection URLs without signing in. The response description is limited to 100 characters, but the full description is included in publisher-provided metadata.
 
-Review descriptions, READMEs, icons, and URLs for sensitive information before enabling anonymous discovery. This publishes metadata for all eligible shared vMCPs, including new vMCPs that later receive wildcard profile access. Disabling discovery cannot remove copies already collected by clients.
+Review descriptions, icons, and URLs for sensitive information before enabling anonymous discovery. This publishes metadata for all eligible shared vMCPs, including new vMCPs that later receive wildcard profile access. Disabling discovery cannot remove copies already collected by clients.
 :::
 
 Clients that cannot authenticate registry discovery, including VS Code, need anonymous discovery enabled. Installation and connection still use Obot's authentication and setup flow.

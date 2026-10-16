@@ -155,10 +155,7 @@ describe('Platform Page', () => {
 				await expect
 					.element(page.getByText('Anonymous discovery publishes server metadata'))
 					.toBeVisible();
-				await expect.element(page.getByText(/full README content/)).toBeVisible();
-				await expect
-					.element(page.getByText(/Disabling discovery cannot remove copies/))
-					.toBeVisible();
+				await expect.element(page.getByText(/full descriptions/)).toBeVisible();
 				await expect
 					.element(page.getByText(/Connecting still requires authentication/))
 					.toBeVisible();
