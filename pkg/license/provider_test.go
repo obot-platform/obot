@@ -708,46 +708,6 @@ func TestKeygenFailuresDropExpiredLicense(t *testing.T) {
 	}
 }
 
-func TestKeygenFailuresDropLicenseAfterGracePeriod(t *testing.T) {
-	tests := []struct {
-		name      string
-		validated time.Time
-		want      bool
-	}{
-		{
-			name:      "within the grace period",
-			validated: time.Now().Add(-time.Hour),
-			want:      true,
-		},
-		{
-			name:      "after the grace period",
-			validated: time.Now().Add(-offlineGracePeriod - time.Hour),
-			want:      false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(&fakeKeygen{fail: unavailable})
-			defer server.Close()
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
-			gatewayClient := newTestLicenseGatewayClient(t)
-
-			saved := fmt.Sprintf(`{"entitlements":{%q:{}},"validated":%q}`,
-				EnterpriseAuthProvidersEntitlement, tt.validated.Format(time.RFC3339Nano))
-			if _, err := gatewayClient.SetProperty(ctx, licenseStatePropertyKey("license-key"), saved); err != nil {
-				t.Fatalf("failed to save license state: %v", err)
-			}
-
-			provider := newTestProvider(ctx, t, gatewayClient, server.URL)
-			if got := provider.hasEntitlement(EnterpriseAuthProvidersEntitlement); got != tt.want {
-				t.Fatalf("expected entitlement kept to be %t, got %t", tt.want, got)
-			}
-		})
-	}
-}
-
 func TestKeygenRejectionsDegrade(t *testing.T) {
 	tests := []struct {
 		name   string

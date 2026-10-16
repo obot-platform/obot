@@ -48,7 +48,6 @@ const (
 	licenseStatePropertyPrefix = "obot-license-state-"
 
 	defaultPollInterval = 24 * time.Hour
-	offlineGracePeriod  = 3 * 24 * time.Hour
 	keygenCheckTimeout  = 15 * time.Second
 	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
 	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
@@ -96,7 +95,6 @@ type licenseKeySnapshot struct {
 type licenseState struct {
 	Entitlements map[keygen.EntitlementCode]struct{} `json:"entitlements"`
 	Expiry       *time.Time                          `json:"expiry,omitempty"`
-	Validated    time.Time                           `json:"validated"`
 }
 
 type validationRequest struct {
@@ -376,7 +374,6 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (state licen
 	state = licenseState{
 		Entitlements: make(map[keygen.EntitlementCode]struct{}, len(entitlements)),
 		Expiry:       lic.Expiry,
-		Validated:    time.Now(),
 	}
 	for _, entitlement := range entitlements {
 		state.Entitlements[entitlement.Code] = struct{}{}
@@ -385,8 +382,8 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (state licen
 	return state, nil
 }
 
-// loadLicenseState returns the license state Keygen last accepted for the license key, unless that was longer ago than
-// the offline grace period or the license has expired since.
+// loadLicenseState returns the license state Keygen last accepted for the license key, unless the license has expired
+// since.
 func (p *Provider) loadLicenseState(ctx context.Context, licenseKey string) (licenseState, error) {
 	if p.gatewayClient == nil {
 		return licenseState{}, nil
@@ -404,12 +401,7 @@ func (p *Provider) loadLicenseState(ctx context.Context, licenseKey string) (lic
 	if err := json.Unmarshal([]byte(property.Value), &state); err != nil {
 		return licenseState{}, fmt.Errorf("failed to decode license state: %w", err)
 	}
-	now := time.Now()
-	if now.After(state.Validated.Add(offlineGracePeriod)) {
-		slog.Warn("saved license is older than the offline grace period", "validated", state.Validated)
-		return licenseState{}, nil
-	}
-	if state.Expiry != nil && !now.Before(*state.Expiry) {
+	if state.Expiry != nil && !time.Now().Before(*state.Expiry) {
 		slog.Warn("saved license has expired", "expiry", state.Expiry)
 		return licenseState{}, nil
 	}
@@ -562,9 +554,8 @@ func (p *Provider) setCachedState(snapshot licenseKeySnapshot, entitlements map[
 
 // refresh checks the license key with Keygen and caches its entitlements, unless force is false and the key hasn't
 // changed since the last check.
-// When Keygen doesn't give a verdict, it falls back to the entitlements Keygen last accepted for the key, unless that
-// was longer ago than the offline grace period or the license has expired since, and a forced check also returns the
-// ErrLicenseCheckFailed error.
+// When Keygen doesn't give a verdict, it falls back to the entitlements Keygen last accepted for the key, unless the
+// license has expired since, and a forced check also returns the ErrLicenseCheckFailed error.
 func (p *Provider) refresh(ctx context.Context, force bool) error {
 	snapshot, err := p.loadLicenseKey(ctx)
 	if err != nil {
