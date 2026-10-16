@@ -22,6 +22,7 @@
 
 	interface Props {
 		vmcp: VMCP;
+		openReauthenticate?: (vmcp: VMCP, componentIDs: string[]) => void;
 		owner?: string;
 		connectEl?: HTMLElement;
 		onSelect?: () => void;
@@ -44,6 +45,7 @@
 
 	let {
 		vmcp,
+		openReauthenticate,
 		owner,
 		connectEl = $bindable(),
 		onSelect,
@@ -120,7 +122,7 @@
 				classes={{ menu: 'min-w-48' }}
 				ariaLabel={m.vmcps_deployments_actions_for_named({ name })}
 			>
-				{#snippet children({ toggle })}
+				{#snippet children({ toggle, open })}
 					{#if onEditDetails}
 						<button class="menu-button" onclick={onEditDetails}>
 							<Pencil class="size-4" />
@@ -130,6 +132,8 @@
 					<VMcpMenuActions
 						{vmcp}
 						{toggle}
+						menuOpen={open}
+						{openReauthenticate}
 						onDelete={() => onDelete?.()}
 						onUpdated={onUpdate}
 						{openSelectInstance}
