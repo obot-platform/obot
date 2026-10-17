@@ -237,7 +237,7 @@ func New() *Engine {
 			r.Out.Host = baseURL.Host
 		},
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
-			slog.Warn("bifrost proxy error", "error", err)
+			slog.Warn("LLM gateway proxy error", "error", err)
 			http.Error(w, "LLM gateway unavailable: "+err.Error(), http.StatusBadGateway)
 		},
 	}
@@ -249,7 +249,7 @@ func New() *Engine {
 func (e *Engine) Fail(err error) {
 	e.startOnce.Do(func() {
 		e.startErr = err
-		slog.Error("failed to start embedded bifrost LLM gateway", "error", err)
+		slog.Error("failed to start the LLM gateway", "error", err)
 		close(e.ready)
 	})
 }
@@ -276,7 +276,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		inst, err := e.boot(ctx, opts)
 		if err != nil {
 			e.startErr = err
-			slog.Error("failed to start embedded bifrost LLM gateway", "error", err)
+			slog.Error("failed to start the LLM gateway", "error", err)
 			close(e.ready)
 			return
 		}
@@ -557,11 +557,11 @@ func (e *Engine) bootServer(ctx context.Context, opts Options) (*instance, error
 
 	go func() {
 		if err := server.Server.Serve(ln); err != nil && !errors.Is(err, fasthttputil.ErrInmemoryListenerClosed) {
-			slog.Error("embedded bifrost server stopped", "error", err)
+			slog.Error("LLM gateway server stopped", "error", err)
 		}
 	}()
 
-	slog.Info("embedded bifrost LLM gateway started", "dataDir", opts.DataDir, "duration", time.Since(start))
+	slog.Info("LLM gateway started", "dataDir", opts.DataDir, "duration", time.Since(start))
 	return inst, nil
 }
 
