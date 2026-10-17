@@ -44,10 +44,8 @@
 		if (!config) return;
 		saving = true;
 		try {
-			await doPut('/llm-gateway/admin/config', {
-				client_config: config.client_config,
-				framework_config: config.framework_config
-			});
+			// The framework settings are Obot's, so only the client config is sent back.
+			await doPut('/llm-gateway/admin/config', { client_config: config.client_config });
 			success.add(m.models_settings_saved());
 			await load();
 		} finally {

@@ -73,7 +73,7 @@ describe('Models gateway settings tab', () => {
 		await expect.element(page.getByLabelText('Log retention (days)')).not.toBeInTheDocument();
 	});
 
-	it('sends the full client and framework config when saving', async () => {
+	it('sends only the client config when saving', async () => {
 		mockGateway();
 		const saved = vi.fn();
 		worker.use(
@@ -97,8 +97,7 @@ describe('Models gateway settings tab', () => {
 				...clientConfig,
 				drop_excess_requests: true,
 				max_request_body_size_mb: 20
-			},
-			framework_config: frameworkConfig
+			}
 		});
 	});
 

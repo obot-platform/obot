@@ -97,6 +97,33 @@ func TestAdminAPISafety(t *testing.T) {
 		}
 	})
 
+	t.Run("gateway settings can be saved", func(t *testing.T) {
+		var before map[string]any
+		admin.Get(t, "/api/llm-gateway/admin/config", &before)
+		client := before["client_config"].(map[string]any)
+		original := client["drop_excess_requests"]
+		client["drop_excess_requests"] = original != true
+		// Send the whole config back, framework settings included, as a client that read it
+		// would. Obot keeps the framework settings it manages itself.
+		resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/config", map[string]any{
+			"client_config":    client,
+			"framework_config": before["framework_config"],
+		})
+		if resp.Status != http.StatusOK {
+			t.Fatalf("save settings: want 200, got %s", resp)
+		}
+		var after map[string]any
+		admin.Get(t, "/api/llm-gateway/admin/config", &after)
+		if got := after["client_config"].(map[string]any)["drop_excess_requests"]; got != client["drop_excess_requests"] {
+			t.Errorf("drop_excess_requests = %v after saving %v", got, client["drop_excess_requests"])
+		}
+		if got, want := after["framework_config"].(map[string]any)["pricing_url"], before["framework_config"].(map[string]any)["pricing_url"]; got != want {
+			t.Errorf("pricing_url changed from %v to %v", want, got)
+		}
+		client["drop_excess_requests"] = original
+		admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/config", map[string]any{"client_config": client})
+	})
+
 	t.Run("the engine's own login can't be turned on", func(t *testing.T) {
 		// Obot reaches the engine with the setup token that creates the engine's first admin
 		// account. Turning that login on would lock Obot out of managing its own gateway.

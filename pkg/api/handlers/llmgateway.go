@@ -147,6 +147,11 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		if err := rejectEngineAuthConfig(path, body); err != nil {
 			return err
 		}
+		if path == "config" && req.Method != http.MethodGet {
+			if body, err = clientConfigOnly(body); err != nil {
+				return err
+			}
+		}
 		if err := rejectAmbientCredentialRedirects(body, h.providerType(req.Context(), path, body)); err != nil {
 			return err
 		}
@@ -287,6 +292,28 @@ func allowedBifrostAPIPath(raw, escaped string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// clientConfigOnly keeps only client_config from a config update. The rest of the engine's
+// config is Obot's: the framework settings point the engine at model data files Obot
+// maintains, which the engine refuses to accept over its API, so passing back the config the
+// client read would fail. The engine also refuses a client config whose log retention is
+// under a day; Obot keeps the engine's request log off, so the retention is raised to that
+// minimum rather than refusing the change.
+func clientConfigOnly(body []byte) ([]byte, error) {
+	var update struct {
+		ClientConfig map[string]any `json:"client_config"`
+	}
+	if err := json.Unmarshal(body, &update); err != nil {
+		return nil, types.NewErrBadRequest("invalid config: %v", err)
+	}
+	if update.ClientConfig == nil {
+		return nil, types.NewErrBadRequest("invalid config: client_config is required")
+	}
+	if days, ok := update.ClientConfig["log_retention_days"].(float64); !ok || days < 1 {
+		update.ClientConfig["log_retention_days"] = 1
+	}
+	return json.Marshal(update)
 }
 
 // rejectEngineAuthConfig refuses a change to the engine's own login. Obot reaches the engine

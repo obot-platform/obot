@@ -327,3 +327,49 @@ func TestRejectEngineAuthConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestClientConfigOnly(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "framework config is dropped and retention raised",
+			body: `{"client_config":{"drop_excess_requests":true,"log_retention_days":0},"framework_config":{"pricing_url":"file:///data/pricing.json"}}`,
+			want: `{"client_config":{"drop_excess_requests":true,"log_retention_days":1}}`,
+		},
+		{
+			name: "missing retention gets the minimum",
+			body: `{"client_config":{"max_request_body_size_mb":20}}`,
+			want: `{"client_config":{"log_retention_days":1,"max_request_body_size_mb":20}}`,
+		},
+		{
+			name: "retention of a day or more is kept",
+			body: `{"client_config":{"log_retention_days":7}}`,
+			want: `{"client_config":{"log_retention_days":7}}`,
+		},
+		{
+			name:    "no client config",
+			body:    `{"framework_config":{}}`,
+			wantErr: true,
+		},
+		{
+			name:    "not JSON",
+			body:    `nope`,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := clientConfigOnly([]byte(tt.body))
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("clientConfigOnly() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !tt.wantErr && string(got) != tt.want {
+				t.Fatalf("clientConfigOnly() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
