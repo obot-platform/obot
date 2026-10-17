@@ -86,9 +86,8 @@
 				return matchesModelPattern(patternPrefix, model.targetModel);
 			}
 			const lowerSearch = search.toLowerCase();
-			return (
-				(model.displayName || model.name).toLowerCase().includes(lowerSearch) ||
-				(model.modelProviderName || '').toLowerCase().includes(lowerSearch)
+			return [model.displayName, model.name, model.targetModel, model.modelProviderName].some(
+				(text) => (text || '').toLowerCase().includes(lowerSearch)
 			);
 		})
 	);

@@ -219,6 +219,9 @@
 										name: model.displayName || model.name || ''
 									})
 								: model.displayName || model.name || '',
+							// Display names, such as "GPT-4o Mini (openai)", differ from the model's
+							// ID, which is what admins mostly search for.
+							searchText: [model.name, model.targetModel].filter(Boolean).join(' '),
 							id: model.id
 						}))}
 					selected={getSelectedModel(modelAlias, activeModelOptions)}
