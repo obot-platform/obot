@@ -438,6 +438,7 @@
 	"models_connect_open_webui_step_model": "保存后，在新聊天的模型菜单中选择此模型：",
 	"models_connect_print_api_key": "输出你的 API 密钥",
 	"models_connect_open_webui_docker": "或者，对于新安装的 Open WebUI，在用 Docker 启动时设置连接",
+	"models_connect_open_webui_docker_localhost": "Inside the container, localhost is Open WebUI itself, so the command reaches Obot on this machine at host.docker.internal.",
 	"models_connect_google_adk_description": "Google 用于构建代理的 Python 框架",
 	"models_connect_vercel_ai_sdk_description": "用于构建 AI 应用和代理的 TypeScript 工具包",
 	"models_gateway_no_models_admin_title": "添加模型提供商以开始使用",

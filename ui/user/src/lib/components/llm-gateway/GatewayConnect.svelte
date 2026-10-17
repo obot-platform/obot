@@ -44,6 +44,21 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 
 	let baseURL = $derived(`${obotURL}/api/llm-proxy`);
+	// Obot's URL as a container on this machine reaches it, when that differs: inside a
+	// container, localhost is the container itself, so an Obot on localhost is reached at
+	// host.docker.internal.
+	let containerObotURL = $derived.by(() => {
+		try {
+			const { protocol, hostname, port, pathname } = new URL(obotURL);
+			if (!['localhost', '127.0.0.1', '[::1]', '0.0.0.0'].includes(hostname)) {
+				return undefined;
+			}
+			const path = pathname.replace(/\/$/, '');
+			return `${protocol}//host.docker.internal${port ? `:${port}` : ''}${path}`;
+		} catch {
+			return undefined;
+		}
+	});
 	let loginCommand = $derived(`obot login --url ${obotURL} --scope llm --print-token`);
 	let token = $derived(`$(${loginCommand})`);
 	// The models a chat example can use: embedding and image models can't answer a message.
@@ -348,7 +363,8 @@
 							'import anthropic',
 							'client = anthropic.Anthropic()',
 							`m = client.messages.create(model="${model}", max_tokens=512, messages=[{"role": "user", "content": "hello"}])`,
-							'print(m.content[0].text)',
+							'# Reasoning models answer with thinking blocks before the text',
+							'print(next(b.text for b in m.content if b.type == "text"))',
 							'PY'
 						].join('\n')
 					}
@@ -496,8 +512,10 @@
 						title: m.models_connect_open_webui_docker(),
 						language: 'bash' as const,
 						code: [
+							...(containerObotURL ? [`# ${m.models_connect_open_webui_docker_localhost()}`] : []),
 							'docker run -d -p 3000:8080 \\',
-							`  -e OPENAI_API_BASE_URL="${baseURL}/v1" \\`,
+							...(containerObotURL ? ['  --add-host=host.docker.internal:host-gateway \\'] : []),
+							`  -e OPENAI_API_BASE_URL="${containerObotURL ? `${containerObotURL}/api/llm-proxy` : baseURL}/v1" \\`,
 							`  -e OPENAI_API_KEY="${token}" \\`,
 							'  -v open-webui:/app/backend/data --name open-webui --restart always \\',
 							'  ghcr.io/open-webui/open-webui:main'

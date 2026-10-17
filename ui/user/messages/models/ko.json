@@ -438,6 +438,7 @@
 	"models_connect_open_webui_step_model": "저장한 다음 새 채팅의 모델 메뉴에서 이 모델을 선택합니다:",
 	"models_connect_print_api_key": "API 키 출력",
 	"models_connect_open_webui_docker": "또는 Open WebUI를 새로 설치하는 경우 Docker로 시작할 때 연결을 설정합니다",
+	"models_connect_open_webui_docker_localhost": "Inside the container, localhost is Open WebUI itself, so the command reaches Obot on this machine at host.docker.internal.",
 	"models_connect_google_adk_description": "에이전트를 구축하기 위한 Google의 Python 프레임워크",
 	"models_connect_vercel_ai_sdk_description": "AI 앱과 에이전트를 구축하기 위한 TypeScript 툴킷",
 	"models_gateway_no_models_admin_title": "모델 공급자를 추가하여 시작하세요",

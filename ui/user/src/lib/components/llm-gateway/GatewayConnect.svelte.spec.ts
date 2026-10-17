@@ -222,6 +222,54 @@ describe('GatewayConnect', () => {
 			.toBeInTheDocument();
 	});
 
+	it('prints the text of an Anthropic SDK reply that starts with thinking', async () => {
+		render(GatewayConnect, { obotURL, models });
+
+		await openClient('Anthropic SDK');
+		await expect
+			.element(
+				page.getByText('print(next(b.text for b in m.content if b.type == "text"))', {
+					exact: false
+				})
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('m.content[0].text', { exact: false }))
+			.not.toBeInTheDocument();
+	});
+
+	it('points Open WebUI in Docker at the Obot server', async () => {
+		render(GatewayConnect, { obotURL, models });
+
+		await openClient('Open WebUI');
+		await expect
+			.element(
+				page.getByText('OPENAI_API_BASE_URL="https://obot.example.com/api/llm-proxy/v1"', {
+					exact: false
+				})
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('host.docker.internal', { exact: false }))
+			.not.toBeInTheDocument();
+	});
+
+	it('points Open WebUI in Docker at an Obot on localhost through the Docker host', async () => {
+		render(GatewayConnect, { obotURL: 'http://localhost:8080', models });
+
+		await openClient('Open WebUI');
+		await expect
+			.element(
+				page.getByText('OPENAI_API_BASE_URL="http://host.docker.internal:8080/api/llm-proxy/v1"', {
+					exact: false
+				})
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('--add-host=host.docker.internal:host-gateway', { exact: false }))
+			.toBeInTheDocument();
+	});
+
 	it('rewrites the OpenAI SDK example with the picked model', async () => {
 		render(GatewayConnect, { obotURL, models });
 

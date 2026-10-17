@@ -438,6 +438,7 @@
 	"models_connect_open_webui_step_model": "Save, then choose this model from the model menu in a new chat:",
 	"models_connect_print_api_key": "Print your API key",
 	"models_connect_open_webui_docker": "Or, for a new Open WebUI install, set the connection when starting it with Docker",
+	"models_connect_open_webui_docker_localhost": "Inside the container, localhost is Open WebUI itself, so the command reaches Obot on this machine at host.docker.internal.",
 	"models_connect_google_adk_description": "Google's Python framework for building agents",
 	"models_connect_vercel_ai_sdk_description": "TypeScript toolkit for building AI apps and agents",
 	"models_gateway_no_models_admin_title": "Add a model provider to get started",

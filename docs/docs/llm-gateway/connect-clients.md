@@ -176,7 +176,8 @@ import anthropic
 
 client = anthropic.Anthropic()
 m = client.messages.create(model="anthropic/claude-opus-4-8", max_tokens=512, messages=[{"role": "user", "content": "hello"}])
-print(m.content[0].text)
+# Reasoning models answer with thinking blocks before the text
+print(next(b.text for b in m.content if b.type == "text"))
 ```
 
 ## Using with agent frameworks {#using-with-agent-frameworks}
@@ -336,6 +337,8 @@ docker run -d -p 3000:8080 \
   -v open-webui:/app/backend/data --name open-webui --restart always \
   ghcr.io/open-webui/open-webui:main
 ```
+
+For an Obot on the same machine, such as `http://localhost:8080`, use `http://host.docker.internal:8080/api/llm-proxy/v1` instead, and on Linux add `--add-host=host.docker.internal:host-gateway`: inside the container, `localhost` is Open WebUI itself. The Connect tab does this for you when Obot's URL is `localhost`.
 
 Every Open WebUI user's requests go through the gateway with this one key, so Obot attributes them to the key's owner. See [Open WebUI's OpenAI-compatible setup](https://docs.openwebui.com/getting-started/quick-start/connect-a-provider/starting-with-openai-compatible/).
 

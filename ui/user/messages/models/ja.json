@@ -438,6 +438,7 @@
 	"models_connect_open_webui_step_model": "保存し、新しいチャットのモデルメニューからこのモデルを選択します:",
 	"models_connect_print_api_key": "API キーを表示する",
 	"models_connect_open_webui_docker": "または、Open WebUI を新規インストールする場合は、Docker での起動時に接続を設定します",
+	"models_connect_open_webui_docker_localhost": "Inside the container, localhost is Open WebUI itself, so the command reaches Obot on this machine at host.docker.internal.",
 	"models_connect_google_adk_description": "エージェントを構築するための Google の Python フレームワーク",
 	"models_connect_vercel_ai_sdk_description": "AI アプリとエージェントを構築するための TypeScript ツールキット",
 	"models_gateway_no_models_admin_title": "モデルプロバイダーを追加して始めましょう",
