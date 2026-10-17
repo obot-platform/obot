@@ -18,6 +18,7 @@
 		type OrgGroup,
 		type OrgUser
 	} from '$lib/services';
+	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
 	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -378,7 +379,12 @@
 										<span>
 											{guardrail.name}
 											<span class="text-muted-content text-xs">
-												{providersByType.get(guardrail.type)?.label ?? guardrail.type}
+												{guardrailTypeLabel(
+													providersByType.get(guardrail.type) ?? {
+														type: guardrail.type,
+														label: guardrail.type
+													}
+												)}
 											</span>
 										</span>
 										{#if guardrail.error}

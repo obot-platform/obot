@@ -75,7 +75,7 @@
 	<dl class="bg-base-100 dark:bg-base-300 grid grid-cols-2 gap-x-2 gap-y-1 rounded-md p-3 text-sm">
 		{#each rows as row (row.label)}
 			<dt class="font-medium">{row.label}</dt>
-			<dd class="break-all font-light">{row.value}</dd>
+			<dd class="font-light wrap-break-word">{row.value}</dd>
 		{/each}
 	</dl>
 </section>

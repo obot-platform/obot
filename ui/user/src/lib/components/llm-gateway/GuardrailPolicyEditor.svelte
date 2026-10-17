@@ -5,6 +5,7 @@
 	import NewGuardrailDialog from '$lib/components/guardrails/NewGuardrailDialog.svelte';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
 	import {
 		ACTION_LABELS,
 		APPLY_TO_LABELS,
@@ -320,7 +321,7 @@
 					/>
 					<span>{p.name}</span>
 					<span class="text-muted-content text-xs">
-						{providersByType[p.type]?.label ?? p.type}
+						{providersByType[p.type] ? guardrailTypeLabel(providersByType[p.type]) : p.type}
 					</span>
 				</label>
 			{:else}

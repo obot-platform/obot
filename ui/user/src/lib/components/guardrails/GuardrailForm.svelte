@@ -7,6 +7,13 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
+		guardrailFieldDescription,
+		guardrailFieldLabel,
+		guardrailFindingMessage,
+		guardrailTypeDescription,
+		guardrailTypeLabel
+	} from '$lib/services/llm-gateway/guardrail-text';
+	import {
 		createGuardrail,
 		getGuardrail,
 		listGuardrailProviders,
@@ -144,7 +151,7 @@
 					loadError = type ? m.guardrails_unknown_type({ type }) : m.guardrails_no_type_selected();
 					return;
 				}
-				name = provider.label;
+				name = guardrailTypeLabel(provider);
 				applyConfig(provider.fields, {});
 				return;
 			}
@@ -257,7 +264,7 @@
 	let title = $derived(
 		isNew
 			? provider
-				? m.guardrails_new_title({ type: provider.label })
+				? m.guardrails_new_title({ type: guardrailTypeLabel(provider) })
 				: m.guardrails_new_title_generic()
 			: name || m.guardrails_fallback_title()
 	);
@@ -282,8 +289,8 @@
 	<div class={twMerge('flex flex-col gap-6', !embedded && 'pb-4')}>
 		<section class="paper">
 			<div>
-				<h2 class="text-lg font-semibold">{provider.label}</h2>
-				<p class="text-muted-content text-sm">{provider.description}</p>
+				<h2 class="text-lg font-semibold">{guardrailTypeLabel(provider)}</h2>
+				<p class="text-muted-content text-sm">{guardrailTypeDescription(provider)}</p>
 			</div>
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 				<div class="flex flex-col gap-1">
@@ -319,10 +326,12 @@
 			</div>
 			{#each provider.fields as field (field.name)}
 				{@const inputID = `field-${field.name}`}
+				{@const fieldLabel = guardrailFieldLabel(provider.type, field)}
+				{@const fieldDescription = guardrailFieldDescription(provider.type, field)}
 				<div class="flex flex-col gap-1">
 					{#if field.type === 'bool'}
 						<Toggle
-							label={field.label}
+							label={fieldLabel}
 							labelInline
 							checked={!!values[field.name]}
 							disabled={readonly}
@@ -330,7 +339,7 @@
 						/>
 					{:else}
 						<label for={inputID} id={`${inputID}-label`} class="text-sm font-light">
-							{field.label}
+							{fieldLabel}
 							{#if field.required}<span class="text-error">*</span>{/if}
 						</label>
 						{#if field.sensitive}
@@ -422,8 +431,8 @@
 							/>
 						{/if}
 					{/if}
-					{#if field.description}
-						<span class="text-muted-content text-xs">{field.description}</span>
+					{#if fieldDescription}
+						<span class="text-muted-content text-xs">{fieldDescription}</span>
 					{/if}
 				</div>
 			{:else}
@@ -505,7 +514,9 @@
 											>{f.category}</span
 										>
 										{#if f.count && f.count > 1}<span class="text-xs">×{f.count}</span>{/if}
-										{#if f.message}<span class="text-muted-content text-xs">{f.message}</span>{/if}
+										{#if f.message}<span class="text-muted-content text-xs"
+												>{guardrailFindingMessage(f.message)}</span
+											>{/if}
 									</li>
 								{/each}
 							</ul>

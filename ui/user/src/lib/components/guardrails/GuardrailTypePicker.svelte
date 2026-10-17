@@ -3,6 +3,10 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { m } from '$lib/i18n';
 	import {
+		guardrailTypeDescription,
+		guardrailTypeLabel
+	} from '$lib/services/llm-gateway/guardrail-text';
+	import {
 		GUARDRAIL_CATEGORY_BUILT_IN,
 		guardrailCategoryLabel,
 		type Guardrail,
@@ -60,7 +64,7 @@
 							}}
 						>
 							<span class="flex w-full items-center justify-between gap-2">
-								<span class="text-sm font-medium">{p.label}</span>
+								<span class="text-sm font-medium">{guardrailTypeLabel(p)}</span>
 								{#if configured.length > 0}
 									<span
 										class="badge badge-xs badge-soft shrink-0"
@@ -72,7 +76,9 @@
 									</span>
 								{/if}
 							</span>
-							<span class="text-muted-content line-clamp-3 text-xs">{p.description}</span>
+							<span class="text-muted-content line-clamp-3 text-xs"
+								>{guardrailTypeDescription(p)}</span
+							>
 						</button>
 					{/each}
 				</div>

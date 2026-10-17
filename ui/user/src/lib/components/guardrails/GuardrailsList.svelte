@@ -10,6 +10,7 @@
 	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
 	import type { MCPFilter, ModelAccessPolicy } from '$lib/services/admin/types';
+	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
 	import {
 		deleteGuardrail,
 		guardrailCategoryLabel,
@@ -79,6 +80,11 @@
 	}
 
 	let providersByType = $derived(Object.fromEntries(providers.map((p) => [p.type, p])));
+	// Rows keep the server's English type name, which the table filters and sorts on and saves
+	// in the URL; it's translated only for display.
+	let typeLabels = $derived(
+		Object.fromEntries(providers.map((p) => [p.label, guardrailTypeLabel(p)]))
+	);
 
 	function namesUsing(id: string | undefined) {
 		if (!id) return { policies: [], filters: [] };
@@ -112,9 +118,13 @@
 	);
 	let filteredRows = $derived(
 		rows.filter((r) =>
-			[r.name, r.typeLabel, guardrailCategoryLabel(r.categoryLabel), r.usedByLabel].some((v) =>
-				v?.toLowerCase().includes(query.toLowerCase())
-			)
+			[
+				r.name,
+				r.typeLabel,
+				typeLabels[r.typeLabel],
+				guardrailCategoryLabel(r.categoryLabel),
+				r.usedByLabel
+			].some((v) => v?.toLowerCase().includes(query.toLowerCase()))
 		)
 	);
 
@@ -201,7 +211,9 @@
 			displayValue={(property, value) =>
 				property === 'categoryLabel'
 					? guardrailCategoryLabel(String(value ?? ''))
-					: String(value ?? '')}
+					: property === 'typeLabel'
+						? (typeLabels[String(value ?? '')] ?? String(value ?? ''))
+						: String(value ?? '')}
 			onClickRow={(row, isCtrl) => openUrl(`/models/guardrails/${row.id}`, isCtrl)}
 		>
 			{#snippet onRenderColumn(property, row)}

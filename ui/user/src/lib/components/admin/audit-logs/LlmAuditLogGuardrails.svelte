@@ -85,11 +85,11 @@
 					>
 						{guardrailOutcomeLabel(finding.outcome)}
 					</span>
-					<span class="font-medium break-all">{finding.policyName || finding.policyID}</span>
+					<span class="font-medium wrap-break-word">{finding.policyName || finding.policyID}</span>
 					<span class="text-muted-content text-xs">{stageLabel(finding.stage)}</span>
 				</div>
 				{#if guardrail}
-					<p class="text-xs font-light break-all">
+					<p class="text-xs font-light wrap-break-word">
 						<span class="font-medium">{m.audit_usage_audit_logs_model_guardrail_label()}</span>
 						{guardrail}
 					</p>
@@ -105,7 +105,7 @@
 					</div>
 				{/if}
 				{#if finding.error}
-					<p class="text-error text-xs font-light break-all">{finding.error}</p>
+					<p class="text-error text-xs font-light wrap-break-word">{finding.error}</p>
 				{/if}
 			</li>
 		{/each}

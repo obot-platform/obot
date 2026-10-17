@@ -32,8 +32,7 @@ const entry: LLMAuditLog = {
 	spend: 0.0023,
 	userAgent: 'cached-agent',
 	clientSessionID: '',
-	clientIP: '10.0.0.1',
-	messagePolicyTriggered: false
+	clientIP: '10.0.0.1'
 };
 
 describe('LLM audit log usage', () => {

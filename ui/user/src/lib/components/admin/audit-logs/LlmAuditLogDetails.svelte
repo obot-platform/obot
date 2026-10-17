@@ -137,19 +137,19 @@
 			getAuditLogAPIKeyMaskedKey(data.userID, data.apiKeyID)
 		)}
 		{#if requestURL}
-			<p class="break-all grid grid-cols-2 gap-2">
+			<p class="grid grid-cols-2 gap-2 wrap-break-word">
 				<span class="font-medium">{m.audit_usage_audit_logs_model_request_url_label()}</span>
 				{requestURL}
 			</p>
 		{/if}
 		{#if data.userAgent}
-			<p class="break-all grid grid-cols-2 gap-2">
+			<p class="grid grid-cols-2 gap-2 wrap-break-word">
 				<span class="font-medium">{m.audit_usage_audit_logs_model_user_agent_label()}</span>
 				{data.userAgent}
 			</p>
 		{/if}
 		{#if apiKey}
-			<p class="break-all grid grid-cols-2 gap-2">
+			<p class="grid grid-cols-2 gap-2 wrap-break-word">
 				<span class="font-medium">{m.audit_usage_audit_logs_model_api_key_label()}</span>
 				{apiKey}
 			</p>

@@ -207,7 +207,7 @@
 	"platform_mcp_config_scheduling_tolerations_desc_1": "{target}에 대한 톨러레이션 필드를 정의합니다. 이 값은 Kubernetes 배포의",
 	"platform_mcp_config_scheduling_tolerations_desc_2": "필드를 설정하는 데 사용되며 유효한",
 	"platform_mcp_config_tab": "MCP 구성",
-	"platform_na": "N/A",
+	"platform_na": "해당 없음",
 	"platform_opens_new_tab": "(새 탭에서 열림)",
 	"platform_refresh": "새로 고침",
 	"platform_refresh_now": "지금 새로 고침",
