@@ -240,6 +240,8 @@
 					</span>
 				{:else if property === 'categoryLabel'}
 					{guardrailCategoryLabel(row.categoryLabel)}
+				{:else if property === 'typeLabel'}
+					{typeLabels[row.typeLabel] ?? row.typeLabel}
 				{:else}
 					{row[property as keyof typeof row]}
 				{/if}

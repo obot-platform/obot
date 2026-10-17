@@ -1,4 +1,5 @@
 import { page as appPage } from '$app/state';
+import { getLocale, overwriteGetLocale } from '$lib/paraglide/runtime';
 import { Group } from '$lib/services';
 import { goto } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
@@ -63,8 +64,11 @@ async function renderView(groups: string[] = [Group.ADMIN]) {
 	return render(GuardrailsList);
 }
 
+const restoreLocale = getLocale;
+
 afterEach(() => {
 	appPage.url.searchParams.delete('query');
+	overwriteGetLocale(restoreLocale);
 });
 
 describe('Guardrails list', () => {
@@ -76,6 +80,15 @@ describe('Guardrails list', () => {
 		await expect.element(page.getByRole('cell', { name: 'Custom Regex' })).toBeInTheDocument();
 		await expect.element(page.getByText('Analyzer URL is required')).toBeInTheDocument();
 		await expect.element(page.getByText('Ready', { exact: true })).toBeInTheDocument();
+	});
+
+	it('translates the type column', async () => {
+		overwriteGetLocale(() => 'ja');
+		mockGuardrails([regexGuardrail]);
+		await renderView();
+
+		await expect.element(page.getByRole('cell', { name: 'カスタム正規表現' })).toBeInTheDocument();
+		await expect.element(page.getByText('Custom Regex')).not.toBeInTheDocument();
 	});
 
 	it('says guardrails are shared and points to where they are used', async () => {

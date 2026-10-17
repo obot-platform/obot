@@ -68,6 +68,41 @@ describe('LlmAuditLogRouting', () => {
 		await expect.element(section.getByText('Paid by')).not.toBeInTheDocument();
 	});
 
+	it('wraps a long key name between its words, not in the middle of one', async () => {
+		const key = 'OPENAI_API_KEY_team_rotation_secondary';
+		const view = await render(LlmAuditLogRouting, { auditLog: auditLog({ providerKey: key }) });
+		view.container.style.width = '300px';
+
+		const value = page.getByRole('region', { name: 'Routing' }).getByText(key);
+		await expect.element(value).toBeVisible();
+		// The characters each line ends with: a line may only end after a _, never mid-word.
+		const lineEnds = () => {
+			const dd = value.element() as HTMLElement;
+			const walker = document.createTreeWalker(dd, NodeFilter.SHOW_TEXT);
+			const chars: { char: string; top: number }[] = [];
+			for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+				for (let i = 0; i < node.textContent!.length; i++) {
+					const range = document.createRange();
+					range.setStart(node, i);
+					range.setEnd(node, i + 1);
+					chars.push({ char: node.textContent![i], top: range.getBoundingClientRect().top });
+				}
+			}
+			const text = chars
+				.map((c) => c.char)
+				.join('')
+				.trim();
+			const ends = chars
+				.filter((c, i) => i + 1 < chars.length && chars[i + 1].top > c.top + 1)
+				.map((c) => c.char);
+			return { text, ends };
+		};
+		const { text, ends } = lineEnds();
+		expect(text).toBe(key);
+		expect(ends.length).toBeGreaterThan(0);
+		expect(ends.every((c) => c === '_')).toBe(true);
+	});
+
 	it("says when the user's Claude subscription paid for a request", async () => {
 		render(LlmAuditLogRouting, {
 			auditLog: auditLog({

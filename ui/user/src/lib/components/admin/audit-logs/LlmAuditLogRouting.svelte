@@ -33,6 +33,12 @@
 
 	let { auditLog }: Props = $props();
 
+	// Values are names such as OPENAI_API_KEY_team_rotation or provider/model, so a long one
+	// wraps after a _, /, - or ., not in the middle of a word.
+	function breakableParts(value: string) {
+		return value.split(/(?<=[_/.-])/);
+	}
+
 	const rows = $derived(
 		[
 			{
@@ -72,10 +78,14 @@
 	<p class="text-muted-content mb-2 text-xs font-light">
 		{m.audit_usage_audit_logs_model_routing_description()}
 	</p>
-	<dl class="bg-base-100 dark:bg-base-300 grid grid-cols-2 gap-x-2 gap-y-1 rounded-md p-3 text-sm">
+	<dl
+		class="bg-base-100 dark:bg-base-300 grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 rounded-md p-3 text-sm"
+	>
 		{#each rows as row (row.label)}
 			<dt class="font-medium">{row.label}</dt>
-			<dd class="font-light wrap-break-word">{row.value}</dd>
+			<dd class="font-light wrap-break-word">
+				{#each breakableParts(row.value ?? '') as part, i (i)}{#if i > 0}<wbr />{/if}{part}{/each}
+			</dd>
 		{/each}
 	</dl>
 </section>
