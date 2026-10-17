@@ -26,6 +26,8 @@ Every LLM gateway provider is available in every edition, without registration o
 
 When the server's `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, Obot configures the gateway's `openai` or `anthropic` provider with that key at startup, as a key named `env-OPENAI_API_KEY` or `env-ANTHROPIC_API_KEY`, and updates the key when the value changes. You can disable, edit or delete it like any other key. See [Server Configuration](./server-configuration.md).
 
+Obot only writes the key when the variable's value is new to it, so a key you delete stays deleted after a restart. That includes deleting the provider, and changing its base URL, which removes its keys. To restore the key, add it again on the provider's page with the same value (any name works), or change the variable's value and restart Obot, which adds the key again as `env-OPENAI_API_KEY` or `env-ANTHROPIC_API_KEY`, and adds the provider too if it's gone.
+
 ### Private and local addresses {#private-and-local-addresses}
 
 A provider's base URL, and the server URL or endpoint of its keys (Ollama, vLLM, SGLang, Azure, Databricks), may point at a private network address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) or at Obot's own host (`localhost`, `127.0.0.0/8`, `::1`) only when the provider's **Allow private network addresses** setting is on. Host names are resolved, and every address they resolve to is checked. Link-local addresses (`169.254.0.0/16`, `fe80::/10`) and cloud metadata addresses, such as `169.254.169.254` and AWS's `fd00:ec2::254`, are never allowed.
