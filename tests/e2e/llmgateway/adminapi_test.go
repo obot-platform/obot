@@ -3,6 +3,7 @@
 package llmgateway
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -284,4 +285,53 @@ func newAuditor(t *testing.T) *testUser {
 		return nil
 	})
 	return auditor
+}
+
+// TestProviderAddresses checks where providers may connect, and that their keys can't be
+// redirected elsewhere.
+func TestProviderAddresses(t *testing.T) {
+	admin := env.admin
+	newProvider := func(t *testing.T, baseURL string, allowPrivate bool) (string, *harness.Response) {
+		t.Helper()
+		name := "e2eaddr" + harness.RandomSuffix()
+		resp := admin.Do(t, http.MethodPost, "/api/llm-gateway/admin/providers", map[string]any{
+			"provider":               name,
+			"custom_provider_config": map[string]any{"base_provider_type": "openai"},
+			"network_config":         map[string]any{"base_url": baseURL, "allow_private_network": allowPrivate, "default_request_timeout_in_seconds": 30},
+		})
+		if resp.Status == http.StatusOK {
+			t.Cleanup(func() { admin.Do(t, http.MethodDelete, "/api/llm-gateway/admin/providers/"+name, nil) })
+		}
+		return name, resp
+	}
+
+	t.Run("a custom provider's settings can be saved", func(t *testing.T) {
+		name, resp := newProvider(t, env.mock.URL, true)
+		if resp.Status != http.StatusOK {
+			t.Fatalf("create: %s", resp)
+		}
+		// What the provider page sends: the settings it edits, without custom_provider_config.
+		var saved map[string]any
+		admin.Put(t, "/api/llm-gateway/admin/providers/"+name, map[string]any{
+			"network_config":              map[string]any{"base_url": env.mock.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 45},
+			"concurrency_and_buffer_size": map[string]any{"concurrency": 1000, "buffer_size": 5000},
+		}, &saved)
+		admin.Get(t, "/api/llm-gateway/admin/providers/"+name, &saved)
+		if got := gjson.Get(mustMarshal(t, saved), "network_config.default_request_timeout_in_seconds").Int(); got != 45 {
+			t.Errorf("timeout = %d, want 45", got)
+		}
+		if got := gjson.Get(mustMarshal(t, saved), "custom_provider_config.base_provider_type").String(); got != "openai" {
+			t.Errorf("custom provider config was lost: %v", saved["custom_provider_config"])
+		}
+	})
+
+}
+
+func mustMarshal(t *testing.T, v any) string {
+	t.Helper()
+	data, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
 }

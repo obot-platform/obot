@@ -200,14 +200,26 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		return rec, nil
 	}
 
-	var rec *httptest.ResponseRecorder
+	var (
+		rec      *httptest.ResponseRecorder
+		guardErr error
+	)
 	if req.Method == http.MethodGet {
 		if rec, err = serve(); err != nil {
 			return err
 		}
 	} else if err := h.change(ctx, req, func() (bool, bool) {
+		// Checked here, under the lock every replica shares, so the check sees the
+		// configuration the change is made to.
+		change, err := h.engine.GuardProviderChange(ctx, req.Method, path, body)
+		if err != nil {
+			guardErr = err
+			return false, false
+		}
+		body = change.Body
 		rec, err = serveRetryingBusyStore(ctx, serve)
 		if err != nil {
+			guardErr = err
 			return false, false
 		}
 		switch {
@@ -224,8 +236,8 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		}
 	}); err != nil {
 		return types.NewErrHTTP(http.StatusInternalServerError, llmengine.ScrubEngineName(err.Error()))
-	} else if err != nil {
-		return err
+	} else if guardErr != nil {
+		return guardErr
 	}
 
 	if rec.Code >= http.StatusBadRequest {
