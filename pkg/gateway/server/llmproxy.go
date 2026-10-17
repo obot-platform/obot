@@ -112,6 +112,11 @@ type modelListingBackend interface {
 	unlistedModels(ctx context.Context) []llmengine.ListedModel
 }
 
+// bodyLimitingBackend is implemented by backends that accept request bodies only up to a size.
+type bodyLimitingBackend interface {
+	maxRequestBodyBytes() int64
+}
+
 // gatewayRequest is what the LLM gateway backend tracks about one request. The gateway's
 // routing rules and fallbacks choose the model that serves it, and its traffic is governed by
 // budgets, which apply to that model, instead of the daily token quota.
@@ -611,8 +616,21 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		return err
 	}
 
+	var limit int64
+	if limiter, ok := l.backend.(bodyLimitingBackend); ok {
+		limit = limiter.maxRequestBodyBytes()
+	}
+	if limit > 0 {
+		if req.ContentLength > limit {
+			return writeRequestTooLarge(req, audit, limit)
+		}
+		req.Request.Body = http.MaxBytesReader(req.ResponseWriter, req.Request.Body, limit)
+	}
 	body, err := copyBody(&req.Request.Body)
 	if err != nil {
+		if tooLarge := (*http.MaxBytesError)(nil); errors.As(err, &tooLarge) {
+			return writeRequestTooLarge(req, audit, limit)
+		}
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 	audit.setRequestBody(body)
@@ -788,6 +806,30 @@ func modelName(model *v1.Model) string {
 		return ""
 	}
 	return model.Name
+}
+
+// writeRequestTooLarge refuses a request whose body is over the gateway's request size
+// limit, with a 413 in the client's API format.
+func writeRequestTooLarge(req api.Context, audit *llmAuditRecorder, limit int64) error {
+	message := fmt.Sprintf("the request body is larger than the LLM gateway's limit of %d MB", limit>>20)
+	var body any
+	if p := strings.Trim(req.PathValue("path"), "/"); strings.HasSuffix(p, "/messages") || strings.HasSuffix(p, "/messages/count_tokens") {
+		body = map[string]any{
+			"type":  "error",
+			"error": map[string]any{"type": "request_too_large", "message": message},
+		}
+	} else {
+		body = map[string]any{
+			"error": map[string]any{"message": message, "type": "invalid_request_error", "code": "request_too_large"},
+		}
+	}
+	data, _ := json.Marshal(body)
+	audit.recordResponseStatus(http.StatusRequestEntityTooLarge)
+	req.ResponseWriter.Header().Set("Content-Type", "application/json")
+	req.ResponseWriter.Header().Set("X-Should-Retry", "false")
+	req.WriteHeader(http.StatusRequestEntityTooLarge)
+	_, err := req.ResponseWriter.Write(append(data, '\n'))
+	return err
 }
 
 // budgetExceededResponse is the response to a request refused because a budget is

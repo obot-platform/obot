@@ -132,3 +132,25 @@ func TestPlainTextSecrets(t *testing.T) {
 		t.Fatalf("name should be left alone: %#v", key["name"])
 	}
 }
+
+func TestMaxRequestBodyBytesFollowsTheSettings(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	if got := e.MaxRequestBodyBytes(); got != 100<<20 {
+		t.Fatalf("MaxRequestBodyBytes() = %d, want the 100 MB default", got)
+	}
+	var config struct {
+		ClientConfig map[string]any `json:"client_config"`
+	}
+	if err := e.Do(ctx, http.MethodGet, "/api/config", nil, &config); err != nil {
+		t.Fatal(err)
+	}
+	config.ClientConfig["max_request_body_size_mb"] = 1
+	config.ClientConfig["log_retention_days"] = 1
+	if err := e.Do(ctx, http.MethodPut, "/api/config", map[string]any{"client_config": config.ClientConfig}, nil); err != nil {
+		t.Fatal(err)
+	}
+	// The engine applies its own limit only when it next starts; Obot's applies at once.
+	if got := e.MaxRequestBodyBytes(); got != 1<<20 {
+		t.Fatalf("MaxRequestBodyBytes() = %d after the change, want 1 MB", got)
+	}
+}

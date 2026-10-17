@@ -224,6 +224,10 @@ func (b *bifrostProviderBackend) upstreamURL(req *http.Request) (url.URL, llmtyp
 	return u, route.dialect, nil
 }
 
+func (b *bifrostProviderBackend) maxRequestBodyBytes() int64 {
+	return b.engine.MaxRequestBodyBytes()
+}
+
 func (b *bifrostProviderBackend) transport() (http.RoundTripper, error) {
 	return sanitizingTransport{next: b.engine.Transport()}, nil
 }

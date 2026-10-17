@@ -201,6 +201,40 @@ func TestMultiReplicaConfigReload(t *testing.T) {
 		}
 	})
 
+	t.Run("request size limit changed on A applies on both replicas", func(t *testing.T) {
+		setLimit := func(mb int) {
+			t.Helper()
+			var cfg struct {
+				ClientConfig map[string]any `json:"client_config"`
+			}
+			adminA.Get(t, "/api/llm-gateway/admin/config", &cfg)
+			cfg.ClientConfig["max_request_body_size_mb"] = mb
+			adminA.Put(t, "/api/llm-gateway/admin/config", map[string]any{"client_config": cfg.ClientConfig}, nil)
+		}
+		setLimit(1)
+		t.Cleanup(func() { setLimit(100) })
+
+		// A 1.5 MB request is refused with a 413 in the client's format, on the replica that
+		// saved the limit as well as the other one.
+		big := strings.Repeat("x", 1536*1024)
+		for _, r := range []*harness.Replica{env.A, env.B} {
+			for _, api := range []string{apiChat, apiMessages} {
+				harness.Eventually(t, reloadTimeout, r.Config.Name+" enforces the limit on "+api, func() error {
+					res := callLLM(t, user.Gateway(r), api, provider+"/"+model, big, false, nil)
+					if res.Status != http.StatusRequestEntityTooLarge || !strings.HasPrefix(res.Header.Get("Content-Type"), "application/json") {
+						return fmt.Errorf("HTTP %d %s: %s", res.Status, res.Header.Get("Content-Type"), truncate(res.Body))
+					}
+					if !strings.Contains(res.Body, "request_too_large") || !strings.Contains(res.Body, "1 MB") {
+						return fmt.Errorf("unexpected error body: %s", truncate(res.Body))
+					}
+					return nil
+				})
+			}
+			// A request under the limit is still served.
+			callLLM(t, user.Gateway(r), apiChat, provider+"/"+model, "hi "+nonce("small"), false, nil).requireOK(t)
+		}
+	})
+
 	t.Run("encryption key is shared", func(t *testing.T) {
 		// Keys saved through A were encrypted with the generated key, and B decrypted them to
 		// call the provider above. The key is stored once, in Obot's database.

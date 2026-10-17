@@ -33,7 +33,7 @@ For client-specific settings and known limits, see [Using with Claude Code](./co
 
 ## A request is blocked or limited
 
-A `429` response names the [budget](./how-it-works.md#administering-the-gateway) that would be exceeded and when more becomes available. A blocked request names the [guardrail](../functionality/guardrails.md) that blocked it; an administrator can find it, and its outcome, on the request's entry in the LLM audit log under **Operations > Audit Logs**.
+A `429` response names the [budget](./how-it-works.md#administering-the-gateway) that would be exceeded and when more becomes available. A `413` response means the request body is larger than the gateway's request size limit, set under **LLM Gateway** → **Settings** (100 MB by default); a change to the limit applies at once on every replica. A blocked request names the [guardrail](../functionality/guardrails.md) that blocked it; an administrator can find it, and its outcome, on the request's entry in the LLM audit log under **Operations > Audit Logs**.
 
 ## The upstream provider rejects the request
 

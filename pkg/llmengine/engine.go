@@ -55,6 +55,8 @@ const (
 	pricingSyncIntervalSeconds = 3600
 	// setupTokenHeader is the header Bifrost reads its setup token from.
 	setupTokenHeader = "X-Bifrost-Setup-Token"
+	// defaultMaxRequestBodyBytes is the engine's request size limit when none is configured.
+	defaultMaxRequestBodyBytes = 100 << 20
 )
 
 // Options configures the embedded engine.
@@ -620,6 +622,25 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e.proxy.ServeHTTP(w, r)
+}
+
+// MaxRequestBodyBytes is the largest request body the gateway accepts, as configured in its
+// settings (max_request_body_size_mb). Obot enforces it before forwarding a request, so a
+// request over it gets a proper error, and a change takes effect at once.
+func (e *Engine) MaxRequestBodyBytes() int64 {
+	if !e.Ready() {
+		return defaultMaxRequestBodyBytes
+	}
+	cfg := e.inst.Load().server.Config
+	if cfg == nil {
+		return defaultMaxRequestBodyBytes
+	}
+	cfg.Mu.RLock()
+	defer cfg.Mu.RUnlock()
+	if cfg.ClientConfig == nil || cfg.ClientConfig.MaxRequestBodySizeMB <= 0 {
+		return defaultMaxRequestBodyBytes
+	}
+	return int64(cfg.ClientConfig.MaxRequestBodySizeMB) << 20
 }
 
 // Transport returns a RoundTripper that sends requests to the embedded server regardless of

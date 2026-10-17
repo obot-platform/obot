@@ -225,7 +225,9 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		switch {
 		case rec.Code < 300:
 			h.afterMutation(ctx, req, path)
-			return true, true
+			// Some settings, such as the request size limit, only take effect when the
+			// engine starts, so this replica reloads a config change too.
+			return true, path != "config"
 		case rec.Code < 500:
 			// Rejected; nothing changed.
 			return false, false
