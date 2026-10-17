@@ -3,7 +3,7 @@ name: substrate
 description: Upstream Agent Substrate runtime packaged for Obot
 type: application
 version: 0.1.0
-appVersion: v0.1.0
+appVersion: v0.1.1
 annotations:
   substrate.obot.ai/upstream-commit: 531c935370b9a14463c6588a63102922daebb810
 home: https://github.com/agent-substrate/substrate

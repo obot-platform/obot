@@ -133,7 +133,7 @@ type Config struct {
 	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
-	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:d8869222186116d867e54c5c8b33ab0a4c9864e044d333bb190cd29fe0a98d58"`
+	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:c6bef775ba97a3af60c7cad2c623598c583a6e33b7a1b1c3daec49e4f493cc8a"`
 	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments"`
 	SubstrateWorkerNodeSelector string `usage:"JSON node selector applied to all Substrate workers" default:"{\"kubernetes.io/os\":\"linux\"}"`
 	SubstrateWorkerTolerations  string `usage:"JSON tolerations applied to all Substrate workers, e.g. [{\"key\":\"workload\",\"operator\":\"Equal\",\"value\":\"agents\",\"effect\":\"NoSchedule\"}]" default:"[]"`

@@ -71,7 +71,7 @@ The role is the database role used for schema management and runtime access. It 
 
 ## Images and internal connections
 
-The chart selects the published `v0.1.0` Substrate component images under `ghcr.io/obot-platform/substrate`. The default runner is the published `ghcr.io/obot-platform/obot-claude-runner:v0.1.0` image, pinned by its multi-platform digest in Obot. You do not need to build these images for an ordinary evaluation.
+The chart selects the published `v0.1.1` Substrate component images under `ghcr.io/obot-platform/substrate`. The default runner is the published `ghcr.io/obot-platform/obot-claude-runner:v0.1.1` image, pinned by its multi-platform digest in Obot. You do not need to build these images for an ordinary evaluation.
 
 For custom images, use the [substrate-images repository](https://github.com/obot-platform/substrate-images). Keep the worker, control plane, generated API clients, and chart compatible. A worker image accepts a tag; a runner image must use `repository@sha256:FULL_DIGEST`. Existing environments keep their saved images when deployment defaults change.
 

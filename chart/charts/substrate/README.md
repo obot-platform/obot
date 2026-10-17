@@ -2,7 +2,7 @@
 
 This bundled chart supports the **experimental** Claude Environments feature.
 It packages [Agent Substrate commit 531c935370b9](https://github.com/agent-substrate/substrate/tree/531c935370b9a14463c6588a63102922daebb810), published as
-`v0.1.0` in [obot-platform/substrate-images](https://github.com/obot-platform/substrate-images/releases/tag/v0.1.0).
+`v0.1.1` in [obot-platform/substrate-images](https://github.com/obot-platform/substrate-images/releases/tag/v0.1.1).
 
 Read the documentation site for:
 
