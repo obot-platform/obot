@@ -16,8 +16,9 @@ func (c *Controller) setupEveryReplicaRoutes() {
 	}
 
 	engine := c.services.BifrostEngine
+	reload := lockedGatewayReload(c.services.GatewayClient.WithLLMGatewayLock, engine.Reload)
 	reloadGateway := func(ctx context.Context, revision int64) (bool, error) {
-		reloaded, err := engine.Reload(revision)
+		reloaded, err := reload(ctx, revision)
 		if reloaded {
 			// The leader lists the gateway's models; have it list them again now that its
 			// gateway has the new configuration.
@@ -32,4 +33,20 @@ func (c *Controller) setupEveryReplicaRoutes() {
 		Namespace(system.DefaultNamespace).
 		Name(system.ProviderSyncName).
 		HandlerFunc(providerSync.Reconcile)
+}
+
+// lockedGatewayReload reloads this replica's LLM gateway while holding the lock every replica
+// takes to change the gateway's configuration. A reload rewrites every provider in the shared
+// store from what it read when it started, so without the lock, a reload on one replica could
+// undo a change another replica made in the meantime.
+func lockedGatewayReload(withLock func(context.Context, func() error) error, reload func(int64) (bool, error)) func(context.Context, int64) (bool, error) {
+	return func(ctx context.Context, revision int64) (bool, error) {
+		var reloaded bool
+		err := withLock(ctx, func() error {
+			var err error
+			reloaded, err = reload(revision)
+			return err
+		})
+		return reloaded, err
+	}
 }
