@@ -16,6 +16,8 @@ The gateway serves every model at one base URL, `https://<your-obot-host>/api/ll
 
 Model names are `provider/model`, for example `openai/gpt-4.1`, `anthropic/claude-sonnet-4-5` or `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. Bare provider model IDs such as `claude-sonnet-4-5` also work, as do undated Anthropic names and the `llm` and `llm-mini` [aliases](./how-it-works.md#using-model-aliases). See [Model names](./how-it-works.md#unified-gateway) for how a name that more than one provider serves is resolved.
 
+Errors come back in the request's API format: Anthropic's error JSON for `/v1/messages` and for Anthropic clients (which send `anthropic-version`), and OpenAI's otherwise, so SDKs report them as they would the provider's own. This includes Obot's own refusals, such as HTTP 401 for a missing or invalid key, 403 for a model you may not use, and 404 for a model that isn't available.
+
 The earlier `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` routes still work. Other per-provider routes are removed and return HTTP 410. See [Client routes](./upgrade.md#client-routes).
 
 ## Limitations {#limitations}

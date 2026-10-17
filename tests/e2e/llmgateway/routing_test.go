@@ -249,6 +249,29 @@ func TestRoutingAndFormats(t *testing.T) {
 		}
 	})
 
+	t.Run("errors are in the request's API format", func(t *testing.T) {
+		for _, api := range allAPIs {
+			for _, tc := range []struct {
+				client *harness.Client
+				model  string
+				status int
+			}{
+				{client: gw, model: "openai/gpt-e2e-secret", status: http.StatusForbidden},
+				{client: gw, model: "openai/no-such-model", status: http.StatusNotFound},
+				{client: harness.NewAPIKeyClient(env.A.BaseURL, "ok1-not-a-key"), model: "openai/gpt-e2e-a", status: http.StatusUnauthorized},
+			} {
+				res := callLLM(t, tc.client, api, tc.model, "hi", false, nil)
+				body := gjson.Parse(res.Body)
+				if res.Status != tc.status || !strings.Contains(res.Header.Get("Content-Type"), "application/json") || body.Get("error.message").String() == "" {
+					t.Fatalf("%s %s: want a %d error in JSON, got %d %s: %s", api, tc.model, tc.status, res.Status, res.Header.Get("Content-Type"), truncate(res.Body))
+				}
+				if anthropic := body.Get("type").String() == "error"; anthropic != (api == apiMessages) {
+					t.Fatalf("%s %s: error isn't in the request's format: %s", api, tc.model, truncate(res.Body))
+				}
+			}
+		}
+	})
+
 	t.Run("unknown model and unsupported endpoint", func(t *testing.T) {
 		if res := callLLM(t, gw, apiChat, "openai/no-such-model", "hi", false, nil); res.Status != http.StatusNotFound {
 			t.Fatalf("unknown model: want 404, got %d: %s", res.Status, truncate(res.Body))

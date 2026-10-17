@@ -732,7 +732,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			usage.recordResponseStatus(http.StatusBadGateway)
 			usage.finish(err)
 			slog.Warn("LLM provider proxy error", "error", err)
-			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+			llmtypes.WriteError(w, req.Request, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		},
 		ModifyResponse: modifier.modifyResponse,
 	}).ServeHTTP(req.ResponseWriter, req.Request)
