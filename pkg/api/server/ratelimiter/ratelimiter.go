@@ -127,6 +127,14 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 	return nil
 }
 
+// ClearHeaders removes the rate limit headers ApplyLimit set, for a response that refuses the
+// request for another reason, such as an exhausted LLM budget, which they would contradict.
+func ClearHeaders(h http.Header) {
+	h.Del(headerRateLimitLimit)
+	h.Del(headerRateLimitRemaining)
+	h.Del(headerRateLimitReset)
+}
+
 // retryAfterSeconds returns the whole number of seconds until reset, rounded up and at least one, so that a client
 // that waits that long finds its tokens replenished.
 func retryAfterSeconds(reset, now time.Time) int {

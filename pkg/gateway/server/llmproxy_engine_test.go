@@ -285,7 +285,12 @@ func TestRewriteBudgetExceeded(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &responseModifier{gateway: &gatewayAttempts{budgets: map[string][]string{}, exceeded: exceeded}}
+			// Obot's API server set its per-second rate limit headers on the client's response.
+			clientHeader := http.Header{}
+			clientHeader.Set("X-RateLimit-Limit", "200")
+			clientHeader.Set("X-RateLimit-Remaining", "199")
+			clientHeader.Set("X-RateLimit-Reset", time.Now().UTC().Format(time.RFC1123))
+			r := &responseModifier{gateway: &gatewayAttempts{budgets: map[string][]string{}, exceeded: exceeded}, clientHeader: clientHeader}
 			resp := &http.Response{
 				StatusCode: http.StatusTooManyRequests,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -296,6 +301,9 @@ func TestRewriteBudgetExceeded(t *testing.T) {
 			body, _ := io.ReadAll(resp.Body)
 			if got := resp.Header.Get("X-Should-Retry") == "false" && resp.Header.Get("Retry-After") != ""; got != tt.rewritten {
 				t.Fatalf("refusal headers set = %v, want %v: %v", got, tt.rewritten, resp.Header)
+			}
+			if kept := len(clientHeader) > 0; kept == tt.rewritten {
+				t.Fatalf("rate limit headers kept = %v on the client's response, want %v: %v", kept, !tt.rewritten, clientHeader)
 			}
 			if !tt.rewritten && string(body) != tt.body {
 				t.Fatalf("a provider's rate limit was changed: %s", body)

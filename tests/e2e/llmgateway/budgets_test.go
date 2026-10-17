@@ -191,6 +191,12 @@ func TestBudgets(t *testing.T) {
 		if streamed.Status != http.StatusTooManyRequests || streamed.Header.Get("X-Should-Retry") != "false" {
 			t.Errorf("want a streaming Anthropic-format 429 with X-Should-Retry: false, got %d: %v", streamed.Status, streamed.Header)
 		}
+		// Obot's per-second API rate limit headers would say the user has requests left.
+		for _, refusal := range []http.Header{res.Header, msg.Header, streamed.Header} {
+			if refusal.Get("X-RateLimit-Remaining") != "" || refusal.Get("X-RateLimit-Limit") != "" || refusal.Get("X-RateLimit-Reset") != "" {
+				t.Errorf("a budget 429 carries rate limit headers: %v", refusal)
+			}
+		}
 		// The other user has their own allowance.
 		expectAllowed(t, other, env.B, "openai/gpt-e2e-a", "another user's per-user allowance")
 

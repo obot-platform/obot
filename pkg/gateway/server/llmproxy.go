@@ -26,6 +26,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
@@ -70,6 +71,9 @@ type responseModifier struct {
 	// unlisted returns the models a model listing response must include although the
 	// upstream didn't list them.
 	unlisted func(ctx context.Context) []llmengine.ListedModel
+	// clientHeader is the header of the response to the client, which Obot's API server
+	// has already added to.
+	clientHeader http.Header
 }
 
 type preparedLLMProxyRequest struct {
@@ -736,6 +740,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		mapHelper:         l.mapHelper,
 		audit:             audit,
 		usage:             usage,
+		clientHeader:      req.ResponseWriter.Header(),
 	}
 	if lister, ok := l.backend.(modelListingBackend); ok && isModelsListRequest(req.Request) {
 		modifier.unlisted = lister.unlistedModels
@@ -885,6 +890,10 @@ func (r *responseModifier) rewriteBudgetExceeded(resp *http.Response) {
 		return
 	}
 	header, data := budgetExceededResponse(resp.Request.URL.Path, exceeded, time.Now())
+	if r.clientHeader != nil {
+		// Obot's per-second API rate limit headers would say the caller has requests left.
+		ratelimiter.ClearHeaders(r.clientHeader)
+	}
 	maps.Copy(resp.Header, header)
 	resp.Header.Set("Content-Length", strconv.Itoa(len(data)))
 	resp.ContentLength = int64(len(data))
