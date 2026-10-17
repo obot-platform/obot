@@ -30,6 +30,13 @@ var (
 // Evaluate decides whether call is permitted by allowlist. It is fail-closed:
 // anything that does not positively match an allow rule is denied.
 func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decision {
+	// A built-in agent MCP server is identified by name alone. It ships inside the
+	// agent and is often launched from a path the device cannot resolve to a
+	// package, so it is matched before the unresolved check.
+	if call.Kind == KindMCP && allowlist.AllowAllBuiltinAgentMCP && isBuiltinAgentMCP(call.Agent, call.ServerName) {
+		return Decision{Allow: true, Reason: "built-in agent MCP servers are allowed"}
+	}
+
 	if call.Unresolved {
 		reason := strings.TrimSpace(call.UnresolvedReason)
 		if reason == "" {
@@ -51,11 +58,6 @@ func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decisio
 		// Coarse: Obot-hosted MCP servers.
 		if allowlist.AllowAllObotHostedMCP && call.ObotHosted {
 			return Decision{Allow: true, Reason: "Obot-hosted MCP servers are allowed"}
-		}
-
-		// Coarse: built-in agent MCP servers.
-		if allowlist.AllowAllBuiltinAgentMCP && isBuiltinAgentMCP(call.Agent, call.ServerName) {
-			return Decision{Allow: true, Reason: "built-in agent MCP servers are allowed"}
 		}
 
 		for _, server := range allowlist.Servers {

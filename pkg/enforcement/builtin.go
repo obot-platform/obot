@@ -14,11 +14,11 @@ import (
 // server take one of those names, so a built-in name can never also be a
 // configuration key on the device side.
 //
-// Codex is deliberately absent. Its computer-use server is not a built-in: it is
-// an ordinary [mcp_servers.computer-use] entry in ~/.codex/config.toml installed
-// by the ChatGPT app, with a local executable for a command. Neither a published
-// list nor a collision guarantee exists for Codex, so there is nothing to base a
-// name match on.
+// Codex only lists node_repl, the JavaScript REPL its browser control runs on. It
+// is bundled with the Codex app and launched from a path inside the app bundle.
+// Its computer-use server is not a built-in: it is an ordinary
+// [mcp_servers.computer-use] entry in ~/.codex/config.toml installed by the
+// ChatGPT app, so it stays out of the set.
 //
 // This table must agree with the copy in obot-sentry's pkg/enforce, which decides
 // which calls are reported as built-in servers at all. Membership is intentionally
@@ -32,6 +32,9 @@ var (
 			"computer-use":     {},
 			"Claude Preview":   {},
 			"Claude Browser":   {},
+		},
+		AgentCodex: {
+			"node_repl": {},
 		},
 	}
 

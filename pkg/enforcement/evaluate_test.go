@@ -101,8 +101,29 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: false,
 		},
 		{
-			// Codex has no built-in MCP servers: its computer-use is an ordinary
-			// configured entry installed by the ChatGPT app.
+			// Codex's browser control runs on node_repl, launched from a path inside
+			// the app bundle that the device reports as unresolved.
+			name: "builtin agent mcp allows an unresolved codex node_repl call",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl",
+				Unresolved:       true,
+				UnresolvedReason: `stdio command "/Applications/Codex.app/Contents/Resources/cua_node/bin/node_repl" is a path, not a bare package runner`,
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: true,
+		},
+		{
+			name: "unresolved codex node_repl call is denied without the builtin mcp toggle",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl",
+				Unresolved: true,
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},
+			wantAllow: false,
+		},
+		{
+			// Codex's computer-use is an ordinary configured entry installed by the
+			// ChatGPT app, not a built-in.
 			name:      "builtin agent mcp denies member name under a different agent",
 			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "x", ServerName: "computer-use"},
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
