@@ -1,4 +1,5 @@
 import type { DonutLegendItem } from '$lib/components/graph/DonutGraph.svelte';
+import { CATEGORICAL_LIGHT } from '$lib/components/graph/palette';
 import { m } from '$lib/i18n';
 
 export const DEPLOYMENT_STATUS_ORDER = [
@@ -15,9 +16,9 @@ export const ENTRY_TYPE_GRAPH_META: {
 	label: string;
 	baseColor: string;
 }[] = [
-	{ key: 'single', label: m.dashboard_entry_type_hosted_single(), baseColor: '#fee090' },
-	{ key: 'multi', label: m.dashboard_entry_type_hosted_multi(), baseColor: '#f46d43' },
-	{ key: 'remote', label: m.dashboard_entry_type_remote(), baseColor: '#4575b4' }
+	{ key: 'single', label: m.dashboard_entry_type_hosted_single(), baseColor: CATEGORICAL_LIGHT[2] },
+	{ key: 'multi', label: m.dashboard_entry_type_hosted_multi(), baseColor: CATEGORICAL_LIGHT[1] },
+	{ key: 'remote', label: m.dashboard_entry_type_remote(), baseColor: CATEGORICAL_LIGHT[0] }
 ];
 
 export const entryTypeDonutLegend: DonutLegendItem[] = ENTRY_TYPE_GRAPH_META.map(

@@ -10,6 +10,7 @@
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
+	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
 	import { m } from '$lib/i18n';
@@ -30,6 +31,7 @@
 	import { entryTypeDonutLegend } from '$lib/services/dashboard/constants';
 	import type {
 		AvgToolCallResponseTimeRow,
+		ToolCallTimelineRow,
 		TopServerUsageRow,
 		TopToolCallRow
 	} from '$lib/services/dashboard/types';
@@ -38,6 +40,7 @@
 		compileServerAndEntries,
 		deploymentStatusGridColClass,
 		deploymentStatusGridShowBorderRight,
+		toolCallTimelineFromStats,
 		topServersFromStats,
 		topToolCallsFromStats
 	} from '$lib/services/dashboard/utils';
@@ -69,15 +72,33 @@
 
 	let usersData = $state<OrgUser[]>([]);
 	let totalTokensData = $state<TotalTokenUsage>();
+	// Many installs don't route models through the LLM gateway, so its cards only appear once there's usage.
+	const hasLlmUsage = $derived(
+		(totalTokensData?.totalTokens ?? 0) > 0 || (totalTokensData?.totalSpend ?? 0) > 0
+	);
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
 
 	let topToolCalls = $state<TopToolCallRow[]>([]);
 	let topServerUsage = $state<TopServerUsageRow[]>([]);
 	let avgToolCallResponseTime = $state<AvgToolCallResponseTimeRow[]>([]);
+	let toolCallTimeline = $state<ToolCallTimelineRow[]>([]);
+	const toolCallErrorCount = $derived(toolCallTimeline.reduce((sum, r) => sum + r.errors, 0));
+
+	function toolCallsLabel(count: number) {
+		return count === 1
+			? m.dashboard_calls_count_one({ count })
+			: m.dashboard_calls_count({ count: formatNumber(count) });
+	}
+
+	function toolCallErrorsLabel(count: number) {
+		return count === 1
+			? m.dashboard_tool_calls_errors_one({ count })
+			: m.dashboard_tool_calls_errors({ count: formatNumber(count) });
+	}
 	let deviceScanStats = $state<DeviceScanStats | null>(null);
-	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
-	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
+	const maxToolsToShow = 5;
+	const maxServersToShow = 12;
 
 	const end = new Date();
 	const start = subMonths(end, 1);
@@ -114,6 +135,20 @@
 		compileServerAndEntries(serversData, serverAndEntries.entries, doesSupportK8sUpdates)
 	);
 
+	const deploymentStatusLabels: Record<string, () => string> = {
+		Available: m.dashboard_status_available,
+		Progressing: m.dashboard_status_progressing,
+		Unavailable: m.dashboard_status_unavailable,
+		'Needs Attention': m.dashboard_status_needs_attention,
+		Shutdown: m.dashboard_status_shutdown,
+		Unknown: m.core_unknown,
+		Pending: m.core_status_pending
+	};
+
+	function deploymentStatusLabel(status: string) {
+		return deploymentStatusLabels[status]?.() ?? status;
+	}
+
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	onMount(async () => {
@@ -135,6 +170,7 @@
 				topToolCalls = topToolCallsFromStats(adjustedStats);
 				topServerUsage = topServersFromStats(adjustedStats);
 				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats);
+				toolCallTimeline = toolCallTimelineFromStats(adjustedStats, m.dashboard_tool_calls_other());
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
@@ -174,20 +210,6 @@
 		loading = false;
 	});
 
-	const deploymentStatusLabels: Record<string, () => string> = {
-		Available: m.dashboard_status_available,
-		Progressing: m.dashboard_status_progressing,
-		Unavailable: m.dashboard_status_unavailable,
-		'Needs Attention': m.dashboard_status_needs_attention,
-		Shutdown: m.dashboard_status_shutdown,
-		Unknown: m.core_unknown,
-		Pending: m.core_status_pending
-	};
-
-	function deploymentStatusLabel(status: string) {
-		return deploymentStatusLabels[status]?.() ?? status;
-	}
-
 	function getServerUrl(server: MCPCatalogServer) {
 		return `/mcp-servers/s/${server.id}?view=server-instances`;
 	}
@@ -196,40 +218,42 @@
 		return `/mcp-servers/c/${entry.id}?view=server-instances`;
 	}
 
-	const platformStatTiles = $derived([
-		{
-			id: 'total-users',
-			label: m.dashboard_total_users(),
-			loading,
-			value: usersData.length,
-			icon: Users,
-			seeMore: '/identity-access?view=users'
-		},
-		{
-			id: 'monthly-active-users',
-			label: m.dashboard_monthly_active_users(),
-			loading,
-			value: monthlyActiveUsers,
-			icon: Activity,
-			seeMore: '/identity-access?view=users'
-		},
-		{
-			id: 'total-tokens',
-			label: m.dashboard_total_tokens(),
-			loading,
-			value: totalTokensData?.totalTokens ?? 0,
-			icon: Coins,
-			seeMore: '/usage?view=llm'
-		},
-		{
-			id: 'total-spend',
-			label: m.dashboard_total_spend(),
-			loading,
-			value: totalTokensData?.totalSpend ?? 0,
-			icon: CircleDollarSign,
-			seeMore: '/usage?view=llm'
-		}
-	]);
+	const platformStatTiles = $derived(
+		[
+			{
+				id: 'total-users',
+				label: m.dashboard_total_users(),
+				loading,
+				value: usersData.length,
+				icon: Users,
+				seeMore: '/identity-access?view=users'
+			},
+			{
+				id: 'monthly-active-users',
+				label: m.dashboard_monthly_active_users(),
+				loading,
+				value: monthlyActiveUsers,
+				icon: Activity,
+				seeMore: '/identity-access?view=users'
+			},
+			{
+				id: 'total-tokens',
+				label: m.dashboard_total_tokens(),
+				loading,
+				value: totalTokensData?.totalTokens ?? 0,
+				icon: Coins,
+				seeMore: '/usage?view=llm'
+			},
+			{
+				id: 'total-spend',
+				label: m.dashboard_total_spend(),
+				loading,
+				value: totalTokensData?.totalSpend ?? 0,
+				icon: CircleDollarSign,
+				seeMore: '/usage?view=llm'
+			}
+		].filter((tile) => hasLlmUsage || (tile.id !== 'total-tokens' && tile.id !== 'total-spend'))
+	);
 
 	let deviceScanClientBuckets = $derived(
 		buildDeviceScanTopBuckets<DeviceClientStat>(
@@ -354,31 +378,43 @@
 		{/if}
 
 		{#if profile.current.hasAdminAccess?.()}
+			<!-- The MCP gateway is the most widely used feature, so its cards lead. -->
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
+				<div class="min-w-0 @3xl:col-span-2">{@render toolCallTimelineGraph()}</div>
+				{@render serverActivityGraph()}
+			</div>
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+				{@render toolUsageGraph()}
+				{@render topServerDeploymentList()}
+			</div>
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+				{@render popularTools()}
+				{@render toolAverageResponseTime()}
+			</div>
+
+			{#if hasLlmUsage}
+				<div class="col-span-12" in:fade={{ duration: 150 }}>
+					<TokenUsageTimelineCard startDate={start} endDate={end} />
+				</div>
+			{/if}
+
 			{#if hasDeviceScans}
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render serverActivityGraph()}
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
 					{#if loadingDeviceScanStats}
+						<Skeleton type="card" class="min-h-72 h-full w-full" />
+						<Skeleton type="card" class="min-h-72 h-full w-full" />
 						<Skeleton type="card" class="min-h-72 h-full w-full" />
 					{:else}
 						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 							<DeviceScanDonutCard
+								legendOnBottom
 								title={m.dashboard_top_device_skills()}
 								buckets={deviceScanSkillBuckets}
 								totalGroups={totalDeviceScanSkillGroups}
 								emptyMsg={m.dashboard_no_skills_observed()}
 								class="h-full"
-								classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
 							/>
 						</div>
-					{/if}
-				</div>
-
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
-					{@render topServerDeploymentList()}
-					{#if loadingDeviceScanStats}
-						<Skeleton type="card" class="min-h-72 h-full w-full" />
-						<Skeleton type="card" class="min-h-72 h-full w-full" />
-					{:else}
 						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 							<DeviceScanDonutCard
 								legendOnBottom
@@ -402,8 +438,7 @@
 					{/if}
 				</div>
 
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render toolUsageGraph()}
+				<div class="col-span-12">
 					{#if loadingDeviceScanStats}
 						<Skeleton type="card" class="min-h-80 h-full w-full" />
 					{:else}
@@ -416,28 +451,6 @@
 							/>
 						</div>
 					{/if}
-				</div>
-
-				<div class="col-span-12">
-					<TokenUsageTimelineCard startDate={start} endDate={end} />
-				</div>
-
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render popularTools()}
-					{@render toolAverageResponseTime()}
-				</div>
-			{:else}
-				<div class="col-span-12">
-					<TokenUsageTimelineCard startDate={start} endDate={end} />
-				</div>
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render toolUsageGraph()}
-					{@render serverActivityGraph()}
-				</div>
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
-					{@render popularTools()}
-					{@render toolAverageResponseTime()}
-					{@render topServerDeploymentList()}
 				</div>
 			{/if}
 		{:else}
@@ -456,7 +469,7 @@
 	{#if loadingToolUsage}
 		<Skeleton type="card" class="min-h-72 h-full w-full" />
 	{:else}
-		<div in:fade={{ duration: 150 }} class="paper h-full min-h-72 gap-1 w-full pt-4">
+		<div in:fade={{ duration: 150 }} class="paper h-full min-h-48 gap-1 w-full pt-4">
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<h4 class="flex items-center gap-1 font-semibold">
 					{m.dashboard_top_servers_used()}
@@ -468,17 +481,72 @@
 				labelKey="serverName"
 				valueKey="count"
 				formatValue={(value) => Math.round(value).toString()}
-				class={hasDeviceScans ? 'h-67.5' : 'h-100'}
 			>
 				{#snippet tooltipContent(item)}
 					<div class="flex flex-col gap-0 text-xs">
 						<div class="text-muted-content text-xs">{item.label}</div>
 					</div>
 					<div class="text-base-content font-semibold">
-						{m.dashboard_calls_count({ count: item.value })}
+						{toolCallsLabel(item.value)}
 					</div>
 				{/snippet}
 			</HorizontalBarGraph>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet toolCallTimelineGraph()}
+	{#if loadingToolUsage}
+		<Skeleton type="card" class="min-h-96 h-full w-full" />
+	{:else}
+		<div in:fade={{ duration: 150 }} class="paper h-full min-h-96 gap-2 pt-4">
+			<div class="flex flex-wrap items-baseline justify-between gap-2">
+				<h4 class="flex items-center gap-1 font-semibold">
+					{m.dashboard_tool_calls()}
+					<span class="text-muted-content text-xs font-light">{m.dashboard_last_30_days()}</span>
+				</h4>
+				{#if toolCallTimeline.length > 0}
+					<span class="text-muted-content text-xs">
+						{toolCallsLabel(toolCallTimeline.length)}
+						{#if toolCallErrorCount > 0}
+							· {toolCallErrorsLabel(toolCallErrorCount)}
+						{/if}
+					</span>
+				{/if}
+			</div>
+			{#if toolCallTimeline.length > 0}
+				<StackedTimeline
+					{start}
+					{end}
+					data={toolCallTimeline}
+					categoryKey="server"
+					dateKey="createdAt"
+					tooltipValueKeys={['errors']}
+					class="h-80"
+					legend={{}}
+				>
+					{#snippet tooltipContent(item)}
+						{@const errorCount = item.details?.errors ?? 0}
+						<div class="flex flex-col gap-0 text-xs">
+							<div class="text-sm font-light">{item.key}</div>
+							<div class="text-muted-content">{item.date}</div>
+							<div class="tooltip-divider"></div>
+						</div>
+						<div class="text-base-content text-xl font-bold">
+							{toolCallsLabel(item.count)}
+						</div>
+						{#if errorCount > 0}
+							<div class="text-muted-content text-xs">
+								{toolCallErrorsLabel(errorCount)}
+							</div>
+						{/if}
+					{/snippet}
+				</StackedTimeline>
+			{:else}
+				<p class="text-muted-content flex flex-1 items-center justify-center text-sm font-light">
+					{m.dashboard_no_tool_calls()}
+				</p>
+			{/if}
 		</div>
 	{/if}
 {/snippet}
@@ -487,10 +555,7 @@
 	{#if serverAndEntries.loading || loading}
 		<Skeleton type="card" class="min-h-96 h-full w-full" />
 	{:else}
-		<div
-			in:fade={{ duration: 150 }}
-			class={twMerge('paper h-full pt-4', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
-		>
+		<div in:fade={{ duration: 150 }} class="paper h-full min-h-96 pt-4">
 			<h4 class="font-semibold">{m.dashboard_server_activity()}</h4>
 			{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
 				<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
@@ -504,7 +569,7 @@
 							)}
 						>
 							<div class="flex items-center gap-1">
-								<div class={twMerge('font-semibold', hasDeviceScans ? 'text-xl' : 'text-3xl')}>
+								<div class="font-semibold text-3xl">
 									<TweenedMetric target={row.count} />
 								</div>
 								{#if row.status === 'Available'}
@@ -522,7 +587,7 @@
 			{:else}
 				<div class="mb-2 flex flex-col justify-center items-center">
 					<div class="flex w-full gap-2 items-center justify-center">
-						<div class={twMerge('font-semibold', hasDeviceScans ? 'text-xl' : 'text-3xl')}>
+						<div class="font-semibold text-3xl">
 							<TweenedMetric target={totalServers} />
 						</div>
 						<Server class="size-6 text-primary" />
@@ -531,16 +596,12 @@
 				</div>
 			{/if}
 
-			<div
-				class={twMerge(
-					'flex flex-col items-center justify-center grow',
-					hasDeviceScans ? 'h-64' : 'h-80'
-				)}
-			>
+			<div class="flex h-80 grow flex-col items-center justify-center">
 				{#if graphData.some((g) => g.value > 0)}
 					<DonutGraph
-						class={twMerge('h-80', hasDeviceScans ? 'h-64' : '')}
+						class="h-80"
 						donutRatio={0.65}
+						hideCenter
 						data={graphData}
 						legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
 					/>
@@ -740,10 +801,15 @@
 								{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
 							</p>
 							<p class="text-xs text-muted-content">
-								{m.dashboard_calls_with_server({
-									count: formatNumber(row.count),
-									server: row.serverDisplayName
-								})}
+								{row.count === 1
+									? m.dashboard_calls_with_server_one({
+											count: row.count,
+											server: row.serverDisplayName
+										})
+									: m.dashboard_calls_with_server({
+											count: formatNumber(row.count),
+											server: row.serverDisplayName
+										})}
 							</p>
 						</div>
 					</li>

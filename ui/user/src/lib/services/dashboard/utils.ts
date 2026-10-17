@@ -6,7 +6,7 @@ import {
 import type { DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
 import type { McpAuditLogUsageStats, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 import { DEPLOYMENT_STATUS_ORDER, ENTRY_TYPE_GRAPH_META } from './constants';
-import type { TopServerUsageRow, TopToolCallRow } from './types';
+import type { ToolCallTimelineRow, TopServerUsageRow, TopToolCallRow } from './types';
 
 export function topToolCallsFromStats(stats: McpAuditLogUsageStats | undefined): TopToolCallRow[] {
 	return transformTopToolCalls(stats).map((t) => ({
@@ -205,4 +205,43 @@ export function compileServerAndEntries(
 		totalServers: data.length,
 		deploymentStatusBreakdown
 	};
+}
+
+/**
+ * One row per tool call, categorized by server for the dashboard's tool call timeline.
+ * The busiest servers keep their own series (and the first palette colors); the rest
+ * fold into `otherLabel` so the chart never runs out of distinguishable colors.
+ */
+export function toolCallTimelineFromStats(
+	stats: McpAuditLogUsageStats | undefined,
+	otherLabel: string,
+	maxServers = 7
+): ToolCallTimelineRow[] {
+	const byServer = new Map<string, ToolCallTimelineRow[]>();
+	for (const item of stats?.items ?? []) {
+		const server = item.mcpServerDisplayName || item.mcpID;
+		const rows = byServer.get(server) ?? [];
+		for (const call of item.toolCalls ?? []) {
+			for (const c of call.items ?? []) {
+				rows.push({
+					createdAt: c.createdAt,
+					server,
+					errors: c.error || c.responseStatus >= 400 ? 1 : 0
+				});
+			}
+		}
+		byServer.set(server, rows);
+	}
+
+	const ranked = [...byServer.values()]
+		.filter((rows) => rows.length > 0)
+		.sort((a, b) => b.length - a.length);
+	const top = ranked.slice(0, maxServers).flat();
+	const other = ranked
+		.slice(maxServers)
+		.flat()
+		.map((row) => ({ ...row, server: otherLabel }));
+
+	// Rows are emitted in rank order so series colors follow call volume.
+	return [...top, ...other];
 }

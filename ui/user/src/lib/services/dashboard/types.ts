@@ -12,3 +12,9 @@ export type AvgToolCallResponseTimeRow = {
 	averageResponseTimeMs: number;
 	serverDisplayName: string;
 };
+
+export type ToolCallTimelineRow = {
+	createdAt: string;
+	server: string;
+	errors: number;
+};

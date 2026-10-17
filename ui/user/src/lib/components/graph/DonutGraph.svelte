@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import { darkMode } from '$lib/stores';
-	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
+	import { categoricalColor } from './palette';
+	import { chartTooltip } from './tooltip';
 	import { arc, pie, type PieArcDatum } from 'd3';
 	import type { Snippet } from 'svelte';
 	import { cubicInOut, cubicOut } from 'svelte/easing';
@@ -44,6 +45,10 @@
 		legend?: DonutLegendItem[];
 		/** Hides the footer legend entirely. */
 		hideLegend?: boolean;
+		/** Hides the total / hovered-slice readout in the donut hole. */
+		hideCenter?: boolean;
+		/** Caption under the total in the donut hole. */
+		centerLabel?: string;
 	}
 
 	let {
@@ -53,24 +58,13 @@
 		formatValue = (v) => String(v),
 		tooltipContent,
 		legend,
-		hideLegend = false
+		hideLegend = false,
+		hideCenter = false,
+		centerLabel = m.core_total_label()
 	}: Props = $props();
 
-	const defaultPalette = [
-		'#4575b4',
-		'#fee090',
-		'#fdae61',
-		'#f46d43',
-		'#d73027',
-		'#e0f3f8',
-		'#abd9e9',
-		'#74add1'
-	];
-
-	const grayColor = $derived(darkMode.isDark ? '#999999' : '#cccccc');
-
 	function colorAt(i: number) {
-		return i < defaultPalette.length ? (defaultPalette[i] ?? grayColor) : grayColor;
+		return categoricalColor(i, darkMode.isDark);
 	}
 
 	const pieGenerator = pie<DonutDatum>()
@@ -83,6 +77,9 @@
 	const size = $derived(Math.min(Math.max(clientWidth, 1), Math.max(clientHeight, 1), 320));
 	const outerRadius = $derived(Math.max(0, size / 2 - 2));
 	const innerRadius = $derived(outerRadius * donutRatio);
+
+	const SLICE_GAP = 2;
+	const SLICE_CORNER_RADIUS = 3;
 
 	/** Slightly enlarges the hovered wedge radially (outer radius multiplier at full hover). */
 	const HOVER_OUTER_RADIUS_SCALE = 1.025;
@@ -193,37 +190,6 @@
 	let highlightedArcElement = $state<SVGGraphicsElement>();
 	let currentItem = $state<DonutTooltipItem>();
 
-	function tooltip(reference: Element, floating: HTMLElement) {
-		const compute = async () => {
-			const position = await computePosition(reference, floating, {
-				placement: 'top',
-				middleware: [
-					offset(8),
-					flip({
-						padding: {
-							top: 0,
-							right: 40,
-							left: 40,
-							bottom: 0
-						},
-						boundary: document.documentElement,
-						fallbackPlacements: ['top', 'top-end', 'top-start', 'left-start', 'right-start']
-					})
-				]
-			});
-
-			const { x, y } = position;
-
-			floating.style.transform = `translate(${x}px, ${y}px)`;
-		};
-
-		return autoUpdate(reference, floating, compute, {
-			animationFrame: true,
-			ancestorScroll: true,
-			ancestorResize: true
-		});
-	}
-
 	const TOOLTIP_LABEL_SEP = ' · ';
 
 	function tooltipLabelParts(label: string): { main: string; detail?: string } {
@@ -263,7 +229,13 @@
 	): SliceBundle {
 		if (outerRadius <= 0 || total <= 0) return { arcs: [], separators: [] };
 		const snapshot = $state.snapshot(data);
-		const layout = pieGenerator(snapshot);
+		const visibleSlices = snapshot.filter((d) => Number(d.value) > 0).length;
+		// A ~2px surface gap separates slices (grouped donuts use radial separators instead).
+		const padAngle =
+			useGroupSeparators || visibleSlices < 2
+				? 0
+				: SLICE_GAP / Math.sqrt(innerRadius ** 2 + outerRadius ** 2);
+		const layout = pieGenerator.padAngle(padAngle)(snapshot);
 		const n = layout.length;
 
 		const dUnit = HOVER_OUTER_RADIUS_SCALE - 1;
@@ -289,7 +261,7 @@
 			const arcGen = arc<PieArcDatum<DonutDatum>>()
 				.innerRadius(innerRadius)
 				.outerRadius(sliceOuter)
-				.cornerRadius(useGroupSeparators ? 0 : 0.5);
+				.cornerRadius(useGroupSeparators ? 0 : SLICE_CORNER_RADIUS);
 			const scaled: PieArcDatum<DonutDatum> = {
 				...d,
 				endAngle: d.startAngle + (d.endAngle - d.startAngle) * p
@@ -338,7 +310,7 @@
 		{#if highlightedArcElement && currentItem}
 			<div
 				class="tooltip bg-base-100 dark:bg-base-300 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md min-w-32"
-				{@attach (node) => tooltip(highlightedArcElement!, node)}
+				{@attach (node) => chartTooltip(highlightedArcElement!, node)}
 				in:fade={{ duration: 100, delay: 10 }}
 				out:fade={{ duration: 100 }}
 			>
@@ -383,8 +355,8 @@
 							d={slice.path}
 							fill={slice.color}
 							class={twMerge(
-								'cursor-pointer stroke-1',
-								useGroupSeparators ? '' : 'stroke-base-100 dark:stroke-base-200'
+								'cursor-pointer transition-opacity duration-150',
+								currentItem && currentItem.label !== slice.label && 'opacity-60'
 							)}
 							onpointerenter={(e) => {
 								cancelHoverSliceClear();
@@ -428,6 +400,33 @@
 					{/each}
 				</g>
 			</svg>
+			{#if !hideCenter && innerRadius >= 36}
+				<div
+					class="pointer-events-none absolute inset-0 flex items-center justify-center"
+					aria-hidden="true"
+				>
+					<div
+						class="flex flex-col items-center text-center"
+						style:max-width="{innerRadius * 1.5}px"
+					>
+						{#if currentItem}
+							<span class="text-base-content text-2xl leading-tight font-semibold">
+								{formatValue(currentItem.value)}
+							</span>
+							<span class="text-muted-content w-full truncate text-[11px]">
+								{tooltipLabelParts(currentItem.label).main}
+							</span>
+						{:else}
+							<span class="text-base-content text-2xl leading-tight font-semibold">
+								{formatValue(total)}
+							</span>
+							<span class="text-muted-content text-[11px] uppercase tracking-wide">
+								{centerLabel}
+							</span>
+						{/if}
+					</div>
+				</div>
+			{/if}
 		{/if}
 	</div>
 

@@ -4,7 +4,8 @@
 	import { darkMode, userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { autoUpdate, computePosition, flip, offset } from '@floating-ui/dom';
+	import { categoricalColor } from './palette';
+	import { chartTooltip } from './tooltip';
 	import { Ellipsis } from '@lucide/svelte';
 	import {
 		scaleBand,
@@ -363,6 +364,14 @@
 
 	const xScale = $derived(scaleBand(xRange).domain(bands).paddingInner(0.1).paddingOuter(0.1));
 
+	// Bars never fill a wide band: with only a few buckets they stay slim and centered.
+	const MAX_BAR_WIDTH = 24;
+	const BAR_RADIUS = 4;
+	const STACK_GAP = 2;
+	const EMPTY_STUB_HEIGHT = 2;
+	const barWidth = $derived(Math.max(1, Math.min(xScale.bandwidth(), MAX_BAR_WIDTH)));
+	const barOffset = $derived((xScale.bandwidth() - barWidth) / 2);
+
 	const xAxisTicks = $derived.by(() => {
 		const [frame, frameStep, duration] = timeFrame;
 
@@ -397,24 +406,10 @@
 		return generator(start, end, step);
 	});
 
-	const defaultPalette = [
-		'#4575b4',
-		'#74add1',
-		'#abd9e9',
-		'#e0f3f8',
-		'#fee090',
-		'#fdae61',
-		'#f46d43',
-		'#d73027'
-	];
-
-	const grayColor = $derived(darkMode.isDark ? '#999999' : '#cccccc');
 	const colorScale = $derived(
 		scaleOrdinal(
 			categoryKeys,
-			categoryKeys.map((_, i) =>
-				i < defaultPalette.length ? (defaultPalette[i] ?? grayColor) : grayColor
-			)
+			categoryKeys.map((_, i) => categoricalColor(i, darkMode.isDark))
 		)
 	);
 
@@ -500,9 +495,15 @@
 		return [mn ?? 0, mx ?? 0];
 	});
 
-	const yScale = $derived(scaleLinear(yDomain, [innerHeight, 0]));
-	const yAxisTicks = $derived(yScale.ticks(3));
-	const yAxisTickFormat = $derived(yScale.tickFormat(3));
+	const yScale = $derived(scaleLinear(yDomain, [innerHeight, 0]).nice(3));
+	// Plain counts (no value keys) can't be fractional, so drop ticks like 0.5 on small ranges.
+	const countsOnly = $derived(primaryValueKey == null);
+	const yAxisTicks = $derived(
+		countsOnly ? yScale.ticks(3).filter((t) => Number.isInteger(t)) : yScale.ticks(3)
+	);
+	const yAxisTickFormat = $derived(
+		countsOnly ? (t: number) => t.toLocaleString() : yScale.tickFormat(3)
+	);
 	const yAxisLongestLabel = $derived(
 		yAxisTicks.length
 			? yAxisTicks
@@ -538,6 +539,19 @@
 	const hasMoreLegendCategories = $derived(categoryKeys.length > legendInitialCount);
 
 	let currentItem = $state<TooltipItem>();
+	let hoveredBucket = $state<string>();
+
+	const bucketTotals = $derived.by(() => {
+		const totals = new SvelteMap<string, number>();
+		for (const [bucket, values] of stackInput) {
+			let sum = 0;
+			for (const v of values.values()) sum += v;
+			totals.set(bucket, sum);
+		}
+		return totals;
+	});
+
+	const emptyBuckets = $derived(bands.filter((b) => !(bucketTotals.get(b) ?? 0)));
 
 	const isMainTick = (tick: Date) => {
 		const [frame] = timeFrame;
@@ -571,43 +585,12 @@
 	function durationToMinutes(duration: Duration) {
 		return durationToHours(duration) * 60 + (duration.minutes ?? 0);
 	}
-
-	function tooltip(reference: Element, floating: HTMLElement) {
-		const compute = async () => {
-			const position = await computePosition(reference, floating, {
-				placement: 'top',
-				middleware: [
-					offset(8),
-					flip({
-						padding: {
-							top: 0,
-							right: 40,
-							left: 40,
-							bottom: 0
-						},
-						boundary: document.documentElement,
-						fallbackPlacements: ['top', 'top-end', 'top-start', 'left-start', 'right-start']
-					})
-				]
-			});
-
-			const { x, y } = position;
-
-			floating.style.transform = `translate(${x}px, ${y}px)`;
-		};
-
-		return autoUpdate(reference, floating, compute, {
-			animationFrame: true,
-			ancestorScroll: true,
-			ancestorResize: true
-		});
-	}
 </script>
 
 <div class={twMerge('group relative flex h-full w-full flex-col', klass)}>
 	<div class="flex min-h-0 flex-1 gap-0">
 		<div
-			class="y-axis-labels text-base-content/15 dark:text-base-content/10 relative shrink-0 self-stretch text-xs"
+			class="y-axis-labels text-muted-content relative shrink-0 self-stretch text-xs"
 			style="width: {yAxisLabelWidth}px;"
 			aria-hidden="true"
 		>
@@ -631,7 +614,7 @@
 			{#if highlightedRectElement && currentItem}
 				<div
 					class="tooltip bg-base-100 dark:bg-base-300 pointer-events-none fixed top-0 left-0 z-50 flex flex-col shadow-md"
-					{@attach (node) => tooltip(highlightedRectElement!, node)}
+					{@attach (node) => chartTooltip(highlightedRectElement!, node)}
 					in:fade={{ duration: 100, delay: 10 }}
 					out:fade={{ duration: 100 }}
 				>
@@ -651,11 +634,16 @@
 				</div>
 			{/if}
 
-			<svg width={clientWidth} height={clientHeight} viewBox={`0 0 ${clientWidth} ${clientHeight}`}>
+			<svg
+				width={clientWidth}
+				height={clientHeight}
+				viewBox={`0 0 ${clientWidth} ${clientHeight}`}
+				class="overflow-visible"
+			>
 				<g transform="translate({paddingLeft}, {paddingTop})">
 					{#key userDeviceSettings.timeFormat}
 						<g
-							class="x-axis text-base-content/15 dark:text-base-content/10"
+							class="x-axis text-muted-content"
 							transform="translate(0 {innerHeight})"
 							{@attach (node: SVGGElement) => {
 								const selection = select(node);
@@ -756,7 +744,7 @@
 										const baseClassName = ['duration-500', 'transition-all'];
 										add(...baseClassName);
 
-										const activeClassName = ['text-base-content/15', 'dark:text-base-content/10'];
+										const activeClassName = ['text-muted-content'];
 										const inactiveClassName = ['opacity-0', 'duration-500', 'transition-opacity'];
 
 										if (isActive) {
@@ -793,7 +781,7 @@
 							select(node)
 								.transition()
 								.duration(100)
-								.call(axisLeft(yScale).tickSizeOuter(0).ticks(3))
+								.call(axisLeft(yScale).tickSizeOuter(0).tickValues(yAxisTicks))
 								.selectAll('.tick>line')
 								.attr('x1', innerWidth);
 							select(node).selectAll('.tick text').remove();
@@ -801,18 +789,50 @@
 						}}
 					></g>
 
+					{#if hoveredBucket !== undefined && xScale(hoveredBucket) !== undefined}
+						<rect
+							class="pointer-events-none fill-base-content/5"
+							x={xScale(hoveredBucket)}
+							y={0}
+							width={xScale.bandwidth()}
+							height={Math.max(0, innerHeight)}
+							rx={4}
+							transition:fade={{ duration: 100 }}
+						/>
+					{/if}
+
+					<!-- Quiet stubs mark empty buckets so sparse data still reads as a timeline. -->
+					<g class="empty-buckets pointer-events-none fill-base-content/10" aria-hidden="true">
+						{#each emptyBuckets as bucket (bucket)}
+							<rect
+								x={(xScale(bucket) ?? 0) + barOffset}
+								y={innerHeight - EMPTY_STUB_HEIGHT}
+								width={barWidth}
+								height={EMPTY_STUB_HEIGHT}
+								rx={EMPTY_STUB_HEIGHT / 2}
+							/>
+						{/each}
+					</g>
+
 					<g
 						class="data"
+						class:dimmed={hoveredBucket !== undefined}
 						{@attach (node: SVGGElement) => {
+							// Wait for layout: drawing at size 0 makes bars tween in from the corner.
+							if (innerWidth <= 0 || innerHeight <= 0) return;
+
 							const sums = bucketPrimarySecondary;
 							const split = useSplit;
+							const w = barWidth;
+							const offsetX = barOffset;
 
-							const TOP_RADIUS = 2;
 							type StackSegment = [number, number] & { data: unknown[] };
-							type RectDatum =
-								| { seg: StackSegment; part: 'full'; category: string; isTopOfStack: boolean }
-								| { seg: StackSegment; part: 'primary'; category: string; isTopOfStack: boolean }
-								| { seg: StackSegment; part: 'secondary'; category: string; isTopOfStack: boolean };
+							type RectDatum = {
+								seg: StackSegment;
+								part: 'full' | 'primary' | 'secondary';
+								category: string;
+								isTopOfStack: boolean;
+							};
 
 							const topY1ByBucket = new SvelteMap<string, number>();
 							for (const serie of series) {
@@ -824,18 +844,37 @@
 								}
 							}
 
-							function rectPath(
-								x: number,
-								y: number,
-								w: number,
-								h: number,
-								topRounded: boolean
-							): string {
-								const r = topRounded ? Math.min(TOP_RADIUS, w / 2, h) : 0;
-								if (r <= 0) {
-									return `M${x},${y}L${x + w},${y}L${x + w},${y + h}L${x},${y + h}Z`;
-								}
+							// Always emit the same path commands (radius may be 0) so d3 can tween between shapes.
+							function rectPath(x: number, y: number, w: number, h: number, topRounded: boolean) {
+								const r = topRounded ? Math.max(0, Math.min(BAR_RADIUS, w / 2, h)) : 0;
 								return `M${x + r},${y}L${x + w - r},${y}Q${x + w},${y} ${x + w},${y + r}L${x + w},${y + h}L${x},${y + h}L${x},${y + r}Q${x},${y} ${x + r},${y}Z`;
+							}
+
+							function bucketOf(d: RectDatum) {
+								return typeof d.seg.data[0] === 'string'
+									? d.seg.data[0]
+									: String(d.seg.data[0] ?? '');
+							}
+
+							function segmentBounds(d: RectDatum): [number, number] {
+								const y0 = d.seg[0] as number;
+								const y1 = d.seg[1] as number;
+								if (d.part === 'full') return [y0, y1];
+								const s = sums?.[bucketOf(d)]?.[d.category];
+								const total = (s?.primary ?? 0) + (s?.secondary ?? 0);
+								const split = y0 + (y1 - y0) * (total > 0 ? (s?.primary ?? 0) / total : 0);
+								return d.part === 'primary' ? [y0, split] : [split, y1];
+							}
+
+							function finalPath(d: RectDatum) {
+								const x = (xScale(bucketOf(d)) ?? 0) + offsetX;
+								const [lo, hi] = segmentBounds(d);
+								const yTop = yScale(hi);
+								let yBottom = yScale(lo);
+								// Surface gap between stacked segments (none at the baseline).
+								if (lo > 0 && hi > lo)
+									yBottom -= Math.min(STACK_GAP, Math.max(0, yBottom - yTop - 1));
+								return rectPath(x, yTop, w, Math.max(0, yBottom - yTop), d.isTopOfStack);
 							}
 
 							select(node)
@@ -844,83 +883,48 @@
 								.join('g')
 								.attr('class', 'serie')
 								.attr('data-type', (d) => d.key)
-								.attr('fill', (d) => colorScale(d.key))
-								.selectAll('path')
-								.data((seriesGroup) => {
-									const cat = seriesGroup.key;
-									const segs = seriesGroup as unknown as StackSegment[];
-									if (split && sums) {
-										return segs.flatMap(
-											(seg) =>
-												[
-													{
-														seg,
-														part: 'primary' as const,
-														category: cat,
-														isTopOfStack: false
-													},
-													{
-														seg,
-														part: 'secondary' as const,
-														category: cat,
-														isTopOfStack:
-															(seg[1] as number) === topY1ByBucket.get(String(seg.data[0] ?? ''))
-													}
-												] as RectDatum[]
+								.selectAll<SVGPathElement, RectDatum>('path')
+								.data(
+									(seriesGroup): RectDatum[] => {
+										const cat = seriesGroup.key;
+										const segs = (seriesGroup as unknown as StackSegment[]).filter(
+											(seg) => (seg[1] as number) > (seg[0] as number)
 										);
-									}
-									return segs.map(
-										(seg) =>
-											({
-												seg,
-												part: 'full' as const,
-												category: cat,
-												isTopOfStack:
-													(seg[1] as number) === topY1ByBucket.get(String(seg.data[0] ?? ''))
-											}) as RectDatum
-									);
-								})
-								.join('path')
-								.attr('d', (d) => {
-									const x = xScale((d.seg.data[0] ?? '') as string) ?? 0;
-									const w = xScale.bandwidth();
-									let y: number;
-									let h: number;
-									if (d.part === 'full') {
-										y = yScale(d.seg[1] as number);
-										h = Math.abs(yScale(d.seg[0] as number) - yScale(d.seg[1] as number));
-									} else {
-										const bucketKey =
-											typeof d.seg.data[0] === 'string'
-												? d.seg.data[0]
-												: String(d.seg.data[0] ?? '');
-										const s = sums?.[bucketKey]?.[d.category];
-										const total = (s?.primary ?? 0) + (s?.secondary ?? 0);
-										const primaryRatio = total > 0 ? (s?.primary ?? 0) / total : 0;
-										const y0 = d.seg[0] as number;
-										const y1 = d.seg[1] as number;
-										const segH = y1 - y0;
-										if (d.part === 'primary') {
-											y = yScale(y0 + segH * primaryRatio);
-											h = Math.abs(yScale(y0) - yScale(y0 + segH * primaryRatio));
-										} else {
-											y = yScale(y1);
-											h = Math.abs(yScale(y0 + segH * primaryRatio) - yScale(y1));
+										const isTop = (seg: StackSegment) =>
+											(seg[1] as number) === topY1ByBucket.get(String(seg.data[0] ?? ''));
+										if (split && sums) {
+											return segs.flatMap((seg) => [
+												{ seg, part: 'primary' as const, category: cat, isTopOfStack: false },
+												{ seg, part: 'secondary' as const, category: cat, isTopOfStack: isTop(seg) }
+											]);
 										}
-									}
-									return rectPath(x, y, w, h, d.isTopOfStack);
-								})
+										return segs.map((seg) => ({
+											seg,
+											part: 'full' as const,
+											category: cat,
+											isTopOfStack: isTop(seg)
+										}));
+									},
+									(d) => `${bucketOf(d)}:${d.part}`
+								)
+								.join(
+									(enter) =>
+										enter
+											.append('path')
+											.attr('d', finalPath)
+											.attr('opacity', 0)
+											.call((e) => e.transition('enter').duration(300).attr('opacity', 1)),
+									(update) => update.call((u) => u.transition().duration(250).attr('d', finalPath))
+								)
 								.attr('fill', (d) => {
 									const base = colorScale(d.category);
-									if (d.part === 'secondary') return lightenHex(base, 0.5);
-									return base;
+									return d.part === 'secondary' ? lightenHex(base, 0.5) : base;
 								})
 								.attr('cursor', 'pointer')
-								.attr('class', 'text-muted-content')
-								.on('pointerenter', function (ev, d) {
+								.on('pointerenter', function (_ev, d) {
 									highlightedRectElement = this as SVGGraphicsElement;
-									const bucketKey =
-										typeof d.seg.data[0] === 'string' ? d.seg.data[0] : String(d.seg.data[0] ?? '');
+									const bucketKey = bucketOf(d);
+									hoveredBucket = bucketKey;
 									const baseColor = colorScale(d.category);
 									const ps = bucketPrimarySecondary?.[bucketKey]?.[d.category];
 									const details = bucketDetails?.[bucketKey]?.[d.category];
@@ -940,13 +944,12 @@
 										secondaryColor: lightenHex(baseColor, 0.5),
 										...(details && { details })
 									};
-									select(this).attr('stroke', 'currentColor').attr('stroke-width', 2);
 								})
 								.on('pointerleave', function () {
 									if (this === highlightedRectElement) {
 										highlightedRectElement = undefined;
+										hoveredBucket = undefined;
 									}
-									select(this).attr('stroke-width', 0);
 								});
 						}}
 					>
@@ -1006,3 +1009,13 @@
 		</span>
 	</span>
 {/snippet}
+
+<style>
+	.data :global(path) {
+		transition: opacity 150ms ease-out;
+	}
+
+	.data.dimmed :global(path:not(:hover)) {
+		opacity: 0.45;
+	}
+</style>

@@ -1,22 +1,13 @@
 import type { DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
+import { CATEGORICAL_LIGHT, OTHER_LIGHT } from '$lib/components/graph/palette';
 import { m } from '$lib/i18n';
 
-export const DEVICE_SCAN_TOP_N = 10;
+// One categorical slot per top bucket; anything past the palette folds into "Other".
+export const DEVICE_SCAN_PALETTE: readonly string[] = CATEGORICAL_LIGHT;
 
-export const DEVICE_SCAN_PALETTE = [
-	'#4575b4',
-	'#74add1',
-	'#abd9e9',
-	'#e0f3f8',
-	'#fee090',
-	'#fdae61',
-	'#f46d43',
-	'#d73027',
-	'#a50026',
-	'#7f3b08'
-];
+export const DEVICE_SCAN_TOP_N = DEVICE_SCAN_PALETTE.length;
 
-export const DEVICE_SCAN_OTHER_COLOR = 'var(--color-base-400, #6b7280)';
+export const DEVICE_SCAN_OTHER_COLOR = OTHER_LIGHT;
 
 export type DeviceScanDrilldown = 'mcp' | 'skill' | undefined;
 
