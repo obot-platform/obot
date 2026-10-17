@@ -453,38 +453,6 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	if !slices.Equal(statuses, []string{"200", "500"}) {
 		t.Fatalf("expected response status options, got %v", statuses)
 	}
-
-	policyTriggered, err := c.GetLLMAuditLogFilterOptions(t.Context(), "message_policy_triggered", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}})
-	if err != nil {
-		t.Fatalf("failed to get message policy triggered filter options: %v", err)
-	}
-	slices.Sort(policyTriggered)
-	if !slices.Equal(policyTriggered, []string{"false", "true"}) {
-		t.Fatalf("expected message policy triggered options, got %v", policyTriggered)
-	}
-	policyTriggered, err = c.GetLLMAuditLogFilterOptions(t.Context(), "message_policy_triggered", LLMAuditLogOptions{ModelProvider: []string{system.AnthropicModelProvider}})
-	if err != nil {
-		t.Fatalf("failed to get filtered message policy triggered options: %v", err)
-	}
-	if !slices.Equal(policyTriggered, []string{"false"}) {
-		t.Fatalf("expected filtered message policy triggered options, got %v", policyTriggered)
-	}
-
-	triggeredLogs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{true}})
-	if err != nil {
-		t.Fatalf("failed to filter input policy triggered logs: %v", err)
-	}
-	if total != 1 || len(triggeredLogs) != 1 || !triggeredLogs[0].MessagePolicyTriggered {
-		t.Fatalf("expected one input policy triggered log, got total=%d logs=%#v", total, triggeredLogs)
-	}
-
-	notTriggeredLogs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{false}})
-	if err != nil {
-		t.Fatalf("failed to filter non-triggered input policy logs: %v", err)
-	}
-	if total != 3 || len(notTriggeredLogs) != 3 {
-		t.Fatalf("expected three non-triggered input policy logs, got total=%d logs=%#v", total, notTriggeredLogs)
-	}
 }
 
 func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {

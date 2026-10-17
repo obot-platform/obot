@@ -17,17 +17,16 @@ import (
 
 var (
 	llmAuditLogFilterOptions = map[string][]any{
-		"api_key_id":               nil,
-		"user_id":                  {""},
-		"model_provider":           {""},
-		"target_model":             {""},
-		"served_provider":          {""},
-		"request_path":             {""},
-		"response_status":          {0},
-		"outcome":                  {""},
-		"user_agent":               {""},
-		"client_session_id":        {""},
-		"message_policy_triggered": nil,
+		"api_key_id":        nil,
+		"user_id":           {""},
+		"model_provider":    {""},
+		"target_model":      {""},
+		"served_provider":   {""},
+		"request_path":      {""},
+		"response_status":   {0},
+		"outcome":           {""},
+		"user_agent":        {""},
+		"client_session_id": {""},
 	}
 )
 
@@ -130,12 +129,6 @@ func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
 		SortOrder:          query.Get("sort_order"),
 		StartTime:          time.Now().UTC().AddDate(0, 0, -30),
 	}
-	for _, value := range parseStringList(query, "message_policy_triggered") {
-		if triggered, err := strconv.ParseBool(value); err == nil {
-			opts.MessagePolicyTriggered = append(opts.MessagePolicyTriggered, triggered)
-		}
-	}
-
 	for _, value := range parseStringList(query, "response_status") {
 		status, err := strconv.Atoi(value)
 		if err == nil {

@@ -15,7 +15,7 @@
 		guardrailOutcomes as getGuardrailOutcomes
 	} from './LlmAuditLogGuardrails.svelte';
 	import { servedBy, wasRouted } from './LlmAuditLogRouting.svelte';
-	import { GitFork, GripVertical, ShieldAlert, ShieldX } from '@lucide/svelte';
+	import { GitFork, GripVertical, ShieldX } from '@lucide/svelte';
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -163,23 +163,12 @@
 	</td>
 {/snippet}
 
-{#snippet timestampCell(timestamp: string, messagePolicyTriggered: boolean, log: LLMAuditLog)}
+{#snippet timestampCell(timestamp: string, log: LLMAuditLog)}
 	{@const guardrailOutcomes = getGuardrailOutcomes(log.guardrailFindings)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
 			<div class="flex min-w-0 flex-1 items-center gap-2 py-4">
 				<span class="truncate">{timestamp}</span>
-				{#if messagePolicyTriggered}
-					<span
-						class="text-warning inline-flex shrink-0"
-						aria-label={m.audit_usage_audit_logs_model_message_policy_triggered()}
-						use:tooltip={{
-							text: m.audit_usage_audit_logs_model_message_policy_modified_tooltip()
-						}}
-					>
-						<ShieldAlert class="size-4" />
-					</span>
-				{/if}
 				{#if guardrailOutcomes.length}
 					{@const label = m.audit_usage_audit_logs_model_guardrails_acted({
 						outcomes: guardrailOutcomes.map(guardrailOutcomeLabel).join(', ')
@@ -302,11 +291,7 @@
 						)}
 						onclick={() => onSelectRow?.(d)}
 					>
-						{@render timestampCell(
-							formatAuditLogTableTimestamp(d.createdAt),
-							d.messagePolicyTriggered,
-							d
-						)}
+						{@render timestampCell(formatAuditLogTableTimestamp(d.createdAt), d)}
 						{@render twoLine(apiKeyLabel || actor, apiKey ? actor : undefined)}
 						{@render td(d.servedProvider || d.modelProvider)}
 						{@render modelCell(d)}

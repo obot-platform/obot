@@ -34,7 +34,7 @@ var (
 			build: func(s map[string]string) (map[string]any, map[string]any) {
 				return map[string]any{
 					"custom_provider_config": map[string]any{"base_provider_type": "openai"},
-					"network_config":         map[string]any{"base_url": secretWithSuffix(s, "_MODEL_PROVIDER_BASE_URL"), "default_request_timeout_in_seconds": 300},
+					"network_config":         map[string]any{"base_url": gatewayBaseURL(secretWithSuffix(s, "_MODEL_PROVIDER_BASE_URL")), "default_request_timeout_in_seconds": 300},
 				}, map[string]any{
 					"value": secretWithSuffix(s, "_MODEL_PROVIDER_API_KEY"),
 				}
@@ -186,6 +186,14 @@ func (engine *Engine) ImportLegacyModelProviders(ctx context.Context, _ kclient.
 		results = append(results, result)
 	}
 	return results, nil
+}
+
+// gatewayBaseURL converts a legacy OpenAI-compatible provider's base URL, which included the
+// API version ("https://api.openai.com/v1") because the provider appended only the endpoint
+// ("/responses"), into the gateway's form, which leaves the version out because the gateway
+// appends the whole path ("/v1/responses").
+func gatewayBaseURL(legacy string) string {
+	return strings.TrimSuffix(strings.TrimRight(legacy, "/"), "/v1")
 }
 
 func secretWithSuffix(secrets map[string]string, suffix string) string {

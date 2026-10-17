@@ -2414,11 +2414,6 @@ func (in *LLMAuditLog) DeepCopyInto(out *LLMAuditLog) {
 		*out = make(json.RawMessage, len(*in))
 		copy(*out, *in)
 	}
-	if in.PolicyModifiedRequestBody != nil {
-		in, out := &in.PolicyModifiedRequestBody, &out.PolicyModifiedRequestBody
-		*out = make(json.RawMessage, len(*in))
-		copy(*out, *in)
-	}
 	if in.ResponseHeaders != nil {
 		in, out := &in.ResponseHeaders, &out.ResponseHeaders
 		*out = make(json.RawMessage, len(*in))
@@ -2494,11 +2489,6 @@ func (in *LLMAuditLogExportFilters) DeepCopyInto(out *LLMAuditLogExportFilters) 
 	if in.ClientSessionIDs != nil {
 		in, out := &in.ClientSessionIDs, &out.ClientSessionIDs
 		*out = make([]string, len(*in))
-		copy(*out, *in)
-	}
-	if in.MessagePolicyTriggered != nil {
-		in, out := &in.MessagePolicyTriggered, &out.MessagePolicyTriggered
-		*out = make([]bool, len(*in))
 		copy(*out, *in)
 	}
 }

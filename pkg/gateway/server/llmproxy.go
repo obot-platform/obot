@@ -93,7 +93,7 @@ type trackerDialectBackend interface {
 // modelResolvingBackend is implemented by backends with an additional way to resolve a
 // model reference that the standard lookup did not find. A nil model means no match.
 type modelResolvingBackend interface {
-	resolveModel(l *llmProviderProxy, reference string) (*v1.Model, error)
+	resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error)
 }
 
 // extraModelAuthorizingBackend is implemented by backends whose requests can name models
@@ -615,7 +615,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 
 		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
 		if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-			if fallback, fallbackErr := resolver.resolveModel(l, targetModel); fallbackErr == nil && fallback != nil {
+			if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
 				model, err = fallback, nil
 			}
 		}

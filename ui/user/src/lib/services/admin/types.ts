@@ -228,7 +228,6 @@ export type LLMAuditLogExportFilters = {
 	outcomes?: string[];
 	userAgents?: string[];
 	clientSessionIDs?: string[];
-	messagePolicyTriggered?: boolean[];
 	query?: string;
 };
 
@@ -684,14 +683,12 @@ export interface LLMAuditLog {
 	error?: string;
 	guardrailFindings?: LLMAuditGuardrailFinding[];
 	id: string;
-	messagePolicyTriggered: boolean;
 	inputTokens: number;
 	modelID: string;
 	modelProvider: string;
 	outcome: string;
 	outputTokens: number;
 	reasoningEffort: string;
-	policyModifiedRequestBody?: unknown;
 	requestBody?: unknown;
 	requestHeaders?: Record<string, string | string[]>;
 	requestID: string;
@@ -718,7 +715,6 @@ export type LLMAuditLogURLFilters = {
 	end_time?: string | null;
 	hide_models_requests?: string | null;
 	limit?: number | null;
-	message_policy_triggered?: string | null;
 	model_provider?: string | null;
 	offset?: number | null;
 	outcome?: string | null;

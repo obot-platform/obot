@@ -34,9 +34,10 @@ const (
 var (
 	// openAIModels and anthropicModels are what the mock lists for each provider. Models
 	// named "broken" always fail. The vip model is granted to one user only, and the secret
-	// model to no one.
+	// model to no one. claude-e2e-c is listed only by its dated ID, as Anthropic lists its
+	// models.
 	openAIModels    = []string{"gpt-e2e-a", "gpt-e2e-b", "gpt-e2e-broken", "gpt-e2e-vip", "gpt-e2e-secret", "text-embedding-e2e"}
-	anthropicModels = []string{"claude-e2e-a", "claude-e2e-b", "claude-e2e-broken"}
+	anthropicModels = []string{"claude-e2e-a", "claude-e2e-b", "claude-e2e-broken", "claude-e2e-c-20250929"}
 
 	env *testEnv
 )

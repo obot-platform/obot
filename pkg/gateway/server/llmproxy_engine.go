@@ -387,13 +387,14 @@ func (b *bifrostProviderBackend) trackerDialect(routeDialect llmtypes.Dialect) l
 	return routeDialect
 }
 
-// resolveModel falls back to matching a bare provider-native model ID against the
-// gateway's provider-qualified target models.
-func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, reference string) (*v1.Model, error) {
-	if strings.Contains(reference, "/") {
-		return nil, nil
-	}
-	return l.mapHelper.ResolveProviderQualifiedModel(system.LLMGatewayModelProvider, reference)
+// resolveModel resolves a model name that names no gateway model exactly: a bare
+// provider-native ID, or an undated alias of a dated model ID, with or without its provider.
+// When several models match, it prefers one the caller may use.
+func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error) {
+	return l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, reference, func(m *v1.Model) bool {
+		ok, err := l.mapHelper.UserHasAccessToModel(user, m.Name)
+		return err == nil && ok
+	})
 }
 
 // authorizeModel resolves a model the gateway may serve a request with and checks that the
@@ -401,7 +402,7 @@ func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, reference str
 func (b *bifrostProviderBackend) authorizeModel(l *llmProviderProxy, req api.Context, reference, what string) (*v1.Model, error) {
 	model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
 	if apierrors.IsNotFound(err) {
-		model, err = b.resolveModel(l, reference)
+		model, err = b.resolveModel(l, req.User, reference)
 	}
 	if err != nil || model == nil || model.Spec.Manifest.ModelProvider != system.LLMGatewayModelProvider {
 		return nil, types2.NewErrBadRequest("%s %q is not available through this endpoint", what, reference)

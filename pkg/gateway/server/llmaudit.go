@@ -95,14 +95,6 @@ func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	r.log.RequestBody = body
 }
 
-func (r *llmAuditRecorder) setPolicyModifiedRequestBody(body []byte) {
-	if r == nil {
-		return
-	}
-	r.log.PolicyModifiedRequestBody = body
-	r.log.MessagePolicyTriggered = len(body) > 0
-}
-
 func (r *llmAuditRecorder) setClientSessionID(dialect llmtypes.Dialect, headers http.Header, body []byte) {
 	if r == nil {
 		return

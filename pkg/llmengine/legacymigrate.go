@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -53,7 +54,7 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, importDone bool)
 		if !ok {
 			continue
 		}
-		target, ok := gatewayByTarget[plan.provider+"/"+m.Spec.Manifest.TargetModel]
+		target, ok := gatewayModelFor(gatewayByTarget, plan.provider, m.Spec.Manifest.TargetModel)
 		if !ok {
 			continue
 		}
@@ -88,6 +89,31 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, importDone bool)
 		}
 	}
 	return deleteEmptyLegacyProviders(ctx, c, importDone)
+}
+
+// gatewayModelFor returns the gateway model that serves a legacy model's upstream model ID
+// from provider: the one with the same ID, or else, for an undated alias such as Anthropic's
+// "claude-sonnet-4-5", its latest dated version, such as "claude-sonnet-4-5-20250929". The
+// legacy providers listed aliases that the gateway's providers list only in their dated form;
+// the alias named the latest version, so that is the model it moves to.
+func gatewayModelFor(gatewayByTarget map[string]*v1.Model, provider, id string) (*v1.Model, bool) {
+	if m, ok := gatewayByTarget[provider+"/"+id]; ok {
+		return m, true
+	}
+	var (
+		latest     *v1.Model
+		latestDate string
+	)
+	for target, m := range gatewayByTarget {
+		upstream, upstreamID, _ := strings.Cut(target, "/")
+		if upstream != provider {
+			continue
+		}
+		if date, ok := llm.DatedVersionOf(id, upstreamID); ok && date > latestDate {
+			latest, latestDate = m, date
+		}
+	}
+	return latest, latest != nil
 }
 
 // hasModelEdits reports whether administrators changed a model in a way carryModelEdits keeps.

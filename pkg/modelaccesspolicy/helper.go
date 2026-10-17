@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
+	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
@@ -526,34 +527,75 @@ func (h *Helper) ResolveTargetModel(provider, target string) (*v1.Model, error) 
 	return newest, nil
 }
 
-// ResolveProviderQualifiedModel resolves a bare model ID against a provider whose target
-// models are qualified with an upstream provider prefix ("openai/gpt-4o"). This lets
-// clients that only know provider-native IDs, such as Claude Code sending
-// "claude-sonnet-4-5", reach the LLM gateway's "anthropic/claude-sonnet-4-5". When several
-// upstream providers serve the same model ID, the most recently created model wins.
-func (h *Helper) ResolveProviderQualifiedModel(provider, modelID string) (*v1.Model, error) {
+// ResolveUpstreamModelName resolves a model name a client sent to a provider whose target
+// models are qualified with an upstream provider prefix ("openai/gpt-4o"), such as the LLM
+// gateway, when the name isn't one of its target models. Clients that only know
+// provider-native IDs send a bare name, such as Claude Code sending "claude-sonnet-4-5", and
+// Anthropic's API accepts undated aliases, such as "claude-sonnet-4-5" for
+// "claude-sonnet-4-5-20250929", which providers list only in their dated form. So name is
+// matched, with or without its upstream provider prefix, against each model's upstream ID and
+// against the dated versions of it.
+//
+// When several models match, the first of these wins: one the caller may use (usable, when it
+// isn't nil); the provider that made the model ("openai", "anthropic") over one that hosts
+// copies of it (Azure, Bedrock, a custom provider); an exact ID over a dated version; the
+// latest dated version; the most recently created model.
+func (h *Helper) ResolveUpstreamModelName(provider, name string, usable func(*v1.Model) bool) (*v1.Model, error) {
 	objs, err := h.modelIndexer.ByIndex(modelProviderIndex, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get models for provider %q: %w", provider, err)
 	}
 
-	var newest *v1.Model
+	wantUpstream, wantID, qualified := strings.Cut(name, "/")
+	if !qualified {
+		wantUpstream, wantID = "", name
+	}
+
+	type candidate struct {
+		model      *v1.Model
+		usable     bool
+		exact      bool
+		firstParty bool
+		date       string
+	}
+	better := func(a, b candidate) bool {
+		switch {
+		case a.usable != b.usable:
+			return a.usable
+		case a.firstParty != b.firstParty:
+			return a.firstParty
+		case a.exact != b.exact:
+			return a.exact
+		case a.date != b.date:
+			return a.date > b.date
+		}
+		return a.model.CreationTimestamp.After(b.model.CreationTimestamp.Time)
+	}
+
+	var best *candidate
 	for _, obj := range objs {
 		m, ok := obj.(*v1.Model)
 		if !ok {
 			continue
 		}
-		_, target, found := strings.Cut(m.Spec.Manifest.TargetModel, "/")
-		if !found || target != modelID {
+		upstream, id, found := strings.Cut(m.Spec.Manifest.TargetModel, "/")
+		if !found || (qualified && upstream != wantUpstream) {
 			continue
 		}
-		if newest == nil || m.CreationTimestamp.After(newest.CreationTimestamp.Time) {
-			newest = m
+		c := candidate{model: m, exact: id == wantID, firstParty: llm.IsFirstPartyProvider(upstream)}
+		if !c.exact {
+			if c.date, ok = llm.DatedVersionOf(wantID, id); !ok {
+				continue
+			}
+		}
+		c.usable = usable == nil || usable(m)
+		if best == nil || better(c, *best) {
+			best = &c
 		}
 	}
 
-	if newest == nil {
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelID)
+	if best == nil {
+		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, name)
 	}
-	return newest, nil
+	return best.model, nil
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/tests/e2e/harness"
 	"github.com/tidwall/gjson"
 )
@@ -87,6 +88,64 @@ func TestRoutingAndFormats(t *testing.T) {
 			}
 			if reqs[0].Key != wantKey {
 				t.Fatalf("bare %s went to the wrong provider (key %q)", tc.model, reqs[0].Key)
+			}
+		}
+	})
+
+	t.Run("undated names resolve to the latest dated model", func(t *testing.T) {
+		for _, tc := range []struct {
+			path, model string
+		}{
+			{path: "/api/llm-proxy/v1/messages", model: "claude-e2e-c"},
+			{path: "/api/llm-proxy/v1/messages", model: "anthropic/claude-e2e-c"},
+			{path: "/api/llm-proxy/anthropic/v1/messages", model: "claude-e2e-c"},
+		} {
+			n := nonce("undated")
+			resp := gw.Do(t, http.MethodPost, tc.path, map[string]any{
+				"model": tc.model, "max_tokens": 10,
+				"messages": []any{map[string]any{"role": "user", "content": "hi " + n}},
+			}, map[string]string{"anthropic-version": "2023-06-01"})
+			if resp.Status != http.StatusOK {
+				t.Fatalf("%s on %s: %s", tc.model, tc.path, resp)
+			}
+			if reqs := env.mock.InferenceRequests(n); len(reqs) != 1 || reqs[0].Model != "claude-e2e-c-20250929" || reqs[0].Key != anthropicKey {
+				t.Fatalf("%s on %s: want one upstream request for claude-e2e-c-20250929, got %+v", tc.model, tc.path, reqs)
+			}
+		}
+	})
+
+	t.Run("bare model IDs prefer the provider that makes the model", func(t *testing.T) {
+		// A provider that hosts a copy of an OpenAI model, added after OpenAI, as an imported
+		// Azure provider is.
+		const provider, hostKey = "e2e-host", "e2e-host-key"
+		env.mock.SetModels(hostKey, "gpt-e2e-b")
+		addProvider(t, env.admin, provider, env.mock.URL, hostKey, "openai")
+		t.Cleanup(func() {
+			env.admin.Do(t, http.MethodDelete, "/api/llm-gateway/admin/providers/"+provider, nil)
+		})
+		env.waitForModels(t, env.admin, provider+"/gpt-e2e-b")
+		var policy types.ModelAccessPolicy
+		env.admin.Post(t, "/api/model-access-policies", types.ModelAccessPolicyManifest{
+			DisplayName: "e2e host",
+			Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: user.ID}},
+			Models:      []types.ModelResource{{ID: env.modelID(t, provider+"/gpt-e2e-b")}},
+		}, &policy)
+		t.Cleanup(func() {
+			env.admin.Do(t, http.MethodDelete, "/api/model-access-policies/"+policy.ID, nil)
+		})
+		env.waitForModelAccess(t, gw, provider+"/gpt-e2e-b")
+
+		for _, path := range []string{"/api/llm-proxy/v1/chat/completions", "/api/llm-proxy/openai/v1/chat/completions"} {
+			n := nonce("maker")
+			resp := gw.Do(t, http.MethodPost, path, map[string]any{
+				"model":    "gpt-e2e-b",
+				"messages": []any{map[string]any{"role": "user", "content": "hi " + n}},
+			})
+			if resp.Status != http.StatusOK {
+				t.Fatalf("bare gpt-e2e-b on %s: %s", path, resp)
+			}
+			if reqs := env.mock.InferenceRequests(n); len(reqs) != 1 || reqs[0].Key != openAIKey {
+				t.Fatalf("bare gpt-e2e-b on %s: want it served by OpenAI, got %+v", path, reqs)
 			}
 		}
 	})

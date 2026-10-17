@@ -37,11 +37,10 @@ func TestParseLLMAuditLogOptsUsesProvidedStartTime(t *testing.T) {
 
 func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	opts := parseLLMAuditLogOpts(url.Values{
-		"api_key_id":               {"42,7", "9", "invalid", "0"},
-		"target_model":             {"model-a,model-b"},
-		"user_agent":               {"claude-code/2.1.211"},
-		"client_session_id":        {"session-1"},
-		"message_policy_triggered": {"true,false"},
+		"api_key_id":        {"42,7", "9", "invalid", "0"},
+		"target_model":      {"model-a,model-b"},
+		"user_agent":        {"claude-code/2.1.211"},
+		"client_session_id": {"session-1"},
 	})
 	if !slices.Equal(opts.APIKeyID, []uint{42, 7, 9}) {
 		t.Fatalf("expected API key IDs [42 7 9], got %v", opts.APIKeyID)
@@ -55,9 +54,6 @@ func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	}
 	if got := opts.UserAgent; len(got) != 1 || got[0] != "claude-code/2.1.211" {
 		t.Fatalf("expected user agent, got %v", got)
-	}
-	if got := opts.MessagePolicyTriggered; len(got) != 2 || !got[0] || got[1] {
-		t.Fatalf("expected input policy trigger values [true false], got %v", got)
 	}
 }
 

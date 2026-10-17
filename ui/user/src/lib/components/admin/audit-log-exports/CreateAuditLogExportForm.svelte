@@ -66,7 +66,6 @@
 		| 'user_id'
 		| 'user_agent'
 		| 'client_session_id'
-		| 'message_policy_triggered'
 		| 'model_provider'
 		| 'outcome'
 		| 'request_path'
@@ -251,15 +250,6 @@
 				filterKey: 'client_session_id',
 				title: m.audit_usage_exports_filter_title_client_session_ids(),
 				description: m.audit_usage_exports_filter_desc_list_client_session_ids()
-			},
-			{
-				filterKey: 'message_policy_triggered',
-				title: m.audit_usage_exports_filter_title_message_policy_action(),
-				description: m.audit_usage_exports_filter_desc_message_policy_triggered(),
-				getOptionLabel: (value) =>
-					value === 'true'
-						? m.audit_usage_exports_triggered()
-						: m.audit_usage_exports_not_triggered()
 			}
 		];
 
@@ -308,7 +298,6 @@
 			session_id: '',
 			user_agent: '',
 			client_session_id: '',
-			message_policy_triggered: '',
 			model_provider: '',
 			outcome: '',
 			request_path: '',
@@ -355,7 +344,6 @@
 		'user_id',
 		'user_agent',
 		'client_session_id',
-		'message_policy_triggered',
 		'model_provider',
 		'outcome',
 		'request_path',
@@ -387,7 +375,6 @@
 					outcome: join(filters.outcomes),
 					user_agent: join(filters.userAgents),
 					client_session_id: join(filters.clientSessionIDs),
-					message_policy_triggered: join(filters.messagePolicyTriggered?.map(String)),
 					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
@@ -562,12 +549,6 @@
 		clearSourceScopedFilters(form.filters);
 	}
 
-	function splitBooleans(value: string | null | undefined): boolean[] {
-		return split(value).flatMap((item) =>
-			item === 'true' ? [true] : item === 'false' ? [false] : []
-		);
-	}
-
 	async function handleSubmit() {
 		try {
 			creating = true;
@@ -599,7 +580,6 @@
 						outcomes: split(form.filters.outcome),
 						userAgents: split(form.filters.user_agent),
 						clientSessionIDs: split(form.filters.client_session_id),
-						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
 						query: form.filters.query ?? ''
 					}
 				};

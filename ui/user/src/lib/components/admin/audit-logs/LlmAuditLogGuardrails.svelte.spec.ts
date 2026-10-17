@@ -59,7 +59,6 @@ function auditLog(overrides: Partial<LLMAuditLog>): LLMAuditLog {
 		userAgent: 'curl/8',
 		clientSessionID: '',
 		clientIP: '10.0.0.1',
-		messagePolicyTriggered: false,
 		...overrides
 	};
 }

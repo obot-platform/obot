@@ -43,6 +43,10 @@ func TestMigrateLegacyModels(t *testing.T) {
 		model("legacy-unused", system.OpenAIModelProvider, "gpt-3.5-turbo", nil),
 		// The gateway doesn't serve this one yet, and an alias refers to it.
 		model("legacy-sonnet", system.AnthropicModelProvider, "claude-sonnet-9", nil),
+		// An undated alias the gateway lists only in its dated forms.
+		model("legacy-haiku", system.AnthropicModelProvider, "claude-haiku-4-5", nil),
+		// Its name is a prefix of the alias's dated versions, but it isn't one of them.
+		model("legacy-haiku-4", system.AnthropicModelProvider, "claude-haiku-4", nil),
 		// No import plan; nothing refers to it.
 		model("legacy-llama", "ollama-model-provider", "llama3", nil),
 		// Deactivated, and the gateway doesn't list it yet; nothing refers to it.
@@ -50,12 +54,16 @@ func TestMigrateLegacyModels(t *testing.T) {
 		model("proxy-model", system.ModelProxyModelProvider, "claude", nil),
 		model("gw-gpt5", system.LLMGatewayModelProvider, "openai/gpt-5", nil),
 		model("gw-mini", system.LLMGatewayModelProvider, "openai/gpt-5-mini", nil),
+		model("gw-haiku-old", system.LLMGatewayModelProvider, "anthropic/claude-haiku-4-5-20250101", nil),
+		model("gw-haiku", system.LLMGatewayModelProvider, "anthropic/claude-haiku-4-5-20251001", nil),
 		alias("llm", "legacy-gpt5"),
 		alias("llm-mini", "legacy-mini"),
 		alias("vision", "legacy-sonnet"),
+		alias("text-embedding", "legacy-haiku-4"),
+		alias("image-generation", "legacy-haiku"),
 		&v1.ModelAccessPolicy{Namespace: ns, Name: "map1", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
 			Models: []types.ModelResource{
-				{ID: "legacy-gpt5"}, {ID: "gw-gpt5"}, {ID: "legacy-mini"}, {ID: "obot://llm"},
+				{ID: "legacy-gpt5"}, {ID: "gw-gpt5"}, {ID: "legacy-mini"}, {ID: "legacy-haiku"}, {ID: "obot://llm"},
 				// Patterns for provider-native names: one that matched OpenAI models, one for a
 				// provider without an import plan, and one already in gateway form.
 				{ID: "gpt-5*"}, {ID: "llama*"}, {ID: "anthropic/claude*"},
@@ -96,6 +104,12 @@ func TestMigrateLegacyModels(t *testing.T) {
 	if got := modelOf("llm-mini"); got != "gw-mini" {
 		t.Errorf("llm-mini alias = %s, want gw-mini", got)
 	}
+	if got := modelOf("image-generation"); got != "gw-haiku" {
+		t.Errorf("image-generation alias = %s, want gw-haiku, the latest dated version of the undated alias", got)
+	}
+	if got := modelOf("text-embedding"); got != "legacy-haiku-4" {
+		t.Errorf("text-embedding alias = %s, want it kept on legacy-haiku-4, which no gateway model serves", got)
+	}
 	if got := modelOf("vision"); got != "legacy-sonnet" {
 		t.Errorf("vision alias = %s, want it kept on the legacy model the gateway doesn't serve", got)
 	}
@@ -107,7 +121,7 @@ func TestMigrateLegacyModels(t *testing.T) {
 	for _, m := range policy.Spec.Manifest.Models {
 		ids = append(ids, m.ID)
 	}
-	if want := []string{"gw-gpt5", "gw-mini", "obot://llm", "openai/gpt-5*", "llama*", "anthropic/claude*"}; !slices.Equal(ids, want) {
+	if want := []string{"gw-gpt5", "gw-mini", "gw-haiku", "obot://llm", "openai/gpt-5*", "llama*", "anthropic/claude*"}; !slices.Equal(ids, want) {
 		t.Errorf("policy models = %v, want %v", ids, want)
 	}
 	var gpt5 v1.Model
@@ -125,7 +139,7 @@ func TestMigrateLegacyModels(t *testing.T) {
 	if err := MigrateLegacyModels(ctx, c, true); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"legacy-gpt5", "legacy-mini", "legacy-unused", "legacy-llama"} {
+	for _, name := range []string{"legacy-gpt5", "legacy-mini", "legacy-haiku", "legacy-unused", "legacy-llama"} {
 		if exists(&v1.Model{}, name) {
 			t.Errorf("legacy model %s should be deleted", name)
 		}

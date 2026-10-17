@@ -14,7 +14,7 @@ The gateway serves every model at one base URL, `https://<your-obot-host>/api/ll
 | `/v1/embeddings` | Embeddings |
 | `/v1/models` | The models you can use |
 
-Model names are `provider/model`, for example `openai/gpt-4.1`, `anthropic/claude-sonnet-4-5` or `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. Bare provider model IDs such as `claude-sonnet-4-5` also work, as do the `llm` and `llm-mini` [aliases](./how-it-works.md#using-model-aliases).
+Model names are `provider/model`, for example `openai/gpt-4.1`, `anthropic/claude-sonnet-4-5` or `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. Bare provider model IDs such as `claude-sonnet-4-5` also work, as do undated Anthropic names and the `llm` and `llm-mini` [aliases](./how-it-works.md#using-model-aliases). See [Model names](./how-it-works.md#unified-gateway) for how a name that more than one provider serves is resolved.
 
 The earlier `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` routes still work. Other per-provider routes are removed and return HTTP 410. See [Client routes](./upgrade.md#client-routes).
 

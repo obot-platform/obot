@@ -21,29 +21,27 @@ type LLMAuditLog struct {
 	// ServedProvider and ServedModel are the provider and model that served the request, which
 	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
 	// gateway key it was served with, and Fallback is true when a fallback served it.
-	ServedProvider            string          `json:"servedProvider,omitempty"`
-	ServedModel               string          `json:"servedModel,omitempty"`
-	ProviderKey               string          `json:"providerKey,omitempty"`
-	Fallback                  bool            `json:"fallback,omitempty"`
-	ReasoningEffort           string          `json:"reasoningEffort"`
-	RequestPath               string          `json:"requestPath"`
-	RequestMethod             string          `json:"requestMethod"`
-	RequestHeaders            json.RawMessage `json:"requestHeaders,omitempty"`
-	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
-	PolicyModifiedRequestBody json.RawMessage `json:"policyModifiedRequestBody,omitempty"`
-	MessagePolicyTriggered    bool            `json:"messagePolicyTriggered"`
-	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
-	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
-	ResponseID                string          `json:"responseID"`
-	ResponseStatus            int             `json:"responseStatus"`
-	Outcome                   string          `json:"outcome"`
-	Error                     string          `json:"error,omitempty"`
-	InputTokens               int             `json:"inputTokens"`
-	OutputTokens              int             `json:"outputTokens"`
-	RequestID                 string          `json:"requestID"`
-	UserAgent                 string          `json:"userAgent"`
-	ClientSessionID           string          `json:"clientSessionID"`
-	ClientIP                  string          `json:"clientIP"`
+	ServedProvider  string          `json:"servedProvider,omitempty"`
+	ServedModel     string          `json:"servedModel,omitempty"`
+	ProviderKey     string          `json:"providerKey,omitempty"`
+	Fallback        bool            `json:"fallback,omitempty"`
+	ReasoningEffort string          `json:"reasoningEffort"`
+	RequestPath     string          `json:"requestPath"`
+	RequestMethod   string          `json:"requestMethod"`
+	RequestHeaders  json.RawMessage `json:"requestHeaders,omitempty"`
+	RequestBody     json.RawMessage `json:"requestBody,omitempty"`
+	ResponseHeaders json.RawMessage `json:"responseHeaders,omitempty"`
+	ResponseBody    json.RawMessage `json:"responseBody,omitempty"`
+	ResponseID      string          `json:"responseID"`
+	ResponseStatus  int             `json:"responseStatus"`
+	Outcome         string          `json:"outcome"`
+	Error           string          `json:"error,omitempty"`
+	InputTokens     int             `json:"inputTokens"`
+	OutputTokens    int             `json:"outputTokens"`
+	RequestID       string          `json:"requestID"`
+	UserAgent       string          `json:"userAgent"`
+	ClientSessionID string          `json:"clientSessionID"`
+	ClientIP        string          `json:"clientIP"`
 	// GuardrailFindings is what the LLM gateway's guardrails did to the request, in the order
 	// their guardrail policies ran.
 	GuardrailFindings []LLMAuditGuardrailFinding `json:"guardrailFindings,omitempty"`

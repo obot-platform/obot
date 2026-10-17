@@ -34,26 +34,25 @@ type llmAuditEntry struct {
 }
 
 type LLMAuditLogOptions struct {
-	WithSensitiveFields    bool
-	HideModelsRequests     bool
-	APIKeyID               []uint
-	UserID                 []string
-	ModelProvider          []string
-	TargetModel            []string
-	ServedProvider         []string
-	RequestPath            []string
-	ResponseStatus         []int
-	Outcome                []string
-	UserAgent              []string
-	ClientSessionID        []string
-	MessagePolicyTriggered []bool
-	Query                  string
-	StartTime              time.Time
-	EndTime                time.Time
-	Limit                  int
-	Offset                 int
-	SortBy                 string
-	SortOrder              string
+	WithSensitiveFields bool
+	HideModelsRequests  bool
+	APIKeyID            []uint
+	UserID              []string
+	ModelProvider       []string
+	TargetModel         []string
+	ServedProvider      []string
+	RequestPath         []string
+	ResponseStatus      []int
+	Outcome             []string
+	UserAgent           []string
+	ClientSessionID     []string
+	Query               string
+	StartTime           time.Time
+	EndTime             time.Time
+	Limit               int
+	Offset              int
+	SortBy              string
+	SortOrder           string
 }
 
 func (c *Client) LLMAuditLogEnabled() bool {
@@ -174,19 +173,6 @@ func (c *Client) GetLLMAuditLogFilterOptions(ctx context.Context, option string,
 		db = db.Order(option).Limit(opts.Limit)
 	}
 
-	if option == "message_policy_triggered" {
-		var values []bool
-		if err := db.Select(option).Scan(&values).Error; err != nil {
-			return nil, err
-		}
-
-		result := make([]string, 0, len(values))
-		for _, value := range values {
-			result = append(result, strconv.FormatBool(value))
-		}
-		return result, nil
-	}
-
 	var result []string
 	return result, db.Select(option).Scan(&result).Error
 }
@@ -298,9 +284,6 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	}
 	if len(opts.ClientSessionID) > 0 {
 		db = db.Where("client_session_id IN (?)", opts.ClientSessionID)
-	}
-	if len(opts.MessagePolicyTriggered) > 0 {
-		db = db.Where("message_policy_triggered IN (?)", opts.MessagePolicyTriggered)
 	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime.UTC())
