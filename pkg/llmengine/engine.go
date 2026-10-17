@@ -85,6 +85,13 @@ type Options struct {
 	// it before it boots, so it knows it already has everything up to that revision and
 	// doesn't boot a second time to catch up.
 	CurrentRevision func(context.Context) (int64, error)
+	// WithLock, when set, runs fn while holding the lock every replica takes to change the
+	// gateway's configuration (see gateway.Client.WithLLMGatewayLock). The engine boots while
+	// holding it: booting writes every provider it read back to the shared stores, and on
+	// empty stores the engine configures providers from the environment on its own, which
+	// Obot then removes (see removeAutoDetectedKeys). Without the lock, those writes could
+	// undo or remove what another replica configures meanwhile.
+	WithLock func(ctx context.Context, fn func() error) error
 	// ClaudeSubscriptions, when set, reports whether Claude Code users may use their own
 	// Claude subscriptions through the gateway. While they may, an Anthropic provider without
 	// keys lists its models from the gateway's model catalog (see ListModels).
@@ -261,48 +268,70 @@ func (e *Engine) Fail(err error) {
 func (e *Engine) Start(ctx context.Context, opts Options) error {
 	e.startOnce.Do(func() {
 		e.runCtx, e.opts = ctx, opts
-		// Read before booting: the stores then hold at least this revision's configuration.
-		var booted int64
-		if opts.CurrentRevision != nil {
-			revCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-			var err error
-			if booted, err = opts.CurrentRevision(revCtx); err != nil {
-				// Without it, the first reload catches up instead.
-				slog.Warn("failed to read the LLM gateway configuration revision before starting", "error", err)
-				booted = 0
-			}
-			cancel()
-		}
 		if opts.ModelDataURL != "" {
 			go modeldata.Refresh(ctx, opts.DataDir, opts.ModelDataURL, modeldata.RefreshInterval)
 		}
-		inst, err := e.boot(ctx, opts)
-		if err != nil {
-			e.startErr = err
-			slog.Error("failed to start the LLM gateway", "error", err)
-			close(e.ready)
-			return
+		started := false
+		start := func() error {
+			started = true
+			e.start(ctx, opts)
+			return nil
 		}
-		e.raiseApplied(booted)
-		e.pendingLock.Lock()
-		e.inst.Store(inst)
-		close(e.ready)
-		rev := e.pendingRevision
-		e.pendingLock.Unlock()
-		e.removeAutoDetectedKeys(ctx)
-		go func() {
-			<-ctx.Done()
-			e.Shutdown()
-		}()
-		// A configuration change made elsewhere while this engine was starting may not be
-		// in what it loaded.
-		if rev > 0 {
-			if _, err := e.Reload(rev); err != nil {
-				slog.Error("failed to reload the LLM gateway configuration", "revision", rev, "error", err)
-			}
+		if opts.WithLock == nil {
+			_ = start()
+		} else if err := opts.WithLock(ctx, start); err != nil && !started {
+			// Starting matters more than the lock: start anyway, as before replicas shared it.
+			slog.Warn("failed to take the LLM gateway configuration lock; starting the LLM gateway without it", "error", err)
+			_ = start()
+		}
+		if e.startErr == nil {
+			go func() {
+				<-ctx.Done()
+				e.Shutdown()
+			}()
 		}
 	})
 	return e.startErr
+}
+
+// start boots the gateway and marks the engine ready, or failed. It runs while holding
+// opts.WithLock, when set.
+func (e *Engine) start(ctx context.Context, opts Options) {
+	// Read before booting: the stores then hold at least this revision's configuration.
+	var booted int64
+	if opts.CurrentRevision != nil {
+		revCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		var err error
+		if booted, err = opts.CurrentRevision(revCtx); err != nil {
+			// Without it, the first reload catches up instead.
+			slog.Warn("failed to read the LLM gateway configuration revision before starting", "error", err)
+			booted = 0
+		}
+		cancel()
+	}
+	inst, err := e.boot(ctx, opts)
+	if err != nil {
+		e.startErr = err
+		slog.Error("failed to start the LLM gateway", "error", err)
+		close(e.ready)
+		return
+	}
+	e.raiseApplied(booted)
+	e.pendingLock.Lock()
+	e.inst.Store(inst)
+	close(e.ready)
+	rev := e.pendingRevision
+	e.pendingLock.Unlock()
+	// The stores are exactly what this engine booted from, since every replica changes them
+	// only while holding the lock this runs under.
+	e.removeAutoDetectedKeys(ctx)
+	// A configuration change made elsewhere while this engine was starting may not be
+	// in what it loaded.
+	if rev > 0 {
+		if _, err := e.Reload(rev); err != nil {
+			slog.Error("failed to reload the LLM gateway configuration", "revision", rev, "error", err)
+		}
+	}
 }
 
 // Change makes a configuration change through this engine and tells the other replicas.
@@ -350,7 +379,9 @@ func (e *Engine) Change(ctx context.Context, change func() (changed, applied boo
 // loaded. Bifrost loads its configuration into memory at startup and only updates that
 // copy for changes made through it, so with several replicas each must reload when another
 // changes the configuration. New requests go to the rebuilt gateway at once; requests
-// already in flight finish on the old one. It reports whether it reloaded.
+// already in flight finish on the old one. It reports whether it reloaded. Callers hold the
+// lock every replica takes to change the gateway's configuration (see Options.WithLock),
+// since booting writes the configuration it read back to the shared stores.
 func (e *Engine) Reload(revision int64) (bool, error) {
 	if revision <= e.appliedRevision.Load() {
 		return false, nil

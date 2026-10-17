@@ -127,6 +127,11 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 // engine's keys would be a second key for the same variable, which can't be changed through
 // the admin API, and would bring back providers an administrator removed. A provider left
 // with no keys is removed too.
+//
+// It must run while holding the lock every replica takes to change the gateway's
+// configuration, right after this engine booted from the stores: it acts on the engine's copy
+// of the configuration, and removing a provider removes it from the shared stores by name, so
+// with a stale copy it would remove a provider another replica has just configured.
 func (e *Engine) removeAutoDetectedKeys(ctx context.Context) {
 	var resp struct {
 		Providers []struct {

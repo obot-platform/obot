@@ -1011,6 +1011,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				CurrentRevision: func(ctx context.Context) (int64, error) {
 					return providerconfigurationchange.CurrentLLMGatewayRevision(ctx, storageClient)
 				},
+				// Replicas that start together boot one at a time, and not while another
+				// changes the configuration.
+				WithLock: gatewayClient.WithLLMGatewayLock,
 				ClaudeSubscriptions: func(ctx context.Context) (bool, error) {
 					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
 					return settings.SubscriptionPassthrough, err
