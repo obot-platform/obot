@@ -85,7 +85,13 @@ type Detection struct {
 type Plan struct {
 	policies []*compiledPolicy
 	// broken holds fail-closed policies whose condition could not be evaluated. They block.
-	broken []*compiledPolicy
+	broken []brokenPolicy
+}
+
+// brokenPolicy is a fail-closed policy whose condition could not be evaluated, and why.
+type brokenPolicy struct {
+	*compiledPolicy
+	err error
 }
 
 type compiledGuardrail struct {
@@ -304,7 +310,7 @@ func (e *Engine) addToPlan(plan *Plan, r *compiledPolicy, target, stage string, 
 		// Fail-closed policies block; others are skipped. Either way the failure is logged.
 		e.conditionFailed(r, err)
 		if r.policy.FailClosed {
-			plan.broken = append(plan.broken, r)
+			plan.broken = append(plan.broken, brokenPolicy{compiledPolicy: r, err: err})
 		}
 		return
 	}
@@ -329,9 +335,11 @@ func (e *Engine) Evaluate(ctx context.Context, plan Plan, req Request) Decision 
 	)
 	if len(plan.broken) > 0 {
 		d.Blocked = true
-		d.Message = fmt.Sprintf("Request blocked: the condition of the %q guardrail could not be evaluated.", plan.broken[0].policy.Name)
+		broken := plan.broken[0]
+		d.Message = fmt.Sprintf("%s blocked: the condition of the %q guardrail could not be evaluated.", blockedContent(req.Stage), broken.policy.Name)
 		d.Detections = append(d.Detections, Detection{
-			Stage: req.Stage, PolicyID: plan.broken[0].policy.ID, PolicyName: plan.broken[0].policy.Name, Outcome: "error",
+			Stage: req.Stage, PolicyID: broken.policy.ID, PolicyName: broken.policy.Name, Outcome: "error",
+			Error: "the condition could not be evaluated: " + broken.err.Error(),
 		})
 		return d
 	}
@@ -445,8 +453,16 @@ func (e *Engine) fail(ctx context.Context, r *compiledPolicy, p *compiledGuardra
 		return false
 	}
 	d.Blocked = true
-	d.Message = fmt.Sprintf("Request blocked: the %q guardrail could not be evaluated.", r.policy.Name)
+	d.Message = fmt.Sprintf("%s blocked: the %q guardrail could not be evaluated.", blockedContent(req.Stage), r.policy.Name)
 	return true
+}
+
+// blockedContent names what a stage blocks: the request on input, the response on output.
+func blockedContent(stage string) string {
+	if stage == StageOutput {
+		return "Response"
+	}
+	return "Request"
 }
 
 func redactResult(segments []Segment, result Result) ([]Segment, bool) {

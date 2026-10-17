@@ -36,9 +36,16 @@ var (
 		{"OBOT_API_KEY", regexp.MustCompile(`\bok1-\d+-\d+-[A-Za-z0-9]{20,}\b`), 0},
 	}
 
-	// genericSecret finds values assigned to secret-looking names; they only count when
-	// random enough to be a real credential.
-	genericSecret = regexp.MustCompile(`(?i)\b(?:api[_-]?key|secret|token|passw(?:or)?d|credential|auth)[A-Za-z0-9_-]{0,20}\s*[:=]\s*['"]?([A-Za-z0-9_\-+/=.]{16,})`)
+	// codeReference is a value that names something in code, such as cfg.ClientSecret.
+	codeReference = regexp.MustCompile(`^[A-Za-z_]+(?:\.[A-Za-z_]+)+$`)
+
+	// genericSecret finds values assigned to secret-looking names, such as api_key, password,
+	// client_secret or AWS_SECRET_ACCESS_KEY, including quoted names as in JSON. A name may
+	// have words before the secret-looking one, joined by _ or -, but camelCase names such as
+	// clientSecret are left alone: in code they are mostly assigned other names. Values only
+	// count when random enough to be a real credential, and not a reference such as
+	// cfg.ClientSecret.
+	genericSecret = regexp.MustCompile(`(?i)\b(?:(?:[A-Za-z0-9]{1,20}[_-]){0,3}(?:api[_-]?key|access[_-]?key|private[_-]?key|secret|token|passw(?:or)?d|credential)|auth)[A-Za-z0-9_-]{0,20}['"]?\s*[:=]\s*['"]?([A-Za-z0-9_\-+/=.]{16,})`)
 )
 
 type secretsChecker struct {
@@ -54,7 +61,7 @@ func init() {
 		Description: "Detects leaked API keys, tokens, private keys and connection strings for AWS, GitHub, GitLab, Slack, Stripe, Google, OpenAI, Anthropic, Azure and more.",
 		Redacts:     true,
 		Fields: []Field{
-			{Name: "generic", Label: "Also detect generic secrets", Type: FieldBool, Default: true, Description: "Flag high-entropy values assigned to names like api_key, token or password."},
+			{Name: "generic", Label: "Also detect generic secrets", Type: FieldBool, Default: true, Description: "Flag high-entropy values assigned to names like api_key, access_key, client_secret, token or password."},
 			{Name: "minEntropy", Label: "Minimum entropy for generic secrets", Type: FieldNumber, Default: 3.5, Description: "Shannon entropy in bits per character; higher values flag fewer strings."},
 		},
 	}, func(config map[string]any, _ map[string]string, _ Deps) (Checker, error) {
@@ -97,7 +104,8 @@ func (c *secretsChecker) Check(_ context.Context, in CheckInput) (Result, error)
 		}
 		for _, m := range genericSecret.FindAllStringSubmatchIndex(seg.Text, -1) {
 			start, end := m[2], m[3]
-			if covered[start] || shannonEntropy(seg.Text[start:end]) < c.minEntropy {
+			value := seg.Text[start:end]
+			if covered[start] || codeReference.MatchString(value) || shannonEntropy(value) < c.minEntropy {
 				continue
 			}
 			add("GENERIC_SECRET", i, start, end)

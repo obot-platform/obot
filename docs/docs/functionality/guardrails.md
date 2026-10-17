@@ -32,8 +32,8 @@ When you add a guardrail, its types are grouped as **Built-in** checks that Obot
 
 | Type | What it detects | Can redact |
 | --- | --- | --- |
-| **Secrets Detection** (built-in) | API keys and tokens for AWS, GitHub, GitLab, Slack, Stripe, Google, OpenAI, Anthropic, Azure, Twilio, SendGrid, npm, Hugging Face and Obot; private keys, JWTs, database URLs; optionally generic high-entropy secrets. | Yes |
-| **Custom Regex** (built-in) | Your RE2 patterns, plus ready-made patterns for email addresses, phone numbers, US SSNs, credit cards (checksum-verified), IP addresses and IBANs. | Yes |
+| **Secrets Detection** (built-in) | API keys and tokens for AWS, GitHub, GitLab, Slack, Stripe, Google, OpenAI, Anthropic, Azure, Twilio, SendGrid, npm, Hugging Face and Obot; private keys, JWTs, database URLs; optionally generic secrets: high-entropy values assigned to names like `api_key`, `access_key`, `client_secret`, `token` or `password`, including prefixed names such as `AWS_SECRET_ACCESS_KEY`. | Yes |
+| **Custom Regex** (built-in) | Your RE2 patterns, plus ready-made patterns for email addresses, phone numbers (North American, and international numbers written with their `+` country code), US SSNs, credit cards (checksum-verified), IPv4 and IPv6 addresses, and IBANs, with or without spaces (checksum-verified). | Yes |
 | **LLM Judge Policy** (built-in) | Anything you can describe in plain language, e.g. "Do not help book travel above economy class". Screened by the `Chat - Fast` default model, with a second review by the `Chat` default model before blocking. This is what [message policies](./ai-judge-policies.md) became. | No |
 | **Microsoft Presidio** | Personal data, using your self-hosted Presidio Analyzer. By default: email addresses, phone numbers, credit cards, US SSNs, ITINs, passports, driver's licenses and bank numbers, IBANs and IP addresses. | Yes |
 | **Azure AI Language PII** | Personal and health data. | Yes |

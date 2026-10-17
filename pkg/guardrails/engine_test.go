@@ -303,10 +303,26 @@ func TestConditionRuntimeErrors(t *testing.T) {
 		t.Fatalf("a fail-open policy whose condition fails must be skipped: %+v", d)
 	}
 
-	// Fail-closed: the request is blocked.
+	// Fail-closed: the request is blocked, and the detection says why.
 	store.policies[0].FailClosed = true
-	if d := evaluate(t, store, Identity{UserID: "u1"}, vars, Segment{Role: RoleUser, Text: "hello"}); !d.Blocked || !strings.Contains(d.Message, "needs-header") {
+	d = evaluate(t, store, Identity{UserID: "u1"}, vars, Segment{Role: RoleUser, Text: "hello"})
+	if !d.Blocked || !strings.HasPrefix(d.Message, "Request blocked") || !strings.Contains(d.Message, "needs-header") {
 		t.Fatalf("a fail-closed policy whose condition fails must block: %+v", d)
+	}
+	if len(d.Detections) != 1 || d.Detections[0].Outcome != "error" || !strings.Contains(d.Detections[0].Error, "x-team") {
+		t.Fatalf("the detection must say why the condition failed: %+v", d.Detections)
+	}
+
+	// On output, it is the response that is blocked.
+	e := New(store, nil)
+	identity := Identity{UserID: "u1", ProfileIDs: []string{testProfile}}
+	plan, err := e.Plan(t.Context(), types.GuardrailTargetLLM, StageOutput, identity, vars)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d = e.Evaluate(t.Context(), plan, Request{Target: types.GuardrailTargetLLM, Stage: StageOutput, Identity: identity, Vars: vars, Segments: []Segment{{Role: RoleAssistant, Text: "hi"}}})
+	if !d.Blocked || !strings.HasPrefix(d.Message, "Response blocked") {
+		t.Fatalf("a blocked response must say so: %+v", d)
 	}
 }
 
