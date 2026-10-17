@@ -112,7 +112,8 @@ type legacyImportPlan struct {
 
 // ImportLegacyModelProviders copies the credentials of configured legacy model providers
 // into the gateway, so an existing installation can switch over without re-entering keys.
-// Providers the gateway already has are left alone. Two legacy providers that map to the same
+// Providers the gateway already has are left alone, and so are those configured from the
+// environment (see importEnvProviders). Two legacy providers that map to the same
 // gateway provider (the Bedrock or Azure variants) become two keys of one provider.
 func (engine *Engine) ImportLegacyModelProviders(ctx context.Context, _ kclient.Client, gatewayClient *gateway.Client) ([]LegacyImportResult, error) {
 	var existing struct {
@@ -143,6 +144,15 @@ func (engine *Engine) ImportLegacyModelProviders(ctx context.Context, _ kclient.
 			return nil, fmt.Errorf("failed to read credential for %s: %w", name, err)
 		}
 
+		// Earlier versions replaced the provider's stored credential with the variable's value on
+		// every start, so the variable's key is the one to keep, and importing the stored
+		// credential too would give the provider a second key for it.
+		if envVar := envConfigured(plan.provider); envVar != "" {
+			result.Status = "skipped"
+			result.Message = "the provider is configured from the " + envVar + " environment variable instead"
+			results = append(results, result)
+			continue
+		}
 		if have[plan.provider] && !created[plan.provider] {
 			result.Status = "skipped"
 			result.Message = "a gateway provider with this name already exists"

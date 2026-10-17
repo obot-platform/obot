@@ -41,6 +41,17 @@ type providerKey struct {
 	Name string `json:"name"`
 }
 
+// envConfigured returns the environment variable the upstream provider is configured from at
+// startup, when it is set.
+func envConfigured(provider string) string {
+	for _, p := range envProviders {
+		if p.provider == provider && os.Getenv(p.envVar) != "" {
+			return p.envVar
+		}
+	}
+	return ""
+}
+
 // TriggerModelSync flips the sync annotation on the gateway's ModelProvider so
 // the provider controller re-lists models. The provider controller updates the same
 // resource while it syncs, so a conflicting write is retried against the latest version.

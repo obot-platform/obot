@@ -26,7 +26,7 @@ The first time the new version starts, Obot moves your configuration to the gate
    | Amazon Bedrock, Amazon Bedrock API key | `bedrock` |
    | Azure, Azure Entra | `azure` |
 
-   When both variants of Bedrock or Azure are configured, the second becomes another key of the same gateway provider. A gateway provider that already exists is left alone.
+   When both variants of Bedrock or Azure are configured, the second becomes another key of the same gateway provider. A gateway provider that already exists is left alone. When the server's `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, the OpenAI or Anthropic credential isn't imported: the provider gets only the key from the variable (see [OpenAI and Anthropic keys at startup](../configuration/model-providers.md#openai-and-anthropic-keys-at-startup)). Earlier versions replaced that credential with the variable's value on every start, so it's normally the same key.
 
 2. **References move to gateway models.** After each gateway model sync, default model aliases and model access policies that named an old model are re-pointed to the gateway model for the same upstream model (`provider/model`). An undated Anthropic name that the old Anthropic provider listed, such as `claude-sonnet-4-5`, moves to the latest dated version the gateway lists, such as `anthropic/claude-sonnet-4-5-20250929`. A deactivated state, alias or cost override set on the old model carries over. Wildcard patterns in access policies, such as `claude-haiku-4-5*`, get the provider prefix (`anthropic/claude-haiku-4-5*`) of each provider whose models they matched.
 
