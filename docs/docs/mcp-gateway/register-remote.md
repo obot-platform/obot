@@ -13,7 +13,7 @@ Register an existing HTTP MCP endpoint when the server runs outside Obot. Obot p
 
 For a complete provider-specific setup, see the [Slack MCP tutorial](../configuration/tutorials/slack-mcp-server.md).
 
-Obot blocks localhost, private-IP, and link-local remote destinations by default. Use a tunnel for private services when appropriate. Do not disable these protections globally just to make an arbitrary endpoint connect. See [Network isolation](../security/isolation.md) for the separate gateway and workload boundaries.
+Obot blocks localhost, private-IP, and link-local remote destinations by default. Use a tunnel for private services when appropriate. Do not disable these protections globally just to make an arbitrary endpoint connect. See [Network isolation](../security/isolation.md) for the separate gateway and workload boundaries. A remote server's URL is refused when it resolves to such an address; set `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP=false` (or the `LOCALHOST` and `LINK_LOCAL` equivalents) only when that is intended. Guardrail services are different: they may be on a private network, as described in [Guardrails](../functionality/guardrails.md).
 
 ## Remote server {#mcp-servers-remote-server}
 

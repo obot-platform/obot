@@ -88,10 +88,14 @@ The user keeps their Claude Code login and sends their Obot API key in the `X-Ob
 export ANTHROPIC_BASE_URL="https://obot.example.com/api/llm-proxy"
 export ANTHROPIC_CUSTOM_HEADERS="X-Obot-Api-Key: $(obot login --url https://obot.example.com --scope llm --print-token)"
 # Don't set ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN; they replace the subscription login.
+# Pick the model by name: see below.
+export ANTHROPIC_MODEL="anthropic/claude-sonnet-4-5"
 claude
 ```
 
-The gateway needs the **Anthropic** provider, but it doesn't need a key. Claude Code's model names only resolve once the gateway lists the models: with an enabled key, it lists them through that key; with no keys, or only disabled ones, it lists Anthropic's current models from its model catalog, both on the **LLM Gateway** page, where profiles grant them, and in `/v1/models`, where Claude Code discovers them. Requests sent with an Obot API key instead of a subscription still need an enabled key.
+Select models by name in this mode, with `ANTHROPIC_MODEL` or `claude --model`. Gateway model discovery, which adds **"From gateway"** models to the `/model` picker, is only confirmed with an Obot API key, as in the setup above. With a subscription login, Claude Code hasn't been seen to ask the gateway for its models, so don't expect gateway models in `/model`.
+
+The gateway needs the **Anthropic** provider, but it doesn't need a key. Claude Code's model names only resolve once the gateway lists the models: with an enabled key, it lists them through that key; with no keys, or only disabled ones, it lists Anthropic's current models from its model catalog, both on the **LLM Gateway** page, where profiles grant them, and in `/v1/models`, where clients discover them. Requests sent with an Obot API key instead of a subscription still need an enabled key.
 
 Only requests from Claude Code to Anthropic models use the subscription, and the subscription token is only ever sent to Anthropic:
 
