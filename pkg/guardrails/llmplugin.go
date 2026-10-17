@@ -357,13 +357,15 @@ func (p *InputPlugin) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.Bifro
 //     fallbacks. The gateway would otherwise try every fallback, which would reject it too,
 //     after sending the request, and its content, to each of their providers. An error that
 //     already says whether to fall back, such as a guardrail's or an access refusal, is kept.
+//     So is one the gateway raised itself before reaching a provider, such as no key serving
+//     the model: a fallback on another provider or key can still serve the request.
 //   - A provider that didn't answer in time is reported in Obot's words, without the engine's
 //     internal error and setting names.
 func providerError(err *schemas.BifrostError) *schemas.BifrostError {
 	if err == nil {
 		return nil
 	}
-	if err.AllowFallbacks == nil && bifrostcore.ClassifyFailure(err) == schemas.FailureClassCallerFault {
+	if err.AllowFallbacks == nil && rejectedByProvider(err) {
 		allowFallbacks := false
 		err.AllowFallbacks = &allowFallbacks
 	}
@@ -376,6 +378,14 @@ func providerError(err *schemas.BifrostError) *schemas.BifrostError {
 		err.Error.Error = nil
 	}
 	return err
+}
+
+// rejectedByProvider reports whether a provider refused the request itself as invalid. The
+// gateway engine declares an error type on the errors it raises itself (no key serving the
+// model, say) and leaves it empty on a provider's, so a declared type means no provider saw
+// the request.
+func rejectedByProvider(err *schemas.BifrostError) bool {
+	return err.ExtraFields.ErrorType == "" && bifrostcore.ClassifyFailure(err) == schemas.FailureClassCallerFault
 }
 
 func (p *OutputPlugin) GetName() string { return OutputPluginName }

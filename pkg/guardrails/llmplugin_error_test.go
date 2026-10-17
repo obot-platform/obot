@@ -51,6 +51,20 @@ func TestProviderError(t *testing.T) {
 			wantFallbacks: true,
 		},
 		{
+			// No key serves the model: the gateway refused it before any provider saw it, and
+			// a fallback on another provider or key may serve it.
+			name: "no key supports the model",
+			err: &schemas.BifrostError{
+				Type:       str(schemas.NoKeySupportsModel),
+				StatusCode: status(400),
+				Error: &schemas.ErrorField{
+					Type: str(schemas.NoKeySupportsModel), Message: "no keys found that support model: claude-haiku-4-5",
+				},
+				ExtraFields: schemas.BifrostErrorExtraFields{ErrorType: schemas.ErrorTypeCallerModelNotAvailable},
+			},
+			wantFallbacks: true,
+		},
+		{
 			// The engine's own conversion can refuse a request one provider can't take; another
 			// provider may.
 			name:          "engine refusal",

@@ -281,3 +281,55 @@ func TestGatewayDoesNotFallBackAfterInvalidRequest(t *testing.T) {
 		})
 	}
 }
+
+// A model no key serves is refused by the gateway before any provider sees the request, so a
+// fallback can still serve it.
+func TestGatewayFallsBackWhenNoKeySupportsModel(t *testing.T) {
+	gw, up := startGateway(t, &fakeStore{})
+	ctx := context.Background()
+	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+		"provider":       "mistral",
+		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Do(ctx, http.MethodPost, "/api/providers/mistral/keys", map[string]any{"name": "km", "value": "sk-m-test", "models": []string{"mistral-large-latest"}, "weight": 1}, nil); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "chat completions",
+			path: "/v1/chat/completions",
+			body: `{"model":"mistral/mistral-small-latest","messages":[{"role":"user","content":"hi"}],"fallbacks":["openai/gpt-4o-mini"]}`,
+		},
+		{
+			name: "anthropic messages",
+			path: "/anthropic/v1/messages",
+			body: `{"model":"mistral/mistral-small-latest","max_tokens":100,"messages":[{"role":"user","content":"hi"}],"fallbacks":["anthropic/claude-sonnet-4-5"]}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var attempts []string
+			record := func(_ context.Context, attempt Attempt) error {
+				attempts = append(attempts, attempt.Model)
+				return nil
+			}
+			req := httptest.NewRequest(http.MethodPost, tt.path, strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("anthropic-version", "2023-06-01")
+			token, release := BindRequest(Identity{UserID: "alice"}, RequestHooks{AttemptCheck: record})
+			defer release()
+			req.Header.Set(HeaderRequestToken, token)
+			rec := httptest.NewRecorder()
+			gw.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status %d, want the fallback's 200 (attempts %v): %s", rec.Code, attempts, rec.Body)
+			}
+		})
+	}
+}
