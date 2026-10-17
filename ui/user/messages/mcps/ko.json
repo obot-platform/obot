@@ -1187,5 +1187,12 @@
 	"mcps_login_new_command": "새 명령 생성",
 	"mcps_login_expires_in": "명령 만료까지 {time}",
 	"mcps_login_expired": "이 명령은 만료되었습니다. 새 명령 생성을 선택한 다음 새 명령을 복사하여 터미널에서 실행하세요.",
-	"mcps_login_expired_status": "명령이 만료되었습니다"
+	"mcps_login_expired_status": "명령이 만료되었습니다",
+	"mcps_filters_col_type": "유형",
+	"mcps_filters_kind_guardrail": "가드레일",
+	"mcps_filters_kind_webhook": "Webhook",
+	"mcps_filters_kind_builtin": "기본 제공",
+	"mcps_filters_kind_mcp_server": "MCP 서버",
+	"mcps_filters_create_guardrail_filter": "가드레일 필터 만들기",
+	"mcps_filters_create_guardrail": "가드레일로 만들기"
 }

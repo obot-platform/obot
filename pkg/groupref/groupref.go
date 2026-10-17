@@ -21,6 +21,7 @@ const (
 	KindMessagePolicy       Kind = "messagePolicy"
 	KindGroupRoleAssignment Kind = "groupRoleAssignment"
 	KindVMCPProfile         Kind = "vmcpProfile"
+	KindMCPGuardrailFilter  Kind = "mcpGuardrailFilter"
 )
 
 var (
@@ -67,8 +68,9 @@ type RoleAssignmentLister interface {
 	ListGroupRoleAssignments(ctx context.Context) ([]gatewaytypes.GroupRoleAssignment, error)
 }
 
-// Finder finds the objects that reference groups: every access policy type, group role assignments, and the
-// profiles of virtual MCP servers.
+// Finder finds the objects that reference groups: every access policy type (model access policies are the LLM
+// gateway's profiles, which carry its budgets and guardrail policies), group role assignments, the profiles of virtual
+// MCP servers, and guardrail filters.
 type Finder struct {
 	storage kclient.Reader
 	roles   RoleAssignmentLister
@@ -145,6 +147,26 @@ func (f *Finder) Find(ctx context.Context, namespace string, match func(groupID 
 						Detail:      "profile " + profile.Name,
 					})
 				}
+			}
+		}
+	}
+
+	var filters v1.MCPWebhookValidationList
+	if err := f.storage.List(ctx, &filters, kclient.InNamespace(namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list MCP filters: %w", err)
+	}
+	for _, filter := range filters.Items {
+		guardrail := filter.Spec.Manifest.Guardrail
+		if guardrail == nil {
+			continue
+		}
+		for _, subject := range guardrail.Subjects {
+			if subject.Type == types.MCPGuardrailSubjectGroup && match(subject.ID) {
+				refs.add(subject.ID, Reference{
+					Kind:        KindMCPGuardrailFilter,
+					Name:        filter.Name,
+					DisplayName: filter.Spec.Manifest.Name,
+				})
 			}
 		}
 	}

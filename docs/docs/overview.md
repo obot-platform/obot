@@ -43,7 +43,7 @@ The [MCP Gateway](./concepts/mcp-gateway.md) is a single governed entry point to
 
 The [LLM Gateway](./llm-gateway/how-it-works.md) presents provider-compatible endpoints that AI clients use to reach approved models.
 
-- Connect external AI clients to OpenAI, Anthropic, Amazon Bedrock, Azure, and Generic Responses Compatible providers.
+- Connect external AI clients to models from OpenAI, Anthropic, Amazon Bedrock, Azure, Google Vertex AI, Ollama and other providers through one base URL, in the OpenAI or Anthropic API format.
 - Keep provider credentials in Obot instead of distributing them to individual users or clients.
 - Authenticate clients with scoped Obot API keys.
 - Restrict the models visible and callable by each user through [Model Access Policies](./functionality/model-access-policies.md).

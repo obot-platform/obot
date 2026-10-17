@@ -90,6 +90,20 @@ test:
 test-integration:
 	go test -count=1 -v -tags=integration -timeout=10m ./tests/integration/...
 
+# End-to-end tests of the LLM gateway, budgets, guardrails and guardrail filters. They run
+# two real obot processes (bin/obot, or OBOT_E2E_BINARY) on Postgres in Docker.
+# Set OBOT_E2E_DIR to keep replica logs and data in a known place. bin/obot is rebuilt unless
+# OBOT_E2E_BINARY is set.
+test-e2e-llm-gateway:
+	@if [ -z "$$OBOT_E2E_BINARY" ]; then $(MAKE) build; fi
+	go test -count=1 -v -tags=e2e -timeout=30m ./tests/e2e/llmgateway/...
+
+# Upgrade test: runs main (built in a temporary git worktree, or OBOT_E2E_MAIN_BINARY) with
+# message policies and daily token limits, then two replicas of bin/obot on its database.
+test-e2e-llm-gateway-upgrade:
+	@if [ -z "$$OBOT_E2E_BINARY" ]; then $(MAKE) build; fi
+	go test -count=1 -v -tags=e2e -timeout=30m ./tests/e2e/llmgatewayupgrade/...
+
 # Runs Go linters and validates that all generated code is committed.
 validate-go-code: tidy generate lint-go no-changes
 
@@ -120,4 +134,4 @@ remove-docs-version:
 	rm -rf "./docs/versioned_docs/version-${version}"
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 
-.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration test-e2e-llm-gateway test-e2e-llm-gateway-upgrade no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version

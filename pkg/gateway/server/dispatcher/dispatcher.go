@@ -10,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/auth"
@@ -40,10 +39,10 @@ type Dispatcher struct {
 	internalServerURL    string
 	authProviderExtraEnv map[string]string
 	ports                *ports
-	modelRefreshSequence atomic.Uint64
 
-	builtinLock         sync.RWMutex
-	builtinAuthProvider map[string]url.URL
+	builtinLock          sync.RWMutex
+	builtinAuthProvider  map[string]url.URL
+	builtinModelProvider map[string]BuiltinModelProvider
 }
 
 func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *client.Client, licenseProvider *license.Provider, serverURL, internalServerURL, postgresDSN string) *Dispatcher {
@@ -170,62 +169,11 @@ func (d *Dispatcher) GroupIDPrefixForAuthProvider(ctx context.Context, namespace
 	return authProvider.Spec.GroupIDPrefix, nil
 }
 
-func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
-	key := providerKeyForModelProvider(namespace, modelProviderName)
-
-	d.ports.daemonLock.RLock()
-	if port := d.ports.daemonPorts[key]; port != 0 {
-		d.ports.daemonLock.RUnlock()
-		return url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}, nil
-	}
-	d.ports.daemonLock.RUnlock()
-
-	var modelProvider v1.ModelProvider
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil {
-		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
-	}
-
-	return d.urlForModelProvider(ctx, key, modelProvider)
-}
-
-func (d *Dispatcher) ValidateModelProvider(ctx context.Context, namespace, modelProviderName string, env map[string]string) error {
-	var modelProvider v1.ModelProvider
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil {
-		return fmt.Errorf("failed to get provider: %w", err)
-	}
-
-	return d.runCommand(ctx, env, modelProvider.Spec.Command, modelProvider.Spec.ValidateArgs...)
-}
-
-func (d *Dispatcher) urlForModelProvider(ctx context.Context, key string, modelProvider v1.ModelProvider) (url.URL, error) {
-	if len(modelProvider.Status.MissingConfigurationParameters) > 0 {
-		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", modelProvider.Name, strings.Join(modelProvider.Status.MissingConfigurationParameters, ", "))
-	}
-
-	credEnv := map[string]string{}
-	cred, err := d.gatewayClient.RevealCredential(ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
-	if err != nil {
-		if !errors.As(err, &client.CredentialNotFoundError{}) {
-			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
-		}
-	} else if cred.Secrets != nil {
-		credEnv = cred.Secrets
-	}
-
-	credEnv["LOG_LEVEL"] = providerLogLevel()
-
-	return d.startDaemon(credEnv, key, modelProvider.Spec.Command, modelProvider.Spec.Args...)
-}
-
 func providerLogLevel() string {
 	if logger.IsDebug() {
 		return "DEBUG"
 	}
 	return "INFO"
-}
-
-func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
-	d.stopProvider("model-provider", namespace, modelProviderName)
 }
 
 func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
@@ -332,19 +280,6 @@ func (d *Dispatcher) isAuthProviderConfigured(ctx context.Context, authProvider 
 	}
 
 	return true
-}
-
-func CredentialEnvForModelProvider(ctx context.Context, gatewayClient *client.Client, modelProvider v1.ModelProvider) (map[string]string, error) {
-	return credentialEnvForProvider(ctx, gatewayClient, &modelProvider, system.GenericModelProviderCredentialContext)
-}
-
-func credentialEnvForProvider(ctx context.Context, gatewayClient *client.Client, provider kclient.Object, genericCredentialContext string) (map[string]string, error) {
-	cred, err := gatewayClient.RevealCredential(ctx, []string{provider.GetName(), genericCredentialContext}, provider.GetName())
-	if err != nil {
-		return nil, fmt.Errorf("failed to reveal credential: %w", err)
-	}
-
-	return cred.Secrets, nil
 }
 
 func providerKeyForAuthProvider(namespace, providerName string) string {

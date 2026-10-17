@@ -13,14 +13,25 @@ type APIActivity struct {
 	Date   time.Time `gorm:"index:idx_api_activity_date_user,priority:1"`
 }
 
+// RunTokenActivity is one LLM request and its usage. Every request sent to the LLM gateway
+// has one, failed ones too (with no usage), so request counts and success rates can be
+// reported from it.
 type RunTokenActivity struct {
 	ID         uint
-	CreatedAt  time.Time `gorm:"index:idx_run_token_activity_api_key_created,priority:2"`
+	CreatedAt  time.Time `gorm:"index:idx_run_token_activity_created;index:idx_run_token_activity_user_created,priority:2;index:idx_run_token_activity_api_key_created,priority:2"`
 	Name       string
-	UserID     string
+	UserID     string `gorm:"index:idx_run_token_activity_user_created,priority:1"`
 	Model      string
 	APIKeyID   *uint  `gorm:"index:idx_run_token_activity_api_key_created,priority:1"`
 	APIKeyName string `gorm:"type:text"`
+	// Provider is the provider that served the request.
+	Provider string `gorm:"type:text"`
+	// Outcome is success, error or canceled, as for LLM audit logs. It is empty on records
+	// made before outcomes were recorded, which were all successful requests.
+	Outcome    string `gorm:"type:text"`
+	DurationMs int64
+	// Fallback is true when a fallback served the request.
+	Fallback bool `gorm:"not null;default:false"`
 
 	Usage TokenUsage `gorm:"embedded"`
 }
@@ -54,13 +65,6 @@ type TokenUsage struct {
 	TotalSpend float64
 }
 
-type RemainingTokenUsage struct {
-	InputTokens           int
-	OutputTokens          int
-	UnlimitedInputTokens  bool
-	UnlimitedOutputTokens bool
-}
-
 func ConvertAPIActivity(a APIActivity) types2.APIActivity {
 	return types2.APIActivity{
 		UserID: a.UserID,
@@ -74,6 +78,10 @@ func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 		Model:            a.Model,
 		APIKeyID:         a.APIKeyID,
 		APIKeyName:       a.APIKeyName,
+		Provider:         a.Provider,
+		Outcome:          a.Outcome,
+		DurationMs:       a.DurationMs,
+		Fallback:         a.Fallback,
 		Date:             *types2.NewTime(a.CreatedAt),
 		InputTokens:      a.Usage.InputTokens,
 		CacheReadTokens:  a.Usage.CacheReadTokens,
@@ -86,20 +94,5 @@ func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 		CacheWriteSpend:  a.Usage.CacheWriteSpend,
 		OutputSpend:      a.Usage.OutputSpend,
 		TotalSpend:       a.Usage.TotalSpend,
-	}
-}
-
-func (r RemainingTokenUsage) IsDepleted() bool {
-	return !r.UnlimitedInputTokens && r.InputTokens <= 0 ||
-		!r.UnlimitedOutputTokens && r.OutputTokens <= 0
-}
-
-func ConvertRemainingTokenUsage(userID string, r *RemainingTokenUsage) types2.RemainingTokenUsage {
-	return types2.RemainingTokenUsage{
-		UserID:                userID,
-		InputTokens:           r.InputTokens,
-		OutputTokens:          r.OutputTokens,
-		UnlimitedInputTokens:  r.UnlimitedInputTokens,
-		UnlimitedOutputTokens: r.UnlimitedOutputTokens,
 	}
 }

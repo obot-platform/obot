@@ -264,18 +264,6 @@ func TestHandlersRefuseNewReferencesToMissingSCIMGroups(t *testing.T) {
 			saved:  &v1.AccessControlRuleList{},
 		},
 		{
-			name: "message policy",
-			path: "/api/message-policies",
-			body: clienttypes.MessagePolicyManifest{
-				DisplayName: "Policy",
-				Definition:  "Be polite.",
-				Direction:   clienttypes.PolicyDirectionUserMessage,
-				Subjects:    missing,
-			},
-			create: (&MessagePolicyHandler{}).Create,
-			saved:  &v1.MessagePolicyList{},
-		},
-		{
 			name: "model access policy",
 			path: "/api/model-access-policies",
 			body: clienttypes.ModelAccessPolicyManifest{

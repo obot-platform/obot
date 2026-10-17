@@ -22,6 +22,9 @@ type Webhook struct {
 	ToolName          string
 	Definitions       types.MCPSelectors
 	MutateAllowed     bool
+	// Guardrail is set for a guardrail filter, which runs in-process: it has no URL,
+	// audience or tool.
+	Guardrail *types.MCPGuardrailFilterConfig `json:",omitempty"`
 }
 
 func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
@@ -71,7 +74,9 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 
 	for _, mwv := range objs {
 		res, ok := mwv.(*v1.MCPWebhookValidation)
-		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled && res.Status.Configured {
+		// A guardrail filter is used even when its status isn't configured, e.g. because a
+		// guardrail was deleted: it then fails at runtime, and blocks if it fails closed.
+		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled && (res.Status.Configured || res.Spec.Manifest.Guardrail != nil) {
 			url := system.MCPConnectURL(wh.baseURL, system.SystemMCPServerPrefix+res.Name)
 			if _, seen := seen[url]; seen {
 				continue
@@ -82,6 +87,16 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 			displayName := res.Spec.Manifest.Name
 			if displayName == "" {
 				displayName = res.Name
+			}
+
+			if guardrail := res.Spec.Manifest.Guardrail; guardrail != nil {
+				result = append(result, Webhook{
+					Name:        res.Name,
+					DisplayName: displayName,
+					Definitions: res.Spec.Manifest.Selectors,
+					Guardrail:   guardrail.DeepCopy(),
+				})
+				continue
 			}
 
 			toolName := res.Spec.Manifest.ToolName

@@ -48,7 +48,7 @@ type RegistryServerRemote struct {
 	// The remote transport type
 	Type string `json:"type"`
 	// The MCP endpoint URL
-	URL  string `json:"url"`
+	URL string `json:"url"`
 }
 
 // RegistryServerRepository represents repository metadata

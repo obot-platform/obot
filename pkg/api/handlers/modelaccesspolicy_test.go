@@ -144,3 +144,46 @@ func modelAccessPolicyManifestForHandlerTest(modelIDs ...string) types.ModelAcce
 		Models: models,
 	}
 }
+
+// Deleting a profile marks it for deletion and leaves its budgets and rules to its finalizer,
+// which the API adds if the controller hasn't yet. A marked profile applies to no one, so a
+// cleanup that fails can't leave a profile granting models without its budgets and rules.
+// Budgets and rules can't be written for a profile that is being deleted.
+func TestModelAccessPolicyHandlerDeleteDefersCleanupToTheFinalizer(t *testing.T) {
+	const policyID = "map1-deleted"
+	storageClient := storage.Client(fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(&v1.ModelAccessPolicy{
+			Name:      policyID,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.ModelAccessPolicySpec{
+				Manifest: modelAccessPolicyManifestForHandlerTest(),
+			},
+		}).
+		Build())
+	request := httptest.NewRequest(http.MethodDelete, "/api/model-access-policies/"+policyID, nil)
+	request.SetPathValue("id", policyID)
+	req := api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storageClient,
+	}
+
+	// No gateway client: the handler mustn't delete budgets or rules itself.
+	require.NoError(t, new(ModelAccessPolicyHandler).Delete(req))
+
+	var policy v1.ModelAccessPolicy
+	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: policyID}, &policy))
+	require.Contains(t, policy.Finalizers, v1.ModelAccessPolicyFinalizer)
+	require.False(t, policy.DeletionTimestamp.IsZero(), "the profile isn't marked for deletion")
+
+	require.ErrorContains(t, requireProfile(req, policyID), "is being deleted")
+
+	undone := false
+	err := confirmProfile(req, policyID, func() error {
+		undone = true
+		return nil
+	})
+	require.ErrorContains(t, err, "is being deleted")
+	require.True(t, undone, "a budget or rule written for a profile being deleted wasn't removed")
+}

@@ -382,6 +382,7 @@
 	"identity_access_scim_ref_group_role": "组角色分配",
 	"identity_access_scim_ref_hosted_agent_access_rule": "托管代理访问规则",
 	"identity_access_scim_ref_id": "{label} {id}",
+	"identity_access_scim_ref_mcp_guardrail_filter": "护栏过滤器",
 	"identity_access_scim_ref_message_policy": "消息策略",
 	"identity_access_scim_ref_model_access_policy": "模型访问策略",
 	"identity_access_scim_ref_named": "{label}“{name}”",

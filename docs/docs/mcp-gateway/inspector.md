@@ -99,7 +99,7 @@ Chat works as follows:
   run.
 - **With no model provider configured**, Chat can use Obot's hosted model service. This requires a
   registered Obot license. Administrators without one see **Unlock MCP Inspector Chat**, which
-  offers free registration or [configuring a model provider](../configuration/model-providers.md)
+  offers free registration or [adding a model provider to the LLM gateway](../configuration/model-providers.md)
   instead. Other users are told to contact an administrator.
 
 The hosted model service receives the chat conversation, including the vMCP's tool definitions and

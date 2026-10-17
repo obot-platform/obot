@@ -15,7 +15,7 @@ const (
 
 type LLMAuditLog struct {
 	ID        string    `gorm:"primaryKey;type:text"`
-	CreatedAt time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_user_agent_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2;index:idx_llm_audit_api_key_created,priority:2"`
+	CreatedAt time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_user_agent_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2;index:idx_llm_audit_api_key_created,priority:2;index:idx_llm_audit_served_provider_created,priority:2"`
 	Duration  int64
 	UserID    string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
 	APIKeyID  *uint  `gorm:"index:idx_llm_audit_api_key_created,priority:1"`
@@ -24,10 +24,18 @@ type LLMAuditLog struct {
 	APIKeyRevoked bool `gorm:"-"`
 	// APIKeyName is the event-time display value. Unnamed keys snapshot their
 	// non-secret masked identifier instead of requiring an API-key table join.
-	APIKeyName                string `gorm:"type:text"`
-	ModelProvider             string `gorm:"type:text;index:idx_llm_audit_provider_created,priority:1"`
-	ModelID                   string `gorm:"type:text"`
-	TargetModel               string `gorm:"type:text;index:idx_llm_audit_target_model_created,priority:1"`
+	APIKeyName    string `gorm:"type:text"`
+	ModelProvider string `gorm:"type:text;index:idx_llm_audit_provider_created,priority:1"`
+	ModelID       string `gorm:"type:text"`
+	// TargetModel is the requested model.
+	TargetModel string `gorm:"type:text;index:idx_llm_audit_target_model_created,priority:1"`
+	// ServedProvider and ServedModel are the provider and model that served the request, which
+	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
+	// gateway key it was served with, and Fallback is true when a fallback served it.
+	ServedProvider            string `gorm:"type:text;index:idx_llm_audit_served_provider_created,priority:1"`
+	ServedModel               string `gorm:"type:text"`
+	ProviderKey               string `gorm:"type:text"`
+	Fallback                  bool   `gorm:"not null;default:false"`
 	ReasoningEffort           string `gorm:"type:text"`
 	RequestPath               string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
 	RequestMethod             string `gorm:"type:text"`
@@ -47,7 +55,10 @@ type LLMAuditLog struct {
 	UserAgent                 string `gorm:"type:text;index:idx_llm_audit_user_agent_created,priority:1"`
 	ClientSessionID           string `gorm:"type:text;index:idx_llm_audit_client_session_created,priority:1"`
 	ClientIP                  string `gorm:"type:text"`
-	Encrypted                 bool
+	// GuardrailFindings say which guardrail policies found something and what they did, but
+	// not what they found, so they are stored unencrypted.
+	GuardrailFindings []types2.LLMAuditGuardrailFinding `gorm:"serializer:json"`
+	Encrypted         bool
 }
 
 func (LLMAuditLog) TableName() string {
@@ -66,6 +77,10 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		ModelProvider:             a.ModelProvider,
 		ModelID:                   a.ModelID,
 		TargetModel:               a.TargetModel,
+		ServedProvider:            a.ServedProvider,
+		ServedModel:               a.ServedModel,
+		ProviderKey:               a.ProviderKey,
+		Fallback:                  a.Fallback,
 		ReasoningEffort:           a.ReasoningEffort,
 		RequestPath:               a.RequestPath,
 		RequestMethod:             a.RequestMethod,
@@ -85,5 +100,6 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		UserAgent:                 a.UserAgent,
 		ClientSessionID:           a.ClientSessionID,
 		ClientIP:                  a.ClientIP,
+		GuardrailFindings:         a.GuardrailFindings,
 	}
 }

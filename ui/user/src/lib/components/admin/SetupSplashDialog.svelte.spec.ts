@@ -3,11 +3,13 @@ import { AdminService, Group } from '$lib/services';
 import { productTelemetryConsent, profile, version } from '$lib/stores';
 import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 import { isProductAnalyticsConsentDeferred } from '$lib/stores/productTelemetryConsent.svelte';
+import setupSplash from '$lib/stores/setupSplash.svelte';
 import { createMockProfile } from '../../../tests/helpers/pageData';
-import { getVersionResponse } from '../../../tests/mocks/data';
+import { getGatewayStatusResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import SetupSplashDialog from './SetupSplashDialog.svelte';
 import { http, HttpResponse } from 'msw';
+import { get } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -24,7 +26,9 @@ function setUrl(path = '/') {
 async function configureCompletedWelcome() {
 	worker.use(
 		http.get('/api/auth-providers', () => HttpResponse.json({ items: [{ configured: true }] })),
-		http.get('/api/model-providers', () => HttpResponse.json({ items: [{ configured: true }] })),
+		http.get('/api/llm-gateway/status', () =>
+			HttpResponse.json({ ...getGatewayStatusResponse, hasProviders: true })
+		),
 		http.get('/api/eula', () => HttpResponse.json({ accepted: true }))
 	);
 	await adminConfigStore.fetchData(true);
@@ -53,9 +57,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 		adminConfigStore.updateAuthProviders([
 			{ configured: true } as Awaited<ReturnType<typeof AdminService.listAuthProviders>>[number]
 		]);
-		adminConfigStore.updateModelProviders([
-			{ configured: true } as Awaited<ReturnType<typeof AdminService.listModelProviders>>[number]
-		]);
+		adminConfigStore.setModelProviderConfigured(true);
 		adminConfigStore.updateEula(true);
 	});
 
@@ -149,7 +151,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 	it('preserves the existing setup trigger when consent is already recorded', async () => {
 		worker.use(
 			http.get('/api/auth-providers', () => HttpResponse.json({ items: [] })),
-			http.get('/api/model-providers', () => HttpResponse.json({ items: [] })),
+			http.get('/api/llm-gateway/status', () => HttpResponse.json(getGatewayStatusResponse)),
 			http.get('/api/eula', () => HttpResponse.json({ accepted: false }))
 		);
 		profile.initialize(createMockProfile([Group.OWNER, Group.ADMIN]));
@@ -161,5 +163,43 @@ describe('SetupSplashDialog product analytics consent', () => {
 
 		await expect.element(page.getByRole('dialog')).toBeVisible();
 		expect(document.querySelector('#share-product-usage')).toBeNull();
+	});
+
+	it('does not treat a gateway that is still starting as having no providers', async () => {
+		adminConfigStore.setModelProviderConfigured(true);
+		worker.use(
+			http.get('/api/auth-providers', () => HttpResponse.json({ items: [{ configured: true }] })),
+			http.get('/api/llm-gateway/status', () =>
+				HttpResponse.json({ ...getGatewayStatusResponse, ready: false, hasProviders: false })
+			),
+			http.get('/api/eula', () => HttpResponse.json({ accepted: true }))
+		);
+		await adminConfigStore.fetchData(true);
+
+		const state = get(adminConfigStore);
+		expect(state.modelProviderConfigured).toBe(true);
+		// The rest of the configuration loaded; only the provider answer is unknown, and asked
+		// for again.
+		expect(state.lastFetched).not.toBeNull();
+		expect(state.modelProviderKnown).toBe(false);
+	});
+
+	it("doesn't stay blocked while the gateway is starting", async () => {
+		profile.initialize(createMockProfile([Group.ADMIN]));
+		version.initialize(getVersionResponse);
+		productTelemetryConsent.initialize({ consent: true }, true);
+		localStorage.setItem('seenSplashDialog', new Date().toISOString());
+		worker.use(
+			http.get('/api/auth-providers', () => HttpResponse.json({ items: [{ configured: true }] })),
+			http.get('/api/llm-gateway/status', () =>
+				HttpResponse.json({ ...getGatewayStatusResponse, ready: false, hasProviders: false })
+			),
+			http.get('/api/eula', () => HttpResponse.json({ accepted: true }))
+		);
+		await adminConfigStore.fetchData(true);
+		render(SetupSplashDialog);
+
+		await expect.poll(() => setupSplash.blocking).toBe(false);
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 	});
 });

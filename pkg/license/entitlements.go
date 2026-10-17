@@ -266,52 +266,20 @@ func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client) (
 	return violations, nil
 }
 
-// configuredProviderViolations returns any globally configured auth/model providers
-// that are currently missing required license entitlements.
+// configuredProviderViolations returns any globally configured auth providers that are
+// currently missing required license entitlements. Model providers aren't checked: the LLM
+// gateway serves every model and requires no entitlement, and legacy model providers left
+// over until the gateway migrates them serve nothing.
 func (p *Provider) configuredProviderViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
 	if err := p.refresh(ctx, false); err != nil {
 		return nil, fmt.Errorf("failed to refresh license entitlements: %w", err)
-	}
-
-	modelProviderViolations, err := p.configuredModelProviderViolations(ctx, c)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check model provider license entitlements: %w", err)
 	}
 
 	authProviderViolations, err := p.configuredAuthProviderViolations(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check auth provider license entitlements: %w", err)
 	}
-
-	return append(modelProviderViolations, authProviderViolations...), nil
-}
-
-func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
-	var modelProviders v1.ModelProviderList
-	if err := c.List(ctx, &modelProviders, &kclient.ListOptions{
-		Namespace: system.DefaultNamespace,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to list model providers: %w", err)
-	}
-
-	var violations []Violation
-	for _, mp := range modelProviders.Items {
-		if mp.Status.Configured {
-			missingEntitlements := p.missingEntitlements(mp.Spec.RequiredEntitlements)
-			if len(missingEntitlements) > 0 {
-				violations = append(violations, Violation{
-					Type:                 "modelProvider",
-					Namespace:            mp.Namespace,
-					Name:                 mp.Name,
-					RequiredEntitlements: mp.Spec.RequiredEntitlements,
-					MissingEntitlements:  missingEntitlements,
-					Message:              "missing required entitlements",
-				})
-			}
-		}
-	}
-
-	return violations, nil
+	return authProviderViolations, nil
 }
 
 func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {

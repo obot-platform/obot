@@ -250,7 +250,7 @@ describe('VMcpTester', () => {
 			.toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'configuring your own model provider' }))
-			.toHaveAttribute('href', '/models?view=model-providers');
+			.toHaveAttribute('href', '/models?view=providers');
 		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 	});
 

@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -80,11 +81,12 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 	}
 
 	d := &dockerBackend{
-		client:                 cli,
-		containerEnv:           containerEnv,
-		network:                network,
-		httpListenPort:         exposedPort,
-		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
+		client:         cli,
+		containerEnv:   containerEnv,
+		network:        network,
+		httpListenPort: exposedPort,
+		// JoinHostPort brackets an IPv6 address, which the local IP can be on an IPv6-only host.
+		hostBaseURLWithPort:    "http://" + net.JoinHostPort(host, strconv.Itoa(exposedPort)),
 		containerizedBaseImage: opts.MCPBaseImage,
 		openAPIImage:           opts.MCPOpenAPIImage,
 		validationOptions:      validationOptions,
@@ -153,6 +155,11 @@ func detectCurrentLocalIP() (string, error) {
 	// No actual connection is made since UDP is connectionless.
 	conn, err := net.Dial("udp", "1.1.1.1:80")
 	if err != nil {
+		// Without a default route (e.g. an air-gapped host whose traffic goes through a
+		// proxy), fall back to the first non-loopback interface address.
+		if ip := firstInterfaceIP(upInterfaceAddrs); ip != "" {
+			return ip, nil
+		}
 		return "", fmt.Errorf("failed to determine local IP: %w", err)
 	}
 	defer conn.Close()
@@ -161,6 +168,51 @@ func detectCurrentLocalIP() (string, error) {
 	ip := localAddr.IP.String()
 
 	return ip, nil
+}
+
+// upInterfaceAddrs returns the addresses of the network interfaces that are up and aren't
+// loopback interfaces.
+func upInterfaceAddrs() ([]net.Addr, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	var addrs []net.Addr
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		ifaceAddrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		addrs = append(addrs, ifaceAddrs...)
+	}
+	return addrs, nil
+}
+
+// firstInterfaceIP returns the first non-loopback IPv4 address interfaceAddrs returns, or
+// the first such IPv6 address when there is no IPv4 one. Obot passes the addresses of the
+// interfaces that are up.
+func firstInterfaceIP(interfaceAddrs func() ([]net.Addr, error)) string {
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	var v6 string
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok || ipNet.IP.IsLoopback() || ipNet.IP.IsLinkLocalUnicast() || ipNet.IP.IsUnspecified() {
+			continue
+		}
+		if ipNet.IP.To4() != nil {
+			return ipNet.IP.String()
+		}
+		if v6 == "" {
+			v6 = ipNet.IP.String()
+		}
+	}
+	return v6
 }
 
 func (d *dockerBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string) {

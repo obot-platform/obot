@@ -2,6 +2,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
+	import GuardrailFilterForm from '$lib/components/admin/GuardrailFilterForm.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
 	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
@@ -30,12 +31,22 @@
 
 	let deletingFilter = $state(false);
 
-	const tabs = [
-		{ label: m.mcps_catalog_config_heading(), view: 'configuration' },
-		{ label: m.mcps_catalog_tab_server_details(), view: 'server-details' },
-		{ label: m.nav_audit_logs(), view: 'audit-logs' },
-		{ label: m.nav_usage(), view: 'usage' }
-	];
+	// Guardrail filters run in-process, so there is no server to show details, audit logs or
+	// usage for: their results are recorded on the audit log entries of the servers they filter.
+	const isGuardrail = $derived(!!filter?.guardrail);
+	const tabs = $derived(
+		isGuardrail
+			? [{ label: m.mcps_catalog_config_heading(), view: 'configuration' }]
+			: [
+					{ label: m.mcps_catalog_config_heading(), view: 'configuration' },
+					{ label: m.mcps_catalog_tab_server_details(), view: 'server-details' },
+					{ label: m.nav_audit_logs(), view: 'audit-logs' },
+					{ label: m.nav_usage(), view: 'usage' }
+				]
+	);
+	const currentView = $derived(
+		tabs.some((tab) => tab.view === selected) ? selected : 'configuration'
+	);
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const mcpServerId = $derived(filter?.id ? `sms1${filter.id}` : undefined);
@@ -49,7 +60,7 @@
 			as: 'main',
 			itemHeight: 56,
 			overscan: 5,
-			disabled: selected !== 'audit-logs'
+			disabled: currentView !== 'audit-logs'
 		}
 	}}
 	{title}
@@ -71,25 +82,35 @@
 					</IconButton>
 				{/if}
 			</div>
-			<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">
-				{#each tabs as tab (tab.view)}
-					<button
-						onclick={() => {
-							onSelectionChange?.(tab.view);
-						}}
-						class={twMerge(
-							'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
-							selected === tab.view &&
-								'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
-							selected !== tab.view && 'hover:bg-base-400'
-						)}
-					>
-						{tab.label}
-					</button>
-				{/each}
-			</div>
+			{#if tabs.length > 1}
+				<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">
+					{#each tabs as tab (tab.view)}
+						<button
+							onclick={() => {
+								onSelectionChange?.(tab.view);
+							}}
+							class={twMerge(
+								'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
+								currentView === tab.view &&
+									'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+								currentView !== tab.view && 'hover:bg-base-400'
+							)}
+						>
+							{tab.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
 
-			{#if selected === 'configuration'}
+			{#if currentView === 'configuration' && isGuardrail}
+				<GuardrailFilterForm
+					{filter}
+					onUpdate={() => {
+						goto('/mcp-servers?view=filters', { invalidateAll: true });
+					}}
+					readonly={profile.current.isAdminReadonly?.()}
+				/>
+			{:else if currentView === 'configuration'}
 				<FilterForm
 					{filter}
 					onUpdate={() => {
@@ -98,7 +119,7 @@
 					readonly={profile.current.isAdminReadonly?.()}
 					mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
 				/>
-			{:else if selected === 'server-details'}
+			{:else if currentView === 'server-details'}
 				<McpServerDetails
 					entity="webhook-validation"
 					entityId={filter.id}
@@ -112,7 +133,7 @@
 						}
 					}}
 				/>
-			{:else if selected === 'audit-logs'}
+			{:else if currentView === 'audit-logs'}
 				<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 					<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
 						{#snippet emptyContent()}
@@ -128,7 +149,7 @@
 						{/snippet}
 					</AuditLogsPageContent>
 				</div>
-			{:else if selected === 'usage'}
+			{:else if currentView === 'usage'}
 				<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
 					<UsageGraphs mcpId={mcpServerId} mcpServerDisplayName={filter.name} />
 				</div>

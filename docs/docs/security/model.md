@@ -53,6 +53,7 @@ Owners can assign the **Owner** and **Auditor** roles; Admins cannot. For more i
 - [MCP Access Policies](../mcp-gateway/access.md) - Control which servers are available to which users and groups
 - [Audit Logs and Usage](./audit-data.md) - Monitor activity and track consumption
 - [Filters](../functionality/filters.md) - Inspect and control MCP traffic
+- [Guardrails](../functionality/guardrails.md) - Block, redact or log sensitive or unwanted content in LLM traffic, and in MCP traffic with guardrail filters
 - [Server Scheduling](../operations/capacity.md) - Configure pod scheduling behavior for MCP servers
 - [Skills](../registries/publish-skills.md) - Manage skill sources and browse discoverable skills for agents
 - [Skill Access Policies](../registries/publish-skills.md) - Control which users and groups can access which skills

@@ -14,10 +14,17 @@ type LLMAuditLog struct {
 	// APIKeyRevoked reports the API key's current lifecycle state.
 	APIKeyRevoked bool `json:"apiKeyRevoked,omitempty"`
 	// APIKeyName is the event-time display value and is a masked identifier for unnamed keys.
-	APIKeyName                string          `json:"apiKeyName,omitempty"`
-	ModelProvider             string          `json:"modelProvider"`
-	ModelID                   string          `json:"modelID"`
-	TargetModel               string          `json:"targetModel"`
+	APIKeyName    string `json:"apiKeyName,omitempty"`
+	ModelProvider string `json:"modelProvider"`
+	ModelID       string `json:"modelID"`
+	TargetModel   string `json:"targetModel"`
+	// ServedProvider and ServedModel are the provider and model that served the request, which
+	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
+	// gateway key it was served with, and Fallback is true when a fallback served it.
+	ServedProvider            string          `json:"servedProvider,omitempty"`
+	ServedModel               string          `json:"servedModel,omitempty"`
+	ProviderKey               string          `json:"providerKey,omitempty"`
+	Fallback                  bool            `json:"fallback,omitempty"`
 	ReasoningEffort           string          `json:"reasoningEffort"`
 	RequestPath               string          `json:"requestPath"`
 	RequestMethod             string          `json:"requestMethod"`
@@ -37,6 +44,27 @@ type LLMAuditLog struct {
 	UserAgent                 string          `json:"userAgent"`
 	ClientSessionID           string          `json:"clientSessionID"`
 	ClientIP                  string          `json:"clientIP"`
+	// GuardrailFindings is what the LLM gateway's guardrails did to the request, in the order
+	// their guardrail policies ran.
+	GuardrailFindings []LLMAuditGuardrailFinding `json:"guardrailFindings,omitempty"`
+}
+
+// LLMAuditGuardrailFinding is what one guardrail policy did to an LLM request: the guardrail that
+// found something, or failed, and what the policy did about it. It never includes the content
+// that was found.
+type LLMAuditGuardrailFinding struct {
+	// Stage is input (the request) or output (the response).
+	Stage         string `json:"stage"`
+	PolicyID      string `json:"policyID"`
+	PolicyName    string `json:"policyName"`
+	GuardrailName string `json:"guardrailName,omitempty"`
+	GuardrailType string `json:"guardrailType,omitempty"`
+	// Outcome is blocked, redacted, logged or error.
+	Outcome string `json:"outcome"`
+	// Categories are the kinds of content the guardrail found, such as "secret".
+	Categories []string `json:"categories,omitempty"`
+	// Error is why the guardrail could not be evaluated, for an error outcome.
+	Error string `json:"error,omitempty"`
 }
 
 type LLMAuditLogResponse struct {

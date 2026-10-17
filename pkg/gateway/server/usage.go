@@ -1,10 +1,12 @@
 package server
 
 import (
+	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -50,16 +52,6 @@ func (s *Server) totalUsageForUser(apiContext api.Context) error {
 	activity.CreatedAt = time.Time{}
 
 	return apiContext.Write(types.ConvertTokenActivity(activity))
-}
-
-func (s *Server) remainingUsageForUser(apiContext api.Context) error {
-	userID := apiContext.PathValue("user_id")
-	remainingUsage, err := apiContext.GatewayClient.RemainingTokenUsageForUser(apiContext.Context(), userID, tokenUsageTimePeriod, s.dailyUserInputTokenLimit, s.dailyUserOutputTokenLimit)
-	if err != nil {
-		return err
-	}
-
-	return apiContext.Write(types.ConvertRemainingTokenUsage(userID, remainingUsage))
 }
 
 func (s *Server) systemTokenUsageByUser(apiContext api.Context) error {
@@ -114,4 +106,43 @@ func (s *Server) totalSystemTokenUsage(apiContext api.Context) error {
 	}
 
 	return apiContext.Write(types.ConvertTokenActivity(activity))
+}
+
+// tokenUsageStats summarizes LLM gateway requests over a time range: totals, a time histogram,
+// spend by provider and the top models. The users, models and API keys it covers can be
+// narrowed with user_id, model and api_key_id, each repeatable or comma-separated.
+func (s *Server) tokenUsageStats(apiContext api.Context) error {
+	query := apiContext.URL.Query()
+	start, end, err := parseDateRange(query.Get("start"), query.Get("end"))
+	if err != nil {
+		return types2.NewErrBadRequest("invalid time range: %v", err)
+	}
+	if !end.After(start) {
+		return types2.NewErrBadRequest("the end of the time range must be after its start")
+	}
+
+	stats, err := apiContext.GatewayClient.TokenUsageStats(apiContext.Context(), client.TokenUsageStatsOptions{
+		Start:     start,
+		End:       end,
+		UserIDs:   splitQueryList(query["user_id"]),
+		Models:    splitQueryList(query["model"]),
+		APIKeyIDs: api.ParseUintList(splitQueryList(query["api_key_id"])),
+	})
+	if err != nil {
+		return err
+	}
+	return apiContext.Write(stats)
+}
+
+// splitQueryList returns the values of a repeatable, comma-separated query parameter.
+func splitQueryList(values []string) []string {
+	var result []string
+	for _, value := range values {
+		for part := range strings.SplitSeq(value, ",") {
+			if part = strings.TrimSpace(part); part != "" {
+				result = append(result, part)
+			}
+		}
+	}
+	return result
 }

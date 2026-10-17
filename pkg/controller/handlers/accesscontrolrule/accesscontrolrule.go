@@ -4,11 +4,13 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
@@ -43,7 +45,7 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 	for _, resource := range acr.Spec.Manifest.Resources {
 		switch resource.Type {
 		case types.ResourceTypeMCPServerCatalogEntry:
-			if err := req.Get(&mcpservercatalogentry, req.Namespace, resource.ID); err == nil {
+			if err := getConfirmingNotFound(req, &mcpservercatalogentry, resource.ID); err == nil {
 				// Check if entry belongs to the same catalog or workspace
 				var match bool
 				if acr.Spec.PowerUserWorkspaceID != "" {
@@ -60,7 +62,7 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 			}
 			// If entry not found, remove it from the rule
 		case types.ResourceTypeMCPServer:
-			if err := req.Get(&mcpserver, req.Namespace, resource.ID); err == nil {
+			if err := getConfirmingNotFound(req, &mcpserver, resource.ID); err == nil {
 				// Check if server belongs to the same catalog and workspace (if workspace-scoped)
 				var match bool
 				if acr.Spec.PowerUserWorkspaceID != "" {
@@ -87,4 +89,15 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 	}
 
 	return nil
+}
+
+// getConfirmingNotFound gets a resource from the cache, and confirms with storage when the
+// cache doesn't have it. A resource created moments before the rule that names it may not
+// have reached the cache yet, and must not be pruned from the rule as if it were deleted.
+func getConfirmingNotFound(req router.Request, obj kclient.Object, name string) error {
+	err := req.Get(obj, req.Namespace, name)
+	if apierrors.IsNotFound(err) {
+		err = req.Get(untriggered.UncachedGet(obj), req.Namespace, name)
+	}
+	return err
 }

@@ -1,79 +1,41 @@
 ---
-draft: true
 displayed_sidebar: sidebar
 title: Message Policies
 ---
 
-Message Policies are now called [AI Judge Policies](./ai-judge-policies.md). This page preserves existing bookmarks.
+Message policies, later called AI judge policies, are now part of [Guardrails](./guardrails.md). A message policy is an **LLM Judge Policy** guardrail used by a blocking guardrail policy, and guardrails can apply it to MCP tool calls as well as to LLM traffic.
 
-## Overview {#overview}
+When Obot starts, it converts each existing message policy into guardrails, once:
 
-Continue to [Overview](./ai-judge-policies.md#overview).
+| Message policy | Guardrail |
+| --- | --- |
+| Display name and definition | An **LLM Judge Policy** guardrail with the same name and policy |
+| Applies to *User Messages* | A guardrail policy that blocks on **input** |
+| Applies to *Tool Calls* | A guardrail policy that blocks on **output** |
+| Applies to *Both* | A guardrail policy that blocks on input and output |
+| Subjects (users, groups, Obot groups, all users) | The guardrail policy's [profile](./model-access-policies.md): the profile for everyone if the policy applied to all users, otherwise a new profile named after the policy with its subjects and no models |
 
-## How Policies Work {#how-policies-work}
+The converted guardrail policies start **disabled**. Review them under **LLM Gateway** → **Profiles** and turn on **Enabled**, next to the policy's name, for the ones you want. Once enabled, they fail closed, as message policies did: when the judge's model is unavailable, the request is blocked.
 
-Continue to [How Policies Work](./ai-judge-policies.md#how-policies-work).
+The original MessagePolicy resources are kept for the conversion but no longer enforced, and the message policy and violation APIs were removed. Earlier violation records stay in the database but are not carried over to the new UI or API. New findings are recorded in the [LLM audit log](./guardrails.md#events).
 
-## Subjects {#subjects}
+The `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` setting is removed. Guardrails are always available.
 
-Continue to [Subjects](./ai-judge-policies.md#subjects).
+## How LLM judge policies are evaluated
 
-## Enforcement Flow {#enforcement-flow}
+Each policy is evaluated in two stages:
 
-Continue to [Enforcement Flow](./ai-judge-policies.md#enforcement-flow).
+1. A fast screening pass using the `Chat - Fast` default model returns only `yes` or `no`.
+2. If the first pass says the content should be blocked, the full `Chat` default model confirms or overturns that result and writes the explanation.
 
-## Subject Matching {#subject-matching}
+Input policies judge the latest user message in the context of the conversation. Output policies judge the tool calls the model makes. On MCP tool calls, they judge the tool's arguments and results.
 
-Continue to [Subject Matching](./ai-judge-policies.md#subject-matching).
+Policy evaluation consumes tokens and adds latency. The tokens don't count against users' budgets.
 
-## Two-Stage Review {#two-stage-review}
+## Writing effective policies
 
-Continue to [Two-Stage Review](./ai-judge-policies.md#two-stage-review).
-
-## User Message Policies {#user-message-policies}
-
-Continue to [User Message Policies](./ai-judge-policies.md#user-message-policies).
-
-## Tool Call Policies {#tool-call-policies}
-
-Continue to [Tool Call Policies](./ai-judge-policies.md#tool-call-policies).
-
-## Violation Logging {#violation-logging}
-
-Continue to [Violation Logging](./ai-judge-policies.md#violation-logging).
-
-## Reviewing Violations {#reviewing-violations}
-
-Continue to [Reviewing Violations](./ai-judge-policies.md#reviewing-violations).
-
-## Visibility of Blocked Content {#visibility-of-blocked-content}
-
-Continue to [Visibility of Blocked Content](./ai-judge-policies.md#visibility-of-blocked-content).
-
-## Managing Policies {#managing-policies}
-
-Continue to [Managing Policies](./ai-judge-policies.md#managing-policies).
-
-## Creating a Policy {#creating-a-policy}
-
-Continue to [Creating a Policy](./ai-judge-policies.md#creating-a-policy).
-
-## Editing a Policy {#editing-a-policy}
-
-Continue to [Editing a Policy](./ai-judge-policies.md#editing-a-policy).
-
-## Deleting a Policy {#deleting-a-policy}
-
-Continue to [Deleting a Policy](./ai-judge-policies.md#deleting-a-policy).
-
-## Writing Effective Policies {#writing-effective-policies}
-
-Continue to [Writing Effective Policies](./ai-judge-policies.md#writing-effective-policies).
-
-## Tokens and Latency {#tokens-and-latency}
-
-Continue to [Tokens and Latency](./ai-judge-policies.md#tokens-and-latency).
-
-## Related Topics {#related-topics}
-
-Continue to [Related Topics](./ai-judge-policies.md#related-topics).
+- Be specific about what is disallowed or required.
+- Write the rule as a natural language instruction, not as implementation notes.
+- Prefer separate policies for distinct concerns instead of one broad policy.
+- Use output (tool call) policies for operational constraints, such as limits on purchases, bookings or outbound actions.
+- Use input policies for input restrictions, such as prohibited data sharing or disallowed requests.

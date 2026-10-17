@@ -358,7 +358,7 @@ export async function loadCurrentAccess(
 			return matchPolicies(
 				models,
 				target,
-				(policy) => `/models/access-policies/${policy.id}`,
+				(policy) => `/models/profiles/${policy.id}`,
 				(policy) =>
 					(policy.models ?? []).map(({ id }) => ({
 						type: id === EVERYTHING_RESOURCE_ID ? 'selector' : 'model',

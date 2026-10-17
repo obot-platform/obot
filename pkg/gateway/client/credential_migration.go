@@ -11,6 +11,7 @@ import (
 
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -139,6 +140,8 @@ func (c *Client) moveCredentialToNameContext(ctx context.Context, credential *ga
 
 // MigrateKinmIfNotRun runs f unless the named migration has already succeeded.
 // It does not hold a transaction open, so f can access storage through other clients.
+// Replicas starting together may both run f, so f must be idempotent; recording the
+// migration tolerates another replica having recorded it first.
 func (c *Client) MigrateKinmIfNotRun(ctx context.Context, name string, f func() error) error {
 	db := c.db.WithContext(ctx)
 
@@ -151,7 +154,7 @@ func (c *Client) MigrateKinmIfNotRun(ctx context.Context, name string, f func() 
 		return err
 	}
 
-	return db.Create(&gatewaytypes.Migration{Name: name}).Error
+	return db.Clauses(clause.OnConflict{DoNothing: true}).Create(&gatewaytypes.Migration{Name: name}).Error
 }
 
 func (c *Client) migrateIfNotRun(ctx context.Context, name string, f func(*gorm.DB) error) error {

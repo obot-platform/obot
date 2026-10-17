@@ -68,6 +68,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          # The binaries embed the LLM gateway's model data (see tools/fetch-model-data).
+          MODEL_DATA_URL: https://upgrade-server.obot.ai/v1/model-data
           QUILL_SIGN_P12: ${{ secrets.QUILL_SIGN_P12 }}
           QUILL_SIGN_PASSWORD: ${{ secrets.QUILL_SIGN_PASSWORD }}
           QUILL_NOTARY_KEY: ${{ secrets.QUILL_NOTARY_KEY }}

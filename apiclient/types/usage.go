@@ -7,6 +7,16 @@ type TokenUsage struct {
 	Model      string `json:"model,omitempty"`
 	APIKeyID   *uint  `json:"apiKeyID,omitempty"`
 	APIKeyName string `json:"apiKeyName,omitempty"`
+	// Provider is the provider that served the request, which routing rules and fallbacks can
+	// make differ from the requested model's.
+	Provider string `json:"provider,omitempty"`
+	// Outcome is success, error or canceled. Empty on records made before outcomes were
+	// recorded, which were all successful requests.
+	Outcome string `json:"outcome,omitempty"`
+	// DurationMs is how long the request took, in milliseconds.
+	DurationMs int64 `json:"durationMs,omitempty"`
+	// Fallback is true when a fallback served the request.
+	Fallback bool `json:"fallback,omitempty"`
 
 	// InputTokens is the total input: CacheReadTokens + CacheWriteTokens + uncached input.
 	InputTokens int `json:"inputTokens"`
@@ -37,10 +47,51 @@ type TokenUsage struct {
 
 type TokenUsageList List[TokenUsage]
 
-type RemainingTokenUsage struct {
-	UserID                string `json:"userID,omitempty"`
-	InputTokens           int    `json:"inputTokens"`
-	OutputTokens          int    `json:"outputTokens"`
-	UnlimitedInputTokens  bool   `json:"unlimitedInputTokens"`
-	UnlimitedOutputTokens bool   `json:"unlimitedOutputTokens"`
+// TokenUsageStats summarizes LLM gateway requests over a time range.
+type TokenUsageStats struct {
+	Start Time `json:"start"`
+	End   Time `json:"end"`
+	// BucketSeconds is the width of each of Buckets.
+	BucketSeconds int64                     `json:"bucketSeconds"`
+	Totals        TokenUsageStatsTotals     `json:"totals"`
+	Buckets       []TokenUsageStatsBucket   `json:"buckets"`
+	Providers     []TokenUsageStatsProvider `json:"providers"`
+	// TopModelsByRequests and TopModelsBySpend are the models that served the most requests and
+	// spent the most.
+	TopModelsByRequests []TokenUsageStatsModel `json:"topModelsByRequests"`
+	TopModelsBySpend    []TokenUsageStatsModel `json:"topModelsBySpend"`
+}
+
+// TokenUsageStatsTotals counts requests and their usage.
+type TokenUsageStatsTotals struct {
+	Requests int64 `json:"requests"`
+	// Successes are the requests that succeeded; the others failed or were canceled.
+	Successes int64 `json:"successes"`
+	// Fallbacks are the requests a fallback served.
+	Fallbacks int64 `json:"fallbacks"`
+	// AvgDurationMs is the average request duration over the requests with a recorded duration.
+	AvgDurationMs float64 `json:"avgDurationMs"`
+	InputTokens   int64   `json:"inputTokens"`
+	OutputTokens  int64   `json:"outputTokens"`
+	TotalTokens   int64   `json:"totalTokens"`
+	TotalSpend    float64 `json:"totalSpend"`
+}
+
+// TokenUsageStatsBucket is the requests in one period of a time histogram.
+type TokenUsageStatsBucket struct {
+	Time Time `json:"time"`
+	TokenUsageStatsTotals
+}
+
+// TokenUsageStatsProvider is the requests a provider served.
+type TokenUsageStatsProvider struct {
+	Provider string `json:"provider"`
+	TokenUsageStatsTotals
+}
+
+// TokenUsageStatsModel is the requests a model served.
+type TokenUsageStatsModel struct {
+	Model    string `json:"model"`
+	Provider string `json:"provider"`
+	TokenUsageStatsTotals
 }

@@ -48,7 +48,6 @@ import {
 	type McpServerResource,
 	type MCPServerTool,
 	type Model,
-	type ModelProviderList,
 	type OrgGroup,
 	type OrgGroupPage,
 	type OrgUser,
@@ -722,13 +721,6 @@ export async function listSingleOrRemoteMcpServerResources(
 export async function listModels(opts?: { fetch?: Fetcher }): Promise<Model[]> {
 	const response = (await doGet('/models', opts)) as ItemsResponse<Model>;
 	return response.items ?? [];
-}
-
-export async function listGlobalModelProviders(opts?: {
-	fetch?: Fetcher;
-}): Promise<ModelProviderList> {
-	const response = (await doGet('/model-providers', opts)) as ModelProviderList;
-	return response;
 }
 
 // Organization
