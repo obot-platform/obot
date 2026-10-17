@@ -88,7 +88,7 @@
 	"models_page_title": "LLM 게이트웨이",
 	"models_profiles_tab": "프로필",
 	"models_profiles_tab_tooltip": "누가 어떤 모델을 사용할 수 있는지, 그리고 그들에게 적용되는 예산과 가드레일을 관리하세요.",
-	"models_guardrails_tab_tooltip": "민감하거나 원치 않는 콘텐츠에 대한 검사입니다. MCP 서버와 공유되며, 프로필의 가드레일 정책이 이를 모델 트래픽에 적용합니다.",
+	"models_guardrails_tab_tooltip": "Checks for sensitive or unwanted content. Shared with MCP servers; the applied guardrails in profiles use them on model traffic.",
 	"models_routing_tab_tooltip": "일치하는 요청을 다른 공급자나 모델로 보내거나, 트래픽을 나누거나, 장애 조치하는 규칙입니다.",
 	"models_settings_tab_tooltip": "게이트웨이 전체 설정: 요청 크기 제한과 공급자가 처리 한도에 도달했을 때의 동작입니다.",
 	"models_delete_profile": "프로필 삭제",

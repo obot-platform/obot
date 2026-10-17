@@ -88,7 +88,7 @@
 	"models_page_title": "LLM Gateway",
 	"models_profiles_tab": "Profiles",
 	"models_profiles_tab_tooltip": "Who can use which models, and the budgets and guardrails that apply to them.",
-	"models_guardrails_tab_tooltip": "Checks for sensitive or unwanted content. Shared with MCP servers; guardrail policies in profiles apply them to model traffic.",
+	"models_guardrails_tab_tooltip": "Checks for sensitive or unwanted content. Shared with MCP servers; the applied guardrails in profiles use them on model traffic.",
 	"models_routing_tab_tooltip": "Rules that send matching requests to other providers or models, split traffic between them, or fail over.",
 	"models_settings_tab_tooltip": "Gateway-wide settings: the request size limit and what happens when a provider is at capacity.",
 	"models_delete_profile": "Delete profile",

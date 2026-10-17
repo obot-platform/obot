@@ -84,7 +84,7 @@
 	"audit_usage_audit_logs_model_guardrail_stage_output": "응답",
 	"audit_usage_audit_logs_model_guardrails": "가드레일",
 	"audit_usage_audit_logs_model_guardrails_acted": "가드레일이 이 요청에 조치했습니다: {outcomes}",
-	"audit_usage_audit_logs_model_guardrails_description": "가드레일 정책이 이 요청과 응답에서 발견한 내용입니다. 발견된 콘텐츠 자체는 기록되지 않습니다.",
+	"audit_usage_audit_logs_model_guardrails_description": "What applied guardrails found in this request and its response. The content they found is not recorded.",
 	"audit_usage_audit_logs_model_hidden": "숨김",
 	"audit_usage_audit_logs_model_load_details_failed": "감사 로그 세부 정보를 불러오지 못했습니다",
 	"audit_usage_audit_logs_model_load_logs_failed": "LLM 감사 로그를 불러오지 못했습니다",

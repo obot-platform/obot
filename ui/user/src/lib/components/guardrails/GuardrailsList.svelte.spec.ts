@@ -40,7 +40,12 @@ function mockGuardrails(guardrails: unknown[], policies: unknown[] = [], filters
 			HttpResponse.json({ items: providers })
 		),
 		http.get('/api/llm-gateway/guardrail-policies', () => HttpResponse.json({ items: policies })),
-		http.get('/api/mcp-webhook-validations', () => HttpResponse.json({ items: filters }))
+		http.get('/api/mcp-webhook-validations', () => HttpResponse.json({ items: filters })),
+		http.get('/api/model-access-policies', () =>
+			HttpResponse.json({
+				items: [{ id: 'map-eng', displayName: 'Engineering', subjects: [], models: [] }]
+			})
+		)
 	);
 }
 
@@ -80,6 +85,7 @@ describe('Guardrails list', () => {
 		await expect
 			.element(page.getByText(/shared by the LLM gateway and MCP servers/))
 			.toBeInTheDocument();
+		await expect.element(page.getByText(/used by applied guardrails in/)).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('link', { name: 'LLM Gateway → Profiles' }))
 			.toHaveAttribute('href', '/models?view=profiles');
@@ -88,12 +94,12 @@ describe('Guardrails list', () => {
 			.toHaveAttribute('href', '/mcp-servers?view=filters');
 	});
 
-	it('shows the guardrail policies and filters that use each guardrail', async () => {
+	it('shows the applied guardrails, with their profiles, and filters that use each guardrail', async () => {
 		mockGuardrails(
 			[regexGuardrail, presidioGuardrail],
 			[
-				{ id: 'r1', name: 'Block PII', guardrailIDs: ['p1'] },
-				{ id: 'r2', name: 'Mask PII', guardrailIDs: ['p1', 'p3'] }
+				{ id: 'r1', name: 'Block PII', guardrailIDs: ['p1'], profileID: 'map-eng' },
+				{ id: 'r2', name: 'Mask PII', guardrailIDs: ['p1', 'p3'], profileID: 'map-eng' }
 			],
 			[
 				{ id: 'f1', name: 'No PII in tools', guardrail: { guardrailIDs: ['p1'], action: 'block' } },
@@ -103,7 +109,11 @@ describe('Guardrails list', () => {
 		await renderView();
 
 		await expect
-			.element(page.getByText('Policies: Block PII, Mask PII', { exact: true }))
+			.element(
+				page.getByText('Applied in: Engineering / Block PII, Engineering / Mask PII', {
+					exact: true
+				})
+			)
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByText('Filters: No PII in tools', { exact: true }))

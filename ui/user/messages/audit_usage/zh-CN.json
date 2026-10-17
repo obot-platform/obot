@@ -84,7 +84,7 @@
 	"audit_usage_audit_logs_model_guardrail_stage_output": "响应",
 	"audit_usage_audit_logs_model_guardrails": "护栏",
 	"audit_usage_audit_logs_model_guardrails_acted": "护栏已对此请求采取措施：{outcomes}",
-	"audit_usage_audit_logs_model_guardrails_description": "护栏策略在此请求及其响应中发现的内容。发现的内容本身不会被记录。",
+	"audit_usage_audit_logs_model_guardrails_description": "What applied guardrails found in this request and its response. The content they found is not recorded.",
 	"audit_usage_audit_logs_model_hidden": "隐藏",
 	"audit_usage_audit_logs_model_load_details_failed": "加载审计日志详情失败",
 	"audit_usage_audit_logs_model_load_logs_failed": "加载 LLM 审计日志失败",

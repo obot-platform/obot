@@ -88,7 +88,7 @@
 	"models_page_title": "LLM ゲートウェイ",
 	"models_profiles_tab": "プロファイル",
 	"models_profiles_tab_tooltip": "誰がどのモデルを使用できるか、またその人に適用される予算とガードレールを管理します。",
-	"models_guardrails_tab_tooltip": "機密性の高いコンテンツや望ましくないコンテンツのチェックです。MCP サーバーと共有され、プロファイルのガードレールポリシーによってモデルのトラフィックに適用されます。",
+	"models_guardrails_tab_tooltip": "Checks for sensitive or unwanted content. Shared with MCP servers; the applied guardrails in profiles use them on model traffic.",
 	"models_routing_tab_tooltip": "一致するリクエストを別のプロバイダーやモデルに送信したり、トラフィックを分散したり、フェイルオーバーしたりするルールです。",
 	"models_settings_tab_tooltip": "ゲートウェイ全体の設定: リクエストサイズの上限と、プロバイダーが処理能力の上限に達したときの動作です。",
 	"models_delete_profile": "プロファイルを削除",

@@ -21,7 +21,7 @@ Where to find them:
 
 | What | Where |
 | --- | --- |
-| Guardrails | The **Guardrails** tab of **AI Resources > LLM Gateway**. Guardrails are shared, so a change applies to model and MCP traffic alike. Its **Used by** column shows the applied guardrails (guardrail policies) and guardrail filters that use each guardrail. |
+| Guardrails | The **Guardrails** tab of **AI Resources > LLM Gateway**. Guardrails are shared, so a change applies to model and MCP traffic alike. Its **Used by** column shows the applied guardrails that use each guardrail, each with the profile it's applied in, and the guardrail filters that use it. |
 | Applied guardrails for model traffic | **AI Resources > LLM Gateway > Profiles**, in each profile's **Applied Guardrails** section |
 | Guardrail filters for MCP traffic | **AI Resources > MCP Servers > Filters** |
 | What guardrails did | **Operations > Audit Logs**: the LLM audit log for model traffic, and the MCP audit log for guardrail filters |

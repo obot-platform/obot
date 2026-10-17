@@ -9,7 +9,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
-	import type { MCPFilter } from '$lib/services/admin/types';
+	import type { MCPFilter, ModelAccessPolicy } from '$lib/services/admin/types';
 	import {
 		deleteGuardrail,
 		guardrailCategoryLabel,
@@ -43,6 +43,7 @@
 	let providers = $state<GuardrailProvider[]>([]);
 	let policies = $state<GuardrailPolicy[]>([]);
 	let filters = $state<MCPFilter[]>([]);
+	let profileNames = $state<Record<string, string>>({});
 	let loading = $state(true);
 	let toDelete = $state<Guardrail>();
 	let deleteError = $state('');
@@ -57,12 +58,15 @@
 		loading = true;
 		try {
 			// What uses each guardrail is a convenience; the list shows without it.
-			[guardrails, providers, policies, filters] = await Promise.all([
+			let profiles: ModelAccessPolicy[];
+			[guardrails, providers, policies, filters, profiles] = await Promise.all([
 				listGuardrails(),
 				listGuardrailProviders(),
 				listGuardrailPolicies().catch((): GuardrailPolicy[] => []),
-				AdminService.listMCPFilters().catch((): MCPFilter[] => [])
+				AdminService.listMCPFilters().catch((): MCPFilter[] => []),
+				AdminService.listModelAccessPolicies().catch((): ModelAccessPolicy[] => [])
 			]);
+			profileNames = Object.fromEntries(profiles.map((p) => [p.id, p.displayName || p.id]));
 		} finally {
 			loading = false;
 		}
@@ -79,7 +83,12 @@
 	function namesUsing(id: string | undefined) {
 		if (!id) return { policies: [], filters: [] };
 		return {
-			policies: policies.filter((p) => p.guardrailIDs?.includes(id)).map((p) => p.name),
+			// An applied guardrail is named with the profile it's applied in.
+			policies: policies
+				.filter((p) => p.guardrailIDs?.includes(id))
+				.map((p) =>
+					profileNames[p.profileID] ? `${profileNames[p.profileID]} / ${p.name}` : p.name
+				),
 			filters: filters
 				.filter((f) => f.guardrail?.guardrailIDs?.includes(id))
 				.map((f) => f.name || f.id)

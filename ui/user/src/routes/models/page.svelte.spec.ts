@@ -41,7 +41,9 @@ function mockGuardrails() {
 			})
 		),
 		http.get('/api/llm-gateway/guardrail-policies', () =>
-			HttpResponse.json({ items: [{ id: 'r1', name: 'Block PII', guardrailIDs: ['g1'] }] })
+			HttpResponse.json({
+				items: [{ id: 'r1', name: 'Block PII', guardrailIDs: ['g1'], profileID: 'p-eng' }]
+			})
 		),
 		http.get('/api/mcp-webhook-validations', () => HttpResponse.json({ items: [] }))
 	);
@@ -108,7 +110,7 @@ describe('Models page', () => {
 		await renderModelsTab('guardrails');
 
 		await expect.element(page.getByRole('cell', { name: 'Common PII' })).toBeInTheDocument();
-		await expect.element(page.getByText('Policies: Block PII', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Applied in: Block PII', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText(/shared by the LLM gateway and MCP servers/))
 			.toBeInTheDocument();

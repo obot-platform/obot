@@ -84,7 +84,7 @@
 	"audit_usage_audit_logs_model_guardrail_stage_output": "Response",
 	"audit_usage_audit_logs_model_guardrails": "Guardrails",
 	"audit_usage_audit_logs_model_guardrails_acted": "Guardrails acted on this request: {outcomes}",
-	"audit_usage_audit_logs_model_guardrails_description": "What guardrail policies found in this request and its response. The content they found is not recorded.",
+	"audit_usage_audit_logs_model_guardrails_description": "What applied guardrails found in this request and its response. The content they found is not recorded.",
 	"audit_usage_audit_logs_model_hidden": "Hidden",
 	"audit_usage_audit_logs_model_load_details_failed": "Failed to load audit log details",
 	"audit_usage_audit_logs_model_load_logs_failed": "Failed to load LLM audit logs",

@@ -84,7 +84,7 @@
 	"audit_usage_audit_logs_model_guardrail_stage_output": "レスポンス",
 	"audit_usage_audit_logs_model_guardrails": "ガードレール",
 	"audit_usage_audit_logs_model_guardrails_acted": "ガードレールがこのリクエストに対応しました：{outcomes}",
-	"audit_usage_audit_logs_model_guardrails_description": "ガードレールポリシーがこのリクエストとレスポンスで検出した内容です。検出されたコンテンツ自体は記録されません。",
+	"audit_usage_audit_logs_model_guardrails_description": "What applied guardrails found in this request and its response. The content they found is not recorded.",
 	"audit_usage_audit_logs_model_hidden": "非表示",
 	"audit_usage_audit_logs_model_load_details_failed": "監査ログの詳細の読み込みに失敗しました",
 	"audit_usage_audit_logs_model_load_logs_failed": "LLM 監査ログの読み込みに失敗しました",

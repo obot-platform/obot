@@ -88,7 +88,7 @@
 	"models_page_title": "LLM 网关",
 	"models_profiles_tab": "配置文件",
 	"models_profiles_tab_tooltip": "管理谁可以使用哪些模型，以及适用于他们的预算和护栏。",
-	"models_guardrails_tab_tooltip": "针对敏感或不当内容的检查。与 MCP 服务器共享；配置文件中的护栏策略将其应用于模型流量。",
+	"models_guardrails_tab_tooltip": "Checks for sensitive or unwanted content. Shared with MCP servers; the applied guardrails in profiles use them on model traffic.",
 	"models_routing_tab_tooltip": "将匹配的请求发送到其他提供商或模型、在它们之间分流或进行故障转移的规则。",
 	"models_settings_tab_tooltip": "网关全局设置：请求大小上限，以及提供商达到处理上限时的处理方式。",
 	"models_delete_profile": "删除配置文件",
