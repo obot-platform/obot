@@ -270,6 +270,39 @@ describe('GatewayConnect', () => {
 			.toBeInTheDocument();
 	});
 
+	it('gives the manual Open WebUI steps the address Docker reaches an Obot on localhost at', async () => {
+		render(GatewayConnect, { obotURL: 'http://localhost:8080', models });
+
+		await openClient('Open WebUI');
+		const steps = page.getByRole('dialog').getByRole('listitem');
+		const urlStep = steps.filter({ hasText: 'URL:' }).first();
+		await expect
+			.element(
+				urlStep.getByText('http://host.docker.internal:8080/api/llm-proxy/v1', { exact: true })
+			)
+			.toBeVisible();
+		// Open WebUI run without Docker reaches Obot at localhost.
+		await expect.element(urlStep.getByText(/without Docker, use this URL instead/)).toBeVisible();
+		await expect
+			.element(urlStep.getByText('http://localhost:8080/api/llm-proxy/v1', { exact: true }))
+			.toBeVisible();
+	});
+
+	it('gives the manual Open WebUI steps the Obot URL when it is not on localhost', async () => {
+		render(GatewayConnect, { obotURL, models });
+
+		await openClient('Open WebUI');
+		const urlStep = page
+			.getByRole('dialog')
+			.getByRole('listitem')
+			.filter({ hasText: 'URL:' })
+			.first();
+		await expect
+			.element(urlStep.getByText('https://obot.example.com/api/llm-proxy/v1', { exact: true }))
+			.toBeVisible();
+		await expect.element(urlStep.getByText(/without Docker/)).not.toBeInTheDocument();
+	});
+
 	it('rewrites the OpenAI SDK example with the picked model', async () => {
 		render(GatewayConnect, { obotURL, models });
 

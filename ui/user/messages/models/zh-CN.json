@@ -445,6 +445,7 @@
 	"models_connect_cline_step_model": "Model ID：",
 	"models_connect_open_webui_step_connection": "以 Open WebUI 管理员身份打开 Settings > Admin > Connections，在 Manage OpenAI API Connections 下选择 Add Connection。",
 	"models_connect_open_webui_step_url": "URL：",
+	"models_connect_open_webui_step_url_docker_note": "这是从本机 Docker 容器内访问 Obot 的地址（在容器内，localhost 指向容器本身）。如果 Open WebUI 不使用 Docker 而直接在本机运行，请改用此 URL：",
 	"models_connect_open_webui_step_model": "保存后，在新聊天的模型菜单中选择此模型：",
 	"models_connect_print_api_key": "输出你的 API 密钥",
 	"models_connect_open_webui_docker": "或者，对于新安装的 Open WebUI，在用 Docker 启动时设置连接",

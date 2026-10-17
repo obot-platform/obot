@@ -445,6 +445,7 @@
 	"models_connect_cline_step_model": "Model ID:",
 	"models_connect_open_webui_step_connection": "As an Open WebUI admin, open Settings > Admin > Connections and, under Manage OpenAI API Connections, select Add Connection.",
 	"models_connect_open_webui_step_url": "URL:",
+	"models_connect_open_webui_step_url_docker_note": "That's Obot's address from inside a Docker container on this machine, where localhost is the container itself. If Open WebUI runs on this machine without Docker, use this URL instead:",
 	"models_connect_open_webui_step_model": "Save, then choose this model from the model menu in a new chat:",
 	"models_connect_print_api_key": "Print your API key",
 	"models_connect_open_webui_docker": "Or, for a new Open WebUI install, set the connection when starting it with Docker",

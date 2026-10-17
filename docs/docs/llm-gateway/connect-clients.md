@@ -338,7 +338,7 @@ docker run -d -p 3000:8080 \
   ghcr.io/open-webui/open-webui:main
 ```
 
-For an Obot on the same machine, such as `http://localhost:8080`, use `http://host.docker.internal:8080/api/llm-proxy/v1` instead, and on Linux add `--add-host=host.docker.internal:host-gateway`: inside the container, `localhost` is Open WebUI itself. The Connect tab does this for you when Obot's URL is `localhost`.
+For an Obot on the same machine, such as `http://localhost:8080`, use `http://host.docker.internal:8080/api/llm-proxy/v1` instead, and on Linux add `--add-host=host.docker.internal:host-gateway`: inside the container, `localhost` is Open WebUI itself. The Connect tab does this for you, in both the steps and the Docker command, when Obot's URL is `localhost`. If Open WebUI runs on the same machine without Docker, keep the `localhost` URL.
 
 Every Open WebUI user's requests go through the gateway with this one key, so Obot attributes them to the key's owner. See [Open WebUI's OpenAI-compatible setup](https://docs.openwebui.com/getting-started/quick-start/connect-a-provider/starting-with-openai-compatible/).
 

@@ -245,7 +245,8 @@
 
 	// Clients set up in their own settings screens get numbered steps, each with an optional
 	// value to copy into a field.
-	type Step = { text: string; value?: string };
+	// A step may end with a note, with a value of its own, such as another URL to use instead.
+	type Step = { text: string; value?: string; note?: string; noteValue?: string };
 
 	let steps = $derived.by((): Step[] => {
 		const model = pickedModel('model');
@@ -260,7 +261,16 @@
 			case 'open-webui':
 				return [
 					{ text: m.models_connect_open_webui_step_connection() },
-					{ text: m.models_connect_open_webui_step_url(), value: `${baseURL}/v1` },
+					// Open WebUI mostly runs in Docker, where an Obot on localhost is reached at
+					// host.docker.internal, as in the Docker command below.
+					containerObotURL
+						? {
+								text: m.models_connect_open_webui_step_url(),
+								value: `${containerObotURL}/api/llm-proxy/v1`,
+								note: m.models_connect_open_webui_step_url_docker_note(),
+								noteValue: `${baseURL}/v1`
+							}
+						: { text: m.models_connect_open_webui_step_url(), value: `${baseURL}/v1` },
 					{ text: m.models_connect_step_api_key() },
 					{ text: m.models_connect_open_webui_step_model(), value: model }
 				];
@@ -608,6 +618,20 @@
 								>
 								<CopyButton text={step.value} />
 							</span>
+						{/if}
+						{#if step.note}
+							<p class="text-muted-content text-xs">
+								{step.note}
+								{#if step.noteValue}
+									<span class="inline-flex max-w-full items-center gap-1 align-middle">
+										<code
+											class="bg-base-200 dark:bg-base-100 truncate rounded px-1.5 py-0.5 text-xs"
+											>{step.noteValue}</code
+										>
+										<CopyButton text={step.noteValue} />
+									</span>
+								{/if}
+							</p>
 						{/if}
 					</li>
 				{/each}
