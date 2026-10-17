@@ -350,6 +350,7 @@
 	"models_profiles_new": "새 프로필",
 	"models_profiles_everyone": "모든 사람",
 	"models_profiles_no_one": "없음",
+	"models_profiles_subjects_more": "{names} and {count} more",
 	"models_profiles_users_one": "사용자 {count}명",
 	"models_profiles_users_other": "사용자 {count}명",
 	"models_profiles_groups_one": "그룹 {count}개",

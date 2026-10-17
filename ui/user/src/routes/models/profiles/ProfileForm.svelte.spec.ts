@@ -287,6 +287,38 @@ describe('Profile form', () => {
 		expect(calls).not.toHaveBeenCalled();
 	});
 
+	it("counts a budget's models without those the profile no longer grants", async () => {
+		mockGateway();
+		worker.use(
+			http.get('/api/llm-gateway/budgets', () =>
+				HttpResponse.json({
+					items: [
+						{
+							id: 'b3',
+							name: 'Two models',
+							enabled: true,
+							perUser: true,
+							exemptAdmins: false,
+							limits: [{ metric: 'requests', amount: 10, window: '1d', calendar: true }],
+							models: ['m-opus', 'm-haiku'],
+							profileID: 'p1'
+						}
+					]
+				})
+			)
+		);
+		render(ProfileForm, { modelAccessPolicy: existing });
+
+		const row = page.getByRole('button', { name: 'Edit Two models' });
+		await expect.element(row.getByText(/2 models$/)).toBeVisible();
+		const opusRow = page
+			.getByText('m-opus', { exact: true })
+			.element()
+			.closest('li') as HTMLElement;
+		(opusRow.querySelector('button[aria-label="Remove Model"]') as HTMLElement).click();
+		await expect.element(row.getByText(/1 model$/)).toBeVisible();
+	});
+
 	it('shows the profile read-only to auditors', async () => {
 		mockGateway();
 		await preparePageData({ profile: createMockProfile([Group.USER, Group.AUDITOR]) });

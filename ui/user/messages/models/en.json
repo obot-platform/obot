@@ -350,6 +350,7 @@
 	"models_profiles_new": "New Profile",
 	"models_profiles_everyone": "Everyone",
 	"models_profiles_no_one": "No one",
+	"models_profiles_subjects_more": "{names} and {count} more",
 	"models_profiles_users_one": "{count} user",
 	"models_profiles_users_other": "{count} users",
 	"models_profiles_groups_one": "{count} group",

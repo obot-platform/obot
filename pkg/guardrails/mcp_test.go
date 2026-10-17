@@ -8,6 +8,7 @@ import (
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func secretsFilter(action, direction string) MCPFilter {
@@ -196,5 +197,51 @@ func TestMCPFilterIgnoresMessagesWithoutContent(t *testing.T) {
 		if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied || d.Blocked {
 			t.Fatalf("%s %s must pass a guardrail filter untouched: %+v", msg.Method, msg.Stage, d)
 		}
+	}
+}
+
+func TestResolveIdentityAdmin(t *testing.T) {
+	tests := []struct {
+		name  string
+		user  kuser.Info
+		admin bool
+	}{
+		{
+			name:  "admin session",
+			user:  &kuser.DefaultInfo{UID: "1", Groups: []string{apitypes.GroupAdmin}},
+			admin: true,
+		},
+		{
+			name: "LLM-only API key of an admin",
+			user: &kuser.DefaultInfo{UID: "1", Groups: []string{apitypes.GroupLLM}, Extra: map[string][]string{
+				"obot_groups": {apitypes.GroupAdmin, apitypes.GroupBasic},
+			}},
+			admin: true,
+		},
+		{
+			name: "LLM-only API key of the owner",
+			user: &kuser.DefaultInfo{UID: "1", Groups: []string{apitypes.GroupLLM}, Extra: map[string][]string{
+				"obot_groups": {apitypes.GroupOwner},
+			}},
+			admin: true,
+		},
+		{
+			name: "LLM-only API key of a basic user",
+			user: &kuser.DefaultInfo{UID: "4", Groups: []string{apitypes.GroupLLM}, Extra: map[string][]string{
+				"obot_groups": {apitypes.GroupBasic},
+			}},
+			admin: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, admin, err := ResolveIdentity(t.Context(), nil, tt.user)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if admin != tt.admin {
+				t.Fatalf("admin = %v, want %v", admin, tt.admin)
+			}
+		})
 	}
 }

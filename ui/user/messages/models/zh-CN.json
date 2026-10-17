@@ -350,6 +350,7 @@
 	"models_profiles_new": "新建配置文件",
 	"models_profiles_everyone": "所有人",
 	"models_profiles_no_one": "无",
+	"models_profiles_subjects_more": "{names} and {count} more",
 	"models_profiles_users_one": "{count} 个用户",
 	"models_profiles_users_other": "{count} 个用户",
 	"models_profiles_groups_one": "{count} 个用户组",

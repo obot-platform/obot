@@ -250,6 +250,63 @@ func TestBudgetExceededResponse(t *testing.T) {
 	}
 }
 
+func TestRewriteBudgetExceeded(t *testing.T) {
+	exceeded := &client.LLMGatewayBudgetExceeded{
+		Budget:  gatewaytypes.LLMGatewayBudget{Name: "Daily", PerUser: true},
+		Limit:   gatewaytypes.LLMGatewayBudgetLimit{Metric: gatewaytypes.LLMGatewayBudgetMetricRequests, Amount: 3, Window: "1h"},
+		Used:    3,
+		ResetAt: time.Now().Add(time.Hour),
+	}
+	message, _ := json.Marshal(exceeded.Error())
+	tests := []struct {
+		name      string
+		path      string
+		body      string
+		rewritten bool
+	}{
+		{
+			name:      "chat completions refusal",
+			path:      "/api/llm-proxy/v1/chat/completions",
+			body:      `{"error":{"type":"budget_exceeded","message":` + string(message) + `}}`,
+			rewritten: true,
+		},
+		{
+			// The gateway writes Anthropic errors with the type for the status.
+			name:      "messages refusal",
+			path:      "/api/llm-proxy/v1/messages",
+			body:      `{"type":"error","error":{"type":"rate_limit_error","message":` + string(message) + `}}`,
+			rewritten: true,
+		},
+		{
+			name: "provider's own rate limit on messages",
+			path: "/api/llm-proxy/v1/messages",
+			body: `{"type":"error","error":{"type":"rate_limit_error","message":"Number of requests has exceeded your rate limit"}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &responseModifier{gateway: &gatewayAttempts{budgets: map[string][]string{}, exceeded: exceeded}}
+			resp := &http.Response{
+				StatusCode: http.StatusTooManyRequests,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(tt.body)),
+				Request:    httptest.NewRequest(http.MethodPost, tt.path, nil),
+			}
+			r.rewriteBudgetExceeded(resp)
+			body, _ := io.ReadAll(resp.Body)
+			if got := resp.Header.Get("X-Should-Retry") == "false" && resp.Header.Get("Retry-After") != ""; got != tt.rewritten {
+				t.Fatalf("refusal headers set = %v, want %v: %v", got, tt.rewritten, resp.Header)
+			}
+			if !tt.rewritten && string(body) != tt.body {
+				t.Fatalf("a provider's rate limit was changed: %s", body)
+			}
+			if tt.rewritten && !strings.Contains(string(body), `\"Daily\"`) {
+				t.Fatalf("the refusal doesn't name the budget: %s", body)
+			}
+		})
+	}
+}
+
 func TestStripCallerCredentials(t *testing.T) {
 	const oauth = "Bearer sk-ant-oat01-test"
 	tests := []struct {

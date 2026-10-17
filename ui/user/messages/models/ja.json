@@ -350,6 +350,7 @@
 	"models_profiles_new": "新しいプロファイル",
 	"models_profiles_everyone": "全員",
 	"models_profiles_no_one": "なし",
+	"models_profiles_subjects_more": "{names} and {count} more",
 	"models_profiles_users_one": "{count} 人のユーザー",
 	"models_profiles_users_other": "{count} 人のユーザー",
 	"models_profiles_groups_one": "{count} 個のグループ",

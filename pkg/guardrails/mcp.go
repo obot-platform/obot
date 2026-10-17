@@ -70,11 +70,18 @@ type jsonText struct {
 }
 
 // ResolveIdentity resolves whose budgets and guardrails apply to a request, and whether the
-// caller is an admin.
+// caller is an admin. The caller's role is read from its obot_groups, not only its groups: a
+// request made with an API key carries only the groups of the key's scopes, so an LLM-only
+// key of an admin has no admin group.
 func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Identity, bool, error) {
 	userID := user.GetUID()
 	groups := user.GetExtra()["auth_provider_groups"]
-	isAdmin := slices.Contains(user.GetGroups(), types2.GroupAdmin) || slices.Contains(user.GetGroups(), types2.GroupOwner)
+	isAdmin := false
+	for _, g := range [][]string{user.GetGroups(), user.GetExtra()["obot_groups"]} {
+		if slices.Contains(g, types2.GroupAdmin) || slices.Contains(g, types2.GroupOwner) {
+			isAdmin = true
+		}
+	}
 	return Identity{UserID: userID, Groups: groups}, isAdmin, nil
 }
 

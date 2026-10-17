@@ -857,6 +857,16 @@ func budgetExceededResponse(path string, exceeded *client.LLMGatewayBudgetExceed
 	return header, append(data, '\n')
 }
 
+// isBudgetRefusal reports whether a gateway 429 is the budget refusal itself. The gateway
+// writes the refusal in the client's API format: OpenAI formats keep its budget_exceeded
+// type, but the Anthropic format replaces it with rate_limit_error and keeps only the
+// message.
+func isBudgetRefusal(body []byte, exceeded *client.LLMGatewayBudgetExceeded) bool {
+	return gjson.GetBytes(body, "error.type").String() == budgetExceededType ||
+		gjson.GetBytes(body, "type").String() == budgetExceededType ||
+		gjson.GetBytes(body, "error.message").String() == exceeded.Error()
+}
+
 // rewriteBudgetExceeded turns the gateway's refusal of a request whose budgets are exhausted
 // into the budget error clients are given.
 func (r *responseModifier) rewriteBudgetExceeded(resp *http.Response) {
@@ -869,7 +879,7 @@ func (r *responseModifier) rewriteBudgetExceeded(resp *http.Response) {
 	}
 	body, err := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	if err != nil || (gjson.GetBytes(body, "error.type").String() != budgetExceededType && gjson.GetBytes(body, "type").String() != budgetExceededType) {
+	if err != nil || !isBudgetRefusal(body, exceeded) {
 		// A provider's own rate limit, after a budget refused an earlier attempt.
 		resp.Body = io.NopCloser(bytes.NewReader(body))
 		return

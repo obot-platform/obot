@@ -12,6 +12,11 @@
 		type GuardrailPolicy
 	} from '$lib/services/llm-gateway/guardrails';
 	import { accessibleModels, profile } from '$lib/stores';
+	import {
+		convertSubjectsToTableData,
+		resolveSubjects,
+		type ResolvedSubjects
+	} from '$lib/subjectResolver';
 	import { goto } from '$lib/url';
 	import { Plus, Trash2, UsersRound } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -20,6 +25,9 @@
 	let budgets = $state<Budget[]>([]);
 	let policies = $state<GuardrailPolicy[]>([]);
 	let loading = $state(true);
+	// The users and groups the profiles name, to show who each profile is for. Until they load,
+	// the cards count them.
+	let usersAndGroups = $state<ResolvedSubjects>();
 	let toDelete = $state<ModelAccessPolicy>();
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
@@ -35,7 +43,14 @@
 		} finally {
 			loading = false;
 		}
+		resolveSubjects(profiles.flatMap((p) => p.subjects ?? []))
+			.then((resolved) => (usersAndGroups = resolved))
+			.catch((err) => console.error('Failed to load users and groups:', err));
 	}
+
+	// How many users and groups a card names before it says how many more there are; the card's
+	// tooltip names them all.
+	const SUBJECTS_SHOWN = 3;
 
 	onMount(load);
 
@@ -43,10 +58,28 @@
 		return items.filter((i) => i.profileID === id).length;
 	}
 
-	function subjectsLabel(p: ModelAccessPolicy) {
+	function subjectNames(p: ModelAccessPolicy) {
+		if (!usersAndGroups) return [];
+		return convertSubjectsToTableData(
+			p.subjects ?? [],
+			usersAndGroups.users,
+			usersAndGroups.groups
+		).map((row) => row.displayName);
+	}
+
+	function subjectsLabel(p: ModelAccessPolicy, names: string[]) {
 		const subjects = p.subjects ?? [];
 		if (subjects.some((s) => s.type === 'selector' && s.id === '*'))
 			return m.models_profiles_everyone();
+		if (names.length > 0) {
+			const shown = names.slice(0, SUBJECTS_SHOWN).join(', ');
+			return names.length > SUBJECTS_SHOWN
+				? m.models_profiles_subjects_more({
+						names: shown,
+						count: names.length - SUBJECTS_SHOWN
+					})
+				: shown;
+		}
 		const users = subjects.filter((s) => s.type === 'user').length;
 		const groups = subjects.length - users;
 		return (
@@ -73,9 +106,11 @@
 				policies.filter((r) => r.target === 'llm'),
 				p.id
 			);
+			const names = subjectNames(p);
 			return {
 				...p,
-				subjectsLabel: subjectsLabel(p),
+				subjectsLabel: subjectsLabel(p, names),
+				subjectsTitle: names.join('\n'),
 				facts: [
 					p.models?.some((model) => model.id === '*')
 						? m.models_budgets_all_models()
@@ -126,6 +161,7 @@
 						href={resolve('/models/profiles/[id]', { id: card.id })}
 						class="absolute inset-0 rounded-xl"
 						aria-label={m.models_profiles_edit_item({ name: card.displayName || card.id })}
+						title={card.subjectsTitle || undefined}
 					></a>
 					<div class="pointer-events-none relative">
 						<div class="flex items-start justify-between gap-3">

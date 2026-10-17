@@ -280,7 +280,8 @@
 
 	let guardrailNames = $derived(Object.fromEntries(guardrails.map((g) => [g.id, g.name])));
 
-	function budgetSummary(b: Budget) {
+	function budgetSummary(item: Item<Budget>) {
+		const b = item.value;
 		const limits = b.limits
 			.map((l) =>
 				m.models_budgets_limit_summary({
@@ -291,11 +292,16 @@
 			)
 			.join('; ');
 		const scope = b.perUser ? m.models_budgets_each_user() : m.models_budgets_shared();
-		const covered = b.models?.length
-			? b.models.length === 1
-				? m.models_budgets_models_count_one({ count: b.models.length })
-				: m.models_budgets_models_count_other({ count: b.models.length })
-			: m.models_budgets_all_models();
+		// Count the models the budget keeps once those the profile no longer grants are dropped,
+		// as Save will.
+		const pruned = prunedModels(item);
+		const chosen = pruned ?? b.models ?? [];
+		const covered =
+			chosen.length || pruned
+				? chosen.length === 1
+					? m.models_budgets_models_count_one({ count: chosen.length })
+					: m.models_budgets_models_count_other({ count: chosen.length })
+				: m.models_budgets_all_models();
 		return [scope, limits, covered].filter(Boolean).join(' · ');
 	}
 
@@ -709,7 +715,7 @@
 										>
 									{/if}
 								</span>
-								<span class="text-muted-content truncate text-xs">{budgetSummary(item.value)}</span>
+								<span class="text-muted-content truncate text-xs">{budgetSummary(item)}</span>
 							</button>
 							{#if budgetsWithoutModels.has(item.key)}
 								<span role="alert" class="text-warning flex items-center gap-1 text-xs">

@@ -183,6 +183,13 @@ func TestBudgets(t *testing.T) {
 		if msg.Status != http.StatusTooManyRequests || msg.ErrorMessage == "" || !strings.Contains(msg.ErrorMessage, b.Name) {
 			t.Errorf("want an Anthropic-format 429 naming the budget, got %d: %s", msg.Status, msg.Body)
 		}
+		if msg.Header.Get("Retry-After") == "" || msg.Header.Get("X-Should-Retry") != "false" {
+			t.Errorf("the Anthropic-format 429 lacks Retry-After or X-Should-Retry: false: %v", msg.Header)
+		}
+		streamed := callLLM(t, u.Gateway(env.B), apiMessages, "anthropic/claude-e2e-a", "hi", true, nil)
+		if streamed.Status != http.StatusTooManyRequests || streamed.Header.Get("X-Should-Retry") != "false" {
+			t.Errorf("want a streaming Anthropic-format 429 with X-Should-Retry: false, got %d: %v", streamed.Status, streamed.Header)
+		}
 		// The other user has their own allowance.
 		expectAllowed(t, other, env.B, "openai/gpt-e2e-a", "another user's per-user allowance")
 
@@ -316,6 +323,20 @@ func TestBudgets(t *testing.T) {
 		})
 		for i := range 3 {
 			expectAllowed(t, env.adminUser, replicas[i%2], "openai/gpt-e2e-a", "an exempt admin")
+		}
+		// A key that can only call the LLM gateway carries none of its user's role groups;
+		// its admin is exempt all the same.
+		var llmKey struct {
+			Key string `json:"key"`
+		}
+		env.admin.Post(t, "/api/api-keys", map[string]any{
+			"name":              "e2e-admin-llm-only-" + harness.RandomSuffix(),
+			"canAccessLLMProxy": true,
+		}, &llmKey)
+		llmOnlyAdmin := *env.adminUser
+		llmOnlyAdmin.Key = llmKey.Key
+		for i := range 3 {
+			expectAllowed(t, &llmOnlyAdmin, replicas[i%2], "openai/gpt-e2e-a", "an exempt admin with an LLM-only key")
 		}
 		expectAllowed(t, u, env.A, "openai/gpt-e2e-a", "a user's first request")
 		expectExhausted(t, u, env.B, "openai/gpt-e2e-a", b, "a user's second request")

@@ -28,6 +28,17 @@ function mockProfiles() {
 	const deleted = vi.fn();
 	worker.use(
 		http.get('/api/model-access-policies', () => HttpResponse.json({ items: profiles })),
+		http.get('/api/users', () =>
+			HttpResponse.json({
+				items: [
+					{ id: '1', email: 'alice@example.com', displayName: 'Alice' },
+					{ id: '2', email: 'bob@example.com', displayName: 'Bob' }
+				]
+			})
+		),
+		http.get('/api/groups', () =>
+			HttpResponse.json({ items: [{ id: 'okta/eng', name: 'Engineers' }] })
+		),
 		http.get('/api/llm-gateway/budgets', () =>
 			HttpResponse.json({
 				items: [
@@ -58,7 +69,11 @@ describe('Models profiles tab', () => {
 		await renderModelsTab('profiles');
 
 		const eng = page.getByRole('article').filter({ hasText: 'Engineering' });
-		await expect.element(eng.getByText('2 users, 1 group')).toBeInTheDocument();
+		// The card names who the profile is for, and lists them all on hover.
+		await expect.element(eng.getByText('Engineers, Alice, Bob')).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('link', { name: 'Edit Engineering' }))
+			.toHaveAttribute('title', 'Engineers\nAlice\nBob');
 		await expect.element(eng.getByText('All models')).toBeInTheDocument();
 		await expect.element(eng.getByText('2 budgets')).toBeInTheDocument();
 		await expect.element(eng.getByText('0 applied guardrails')).toBeInTheDocument();
@@ -74,12 +89,44 @@ describe('Models profiles tab', () => {
 			.toHaveAttribute('href', '/models/profiles/p-eng');
 	});
 
+	it('names the first few users and groups and counts the rest', async () => {
+		mockProfiles();
+		worker.use(
+			http.get('/api/model-access-policies', () =>
+				HttpResponse.json({
+					items: [
+						{
+							id: 'p-many',
+							displayName: 'Many',
+							subjects: [
+								{ type: 'user', id: '1' },
+								{ type: 'user', id: '2' },
+								{ type: 'group', id: 'okta/eng' },
+								{ type: 'obotGroup', id: Group.ADMIN }
+							],
+							models: [{ id: '*' }]
+						}
+					]
+				})
+			)
+		);
+		await renderModelsTab('profiles');
+
+		await expect.element(page.getByText('Alice, Bob, Engineers and 1 more')).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('link', { name: 'Edit Many' }))
+			.toHaveAttribute('title', 'Alice\nBob\nEngineers\nObot Admin');
+	});
+
 	it('deletes a profile after saying its budgets and applied guardrails go with it', async () => {
 		const { deleted } = mockProfiles();
 		await renderModelsTab('profiles');
 
-		await expect.element(page.getByText('2 users, 1 group')).toBeInTheDocument();
-		const card = page.getByText('2 users, 1 group').element().closest('article') as HTMLElement;
+		await expect.element(page.getByText('Engineers, Alice, Bob')).toBeInTheDocument();
+		const card = page
+			.getByText('Engineers, Alice, Bob')
+			.element()
+			.closest('article') as HTMLElement;
 		(card.querySelector('button[aria-label="Delete profile"]') as HTMLElement).click();
 		await expect
 			.element(
@@ -95,7 +142,7 @@ describe('Models profiles tab', () => {
 		mockProfiles();
 		await renderModelsTab('profiles', [Group.USER, Group.AUDITOR]);
 
-		await expect.element(page.getByText('2 users, 1 group')).toBeInTheDocument();
+		await expect.element(page.getByText('Engineers, Alice, Bob')).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Delete profile' }))
 			.not.toBeInTheDocument();
