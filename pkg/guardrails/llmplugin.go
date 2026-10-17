@@ -346,8 +346,36 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	return req, nil, nil
 }
 
+// PostLLMHook runs last of the gateway's response hooks, so it sees each attempt's error as the
+// gateway will act on it.
 func (p *InputPlugin) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, bifrostErr *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
-	return resp, bifrostErr, nil
+	return resp, providerError(bifrostErr), nil
+}
+
+// providerError sets how the gateway handles and reports an attempt's error:
+//   - A request the provider rejected as invalid, such as with HTTP 400, isn't sent on to
+//     fallbacks. The gateway would otherwise try every fallback, which would reject it too,
+//     after sending the request, and its content, to each of their providers. An error that
+//     already says whether to fall back, such as a guardrail's or an access refusal, is kept.
+//   - A provider that didn't answer in time is reported in Obot's words, without the engine's
+//     internal error and setting names.
+func providerError(err *schemas.BifrostError) *schemas.BifrostError {
+	if err == nil {
+		return nil
+	}
+	if err.AllowFallbacks == nil && bifrostcore.ClassifyFailure(err) == schemas.FailureClassCallerFault {
+		allowFallbacks := false
+		err.AllowFallbacks = &allowFallbacks
+	}
+	if err.Error != nil && err.Error.Type != nil && *err.Error.Type == schemas.RequestTimedOut {
+		if provider := err.ExtraFields.RoutingInfo.Provider; provider != "" {
+			err.Error.Message = fmt.Sprintf("The request timed out: provider %q didn't answer within its configured request timeout.", provider)
+		} else {
+			err.Error.Message = "The request timed out: the provider didn't answer within its configured request timeout."
+		}
+		err.Error.Error = nil
+	}
+	return err
 }
 
 func (p *OutputPlugin) GetName() string { return OutputPluginName }

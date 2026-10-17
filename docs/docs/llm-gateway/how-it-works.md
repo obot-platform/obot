@@ -82,7 +82,7 @@ Clients may also send `llm` or `llm-mini` as the model name in gateway requests.
 A request can be served by a different model from the one the client asked for:
 
 - A **routing rule** (**LLM Gateway** → **Routing**) whose condition matches sends the request to its targets, splitting traffic between them by weight. Rules are checked in priority order, lowest number first, and the first match applies. A rule can also list fallbacks.
-- A **fallback** is tried when the model before it fails. Fallbacks come from the request's `fallbacks` field or from the routing rule that matched. They aren't tried when the provider rejects the request as invalid (HTTP 400), since the fallback would reject it too.
+- A **fallback** is tried when the model before it fails. Fallbacks come from the request's `fallbacks` field or from the routing rule that matched. They aren't tried when the provider rejects the request itself as invalid (such as HTTP 400 for a malformed image or an unknown parameter), since the fallbacks would reject it too: the caller gets the provider's error, and no other provider receives the request.
 - A **time to first token timeout** on a routing rule target (in seconds) cuts off a streaming request that gets no first token in time and moves it to the next fallback without retrying. When that target is chosen, the timeout applies to it and to each fallback except the last, which always runs to an answer, so it has no effect without a fallback. Requests that don't stream aren't affected.
 
 Whichever model ends up serving a request:

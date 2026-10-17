@@ -230,3 +230,54 @@ func TestGatewayFlagsSubscriptionAttempts(t *testing.T) {
 		})
 	}
 }
+
+// A request the provider rejects as invalid isn't sent on to fallbacks, which would reject it
+// too: the caller gets the provider's 400, and no other provider receives the request.
+func TestGatewayDoesNotFallBackAfterInvalidRequest(t *testing.T) {
+	gw, up := startGateway(t, &fakeStore{})
+	tests := []struct {
+		name string
+		path string
+		body string
+	}{
+		{
+			name: "chat completions",
+			path: "/v1/chat/completions",
+			body: `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"` + invalidRequest + `"}],"fallbacks":["anthropic/claude-sonnet-4-5"]}`,
+		},
+		{
+			name: "anthropic messages",
+			path: "/anthropic/v1/messages",
+			body: `{"model":"anthropic/claude-sonnet-4-5","max_tokens":100,"messages":[{"role":"user","content":"` + invalidRequest + `"}],"fallbacks":["openai/gpt-4o-mini"]}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			up.lock.Lock()
+			before := len(up.prompts)
+			up.lock.Unlock()
+			var attempts []string
+			record := func(_ context.Context, attempt Attempt) error {
+				attempts = append(attempts, attempt.Model)
+				return nil
+			}
+			req := httptest.NewRequest(http.MethodPost, tt.path, strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("anthropic-version", "2023-06-01")
+			token, release := BindRequest(Identity{UserID: "alice"}, RequestHooks{AttemptCheck: record})
+			defer release()
+			req.Header.Set(HeaderRequestToken, token)
+			rec := httptest.NewRecorder()
+			gw.ServeHTTP(rec, req)
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("status %d, want the provider's 400: %s", rec.Code, rec.Body)
+			}
+			up.lock.Lock()
+			sent := len(up.prompts) - before
+			up.lock.Unlock()
+			if sent != 1 || len(attempts) != 1 {
+				t.Fatalf("the upstream got %d requests for attempts %v, want only the primary's", sent, attempts)
+			}
+		})
+	}
+}

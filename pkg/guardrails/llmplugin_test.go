@@ -20,6 +20,8 @@ import (
 
 const (
 	leakedKey = "AKIAIOSFODNN7EXAMPLE"
+	// invalidRequest in a request makes the upstream reject it as invalid, with HTTP 400.
+	invalidRequest = "INVALID_REQUEST"
 )
 
 // upstream is a mock OpenAI API whose answers contain a secret, and which records the
@@ -41,6 +43,14 @@ func newUpstream(t *testing.T) *upstream {
 		var req map[string]any
 		_ = json.Unmarshal(body, &req)
 		switch {
+		case strings.Contains(string(body), invalidRequest) && strings.HasSuffix(r.URL.Path, "/messages"):
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"type":"error","error":{"type":"invalid_request_error","message":"Could not process image"}}`)
+		case strings.Contains(string(body), invalidRequest):
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"You uploaded an unsupported image.","type":"invalid_request_error","param":null,"code":"invalid_image_format"}}`)
 		case strings.HasSuffix(r.URL.Path, "/messages/count_tokens"):
 			_, _ = io.WriteString(w, `{"input_tokens":12}`)
 		case strings.HasSuffix(r.URL.Path, "/messages"):

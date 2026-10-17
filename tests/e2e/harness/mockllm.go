@@ -296,10 +296,15 @@ func (m *MockLLM) serve(w http.ResponseWriter, r *http.Request) {
 	if d.status != 0 {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(d.status)
+		// A 400 rejects the request itself, as providers do for an invalid request.
+		anthropicType, openAIType := "api_error", "server_error"
+		if d.status == http.StatusBadRequest {
+			anthropicType, openAIType = "invalid_request_error", "invalid_request_error"
+		}
 		if anthropic {
-			_, _ = fmt.Fprintf(w, `{"type":"error","error":{"type":"api_error","message":"mock upstream failure %d"}}`, d.status)
+			_, _ = fmt.Fprintf(w, `{"type":"error","error":{"type":%q,"message":"mock upstream failure %d"}}`, anthropicType, d.status)
 		} else {
-			_, _ = fmt.Fprintf(w, `{"error":{"message":"mock upstream failure %d","type":"server_error","code":"mock_failure"}}`, d.status)
+			_, _ = fmt.Fprintf(w, `{"error":{"message":"mock upstream failure %d","type":%q,"code":"mock_failure"}}`, d.status, openAIType)
 		}
 		return
 	}

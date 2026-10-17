@@ -55,6 +55,22 @@ func TestFallbacksAndRetries(t *testing.T) {
 		}
 	})
 
+	t.Run("an invalid request isn't sent to fallbacks", func(t *testing.T) {
+		for _, api := range allAPIs {
+			n := nonce("fallback-invalid")
+			res := callLLM(t, gw, api, "openai/gpt-e2e-a", "hi "+n+" @@status:400@@", false, map[string]any{
+				"fallbacks": []string{"anthropic/claude-e2e-a"},
+			})
+			if res.Status != http.StatusBadRequest {
+				t.Fatalf("%s: want the provider's 400, got %d: %s", api, res.Status, truncate(res.Body))
+			}
+			reqs := env.mock.InferenceRequests(n)
+			if len(reqs) != 1 || reqs[0].Model != "gpt-e2e-a" {
+				t.Fatalf("%s: want only the primary called upstream, got %d requests", api, len(reqs))
+			}
+		}
+	})
+
 	t.Run("no fallback: the error is returned", func(t *testing.T) {
 		res := callLLM(t, gw, apiChat, "openai/gpt-e2e-broken", "hi "+nonce("nofallback"), false, nil)
 		if res.Status < 500 {
