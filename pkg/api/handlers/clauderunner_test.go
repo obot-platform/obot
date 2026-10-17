@@ -107,7 +107,10 @@ func TestClaudeTagCredentials(t *testing.T) {
 		MCPServers map[string]struct{ Headers map[string]string }
 	}
 	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
-	require.Equal(t, map[string]string{"X-Obot-Egress-Key": "placeholder"}, result.MCPServers["vmcp_test"].Headers)
+	require.Equal(t, map[string]string{
+		"Authorization":     "Bearer obot-egress-placeholder",
+		"X-Obot-Egress-Key": "placeholder",
+	}, result.MCPServers["vmcp_test"].Headers)
 	_, err = gateway.RevealCredential(ctx, []string{"substrate-agent"}, instance.Name)
 	require.Error(t, err, "the runner configuration must not mint or expose an API key")
 

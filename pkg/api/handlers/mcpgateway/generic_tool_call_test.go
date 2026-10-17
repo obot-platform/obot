@@ -31,7 +31,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 	upstream := httptest.NewServer(gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,7 +358,7 @@ func TestHookProcessorRejectsCaseVariantFieldNames(t *testing.T) {
 }
 
 func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,7 +417,7 @@ func TestGenericToolCallGzipDiscoveryFailureKeepsRequestIDAndAudit(t *testing.T)
 	}))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -623,7 +623,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 	}))
 	defer upstream.Close()
 
-	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil)
+	handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

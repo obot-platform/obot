@@ -313,7 +313,16 @@ func (h *ClaudeRunnerHandler) credentials(req api.Context) error {
 	}
 	servers := map[string]any{}
 	for _, id := range environment.MCPServerIDs {
-		servers[id] = map[string]any{"type": "http", "url": system.MCPConnectURL(h.Substrate.Config.ObotURL, id), "headers": map[string]string{"X-Obot-Egress-Key": "placeholder"}}
+		// Tell Claude authentication is configured so a component's 401 does not
+		// trigger client registration. Egress replaces this placeholder with the scoped key.
+		servers[id] = map[string]any{
+			"type": "http",
+			"url":  system.MCPConnectURL(h.Substrate.Config.ObotURL, id),
+			"headers": map[string]string{
+				"Authorization":     "Bearer obot-egress-placeholder",
+				"X-Obot-Egress-Key": "placeholder",
+			},
+		}
 	}
 	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
 	return req.Write(map[string]any{"mcpServers": servers})

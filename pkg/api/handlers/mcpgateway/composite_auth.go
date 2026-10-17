@@ -11,11 +11,16 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/modelcontextprotocol/go-sdk/auth"
+	"github.com/obot-platform/mmmcp"
 	"github.com/obot-platform/mmmcp/component"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"golang.org/x/oauth2"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -23,6 +28,9 @@ const (
 	// loopback and component connections.
 	compositeLoopbackTokenTTL = 10 * time.Minute
 )
+
+// Only the owner replica's authenticated request supplies the OAuth lookup identity.
+type compositeAPIContextKey struct{}
 
 type compositeTokenService interface {
 	DecodeToken(context.Context, string) (*persistent.TokenContext, error)
@@ -106,4 +114,21 @@ func newCompositeLoopbackToken(ctx context.Context, tokens compositeTokenService
 		return "", time.Time{}, err
 	}
 	return token, expiresAt, nil
+}
+
+func compositeConfig(serverConfig mcp.ServerConfig, caller user.Info) *mmmcpconfig.Config {
+	cfg := mcp.MMMCPConfig(serverConfig, nil)
+	cfg.DeferAuthorization = authz.IsClaudeEnvironment(caller)
+	return cfg
+}
+
+func compositeAuthorizationURLs(lookup func(api.Context) ([]mmmcp.AuthorizationURL, error)) func(context.Context) ([]mmmcp.AuthorizationURL, error) {
+	return func(ctx context.Context) ([]mmmcp.AuthorizationURL, error) {
+		req, ok := ctx.Value(compositeAPIContextKey{}).(api.Context)
+		if !ok || !authz.IsClaudeEnvironment(req.User) || lookup == nil {
+			return nil, fmt.Errorf("authorization for this Claude environment is unavailable")
+		}
+		req.Request = req.WithContext(ctx)
+		return lookup(req)
+	}
 }

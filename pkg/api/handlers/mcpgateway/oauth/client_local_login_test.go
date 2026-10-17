@@ -108,7 +108,7 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 	response := httptest.NewRecorder()
 	req.ResponseWriter = response
 	require.NoError(t, h.approveConsent(req))
-	require.Equal(t, compositeConsentURL("https://obot.example", instance.Name, vmcp.Name, request.Name), response.Header().Get("Location"))
+	require.Equal(t, compositeConsentURL("https://obot.example", instance.Name, request.Name), response.Header().Get("Location"))
 	req.URL.RawQuery = "oauth_auth_request=" + request.Name
 
 	response = httptest.NewRecorder()

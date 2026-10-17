@@ -167,7 +167,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if needsOAuth {
 			// At least one component requires OAuth.
 			slog.Info("Aggregate MCP server requires component OAuth authentication", "mcpID", mcpID)
-			return compositeConsentURL(f.baseURL, mcpID, mcpServer.Spec.VMCPID, oauthAppAuthRequestID), nil
+			return compositeConsentURL(f.baseURL, mcpID, oauthAppAuthRequestID), nil
 		}
 
 		// No component requires OAuth
@@ -258,15 +258,10 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	}
 }
 
-func compositeConsentURL(baseURL, connectID, vmcpID, authRequestID string) string {
+func compositeConsentURL(baseURL, connectID, authRequestID string) string {
 	query := url.Values{}
 	if authRequestID != "" {
 		query.Set("oauth_auth_request", authRequestID)
-	}
-	// The UI loads metadata by canonical ID, but authenticates the original
-	// connection so migrated users with multiple instances keep their selection.
-	if vmcpID != "" && vmcpID != connectID {
-		query.Set("vmcp_id", vmcpID)
 	}
 	result := fmt.Sprintf("%s/auth/mcp/composite/%s", baseURL, connectID)
 	if len(query) > 0 {

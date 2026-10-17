@@ -25,6 +25,7 @@ import (
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -187,7 +188,7 @@ func compositeSessionKey(serverConfig mcp.ServerConfig) string {
 	return tunnel.CompositeSessionKey(serverConfig.MCPServerName)
 }
 
-func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager) (*Handler, error) {
+func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error)) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	var componentAuth componenthttp.OAuthHandlerProvider
@@ -199,6 +200,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		DSN:               dsn,
 		ForwardClientInfo: true,
 		OAuth:             componentAuth,
+		AuthorizationURLs: compositeAuthorizationURLs(authorizationURLs),
 		ClientInfo: &gomcp.Implementation{
 			Name:    "Obot MCP Gateway",
 			Version: version.Get().String(),
@@ -345,7 +347,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		var resolvedCall *resolvedToolCall
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
 			inspect := audit != nil || (h.hookRunner != nil && len(hookConfig) > 0)
-			resolvedCall, err = h.resolveGenericToolCall(req.Request, mcp.MMMCPConfig(serverConfig, nil), token, inspect)
+			resolvedCall, err = h.resolveGenericToolCall(req.Request, compositeConfig(serverConfig, req.User), token, inspect)
 			if err != nil {
 				if handleGenericToolCallError(req, audit, err) {
 					return nil
@@ -406,7 +408,8 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 	}
 
-	ctx := mmmcp.ContextWithConfig(req.Context(), mcp.MMMCPConfig(serverConfig, nil))
+	ctx := context.WithValue(req.Context(), compositeAPIContextKey{}, req)
+	ctx = mmmcp.ContextWithConfig(ctx, compositeConfig(serverConfig, req.User))
 	ctx = mmmcp.ContextWithConfigID(ctx, fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID))
 	h.composite.HTTPHandler().ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 	return nil
@@ -564,6 +567,10 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		MCPID:            mcpServerName,
 		AuthorizedMCPIDs: authorizedMCPIDs,
 	}
+	if authz.IsClaudeEnvironment(caller) {
+		tokenContext.UserGroups = append(tokenContext.UserGroups, types.GroupClaudeEnvironment)
+	}
+
 	return tokenContext
 }
 

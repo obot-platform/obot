@@ -75,6 +75,9 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 
 	attribution := principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
 	groups := apiKey.Groups(u)
+	if apiKey.ClaudeEnvironment {
+		groups = append(groups, types2.GroupClaudeEnvironment)
+	}
 	extra := map[string][]string{
 		"email":                   {u.Email},
 		"authorized_mcp_ids":      apiKey.MCPServerIDs,

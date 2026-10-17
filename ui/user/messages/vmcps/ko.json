@@ -406,5 +406,6 @@
 	"vmcps_vmcp_updated": "vMCP {name}을(를) 업데이트했습니다.",
 	"vmcps_what_would_you_like_to_do": "무엇을 하시겠습니까?",
 	"vmcps_zoom_in": "확대",
-	"vmcps_zoom_out": "축소"
+	"vmcps_zoom_out": "축소",
+	"vmcps_configuration_required_to_authenticate": "서버를 인증하기 전에 이 vMCP 구성을 완료하세요."
 }

@@ -80,7 +80,7 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 			if old.RevokedAt != nil {
 				return ErrClaudeCredentialRevoked
 			}
-			if old.ExpiresAt != nil && old.ExpiresAt.After(now.Add(30*time.Second)) && !old.ExpiresAt.After(expires) && reflect.DeepEqual(old.APIKeyScopes, scopes) {
+			if old.ClaudeEnvironment && old.ExpiresAt != nil && old.ExpiresAt.After(now.Add(30*time.Second)) && !old.ExpiresAt.After(expires) && reflect.DeepEqual(old.APIKeyScopes, scopes) {
 				return nil
 			}
 
@@ -90,10 +90,18 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 			}
 		}
 
-		key, err := c.createAPIKey(tx, userID, "Claude session "+name, "Self-hosted Claude session", &expires, scopes)
+		key, err := c.createAPIKey(tx, types.APIKey{
+			UserID:            userID,
+			Name:              "Claude session " + name,
+			Description:       "Self-hosted Claude session",
+			ExpiresAt:         &expires,
+			APIKeyScopes:      scopes,
+			ClaudeEnvironment: true,
+		})
 		if err != nil {
 			return err
 		}
+
 		credential = types.Credential{Context: "substrate-agent", Name: name, Secrets: map[string]string{"key": key.Key, "keyID": fmt.Sprint(key.ID)}}
 		stored := credential
 		if err := c.encryptCredential(ctx, &stored); err != nil {

@@ -406,5 +406,6 @@
 	"vmcps_vmcp_updated": "vMCP「{name}」を更新しました。",
 	"vmcps_what_would_you_like_to_do": "何をしますか？",
 	"vmcps_zoom_in": "拡大",
-	"vmcps_zoom_out": "縮小"
+	"vmcps_zoom_out": "縮小",
+	"vmcps_configuration_required_to_authenticate": "サーバーを認証する前に、この vMCP の設定を完了してください。"
 }

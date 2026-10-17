@@ -105,8 +105,19 @@ export async function getMCPServerOrVMCP(
 	id: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPCatalogServer | VMCP> {
+	// Resolve metadata without changing the connection used for authentication.
+	if (id.startsWith('vmcpi1')) {
+		const instance = await getVMCPInstance(id, opts);
+		return getVMCP(instance.vmcpID, opts);
+	}
+
 	const path = id.startsWith('vmcp1') ? `/vmcps/${id}` : `/mcp-servers/${id}`;
-	return (await doGet(path, opts)) as MCPCatalogServer | VMCP;
+	const parent = (await doGet(path, opts)) as MCPCatalogServer | VMCP;
+	if ('vmcpID' in parent && parent.vmcpID) {
+		return getVMCP(parent.vmcpID, opts);
+	}
+
+	return parent;
 }
 
 export async function createVMCP(
@@ -181,7 +192,7 @@ export async function listVMCPInstances(opts?: {
 
 export async function getVMCPInstance(
 	id: string,
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal }
 ): Promise<VMCPInstance> {
 	return (await doGet(`/vmcp-instances/${id}`, opts)) as VMCPInstance;
 }

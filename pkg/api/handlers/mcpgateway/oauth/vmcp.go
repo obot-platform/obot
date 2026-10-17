@@ -6,8 +6,10 @@ import (
 	"log/slog"
 	"sync"
 
+	"github.com/obot-platform/mmmcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -72,22 +74,22 @@ func (h *handler) checkVMCPComponentAuth(req api.Context) error {
 			return types.NewErrForbidden("component does not belong to this vMCP connection")
 		}
 	}
-	authURL, err := h.vmcpComponentAuthURL(req, component, connectID, authRequestID)
+	authURL, err := h.oauthChecker.vmcpComponentAuthURL(req, component, connectID, authRequestID)
 	if err != nil {
 		return err
 	}
 	return req.Write(componentAuthStatus{AuthURL: authURL})
 }
 
-func (h *handler) vmcpComponentAuthURL(req api.Context, component v1.MCPServer, connectID, authRequestID string) (string, error) {
+func (f *MCPOAuthHandlerFactory) vmcpComponentAuthURL(req api.Context, component v1.MCPServer, connectID, authRequestID string) (string, error) {
 	if component.Spec.Manifest.Runtime != types.RuntimeRemote {
 		return "", nil
 	}
-	server, config, err := h.oauthChecker.mcpSessionManager.ServerForAction(req.Context(), connectID, req.User)
+	server, config, err := f.mcpSessionManager.ServerForAction(req.Context(), connectID, req.User)
 	if err != nil {
 		return "", fmt.Errorf("failed to get component server config: %w", err)
 	}
-	return h.oauthChecker.CheckForMCPAuth(req, server, config, req.User.GetUID(), connectID, authRequestID)
+	return f.CheckForMCPAuth(req, server, config, req.User.GetUID(), connectID, authRequestID)
 }
 
 // checkVMCPAuth checks if the vMCP OAuth flow is complete.
@@ -97,10 +99,6 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 		vMCPID             = req.PathValue("mcp_id")
 		oauthAuthRequestID = req.URL.Query().Get("oauth_auth_request")
 	)
-	_, vMCPServer, compositeConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), vMCPID, req.User)
-	if err != nil {
-		return fmt.Errorf("failed to get vMCP server: %w", err)
-	}
 
 	var authRequest v1.OAuthAuthRequest
 	if oauthAuthRequestID != "" {
@@ -112,9 +110,42 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 		}
 	}
 
-	componentServers, err := h.oauthChecker.componentServersForAuth(req, vMCPServer, compositeConfig)
+	pending, err := h.oauthChecker.pendingVMCPAuth(req, vMCPID, oauthAuthRequestID)
 	if err != nil {
 		return err
+	}
+
+	if len(pending) > 0 {
+		// There are still pending second level OAuth requests
+		slog.Debug("vMCP OAuth still pending component authentication", "vMCPID", vMCPID, "pendingComponents", len(pending))
+		return req.Write(pending)
+	}
+
+	if oauthAuthRequestID != "" {
+		// Return completion page URL as JSON instead of performing server-side redirect.
+		// This avoids CORS issues when called from JavaScript fetch.
+		redirectURL := oauthCompletionURL(authRequest.Name)
+		slog.Info("vMCP OAuth completed; returning completion URI to finish authorization", "vMCPID", vMCPID, "authRequest", authRequest.Name)
+		return req.Write(map[string]string{
+			"redirect_uri": redirectURL,
+		})
+	}
+
+	slog.Info("vMCP OAuth check completed with no pending component authentication", "vMCPID", vMCPID)
+	return req.Write(pending)
+}
+
+// pendingVMCPAuth checks component authentication for the UI API.
+// OAuth requests and tokens live in shared storage, so callbacks may reach any replica.
+func (f *MCPOAuthHandlerFactory) pendingVMCPAuth(req api.Context, vMCPID, oauthAuthRequestID string) ([]pendingComponentAuth, error) {
+	_, vMCPServer, compositeConfig, err := f.mcpSessionManager.ServerForActionWithConnectID(req.Context(), vMCPID, req.User)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get vMCP server: %w", err)
+	}
+
+	componentServers, err := f.componentServersForAuth(req, vMCPServer, compositeConfig)
+	if err != nil {
+		return nil, err
 	}
 
 	var (
@@ -144,7 +175,7 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 				limit <- struct{}{}
 			}()
 
-			authURL, err := h.vmcpComponentAuthURL(req, componentServer, compositeConfig.Components[i].ConnectID(), oauthAuthRequestID)
+			authURL, err := f.vmcpComponentAuthURL(req, componentServer, compositeConfig.Components[i].ConnectID(), oauthAuthRequestID)
 			if err != nil {
 				lock.Lock()
 				defer lock.Unlock()
@@ -176,25 +207,25 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 	}
 
 	if len(errs) > 0 {
-		return errors.Join(errs...)
+		return nil, errors.Join(errs...)
 	}
 
-	if len(pending) > 0 {
-		// There are still pending second level OAuth requests
-		slog.Debug("vMCP OAuth still pending component authentication", "vMCPID", vMCPID, "pendingComponents", len(pending))
-		return req.Write(pending)
+	return pending, nil
+}
+
+// ClaudeAuthorizationURLs links Claude environments to the existing whole-vMCP setup flow.
+func (f *MCPOAuthHandlerFactory) ClaudeAuthorizationURLs(req api.Context) ([]mmmcp.AuthorizationURL, error) {
+	if !authz.IsClaudeEnvironment(req.User) {
+		return nil, types.NewErrForbidden("Authorization links are only available to Claude environments")
 	}
 
-	if oauthAuthRequestID != "" {
-		// Return completion page URL as JSON instead of performing server-side redirect.
-		// This avoids CORS issues when called from JavaScript fetch.
-		redirectURL := oauthCompletionURL(authRequest.Name)
-		slog.Info("vMCP OAuth completed; returning completion URI to finish authorization", "vMCPID", vMCPID, "authRequest", authRequest.Name)
-		return req.Write(map[string]string{
-			"redirect_uri": redirectURL,
-		})
+	connectID, _, _, err := f.mcpSessionManager.ServerForActionWithConnectID(req.Context(), req.PathValue("mcp_id"), req.User)
+	if err != nil {
+		return nil, err
 	}
 
-	slog.Info("vMCP OAuth check completed with no pending component authentication", "vMCPID", vMCPID)
-	return req.Write(pending)
+	return []mmmcp.AuthorizationURL{{
+		Message: "Authenticate or configure this vMCP's servers in Obot, then return here when setup is complete.",
+		URL:     compositeConsentURL(f.baseURL, connectID, ""),
+	}}, nil
 }

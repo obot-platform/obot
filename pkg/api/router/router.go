@@ -49,6 +49,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		ModelProxySettings:        services.GatewayClient,
 	})
 
+	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
+
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
 		services.MCPSessionManager,
@@ -59,12 +61,11 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		services.DSN,
 		services.MCPSecretBindingAllowedLabel,
 		services.TunnelManager,
+		oauthChecker.ClaudeAuthorizationURLs,
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
 
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
 	mcpCatalogs := handlers.NewMCPCatalogHandler(services.DefaultMCPCatalogPath, services.ServerURL, services.MCPRuntimeBackend, services.MCPSessionManager, oauthChecker, services.GatewayClient, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)

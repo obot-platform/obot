@@ -406,5 +406,6 @@
 	"vmcps_vmcp_updated": "{name} vMCP updated.",
 	"vmcps_what_would_you_like_to_do": "What would you like to do?",
 	"vmcps_zoom_in": "Zoom in",
-	"vmcps_zoom_out": "Zoom out"
+	"vmcps_zoom_out": "Zoom out",
+	"vmcps_configuration_required_to_authenticate": "Finish configuring this vMCP before authenticating its servers."
 }

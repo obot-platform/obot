@@ -181,12 +181,14 @@ func TestMCPScopedComponentOAuth(t *testing.T) {
 		},
 	).Build()
 	a := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	runner := []string{types.GroupMCP, types.GroupClaudeEnvironment, types.GroupAuthenticated}
 	for _, tc := range []struct {
 		name    string
 		method  string
 		path    string
 		userID  string
 		scope   string
+		groups  []string
 		allowed bool
 	}{
 		{
@@ -196,6 +198,14 @@ func TestMCPScopedComponentOAuth(t *testing.T) {
 			userID:  "7",
 			scope:   "vmcp1allowed",
 			allowed: true,
+		},
+		{
+			name:   "MCP key outside a Claude environment",
+			method: http.MethodGet,
+			path:   "/api/oauth/vmcp/vmcp1allowed",
+			userID: "7",
+			scope:  "vmcp1allowed",
+			groups: []string{types.GroupMCP, types.GroupAuthenticated},
 		},
 		{
 			name:    "own instance",
@@ -242,10 +252,14 @@ func TestMCPScopedComponentOAuth(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			groups := tc.groups
+			if groups == nil {
+				groups = runner
+			}
 			caller := &user.DefaultInfo{
 				Name:   "runner",
 				UID:    tc.userID,
-				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
+				Groups: groups,
 				Extra:  map[string][]string{"authorized_mcp_ids": {tc.scope}},
 			}
 			if got := a.Authorize(httptest.NewRequest(tc.method, tc.path, nil), caller); got != tc.allowed {

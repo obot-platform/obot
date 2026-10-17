@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"testing"
+	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -75,5 +76,51 @@ func TestAPIKeyAuthenticatorCarriesMaskedAttributionForUnnamedKey(t *testing.T) 
 	wantName := fmt.Sprintf("ok1-%d-%d-*****", keyOwner.ID, created.ID)
 	if !ok || attribution.ID != created.ID || attribution.Name != wantName {
 		t.Fatalf("attribution = %#v, %v; want key %d named %q", attribution, ok, created.ID, wantName)
+	}
+}
+
+func TestOnlyClaudeCredentialsEnableDeferredMCPAuthorization(t *testing.T) {
+	_, client := newTokenRequestTestServer(t)
+	owner, err := client.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{
+		ProviderUsername: "claude-user", ProviderUserID: "claude-user", Email: "claude@example.com",
+	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Matching display metadata is not sufficient to impersonate a runner credential.
+	external, err := client.CreateAPIKey(t.Context(), owner.ID, "Claude session acr-test", "Self-hosted Claude session", nil, gatewaytypes.APIKeyScopes{MCPServerIDs: []string{"vmcp1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner, err := client.EnsureClaudeCredential(t.Context(), owner.ID, "acr-test", []string{"vmcp1"}, time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name string
+		key  string
+		want bool
+	}{
+		{
+			name: "external",
+			key:  external.Key,
+		},
+		{
+			name: "runner",
+			key:  runner.Secrets["key"],
+			want: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodPost, "/mcp-connect/vmcp1", nil)
+			request.Header.Set("Authorization", "Bearer "+test.key)
+			response, ok, err := NewAPIKeyAuthenticator(client).AuthenticateRequest(request)
+			if err != nil || !ok {
+				t.Fatalf("authenticate: %v, %v", ok, err)
+			}
+			if got := slices.Contains(response.User.GetGroups(), types2.GroupClaudeEnvironment); got != test.want {
+				t.Fatalf("Claude environment group = %v, want %v", got, test.want)
+			}
+		})
 	}
 }

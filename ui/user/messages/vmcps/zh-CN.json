@@ -406,5 +406,6 @@
 	"vmcps_vmcp_updated": "已更新 vMCP {name}。",
 	"vmcps_what_would_you_like_to_do": "您想做什么？",
 	"vmcps_zoom_in": "放大",
-	"vmcps_zoom_out": "缩小"
+	"vmcps_zoom_out": "缩小",
+	"vmcps_configuration_required_to_authenticate": "请先完成此 vMCP 的配置，然后再对其服务器进行身份验证。"
 }
