@@ -49,8 +49,8 @@ type NormalizedCall struct {
 	ObotHosted bool
 	// Unresolved reports that the device could not establish what the call
 	// targets, and UnresolvedReason names the specific cause. Such a call is
-	// denied ahead of every allowlist toggle: nothing can be said to match a
-	// target that was never identified.
+	// denied ahead of every allowlist toggle except the built-in agent MCP one,
+	// which matches on the server name instead of the resolved target.
 	Unresolved       bool
 	UnresolvedReason string
 }
