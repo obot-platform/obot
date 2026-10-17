@@ -303,3 +303,61 @@ func TestLLMAuditRecorderRecordsRoute(t *testing.T) {
 		t.Fatalf("audit log of a subscription request: subscription %v, key %q", subscription.log.ClaudeSubscription, subscription.log.ProviderKey)
 	}
 }
+
+// A response the caller's Claude subscription paid for cost Obot nothing: the audit log and
+// token usage record its tokens without spend. One a gateway key paid for keeps its spend.
+func TestSubscriptionResponsesRecordNoSpend(t *testing.T) {
+	usage := types.TokenUsage{
+		InputTokens:     100,
+		CacheReadTokens: 40,
+		OutputTokens:    10,
+		TotalTokens:     110,
+		InputSpend:      0.002,
+		CacheReadSpend:  0.0004,
+		OutputSpend:     0.001,
+		TotalSpend:      0.003,
+	}
+	tests := []struct {
+		name         string
+		subscription bool
+		wantSpend    float64
+	}{
+		{
+			name:         "paid by the Claude subscription",
+			subscription: true,
+			wantSpend:    0,
+		},
+		{
+			name:         "paid by a gateway key",
+			subscription: false,
+			wantSpend:    0.003,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			audit := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), &user.DefaultInfo{UID: "7"}, 1024)
+			recorder := &llmUsageRecorder{}
+			r := &responseModifier{
+				user:   &user.DefaultInfo{UID: "7"},
+				client: newUsageTestClient(t),
+				gateway: &gatewayAttempts{
+					budgets:              map[string][]string{},
+					admitted:             "anthropic/claude-opus-4-8",
+					admittedSubscription: tt.subscription,
+				},
+				audit: audit,
+				usage: recorder,
+			}
+			r.recordUsage(usage)
+			if audit.log.Spend != tt.wantSpend || recorder.usage.TotalSpend != tt.wantSpend {
+				t.Fatalf("audit spend %v and usage spend %v, want %v", audit.log.Spend, recorder.usage.TotalSpend, tt.wantSpend)
+			}
+			if tt.subscription && (recorder.usage.InputSpend != 0 || recorder.usage.CacheReadSpend != 0 || recorder.usage.OutputSpend != 0) {
+				t.Fatalf("usage of a subscription response has spend: %+v", recorder.usage)
+			}
+			if audit.log.InputTokens != 100 || audit.log.OutputTokens != 10 || recorder.usage.TotalTokens != 110 {
+				t.Fatalf("token counts changed: audit %d in, %d out; usage %+v", audit.log.InputTokens, audit.log.OutputTokens, recorder.usage)
+			}
+		})
+	}
+}

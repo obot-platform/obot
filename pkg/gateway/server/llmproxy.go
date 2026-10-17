@@ -509,8 +509,12 @@ func (r *responseModifier) Close() error {
 }
 
 // recordUsage records a response's usage in the audit log and token usage, and charges a
-// gateway request's budgets with it.
+// gateway request's budgets with it. A response the caller's Claude subscription paid for
+// cost Obot nothing, so its tokens are recorded without spend.
 func (r *responseModifier) recordUsage(usage gatewaytypes.TokenUsage) {
+	if r.gateway != nil && r.gateway.paidBySubscription() {
+		usage.InputSpend, usage.CacheReadSpend, usage.CacheWriteSpend, usage.OutputSpend, usage.TotalSpend = 0, 0, 0, 0, 0
+	}
 	r.audit.setTokenUsage(usage)
 	r.usage.setTokenUsage(r.model, usage)
 	if r.gateway != nil {

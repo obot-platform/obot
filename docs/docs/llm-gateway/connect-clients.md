@@ -80,7 +80,7 @@ Claude Code reaches other providers' models, including Bedrock and Azure, throug
 
 ### Claude Code with a Claude subscription {#claude-code-with-a-claude-subscription}
 
-When an administrator turns on **Allow Claude subscriptions** on the Anthropic provider's page (**LLM Gateway** → **Providers** → **Anthropic**), users signed in to Claude Code with a Claude Pro, Max, Team or Enterprise subscription can use it through the gateway. Removing the Anthropic provider turns this off. Their requests to Claude models are billed to their subscription instead of a provider key configured in Obot. Obot still authenticates the user, enforces model access and guardrails, and records the requests in the audit log and usage reports.
+When an administrator turns on **Allow Claude subscriptions** on the Anthropic provider's page (**LLM Gateway** → **Providers** → **Anthropic**), users signed in to Claude Code with a Claude Pro, Max, Team or Enterprise subscription can use it through the gateway. Removing the Anthropic provider turns this off. Their requests to Claude models are billed to their subscription instead of a provider key configured in Obot. Obot still authenticates the user, enforces model access and guardrails, and records the requests in the audit log and usage reports, with their token counts but no spend, since Obot didn't pay for them.
 
 The user keeps their Claude Code login and sends their Obot API key in the `X-Obot-Api-Key` header:
 
