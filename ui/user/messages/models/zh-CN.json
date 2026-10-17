@@ -123,6 +123,7 @@
 	"models_providers_responses_api": "Serves the OpenAI Responses API",
 	"models_providers_responses_api_help": "Leave this off for servers that only serve Chat Completions, such as vLLM, Ollama or llama.cpp. The gateway then serves Responses API and Anthropic Messages requests to this provider through Chat Completions.",
 	"models_providers_base_url": "基础 URL",
+	"models_providers_base_url_change_confirm": "Changing the base URL removes this provider's keys ({count}), so they aren't sent to the new address. Add them again after saving.",
 	"models_providers_optional_suffix": "（可选）",
 	"models_providers_base_url_default_placeholder": "留空则使用提供商默认值",
 	"models_providers_allow_private_network_help": "适用于您自己网络中的提供商，例如自托管的 vLLM 或 Ollama，或 Kubernetes 服务。默认关闭，以防提供商 URL 访问内部服务。",

@@ -180,18 +180,24 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		}
 	}
 
+	// removeKeys confirms that changing a provider's base URL removes its keys (see
+	// llmengine.GuardProviderChange). It is Obot's, so it isn't passed on.
+	query := req.URL.Query()
+	removeKeys := query.Get("removeKeys") == "true"
+	query.Del("removeKeys")
+
 	ctx := req.Context()
 	if req.Method != http.MethodGet {
 		// Once a change reaches the gateway it must finish and be announced to the other
 		// replicas even if the client goes away, so the client can't cancel it midway.
 		ctx = context.WithoutCancel(ctx)
 	}
-	serve := func() (*httptest.ResponseRecorder, error) {
-		out, err := http.NewRequestWithContext(ctx, req.Method, (&url.URL{Path: "/api/" + path, RawQuery: req.URL.RawQuery}).String(), bytes.NewReader(body))
+	serve := func(method, path string, body []byte) (*httptest.ResponseRecorder, error) {
+		out, err := http.NewRequestWithContext(ctx, method, (&url.URL{Path: "/api/" + path, RawQuery: query.Encode()}).String(), bytes.NewReader(body))
 		if err != nil {
 			return nil, err
 		}
-		if ct := req.Request.Header.Get("Content-Type"); ct != "" {
+		if ct := req.Request.Header.Get("Content-Type"); ct != "" && body != nil {
 			out.Header.Set("Content-Type", ct)
 		}
 		out.Header.Set("Accept", "application/json")
@@ -205,30 +211,43 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		guardErr error
 	)
 	if req.Method == http.MethodGet {
-		if rec, err = serve(); err != nil {
+		if rec, err = serve(req.Method, path, body); err != nil {
 			return err
 		}
 	} else if err := h.change(ctx, req, func() (bool, bool) {
 		// Checked here, under the lock every replica shares, so the check sees the
 		// configuration the change is made to.
-		change, err := h.engine.GuardProviderChange(ctx, req.Method, path, body)
+		change, err := h.engine.GuardProviderChange(ctx, req.Method, path, body, removeKeys)
 		if err != nil {
 			guardErr = err
 			return false, false
 		}
-		body = change.Body
-		rec, err = serveRetryingBusyStore(ctx, serve)
+		for i, id := range change.RemoveKeys {
+			keyPath := strings.TrimSuffix(path, "/") + "/keys/" + url.PathEscape(id)
+			if rec, err = serveRetryingBusyStore(ctx, func() (*httptest.ResponseRecorder, error) {
+				return serve(http.MethodDelete, keyPath, nil)
+			}); err != nil {
+				guardErr = err
+				return i > 0, false
+			} else if rec.Code >= 300 {
+				// Keys removed so far are gone; reload to be safe.
+				return i > 0 || rec.Code >= 500, false
+			}
+		}
+		rec, err = serveRetryingBusyStore(ctx, func() (*httptest.ResponseRecorder, error) {
+			return serve(req.Method, path, change.Body)
+		})
 		if err != nil {
 			guardErr = err
-			return false, false
+			return len(change.RemoveKeys) > 0, false
 		}
 		switch {
 		case rec.Code < 300:
 			h.afterMutation(ctx, req, path)
 			// Some settings, such as the request size limit, only take effect when the
 			// engine starts, so this replica reloads a config change too.
-			return true, path != "config"
-		case rec.Code < 500:
+			return true, path != "config" && len(change.RemoveKeys) == 0
+		case rec.Code < 500 && len(change.RemoveKeys) == 0:
 			// Rejected; nothing changed.
 			return false, false
 		default:

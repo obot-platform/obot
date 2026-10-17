@@ -216,6 +216,33 @@ func TestAdminAPISafety(t *testing.T) {
 		})
 	})
 
+	t.Run("guardrails can't use loopback or metadata addresses", func(t *testing.T) {
+		for _, config := range []map[string]any{
+			{"apiKey": "fake-x", "baseURL": "http://169.254.169.254"},
+			{"apiKey": "fake-x", "baseURL": "http://[fd00:ec2::254]"},
+			{"apiKey": "fake-x", "baseURL": "http://127.0.0.1:8080"},
+			{"apiKey": "fake-x", "baseURL": "http://localhost:8080"},
+		} {
+			resp := admin.Do(t, http.MethodPost, "/api/llm-gateway/guardrails", map[string]any{"name": "e2e metadata " + harness.RandomSuffix(), "type": "lakera", "config": config})
+			if resp.Status != http.StatusBadRequest {
+				t.Errorf("guardrail on %v: want 400, got %s", config["baseURL"], resp)
+				if id := gjson.GetBytes(resp.Body, "id").String(); id != "" {
+					admin.Do(t, http.MethodDelete, "/api/llm-gateway/guardrails/"+id, nil)
+				}
+			}
+		}
+		// A guardrail service on a private network, such as a self-hosted Presidio, is fine.
+		var created struct {
+			ID string `json:"id"`
+		}
+		admin.Post(t, "/api/llm-gateway/guardrails", map[string]any{
+			"name":   "e2e private presidio " + harness.RandomSuffix(),
+			"type":   "presidio",
+			"config": map[string]any{"analyzerURL": "http://10.255.255.1:3000", "language": "en"},
+		}, &created)
+		admin.Do(t, http.MethodDelete, "/api/llm-gateway/guardrails/"+created.ID, nil)
+	})
+
 	t.Run("non-admins are forbidden and auditors can read", func(t *testing.T) {
 		basic := env.newUser(t, "basic-admin-api")
 		auditor := newAuditor(t)
@@ -305,6 +332,25 @@ func TestProviderAddresses(t *testing.T) {
 		return name, resp
 	}
 
+	t.Run("loopback addresses need private network addresses allowed", func(t *testing.T) {
+		for _, u := range []string{"http://localhost:18999", "http://127.0.0.1:18999", "http://[::1]:18999"} {
+			if _, resp := newProvider(t, u, false); resp.Status != http.StatusBadRequest || !strings.Contains(string(resp.Body), "Allow private network addresses") {
+				t.Errorf("%s without private addresses allowed: want 400, got %s", u, resp)
+			}
+			if _, resp := newProvider(t, u, true); resp.Status != http.StatusOK {
+				t.Errorf("%s with private addresses allowed: want 200, got %s", u, resp)
+			}
+		}
+	})
+
+	t.Run("metadata addresses are never allowed", func(t *testing.T) {
+		for _, u := range []string{"http://169.254.169.254", "http://[fd00:ec2::254]", "http://[::ffff:169.254.169.254]"} {
+			if _, resp := newProvider(t, u, true); resp.Status != http.StatusBadRequest {
+				t.Errorf("%s: want 400, got %s", u, resp)
+			}
+		}
+	})
+
 	t.Run("a custom provider's settings can be saved", func(t *testing.T) {
 		name, resp := newProvider(t, env.mock.URL, true)
 		if resp.Status != http.StatusOK {
@@ -325,6 +371,36 @@ func TestProviderAddresses(t *testing.T) {
 		}
 	})
 
+	t.Run("changing the base URL removes the keys", func(t *testing.T) {
+		name, resp := newProvider(t, env.mock.URL, true)
+		if resp.Status != http.StatusOK {
+			t.Fatalf("create: %s", resp)
+		}
+		keyName := "k-" + name
+		if addKey(t, admin, name, keyName, "e2e-upstream-"+name) == "" {
+			t.Fatal("key was not created")
+		}
+		moved := map[string]any{
+			"network_config":              map[string]any{"base_url": env.mock.URL + "/moved", "allow_private_network": true},
+			"concurrency_and_buffer_size": map[string]any{"concurrency": 1000, "buffer_size": 5000},
+		}
+		path := "/api/llm-gateway/admin/providers/" + name
+		if resp := admin.Do(t, http.MethodPut, path, moved); resp.Status != http.StatusBadRequest || !strings.Contains(string(resp.Body), "removes its keys") {
+			t.Fatalf("moving the provider with its keys: want 400, got %s", resp)
+		}
+		if findKeyID(t, admin, name, keyName) == "" {
+			t.Fatal("a refused change removed the key")
+		}
+		admin.Put(t, path+"?removeKeys=true", moved, nil)
+		if findKeyID(t, admin, name, keyName) != "" {
+			t.Fatal("the key was kept after moving the provider")
+		}
+		var after map[string]any
+		admin.Get(t, path, &after)
+		if got := gjson.Get(mustMarshal(t, after), "network_config.base_url").String(); !strings.HasSuffix(got, "/moved") {
+			t.Fatalf("base URL = %q after the move", got)
+		}
+	})
 }
 
 func mustMarshal(t *testing.T, v any) string {

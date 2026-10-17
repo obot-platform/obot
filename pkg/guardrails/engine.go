@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
-	"net/http"
 	"slices"
 	"strings"
 	"sync"
@@ -165,7 +164,7 @@ func New(client Store, judge *messagepolicy.Helper) *Engine {
 		client: client,
 		deps: Deps{
 			Judge:      judge,
-			HTTPClient: &http.Client{Timeout: 30 * time.Second},
+			HTTPClient: newHTTPClient(),
 		},
 	}
 }

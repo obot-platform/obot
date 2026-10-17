@@ -225,6 +225,7 @@ describe('LLM gateway provider page', () => {
 		const updated = vi.fn();
 		worker.use(
 			http.put('/api/llm-gateway/admin/providers/:name', async ({ params, request }) => {
+				expect(new URL(request.url).searchParams.has('removeKeys')).toBe(false);
 				updated(params.name, await request.json());
 				return HttpResponse.json(openai);
 			})
@@ -239,6 +240,37 @@ describe('LLM gateway provider page', () => {
 				'openai',
 				expect.objectContaining({
 					network_config: expect.objectContaining({ max_retries: 5 })
+				})
+			)
+		);
+	});
+
+	it('removes the keys, after confirmation, when the base URL changes', async () => {
+		mockProvider();
+		const updated = vi.fn();
+		worker.use(
+			http.put('/api/llm-gateway/admin/providers/:name', async ({ request }) => {
+				updated(new URL(request.url).searchParams.get('removeKeys'), await request.json());
+				return HttpResponse.json(openai);
+			})
+		);
+		await renderProviderPage();
+
+		await page.getByLabelText('Base URL').fill('https://llm-proxy.example.com/v1');
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect
+			.element(page.getByText(/^Changing the base URL removes this provider's keys \(1\)/))
+			.toBeInTheDocument();
+		expect(updated).not.toHaveBeenCalled();
+		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+		await vi.waitFor(() =>
+			expect(updated).toHaveBeenCalledWith(
+				'true',
+				expect.objectContaining({
+					network_config: expect.objectContaining({
+						base_url: 'https://llm-proxy.example.com/v1'
+					})
 				})
 			)
 		);

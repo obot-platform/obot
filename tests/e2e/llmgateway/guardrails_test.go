@@ -396,7 +396,8 @@ func TestGuardrails(t *testing.T) {
 	})
 
 	t.Run("fail closed with an erroring guardrail", func(t *testing.T) {
-		dead := createGuardrail(t, "presidio", map[string]any{"analyzerURL": "http://127.0.0.1:1"})
+		// Guardrails can't use loopback addresses, so this one is a name that never resolves.
+		dead := createGuardrail(t, "presidio", map[string]any{"analyzerURL": "http://presidio.invalid:1"})
 		closedUser, openUser := env.newUser(t, "gr-closed"), env.newUser(t, "gr-open")
 		createPolicy(t, guardrailPolicy{Name: "e2e fail closed", ApplyTo: "input", Action: "redact", FailClosed: true,
 			GuardrailIDs: []string{dead}, ProfileID: profileOf(t, closedUser)})

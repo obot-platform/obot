@@ -149,31 +149,53 @@
 			.sort();
 	}
 
-	async function saveNetwork() {
+	// Saving a new base URL removes the provider's keys, so they aren't sent to the new
+	// address; the admin confirms first.
+	let confirmingBaseURLChange = $state(false);
+
+	function sameBaseURL(a: string, b: string) {
+		return a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
+	}
+
+	function save() {
+		if (!provider) return;
+		if (keys.length > 0 && !sameBaseURL(baseURL, provider.network_config?.base_url ?? '')) {
+			confirmingBaseURLChange = true;
+			return;
+		}
+		void saveNetwork();
+	}
+
+	async function saveNetwork(removeKeys = false) {
 		if (!provider) return;
 		saving = true;
 		try {
 			const extra = Object.fromEntries(
 				headers.filter((h) => h.key.trim()).map((h) => [h.key.trim(), h.value])
 			);
-			provider = await updateProvider(name, {
-				network_config: {
-					...provider.network_config,
-					base_url: baseURL.trim() || undefined,
-					default_request_timeout_in_seconds: Number(timeout),
-					max_retries: Number(retries),
-					retry_backoff_initial: Number(backoffInitial),
-					retry_backoff_max: Number(backoffMax),
-					stream_idle_timeout_in_seconds: Number(streamIdle) || undefined,
-					allow_private_network: allowPrivate,
-					extra_headers: Object.keys(extra).length ? extra : undefined
+			provider = await updateProvider(
+				name,
+				{
+					network_config: {
+						...provider.network_config,
+						base_url: baseURL.trim() || undefined,
+						default_request_timeout_in_seconds: Number(timeout),
+						max_retries: Number(retries),
+						retry_backoff_initial: Number(backoffInitial),
+						retry_backoff_max: Number(backoffMax),
+						stream_idle_timeout_in_seconds: Number(streamIdle) || undefined,
+						allow_private_network: allowPrivate,
+						extra_headers: Object.keys(extra).length ? extra : undefined
+					},
+					concurrency_and_buffer_size: {
+						concurrency: Number(concurrency),
+						buffer_size: Number(bufferSize)
+					}
 				},
-				concurrency_and_buffer_size: {
-					concurrency: Number(concurrency),
-					buffer_size: Number(bufferSize)
-				}
-			});
+				{ removeKeys }
+			);
 			success.add(m.models_providers_settings_saved());
+			if (removeKeys) await loadKeys();
 		} finally {
 			saving = false;
 		}
@@ -521,7 +543,7 @@
 				<button class="btn btn-secondary text-sm" onclick={() => goto(PROVIDERS_URL)}
 					>{m.common_cancel()}</button
 				>
-				<button class="btn btn-primary text-sm" onclick={saveNetwork} disabled={saving}>
+				<button class="btn btn-primary text-sm" onclick={save} disabled={saving}>
 					{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 				</button>
 			</div>
@@ -573,6 +595,16 @@
 		await loadKeys();
 	}}
 	oncancel={() => (keyToDelete = undefined)}
+/>
+
+<Confirm
+	show={confirmingBaseURLChange}
+	msg={m.models_providers_base_url_change_confirm({ count: keys.length })}
+	onsuccess={async () => {
+		confirmingBaseURLChange = false;
+		await saveNetwork(true);
+	}}
+	oncancel={() => (confirmingBaseURLChange = false)}
 />
 
 <Confirm

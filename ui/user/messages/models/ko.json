@@ -123,6 +123,7 @@
 	"models_providers_responses_api": "Serves the OpenAI Responses API",
 	"models_providers_responses_api_help": "Leave this off for servers that only serve Chat Completions, such as vLLM, Ollama or llama.cpp. The gateway then serves Responses API and Anthropic Messages requests to this provider through Chat Completions.",
 	"models_providers_base_url": "기본 URL",
+	"models_providers_base_url_change_confirm": "Changing the base URL removes this provider's keys ({count}), so they aren't sent to the new address. Add them again after saving.",
 	"models_providers_optional_suffix": "(선택 사항)",
 	"models_providers_base_url_default_placeholder": "공급자 기본값을 사용하려면 비워 두세요",
 	"models_providers_allow_private_network_help": "자체 네트워크에 있는 공급자(자체 호스팅 vLLM 또는 Ollama, Kubernetes 서비스 등)에 필요합니다. 공급자 URL이 내부 서비스에 접근하지 못하도록 기본적으로 꺼져 있습니다.",

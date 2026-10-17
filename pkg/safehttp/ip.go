@@ -11,6 +11,15 @@ var (
 	sixToFour      = mustParseCIDR("2002::/16")
 	teredo         = mustParseCIDR("2001::/32")
 	ipv4Compatible = mustParseCIDR("::/96")
+
+	// cloudMetadataIPs are cloud instance metadata services outside the link-local ranges:
+	// AWS's IPv6 endpoint, which is in the unique local (private) range, and Alibaba Cloud's,
+	// which is in the shared address space. They are blocked wherever link-local addresses
+	// are, since they serve the same instance credentials as 169.254.169.254.
+	cloudMetadataIPs = []net.IP{
+		net.ParseIP("fd00:ec2::254"),
+		net.ParseIP("100.100.100.200"),
+	}
 )
 
 func mustParseCIDR(s string) *net.IPNet {
@@ -36,6 +45,14 @@ func IsPrivate(ip net.IP) bool {
 // IsLinkLocal reports whether ip is a link-local address or an IPv6 transition address that embeds one.
 func IsLinkLocal(ip net.IP) bool {
 	return anyIP(ip, func(ip net.IP) bool { return ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() })
+}
+
+// IsCloudMetadata reports whether ip is a cloud instance metadata address outside the
+// link-local ranges, or an IPv6 transition address that embeds one.
+func IsCloudMetadata(ip net.IP) bool {
+	return anyIP(ip, func(ip net.IP) bool {
+		return slices.ContainsFunc(cloudMetadataIPs, ip.Equal)
+	})
 }
 
 func anyIP(ip net.IP, check func(net.IP) bool) bool {

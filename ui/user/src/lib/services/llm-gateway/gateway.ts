@@ -213,12 +213,20 @@ export async function createProvider(
 	return (await doPost(`${B}/providers`, body, opts)) as Provider;
 }
 
+// updateProvider saves a provider's settings. A change of base URL is refused while the
+// provider has keys, so they aren't sent to the new address, unless removeKeys confirms the
+// keys are removed with it.
 export async function updateProvider(
 	name: string,
 	body: Partial<Provider>,
-	opts?: Opts
+	{ removeKeys, ...opts }: Opts & { removeKeys?: boolean } = {}
 ): Promise<Provider> {
-	return (await doPut(`${B}/providers/${encodeURIComponent(name)}`, body, opts)) as Provider;
+	const query = removeKeys ? '?removeKeys=true' : '';
+	return (await doPut(
+		`${B}/providers/${encodeURIComponent(name)}${query}`,
+		body,
+		opts
+	)) as Provider;
 }
 
 export async function deleteProvider(name: string, opts?: Opts): Promise<void> {

@@ -488,9 +488,9 @@ func TestUpgradeFromMain(t *testing.T) {
 		}
 
 		// Now point the imported provider at the mock, which serves the same model for the
-		// imported key.
+		// imported key. Moving a provider removes its keys, so the key is entered again.
 		mock.SetModels(legacyAPIKey, "gpt-legacy")
-		updateProvider(t, admin, "openai", map[string]any{"base_url": mock.URL, "allow_private_network": true})
+		updateProvider(t, admin, "openai", map[string]any{"base_url": mock.URL, "allow_private_network": true}, legacyAPIKey)
 		admin.Post(t, "/api/llm-gateway/sync-models", map[string]any{}, nil)
 
 		var gatewayModelID string
@@ -542,8 +542,8 @@ func TestUpgradeFromMain(t *testing.T) {
 		// their dated form, as Anthropic does. The Generic Responses provider keeps its base URL.
 		mock.SetModels(legacyAnthropicKey, "claude-haiku-4-5-20251001", "claude-upgrade")
 		mock.SetModels(legacyGenericKey, "gpt-generic")
-		updateProvider(t, admin, "anthropic", map[string]any{"base_url": mock.URL, "allow_private_network": true})
-		updateProvider(t, admin, "generic-responses", map[string]any{"allow_private_network": true})
+		updateProvider(t, admin, "anthropic", map[string]any{"base_url": mock.URL, "allow_private_network": true}, legacyAnthropicKey)
+		updateProvider(t, admin, "generic-responses", map[string]any{"allow_private_network": true}, "")
 		admin.Post(t, "/api/llm-gateway/sync-models", map[string]any{}, nil)
 
 		gatewayModels := map[string]string{}
@@ -758,8 +758,9 @@ func TestUpgradeFromMain(t *testing.T) {
 }
 
 // updateProvider changes a gateway provider's network settings, keeping the rest of its
-// configuration.
-func updateProvider(t *testing.T, admin *harness.Client, name string, network map[string]any) {
+// configuration. Moving a provider to another base URL removes its keys, so rekey, when set,
+// is the key value to enter again afterwards.
+func updateProvider(t *testing.T, admin *harness.Client, name string, network map[string]any, rekey string) {
 	t.Helper()
 	var provider map[string]any
 	admin.Get(t, "/api/llm-gateway/admin/providers/"+name, &provider)
@@ -774,7 +775,16 @@ func updateProvider(t *testing.T, admin *harness.Client, name string, network ma
 			update[k] = v
 		}
 	}
-	admin.Put(t, "/api/llm-gateway/admin/providers/"+name, update, nil)
+	path := "/api/llm-gateway/admin/providers/" + name
+	if rekey != "" {
+		path += "?removeKeys=true"
+	}
+	admin.Put(t, path, update, nil)
+	if rekey != "" {
+		admin.Post(t, "/api/llm-gateway/admin/providers/"+name+"/keys", map[string]any{
+			"name": name + "-rekeyed", "value": rekey, "models": []string{"*"}, "weight": 1,
+		}, nil)
+	}
 }
 
 // configureLegacyProvider configures a legacy model provider on main and returns the ID of

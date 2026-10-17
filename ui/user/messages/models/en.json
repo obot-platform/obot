@@ -123,6 +123,7 @@
 	"models_providers_responses_api": "Serves the OpenAI Responses API",
 	"models_providers_responses_api_help": "Leave this off for servers that only serve Chat Completions, such as vLLM, Ollama or llama.cpp. The gateway then serves Responses API and Anthropic Messages requests to this provider through Chat Completions.",
 	"models_providers_base_url": "Base URL",
+	"models_providers_base_url_change_confirm": "Changing the base URL removes this provider's keys ({count}), so they aren't sent to the new address. Add them again after saving.",
 	"models_providers_optional_suffix": "(optional)",
 	"models_providers_base_url_default_placeholder": "Leave empty for the provider default",
 	"models_providers_allow_private_network_help": "Needed for providers on your own network, such as a self-hosted vLLM or Ollama, or a Kubernetes service. Off by default to keep provider URLs from reaching internal services.",

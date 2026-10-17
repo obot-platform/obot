@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -109,6 +110,9 @@ func (h *GuardrailsHandler) FieldOptions(req api.Context) error {
 	}
 	secrets, err := splitGuardrailSecrets(&candidate, current)
 	if err != nil {
+		return err
+	}
+	if err := checkGuardrailDestinations(req.Context(), candidate); err != nil {
 		return err
 	}
 	config := map[string]any{}
@@ -259,6 +263,9 @@ func (h *GuardrailsHandler) CreateGuardrail(req api.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := checkGuardrailDestinations(req.Context(), guardrail); err != nil {
+		return err
+	}
 	if err := req.GatewayClient.CreateGuardrail(req.Context(), &guardrail, secrets); err != nil {
 		return err
 	}
@@ -295,6 +302,9 @@ func (h *GuardrailsHandler) UpdateGuardrail(req api.Context) error {
 	}
 	secrets, err := splitGuardrailSecrets(&guardrail, current)
 	if err != nil {
+		return err
+	}
+	if err := checkGuardrailDestinations(req.Context(), guardrail); err != nil {
 		return err
 	}
 	if err := req.GatewayClient.UpdateGuardrail(req.Context(), &guardrail, secrets); err != nil {
@@ -509,6 +519,17 @@ func configString(v any) string {
 		return ""
 	}
 	return strings.TrimSpace(fmt.Sprint(v))
+}
+
+// checkGuardrailDestinations refuses a guardrail that would send content or credentials to an
+// address guardrails may not use.
+func checkGuardrailDestinations(ctx context.Context, guardrail gatewaytypes.Guardrail) error {
+	config := map[string]any{}
+	_ = json.Unmarshal(guardrail.Config, &config)
+	if err := guardrails.CheckDestinations(ctx, guardrail.Type, config); err != nil {
+		return types.NewErrBadRequest("%v", err)
+	}
+	return nil
 }
 
 // splitGuardrailSecrets validates a guardrail and moves its sensitive settings out of its

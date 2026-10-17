@@ -1,6 +1,7 @@
 package safehttp
 
 import (
+	"errors"
 	"net"
 	"strings"
 	"testing"
@@ -153,5 +154,42 @@ func TestClientBlocksNAT64EmbeddedLinkLocalIP(t *testing.T) {
 	_, err := NewClient(Options{BlockLinkLocal: true, Timeout: 5 * time.Second}).Get("http://[64:ff9b::a9fe:a9fe]/latest/meta-data")
 	if err == nil || !strings.Contains(err.Error(), "blocked link-local IP") {
 		t.Fatalf("expected NAT64 address embedding a link-local IP to be blocked, got %v", err)
+	}
+}
+
+func TestIsCloudMetadata(t *testing.T) {
+	tests := []struct {
+		ip   string
+		want bool
+	}{
+		{ip: "fd00:ec2::254", want: true},
+		{ip: "100.100.100.200", want: true},
+		{ip: "::ffff:100.100.100.200", want: true},
+		{ip: "64:ff9b::6464:64c8", want: true},
+		{ip: "fd00:ec2::253"},
+		{ip: "fd12:3456::1"},
+		{ip: "100.100.100.201"},
+		{ip: "8.8.8.8"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.ip, func(t *testing.T) {
+			if got := IsCloudMetadata(net.ParseIP(tt.ip)); got != tt.want {
+				t.Errorf("IsCloudMetadata(%s) = %v, want %v", tt.ip, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBlockLinkLocalBlocksCloudMetadata(t *testing.T) {
+	for _, u := range []string{"http://[fd00:ec2::254]/latest/meta-data", "http://100.100.100.200/latest/meta-data"} {
+		err := ValidateURL(t.Context(), u, Options{BlockLinkLocal: true})
+		var blocked *BlockedAddressError
+		if !errors.As(err, &blocked) || blocked.Reason != "cloud metadata" {
+			t.Errorf("%s: expected a blocked cloud metadata address, got %v", u, err)
+		}
+	}
+	// Private addresses stay reachable when only link-local addresses are blocked.
+	if err := ValidateURL(t.Context(), "http://[fd00:ec2::253]/", Options{BlockLinkLocal: true}); err != nil {
+		t.Errorf("expected another unique local address to be allowed, got %v", err)
 	}
 }

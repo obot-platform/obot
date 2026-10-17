@@ -26,6 +26,17 @@ Every LLM gateway provider is available in every edition, without registration o
 
 When the server's `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, Obot configures the gateway's `openai` or `anthropic` provider with that key at startup, as a key named `env-OPENAI_API_KEY` or `env-ANTHROPIC_API_KEY`, and updates the key when the value changes. You can disable, edit or delete it like any other key. See [Server Configuration](./server-configuration.md).
 
+### Private and local addresses {#private-and-local-addresses}
+
+A provider's base URL, and the server URL or endpoint of its keys (Ollama, vLLM, SGLang, Azure, Databricks), may point at a private network address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) or at Obot's own host (`localhost`, `127.0.0.0/8`, `::1`) only when the provider's **Allow private network addresses** setting is on. Host names are resolved, and every address they resolve to is checked. Link-local addresses (`169.254.0.0/16`, `fe80::/10`) and cloud metadata addresses, such as `169.254.169.254` and AWS's `fd00:ec2::254`, are never allowed.
+
+### Changing where keys are sent {#changing-where-keys-are-sent}
+
+Keys are only sent to the address they were entered for:
+
+- **Changing a provider's base URL removes its keys.** The provider page asks you to confirm, and you add the keys again after saving. Through the API, a base URL change is refused while the provider has keys, unless the request adds `?removeKeys=true` to `PUT /api/llm-gateway/admin/providers/{name}`.
+- **Changing a key's server URL or endpoint requires entering its secrets again** (its API key or client secret), so a stored secret can't be redirected to another server.
+
 ### Amazon Bedrock {#amazon-bedrock}
 
 Add the **AWS Bedrock** provider with a Bedrock API key or an access key ID and secret access key, and the region.
@@ -42,7 +53,7 @@ Certificate checks can't be turned off, and a custom CA can't be added, on Azure
 
 ### Ollama, vLLM and other self-hosted models {#ollama-vllm-and-other-self-hosted-models}
 
-Add the built-in **Ollama** or **vLLM** provider with the server URL; they don't need a key. For other OpenAI-compatible services, such as LiteLLM, add a custom OpenAI-compatible provider with its base URL. A base URL ending in `/v1`, as such servers usually document it, is saved without it, since the gateway adds `/v1` to every path itself.
+Add the built-in **Ollama** or **vLLM** provider with the server URL; they don't need a key. For other OpenAI-compatible services, such as LiteLLM, add a custom OpenAI-compatible provider with its base URL. A base URL ending in `/v1`, as such servers usually document it, is saved without it, since the gateway adds `/v1` to every path itself. A server on your own network or on Obot's host needs **Allow private network addresses** on the provider; see [Private and local addresses](#private-and-local-addresses).
 
 Many OpenAI-compatible servers serve only Chat Completions, not the OpenAI Responses API. Leave **Serves the OpenAI Responses API** off for them when adding the custom provider: the gateway then serves Responses API and Anthropic Messages requests (from Codex or Claude Code, for example) to it through Chat Completions. Turn it on only for a server that serves `/v1/responses`. Through the API, the same choice is the provider's `custom_provider_config.allowed_requests`: list the request types the server serves (`list_models`, `chat_completion`, `chat_completion_stream`, `embedding` and so on), leaving out `responses` and `responses_stream`.
 
