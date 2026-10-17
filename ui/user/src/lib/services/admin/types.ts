@@ -706,6 +706,9 @@ export interface LLMAuditLog {
 	// providerKey names the gateway key the request was served with.
 	providerKey?: string;
 	fallback?: boolean;
+	// claudeSubscription is true when the user's Claude subscription paid for the request, which
+	// was then served with no provider key.
+	claudeSubscription?: boolean;
 	userID: string;
 }
 

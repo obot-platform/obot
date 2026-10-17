@@ -3,7 +3,12 @@
 
 	type Routing = Pick<
 		LLMAuditLog,
-		'targetModel' | 'servedProvider' | 'servedModel' | 'providerKey' | 'fallback'
+		| 'targetModel'
+		| 'servedProvider'
+		| 'servedModel'
+		| 'providerKey'
+		| 'fallback'
+		| 'claudeSubscription'
 	>;
 
 	// servedBy names the provider and model that served a request, as "provider/model".
@@ -38,6 +43,13 @@
 			{
 				label: m.audit_usage_audit_logs_model_routing_provider_key(),
 				value: auditLog.providerKey
+			},
+			{
+				// The user's own Claude subscription paid for the request, not a provider key.
+				label: m.audit_usage_audit_logs_model_routing_paid_by(),
+				value: auditLog.claudeSubscription
+					? m.audit_usage_audit_logs_model_routing_claude_subscription()
+					: ''
 			},
 			{
 				label: m.audit_usage_audit_logs_model_routing_fallback(),

@@ -31,7 +31,7 @@ LLM gateway audit logs capture requests that flow through Obot's LLM gateway, in
 ### What's Logged {#audit-logs-and-usage-whats-logged-1}
 
 - **Model information**: Provider and requested model
-- **Routing**: The provider and model that served the request, which [routing rules and fallbacks](./how-it-works.md#routing-rules-and-fallbacks) can make differ from the requested model, the provider key it was served with, and whether a fallback served it
+- **Routing**: The provider and model that served the request, which [routing rules and fallbacks](./how-it-works.md#routing-rules-and-fallbacks) can make differ from the requested model, the provider key it was served with, or that the user's Claude subscription paid for it, and whether a fallback served it
 - **Request information**: Request path, method, response status, and outcome
 - **Token usage**: Input and output token counts
 - **Client information**: Client name, version, session ID, and IP address
@@ -45,7 +45,7 @@ Navigate to **Operations > Audit Logs**, then select **Model**.
 
 The LLM audit log view shows request metadata, token usage, model information, and outcomes. Users with the Auditor role can view sensitive request and response fields when available.
 
-A fork icon next to a request's model marks a request that another model served; the model that served it is shown under the requested one, and its details show the full route under **Routing**.
+A fork icon next to a request's model marks a request that another model served; the model that served it is shown under the requested one, and its details show the full route under **Routing**. A request a user's [Claude subscription](./connect-clients.md#claude-code-with-a-claude-subscription) paid for has no provider key; **Routing** shows **Paid by**: *The user's Claude subscription* instead.
 
 A shield next to a request's timestamp marks a request a guardrail acted on, and its details list each finding under **Guardrails**. Blocked requests are logged too, with the block in their response. Guardrail findings are not sensitive fields, so every user who can view the audit log sees them.
 

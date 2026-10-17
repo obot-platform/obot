@@ -185,8 +185,14 @@ func TestServedRoute(t *testing.T) {
 	}
 
 	attempts.admitted = "openai/gpt-5"
-	if got := servedRoute(attempts, reported); got.Provider != "openai" || got.Model != "gpt-5" || got.Key != "" {
+	if got := servedRoute(attempts, reported); got.Provider != "openai" || got.Model != "gpt-5" || got.Key != "" || got.Subscription {
 		t.Errorf("route of another provider's attempt = %+v, want no key", got)
+	}
+
+	// The caller's Claude subscription paid for the attempt, with no gateway key.
+	attempts.admitted, attempts.admittedSubscription = "anthropic/claude-opus-4-8", true
+	if got := servedRoute(attempts, reported); !got.Subscription || got.Key != "" || got.Provider != "anthropic" {
+		t.Errorf("route of a subscription attempt = %+v, want it paid by the subscription with no key", got)
 	}
 }
 
@@ -277,7 +283,17 @@ func TestLLMAuditRecorderRecordsRoute(t *testing.T) {
 	recorder.finish(newUsageTestClient(t), nil)
 
 	log := recorder.log
-	if log.TargetModel != "anthropic/claude-opus-4-8" || log.ServedProvider != "bedrock" || log.ServedModel != "claude-opus-4-8" || log.ProviderKey != "us-east" || !log.Fallback {
-		t.Fatalf("audit log routing = target %q, served %q/%q, key %q, fallback %v", log.TargetModel, log.ServedProvider, log.ServedModel, log.ProviderKey, log.Fallback)
+	if log.TargetModel != "anthropic/claude-opus-4-8" || log.ServedProvider != "bedrock" || log.ServedModel != "claude-opus-4-8" || log.ProviderKey != "us-east" || !log.Fallback || log.ClaudeSubscription {
+		t.Fatalf("audit log routing = target %q, served %q/%q, key %q, fallback %v, subscription %v", log.TargetModel, log.ServedProvider, log.ServedModel, log.ProviderKey, log.Fallback, log.ClaudeSubscription)
+	}
+
+	subscription := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), &user.DefaultInfo{UID: "7"}, 1024)
+	subscription.setRoute(func() llmRoute {
+		return llmRoute{Provider: "anthropic", Model: "claude-opus-4-8", Subscription: true}
+	})
+	subscription.recordResponseStatus(http.StatusOK)
+	subscription.finish(newUsageTestClient(t), nil)
+	if !subscription.log.ClaudeSubscription || subscription.log.ProviderKey != "" {
+		t.Fatalf("audit log of a subscription request: subscription %v, key %q", subscription.log.ClaudeSubscription, subscription.log.ProviderKey)
 	}
 }

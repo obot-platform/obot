@@ -29,6 +29,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -66,6 +67,9 @@ type responseModifier struct {
 	mapHelper *modelaccesspolicy.Helper
 	audit     *llmAuditRecorder
 	usage     *llmUsageRecorder
+	// unlisted returns the models a model listing response must include although the
+	// upstream didn't list them.
+	unlisted func(ctx context.Context) []llmengine.ListedModel
 }
 
 type preparedLLMProxyRequest struct {
@@ -102,6 +106,12 @@ type extraModelAuthorizingBackend interface {
 	authorizeExtraModels(l *llmProviderProxy, req api.Context, body []byte) ([]byte, error)
 }
 
+// modelListingBackend is implemented by backends that serve models their upstream's model
+// listing doesn't list, which model listing responses must include.
+type modelListingBackend interface {
+	unlistedModels(ctx context.Context) []llmengine.ListedModel
+}
+
 // gatewayRequest is what the LLM gateway backend tracks about one request. The gateway's
 // routing rules and fallbacks choose the model that serves it, and its traffic is governed by
 // budgets, which apply to that model, instead of the daily token quota.
@@ -111,6 +121,9 @@ type gatewayRequest interface {
 	// served returns the model ("provider/model") of the last attempt the gateway made, which
 	// served the request if it succeeded, and the budgets its usage counts against.
 	served() (model string, budgetIDs []string)
+	// paidBySubscription reports whether the caller's Claude subscription paid for the last
+	// attempt, rather than one of the gateway's provider keys.
+	paidBySubscription() bool
 	// budgetExceeded is the budget that refused the last attempt, if one did.
 	budgetExceeded() *client.LLMGatewayBudgetExceeded
 	// guardrailFindings is what the gateway's guardrails did to the request so far.
@@ -171,6 +184,11 @@ func copyBody(body *io.ReadCloser) ([]byte, error) {
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	if isModelsListRequest(resp.Request) {
+		if r.unlisted != nil {
+			if err := addListedModels(resp, r.unlisted(resp.Request.Context()), r.routeDialect == llmtypes.DialectAnthropicMessages); err != nil {
+				return err
+			}
+		}
 		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, string(r.routeDialect))
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
@@ -699,6 +717,9 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		audit:             audit,
 		usage:             usage,
 	}
+	if lister, ok := l.backend.(modelListingBackend); ok && isModelsListRequest(req.Request) {
+		modifier.unlisted = lister.unlistedModels
+	}
 
 	var proxyErr error
 	(&httputil.ReverseProxy{
@@ -747,6 +768,10 @@ func servedRoute(gateway gatewayRequest, reported llmRoute) llmRoute {
 				reported.Key = ""
 			}
 			reported.Provider, reported.Model = provider, model
+		}
+		if gateway.paidBySubscription() {
+			// The caller's own credential served it, not a gateway key.
+			reported.Subscription, reported.Key = true, ""
 		}
 	}
 	return reported

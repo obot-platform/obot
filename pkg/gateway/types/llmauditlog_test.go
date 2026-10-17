@@ -13,6 +13,7 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 		ID:                        "a1",
 		MessagePolicyTriggered:    true,
 		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`),
+		ClaudeSubscription:        true,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -21,5 +22,8 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 		if strings.Contains(string(data), field) {
 			t.Errorf("the audit log entry shows %q: %s", field, data)
 		}
+	}
+	if !strings.Contains(string(data), `"claudeSubscription":true`) {
+		t.Errorf("the audit log entry doesn't say a Claude subscription paid for it: %s", data)
 	}
 }

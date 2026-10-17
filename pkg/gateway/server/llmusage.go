@@ -22,6 +22,9 @@ type llmRoute struct {
 	Model    string
 	Key      string
 	Fallback bool
+	// Subscription is true when the caller's Claude subscription paid for the request, which
+	// was then served with no gateway key.
+	Subscription bool
 }
 
 // llmUsageRecorder records one LLM request in Obot's token usage when it ends, whether it

@@ -65,6 +65,24 @@ describe('LlmAuditLogRouting', () => {
 		await expect.element(section.getByText('anthropic-backup')).toBeVisible();
 		await expect.element(section.getByText('Yes', { exact: true })).toBeVisible();
 		await expect.element(section.getByText(/1,250\s*ms/)).toBeVisible();
+		await expect.element(section.getByText('Paid by')).not.toBeInTheDocument();
+	});
+
+	it("says when the user's Claude subscription paid for a request", async () => {
+		render(LlmAuditLogRouting, {
+			auditLog: auditLog({
+				targetModel: 'anthropic/claude-sonnet-4-5',
+				servedProvider: 'anthropic',
+				servedModel: 'claude-sonnet-4-5',
+				providerKey: undefined,
+				claudeSubscription: true
+			})
+		});
+
+		const section = page.getByRole('region', { name: 'Routing' });
+		await expect.element(section.getByText('Paid by')).toBeVisible();
+		await expect.element(section.getByText("The user's Claude subscription")).toBeVisible();
+		await expect.element(section.getByText('Provider key')).not.toBeInTheDocument();
 	});
 });
 

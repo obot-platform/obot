@@ -191,6 +191,11 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 		t.Fatal("an Anthropic provider with disabled keys lost its models")
 	}
 	subscriptions.Store(true)
+	// The gateway's own model listing lists a provider's models with its keys, so with every
+	// key disabled it lists none of them, and Obot's model listing adds the catalog's.
+	if got := e.ClaudeSubscriptionModels(ctx); len(got) != 1 || got[0].ID != "anthropic/claude-test-5" || got[0].Name == "" {
+		t.Fatalf("want the catalog's Anthropic models for a provider with only disabled keys, got %+v", got)
+	}
 
 	// A key lists the provider's own models instead.
 	if err := e.Do(ctx, http.MethodPost, "/api/providers/anthropic/keys", map[string]any{"name": "k", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
@@ -198,6 +203,9 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	}
 	if models := list(); models["anthropic/claude-test-5"] != nil || models["anthropic/claude-live-1"] == nil {
 		t.Fatalf("expected the provider's listed models with a key, got %v", models)
+	}
+	if got := e.ClaudeSubscriptionModels(ctx); len(got) != 0 {
+		t.Fatalf("want no models added to the gateway's listing with an enabled key, got %+v", got)
 	}
 }
 

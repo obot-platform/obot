@@ -1,6 +1,7 @@
 package llmengine
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -50,6 +51,13 @@ type listedModel struct {
 		OutputModalities []string `json:"output_modalities"`
 	} `json:"architecture"`
 	Pricing map[string]string `json:"pricing"`
+}
+
+// ListedModel is a model the gateway's model listing endpoint doesn't list itself.
+type ListedModel struct {
+	// ID is the model's provider-qualified ID, such as "anthropic/claude-sonnet-4-5".
+	ID   string
+	Name string
 }
 
 // modelCatalog is the part of the gateway's model catalog that lists a provider's models
@@ -247,6 +255,20 @@ func (e *Engine) claudeSubscriptionModels(ctx context.Context) []listedModel {
 		return nil
 	}
 	return catalogModels(catalog, anthropicProvider)
+}
+
+// ClaudeSubscriptionModels returns the Anthropic models listed from the model catalog while
+// the Anthropic provider is used only for Claude subscriptions, which Obot's model list has
+// too (see claudeSubscriptionModels). The gateway's own /v1/models endpoint lists a
+// provider's models with its keys, so it lists none of them.
+func (e *Engine) ClaudeSubscriptionModels(ctx context.Context) []ListedModel {
+	listed := e.claudeSubscriptionModels(ctx)
+	models := make([]ListedModel, 0, len(listed))
+	for _, m := range listed {
+		_, id, _ := strings.Cut(m.ID, "/")
+		models = append(models, ListedModel{ID: m.ID, Name: cmp.Or(m.Name, m.NormalizedName, id)})
+	}
+	return models
 }
 
 // claudeSubscriptionsOnly reports whether the built-in Anthropic provider has no enabled keys

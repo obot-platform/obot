@@ -125,6 +125,9 @@ type gatewayAttempts struct {
 	// admitted is the last attempt admitted: the model ("provider/model") that served the
 	// request when it succeeded, since the gateway tries models one at a time.
 	admitted string
+	// admittedSubscription is true when the caller's Claude subscription pays for the last
+	// attempt admitted.
+	admittedSubscription bool
 	// detections are what the guardrails did to the request, by stage (input or output).
 	detections map[string][]guardrails.Detection
 	// priced is what the gateway priced the response at, when it did.
@@ -387,6 +390,67 @@ func (b *bifrostProviderBackend) trackerDialect(routeDialect llmtypes.Dialect) l
 	return routeDialect
 }
 
+// unlistedModels returns the Anthropic models Obot lists for Claude subscriptions, which the
+// gateway's own model listing leaves out while the Anthropic provider has no enabled keys.
+// Claude Code discovers the models it offers from the model listing.
+func (b *bifrostProviderBackend) unlistedModels(ctx context.Context) []llmengine.ListedModel {
+	if !b.engine.Ready() {
+		return nil
+	}
+	return b.engine.ClaudeSubscriptionModels(ctx)
+}
+
+// addListedModels adds models to a successful model listing response that doesn't list them,
+// in its format: Anthropic's, which names models without their provider, or OpenAI's. They
+// are added to the last page of a paginated listing.
+func addListedModels(resp *http.Response, models []llmengine.ListedModel, anthropic bool) error {
+	if len(models) == 0 || resp.StatusCode != http.StatusOK {
+		return nil
+	}
+	body, err := copyBody(&resp.Body)
+	if err != nil {
+		return err
+	}
+	data := gjson.GetBytes(body, "data")
+	if !data.IsArray() || gjson.GetBytes(body, "has_more").Bool() {
+		return nil
+	}
+	listed := map[string]bool{}
+	for _, id := range data.Get("#.id").Array() {
+		listed[id.String()] = true
+	}
+	added := false
+	for _, m := range models {
+		provider, id, _ := strings.Cut(m.ID, "/")
+		var entry map[string]any
+		if anthropic {
+			entry = map[string]any{"type": "model", "id": id, "display_name": m.Name, "created_at": "1970-01-01T00:00:00Z"}
+		} else {
+			id = m.ID
+			entry = map[string]any{"id": id, "object": "model", "created": 0, "owned_by": provider}
+		}
+		if listed[id] {
+			continue
+		}
+		listed[id] = true
+		if body, err = sjson.SetBytes(body, "data.-1", entry); err != nil {
+			return nil
+		}
+		added = true
+	}
+	if !added {
+		return nil
+	}
+	if body, err = rewriteAnthropicListCursors(body); err != nil {
+		return nil
+	}
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+	resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	resp.Header.Del("Content-Encoding")
+	return nil
+}
+
 // resolveModel resolves a model name that names no gateway model exactly: a bare
 // provider-native ID, or an undated alias of a dated model ID, with or without its provider.
 // When several models match, it prefers one the caller may use.
@@ -420,6 +484,14 @@ func (a *gatewayAttempts) served() (string, []string) {
 	a.lock.Lock()
 	defer a.lock.Unlock()
 	return a.admitted, a.budgets[a.admitted]
+}
+
+// paidBySubscription reports whether the caller's Claude subscription paid for the last
+// attempt admitted, rather than one of the gateway's provider keys.
+func (a *gatewayAttempts) paidBySubscription() bool {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	return a.admittedSubscription
 }
 
 func (a *gatewayAttempts) release() { a.unbind() }
@@ -517,7 +589,7 @@ func (a *gatewayAttempts) check(b *bifrostProviderBackend, l *llmProviderProxy, 
 		if a.subscription && attempt.Subscription {
 			a.lock.Lock()
 			a.budgets[reference] = nil
-			a.admitted = reference
+			a.admitted, a.admittedSubscription = reference, true
 			a.lock.Unlock()
 			return nil
 		}
@@ -538,7 +610,7 @@ func (a *gatewayAttempts) check(b *bifrostProviderBackend, l *llmProviderProxy, 
 		}
 		a.lock.Lock()
 		a.budgets[reference] = ids
-		a.admitted = reference
+		a.admitted, a.admittedSubscription = reference, false
 		a.lock.Unlock()
 		return nil
 	}

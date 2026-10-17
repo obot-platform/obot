@@ -32,10 +32,13 @@ type LLMAuditLog struct {
 	// ServedProvider and ServedModel are the provider and model that served the request, which
 	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
 	// gateway key it was served with, and Fallback is true when a fallback served it.
+	// ClaudeSubscription is true when the caller's Claude subscription paid for it instead,
+	// with no gateway key.
 	ServedProvider            string `gorm:"type:text;index:idx_llm_audit_served_provider_created,priority:1"`
 	ServedModel               string `gorm:"type:text"`
 	ProviderKey               string `gorm:"type:text"`
 	Fallback                  bool   `gorm:"not null;default:false"`
+	ClaudeSubscription        bool   `gorm:"not null;default:false"`
 	ReasoningEffort           string `gorm:"type:text"`
 	RequestPath               string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
 	RequestMethod             string `gorm:"type:text"`
@@ -67,37 +70,38 @@ func (LLMAuditLog) TableName() string {
 
 func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 	return types2.LLMAuditLog{
-		ID:                a.ID,
-		CreatedAt:         *types2.NewTime(a.CreatedAt),
-		Duration:          a.Duration,
-		UserID:            a.UserID,
-		APIKeyID:          a.APIKeyID,
-		APIKeyRevoked:     a.APIKeyRevoked,
-		APIKeyName:        a.APIKeyName,
-		ModelProvider:     a.ModelProvider,
-		ModelID:           a.ModelID,
-		TargetModel:       a.TargetModel,
-		ServedProvider:    a.ServedProvider,
-		ServedModel:       a.ServedModel,
-		ProviderKey:       a.ProviderKey,
-		Fallback:          a.Fallback,
-		ReasoningEffort:   a.ReasoningEffort,
-		RequestPath:       a.RequestPath,
-		RequestMethod:     a.RequestMethod,
-		RequestHeaders:    a.RequestHeaders,
-		RequestBody:       a.RequestBody,
-		ResponseHeaders:   a.ResponseHeaders,
-		ResponseBody:      a.ResponseBody,
-		ResponseID:        a.ResponseID,
-		ResponseStatus:    a.ResponseStatus,
-		Outcome:           a.Outcome,
-		Error:             a.Error,
-		InputTokens:       a.InputTokens,
-		OutputTokens:      a.OutputTokens,
-		RequestID:         a.RequestID,
-		UserAgent:         a.UserAgent,
-		ClientSessionID:   a.ClientSessionID,
-		ClientIP:          a.ClientIP,
-		GuardrailFindings: a.GuardrailFindings,
+		ID:                 a.ID,
+		CreatedAt:          *types2.NewTime(a.CreatedAt),
+		Duration:           a.Duration,
+		UserID:             a.UserID,
+		APIKeyID:           a.APIKeyID,
+		APIKeyRevoked:      a.APIKeyRevoked,
+		APIKeyName:         a.APIKeyName,
+		ModelProvider:      a.ModelProvider,
+		ModelID:            a.ModelID,
+		TargetModel:        a.TargetModel,
+		ServedProvider:     a.ServedProvider,
+		ServedModel:        a.ServedModel,
+		ProviderKey:        a.ProviderKey,
+		Fallback:           a.Fallback,
+		ClaudeSubscription: a.ClaudeSubscription,
+		ReasoningEffort:    a.ReasoningEffort,
+		RequestPath:        a.RequestPath,
+		RequestMethod:      a.RequestMethod,
+		RequestHeaders:     a.RequestHeaders,
+		RequestBody:        a.RequestBody,
+		ResponseHeaders:    a.ResponseHeaders,
+		ResponseBody:       a.ResponseBody,
+		ResponseID:         a.ResponseID,
+		ResponseStatus:     a.ResponseStatus,
+		Outcome:            a.Outcome,
+		Error:              a.Error,
+		InputTokens:        a.InputTokens,
+		OutputTokens:       a.OutputTokens,
+		RequestID:          a.RequestID,
+		UserAgent:          a.UserAgent,
+		ClientSessionID:    a.ClientSessionID,
+		ClientIP:           a.ClientIP,
+		GuardrailFindings:  a.GuardrailFindings,
 	}
 }

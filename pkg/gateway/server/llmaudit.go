@@ -181,6 +181,7 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 			r.log.ServedModel = route.Model
 			r.log.ProviderKey = route.Key
 			r.log.Fallback = route.Fallback
+			r.log.ClaudeSubscription = route.Subscription
 		}
 		c.LogLLMAuditEntry(r.log, r.responseStream.Bytes())
 	})

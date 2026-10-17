@@ -19,6 +19,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
@@ -309,6 +310,9 @@ func TestSubscriptionAttemptsSpendNoBudget(t *testing.T) {
 	if model, budgets := attempts.served(); model != sonnet.Spec.Manifest.TargetModel || len(budgets) != 0 {
 		t.Fatalf("served %q with budgets %v, want %q with none", model, budgets, sonnet.Spec.Manifest.TargetModel)
 	}
+	if !attempts.paidBySubscription() {
+		t.Fatal("the attempt isn't recorded as paid by the subscription")
+	}
 }
 
 // A request carrying a caller's subscription token can't be routed to a provider other than
@@ -548,6 +552,108 @@ func TestWithGatewayUsage(t *testing.T) {
 			if got.InputTokens != tt.want.InputTokens || got.OutputTokens != tt.want.OutputTokens || got.TotalTokens != tt.want.TotalTokens ||
 				math.Abs(got.InputSpend-tt.want.InputSpend) > eps || math.Abs(got.OutputSpend-tt.want.OutputSpend) > eps || math.Abs(got.TotalSpend-tt.want.TotalSpend) > eps {
 				t.Errorf("usage = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Model listings include the Anthropic models listed for Claude subscriptions, which the
+// gateway's own listing leaves out while the Anthropic provider has no enabled keys.
+func TestAddListedModels(t *testing.T) {
+	subscriptionModels := []llmengine.ListedModel{
+		{ID: "anthropic/claude-haiku-4-5", Name: "Claude Haiku 4.5"},
+		{ID: "anthropic/claude-sonnet-4-5", Name: "Claude Sonnet 4.5"},
+	}
+	tests := []struct {
+		name      string
+		anthropic bool
+		status    int
+		body      string
+		wantIDs   []string
+		wantBody  string
+	}{
+		{
+			name:      "Anthropic format, nothing listed",
+			anthropic: true,
+			status:    http.StatusOK,
+			body:      `{"data":[],"has_more":false}`,
+			wantIDs:   []string{"claude-haiku-4-5", "claude-sonnet-4-5"},
+		},
+		{
+			name:      "Anthropic format keeps listed models and repoints the cursors",
+			anthropic: true,
+			status:    http.StatusOK,
+			body:      `{"data":[{"type":"model","id":"claude-haiku-4-5","display_name":"Haiku","created_at":"2025-10-01T00:00:00Z"}],"has_more":false,"first_id":"claude-haiku-4-5","last_id":"claude-haiku-4-5"}`,
+			wantIDs:   []string{"claude-haiku-4-5", "claude-sonnet-4-5"},
+		},
+		{
+			name:    "OpenAI format",
+			status:  http.StatusOK,
+			body:    `{"object":"list","data":[{"id":"openai/gpt-5","object":"model","created":1,"owned_by":"openai"}]}`,
+			wantIDs: []string{"openai/gpt-5", "anthropic/claude-haiku-4-5", "anthropic/claude-sonnet-4-5"},
+		},
+		{
+			name:      "not on a page that has more after it",
+			anthropic: true,
+			status:    http.StatusOK,
+			body:      `{"data":[],"has_more":true}`,
+			wantBody:  `{"data":[],"has_more":true}`,
+		},
+		{
+			name:     "not on an error",
+			status:   http.StatusInternalServerError,
+			body:     `{"error":{"message":"boom"}}`,
+			wantBody: `{"error":{"message":"boom"}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := &http.Response{StatusCode: tt.status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(tt.body))}
+			if err := addListedModels(resp, subscriptionModels, tt.anthropic); err != nil {
+				t.Fatal(err)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.wantBody != "" {
+				if string(body) != tt.wantBody {
+					t.Fatalf("body = %s, want it unchanged: %s", body, tt.wantBody)
+				}
+				return
+			}
+			var list struct {
+				Data []struct {
+					ID          string `json:"id"`
+					Type        string `json:"type"`
+					DisplayName string `json:"display_name"`
+					Object      string `json:"object"`
+					OwnedBy     string `json:"owned_by"`
+				} `json:"data"`
+				FirstID string `json:"first_id"`
+				LastID  string `json:"last_id"`
+			}
+			if err := json.Unmarshal(body, &list); err != nil {
+				t.Fatalf("decode %s: %v", body, err)
+			}
+			var ids []string
+			for _, m := range list.Data {
+				ids = append(ids, m.ID)
+				if tt.anthropic && (m.Type != "model" || m.DisplayName == "") {
+					t.Errorf("Anthropic-format entry %+v", m)
+				}
+				if !tt.anthropic && (m.Object != "model" || m.OwnedBy == "") {
+					t.Errorf("OpenAI-format entry %+v", m)
+				}
+			}
+			if strings.Join(ids, ",") != strings.Join(tt.wantIDs, ",") {
+				t.Fatalf("listed %v, want %v", ids, tt.wantIDs)
+			}
+			if strings.Contains(tt.body, "last_id") && (list.FirstID != ids[0] || list.LastID != ids[len(ids)-1]) {
+				t.Errorf("cursors %q..%q, want %q..%q", list.FirstID, list.LastID, ids[0], ids[len(ids)-1])
+			}
+			if resp.ContentLength != int64(len(body)) {
+				t.Errorf("Content-Length %d, body %d bytes", resp.ContentLength, len(body))
 			}
 		})
 	}
