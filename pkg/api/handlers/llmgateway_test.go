@@ -279,3 +279,51 @@ func TestServeRetryingBusyStore(t *testing.T) {
 		t.Fatalf("got %d after %d calls in %s; want the busy answer once the retry time runs out", rec.Code, calls, time.Since(start))
 	}
 }
+
+func TestRejectEngineAuthConfig(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		body    string
+		wantErr bool
+	}{
+		{
+			name:    "auth config on config",
+			path:    "config",
+			body:    `{"auth_config":{"is_enabled":true,"admin_username":"a","admin_password":"b"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "auth config in another case",
+			path:    "config",
+			body:    `{"Auth_Config":{"is_enabled":true}}`,
+			wantErr: true,
+		},
+		{
+			name:    "client config only",
+			path:    "config",
+			body:    `{"client_config":{"drop_excess_requests":true}}`,
+			wantErr: false,
+		},
+		{
+			name:    "null auth config",
+			path:    "config",
+			body:    `{"client_config":{},"auth_config":null}`,
+			wantErr: false,
+		},
+		{
+			name:    "auth config on another path",
+			path:    "providers",
+			body:    `{"auth_config":{"is_enabled":true}}`,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := rejectEngineAuthConfig(tt.path, []byte(tt.body))
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("rejectEngineAuthConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

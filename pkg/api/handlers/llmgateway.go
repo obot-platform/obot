@@ -144,6 +144,9 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		if err := rejectUnsafeConfig(body); err != nil {
 			return err
 		}
+		if err := rejectEngineAuthConfig(path, body); err != nil {
+			return err
+		}
 		if err := rejectAmbientCredentialRedirects(body, h.providerType(req.Context(), path, body)); err != nil {
 			return err
 		}
@@ -284,6 +287,27 @@ func allowedBifrostAPIPath(raw, escaped string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// rejectEngineAuthConfig refuses a change to the engine's own login. Obot reaches the engine
+// with its setup token, which the engine accepts for creating its first admin account, so
+// without this an Obot admin could turn on the engine's login through this API and lock Obot
+// out of its own gateway on every replica. Obot controls access to the gateway itself. Keys
+// are matched without regard to case, as the engine's JSON decoding matches them.
+func rejectEngineAuthConfig(path string, body []byte) error {
+	if path != "config" {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return nil
+	}
+	for key, value := range fields {
+		if strings.EqualFold(key, "auth_config") && strings.TrimSpace(string(value)) != "null" {
+			return types.NewErrBadRequest("the LLM gateway's own login can't be configured: Obot controls access to the gateway")
+		}
+	}
+	return nil
 }
 
 // rejectUnsafeConfig refuses request bodies that would let an administrator obtain the Obot

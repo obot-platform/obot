@@ -97,6 +97,29 @@ func TestAdminAPISafety(t *testing.T) {
 		}
 	})
 
+	t.Run("the engine's own login can't be turned on", func(t *testing.T) {
+		// Obot reaches the engine with the setup token that creates the engine's first admin
+		// account. Turning that login on would lock Obot out of managing its own gateway.
+		var cfg struct {
+			ClientConfig map[string]any `json:"client_config"`
+		}
+		admin.Get(t, "/api/llm-gateway/admin/config", &cfg)
+		// The engine refuses a config update unless its log retention is at least a day.
+		cfg.ClientConfig["log_retention_days"] = 1
+		login := map[string]any{"is_enabled": true, "admin_username": "e2e", "admin_password": "Str0ng!Passw0rd-e2e"}
+		for _, key := range []string{"auth_config", "AUTH_CONFIG"} {
+			resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/config", map[string]any{
+				"client_config": cfg.ClientConfig,
+				key:             login,
+			})
+			if resp.Status != http.StatusBadRequest {
+				t.Errorf("%s: want 400, got %s", key, resp)
+			}
+		}
+		// Obot still manages the gateway.
+		admin.Get(t, "/api/llm-gateway/admin/providers", nil)
+	})
+
 	t.Run("the engine's plugins and cache are not exposed", func(t *testing.T) {
 		// Obot's guardrail plugins must stay enabled, and responses aren't cached, so neither
 		// API is reachable.
