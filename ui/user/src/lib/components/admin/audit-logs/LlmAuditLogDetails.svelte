@@ -3,6 +3,7 @@
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { AdminService, type LLMAuditLog } from '$lib/services';
+	import { formatTokenUsageUSD } from '../token-usage/tokenUsageTimeline';
 	import AuditLogDetails from './AuditLogDetails.svelte';
 	import LlmAuditLogGuardrails from './LlmAuditLogGuardrails.svelte';
 	import LlmAuditLogRouting, { servedBy } from './LlmAuditLogRouting.svelte';
@@ -51,6 +52,37 @@
 	};
 
 	const properties = ['modelProvider', 'modelID'] as const;
+
+	// tokenSummary describes a request's tokens, with the cached input and reasoning output
+	// they include, e.g. "3,132 input (3,072 read from cache) · 40 output (12 reasoning)".
+	function tokenSummary(log: LLMAuditLog) {
+		if (!log.inputTokens && !log.outputTokens) return '';
+		const n = (value: number) => Intl.NumberFormat().format(value);
+		const withDetail = (main: string, detail: string[]) =>
+			detail.length ? `${main} (${detail.join(', ')})` : main;
+		const cached: string[] = [];
+		if (log.cacheReadTokens) {
+			cached.push(
+				m.audit_usage_audit_logs_model_tokens_cache_read({ count: n(log.cacheReadTokens) })
+			);
+		}
+		if (log.cacheWriteTokens) {
+			cached.push(
+				m.audit_usage_audit_logs_model_tokens_cache_write({ count: n(log.cacheWriteTokens) })
+			);
+		}
+		const input = withDetail(
+			m.audit_usage_audit_logs_model_tokens_input({ count: n(log.inputTokens) }),
+			cached
+		);
+		const output = withDetail(
+			m.audit_usage_audit_logs_model_tokens_output({ count: n(log.outputTokens) }),
+			log.reasoningTokens
+				? [m.audit_usage_audit_logs_model_tokens_reasoning({ count: n(log.reasoningTokens) })]
+				: []
+		);
+		return `${input} · ${output}`;
+	}
 </script>
 
 {#if fetchError}
@@ -120,6 +152,18 @@
 			<p class="break-all grid grid-cols-2 gap-2">
 				<span class="font-medium">{m.audit_usage_audit_logs_model_api_key_label()}</span>
 				{apiKey}
+			</p>
+		{/if}
+		{#if tokenSummary(data)}
+			<p class="grid grid-cols-2 gap-2">
+				<span class="font-medium">{m.audit_usage_audit_logs_model_tokens_label()}</span>
+				{tokenSummary(data)}
+			</p>
+		{/if}
+		{#if data.spend}
+			<p class="grid grid-cols-2 gap-2">
+				<span class="font-medium">{m.audit_usage_audit_logs_model_spend_label()}</span>
+				{formatTokenUsageUSD(data.spend)}
 			</p>
 		{/if}
 	{/snippet}

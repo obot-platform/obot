@@ -163,6 +163,10 @@ func (r *llmAuditRecorder) setTokenUsage(usage types.TokenUsage) {
 	}
 	r.log.InputTokens = usage.InputTokens
 	r.log.OutputTokens = usage.OutputTokens
+	r.log.CacheReadTokens = usage.CacheReadTokens
+	r.log.CacheWriteTokens = usage.CacheWriteTokens
+	r.log.ReasoningTokens = usage.ThinkingTokens
+	r.log.Spend = usage.TotalSpend
 }
 
 func (r *llmAuditRecorder) finish(c *client.Client, err error) {

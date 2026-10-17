@@ -6,7 +6,7 @@ Use audit records to investigate individual requests and usage views to understa
 
 1. Open **Audit Logs** and select **Model**.
 2. Filter by time, user, provider, model, client, or session.
-3. Inspect the request outcome, duration, input/output token counts, and how the gateway routed it: the provider, model and provider key that served it, and whether a fallback did. Sensitive request and response fields require the Auditor role.
+3. Inspect the request outcome, duration, token counts and spend, and how the gateway routed it: the provider, model and provider key that served it, and whether a fallback did. Sensitive request and response fields require the Auditor role.
 4. Use **Usage** > **Model** for requests, success rate, latency, tokens and spend over time, spend by provider and the top models, and to compare users, API keys and models over the same period.
 5. Configure a one-time or scheduled [audit export](../configuration/audit-log-export.md) when records need to outlive the configured retention period.
 
@@ -33,7 +33,7 @@ LLM gateway audit logs capture requests that flow through Obot's LLM gateway, in
 - **Model information**: Provider and requested model
 - **Routing**: The provider and model that served the request, which [routing rules and fallbacks](./how-it-works.md#routing-rules-and-fallbacks) can make differ from the requested model, the provider key it was served with, or that the user's Claude subscription paid for it, and whether a fallback served it
 - **Request information**: Request path, method, response status, and outcome
-- **Token usage**: Input and output token counts
+- **Token usage and spend**: Input and output token counts, the input tokens read from and written to the provider's prompt cache, the output tokens spent reasoning, and what the request cost (for a model with a price)
 - **Client information**: Client name, version, session ID, and IP address
 - **User information**: Who made the request
 - **Timestamps and duration**: When the request occurred and how long it took

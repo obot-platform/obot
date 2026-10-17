@@ -6764,6 +6764,32 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Format:  "int32",
 						},
 					},
+					"cacheReadTokens": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CacheReadTokens and CacheWriteTokens are the input tokens read from and written to the provider's prompt cache, and ReasoningTokens the output tokens spent reasoning; each is part of InputTokens or OutputTokens.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"cacheWriteTokens": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"reasoningTokens": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"spend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spend is what the request cost in USD, as recorded in token usage; 0 when the model has no price.",
+							Type:        []string{"number"},
+							Format:      "double",
+						},
+					},
 					"requestID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",

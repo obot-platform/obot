@@ -5,6 +5,7 @@
 		formatAuditLogCredentialLabel,
 		getAuditLogAPIKeyMaskedKey
 	} from '$lib/auditlogs';
+	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { m } from '$lib/i18n';
 	import { type LLMAuditLog } from '$lib/services';
@@ -252,6 +253,10 @@
 						{@render th(m.core_status(), { class: 'w-[16ch]', minWidth: '16ch' })}
 						{@render th(m.core_col_input(), { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th(m.core_col_output(), { class: 'w-[18ch]', minWidth: '18ch' })}
+						{@render th(m.audit_usage_audit_logs_model_col_spend(), {
+							class: 'w-[16ch]',
+							minWidth: '14ch'
+						})}
 						{@render th(m.audit_usage_audit_logs_user_agent(), {
 							class: 'w-[28ch]',
 							minWidth: '28ch'
@@ -298,6 +303,7 @@
 						{@render td(d.responseStatus || '')}
 						{@render td(formatNumber(d.inputTokens))}
 						{@render td(formatNumber(d.outputTokens))}
+						{@render td(d.spend ? formatTokenUsageUSD(d.spend) : '')}
 						{@render td(d.userAgent)}
 						{@render td(d.clientSessionID)}
 						{@render td(formatDuration(d.duration))}

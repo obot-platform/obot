@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"testing"
@@ -310,6 +311,27 @@ func TestBudgets(t *testing.T) {
 		if len(usage.Items) != 1 || len(usage.Items[0].Used) != 1 || math.Abs(usage.Items[0].Used[0]-3) > 1e-9 {
 			t.Errorf("spend usage report: %+v, want $3", usage.Items)
 		}
+
+		// The audit log shows what each request cost.
+		harness.Eventually(t, 60*time.Second, "audit log entries with their spend", func() error {
+			var logs struct {
+				Items []struct {
+					Spend          float64 `json:"spend"`
+					ResponseStatus int     `json:"responseStatus"`
+				} `json:"items"`
+			}
+			env.admin.Get(t, "/api/llm-audit-logs?hide_models_requests=true&user_id="+url.QueryEscape(u.ID)+"&limit=10", &logs)
+			var spent []float64
+			for _, item := range logs.Items {
+				if item.ResponseStatus == http.StatusOK {
+					spent = append(spent, item.Spend)
+				}
+			}
+			if len(spent) != 2 || math.Abs(spent[0]-1.5) > 1e-9 || math.Abs(spent[1]-1.5) > 1e-9 {
+				return fmt.Errorf("spend of the served requests %v, want $1.50 each", spent)
+			}
+			return nil
+		})
 	})
 
 	t.Run("admin exemption", func(t *testing.T) {

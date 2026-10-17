@@ -54,10 +54,19 @@ type LLMAuditLog struct {
 	Error                     string `gorm:"type:text"`
 	InputTokens               int
 	OutputTokens              int
-	RequestID                 string `gorm:"type:text"`
-	UserAgent                 string `gorm:"type:text;index:idx_llm_audit_user_agent_created,priority:1"`
-	ClientSessionID           string `gorm:"type:text;index:idx_llm_audit_client_session_created,priority:1"`
-	ClientIP                  string `gorm:"type:text"`
+	// CacheReadTokens and CacheWriteTokens are the input tokens read from and written to the
+	// provider's prompt cache, and ReasoningTokens the output tokens spent reasoning; each is
+	// part of InputTokens or OutputTokens.
+	CacheReadTokens  int `gorm:"not null;default:0"`
+	CacheWriteTokens int `gorm:"not null;default:0"`
+	ReasoningTokens  int `gorm:"not null;default:0"`
+	// Spend is what the request cost in USD, as recorded in token usage; 0 when the model has
+	// no price.
+	Spend           float64 `gorm:"not null;default:0"`
+	RequestID       string  `gorm:"type:text"`
+	UserAgent       string  `gorm:"type:text;index:idx_llm_audit_user_agent_created,priority:1"`
+	ClientSessionID string  `gorm:"type:text;index:idx_llm_audit_client_session_created,priority:1"`
+	ClientIP        string  `gorm:"type:text"`
 	// GuardrailFindings say which guardrail policies found something and what they did, but
 	// not what they found, so they are stored unencrypted.
 	GuardrailFindings []types2.LLMAuditGuardrailFinding `gorm:"serializer:json"`
@@ -98,6 +107,10 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		Error:              a.Error,
 		InputTokens:        a.InputTokens,
 		OutputTokens:       a.OutputTokens,
+		CacheReadTokens:    a.CacheReadTokens,
+		CacheWriteTokens:   a.CacheWriteTokens,
+		ReasoningTokens:    a.ReasoningTokens,
+		Spend:              a.Spend,
 		RequestID:          a.RequestID,
 		UserAgent:          a.UserAgent,
 		ClientSessionID:    a.ClientSessionID,

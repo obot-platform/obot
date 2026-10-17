@@ -41,10 +41,19 @@ type LLMAuditLog struct {
 	Error              string          `json:"error,omitempty"`
 	InputTokens        int             `json:"inputTokens"`
 	OutputTokens       int             `json:"outputTokens"`
-	RequestID          string          `json:"requestID"`
-	UserAgent          string          `json:"userAgent"`
-	ClientSessionID    string          `json:"clientSessionID"`
-	ClientIP           string          `json:"clientIP"`
+	// CacheReadTokens and CacheWriteTokens are the input tokens read from and written to the
+	// provider's prompt cache, and ReasoningTokens the output tokens spent reasoning; each is
+	// part of InputTokens or OutputTokens.
+	CacheReadTokens  int `json:"cacheReadTokens,omitempty"`
+	CacheWriteTokens int `json:"cacheWriteTokens,omitempty"`
+	ReasoningTokens  int `json:"reasoningTokens,omitempty"`
+	// Spend is what the request cost in USD, as recorded in token usage; 0 when the model has
+	// no price.
+	Spend           float64 `json:"spend,omitempty"`
+	RequestID       string  `json:"requestID"`
+	UserAgent       string  `json:"userAgent"`
+	ClientSessionID string  `json:"clientSessionID"`
+	ClientIP        string  `json:"clientIP"`
 	// GuardrailFindings is what the LLM gateway's guardrails did to the request, in the order
 	// their guardrail policies ran.
 	GuardrailFindings []LLMAuditGuardrailFinding `json:"guardrailFindings,omitempty"`

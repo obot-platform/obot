@@ -463,3 +463,23 @@ func TestLLMAuditRecorderCapsResponseCapture(t *testing.T) {
 		t.Fatalf("expected capped response stream, got %q", got)
 	}
 }
+
+func TestLLMAuditRecordsSpendAndCachedTokens(t *testing.T) {
+	recorder := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), nil, 5<<20)
+	r := &responseModifier{audit: recorder}
+	r.recordUsage(types.TokenUsage{
+		InputTokens:      3132,
+		CacheReadTokens:  3072,
+		CacheWriteTokens: 10,
+		OutputTokens:     40,
+		ThinkingTokens:   12,
+		TotalTokens:      3172,
+		TotalSpend:       0.0002394,
+	})
+
+	entry := types.ConvertLLMAuditLog(recorder.log)
+	if entry.InputTokens != 3132 || entry.CacheReadTokens != 3072 || entry.CacheWriteTokens != 10 ||
+		entry.OutputTokens != 40 || entry.ReasoningTokens != 12 || entry.Spend != 0.0002394 {
+		t.Fatalf("the audit entry doesn't carry the request's usage and spend: %+v", entry)
+	}
+}

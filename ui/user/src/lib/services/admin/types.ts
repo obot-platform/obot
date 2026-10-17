@@ -688,6 +688,12 @@ export interface LLMAuditLog {
 	modelProvider: string;
 	outcome: string;
 	outputTokens: number;
+	// cacheReadTokens and cacheWriteTokens are part of inputTokens, reasoningTokens part of
+	// outputTokens. spend is what the request cost in USD; absent when the model has no price.
+	cacheReadTokens?: number;
+	cacheWriteTokens?: number;
+	reasoningTokens?: number;
+	spend?: number;
 	reasoningEffort: string;
 	requestBody?: unknown;
 	requestHeaders?: Record<string, string | string[]>;
