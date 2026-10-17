@@ -564,8 +564,9 @@ func (e *Engine) bootServer(ctx context.Context, opts Options) (*instance, error
 	if level == "" {
 		level = schemas.LogLevelWarn
 	}
-	logger := bifrostcore.NewDefaultLogger(level)
-	logger.SetOutputType(schemas.LoggerOutputTypeJSON)
+	base := bifrostcore.NewDefaultLogger(level)
+	base.SetOutputType(schemas.LoggerOutputTypeJSON)
+	logger := newEngineLogger(base)
 	lib.SetLogger(logger)
 	bifrostserver.SetLogger(logger)
 	handlers.SetLogger(logger)
