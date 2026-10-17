@@ -478,7 +478,9 @@ func TestCarryOverDailyTokenLimits(t *testing.T) {
 				if b.ID == defaultLLMGatewayBudgetID {
 					continue
 				}
-				if b.Name != "Daily token limit" || !b.Enabled || !b.PerUser || !b.ExemptAdmins || !b.UserTokenLimits {
+				// A new installation gets it too, so it mustn't say that anything was carried over.
+				if b.Name != "Daily token limit" || !b.Enabled || !b.PerUser || !b.ExemptAdmins || !b.UserTokenLimits ||
+					strings.Contains(b.Description, "Carried over") {
 					t.Errorf("unexpected budget %+v", b)
 				}
 				var metrics []string
@@ -546,5 +548,49 @@ func TestEnsureDailyTokenLimitBudgetIsIdempotent(t *testing.T) {
 	}
 	if len(budgets) != 1 {
 		t.Fatalf("want one budget, got %d", len(budgets))
+	}
+}
+
+func TestLLMGatewayBudgetExceededMessage(t *testing.T) {
+	tests := []struct {
+		name   string
+		metric string
+		used   float64
+		amount float64
+		want   string
+	}{
+		{
+			name:   "dollars",
+			metric: types.LLMGatewayBudgetMetricSpend,
+			used:   3.0000000000000004,
+			amount: 3,
+			want:   "$3.00 of $3.00 spend used",
+		},
+		{
+			name:   "fractions of a cent",
+			metric: types.LLMGatewayBudgetMetricSpend,
+			used:   0.000394,
+			amount: 0.0003,
+			want:   "$0.000394 of $0.0003 spend used",
+		},
+		{
+			name:   "requests",
+			metric: types.LLMGatewayBudgetMetricRequests,
+			used:   2,
+			amount: 2,
+			want:   "2 of 2 requests used",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &LLMGatewayBudgetExceeded{
+				Budget: types.LLMGatewayBudget{Name: "B", PerUser: true},
+				Limit:  types.LLMGatewayBudgetLimit{Metric: tt.metric, Amount: tt.amount, Window: "1h"},
+				Used:   tt.used,
+			}
+			if got := e.Error(); !strings.Contains(got, tt.want) {
+				t.Fatalf("got %q, want it to contain %q", got, tt.want)
+			}
+		})
 	}
 }

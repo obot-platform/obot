@@ -33,6 +33,22 @@ describe('Budget editor', () => {
 		);
 	});
 
+	it('says why a negative or empty limit cannot be applied', async () => {
+		render(BudgetEditor, { models, onSave: vi.fn(), onCancel: vi.fn() });
+
+		await page.getByLabelText('Name', { exact: true }).fill('Engineering');
+		const limit = page.getByLabelText('Limit', { exact: true });
+		await limit.fill('-5');
+		await expect.element(page.getByRole('alert')).toHaveTextContent('Enter a limit of 0 or more.');
+		await expect.element(limit).toHaveAttribute('aria-invalid', 'true');
+		await expect.element(page.getByRole('button', { name: 'Apply' })).toBeDisabled();
+		await limit.fill('');
+		await expect.element(page.getByRole('alert')).toHaveTextContent('Enter a limit of 0 or more.');
+		await limit.fill('0');
+		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Apply' })).toBeEnabled();
+	});
+
 	it('needs a model when limited to specific models, and drops models the profile no longer grants', async () => {
 		const onSave = vi.fn();
 		render(BudgetEditor, {

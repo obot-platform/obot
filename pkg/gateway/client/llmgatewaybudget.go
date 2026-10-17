@@ -22,6 +22,10 @@ const (
 	// every profile. It replaces llm_gateway_default_budget, which put one budget on the
 	// profile for everyone; installations that ran that one run this one too, once.
 	dailyTokenLimitBudgetsMigration = "llm_gateway_profile_budgets"
+	// dailyTokenLimitBudgetDescription describes the daily token limit budget. It is the same
+	// on a new installation as after an upgrade, so it says where the limits come from without
+	// saying that anything was upgraded.
+	dailyTokenLimitBudgetDescription = "Created when the LLM gateway first started, from the server's daily user token limits, for this profile's models. A user's personal daily token limits apply in its place. Edit or delete it like any other budget."
 )
 
 // LLMGatewayBudgetExceeded describes the first limit a request would exceed.
@@ -77,9 +81,20 @@ func metricLabel(metric string) string {
 
 func formatMetric(metric string, v float64) string {
 	if metric == types.LLMGatewayBudgetMetricSpend {
-		return fmt.Sprintf("$%.2f", v)
+		return formatUSD(v)
 	}
 	return strconv.FormatInt(int64(v), 10)
+}
+
+// formatUSD formats an amount in dollars with cents, and with the fractions of a cent a small
+// amount needs, up to millionths: $3.00, $1.50, $0.0004.
+func formatUSD(v float64) string {
+	s := strings.TrimRight(strconv.FormatFloat(v, 'f', 6, 64), "0")
+	whole, cents, _ := strings.Cut(s, ".")
+	for len(cents) < 2 {
+		cents += "0"
+	}
+	return "$" + whole + "." + cents
 }
 
 // ParseLLMGatewayBudgetWindow returns the start of a limit's current window and, for
@@ -508,7 +523,7 @@ func (c *Client) ensureDailyTokenLimitBudget(ctx context.Context, profileID stri
 	err := c.createLLMGatewayBudget(ctx, &types.LLMGatewayBudget{
 		ID:              id,
 		Name:            "Daily token limit",
-		Description:     "Carried over from the server's daily user token limits to every profile, for this profile's models. Users' personal daily token limits still apply in its place.",
+		Description:     dailyTokenLimitBudgetDescription,
 		Enabled:         true,
 		PerUser:         true,
 		ExemptAdmins:    true,

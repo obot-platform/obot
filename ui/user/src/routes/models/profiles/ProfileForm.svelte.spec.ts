@@ -287,6 +287,19 @@ describe('Profile form', () => {
 		expect(calls).not.toHaveBeenCalled();
 	});
 
+	it('summarizes budgets in words', async () => {
+		mockGateway();
+		render(ProfileForm, { modelAccessPolicy: existing });
+
+		const row = page.getByRole('button', { name: 'Edit Monthly spend' });
+		await expect.element(row.getByText(/\$50\.00 spend per/)).toBeVisible();
+		await expect
+			.element(
+				page.getByRole('button', { name: 'Edit Daily tokens' }).getByText(/1K total tokens per/)
+			)
+			.toBeVisible();
+	});
+
 	it("counts a budget's models without those the profile no longer grants", async () => {
 		mockGateway();
 		worker.use(

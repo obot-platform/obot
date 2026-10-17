@@ -123,10 +123,15 @@
 		)
 	);
 
+	// An empty, negative or non-numeric limit can't be saved, and says so.
+	function limitValid(l: LimitRow) {
+		return l.amount !== null && `${l.amount}` !== '' && Number(l.amount) >= 0;
+	}
+
 	let valid = $derived(
 		name.trim().length > 0 &&
 			limits.length > 0 &&
-			limits.every((l) => Number(l.amount) >= 0) &&
+			limits.every(limitValid) &&
 			(!specificModels || chosenModels.length > 0)
 	);
 
@@ -295,6 +300,8 @@
 						class="text-input-filled w-32"
 						bind:value={l.amount}
 						disabled={readonly}
+						aria-invalid={!limitValid(l)}
+						aria-describedby={limitValid(l) ? undefined : `limit-amount-${i}-error`}
 					/>
 				</div>
 				<div class="flex flex-col gap-1">
@@ -342,6 +349,11 @@
 					</IconButton>
 				{/if}
 			</div>
+			{#if !limitValid(l)}
+				<span id={`limit-amount-${i}-error`} role="alert" class="text-error text-xs">
+					{m.models_budgets_limit_invalid()}
+				</span>
+			{/if}
 		{:else}
 			<span class="text-muted-content text-sm">{m.models_budgets_add_at_least_one_limit()}</span>
 		{/each}

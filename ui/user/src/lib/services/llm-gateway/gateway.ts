@@ -109,6 +109,16 @@ export const METRIC_LABELS: Record<BudgetMetric, string> = {
 	requests: m.models_metric_requests()
 };
 
+// METRIC_SUMMARY_LABELS name metrics within a sentence, such as a budget's summary:
+// "$50.00 spend per calendar month".
+export const METRIC_SUMMARY_LABELS: Record<BudgetMetric, string> = {
+	spend: m.models_metric_summary_spend(),
+	tokens: m.models_metric_summary_tokens(),
+	input_tokens: m.models_metric_summary_input_tokens(),
+	output_tokens: m.models_metric_summary_output_tokens(),
+	requests: m.models_metric_summary_requests()
+};
+
 export function formatMetric(metric: BudgetMetric, value: number): string {
 	return metric === 'spend' ? formatCost(value) : formatNumber(value);
 }

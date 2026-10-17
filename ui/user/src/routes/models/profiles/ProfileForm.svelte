@@ -32,7 +32,7 @@
 		deleteBudget,
 		formatMetric,
 		listBudgets,
-		METRIC_LABELS,
+		METRIC_SUMMARY_LABELS,
 		updateBudget,
 		windowLabel,
 		type Budget
@@ -286,7 +286,7 @@
 			.map((l) =>
 				m.models_budgets_limit_summary({
 					amount: formatMetric(l.metric, l.amount),
-					metric: METRIC_LABELS[l.metric].toLowerCase(),
+					metric: METRIC_SUMMARY_LABELS[l.metric],
 					window: windowLabel(l)
 				})
 			)
