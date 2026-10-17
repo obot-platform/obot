@@ -232,16 +232,20 @@ func TestRoutingAndFormats(t *testing.T) {
 		callLLM(t, env.vipUser.Gateway(env.A), apiChat, "openai/gpt-e2e-vip", "hi", false, nil).requireOK(t)
 	})
 
-	t.Run("disallowed fallback is rejected", func(t *testing.T) {
+	t.Run("disallowed fallback is skipped", func(t *testing.T) {
+		// The primary fails, the disallowed fallback is skipped, and the next one serves.
 		n := nonce("fallback-forbidden")
-		res := callLLM(t, gw, apiChat, "openai/gpt-e2e-a", "hi "+n, false, map[string]any{
-			"fallbacks": []string{"openai/gpt-e2e-vip"},
+		res := callLLM(t, gw, apiChat, "openai/gpt-e2e-broken", "hi "+n, false, map[string]any{
+			"fallbacks": []string{"openai/gpt-e2e-vip", "openai/gpt-e2e-a"},
 		})
-		if res.Status != http.StatusForbidden {
-			t.Fatalf("want 403 for a disallowed fallback, got %d: %s", res.Status, truncate(res.Body))
+		res.requireOK(t)
+		for _, r := range env.mock.InferenceRequests(n) {
+			if r.Model == "gpt-e2e-vip" {
+				t.Fatal("a disallowed fallback reached the provider")
+			}
 		}
-		if len(env.mock.InferenceRequests(n)) != 0 {
-			t.Fatal("a request with a disallowed fallback reached the provider")
+		if reqs := env.mock.InferenceRequests(n); len(reqs) == 0 || reqs[len(reqs)-1].Model != "gpt-e2e-a" {
+			t.Fatalf("want the request served by the allowed fallback, upstream got %+v", reqs)
 		}
 	})
 

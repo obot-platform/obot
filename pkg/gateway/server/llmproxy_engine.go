@@ -618,7 +618,10 @@ func (a *gatewayAttempts) check(b *bifrostProviderBackend, l *llmProviderProxy, 
 
 // authorizeExtraModels checks every fallback model the request names. Bifrost tries
 // fallbacks when the primary model fails, so an unchecked fallback would let a caller reach
-// a model their access policy doesn't allow.
+// a model their access policy doesn't allow. A fallback the caller may not use is skipped, as
+// the gateway skips any attempt on such a model, so the request's other fallbacks can still
+// serve it. A fallback that isn't available at all fails the request, since it is likely a
+// mistake the caller should hear about.
 func (b *bifrostProviderBackend) authorizeExtraModels(l *llmProviderProxy, req api.Context, body []byte) ([]byte, error) {
 	fallbacks := gjson.GetBytes(body, "fallbacks")
 	if !fallbacks.Exists() {
@@ -628,14 +631,16 @@ func (b *bifrostProviderBackend) authorizeExtraModels(l *llmProviderProxy, req a
 		return nil, types2.NewErrBadRequest("fallbacks must be an array of model names")
 	}
 
-	var resolved []string
+	resolved := []string{}
 	for _, f := range fallbacks.Array() {
 		reference := f.String()
 		if f.IsObject() {
 			reference = f.Get("provider").String() + "/" + f.Get("model").String()
 		}
 		model, err := b.authorizeModel(l, req, reference, "fallback model")
-		if err != nil {
+		if httpErr, ok := errors.AsType[*types2.ErrHTTP](err); ok && httpErr.Code == http.StatusForbidden {
+			continue
+		} else if err != nil {
 			return nil, err
 		}
 		resolved = append(resolved, model.Spec.Manifest.TargetModel)
