@@ -422,3 +422,14 @@ func TestIsProviderWrite(t *testing.T) {
 		}
 	}
 }
+
+func TestHideEngineFrameworkConfig(t *testing.T) {
+	body := `{"client_config":{"drop_excess_requests":true},"framework_config":{"pricing_url":"file:///data/pricing.json","mcp_library_url":"https://vendor.example/mcp-library","mcp_library_sync_interval":0}}`
+	want := `{"client_config":{"drop_excess_requests":true},"framework_config":{"pricing_url":"file:///data/pricing.json"}}`
+	if got := string(hideEngineFrameworkConfig([]byte(body))); got != want {
+		t.Fatalf("hideEngineFrameworkConfig() = %s, want %s", got, want)
+	}
+	if got := string(hideEngineFrameworkConfig([]byte("nope"))); got != "nope" {
+		t.Fatalf("hideEngineFrameworkConfig() changed a body that isn't JSON: %s", got)
+	}
+}

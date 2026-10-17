@@ -216,6 +216,13 @@ func TestAdminAPISafety(t *testing.T) {
 		})
 	})
 
+	t.Run("the engine's MCP library settings are hidden", func(t *testing.T) {
+		resp := admin.Do(t, http.MethodGet, "/api/llm-gateway/admin/config", nil)
+		if resp.Status != http.StatusOK || strings.Contains(string(resp.Body), "mcp_library") {
+			t.Fatalf("GET config: %s", resp)
+		}
+	})
+
 	t.Run("guardrails can't use loopback or metadata addresses", func(t *testing.T) {
 		for _, config := range []map[string]any{
 			{"apiKey": "fake-x", "baseURL": "http://169.254.169.254"},

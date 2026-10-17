@@ -261,6 +261,9 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		return guardErr
 	}
 
+	if req.Method == http.MethodGet && path == "config" && rec.Code < 300 {
+		rec.Body = bytes.NewBuffer(hideEngineFrameworkConfig(rec.Body.Bytes()))
+	}
 	if rec.Code >= http.StatusBadRequest {
 		return engineError(rec.Code, rec.Body.Bytes())
 	}
@@ -275,6 +278,28 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 	req.WriteHeader(rec.Code)
 	_, err = req.ResponseWriter.Write(rec.Body.Bytes())
 	return err
+}
+
+// hideEngineFrameworkConfig removes from the gateway's config the settings of the engine's
+// own MCP server library, which Obot doesn't use and which name the engine vendor's site.
+func hideEngineFrameworkConfig(body []byte) []byte {
+	var config map[string]any
+	if json.Unmarshal(body, &config) != nil {
+		return body
+	}
+	framework, ok := config["framework_config"].(map[string]any)
+	if !ok {
+		return body
+	}
+	for key := range framework {
+		if strings.HasPrefix(key, "mcp_library_") {
+			delete(framework, key)
+		}
+	}
+	if out, err := json.Marshal(config); err == nil {
+		return out
+	}
+	return body
 }
 
 // serveRetryingBusyStore sends a change to the gateway, and sends it again while the gateway's
