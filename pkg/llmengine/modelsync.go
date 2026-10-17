@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -116,6 +118,65 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		}
 	}
 	return changed
+}
+
+// removeAutoDetectedKeys removes the keys the engine creates on its own, when it starts with no
+// providers, from API key environment variables such as OPENAI_API_KEY. Obot configures
+// providers from the environment itself (see importEnvProviders), with keys that hold the
+// value rather than refer to the variable, which the admin API can then update. The
+// engine's keys would be a second key for the same variable, which can't be changed through
+// the admin API, and would bring back providers an administrator removed. A provider left
+// with no keys is removed too.
+func (e *Engine) removeAutoDetectedKeys(ctx context.Context) {
+	var resp struct {
+		Providers []struct {
+			Name string `json:"name"`
+		} `json:"providers"`
+	}
+	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
+		slog.Warn("failed to list LLM gateway providers", "error", err)
+		return
+	}
+	for _, p := range resp.Providers {
+		keys, err := e.providerKeys(ctx, p.Name)
+		if err != nil {
+			continue
+		}
+		var detected []string
+		for _, key := range keys {
+			name, _ := key["name"].(string)
+			id, _ := key["id"].(string)
+			value, _ := json.Marshal(key["value"])
+			if id != "" && strings.HasSuffix(name, "_auto_detected") && IsSecretReference(value) {
+				detected = append(detected, id)
+			}
+		}
+		if len(detected) == 0 {
+			continue
+		}
+		if len(detected) == len(keys) {
+			if err := e.Do(ctx, http.MethodDelete, "/api/providers/"+url.PathEscape(p.Name), nil, nil); err != nil {
+				slog.Warn("failed to remove an LLM gateway provider the engine configured from the environment", "provider", p.Name, "error", err)
+			}
+			continue
+		}
+		for _, id := range detected {
+			if err := e.Do(ctx, http.MethodDelete, "/api/providers/"+url.PathEscape(p.Name)+"/keys/"+url.PathEscape(id), nil, nil); err != nil {
+				slog.Warn("failed to remove an LLM gateway key the engine configured from the environment", "provider", p.Name, "error", err)
+			}
+		}
+	}
+}
+
+// providerKeys lists a provider's keys, as the engine lists them (with secrets redacted).
+func (e *Engine) providerKeys(ctx context.Context, provider string) ([]map[string]any, error) {
+	var resp struct {
+		Keys []map[string]any `json:"keys"`
+	}
+	if err := e.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(provider)+"/keys", nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Keys, nil
 }
 
 // LegacyImportDone reports whether the credentials of legacy model providers have been

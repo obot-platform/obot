@@ -24,7 +24,7 @@ Every LLM gateway provider is available in every edition, without registration o
 
 ### OpenAI and Anthropic keys at startup {#openai-and-anthropic-keys-at-startup}
 
-When the server's `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, Obot configures the gateway's `openai` or `anthropic` provider with that key at startup, and updates the key when the value changes. See [Server Configuration](./server-configuration.md).
+When the server's `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, Obot configures the gateway's `openai` or `anthropic` provider with that key at startup, as a key named `env-OPENAI_API_KEY` or `env-ANTHROPIC_API_KEY`, and updates the key when the value changes. You can disable, edit or delete it like any other key. See [Server Configuration](./server-configuration.md).
 
 ### Amazon Bedrock {#amazon-bedrock}
 

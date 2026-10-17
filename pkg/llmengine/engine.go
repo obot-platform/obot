@@ -288,6 +288,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		close(e.ready)
 		rev := e.pendingRevision
 		e.pendingLock.Unlock()
+		e.removeAutoDetectedKeys(ctx)
 		go func() {
 			<-ctx.Done()
 			e.Shutdown()
@@ -380,6 +381,8 @@ func (e *Engine) Reload(revision int64) (bool, error) {
 	old := e.inst.Swap(next)
 	// Pooled connections lead to the old gateway; new requests must open new ones.
 	e.transport.CloseIdleConnections()
+	// A gateway that booted with no providers configured some from the environment.
+	e.removeAutoDetectedKeys(e.runCtx)
 	// The rebuilt gateway has everything in the stores, so everything up to revision.
 	e.raiseApplied(revision)
 	go func() {
