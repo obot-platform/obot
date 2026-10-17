@@ -235,17 +235,20 @@ func (c *Client) TokenUsageStats(ctx context.Context, opts TokenUsageStatsOption
 
 	// The models in a range are few, so they are ranked here rather than queried twice.
 	var models []tokenUsageStatsRow
-	if err := query().Select("model, MAX(provider) AS provider, "+tokenUsageStatsColumns, types.LLMAuditOutcomeSuccess).
+	if err := query().Select("model, "+tokenUsageStatsColumns, types.LLMAuditOutcomeSuccess).
 		Group("model").Scan(&models).Error; err != nil {
+		return stats, err
+	}
+	// A model's requests can be served by several providers, as when a fallback serves some
+	// of them; a model is shown with the provider that served most of them.
+	var modelProviders []tokenUsageStatsRow
+	if err := query().Select("model, provider, COUNT(*) AS requests").
+		Group("model, provider").Scan(&modelProviders).Error; err != nil {
 		return stats, err
 	}
 	all := make([]types2.TokenUsageStatsModel, 0, len(models))
 	for _, m := range models {
-		provider := m.Provider
-		if provider == "" {
-			provider, _, _ = strings.Cut(m.Model, "/")
-		}
-		all = append(all, types2.TokenUsageStatsModel{Model: m.Model, Provider: provider, TokenUsageStatsTotals: m.totals()})
+		all = append(all, types2.TokenUsageStatsModel{Model: m.Model, Provider: mainProvider(m.Model, modelProviders), TokenUsageStatsTotals: m.totals()})
 	}
 	top := func(compare func(a, b types2.TokenUsageStatsModel) int) []types2.TokenUsageStatsModel {
 		sorted := slices.Clone(all)
@@ -261,6 +264,27 @@ func (c *Client) TokenUsageStats(ctx context.Context, opts TokenUsageStatsOption
 		return cmp.Or(cmp.Compare(b.TotalSpend, a.TotalSpend), cmp.Compare(b.Requests, a.Requests))
 	})
 	return stats, nil
+}
+
+// mainProvider returns the provider that served most of a model's requests, given the
+// requests each provider served of each model. A tie goes to the provider the model is named
+// for ("anthropic" for anthropic/claude-sonnet-4-5), then to the first in alphabetical order.
+// Records without a provider count for the provider the model is named for.
+func mainProvider(model string, served []tokenUsageStatsRow) string {
+	named, _, _ := strings.Cut(model, "/")
+	counts := map[string]int64{}
+	for _, row := range served {
+		if row.Model == model {
+			counts[cmp.Or(row.Provider, named)] += row.Requests
+		}
+	}
+	best := named
+	for provider, n := range counts {
+		if n > counts[best] || n == counts[best] && best != named && provider < best {
+			best = provider
+		}
+	}
+	return best
 }
 
 // tokenUsageStatsBucketExpression numbers the histogram bucket of a record's created_at,

@@ -163,6 +163,11 @@ func testTokenUsageStats(t *testing.T, c *Client) {
 	if m := stats.TopModelsBySpend[0]; m.Model != "openai/gpt-5" || m.TotalSpend != 2 {
 		t.Errorf("top model by spend = %+v", m)
 	}
+	// Anthropic and Bedrock each served one of its requests; the tie goes to Anthropic, which
+	// the model is named for.
+	if m := stats.TopModelsByRequests[1]; m.Model != "anthropic/claude-sonnet-4-5" || m.Provider != "anthropic" {
+		t.Errorf("second model by requests = %+v, want anthropic/claude-sonnet-4-5 from anthropic", m)
+	}
 
 	filtered, err := c.TokenUsageStats(ctx, TokenUsageStatsOptions{Start: start, End: end, UserIDs: []string{"u1"}, APIKeyIDs: []uint{keyID}})
 	if err != nil {
@@ -233,5 +238,42 @@ func TestTokenUsageStatsBucketSize(t *testing.T) {
 				t.Errorf("bucket size = %s, want %s", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTokenUsageStatsModelProvider(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	add := func(model, provider string, fallback bool) {
+		t.Helper()
+		if err := c.InsertTokenUsage(ctx, &types.RunTokenActivity{
+			CreatedAt: start.Add(time.Minute),
+			UserID:    "u1",
+			Model:     model,
+			Provider:  provider,
+			Fallback:  fallback,
+			Outcome:   types.LLMAuditOutcomeSuccess,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Anthropic served most of the requests; a fallback to OpenAI served the last one.
+	add("anthropic/claude-haiku-4-5", "anthropic", false)
+	add("anthropic/claude-haiku-4-5", "anthropic", false)
+	add("anthropic/claude-haiku-4-5", "openai", true)
+	// A routing rule sends every request for this model to Azure.
+	add("openai/gpt-4o", "azure", false)
+
+	stats, err := c.TokenUsageStats(ctx, TokenUsageStatsOptions{Start: start, End: start.Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	providers := map[string]string{}
+	for _, m := range stats.TopModelsByRequests {
+		providers[m.Model] = m.Provider
+	}
+	if providers["anthropic/claude-haiku-4-5"] != "anthropic" || providers["openai/gpt-4o"] != "azure" {
+		t.Errorf("model providers = %v, want claude-haiku-4-5 from anthropic and gpt-4o from azure", providers)
 	}
 }
