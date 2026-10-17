@@ -154,3 +154,48 @@ func TestMaxRequestBodyBytesFollowsTheSettings(t *testing.T) {
 		t.Fatalf("MaxRequestBodyBytes() = %d after the change, want 1 MB", got)
 	}
 }
+
+// A raised request size limit applies at once: until the engine reloads, its HTTP server
+// still runs with the old one, and must not refuse a body Obot's check let through.
+func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
+	up := mockOpenAI(t)
+	defer up.Close()
+	e, ctx := startTestEngine(t)
+	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+		"provider":       "openai",
+		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "k1", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+		t.Fatal(err)
+	}
+	setLimit := func(mb int) {
+		t.Helper()
+		var config struct {
+			ClientConfig map[string]any `json:"client_config"`
+		}
+		if err := e.Do(ctx, http.MethodGet, "/api/config", nil, &config); err != nil {
+			t.Fatal(err)
+		}
+		config.ClientConfig["max_request_body_size_mb"] = mb
+		config.ClientConfig["log_retention_days"] = 1
+		if err := e.Do(ctx, http.MethodPut, "/api/config", map[string]any{"client_config": config.ClientConfig}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The engine starts with a 1 MB limit, then it is raised to 2 MB.
+	setLimit(1)
+	if _, err := e.Reload(1); err != nil {
+		t.Fatal(err)
+	}
+	setLimit(2)
+	if got := e.MaxRequestBodyBytes(); got != 2<<20 {
+		t.Fatalf("MaxRequestBodyBytes() = %d, want 2 MB", got)
+	}
+
+	body := `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"` + strings.Repeat("a", 3<<19) + `"}]}`
+	if code, resp := do(t, e, http.MethodPost, "/v1/chat/completions", body); code != http.StatusOK || !strings.Contains(resp, "Hello from mock") {
+		t.Fatalf("a 1.5 MB request under the raised limit got %d: %.200s", code, resp)
+	}
+}

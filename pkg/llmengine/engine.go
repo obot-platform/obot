@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -553,6 +554,11 @@ func (e *Engine) bootServer(ctx context.Context, opts Options) (*instance, error
 		return &instance{server: server, listener: ln}, fmt.Errorf("failed to start the LLM gateway: %w", err)
 	}
 	inst := &instance{server: server, listener: ln}
+	// Obot enforces the request size limit itself, from the live setting (see
+	// MaxRequestBodyBytes), before a request reaches the engine. The engine's HTTP server
+	// takes the setting only when it starts, so after the limit is raised it would refuse a
+	// body Obot let through, with a plain-text error, until the next reload.
+	server.Server.MaxRequestBodySize = math.MaxInt
 
 	if opts.FirstPlugin != nil && opts.LastPlugin != nil {
 		if err := registerLLMPlugins(server, opts.FirstPlugin, opts.LastPlugin); err != nil {
