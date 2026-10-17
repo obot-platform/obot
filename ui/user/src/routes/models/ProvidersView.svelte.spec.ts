@@ -53,6 +53,23 @@ async function renderProvidersPage(groups: string[] = [Group.ADMIN]) {
 afterEach(resetModelsTab);
 
 describe('Models providers tab', () => {
+	it('enables Set Default Models once the gateway has models', async () => {
+		mockGateway();
+		worker.use(
+			http.get('/api/models', ({ request }) =>
+				HttpResponse.json({
+					items:
+						new URL(request.url).searchParams.get('all') === 'true'
+							? [{ id: 'm1', name: 'gpt-5-mini', usage: 'llm', active: true }]
+							: []
+				})
+			)
+		);
+		await renderProvidersPage();
+
+		await expect.element(page.getByRole('button', { name: 'Set Default Models' })).toBeEnabled();
+	});
+
 	it('lists gateway providers as provider cards with their key counts', async () => {
 		mockGateway();
 		await renderProvidersPage();

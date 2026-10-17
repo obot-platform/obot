@@ -5,6 +5,7 @@
 	import GuardrailsList from '$lib/components/guardrails/GuardrailsList.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
 	import { m } from '$lib/i18n';
+	import { AdminService } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import GatewaySettingsView from './GatewaySettingsView.svelte';
@@ -13,6 +14,7 @@
 	import ProvidersView from './ProvidersView.svelte';
 	import RoutingView from './RoutingView.svelte';
 	import { Plus } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
@@ -86,6 +88,21 @@
 	});
 
 	let title = $derived(titles[selectedView] ?? m.models_page_title());
+
+	// The default models dialog on the Providers tab chooses from every model the gateway has.
+	$effect(() => {
+		if (selectedView === 'providers' && hasAdminAccess) {
+			untrack(loadAdminModels);
+		}
+	});
+
+	async function loadAdminModels() {
+		try {
+			adminModels.items = await AdminService.listModels({ all: true });
+		} catch {
+			// The dialog stays unavailable; the Providers tab reports gateway errors itself.
+		}
+	}
 </script>
 
 <svelte:head>
