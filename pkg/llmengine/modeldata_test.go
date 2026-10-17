@@ -3,9 +3,14 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"math"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -104,5 +109,112 @@ func TestEnginePicksUpChangedModelData(t *testing.T) {
 	}
 	if cost := gpt4o(); math.Abs(cost-10) > 1e-9 {
 		t.Fatalf("a million gpt-4o input tokens cost %v after the price changed, want 10", cost)
+	}
+}
+
+// TestEngineForwardsRequestParameters checks that a request's output token limit and
+// sampling parameters reach the provider for a model the model data knows, in every API
+// format. The model data lists models' capabilities but not the parameters each takes, so
+// the engine must not drop the parameters it doesn't list.
+func TestEngineForwardsRequestParameters(t *testing.T) {
+	var (
+		lock   sync.Mutex
+		bodies = map[string]map[string]any{}
+	)
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req map[string]any
+		_ = json.Unmarshal(body, &req)
+		lock.Lock()
+		bodies[r.URL.Path] = req
+		lock.Unlock()
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/messages"):
+			_, _ = io.WriteString(w, `{"id":"msg_1","type":"message","role":"assistant","model":"claude-sonnet-4-5","content":[{"type":"text","text":"ok"}],"stop_reason":"max_tokens","usage":{"input_tokens":5,"output_tokens":5}}`)
+		case strings.HasSuffix(r.URL.Path, "/chat/completions"):
+			_, _ = io.WriteString(w, `{"id":"c1","object":"chat.completion","created":1,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"length"}],"usage":{"prompt_tokens":5,"completion_tokens":20,"total_tokens":25}}`)
+		case strings.HasSuffix(r.URL.Path, "/responses"):
+			_, _ = io.WriteString(w, `{"id":"resp_1","object":"response","created_at":1,"status":"incomplete","model":"gpt-4o-mini","output":[{"type":"message","id":"m1","role":"assistant","status":"incomplete","content":[{"type":"output_text","text":"ok","annotations":[]}]}],"usage":{"input_tokens":5,"output_tokens":20,"total_tokens":25}}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer up.Close()
+
+	dataDir := t.TempDir()
+	modeldatatest.Write(t, dataDir)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	e := New()
+	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+		t.Fatal(err)
+	}
+	defer e.Shutdown()
+	for _, provider := range []string{"openai", "anthropic"} {
+		if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+			"provider":       provider,
+			"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := e.Do(ctx, http.MethodPost, "/api/providers/"+provider+"/keys", map[string]any{"name": provider + "-key", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	tests := []struct {
+		name     string
+		path     string
+		body     string
+		upstream string
+		limit    string
+	}{
+		{
+			name:     "chat completions max_tokens to OpenAI",
+			path:     "/v1/chat/completions",
+			body:     `{"model":"openai/gpt-4o-mini","max_tokens":20,"temperature":0.5,"messages":[{"role":"user","content":"hi"}]}`,
+			upstream: "/v1/chat/completions",
+			limit:    "max_completion_tokens",
+		},
+		{
+			name:     "chat completions max_completion_tokens to Anthropic",
+			path:     "/v1/chat/completions",
+			body:     `{"model":"anthropic/claude-sonnet-4-5","max_completion_tokens":20,"temperature":0.5,"messages":[{"role":"user","content":"hi"}]}`,
+			upstream: "/v1/messages",
+			limit:    "max_tokens",
+		},
+		{
+			name:     "messages to Anthropic",
+			path:     "/anthropic/v1/messages",
+			body:     `{"model":"anthropic/claude-sonnet-4-5","max_tokens":20,"temperature":0.5,"messages":[{"role":"user","content":"hi"}]}`,
+			upstream: "/v1/messages",
+			limit:    "max_tokens",
+		},
+		{
+			name:     "responses to OpenAI",
+			path:     "/v1/responses",
+			body:     `{"model":"openai/gpt-4o-mini","max_output_tokens":20,"temperature":0.5,"input":"hi"}`,
+			upstream: "/v1/responses",
+			limit:    "max_output_tokens",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lock.Lock()
+			clear(bodies)
+			lock.Unlock()
+			if code, resp := do(t, e, http.MethodPost, tt.path, tt.body); code != http.StatusOK {
+				t.Fatalf("got %d: %s", code, resp)
+			}
+			lock.Lock()
+			sent := bodies[tt.upstream]
+			lock.Unlock()
+			if sent == nil {
+				t.Fatalf("the upstream got no request at %s, got %v", tt.upstream, bodies)
+			}
+			if sent[tt.limit] != float64(20) || sent["temperature"] != 0.5 {
+				t.Fatalf("the upstream got %s=%v and temperature=%v, want 20 and 0.5: %v", tt.limit, sent[tt.limit], sent["temperature"], sent)
+			}
+		})
 	}
 }

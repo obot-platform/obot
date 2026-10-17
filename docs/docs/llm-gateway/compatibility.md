@@ -25,6 +25,7 @@ The earlier `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` routes still 
 - **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](../functionality/model-access-policies.md), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
 - **Send the exact model name.** Use the model name shown on the [LLM Gateway page](./how-it-works.md#the-models-page) exactly as displayed.
 - **Claude Code model discovery.** Gateway model discovery is off by default and requires Claude Code v2.1.129 or later.
+- **Minimum output token limit for OpenAI-format providers.** A `max_tokens`, `max_completion_tokens` or `max_output_tokens` under 16 is raised to 16 for OpenAI and OpenAI-compatible providers, the smallest limit OpenAI's Responses API accepts. Anthropic models get the limit as sent.
 - **Usage is recorded.** Requests count toward Obot [usage and budgets](./audit.md).
 - **Audit logs can be exported.** Administrators can create one-time or scheduled exports for LLM gateway audit logs. See [Audit Log Export](../configuration/audit-log-export.md).
 

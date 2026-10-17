@@ -854,6 +854,12 @@ func buildConfigFile(opts Options, encryptionKey, setupToken string) ([]byte, er
 			"enforce_auth_on_inference": false,
 			"allowed_origins":           []string{"*"},
 			"max_request_body_size_mb":  100,
+			// The engine drops every request parameter its model-parameters file doesn't list
+			// for the model. Obot's file (see modeldata.go) lists models' capabilities but not
+			// their parameters, so this would drop max_tokens, temperature, stop and the rest
+			// from every request to a known model. Providers reject what a model can't take,
+			// and the engine still strips the sampling parameters it knows a model rejects.
+			"compat": map[string]any{"should_drop_params": false},
 		},
 		"config_store": configStore,
 		"framework": map[string]any{
