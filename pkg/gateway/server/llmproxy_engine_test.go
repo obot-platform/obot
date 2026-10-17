@@ -172,6 +172,22 @@ func TestSanitizingTransport(t *testing.T) {
 		}
 	})
 
+	t.Run("model list", func(t *testing.T) {
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"object":"list","data":[{"id":"openai/gpt-4.1"}],"key_statuses":[{"key_id":"k1","provider":"openai","status":"success"}]}`)),
+		}
+		out, err := sanitizingTransport{next: fakeRoundTripper{resp: resp}}.RoundTrip(httptest.NewRequest(http.MethodGet, "/v1/models", nil))
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(out.Body)
+		if string(body) != `{"object":"list","data":[{"id":"openai/gpt-4.1"}]}` {
+			t.Fatalf("got %s, want the list without the provider keys' statuses", body)
+		}
+	})
+
 	t.Run("stream", func(t *testing.T) {
 		stream := "data: {\"id\":\"c1\",\"extra_fields\":{\"routing_info\":{}},\"choices\":[]}\n\n" +
 			"event: response.created\ndata: {\"type\":\"response.created\",\"response\":{\"id\":\"r1\",\"extra_fields\":{\"latency\":0}}}\n\n" +
