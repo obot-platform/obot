@@ -126,6 +126,8 @@ type gatewayRequest interface {
 	paidBySubscription() bool
 	// budgetExceeded is the budget that refused the last attempt, if one did.
 	budgetExceeded() *client.LLMGatewayBudgetExceeded
+	// lastRefused reports whether the last attempt was refused, so no model served the request.
+	lastRefused() bool
 	// guardrailFindings is what the gateway's guardrails did to the request so far.
 	guardrailFindings() []types2.LLMAuditGuardrailFinding
 	// cost is what the gateway priced the response at, for the model that served it, if it
@@ -760,6 +762,10 @@ func isModelsListRequest(req *http.Request) bool {
 func servedRoute(gateway gatewayRequest, reported llmRoute) llmRoute {
 	if gateway == nil {
 		return reported
+	}
+	if gateway.lastRefused() {
+		// The engine reports the refused attempt's route, but nothing served the request.
+		return llmRoute{}
 	}
 	if admitted, _ := gateway.served(); admitted != "" {
 		if provider, model, ok := strings.Cut(admitted, "/"); ok {

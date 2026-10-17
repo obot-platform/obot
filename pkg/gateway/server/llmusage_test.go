@@ -194,6 +194,12 @@ func TestServedRoute(t *testing.T) {
 	if got := servedRoute(attempts, reported); !got.Subscription || got.Key != "" || got.Provider != "anthropic" {
 		t.Errorf("route of a subscription attempt = %+v, want it paid by the subscription with no key", got)
 	}
+	// A refused last attempt served nothing, though the engine reports its route.
+	attempts.admittedSubscription = false
+	attempts.refused = true
+	if got := servedRoute(attempts, reported); got != (llmRoute{}) {
+		t.Errorf("route of a refused request = %+v, want none", got)
+	}
 }
 
 func TestGatewayRoutingFromEngineResponses(t *testing.T) {

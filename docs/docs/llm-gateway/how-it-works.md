@@ -93,7 +93,7 @@ Whichever model ends up serving a request:
 
 - **Its budgets must have room.** Every budget of the caller's profiles that grant the model being tried, and that covers that model, is checked for each attempt (except attempts a user's [Claude subscription](./connect-clients.md#claude-code-with-a-claude-subscription) pays for), so a budget limited to a model applies whenever that model serves a request, however the request reached it. An attempt whose budget is exhausted is refused, and the gateway tries the next fallback, if any. If none can serve the request, the caller gets the budget's 429.
 
-- **Usage is recorded against the model that served it.** Usage reports and budgets record that model, price the request at its rates, and charge the budgets that apply to it. A request that was refused is recorded against the model that was requested.
+- **Usage is recorded against the model that served it.** Usage reports and budgets record that model, price the request at its rates, and charge the budgets that apply to it. A request that was refused is recorded against the model that was requested, and its audit record names no model as having served it.
 
 The LLM audit log (**Audit Logs** → **Model**) records both the model each request asked for and the provider, model and provider key that served it, and whether a fallback did.
 

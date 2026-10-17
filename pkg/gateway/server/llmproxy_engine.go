@@ -128,6 +128,8 @@ type gatewayAttempts struct {
 	// admittedSubscription is true when the caller's Claude subscription pays for the last
 	// attempt admitted.
 	admittedSubscription bool
+	// refused is true when the last attempt was refused, so no model served the request.
+	refused bool
 	// detections are what the guardrails did to the request, by stage (input or output).
 	detections map[string][]guardrails.Detection
 	// priced is what the gateway priced the response at, when it did.
@@ -565,6 +567,25 @@ func (a *gatewayAttempts) budgetExceeded() *client.LLMGatewayBudgetExceeded {
 // use, whatever routed them there, and spends the budgets of the model that serves them,
 // unless their own Claude subscription pays for it.
 func (a *gatewayAttempts) check(b *bifrostProviderBackend, l *llmProviderProxy, apiReq api.Context, requested *v1.Model) guardrails.AttemptCheck {
+	checkAttempt := a.checkAttempt(b, l, apiReq, requested)
+	return func(ctx context.Context, attempt guardrails.Attempt) error {
+		err := checkAttempt(ctx, attempt)
+		a.lock.Lock()
+		a.refused = err != nil
+		a.lock.Unlock()
+		return err
+	}
+}
+
+// lastRefused reports whether the last attempt was refused, so no model served the request.
+func (a *gatewayAttempts) lastRefused() bool {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+	return a.refused
+}
+
+// checkAttempt checks one attempt, and records the attempts it admits.
+func (a *gatewayAttempts) checkAttempt(b *bifrostProviderBackend, l *llmProviderProxy, apiReq api.Context, requested *v1.Model) guardrails.AttemptCheck {
 	return func(_ context.Context, attempt guardrails.Attempt) error {
 		reference := attempt.Model
 		if a.subscription && !strings.HasPrefix(reference, "anthropic/") {

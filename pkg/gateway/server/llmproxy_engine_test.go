@@ -348,6 +348,16 @@ func TestSubscriptionRequestsStayOnAnthropic(t *testing.T) {
 	if model, _ := attempts.served(); model != "" {
 		t.Fatalf("admitted %q", model)
 	}
+	if !attempts.lastRefused() {
+		t.Fatal("the refused attempt isn't reported as refused")
+	}
+	// An admitted attempt after a refused one served the request.
+	if err := check(context.Background(), guardrails.Attempt{Model: sonnet.Spec.Manifest.TargetModel, Subscription: true}); err != nil {
+		t.Fatal(err)
+	}
+	if attempts.lastRefused() {
+		t.Fatal("the admitted attempt is reported as refused")
+	}
 }
 
 func TestServedModelChange(t *testing.T) {
