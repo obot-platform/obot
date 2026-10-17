@@ -234,6 +234,8 @@
 	"models_providers_concurrency_help": "Maximum in-flight requests to this provider.",
 	"models_providers_queue_size": "Queue size",
 	"models_providers_queue_size_help": "Requests waiting for a free worker.",
+	"models_providers_concurrency_too_small": "Concurrency must be at least 1.",
+	"models_providers_queue_size_too_small": "Queue size must be at least the concurrency.",
 	"models_providers_allow_private_network": "Allow private network addresses",
 	"models_providers_extra_headers": "Extra headers",
 	"models_providers_header_name_placeholder": "Header",

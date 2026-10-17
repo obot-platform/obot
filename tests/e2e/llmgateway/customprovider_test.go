@@ -5,6 +5,7 @@ package llmgateway
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -83,5 +84,99 @@ func TestChatCompletionsOnlyProvider(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestCustomProviderSettingsUpdate checks the provider page's saves for a custom
+// OpenAI-compatible provider: turning the Responses API on and off by changing its allowed
+// requests, keeping them when a save leaves custom_provider_config out, and the gateway's
+// error for a queue size below the concurrency, which the page shows in the field's words.
+func TestCustomProviderSettingsUpdate(t *testing.T) {
+	provider := "e2eresp" + harness.RandomSuffix()
+	chatOnly := map[string]bool{
+		"list_models":            true,
+		"model_retrieve":         true,
+		"text_completion":        true,
+		"text_completion_stream": true,
+		"chat_completion":        true,
+		"chat_completion_stream": true,
+		"embedding":              true,
+	}
+	path := "/api/llm-gateway/admin/providers/" + provider
+	env.admin.Post(t, "/api/llm-gateway/admin/providers", map[string]any{
+		"provider": provider,
+		"network_config": map[string]any{
+			"base_url":              env.mock.URL,
+			"allow_private_network": true,
+		},
+		"custom_provider_config": map[string]any{
+			"base_provider_type": "openai",
+			"is_key_less":        true,
+			"allowed_requests":   chatOnly,
+		},
+	}, nil)
+	t.Cleanup(func() {
+		env.admin.Do(t, http.MethodDelete, path, nil)
+	})
+
+	type providerConfig struct {
+		NetworkConfig            map[string]any `json:"network_config"`
+		ConcurrencyAndBufferSize map[string]any `json:"concurrency_and_buffer_size"`
+		CustomProviderConfig     map[string]any `json:"custom_provider_config"`
+	}
+	get := func() providerConfig {
+		var p providerConfig
+		env.admin.Get(t, path, &p)
+		return p
+	}
+	// save sends what the provider page sends: the network settings and queue sizes, and the
+	// custom provider config only when the Responses API setting changed.
+	save := func(custom map[string]any, concurrency, bufferSize int) *harness.Response {
+		body := map[string]any{
+			"network_config":              get().NetworkConfig,
+			"concurrency_and_buffer_size": map[string]any{"concurrency": concurrency, "buffer_size": bufferSize},
+		}
+		if custom != nil {
+			body["custom_provider_config"] = custom
+		}
+		return env.admin.Do(t, http.MethodPut, path, body)
+	}
+	servesResponses := func() bool {
+		allowed, _ := get().CustomProviderConfig["allowed_requests"].(map[string]any)
+		return allowed == nil || allowed["responses"] == true
+	}
+
+	if servesResponses() {
+		t.Fatal("a provider created without the Responses API serves it")
+	}
+
+	custom := get().CustomProviderConfig
+	delete(custom, "allowed_requests")
+	if resp := save(custom, 100, 500); resp.Status != http.StatusOK {
+		t.Fatalf("turning on the Responses API: %s", resp)
+	}
+	if !servesResponses() {
+		t.Fatal("the provider doesn't serve the Responses API after turning it on")
+	}
+
+	custom = get().CustomProviderConfig
+	custom["allowed_requests"] = chatOnly
+	if resp := save(custom, 100, 500); resp.Status != http.StatusOK {
+		t.Fatalf("turning off the Responses API: %s", resp)
+	}
+	if servesResponses() {
+		t.Fatal("the provider serves the Responses API after turning it off")
+	}
+
+	if resp := save(nil, 200, 600); resp.Status != http.StatusOK {
+		t.Fatalf("saving without the custom provider config: %s", resp)
+	}
+	if got := get(); servesResponses() || got.CustomProviderConfig["base_provider_type"] != "openai" {
+		t.Fatalf("a save without the custom provider config changed it: %v", got.CustomProviderConfig)
+	}
+
+	resp := save(nil, 600, 200)
+	if resp.Status != http.StatusBadRequest || !strings.Contains(string(resp.Body), "Concurrency must be less than or equal to buffer size") {
+		t.Fatalf("a queue size below the concurrency: want 400 with the message the provider page maps to its field, got %s", resp)
 	}
 }

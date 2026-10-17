@@ -234,6 +234,8 @@
 	"models_providers_concurrency_help": "发往此提供商的最大进行中请求数。",
 	"models_providers_queue_size": "队列大小",
 	"models_providers_queue_size_help": "等待空闲工作线程的请求数。",
+	"models_providers_concurrency_too_small": "并发数必须至少为 1。",
+	"models_providers_queue_size_too_small": "队列大小不能小于并发数。",
 	"models_providers_allow_private_network": "允许私有网络地址",
 	"models_providers_extra_headers": "额外请求头",
 	"models_providers_header_name_placeholder": "请求头",

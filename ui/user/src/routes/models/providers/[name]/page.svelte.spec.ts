@@ -1,5 +1,7 @@
 import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
+import { CHAT_COMPLETIONS_ONLY_REQUESTS } from '$lib/services/llm-gateway/providers';
+import { errors } from '$lib/stores';
 import { goto } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
 import { worker } from '../../../../tests/mocks/worker';
@@ -243,6 +245,129 @@ describe('LLM gateway provider page', () => {
 				})
 			)
 		);
+	});
+
+	it('turns on the Responses API for a custom OpenAI-compatible provider', async () => {
+		const local = {
+			...openai,
+			name: 'local-llm',
+			custom_provider_config: {
+				base_provider_type: 'openai',
+				allowed_requests: CHAT_COMPLETIONS_ONLY_REQUESTS
+			}
+		};
+		mockProvider({ provider: local });
+		const updated = vi.fn();
+		worker.use(
+			http.put('/api/llm-gateway/admin/providers/:name', async ({ request }) => {
+				updated(await request.json());
+				return HttpResponse.json({
+					...local,
+					custom_provider_config: { base_provider_type: 'openai' }
+				});
+			})
+		);
+		await renderProviderPage([Group.ADMIN], 'local-llm');
+
+		const responses = page.getByLabelText('Serves the OpenAI Responses API');
+		await expect.element(responses).not.toBeChecked();
+		await responses.click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
+		expect(updated.mock.calls[0][0].custom_provider_config).toEqual({
+			base_provider_type: 'openai'
+		});
+		await expect.element(responses).toBeChecked();
+	});
+
+	it('turns off the Responses API, and leaves it alone when unchanged', async () => {
+		const local = {
+			...openai,
+			name: 'local-llm',
+			custom_provider_config: { base_provider_type: 'openai' }
+		};
+		mockProvider({ provider: local });
+		const updated = vi.fn();
+		worker.use(
+			http.put('/api/llm-gateway/admin/providers/:name', async ({ request }) => {
+				updated(await request.json());
+				return HttpResponse.json(local);
+			})
+		);
+		await renderProviderPage([Group.ADMIN], 'local-llm');
+
+		const responses = page.getByLabelText('Serves the OpenAI Responses API');
+		await expect.element(responses).toBeChecked();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
+		expect(updated.mock.calls[0][0]).not.toHaveProperty('custom_provider_config');
+
+		await responses.click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(updated).toHaveBeenCalledTimes(2));
+		expect(updated.mock.calls[1][0].custom_provider_config).toEqual({
+			base_provider_type: 'openai',
+			allowed_requests: CHAT_COMPLETIONS_ONLY_REQUESTS
+		});
+	});
+
+	it('only offers the Responses API setting on custom OpenAI-compatible providers', async () => {
+		mockProvider();
+		await renderProviderPage();
+
+		await expect.element(page.getByLabelText('Max retries')).toBeInTheDocument();
+		await expect
+			.element(page.getByLabelText('Serves the OpenAI Responses API'))
+			.not.toBeInTheDocument();
+	});
+
+	it('requires a queue size of at least the concurrency before saving', async () => {
+		mockProvider();
+		const updated = vi.fn();
+		worker.use(
+			http.put('/api/llm-gateway/admin/providers/:name', () => {
+				updated();
+				return HttpResponse.json(openai);
+			})
+		);
+		await renderProviderPage();
+
+		await page.getByLabelText('Queue size').fill('10');
+		await expect
+			.element(page.getByText('Queue size must be at least the concurrency.'))
+			.toBeVisible();
+		await expect.element(page.getByLabelText('Queue size')).toHaveAttribute('aria-invalid', 'true');
+		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+
+		await page.getByLabelText('Concurrency').fill('0');
+		await expect.element(page.getByText('Concurrency must be at least 1.')).toBeVisible();
+
+		await page.getByLabelText('Concurrency').fill('10');
+		await expect
+			.element(page.getByText('Queue size must be at least the concurrency.'))
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
+	});
+
+	it("reports the gateway's queue size error in the field's words, without a page error", async () => {
+		mockProvider();
+		worker.use(
+			http.put('/api/llm-gateway/admin/providers/:name', () =>
+				HttpResponse.json(
+					{ error: 'Concurrency must be less than or equal to buffer size' },
+					{ status: 400 }
+				)
+			)
+		);
+		errors.items = [];
+		await renderProviderPage();
+
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(errors.items).toHaveLength(1));
+		expect(errors.items[0].message).toBe('Queue size must be at least the concurrency.');
+		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
 	});
 
 	it('removes the keys, after confirmation, when the base URL changes', async () => {

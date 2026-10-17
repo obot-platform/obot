@@ -234,6 +234,8 @@
 	"models_providers_concurrency_help": "このプロバイダーへの処理中リクエストの最大数です。",
 	"models_providers_queue_size": "キューのサイズ",
 	"models_providers_queue_size_help": "空きワーカーを待機するリクエストの数です。",
+	"models_providers_concurrency_too_small": "同時実行数は 1 以上にしてください。",
+	"models_providers_queue_size_too_small": "キューのサイズは同時実行数以上にしてください。",
 	"models_providers_allow_private_network": "プライベートネットワークのアドレスを許可",
 	"models_providers_extra_headers": "追加ヘッダー",
 	"models_providers_header_name_placeholder": "ヘッダー",

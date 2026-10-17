@@ -234,6 +234,8 @@
 	"models_providers_concurrency_help": "이 공급자에 대한 최대 동시 처리 요청 수입니다.",
 	"models_providers_queue_size": "대기열 크기",
 	"models_providers_queue_size_help": "사용 가능한 워커를 기다리는 요청 수입니다.",
+	"models_providers_concurrency_too_small": "동시성은 1 이상이어야 합니다.",
+	"models_providers_queue_size_too_small": "대기열 크기는 동시성 이상이어야 합니다.",
 	"models_providers_allow_private_network": "사설 네트워크 주소 허용",
 	"models_providers_extra_headers": "추가 헤더",
 	"models_providers_header_name_placeholder": "헤더",

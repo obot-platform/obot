@@ -8,6 +8,7 @@
 	import ProviderKeyDialog from '$lib/components/llm-gateway/ProviderKeyDialog.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
@@ -28,11 +29,12 @@
 		type ProviderKey
 	} from '$lib/services/llm-gateway/gateway';
 	import {
+		CHAT_COMPLETIONS_ONLY_REQUESTS,
 		providerIcon,
 		providerIconClass,
 		providerLabel
 	} from '$lib/services/llm-gateway/providers';
-	import { profile } from '$lib/stores';
+	import { errors, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
@@ -63,6 +65,18 @@
 	let bufferSize = $state(5000);
 	let allowPrivate = $state(false);
 	let headers = $state<{ key: string; value: string }[]>([]);
+	// Whether a custom OpenAI-compatible provider serves the Responses API; without it, the
+	// gateway serves Responses and Messages requests to it through Chat Completions.
+	let responsesAPI = $state(false);
+
+	// The gateway needs at least one worker, and a queue that holds as many requests as the
+	// workers, since every request queues before a worker takes it.
+	let concurrencyError = $derived(
+		Number(concurrency) < 1 ? m.models_providers_concurrency_too_small() : ''
+	);
+	let queueSizeError = $derived(
+		Number(bufferSize) < Number(concurrency) ? m.models_providers_queue_size_too_small() : ''
+	);
 
 	// Whether Claude Code users may use their own Claude subscription through this provider.
 	// Only the built-in Anthropic provider can forward a subscription.
@@ -72,6 +86,12 @@
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let base = $derived(provider?.custom_provider_config?.base_provider_type);
 	let isAnthropic = $derived(name === 'anthropic' && !base);
+
+	// A provider serves the Responses API unless its allowed requests leave it out.
+	function servesResponses(p: Provider) {
+		const allowed = p.custom_provider_config?.allowed_requests;
+		return !allowed || !!allowed.responses;
+	}
 
 	async function load() {
 		loading = true;
@@ -88,6 +108,7 @@
 			headers = Object.entries(nc.extra_headers ?? {}).map(([key, value]) => ({ key, value }));
 			concurrency = provider.concurrency_and_buffer_size?.concurrency ?? 1000;
 			bufferSize = provider.concurrency_and_buffer_size?.buffer_size ?? 5000;
+			responsesAPI = servesResponses(provider);
 			await Promise.all([loadKeys(), loadModels(), loadSubscriptionSetting()]);
 		} finally {
 			loading = false;
@@ -158,7 +179,7 @@
 	}
 
 	function save() {
-		if (!provider) return;
+		if (!provider || concurrencyError || queueSizeError) return;
 		if (keys.length > 0 && !sameBaseURL(baseURL, provider.network_config?.base_url ?? '')) {
 			confirmingBaseURLChange = true;
 			return;
@@ -173,6 +194,17 @@
 			const extra = Object.fromEntries(
 				headers.filter((h) => h.key.trim()).map((h) => [h.key.trim(), h.value])
 			);
+			// Only a change is sent, so allowed requests set some other way are kept.
+			const custom = provider.custom_provider_config;
+			const customChange =
+				custom && base === 'openai' && responsesAPI !== servesResponses(provider)
+					? {
+							custom_provider_config: {
+								...custom,
+								allowed_requests: responsesAPI ? undefined : CHAT_COMPLETIONS_ONLY_REQUESTS
+							}
+						}
+					: {};
 			provider = await updateProvider(
 				name,
 				{
@@ -190,12 +222,22 @@
 					concurrency_and_buffer_size: {
 						concurrency: Number(concurrency),
 						buffer_size: Number(bufferSize)
-					}
+					},
+					...customChange
 				},
-				{ removeKeys }
+				{ removeKeys, dontLogErrors: true }
 			);
+			responsesAPI = servesResponses(provider);
 			success.add(m.models_providers_settings_saved());
 			if (removeKeys) await loadKeys();
+		} catch (e) {
+			// The gateway calls the queue size the buffer size; use the field's name instead.
+			const { message } = parseErrorContent(e);
+			errors.append(
+				/concurrency must be less than or equal to buffer size/i.test(message)
+					? new Error(m.models_providers_queue_size_too_small())
+					: e
+			);
 		} finally {
 			saving = false;
 		}
@@ -439,14 +481,16 @@
 						m.models_providers_concurrency(),
 						() => concurrency,
 						(v) => (concurrency = v),
-						m.models_providers_concurrency_help()
+						m.models_providers_concurrency_help(),
+						concurrencyError
 					)}
 					{@render num(
 						'p-buffer',
 						m.models_providers_queue_size(),
 						() => bufferSize,
 						(v) => (bufferSize = v),
-						m.models_providers_queue_size_help()
+						m.models_providers_queue_size_help(),
+						queueSizeError
 					)}
 					<div class="flex flex-col gap-1 pt-6">
 						<Toggle
@@ -460,6 +504,23 @@
 							{m.models_providers_allow_private_network_help()}
 						</span>
 					</div>
+					{#if base === 'openai'}
+						<div class="flex flex-col gap-1 md:col-span-2">
+							<label class="flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									class="checkbox checkbox-sm"
+									bind:checked={responsesAPI}
+									disabled={readonly}
+									aria-describedby="p-responses-api-help"
+								/>
+								{m.models_providers_responses_api()}
+							</label>
+							<span id="p-responses-api-help" class="text-muted-content text-xs">
+								{m.models_providers_responses_api_help()}
+							</span>
+						</div>
+					{/if}
 					<div class="flex flex-col gap-2 md:col-span-2">
 						<span class="text-sm font-light">{m.models_providers_extra_headers()}</span>
 						{#each headers as h, i (i)}
@@ -543,7 +604,11 @@
 				<button class="btn btn-secondary text-sm" onclick={() => goto(PROVIDERS_URL)}
 					>{m.common_cancel()}</button
 				>
-				<button class="btn btn-primary text-sm" onclick={save} disabled={saving}>
+				<button
+					class="btn btn-primary text-sm"
+					onclick={save}
+					disabled={saving || !!concurrencyError || !!queueSizeError}
+				>
 					{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 				</button>
 			</div>
@@ -556,7 +621,8 @@
 	label: string,
 	get: () => number,
 	set: (v: number) => void,
-	help?: string
+	help?: string,
+	error?: string
 )}
 	<div class="flex flex-col gap-1">
 		<label for={id} class="text-sm font-light">{label}</label>
@@ -568,7 +634,10 @@
 			value={get()}
 			oninput={(e) => set(Number((e.target as HTMLInputElement).value))}
 			disabled={readonly}
+			aria-invalid={error ? true : undefined}
+			aria-describedby={error ? `${id}-error` : undefined}
 		/>
+		{#if error}<span id="{id}-error" class="text-error text-xs">{error}</span>{/if}
 		{#if help}<span class="text-muted-content text-xs">{help}</span>{/if}
 	</div>
 {/snippet}
