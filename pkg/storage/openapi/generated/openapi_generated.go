@@ -6970,6 +6970,20 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref comm
 							Format: "",
 						},
 					},
+					"messagePolicyTriggered": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MessagePolicyTriggered keeps exports scheduled before message policies became guardrails exporting only the rows they did. It is no longer offered for new exports.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"boolean"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

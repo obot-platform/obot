@@ -170,6 +170,9 @@ type LLMAuditLogExportFilters struct {
 	UserAgents       []string `json:"userAgents,omitempty"`
 	ClientSessionIDs []string `json:"clientSessionIDs,omitempty"`
 	Query            string   `json:"query,omitempty"`
+	// MessagePolicyTriggered keeps exports scheduled before message policies became
+	// guardrails exporting only the rows they did. It is no longer offered for new exports.
+	MessagePolicyTriggered []bool `json:"messagePolicyTriggered,omitempty"`
 }
 
 // AuditLogType identifies the source of logs exported by a unified audit log export resource.

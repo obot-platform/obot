@@ -46,13 +46,16 @@ type LLMAuditLogOptions struct {
 	Outcome             []string
 	UserAgent           []string
 	ClientSessionID     []string
-	Query               string
-	StartTime           time.Time
-	EndTime             time.Time
-	Limit               int
-	Offset              int
-	SortBy              string
-	SortOrder           string
+	// MessagePolicyTriggered filters on the message policy flag of rows recorded before
+	// message policies became guardrails. Only scheduled exports that set it use it.
+	MessagePolicyTriggered []bool
+	Query                  string
+	StartTime              time.Time
+	EndTime                time.Time
+	Limit                  int
+	Offset                 int
+	SortBy                 string
+	SortOrder              string
 }
 
 func (c *Client) LLMAuditLogEnabled() bool {
@@ -284,6 +287,9 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	}
 	if len(opts.ClientSessionID) > 0 {
 		db = db.Where("client_session_id IN (?)", opts.ClientSessionID)
+	}
+	if len(opts.MessagePolicyTriggered) > 0 {
+		db = db.Where("message_policy_triggered IN (?)", opts.MessagePolicyTriggered)
 	}
 	if !opts.StartTime.IsZero() {
 		db = db.Where("created_at >= ?", opts.StartTime.UTC())

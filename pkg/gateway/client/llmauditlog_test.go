@@ -599,3 +599,24 @@ func waitForLLMAuditLogCount(t *testing.T, c *Client, want int64) {
 		}
 	}
 }
+
+// Exports scheduled before message policies became guardrails filter on the flag that rows
+// recorded back then carry, and must keep exporting only those rows.
+func TestGetLLMAuditLogsFiltersByMessagePolicyTriggered(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	flagged := types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: now, MessagePolicyTriggered: true}
+	for _, entry := range []types.LLMAuditLog{flagged, {ID: uuid.New().String(), CreatedAt: now}} {
+		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+	}
+
+	logs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{true}})
+	if err != nil {
+		t.Fatalf("filter LLM audit logs: %v", err)
+	}
+	if total != 1 || len(logs) != 1 || logs[0].ID != flagged.ID {
+		t.Fatalf("expected only the flagged row, got total=%d logs=%#v", total, logs)
+	}
+}
