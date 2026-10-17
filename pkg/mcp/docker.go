@@ -150,24 +150,33 @@ func detectContainerCurrentNetworkIP(ctx context.Context, cli *client.Client) (s
 
 // detectCurrentLocalIP detects the local IP.
 func detectCurrentLocalIP() (string, error) {
-	// Use UDP dial to determine the source IP address that would be used to reach an external IP.
-	// This is equivalent to `ip route get 1.1.1.1` on Linux.
-	// No actual connection is made since UDP is connectionless.
-	conn, err := net.Dial("udp", "1.1.1.1:80")
-	if err != nil {
-		// Without a default route (e.g. an air-gapped host whose traffic goes through a
-		// proxy), fall back to the first non-loopback interface address.
-		if ip := firstInterfaceIP(upInterfaceAddrs); ip != "" {
-			return ip, nil
+	return localIP(func() (net.Conn, error) {
+		// Use UDP dial to determine the source IP address that would be used to reach an
+		// external IP. This is equivalent to `ip route get 1.1.1.1` on Linux. No actual
+		// connection is made since UDP is connectionless.
+		return net.Dial("udp", "1.1.1.1:80")
+	}, upInterfaceAddrs), nil
+}
+
+// localIP returns the address Obot would reach the outside from, given a way to dial out and
+// the addresses of the network interfaces that are up.
+func localIP(dial func() (net.Conn, error), interfaceAddrs func() ([]net.Addr, error)) string {
+	conn, err := dial()
+	if err == nil {
+		defer conn.Close()
+		if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+			return addr.IP.String()
 		}
-		return "", fmt.Errorf("failed to determine local IP: %w", err)
 	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	ip := localAddr.IP.String()
-
-	return ip, nil
+	// Without a default route (e.g. an air-gapped host whose traffic goes through a proxy),
+	// fall back to the first non-loopback interface address.
+	if ip := firstInterfaceIP(interfaceAddrs); ip != "" {
+		return ip
+	}
+	// Without any network, as in a container started with --network none, only the loopback
+	// address is left. Obot still starts; MCP servers it runs in Docker can't reach it then.
+	slog.Warn("no network interface besides loopback; MCP servers run in Docker won't be able to reach Obot", "error", err)
+	return "127.0.0.1"
 }
 
 // upInterfaceAddrs returns the addresses of the network interfaces that are up and aren't
