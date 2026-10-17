@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/tidwall/gjson"
 )
 
 func TestAllowedBifrostAPIPath(t *testing.T) {
@@ -371,5 +372,53 @@ func TestClientConfigOnly(t *testing.T) {
 				t.Fatalf("clientConfigOnly() = %s, want %s", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestWithProviderDefaults(t *testing.T) {
+	// A new OpenAI-compatible provider whose base URL ends in /v1 gets it without, since the
+	// gateway adds /v1 to every path, and gets the default retries.
+	body, err := withProviderDefaults([]byte(`{"provider":"vllm-local","network_config":{"base_url":"http://vllm:8000/v1"},"custom_provider_config":{"base_provider_type":"openai"}}`), true, "openai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := gjson.GetBytes(body, "network_config.base_url").String(); got != "http://vllm:8000" {
+		t.Fatalf("base_url = %q", got)
+	}
+	if !gjson.GetBytes(body, "network_config.max_retries").Exists() {
+		t.Fatalf("defaults not applied: %s", body)
+	}
+
+	// An update gets the same base URL, and no defaults.
+	body, err = withProviderDefaults([]byte(`{"network_config":{"base_url":"http://vllm:8000/v1/"}}`), false, "openai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := gjson.GetBytes(body, "network_config.base_url").String(); got != "http://vllm:8000" || gjson.GetBytes(body, "network_config.max_retries").Exists() {
+		t.Fatalf("update body %s", body)
+	}
+
+	// An update with nothing to change is sent as it was.
+	update := `{"network_config":{"base_url":"https://api.openai.com"},"keys":[]}`
+	if body, err = withProviderDefaults([]byte(update), false, "openai"); err != nil || string(body) != update {
+		t.Fatalf("update body %s, %v", body, err)
+	}
+}
+
+func TestIsProviderWrite(t *testing.T) {
+	for _, tt := range []struct {
+		method, path string
+		want         bool
+	}{
+		{method: http.MethodPost, path: "providers", want: true},
+		{method: http.MethodPut, path: "providers/openai", want: true},
+		{method: http.MethodPost, path: "providers/openai/keys", want: false},
+		{method: http.MethodPut, path: "providers/openai/keys/k1", want: false},
+		{method: http.MethodDelete, path: "providers/openai", want: false},
+		{method: http.MethodPut, path: "config", want: false},
+	} {
+		if got := isProviderWrite(tt.method, tt.path); got != tt.want {
+			t.Errorf("isProviderWrite(%s, %s) = %v, want %v", tt.method, tt.path, got, tt.want)
+		}
 	}
 }

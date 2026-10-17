@@ -59,6 +59,9 @@ type MockLLM struct {
 	models map[string][]string
 	// seen counts identical request bodies, for @@flaky@@.
 	seen map[string]int
+	// chatOnly are the upstream API keys served as a server with only Chat Completions, as
+	// many self-hosted OpenAI-compatible servers are: no Responses API and no Messages API.
+	chatOnly map[string]bool
 }
 
 // RecordedRequest is one request the mock received.
@@ -103,6 +106,7 @@ func StartMockLLM() (*MockLLM, error) {
 		listener: l,
 		models:   map[string][]string{},
 		seen:     map[string]int{},
+		chatOnly: map[string]bool{},
 	}
 	m.server = &http.Server{Handler: http.HandlerFunc(m.serve)}
 	go func() { _ = m.server.Serve(l) }()
@@ -119,6 +123,14 @@ func (m *MockLLM) SetModels(key string, models ...string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.models[key] = models
+}
+
+// SetChatOnly serves requests with an upstream API key as a server that only has Chat
+// Completions (and model listing and embeddings) would: other APIs are not found.
+func (m *MockLLM) SetChatOnly(key string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.chatOnly[key] = true
 }
 
 // Requests returns the recorded requests whose body contains substr, oldest first.
@@ -265,7 +277,10 @@ func (m *MockLLM) serve(w http.ResponseWriter, r *http.Request) {
 		m.serveModels(w, r, key)
 		return
 	}
-	if format == "" {
+	m.mu.Lock()
+	chatOnly := m.chatOnly[key]
+	m.mu.Unlock()
+	if format == "" || chatOnly && format != FormatChat && format != FormatEmbeddings {
 		http.NotFound(w, r)
 		return
 	}

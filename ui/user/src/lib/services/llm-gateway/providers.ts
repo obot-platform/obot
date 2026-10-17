@@ -307,6 +307,19 @@ export const CUSTOM_PROVIDER_BASES = [
 	{ id: 'cohere', label: m.models_providers_compatible({ name: 'Cohere' }) }
 ];
 
+// The request types of an OpenAI-compatible server that serves only Chat Completions (and
+// model listing and embeddings). Without the Responses API, the gateway serves Responses and
+// Anthropic Messages requests to it through Chat Completions.
+export const CHAT_COMPLETIONS_ONLY_REQUESTS: Record<string, boolean> = {
+	list_models: true,
+	model_retrieve: true,
+	text_completion: true,
+	text_completion_stream: true,
+	chat_completion: true,
+	chat_completion_stream: true,
+	embedding: true
+};
+
 export function catalogEntry(id: string): ProviderCatalogEntry | undefined {
 	return PROVIDER_CATALOG.find((p) => p.id === id);
 }

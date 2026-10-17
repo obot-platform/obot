@@ -10,6 +10,7 @@
 		type Provider
 	} from '$lib/services/llm-gateway/gateway';
 	import {
+		CHAT_COMPLETIONS_ONLY_REQUESTS,
 		CUSTOM_PROVIDER_BASES,
 		PROVIDER_CATALOG,
 		catalogEntry,
@@ -34,6 +35,9 @@
 	let customName = $state('');
 	let customBase = $state('openai');
 	let keyless = $state(false);
+	// Whether a custom OpenAI-compatible server serves the Responses API as well as Chat
+	// Completions. Many self-hosted servers serve only Chat Completions.
+	let responsesAPI = $state(false);
 	let allowPrivate = $state(false);
 	let saving = $state(false);
 	let error = $state('');
@@ -57,6 +61,7 @@
 		customName = '';
 		customBase = 'openai';
 		keyless = false;
+		responsesAPI = false;
 		allowPrivate = false;
 		error = '';
 	}
@@ -116,6 +121,10 @@
 			};
 			if (selected === 'custom') {
 				body.custom_provider_config = { base_provider_type: customBase, is_key_less: keyless };
+				if (customBase === 'openai' && !responsesAPI) {
+					// The gateway then serves Responses and Messages requests through Chat Completions.
+					body.custom_provider_config.allowed_requests = CHAT_COMPLETIONS_ONLY_REQUESTS;
+				}
 			}
 			await createProvider(body, { dontLogErrors: true });
 			created = true;
@@ -266,6 +275,22 @@
 					<input type="checkbox" class="checkbox checkbox-sm" bind:checked={keyless} />
 					{m.models_providers_no_api_key_required()}
 				</label>
+				{#if customBase === 'openai'}
+					<div class="flex flex-col gap-1">
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								class="checkbox checkbox-sm"
+								bind:checked={responsesAPI}
+								aria-describedby="new-responses-api-help"
+							/>
+							{m.models_providers_responses_api()}
+						</label>
+						<span id="new-responses-api-help" class="text-muted-content text-xs">
+							{m.models_providers_responses_api_help()}
+						</span>
+					</div>
+				{/if}
 			{/if}
 
 			{#each fields as field (field.path)}

@@ -122,6 +122,57 @@ describe('AddProviderDialog', () => {
 		expect(keyCreated).not.toHaveBeenCalled();
 	});
 
+	it('serves an OpenAI-compatible provider through Chat Completions unless it serves the Responses API', async () => {
+		const { created } = mockCreate();
+		const { dialog, onCreated } = await openDialog();
+
+		await dialog.getByRole('button', { name: /Custom provider/ }).click();
+		await dialog.getByLabelText('Name').fill('vllm');
+		await dialog
+			.getByPlaceholder('https://llm.internal.example.com/v1')
+			.fill('http://vllm:8000/v1');
+		await dialog.getByLabelText('No API key required').click();
+		await dialog.getByRole('button', { name: 'Add Provider' }).click();
+
+		await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith('vllm'));
+		expect(created).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				custom_provider_config: {
+					base_provider_type: 'openai',
+					is_key_less: true,
+					allowed_requests: {
+						list_models: true,
+						model_retrieve: true,
+						text_completion: true,
+						text_completion_stream: true,
+						chat_completion: true,
+						chat_completion_stream: true,
+						embedding: true
+					}
+				}
+			})
+		);
+	});
+
+	it('sends every request type to an OpenAI-compatible provider that serves the Responses API', async () => {
+		const { created } = mockCreate();
+		const { dialog, onCreated } = await openDialog();
+
+		await dialog.getByRole('button', { name: /Custom provider/ }).click();
+		await dialog.getByLabelText('Name').fill('responses');
+		await dialog.getByPlaceholder('https://llm.internal.example.com/v1').fill('http://llm:8000/v1');
+		await dialog.getByLabelText('No API key required').click();
+		await dialog.getByLabelText('Serves the OpenAI Responses API').click();
+		await dialog.getByRole('button', { name: 'Add Provider' }).click();
+
+		await vi.waitFor(() => expect(onCreated).toHaveBeenCalledWith('responses'));
+		expect(created).toHaveBeenLastCalledWith(
+			expect.objectContaining({
+				custom_provider_config: { base_provider_type: 'openai', is_key_less: true }
+			})
+		);
+	});
+
 	it('removes the new provider and shows the error when its key is rejected', async () => {
 		const { created, deleted } = mockCreate({ keyStatus: 400 });
 		const { dialog, onCreated } = await openDialog();

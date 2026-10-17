@@ -42,7 +42,9 @@ Certificate checks can't be turned off, and a custom CA can't be added, on Azure
 
 ### Ollama, vLLM and other self-hosted models {#ollama-vllm-and-other-self-hosted-models}
 
-Add the built-in **Ollama** or **vLLM** provider with the server URL; they don't need a key. For other OpenAI-compatible services, such as LiteLLM, add a custom OpenAI-compatible provider with its base URL.
+Add the built-in **Ollama** or **vLLM** provider with the server URL; they don't need a key. For other OpenAI-compatible services, such as LiteLLM, add a custom OpenAI-compatible provider with its base URL. A base URL ending in `/v1`, as such servers usually document it, is saved without it, since the gateway adds `/v1` to every path itself.
+
+Many OpenAI-compatible servers serve only Chat Completions, not the OpenAI Responses API. Leave **Serves the OpenAI Responses API** off for them when adding the custom provider: the gateway then serves Responses API and Anthropic Messages requests (from Codex or Claude Code, for example) to it through Chat Completions. Turn it on only for a server that serves `/v1/responses`. Through the API, the same choice is the provider's `custom_provider_config.allowed_requests`: list the request types the server serves (`list_models`, `chat_completion`, `chat_completion_stream`, `embedding` and so on), leaving out `responses` and `responses_stream`.
 
 When Obot runs in Docker and Ollama runs on the host, start Ollama with `OLLAMA_HOST=0.0.0.0` and use `http://host.docker.internal:11434` as the server URL. On Linux, also start the Obot container with `--add-host=host.docker.internal:host-gateway`.
 

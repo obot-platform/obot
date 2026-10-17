@@ -155,6 +155,8 @@ export interface ConcurrencyAndBufferSize {
 export interface CustomProviderConfig {
 	is_key_less?: boolean;
 	base_provider_type: string;
+	// The request types the provider serves; unset serves every type its API format has.
+	allowed_requests?: Record<string, boolean>;
 }
 
 export interface Provider {

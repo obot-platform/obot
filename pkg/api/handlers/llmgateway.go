@@ -104,14 +104,31 @@ func (h *LLMGatewayHandler) Status(req api.Context) error {
 	return req.Write(status)
 }
 
+// isProviderWrite reports whether a request creates (POST providers) or updates (PUT
+// providers/<name>) a provider.
+func isProviderWrite(method, path string) bool {
+	if method == http.MethodPost {
+		return path == "providers"
+	}
+	name, ok := strings.CutPrefix(path, "providers/")
+	return method == http.MethodPut && ok && name != "" && !strings.Contains(name, "/")
+}
+
 // withProviderDefaults fills in the network settings a new provider leaves unset, such as
-// retries, which also let requests fail over between its keys.
-func withProviderDefaults(body []byte) ([]byte, error) {
+// retries, which also let requests fail over between its keys. For a new or updated provider,
+// it drops an API version from the end of the base URL when the engine adds it to every path.
+func withProviderDefaults(body []byte, created bool, providerType string) ([]byte, error) {
 	var provider map[string]any
 	if err := json.Unmarshal(body, &provider); err != nil {
 		return nil, types.NewErrBadRequest("invalid provider: %v", err)
 	}
-	llmengine.ApplyProviderDefaults(provider)
+	trimmed := llmengine.TrimProviderBaseURLVersion(provider, providerType)
+	if !created && !trimmed {
+		return body, nil
+	}
+	if created {
+		llmengine.ApplyProviderDefaults(provider)
+	}
 	return json.Marshal(provider)
 }
 
@@ -152,13 +169,14 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 				return err
 			}
 		}
-		if err := rejectAmbientCredentialRedirects(body, h.providerType(req.Context(), path, body)); err != nil {
+		providerType := h.providerType(req.Context(), path, body)
+		if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
 			return err
 		}
-	}
-	if req.Method == http.MethodPost && path == "providers" {
-		if body, err = withProviderDefaults(body); err != nil {
-			return err
+		if isProviderWrite(req.Method, path) {
+			if body, err = withProviderDefaults(body, req.Method == http.MethodPost, providerType); err != nil {
+				return err
+			}
 		}
 	}
 

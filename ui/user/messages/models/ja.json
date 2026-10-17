@@ -120,6 +120,8 @@
 	"models_providers_custom_name_help_suffix": "です。",
 	"models_providers_api_format": "API 形式",
 	"models_providers_no_api_key_required": "API キーは不要",
+	"models_providers_responses_api": "Serves the OpenAI Responses API",
+	"models_providers_responses_api_help": "Leave this off for servers that only serve Chat Completions, such as vLLM, Ollama or llama.cpp. The gateway then serves Responses API and Anthropic Messages requests to this provider through Chat Completions.",
 	"models_providers_base_url": "ベース URL",
 	"models_providers_optional_suffix": "(省略可)",
 	"models_providers_base_url_default_placeholder": "プロバイダーの既定値を使う場合は空欄のままにします",
