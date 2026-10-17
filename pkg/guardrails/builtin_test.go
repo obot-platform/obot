@@ -88,8 +88,55 @@ func TestSecretsDetection(t *testing.T) {
 			text: "ClientSecret: pendingState.ClientSecret, secret_key = settings.awsSecretKey",
 		},
 		{
-			name: "camelCase name in code",
+			name: "camelCase name assigned a quoted literal",
+			text: `clientSecret = "` + value + `"`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "camelCase name in a Go struct literal",
+			text: `ClientSecret: "` + value + `",`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "camelCase name in JSON",
+			text: `{"clientSecret": "` + value + `"}`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "field assigned a quoted literal",
+			text: `cfg.ClientSecret = "` + value + `"`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "Go short variable declaration",
+			text: `authToken := '` + value + `'`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "subscripted environment assignment",
+			text: `os.environ["AWS_SECRET_ACCESS_KEY"] = "` + value + `"`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "subscripted assignment with a short name",
+			text: `env["API_KEY"] = "` + value + `"`,
+			want: []string{"GENERIC_SECRET=" + value},
+		},
+		{
+			name: "camelCase name assigned a name in code",
 			text: "clientSecret = Zr8Lx2Vw4Tn7Kp3Mb6Xc9Qa1Sd5Fg0Hj8Kl2Pq7Wz",
+		},
+		{
+			name: "camelCase names assigned calls and fields",
+			text: `clientSecret := loadSecret("prod"); cfg.ClientSecret = pendingState.ClientSecret`,
+		},
+		{
+			name: "subscripted environment read",
+			text: `apiKey = os.environ["OPENAI_API_KEY"]; env["API_KEY"] = defaultApiKey`,
+		},
+		{
+			name: "camelCase name assigned a URL",
+			text: `passwordResetUrl = "https://example.com/reset/a8f3k2"`,
 		},
 		{
 			name: "a URL assigned to a secret-looking name",
@@ -191,6 +238,33 @@ func TestPIIPresets(t *testing.T) {
 			name:   "times, MAC addresses and C++ names",
 			preset: "IP_ADDRESS",
 			text:   "at 10:30:00, MAC 00:1a:2b:3c:4d:5e, std::cout, a::b::c, x :: Int",
+		},
+		{
+			name:   "version strings with more than four parts",
+			preset: "IP_ADDRESS",
+			text:   "version 1.2.3.4.5 released, build 10.20.30.40.50, and 1.2.3.4.5.6.7.8",
+		},
+		{
+			name:   "IPv4 address at the end of a sentence",
+			preset: "IP_ADDRESS",
+			text:   "Connect to 192.168.1.20. Then log in.",
+			want:   []string{"IP_ADDRESS=192.168.1.20"},
+		},
+		{
+			name:   "hex-looking names in code",
+			preset: "IP_ADDRESS",
+			text:   "use abc::def; and dead::beef, cafe::babe, a::b",
+		},
+		{
+			name:   "short IPv6 addresses with digits",
+			preset: "IP_ADDRESS",
+			text:   "fe80::1 and 2001:db8::",
+			want:   []string{"IP_ADDRESS=fe80::1", "IP_ADDRESS=2001:db8::"},
+		},
+		{
+			name:   "a plus sign before a date",
+			preset: "PHONE",
+			text:   "he won +1 2026-10-17, and +3 17.10.2026",
 		},
 		{
 			name:   "card number followed by a word",

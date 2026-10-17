@@ -41,11 +41,16 @@ var (
 
 	// genericSecret finds values assigned to secret-looking names, such as api_key, password,
 	// client_secret or AWS_SECRET_ACCESS_KEY, including quoted names as in JSON. A name may
-	// have words before the secret-looking one, joined by _ or -, but camelCase names such as
-	// clientSecret are left alone: in code they are mostly assigned other names. Values only
-	// count when random enough to be a real credential, and not a reference such as
-	// cfg.ClientSecret.
+	// have words before the secret-looking one, joined by _ or -. Values only count when random
+	// enough to be a real credential, and not a reference such as cfg.ClientSecret.
 	genericSecret = regexp.MustCompile(`(?i)\b(?:(?:[A-Za-z0-9]{1,20}[_-]){0,3}(?:api[_-]?key|access[_-]?key|private[_-]?key|secret|token|passw(?:or)?d|credential)|auth)[A-Za-z0-9_-]{0,20}['"]?\s*[:=]\s*['"]?([A-Za-z0-9_\-+/=.]{16,})`)
+
+	// quotedSecret finds quoted literals assigned to names that genericSecret leaves alone:
+	// camelCase names such as clientSecret or cfg.ClientSecret, and subscripts such as
+	// env["API_KEY"] or os.environ["AWS_SECRET_ACCESS_KEY"]. In code these names are mostly
+	// assigned other names, so only a quoted value counts: clientSecret = loadSecret() and
+	// clientSecret = otherSecret are left alone.
+	quotedSecret = regexp.MustCompile(`(?i)[A-Za-z0-9_-]{0,40}(?:api[_-]?key|access[_-]?key|private[_-]?key|secret|token|passw(?:or)?d|credential)[A-Za-z0-9_-]{0,20}(?:['"]\])?['"]?\s*(?::=|[:=])\s*['"]([A-Za-z0-9_\-+/=.]{16,})['"]`)
 )
 
 type secretsChecker struct {
@@ -102,13 +107,18 @@ func (c *secretsChecker) Check(_ context.Context, in CheckInput) (Result, error)
 		if !c.generic {
 			continue
 		}
-		for _, m := range genericSecret.FindAllStringSubmatchIndex(seg.Text, -1) {
-			start, end := m[2], m[3]
-			value := seg.Text[start:end]
-			if covered[start] || codeReference.MatchString(value) || shannonEntropy(value) < c.minEntropy {
-				continue
+		for _, re := range []*regexp.Regexp{genericSecret, quotedSecret} {
+			for _, m := range re.FindAllStringSubmatchIndex(seg.Text, -1) {
+				start, end := m[2], m[3]
+				value := seg.Text[start:end]
+				if covered[start] || codeReference.MatchString(value) || shannonEntropy(value) < c.minEntropy {
+					continue
+				}
+				add("GENERIC_SECRET", i, start, end)
+				for p := start; p < end; p++ {
+					covered[p] = true
+				}
 			}
-			add("GENERIC_SECRET", i, start, end)
 		}
 	}
 	var result Result

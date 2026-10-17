@@ -34,6 +34,10 @@ var (
 		"IP_ADDRESS":  ipAddressValid,
 		"IBAN":        ibanMatch,
 	}
+
+	// datePattern finds dates such as 2026-10-17 or 17.10.2026, which a + before them would
+	// make look like a phone number.
+	datePattern = regexp.MustCompile(`\b(?:\d{4}[-./]\d{1,2}[-./]\d{1,2}|\d{1,2}[-./]\d{1,2}[-./]\d{4})\b`)
 )
 
 type namedPattern struct {
@@ -152,13 +156,16 @@ func luhnValid(s string) bool {
 }
 
 // phoneValid confirms a phone number. A number written with its + country code must have as
-// many digits as a phone number can (8 to 15), and must not follow a letter or digit, as in a
-// sum such as 3+4.
+// many digits as a phone number can (8 to 15), must not follow a letter or digit, as in a
+// sum such as 3+4, and must not hold a date, as in "+1 2026-10-17".
 func phoneValid(text string, start, end int) (int, bool) {
 	if text[start] != '+' {
 		return end, true
 	}
 	if start > 0 && isWordByte(text[start-1]) {
+		return end, false
+	}
+	if datePattern.MatchString(text[start:end]) {
 		return end, false
 	}
 	digits := 0
@@ -170,16 +177,24 @@ func phoneValid(text string, start, end int) (int, bool) {
 	return end, digits >= 8 && digits <= 15
 }
 
-// ipAddressValid confirms an IP address. An IPv4 address needs nothing more; an IPv6 candidate
-// must parse as one, and must stand on its own: not be part of a longer word, as in std::cout,
-// a time such as 10:30:00, or a MAC address.
+// ipAddressValid confirms an IP address. An IPv4 address must not be part of a longer dotted
+// run of numbers, such as the version 1.2.3.4.5. An IPv6 candidate must parse as one, must
+// have a digit, which keeps out hex-looking names in code such as dead::beef or abc::def, and
+// must stand on its own: not be part of a longer word, as in std::cout, a time such as
+// 10:30:00, or a MAC address.
 func ipAddressValid(text string, start, end int) (int, bool) {
 	candidate := text[start:end]
 	if !strings.Contains(candidate, ":") {
+		if start > 1 && text[start-1] == '.' && isDigit(text[start-2]) {
+			return end, false
+		}
+		if end+1 < len(text) && text[end] == '.' && isDigit(text[end+1]) {
+			return end, false
+		}
 		return end, true
 	}
-	if !strings.ContainsAny(candidate, "0123456789abcdefABCDEF") {
-		// "::" alone, as in Haskell's x :: Int.
+	if !strings.ContainsAny(candidate, "0123456789") {
+		// Names in code such as abc::def, and "::" alone, as in Haskell's x :: Int.
 		return end, false
 	}
 	if start > 0 && (isWordByte(text[start-1]) || text[start-1] == ':' || text[start-1] == '.') {
@@ -192,8 +207,12 @@ func ipAddressValid(text string, start, end int) (int, bool) {
 	return end, err == nil && addr.Is6()
 }
 
+func isDigit(b byte) bool {
+	return b >= '0' && b <= '9'
+}
+
 func isWordByte(b byte) bool {
-	return b == '_' || b >= '0' && b <= '9' || b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z'
+	return b == '_' || isDigit(b) || b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z'
 }
 
 // ibanMatch confirms an IBAN. A printed IBAN's last group may be followed by a word in
