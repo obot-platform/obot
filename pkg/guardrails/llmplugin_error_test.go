@@ -157,3 +157,54 @@ func TestMarkToolUseStop(t *testing.T) {
 	markToolUseStop(nil)
 	markToolUseStop(&schemas.BifrostResponse{})
 }
+
+func TestWithoutUnsupportedReasoning(t *testing.T) {
+	chat := func(provider schemas.ModelProvider, model string) *schemas.BifrostRequest {
+		return &schemas.BifrostRequest{ChatRequest: &schemas.BifrostChatRequest{
+			Provider: provider,
+			Model:    model,
+			Params:   &schemas.ChatParameters{Reasoning: &schemas.ChatReasoning{Effort: new("medium")}},
+		}}
+	}
+	tests := []struct {
+		name     string
+		req      *schemas.BifrostRequest
+		wantDrop bool
+	}{
+		{
+			name:     "OpenAI model that doesn't reason",
+			req:      chat(schemas.OpenAI, "gpt-4o-mini"),
+			wantDrop: true,
+		},
+		{
+			name:     "Azure model that doesn't reason",
+			req:      chat(schemas.Azure, "gpt-4.1-nano"),
+			wantDrop: true,
+		},
+		{
+			name: "OpenAI reasoning model",
+			req:  chat(schemas.OpenAI, "gpt-5-mini"),
+		},
+		{
+			name: "another provider",
+			req:  chat(schemas.Ollama, "deepseek-r1"),
+		},
+		{
+			name: "no reasoning settings",
+			req:  &schemas.BifrostRequest{ChatRequest: &schemas.BifrostChatRequest{Provider: schemas.OpenAI, Model: "gpt-4o-mini", Params: &schemas.ChatParameters{}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			originalParams := tt.req.ChatRequest.Params
+			got := withoutUnsupportedReasoning(tt.req)
+			if dropped := got.ChatRequest.Params.Reasoning == nil && originalParams.Reasoning != nil; dropped != tt.wantDrop {
+				t.Fatalf("dropped = %v, want %v", dropped, tt.wantDrop)
+			}
+			// The original request keeps its settings: fallback attempts are built from it.
+			if tt.req.ChatRequest.Params != originalParams || (tt.wantDrop && originalParams.Reasoning == nil) {
+				t.Fatal("the original request was changed")
+			}
+		})
+	}
+}

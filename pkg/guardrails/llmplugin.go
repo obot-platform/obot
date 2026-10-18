@@ -13,6 +13,7 @@ import (
 
 	bifrostcore "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/providers/anthropic"
+	"github.com/maximhq/bifrost/core/providers/openai"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
@@ -317,6 +318,10 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	if denied := checkAttempt(ctx, req); denied != nil {
 		return req, denied, nil
 	}
+	if trimmed := withoutUnsupportedReasoning(req); trimmed != req {
+		disableRawPassthrough(ctx)
+		req = trimmed
+	}
 	identity, headers, ok := identityFromContext(ctx)
 	if !ok {
 		return req, nil, nil
@@ -351,6 +356,33 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 func (p *InputPlugin) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, bifrostErr *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
 	markToolUseStop(resp)
 	return resp, providerError(bifrostErr), nil
+}
+
+// withoutUnsupportedReasoning returns a copy of an OpenAI or Azure chat request without its
+// reasoning settings when the model doesn't reason, or the request itself otherwise. Clients
+// such as Goose send reasoning_effort with every request, and those models reject it (HTTP
+// 400 "Unrecognized request argument"). The gateway engine decides whether a model reasons
+// the same way when it converts a Responses request. Other providers are left alone: a
+// self-hosted reasoning model may be missing from the model data, and the name check would
+// then strip what it accepts. The request is copied, not changed, because the engine builds
+// fallback attempts from the original, and a fallback model may reason.
+func withoutUnsupportedReasoning(req *schemas.BifrostRequest) *schemas.BifrostRequest {
+	if req == nil || req.ChatRequest == nil || req.ChatRequest.Params == nil || req.ChatRequest.Params.Reasoning == nil {
+		return req
+	}
+	chat := *req.ChatRequest
+	if chat.Provider != schemas.OpenAI && chat.Provider != schemas.Azure {
+		return req
+	}
+	if schemas.ResolveModelCaps(chat.Provider, chat.Model).SupportsReasoning(openai.IsOpenAIReasoningModel(chat.Model)) {
+		return req
+	}
+	params := *chat.Params
+	params.Reasoning = nil
+	chat.Params = &params
+	trimmed := *req
+	trimmed.ChatRequest = &chat
+	return &trimmed
 }
 
 // markToolUseStop sets the stop reason of a streamed response that ended with a tool call

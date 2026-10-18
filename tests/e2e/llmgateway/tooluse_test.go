@@ -4,6 +4,7 @@ package llmgateway
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/tests/e2e/harness"
@@ -30,5 +31,29 @@ func TestToolCallStopReason(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// TestReasoningEffortForModelsThatDontReason checks that reasoning_effort, which clients such as
+// Goose send with every request, doesn't reach an OpenAI model that doesn't reason (OpenAI
+// rejects it there). The mock's model doesn't reason.
+func TestReasoningEffortForModelsThatDontReason(t *testing.T) {
+	u := env.newUser(t, "reasoning")
+	for _, stream := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
+			n := nonce("effort")
+			callLLM(t, u.Gateway(env.A), apiChat, "openai/gpt-e2e-a", n, stream, map[string]any{
+				"reasoning_effort": "medium",
+			}).requireOK(t)
+			reqs := env.mock.InferenceRequests(n)
+			if len(reqs) == 0 {
+				t.Fatal("the request didn't reach the provider")
+			}
+			for _, req := range reqs {
+				if strings.Contains(req.Body, `"reasoning_effort"`) || strings.Contains(req.Body, `"reasoning":`) {
+					t.Fatalf("want no reasoning settings upstream, got %s", truncate(req.Body))
+				}
+			}
+		})
 	}
 }
