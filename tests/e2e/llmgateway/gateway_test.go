@@ -35,6 +35,8 @@ type llmResult struct {
 	Text string
 	// ToolArgs is the arguments of the tool calls the model made, concatenated.
 	ToolArgs string
+	// StopReason is an Anthropic Messages response's stop_reason.
+	StopReason string
 	// ErrorType and ErrorMessage describe an error response or stream error event.
 	ErrorType    string
 	ErrorMessage string
@@ -122,6 +124,7 @@ func parseLLM(api string, resp *harness.Response) *llmResult {
 			}
 		}
 	case apiMessages:
+		r.StopReason = doc.Get("stop_reason").String()
 		for _, block := range doc.Get("content").Array() {
 			switch block.Get("type").String() {
 			case "text":
@@ -191,9 +194,14 @@ func parseStream(api string, r *llmResult) {
 				}
 			}
 		case apiMessages:
-			if ev.Get("type").String() == "content_block_delta" {
+			switch ev.Get("type").String() {
+			case "content_block_delta":
 				r.Text += ev.Get("delta.text").String()
 				r.ToolArgs += ev.Get("delta.partial_json").String()
+			case "message_delta":
+				if reason := ev.Get("delta.stop_reason").String(); reason != "" {
+					r.StopReason = reason
+				}
 			}
 		}
 	}

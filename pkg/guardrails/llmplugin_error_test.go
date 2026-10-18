@@ -107,3 +107,53 @@ func TestProviderErrorTimeout(t *testing.T) {
 		t.Fatalf("message %q", msg)
 	}
 }
+
+func TestMarkToolUseStop(t *testing.T) {
+	functionCall, message := schemas.ResponsesMessageTypeFunctionCall, schemas.ResponsesMessageTypeMessage
+	completed := func(output []schemas.ResponsesMessage, stop *string, incomplete *schemas.ResponsesResponseIncompleteDetails) *schemas.BifrostResponse {
+		return &schemas.BifrostResponse{ResponsesStreamResponse: &schemas.BifrostResponsesStreamResponse{
+			Type:     schemas.ResponsesStreamResponseTypeCompleted,
+			Response: &schemas.BifrostResponsesResponse{Output: output, StopReason: stop, IncompleteDetails: incomplete},
+		}}
+	}
+	tests := []struct {
+		name string
+		resp *schemas.BifrostResponse
+		want string
+	}{
+		{
+			name: "tool call without a stop reason",
+			resp: completed([]schemas.ResponsesMessage{{Type: &message}, {Type: &functionCall}}, nil, nil),
+			want: "tool_calls",
+		},
+		{
+			name: "text only",
+			resp: completed([]schemas.ResponsesMessage{{Type: &message}}, nil, nil),
+			want: "",
+		},
+		{
+			name: "stop reason already set",
+			resp: completed([]schemas.ResponsesMessage{{Type: &functionCall}}, new("stop"), nil),
+			want: "stop",
+		},
+		{
+			name: "truncated",
+			resp: completed([]schemas.ResponsesMessage{{Type: &functionCall}}, nil, &schemas.ResponsesResponseIncompleteDetails{Reason: "max_output_tokens"}),
+			want: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			markToolUseStop(tt.resp)
+			got := ""
+			if r := tt.resp.ResponsesStreamResponse.Response.StopReason; r != nil {
+				got = *r
+			}
+			if got != tt.want {
+				t.Fatalf("stop reason = %q, want %q", got, tt.want)
+			}
+		})
+	}
+	markToolUseStop(nil)
+	markToolUseStop(&schemas.BifrostResponse{})
+}

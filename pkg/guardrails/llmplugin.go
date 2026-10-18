@@ -349,7 +349,31 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 // PostLLMHook runs last of the gateway's response hooks, so it sees each attempt's error as the
 // gateway will act on it.
 func (p *InputPlugin) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, bifrostErr *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
+	markToolUseStop(resp)
 	return resp, providerError(bifrostErr), nil
+}
+
+// markToolUseStop sets the stop reason of a streamed response that ended with a tool call
+// but carries none, as OpenAI's never do. The gateway engine turns a stream into an
+// Anthropic Messages stream with stop_reason end_turn unless the response says otherwise,
+// though for a whole response it infers tool_use from the tool calls. Without this, a
+// streaming Messages client such as Claude Code using an OpenAI model is told the turn
+// ended instead of that it should run the tool.
+func markToolUseStop(resp *schemas.BifrostResponse) {
+	if resp == nil || resp.ResponsesStreamResponse == nil {
+		return
+	}
+	completed := resp.ResponsesStreamResponse
+	if completed.Type != schemas.ResponsesStreamResponseTypeCompleted || completed.Response == nil ||
+		completed.Response.StopReason != nil || completed.Response.IncompleteDetails != nil {
+		return
+	}
+	for _, item := range completed.Response.Output {
+		if item.Type != nil && *item.Type == schemas.ResponsesMessageTypeFunctionCall {
+			completed.Response.StopReason = new("tool_calls")
+			return
+		}
+	}
 }
 
 // providerError sets how the gateway handles and reports an attempt's error:
