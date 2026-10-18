@@ -16,6 +16,10 @@ import (
 const (
 	// azureDefaultScope is the scope the gateway requests for Azure AI when none is configured.
 	azureDefaultScope = "https://cognitiveservices.azure.com/.default"
+
+	// The reasons TLS settings are refused for a provider.
+	ambientIdentityReason = "it may authenticate with the Obot server's own cloud identity"
+	subscriptionReason    = "Claude subscriptions are allowed, and users' subscription tokens may only reach Anthropic over verified TLS"
 )
 
 var (
@@ -34,8 +38,8 @@ var (
 // gateway, so it may only ever reach the cloud's own hosts over verified TLS.
 // rejectAmbientCredentialRedirects refuses configuration that would let it go elsewhere:
 //   - certificate checks turned off, or another CA trusted, on an Azure, Vertex or Bedrock
-//     provider (including a custom provider built on one), which would let a server the
-//     administrator controls stand in for the cloud's host;
+//     provider (including a custom provider built on one), in its network or proxy settings,
+//     which would let a server the administrator controls stand in for the cloud's host;
 //   - an Azure key without credentials whose endpoint, or a model alias's endpoint, isn't an
 //     Azure AI host, or that asks for scopes other than the default, which would send the
 //     server's Azure token to that endpoint or for another Azure service.
@@ -43,10 +47,71 @@ var (
 // Vertex builds its host from the region, which rejectUnsafeConfig limits to region names.
 // providerType is the base type of the provider the request is for, or "" if unknown.
 func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
+	ambientProvider := slices.Contains([]string{"azure", "vertex", "bedrock"}, providerType)
+	return walkObjects(body, func(fields map[string]json.RawMessage) error {
+		if ambientProvider {
+			for name, settings := range fields {
+				if strings.EqualFold(name, "network_config") || strings.EqualFold(name, "proxy_config") {
+					if err := checkProviderTLS(settings, ambientIdentityReason); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		if azure, ok := field(fields, "azure_key_config"); ok {
+			if err := checkAzureKey(fields, azure); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// rejectSubscriptionRedirects refuses, on the Anthropic provider while Claude subscriptions are
+// allowed, proxy settings that trust another CA or turn certificate checks off, which would let
+// a TLS-inspecting server the administrator controls read users' subscription tokens.
+// AnthropicIsDirect stops forwarding the tokens in that case anyway; this tells the
+// administrator why rather than quietly falling back to Obot's key.
+func rejectSubscriptionRedirects(body []byte) error {
+	return walkObjects(body, func(fields map[string]json.RawMessage) error {
+		for name, settings := range fields {
+			if strings.EqualFold(name, "proxy_config") {
+				if err := checkProviderTLS(settings, subscriptionReason); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// rejectGlobalProxySkipVerify refuses turning off certificate checks on the gateway's global
+// proxy. The engine applies that setting to every TLS connection its HTTP clients make, so it
+// would turn them off for providers that use the server's own cloud identity and for users'
+// Claude subscription tokens too, and a provider can be added under it later. Proxies that
+// inspect TLS can be trusted with a CA in the proxy settings of providers with their own keys.
+func rejectGlobalProxySkipVerify(path string, body []byte) error {
+	if path != "proxy-config" {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(body, &fields) != nil {
+		return nil
+	}
+	for name, v := range fields {
+		var skip bool
+		if strings.EqualFold(name, "skip_tls_verify") && json.Unmarshal(v, &skip) == nil && skip {
+			return types.NewErrBadRequest("the gateway proxy can't turn off certificate checks: it applies to every provider, including those that use the Obot server's own cloud identity or users' Claude subscriptions; to trust a TLS-inspecting proxy, add its CA to the proxy settings of a provider that uses its own API key")
+		}
+	}
+	return nil
+}
+
+// walkObjects calls fn for every object in a JSON body, however deeply nested.
+func walkObjects(body []byte, fn func(fields map[string]json.RawMessage) error) error {
 	if !json.Valid(body) {
 		return nil
 	}
-	ambientProvider := slices.Contains([]string{"azure", "vertex", "bedrock"}, providerType)
 	var walk func(raw json.RawMessage) error
 	walk = func(raw json.RawMessage) error {
 		trimmed := bytes.TrimSpace(raw)
@@ -56,15 +121,8 @@ func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
 			if err := json.Unmarshal(trimmed, &fields); err != nil {
 				return nil
 			}
-			if nc, ok := field(fields, "network_config"); ok && ambientProvider {
-				if err := checkProviderTLS(nc); err != nil {
-					return err
-				}
-			}
-			if azure, ok := field(fields, "azure_key_config"); ok {
-				if err := checkAzureKey(fields, azure); err != nil {
-					return err
-				}
+			if err := fn(fields); err != nil {
+				return err
 			}
 			for _, child := range fields {
 				if err := walk(child); err != nil {
@@ -103,16 +161,22 @@ func objectFields(raw json.RawMessage) map[string]json.RawMessage {
 	return fields
 }
 
-func checkProviderTLS(networkConfig json.RawMessage) error {
-	nc := objectFields(networkConfig)
-	if v, ok := field(nc, "insecure_skip_verify"); ok {
-		var skip bool
-		if json.Unmarshal(v, &skip) == nil && skip {
-			return types.NewErrBadRequest("certificate checks can't be turned off for this provider: it may authenticate with the Obot server's own cloud identity")
+// checkProviderTLS refuses network or proxy settings that turn certificate checks off or trust
+// another CA. Every spelling of a setting is checked, as the engine matches field names in any
+// case.
+func checkProviderTLS(settings json.RawMessage, reason string) error {
+	for name, v := range objectFields(settings) {
+		switch {
+		case strings.EqualFold(name, "insecure_skip_verify"), strings.EqualFold(name, "skip_tls_verify"):
+			var skip bool
+			if json.Unmarshal(v, &skip) == nil && skip {
+				return types.NewErrBadRequest("certificate checks can't be turned off for this provider: %s", reason)
+			}
+		case strings.EqualFold(name, "ca_cert_pem"):
+			if llmengine.HasSecretValue(v) {
+				return types.NewErrBadRequest("a custom CA can't be trusted for this provider: %s", reason)
+			}
 		}
-	}
-	if v, ok := field(nc, "ca_cert_pem"); ok && llmengine.SecretValue(v) != "" {
-		return types.NewErrBadRequest("a custom CA can't be trusted for this provider: it may authenticate with the Obot server's own cloud identity")
 	}
 	return nil
 }
@@ -184,19 +248,15 @@ func isAzureAIEndpoint(endpoint string) bool {
 // providerType returns the base type of the gateway provider a request to path is for: the
 // provider's own name for a built-in provider, or the type a custom provider is built on.
 func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body []byte) string {
-	rest, ok := strings.CutPrefix(path, "providers")
-	if !ok {
+	if !strings.HasPrefix(path, "providers") {
 		return ""
 	}
-	name, _, _ := strings.Cut(strings.TrimPrefix(rest, "/"), "/")
+	var name string
+	if names := providerNames(path, body); len(names) > 0 {
+		name = names[0]
+	}
 	var fields map[string]json.RawMessage
 	_ = json.Unmarshal(body, &fields)
-	if name == "" {
-		// Creating a provider: its name is in the body.
-		if v, ok := field(fields, "provider"); ok {
-			_ = json.Unmarshal(v, &name)
-		}
-	}
 	baseType := func(fields map[string]json.RawMessage) string {
 		var t string
 		if custom, ok := field(fields, "custom_provider_config"); ok {
@@ -218,4 +278,34 @@ func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body 
 		}
 	}
 	return name
+}
+
+// providerNames returns the name of the gateway provider a request to path is for: from the
+// path, or, when creating a provider, from every spelling of the body's "provider" field.
+func providerNames(path string, body []byte) []string {
+	rest, ok := strings.CutPrefix(path, "providers")
+	if !ok {
+		return nil
+	}
+	if name, _, _ := strings.Cut(strings.TrimPrefix(rest, "/"), "/"); name != "" {
+		return []string{name}
+	}
+	var names []string
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(body, &fields)
+	for k, v := range fields {
+		var name string
+		if strings.EqualFold(k, "provider") && json.Unmarshal(v, &name) == nil && name != "" {
+			names = append(names, name)
+		}
+	}
+	return names
+}
+
+// isAnthropicProvider reports whether a request to path is for the Anthropic provider, the
+// one Claude subscription tokens are forwarded to.
+func isAnthropicProvider(path string, body []byte) bool {
+	return slices.ContainsFunc(providerNames(path, body), func(name string) bool {
+		return strings.EqualFold(name, "anthropic")
+	})
 }

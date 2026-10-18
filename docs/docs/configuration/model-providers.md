@@ -51,7 +51,7 @@ Add the **Azure OpenAI / AI Foundry** provider with the resource endpoint and ei
 
 A key with neither uses Obot's own managed or workload identity. Its endpoint must then be an Azure OpenAI or AI Services host (`https://<resource>.openai.azure.com`, `.cognitiveservices.azure.com` or `.services.ai.azure.com`), and it can't request other scopes.
 
-Certificate checks can't be turned off, and a custom CA can't be added, on Azure, Vertex AI and Bedrock providers, since they may use Obot's own cloud identity.
+Certificate checks can't be turned off, and a custom CA can't be added, on Azure, Vertex AI and Bedrock providers, in their network or proxy settings, since they may use Obot's own cloud identity.
 
 ### Google Vertex AI {#google-vertex-ai}
 
@@ -77,7 +77,9 @@ The gateway is always on. These settings control it:
 | `--llm-gateway-log-level` / `OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL` | Log level for the embedded gateway (default `warn`). |
 | `--llm-gateway-model-data-url` / `OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL` | Where the gateway refreshes model prices and capabilities from, every 6 hours (default `https://upgrade-server.obot.ai/v1/model-data`). Obot's published images and release binaries include a copy of this data, so the gateway works without reaching this URL; set `off` to use only that copy, for example in air-gapped installs. See [model pricing](../llm-gateway/audit.md#model-pricing). |
 | `--daily-user-input-token-limit` / `--daily-user-output-token-limit` | Seed the *Daily token limit* budget, with administrators exempt, on every profile that exists when the gateway first starts (the *Default Policy* on a new installation). After that, edit or remove each profile's copy on its page; changing these settings has no effect. |
-| `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | Obot routes gateway providers through the environment's egress proxy, except endpoints `NO_PROXY` excludes or that are on localhost. A proxy set on a provider explicitly takes precedence. |
+| `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | Obot routes gateway providers through the environment's egress proxy, except endpoints `NO_PROXY` excludes or that are on localhost. Connections through it verify the provider's certificate against the system's trusted CAs. A proxy set on a provider explicitly takes precedence. |
+
+Through the API, the gateway's global proxy (`/api/llm-gateway/admin/proxy-config`) can't turn off certificate checks (`skip_tls_verify`), since that would apply to every provider. To use a proxy that inspects TLS, add its CA to the proxy settings (`proxy_config.ca_cert_pem`) of each provider that uses its own API keys.
 
 ## Related topics {#related-topics}
 

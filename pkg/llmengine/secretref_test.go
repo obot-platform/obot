@@ -27,6 +27,8 @@ func TestAnthropicIsDirect(t *testing.T) {
 	tests := []struct {
 		name          string
 		networkConfig map[string]any
+		proxyConfig   map[string]any
+		globalProxy   map[string]any
 		want          bool
 	}{
 		{
@@ -55,6 +57,33 @@ func TestAnthropicIsDirect(t *testing.T) {
 			name:          "another CA trusted",
 			networkConfig: map[string]any{"ca_cert_pem": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"},
 		},
+		{
+			name:          "a proxy that only relays, such as the egress proxy",
+			networkConfig: map[string]any{},
+			proxyConfig:   map[string]any{"type": "http", "url": map[string]any{"value": "http://proxy.corp:3128", "type": "plain_text"}},
+			want:          true,
+		},
+		{
+			name:          "another CA trusted through the proxy",
+			networkConfig: map[string]any{},
+			proxyConfig:   map[string]any{"type": "http", "url": "http://proxy.corp:3128", "ca_cert_pem": "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----"},
+		},
+		{
+			name:          "the global proxy with certificate checks on",
+			networkConfig: map[string]any{},
+			globalProxy:   map[string]any{"enabled": true, "type": "http", "url": "http://127.0.0.1:3128", "enable_for_inference": true},
+			want:          true,
+		},
+		{
+			name:          "the global proxy with certificate checks off",
+			networkConfig: map[string]any{},
+			globalProxy:   map[string]any{"enabled": true, "type": "http", "url": "https://127.0.0.1:3128", "skip_tls_verify": true, "enable_for_inference": true},
+		},
+		{
+			name:          "the global proxy disabled with certificate checks off",
+			networkConfig: map[string]any{},
+			globalProxy:   map[string]any{"enabled": false, "type": "http", "skip_tls_verify": true},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,13 +93,24 @@ func TestAnthropicIsDirect(t *testing.T) {
 			}
 			nc := map[string]any{"default_request_timeout_in_seconds": 30}
 			maps.Copy(nc, tt.networkConfig)
-			update := map[string]any{"network_config": nc, "proxy_config": map[string]any{"type": "none"}}
+			proxy := tt.proxyConfig
+			if proxy == nil {
+				proxy = map[string]any{"type": "none"}
+			}
+			update := map[string]any{"network_config": nc, "proxy_config": proxy}
 			for _, k := range []string{"keys", "concurrency_and_buffer_size", "custom_provider_config"} {
 				if v, ok := provider[k]; ok {
 					update[k] = v
 				}
 			}
 			if err := e.Do(ctx, http.MethodPut, "/api/providers/anthropic", update, nil); err != nil {
+				t.Fatal(err)
+			}
+			globalProxy := tt.globalProxy
+			if globalProxy == nil {
+				globalProxy = map[string]any{"enabled": false, "type": "http"}
+			}
+			if err := e.Do(ctx, http.MethodPut, "/api/proxy-config", globalProxy, nil); err != nil {
 				t.Fatal(err)
 			}
 			if got := e.AnthropicIsDirect(ctx); got != tt.want {

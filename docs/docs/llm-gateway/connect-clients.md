@@ -99,7 +99,7 @@ The gateway needs the **Anthropic** provider, but it doesn't need a key. Claude 
 
 Only requests from Claude Code to Anthropic models use the subscription, and the subscription token is only ever sent to Anthropic:
 
-- It's only forwarded while the Anthropic provider sends requests straight to `https://api.anthropic.com`, with certificate checks on. If an administrator changes the provider's base URL or TLS settings, the token isn't forwarded and requests use Obot's key instead.
+- It's only forwarded while the Anthropic provider sends requests straight to `https://api.anthropic.com`, with certificate checks on. If an administrator changes the provider's base URL or TLS settings, including a CA in its proxy settings, the token isn't forwarded and requests use Obot's key instead. While Claude subscriptions are allowed, a CA can't be added to the Anthropic provider's proxy settings. The environment's egress proxy (`HTTPS_PROXY`) doesn't stop the token being forwarded, since connections through it still verify Anthropic's certificate.
 - A routing rule or fallback can't send a subscription request to another provider, including a custom provider built on Anthropic's API. That attempt is refused with HTTP 403.
 - Requests the user sends to other models use Obot's configured keys.
 

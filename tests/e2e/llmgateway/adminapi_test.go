@@ -3,8 +3,15 @@
 package llmgateway
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 	"testing"
@@ -180,6 +187,135 @@ func TestAdminAPISafety(t *testing.T) {
 			if resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/providers/vertex/keys/"+id, listed); resp.Status != http.StatusOK {
 				t.Errorf("%s sent back as listed: want 200, got %s", name, resp)
 			}
+		}
+	})
+
+	t.Run("proxy settings can't weaken the TLS that protects the server's identity", func(t *testing.T) {
+		ca := testCACertPEM(t)
+		proxyWithCA := map[string]any{"type": "http", "url": "http://127.0.0.1:3128", "ca_cert_pem": ca}
+		for _, tc := range []struct {
+			name   string
+			method string
+			path   string
+			body   map[string]any
+		}{
+			{
+				name:   "a new Bedrock provider",
+				method: http.MethodPost,
+				path:   "/api/llm-gateway/admin/providers",
+				body:   map[string]any{"provider": "bedrock", "proxy_config": proxyWithCA},
+			},
+			{
+				name:   "a new Vertex provider, in another case and as a secret object",
+				method: http.MethodPost,
+				path:   "/api/llm-gateway/admin/providers",
+				body: map[string]any{
+					"provider":     "vertex",
+					"PROXY_CONFIG": map[string]any{"type": "http", "url": "http://127.0.0.1:3128", "Ca_Cert_Pem": map[string]any{"value": ca, "type": "plain_text"}},
+				},
+			},
+			{
+				name:   "a new Azure provider",
+				method: http.MethodPost,
+				path:   "/api/llm-gateway/admin/providers",
+				body:   map[string]any{"provider": "azure", "proxy_config": proxyWithCA},
+			},
+		} {
+			resp := admin.Do(t, tc.method, tc.path, tc.body)
+			if resp.Status != http.StatusBadRequest || !strings.Contains(string(resp.Body), "custom CA") {
+				t.Errorf("%s: want 400, got %s", tc.name, resp)
+				if resp.Status == http.StatusOK {
+					admin.Do(t, http.MethodDelete, "/api/llm-gateway/admin/providers/"+tc.body["provider"].(string), nil)
+				}
+			}
+		}
+
+		// A provider with its own keys may trust a TLS-inspecting proxy's CA.
+		name := "e2eproxyca" + harness.RandomSuffix()
+		resp := admin.Do(t, http.MethodPost, "/api/llm-gateway/admin/providers", map[string]any{
+			"provider":               name,
+			"custom_provider_config": map[string]any{"base_provider_type": "openai"},
+			"network_config":         map[string]any{"base_url": env.mock.URL, "allow_private_network": true},
+			"proxy_config":           proxyWithCA,
+		})
+		if resp.Status != http.StatusOK {
+			t.Fatalf("a proxy CA on a provider with its own keys: want 200, got %s", resp)
+		}
+		admin.Do(t, http.MethodDelete, "/api/llm-gateway/admin/providers/"+name, nil)
+	})
+
+	t.Run("the gateway proxy can't turn off certificate checks", func(t *testing.T) {
+		var original map[string]any
+		admin.Get(t, "/api/llm-gateway/admin/proxy-config", &original)
+		t.Cleanup(func() { admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/proxy-config", original) })
+		for _, key := range []string{"skip_tls_verify", "Skip_TLS_Verify"} {
+			for _, enabled := range []bool{true, false} {
+				resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/proxy-config", map[string]any{
+					"enabled": enabled,
+					"type":    "http",
+					"url":     "https://127.0.0.1:3128",
+					key:       true,
+				})
+				if resp.Status != http.StatusBadRequest {
+					t.Errorf("%s with the proxy enabled=%v: want 400, got %s", key, enabled, resp)
+				}
+			}
+		}
+		resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/proxy-config", map[string]any{
+			"enabled":         false,
+			"type":            "http",
+			"url":             "https://127.0.0.1:3128",
+			"skip_tls_verify": false,
+		})
+		if resp.Status != http.StatusOK {
+			t.Errorf("a proxy with certificate checks on: want 200, got %s", resp)
+		}
+	})
+
+	t.Run("Anthropic's proxy can't trust another CA while subscriptions are allowed", func(t *testing.T) {
+		var original map[string]any
+		admin.Get(t, "/api/llm-gateway/settings", &original)
+		t.Cleanup(func() { admin.Do(t, http.MethodPut, "/api/llm-gateway/settings", original) })
+		admin.Put(t, "/api/llm-gateway/settings", map[string]any{"subscriptionPassthrough": true}, nil)
+
+		ca := testCACertPEM(t)
+		// What the provider page sends, plus a proxy: the provider's own network settings, so
+		// nothing but the proxy changes.
+		var current map[string]any
+		admin.Get(t, "/api/llm-gateway/admin/providers/anthropic", &current)
+		update := func(proxyKey string, proxy map[string]any) map[string]any {
+			return map[string]any{
+				"network_config":              current["network_config"],
+				"concurrency_and_buffer_size": current["concurrency_and_buffer_size"],
+				proxyKey:                      proxy,
+			}
+		}
+		for _, tc := range []struct {
+			name string
+			body map[string]any
+		}{
+			{
+				name: "a proxy CA",
+				body: update("proxy_config", map[string]any{"type": "http", "url": "http://127.0.0.1:3128", "ca_cert_pem": ca}),
+			},
+			{
+				name: "in another case and as a secret object",
+				body: update("Proxy_Config", map[string]any{"type": "http", "url": "http://127.0.0.1:3128", "CA_CERT_PEM": map[string]any{"value": ca}}),
+			},
+		} {
+			resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/providers/anthropic", tc.body)
+			if resp.Status != http.StatusBadRequest || !strings.Contains(string(resp.Body), "Claude subscriptions") {
+				t.Errorf("%s: want 400, got %s", tc.name, resp)
+				if resp.Status == http.StatusOK {
+					admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/providers/anthropic", update("proxy_config", map[string]any{"type": "none"}))
+				}
+			}
+		}
+		// The provider still answers with its own settings.
+		var provider map[string]any
+		admin.Get(t, "/api/llm-gateway/admin/providers/anthropic", &provider)
+		if ca := gjson.Get(mustMarshal(t, provider), "proxy_config.ca_cert_pem.value").String(); ca != "" {
+			t.Fatalf("a refused change set the proxy CA: %q", ca)
 		}
 	})
 
@@ -502,4 +638,28 @@ func mustMarshal(t *testing.T, v any) string {
 		t.Fatal(err)
 	}
 	return string(data)
+}
+
+// testCACertPEM returns a self-signed CA certificate, as an administrator would add to trust a
+// TLS-inspecting proxy.
+func testCACertPEM(t *testing.T) string {
+	t.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "e2e proxy CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
 }

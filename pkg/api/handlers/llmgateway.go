@@ -164,6 +164,9 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		if err := rejectEngineAuthConfig(path, body); err != nil {
 			return err
 		}
+		if err := rejectGlobalProxySkipVerify(path, body); err != nil {
+			return err
+		}
 		if path == "config" && req.Method != http.MethodGet {
 			if body, err = clientConfigOnly(body); err != nil {
 				return err
@@ -172,6 +175,17 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		providerType := h.providerType(req.Context(), path, body)
 		if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
 			return err
+		}
+		if isAnthropicProvider(path, body) {
+			settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
+			if err != nil {
+				return err
+			}
+			if settings.SubscriptionPassthrough {
+				if err := rejectSubscriptionRedirects(body); err != nil {
+					return err
+				}
+			}
 		}
 		if isProviderWrite(req.Method, path) {
 			if body, err = withProviderDefaults(body, req.Method == http.MethodPost, providerType); err != nil {
