@@ -98,6 +98,91 @@ func TestAdminAPISafety(t *testing.T) {
 		}
 	})
 
+	t.Run("Vertex credentials must be a service account key", func(t *testing.T) {
+		vertexKey := func(name string, creds any) map[string]any {
+			return map[string]any{
+				"name":   name,
+				"models": []string{"*"},
+				"weight": 1,
+				"vertex_key_config": map[string]any{
+					"project_id":       "e2e-project",
+					"region":           "us-central1",
+					"auth_credentials": creds,
+				},
+			}
+		}
+		for _, tc := range []struct {
+			name string
+			path string
+			body map[string]any
+		}{
+			{
+				name: "external account",
+				path: "/api/llm-gateway/admin/providers/vertex/keys",
+				body: vertexKey("ext", `{"type":"external_account","credential_source":{"file":"/etc/hostname"}}`),
+			},
+			{
+				name: "authorized user as a secret object",
+				path: "/api/llm-gateway/admin/providers/vertex/keys",
+				body: vertexKey("user", map[string]any{"value": `{"type":"authorized_user"}`, "type": "plain_text"}),
+			},
+			{
+				name: "a second type in another case",
+				path: "/api/llm-gateway/admin/providers/vertex/keys",
+				body: vertexKey("dup", `{"type":"service_account","TYPE":"external_account"}`),
+			},
+			{
+				name: "field names in another case",
+				path: "/api/llm-gateway/admin/providers/vertex/keys",
+				body: map[string]any{"name": "case", "models": []string{"*"}, "VERTEX_KEY_CONFIG": map[string]any{"project_id": "p", "region": "us-central1", "Auth_Credentials": `{"type":"impersonated_service_account"}`}},
+			},
+			{
+				name: "in a new provider's keys",
+				path: "/api/llm-gateway/admin/providers",
+				body: map[string]any{
+					"provider": "vertex",
+					"keys":     []any{vertexKey("ext", `{"type":"external_account"}`)},
+				},
+			},
+		} {
+			resp := admin.Do(t, http.MethodPost, tc.path, tc.body)
+			if resp.Status != http.StatusBadRequest || !strings.Contains(string(resp.Body), "service account key") {
+				t.Errorf("%s: want 400, got %s", tc.name, resp)
+			}
+		}
+
+		var existing map[string]any
+		if resp := admin.Do(t, http.MethodGet, "/api/llm-gateway/admin/providers/vertex", nil); resp.Status == http.StatusNotFound {
+			admin.Post(t, "/api/llm-gateway/admin/providers", map[string]any{"provider": "vertex"}, &existing)
+			t.Cleanup(func() { admin.Do(t, http.MethodDelete, "/api/llm-gateway/admin/providers/vertex", nil) })
+		}
+
+		// A service account key, and a key without credentials (the server's own identity),
+		// are accepted, and so is a key sent back as the gateway lists it, as the key dialog
+		// does when it saves other changes.
+		saKey := `{"type":"service_account","project_id":"e2e-project","private_key_id":"abc","client_email":"e2e@e2e-project.iam.gserviceaccount.com"}`
+		for _, k := range []map[string]any{
+			vertexKey("e2e-sa-"+harness.RandomSuffix(), saKey),
+			vertexKey("e2e-adc-"+harness.RandomSuffix(), ""),
+		} {
+			name := k["name"].(string)
+			if resp := admin.Do(t, http.MethodPost, "/api/llm-gateway/admin/providers/vertex/keys", k); resp.Status != http.StatusOK {
+				t.Fatalf("%s: want 200, got %s", name, resp)
+			}
+			id := findKeyID(t, admin, "vertex", name)
+			if id == "" {
+				t.Fatalf("%s was not created", name)
+			}
+			t.Cleanup(func() { admin.Do(t, http.MethodDelete, "/api/llm-gateway/admin/providers/vertex/keys/"+id, nil) })
+			var listed map[string]any
+			admin.Get(t, "/api/llm-gateway/admin/providers/vertex/keys/"+id, &listed)
+			delete(listed, "id")
+			if resp := admin.Do(t, http.MethodPut, "/api/llm-gateway/admin/providers/vertex/keys/"+id, listed); resp.Status != http.StatusOK {
+				t.Errorf("%s sent back as listed: want 200, got %s", name, resp)
+			}
+		}
+	})
+
 	t.Run("gateway settings can be saved", func(t *testing.T) {
 		var before map[string]any
 		admin.Get(t, "/api/llm-gateway/admin/config", &before)

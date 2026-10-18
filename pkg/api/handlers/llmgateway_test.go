@@ -179,6 +179,81 @@ func TestRejectUnsafeConfig(t *testing.T) {
 			name: "not json",
 			body: `hello`,
 		},
+		{
+			name: "Vertex service account key",
+			body: `{"name":"k","vertex_key_config":{"project_id":"p","region":"us-central1","auth_credentials":"{\"type\":\"service_account\",\"client_email\":\"a@p.iam.gserviceaccount.com\"}"}}`,
+		},
+		{
+			name: "Vertex service account key as an object",
+			body: `{"name":"k","vertex_key_config":{"auth_credentials":{"value":"{\"type\":\"service_account\"}","type":"plain_text"}}}`,
+		},
+		{
+			name: "Vertex without credentials uses the server's identity",
+			body: `{"name":"k","vertex_key_config":{"project_id":"p","region":"us-central1","auth_credentials":""}}`,
+		},
+		{
+			name: "Vertex credentials left null",
+			body: `{"name":"k","vertex_key_config":{"project_id":"p","region":"us-central1","auth_credentials":null}}`,
+		},
+		{
+			name: "Vertex credentials as the gateway lists them",
+			body: `{"name":"k","vertex_key_config":{"auth_credentials":{"value":"{\"ty************************\"}\n}","type":"plain_text"}}}`,
+		},
+		{
+			name:    "Vertex external account credentials",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"{\"type\":\"external_account\",\"credential_source\":{\"file\":\"/etc/passwd\"}}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex authorized user credentials",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"{\"type\":\"authorized_user\"}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex impersonated credentials in a provider's keys",
+			body:    `{"provider":"vertex","keys":[{"name":"k","vertex_key_config":{"auth_credentials":"{\"type\":\"impersonated_service_account\"}"}}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials without a type",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"{\"client_email\":\"a@p\"}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials that aren't JSON",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"not json"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials as an object holding another type",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":{"value":"{\"type\":\"external_account\"}"}}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex field names in another case",
+			body:    `{"name":"k","Vertex_Key_Config":{"Auth_Credentials":"{\"type\":\"external_account\"}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials with a second type in another case",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"{\"type\":\"service_account\",\"TYPE\":\"external_account\"}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials with a duplicate type",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"{\"type\":\"external_account\",\"type\":\"service_account\"}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials with an escaped type field",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"{\"typ\\u0065\":\"external_account\"}"}}`,
+			wantErr: true,
+		},
+		{
+			name:    "Vertex credentials beside empty ones in another case",
+			body:    `{"name":"k","vertex_key_config":{"auth_credentials":"","AUTH_CREDENTIALS":"{\"type\":\"external_account\"}"}}`,
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

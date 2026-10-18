@@ -53,6 +53,10 @@ A key with neither uses Obot's own managed or workload identity. Its endpoint mu
 
 Certificate checks can't be turned off, and a custom CA can't be added, on Azure, Vertex AI and Bedrock providers, since they may use Obot's own cloud identity.
 
+### Google Vertex AI {#google-vertex-ai}
+
+Add the **Google Vertex AI** provider with the project ID, the region and a service account key (JSON). Only service account keys are accepted: other Google credential types, such as external account, impersonated service account or authorized user credentials, are refused. A key without credentials uses Obot's own Google Cloud identity (application default credentials).
+
 ### Ollama, vLLM and other self-hosted models {#ollama-vllm-and-other-self-hosted-models}
 
 Add the built-in **Ollama** or **vLLM** provider with the server URL; they don't need a key. For other OpenAI-compatible services, such as LiteLLM, add a custom OpenAI-compatible provider with its base URL. A base URL ending in `/v1`, as such servers usually document it, is saved without it, since the gateway adds `/v1` to every path itself. A server on your own network or on Obot's host needs **Allow private network addresses** on the provider; see [Private and local addresses](#private-and-local-addresses).

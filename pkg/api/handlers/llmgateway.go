@@ -423,6 +423,9 @@ func rejectEngineAuthConfig(path string, body []byte) error {
 //     region (Vertex: "<region>-aiplatform.googleapis.com") and, without credentials on the
 //     key, authenticate with the server's own cloud identity, so a region such as
 //     "attacker.example/x?" would send that identity's token elsewhere.
+//   - Vertex credentials other than a service account key. The engine also accepts other
+//     Google credential types, some of which make the server read a file or URL of its
+//     choosing, run a command, or use its own AWS identity to get a token.
 //
 // Every string and object in the body is decoded the way Bifrost decodes a secret, from the
 // original bytes, and field names are matched in any case as Bifrost matches them, so a
@@ -454,6 +457,11 @@ func rejectUnsafeConfig(body []byte) error {
 				if t, _ := v.(string); strings.EqualFold(name, "type") && (strings.EqualFold(t, "env") || strings.EqualFold(t, "vault")) {
 					return types.NewErrBadRequest("environment and vault references are not supported; enter the value itself")
 				}
+				if strings.EqualFold(name, "vertex_key_config") {
+					if err := checkVertexCredentials(child); err != nil {
+						return err
+					}
+				}
 				if strings.EqualFold(name, "region") {
 					if region := llmengine.SecretValue(child); region != "" && !gatewayRegion.MatchString(region) {
 						return types.NewErrBadRequest("region %q is not a region name, such as us-central1", region)
@@ -477,6 +485,64 @@ func rejectUnsafeConfig(body []byte) error {
 		return nil
 	}
 	return walk(body)
+}
+
+// checkVertexCredentials refuses a Vertex key config whose auth_credentials isn't a service
+// account key. Empty (or null) credentials are allowed: the key then uses the server's own identity,
+// which rejectUnsafeConfig and rejectAmbientCredentialRedirects guard. So is a redacted value
+// as the engine lists it, which keeps the stored credentials.
+func checkVertexCredentials(vertexConfig json.RawMessage) error {
+	var cfg map[string]json.RawMessage
+	if json.Unmarshal(vertexConfig, &cfg) != nil {
+		return nil
+	}
+	for name, raw := range cfg {
+		if !strings.EqualFold(name, "auth_credentials") {
+			continue
+		}
+		creds := llmengine.SecretValue(raw)
+		if string(bytes.TrimSpace(raw)) == "null" || strings.TrimSpace(creds) == "" || llmengine.IsMaskedSecret(raw) {
+			continue
+		}
+		if !isServiceAccountKey(creds) {
+			return types.NewErrBadRequest("Vertex credentials must be a service account key")
+		}
+	}
+	return nil
+}
+
+// isServiceAccountKey reports whether a Google credentials JSON is a service account key. Every
+// "type" field, in any case and including duplicates, must say so, so no JSON decoder can read
+// another type from it, however it matches names or picks among duplicate fields.
+func isServiceAccountKey(creds string) bool {
+	if !json.Valid([]byte(creds)) {
+		return false
+	}
+	dec := json.NewDecoder(strings.NewReader(creds))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return false
+	}
+	found := false
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return false
+		}
+		name, _ := tok.(string)
+		var value json.RawMessage
+		if err := dec.Decode(&value); err != nil {
+			return false
+		}
+		if !strings.EqualFold(name, "type") {
+			continue
+		}
+		var t string
+		if json.Unmarshal(value, &t) != nil || t != "service_account" {
+			return false
+		}
+		found = true
+	}
+	return found
 }
 
 // afterMutation keeps Obot in step with changes made through the proxy.

@@ -32,6 +32,16 @@ func SecretValue(raw []byte) string {
 	return v.GetValue()
 }
 
+// IsMaskedSecret reports whether a JSON value is a secret as the engine lists it, redacted,
+// which the engine takes to mean "keep the stored value" when it is sent back in an update.
+func IsMaskedSecret(raw []byte) bool {
+	var v schemas.SecretVar
+	if err := v.UnmarshalJSON(raw); err != nil {
+		return false
+	}
+	return v.IsMaskedPlaceholder()
+}
+
 // AnthropicIsDirect reports whether the engine's Anthropic provider sends requests straight to
 // Anthropic over verified TLS: no other base URL, and no setting that would let another
 // server present a certificate for Anthropic's host. A caller's Claude subscription token is
