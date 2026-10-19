@@ -3,7 +3,6 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { Group, UserService, type VMCP } from '$lib/services';
-	import { doDelete, doGet, doPost, doPut } from '$lib/services/http';
 	import { profile } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
 	import ActorResources from './ActorResources.svelte';
@@ -100,7 +99,7 @@
 			error = '';
 			ready = false;
 			try {
-				const nextConfig = (await doGet('/claude-environments')) as ClaudeConfig;
+				const nextConfig = await UserService.getClaudeConfig();
 				const nextServers = (await UserService.listVMCPs(isAdmin ? { all: true } : {})).filter(
 					(server) => !isAdmin || !server.userID
 				);
@@ -159,8 +158,8 @@
 			delete (draft.runtime.worker as { nodeSelector?: unknown }).nodeSelector;
 
 			const payload = { ...draft, organizationID: undefined, environmentID: undefined };
-			if (draft.id) await doPut(`/claude-environments/${draft.id}`, payload);
-			else await doPost('/claude-environments', payload);
+			if (draft.id) await UserService.updateClaudeEnvironment(draft.id, payload);
+			else await UserService.createClaudeEnvironment(payload);
 			onSubmit();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -171,7 +170,7 @@
 
 	async function refreshTag() {
 		if (!draft?.id) return;
-		const nextConfig = (await doGet('/claude-environments')) as ClaudeConfig;
+		const nextConfig = await UserService.getClaudeConfig();
 		const match = nextConfig.environments?.find((item) => item.id === draft?.id);
 		if (!match || !draft) return;
 		draft.claudeTagEnabled = match.claudeTagEnabled;
@@ -247,7 +246,7 @@
 		busy = true;
 		error = '';
 		try {
-			await doDelete(`/claude-environments/${draft.id}`);
+			await UserService.deleteClaudeEnvironment(draft.id);
 			confirmDelete = false;
 			onSubmit();
 		} catch (e) {

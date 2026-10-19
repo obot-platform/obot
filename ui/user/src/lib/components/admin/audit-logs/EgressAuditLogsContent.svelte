@@ -1,39 +1,19 @@
 <script lang="ts">
 	import { columnResize } from '$lib/actions/resize';
 	import { m } from '$lib/i18n';
-	import { Group, UserService, type OrgUser } from '$lib/services';
-	import { doGet } from '$lib/services/http';
+	import {
+		AdminService,
+		Group,
+		UserService,
+		type EgressAuditLog,
+		type OrgUser
+	} from '$lib/services';
 	import { profile, responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import AuditLogDetails from './AuditLogDetails.svelte';
 	import { onMount } from 'svelte';
-	import { SvelteURLSearchParams } from 'svelte/reactivity';
 
-	type Entry = {
-		id: string;
-		createdAt: string;
-		updatedAt: string;
-		userID: string;
-		claudeAccount: string;
-		environmentID: string;
-		claudeSession: string;
-		actor: string;
-		method: string;
-		scheme: string;
-		host: string;
-		path: string;
-		responseStatus: number;
-		outcome: string;
-		durationMs: number;
-		requestBytes: number;
-		responseBytes: number;
-		requestTruncated: boolean;
-		responseTruncated: boolean;
-		requestHeaders?: Record<string, string[]>;
-		responseHeaders?: Record<string, string[]>;
-		requestBody?: string;
-		responseBody?: string;
-	};
+	type Entry = EgressAuditLog;
 	const auditor = $derived(profile.current.groups.includes(Group.AUDITOR));
 	let entries = $state<Entry[]>([]);
 	let total = $state(0);
@@ -61,23 +41,18 @@
 		loading = true;
 		error = '';
 		try {
-			const params = new SvelteURLSearchParams({ limit: '50', offset: String(offset) });
-			for (const [key, val] of Object.entries({
-				user_id: userID,
-				environment_id: environmentID,
-				claude_account: claudeAccount,
-				claude_session: session,
-				host,
-				outcome
-			})) {
-				if (val.trim()) params.set(key, val.trim());
-			}
-			if (start) params.set('start_time', new Date(start).toISOString());
-			if (end) params.set('end_time', new Date(end).toISOString());
-			const response = (await doGet(`/egress-audit-logs?${params}`)) as {
-				items: Entry[] | null;
-				total: number;
-			};
+			const response = await AdminService.listEgressAuditLogs({
+				limit: 50,
+				offset,
+				...(userID.trim() ? { userId: userID.trim() } : {}),
+				...(environmentID.trim() ? { environmentId: environmentID.trim() } : {}),
+				...(claudeAccount.trim() ? { claudeAccount: claudeAccount.trim() } : {}),
+				...(session.trim() ? { claudeSession: session.trim() } : {}),
+				...(host.trim() ? { host: host.trim() } : {}),
+				...(outcome.trim() ? { outcome: outcome.trim() } : {}),
+				...(start ? { startTime: new Date(start).toISOString() } : {}),
+				...(end ? { endTime: new Date(end).toISOString() } : {})
+			});
 			if (current !== generation) return;
 			entries = response.items ?? [];
 			total = response.total;
@@ -93,7 +68,7 @@
 		selected = undefined;
 		rightSidebar?.showPopover();
 		try {
-			const detail = (await doGet(`/egress-audit-logs/${encodeURIComponent(entry.id)}`)) as Entry;
+			const detail = await AdminService.getEgressAuditLog(entry.id);
 			if (current === detailGeneration) selected = detail;
 		} catch (e) {
 			if (current === detailGeneration) {
@@ -129,10 +104,10 @@
 				users = Object.fromEntries(directory.map((u) => [u.id, u]));
 			})
 			.catch(() => {});
-		void doGet('/egress-audit-logs/environments')
+		void AdminService.listEgressAuditLogEnvironments()
 			.then((data) => {
 				environments = Object.fromEntries(
-					Object.entries(data as Record<string, string>).sort((a, b) => a[1].localeCompare(b[1]))
+					Object.entries(data).sort((a, b) => a[1].localeCompare(b[1]))
 				);
 			})
 			.catch(() => {});

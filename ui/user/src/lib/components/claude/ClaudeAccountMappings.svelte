@@ -2,7 +2,6 @@
 	import Select from '$lib/components/Select.svelte';
 	import { m } from '$lib/i18n';
 	import { UserService, type OrgUser } from '$lib/services';
-	import { doGet, doPut } from '$lib/services/http';
 	import { isClaudeTagUser } from '$lib/utils';
 	import Skeleton from '../Skeleton.svelte';
 	import type { ClaudeEnvironment, ClaudeOrganizationAccount } from './types';
@@ -33,7 +32,6 @@
 	const url = $derived(
 		`https://claude.ai/api/organizations/${encodeURIComponent(organization)}/members`
 	);
-	const endpoint = $derived(`/claude-organizations/${encodeURIComponent(organization)}/accounts`);
 	const options = $derived([
 		{ id: '', label: m.hosted_agents_map_unmapped() },
 		...users.map((user) => ({
@@ -51,8 +49,11 @@
 	}
 
 	async function load() {
-		const [accounts, directory] = await Promise.all([doGet(endpoint), UserService.listUsers()]);
-		saved = (accounts as { items: ClaudeOrganizationAccount[] }).items;
+		const [accounts, directory] = await Promise.all([
+			UserService.listClaudeOrganizationAccounts(organization),
+			UserService.listUsers()
+		]);
+		saved = accounts;
 		users = directoryUsers(directory);
 		rows = saved.map((account) => ({ ...account, source: m.hosted_agents_map_saved() }));
 		ready = true;
@@ -132,10 +133,10 @@
 		error = '';
 		notice = '';
 		try {
-			const response = await doPut(endpoint, {
-				items: rows.map(({ source: _source, ...account }) => account)
-			});
-			saved = (response as { items: ClaudeOrganizationAccount[] }).items;
+			saved = await UserService.updateClaudeOrganizationAccounts(
+				organization,
+				rows.map(({ source: _source, ...account }) => account)
+			);
 			rows = saved.map((account) => ({ ...account, source: m.hosted_agents_map_saved() }));
 			json = '';
 			reviewedJSON = '';

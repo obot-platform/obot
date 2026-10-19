@@ -12,7 +12,6 @@
 		type OrgUser,
 		type VMCP
 	} from '$lib/services';
-	import { doGet, doPut } from '$lib/services/http';
 	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
 	import { success } from '$lib/stores/success';
 	import {
@@ -25,7 +24,7 @@
 	import ActorResources from './ActorResources.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EgressSecrets from './EgressSecrets.svelte';
-	import type { ClaudeConfig, ClaudeEnvironment, EnvironmentProfile } from './types';
+	import type { ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { ArrowLeft, Trash2, UsersRound, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -325,15 +324,15 @@
 		saving = true;
 		error = '';
 		try {
-			const latest = (await doGet('/claude-environments')) as ClaudeConfig;
+			const latest = await UserService.getClaudeConfig();
 			const current = latest.environments?.find((item) => item.id === environment.id);
 			if (!current) throw new Error(m.hosted_agents_env_not_found());
-			const updated = (await doPut(`/claude-environments/${current.id}`, {
+			const updated = await UserService.updateClaudeEnvironment(current.id, {
 				...structuredClone(current),
 				organizationID: undefined,
 				environmentID: undefined,
 				profiles: next
-			})) as ClaudeEnvironment;
+			});
 			return updated.profiles;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);

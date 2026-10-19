@@ -354,6 +354,103 @@ export interface BootstrapStatus {
 	setupEnabled: boolean;
 }
 
+// Claude
+export type ClaudeConfig = {
+	enabled: boolean;
+	environments?: ClaudeEnvironment[];
+	mappings?: ClaudeOrganizationAccount[];
+	defaultWorkerImage?: string;
+	defaultRunnerImage?: string;
+};
+export type ClaudeEnvironment = {
+	mcpServerIDs?: string[] | null;
+	egressSecrets?: EgressSecret[];
+	id: string;
+	displayName: string;
+	organizationID: string;
+	environmentID: string;
+	profiles: EnvironmentProfile[];
+	runtime: ClaudeRuntime;
+	claudeTagUserID?: string;
+	claudeTagEnabled: boolean;
+};
+export type ClaudeEnvironmentPayload = Omit<
+	ClaudeEnvironment,
+	'environmentID' | 'organizationID'
+> & {
+	environmentID?: string;
+	environmentKey?: string;
+	organizationID?: string;
+};
+export type ClaudeOrganizationAccount = {
+	organizationID: string;
+	account: string;
+	uuid: string;
+	displayName: string;
+	email: string;
+	userID: string;
+};
+export type ClaudeResources = {
+	actorCPU?: string;
+	actorMemory?: string;
+	idleTimeoutMinutes?: number;
+	sessionRetentionDays?: number;
+};
+export type ClaudeRuntime = {
+	managedSettings?: Record<string, unknown>;
+	image: string;
+	workerImage: string;
+	allowAllEgress?: boolean;
+	egressHosts: string[];
+	worker: {
+		workerReplicas: number;
+		cpuLimit: string;
+		memoryLimit: string;
+	};
+	resources: ClaudeResources;
+};
+export type ClaudeSession = {
+	metadata: {
+		deletionTimestamp?: string;
+		name: string;
+	};
+	spec: {
+		claudeAccount: string;
+		claudeDone?: boolean;
+		claudeEnvironment: string;
+		claudeFinishedAt?: string;
+		claudeRepositories?: { revision?: string; url: string }[] | null;
+		claudeSession: string;
+		displayName: string;
+		slackChannelName?: string;
+		slackLink?: string;
+		slackSenderHandle?: string;
+		slackSenderName?: string;
+		suspended?: boolean;
+		userID: string;
+	};
+	status: {
+		error?: string;
+		state?: string;
+	};
+};
+export type EgressSecret = {
+	id: string;
+	hostname: string;
+	header: string;
+	value?: string;
+};
+export type EnvironmentProfile = {
+	allowClaudeMCP?: boolean;
+	egressSecrets?: EgressSecret[];
+	name: string;
+	subjects: AccessControlRuleSubject[];
+	mcpServerIDs: string[] | null;
+	egressHosts?: string[];
+	allowAllEgress?: boolean;
+	resources: ClaudeResources;
+};
+
 // Device code
 
 export interface DeviceCodeVerificationResponse {

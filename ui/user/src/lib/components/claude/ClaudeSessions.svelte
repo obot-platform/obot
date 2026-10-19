@@ -6,8 +6,7 @@
 	} from '$lib/components/claude/ClaudeSessionsSettings.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type OrgUser } from '$lib/services';
-	import { doDelete, doGet, doPost } from '$lib/services/http';
+	import { UserService, type ClaudeSession, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -27,25 +26,7 @@
 
 	let { all = false }: { all?: boolean } = $props();
 
-	type Session = {
-		metadata: { name: string; deletionTimestamp?: string };
-		spec: {
-			displayName: string;
-			claudeSession: string;
-			userID: string;
-			claudeEnvironment: string;
-			claudeAccount: string;
-			suspended?: boolean;
-			claudeDone?: boolean;
-			claudeFinishedAt?: string;
-			slackSenderName?: string;
-			slackSenderHandle?: string;
-			slackChannelName?: string;
-			slackLink?: string;
-			claudeRepositories?: { url: string; revision?: string }[] | null;
-		};
-		status: { state?: string; error?: string };
-	};
+	type Session = ClaudeSession;
 	let sessions = $state<Session[]>([]);
 	let users = $state<Record<string, OrgUser>>({});
 	let userError = $state('');
@@ -178,11 +159,7 @@
 		if (refreshing) return;
 		refreshing = true;
 		try {
-			sessions = (
-				(await doGet(all ? '/claude-sessions?all=true' : '/claude-sessions', {
-					dontLogErrors: true
-				})) as { items: Session[] }
-			).items;
+			sessions = await UserService.listClaudeSessions({ all, dontLogErrors: true });
 			error = '';
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -208,7 +185,7 @@
 	async function suspend(session: Session) {
 		suspending = session.metadata.name;
 		try {
-			await doPost(`/claude-sessions/${encodeURIComponent(session.metadata.name)}/suspend`, {});
+			await UserService.suspendClaudeSession(session.metadata.name);
 			pendingSuspend = undefined;
 			await refresh();
 		} catch (e) {
@@ -221,7 +198,7 @@
 	async function remove(session: Session) {
 		deleting = session.metadata.name;
 		try {
-			await doDelete(`/claude-sessions/${encodeURIComponent(session.metadata.name)}`);
+			await UserService.deleteClaudeSession(session.metadata.name);
 			pendingDelete = undefined;
 			await refresh();
 		} catch (e) {

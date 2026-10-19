@@ -35,6 +35,11 @@ import {
 	type McpAuditLogUsageFilters,
 	type McpAuditLogUsageStats,
 	type BootstrapStatus,
+	type ClaudeConfig,
+	type ClaudeEnvironment,
+	type ClaudeEnvironmentPayload,
+	type ClaudeOrganizationAccount,
+	type ClaudeSession,
 	type DefaultModelAlias,
 	type DeviceCodeVerificationResponse,
 	type DeviceScan,
@@ -1533,4 +1538,87 @@ export async function downloadSkill(
 		...opts,
 		blob: true
 	})) as Blob;
+}
+
+// Claude
+
+export async function getClaudeConfig(opts?: { fetch?: Fetcher }): Promise<ClaudeConfig> {
+	return (await doGet('/claude-environments', opts)) as ClaudeConfig;
+}
+
+export async function createClaudeEnvironment(
+	environment: ClaudeEnvironmentPayload,
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeEnvironment> {
+	return (await doPost('/claude-environments', environment, opts)) as ClaudeEnvironment;
+}
+
+export async function updateClaudeEnvironment(
+	id: string,
+	environment: ClaudeEnvironmentPayload,
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeEnvironment> {
+	return (await doPut(`/claude-environments/${id}`, environment, opts)) as ClaudeEnvironment;
+}
+
+export async function deleteClaudeEnvironment(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doDelete(`/claude-environments/${id}`, opts);
+}
+
+export async function updateClaudeEnvironmentTag(
+	id: string,
+	enabled: boolean,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPut(`/claude-environments/${id}/claude-tag`, { enabled }, opts);
+}
+
+export async function listClaudeSessions(opts?: {
+	all?: boolean;
+	dontLogErrors?: boolean;
+	fetch?: Fetcher;
+}): Promise<ClaudeSession[]> {
+	const response = (await doGet(opts?.all ? '/claude-sessions?all=true' : '/claude-sessions', {
+		dontLogErrors: opts?.dontLogErrors,
+		fetch: opts?.fetch
+	})) as ItemsResponse<ClaudeSession>;
+	return response.items ?? [];
+}
+
+export async function suspendClaudeSession(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/claude-sessions/${encodeURIComponent(name)}/suspend`, {}, opts);
+}
+
+export async function deleteClaudeSession(name: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doDelete(`/claude-sessions/${encodeURIComponent(name)}`, opts);
+}
+
+export async function listClaudeOrganizationAccounts(
+	organization: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeOrganizationAccount[]> {
+	const response = (await doGet(
+		`/claude-organizations/${encodeURIComponent(organization)}/accounts`,
+		opts
+	)) as ItemsResponse<ClaudeOrganizationAccount>;
+	return response.items ?? [];
+}
+
+export async function updateClaudeOrganizationAccounts(
+	organization: string,
+	items: ClaudeOrganizationAccount[],
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeOrganizationAccount[]> {
+	const response = (await doPut(
+		`/claude-organizations/${encodeURIComponent(organization)}/accounts`,
+		{ items },
+		opts
+	)) as ItemsResponse<ClaudeOrganizationAccount>;
+	return response.items ?? [];
 }

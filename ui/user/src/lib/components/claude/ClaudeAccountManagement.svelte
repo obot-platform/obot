@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
-	import { doGet } from '$lib/services/http';
+	import { UserService } from '$lib/services';
 	import ClaudeAccountMappings from './ClaudeAccountMappings.svelte';
 	import type { ClaudeConfig } from './types';
 	import { onMount } from 'svelte';
@@ -16,7 +16,7 @@
 	async function load() {
 		error = '';
 		try {
-			config = (await doGet('/claude-environments')) as ClaudeConfig;
+			config = await UserService.getClaudeConfig();
 			ready = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);

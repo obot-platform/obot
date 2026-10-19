@@ -124,6 +124,8 @@ import type {
 	CommunityLicenseEnrollment,
 	LLMAuditLog,
 	LLMAuditLogURLFilters,
+	EgressAuditLog,
+	EgressAuditLogURLFilters,
 	EnforcementDecisionAllowlistCheck,
 	EnforcementDecisionEvent,
 	EnforcementDecisionURLFilters,
@@ -324,6 +326,27 @@ export async function listLLMAuditLogFilterOptions(
 		{ fetch: fetchFn, signal }
 	)) as { options: AuditLogFilterOption[] };
 	return response;
+}
+
+// Egress audit logs
+
+export async function listEgressAuditLogs(
+	filters?: EgressAuditLogURLFilters,
+	opts?: { fetch?: Fetcher }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(`/egress-audit-logs${queryString ? `?${queryString}` : ''}`, opts)) as {
+		items: EgressAuditLog[] | null;
+		total: number;
+	};
+}
+
+export async function getEgressAuditLog(id: string, opts?: { fetch?: Fetcher }) {
+	return (await doGet(`/egress-audit-logs/${encodeURIComponent(id)}`, opts)) as EgressAuditLog;
+}
+
+export async function listEgressAuditLogEnvironments(opts?: { fetch?: Fetcher }) {
+	return (await doGet('/egress-audit-logs/environments', opts)) as Record<string, string>;
 }
 
 // Auth providers

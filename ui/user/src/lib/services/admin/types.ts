@@ -440,6 +440,46 @@ export interface DeviceScanStats {
 	scanTimestamps: string[] | null;
 }
 
+// Egress audit logs
+
+export interface EgressAuditLog {
+	actor: string;
+	claudeAccount: string;
+	claudeSession: string;
+	createdAt: string;
+	durationMs: number;
+	environmentID: string;
+	host: string;
+	id: string;
+	method: string;
+	outcome: string;
+	path: string;
+	requestBody?: string;
+	requestBytes: number;
+	requestHeaders?: Record<string, string[]>;
+	requestTruncated: boolean;
+	responseBody?: string;
+	responseBytes: number;
+	responseHeaders?: Record<string, string[]>;
+	responseStatus: number;
+	responseTruncated: boolean;
+	scheme: string;
+	updatedAt: string;
+	userID: string;
+}
+export type EgressAuditLogURLFilters = {
+	claudeAccount?: string;
+	claudeSession?: string;
+	endTime?: string;
+	environmentId?: string;
+	host?: string;
+	limit?: number;
+	offset?: number;
+	outcome?: string;
+	startTime?: string;
+	userId?: string;
+};
+
 // Group role assignments
 
 export type GroupRoleAssignment = {
