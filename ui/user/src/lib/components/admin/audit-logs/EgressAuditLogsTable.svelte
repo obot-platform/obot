@@ -44,6 +44,8 @@
 {#snippet thResizeHandler()}
 	<button
 		class="resize-handle sticky right-0 ml-auto flex min-h-full cursor-col-resize items-center outline-none"
+		tabindex="-1"
+		aria-hidden="true"
 		{@attach (node) => {
 			const pointerDownHandler = (ev: PointerEvent) => {
 				currentCell = (ev.target as HTMLElement).closest('th');
@@ -170,7 +172,7 @@
 						entry.responseStatus >= 300 &&
 							entry.responseStatus < 400 &&
 							'bg-warning/15 text-warning',
-						entry.responseStatus >= 400 && entry.responseStatus <= 500 && 'bg-error/15 text-error',
+						entry.responseStatus >= 400 && 'bg-error/15 text-error',
 						!entry.responseStatus && 'bg-base-300 dark:bg-base-100'
 					)}
 				>
