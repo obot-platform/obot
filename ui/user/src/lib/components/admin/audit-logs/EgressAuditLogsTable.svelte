@@ -74,6 +74,8 @@
 {#snippet tdResizeHandler()}
 	<button
 		class="resize-handle ml-auto flex min-h-full cursor-col-resize items-center opacity-0 outline-none group-hover:opacity-100"
+		tabindex="-1"
+		aria-hidden="true"
 		onclick={(ev) => ev.stopPropagation()}
 		{@attach (node) => {
 			const pointerDownHandler = (ev: PointerEvent) => {

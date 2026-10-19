@@ -97,7 +97,7 @@
 	);
 
 	function appliedFilter(value: string | null | undefined) {
-		return value || undefined;
+		return value?.trim() || undefined;
 	}
 
 	$effect(() => {
@@ -126,6 +126,8 @@
 				if (current !== generation) return;
 				entries = response.items ?? [];
 				total = response.total;
+				const lastOffset = Math.max(0, Math.ceil(response.total / pageSize) - 1) * pageSize;
+				if (request.offset > lastOffset) offset = lastOffset;
 			})
 			.catch((e) => {
 				if (current === generation) error = e instanceof Error ? e.message : String(e);

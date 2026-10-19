@@ -114,7 +114,8 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.oauth-complete-circle :global(path) {
+		.oauth-complete-circle :global(path:nth-child(1)),
+		.oauth-complete-circle :global(path:nth-child(2)) {
 			animation: none;
 			stroke-dasharray: none;
 			stroke-dashoffset: 0;

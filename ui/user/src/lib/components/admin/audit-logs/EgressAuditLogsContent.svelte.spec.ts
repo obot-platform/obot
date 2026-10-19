@@ -163,13 +163,15 @@ for (const key of ['{Enter}', ' ']) {
 		render(EgressAuditLogsContent);
 
 		const row = page.getByRole('row').filter({ hasText: 'user_west' }).first();
+		const nextRow = page.getByRole('row').filter({ hasText: 'user_east' }).first();
 		await expect.element(row).toBeVisible();
+		await expect.element(nextRow).toBeVisible();
 		await expect.element(row).toHaveAttribute('tabindex', '0');
-		// Keyboard events on a child resize control must not activate the row.
-		row.getByRole('button').first().element().focus();
-		await userEvent.keyboard(key);
-		expect(inspect).not.toHaveBeenCalled();
-		// Tab back from the first child control to the entire row.
+		await expect.element(row.getByRole('button')).not.toBeInTheDocument();
+		row.element().focus();
+		await expect.element(row).toHaveFocus();
+		await userEvent.tab();
+		await expect.element(nextRow).toHaveFocus();
 		await userEvent.tab({ shift: true });
 		await expect.element(row).toHaveFocus();
 		await userEvent.keyboard(key);
