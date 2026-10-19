@@ -3,6 +3,7 @@
 	import { m } from '$lib/i18n';
 	import { UserService, type OrgUser } from '$lib/services';
 	import { doGet, doPut } from '$lib/services/http';
+	import { isClaudeTagUser } from '$lib/utils';
 	import Skeleton from '../Skeleton.svelte';
 	import type { ClaudeEnvironment, ClaudeOrganizationAccount } from './types';
 	import { onMount } from 'svelte';
@@ -46,9 +47,7 @@
 	});
 
 	function directoryUsers(directory: OrgUser[]) {
-		return directory.filter(
-			(user) => !user.deletedAt && !(user.internal && user.username?.startsWith('claude-tag:'))
-		);
+		return directory.filter((user) => !user.deletedAt && !isClaudeTagUser(user));
 	}
 
 	async function load() {

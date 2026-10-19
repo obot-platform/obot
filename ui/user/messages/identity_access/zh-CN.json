@@ -438,6 +438,7 @@
 	"identity_access_users_auditor_note": "审计员将可以在审计日志中访问响应、请求和标头信息等更多详细信息。",
 	"identity_access_users_auditor_note_standard": "标准用户审计员将拥有管理系统的只读访问权限，并可在审计日志中查看响应、请求和标头信息等更多详细信息。",
 	"identity_access_users_auditor_readonly_description": "将拥有管理系统的只读访问权限，并可在审计日志中查看响应、请求和标头信息等更多详细信息。",
+	"identity_access_users_claude_tag_managed": "此 Claude Tag 服务用户由其 Claude 环境管理。",
 	"identity_access_users_col_actual_role": "实际角色",
 	"identity_access_users_col_actual_role_tooltip": "基于用户已分配的角色及从用户组继承的角色得出的最高权限级别。",
 	"identity_access_users_col_assigned_role": "已分配角色",

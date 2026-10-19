@@ -438,6 +438,7 @@
 	"identity_access_users_auditor_note": "Auditors will gain access to additional details such as response, request, and header information in the audit logs.",
 	"identity_access_users_auditor_note_standard": "Standard user auditors will have read-only access to the admin system and can see additional details such as response, request, and header information in the audit logs.",
 	"identity_access_users_auditor_readonly_description": "Will have read-only access to the admin system and see additional details such as response, request, and header information in the audit logs.",
+	"identity_access_users_claude_tag_managed": "This Claude Tag service user is managed by its Claude environment.",
 	"identity_access_users_col_actual_role": "Actual Role",
 	"identity_access_users_col_actual_role_tooltip": "The user's highest permission level, based on their assigned role and any roles inherited from groups.",
 	"identity_access_users_col_assigned_role": "Assigned Role",

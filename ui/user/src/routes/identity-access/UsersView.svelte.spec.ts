@@ -124,6 +124,32 @@ describe('UsersView', () => {
 		await expect.element(active.getByText('Disabled', { exact: true })).not.toBeInTheDocument();
 	});
 
+	it('shows Claude Tag users read-only', async () => {
+		const claudeTagUser = {
+			...orgUser({
+				id: '7',
+				email: '',
+				displayName: 'Claude Tag — Sandbox',
+				username: 'claude-tag:1'
+			}),
+			email: undefined,
+			internal: true
+		} as unknown as OrgUser;
+		await renderUsersView([activeUser, claudeTagUser]);
+
+		await openRowActions('Claude Tag — Sandbox');
+		await expect.element(page.getByRole('button', { name: 'View Access Policies' })).toBeEnabled();
+		await expect.element(page.getByRole('button', { name: 'Update Role' })).toBeDisabled();
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+	});
+
+	it('offers to update the role of a user that Obot manages', async () => {
+		await renderUsersView([activeUser]);
+
+		await openRowActions(activeUser.email);
+		await expect.element(page.getByRole('button', { name: 'Update Role' })).toBeEnabled();
+	});
+
 	it('searches users when some users have no email', async () => {
 		// The server lists internal users even when they have no email.
 		const noEmailUser = {

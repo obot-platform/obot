@@ -438,6 +438,7 @@
 	"identity_access_users_auditor_note": "감사자는 감사 로그에서 응답, 요청, 헤더 정보와 같은 추가 세부 정보에 액세스할 수 있습니다.",
 	"identity_access_users_auditor_note_standard": "일반 사용자 감사자는 관리 시스템에 대한 읽기 전용 액세스 권한을 가지며 감사 로그에서 응답, 요청, 헤더 정보와 같은 추가 세부 정보를 볼 수 있습니다.",
 	"identity_access_users_auditor_readonly_description": "관리 시스템에 대한 읽기 전용 액세스 권한을 가지며 감사 로그에서 응답, 요청, 헤더 정보와 같은 추가 세부 정보를 볼 수 있습니다.",
+	"identity_access_users_claude_tag_managed": "이 Claude Tag 서비스 사용자는 해당 Claude 환경에서 관리됩니다.",
 	"identity_access_users_col_actual_role": "실제 역할",
 	"identity_access_users_col_actual_role_tooltip": "할당된 역할과 그룹에서 상속된 역할을 기준으로 한 사용자의 최고 권한 수준입니다.",
 	"identity_access_users_col_assigned_role": "할당된 역할",

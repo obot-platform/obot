@@ -25,7 +25,7 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url.js';
-	import { getUserRoleLabel, validateVersionUserLimit } from '$lib/utils';
+	import { getUserRoleLabel, isClaudeTagUser, validateVersionUserLimit } from '$lib/utils';
 	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 	import { Handshake, Info, ShieldAlert } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
@@ -55,6 +55,9 @@
 	// provisions them through SCIM. Once it deactivates them, they can be deleted.
 	const PRIVILEGED_ROLES = Role.OWNER | Role.AUDITOR;
 	const STILL_PROVISIONED_MESSAGE = m.identity_access_users_still_provisioned();
+	// Why a Claude Tag user's role can't be updated and it can't be deleted: its Claude environment owns it,
+	// and the server refuses both.
+	const CLAUDE_TAG_MESSAGE = m.identity_access_users_claude_tag_managed();
 
 	const tableData = $derived(
 		users
@@ -72,7 +75,8 @@
 				roleId: user.role & ~Role.AUDITOR,
 				auditor: user.role & Role.AUDITOR ? true : false,
 				// Only an Owner can enable a user with any of these roles, from their own role or a group.
-				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0
+				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0,
+				claudeTag: isClaudeTagUser(user)
 			}))
 			// Match by name or email. The server lists internal users even when they have no email.
 			.filter(
@@ -302,8 +306,14 @@
 						{#if !isAdminReadonly}
 							<button
 								class="menu-button"
-								disabled={!profile.current.groups.includes(Group.OWNER) &&
-									(d.groups.includes(Group.OWNER) || d.explicitRole)}
+								disabled={d.claudeTag ||
+									(!profile.current.groups.includes(Group.OWNER) &&
+										(d.groups.includes(Group.OWNER) || d.explicitRole))}
+								use:tooltip={{
+									text: d.claudeTag ? CLAUDE_TAG_MESSAGE : undefined,
+									placement: 'left',
+									classes: ['z-50']
+								}}
 								onclick={() => {
 									updatingRole = d;
 									updateRoleDialog?.open();
@@ -324,11 +334,16 @@
 								d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
 								class="menu-button text-error"
-								disabled={stillProvisioned ||
+								disabled={d.claudeTag ||
+									stillProvisioned ||
 									d.explicitRole ||
 									(d.groups.includes(Group.OWNER) && !profile.current.groups.includes(Group.OWNER))}
 								use:tooltip={{
-									text: stillProvisioned ? STILL_PROVISIONED_MESSAGE : undefined,
+									text: d.claudeTag
+										? CLAUDE_TAG_MESSAGE
+										: stillProvisioned
+											? STILL_PROVISIONED_MESSAGE
+											: undefined,
 									placement: 'left',
 									classes: ['z-50']
 								}}
