@@ -295,12 +295,12 @@ func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, r
 }
 
 func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, error) {
-	credName, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), req.Storage, server)
+	contexts, err := vmcpconfig.ServerOAuthCredentialContexts(req.Context(), req.Storage, server)
 	if err != nil {
 		return "", "", err
 	}
-	if credName != "" {
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
+	if len(contexts) > 0 {
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), contexts, system.StaticOAuthCredentialName)
 		if err == nil && cred.Secrets["CLIENT_ID"] != "" {
 			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], nil
 		}

@@ -18,6 +18,8 @@
 		onCancel?: () => void;
 		showSkip?: boolean;
 		deprecated?: boolean;
+		description?: string;
+		deleteConfirmation?: string;
 	}
 
 	let {
@@ -27,7 +29,9 @@
 		onSkip,
 		onCancel,
 		showSkip = false,
-		deprecated
+		deprecated,
+		description,
+		deleteConfirmation
 	}: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -195,10 +199,13 @@
 			</p>
 		{:else}
 			<p class="text-muted-content text-sm font-light">
-				{m.mcps_oauth_static_oauth_required_description()}
+				{description ?? m.mcps_oauth_static_oauth_required_description()}
 			</p>
 		{/if}
 
+		{#if description && oauthStatus?.configured}<p class="text-muted-content text-sm font-light">
+				{description}
+			</p>{/if}
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
 				<label for="clientID" class:text-error={showRequired && !form.clientID}>
@@ -272,7 +279,7 @@
 
 <Confirm
 	show={showDeleteConfirm}
-	msg={m.mcps_oauth_static_oauth_clear_confirm()}
+	msg={deleteConfirmation ?? m.mcps_oauth_static_oauth_clear_confirm()}
 	onsuccess={handleDelete}
 	oncancel={() => {
 		showDeleteConfirm = false;

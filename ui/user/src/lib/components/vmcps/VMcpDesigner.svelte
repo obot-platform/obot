@@ -324,7 +324,7 @@
 
 	function handleDroppedOnCreate(entry: MCPCatalogEntry) {
 		if (!canEdit) return;
-		if (mcpServerNeedsStaticOAuthConfiguration(entry)) return;
+		if (mcpServerNeedsStaticOAuthConfiguration(entry) && !profile.current.isAdmin?.()) return;
 		const component = catalogEntryToVMCPComponent(entry);
 		if (!hasEditableFields(catalogConfigurationFields(entry))) {
 			pendingConfigurableCreate = undefined;
@@ -517,7 +517,7 @@
 
 	async function handleDropped(entry: MCPCatalogEntry, target: VMCP) {
 		if (!canEdit) return;
-		if (mcpServerNeedsStaticOAuthConfiguration(entry)) return;
+		if (mcpServerNeedsStaticOAuthConfiguration(entry) && !profile.current.isAdmin?.()) return;
 		const component = catalogEntryToVMCPComponent(entry);
 		componentDropPending = true;
 

@@ -223,3 +223,24 @@ func TestRemoveVMCPConfigurationCredentialsLeavesFailureForRetry(t *testing.T) {
 	}, &router.ResponseWrapper{})
 	require.Error(t, err)
 }
+
+func TestRemoveVMCPOAuthOverridesIncludesRemovedComponents(t *testing.T) {
+	gw := newCredentialsCleanupGatewayClient(t)
+	for _, owner := range []string{"vmcp1deleted", "vmcp1other"} {
+		for _, component := range []string{"active", "removed"} {
+			require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: vmcp.ComponentOAuthCredentialContext(owner, component),
+				Name:    "static-oauth",
+				Secrets: map[string]string{"CLIENT_ID": "client"},
+			}))
+		}
+	}
+	cleanup := NewCredentials(nil, gw, "")
+	require.NoError(t, cleanup.RemoveVMCPStaticConfigurationCredentials(router.Request{Ctx: t.Context(), Name: "vmcp1deleted"}, nil))
+	deleted, err := gw.ListCredentials(t.Context(), gatewayclient.ListCredentialsOptions{CredentialContextPrefix: vmcp.ComponentOAuthCredentialPrefix("vmcp1deleted")})
+	require.NoError(t, err)
+	require.Empty(t, deleted)
+	other, err := gw.ListCredentials(t.Context(), gatewayclient.ListCredentialsOptions{CredentialContextPrefix: vmcp.ComponentOAuthCredentialPrefix("vmcp1other")})
+	require.NoError(t, err)
+	require.Len(t, other, 2)
+}

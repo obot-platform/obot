@@ -503,6 +503,12 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		return ok
 	}
 
+	// Credential metadata is administrator-only, including for auditors and personal owners.
+	parts := strings.Split(req.URL.Path, "/")
+	if len(parts) == 7 && parts[1] == "api" && parts[2] == "vmcps" && parts[4] == "components" && parts[6] == "oauth-credentials" && !IsVMCPAdministrator(userInfo) {
+		return false
+	}
+
 	user := newUser(userInfo)
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(user.GetGroups(), r.group) {

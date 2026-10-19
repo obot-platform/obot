@@ -192,11 +192,11 @@ func mcpServerConfiguration(component types.VMCPComponent, staticConfiguration, 
 }
 
 func (h *Handler) syncVMCPOAuthCredentialStatus(req router.Request, server *v1.MCPServer) error {
-	ref, sourceID, err := vmcpconfig.ServerOAuthCredentialReference(req.Ctx, req.Client, *server)
+	contexts, err := vmcpconfig.ServerOAuthCredentialContexts(req.Ctx, req.Client, *server)
 	if err != nil {
 		return err
 	}
-	checkHash, err := vmcpconfig.OAuthCredentialCheckHash(req, server.Namespace, ref, sourceID)
+	checkHash, err := vmcpconfig.ServerOAuthCredentialCheckHash(req, *server)
 	if err != nil {
 		return err
 	}
@@ -204,8 +204,8 @@ func (h *Handler) syncVMCPOAuthCredentialStatus(req router.Request, server *v1.M
 		return nil
 	}
 	var configured bool
-	if ref != "" {
-		_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
+	if len(contexts) > 0 {
+		_, err := h.gatewayClient.RevealCredential(req.Ctx, contexts, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
 			return err
 		}

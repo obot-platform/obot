@@ -22,7 +22,7 @@
 		type McpServerSortBy
 	} from '$lib/services/vmcps/utils';
 	import { averageRowHeight, buildRowOffsets, visibleRange } from '$lib/services/vmcps/virtualList';
-	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import { mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import McpServersSettings from './McpServersSettings.svelte';
 	import {
@@ -284,7 +284,8 @@
 					{#each visibleEntries as entry (entry.id)}
 						<div
 							class="pb-1 w-full"
-							use:tooltip={mcpServerNeedsStaticOAuthConfiguration(entry)
+							use:tooltip={mcpServerNeedsStaticOAuthConfiguration(entry) &&
+							!profile.current.isAdmin?.()
 								? { text: staticOAuthHelp, placement: 'left' }
 								: undefined}
 							{@attach measureRow(entry.id)}
@@ -345,7 +346,8 @@
 {/snippet}
 
 {#snippet mobileServerCard(entry: MCPCatalogEntry)}
-	{@const needsConfiguration = mcpServerNeedsStaticOAuthConfiguration(entry)}
+	{@const needsConfiguration =
+		mcpServerNeedsStaticOAuthConfiguration(entry) && !profile.current.isAdmin?.()}
 	<button
 		id={`mcp-server-card-${entry.id}`}
 		type="button"
@@ -407,7 +409,8 @@
 {/snippet}
 
 {#snippet serverCard(entry: MCPCatalogEntry)}
-	{@const needsConfiguration = mcpServerNeedsStaticOAuthConfiguration(entry)}
+	{@const needsConfiguration =
+		mcpServerNeedsStaticOAuthConfiguration(entry) && !profile.current.isAdmin?.()}
 	{@const dragging = drag.isDragging(entry)}
 	{@const previewTools = (entry.manifest.toolPreview ?? []).slice(0, 3)}
 	{#snippet previewPopover()}

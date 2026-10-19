@@ -920,6 +920,7 @@ export interface MCPServerOAuthCredentialRequest {
 	clientSecret?: string;
 }
 export interface MCPServerOAuthCredentialStatus {
+	source?: 'component' | 'catalog' | 'none';
 	configured: boolean;
 	clientID?: string;
 }

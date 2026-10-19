@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,6 +22,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestVMCPComponentToolPreviewConfigUsesCachedSnapshotAndFixedConfiguration(t *testing.T) {
@@ -28,6 +31,14 @@ func TestVMCPComponentToolPreviewConfigUsesCachedSnapshotAndFixedConfiguration(t
 	storage := clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(vmcp, otherVMCP).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, client kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+				if key.Name != "" && key.Namespace == "" {
+					return fmt.Errorf("an empty namespace may not be set when a resource name is provided")
+				}
+				return client.Get(ctx, key, obj, opts...)
+			},
+		}).
 		Build()
 	gateway := newHandlerTestGateway(t)
 	component := vmcp.Spec.Manifest.Components[0]
@@ -65,6 +76,9 @@ func TestVMCPComponentToolPreviewConfigUsesCachedSnapshotAndFixedConfiguration(t
 
 	gotVMCP, gotComponent, server, serverConfig, err := handler.vmcpComponentToolPreviewConfig(request(vmcp.Name, "user-one", component.ID))
 	require.NoError(t, err)
+	_, err = vmcpconfig.ServerOAuthCredentialContexts(t.Context(), storage, server)
+	require.NoError(t, err, "preview servers must resolve their vMCP's OAuth credentials")
+	assert.Equal(t, vmcp.Namespace, server.Namespace)
 	assert.Equal(t, vmcp.Name, gotVMCP.Name)
 	assert.Equal(t, component.ID, gotComponent.ID)
 	assert.Equal(t, types.RuntimeRemote, server.Spec.Manifest.Runtime)
@@ -267,6 +281,7 @@ func TestGenerateVMCPComponentToolPreviewsOAuthURLUsesCachedSnapshot(t *testing.
 	assert.Equal(t, []string{"TOKEN=oauth-snapshot-token"}, checker.config.Env)
 	assert.Equal(t, "true", checker.config.AuditLogMetadata[mcp.AuditLogIgnore])
 	assert.Equal(t, types.RuntimeRemote, checker.server.Spec.Manifest.Runtime)
+	assert.Equal(t, vmcp.Namespace, checker.server.Namespace)
 	assert.Contains(t, checker.server.Name, "vmcp-tool-preview-")
 	var response map[string]string
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))

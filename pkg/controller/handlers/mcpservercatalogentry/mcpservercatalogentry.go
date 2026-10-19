@@ -143,6 +143,12 @@ func requiresStaticOAuth(entry *v1.MCPServerCatalogEntry) bool {
 // even after an earlier one errors, so as two handlers a failed delete did not stop the status
 // being cleared, and a cleared status meant the entry was never queried again.
 func (h *Handler) ReconcileOAuthCredential(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	if _, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]; recheck {
+		if err := vmcpconfig.InvalidateCatalogOAuthTokens(req.Ctx, req.Client, h.gatewayClient, entry.Namespace, system.MCPOAuthCredentialName(entry.Name)); err != nil {
+			return err
+		}
+	}
 	return reconcileOAuthCredential(req, h.gatewayClient)
 }
 

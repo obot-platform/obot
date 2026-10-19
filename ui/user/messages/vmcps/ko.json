@@ -406,5 +406,10 @@
 	"vmcps_vmcp_updated": "vMCP {name}을(를) 업데이트했습니다.",
 	"vmcps_what_would_you_like_to_do": "무엇을 하시겠습니까?",
 	"vmcps_zoom_in": "확대",
-	"vmcps_zoom_out": "축소"
+	"vmcps_zoom_out": "축소",
+	"vmcps_oauth_scope": "이 구성 요소에 OAuth 클라이언트를 선택적으로 설정합니다. 이 vMCP를 사용하는 모든 사용자에게 카탈로그 기본 인증 정보보다 우선 적용됩니다. 각 사용자는 자신의 계정을 승인합니다. 저장하거나 삭제하면 다시 승인해야 합니다.",
+	"vmcps_oauth_inherited": "현재 카탈로그 클라이언트 {clientID}을(를) 사용 중입니다. 이 구성 요소에서 재정의하려면 아래에 별도의 클라이언트를 설정하세요.",
+	"vmcps_oauth_clear_confirmation": "이 구성 요소의 OAuth 재정의를 삭제하시겠습니까? 연결은 사용 가능한 카탈로그 인증 정보를 사용하거나, 허용된 경우 자동 등록을 사용합니다. 사용자는 다시 승인해야 합니다.",
+	"vmcps_tools_oauth_component_action": "이 대화 상자를 닫고 구성 변경의 고급 섹션에서 정적 OAuth를 구성하세요.",
+	"vmcps_oauth_replacement_help": "클라이언트 ID를 변경할 때는 시크릿도 입력하세요. 공개 클라이언트인 경우 비워 둘 수 있습니다. 두 필드를 모두 변경하지 않으면 저장된 자격 증명이 유지됩니다."
 }

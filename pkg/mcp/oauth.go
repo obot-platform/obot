@@ -353,7 +353,7 @@ func (authorizationErrorOAuthHandler) Authorize(_ context.Context, _ *http.Reque
 func RequiresStaticOAuth(server v1.MCPServer) bool {
 	return server.Spec.Manifest.Runtime == types.RuntimeRemote &&
 		server.Spec.Manifest.RemoteConfig != nil &&
-		server.Spec.Manifest.RemoteConfig.StaticOAuthRequired &&
+		(server.Spec.Manifest.RemoteConfig.StaticOAuthRequired || server.Status.OAuthCredentialConfigured) &&
 		!server.Status.UserHasAuthenticated
 }
 

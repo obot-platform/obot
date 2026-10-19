@@ -17,9 +17,61 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/user"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestStateManagerRejectsCallbackInvalidatedDuringExchange(t *testing.T) {
+	exchangeStarted := make(chan struct{})
+	finishExchange := make(chan struct{})
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(exchangeStarted)
+		<-finishExchange
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"old-client-token","token_type":"Bearer"}`))
+	}))
+	defer tokenServer.Close()
+	defer close(finishExchange)
+
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
+	state := newStateManager(gatewayClient, fixedTokenClient(tokenServer.Client()))
+	conf := &oauth2.Config{
+		ClientID: "old-client",
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  tokenServer.URL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://upstream.example/mcp", "", "request", "state", "verifier", "", conf))
+
+	callbackDone := make(chan error, 1)
+	go func() {
+		_, _, err := state.createToken(t.Context(), "state", "code", "", "")
+		callbackDone <- err
+	}()
+	select {
+	case <-exchangeStarted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("callback did not start token exchange")
+	}
+	require.NoError(t, gatewayClient.DeleteMCPOAuthTokenForAllUsers(t.Context(), "mcp"))
+	finishExchange <- struct{}{}
+	select {
+	case err := <-callbackDone:
+		require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	case <-time.After(10 * time.Second):
+		t.Fatal("callback did not complete")
+	}
+	_, err = gatewayClient.GetMCPOAuthToken(t.Context(), "user", "mcp", "https://upstream.example/mcp")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+}
 
 func TestOAuthCallbackComponentCompletion(t *testing.T) {
 	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
