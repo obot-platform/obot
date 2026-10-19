@@ -1037,6 +1037,7 @@ export interface OrgUser {
 	created: string;
 	username: string;
 	email: string;
+	emailDisplayDomain?: string;
 	explicitRole: boolean;
 	role: number;
 	effectiveRole: number;
@@ -1089,6 +1090,7 @@ export interface OrgGroupPage {
 export interface Profile {
 	id: string;
 	email: string;
+	emailDisplayDomain?: string;
 	iconURL: string;
 	role: number;
 	effectiveRole: number;

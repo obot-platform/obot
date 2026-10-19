@@ -73,6 +73,7 @@ type User struct {
 	AuthProviderGroups     []string `json:"authProviderGroups,omitempty"`
 	ExplicitRole           bool     `json:"explicitRole,omitempty"`
 	Email                  string   `json:"email,omitempty"`
+	EmailDisplayDomain     string   `json:"emailDisplayDomain,omitempty"`
 	IconURL                string   `json:"iconURL,omitempty"`
 	Timezone               string   `json:"timezone,omitempty"`
 	CurrentAuthProvider    string   `json:"currentAuthProvider,omitempty"`

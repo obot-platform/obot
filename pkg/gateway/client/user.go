@@ -462,8 +462,14 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return fmt.Errorf("failed to decrypt identity: %w", err)
 	}
 
-	if user.IconURL == identity.IconURL && time.Since(identity.IconLastChecked) < 7*24*time.Hour && user.DisplayName != "" {
-		// Icon was checked less than 7 days ago, and the user is still using the same auth provider and DisplayName is already set
+	profileTTL := 7 * 24 * time.Hour
+	if authProviderName == "pingfederate-auth-provider" {
+		// Pick up edits to the claim mapping and display domain promptly.
+		profileTTL = 5 * time.Minute
+	}
+	if user.IconURL == identity.IconURL && time.Since(identity.IconLastChecked) < profileTTL && user.DisplayName != "" {
+		// The profile is within its refresh window, the provider is unchanged,
+		// and the display name is already set.
 		return nil
 	}
 
@@ -473,6 +479,8 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	}
 
 	switch authProviderName {
+	case "pingfederate-auth-provider":
+		applyPingFederateProfile(user, &identity, profile)
 	case "github-auth-provider":
 		if iconURL, ok := profile["avatar_url"].(string); ok {
 			user.IconURL = iconURL
@@ -579,6 +587,13 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 			return err
 		}
 
+		if authProviderName == "pingfederate-auth-provider" {
+			// GORM struct updates skip empty strings. Explicitly persist clearing
+			// this setting when the administrator removes the display domain.
+			if err := tx.Model(&types.User{}).Where("id = ?", user.ID).Update("email_display_domain", user.EmailDisplayDomain).Error; err != nil {
+				return err
+			}
+		}
 		// Omit the group check column to prevent resetting the group refresh window
 		return tx.Omit(groupsLastCheckedColumn).Updates(&identity).Error
 	})

@@ -6,9 +6,11 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
+	import DisplayEmail from '$lib/components/profile/DisplayEmail.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
+	import { formatUserEmail } from '$lib/emailDisplay';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
@@ -82,7 +84,7 @@
 			.filter(
 				(user) =>
 					user.name.toLowerCase().includes(query.toLowerCase()) ||
-					user.email?.toLowerCase().includes(query.toLowerCase())
+					formatUserEmail(user).toLowerCase().includes(query.toLowerCase())
 			)
 	);
 
@@ -268,6 +270,8 @@
 								<span class="text-xs text-muted-content">{d.disabledReasonLabel}</span>
 							{/if}
 						</div>
+					{:else if property === 'email'}
+						<DisplayEmail user={d} />
 					{:else if property === 'role'}
 						<div class="flex items-center gap-1">
 							{d.role}

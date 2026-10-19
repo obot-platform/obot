@@ -10,6 +10,7 @@
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import DisplayEmail from './DisplayEmail.svelte';
 	import { User } from '@lucide/svelte';
 
 	interface Props {
@@ -87,7 +88,7 @@
 	<hr />
 	<div class="flex flex-row py-3">
 		<div class="w-1/2 max-w-[150px]">{m.account_email()}</div>
-		<div class="w-1/2 wrap-break-word">{profile.current.email}</div>
+		<div class="w-1/2 wrap-break-word"><DisplayEmail user={profile.current} /></div>
 	</div>
 	<hr />
 	<div class="flex flex-row py-3">
