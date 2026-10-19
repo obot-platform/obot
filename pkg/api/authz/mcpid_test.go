@@ -759,7 +759,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			},
 		},
 	).Build()
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil)
 
 	tests := []struct {
 		name    string
@@ -1038,7 +1038,7 @@ func TestVMCPTesterChatRequiresConnectionAccess(t *testing.T) {
 		},
 	}
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp, instance).Build()
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil)
 
 	for _, tc := range []struct {
 		name   string
