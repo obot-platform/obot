@@ -113,7 +113,8 @@ type MCPAuditLogOptions struct {
 	SessionID []string
 	ClientIP  []string
 	// ProcessingTimeMin and ProcessingTimeMax filter the normalized duration field, using MCP
-	// processing time or local-agent duration as appropriate.
+	// processing time or local-agent duration as appropriate. Active bounds exclude missing
+	// durations (zero or NULL); without bounds, those rows remain visible.
 	ProcessingTimeMin int64
 	ProcessingTimeMax int64
 
@@ -429,11 +430,11 @@ func (c *Client) auditLogBaseQuery(ctx context.Context, opts MCPAuditLogOptions,
 		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
 	}
 	if opts.ProcessingTimeMin > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
+		db = db.Where("NULLIF(CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END, 0) >= ?",
 			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
 	}
 	if opts.ProcessingTimeMax > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
+		db = db.Where("NULLIF(CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END, 0) <= ?",
 			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
 	}
 	return db, eventTime, nil
