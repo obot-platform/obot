@@ -298,12 +298,6 @@
 								label: m.nav_inventory(),
 								href: '/inventory',
 								beta: true
-							},
-							{
-								id: 'enforcement-events',
-								label: m.nav_enforcement_events(),
-								href: '/admin/enforcement-events',
-								beta: true
 							}
 						]
 					: [])

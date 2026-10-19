@@ -6,6 +6,7 @@
 		value: string;
 		content: Snippet;
 		tooltip?: string;
+		beta?: boolean;
 	};
 </script>
 
@@ -125,7 +126,7 @@
 									<div
 										bind:this={tabAnchors[viewOption.value]}
 										class={twMerge(
-											'tab-flare relative font-light text-md rounded-t-lg text-nowrap px-8 py-2',
+											'tab-flare indicator relative font-light text-md rounded-t-lg text-nowrap px-8 py-2',
 											isSelected
 												? 'tab-selected z-10 font-medium bg-primary text-white after:absolute after:-bottom-0.75 after:left-1/2 after:-translate-x-1/2 after:h-0 after:w-0 after:border-x-5 after:border-x-transparent after:border-b-5 after:border-b-base-300 after:dark:border-base-100 after:content-[""]'
 												: 'tab-hover-flare hover:bg-primary/20',
@@ -137,6 +138,16 @@
 												'tab-separator'
 										)}
 									>
+										{#if viewOption.beta}
+											<span
+												class={twMerge(
+													'indicator-item indicator-bottom indicator-center badge badge-primary badge-xs text-[8px] h-3',
+													isSelected ? 'bg-white text-primary' : ''
+												)}
+											>
+												BETA
+											</span>
+										{/if}
 										<button
 											id={`tab-${viewOption.value}`}
 											type="button"
@@ -161,6 +172,7 @@
 														icon={Info}
 														placement="bottom"
 														disablePortal={false}
+														offset={viewOption.beta ? { y: 3 } : undefined}
 														onClick={() => selectView(viewOption.value)}
 													/>
 												</span>

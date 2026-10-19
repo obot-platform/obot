@@ -22,6 +22,7 @@
 		disablePortal?: boolean;
 		variant?: 'default' | 'hint';
 		anchor?: HTMLElement;
+		offset?: { x?: number; y?: number };
 	}
 
 	let {
@@ -37,7 +38,8 @@
 		onClick,
 		disablePortal = true,
 		variant = 'default',
-		anchor
+		anchor,
+		offset: positionOffset
 	}: Props = $props();
 
 	function getPopoverWidth() {
@@ -63,7 +65,8 @@
 			placement,
 			interactive,
 			anchor,
-			offset: variant === 'hint' ? 10 : undefined
+			offset: variant === 'hint' ? 10 : undefined,
+			positionOffset
 		};
 		if (children) {
 			return { ...base, snippet: children };

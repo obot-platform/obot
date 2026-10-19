@@ -18,7 +18,8 @@ const views = new Set([
 	'devices',
 	'device-clients',
 	'device-mcp-servers',
-	'device-skills'
+	'device-skills',
+	'enforcement-events'
 ]);
 
 export const load: PageLoad = async ({ url, fetch, parent, depends }) => {

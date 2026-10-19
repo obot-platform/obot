@@ -12,6 +12,7 @@ export interface TooltipOptions {
 	placement?: Placement;
 	anchor?: HTMLElement;
 	offset?: number;
+	positionOffset?: { x?: number; y?: number };
 }
 
 function resolveDataTheme(trigger: HTMLElement): string {
@@ -148,7 +149,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 				interactiveHover: typeof init === 'object' ? !!init.interactive : false,
 				enterTransition: 'daisy',
 				anchor: typeof init === 'object' ? init.anchor : undefined,
-				offset: typeof init === 'object' ? init.offset : undefined
+				offset: typeof init === 'object' ? init.offset : undefined,
+				positionOffset: typeof init === 'object' ? init.positionOffset : undefined
 			})
 		);
 
@@ -219,7 +221,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 				disablePortal: o.disablePortal,
 				interactiveHover: !!o.interactive,
 				anchor: o.anchor,
-				offset: o.offset
+				offset: o.offset,
+				positionOffset: o.positionOffset
 			});
 		}
 
@@ -243,6 +246,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 			ao.snippet === bo.snippet &&
 			ao.anchor === bo.anchor &&
 			ao.offset === bo.offset &&
+			(ao.positionOffset?.x ?? 0) === (bo.positionOffset?.x ?? 0) &&
+			(ao.positionOffset?.y ?? 0) === (bo.positionOffset?.y ?? 0) &&
 			JSON.stringify(ao.classes ?? []) === JSON.stringify(bo.classes ?? [])
 		);
 	}

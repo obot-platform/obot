@@ -21,6 +21,7 @@ interface TooltipOptions {
 	enterTransition?: 'daisy';
 	anchor?: HTMLElement;
 	offset?: number;
+	positionOffset?: { x?: number; y?: number };
 }
 
 interface Popover {
@@ -54,6 +55,8 @@ function tooltipOverlayUnchanged(
 		prev.strategy === merged.strategy &&
 		prev.placement === merged.placement &&
 		prev.offset === merged.offset &&
+		(prev.positionOffset?.x ?? 0) === (merged.positionOffset?.x ?? 0) &&
+		(prev.positionOffset?.y ?? 0) === (merged.positionOffset?.y ?? 0) &&
 		prev.anchor === merged.anchor
 	);
 }
@@ -249,6 +252,8 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 
 		const gen = ++visibilityLayoutGen;
 		const reference = options.anchor ?? ref;
+		void (options.positionOffset?.x ?? 0);
+		void (options.positionOffset?.y ?? 0);
 
 		// Remove all dynamically added classes for proper reset
 		tooltip.classList.remove(
@@ -390,12 +395,15 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			...options
 		});
 
+		const shiftedX = x + (options.positionOffset?.x ?? 0);
+		const shiftedY = y + (options.positionOffset?.y ?? 0);
+
 		if (options?.assign) {
-			options.assign(x, y);
+			options.assign(shiftedX, shiftedY);
 		} else {
 			Object.assign(tooltip.style, {
-				left: `${x}px`,
-				top: `${y}px`
+				left: `${shiftedX}px`,
+				top: `${shiftedY}px`
 			});
 		}
 	}

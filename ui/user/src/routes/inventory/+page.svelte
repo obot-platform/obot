@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import TabLayout from '$lib/components/TabLayout.svelte';
 	import Devices from '$lib/components/admin/devices/Devices.svelte';
+	import EnforcementDecisionsContent from '$lib/components/admin/enforcement/EnforcementDecisionsContent.svelte';
+	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
 	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import Configuration from './Configuration.svelte';
@@ -9,8 +12,10 @@
 	import DeviceSkills from './DeviceSkills.svelte';
 	import OverviewView from './OverviewView.svelte';
 	import { untrack } from 'svelte';
+	import type { Component } from 'svelte';
 
 	let { data } = $props();
+	let isLogsView = $derived(page.url.searchParams.get('view') === 'enforcement-events');
 
 	const defaultView = untrack(() =>
 		profile.current.hasAdminAccess?.()
@@ -62,6 +67,13 @@
 						value: 'device-skills',
 						content: deviceSkills,
 						tooltip: m.inventory_enforcement_device_skills_tab_tooltip()
+					},
+					{
+						label: m.inventory_enforcement_enforcement_events_tab(),
+						value: 'enforcement-events',
+						content: enforcementEvents,
+						tooltip: m.inventory_enforcement_enforcement_events_tab_tooltip(),
+						beta: true
 					}
 				]
 			: [])
@@ -77,6 +89,12 @@
 	{defaultView}
 	classes={{ childrenContainer: 'max-w-none' }}
 	{views}
+	main={isLogsView
+		? {
+				component: VirtualPageRoot as unknown as Component,
+				props: { class: '', as: 'main', itemHeight: 56, overscan: 5 }
+			}
+		: undefined}
 />
 
 {#snippet overview()}
@@ -107,4 +125,10 @@
 
 {#snippet deviceSkills()}
 	<DeviceSkills />
+{/snippet}
+
+{#snippet enforcementEvents()}
+	<div class="flex min-h-full flex-col gap-6">
+		<EnforcementDecisionsContent />
+	</div>
 {/snippet}
