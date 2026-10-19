@@ -1,11 +1,15 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
 	import { m } from '$lib/i18n';
-	import { UserService, type ClaudeSession } from '$lib/services';
+	import {
+		UserService,
+		type ClaudeSession,
+		type ClaudeConfig,
+		type ClaudeEnvironment
+	} from '$lib/services';
 	import { COMMON_AI_CLIENTS_MAP, AiClient } from '$lib/services/user/constants';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import type { ClaudeConfig, ClaudeEnvironment } from './types';
 	import { Pencil } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';

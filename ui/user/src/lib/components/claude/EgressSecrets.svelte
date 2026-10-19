@@ -1,7 +1,7 @@
 <script lang="ts">
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { m } from '$lib/i18n';
-	import type { EgressSecret } from './types';
+	import type { EgressSecret } from '$lib/services';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 

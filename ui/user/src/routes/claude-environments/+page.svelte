@@ -6,9 +6,9 @@
 	import ClaudeConnectionForm from '$lib/components/claude/ClaudeConnectionForm.svelte';
 	import ClaudeConnections from '$lib/components/claude/ClaudeConnections.svelte';
 	import ClaudeSessions from '$lib/components/claude/ClaudeSessions.svelte';
-	import type { ClaudeEnvironment } from '$lib/components/claude/types';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { m } from '$lib/i18n';
+	import type { ClaudeEnvironment } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Plus } from '@lucide/svelte';

@@ -1,9 +1,8 @@
 import { m } from '$lib/i18n';
 import { setLocale } from '$lib/paraglide/runtime';
-import '$lib/services';
+import type { ClaudeEnvironment } from '$lib/services';
 import { worker } from '../../../tests/mocks/worker';
 import ClaudeTagSettings from './ClaudeTagSettings.svelte';
-import type { ClaudeEnvironment } from './types';
 import { http, HttpResponse } from 'msw';
 import { afterEach, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';

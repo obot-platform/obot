@@ -2,7 +2,14 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import { Group, UserService, type VMCP } from '$lib/services';
+	import {
+		Group,
+		UserService,
+		type ClaudeConfig,
+		type ClaudeEnvironment,
+		type EnvironmentProfile,
+		type VMCP
+	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
 	import ActorResources from './ActorResources.svelte';
@@ -11,7 +18,6 @@
 	import ClaudeTagSettings from './ClaudeTagSettings.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EgressSecrets from './EgressSecrets.svelte';
-	import type { ClaudeConfig, ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';

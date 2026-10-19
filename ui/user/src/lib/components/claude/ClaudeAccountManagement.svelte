@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
-	import { UserService } from '$lib/services';
+	import { UserService, type ClaudeConfig } from '$lib/services';
 	import ClaudeAccountMappings from './ClaudeAccountMappings.svelte';
-	import type { ClaudeConfig } from './types';
 	import { onMount } from 'svelte';
 
 	let config = $state<ClaudeConfig>({ enabled: false });

@@ -10,7 +10,9 @@
 		type AccessControlRuleSubject,
 		type OrgGroup,
 		type OrgUser,
-		type VMCP
+		type VMCP,
+		type ClaudeEnvironment,
+		type EnvironmentProfile
 	} from '$lib/services';
 	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
 	import { success } from '$lib/stores/success';
@@ -25,7 +27,6 @@
 	import ActorResources from './ActorResources.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EgressSecrets from './EgressSecrets.svelte';
-	import type { ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { ArrowLeft, Import, Trash2, UsersRound, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';

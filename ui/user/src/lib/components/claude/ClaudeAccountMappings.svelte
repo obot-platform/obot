@@ -2,9 +2,9 @@
 	import Select from '$lib/components/Select.svelte';
 	import { m } from '$lib/i18n';
 	import { UserService, type OrgUser } from '$lib/services';
+	import type { ClaudeEnvironment, ClaudeOrganizationAccount } from '$lib/services';
 	import { isClaudeTagUser } from '$lib/utils';
 	import Skeleton from '../Skeleton.svelte';
-	import type { ClaudeEnvironment, ClaudeOrganizationAccount } from './types';
 	import { onMount } from 'svelte';
 
 	let {

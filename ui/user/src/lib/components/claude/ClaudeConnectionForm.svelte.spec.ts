@@ -1,10 +1,9 @@
-import { Group, UserService, type VMCP } from '$lib/services';
+import { Group, UserService, type ClaudeEnvironment, type VMCP } from '$lib/services';
 import { profile } from '$lib/stores';
 import { success } from '$lib/stores/success';
 import { createMockProfile } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import ClaudeConnectionForm from './ClaudeConnectionForm.svelte';
-import type { ClaudeEnvironment } from './types';
 import { http, HttpResponse } from 'msw';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
-	import type { ClaudeResources } from './types';
+	import type { ClaudeResources } from '$lib/services';
 
 	let {
 		resources = $bindable({}),

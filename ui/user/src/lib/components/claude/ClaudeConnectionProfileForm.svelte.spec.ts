@@ -1,6 +1,10 @@
-import { UserService, type VMCP } from '$lib/services';
+import {
+	UserService,
+	type ClaudeEnvironment,
+	type VMCP,
+	type EnvironmentProfile
+} from '$lib/services';
 import ClaudeConnectionProfileForm from './ClaudeConnectionProfileForm.svelte';
-import type { ClaudeEnvironment, EnvironmentProfile } from './types';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
