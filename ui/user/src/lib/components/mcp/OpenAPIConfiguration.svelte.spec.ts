@@ -1,3 +1,4 @@
+import { reactive } from '../../../tests/helpers/reactive.svelte';
 import { worker } from '../../../tests/mocks/worker';
 import OpenAPIConfiguration from './OpenAPIConfiguration.svelte';
 import { http, HttpResponse } from 'msw';
@@ -22,8 +23,8 @@ it('imports the schema when Enter is pressed in the schema URL', async () => {
 	);
 	const onComplete = vi.fn();
 	await render(OpenAPIConfiguration, {
-		config: { source: {} },
-		current: {},
+		config: reactive({ source: {} }),
+		current: reactive({}),
 		onComplete
 	});
 	await page.getByLabelText('Schema URL', { exact: true }).fill('https://example.com/schema.json');
@@ -50,14 +51,14 @@ it('keeps existing metadata when re-importing a schema', async () => {
 	);
 	const onComplete = vi.fn();
 	await render(OpenAPIConfiguration, {
-		config: { source: { url: 'https://example.com/schema.json' } },
+		config: reactive({ source: { url: 'https://example.com/schema.json' } }),
 		imported: true,
-		current: {
+		current: reactive({
 			name: 'Existing name',
 			description: 'Existing description',
 			shortDescription: 'Existing summary',
 			icon: 'https://example.com/existing.png'
-		},
+		}),
 		onComplete
 	});
 	await page.getByRole('button', { name: 'Replace schema' }).click();
@@ -81,11 +82,11 @@ it('imports a replacement without sending the configured override', async () => 
 	);
 	const onComplete = vi.fn();
 	await render(OpenAPIConfiguration, {
-		config: {
+		config: reactive({
 			source: { url: 'https://example.com/schema.json' },
 			baseURL: 'https://override.example.com'
-		},
-		current: {},
+		}),
+		current: reactive({}),
 		imported: true,
 		onComplete
 	});

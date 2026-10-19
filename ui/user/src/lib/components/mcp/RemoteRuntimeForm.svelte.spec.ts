@@ -1,3 +1,4 @@
+import { reactive } from '../../../tests/helpers/reactive.svelte';
 import RemoteRuntimeForm from './RemoteRuntimeForm.svelte';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -7,10 +8,11 @@ for (const variant of ['catalog', 'server'] as const) {
 	it(`places localhost OAuth under advanced configuration for ${variant}`, async () => {
 		await render(RemoteRuntimeForm, {
 			variant,
-			config:
+			config: reactive(
 				variant === 'catalog'
 					? { fixedURL: 'https://example.com/mcp' }
 					: { url: 'https://example.com/mcp' }
+			)
 		});
 		const toggle = page.getByRole('switch', { name: /Localhost OAuth callback/ });
 		await expect.element(toggle).not.toBeInTheDocument();
@@ -30,11 +32,11 @@ for (const variant of ['catalog', 'server'] as const) {
 
 it('opens advanced configuration for an existing localhost OAuth setting', async () => {
 	await render(RemoteRuntimeForm, {
-		config: {
+		config: reactive({
 			fixedURL: 'https://example.com/mcp',
 			localhostCallbackEnabled: true,
 			localhostCallbackPath: '/custom'
-		}
+		})
 	});
 	await expect
 		.element(page.getByRole('switch', { name: /Localhost OAuth callback/ }))
@@ -44,11 +46,11 @@ it('opens advanced configuration for an existing localhost OAuth setting', async
 });
 
 it('clears localhost callback settings when resetting a catalog entry', async () => {
-	const config = {
+	const config = reactive({
 		fixedURL: 'https://example.com/mcp',
 		localhostCallbackEnabled: true,
 		localhostCallbackPath: '/custom'
-	};
+	});
 	await render(RemoteRuntimeForm, { variant: 'catalog', config });
 	await page.getByRole('button', { name: 'Reset Default Configuration' }).click();
 	expect(config.localhostCallbackEnabled).toBeUndefined();
@@ -63,11 +65,11 @@ it('clears localhost callback settings when resetting a catalog entry', async ()
 it('preserves localhost callback settings when hiding server configuration', async () => {
 	await render(RemoteRuntimeForm, {
 		variant: 'server',
-		config: {
+		config: reactive({
 			url: 'https://example.com/mcp',
 			localhostCallbackEnabled: true,
 			localhostCallbackPath: '/custom'
-		}
+		})
 	});
 	await page.getByRole('button', { name: 'Hide Advanced Configuration' }).click();
 	await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();

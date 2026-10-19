@@ -67,6 +67,7 @@ export const handlers = [
 	http.get('/api/mcp-server-instances', () =>
 		HttpResponse.json({ items: data.listMcpServerInstancesResponse })
 	),
+	http.get('/api/mcp-servers/:id', () => HttpResponse.json()),
 	http.get('/api/mcp-servers/:id/logs', () => HttpResponse.json({ items: [] })),
 	http.get('/api/workspaces/:workspaceID/entries/:entryID/servers/:serverID/logs', () =>
 		HttpResponse.json({ items: [] })
@@ -88,6 +89,7 @@ export const handlers = [
 	http.get('/api/me', () => HttpResponse.json(data.getProfileResponse)),
 	http.get('/api/model-providers', () => HttpResponse.json({ items: [] })),
 	http.get('/api/models', () => HttpResponse.json({ items: data.listModelsResponse })),
+	http.get('/api/oauth/mcp/login/:id', () => new HttpResponse(null, { status: 400 })),
 	http.get('/api/product-telemetry-consent', () => HttpResponse.json({})),
 	http.get('/api/users', () => HttpResponse.json({ items: data.listUsersResponse })),
 	http.get('/api/vmcps', () => HttpResponse.json({ items: [] })),
