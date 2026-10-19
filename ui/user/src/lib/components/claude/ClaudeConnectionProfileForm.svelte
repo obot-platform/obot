@@ -21,13 +21,15 @@
 		resolveSubjects
 	} from '$lib/subjectResolver';
 	import { getUserRoleLabel, isDisabledUser } from '$lib/utils';
+	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ActorResources from './ActorResources.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EgressSecrets from './EgressSecrets.svelte';
 	import type { ClaudeEnvironment, EnvironmentProfile } from './types';
-	import { ArrowLeft, Trash2, UsersRound, X } from '@lucide/svelte';
+	import { ArrowLeft, Import, Trash2, UsersRound, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let {
 		environment,
@@ -59,6 +61,8 @@
 	let vmcpSelection = $state<string | number>();
 	let confirmDelete = $state<string>();
 	let formElement = $state<HTMLFormElement>();
+	let importDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let importSelection = $state<string>();
 	const initialProfile = untrack(() => canonical(profile));
 	const profileDirty = $derived(canonical(draft) !== initialProfile);
 
@@ -114,6 +118,26 @@
 				label: server.displayName || server.id
 			}));
 	});
+	const importableProfiles = $derived(
+		profiles.flatMap((item) => {
+			if (item.name === editingName) return [];
+			const ids = item.mcpServerIDs ?? [];
+			if (ids.length === 0) return [];
+			return [
+				{
+					name: item.name,
+					vmcps: ids.map((id) => {
+						const server = servers.find((candidate) => candidate.id === id);
+						return {
+							id,
+							label: server?.displayName || id,
+							components: server ? resolveVMcpComponents(server) : []
+						};
+					})
+				}
+			];
+		})
+	);
 
 	let groupsRequest: AbortController | undefined;
 
@@ -252,6 +276,21 @@
 	function removeVmcp(id: string) {
 		if (!draft.mcpServerIDs) return;
 		draft.mcpServerIDs = draft.mcpServerIDs.filter((candidate) => candidate !== id);
+	}
+
+	function openImportProfiles() {
+		importSelection = undefined;
+		importDialog?.open();
+	}
+
+	function applyImportedProfile() {
+		const source = importableProfiles.find((item) => item.name === importSelection);
+		if (!source) return;
+		const current = draft.mcpServerIDs ?? [];
+		const seen = new Set(current);
+		const added = source.vmcps.map((vmcp) => vmcp.id).filter((id) => !seen.has(id));
+		if (added.length > 0) draft.mcpServerIDs = [...current, ...added];
+		importDialog?.close();
 	}
 
 	async function loadUsers() {
@@ -439,19 +478,29 @@
 
 		<section>
 			<div class="divider text-sm font-semibold mt-5 mb-3">{m.vmcps()}</div>
-			<Select
-				id="profile-vmcps"
-				options={vmcpOptions}
-				bind:query={vmcpQuery}
-				bind:selected={vmcpSelection}
-				searchInDropdown
-				placeholder={m.hosted_agents_select_vmcps()}
-				searchPlaceholder={m.hosted_agents_search_vmcps()}
-				class="bg-base-200 shadow-inner!"
-				classes={{ root: 'w-full' }}
-				onSelect={(option) => addVmcp(String(option.id))}
-				disabled={saving}
-			/>
+			<div class="flex items-center gap-2 shrink-0">
+				<Select
+					id="profile-vmcps"
+					options={vmcpOptions}
+					bind:query={vmcpQuery}
+					bind:selected={vmcpSelection}
+					searchInDropdown
+					placeholder={m.hosted_agents_select_vmcps()}
+					searchPlaceholder={m.hosted_agents_search_vmcps()}
+					class="bg-base-200 shadow-inner!"
+					classes={{ root: 'w-full' }}
+					onSelect={(option) => addVmcp(String(option.id))}
+					disabled={saving}
+				/>
+				<IconButton
+					tooltip={{ text: m.hosted_agents_import_vmcps() }}
+					disabled={saving}
+					onclick={openImportProfiles}
+					variant="primary"
+				>
+					<Import class="size-4" />
+				</IconButton>
+			</div>
 			{#if draft.mcpServerIDs === null || draft.mcpServerIDs.length === 0}
 				<div class="text-muted-content pb-4 pt-3 text-center text-xs font-light italic">
 					{m.hosted_agents_profile_no_vmcps()}
@@ -551,7 +600,10 @@
 			{/if}
 		</fieldset>
 		<EgressSecrets
-			classes={{ header: 'text-sm font-semibold', root: 'bg-transparent p-4' }}
+			classes={{
+				header: 'text-sm font-semibold',
+				root: 'bg-transparent border-base-300 dark:border-base-400 p-4'
+			}}
 			bind:secrets={
 				() => draft.egressSecrets ?? [],
 				(secrets) => {
@@ -668,6 +720,70 @@
 		</button>
 	</div>
 </form>
+
+<ResponsiveDialog
+	bind:this={importDialog}
+	title={m.hosted_agents_import_profile_title()}
+	class="md:w-lg"
+>
+	<div class="md:p-0 p-4 flex flex-col grow">
+		{#if importableProfiles.length === 0}
+			<p class="text-muted-content py-6 text-center text-sm font-light">
+				{m.hosted_agents_import_profile_empty()}
+			</p>
+		{:else}
+			<div
+				class="flex flex-col gap-2"
+				role="radiogroup"
+				aria-label={m.hosted_agents_import_profile_title()}
+			>
+				{#each importableProfiles as item (item.name)}
+					<label
+						class={twMerge(
+							'flex cursor-pointer items-start gap-3 rounded-lg border p-3',
+							importSelection === item.name
+								? 'border-primary bg-primary/5'
+								: 'border-base-300 hover:border-primary/40 dark:border-base-400'
+						)}
+					>
+						<input
+							class="radio radio-primary radio-sm mt-0.5 shrink-0"
+							type="radio"
+							name="import-profile"
+							value={item.name}
+							bind:group={importSelection}
+						/>
+						<span class="min-w-0 grow">
+							<span class="block text-sm font-semibold">{item.name}</span>
+							<ul class="mt-2 flex flex-col gap-1.5">
+								{#each item.vmcps as vmcp (vmcp.id)}
+									<li class="flex min-w-0 items-center gap-2">
+										<VMcpIcon class="size-6" components={vmcp.components} />
+										<span class="truncate text-sm font-light">{vmcp.label}</span>
+									</li>
+								{/each}
+							</ul>
+						</span>
+					</label>
+				{/each}
+			</div>
+		{/if}
+	</div>
+	<div class="flex grow"></div>
+	<div class="mt-4 flex justify-end gap-2 sticky bottom-0 bg-base-100 md:p-0 p-4">
+		<button class="btn btn-secondary" type="button" onclick={() => importDialog?.close()}>
+			{m.common_cancel()}
+		</button>
+		<button
+			class="btn btn-primary"
+			type="button"
+			disabled={!importSelection}
+			onclick={applyImportedProfile}
+		>
+			{m.hosted_agents_import_profile_apply()}
+		</button>
+	</div>
+</ResponsiveDialog>
 
 <Confirm
 	show={confirmDelete !== undefined}
