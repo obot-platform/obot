@@ -1073,32 +1073,35 @@ describe('Identity & Access Page', () => {
 					.click();
 				await expect.element(page.getByLabelText('Issuer URL', { exact: true })).toBeVisible();
 
+				const choiceButton = (name: 'SCIM' | 'OneLogin API') =>
+					page.getByRole('radio', { name, exact: true });
+
+				await expect.element(choiceButton('SCIM')).toBeChecked();
 				await expect
-					.element(
-						page.getByText(
-							/With these left empty, OneLogin provisions users and groups through SCIM/
-						)
-					)
+					.element(page.getByText(/OneLogin provisions users and groups through SCIM/))
 					.toBeVisible();
+				await expect
+					.element(page.getByLabelText('API Client ID', { exact: true }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(page.getByLabelText('API Client Secret', { exact: true }))
+					.not.toBeInTheDocument();
 
 				// The API base URL is used only for directory synchronization, but it has a default, so it
 				// is not one of the credentials that choose it.
 				await page
 					.getByLabelText('API Base URL', { exact: true })
 					.fill('https://api.us.onelogin.com');
-				await expect
-					.element(
-						page.getByText(
-							/With these left empty, OneLogin provisions users and groups through SCIM/
-						)
-					)
-					.toBeVisible();
+				await expect.element(choiceButton('SCIM')).toBeChecked();
 
-				await page.getByLabelText('API Client ID', { exact: true }).fill('api-client');
+				await choiceButton('OneLogin API').click();
+				await expect.element(choiceButton('OneLogin API')).toBeChecked();
 				await expect
-					.element(
-						page.getByText(/With these provided, Obot fetches each user's groups from OneLogin/)
-					)
+					.element(page.getByText(/Obot fetches each user's groups from OneLogin/))
+					.toBeVisible();
+				await expect.element(page.getByLabelText('API Client ID', { exact: true })).toBeVisible();
+				await expect
+					.element(page.getByLabelText('API Client Secret', { exact: true }))
 					.toBeVisible();
 			});
 		});
