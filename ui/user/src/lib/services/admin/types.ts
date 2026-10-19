@@ -1103,6 +1103,10 @@ export interface ModelAccessPolicy extends Omit<ModelAccessPolicyManifest, 'id'>
 
 // Model proxy
 
+export interface RegistrySettings {
+	anonymousAccessEnabled: boolean;
+}
+
 export interface ModelProxySettings {
 	enabled: boolean;
 	url: string;

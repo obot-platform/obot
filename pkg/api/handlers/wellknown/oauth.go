@@ -2,10 +2,8 @@ package wellknown
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 )
 
@@ -54,14 +52,6 @@ func (h *handler) oauthProtectedResource(req api.Context) error {
 }
 
 func (h *handler) registryOAuthProtectedResource(req api.Context) error {
-	// Return 404 if registry is in no-auth mode
-	if h.registryNoAuth {
-		return &types.ErrHTTP{
-			Code:    http.StatusNotFound,
-			Message: "Registry OAuth is not available when registry authentication is disabled",
-		}
-	}
-
 	return req.Write(map[string]any{
 		"resource":                 h.baseURL,
 		"authorization_servers":    []string{h.baseURL},

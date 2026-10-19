@@ -10,7 +10,7 @@ import (
 )
 
 func TestEnableUserAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 
 	tests := []struct {
 		name    string

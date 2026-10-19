@@ -1,4 +1,4 @@
-import { handleRouteError } from '$lib/errors';
+import { getHttpStatusCode, handleRouteError } from '$lib/errors';
 import {
 	AdminService,
 	Group,
@@ -9,6 +9,7 @@ import {
 	type ImagePullSecretCapability,
 	type K8sSettings,
 	type License,
+	type RegistrySettings,
 	type ModelProxySettings,
 	type ModelProxyUsage,
 	type ProductTelemetryConsent
@@ -40,6 +41,7 @@ export const load: PageLoad = async ({ depends, fetch, parent, url }) => {
 	let capability: ImagePullSecretCapability = { available: false };
 	let imagePullSecrets: ImagePullSecret[] = [];
 	let gitCredentials: GitCredential[] = [];
+	let registrySettings: RegistrySettings | undefined;
 	let modelProxySettings: ModelProxySettings | undefined;
 	let modelProxyUsage: ModelProxyUsage | undefined;
 	let productTelemetryConsent: ProductTelemetryConsent | undefined = initialProductTelemetryConsent;
@@ -54,7 +56,24 @@ export const load: PageLoad = async ({ depends, fetch, parent, url }) => {
 			break;
 		case 'settings':
 			depends('model-proxy:usage');
+			depends('registry:settings');
 			await Promise.all([
+				(async () => {
+					if (!profile.groups.includes(Group.ADMIN) && !profile.groups.includes(Group.OWNER))
+						return;
+					try {
+						registrySettings = await AdminService.getRegistrySettings({
+							fetch,
+							dontLogErrors: true
+						});
+					} catch (err) {
+						const status = getHttpStatusCode(err);
+						if (status === 401 || status === 403) {
+							handleRouteError(err, '/admin/platform?view=settings', profile);
+						}
+						// Leave settings unavailable so the UI cannot present a false default.
+					}
+				})(),
 				(async () => {
 					try {
 						let response: AppNotification | undefined;
@@ -157,6 +176,7 @@ export const load: PageLoad = async ({ depends, fetch, parent, url }) => {
 		capability,
 		imagePullSecrets,
 		gitCredentials,
+		registrySettings,
 		modelProxySettings,
 		modelProxyUsage,
 		productTelemetryConsent,

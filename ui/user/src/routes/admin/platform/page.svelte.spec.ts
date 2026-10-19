@@ -1,7 +1,13 @@
 import { page as appPage } from '$app/state';
-import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT } from '$lib/constants';
+import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+import { markSeenTimestamp } from '$lib/localstate';
 import * as navigation from '$lib/navigation';
-import { Group, type ModelProxySettings, type ProductTelemetryConsent } from '$lib/services';
+import {
+	Group,
+	type ModelProxySettings,
+	type RegistrySettings,
+	type ProductTelemetryConsent
+} from '$lib/services';
 import type {
 	ImagePullSecret,
 	ImagePullSecretCapability,
@@ -35,7 +41,8 @@ async function renderPlatformPage({
 	groups = [Group.ADMIN],
 	productAnalyticsAvailable = true,
 	productAnalyticsConsent = { consent: false },
-	modelProxySettings
+	modelProxySettings,
+	registrySettings
 }: {
 	license?: License;
 	versionOverrides?: Partial<Version>;
@@ -47,6 +54,7 @@ async function renderPlatformPage({
 	productAnalyticsAvailable?: boolean;
 	productAnalyticsConsent?: ProductTelemetryConsent;
 	modelProxySettings?: ModelProxySettings;
+	registrySettings?: RegistrySettings;
 } = {}) {
 	(appPage.url as URL).searchParams.set('view', view);
 	if (create) {
@@ -66,6 +74,7 @@ async function renderPlatformPage({
 		productTelemetryConsentAvailable: productAnalyticsAvailable,
 		productTelemetryConsent: productAnalyticsConsent,
 		modelProxySettings,
+		registrySettings,
 		version: {
 			...getVersionResponse,
 			...versionOverrides
@@ -127,6 +136,127 @@ describe('Platform Page', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Save', exact: true }))
 				.not.toBeInTheDocument();
+		});
+	});
+
+	describe('registry discovery settings', () => {
+		const checkbox = () =>
+			page.getByRole('checkbox', { name: 'Allow anonymous registry discovery' });
+		const save = () => page.getByRole('button', { name: 'Save', exact: true });
+
+		for (const engine of ['docker', 'kubernetes'] as const) {
+			it(`shows the disabled setting and public metadata risks on ${engine}`, async () => {
+				await renderPlatformPage({
+					view: 'settings',
+					versionOverrides: { engine },
+					registrySettings: { anonymousAccessEnabled: false }
+				});
+				await expect.element(checkbox()).not.toBeChecked();
+				await expect
+					.element(page.getByText('Anonymous discovery publishes server metadata'))
+					.toBeVisible();
+				await expect.element(page.getByText(/full descriptions/)).toBeVisible();
+				await expect
+					.element(page.getByText(/Connecting still requires authentication/))
+					.toBeVisible();
+				await expect.element(save()).toBeDisabled();
+			});
+		}
+
+		for (const group of [Group.ADMIN, Group.OWNER]) {
+			it(`lets ${group} enable discovery with Save, then disable it`, async () => {
+				// Test an onboarded owner so the first-login setup dialog does not block settings.
+				markSeenTimestamp(SEEN_SPLASH_DIALOG_KEY);
+				const update = vi.fn();
+				worker.use(
+					http.put('/api/registry-settings', async ({ request }) => {
+						const body = await request.json();
+						update(body);
+						return HttpResponse.json(body);
+					})
+				);
+				await renderPlatformPage({
+					view: 'settings',
+					// Owner profiles include the inherited Admin group.
+					groups: group === Group.OWNER ? [Group.OWNER, Group.ADMIN] : [Group.ADMIN],
+					registrySettings: { anonymousAccessEnabled: false }
+				});
+				await checkbox().click();
+				expect(update).not.toHaveBeenCalled();
+				await expect.element(save()).toBeEnabled();
+				await save().click();
+				await vi.waitFor(() =>
+					expect(update).toHaveBeenCalledWith({ anonymousAccessEnabled: true })
+				);
+				await expect.element(save()).toBeDisabled();
+				await expect.element(checkbox()).toBeChecked();
+				await checkbox().click();
+				await save().click();
+				await vi.waitFor(() =>
+					expect(update).toHaveBeenLastCalledWith({ anonymousAccessEnabled: false })
+				);
+				await expect.element(save()).toBeDisabled();
+			});
+		}
+
+		it('cancels unsaved changes without writing settings', async () => {
+			const update = vi.fn();
+			worker.use(http.put('/api/registry-settings', update));
+			await renderPlatformPage({
+				view: 'settings',
+				registrySettings: { anonymousAccessEnabled: true }
+			});
+			await checkbox().click();
+			await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+			await expect.element(checkbox()).toBeChecked();
+			await expect.element(save()).toBeDisabled();
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('hides registry discovery settings from auditors', async () => {
+			await renderPlatformPage({
+				view: 'settings',
+				groups: [Group.AUDITOR],
+				registrySettings: { anonymousAccessEnabled: true }
+			});
+			await expect
+				.element(page.getByRole('heading', { name: 'MCP Registry API', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(checkbox()).not.toBeInTheDocument();
+			await expect.element(save()).not.toBeInTheDocument();
+		});
+
+		it('shows unavailable settings rather than an editable disabled default', async () => {
+			await renderPlatformPage({ view: 'settings' });
+			await expect
+				.element(
+					page.getByText('Registry settings could not be loaded. Reload this page to try again.')
+				)
+				.toBeVisible();
+			await expect.element(checkbox()).not.toBeInTheDocument();
+		});
+
+		it('retains dirty state after a failed save and allows retry', async () => {
+			const update = vi.fn(() =>
+				HttpResponse.json({ message: 'registry settings unavailable' }, { status: 503 })
+			);
+			worker.use(http.put('/api/registry-settings', update));
+			await renderPlatformPage({
+				view: 'settings',
+				registrySettings: { anonymousAccessEnabled: false }
+			});
+			await checkbox().click();
+			await save().click();
+			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
+			await expect.element(save()).toBeEnabled();
+			await expect.element(checkbox()).toBeChecked();
+			worker.use(
+				http.put('/api/registry-settings', () =>
+					HttpResponse.json({ anonymousAccessEnabled: true })
+				)
+			);
+			await save().click();
+			await expect.element(save()).toBeDisabled();
 		});
 	});
 

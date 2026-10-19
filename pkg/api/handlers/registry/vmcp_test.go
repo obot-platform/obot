@@ -2,223 +2,471 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
-	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+// Only Get and List are implemented. Any write, credential access (the gateway
+// client is nil), or runtime action during discovery fails the endpoint tests.
 type registryTestStorage struct {
 	kclient.WithWatch
-	instanceLists int
+	reader kclient.Reader
+}
+
+func (s *registryTestStorage) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	return s.reader.Get(ctx, key, obj, opts...)
 }
 
 func (s *registryTestStorage) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
-	if _, ok := list.(*v1.VMCPInstanceList); ok {
-		s.instanceLists++
-	}
-	return s.WithWatch.List(ctx, list, opts...)
+	return s.reader.List(ctx, list, opts...)
 }
 
-func TestVMCPComponentsAreExcludedFromPersonalRegistryServers(t *testing.T) {
-	storage := newRegistryTestStorage(
-		registryOrdinaryServer("ms1ordinary", v1.MCPServerSpec{UserID: "user-1"}),
-		registryVMCPComponent("ms1shared", true, v1.MCPServerSpec{UserID: "user-1"}),
-		registryVMCPComponent("ms1dedicated", false, v1.MCPServerSpec{UserID: "user-1"}),
-	)
-
-	_, ctx := registryTestHandlerAndContext(t, storage)
-	servers, _, err := NewHandler(nil, "https://obot.example.com", false, "", mcp.RemoteMCPURLValidationConfig{}).listPersonalServers(ctx, "user-1")
-	if err != nil {
-		t.Fatal(err)
+func TestRegistryVMCPVisibility(t *testing.T) {
+	definitions := []*v1.VMCP{
+		registryDefinition("vmcp1public", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		registryDefinition("vmcp1personal", "user-1", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		registryDefinition("vmcp1otherpersonal", "user-2", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		registryDefinition("vmcp1user", "", types.Subject{Type: types.SubjectTypeUser, ID: "user-1"}),
+		registryDefinition("vmcp1obotgroup", "", types.Subject{Type: types.SubjectTypeObotGroup, ID: "engineering"}),
+		registryDefinition("vmcp1idpgroup", "", types.Subject{Type: types.SubjectTypeGroup, ID: "developers"}),
+		registryDefinition("vmcp1admin", "", types.Subject{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}),
+		registryDefinition("vmcp1closed", ""),
+		registryDefinition("vmcp1anonymoususer", "", types.Subject{Type: types.SubjectTypeUser, ID: "anonymous"}),
+		registryDefinition("vmcp1anonymousgroup", "", types.Subject{Type: types.SubjectTypeGroup, ID: "everyone"}),
+		registryDefinition("vmcp1userstar", "", types.Subject{Type: types.SubjectTypeUser, ID: "*"}),
 	}
-	if len(servers) != 1 || servers[0].Name != "ms1ordinary" {
-		t.Fatalf("listPersonalServers() = %#v, want only ordinary server", servers)
+	objects := make([]kclient.Object, 0, len(definitions))
+	for _, definition := range definitions {
+		objects = append(objects, definition)
 	}
-}
-
-func TestVMCPComponentsAreExcludedFromCatalogRegistryServers(t *testing.T) {
-	storage := newRegistryTestStorage(
-		registryOrdinaryServer("ms1ordinary", v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog}),
-		registryVMCPComponent("ms1shared", true, v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog}),
-		registryVMCPComponent("ms1dedicated", false, v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog}),
-	)
-
-	h, ctx := registryTestHandlerAndContext(t, storage)
-	servers, _, err := h.listServersInCatalog(ctx, system.DefaultCatalog)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(servers) != 1 || servers[0].Name != "ms1ordinary" {
-		t.Fatalf("listServersInCatalog() = %#v, want only ordinary server", servers)
-	}
-}
-
-func TestVMCPComponentsAreExcludedFromWorkspaceRegistryServers(t *testing.T) {
-	const workspaceID = "puw1workspace"
-	storage := newRegistryTestStorage(
-		&v1.PowerUserWorkspace{ObjectMeta: registryObjectMeta(workspaceID)},
-		registryOrdinaryServer("ms1ordinary", v1.MCPServerSpec{PowerUserWorkspaceID: workspaceID, UserID: "user-1"}),
-		registryVMCPComponent("ms1shared", true, v1.MCPServerSpec{PowerUserWorkspaceID: workspaceID, UserID: "user-1"}),
-		registryVMCPComponent("ms1dedicated", false, v1.MCPServerSpec{PowerUserWorkspaceID: workspaceID, UserID: "user-1"}),
-	)
-
-	_, ctx := registryTestHandlerAndContext(t, storage)
-	servers, _, err := NewHandler(nil, "https://obot.example.com", false, "", mcp.RemoteMCPURLValidationConfig{}).listServersInWorkspaces(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(servers) != 1 || servers[0].Name != "ms1ordinary" {
-		t.Fatalf("listServersInWorkspaces() = %#v, want only ordinary server", servers)
-	}
-}
-
-func TestVMCPComponentsAreExcludedFromUnauthenticatedRegistryServers(t *testing.T) {
-	storage := newRegistryTestStorage(
-		registryOrdinaryServer("ms1ordinary", v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog}),
-		registryVMCPComponent("ms1shared", true, v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog}),
-		registryVMCPComponent("ms1dedicated", false, v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog}),
-	)
-
-	h, ctx := registryTestHandlerAndContext(t, storage)
-	servers, err := h.collectAccessibleServersNoAuth(ctx, "com.example.obot")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(servers) != 1 || servers[0].Server.Name != "com.example.obot/ms1ordinary" {
-		t.Fatalf("collectAccessibleServersNoAuth() = %#v, want only ordinary server", servers)
-	}
-}
-
-func TestRegistryDirectLookupExcludesVMCPComponents(t *testing.T) {
+	storage := newRegistryTestStorage(objects...)
 	for _, tc := range []struct {
-		name   string
-		shared bool
+		name string
+		user user.Info
+		want []string
 	}{
 		{
-			name:   "shared",
-			shared: true,
+			name: "nil anonymous user",
+			want: []string{"vmcp1public"},
 		},
 		{
-			name: "dedicated",
+			name: "anonymous identity and groups cannot grant private access",
+			user: &user.DefaultInfo{
+				UID:    "anonymous",
+				Groups: []string{authz.UnauthenticatedGroup},
+				Extra:  map[string][]string{"auth_provider_groups": {"everyone"}},
+			},
+			want: []string{"vmcp1public"},
+		},
+		{
+			name: "authenticated personal and user profiles",
+			user: &user.DefaultInfo{UID: "user-1"},
+			want: []string{"vmcp1personal", "vmcp1public", "vmcp1user"},
+		},
+		{
+			name: "Obot and identity provider groups",
+			user: &user.DefaultInfo{
+				UID: "user-3",
+				Extra: map[string][]string{
+					"obot_groups":          {"engineering"},
+					"auth_provider_groups": {"developers"},
+				},
+			},
+			want: []string{"vmcp1idpgroup", "vmcp1obotgroup", "vmcp1public"},
+		},
+		{
+			name: "revoked group membership",
+			user: &user.DefaultInfo{UID: "user-3"},
+			want: []string{"vmcp1public"},
+		},
+		{
+			name: "admin must match consumption profiles",
+			user: &user.DefaultInfo{
+				UID:    "admin",
+				Groups: []string{types.GroupAdmin},
+				Extra:  map[string][]string{"obot_groups": {types.GroupAdmin}},
+			},
+			want: []string{"vmcp1admin", "vmcp1public"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			server := registryVMCPComponent("ms1"+tc.name, tc.shared, v1.MCPServerSpec{MCPCatalogID: system.DefaultCatalog})
-			h, ctx := registryTestHandlerAndContext(t, newRegistryTestStorage(server))
-			_, err := h.findMCPServer(ctx, server.Name, "com.example.obot")
-			if err == nil {
-				t.Fatal("findMCPServer() found a vMCP component")
+			response := registryRequest(t, storage, tc.user, "/v0.1/servers")
+			var list types.RegistryServerList
+			decodeRegistryResponse(t, response, &list)
+			got := registryIDs(list)
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("listed IDs = %v, want %v", got, tc.want)
+			}
+			for _, definition := range definitions {
+				for _, suffix := range []string{"/versions", "/versions/latest"} {
+					response := registryRequest(t, storage, tc.user, registryDetailPath(definition.Name)+suffix)
+					if !slices.Contains(tc.want, definition.Name) {
+						if response.Code != http.StatusNotFound {
+							t.Fatalf("%s: status = %d, want 404", definition.Name+suffix, response.Code)
+						}
+						continue
+					}
+					if suffix == "/versions" {
+						var versions types.RegistryServerList
+						decodeRegistryResponse(t, response, &versions)
+						if !reflect.DeepEqual(versions.Servers, []types.RegistryServerResponse{listedRegistryServer(t, list, definition.Name)}) {
+							t.Fatalf("versions differ from listing: %#v", versions)
+						}
+					} else {
+						var detail types.RegistryServerResponse
+						decodeRegistryResponse(t, response, &detail)
+						if !reflect.DeepEqual(detail, listedRegistryServer(t, list, definition.Name)) {
+							t.Fatalf("detail differs from listing: %#v", detail)
+						}
+						assertRegistryRemote(t, detail, definition.Name)
+					}
+				}
 			}
 		})
 	}
 }
 
-func TestRegistryDirectLookupExcludesLegacyPersonalServer(t *testing.T) {
-	server := registryOrdinaryServer("ms1ordinary", v1.MCPServerSpec{UserID: "user-1"})
-	h, ctx := registryTestHandlerAndContext(t, newRegistryTestStorage(server))
-
-	_, err := h.findMCPServer(ctx, server.Name, "com.example.obot")
-	if err == nil {
-		t.Fatal("findMCPServer() found a legacy personal server without vMCP ownership")
-	}
-}
-
-func registryTestHandlerAndContext(t *testing.T, storage *registryTestStorage) (*Handler, api.Context) {
-	t.Helper()
-	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := database.AutoMigrate(); err != nil {
-		t.Fatal(err)
-	}
-	client := gateway.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
-	t.Cleanup(func() { _ = client.Close() })
-
-	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		"selectors": func(any) ([]string, error) { return []string{"*"}, nil },
-	})
-	if err := indexer.Add(&v1.AccessControlRule{
-		ObjectMeta: registryObjectMeta("acr1allow"),
-		Spec: v1.AccessControlRuleSpec{
-			MCPCatalogID: system.DefaultCatalog,
-			Manifest:     types.AccessControlRuleManifest{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}},
+func TestRegistryOnlyPublishesDefinitions(t *testing.T) {
+	definition := registryDefinition("vmcp1public", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	definition.Spec.LegacySlug = "ms1migrated"
+	personal := registryDefinition("vmcp1private", "user-1")
+	personal.Spec.LegacySlug = "ms1privatealias"
+	storage := newRegistryTestStorage(
+		definition,
+		personal,
+		&v1.VMCPInstance{
+			ObjectMeta: registryObjectMeta("vmcpi1connection"),
+			Spec: v1.VMCPInstanceSpec{
+				UserID:     "user-1",
+				LegacySlug: "ms1connectionalias",
+				Manifest:   types.VMCPInstanceManifest{VMCPID: definition.Name},
+			},
 		},
-	}); err != nil {
-		t.Fatal(err)
+		&v1.VMCPInstance{
+			ObjectMeta: registryObjectMeta("vmcpi1secondconnection"),
+			Spec: v1.VMCPInstanceSpec{
+				UserID:   "user-2",
+				Manifest: types.VMCPInstanceManifest{VMCPID: definition.Name},
+			},
+		},
+		&v1.MCPServerCatalogEntry{ObjectMeta: registryObjectMeta("entry-template")},
+		&v1.MCPServer{ObjectMeta: registryObjectMeta("ms1legacy")},
+		&v1.MCPServer{
+			ObjectMeta: registryObjectMeta("ms1component"),
+			Spec: v1.MCPServerSpec{
+				VMCPID:          definition.Name,
+				VMCPComponentID: "component-1",
+			},
+		},
+	)
+	for _, u := range []user.Info{nil, &user.DefaultInfo{UID: "user-1"}} {
+		response := registryRequest(t, storage, u, "/v0.1/servers")
+		var list types.RegistryServerList
+		decodeRegistryResponse(t, response, &list)
+		want := []string{"vmcp1public"}
+		if u != nil {
+			want = []string{"vmcp1private", "vmcp1public"}
+		}
+		if !slices.Equal(registryIDs(list), want) {
+			t.Fatalf("listed IDs = %v, want %v", registryIDs(list), want)
+		}
+		for _, suffix := range []string{"/versions", "/versions/latest"} {
+			response = registryRequest(t, storage, u, registryDetailPath("ms1migrated")+suffix)
+			if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), "com.example.obot/vmcp1public") || strings.Contains(response.Body.String(), "ms1migrated") {
+				t.Fatalf("alias must return canonical definition: %d %s", response.Code, response.Body.String())
+			}
+			for _, id := range []string{"vmcpi1connection", "vmcpi1secondconnection", "ms1connectionalias", "entry-template", "ms1legacy", "ms1component", "vmcp1missing"} {
+				response = registryRequest(t, storage, u, registryDetailPath(id)+suffix)
+				if response.Code != http.StatusNotFound {
+					t.Fatalf("%s: status = %d, want 404", id+suffix, response.Code)
+				}
+			}
+		}
 	}
-	return NewHandler(accesscontrolrule.NewAccessControlRuleHelper(indexer, storage), "https://obot.example.com", false, "", mcp.RemoteMCPURLValidationConfig{}), registryTestContext(storage, client)
+	for _, name := range []string{"ms1privatealias", "vmcp1private"} {
+		response := registryRequest(t, storage, nil, registryDetailPath(name)+"/versions/latest")
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("anonymous lookup of %s: status = %d, want 404", name, response.Code)
+		}
+	}
+	for _, path := range []string{
+		registryDetailPath(definition.Name) + "/versions/1.0.0",
+		"/v0.1/servers/invalid/versions/latest",
+		"/v0.1/servers/" + url.PathEscape("com.other/"+definition.Name) + "/versions/latest",
+	} {
+		response := registryRequest(t, storage, nil, path)
+		if response.Code != http.StatusNotFound {
+			t.Fatalf("%s: status = %d, want 404", path, response.Code)
+		}
+	}
 }
 
-func registryTestContext(storage *registryTestStorage, gatewayClient *gateway.Client) api.Context {
-	return api.Context{
-		Request:       httptest.NewRequest(http.MethodGet, "/v0.1/servers", nil),
-		Storage:       storage,
-		GatewayClient: gatewayClient,
-		User:          &user.DefaultInfo{UID: "user-1"},
+func TestRegistrySearchAndPagination(t *testing.T) {
+	alpha := registryDefinition("vmcp1alpha", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	alpha.Spec.Manifest.DisplayName = "Weather Tools"
+	beta := registryDefinition("vmcp1beta", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	beta.Spec.Manifest.Description = "Forecasts and reports"
+	gamma := registryDefinition("vmcp1gamma", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	// All three have equal timestamps; pagination must use the resource name as a tie breaker.
+	storage := newRegistryTestStorage(gamma, beta, alpha)
+	var collected []string
+	cursor := ""
+	for range 3 {
+		response := registryRequest(t, storage, nil, "/v0.1/servers?limit=1&cursor="+url.QueryEscape(cursor))
+		var list types.RegistryServerList
+		decodeRegistryResponse(t, response, &list)
+		if list.Metadata == nil || list.Metadata.Count != 1 {
+			t.Fatalf("unexpected page metadata: %#v", list)
+		}
+		collected = append(collected, registryIDs(list)...)
+		cursor = list.Metadata.NextCursor
+	}
+	if !slices.Equal(collected, []string{"vmcp1alpha", "vmcp1beta", "vmcp1gamma"}) || cursor != "" {
+		t.Fatalf("paginated IDs = %v, final cursor = %q", collected, cursor)
+	}
+	for _, tc := range []struct {
+		search string
+		want   []string
+	}{
+		{
+			search: "ALPHA",
+			want:   []string{"vmcp1alpha"},
+		},
+		{
+			search: "WEATHER",
+			want:   []string{"vmcp1alpha"},
+		},
+		{
+			search: "FORECAST",
+			want:   []string{"vmcp1beta"},
+		},
+		{
+			search: "nonexistent",
+			want:   []string{},
+		},
+	} {
+		response := registryRequest(t, storage, nil, "/v0.1/servers?search="+url.QueryEscape(tc.search))
+		var list types.RegistryServerList
+		decodeRegistryResponse(t, response, &list)
+		if !slices.Equal(registryIDs(list), tc.want) {
+			t.Fatalf("search %q: IDs = %v, want %v", tc.search, registryIDs(list), tc.want)
+		}
+		if len(tc.want) == 0 && (list.Servers == nil || !strings.Contains(response.Body.String(), `"servers":[]`)) {
+			t.Fatalf("empty search result must be an array: %s", response.Body.String())
+		}
+	}
+	response := registryRequest(t, storage, nil, "/v0.1/servers?cursor="+url.QueryEscape("com.example.obot/vmcp1gamma"))
+	var last types.RegistryServerList
+	decodeRegistryResponse(t, response, &last)
+	if last.Servers == nil || len(last.Servers) != 0 || last.Metadata.NextCursor != "" {
+		t.Fatalf("unexpected final page: %#v", last)
+	}
+}
+
+func TestRegistrySearchFullDescription(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		prefix string
+	}{
+		{
+			name:   "ASCII",
+			prefix: strings.Repeat("a", 100),
+		},
+		{
+			name:   "Unicode",
+			prefix: strings.Repeat("界", 100),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prefix := tc.prefix
+			definition := registryDefinition("vmcp1long", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+			definition.Spec.Manifest.Description = prefix + " Forecasts beyond the response limit"
+			storage := newRegistryTestStorage(definition)
+			response := registryRequest(t, storage, nil, "/v0.1/servers?search=FORECASTS")
+			var list types.RegistryServerList
+			decodeRegistryResponse(t, response, &list)
+			if !slices.Equal(registryIDs(list), []string{definition.Name}) {
+				t.Fatalf("search beyond description limit: IDs = %v, want %s", registryIDs(list), definition.Name)
+			}
+			if got := list.Servers[0].Server.Description; got != prefix {
+				t.Fatalf("response description = %q, want %q", got, prefix)
+			}
+		})
+	}
+}
+
+func TestRegistryExcludesEmptyDefinitions(t *testing.T) {
+	ready := registryDefinition("vmcp1ready", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	draft := registryDefinition("vmcp1draft", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	draft.Spec.Manifest.Components = nil
+	draft.Spec.LegacySlug = "ms1draft"
+	empty := registryDefinition("vmcp1empty", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	empty.Spec.Manifest.Components = []types.VMCPComponent{}
+	personal := registryDefinition("vmcp1personal", "user-1")
+	personal.Spec.Manifest.Components = nil
+	storage := newRegistryTestStorage(ready, draft, empty, personal)
+	for _, tc := range []struct {
+		name string
+		user user.Info
+	}{
+		{
+			name: "anonymous",
+		},
+		{
+			name: "authenticated",
+			user: &user.DefaultInfo{
+				UID: "user-1",
+			},
+		},
+		{
+			name: "admin",
+			user: &user.DefaultInfo{
+				UID:    "user-1",
+				Groups: []string{types.GroupAdmin},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := registryRequest(t, storage, tc.user, "/v0.1/servers?limit=1")
+			var list types.RegistryServerList
+			decodeRegistryResponse(t, response, &list)
+			if !slices.Equal(registryIDs(list), []string{ready.Name}) || list.Metadata.NextCursor != "" {
+				t.Fatalf("empty definitions must not affect results or pagination: %+v", list)
+			}
+			response = registryRequest(t, storage, tc.user, "/v0.1/servers?search=draft")
+			decodeRegistryResponse(t, response, &list)
+			if len(list.Servers) != 0 {
+				t.Fatalf("empty draft matched search: %+v", list)
+			}
+			for _, id := range []string{draft.Name, draft.Spec.LegacySlug, empty.Name, personal.Name} {
+				for _, suffix := range []string{"/versions", "/versions/latest"} {
+					response := registryRequest(t, storage, tc.user, registryDetailPath(id)+suffix)
+					if response.Code != http.StatusNotFound {
+						t.Fatalf("%s%s: status = %d, want 404", id, suffix, response.Code)
+					}
+				}
+			}
+		})
+	}
+}
+
+func registryDefinition(id, owner string, subjects ...types.Subject) *v1.VMCP {
+	return &v1.VMCP{
+		ObjectMeta: registryObjectMeta(id),
+		Spec: v1.VMCPSpec{
+			UserID: owner,
+			Manifest: types.VMCPManifest{
+				DisplayName: id,
+				Components: []types.VMCPComponent{
+					{ID: "component-1"},
+				},
+				Profiles: []types.VMCPProfile{
+					{
+						Name:     "access",
+						Subjects: subjects,
+					},
+				},
+			},
+		},
 	}
 }
 
 func newRegistryTestStorage(objects ...kclient.Object) *registryTestStorage {
-	return &registryTestStorage{WithWatch: clientfake.NewClientBuilder().
+	reader := clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(objects...).
-		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(object kclient.Object) []string {
-			return []string{object.(*v1.VMCPInstance).Spec.UserID}
+		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(object kclient.Object) []string {
+			return []string{object.(*v1.VMCP).Spec.LegacySlug}
 		}).
-		WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(object kclient.Object) []string {
-			return []string{object.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
+		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(object kclient.Object) []string {
+			return []string{object.(*v1.VMCPInstance).Spec.LegacySlug}
 		}).
-		WithIndex(&v1.MCPServerCatalogEntry{}, "spec.mcpCatalogName", func(object kclient.Object) []string {
-			return []string{object.(*v1.MCPServerCatalogEntry).Spec.MCPCatalogName}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.userID", func(object kclient.Object) []string {
-			return []string{object.(*v1.MCPServer).Spec.UserID}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.mcpCatalogID", func(object kclient.Object) []string {
-			return []string{object.(*v1.MCPServer).Spec.MCPCatalogID}
-		}).
-		WithIndex(&v1.MCPServer{}, "spec.powerUserWorkspaceID", func(object kclient.Object) []string {
-			return []string{object.(*v1.MCPServer).Spec.PowerUserWorkspaceID}
-		}).
-		Build()}
-}
-
-func registryVMCPComponent(name string, shared bool, spec v1.MCPServerSpec) *v1.MCPServer {
-	spec.VMCPComponentID = "component-1"
-	if shared {
-		spec.VMCPID = "vmcp1shared"
-	} else {
-		spec.VMCPInstanceID = "vmcpi1dedicated"
-	}
-	return &v1.MCPServer{ObjectMeta: registryObjectMeta(name), Spec: spec}
-}
-
-func registryOrdinaryServer(name string, spec v1.MCPServerSpec) *v1.MCPServer {
-	return &v1.MCPServer{ObjectMeta: registryObjectMeta(name), Spec: spec}
+		Build()
+	return &registryTestStorage{reader: reader}
 }
 
 func registryObjectMeta(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace}
+}
+
+func registryDetailPath(id string) string {
+	return "/v0.1/servers/" + url.PathEscape("com.example.obot/"+id)
+}
+
+func registryRequest(t *testing.T, storage *registryTestStorage, u user.Info, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	h := NewHandler("https://obot.example.com", mcp.RemoteMCPURLValidationConfig{})
+	mux := http.NewServeMux()
+	for pattern, handler := range map[string]api.HandlerFunc{
+		"GET /v0.1/servers":                                 h.ListServers,
+		"GET /v0.1/servers/{serverName}/versions":           h.ListServerVersions,
+		"GET /v0.1/servers/{serverName}/versions/{version}": h.GetServerVersion,
+	} {
+		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+			err := handler(api.Context{
+				ResponseWriter: w,
+				Request:        r,
+				Storage:        storage,
+				User:           u,
+			})
+			if err != nil {
+				var httpErr *types.ErrHTTP
+				if !errors.As(err, &httpErr) {
+					t.Fatalf("%s: %v", path, err)
+				}
+				http.Error(w, httpErr.Message, httpErr.Code)
+			}
+		})
+	}
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+	return response
+}
+
+func decodeRegistryResponse(t *testing.T, response *httptest.ResponseRecorder, out any) {
+	t.Helper()
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", response.Code, response.Body.String())
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), out); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func registryIDs(list types.RegistryServerList) []string {
+	ids := make([]string, 0, len(list.Servers))
+	for _, server := range list.Servers {
+		ids = append(ids, strings.TrimPrefix(server.Server.Name, "com.example.obot/"))
+	}
+	return ids
+}
+
+func listedRegistryServer(t *testing.T, list types.RegistryServerList, id string) types.RegistryServerResponse {
+	t.Helper()
+	for _, server := range list.Servers {
+		if server.Server.Name == "com.example.obot/"+id {
+			return server
+		}
+	}
+	t.Fatalf("definition %s is missing from listing", id)
+	return types.RegistryServerResponse{}
 }

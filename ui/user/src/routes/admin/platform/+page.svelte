@@ -84,6 +84,7 @@
 		appNotification={data.appNotification ?? defaultAppNotification}
 		{showProductAnalytics}
 		productTelemetryConsent={data.productTelemetryConsent}
+		registrySettings={data.registrySettings}
 		modelProxySettings={data.modelProxySettings}
 		modelProxyUsage={data.modelProxyUsage}
 		{showRegistryConnections}
