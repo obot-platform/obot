@@ -296,8 +296,7 @@
 							{
 								id: 'inventory',
 								label: m.nav_inventory(),
-								href: '/inventory',
-								beta: true
+								href: '/inventory'
 							}
 						]
 					: [])

@@ -7,6 +7,7 @@
 	export type FilterInput = {
 		label: string;
 		multiple?: boolean;
+		textInput?: boolean;
 		tooltip?: string;
 		property: string;
 		selected?: string | number | null;
@@ -71,7 +72,10 @@
 			shouldShowClearButton
 				? {
 						id: 'clear',
-						label: parseMultiValue(value).length > 1 ? m.core_clear_all() : m.core_clear(),
+						label:
+							!filter.textInput && parseMultiValue(value).length > 1
+								? m.core_clear_all()
+								: m.core_clear(),
 						onclick: () => onClearAll?.(),
 						class: 'opacity-50 hover:opacity-80 active:opacity-100'
 					}
@@ -88,12 +92,12 @@
 <div
 	class={twMerge(
 		'mb-2 flex flex-col gap-1',
-		(filter.disabled || !options.length) && 'pointer-events-none opacity-50'
+		(filter.disabled || (!filter.textInput && !options.length)) && 'pointer-events-none opacity-50'
 	)}
 >
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-1">
-			<label for={filter.property} class="text-md font-light capitalize">
+			<label for={`filter-${filter.property}`} class="text-md font-light capitalize">
 				{m.audit_usage_exports_filter_by_label({ label: filter.label })}
 			</label>
 			{#if filter.tooltip}
@@ -116,21 +120,34 @@
 		</flex>
 	</div>
 
-	<Select
-		id={`filter-${filter.property}`}
-		classes={{
-			root: 'w-full',
-			clear: 'hover:bg-base-400 bg-transparent'
-		}}
-		{options}
-		bind:selected={
-			() => value,
-			(v) => {
-				filter.selected = v;
+	{#if filter.textInput}
+		<input
+			id={`filter-${filter.property}`}
+			type="text"
+			class="input input-bordered w-full"
+			{value}
+			disabled={filter.disabled}
+			oninput={(event) => {
+				filter.selected = event.currentTarget.value;
+			}}
+		/>
+	{:else}
+		<Select
+			id={`filter-${filter.property}`}
+			classes={{
+				root: 'w-full',
+				clear: 'hover:bg-base-400 bg-transparent'
+			}}
+			{options}
+			bind:selected={
+				() => value,
+				(v) => {
+					filter.selected = v;
+				}
 			}
-		}
-		multiple={filter.multiple ?? true}
-		valueFormat={filter.property === 'mcp_server' ? 'json' : 'comma-separated'}
-		{onSelect}
-	/>
+			multiple={filter.multiple ?? true}
+			valueFormat={filter.property === 'mcp_server' ? 'json' : 'comma-separated'}
+			{onSelect}
+		/>
+	{/if}
 </div>

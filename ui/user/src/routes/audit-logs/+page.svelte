@@ -38,7 +38,14 @@
 				{ label: 'MCP', value: 'mcp', content: mcp },
 				{ label: m.audit_usage_audit_logs_model(), value: 'llm', content: llm },
 				...(version.current.engine === 'kubernetes' && version.current.claudeEnvironmentsEnabled
-					? [{ label: m.nav_claude_environments(), value: 'egress', content: egress }]
+					? [
+							{
+								label: m.nav_claude_environments(),
+								value: 'egress',
+								content: egress,
+								tooltip: m.audit_usage_egress_help()
+							}
+						]
 					: [])
 			]
 		: [{ label: 'MCP', value: 'mcp', content: mcp }]}

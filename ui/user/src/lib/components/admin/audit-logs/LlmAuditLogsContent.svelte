@@ -422,7 +422,7 @@
 			{m.audit_usage_audit_logs_model_no_logs()}
 		</h4>
 		<p class="text-muted-content max-w-md text-sm font-light">
-			{m.audit_usage_audit_logs_model_no_logs_hint()}
+			{m.audit_usage_audit_logs_no_logs_hint()}
 		</p>
 	</div>
 {/if}

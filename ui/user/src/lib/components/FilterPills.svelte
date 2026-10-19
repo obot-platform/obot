@@ -12,13 +12,15 @@
 		getFilterDisplayLabel: (filterKey: keyof T) => string;
 		getFilterValue: (filterKey: keyof T, value: string | number) => string;
 		isFilterClearable?: (filterKey: keyof T) => boolean;
+		isMultiValueFilter?: (filterKey: keyof T) => boolean;
 	}
 
 	const {
 		pillsSearchParamFilters,
 		getFilterDisplayLabel,
 		getFilterValue,
-		isFilterClearable
+		isFilterClearable,
+		isMultiValueFilter = () => true
 	}: Props<T> = $props();
 	const entries = $derived(
 		Object.entries(pillsSearchParamFilters) as [keyof T, string | undefined | null][]
@@ -33,7 +35,11 @@
 	>
 		{#each entries as [filterKey, filterValues] (filterKey)}
 			{@const displayLabel = getFilterDisplayLabel(filterKey)}
-			{@const values = parseMultiValue(filterValues)}
+			{@const values = isMultiValueFilter(filterKey)
+				? parseMultiValue(filterValues)
+				: filterValues == null
+					? []
+					: [filterValues]}
 			{@const isClearable = isFilterClearable?.(filterKey) ?? true}
 
 			<div class="filter-primary" animate:flip={{ duration: 100 }}>

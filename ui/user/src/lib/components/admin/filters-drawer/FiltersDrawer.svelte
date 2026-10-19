@@ -29,6 +29,7 @@
 		isFilterDisabled?: (key: FilterKey) => boolean;
 		isFilterClearable?: (key: FilterKey) => boolean;
 		isFilterMultiSelect?: (key: FilterKey) => boolean;
+		isFilterTextInput?: (key: FilterKey) => boolean;
 		// Used to filter server ids when selecting a multi instance server
 		filterOptions?: (option: string, filterId?: FilterKey) => boolean;
 		onClose: () => void;
@@ -54,6 +55,7 @@
 		isFilterDisabled,
 		isFilterClearable,
 		isFilterMultiSelect,
+		isFilterTextInput,
 		onClose,
 		getUserDisplayName,
 		getFilterDisplayLabel,
@@ -133,6 +135,7 @@
 				property: filterId,
 				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
 				multiple: isFilterMultiSelect?.(filterId) ?? true,
+				textInput: isFilterTextInput?.(filterId) ?? false,
 				get tooltip() {
 					const count = filtersOptions[filterId]?.length ?? 0;
 					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
@@ -182,6 +185,7 @@
 		const filterInputKeys = Object.keys(filterInputs) as FilterKey[];
 
 		filterInputKeys.forEach((id) => {
+			if (filterInputs[id].textInput) return;
 			processLog(id).then((options) => {
 				untrack(() => {
 					rawFilterOptions[id] = options;
