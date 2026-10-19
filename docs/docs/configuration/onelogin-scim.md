@@ -193,10 +193,7 @@ error from Obot that says which setting to fix.
      `userName` line. Leave the `userName` line as it is. Obot uses `externalId`
      to match each user to their OneLogin sign-in.
    - Save, then select **Enable** under **API Connection**.
-4. On the **Parameters** tab:
-   - Set **SCIM Username** to **OneLogin ID**.
-   - Open **Groups** and turn on **Include in User Provisioning**.
-5. On the **Provisioning** tab:
+4. On the **Provisioning** tab:
    - Turn on **Enable provisioning**.
    - Set both **When users are deleted in OneLogin, or the user's app access is
      removed** and **When user accounts are suspended in OneLogin** to
@@ -204,6 +201,9 @@ error from Obot that says which setting to fix.
      user, delete them on Obot's **Users** page.
    - Turn off **Require admin approval** for each action, unless you want to
      approve every change by hand.
+5. On the **Parameters** tab:
+   - Set **SCIM Username** to **OneLogin ID**.
+   - Open **Groups** and turn on **Include in User Provisioning**.
 6. Set up the rule in [Push roles](#push-roles).
 7. On the **Access** tab, select the roles whose users should be able to use
    Obot. Give the OIDC app the same roles, or provisioned users can't sign in.
