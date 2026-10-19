@@ -4,6 +4,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/obot-platform/obot/pkg/i18n"
 )
 
 const (
@@ -22,19 +24,18 @@ const (
 var (
 	oneLoginDirectoryParameters = []DirectoryParameter{
 		{
-			Name: "OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_ID",
-			SetupDescription: "Client ID of a OneLogin API credential with Read Users access, which Obot uses to fetch each " +
-				"user's roles from the OneLogin API when they sign in. Leave this and the client secret empty to provision " +
-				"users and groups through SCIM instead.",
-			UnusedDescription: "Not used: OneLogin provisions users and groups through SCIM, so Obot no longer calls the " +
-				"OneLogin API. You can remove it, then delete the API credential in OneLogin.",
+			Name:               "OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_ID",
+			SetupDescription:   i18n.Text("en", "onelogin_client_id_setup"),
+			SetupTranslations:  i18n.Locales("onelogin_client_id_setup"),
+			UnusedDescription:  i18n.Text("en", "onelogin_parameter_unused"),
+			UnusedTranslations: i18n.Locales("onelogin_parameter_unused"),
 		},
 		{
-			Name: "OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_SECRET",
-			SetupDescription: "Client secret of the OneLogin API credential. Leave this and the client ID empty to provision " +
-				"users and groups through SCIM instead.",
-			UnusedDescription: "Not used: OneLogin provisions users and groups through SCIM, so Obot no longer calls the " +
-				"OneLogin API. You can remove it, then delete the API credential in OneLogin.",
+			Name:               "OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_SECRET",
+			SetupDescription:   i18n.Text("en", "onelogin_client_secret_setup"),
+			SetupTranslations:  i18n.Locales("onelogin_client_secret_setup"),
+			UnusedDescription:  i18n.Text("en", "onelogin_parameter_unused"),
+			UnusedTranslations: i18n.Locales("onelogin_parameter_unused"),
 		},
 	}
 )
