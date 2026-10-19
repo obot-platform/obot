@@ -1,11 +1,24 @@
+import { page as appPage } from '$app/state';
 import { Group, Role, type OrgUser } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import UsersView from './UsersView.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$app/navigation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/navigation')>();
+	return {
+		...actual,
+		replaceState: vi.fn()
+	};
+});
+
+afterEach(() => {
+	appPage.url.searchParams.delete('query');
+});
 
 function orgUser(overrides: Partial<OrgUser> & Pick<OrgUser, 'id' | 'email'>): OrgUser {
 	return {
@@ -109,6 +122,24 @@ describe('UsersView', () => {
 
 		const active = userRow(activeUser.email);
 		await expect.element(active.getByText('Disabled', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('searches users when some users have no email', async () => {
+		// The server lists internal users even when they have no email.
+		const noEmailUser = {
+			...orgUser({ id: '6', email: '', displayName: 'Build Service', username: 'build-service' }),
+			email: undefined,
+			internal: true
+		} as unknown as OrgUser;
+		await renderUsersView([activeUser, noEmailUser]);
+
+		await page.getByPlaceholder('Search by name or email...').fill('nomatch');
+		await expect.element(userRow(activeUser.email)).not.toBeInTheDocument();
+		await expect.element(userRow('Build Service')).not.toBeInTheDocument();
+
+		await page.getByPlaceholder('Search by name or email...').fill('build');
+		await expect.element(userRow('Build Service')).toBeVisible();
+		await expect.element(userRow(activeUser.email)).not.toBeInTheDocument();
 	});
 
 	it('does not offer to delete a user whom the identity provider still provisions', async () => {

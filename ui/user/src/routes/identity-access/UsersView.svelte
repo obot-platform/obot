@@ -74,10 +74,11 @@
 				// Only an Owner can enable a user with any of these roles, from their own role or a group.
 				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0
 			}))
+			// Match by name or email. The server lists internal users even when they have no email.
 			.filter(
 				(user) =>
 					user.name.toLowerCase().includes(query.toLowerCase()) ||
-					user.email.toLowerCase().includes(query.toLowerCase())
+					user.email?.toLowerCase().includes(query.toLowerCase())
 			)
 	);
 
