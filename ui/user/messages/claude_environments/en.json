@@ -212,5 +212,8 @@
 	"hosted_agents_kubernetes_required": "Claude Environments is only available in Kubernetes deployments. This Obot instance is running with Docker.",
 	"hosted_agents_egress_host_allowed": "Traffic to external host: {host} is allowed.",
 	"hosted_agents_allow_claude_mcp": "Allow Claude MCP",
-	"hosted_agents_allow_claude_mcp_help": "Allow access to Claude’s MCP relay. Blocked by default, even when all web destinations are allowed. Any matching profile can grant access."
+	"hosted_agents_allow_claude_mcp_help": "Allow access to Claude’s MCP relay. Blocked by default, even when all web destinations are allowed. Any matching profile can grant access.",
+	"hosted_agents_kubernetes_docs_prefix": "For more information, see ",
+	"hosted_agents_kubernetes_docs_link": "Claude Environments",
+	"hosted_agents_kubernetes_docs_suffix": " documentation."
 }

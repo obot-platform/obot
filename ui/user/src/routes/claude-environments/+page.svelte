@@ -7,6 +7,7 @@
 	import ClaudeConnections from '$lib/components/claude/ClaudeConnections.svelte';
 	import ClaudeSessions from '$lib/components/claude/ClaudeSessions.svelte';
 	import type { ClaudeEnvironment } from '$lib/components/claude/types';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { m } from '$lib/i18n';
 	import { profile, version } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
@@ -86,15 +87,28 @@
 {/snippet}
 
 {#snippet environments()}
-	<div class="w-full">
-		{#if version.current.engine === 'docker'}
-			<p class="text-sm text-muted-content">{m.hosted_agents_kubernetes_required()}</p>
-		{:else}
+	{#if version.current.engine === 'docker'}
+		<div class="w-full h-full flex justify-center items-center">
+			<div class="paper w-full md:max-w-sm">
+				<BetaLogo class="mx-auto" />
+				<p class="text-xs font-light leading-normal">{m.hosted_agents_kubernetes_required()}</p>
+				<p class="text-xs font-light leading-normal">
+					{m.hosted_agents_kubernetes_docs_prefix()}<a
+						href="https://docs.obot.ai/claude-environments/overview/"
+						target="_blank"
+						rel="external noopener noreferrer"
+						class="link text-primary">{m.hosted_agents_kubernetes_docs_link()}</a
+					>{m.hosted_agents_kubernetes_docs_suffix()}
+				</p>
+			</div>
+		</div>
+	{:else}
+		<div class="w-full">
 			<ClaudeConnections
 				onEdit={(environment: ClaudeEnvironment) => openEnvironment(environment.id)}
 			/>
-		{/if}
-	</div>
+		</div>
+	{/if}
 {/snippet}
 
 {#snippet sessions()}

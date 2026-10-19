@@ -80,7 +80,7 @@
 	const timeRangeFilters = $derived.by(() => {
 		const startParam = page.url.searchParams.get('start_time');
 		const endParam = page.url.searchParams.get('end_time');
-		const endTime = set(new Date(endParam || new Date()), { milliseconds: 0, seconds: 59 });
+		const endTime = set(new Date(endParam || new Date()), { milliseconds: 999, seconds: 59 });
 		const startTime = startParam
 			? set(new Date(startParam), { milliseconds: 0, seconds: 0 })
 			: set(subDays(endTime, 7), { milliseconds: 0, seconds: 0 });
