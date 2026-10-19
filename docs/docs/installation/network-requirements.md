@@ -17,7 +17,7 @@ The Obot server makes these connections on a default installation, whichever MCP
 
 To allow all of them, allow outbound HTTPS to:
 
-- `api.keygen.sh`
+- `license.obot.ai`
 - `upgrade-server.obot.ai`
 - `github.com`, `release-assets.githubusercontent.com`, and `objects.githubusercontent.com`
 - `models.dev`
@@ -25,15 +25,13 @@ To allow all of them, allow outbound HTTPS to:
 
 ### License validation
 
-- **Destination:** `https://api.keygen.sh`
+- **Destination:** `https://license.obot.ai`
 - **When:** At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is
   configured.
 - **If it fails:** Obot keeps the entitlements from the last successful check. See
   [How Obot validates a license](../enterprise/overview.md#how-obot-validates-a-license).
 - **To change or avoid it:** Required to use a license key. Air-gapped installations can't validate a key yet.
   Support for offline license key validation is coming soon.
-- **Future change:** A future release will validate licenses through a host on the `obot.ai` domain instead of
-  `api.keygen.sh`.
 
 ### Update checks, registration, and product analytics
 
@@ -211,6 +209,6 @@ Setting a URL variable to an empty string doesn't turn the feature off, except f
 ignores empty values and uses the default. Point the variable at an internal mirror instead, or at a local path where
 that setting supports one.
 
-A license key can't be validated without access to `https://api.keygen.sh`, so an air-gapped installation runs as
+A license key can't be validated without access to `https://license.obot.ai`, so an air-gapped installation runs as
 unregistered Obot Community for now. Support for offline license key validation for air-gapped installations is
 coming soon. See [Editions and licensing](../enterprise/overview.md#when-the-license-service-cant-be-reached).
