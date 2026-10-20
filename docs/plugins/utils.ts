@@ -25,6 +25,7 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	"concepts/obot-agent": "start-here/choose",
 	"functionality/obot-agent-management": "security/model",
 	"functionality/workflow-sharing": "registries/publish-skills",
+	"functionality/mcp-inspector": "mcp-gateway/inspector",
 	architecture: "concepts/architecture",
 
 	// concepts/admin/* — section removed; map to closest equivalents

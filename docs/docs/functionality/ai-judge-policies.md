@@ -1,5 +1,4 @@
 ---
-draft: true
 displayed_sidebar: sidebar
 title: AI Judge Policies
 ---

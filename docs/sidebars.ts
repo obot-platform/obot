@@ -133,6 +133,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "functionality/ai-judge-policies",
+					"label": "AI Judge Policies"
+				},
+				{
+					"type": "doc",
 					"id": "llm-gateway/audit",
 					"label": "Audit usage and costs"
 				},

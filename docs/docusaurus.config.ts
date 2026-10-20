@@ -99,14 +99,6 @@ const config: Config = {
             to: "/next/registries/publish-skills",
           },
           {
-            from: "/next/functionality/ai-judge-policies",
-            to: "/next/security/policy-coverage",
-          },
-          {
-            from: "/next/functionality/message-policies",
-            to: "/next/security/policy-coverage",
-          },
-          {
             from: "/functionality/mcp-registries",
             to: "/functionality/mcp-access-policies",
           },
@@ -128,11 +120,27 @@ const config: Config = {
           },
           {
             from: "/configuration/workspace-provider",
-            to: "/concepts/obot-agent",
+            to: "/start-here/choose",
           },
           {
             from: "/functionality/chat/overview",
-            to: "/concepts/obot-agent",
+            to: "/start-here/choose",
+          },
+          {
+            from: "/concepts/obot-agent",
+            to: "/start-here/choose",
+          },
+          {
+            from: "/functionality/obot-agent-management",
+            to: "/security/model",
+          },
+          {
+            from: "/functionality/workflow-sharing",
+            to: "/registries/publish-skills",
+          },
+          {
+            from: "/functionality/mcp-inspector",
+            to: "/mcp-gateway/inspector",
           },
         ],
         createRedirects(existingPath: string) {
@@ -142,7 +150,7 @@ const config: Config = {
               "/functionality/api-keys/",
             );
           }
-          if (!existingPath.startsWith("/next/") && existingPath.endsWith("/functionality/ai-judge-policies/")) {
+          if (existingPath.endsWith("/functionality/ai-judge-policies/")) {
             return existingPath.replace(
               "/functionality/ai-judge-policies/",
               "/functionality/message-policies/",
