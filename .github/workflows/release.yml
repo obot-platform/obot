@@ -82,9 +82,11 @@ jobs:
         run: |
           Invoke-WebRequest -Uri 'https://aka.ms/wingetcreate/latest' -OutFile 'wingetcreate.exe'
       - name: Create WinGet Package Update Pull Request
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_GH_TOKEN }}
         run: |
           $base = "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/obot_${{ github.ref_name }}"
-          ./wingetcreate.exe update --submit --token "${{ secrets.WINGET_GH_TOKEN }}" --urls "${base}_windows_amd64.zip" "${base}_windows_arm64.zip" --version "${{ github.ref_name }}" obot-platform.obot
+          ./wingetcreate.exe update --submit --urls "${base}_windows_amd64.zip" "${base}_windows_arm64.zip" --version "${{ github.ref_name }}" obot-platform.obot
   chart-release:
     needs: release-tag
     runs-on: ubuntu-latest
