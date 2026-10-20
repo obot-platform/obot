@@ -26,8 +26,11 @@ const profiles = [
 
 function mockProfiles() {
 	const deleted = vi.fn();
+	const deletedIDs = new Set<string>();
 	worker.use(
-		http.get('/api/model-access-policies', () => HttpResponse.json({ items: profiles })),
+		http.get('/api/model-access-policies', () =>
+			HttpResponse.json({ items: profiles.filter((p) => !deletedIDs.has(p.id)) })
+		),
 		http.get('/api/users', () =>
 			HttpResponse.json({
 				items: [
@@ -55,6 +58,7 @@ function mockProfiles() {
 		),
 		http.delete('/api/model-access-policies/:id', ({ params }) => {
 			deleted(params.id);
+			deletedIDs.add(params.id as string);
 			return new HttpResponse(null, { status: 204 });
 		})
 	);
@@ -136,6 +140,8 @@ describe('Models profiles tab', () => {
 		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 
 		await vi.waitFor(() => expect(deleted).toHaveBeenCalledWith('p-eng'));
+		// Deleting reloads the list; wait for it, so the reload doesn't outlive the test.
+		await expect.element(page.getByText('Engineers, Alice, Bob')).not.toBeInTheDocument();
 	});
 
 	it('hides deleting from auditors', async () => {
