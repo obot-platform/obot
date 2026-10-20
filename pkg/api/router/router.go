@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	"github.com/obot-platform/obot/pkg/scim"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
@@ -35,7 +36,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	version := handlers.NewVersionHandler(handlers.VersionHandlerOptions{
 		GatewayClient:             services.GatewayClient,
 		StorageClient:             services.StorageClient,
+		Entitlements:              services.Entitlements,
 		LicenseProvider:           services.LicenseProvider,
+		BillingEnabled:            services.Billing != nil,
 		PostgresDSN:               services.PostgresDSN,
 		Engine:                    services.MCPRuntimeBackend,
 		MCPNetworkPolicyEnabled:   services.MCPNetworkPolicyEnabled,
@@ -78,8 +81,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	skills := handlers.NewSkillHandler(services.GitMaxRepoSizeMB, services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
 	mcpWebhookValidations := handlers.NewMCPWebhookValidationHandler(services.MCPSessionManager)
-	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.LicenseProvider)
-	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.LicenseProvider)
+	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.Entitlements)
+	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.Entitlements)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel)
 	vmcpInstances := handlers.NewVMCPInstanceHandler()
@@ -87,8 +90,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
 	mdmAssets := handlers.NewMDMAssetHandler()
 	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
-	deviceEnroll := handlers.NewDeviceEnrollHandler(services.LicenseProvider)
-	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
+	deviceEnroll := handlers.NewDeviceEnrollHandler(entitlements.Limits{Source: services.Entitlements})
+	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.Entitlements)
 	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
@@ -131,11 +134,18 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/version", version.GetVersion)
 
 	// License
-	mux.HandleFunc("GET /api/license", licenseHandler.Get)
-	mux.HandleFunc("PUT /api/license", licenseHandler.Update)
-	mux.HandleFunc("POST /api/license", licenseHandler.CheckLicense)
-	mux.HandleFunc("POST /api/license/community", licenseHandler.CreateCommunityLicense)
-	mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
+	if services.Billing != nil {
+		billingHandler := handlers.NewBillingHandler(services.Billing, services.ServerURL)
+		mux.HandleFunc("GET /api/license", billingHandler.Get)
+		mux.HandleFunc("POST /api/license", billingHandler.Check)
+		mux.HandleFunc("POST /api/license/manage", billingHandler.Manage)
+	} else {
+		mux.HandleFunc("GET /api/license", licenseHandler.Get)
+		mux.HandleFunc("PUT /api/license", licenseHandler.Update)
+		mux.HandleFunc("POST /api/license", licenseHandler.CheckLicense)
+		mux.HandleFunc("POST /api/license/community", licenseHandler.CreateCommunityLicense)
+		mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
+	}
 
 	// Tunnel management (admin/owner only).
 	// /api/tunnels gives information about the connected tunnels
@@ -155,7 +165,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// The SCIM endpoint, authenticated only by the SCIM connection's bearer token and authorized only for that
 	// connection's principal.
-	scimHandler := scim.NewHandler(services.GatewayClient, scim.NewEnvironment(services.ProviderDispatcher, services.LicenseProvider, services.StorageClient), services.ServerURL)
+	scimHandler := scim.NewHandler(services.GatewayClient, scim.NewEnvironment(services.ProviderDispatcher, entitlements.Limits{Source: services.Entitlements}, services.StorageClient), services.ServerURL)
 	mux.HandleSCIM(scimHandler.Serve)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)

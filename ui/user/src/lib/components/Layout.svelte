@@ -51,7 +51,12 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT, isSCIMView } from '$lib/constants';
+	import {
+		CLOUD_ENTITLEMENT,
+		COMMUNITY_ENTITLEMENT,
+		ENTERPRISE_ENTITLEMENT,
+		isSCIMView
+	} from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -217,7 +222,9 @@
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations?.length ?? 0) > 0
 	);
-	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
+	const isNearUserLimit = $derived(
+		validateVersionUserLimit(version.current) && !version.current.billingEnabled
+	);
 
 	let routes = $derived([
 		...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
@@ -334,6 +341,7 @@
 
 	let logoVariant = $derived.by(() => {
 		if (version.current.enterprise) return 'enterprise' as const;
+		if (version.current.licenseEntitlements?.includes(CLOUD_ENTITLEMENT)) return 'default' as const;
 		return 'community' as const;
 	});
 	$effect(() => {
@@ -450,13 +458,17 @@
 	}
 
 	const hasCommunityOrEnterpriseLicense = $derived.by(() => {
-		if (version.current.enterprise || licenseStore.current.enterprise) return true;
-		const entitlements = [
-			...(licenseStore.current.entitlements ?? []),
-			...(version.current.licenseEntitlements ?? [])
-		];
+		// Obot Cloud is licensed by billing and never needs a community license.
+		const { community, enterprise, cloud } = licenseStore.current.entitlements;
+		const codes = version.current.licenseEntitlements ?? [];
 		return (
-			entitlements.includes(COMMUNITY_ENTITLEMENT) || entitlements.includes(ENTERPRISE_ENTITLEMENT)
+			Boolean(version.current.hasValidLicense) ||
+			community ||
+			enterprise ||
+			cloud ||
+			[COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT, CLOUD_ENTITLEMENT].some((code) =>
+				codes.includes(code)
+			)
 		);
 	});
 

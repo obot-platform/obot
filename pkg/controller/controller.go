@@ -678,7 +678,7 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 		}
 
 		for _, authProvider := range authProviders.Items {
-			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.LicenseProvider, &authProvider); err != nil {
+			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.Entitlements, &authProvider); err != nil {
 				return fmt.Errorf("failed to set auth provider configured status: %w", err)
 			}
 

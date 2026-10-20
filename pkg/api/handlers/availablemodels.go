@@ -8,19 +8,19 @@ import (
 	openai "github.com/obot-platform/chat-completion-client"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/i18n"
-	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AvailableModelsHandler struct {
 	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.Provider
+	licenseProvider entitlements.Source
 }
 
-func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider) *AvailableModelsHandler {
+func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, licenseProvider entitlements.Source) *AvailableModelsHandler {
 	return &AvailableModelsHandler{
 		dispatcher:      dispatcher,
 		licenseProvider: licenseProvider,

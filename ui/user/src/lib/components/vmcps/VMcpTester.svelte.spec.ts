@@ -1,5 +1,4 @@
 import { page as appPage } from '$app/state';
-import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { type VMCP, type VMCPInstance } from '$lib/services';
 import { vmcpInstances } from '$lib/stores';
 import { goto, replaceState } from '$lib/url';
@@ -262,8 +261,7 @@ describe('VMcpTester', () => {
 				license: {
 					...getLicenseResponse,
 					licenseKey: 'community-license-key',
-					enterprise: true,
-					entitlements: [COMMUNITY_ENTITLEMENT]
+					entitlements: { ...getLicenseResponse.entitlements, community: true }
 				},
 				version: { hasModelProvider: true, hasValidLicense: true }
 			},

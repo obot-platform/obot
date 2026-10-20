@@ -118,6 +118,7 @@ import type {
 	OAuthToken,
 	AppPreferencesManifest,
 	AppNotificationManifest,
+	BillingSession,
 	License,
 	LicenseManifest,
 	CommunityLicenseEnrollment,
@@ -2267,6 +2268,10 @@ export async function updateLicense(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<License> {
 	return (await doPut('/license', manifest, opts)) as License;
+}
+
+export async function manageBilling(opts?: { dontLogErrors?: boolean }): Promise<BillingSession> {
+	return (await doPost('/license/manage', {}, opts)) as BillingSession;
 }
 
 export async function createCommunityLicense(

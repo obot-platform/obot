@@ -1176,6 +1176,7 @@ export interface Version {
 	deviceCount?: number;
 	deviceLimit?: number;
 	licenseEntitlementViolations?: LicenseEntitlementViolation[];
+	billingEnabled?: boolean;
 	missingLicenseEntitlements?: string[];
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';

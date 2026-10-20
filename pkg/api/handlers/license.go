@@ -34,7 +34,8 @@ type LicenseProvider interface {
 	RemoveLicenseKey(context.Context) error
 	Validate(context.Context) error
 	HasValidLicense(context.Context) (bool, error)
-	Entitlements(context.Context) ([]string, error)
+	Entitlements(context.Context) (apitypes.Entitlements, error)
+	Usage(context.Context) (apitypes.EntitlementsUsage, error)
 }
 
 type LicenseHandler struct {
@@ -47,12 +48,15 @@ type LicenseHandler struct {
 }
 
 type LicenseStatus struct {
-	LicenseKey             string     `json:"licenseKey"`
-	Source                 string     `json:"source"`
-	Locked                 bool       `json:"locked"`
-	Enterprise             bool       `json:"enterprise"`
-	Entitlements           []string   `json:"entitlements"`
-	ManualCheckAvailableAt *time.Time `json:"manualCheckAvailableAt,omitempty"`
+	Entitlements           apitypes.Entitlements      `json:"entitlements"`
+	Usage                  apitypes.EntitlementsUsage `json:"usage"`
+	LicenseKey             string                     `json:"licenseKey"`
+	Locked                 bool                       `json:"locked"`
+	ManualCheckAvailableAt *time.Time                 `json:"manualCheckAvailableAt,omitempty"`
+	// Subscription is set for admins and auditors while billing is on.
+	Subscription *apitypes.Subscription `json:"subscription,omitempty"`
+	// Syncing is true while a requested billing sync runs.
+	Syncing bool `json:"syncing,omitempty"`
 }
 
 type LicenseUpdate struct {
@@ -212,29 +216,21 @@ func (h *LicenseHandler) status(req api.Context) (LicenseStatus, error) {
 	if err != nil {
 		return LicenseStatus{}, err
 	}
-	enterprise, err := h.licenseProvider.HasValidLicense(req.Context())
-	if err != nil {
-		return LicenseStatus{}, err
-	}
 	entitlements, err := h.licenseProvider.Entitlements(req.Context())
 	if err != nil {
 		return LicenseStatus{}, err
 	}
-	status := LicenseStatus{
+	usage, err := h.licenseProvider.Usage(req.Context())
+	if err != nil {
+		return LicenseStatus{}, err
+	}
+	return LicenseStatus{
+		Entitlements:           entitlements,
+		Usage:                  usage,
 		LicenseKey:             displayLicenseKey(licenseKey, req.UserIsAdmin()),
 		Locked:                 h.licenseProvider.LicenseKeyViaConfiguration(),
-		Enterprise:             enterprise,
-		Entitlements:           entitlements,
 		ManualCheckAvailableAt: h.manualLicenseCheckAvailableAt(),
-	}
-
-	if status.Locked {
-		status.Source = "config"
-	} else if licenseKey != "" {
-		status.Source = "database"
-	}
-
-	return status, nil
+	}, nil
 }
 
 func (h *LicenseHandler) manualLicenseCheckAvailableAt() *time.Time {

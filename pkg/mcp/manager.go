@@ -565,6 +565,14 @@ func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (types.MCPCapacit
 	return sm.backend.(*kubernetesBackend).GetCapacityInfo(ctx), nil
 }
 
+// RunningUsage returns what running MCP servers use. The Docker backend reports nothing.
+func (sm *SessionManager) RunningUsage(ctx context.Context) (types.EntitlementsUsage, error) {
+	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
+		return types.EntitlementsUsage{}, nil
+	}
+	return sm.backend.(*kubernetesBackend).runningUsage(ctx)
+}
+
 // GetCapacityInfoForServers returns capacity information for the given MCP server deployments.
 // Only available when using the Kubernetes backend.
 func (sm *SessionManager) GetCapacityInfoForServers(ctx context.Context, serverNames []string) (types.MCPCapacityInfo, error) {

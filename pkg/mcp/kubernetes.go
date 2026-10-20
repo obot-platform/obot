@@ -155,6 +155,19 @@ func (k *kubernetesBackend) deployServerObjects(ctx context.Context, server Serv
 	return nil
 }
 
+// runningUsage counts what the running MCP servers use. It lists from the API server, not a cache.
+func (k *kubernetesBackend) runningUsage(ctx context.Context) (types.EntitlementsUsage, error) {
+	deployments, err := k.clientset.AppsV1().Deployments(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return types.EntitlementsUsage{}, err
+	}
+	pods, err := k.clientset.CoreV1().Pods(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return types.EntitlementsUsage{}, err
+	}
+	return RunningUsage(deployments.Items, pods.Items), nil
+}
+
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
 	for i, component := range server.Components {
 		component.URL = k.transformObotHostname(component.URL)

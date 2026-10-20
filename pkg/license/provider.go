@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -485,35 +484,6 @@ func (p *Provider) HasValidLicense(ctx context.Context) (bool, error) {
 	defer p.lock.RUnlock()
 
 	return p.entitlements != nil, nil
-}
-
-func (p *Provider) Entitlements(ctx context.Context) ([]string, error) {
-	if err := p.refresh(ctx, false); err != nil {
-		return nil, err
-	}
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	if p.entitlements == nil {
-		return nil, nil
-	}
-
-	entitlements := make([]string, 0, len(p.entitlements))
-	for entitlement := range p.entitlements {
-		entitlements = append(entitlements, string(entitlement))
-	}
-
-	slices.Sort(entitlements)
-
-	return entitlements, nil
-}
-
-func (p *Provider) hasEntitlement(key string) bool {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	_, ok := p.entitlements[keygen.EntitlementCode(key)]
-	return ok
 }
 
 // poll checks the license key with Keygen once a day.

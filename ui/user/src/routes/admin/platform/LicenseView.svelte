@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -7,77 +8,208 @@
 	import CommunitySignupPanel from '$lib/components/admin/license/CommunitySignupPanel.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
-	import {
-		CLOUD_ENTITLEMENT,
-		COMMUNITY_ENTITLEMENT,
-		COMMUNITY_SIGNUP_BANNER_COPY,
-		ENTERPRISE_ENTITLEMENT,
-		MODEL_PROVIDERS_ENTITLEMENT
-	} from '$lib/constants';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { m } from '$lib/i18n';
+	import { COMMUNITY_SIGNUP_BANNER_COPY, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { parseErrorContent } from '$lib/errors';
+	import { getLocale, m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
-	import { AdminService, type License } from '$lib/services';
+	import { AdminService, UserService, type License, type SubscriptionStatus } from '$lib/services';
 	import { errors, license as licenseStore, profile, version } from '$lib/stores';
+	import { emptyLicense } from '$lib/stores/license.svelte';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { validateVersionUserLimit } from '$lib/utils';
-	import { CircleAlert, ExternalLink, Info, LoaderCircle, RefreshCw } from '@lucide/svelte';
-	import { untrack } from 'svelte';
+	import {
+		CircleAlert,
+		CreditCard,
+		ExternalLink,
+		KeyRound,
+		LoaderCircle,
+		Lock,
+		ReceiptText,
+		RefreshCw
+	} from '@lucide/svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	let { license: initialLicense }: { license: License | undefined } = $props();
-	const editionEntitlements = new Set([
-		COMMUNITY_ENTITLEMENT,
-		ENTERPRISE_ENTITLEMENT,
-		CLOUD_ENTITLEMENT
-	]);
-	const lockedLicenseMessage = m.platform_license_locked();
 
-	let license = $state(
-		untrack(
-			() =>
-				initialLicense ?? {
-					licenseKey: '',
-					source: '',
-					locked: false,
-					enterprise: false,
-					entitlements: null
-				}
-		)
-	);
+	const SYNC_POLL_INTERVAL = 500;
+	const SYNC_POLL_ATTEMPTS = 60;
+	const duration = PAGE_TRANSITION_DURATION;
 
+	let license = $state(untrack(() => initialLicense ?? emptyLicense));
+	let checking = $state(false);
+	let opening = $state(false);
 	let showDeleteLicenseDialog = $state(false);
 	let deleting = $state(false);
-	let rechecking = $state(false);
 	let now = $state(Date.now());
 
 	let updateLicenseDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updateLicenseKey = $state('');
 	let updating = $state(false);
 	let updateError = $state('');
-	let isCommunityEdition = $derived(
-		license?.entitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
+
+	let billing = $derived(Boolean(version.current.billingEnabled));
+	let subscription = $derived(license.subscription);
+	let entitlements = $derived(license.entitlements);
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.() ?? false);
+	let hasValidLicense = $derived(Boolean(version.current.hasValidLicense));
+	let isCommunityEdition = $derived(entitlements.community && !entitlements.enterprise);
+	let hasLicenseKey = $derived(Boolean(license.licenseKey) && !isCommunityEdition);
+	let canManage = $derived(
+		billing &&
+			Boolean(subscription?.selfService) &&
+			!isAdminReadonly &&
+			(profile.current.isOwner?.() ?? false)
+	);
+	let showEnterpriseCTA = $derived(
+		!billing && !isAdminReadonly && (!hasValidLicense || isCommunityEdition)
+	);
+	let showUserLimitNotice = $derived(
+		!billing && !isAdminReadonly && validateVersionUserLimit(version.current)
 	);
 	let updateLicenseTitle = $derived(
-		license?.licenseKey && !isCommunityEdition
-			? m.platform_license_update_key()
-			: m.platform_license_add_key()
+		hasLicenseKey ? m.platform_license_update_key() : m.platform_license_add_key()
 	);
-	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let hasValidLicense = $derived(Boolean(license?.enterprise));
-	let visibleEntitlements = $derived(
-		[...(license?.entitlements ?? [])]
-			.filter((entitlement) => entitlement !== MODEL_PROVIDERS_ENTITLEMENT)
-			.sort((a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b)))
+
+	let edition = $derived(
+		entitlements.cloud
+			? 'Obot Cloud'
+			: entitlements.enterprise
+				? 'Obot Enterprise'
+				: entitlements.community
+					? 'Obot Community'
+					: m.platform_license_edition_open_source()
 	);
-	let showEnterpriseCTA = $derived(!isAdminReadonly && (!hasValidLicense || isCommunityEdition));
-	let showUserLimitNotice = $derived(!isAdminReadonly && validateVersionUserLimit(version.current));
+
+	const statusLabels: Record<SubscriptionStatus, () => string> = {
+		trialing: m.platform_billing_status_trialing,
+		active: m.platform_billing_status_active,
+		pastDue: m.platform_billing_status_past_due,
+		ended: m.platform_billing_status_ended
+	};
+
+	let periodLabel = $derived.by(() => {
+		if (!subscription?.periodEnd) return '';
+		const date = new Date(subscription.periodEnd).toLocaleDateString(getLocale(), {
+			dateStyle: 'medium'
+		});
+		if (subscription.status === 'trialing' || subscription.cancelAtPeriodEnd) {
+			return m.platform_billing_ends_on({ date });
+		}
+		if (subscription.status === 'ended') return m.platform_license_period_ended({ date });
+		return m.platform_billing_renews_on({ date });
+	});
+
+	let features = $derived(
+		[
+			{ name: 'Cloud', granted: entitlements.cloud },
+			{ name: 'Enterprise', granted: entitlements.enterprise },
+			{ name: 'Community', granted: entitlements.community },
+			{
+				name: m.platform_license_feature_auth_providers(),
+				granted: entitlements.enterpriseAuthProviders
+			},
+			{
+				name: m.platform_license_feature_model_providers(),
+				granted: entitlements.enterpriseModelProviders
+			}
+		].filter((feature) => feature.granted)
+	);
+
+	// Users and devices always, and hosted MCP server limits under billing.
+	let limits = $derived(
+		[
+			{
+				label: m.platform_billing_users(),
+				used: license.usage.users,
+				limit: entitlements.users,
+				format: String,
+				shown: true
+			},
+			{
+				label: m.platform_billing_devices(),
+				used: license.usage.devices,
+				limit: entitlements.devices,
+				format: String,
+				shown: true
+			},
+			{
+				label: m.platform_license_row_hosted_servers(),
+				used: license.usage.hostedMcpServers,
+				limit: entitlements.hostedMcpServers,
+				format: String,
+				shown: billing
+			},
+			{
+				label: m.platform_license_row_memory(),
+				used: license.usage.memoryMiB,
+				limit: entitlements.memoryMiB,
+				format: formatMemory,
+				shown: billing
+			},
+			{
+				label: m.platform_license_row_cpu(),
+				used: license.usage.cpuMillicores,
+				limit: entitlements.cpuMillicores,
+				format: formatCPU,
+				shown: billing
+			}
+		]
+			.filter((limit) => limit.shown)
+			.map((limit) => ({
+				...limit,
+				over: limit.limit !== null && limit.used > limit.limit,
+				percent:
+					limit.limit === null
+						? 0
+						: limit.limit === 0
+							? limit.used > 0
+								? 100
+								: 0
+							: Math.min(100, (limit.used / limit.limit) * 100)
+			}))
+	);
+
+	let firstOver = $derived(limits.find((limit) => limit.over));
+	let restricted = $derived(
+		version.current.licenseEntitlementViolations?.some((v) => v.type === 'restricted') ?? false
+	);
+
+	// The most important billing issue: a restriction, an exceeded limit, or an unconfirmed, past due or ended
+	// subscription.
+	let banner = $derived.by(() => {
+		if (!billing) return undefined;
+		const detail = firstOver
+			? {
+					label: firstOver.label,
+					used: firstOver.format(firstOver.used),
+					limit: firstOver.format(firstOver.limit!),
+					over: firstOver.format(firstOver.used - firstOver.limit!)
+				}
+			: undefined;
+		if (restricted) {
+			return {
+				error: true,
+				text: detail
+					? m.platform_license_banner_restricted(detail)
+					: m.platform_license_banner_restricted_unconfirmed()
+			};
+		}
+		if (detail) return { error: false, text: m.platform_license_banner_over(detail) };
+		if (!subscription) return { error: false, text: m.platform_license_banner_unconfirmed() };
+		if (subscription.status === 'pastDue') {
+			return { error: false, text: m.platform_billing_past_due() };
+		}
+		if (subscription.status === 'ended') return { error: false, text: m.platform_billing_ended() };
+		return undefined;
+	});
 
 	let manualCheckAvailableAt = $derived(
-		license?.manualCheckAvailableAt ? new Date(license.manualCheckAvailableAt).getTime() : 0
+		license.manualCheckAvailableAt ? new Date(license.manualCheckAvailableAt).getTime() : 0
 	);
 	let manualCheckCooldownMs = $derived(Math.max(0, manualCheckAvailableAt - now));
-	let manualCheckCooldownLabel = $derived(formatCooldown(manualCheckCooldownMs));
+	let canCheck = $derived((billing || hasLicenseKey) && !isAdminReadonly);
 
 	$effect(() => {
 		if (!manualCheckAvailableAt || manualCheckCooldownMs <= 0) return;
@@ -90,14 +222,67 @@
 		return () => window.clearInterval(interval);
 	});
 
-	function handleOpenUpdateLicenseDialog() {
-		if (!license || license.locked) return;
+	onMount(() => {
+		// Billing sends owners back here when they're done, so check for changes.
+		if (page.url.searchParams.get('billing') === 'returned') {
+			setUrlParamAndUpdateUrl(page.url, 'billing', null);
+			if (!isAdminReadonly) check();
+		}
+	});
+
+	function formatMemory(mib: number) {
+		return mib >= 1024 && mib % 1024 === 0 ? `${mib / 1024} GiB` : `${mib} MiB`;
+	}
+
+	function formatCPU(millicores: number) {
+		return `${millicores / 1000} vCPU`;
+	}
+
+	function formatCooldown(ms: number) {
+		const totalSeconds = Math.ceil(ms / 1000);
+		return `${Math.floor(totalSeconds / 60)}:${(totalSeconds % 60).toString().padStart(2, '0')}`;
+	}
+
+	// check rechecks the license, or syncs with billing and waits for the sync to finish.
+	async function check() {
+		checking = true;
+		try {
+			let updated = await AdminService.recheckLicense({ dontLogErrors: true });
+			for (let attempt = 0; updated.syncing && attempt < SYNC_POLL_ATTEMPTS; attempt++) {
+				await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_INTERVAL));
+				updated = await UserService.getLicense();
+			}
+			license = updated;
+			licenseStore.initialize(updated);
+			// The banners read violations from the version.
+			version.initialize(await UserService.getVersion());
+		} catch (err) {
+			errors.append(m.platform_billing_check_failed({ error: parseErrorContent(err).message }));
+		} finally {
+			checking = false;
+		}
+	}
+
+	async function manage() {
+		opening = true;
+		try {
+			const session = await AdminService.manageBilling({ dontLogErrors: true });
+			window.location.assign(session.url);
+		} catch (err) {
+			// Billing's conflict messages are meant to be shown as is.
+			errors.append(m.platform_billing_manage_failed({ error: parseErrorContent(err).message }));
+			opening = false;
+		}
+	}
+
+	function openUpdateLicenseDialog() {
+		if (license.locked) return;
 		updateLicenseKey = '';
 		updateError = '';
 		updateLicenseDialog?.open();
 	}
 
-	async function handleUpdateLicense() {
+	async function updateLicense() {
 		updating = true;
 		updateError = '';
 		try {
@@ -111,7 +296,7 @@
 		}
 	}
 
-	async function handleDeleteLicense() {
+	async function deleteLicense() {
 		deleting = true;
 		try {
 			await AdminService.deleteLicense();
@@ -122,309 +307,281 @@
 			deleting = false;
 		}
 	}
-
-	async function handleRecheckLicense() {
-		if (!license?.licenseKey || manualCheckCooldownMs > 0) return;
-		rechecking = true;
-		try {
-			license = await AdminService.recheckLicense({ dontLogErrors: true });
-			licenseStore.initialize(license);
-		} catch (err) {
-			errors.append(m.platform_license_recheck_failed({ error: `${err}` }));
-		} finally {
-			rechecking = false;
-		}
-	}
-
-	function formatCooldown(ms: number) {
-		if (ms <= 0) return '';
-
-		const totalSeconds = Math.ceil(ms / 1000);
-		const minutes = Math.floor(totalSeconds / 60);
-		const seconds = totalSeconds % 60;
-
-		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-	}
-
-	function formatEntitlementName(entitlement: string): string {
-		if (entitlement === COMMUNITY_ENTITLEMENT) return 'Obot Community';
-		if (entitlement === ENTERPRISE_ENTITLEMENT) return 'Obot Enterprise';
-		if (entitlement === CLOUD_ENTITLEMENT) return 'Obot Cloud';
-		const name = entitlement.replace(/^OBOT_(?:ENTERPRISE_)?/, '');
-		if (name === entitlement) return entitlement;
-
-		const words = name.split('_').filter(Boolean);
-		if (words.length === 0) return entitlement;
-
-		return words
-			.map((word) => (word.length <= 3 ? word : word.charAt(0) + word.slice(1).toLowerCase()))
-			.join(' ');
-	}
-
-	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<div class="h-full w-full @container" in:fade={{ duration }}>
-	<div class="flex flex-col gap-4">
-		{#if showUserLimitNotice}
-			<UserLimitNotice />
-		{/if}
-		{#if showEnterpriseCTA}
-			<aside
-				class="relative overflow-hidden rounded-box border border-primary/25 bg-primary text-primary-content shadow-sm"
-				aria-labelledby="enterprise-cta-heading"
-			>
-				<div class="pointer-events-none absolute inset-0" aria-hidden="true">
-					<div
-						class="absolute inset-0 bg-linear-to-br from-white/15 via-transparent to-blue-950/25"
-					></div>
-					<div class="absolute -top-10 -right-8 size-36 rounded-full border border-white/20"></div>
-					<div class="absolute -top-4 -right-2 size-24 rounded-full border border-white/15"></div>
-					<div class="absolute -right-14 -bottom-16 size-44 rounded-full bg-white/10"></div>
-					<div
-						class="absolute top-1/2 -left-6 size-20 -translate-y-1/2 rounded-full border border-white/10"
-					></div>
-					<div
-						class="absolute inset-y-0 right-0 w-1/3 bg-linear-to-l from-white/10 to-transparent"
-					></div>
-				</div>
+<!-- Re-enable the button when the browser restores this page after billing. -->
+<svelte:window onpageshow={() => (opening = false)} />
 
-				<div
-					class="relative flex flex-col gap-5 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6"
-				>
-					<div class="flex min-w-0 items-center gap-4">
-						<div
-							class="flex size-16 shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm"
-						>
-							<img
-								src="/user/images/obot-icon-white.svg"
-								alt=""
-								width="48"
-								height="48"
-								class="size-12"
-								decoding="async"
-							/>
-						</div>
-						<div class="flex min-w-0 flex-col gap-1">
-							<h2 id="enterprise-cta-heading" class="text-lg font-semibold tracking-tight">
-								{m.platform_license_upgrade()}
-							</h2>
-							<p class="max-w-md text-sm font-light text-primary-content/85">
-								{m.platform_license_upgrade_description()}
-							</p>
-						</div>
-					</div>
+<div class="flex h-full w-full flex-col gap-4 @container" in:fade={{ duration }}>
+	{#if showUserLimitNotice}
+		<UserLimitNotice />
+	{/if}
 
-					<a
-						href="https://obot.ai/contact-us/"
-						target="_blank"
-						rel="noopener noreferrer"
-						class="btn btn-primary bg-white text-black transition-transform hover:scale-105"
-					>
-						{m.platform_license_contact_us()}
-						<ExternalLink class="size-4" aria-hidden="true" />
-						<span class="sr-only">{m.platform_opens_new_tab()}</span>
-					</a>
-				</div>
-			</aside>
-		{/if}
-		{#if license && license.licenseKey && !license.enterprise}
-			<div class="notification-alert p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<CircleAlert class="size-6" />
-					<div>
-						{m.platform_license_invalid_prefix()}<b class="font-semibold"
-							>{m.platform_license_invalid_bold()}</b
-						>{m.platform_license_invalid_mid()}
-						<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a>
-						{m.platform_license_invalid_suffix()}
-					</div>
-				</div>
-			</div>
-		{:else if license && license.locked}
-			<div class="notification-info p-3 text-sm font-light">
-				<div class="flex items-center gap-3">
-					<Info class="size-6" />
-					<div>
-						{m.platform_license_readonly_prefix()}<b class="font-semibold"
-							>{m.platform_license_readonly_bold()}</b
-						>{m.platform_license_readonly_suffix()}
-					</div>
-				</div>
-			</div>
-		{/if}
-
-		<section class="paper flex flex-col @2xl:flex-row gap-6 items-start justify-between">
-			<div class="flex flex-col gap-6">
-				{#if license}
-					{#if license.licenseKey && !isCommunityEdition}
-						<div class="flex flex-col gap-1">
-							<div class="text-sm font-light">{m.platform_license_key()}</div>
-							<div class="font-mono text-sm text-muted-content">
-								{license.licenseKey}
-							</div>
-						</div>
-					{/if}
-					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div class="flex flex-col gap-1">
-							<p class="text-sm font-light">{m.platform_license_status()}</p>
-							<p
-								class={twMerge(
-									'text-sm',
-									license.licenseKey && !isCommunityEdition && 'uppercase font-medium',
-									license.licenseKey && !isCommunityEdition
-										? license.enterprise
-											? 'text-success'
-											: 'text-error'
-										: 'text-muted-content'
-								)}
-							>
-								{#if license.licenseKey && !isCommunityEdition}
-									{license.enterprise ? m.platform_license_active() : m.platform_license_invalid()}
-								{:else}
-									{m.platform_na()}
-									<span class="text-xs font-light">{m.platform_license_open_source()}</span>
-								{/if}
-							</p>
-						</div>
-					</div>
-					<div class="flex flex-col gap-1">
-						<p class="text-sm font-light">{m.platform_license_entitlements()}</p>
-						{#if license.entitlements}
-							<ul class="flex flex-wrap gap-2">
-								{#each visibleEntitlements as entitlement (entitlement)}
-									<li
-										class={twMerge(
-											'badge badge-soft badge-sm',
-											editionEntitlements.has(entitlement) && 'badge-primary'
-										)}
-									>
-										{formatEntitlementName(entitlement)}
-									</li>
-								{/each}
-							</ul>
-						{:else}
-							-
-						{/if}
-					</div>
+	{#if banner}
+		<div
+			class={twMerge(
+				'flex items-center justify-between gap-4 rounded-box border px-4 py-3 text-sm',
+				banner.error
+					? 'border-error/30 bg-error/10 text-error'
+					: 'border-warning/30 bg-warning/10 text-warning'
+			)}
+			role="status"
+		>
+			<p class="flex items-center gap-3">
+				{#if banner.error}
+					<Lock class="size-4 shrink-0" />
+				{:else}
+					<CircleAlert class="size-4 shrink-0" />
 				{/if}
+				{banner.text}
+			</p>
+			{#if canManage}
+				<button class="btn btn-sm shrink-0" onclick={manage} disabled={opening}>
+					{m.platform_license_change_plan()}
+				</button>
+			{/if}
+		</div>
+	{:else if !billing && license.licenseKey && !hasValidLicense}
+		<div class="notification-alert p-3 text-sm font-light">
+			<div class="flex items-center gap-3">
+				<CircleAlert class="size-6" />
+				<div>
+					{m.platform_license_invalid_prefix()}<b class="font-semibold"
+						>{m.platform_license_invalid_bold()}</b
+					>{m.platform_license_invalid_mid()}
+					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a>
+					{m.platform_license_invalid_suffix()}
+				</div>
 			</div>
-			{#if !isAdminReadonly}
-				<div class="flex w-full flex-col gap-2 @2xl:w-fit @2xl:flex-row">
-					{#if license.licenseKey && !isCommunityEdition}
-						<button
-							class="btn btn-secondary w-full sm:w-fit"
-							onclick={handleRecheckLicense}
-							disabled={rechecking || manualCheckCooldownMs > 0 || isAdminReadonly}
-						>
-							{#if rechecking}
-								<LoaderCircle class="size-4 animate-spin" />
-							{:else}
-								<RefreshCw class="size-4" />
-							{/if}
-							{manualCheckCooldownMs > 0
-								? m.platform_license_recheck_in({ time: manualCheckCooldownLabel })
-								: m.platform_license_recheck()}
-						</button>
-					{/if}
+		</div>
+	{/if}
+
+	{#if showEnterpriseCTA}
+		<aside
+			class="flex flex-col gap-4 rounded-box bg-primary p-4 text-primary-content shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6"
+			aria-labelledby="enterprise-cta-heading"
+		>
+			<div class="flex min-w-0 flex-col gap-1">
+				<h2 id="enterprise-cta-heading" class="text-lg font-semibold tracking-tight">
+					{m.platform_license_upgrade()}
+				</h2>
+				<p class="max-w-md text-sm font-light text-primary-content/85">
+					{m.platform_license_upgrade_description()}
+				</p>
+			</div>
+			<a
+				href="https://obot.ai/contact-us/"
+				target="_blank"
+				rel="noopener noreferrer"
+				class="btn bg-white text-black hover:bg-white/90"
+			>
+				{m.platform_license_contact_us()}
+				<ExternalLink class="size-4" aria-hidden="true" />
+				<span class="sr-only">{m.platform_opens_new_tab()}</span>
+			</a>
+		</aside>
+	{/if}
+
+	<section class="paper gap-1.5">
+		<div class="flex items-center justify-between gap-4">
+			<h4 class="flex items-center gap-2 font-semibold">
+				{#if billing}
+					<ReceiptText class="size-4" />
+					{m.platform_license_subscription_title()}
+				{:else}
+					<KeyRound class="size-4" />
+					{m.platform_license_key_title()}
+				{/if}
+			</h4>
+			{#if billing && subscription}
+				<span
+					class={twMerge(
+						'badge badge-soft badge-sm',
+						subscription.status === 'active' || subscription.status === 'trialing'
+							? 'badge-success'
+							: 'badge-warning'
+					)}
+				>
+					{statusLabels[subscription.status]?.() ?? subscription.status}
+				</span>
+			{:else if !billing && hasLicenseKey}
+				<span
+					class={twMerge(
+						'badge badge-soft badge-sm',
+						hasValidLicense ? 'badge-success' : 'badge-error'
+					)}
+				>
+					{hasValidLicense ? m.platform_license_valid() : m.platform_license_invalid()}
+				</span>
+			{/if}
+		</div>
+		{#if billing}
+			<p class="text-sm">{subscription?.plan ?? m.platform_license_subscription_waiting()}</p>
+			{#if periodLabel}
+				<p class="text-sm text-muted-content">{periodLabel}</p>
+			{/if}
+			{#if subscription && !subscription.selfService}
+				<p class="text-sm text-muted-content">{m.platform_billing_managed_by_team()}</p>
+			{/if}
+		{:else}
+			<p class="text-sm">{edition}</p>
+			{#if hasLicenseKey}
+				<p class="font-mono text-sm text-muted-content">{license.licenseKey}</p>
+			{/if}
+			{#if license.locked}
+				<p class="text-sm text-muted-content">{m.platform_license_managed_by_configuration()}</p>
+			{/if}
+		{/if}
+		{#if !isAdminReadonly && (canManage || !billing)}
+			<div class="mt-3 flex flex-wrap gap-2">
+				{#if canManage}
+					<button
+						class="btn btn-secondary btn-sm"
+						onclick={manage}
+						disabled={opening}
+						aria-busy={opening}
+					>
+						{#if opening}
+							<LoaderCircle class="size-4 animate-spin" />
+						{:else}
+							<CreditCard class="size-4" />
+						{/if}
+						{m.platform_billing_manage()}
+					</button>
+				{:else}
 					<div
 						use:tooltip={{
-							text: license.locked ? lockedLicenseMessage : undefined,
+							text: license.locked ? m.platform_license_locked() : undefined,
 							classes: ['text-xs']
 						}}
-						class="w-full sm:w-fit"
 					>
 						<button
-							class="btn btn-secondary w-full sm:w-fit"
-							onclick={handleOpenUpdateLicenseDialog}
-							disabled={license.locked || isAdminReadonly}
+							class="btn btn-secondary btn-sm"
+							onclick={openUpdateLicenseDialog}
+							disabled={license.locked}
 						>
 							{updateLicenseTitle}
 						</button>
 					</div>
-				</div>
-			{/if}
-		</section>
-
-		{#if version.current.userLimit}
-			<section class="paper flex-row justify-between py-4">
-				<p class="text-sm">{m.platform_license_user_limits()}</p>
-				{#if !hasValidLicense || isCommunityEdition}
-					<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
-				{:else}
-					<p class="text-sm text-muted-content">-</p>
-				{/if}
-			</section>
-		{/if}
-
-		{#if version.current.deviceLimit}
-			<section class="paper flex-row justify-between py-4">
-				<p class="text-sm">{m.platform_license_device_limits()}</p>
-				{#if !hasValidLicense || isCommunityEdition}
-					<p class="text-sm">{version.current.deviceCount} / {version.current.deviceLimit}</p>
-				{:else}
-					<p class="text-sm text-muted-content">-</p>
-				{/if}
-			</section>
-		{/if}
-
-		{#if !isAdminReadonly && license && license.licenseKey && !isCommunityEdition}
-			<section class="paper gap-0">
-				<h4 class="font-semibold text-xl">{m.platform_license_danger_zone()}</h4>
-				<p class="text-sm font-light">
-					{m.platform_license_danger_description()}
-				</p>
-				<div class="divider my-6"></div>
-				<div class="flex items-center flex-col md:flex-row md:justify-between gap-4">
-					<div>
-						<p class="font-semibold">{m.platform_license_delete()}</p>
-						<p class="text-sm font-light">
-							{m.platform_license_delete_description()}
-						</p>
-					</div>
-					<div
-						use:tooltip={{
-							text: license.locked ? lockedLicenseMessage : undefined,
-							classes: ['text-xs']
-						}}
-						class="md:w-fit w-full"
-					>
+					{#if hasLicenseKey && !license.locked}
 						<button
-							class={twMerge('btn btn-error w-full md:w-fit')}
-							disabled={license.locked || isAdminReadonly}
+							class="btn btn-ghost btn-sm text-error"
 							onclick={() => (showDeleteLicenseDialog = true)}
 						>
 							{m.platform_license_delete()}
 						</button>
-					</div>
-				</div>
-			</section>
-		{:else if !isAdminReadonly && !isCommunityEdition}
-			<CommunitySignupPanel
-				as="aside"
-				class="mx-auto md:max-w-md"
-				labelledBy="community-cta-heading"
+					{/if}
+				{/if}
+			</div>
+		{/if}
+	</section>
+
+	<section class="paper gap-5">
+		<h4 class="font-semibold">{m.platform_license_limits()}</h4>
+		{#each limits as limit (limit.label)}
+			<div
+				class="flex flex-col gap-2"
+				aria-label={limit.limit === null
+					? m.platform_license_limit_aria_unlimited({
+							label: limit.label,
+							used: limit.format(limit.used)
+						})
+					: m.platform_license_limit_aria({
+							label: limit.label,
+							used: limit.format(limit.used),
+							limit: limit.format(limit.limit)
+						})}
 			>
-				<div class="flex flex-col gap-4 p-4 sm:p-6">
-					<BetaLogo class="mx-auto" />
-					<p class="max-w-md text-sm font-light">
-						{COMMUNITY_SIGNUP_BANNER_COPY}
-					</p>
-					<div
-						class="rounded-xl border border-base-300/80 bg-base-100/80 p-4 shadow-sm backdrop-blur-sm"
-					>
-						<CommunitySignUpForm
-							endpoint={AdminService.createCommunityLicense}
-							onSubmit={reloadPage}
-							showHeader={false}
-							idPrefix="license-community"
-							disabled={isAdminReadonly}
-						/>
-					</div>
+				<div class="flex items-center justify-between gap-4 text-sm">
+					<span>{limit.label}</span>
+					<span class={limit.over ? 'text-error' : 'text-muted-content'}>
+						{#if limit.limit === null}
+							{m.platform_license_value_unlimited({ used: limit.format(limit.used) })}
+						{:else if limit.over}
+							{m.platform_license_value_over({
+								used: limit.format(limit.used),
+								limit: limit.format(limit.limit),
+								over: limit.format(limit.used - limit.limit)
+							})}
+						{:else}
+							{m.platform_license_value_of({
+								used: limit.format(limit.used),
+								limit: limit.format(limit.limit)
+							})}
+						{/if}
+					</span>
 				</div>
-			</CommunitySignupPanel>
+				<div class="h-1.5 w-full overflow-hidden rounded-full bg-base-300">
+					<div
+						class={twMerge('h-full rounded-full', limit.over ? 'bg-error' : 'bg-primary')}
+						style:width={`${limit.percent}%`}
+					></div>
+				</div>
+			</div>
+		{/each}
+	</section>
+
+	<div class="flex flex-wrap items-center justify-between gap-4">
+		<div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+			{#if features.length > 0}
+				<div class="flex flex-wrap items-center gap-2">
+					<span class="text-muted-content">{m.platform_license_features()}</span>
+					{#each features as feature (feature.name)}
+						<span class="badge badge-soft badge-primary badge-sm">{feature.name}</span>
+					{/each}
+				</div>
+			{/if}
+			{#if billing}
+				<p>
+					<span class="text-muted-content">{m.platform_license_retention()}</span>
+					<span class="ml-2">
+						{entitlements.auditLogRetentionDays === null
+							? m.platform_billing_retention_default()
+							: m.platform_license_retention_days({ days: entitlements.auditLogRetentionDays })}
+					</span>
+				</p>
+			{/if}
+		</div>
+		{#if canCheck}
+			<button
+				class="btn btn-secondary btn-sm"
+				onclick={check}
+				disabled={checking || manualCheckCooldownMs > 0}
+				aria-busy={checking}
+			>
+				{#if checking}
+					<LoaderCircle class="size-4 animate-spin" />
+				{:else}
+					<RefreshCw class="size-4" />
+				{/if}
+				{manualCheckCooldownMs > 0
+					? m.platform_license_recheck_in({ time: formatCooldown(manualCheckCooldownMs) })
+					: m.platform_billing_check()}
+			</button>
 		{/if}
 	</div>
+
+	{#if !billing && !isAdminReadonly && !hasLicenseKey && !isCommunityEdition}
+		<CommunitySignupPanel as="aside" class="mx-auto md:max-w-md" labelledBy="community-cta-heading">
+			<div class="flex flex-col gap-4 p-4 sm:p-6">
+				<BetaLogo class="mx-auto" />
+				<p class="max-w-md text-sm font-light">
+					{COMMUNITY_SIGNUP_BANNER_COPY}
+				</p>
+				<div
+					class="rounded-xl border border-base-300/80 bg-base-100/80 p-4 shadow-sm backdrop-blur-sm"
+				>
+					<CommunitySignUpForm
+						endpoint={AdminService.createCommunityLicense}
+						onSubmit={reloadPage}
+						showHeader={false}
+						idPrefix="license-community"
+						disabled={isAdminReadonly}
+					/>
+				</div>
+			</div>
+		</CommunitySignupPanel>
+	{/if}
 </div>
 
 <ResponsiveDialog bind:this={updateLicenseDialog} title={updateLicenseTitle} class="max-w-md">
@@ -436,11 +593,7 @@
 				{updateError}
 			</div>
 		{/if}
-		<button
-			class="btn btn-primary"
-			disabled={updating || isAdminReadonly}
-			onclick={handleUpdateLicense}
-		>
+		<button class="btn btn-primary" disabled={updating || isAdminReadonly} onclick={updateLicense}>
 			{m.platform_submit()}
 		</button>
 	</div>
@@ -449,7 +602,7 @@
 <Confirm
 	show={showDeleteLicenseDialog}
 	disabled={isAdminReadonly}
-	onsuccess={handleDeleteLicense}
+	onsuccess={deleteLicense}
 	oncancel={() => (showDeleteLicenseDialog = false)}
 	msg={m.platform_license_delete_confirm()}
 	submitText={m.platform_license_delete()}

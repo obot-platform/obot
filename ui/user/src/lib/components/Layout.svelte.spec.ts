@@ -1,9 +1,5 @@
 import { page as appPage } from '$app/state';
-import {
-	COMMUNITY_ENTITLEMENT,
-	COMMUNITY_SIGNUP_BANNER_COPY,
-	ENTERPRISE_ENTITLEMENT
-} from '$lib/constants';
+import { COMMUNITY_SIGNUP_BANNER_COPY, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
 import { Group } from '$lib/services';
 import type { AuthProvider, License } from '$lib/services/admin/types';
 import type { Profile, Version } from '$lib/services/user/types';
@@ -224,11 +220,55 @@ describe('Layout.svelte', () => {
 		});
 	});
 
+	describe('plan limits banner', () => {
+		const overHostedServers: Partial<Version> = {
+			billingEnabled: true,
+			licenseEntitlementViolations: [
+				{
+					type: 'hostedMcpServerLimit',
+					namespace: '',
+					name: '',
+					requiredEntitlements: [],
+					missingEntitlements: []
+				}
+			]
+		};
+
+		it('shows admins that a billed environment is over its plan limits', async () => {
+			await renderLayout([Group.ADMIN], overHostedServers);
+
+			await expect.element(page.getByText(/over its plan's limits/)).toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'View Plan', exact: true }))
+				.toBeVisible();
+		});
+
+		it('shows users the banner without the link to the plan', async () => {
+			await renderLayout([Group.USER], overHostedServers);
+
+			await expect.element(page.getByText(/over its plan's limits/)).toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'View Plan', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it("isn't shown without billing", async () => {
+			await renderLayout([Group.ADMIN], { ...overHostedServers, billingEnabled: false });
+
+			await expect.element(page.getByText(/over its plan's limits/)).not.toBeInTheDocument();
+		});
+
+		it("doesn't warn a billed environment that it's nearing the user limit", async () => {
+			await renderLayout([Group.ADMIN], { billingEnabled: true, userCount: 95, userLimit: 100 });
+
+			await expect.element(page.getByText(/almost at the user limit/)).not.toBeInTheDocument();
+		});
+	});
+
 	describe('SCIM setup banner', () => {
 		const communityLicense: Partial<License> = {
 			licenseKey: 'community-license-key',
-			enterprise: true,
-			entitlements: [COMMUNITY_ENTITLEMENT]
+			entitlements: { ...getLicenseResponse.entitlements, community: true }
 		};
 		const owner: Partial<Profile> = {
 			isOwner: () => true
@@ -341,8 +381,7 @@ describe('Layout.svelte', () => {
 		const day = 24 * 60 * 60 * 1000;
 		const communityLicense: Partial<License> = {
 			licenseKey: 'community-license-key',
-			enterprise: true,
-			entitlements: [COMMUNITY_ENTITLEMENT]
+			entitlements: { ...getLicenseResponse.entitlements, community: true }
 		};
 		const owner: Partial<Profile> = {
 			isOwner: () => true
@@ -513,8 +552,7 @@ describe('Layout.svelte', () => {
 				{},
 				{
 					licenseKey: 'community-license-key',
-					enterprise: true,
-					entitlements: [COMMUNITY_ENTITLEMENT]
+					entitlements: { ...getLicenseResponse.entitlements, community: true }
 				}
 			);
 
@@ -527,8 +565,7 @@ describe('Layout.svelte', () => {
 				{ enterprise: true },
 				{
 					licenseKey: 'enterprise-license-key',
-					enterprise: true,
-					entitlements: [ENTERPRISE_ENTITLEMENT]
+					entitlements: { ...getLicenseResponse.entitlements, enterprise: true }
 				}
 			);
 

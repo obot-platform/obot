@@ -135,8 +135,9 @@ The **License** page in the admin UI shows:
 - **User Limits** and **Device Limits**: current usage against the limits, without an Enterprise license. With an
   Enterprise license the page shows **-**, even when the license sets limits.
 
-From the API, `GET /api/license` returns the key, status, and entitlements, and `POST /api/license` runs a manual
-check. Usage and limits come from `GET /api/version`, which reports `userCount`, `deviceCount`, `userLimit`,
+From the API, `GET /api/license` returns the key, the `entitlements` the license grants (features as booleans, and
+limits as numbers or `null` for unlimited), and the `usage` against those limits. `POST /api/license` runs a manual
+check. `GET /api/version` also reports `userCount`, `deviceCount`, `userLimit`,
 `deviceLimit`, `hasValidLicense`, and any `licenseEntitlementViolations`. `userLimit` and `deviceLimit` are omitted when
 the license has no limit.
 

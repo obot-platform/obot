@@ -163,6 +163,7 @@ var (
 		"POST /api/claude-sessions/{session_id}/suspend",
 	}
 	ownerRules = []string{
+		"POST /api/license/manage",
 		"POST /api/auth-providers/{id}/stage",
 		"DELETE /api/auth-providers/{id}/stage",
 		"POST /api/auth-providers/{id}/verify",

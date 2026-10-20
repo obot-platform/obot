@@ -20,6 +20,7 @@ const (
 	MDMAssetSourceSyncAnnotation        = "obot.ai/mdm-asset-source-sync"
 	MCPServerCatalogEntrySyncAnnotation = "obot.ai/mcp-server-catalog-entry-sync"
 	ModelInfoSourceSyncAnnotation       = "obot.ai/model-info-source-sync"
+	BillingSyncAnnotation               = "obot.ai/billing-sync"
 
 	// AuditLogCredentialRemovedAnnotation records that a server's legacy token exchange and
 	// audit log credential has been removed, so the sweep runs once and not on every reconcile.

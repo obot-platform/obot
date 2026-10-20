@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/agentinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
+	"github.com/obot-platform/obot/pkg/controller/handlers/billingsubscription"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
 	gitcredentialhandler "github.com/obot-platform/obot/pkg/controller/handlers/gitcredential"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
@@ -42,8 +43,8 @@ func (c *Controller) setupRoutes() {
 		root.Type(&v1.AgentInstance{}).HandlerFunc(agents.Reconcile)
 	}
 
-	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
-	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.PostgresDSN, c.services.StorageClient)
+	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.Entitlements, c.services.ProviderRegistryPaths)
+	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.Entitlements, c.services.PostgresDSN, c.services.StorageClient)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)
@@ -99,6 +100,11 @@ func (c *Controller) setupRoutes() {
 	// Provider Configuration Changes
 	root.Type(&v1.ProviderConfigurationChange{}).HandlerFunc(providerConfigurationChanges.Reconcile)
 
+	// BillingSubscription, synced with billing while billing is on
+	if c.services.Billing != nil {
+		billingSubscription := billingsubscription.New(c.services.BillingClient, c.services.GatewayClient, c.services.MCPSessionManager)
+		root.Type(&v1.BillingSubscription{}).Namespace(system.DefaultNamespace).Name(system.BillingSubscriptionName).IncludeRemoved().HandlerFunc(billingSubscription.Sync)
+	}
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 
 	// MDMAssetSource

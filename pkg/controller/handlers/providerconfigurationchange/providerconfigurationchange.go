@@ -13,10 +13,10 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -38,7 +38,7 @@ const (
 type Handler struct {
 	gatewayClient   *gateway.Client
 	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.Provider
+	licenseProvider entitlements.Source
 	postgresDSN     string
 	// storage reads without a cache. Setting up SCIM must see every auth provider cleanup and group reference that
 	// exists, not the ones a cache has caught up with.
@@ -79,7 +79,7 @@ func terminalConflictf(format string, args ...any) error {
 }
 
 // New returns the Handler. storage must read without a cache.
-func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, postgresDSN string, storage kclient.Reader) *Handler {
+func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider entitlements.Source, postgresDSN string, storage kclient.Reader) *Handler {
 	return &Handler{
 		gatewayClient:   gatewayClient,
 		dispatcher:      dispatcher,

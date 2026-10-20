@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -30,12 +31,15 @@ type UpgradeStatusReader interface {
 }
 
 type VersionHandlerOptions struct {
-	ProviderConfiguration     mcptester.ProviderConfigurationResolver
-	ModelProxyURL             *url.URL
-	ModelProxySettings        mcptester.ModelProxySettingsReader
-	GatewayClient             *client.Client
-	StorageClient             storage.Client
+	ProviderConfiguration mcptester.ProviderConfigurationResolver
+	ModelProxyURL         *url.URL
+	ModelProxySettings    mcptester.ModelProxySettingsReader
+	GatewayClient         *client.Client
+	StorageClient         storage.Client
+	// Entitlements is the entitlements source. LicenseProvider is the Keygen license, which reports hasValidLicense.
+	Entitlements              entitlements.Source
 	LicenseProvider           *license.Provider
+	BillingEnabled            bool
 	PostgresDSN               string
 	Engine                    string
 	MCPNetworkPolicyEnabled   bool
@@ -80,14 +84,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		engine = mcp.RuntimeBackendKubernetes
 	}
 
-	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient)
+	violations, err := entitlements.Violations(ctx, v.Entitlements, v.StorageClient)
 	if err != nil {
 		return nil, err
 	}
 
 	upgradeStatus := v.upgradeStatus()
 
-	entitlements, err := v.LicenseProvider.Entitlements(ctx)
+	granted, err := v.Entitlements.Entitlements(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +112,9 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
-		"enterprise":                   slices.Contains(entitlements, license.EnterpriseEntitlement),
-		"community":                    slices.Contains(entitlements, license.CommunityEntitlement),
-		"licenseEntitlements":          entitlements,
+		"enterprise":                   granted.Enterprise,
+		"community":                    granted.Community,
+		"licenseEntitlements":          entitlements.Codes(granted),
 		"userCount":                    userCount,
 		"deviceCount":                  deviceCount,
 		"engine":                       engine,
@@ -123,20 +127,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		values[key] = value
 	}
 
-	userLimit, err := v.LicenseProvider.UserLimit(ctx)
-	if err != nil {
-		return nil, err
+	if granted.Users != nil {
+		values["userLimit"] = *granted.Users
 	}
-	if !userLimit.Unlimited {
-		values["userLimit"] = userLimit.Maximum
+	if granted.Devices != nil {
+		values["deviceLimit"] = *granted.Devices
 	}
-
-	deviceLimit, err := v.LicenseProvider.DeviceLimit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !deviceLimit.Unlimited {
-		values["deviceLimit"] = deviceLimit.Maximum
+	if v.BillingEnabled {
+		values["billingEnabled"] = true
 	}
 
 	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {
@@ -185,7 +183,7 @@ func (v *VersionHandler) featureValues() map[string]bool {
 	}
 }
 
-func missingEntitlements(violations []license.Violation) []string {
+func missingEntitlements(violations []entitlements.Violation) []string {
 	seen := make(map[string]struct{})
 	for _, violation := range violations {
 		for _, entitlement := range violation.MissingEntitlements {

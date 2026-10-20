@@ -60,6 +60,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                               schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.BannerNotification":                        schema_obot_platform_obot_apiclient_types_BannerNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig":                schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.BillingSession":                            schema_obot_platform_obot_apiclient_types_BillingSession(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                    schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                      schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.ComponentServer":                           schema_obot_platform_obot_apiclient_types_ComponentServer(ref),
@@ -110,6 +111,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionRequest":                schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionResponse":               schema_obot_platform_obot_apiclient_types_EnforcementDecisionResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer":                 schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.Entitlements":                              schema_obot_platform_obot_apiclient_types_Entitlements(ref),
+		"github.com/obot-platform/obot/apiclient/types.EntitlementsUsage":                         schema_obot_platform_obot_apiclient_types_EntitlementsUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                   schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
 		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.FilterConfig":                              schema_obot_platform_obot_apiclient_types_FilterConfig(ref),
@@ -332,6 +335,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.StorageCredentialsTestResponse":            schema_obot_platform_obot_apiclient_types_StorageCredentialsTestResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.StorageProviderConfigInput":                schema_obot_platform_obot_apiclient_types_StorageProviderConfigInput(ref),
 		"github.com/obot-platform/obot/apiclient/types.Subject":                                   schema_obot_platform_obot_apiclient_types_Subject(ref),
+		"github.com/obot-platform/obot/apiclient/types.Subscription":                              schema_obot_platform_obot_apiclient_types_Subscription(ref),
 		"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalog":                          schema_obot_platform_obot_apiclient_types_SystemMCPCatalog(ref),
 		"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalogList":                      schema_obot_platform_obot_apiclient_types_SystemMCPCatalogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.SystemMCPCatalogManifest":                  schema_obot_platform_obot_apiclient_types_SystemMCPCatalogManifest(ref),
@@ -404,6 +408,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.AuthProviderList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_AuthProviderList(ref),
 		v1.AuthProviderSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_AuthProviderSpec(ref),
 		v1.AuthProviderStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_AuthProviderStatus(ref),
+		v1.BillingSubscription{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_BillingSubscription(ref),
+		v1.BillingSubscriptionList{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_BillingSubscriptionList(ref),
+		v1.BillingSubscriptionPlan{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_BillingSubscriptionPlan(ref),
+		v1.BillingSubscriptionStatus{}.OpenAPIModelName():                                         schema_storage_apis_obotobotai_v1_BillingSubscriptionStatus(ref),
 		v1.ClaudeSessionRepository{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_ClaudeSessionRepository(ref),
 		v1.DefaultModelAlias{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_DefaultModelAlias(ref),
 		v1.DefaultModelAliasList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_DefaultModelAliasList(ref),
@@ -2815,6 +2823,34 @@ func schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref co
 				},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_BillingSession(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BillingSession is a one-time link to the billing pages that works until ExpiresAt.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"url", "expiresAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -5700,6 +5736,140 @@ func schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_Entitlements(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Entitlements is what the environment may do. A nil limit is unlimited.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"community": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"enterprise": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"cloud": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"enterpriseAuthProviders": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"enterpriseModelProviders": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"users": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"devices": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"hostedMcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"memoryMiB": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"cpuMillicores": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"auditLogRetentionDays": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+				},
+				Required: []string{"community", "enterprise", "cloud", "enterpriseAuthProviders", "enterpriseModelProviders", "users", "devices", "hostedMcpServers", "memoryMiB", "cpuMillicores", "auditLogRetentionDays"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EntitlementsUsage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EntitlementsUsage is what the environment uses against its limits, in the same units.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"users": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"devices": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"hostedMcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"memoryMiB": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"cpuMillicores": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"users", "devices", "hostedMcpServers", "memoryMiB", "cpuMillicores"},
+			},
+		},
 	}
 }
 
@@ -16267,6 +16437,56 @@ func schema_obot_platform_obot_apiclient_types_Subject(ref common.ReferenceCallb
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_Subscription(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Subscription is the environment's subscription as billing answers it, apart from its entitlements.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"plan": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "shown, never branched on",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"periodEnd": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"cancelAtPeriodEnd": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"selfService": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"plan", "status", "cancelAtPeriodEnd", "selfService"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_SystemMCPCatalog(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20270,6 +20490,203 @@ func schema_storage_apis_obotobotai_v1_AuthProviderStatus(ref common.ReferenceCa
 				Required: []string{"configured"},
 			},
 		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_BillingSubscription(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BillingSubscription holds billing's last answer and the usage and restriction the leader derives from it. There's one, default/billing, while billing is on. Only the leader writes its status.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.BillingSubscriptionStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"metadata", "status"},
+			},
+		},
+		Dependencies: []string{
+			v1.BillingSubscriptionStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_BillingSubscriptionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.BillingSubscription{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1.BillingSubscription{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_BillingSubscriptionPlan(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BillingSubscriptionPlan is billing's subscription answer, without the entitlements.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"plan": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"periodEnd": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"cancelAtPeriodEnd": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"selfService": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"plan", "status", "cancelAtPeriodEnd", "selfService"},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_BillingSubscriptionStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"subscription": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Subscription and Entitlements are billing's last answer, and are nil until it first answers.",
+							Ref:         ref(v1.BillingSubscriptionPlan{}.OpenAPIModelName()),
+						},
+					},
+					"entitlements": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Entitlements"),
+						},
+					},
+					"usage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Usage is the usage the leader last counted.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.EntitlementsUsage"),
+						},
+					},
+					"lastSyncTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastSyncTime is when the leader last tried to sync.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"syncError": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SyncError is why the last sync failed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"overLimitSince": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OverLimitSince is when usage went over the plan's limits, or nil while it's under them.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"restricted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Restricted is set by the leader after GracePeriod over the limits.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"usage", "lastSyncTime"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Entitlements", "github.com/obot-platform/obot/apiclient/types.EntitlementsUsage", v1.BillingSubscriptionPlan{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
