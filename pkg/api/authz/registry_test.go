@@ -78,14 +78,16 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, registrySettingsStub{enabled: tt.enableAnonymousRegistryAccess})
-			for _, path := range []string{
-				"/v0.1/servers",
-				"/v0.1/servers/com.example%2Fvmcp1example/versions",
-				"/v0.1/servers/com.example%2Fvmcp1example/versions/latest",
-			} {
-				req := httptest.NewRequest(http.MethodGet, path, nil)
-				if allowed := authorizer.Authorize(req, tt.user); allowed != tt.allowed {
-					t.Fatalf("Authorize(%s) = %v, want %v", path, allowed, tt.allowed)
+			for _, method := range []string{http.MethodGet, http.MethodHead} {
+				for _, path := range []string{
+					"/v0.1/servers",
+					"/v0.1/servers/com.example%2Fvmcp1example/versions",
+					"/v0.1/servers/com.example%2Fvmcp1example/versions/latest",
+				} {
+					req := httptest.NewRequest(method, path, nil)
+					if allowed := authorizer.Authorize(req, tt.user); allowed != tt.allowed {
+						t.Fatalf("Authorize(%s %s) = %v, want %v", method, path, allowed, tt.allowed)
+					}
 				}
 			}
 		})
@@ -101,26 +103,29 @@ func TestRegistrySettingsChangeWithoutRestart(t *testing.T) {
 	a := NewAuthorizer(nil, nil, nil, false, nil, nil, settings)
 	anonymous := &user.DefaultInfo{Groups: []string{UnauthenticatedGroup}}
 	authenticated := &user.DefaultInfo{Groups: []string{types.GroupMCP}}
-	for _, enabled := range []bool{false, true, false} {
-		settings.enabled = enabled
-		for _, path := range []string{"/v0.1/servers?search=example&limit=1", "/v0.1/servers/example/versions", "/v0.1/servers/example/versions/latest"} {
-			req := httptest.NewRequest(http.MethodGet, path, nil)
-			if got := a.Authorize(req, anonymous); got != enabled {
-				t.Fatalf("anonymous access = %v, want %v", got, enabled)
-			}
-			if !a.Authorize(req, authenticated) {
-				t.Fatal("authenticated access lost")
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		settings.err = nil
+		for _, enabled := range []bool{false, true, false} {
+			settings.enabled = enabled
+			for _, path := range []string{"/v0.1/servers?search=example&limit=1", "/v0.1/servers/example/versions", "/v0.1/servers/example/versions/latest"} {
+				req := httptest.NewRequest(method, path, nil)
+				if got := a.Authorize(req, anonymous); got != enabled {
+					t.Fatalf("anonymous access = %v, want %v", got, enabled)
+				}
+				if !a.Authorize(req, authenticated) {
+					t.Fatal("authenticated access lost")
+				}
 			}
 		}
-	}
-	settings.enabled = true
-	settings.err = errors.New("settings unavailable")
-	req := httptest.NewRequest(http.MethodGet, "/v0.1/servers", nil)
-	if a.Authorize(req, anonymous) {
-		t.Fatal("settings lookup error allowed anonymous access")
-	}
-	if !a.Authorize(req, authenticated) {
-		t.Fatal("settings error blocked authenticated access")
+		settings.enabled = true
+		settings.err = errors.New("settings unavailable")
+		req := httptest.NewRequest(method, "/v0.1/servers", nil)
+		if a.Authorize(req, anonymous) {
+			t.Fatal("settings lookup error allowed anonymous access")
+		}
+		if !a.Authorize(req, authenticated) {
+			t.Fatal("settings error blocked authenticated access")
+		}
 	}
 	settings.err = nil
 	for _, path := range []string{"/v0.10/servers", "/api/registry-settings"} {

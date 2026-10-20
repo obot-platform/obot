@@ -467,6 +467,11 @@ func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client,
 	}
 }
 
+// IsMCPRegistryRequest reports whether a request targets the MCP Registry API.
+func IsMCPRegistryRequest(req *http.Request) bool {
+	return req.URL.Path == "/v0.1" || strings.HasPrefix(req.URL.Path, "/v0.1/")
+}
+
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 	// The SCIM endpoint serves only a SCIM connection's principal, and that principal nothing else. There is at most
 	// one connection, so the path does not name it.
@@ -508,7 +513,7 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 	// Internal principals have already been restricted above. Anonymous grants
 	// apply only to registry discovery, and never override authenticated visibility.
 	if slices.Contains(userInfo.GetGroups(), UnauthenticatedGroup) &&
-		req.Method == http.MethodGet && (req.URL.Path == "/v0.1" || strings.HasPrefix(req.URL.Path, "/v0.1/")) &&
+		(req.Method == http.MethodGet || req.Method == http.MethodHead) && IsMCPRegistryRequest(req) &&
 		a.registrySettings != nil {
 		enabled, err := a.registrySettings.AnonymousRegistryAccessEnabled(req.Context())
 		if err != nil {
