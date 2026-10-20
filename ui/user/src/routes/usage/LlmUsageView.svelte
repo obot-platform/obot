@@ -938,7 +938,7 @@
 						{:else if displayGraphItems.length > 0}
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 								{#each displayGraphItems.slice(0, visibleChartCount) as item (`${item.metric}-${item.key}`)}
-									<div class="paper p-0 gap-0flex min-h-0 flex-col overflow-hidden">
+									<div class="paper p-0 gap-0 flex min-h-0 flex-col overflow-hidden">
 										<GraphTitle title={item.label} element="h5" />
 										<div class="w-full shrink-0 p-4 pt-0">
 											{#if item.mode === GRAPH_MODE.BUCKET}
