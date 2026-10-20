@@ -117,9 +117,9 @@ of Obot keep working.
 - The Docker daemon pulls the images, so it needs registry access and uses its own proxy configuration, not Obot's.
   Obot asks for a pull each time an MCP server starts, and falls back to a local copy only when the registry refuses
   the pull, not when it can't be reached.
-- Obot also uses `alpine:latest` from `docker.io` for short-lived setup containers. It's needed for every `npx` and
-  `uvx` server and for any MCP server with file configuration, and is pulled only if the Docker host doesn't already
-  have it. The image can't be changed, so pre-pull it on hosts without access to `docker.io`.
+- Short-lived setup containers also use `OBOT_SERVER_MCPBASE_IMAGE`. They're needed for every `npx` and `uvx` server
+  and for any MCP server with file configuration, including containerized servers. Setup pulls the image only if the
+  Docker host doesn't already have it. Mirror and configure this image even if you don't use `npx` or `uvx` servers.
 - MCP server containers reach the internet through the Docker host's network.
 
 ### Kubernetes runtime
@@ -200,8 +200,8 @@ To run Obot without internet access:
    an internal HTTP(S) mirror. See [Model pricing](#model-pricing) for mirrors on private IP addresses.
 3. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true`, `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off`, and
    `OBOT_SERVER_MODEL_PROXY_URL=""`.
-4. Mirror the MCP base images and set the image variables. With the Docker runtime, also pre-pull `alpine:latest` on
-   the Docker host.
+4. Mirror the MCP base images and set the image variables. With the Docker runtime, include `OBOT_SERVER_MCPBASE_IMAGE`
+   for setup containers even if you only use containerized MCP servers with file configuration.
 5. Use containerized MCP servers with images in your registry, or set a registry env var, such as
    `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, on each `npx` and `uvx` server.
 6. Use an auth provider and model provider that you can reach.

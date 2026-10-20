@@ -1334,12 +1334,12 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	return volumeName, envVars, nil
 }
 
-// runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
+// runInitContainer pulls the configured MCP base image (if not present), runs a one-shot sh -c container
 // with the given script and mounts, waits for it to exit, and returns any error. When files is
 // not nil, initFilesDir is created in the container with those files before it starts, so their
 // contents never pass through the script or the container's arguments.
 func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, files map[string]string, mounts []mount.Mount) error {
-	initImage := "alpine:latest"
+	initImage := d.containerizedBaseImage
 	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
@@ -1354,6 +1354,7 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 	resp, err := d.client.ContainerCreate(ctx,
 		&container.Config{
 			Image:      initImage,
+			User:       "0", // Setup must write to volumes even when the base image defaults to a non-root user.
 			Entrypoint: []string{"sh", "-c"},
 			Cmd:        []string{script},
 		},
