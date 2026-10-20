@@ -11,10 +11,17 @@ The blog is for obot.ai's hosted Wordpress CMS. The default output is a markdown
 
 ## Voice reference
 
-Read both before drafting, every time. Both are multi-feature roundups, which is the shape every obot release blog uses:
+Before drafting, every time, read the two most recent release announcement posts on obot.ai. They are the reference for voice, structure, and the "Get started" links. Find them through the public Wordpress REST API: release posts are in the Product Updates category and their slugs start with `announcing-obot` and contain the version (`v0-25-0`, `v-0-26-0`). Titles are not reliable, since some release posts do not put the version in the title.
 
-- https://obot.ai/blog/announcing-obot-platform-v0-22-0-centrally-managed-skills-fleet-scanning-and-enterprise-controls-for-mcp/ — ~2,100 words, one `## <Feature Name>` section per feature, closes with a multi-CTA "Get started". Note: this post opens with a "client zoo" problem-first hook. Use it as a reference for body voice and structure only. Do NOT copy its opener; the required opener pattern is in step 6.
-- https://obot.ai/blog/announcing-obot-platform-v0-23-0/ — ~1,800 words, opens with the mandated pattern ("The Obot Platform v0.23.0 release is out."), same per-feature section structure and multi-CTA close. This is the opener to model.
+```bash
+cat_id=$(curl -s "https://obot.ai/wp-json/wp/v2/categories?slug=product-updates&_fields=id" | jq '.[0].id')
+curl -s "https://obot.ai/wp-json/wp/v2/posts?categories=${cat_id}&per_page=20&orderby=date&order=desc&_fields=date,slug,link,title" \
+  | jq -r '[.[] | select(.slug | test("^announcing-obot.*v-?[0-9]+-[0-9]+-[0-9]+"))][:2][] | "\(.date) \(.link) \(.title.rendered)"'
+```
+
+Then fetch each post's body from the same API (`/wp-json/wp/v2/posts?slug=<slug>&_fields=content`) and strip the HTML tags. This returns the full text, while WebFetch only returns a summary. Note each post's word count, section headings, opener, and the exact link targets in its closing section.
+
+The blog this skill produces is always a multi-feature roundup with one `## <Feature Name>` section per feature and a multi-CTA "Get started" close (see step 2). Use the reference posts for body voice and register. If one of them is a single-feature deep dive, use it for voice only, not structure. If either one opens with a problem-first hook or other framing instead of the release being out, do not copy its opener; the required opener pattern is in step 6. Also note anything a reference post said was coming next: if it ships in this release, the new post can say so.
 
 Author byline is **Craig Jellick** (`craig@obot.ai`). Write in the first-person plural ("we") throughout — these are company announcements, not personal essays. Reserve first-person singular for a specific personal-stake line only if the user supplies one.
 
@@ -44,7 +51,7 @@ If no release exists yet, ask the user whether to run `draft-release` first, or 
 
 ### 2. Structure the roundup
 
-Every obot release blog uses the same multi-feature roundup shape as the two reference posts. Target ~1,800-2,100 words. The structure is:
+Every obot release blog this skill drafts uses the multi-feature roundup shape. Target ~1,800-2,100 words. The structure is:
 
 - **Opener** (1-2 short paragraphs). Always lead with the plain fact that the release is out, then state concretely what it adds. There is one opener pattern, not a menu: start with `The Obot Platform <VERSION> release is out.` (or a very close variant), then short factual sentences naming the headline change and the other notable ones. No problem-first hook, no suspense, no marketing framing. See step 6 for the required pattern, the model opener, and the banned phrasings.
 - **One `## <Feature Name>` section per feature**, in the same order as the release notes' Big Updates. Each section gives the concrete problem, how the feature works, and (where relevant) a short code/config example.
@@ -140,7 +147,7 @@ Match the reference posts:
 - For supporting features, lead with the intended scenario instead of lower-level implementation or security details. For example, frame local authentication as a fast path for evaluations and development or test environments, not as a password-storage feature.
 - Concrete > abstract in every sentence. If a sentence could appear in any company's launch blog, rewrite or delete it.
 - End `## Get started` with one casual sentence that summarizes the release, followed by the CTA paragraph. Do not introduce a new product thesis, roadmap, or upgrade summary in the closing.
-- In the CTA paragraph, include a link to try Obot free, a link to request a demo, and a link to the docs, followed by a short invitation to email feedback to `info@obot.ai`. Use the same links the current reference posts use — verify them by re-reading the reference post rather than inventing URLs.
+- In the CTA paragraph, include a link to try Obot free, a link to request a demo, and a link to the docs, followed by a short invitation to email feedback to `info@obot.ai`. Use the same links the two most recent release posts (found in "Voice reference") use, and verify them by re-reading those posts rather than inventing URLs.
 
 Add a frontmatter block at the top of the markdown for the CMS to consume:
 
