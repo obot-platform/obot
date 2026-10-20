@@ -111,8 +111,19 @@ func (s licenseKeySnapshot) equal(other licenseKeySnapshot) bool {
 		s.updatedAt.Equal(other.updatedAt)
 }
 
-// NewProvider creates a Keygen-backed license provider.
+// NewProvider creates a Keygen-backed license provider. It validates the license now and then once a day.
 func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
+	p, err := newProvider(ctx, gatewayClient, config, keygenAPIURL)
+	if err != nil {
+		return nil, err
+	}
+	go p.poll(ctx)
+	return p, nil
+}
+
+// NewProviderValidatedOnce creates a Keygen-backed license provider that validates and activates the license once, when
+// it's created.
+func NewProviderValidatedOnce(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
 	return newProvider(ctx, gatewayClient, config, keygenAPIURL)
 }
 
@@ -140,8 +151,6 @@ func newProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 	if k.entitlements != nil {
 		slog.Info("license provider initialized", "entitlements", k.entitlements)
 	}
-
-	go k.poll(ctx)
 
 	return k, nil
 }

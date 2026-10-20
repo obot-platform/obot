@@ -602,9 +602,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		auditLogRetention = client.FixedAuditLogRetention(config.MCPAuditLogRetentionDays, config.LLMAuditLogRetentionDays)
 	)
 	if config.BillingKey != "" {
-		if strings.TrimSpace(config.LicenseKey) != "" {
-			return nil, fmt.Errorf("a license key and a billing key can't both be configured")
-		}
 		billingClient = billing.NewClient(config.BillingURL, config.BillingKey)
 		billingService = billing.New(storageClient, billingClient)
 		if err := billing.EnsureSubscription(ctx, storageClient); err != nil {
@@ -978,7 +975,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	licenseProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
+	// With billing, a license key is only used for the model proxy, so it's validated once instead of every day.
+	newLicenseProvider := license.NewProvider
+	if billingService != nil {
+		newLicenseProvider = license.NewProviderValidatedOnce
+	}
+	licenseProvider, err := newLicenseProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
