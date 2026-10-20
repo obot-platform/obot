@@ -133,7 +133,7 @@
 	"platform_license_notice_required_prefix": "使用 {name} 需要有效的许可证。请联系支持",
 	"platform_license_notice_required_suffix": " 了解详情或升级到 Obot Enterprise。",
 	"platform_license_notice_resolve": "解决",
-	"platform_license_notice_signup_message": "只需一次注册，即可永久免费使用 Entra、Okta、JumpCloud 和 Auth0 等更多身份验证提供商，最多支持 100 个用户。",
+	"platform_license_notice_signup_message": "只需一次注册，即可永久免费使用 Entra、Okta、OneLogin、JumpCloud 和 Auth0 等更多身份验证提供商，最多支持 100 个用户。",
 	"platform_license_notice_status_invalid": "无效",
 	"platform_license_notice_status_missing": "缺失",
 	"platform_license_notice_status_prefix": "您的许可证",

@@ -10,12 +10,14 @@ var (
 	// byAuthProvider maps the name of each auth provider that supports SCIM to its adapter. Looking an auth provider
 	// up here is the only place where shared code reads a provider name.
 	byAuthProvider = map[string]Adapter{
-		oktaAuthProviderName: okta{},
+		oktaAuthProviderName:     okta{},
+		oneLoginAuthProviderName: oneLogin{},
 	}
 
 	// byType maps each adapter's persisted type to the adapter.
 	byType = map[string]Adapter{
-		oktaAdapterType: okta{},
+		oktaAdapterType:     okta{},
+		oneLoginAdapterType: oneLogin{},
 	}
 )
 
@@ -53,6 +55,9 @@ type Adapter interface {
 
 	// PatchRules returns how the identity provider's PATCH requests depart from RFC 7644.
 	PatchRules() PatchRules
+
+	// ErrorHints returns the provider-specific text that the details of some SCIM errors carry.
+	ErrorHints() ErrorHints
 }
 
 // DirectoryParameter is a configuration parameter that only login-time directory synchronization uses, with the
@@ -89,6 +94,26 @@ type PatchRules struct {
 	// value, where RFC 7644 section 3.5.2.3 fails it with noTarget. Microsoft Entra ID sends a replace of
 	// emails[type eq "work"].value for a user who has no work email.
 	ReplaceAddsUnmatched bool
+}
+
+// ErrorHints holds provider-specific text for SCIM error details. An identity provider that shows a failed request's
+// detail to its admin, and never retries the request on its own, needs the detail to say what to change in the
+// identity provider and how to recover. An empty field leaves the shared detail as it is. A failure whose cause the
+// adapter itself finds, such as a user without the attributes it needs, says so in its InvalidUserError instead.
+type ErrorHints struct {
+	// Retry is appended to the detail of a failure that may succeed when the request is retried, such as a request
+	// that took too long or arrived while the endpoint was unavailable.
+	Retry string
+	// UserDelete replaces the detail of the refusal of a user DELETE. Obot never deletes a user over SCIM, so the
+	// shared detail asks for a deactivation instead. An identity provider that sends a DELETE unless it is set up
+	// otherwise names the setting here.
+	UserDelete string
+	// ValuelessFilteredAdd is appended to the detail of the refusal of an add whose path has a value filter and that
+	// has no value, as in {"op":"add","path":"members[value eq \"id\"]"}.
+	ValuelessFilteredAdd string
+	// ExternalIDChanged is appended to the detail of the refusal of a change to a provisioned user's externalId, which
+	// the user is bound by.
+	ExternalIDChanged string
 }
 
 // InvalidUserError reports a SCIM user that lacks the attributes the adapter needs.

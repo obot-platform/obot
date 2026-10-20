@@ -82,7 +82,7 @@ Start (or restart) your Obot deployment with the new environment variables. Navi
 ### Step 3: Configure Authentication Provider {#enabling-authentication-step-3-configure-authentication-provider}
 
 1. Go to **Identity & Access > Auth Providers**
-2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, JumpCloud, and Auth0 require free Obot Community registration or an Enterprise license.
+2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, and Auth0 require free Obot Community registration or an Enterprise license.
 3. Follow the provider-specific configuration steps
 
 For detailed provider configuration, see the [Auth Providers](./auth-providers.md) documentation.
@@ -170,7 +170,7 @@ You can:
 | Providers | Availability |
 |-----------|--------------|
 | Local, GitHub, Google | Available in every edition, without registration |
-| Entra, Okta, JumpCloud, Auth0 | Require free Obot Community registration or an Enterprise license |
+| Entra, Okta, OneLogin, JumpCloud, Auth0 | Require free Obot Community registration or an Enterprise license |
 
 To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
 
@@ -429,6 +429,45 @@ If your Auth0 tenant supports [Organizations](https://auth0.com/docs/manage-user
 4. Under the organization's **Connections** tab, enable the connections users should use to log in
 5. In **Applications > Applications**, select your Obot application
 6. Open the **Organizations** tab and configure the application to require organization membership
+
+### OneLogin
+
+In the OneLogin admin console, go to **Applications > Applications > Add App**, and add **OpenId Connect (OIDC)**. Configure it:
+
+| Tab | Setting | Value |
+|-----|---------|-------|
+| Configuration | Login Url | Your Obot URL, such as `https://obot.example.com` |
+| Configuration | Redirect URIs | The redirect URI displayed in Obot's Auth Provider configuration dialog |
+| SSO | Application Type | **Web** |
+| SSO | Token Endpoint, Authentication Method | **Basic** |
+| SSO | Refresh Token Timeout | How long users stay signed in to Obot without signing in to OneLogin again. Blank means 30 days. |
+| Access | Roles | The roles whose users may sign in to Obot. Users without one of these roles can't sign in. |
+
+Take note of the **Client ID**, **Client Secret**, and issuer URL on the **SSO** tab.
+
+Obot can get users and groups from OneLogin in one of two ways:
+
+- **SCIM:** OneLogin sends Obot only the users and roles you choose. Skip the API credential below, and follow [Provision users and groups from OneLogin with SCIM](./onelogin-scim.md).
+- **API credential:** Obot reads each user's roles from the OneLogin API when they sign in, and refreshes them periodically. Continue with the steps below.
+
+Go to **Developers > API Credentials > New Credential** and create a credential with the **Read users** scope. Take note of its **Client ID** and **Client Secret**.
+
+Obot uses OneLogin **roles** as groups. Each role appears in Obot as a group that you can use in roles and access policies. OneLogin's own groups are not used.
+
+You can now return to Obot and finish configuring OneLogin. Use the table below to determine the values to use for each field:
+
+| Obot | OneLogin |
+|------|----------|
+| Client ID | OIDC app Client ID |
+| Client Secret | OIDC app Client Secret |
+| Issuer URL | `https://<your-subdomain>.onelogin.com/oidc/2` |
+| API Client ID | API credential Client ID. Leave empty to use SCIM. |
+| API Client Secret | API credential Client Secret. Leave empty to use SCIM. |
+| API Base URL (Optional) | Defaults to `https://<your-subdomain>.onelogin.com`. Set it only to use a regional API host, such as `https://api.us.onelogin.com` or `https://api.eu.onelogin.com`. |
+
+:::important Removing a user's access
+OneLogin stops suspended, locked, and unlicensed users from signing in, but Obot keeps their existing access for a while: their browser session lasts until it next needs OneLogin, and their Obot API keys keep working. To remove someone's access immediately, delete them on Obot's **Users** page, or use [SCIM](./onelogin-scim.md).
+:::
 
 ## Switching Between Auth Providers
 

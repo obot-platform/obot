@@ -102,7 +102,9 @@ type SCIMInvalidValueError struct {
 
 // SCIMMutabilityError reports a SCIM write that changes an attribute that cannot change.
 type SCIMMutabilityError struct {
-	Message string
+	// Attribute names the SCIM attribute that cannot change, so that the SCIM endpoint can explain the change.
+	Attribute string
+	Message   string
 }
 
 // SCIMManagedUserError reports an Obot-side change that is refused because SCIM manages the user.
@@ -411,7 +413,8 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 		}
 		if hash.String(nativeUserID) != binding.HashedNativeUserID {
 			return &SCIMMutabilityError{
-				Message: "externalId identifies the user and cannot change",
+				Attribute: "externalId",
+				Message:   "externalId identifies the user and cannot change",
 			}
 		}
 

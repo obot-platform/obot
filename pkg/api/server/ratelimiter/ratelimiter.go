@@ -91,6 +91,10 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 		key = u.GetName()
 	}
 
+	// A SCIM connection gets the authenticated limit, which must stay generous, well above an identity provider's
+	// bursts. A 429 multiplies a provider's traffic instead of slowing it: OneLogin retries a 429 every 1 to 5 seconds,
+	// with no backoff, ignoring Retry-After, until the request succeeds (140 attempts in 5.5 minutes in testing), and its
+	// largest burst seen was 17 requests in about a second.
 	if (slices.Contains(groups, types.GroupAuthenticated) || slices.Contains(groups, types.GroupSCIM)) && key != "" {
 		store = l.authenticatedStore
 	} else {

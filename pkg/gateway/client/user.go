@@ -502,8 +502,8 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
-	case "okta-auth-provider":
-		// Okta does not support profile pictures
+	case "okta-auth-provider", "onelogin-auth-provider":
+		// Neither Okta nor OneLogin supports profile pictures
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}

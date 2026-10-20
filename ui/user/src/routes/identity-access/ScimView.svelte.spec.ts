@@ -498,6 +498,96 @@ describe('ScimView', () => {
 			.not.toBeInTheDocument();
 	});
 
+	describe('a OneLogin connection', () => {
+		function oneLoginConnection(overrides: Partial<SCIMConnection> = {}): SCIMConnection {
+			return connection({
+				adapterType: 'onelogin',
+				authProviderName: 'onelogin-auth-provider',
+				authProviderDisplayName: 'OneLogin',
+				issuer: 'https://acme.onelogin.com/oidc/2',
+				...overrides
+			});
+		}
+
+		it('says how to set up the SCIM app before anyone is given access to it', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: review({ connection: oneLoginConnection({ hasToken: true }) })
+			});
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Create the SCIM app in OneLogin' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/add a "SCIM Provisioner with SAML \(SCIM v2 Core\)" app/))
+				.toBeVisible();
+			await expect.element(page.getByText(/before you give anyone access to it/)).toBeVisible();
+			await expect
+				.element(page.getByText('https://obot.example.com/scim-provisioning', { exact: true }))
+				.toBeVisible();
+			await expect
+				.element(
+					page.getByText(
+						'Configuration tab: add "externalId": "{$user.id}" to the SCIM JSON Template, after userName, and leave the "userName": "{$parameters.scimusername}" line as it is.',
+						{ exact: false }
+					)
+				)
+				.toBeVisible();
+			await expect.element(page.getByText(/Info tab: turn off Visible in portal/)).toBeVisible();
+			await expect
+				.element(page.getByText(/Parameters tab: set SCIM Username to OneLogin ID\./))
+				.toBeVisible();
+			await expect
+				.element(
+					page.getByText(
+						/"When users are deleted in OneLogin, or the user's app access is removed" and "When user accounts are suspended in OneLogin" to Suspend\./
+					)
+				)
+				.toBeVisible();
+			await expect.element(page.getByText('Waiting for OneLogin to send a request.')).toBeVisible();
+			await expect
+				.element(page.getByText(/create a SCIM 2\.0 application/))
+				.not.toBeInTheDocument();
+		});
+
+		it('says how OneLogin pushes roles as groups', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: reviewAtEnforce({
+					connection: oneLoginConnection({ origin: 'migrated', hasToken: true }),
+					unboundReferencedGroups: {
+						items: [
+							group('onelogin/1113742', 'obot-scim-test', {
+								nativeID: '1113742',
+								consoleURL: 'https://acme.onelogin.com/roles/1113742/edit',
+								references: [{ kind: 'modelAccessPolicy', id: 'map1', displayName: 'Models' }]
+							})
+						],
+						total: 1
+					}
+				})
+			});
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Push the referenced groups' }))
+				.toBeVisible();
+			await expect.element(page.getByText(/OneLogin pushes roles as groups\./)).toBeVisible();
+			await expect
+				.element(page.getByText(/with a pattern that has no capture group/))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'Open in OneLogin' }))
+				.toHaveAttribute('href', 'https://acme.onelogin.com/roles/1113742/edit');
+		});
+
+		it("leaves Okta's help as it is", async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: review({ connection: connection({ hasToken: true }) })
+			});
+
+			await expect.element(page.getByText(/In Okta, create a SCIM 2\.0 application/)).toBeVisible();
+			await expect.element(page.getByText(/SCIM Provisioner with SAML/)).not.toBeInTheDocument();
+		});
+	});
+
 	describe('offering to delete the unreferenced groups that keep a push from binding', () => {
 		// The groups step of a migrated connection with a warning of the given type, and that many
 		// unreferenced groups.

@@ -185,12 +185,20 @@ func newSCIMTestWithDB(t *testing.T, database *gatewaydb.DB) *scimTest {
 // enable creates the Okta SCIM connection.
 func (s *scimTest) enable() {
 	s.t.Helper()
+	s.enableProvider(testOktaProviderName, "okta/", "https://example.okta.com")
+}
 
+// enableProvider configures the named auth provider and creates its SCIM connection, whose groups get IDs with the
+// given prefix.
+func (s *scimTest) enableProvider(providerName, groupIDPrefix, issuer string) {
+	s.t.Helper()
+
+	s.env.name = providerName
 	conn, token, err := s.gateway.CreateSCIMConnection(s.t.Context(), gclient.CreateSCIMConnectionOptions{
 		AuthProviderNamespace: system.DefaultNamespace,
-		AuthProviderName:      testOktaProviderName,
-		GroupIDPrefix:         "okta/",
-		Issuer:                "https://example.okta.com",
+		AuthProviderName:      providerName,
+		GroupIDPrefix:         groupIDPrefix,
+		Issuer:                issuer,
 		Origin:                types.SCIMConnectionOriginMigrated,
 		IssueToken:            true,
 	})
@@ -321,6 +329,8 @@ func (s *scimTest) seedUser(nativeID, email string, role types2.Role) *types.Use
 	return s.seedProviderUser(testOktaProviderName, nativeID, email, role)
 }
 
+// seedProviderUser creates a user of the named auth provider through sign-in, whose identity stores nativeID as the
+// provider user ID and username, as the provider's sign-ins do.
 func (s *scimTest) seedProviderUser(providerName, nativeID, email string, role types2.Role) *types.User {
 	s.t.Helper()
 
@@ -342,10 +352,16 @@ func (s *scimTest) seedProviderUser(providerName, nativeID, email string, role t
 // seedGroup creates a cached group of the Okta provider with the given members.
 func (s *scimTest) seedGroup(id, name string, memberIDs ...uint) {
 	s.t.Helper()
+	s.seedProviderGroup(testOktaProviderName, id, name, memberIDs...)
+}
+
+// seedProviderGroup creates a cached group of the named auth provider with the given members.
+func (s *scimTest) seedProviderGroup(providerName, id, name string, memberIDs ...uint) {
+	s.t.Helper()
 
 	if err := s.gorm().Create(&types.Group{
 		ID:                    id,
-		AuthProviderName:      testOktaProviderName,
+		AuthProviderName:      providerName,
 		AuthProviderNamespace: system.DefaultNamespace,
 		Name:                  name,
 	}).Error; err != nil {

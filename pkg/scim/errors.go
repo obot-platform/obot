@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
+
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 )
 
 const (
@@ -15,13 +18,23 @@ const (
 	scimTypeNoTarget      = "noTarget"
 	scimTypeTooMany       = "tooMany"
 	scimTypeUniqueness    = "uniqueness"
+
+	hintRetry                hint = "retry"
+	hintUserDelete           hint = "userDelete"
+	hintValuelessFilteredAdd hint = "valuelessFilteredAdd"
+	hintExternalIDChanged    hint = "externalIDChanged"
 )
+
+// hint names a failure whose detail the connection's adapter.ErrorHints can add to.
+type hint string
 
 // Error is a SCIM error response, as RFC 7644 section 3.12 defines it.
 type Error struct {
 	Status   int
 	ScimType string
 	Detail   string
+	// hint names the failure, so that the response carries the adapter's hint for it. The zero value has no hint.
+	hint hint
 }
 
 type errorResponse struct {
@@ -45,6 +58,34 @@ func (e *Error) response() errorResponse {
 		ScimType: e.ScimType,
 		Detail:   e.Detail,
 	}
+}
+
+// withHints returns the error with the hint that hints have for its failure, if any. The error itself is not changed.
+func (e *Error) withHints(hints adapter.ErrorHints) *Error {
+	// UserDelete replaces the detail; the other hints are appended to it.
+	var text string
+	switch e.hint {
+	case hintRetry:
+		text = hints.Retry
+	case hintUserDelete:
+		if hints.UserDelete != "" {
+			hinted := *e
+			hinted.Detail = hints.UserDelete
+			return &hinted
+		}
+	case hintValuelessFilteredAdd:
+		text = hints.ValuelessFilteredAdd
+	case hintExternalIDChanged:
+		text = hints.ExternalIDChanged
+	}
+	if text == "" {
+		return e
+	}
+
+	hinted := *e
+	// Shared details are clauses without a final period, and hints are sentences.
+	hinted.Detail = strings.TrimSuffix(e.Detail, ".") + ". " + text
+	return &hinted
 }
 
 func badRequest(scimType, format string, args ...any) *Error {

@@ -133,7 +133,7 @@
 	"platform_license_notice_required_prefix": "A valid license is required to use {name}. Please contact support at",
 	"platform_license_notice_required_suffix": " for more information or to upgrade to Obot Enterprise.",
 	"platform_license_notice_resolve": "Resolve",
-	"platform_license_notice_signup_message": "Get permanent, free access to additional authentication providers, including Entra, Okta, JumpCloud, and Auth0, with a one-time registration up to 100 users.",
+	"platform_license_notice_signup_message": "Get permanent, free access to additional authentication providers, including Entra, Okta, OneLogin, JumpCloud, and Auth0, with a one-time registration up to 100 users.",
 	"platform_license_notice_status_invalid": "invalid",
 	"platform_license_notice_status_missing": "missing",
 	"platform_license_notice_status_prefix": "Your license is ",

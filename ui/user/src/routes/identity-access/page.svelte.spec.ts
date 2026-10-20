@@ -90,6 +90,54 @@ const oktaProvider: AuthProvider = {
 	}
 };
 
+const oneLoginProvider: AuthProvider = {
+	id: 'onelogin-auth-provider',
+	created: googleProvider.created,
+	type: 'authprovider',
+	name: 'OneLogin',
+	icon: '/admin/assets/onelogin_icon.png',
+	image: '',
+	port: 0,
+	configured: false,
+	missingConfigurationParameters: [],
+	missingEntitlements: [],
+	namespace: 'default',
+	requiredConfigurationParameters: [
+		{
+			name: 'OBOT_ONELOGIN_AUTH_PROVIDER_CLIENT_ID',
+			friendlyName: 'Client ID'
+		},
+		{
+			name: 'OBOT_ONELOGIN_AUTH_PROVIDER_ISSUER_URL',
+			friendlyName: 'Issuer URL'
+		}
+	],
+	optionalConfigurationParameters: [
+		{
+			name: 'OBOT_ONELOGIN_AUTH_PROVIDER_API_BASE_URL',
+			friendlyName: 'API Base URL'
+		},
+		{
+			name: 'OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_ID',
+			friendlyName: 'API Client ID',
+			description:
+				'Leave this and the client secret empty to provision users and groups through SCIM instead.'
+		},
+		{
+			name: 'OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_SECRET',
+			friendlyName: 'API Client Secret',
+			sensitive: true
+		}
+	],
+	scim: {
+		directoryParameters: [
+			'OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_ID',
+			'OBOT_ONELOGIN_AUTH_PROVIDER_API_CLIENT_SECRET'
+		],
+		issuerParameter: 'OBOT_ONELOGIN_AUTH_PROVIDER_ISSUER_URL'
+	}
+};
+
 function providerCard(name: string) {
 	return page.getByRole('heading', { name, exact: true }).locator('..');
 }
@@ -1011,6 +1059,50 @@ describe('Identity & Access Page', () => {
 				await expect
 					.element(page.getByRole('button', { name: 'Remove leftover group data' }))
 					.not.toBeInTheDocument();
+			});
+		});
+
+		describe('SCIM setup of the OneLogin provider', () => {
+			it('explains the choice the API credential makes', async () => {
+				await renderIdentityAccessPage({
+					authProviders: [oneLoginProvider],
+					groups: [Group.OWNER, Group.ADMIN]
+				});
+				await providerCard('OneLogin')
+					.getByRole('button', { name: 'Configure', exact: true })
+					.click();
+				await expect.element(page.getByLabelText('Issuer URL', { exact: true })).toBeVisible();
+
+				const choiceButton = (name: 'SCIM' | 'OneLogin API') =>
+					page.getByRole('radio', { name, exact: true });
+
+				await expect.element(choiceButton('SCIM')).toBeChecked();
+				await expect
+					.element(page.getByText(/OneLogin provisions users and groups through SCIM/))
+					.toBeVisible();
+				await expect
+					.element(page.getByLabelText('API Client ID', { exact: true }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(page.getByLabelText('API Client Secret', { exact: true }))
+					.not.toBeInTheDocument();
+
+				// The API base URL is used only for directory synchronization, but it has a default, so it
+				// is not one of the credentials that choose it.
+				await page
+					.getByLabelText('API Base URL', { exact: true })
+					.fill('https://api.us.onelogin.com');
+				await expect.element(choiceButton('SCIM')).toBeChecked();
+
+				await choiceButton('OneLogin API').click();
+				await expect.element(choiceButton('OneLogin API')).toBeChecked();
+				await expect
+					.element(page.getByText(/Obot fetches each user's groups from OneLogin/))
+					.toBeVisible();
+				await expect.element(page.getByLabelText('API Client ID', { exact: true })).toBeVisible();
+				await expect
+					.element(page.getByLabelText('API Client Secret', { exact: true }))
+					.toBeVisible();
 			});
 		});
 
