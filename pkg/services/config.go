@@ -631,6 +631,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	)
 	go scimsetup.RunGroupSubjectCleanups(ctx, gatewayClient, storageClient)
 
+	// With billing, hosted MCP servers only start within the plan's limits.
+	var planLimits func(context.Context) (apiclienttypes.Entitlements, error)
+	if billingService != nil {
+		planLimits = billingService.Entitlements
+	}
+
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
 		return nil, fmt.Errorf("failed to migrate GPTScript credentials: %w", err)
 	}
@@ -818,7 +824,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
 
 	mcpOAuthTokenStorage := mcp.NewGlobalTokenStore(gatewayClient)
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, config.DevMode, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace, tunnelManager)
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, config.DevMode, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace, tunnelManager, planLimits)
 	if err != nil {
 		return nil, err
 	}

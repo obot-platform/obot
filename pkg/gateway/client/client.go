@@ -65,6 +65,7 @@ type Client struct {
 	serviceAccountCache       map[[32]byte]serviceAccountValidationCacheEntry
 	serviceAccountCacheTTL    time.Duration
 	deviceCreationLock        sync.Mutex
+	mcpCapacityLock           sync.Mutex
 	auditLogCleanupInterval   time.Duration
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration

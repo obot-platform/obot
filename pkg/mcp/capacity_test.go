@@ -102,3 +102,99 @@ func TestRunningUsage(t *testing.T) {
 		})
 	}
 }
+
+func TestStartUsage(t *testing.T) {
+	existing := usageDeployment("a", "512Mi", "250m")
+	changed := usageDeployment("a", "1Gi", "250m")
+
+	for _, tt := range []struct {
+		name              string
+		desired, existing *appsv1.Deployment
+		want              types.EntitlementsUsage
+	}{
+		{
+			name:    "a new server",
+			desired: &existing,
+			want: types.EntitlementsUsage{
+				HostedMCPServers: 1,
+				MemoryMiB:        512,
+				CPUMillicores:    250,
+			},
+		},
+		{
+			name:     "an unchanged server adds nothing",
+			desired:  &existing,
+			existing: &existing,
+		},
+		{
+			name:     "a changed server's new pod runs beside the old one",
+			desired:  &changed,
+			existing: &existing,
+			want: types.EntitlementsUsage{
+				MemoryMiB:     1024,
+				CPUMillicores: 250,
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := startUsage(tt.desired, tt.existing); got != tt.want {
+				t.Fatalf("startUsage() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPlanHasCapacity(t *testing.T) {
+	limit := func(n int64) *int64 { return &n }
+
+	for _, tt := range []struct {
+		name    string
+		limits  types.Entitlements
+		running types.EntitlementsUsage
+		start   types.EntitlementsUsage
+		want    bool
+	}{
+		{
+			name:  "unlimited",
+			start: types.EntitlementsUsage{HostedMCPServers: 1, MemoryMiB: 512},
+			want:  true,
+		},
+		{
+			name:    "within the limits",
+			limits:  types.Entitlements{HostedMCPServers: limit(3), MemoryMiB: limit(2048)},
+			running: types.EntitlementsUsage{HostedMCPServers: 2, MemoryMiB: 1024},
+			start:   types.EntitlementsUsage{HostedMCPServers: 1, MemoryMiB: 1024},
+			want:    true,
+		},
+		{
+			name:    "one server past the limit",
+			limits:  types.Entitlements{HostedMCPServers: limit(3)},
+			running: types.EntitlementsUsage{HostedMCPServers: 3},
+			start:   types.EntitlementsUsage{HostedMCPServers: 1},
+		},
+		{
+			name:    "memory past the limit",
+			limits:  types.Entitlements{MemoryMiB: limit(1024)},
+			running: types.EntitlementsUsage{MemoryMiB: 768},
+			start:   types.EntitlementsUsage{MemoryMiB: 512},
+		},
+		{
+			name:   "a zero limit allows none",
+			limits: types.Entitlements{HostedMCPServers: limit(0)},
+			start:  types.EntitlementsUsage{HostedMCPServers: 1},
+		},
+		{
+			name:    "a start that doesn't grow a dimension isn't refused for it",
+			limits:  types.Entitlements{MemoryMiB: limit(1024), CPUMillicores: limit(1000)},
+			running: types.EntitlementsUsage{MemoryMiB: 2048, CPUMillicores: 500},
+			start:   types.EntitlementsUsage{CPUMillicores: 250},
+			want:    true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := planHasCapacity(tt.limits, tt.running, tt.start); got != tt.want {
+				t.Fatalf("planHasCapacity() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}

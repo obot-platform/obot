@@ -61,7 +61,7 @@ func TestCheckVMCPComponentAuthProbesOnlySelectedRemote(t *testing.T) {
 	// The fake Kubernetes client lets remote OAuth run without a runtime daemon.
 	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
-		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
+		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil, nil)
 	require.NoError(t, err)
 	h := &handler{oauthChecker: NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", false)}
 	req := vmcpComponentRequest(storage, instance.Name, component.Name)
@@ -112,7 +112,7 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 		&oauth2.Config{ClientID: "legacy"}, &oauth2.Token{AccessToken: "legacy-token", TokenType: "Bearer"}))
 	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
-		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
+		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil, nil)
 	require.NoError(t, err)
 	h := &handler{oauthChecker: NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", false)}
 	for _, suffix := range []string{"old", "new"} {
@@ -210,7 +210,7 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 	tokens := mcp.NewGlobalTokenStore(gateway)
 	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
-		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
+		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil, nil)
 	require.NoError(t, err)
 	h := &handler{oauthChecker: NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", false)}
 	req := vmcpComponentRequest(storage, instance.Name, "ms1disabled")

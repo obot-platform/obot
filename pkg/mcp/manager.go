@@ -130,7 +130,7 @@ func (c RemoteMCPURLValidationConfig) SafeHTTPOptions() safehttp.Options {
 	}
 }
 
-func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager, planLimits func(context.Context) (types.Entitlements, error)) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
@@ -194,6 +194,8 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 			obotStorageClient,
 			opts,
 			validationOptions,
+			planLimits,
+			gatewayClient,
 		)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
