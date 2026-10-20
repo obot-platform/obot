@@ -28,7 +28,7 @@ To allow all of them, allow outbound HTTPS to:
 - **Destination:** `https://api.keygen.sh`
 - **When:** At startup, every 24 hours, and when a key is added, changed, or rechecked. Only when a license key is
   configured.
-- **If it fails:** Obot keeps the entitlements from the last successful check. See
+- **If it fails:** Obot keeps the entitlements from the last successful check until the license's last known expiration date. See
   [How Obot validates a license](../enterprise/overview.md#how-obot-validates-a-license).
 - **To change or avoid it:** Required to use a license key. Air-gapped installations can't validate a key yet.
   Support for offline license key validation is coming soon.
@@ -154,11 +154,12 @@ These connections only happen when you configure the feature, and go to the dest
 
 ## Connections from users' browsers
 
-The Obot UI loads these from the user's browser, not from the Obot server:
+The Obot UI loads these from the user's browser:
 
 - Fonts from `fonts.googleapis.com` and `fonts.gstatic.com`
 - Code highlighting styles from `cdnjs.cloudflare.com`
-- MCP server icons from the URLs in the catalog
+- MCP server icons from the URLs in the catalog. The Obot server also fetches an icon URL when the MCP registry API
+  needs its image type and the file extension doesn't show it.
 - Embedded videos from YouTube in in-app guides
 
 The UI works without them, with fallback fonts and missing icons.
