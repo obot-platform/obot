@@ -12,6 +12,9 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
+// AuditLogRetention returns how many days of MCP and LLM audit logs to keep. 0 keeps them all.
+type AuditLogRetention func(context.Context) (mcpDays, llmDays int, err error)
+
 func apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) int {
 	if mcpAuditLogRetentionDays <= 0 || llmAuditLogRetentionDays <= 0 {
 		return 0
@@ -19,9 +22,23 @@ func apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays int)
 	return max(mcpAuditLogRetentionDays, llmAuditLogRetentionDays)
 }
 
-func (c *Client) runRetentionCleanup(ctx context.Context, mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) {
+// FixedAuditLogRetention keeps the configured days of audit logs.
+func FixedAuditLogRetention(mcpDays, llmDays int) AuditLogRetention {
+	return func(context.Context) (int, int, error) {
+		return mcpDays, llmDays, nil
+	}
+}
+
+// runRetentionCleanup deletes expired data now and every auditLogCleanupInterval. Each pass reads the audit log
+// retention again. If it can't, the pass keeps every audit log but still cleans up everything else.
+func (c *Client) runRetentionCleanup(ctx context.Context, retention AuditLogRetention) {
 	run := func(now time.Time) {
-		if err := c.cleanupRetainedData(ctx, now.UTC(), mcpAuditLogRetentionDays, llmAuditLogRetentionDays); err != nil && !errors.Is(err, context.Canceled) {
+		mcpDays, llmDays, err := retention(ctx)
+		if err != nil {
+			slog.Error("Failed to read audit log retention, keeping audit logs", "error", err)
+			mcpDays, llmDays = 0, 0
+		}
+		if err := c.cleanupRetainedData(ctx, now.UTC(), mcpDays, llmDays); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("Failed to clean up retained gateway data", "error", err)
 		}
 	}
