@@ -32,9 +32,8 @@ func TestUserDecoratorResolveUserLimit(t *testing.T) {
 			limit: UserLimit{Unlimited: true},
 		},
 		{
-			name:    "zero maximum",
-			limit:   UserLimit{},
-			wantErr: true,
+			name:  "zero maximum allows no new users",
+			limit: UserLimit{},
 		},
 		{
 			name:    "negative maximum",
