@@ -62,7 +62,7 @@
 	"guardrails_filter_var_mcp_tool": "ツール名",
 	"guardrails_filter_var_mcp_arguments": "ツール呼び出しの引数 (マップ)",
 	"guardrails_filter_var_headers": "リクエストヘッダー (文字列のマップ)",
-	"guardrails_filter_var_user": "呼び出し元 (user.id と user.groups を含む)",
+	"guardrails_filter_var_user": "呼び出し元 (user.id と user.groups を含む。user.groups は認証プロバイダーのグループ ID)",
 	"guardrails_filter_guardrails": "ガードレール",
 	"guardrails_filter_guardrails_description": "選択したいずれかのガードレールが何かを検出すると、アクションが実行されます。",
 	"guardrails_filter_guardrails_load_failed": "ガードレールを読み込めませんでした: {error}",

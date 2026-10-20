@@ -62,7 +62,7 @@
 	"guardrails_filter_var_mcp_tool": "도구 이름",
 	"guardrails_filter_var_mcp_arguments": "도구 호출 인수 (맵)",
 	"guardrails_filter_var_headers": "요청 헤더 (문자열 맵)",
-	"guardrails_filter_var_user": "호출자 (user.id 및 user.groups 포함)",
+	"guardrails_filter_var_user": "호출자 (user.id 및 user.groups 포함, user.groups는 인증 공급자 그룹 ID)",
 	"guardrails_filter_guardrails": "가드레일",
 	"guardrails_filter_guardrails_description": "선택한 가드레일 중 하나라도 항목을 발견하면 동작이 실행됩니다.",
 	"guardrails_filter_guardrails_load_failed": "가드레일을 불러오지 못했습니다: {error}",

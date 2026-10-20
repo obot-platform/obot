@@ -45,7 +45,7 @@
 		{ name: 'headers', description: m.models_guardrail_policies_var_headers() },
 		{ name: 'user', description: m.models_guardrail_policies_var_user() }
 	];
-	const conditionExample = 'model.startsWith("openai/") && !("admins" in user.groups)';
+	const conditionExample = 'model.startsWith("openai/") && !("<group ID>" in user.groups)';
 
 	const applyToOptions = Object.entries(APPLY_TO_LABELS).map(([id, label]) => ({ id, label }));
 	const actionOptions = Object.entries(ACTION_LABELS).map(([id, label]) => ({ id, label }));

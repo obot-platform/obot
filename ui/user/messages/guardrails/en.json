@@ -62,7 +62,7 @@
 	"guardrails_filter_var_mcp_tool": "Tool name",
 	"guardrails_filter_var_mcp_arguments": "Tool call arguments (map)",
 	"guardrails_filter_var_headers": "Request headers (map of strings)",
-	"guardrails_filter_var_user": "Caller, with user.id and user.groups",
+	"guardrails_filter_var_user": "Caller, with user.id and user.groups (the IDs of their auth provider groups)",
 	"guardrails_filter_guardrails": "Guardrails",
 	"guardrails_filter_guardrails_description": "Any finding from any selected guardrail triggers the action.",
 	"guardrails_filter_guardrails_load_failed": "Failed to load guardrails: {error}",

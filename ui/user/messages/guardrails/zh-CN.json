@@ -62,7 +62,7 @@
 	"guardrails_filter_var_mcp_tool": "工具名称",
 	"guardrails_filter_var_mcp_arguments": "工具调用参数（映射）",
 	"guardrails_filter_var_headers": "请求头（字符串映射）",
-	"guardrails_filter_var_user": "调用方，包含 user.id 和 user.groups",
+	"guardrails_filter_var_user": "调用方，包含 user.id 和 user.groups（身份验证提供程序中的用户组 ID）",
 	"guardrails_filter_guardrails": "护栏",
 	"guardrails_filter_guardrails_description": "任一所选护栏有发现时即触发该操作。",
 	"guardrails_filter_guardrails_load_failed": "加载护栏失败：{error}",
