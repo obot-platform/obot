@@ -583,7 +583,7 @@
 	</div>
 {/if}
 
-<div class="flex flex-col gap-8">
+<div class="flex flex-col gap-4">
 	<div class="flex flex-wrap md:flex-nowrap gap-4 justify-between">
 		<!-- Summary with filter button -->
 		<div class="flex shrink-0 items-center justify-between gap-4">
@@ -625,7 +625,7 @@
 			</p>
 		</div>
 	{:else if !showLoadingSpinner}
-		<div class="mb-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
+		<div class="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
 			{#each filteredGraphConfigs as cfg (cfg.id)}
 				{@const full = graphData[cfg.id] ?? []}
 				{@const total = graphTotals[cfg.id] ?? 0}
