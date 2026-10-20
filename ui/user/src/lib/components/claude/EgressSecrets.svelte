@@ -25,7 +25,7 @@
 				<label class="flex min-w-0 flex-1 flex-col gap-1 text-sm">
 					{m.hosted_agents_secret_hostname()}
 					<input
-						class="text-input-filled"
+						class="text-input-filled bg-base-100"
 						bind:value={secret.hostname}
 						required
 						placeholder={m.hosted_agents_secret_hostname_placeholder()}
@@ -42,7 +42,7 @@
 			<label class="flex flex-col gap-1 text-sm">
 				{m.hosted_agents_secret_header()}
 				<input
-					class="text-input-filled"
+					class="text-input-filled bg-base-100"
 					bind:value={secret.header}
 					required
 					placeholder={m.hosted_agents_secret_header_placeholder()}
@@ -51,7 +51,7 @@
 			<label class="flex flex-col gap-1 text-sm">
 				{m.hosted_agents_secret_value()}
 				<input
-					class="text-input-filled"
+					class="text-input-filled bg-base-100"
 					type="password"
 					autocomplete="new-password"
 					bind:value={secret.value}

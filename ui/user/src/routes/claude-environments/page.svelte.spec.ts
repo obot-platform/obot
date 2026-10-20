@@ -70,7 +70,7 @@ it('shows session status and confirms workspace deletion', async () => {
 		.element(page.getByRole('link', { name: 'Open Slack thread' }))
 		.toHaveAttribute('href', 'https://acorn-io.slack.com/archives/C123/p123?thread_ts=1.23');
 	await expect
-		.element(page.getByRole('listitem').getByText('Last used', { exact: true }))
+		.element(page.getByRole('listitem').getByText('Last used:', { exact: true }))
 		.toBeVisible();
 	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
 	await expect
@@ -150,7 +150,7 @@ it('shows all sessions with owner attribution', async () => {
 		.toBeVisible();
 	await expect.element(page.getByText('v0.3.0', { exact: true })).toBeVisible();
 	await expect
-		.element(page.getByRole('listitem').getByText('Last used', { exact: true }))
+		.element(page.getByRole('listitem').getByText('Last used:', { exact: true }))
 		.toBeVisible();
 	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
 	await expect.element(page.getByText('env-one', { exact: true })).toBeVisible();

@@ -52,6 +52,7 @@
 	<TabLayout
 		title={m.nav_claude_environments()}
 		defaultView="environments"
+		classes={{ childrenContainer: 'max-w-none' }}
 		views={[
 			{ label: m.nav_claude_environments(), value: 'environments', content: environments },
 			...(version.current.engine === 'docker' || !version.current.claudeEnvironmentsEnabled

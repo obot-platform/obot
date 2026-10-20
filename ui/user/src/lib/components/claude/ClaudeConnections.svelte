@@ -82,7 +82,7 @@
 		<p class="text-sm text-muted-content">
 			{m.hosted_agents_env_help()}
 		</p>
-		<div class="space-y-4">
+		<div class="space-y-4 grid grid-cols-1">
 			{#each config.environments ?? [] as environment (environment.id)}
 				{@const mapping = config.mappings?.find(
 					(mapping) => mapping.organizationID === environment.organizationID
@@ -135,7 +135,7 @@
 												<code>{host}</code>
 											</li>
 										{:else}
-											<li class="text-muted-content">
+											<li class="text-muted-content text-xs">
 												{m.hosted_agents_no_additional_egress()}
 											</li>
 										{/each}
@@ -154,10 +154,10 @@
 								variant="code"
 								value={`claude "${m.hosted_agents_cli_prompt()}" --environment ${environment.environmentID}`}
 								classes={{
-									input: 'font-mono dark:bg-base-300 pt-0.5 pl-4',
+									input: 'font-mono dark:bg-base-400 pt-0.5 pl-4',
 									label: 'text-sm text-base-content mb-1'
 								}}
-								class="dark:bg-base-300"
+								class="dark:bg-base-400"
 							>
 								{#snippet preContent()}
 									{@const claude = COMMON_AI_CLIENTS_MAP.get(AiClient.Claude)}
@@ -194,16 +194,16 @@
 						{@const summary = stats[environment.id] ?? { total: 0, active: 0 }}
 						{@const lastUsed = formatTimeAgo(summary.lastUsed)}
 						<dl class="grid grid-cols-3 gap-3 text-sm">
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_environment_stats_total()}</dt>
+							<div class="bg-base-200 dark:bg-base-400 p-3 rounded-lg text-xs">
+								<dt class="font-medium">{m.hosted_agents_environment_stats_total()}</dt>
 								<dd>{summary.total}</dd>
 							</div>
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_environment_stats_active()}</dt>
+							<div class="bg-base-200 dark:bg-base-400 p-3 rounded-lg text-xs">
+								<dt class="font-medium">{m.hosted_agents_environment_stats_active()}</dt>
 								<dd>{summary.active}</dd>
 							</div>
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_environment_stats_last_used()}</dt>
+							<div class="bg-base-200 dark:bg-base-400 p-3 rounded-lg text-xs">
+								<dt class="font-medium">{m.hosted_agents_environment_stats_last_used()}</dt>
 								<dd>
 									{#if summary.active}
 										{m.hosted_agents_environment_stats_now()}

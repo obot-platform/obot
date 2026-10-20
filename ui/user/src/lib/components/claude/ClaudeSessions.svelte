@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ClaudeSessionsSettings, {
 		type SessionListFilters,
@@ -263,9 +264,9 @@
 							</p>
 						</div>
 						{#if all}
-							<dl class="text-sm break-all space-y-2">
-								<div>
-									<dt class="text-muted-content">{m.hosted_agents_sessions_user()}</dt>
+							<dl class="break-all space-y-2 text-xs">
+								<div class="flex items-center gap-2 flex-wrap">
+									<dt class="font-medium w-24">{m.hosted_agents_sessions_user()}</dt>
 									<dd>
 										{#if session.spec.claudeAccount === 'claude-tag'}
 											{m.hosted_agents_sessions_claude_tag_user({
@@ -277,71 +278,86 @@
 										{#if user?.email}<span class="block text-muted-content">{user.email}</span>{/if}
 									</dd>
 								</div>
-								<div>
-									<dt class="text-muted-content">{m.hosted_agents_sessions_environment()}</dt>
+								<div class="flex items-center gap-2 flex-wrap">
+									<dt class="font-medium w-24">{m.hosted_agents_sessions_environment()}</dt>
 									<dd>{session.spec.claudeEnvironment}</dd>
 								</div>
-								<div>
-									<dt class="text-muted-content">{m.hosted_agents_sessions_session()}</dt>
+								<div class="flex items-center gap-2 flex-wrap">
+									<dt class="font-medium w-24">{m.hosted_agents_sessions_session()}</dt>
 									<dd>{session.spec.claudeSession}</dd>
 								</div>
 							</dl>
 						{/if}
-						<dl class="text-sm break-all space-y-2">
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_sessions_last_used()}</dt>
-								<dd>
-									{#if session.status.state === 'RUNNING' && !session.spec.claudeDone}
-										{m.hosted_agents_sessions_active()}
-									{:else if lastUsed.relativeTime}
-										<time datetime={session.spec.claudeFinishedAt} title={lastUsed.fullDate}>
-											{lastUsed.relativeTime}
-										</time>
-									{:else}
-										{m.hosted_agents_sessions_unknown()}
-									{/if}
-								</dd>
-							</div>
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_sessions_repositories()}</dt>
-								<dd>
-									{#if session.spec.claudeRepositories == null}
+						<dl class="space-y-1 border border-base-300 dark:border-base-400 rounded-lg text-xs">
+							<dt
+								class="font-medium text-uppercase px-3 py-2 border-b border-base-300 dark:border-base-400 rounded-t-lg"
+							>
+								{m.hosted_agents_sessions_repositories()}
+							</dt>
+							<dd>
+								{#if session.spec.claudeRepositories == null}
+									<span class="block text-muted-content p-3">
 										{m.hosted_agents_sessions_not_reported()}
-									{:else if session.spec.claudeRepositories.length === 0}
+									</span>
+								{:else if session.spec.claudeRepositories.length === 0}
+									<span class="block text-muted-content p-3">
 										{m.hosted_agents_sessions_no_repositories()}
-									{:else}
-										<ul class="space-y-1">
-											{#each session.spec.claudeRepositories as repository, index (index)}
-												<li>
-													{repository.url}
-													{#if repository.revision}<span class="block text-muted-content"
-															>{repository.revision}</span
-														>{/if}
-												</li>
-											{/each}
-										</ul>
-									{/if}
-								</dd>
-							</div>
+									</span>
+								{:else}
+									<ul class="space-y-1 p-3">
+										{#each session.spec.claudeRepositories as repository, index (index)}
+											<li>
+												{repository.url}
+												{#if repository.revision}
+													<span class="block text-muted-content text-[11px] font-light">
+														{repository.revision}
+													</span>
+												{/if}
+											</li>
+										{/each}
+									</ul>
+								{/if}
+							</dd>
 						</dl>
 						{#if session.spec.slackSenderName || session.spec.slackSenderHandle || session.spec.slackChannelName}
-							<dl class="text-sm wrap-break-word space-y-2">
-								{#if session.spec.slackSenderName || session.spec.slackSenderHandle}
-									<div>
-										<dt class="text-muted-content">{m.hosted_agents_slack_sender()}</dt>
-										<dd>
-											{session.spec.slackSenderName ?? ''}
-											{#if session.spec.slackSenderHandle}<span class="text-muted-content"
-													>@{session.spec.slackSenderHandle}</span
-												>{/if}
-										</dd>
-									</div>
-								{/if}
-								{#if session.spec.slackChannelName}
-									<div>
-										<dt class="text-muted-content">{m.hosted_agents_slack_channel()}</dt>
-										<dd>#{session.spec.slackChannelName}</dd>
-									</div>
+							<dl
+								class="wrap-break-word rounded-lg border border-base-300 dark:border-base-400 p-3 text-xs flex items-start gap-4"
+							>
+								<img
+									src="/user/images/slack-mark/slack-mark.svg"
+									alt="Slack"
+									class="h-6 shrink-0 mt-1"
+								/>
+								<div class="flex items-center gap-4 grow flex-wrap">
+									{#if session.spec.slackSenderName || session.spec.slackSenderHandle}
+										<div>
+											<dt class="font-medium">{m.hosted_agents_slack_sender()}</dt>
+											<dd>
+												{session.spec.slackSenderName ?? ''}
+												{#if session.spec.slackSenderHandle}<span class="text-muted-content"
+														>@{session.spec.slackSenderHandle}</span
+													>{/if}
+											</dd>
+										</div>
+									{/if}
+									{#if session.spec.slackChannelName}
+										<div>
+											<dt class="font-medium">{m.hosted_agents_slack_channel()}</dt>
+											<dd>#{session.spec.slackChannelName}</dd>
+										</div>
+									{/if}
+								</div>
+								{#if session.spec.slackLink && /^https:\/\/[a-z0-9-]+\.slack\.com\/archives\//i.test(session.spec.slackLink)}
+									<a
+										class="btn btn-square btn-ghost btn-sm"
+										href={session.spec.slackLink}
+										target="_blank"
+										rel="external noopener noreferrer"
+										aria-label={m.hosted_agents_slack_thread()}
+										use:tooltip={{ text: m.hosted_agents_slack_thread() }}
+									>
+										<ExternalLink class="size-4" />
+									</a>
 								{/if}
 							</dl>
 						{/if}
@@ -351,19 +367,8 @@
 							</p>
 						{/if}
 						<div class="flex grow"></div>
-						<div class="flex flex-wrap items-center justify-between gap-4">
+						{#if session.spec.userID === profile.current.id || (profile.current.isAdmin?.() && session.status.state === 'RUNNING' && !session.spec.suspended)}
 							<div class="flex flex-wrap items-center gap-4">
-								{#if session.spec.slackLink && /^https:\/\/[a-z0-9-]+\.slack\.com\/archives\//i.test(session.spec.slackLink)}
-									<a
-										class="btn btn-ghost btn-sm"
-										href={session.spec.slackLink}
-										target="_blank"
-										rel="external noopener noreferrer"
-									>
-										{m.hosted_agents_slack_thread()}
-										<ExternalLink class="size-4" />
-									</a>
-								{/if}
 								{#if session.spec.userID === profile.current.id}
 									<a
 										class="btn btn-ghost btn-sm self-start"
@@ -383,6 +388,22 @@
 									</button>
 								{/if}
 							</div>
+						{/if}
+						<div class="flex flex-wrap items-baseline justify-between gap-4">
+							<dl class="flex items-center gap-1 flex-wrap text-xs text-muted-content font-light">
+								<dt>{m.hosted_agents_sessions_last_used()}:</dt>
+								<dd>
+									{#if session.status.state === 'RUNNING' && !session.spec.claudeDone}
+										{m.hosted_agents_sessions_active()}
+									{:else if lastUsed.relativeTime}
+										<time datetime={session.spec.claudeFinishedAt} title={lastUsed.fullDate}>
+											{lastUsed.relativeTime}
+										</time>
+									{:else}
+										{m.hosted_agents_sessions_unknown()}
+									{/if}
+								</dd>
+							</dl>
 							<IconButton
 								disabled={!!deleting || !!suspending || !!session.metadata.deletionTimestamp}
 								onclick={() => (pendingDelete = session)}

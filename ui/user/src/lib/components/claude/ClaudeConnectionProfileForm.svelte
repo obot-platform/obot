@@ -488,7 +488,6 @@
 					searchInDropdown
 					placeholder={m.hosted_agents_select_vmcps()}
 					searchPlaceholder={m.hosted_agents_search_vmcps()}
-					class="bg-base-200 shadow-inner!"
 					classes={{ root: 'w-full' }}
 					onSelect={(option) => addVmcp(String(option.id))}
 					disabled={saving}
