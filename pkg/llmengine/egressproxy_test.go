@@ -33,7 +33,7 @@ func TestApplyEgressProxy(t *testing.T) {
 		{
 			"provider":               "generic-responses",
 			"custom_provider_config": map[string]any{"base_provider_type": "openai"},
-			"network_config":         map[string]any{"base_url": "http://10.255.255.1/v1", "allow_private_network": true, "default_request_timeout_in_seconds": 300},
+			"network_config":         map[string]any{"base_url": "https://10.255.255.1/v1", "allow_private_network": true, "default_request_timeout_in_seconds": 300},
 		},
 	} {
 		if err := e.Do(ctx, http.MethodPost, "/api/providers", p, nil); err != nil {
