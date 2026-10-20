@@ -274,14 +274,8 @@ func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayCl
 			}
 			// Only record the import once it fully succeeded, so a failure is retried next start.
 			if !failed {
-				if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), mp); err == nil {
-					if mp.Annotations == nil {
-						mp.Annotations = map[string]string{}
-					}
-					mp.Annotations[legacyImportAnnotation] = "true"
-					if err := c.Update(ctx, mp); err != nil {
-						slog.Warn("failed to record LLM gateway legacy import", "error", err)
-					}
+				if err := recordLegacyImport(ctx, c, mp); err != nil {
+					slog.Warn("failed to record LLM gateway legacy import", "error", err)
 				}
 			}
 		}
@@ -294,4 +288,21 @@ func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayCl
 		}
 		return changed, true
 	}
+}
+
+// recordLegacyImport marks the legacy import as done on the gateway's ModelProvider. A
+// conflicting write, as when the provider controller updates it at the same time, is retried:
+// until the import is recorded, legacy models and providers aren't cleaned up, and the next
+// start imports again.
+func recordLegacyImport(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), mp); err != nil {
+			return err
+		}
+		if mp.Annotations == nil {
+			mp.Annotations = map[string]string{}
+		}
+		mp.Annotations[legacyImportAnnotation] = "true"
+		return c.Update(ctx, mp)
+	})
 }
