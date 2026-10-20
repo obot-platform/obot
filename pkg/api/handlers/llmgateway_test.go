@@ -52,6 +52,11 @@ func TestAllowedBifrostAPIPath(t *testing.T) {
 			escaped: "/api/llm-gateway/admin/plugins/obot-guardrails-input",
 		},
 		{
+			name:    "feature flags are not exposed",
+			raw:     "feature-flags/warp",
+			escaped: "/api/llm-gateway/admin/feature-flags/warp",
+		},
+		{
 			name:    "the response cache is not exposed",
 			raw:     "cache/clear",
 			escaped: "/api/llm-gateway/admin/cache/clear",

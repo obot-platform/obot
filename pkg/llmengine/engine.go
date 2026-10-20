@@ -911,6 +911,13 @@ func buildConfigFile(opts Options, encryptionKey, setupToken string) ([]byte, er
 				"mcp_library_sync_interval": 0,
 			},
 		},
+		// Warp, Bifrost's dashboard agent, is on by default. Obot doesn't serve it, so turn it
+		// off; a flag set here can't be changed through Bifrost's API.
+		"feature_flags": map[string]any{
+			"flags": map[string]any{
+				"warp": map[string]any{"enabled": false},
+			},
+		},
 	}
 
 	return json.MarshalIndent(cfg, "", "  ")

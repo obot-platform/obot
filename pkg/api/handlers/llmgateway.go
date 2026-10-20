@@ -32,7 +32,8 @@ var (
 	// those features, so they stay hidden. Its plugins and response cache aren't exposed
 	// either: Obot's guardrail plugins must stay enabled, and responses aren't cached. Its
 	// request log is off, since Obot keeps its own records of requests (the LLM audit log and
-	// token usage), so its log APIs aren't exposed.
+	// token usage), so its log APIs aren't exposed. Its feature flags only turn on engine
+	// features Obot doesn't expose, so they aren't exposed either.
 	allowedBifrostAPIPrefixes = []string{
 		"providers",
 		"keys",
@@ -44,7 +45,6 @@ var (
 		"version",
 		"pricing/",
 		"proxy-config",
-		"feature-flags",
 	}
 
 	// busyStoreRetryTimeout bounds how long a change waits for the gateway's store.
