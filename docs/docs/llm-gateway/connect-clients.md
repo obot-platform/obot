@@ -63,7 +63,8 @@ export ANTHROPIC_MODEL="anthropic/claude-sonnet-4-5"
 
 # 3. (Optional) Discover the Claude models you have access to at startup.
 #    Claude Code queries the gateway's /v1/models endpoint in Anthropic's format,
-#    which lists Anthropic models, and adds the results to the /model picker.
+#    which lists the Claude models you can use, from any provider, by their model IDs,
+#    and adds the results to the /model picker.
 #    Requires Claude Code v2.1.129 or later.
 export CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1
 
@@ -76,7 +77,7 @@ Inside Claude Code:
 - Run **`/model`** and select an Obot gateway model. Discovered models are labeled **"From gateway"**.
 - Run **`/status`** to confirm which authentication method is active.
 
-Claude Code reaches other providers' models, including Bedrock and Azure, through the same base URL, but its `/model` picker doesn't list them. Pass the gateway model name, for example `claude --model bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. You don't need Claude Code's Bedrock or Foundry modes.
+Claude Code reaches every gateway model, including Bedrock and Azure models, through the same base URL, but its `/model` picker lists only Claude models. Pass other models by name, for example `claude --model openai/gpt-5.5`. You don't need Claude Code's Bedrock or Foundry modes.
 
 ### Claude Code with a Claude subscription {#claude-code-with-a-claude-subscription}
 
@@ -93,7 +94,7 @@ export ANTHROPIC_MODEL="anthropic/claude-sonnet-4-5"
 claude
 ```
 
-Select models by name in this mode, with `ANTHROPIC_MODEL` or `claude --model`. Gateway model discovery, which adds **"From gateway"** models to the `/model` picker, is only confirmed with an Obot API key, as in the setup above. With a subscription login, Claude Code hasn't been seen to ask the gateway for its models, so don't expect gateway models in `/model`.
+The Connect tab's setup for this mode turns on gateway model discovery, but it hasn't been confirmed that Claude Code uses discovery with a subscription login. To be sure of the model, set `ANTHROPIC_MODEL` or pass `claude --model`.
 
 The gateway needs the **Anthropic** provider, but it doesn't need a key. Claude Code's model names only resolve once the gateway lists the models: with an enabled key, it lists them through that key; with no keys, or only disabled ones, it lists Anthropic's current models from its model catalog, both on the **LLM Gateway** page, where profiles grant them, and in `/v1/models`, where clients discover them. Requests sent with an Obot API key instead of a subscription still need an enabled key.
 

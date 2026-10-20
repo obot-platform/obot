@@ -12,7 +12,7 @@ Filters inspect MCP messages and apply validation, logging, or other checks to t
 
 Filters can be implemented in three ways:
 
-- **Guardrail filters**: Checks that Obot runs itself, with [guardrails](./guardrails.md) such as secrets detection, PII detection, an LLM judge or an external content safety service. They block, redact or log what the guardrails find. No server, container or deployment is involved.
+- **Guardrail filters**: Checks that Obot runs itself, with [guardrails](./guardrails.md) such as secrets detection, PII detection, an LLM judge or an external content safety service. They block or redact what the guardrails find. No server, container or deployment is involved.
 - **MCP filter servers**: Hosted or remote MCP servers that expose a filter tool. Hosted filters run as separate Docker containers or Kubernetes workloads. Remote filters run at an external MCP endpoint. Obot calls the configured tool when matching MCP traffic is processed. Obot's [built-in filters](#built-in-filters) are MCP filter servers.
 - **HTTP webhook filters**: HTTP endpoints that receive MCP messages and return a decision to allow or reject them.
 
@@ -42,7 +42,7 @@ Each filter that runs on a message is recorded with the message in the MCP audit
 ## Gateway Configuration {#gateway-configuration}
 
 
-Open **MCP Servers > Filters** and use **Add New Filter** to configure a guardrail filter, a custom filter (an HTTP webhook or an MCP filter server), or a built-in filter. Choose selectors for the traffic it should process, then test both an accepted and a rejected request. The list of filters shows each filter's type. See the [filter contracts and examples](./filters.md) when implementing the filter service.
+Open **MCP Servers > Filters** and use **Add New Filter** to configure a guardrail filter, a custom filter (an HTTP webhook or an MCP filter server), or a built-in filter. Choose selectors for the traffic it should process, then test both an accepted and a rejected request. The list of filters shows each filter's type. See the [filter contracts and examples](../reference/filter-schemas.md) when implementing the filter service.
 
 
 ### Selectors {#selectors}
@@ -57,7 +57,7 @@ All filter types support selectors to control when your filter is triggered:
 ## Guardrail Filters {#guardrail-filters}
 
 
-A guardrail filter checks MCP traffic with [guardrails](./guardrails.md#guardrail-types), the same guardrails that check LLM gateway traffic. Obot runs it in-process, in the filter chain with any other filters, so there is no filter server to deploy, configure, launch or restart, and no server details, logs or usage to show. Its detail page shows only its configuration. Its result on each message is recorded on the [MCP audit log](./audit-logs-and-usage.md) entries of the servers it filters.
+A guardrail filter checks MCP traffic with [guardrails](./guardrails.md#guardrail-types), the same guardrails that check LLM gateway traffic. Obot runs it in-process, in the filter chain with any other filters, so there is no filter server to deploy, configure, launch or restart, and no server details, logs or usage to show. Its detail page shows only its configuration. Its result on each message is recorded on the [MCP audit log](../security/audit-data.md) entries of the servers it filters.
 
 To create one, select **Add New Filter > Create From Guardrail** under **MCP Servers > Filters**, then configure:
 
@@ -68,10 +68,10 @@ To create one, select **Add New Filter > Create From Guardrail** under **MCP Ser
   - **Block** rejects the message with an error naming the filter and what was found. You can replace that message with your own.
   - **Redact** replaces what was found with a label such as `[REDACTED:EMAIL]` and lets the rest through. Some guardrails can only tell that content is a problem, not where it is. A redacting filter blocks when one of those finds something.
 - **Direction**: Whether to check requests to the MCP server, its responses, or both.
-- **Fail closed**: Whether to block when a guardrail or the condition can't be evaluated, for example because an external service is down or a guardrail was deleted. By default, the message passes, and the MCP audit log records which guardrail failed and why. If Obot can't load guardrails at all, for example because its database is unreachable, guardrail filters block regardless of this setting, as any filter that errors does.
+- **Fail closed**: Whether to block when a guardrail or the condition can't be evaluated, for example because an external service is down or one of its guardrails is missing. By default, the message passes, and the MCP audit log records which guardrail failed and why. If Obot can't load guardrails at all, for example because its database is unreachable, guardrail filters block regardless of this setting, as any filter that errors does.
 - **Sampling rate**: The percentage of matching messages to check, for expensive guardrails.
-- **Assigned to**: Users, groups or everyone. A filter with no assignment applies to everyone.
-- **Condition** (optional): A [CEL](https://github.com/google/cel-spec) expression that must be true for the filter to apply. It can use `mcp_method`, `mcp_tool` (the tool or prompt name, or the resource URI), `mcp_arguments` (the tool call's or prompt's arguments), `mcp_server` (the server's display name), `headers` (the request's headers, without credentials), and `user.id` and `user.groups`. For example: `mcp_tool.startsWith("create_") && !("admins" in user.groups)`. Reading a header or argument that isn't there is an error, so test for it first: `"path" in mcp_arguments`.
+- **Users & Groups**: The users and groups the filter applies to, or **All Obot Users** for everyone. A filter with none applies to everyone.
+- **Condition** (optional): A [CEL](https://github.com/google/cel-spec) expression that must be true for the filter to apply. It can use `mcp_method`, `mcp_tool` (the tool or prompt name, or the resource URI), `mcp_arguments` (the tool call's or prompt's arguments), `mcp_server` (the server's display name), `headers` (the request's headers, without credentials), and `user.id` and `user.groups`. `user.groups` holds the IDs of the user's auth provider groups, the same IDs that group subjects use, not group names or Obot roles. For example: `mcp_tool.startsWith("create_") && !("<contractors group ID>" in user.groups)`. Reading a header or argument that isn't there is an error, so test for it first: `"path" in mcp_arguments`.
 
 ### What a guardrail filter checks {#what-a-guardrail-filter-checks}
 

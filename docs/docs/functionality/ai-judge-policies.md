@@ -13,9 +13,9 @@ When Obot starts, it converts each existing message policy into guardrails, once
 | Applies to *User Messages* | A guardrail policy that blocks on **input** |
 | Applies to *Tool Calls* | A guardrail policy that blocks on **output** |
 | Applies to *Both* | A guardrail policy that blocks on input and output |
-| Subjects (users, groups, Obot groups, all users) | The guardrail policy's [profile](./model-access-policies.md): the profile for everyone if the policy applied to all users, otherwise a new profile named after the policy with its subjects and no models |
+| Subjects (users, groups, Obot groups, all users) | The guardrail policy's [profile](./model-access-policies.md): the profile for everyone if the policy applied to all users, otherwise a new profile named `<policy name> (message policy)` with its subjects and no models |
 
-The converted guardrail policies start **disabled**. Review them under **LLM Gateway** → **Profiles** and turn on **Enabled**, next to the policy's name, for the ones you want. Once enabled, they fail closed, as message policies did: when the judge's model is unavailable, the request is blocked.
+The converted guardrail policies start **disabled**. To enable one, open its profile under **LLM Gateway** → **Profiles**, click the converted applied guardrail, turn on **Enabled** at the top of the dialog, click **Apply**, then **Save** the profile. A profile converted from a policy that applied to no one needs users or groups before it can be saved. Once enabled, they fail closed, as message policies did: when the judge's model is unavailable, the request is blocked.
 
 The original MessagePolicy resources are kept for the conversion but no longer enforced, and the message policy and violation APIs were removed. Earlier violation records stay in the database but are not carried over to the new UI or API. New findings are recorded in the [LLM audit log](./guardrails.md#events).
 

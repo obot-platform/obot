@@ -4,8 +4,8 @@ title: Audit usage and costs
 
 Use audit records to investigate individual requests and usage views to understand consumption over time.
 
-1. Open **Audit Logs** and select **Model**.
-2. Filter by time, user, provider, model, client, or session.
+1. Open **Audit Logs** and select **LLM**.
+2. Filter by time, user, API key, provider, model, user agent, or session.
 3. Inspect the request outcome, duration, token counts and spend, and how the gateway routed it: the provider, model and provider key that served it, and whether a fallback did. Sensitive request and response fields require the Auditor role.
 4. Use **Usage** > **Model** for requests, success rate, latency, tokens and spend over time, spend by provider and the top models, and to compare users, API keys and models over the same period.
 5. Configure a one-time or scheduled [audit export](../configuration/audit-log-export.md) when records need to outlive the configured retention period.
@@ -20,7 +20,7 @@ The gateway prices each request for the model that served it, from the request's
 
 - **Where the rates come from:** Obot's published images and release binaries include model prices and capabilities derived from [LiteLLM's model list](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json) (MIT license), and refreshes them every 6 hours from `https://upgrade-server.obot.ai/v1/model-data`. If the refresh can't reach that URL, the gateway keeps the prices it has. To change where they come from, or to use only the included copy, set [`OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL`](../configuration/model-providers.md#server-configuration).
 - **Models without prices:** a model the list doesn't include, such as a custom deployment name or a self-hosted model, reports tokens without spend, and doesn't count toward USD budgets.
-- **Cost overrides:** set a cost override on a model under **LLM Gateway** to price it at your own rates instead. An override replaces the gateway's price for that model.
+- **Cost overrides:** set `overrideCost` on a model with `PUT /api/models/{id}` to price it at your own rates instead. There's no UI control for it. An override replaces the gateway's price for that model.
 
 MCP and LLM audit retention are configured independently. Review [Audit data, privacy, and retention](../security/audit-data.md) before exporting sensitive fields.
 
@@ -41,7 +41,7 @@ LLM gateway audit logs capture requests that flow through Obot's LLM gateway, in
 
 ### Viewing LLM Audit Logs {#audit-logs-and-usage-viewing-llm-audit-logs}
 
-Navigate to **Operations > Audit Logs**, then select **Model**.
+Navigate to **Operations > Audit Logs**, then select **LLM**.
 
 The LLM audit log view shows request metadata, token usage, model information, and outcomes. Users with the Auditor role can view sensitive request and response fields when available.
 
@@ -55,14 +55,16 @@ Filter LLM logs by:
 
 - Date range
 - User
+- API key
 - Model provider
 - Target model
 - Served provider
-- Request path
+- Path
 - Response status
 - Outcome
-- Client
+- User agent
 - Client session
+- Model discovery requests, which shows or hides model list requests. They're hidden by default.
 - Search query
 
 ### Exporting LLM Audit Logs {#audit-logs-and-usage-exporting-llm-audit-logs}

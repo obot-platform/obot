@@ -82,7 +82,7 @@ Clients using an existing Obot token or MCP API key begin with authenticated req
 
 ## Data Persistence
 
-- **Database**: Postgres stores configuration, metadata, and audit data. In production, host it independently of the Obot deployment.
+- **Database**: Postgres stores configuration, metadata, and audit data. In production, host it independently of the Obot deployment. The LLM gateway keeps its configuration in a separate `<database>_llm_gateway` database on the same Postgres server.
 
 ## Encryption
 

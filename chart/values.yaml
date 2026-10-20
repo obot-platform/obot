@@ -136,7 +136,7 @@ secret:
   OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN: ""
   # secret.OBOT_SERVER_DSN -- The DSN for your database. For example: postgres://<username>:<password>@<hostname>/<db_name>
   OBOT_SERVER_DSN: ""
-  # secret.OPENAI_API_KEY -- An OpenAI API key. At startup, Obot configures the LLM gateway's openai provider with it, and updates the provider's key when the value changes. You can also add providers under Models > Providers.
+  # secret.OPENAI_API_KEY -- An OpenAI API key. At startup, Obot configures the LLM gateway's openai provider with it, and updates the provider's key when the value changes. You can also add providers under LLM Gateway > Providers.
   OPENAI_API_KEY: ""
   # secret.ANTHROPIC_API_KEY -- An Anthropic API key. At startup, Obot configures the LLM gateway's anthropic provider with it, and updates the provider's key when the value changes.
   ANTHROPIC_API_KEY: ""
@@ -307,10 +307,9 @@ runtimeClassName: ""
 
 persistence:
   # persistence.enabled -- Enables persistence using a PVC mounted at /data.
-  # With SQLite, it also persists the embedded LLM gateway's stores and encryption key
-  # (/data/.local/share/obot/llm-gateway). When Obot uses Postgres, the gateway keeps its stores
-  # in a separate Postgres database and its encryption key in Obot's database, so they don't
-  # depend on this volume.
+  # With dev.useEmbeddedDb, the built-in Postgres lives on this volume, including the LLM gateway's
+  # database and its encryption key. With an external secret.OBOT_SERVER_DSN, the gateway keeps its
+  # state in Postgres, so it doesn't depend on this volume.
   enabled: true
   # persistence.path -- The path the volume will be mounted
   path: /data

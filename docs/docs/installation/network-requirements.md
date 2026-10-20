@@ -20,7 +20,6 @@ To allow all of them, allow outbound HTTPS to:
 - `license.obot.ai`
 - `upgrade-server.obot.ai`
 - `github.com`, `release-assets.githubusercontent.com`, and `objects.githubusercontent.com`
-- `models.dev`
 - `model-service.obot.ai`
 
 ### License validation
@@ -77,21 +76,21 @@ To allow all of them, allow outbound HTTPS to:
 
 ### Model pricing
 
-- **Destination:** `https://models.dev`
-- **When:** At startup and every hour.
-- **If it fails:** Not fatal. LLM cost reporting uses the last synced data.
-- **To change or avoid it:** Set `OBOT_SERVER_MODEL_INFO_SOURCE_URL` to an HTTP(S) URL for an internal mirror of
-  `api.json`. A local path isn't supported. If the mirror resolves to a private IP address, Obot blocks it unless
-  `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP` is `false`, which also allows remote MCP servers on private IP addresses.
+- **Destination:** `https://upgrade-server.obot.ai/v1/model-data` (`pricing.json` and `model-parameters.json`)
+- **When:** At startup and every 6 hours.
+- **If it fails:** Not fatal. The LLM gateway keeps its current model prices. Obot's published images and release
+  binaries include a copy of them.
+- **To change or avoid it:** Set `OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL` to an HTTP(S) URL for an internal mirror
+  that serves the same files, or to `off` to use only the included copy. `OBOT_UPGRADE_SERVER_URL` doesn't change it.
 
 ### MCP server tester model
 
 - **Destination:** `https://model-service.obot.ai`
 - **When:** When a user runs the [MCP server tester](../mcp-gateway/inspector.md), and when an admin opens
-  **Platform > Settings** to show model service usage. Only when no model provider is configured, a valid license is
+  **Platform > Settings** to show model service usage. Only when the LLM gateway has no providers, a valid license is
   present, and **Enable Model Proxy** is on under **Platform > Settings > Model Proxy**.
 - **If it fails:** The tester can't generate, and **Platform > Settings** shows model service usage as N/A.
-- **To change or avoid it:** Configure a model provider, turn off **Enable Model Proxy**, or set
+- **To change or avoid it:** Add a provider to the LLM gateway, turn off **Enable Model Proxy**, or set
   `OBOT_SERVER_MODEL_PROXY_URL` to an empty string to turn it off.
 
 Startup doesn't depend on any of these. Obot starts without internet access, and the affected features recover once
@@ -140,7 +139,8 @@ These connections only happen when you configure the feature, and go to the dest
 | Feature | Destination |
 |---|---|
 | [Auth providers](../configuration/auth-providers.md) | Your identity provider: GitHub, Google, Entra, Okta, JumpCloud, or Auth0 |
-| [Model providers](../configuration/model-providers.md) and the LLM gateway | The configured model API, for example `api.openai.com`, `api.anthropic.com`, Azure OpenAI and Azure AI Foundry endpoints, or `bedrock-mantle.<region>.api.aws`. Message policies use the same providers. |
+| [LLM gateway providers](../configuration/model-providers.md) | The configured model API, for example `api.openai.com`, `api.anthropic.com`, Azure OpenAI and Azure AI Foundry endpoints, or `bedrock-mantle.<region>.api.aws` |
+| [Guardrails](../functionality/guardrails.md) | The guardrail service you configure, such as Lakera, Azure AI Content Safety, Google Model Armor, or a self-hosted Presidio. LLM judge guardrails use the LLM gateway's providers. |
 | Remote MCP servers | The server's URL, plus its OAuth authorization server for discovery, dynamic client registration, and token exchange |
 | MCP catalogs and skill repositories added by an admin | The repository host over HTTPS, usually `github.com`, `gitlab.com`, or `bitbucket.org`. For GitHub and GitLab, Obot also calls `api.github.com` or `gitlab.com/api/v4` to check the repository size before cloning. |
 | OAuth clients connecting to Obot | The client's Client ID Metadata Document URL and `jwks_uri`, when the client uses them |
@@ -166,18 +166,19 @@ The UI works without them, with fallback fonts and missing icons.
 
 The Obot server honors the standard `HTTPS_PROXY`, `HTTP_PROXY`, and `NO_PROXY` environment variables for its own
 requests, including license validation, update checks, catalog and skill syncs, model pricing, the LLM gateway's
-OpenAI, Anthropic, Azure, and Bedrock calls, and remote MCP servers. The encryption providers and Claude Environments
-also receive them.
+calls to every provider, and remote MCP servers. The encryption providers and Claude Environments also receive them.
+Obot sets the proxy on every LLM gateway provider, unless `NO_PROXY` excludes the provider's endpoint or the provider
+has its own proxy.
 
 Some connections don't go through the proxy:
 
-- **Model and auth providers** run as separate processes that don't inherit the proxy variables.
+- **Auth providers** run as separate processes that don't inherit the proxy variables.
 - **MCP servers** don't receive the proxy variables. Set them in each MCP server's environment if they need them.
 - **Image pulls** use your container runtime's proxy configuration, not Obot's.
 
-Proxy support for model providers, auth providers, and MCP servers is coming soon.
+Proxy support for auth providers and MCP servers is coming soon.
 
-Remote MCP servers, MCP OAuth, model pricing, OpenAPI imports, and catalogs fetched from a plain URL go through Obot's
+Remote MCP servers, MCP OAuth, OpenAPI imports, and catalogs fetched from a plain URL go through Obot's
 protection against requests to local and private networks. For those connections:
 
 - Obot resolves the destination hostname with its own DNS before sending the request through the proxy, so it needs
@@ -186,7 +187,7 @@ protection against requests to local and private networks. For those connections
   localhost is blocked unless `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` is `false`. Either setting also allows remote MCP
   servers on those addresses.
 
-License validation, update checks, and Git clones don't have these restrictions.
+License validation, update checks, model pricing, and Git clones don't have these restrictions.
 
 ## Restricted and air-gapped installations
 
@@ -196,15 +197,15 @@ To run Obot without internet access:
    at local copies or internal Git mirrors of the catalogs, and `OBOT_DEFAULT_SKILL_REPO_URL` at the HTTPS URL of an
    internal Git mirror of the skills repository. Mirror repository paths must end in `.git`, followed by the
    `v2-schema` branch for the catalogs.
-2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` at a local copy or an internal URL, and `OBOT_SERVER_MODEL_INFO_SOURCE_URL` at
-   an internal HTTP(S) mirror. See [Model pricing](#model-pricing) for mirrors on private IP addresses.
+2. Point `OBOT_SERVER_MDM_ASSET_SOURCE` at a local copy or an internal URL, and set
+   `OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL` to `off` or to an internal HTTP(S) mirror.
 3. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true`, `OBOT_SERVER_PRODUCT_ANALYTICS_MODE=off`, and
    `OBOT_SERVER_MODEL_PROXY_URL=""`.
 4. Mirror the MCP base images and set the image variables. With the Docker runtime, also pre-pull `alpine:latest` on
    the Docker host.
 5. Use containerized MCP servers with images in your registry, or set a registry env var, such as
    `NPM_CONFIG_REGISTRY` or `UV_INDEX_URL`, on each `npx` and `uvx` server.
-6. Use an auth provider and model provider that you can reach.
+6. Use an auth provider and LLM gateway providers that you can reach.
 
 Setting a URL variable to an empty string doesn't turn the feature off, except for `OBOT_SERVER_MODEL_PROXY_URL`: Obot
 ignores empty values and uses the default. Point the variable at an internal mirror instead, or at a local path where

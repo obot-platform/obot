@@ -71,6 +71,9 @@ secret:
   OBOT_BOOTSTRAP_TOKEN: <some random value>
 
   # Point this to your postgres database
+  # Obot also uses a second database on the same server, <db>_llm_gateway, for the LLM gateway.
+  # Give <user> CREATEDB, create it first (CREATE DATABASE <db>_llm_gateway OWNER <user>;),
+  # or set OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN.
   OBOT_SERVER_DSN: postgres://<user>:<pass>@<host>/<db>
 
   # Optional. These configure the LLM gateway's OpenAI and Anthropic providers at startup.

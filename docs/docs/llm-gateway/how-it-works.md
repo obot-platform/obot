@@ -30,9 +30,9 @@ https://<your-obot-host>/api/llm-proxy/v1
 
 ## The LLM Gateway page {#the-models-page}
 
-The **Connect** tab of the **LLM Gateway** page shows the gateway's base URLs, how many models you can use (select it to list them by provider), and a card for each client (Claude Code, Codex CLI, the OpenAI and Anthropic SDKs and `curl`). Select a card to open ready-to-copy configuration for that client, and pick the model it uses. Find the page under **AI Resources** → **LLM Gateway** in the sidebar (route `/models`). If you don't have access to any models, contact an administrator to request access through a [profile](../functionality/model-access-policies.md).
+The **Connect** tab of the **LLM Gateway** page shows the gateway's base URLs, how many models you can use (select it to list them by provider), and a card for each client (Claude Code, Codex CLI, OpenCode, Goose, Cline, Open WebUI, OpenAI SDK, Anthropic SDK, Vercel AI SDK, Google ADK and `curl`). Select a card to open ready-to-copy configuration for that client, and pick the model it uses. Find the page under **AI Resources** → **LLM Gateway** in the sidebar (route `/models`). If you don't have access to any models, contact an administrator to request access through a [profile](../functionality/model-access-policies.md).
 
-Models from gateway providers are listed on the **LLM Gateway** page under the *LLM Gateway* provider and are granted to users by profiles.
+Models from gateway providers are granted to users by profiles. A profile's model picker lists them under the *LLM Gateway* provider.
 
 ### Administering the gateway {#administering-the-gateway}
 
@@ -47,14 +47,14 @@ Administrators manage the gateway from these pages:
 | **LLM Gateway** → **Profiles** → a profile → **Applied Guardrails** | Guardrails applied to the profile (guardrail policies in the API) that block, redact or log sensitive or unwanted content in the profile's model requests and responses (including streams), using guardrails. See [Guardrails](../functionality/guardrails.md). |
 | **LLM Gateway** → **Guardrails** | **Guardrails** configure the checks to run, for profiles' applied guardrails and for [guardrail filters](../functionality/filters.md#guardrail-filters) on MCP traffic, with built-in secrets, PII and LLM-judge checks and 3rd party integrations with Presidio, Azure AI Language and Content Safety, AWS Bedrock Guardrails, Google Model Armor, Lakera Guard (Check Point), Patronus and CrowdStrike AIDR. Its **Used by** column shows what uses each guardrail, including MCP guardrail filters. See [Guardrails](../functionality/guardrails.md). |
 | **LLM Gateway** → **Routing** | Rules that match requests with a [CEL](https://github.com/google/cel-spec) expression (over `model`, `provider`, `headers`, ...) and send them to other providers or models, split traffic by weight, or define fallback chains. See [Routing rules and fallbacks](#routing-rules-and-fallbacks). |
-| **Audit Logs** → **Model** | Every request with its user, the model it asked for and the provider, model and key that served it, whether a fallback did, its guardrail findings, tokens, duration and content. See [Audit usage and costs](./audit.md). |
+| **Audit Logs** → **LLM** | Every request with its user, the model it asked for and the provider, model and key that served it, whether a fallback did, its guardrail findings, tokens, duration and content. See [Audit usage and costs](./audit.md). |
 | **LLM Gateway** → **Settings** | Queueing behavior and request size limits. |
 
-Prometheus metrics for the gateway (requests, latency, tokens and cost by provider, model, key and budget) are served at `GET /api/llm-gateway/metrics` (metric names start with `obot_llm_gateway_`) to administrators, auditors and credentials allowed to read `/debug/metrics`.
+Prometheus metrics for the gateway (requests, latency, tokens and cost by provider, model, provider key and routing rule) are served at `GET /api/llm-gateway/metrics` to administrators, auditors and credentials allowed to read `/debug/metrics`. The gateway's own metric names start with `obot_llm_gateway_`. Its HTTP request metrics keep their standard names, such as `http_requests_total`.
 
 ## Default models {#default-models}
 
-Obot features such as LLM judge guardrails use default model aliases instead of specific models. Set them with **Set Default Models** on the **Providers** tab:
+Obot features such as LLM judge guardrails use default model aliases instead of specific models:
 
 | Alias | Used for |
 | --- | --- |
@@ -63,6 +63,8 @@ Obot features such as LLM judge guardrails use default model aliases instead of 
 | **Vision** (`vision`) | Image understanding |
 | **Image Generation** (`image-generation`) | Image generation tools |
 | **Text Embedding** (`text-embedding`) | Embeddings |
+
+Set `llm` and `llm-mini` with **Set Default Models** on the **Providers** tab. Obot fills `vision`, `image-generation` and `text-embedding` itself, and they can't be changed in the UI.
 
 Obot fills an unset alias with a preferred model as soon as a provider serves one:
 
@@ -75,7 +77,7 @@ Setting a default model does not grant anyone access to it. A [Model Access Poli
 
 ### Using model aliases {#using-model-aliases}
 
-Clients may also send `llm` or `llm-mini` as the model name in gateway requests. These aliases use the same global targets, and the caller still needs access to the model the alias resolves to.
+Clients may also send a default model alias, such as `llm` or `llm-mini`, as the model name in gateway requests. These aliases use the same global targets, and the caller still needs access to the model the alias resolves to.
 
 ## Routing rules and fallbacks {#routing-rules-and-fallbacks}
 
@@ -95,7 +97,7 @@ Whichever model ends up serving a request:
 
 - **Usage is recorded against the model that served it.** Usage reports and budgets record that model, price the request at its rates, and charge the budgets that apply to it. A request that was refused is recorded against the model that was requested, and its audit record names no model as having served it.
 
-The LLM audit log (**Audit Logs** → **Model**) records both the model each request asked for and the provider, model and provider key that served it, and whether a fallback did.
+The LLM audit log (**Audit Logs** → **LLM**) records both the model each request asked for and the provider, model and provider key that served it, and whether a fallback did.
 
 ## Before you begin {#before-you-begin}
 

@@ -22,7 +22,7 @@ Each profile defines:
 - **Which** models they can use. A profile can grant no models, to only apply guardrails. Its budgets then never apply, since a budget covers only its own profile's models.
 - Its **budgets** and **applied guardrails**
 
-Profiles add up. A user in several profiles can use the models of each, and the applied guardrails of each check their traffic. A budget covers only its own profile's models: a request is limited by the budgets of the user's profiles that grant the requested model (all of a profile's models, or the specific models a budget names). Every one of those budgets must have room, so when several profiles' budgets cover the same model, the tightest one limits it. One profile can't lift another's limits.
+Profiles add up. A user in several profiles can use the models of each, and the applied guardrails of each check their traffic. A budget covers only its own profile's models: a request is limited by the budgets of the user's profiles that grant the model that serves it (all of a profile's models, or the specific models a budget names). Every one of those budgets must have room, so when several profiles' budgets cover the same model, the tightest one limits it. One profile can't lift another's limits. Routing rules and fallbacks can serve a request with a model other than the one requested, so budgets are checked for each model the gateway tries, and the request is charged to the model that serves it. Requests paid for by the user's own Claude subscription don't count against budgets.
 
 For example, if *Everyone* grants model A with a $10 monthly budget and *Power users* grants models A and B with a $100 monthly budget, a power user's requests for A must fit both budgets, and their requests for B only the *Power users* budget.
 
@@ -92,19 +92,13 @@ When Obot starts for the first time, a **Default Policy** profile is automatical
 
 - Grants access to **All Obot Users**
 - Includes all default model aliases
+- Has a *Daily token limit* budget: per user, 10,000,000 input and 100,000 output tokens per day. Administrators are exempt, and a user's personal daily token limits replace the budget's for that user.
 
 This ensures that once you add a provider under **LLM Gateway > Providers**, users covered by the profile can access the default models. You can modify or delete this profile to restrict access as needed.
 
+The *Daily token limit* budget's limits come from `OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT` and `OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT`. See [Server configuration](../configuration/server-configuration.md).
+
 ## Upgrades and Migration
-
-For existing installations that previously used **Allowed Models** and **Default Model** in the legacy model settings:
-
-- A **Migrated Policy** is automatically created
-- Your previous allowed models are preserved in this profile
-- Your previous default model setting is preserved as the default model alias
-- No action is required
-
-You can find and modify this migrated profile on the **Profiles** tab. The legacy settings no longer control model access.
 
 When upgrading from a version that used model providers, policies that named a model provider's model are re-pointed to the LLM gateway model for the same upstream model. See [Upgrading from model providers](../llm-gateway/upgrade.md). Wildcard patterns written for earlier versions matched provider-native IDs, such as `claude-haiku-4-5*`. They're replaced with the provider-qualified form, such as `anthropic/claude-haiku-4-5*`, for each provider whose models they matched. A pattern that matched no model is left as it was; add the provider to it yourself.
 

@@ -34,7 +34,7 @@ When you add a guardrail, its types are grouped as **Built-in** checks that Obot
 | --- | --- | --- |
 | **Secrets Detection** (built-in) | API keys and tokens for AWS, GitHub, GitLab, Slack, Stripe, Google, OpenAI, Anthropic, Azure, Twilio, SendGrid, npm, Hugging Face and Obot; private keys, JWTs, database URLs; optionally generic secrets: high-entropy values assigned to names like `api_key`, `access_key`, `client_secret`, `token` or `password`, including prefixed names such as `AWS_SECRET_ACCESS_KEY`. camelCase names such as `clientSecret` and subscripts such as `env["API_KEY"]` count only when assigned a quoted value, so code that assigns another variable or a call isn't flagged. | Yes |
 | **Custom Regex** (built-in) | Your RE2 patterns, plus ready-made patterns for email addresses, phone numbers (North American, and international numbers written with their `+` country code, but not a `+` before a date), US SSNs, credit cards (checksum-verified), IPv4 and IPv6 addresses (dotted runs of more than four numbers, such as versions, and IPv6-looking names without a digit, such as `dead::beef`, aren't matched), and IBANs, with or without spaces (checksum-verified). | Yes |
-| **LLM Judge Policy** (built-in) | Anything you can describe in plain language, e.g. "Do not help book travel above economy class". Screened by the `Chat - Fast` default model, with a second review by the `Chat` default model before blocking. This is what [message policies](./ai-judge-policies.md) became. | No |
+| **LLM Judge Policy** (built-in) | Anything you can describe in plain language, e.g. "Do not help book travel above economy class". On model traffic it judges the latest user message (input) and the model's tool calls (output), not the model's text replies. Screened by the `Chat - Fast` default model, with a second review by the `Chat` default model before blocking. This is what [message policies](./ai-judge-policies.md) became. | No |
 | **Microsoft Presidio** | Personal data, using your self-hosted Presidio Analyzer. By default: email addresses, phone numbers, credit cards, US SSNs, ITINs, passports, driver's licenses and bank numbers, IBANs and IP addresses. | Yes |
 | **Azure AI Language PII** | Personal and health data. | Yes |
 | **Azure AI Content Safety** | Hate, sexual, violence and self-harm content above a severity threshold; optionally prompt injection with Prompt Shields. | No |
@@ -44,7 +44,7 @@ When you add a guardrail, its types are grouped as **Built-in** checks that Obot
 | **Patronus AI** | Results of Patronus evaluators, such as toxicity and PII detectors or LLM judges with your criteria. | No |
 | **CrowdStrike Falcon AIDR** | Malicious prompts, PII, secrets, malicious entities, topics and more, per the collector's policy. | Content AI Guard redacts |
 
-Credentials such as API keys are stored encrypted and are never shown again after they are saved. Leave a credential blank when editing a guardrail to keep the current value. Changing where a guardrail's credentials are sent (its endpoint, base URL or region) requires entering them again, so stored credentials can't be redirected to another server. A guardrail service may be on a private network, such as a self-hosted Presidio at `http://presidio-analyzer:3000`, but not on Obot's own host (`localhost`, `127.0.0.0/8`, `::1`), a link-local address (`169.254.0.0/16`, `fe80::/10`) or a cloud metadata address such as `169.254.169.254` or AWS's `fd00:ec2::254`. Host names are checked when a guardrail is saved and again on every connection. This differs from remote MCP servers, whose URLs may not resolve to private addresses unless an administrator sets `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP=false` (see [Remote server](../mcp-gateway/register-remote.md)): remote MCP servers can be added by users with the Power User role, while guardrails are configured only by administrators and their services often run next to Obot. A Google Cloud Model Armor guardrail without a service account key uses Obot's own application default credentials, so it only sends requests to Model Armor's own endpoints (`modelarmor.googleapis.com`, regional `modelarmor.<location>.rep.googleapis.com`, or a Private Service Connect `*.p.googleapis.com` endpoint); any other endpoint requires a service account key.
+Credentials such as API keys are stored encrypted and are never shown again after they are saved. Leave a credential blank when editing a guardrail to keep the current value. Changing where a guardrail's credentials are sent (its endpoint, base URL, region, analyzer URL or location) requires entering them again, so stored credentials can't be redirected to another server. A guardrail service may be on a private network, such as a self-hosted Presidio at `http://presidio-analyzer:3000`, but not on Obot's own host (`localhost`, `127.0.0.0/8`, `::1`), a link-local address (`169.254.0.0/16`, `fe80::/10`) or a cloud metadata address such as `169.254.169.254` or AWS's `fd00:ec2::254`. Host names are checked when a guardrail is saved and again on every connection. This differs from remote MCP servers, whose URLs may not resolve to private addresses unless an administrator sets `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP=false` (see [Remote server](../mcp-gateway/register-remote.md)): remote MCP servers can be added by users with the Power User role, while guardrails are configured only by administrators and their services often run next to Obot. A Google Cloud Model Armor guardrail without a service account key uses Obot's own application default credentials, so it only sends requests to Model Armor's own endpoints (`modelarmor.googleapis.com`, regional `modelarmor.<location>.rep.googleapis.com`, or a Private Service Connect `*.p.googleapis.com` endpoint); any other endpoint requires a service account key.
 
 For a Presidio guardrail, **Load all types from the service** lists every entity type your Analyzer supports, including its custom recognizers. Types such as `PERSON`, `LOCATION`, `DATE_TIME` and `URL` aren't checked by default, because they match ordinary text, like the names of public figures, cities, "Friday" and links.
 
@@ -64,8 +64,9 @@ Guardrails are applied to LLM gateway traffic in [profiles](./model-access-polic
   - **Log** records the finding in the request's LLM audit log entry and lets the request through unchanged.
 - **Profile**: the profile it's applied in. It applies to that profile's users and groups. The applied guardrails of every profile a user is in apply to them.
 - **Condition** (optional): a [CEL](https://github.com/google/cel-spec) expression that must be true for the policy to apply.
-  - It can use `model` (for example `"openai/gpt-4.1"`), `provider`, `params`, `headers`, `user.id` and `user.groups`.
-  - For example: `model.startsWith("openai/") && !("contractors" in user.groups)`.
+  - It can use `model` (for example `"openai/gpt-4.1"`), `provider`, `params` (currently only `params.max_tokens`, when the request sets it; test with `"max_tokens" in params`), `headers`, `user.id` and `user.groups`.
+  - `user.groups` holds the IDs of the user's auth provider groups, the same IDs that group subjects use. It doesn't hold group names or Obot roles.
+  - For example: `model.startsWith("openai/") && !("<contractors group ID>" in user.groups)`.
   - Reading a header that isn't there is an error, so test for it first: `"x-team" in headers && headers["x-team"] == "sales"`. A condition that fails to evaluate is logged by the Obot server (at most once a minute per policy); the policy is then skipped, or blocks the request if it fails closed.
 - **Sampling rate**: the percentage of matching traffic to check, for expensive guardrails.
 - **Input scope**: whether input checks look at the whole conversation or only what was added since the model last replied. Redacting policies always check the whole conversation, so nothing unredacted is sent.
@@ -77,13 +78,13 @@ Guardrail policies run in the order they were created. A block stops evaluation.
 
 ### LLM gateway
 
-Input policies run before anything else sees the request, so the provider never sees content before it is redacted. Output policies run after the response arrives and before it is returned. Token counting requests (`/v1/messages/count_tokens`, `/v1/responses/input_tokens`) carry the whole prompt to the provider and are checked as input. Obot's own [LLM audit log](./audit-logs-and-usage.md) records requests as clients sent them, before redaction.
+Input policies run before anything else sees the request, so the provider never sees content before it is redacted. Output policies run after the response arrives and before it is returned. Token counting requests (`/v1/messages/count_tokens`, `/v1/responses/input_tokens`) carry the whole prompt to the provider and are checked as input. Obot's own [LLM audit log](../llm-gateway/audit.md) records requests as clients sent them, before redaction.
 
 Checks cover message text, tool calls and tool results, and also reasoning (thinking) and refusal text. Redacting signed reasoning, such as Anthropic extended thinking, invalidates its signature, so the provider may reject a later request that sends that reasoning back.
 
 Some clients, notably Claude Code, normally have their requests forwarded to Anthropic as sent. When any guardrail applies to a request, Obot instead sends the request it checked, and returns the response it checked, so nothing bypasses the guardrail policies.
 
-For **streamed responses**, Obot holds the stream while a policy that can block or redact applies. It checks the complete response, then delivers it at once: redacted if needed, or replaced by an error if blocked. A secret split across stream chunks is still found. Log-only policies don't hold the stream. If a stream can't be held, a finding that would block or redact ends the stream and is recorded as an error, since the content has already been delivered.
+For **streamed responses**, Obot holds the stream while a policy that can block or redact applies. It checks the complete response, then delivers it at once: redacted if needed, or replaced by an error if blocked. A secret split across stream chunks is still found. Log-only policies don't hold the stream unless they fail closed. If a stream can't be held, a finding that would block or redact ends the stream and is recorded as an error, since the content has already been delivered.
 
 A blocked request gets HTTP 400 with the block message. In the OpenAI Chat Completions and Responses formats the error's type is `guardrail_intervention`. In the Anthropic Messages format it is `invalid_request_error`, since Anthropic clients such as Claude Code only expect Anthropic's own error types.
 
@@ -99,13 +100,13 @@ What guardrail filters did to MCP traffic is recorded in the MCP audit log, as d
 
 ## Message policies
 
-Message policies are now LLM Judge guardrails. When Obot starts, each existing message policy is converted once into an LLM Judge guardrail and a blocking guardrail policy. The policy belongs to the profile for everyone if the policy applied to everyone, or to a new profile, named after the policy, with the policy's users and groups. A policy that applied to no one gets a profile with no users or groups, so its guardrail policy still applies to no one if you enable it.
+Message policies are now LLM Judge guardrails. When Obot starts, each existing message policy is converted once into an LLM Judge guardrail and a blocking guardrail policy. The policy belongs to the profile for everyone if the policy applied to everyone, or to a new profile, named `<policy name> (message policy)`, with the policy's users and groups. A policy that applied to no one gets a profile with no users or groups, so its guardrail policy applies to no one. Add users or groups to that profile before you enable the policy, since a profile can't be saved without them.
 
 - Policies on **user messages** become input policies.
 - Policies on **tool calls** become output policies.
 - Policies on **both** become policies for input and output.
 
-The guardrail policies start disabled; enable the ones you want. They fail closed, as message policies did: when the judge's model is unavailable, the request is blocked.
+The guardrail policies start disabled. To enable one, open its profile, click the applied guardrail, turn on **Enabled** at the top of the dialog, click **Apply**, then **Save** the profile. They fail closed, as message policies did: when the judge's model is unavailable, the request is blocked.
 
 The original policies are kept but no longer enforced. The message policy API was removed.
 
@@ -120,7 +121,7 @@ Administrators can manage guardrails and guardrail policies with these endpoints
 | `GET /guardrails/providers` | Guardrail types and their settings |
 | `POST /guardrails/providers/{type}/fields/{field}/options` | List a guardrail field's choices from the service its settings point at, such as the entity types a Presidio Analyzer supports. Send the guardrail's `config`, and `guardrailID` to use a saved guardrail's credentials. |
 | `POST /guardrails/validate-condition` | Check a CEL condition |
-| `GET, POST /guardrail-policies`, `GET, PUT, DELETE /guardrail-policies/{id}` | Guardrail policies (`target` must be `llm`, `profileID` names the profile and `guardrailIDs` the guardrails). `?profileID=` lists one profile's. |
+| `GET, POST /guardrail-policies`, `GET, PUT, DELETE /guardrail-policies/{id}` | Guardrail policies (`target` must be `llm`, `profileID` names the profile and `guardrailIDs` the guardrails). `enabled` defaults to false, so set `"enabled": true`. `?profileID=` lists one profile's. |
 
 Guardrail filters are managed with the filter API, `/api/mcp-webhook-validations`. A guardrail filter has a `guardrail` object in place of a `url`, `mcpServerManifest` or `systemMCPServerCatalogEntryID`:
 
@@ -149,4 +150,5 @@ Guardrail filters are managed with the filter API, `/api/mcp-webhook-validations
 - [LLM Gateway](../llm-gateway/how-it-works.md)
 - [MCP Servers](./mcp-servers.md)
 - [Filters](./filters.md)
-- [Audit Logs and Usage](./audit-logs-and-usage.md)
+- [LLM audit logs](../llm-gateway/audit.md)
+- [MCP audit logs](../security/audit-data.md)
