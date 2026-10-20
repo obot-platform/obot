@@ -287,11 +287,10 @@ func TestOneLoginErrorDetails(t *testing.T) {
 
 	scimID := s.oneLoginCreate(oneLoginOwnerID)
 
-	// With either deprovisioning action on Delete, OneLogin sends a DELETE.
+	// With the action for deleted users and removed app access on Delete, OneLogin sends a DELETE.
 	if got, want := detail(s.do(http.MethodDelete, "Users/"+scimID, nil).expect(t, http.StatusNotImplemented)),
-		`Obot does not delete users. On the OneLogin app's Provisioning tab, set both "When users are deleted in `+
-			`OneLogin, or the user's app access is removed" and "When user accounts are suspended in OneLogin" to `+
-			`Suspend, then click Retry on this user.`; got != want {
+		`Obot does not delete users. On the OneLogin app's Provisioning tab, set "When users are deleted in `+
+			`OneLogin, or the user's app access is removed" to Suspend, then click Retry on this user.`; got != want {
 		t.Errorf("user DELETE detail = %q, want %q", got, want)
 	}
 	if u := s.do(http.MethodGet, "Users/"+scimID, nil).expect(t, http.StatusOK); u.body["active"] != true {

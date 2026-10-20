@@ -167,12 +167,12 @@ func (oneLogin) ErrorHints() ErrorHints {
 		// Retry button, so they are run again instead.
 		Retry: "In OneLogin, click Retry on the user in the app's Users tab, or run the connection test or " +
 			"entitlements refresh again.",
-		// With either deprovisioning action on Delete, OneLogin sends a user DELETE. With both on Suspend, removing a
-		// user's access, deleting the user, and suspending the user each send active false, and restoring access
-		// reactivates the same user. Retry uses the app's current action, so after the change it deactivates the user.
-		UserDelete: `Obot does not delete users. On the OneLogin app's Provisioning tab, set both "When users are ` +
-			`deleted in OneLogin, or the user's app access is removed" and "When user accounts are suspended in ` +
-			`OneLogin" to Suspend, then click Retry on this user.`,
+		// OneLogin sends a user DELETE only when the action for deleted users and removed app access is Delete. The
+		// action for suspended users offers only Suspend and Do Nothing, so the hint doesn't name it. With Suspend,
+		// removing a user's access and deleting the user each send active false, and restoring access reactivates
+		// the same user. Retry uses the app's current action, so after the change it deactivates the user.
+		UserDelete: `Obot does not delete users. On the OneLogin app's Provisioning tab, set "When users are ` +
+			`deleted in OneLogin, or the user's app access is removed" to Suspend, then click Retry on this user.`,
 		// OneLogin's "SCIM2 PATCH for Groups" connector adds a member with a filtered path and no value. An app's
 		// connector is chosen when the app is created.
 		ValuelessFilteredAdd: "This app uses a connector Obot does not support. Create a OneLogin app with the " +

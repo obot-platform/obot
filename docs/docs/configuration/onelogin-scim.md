@@ -182,11 +182,12 @@ error from Obot that says which setting to fix.
 1. In the OneLogin admin console, go to **Applications > Applications > Add
    App**, and add **SCIM Provisioner with SAML (SCIM v2 Core)**.
 2. On the **Info** tab, turn off **Visible in portal**. The app never signs
-   anyone in.
+   anyone in, and opening it from the OneLogin portal shows an error from Obot.
 3. On the **Configuration** tab:
    - Set every SAML field to `https://<your-obot-url>/scim-provisioning`.
-     OneLogin requires them, but they are never used. This page sends anyone who
-     opens it to the regular Obot sign-in.
+     OneLogin requires them, but Obot doesn't use them. If someone opens this
+     page, it explains that the app is for provisioning only and links to the
+     regular Obot sign-in.
    - Set **SCIM Base URL** to the base URL from Obot, and **SCIM Bearer Token**
      to the token.
    - In the **SCIM JSON Template**, add `"externalId": "{$user.id}",` after the
@@ -198,7 +199,8 @@ error from Obot that says which setting to fix.
    - Set both **When users are deleted in OneLogin, or the user's app access is
      removed** and **When user accounts are suspended in OneLogin** to
      **Suspend**. Obot never deletes users over SCIM. To delete a suspended
-     user, delete them on Obot's **Users** page.
+     user, delete them on Obot's **Users** page. With **Do Nothing**, users you
+     suspend in OneLogin stay active in Obot.
    - Turn off **Require admin approval** for each action, unless you want to
      approve every change by hand.
 5. On the **Parameters** tab:
@@ -250,12 +252,12 @@ in Obot.
   **Reapply entitlement mappings**. The empty group stays in Obot and grants
   nothing.
 - **Empty roles.** A role with no members is never pushed.
-- **Role changes while a user's access is removed.** If a user's roles change
+- **Roles removed while a user's access is removed.** If a user loses a role
   while their access to the SCIM app is removed, OneLogin never sends the
-  change, even after their access is restored. After restoring a user's access,
-  resend each role change made while it was removed: for a role they lost, give
-  it back and remove it again, and for a role they gained, remove it and give it
-  back. Suspended users are not affected.
+  change, even after their access is restored, so they stay in that group in
+  Obot. After restoring a user's access, give them each role they lost back,
+  then remove it again. Roles they gained in that time are sent when their
+  access is restored. Suspended users are not affected.
 
 ### Retry failed changes
 
@@ -268,10 +270,10 @@ app in the user's **Applications** tab.
 
 Common errors:
 
-- **"Obot does not delete users."** One of the deprovisioning actions is set to
-  Delete. Set both to **Suspend** as described in [Create the SCIM
-  app](#create-the-scim-app-in-onelogin), then retry each affected user. The
-  retry deactivates them.
+- **"Obot does not delete users."** **When users are deleted in OneLogin, or
+  the user's app access is removed** is set to Delete. Set it to **Suspend** as
+  described in [Create the SCIM app](#create-the-scim-app-in-onelogin), then
+  retry each affected user. The retry deactivates them.
 - **"This app uses a connector Obot does not support."** Create a new app with
   the **SCIM Provisioner with SAML (SCIM v2 Core)** connector, and move access
   to it.
@@ -280,9 +282,8 @@ Common errors:
 - **"a user with userName … already exists" when restoring access.** The
   template's `userName` line was changed while **SCIM Username** stayed on
   Username. Set **SCIM Username** to **OneLogin ID** and restore the template's
-  `userName` line to `{$parameters.scimusername}`. If the user is still stuck,
-  set the removal action to **Do nothing**, remove the user's access, set the
-  action back to **Suspend**, and give them access again.
+  `userName` line to `{$parameters.scimusername}`, then retry the user. The
+  retry finds the existing user and reactivates them.
 
 ### Rotate the SCIM token
 
