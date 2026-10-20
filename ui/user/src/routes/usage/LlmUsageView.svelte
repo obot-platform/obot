@@ -729,7 +729,7 @@
 			<div class="flex w-full flex-wrap items-center justify-end gap-4">
 				<p class="text-muted-content w-full text-sm md:w-fit">{m.audit_usage_usage_filter_by()}</p>
 				<Select
-					class="dark:border-base-400 border border-transparent"
+					class="bg-base-100 border-base-300 dark:border-base-400"
 					classes={{
 						root: 'w-full md:min-w-72 md:flex-[2] dark:border-base-400'
 					}}
@@ -749,7 +749,7 @@
 					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				/>
 				<Select
-					class="dark:border-base-400 border border-transparent"
+					class="bg-base-100 border-base-300 dark:border-base-400"
 					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
@@ -769,7 +769,7 @@
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== ALL_USERS}
 				/>
 				<Select
-					class="dark:border-base-400 border border-transparent"
+					class="bg-base-100 border-base-300 dark:border-base-400"
 					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}

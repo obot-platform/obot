@@ -84,6 +84,9 @@
 	const outerRadius = $derived(Math.max(0, size / 2 - 2));
 	const innerRadius = $derived(outerRadius * donutRatio);
 
+	const SLICE_GAP = 2;
+	const SLICE_CORNER_RADIUS = 3;
+
 	/** Slightly enlarges the hovered wedge radially (outer radius multiplier at full hover). */
 	const HOVER_OUTER_RADIUS_SCALE = 1.025;
 
@@ -263,7 +266,13 @@
 	): SliceBundle {
 		if (outerRadius <= 0 || total <= 0) return { arcs: [], separators: [] };
 		const snapshot = $state.snapshot(data);
-		const layout = pieGenerator(snapshot);
+		const visibleSlices = snapshot.filter((d) => Number(d.value) > 0).length;
+		// A ~2px surface gap separates slices (grouped donuts use radial separators instead).
+		const padAngle =
+			useGroupSeparators || visibleSlices < 2
+				? 0
+				: SLICE_GAP / Math.sqrt(innerRadius ** 2 + outerRadius ** 2);
+		const layout = pieGenerator.padAngle(padAngle)(snapshot);
 		const n = layout.length;
 
 		const dUnit = HOVER_OUTER_RADIUS_SCALE - 1;
@@ -289,7 +298,7 @@
 			const arcGen = arc<PieArcDatum<DonutDatum>>()
 				.innerRadius(innerRadius)
 				.outerRadius(sliceOuter)
-				.cornerRadius(useGroupSeparators ? 0 : 0.5);
+				.cornerRadius(useGroupSeparators ? 0 : SLICE_CORNER_RADIUS);
 			const scaled: PieArcDatum<DonutDatum> = {
 				...d,
 				endAngle: d.startAngle + (d.endAngle - d.startAngle) * p
@@ -383,8 +392,8 @@
 							d={slice.path}
 							fill={slice.color}
 							class={twMerge(
-								'cursor-pointer stroke-1',
-								useGroupSeparators ? '' : 'stroke-base-100 dark:stroke-base-200'
+								'cursor-pointer transition-opacity duration-150',
+								currentItem && currentItem.label !== slice.label && 'opacity-60'
 							)}
 							onpointerenter={(e) => {
 								cancelHoverSliceClear();

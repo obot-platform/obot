@@ -9,7 +9,7 @@
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
-	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
+	import HorizontalBarList from '$lib/components/graph/HorizontalBarList.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
 	import { m } from '$lib/i18n';
@@ -463,12 +463,12 @@
 					<span class="text-muted-content text-xs font-light">{m.dashboard_last_30_days()}</span>
 				</h4>
 			</div>
-			<HorizontalBarGraph
+			<HorizontalBarList
+				class="pt-2"
 				data={topServerUsage.slice(0, maxServersToShow)}
 				labelKey="serverName"
 				valueKey="count"
 				formatValue={(value) => Math.round(value).toString()}
-				class={hasDeviceScans ? 'h-67.5' : 'h-100'}
 			>
 				{#snippet tooltipContent(item)}
 					<div class="flex flex-col gap-0 text-xs">
@@ -478,7 +478,7 @@
 						{m.dashboard_calls_count({ count: item.value })}
 					</div>
 				{/snippet}
-			</HorizontalBarGraph>
+			</HorizontalBarList>
 		</div>
 	{/if}
 {/snippet}

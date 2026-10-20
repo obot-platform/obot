@@ -15,7 +15,7 @@
 	import profile from '$lib/stores/profile.svelte';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, isBasicUser, withDisabledMarker } from '$lib/utils';
-	import HorizontalBarGraph from '../../graph/HorizontalBarGraph.svelte';
+	import HorizontalBarList from '../../graph/HorizontalBarList.svelte';
 	import StatBar from '../StatBar.svelte';
 	import AuditLogCalendar from '../audit-logs/AuditLogCalendar.svelte';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
@@ -632,7 +632,7 @@
 				{@const maxPage = Math.max(0, Math.ceil(total / graphPageSize) - 1)}
 				{@const paginated = full.slice(page * graphPageSize, (page + 1) * graphPageSize)}
 
-				<div class="paper p-0">
+				<div class="paper p-0 gap-0 h-full min-h-75">
 					<h3
 						class="text-xs uppercase font-medium tracking-wider border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md"
 					>
@@ -640,34 +640,32 @@
 					</h3>
 
 					<div class="p-4">
-						<div class="text-muted-content h-72 min-h-72">
-							{#if paginated.length > 0}
-								<HorizontalBarGraph
-									data={paginated}
-									labelKey={cfg.xKey}
-									valueKey={cfg.yKey}
-									formatLabel={cfg.formatXLabel}
-									formatValue={(value) => Math.round(value).toString()}
-								>
-									{#snippet tooltipContent(item)}
-										<div class="flex flex-col gap-0 text-xs">
-											<div class="text-muted-content text-xs">{item.label}</div>
-										</div>
-										<div class="text-base-content font-semibold">
-											{cfg.formatTooltipText
-												? cfg.formatTooltipText(item.row as Record<string, string | number>)
-												: `${item.value} ${cfg.tooltip}`}
-										</div>
-									{/snippet}
-								</HorizontalBarGraph>
-							{:else if !showLoadingSpinner}
-								<div
-									class="text-muted-content flex h-72 items-center justify-center text-sm font-light"
-								>
-									{m.audit_usage_usage_no_data_panel()}
-								</div>
-							{/if}
-						</div>
+						{#if paginated.length > 0}
+							<HorizontalBarList
+								data={paginated}
+								labelKey={cfg.xKey}
+								valueKey={cfg.yKey}
+								formatLabel={cfg.formatXLabel}
+								formatValue={(value) => Math.round(value).toString()}
+							>
+								{#snippet tooltipContent(item)}
+									<div class="flex flex-col gap-0 text-xs">
+										<div class="text-muted-content text-xs">{item.label}</div>
+									</div>
+									<div class="text-base-content font-semibold">
+										{cfg.formatTooltipText
+											? cfg.formatTooltipText(item.row as Record<string, string | number>)
+											: `${item.value} ${cfg.tooltip}`}
+									</div>
+								{/snippet}
+							</HorizontalBarList>
+						{:else if !showLoadingSpinner}
+							<div
+								class="text-muted-content flex h-72 items-center justify-center text-sm font-light"
+							>
+								{m.audit_usage_usage_no_data_panel()}
+							</div>
+						{/if}
 
 						{#if maxPage > 0}
 							<div
