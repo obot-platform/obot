@@ -41,6 +41,7 @@
 		type TokenUsageTimelineItem
 	} from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import { getAPIKeyFilterOptions, getUserLabels } from '$lib/components/admin/token-usage/utils';
+	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
@@ -937,13 +938,9 @@
 						{:else if displayGraphItems.length > 0}
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 								{#each displayGraphItems.slice(0, visibleChartCount) as item (`${item.metric}-${item.key}`)}
-									<div class="paper p-0 flex min-h-0 flex-col overflow-hidden">
-										<h5
-											class="shrink-0 text-xs font-medium uppercase border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md"
-										>
-											{item.label}
-										</h5>
-										<div class="w-full shrink-0 p-4">
+									<div class="paper p-0 gap-0flex min-h-0 flex-col overflow-hidden">
+										<GraphTitle title={item.label} element="h5" />
+										<div class="w-full shrink-0 p-4 pt-0">
 											{#if item.mode === GRAPH_MODE.BUCKET}
 												{@const isSpend = item.metric === GRAPH_METRIC.SPEND}
 												<StackedTimeline

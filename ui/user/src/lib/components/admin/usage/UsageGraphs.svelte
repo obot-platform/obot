@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
+	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { getLocale, m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -633,12 +634,7 @@
 				{@const paginated = full.slice(page * graphPageSize, (page + 1) * graphPageSize)}
 
 				<div class="paper p-0 gap-0 h-full min-h-75">
-					<h3
-						class="text-xs uppercase font-medium tracking-wider border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md"
-					>
-						{cfg.label}
-					</h3>
-
+					<GraphTitle title={cfg.label} />
 					<div class="p-4">
 						{#if paginated.length > 0}
 							<HorizontalBarList
