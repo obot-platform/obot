@@ -204,14 +204,19 @@ func TestGuardrailFilters(t *testing.T) {
 			}
 			return nil
 		})
-		// The MCP audit log records the redaction as the filter's status.
+		// The MCP audit log records the redaction as the filter's status. The list has only
+		// summaries; the statuses are in each entry's detail.
 		harness.Eventually(t, 60*time.Second, "the guardrail filter's status in the MCP audit log", func() error {
 			resp := env.admin.Do(t, http.MethodGet, "/api/mcp-audit-logs?user_id="+url.QueryEscape(u.ID)+"&limit=100", nil)
 			if resp.Status != http.StatusOK {
 				return fmt.Errorf("audit logs: %s", resp)
 			}
 			for _, item := range gjson.GetBytes(resp.Body, "items").Array() {
-				for _, status := range item.Get("details.webhookStatuses").Array() {
+				detail := env.admin.Do(t, http.MethodGet, "/api/mcp-audit-logs/detail/"+item.Get("id").String(), nil)
+				if detail.Status != http.StatusOK {
+					return fmt.Errorf("audit log %s: %s", item.Get("id"), detail)
+				}
+				for _, status := range gjson.GetBytes(detail.Body, "details.webhookStatuses").Array() {
 					if status.Get("tool").String() == "guardrail" && status.Get("status").String() == "mutated" {
 						if strings.Contains(status.Raw, "ghp_") {
 							return fmt.Errorf("the status contains the secret: %s", status.Raw)
