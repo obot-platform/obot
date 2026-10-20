@@ -41,7 +41,7 @@ func newClaudeLifecycleTestGateway(t *testing.T, users ...gt.User) *gclient.Clie
 	for i := range users {
 		require.NoError(t, services.DB.DB.Create(&users[i]).Error)
 	}
-	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	// Substitute the PostgreSQL advisory lock for the SQLite fixture.
 	require.NoError(t, services.DB.DB.Callback().Raw().Before("gorm:raw").Register("test_advisory_lock", func(tx *gorm.DB) {

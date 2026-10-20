@@ -44,7 +44,7 @@ func newWriteTestGateway(t *testing.T) *gclient.Client {
 	if err := database.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 
 	conn, _, err := gateway.CreateSCIMConnection(t.Context(), gclient.CreateSCIMConnectionOptions{

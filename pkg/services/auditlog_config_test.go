@@ -8,6 +8,8 @@ import (
 
 func TestRejectNegativeMCPAuditBodyLimit(t *testing.T) {
 	config := Config{
+		GitMaxRepoSizeMB:        100,
+		ProductAnalyticsMode:    "consent",
 		MCPAuditLogMaxBodyBytes: new(-1),
 	}
 
@@ -17,6 +19,8 @@ func TestRejectNegativeMCPAuditBodyLimit(t *testing.T) {
 
 func TestRejectNegativeLLMAuditBodyLimit(t *testing.T) {
 	config := Config{
+		GitMaxRepoSizeMB:        100,
+		ProductAnalyticsMode:    "consent",
 		LLMAuditLogMaxBodyBytes: new(-1),
 	}
 
@@ -26,6 +30,8 @@ func TestRejectNegativeLLMAuditBodyLimit(t *testing.T) {
 
 func TestRejectNegativeLocalAgentAuditBodyLimit(t *testing.T) {
 	config := Config{
+		GitMaxRepoSizeMB:               100,
+		ProductAnalyticsMode:           "consent",
 		LocalAgentAuditLogMaxBodyBytes: new(-1),
 	}
 

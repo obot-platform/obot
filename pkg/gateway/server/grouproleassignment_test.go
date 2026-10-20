@@ -36,7 +36,7 @@ func TestCreateGroupRoleAssignmentRefusesAMissingSCIMGroup(t *testing.T) {
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	if _, _, err := gatewayClient.CreateSCIMConnection(t.Context(), client.CreateSCIMConnectionOptions{
 		AuthProviderNamespace: system.DefaultNamespace,
@@ -150,7 +150,7 @@ func TestCreateGroupRoleAssignmentRefusesADuplicate(t *testing.T) {
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 
 	create := func() error {

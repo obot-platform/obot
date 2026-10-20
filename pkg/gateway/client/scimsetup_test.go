@@ -1654,7 +1654,7 @@ func TestNewStartsTheExpiryOfDeletionMarks(t *testing.T) {
 	// The client of the restarted replica expires the mark once it starts.
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	New(ctx, c.db, c.storageClient, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	New(ctx, c.db, c.storageClient, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	deadline := time.Now().Add(5 * time.Second)
 	for len(pendingDeletions(t, c)) != 0 {
 		if time.Now().After(deadline) {

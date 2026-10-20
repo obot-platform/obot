@@ -29,7 +29,7 @@ func TestDisabledProxyAuditDoesNotCaptureBodies(t *testing.T) {
 			require.Empty(t, audit.entry.RequestHeaders)
 
 			requestBody := req.Body
-			hooks, err := newHookProcessor(req, nil, nil, nil, audit, nil)
+			hooks, err := newHookProcessor(req, nil, nil, nil, audit, nil, nil)
 			require.NoError(t, err)
 			require.Equal(t, requestBody, req.Body, "disabled hooks and auditing must not reread the request")
 			audit.recordRequest()
@@ -88,7 +88,7 @@ func TestDisabledProxyAuditPreservesHooks(t *testing.T) {
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"echo"}}`)
 	audit, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
 	require.NoError(t, err)
-	hooks, err := newHookProcessor(req, runner, hookConfig, nil, audit, nil)
+	hooks, err := newHookProcessor(req, runner, hookConfig, nil, audit, nil, nil)
 	require.NoError(t, err)
 	body, blocked, hookErr := hooks.blockedRequest()
 	require.True(t, blocked)
@@ -123,7 +123,7 @@ func TestDisabledProxyAuditPreservesRequestAndResponseMutation(t *testing.T) {
 			req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"echo","arguments":{"value":"secret request"}}}`)
 			audit, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
 			require.NoError(t, err)
-			hooks, err := newHookProcessor(req, runner, hookConfig, nil, audit, nil)
+			hooks, err := newHookProcessor(req, runner, hookConfig, nil, audit, nil, nil)
 			require.NoError(t, err)
 			requestBody, err := io.ReadAll(req.Body)
 			require.NoError(t, err)
