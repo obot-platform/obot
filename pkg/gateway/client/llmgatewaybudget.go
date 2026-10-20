@@ -459,9 +459,15 @@ func (c *Client) LLMGatewayBudgetUsageReport(ctx context.Context, b *types.LLMGa
 }
 
 // deleteOldLLMGatewayBudgetUsage removes usage older than any window can reach, with a month
-// to spare.
+// to spare. It looks before deleting: with SQLite a delete takes the write lock even when
+// nothing matches, and this runs as every replica starts, alongside other writes.
 func (c *Client) deleteOldLLMGatewayBudgetUsage(ctx context.Context, now time.Time) error {
-	return c.db.WithContext(ctx).Where("created_at < ?", oldestBudgetWindowStart(now).AddDate(0, -1, 0)).Delete(&types.LLMGatewayBudgetUsage{}).Error
+	cutoff := oldestBudgetWindowStart(now).AddDate(0, -1, 0)
+	var ids []uint
+	if err := c.db.WithContext(ctx).Model(&types.LLMGatewayBudgetUsage{}).Where("created_at < ?", cutoff).Limit(1).Pluck("id", &ids).Error; err != nil || len(ids) == 0 {
+		return err
+	}
+	return c.db.WithContext(ctx).Where("created_at < ?", cutoff).Delete(&types.LLMGatewayBudgetUsage{}).Error
 }
 
 // dailyTokenLimitBudgetID is the ID of the carried-over budget on a profile. It is fixed, so
