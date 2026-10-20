@@ -53,8 +53,8 @@ var (
 )
 
 // bifrostProviderBackend sends LLM proxy requests to the embedded Bifrost gateway. Obot
-// still authenticates the caller, checks model access, enforces message policies and
-// quotas, and records audit logs and usage; Bifrost then routes to the upstream provider
+// still authenticates the caller, checks model access, enforces budgets and guardrails,
+// and records audit logs and usage; Bifrost then routes to the upstream provider
 // with load balancing, fallbacks and routing rules.
 type bifrostProviderBackend struct {
 	engine   *llmengine.Engine
@@ -203,7 +203,7 @@ func resolveBifrostRoute(req *http.Request) (bifrostRoute, error) {
 		return bifrostRoute{base: "/", dialect: llmtypes.DialectOpenAIChatCompletions}, nil
 	default:
 		// Other request types (legacy completions, images, audio, rerank) aren't exposed until
-		// Obot can meter them against daily token limits and apply message policies.
+		// Obot can meter them against budgets and apply guardrails to them.
 		return bifrostRoute{}, types2.NewErrBadRequest("unsupported LLM gateway endpoint %q", reqPath)
 	}
 }

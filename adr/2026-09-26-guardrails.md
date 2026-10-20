@@ -27,7 +27,7 @@ Obot implements guardrails itself (`pkg/guardrails`) and applies the same guardr
   - **Streams.** The output plugin holds a stream while any guardrail policy that can change it applies. It blanks the deltas as they pass through logging, checks the complete response, then rewrites the held chunks, either redacted or ended with an error.
   - **Identity.** Obot's proxy passes the caller's identity to the plugins through a per-request token that maps to an in-process registry. It is not sent in a header anyone can forge.
 - **MCP gateway: guardrail filters.** Guardrails apply to MCP traffic as a type of MCP filter (`MCPWebhookValidation` with a `guardrail` configuration) alongside webhook, custom MCP server and built-in filters. A guardrail filter uses the same server targeting and selectors, runs in the same filter chain in the same order (by resource name), and is audited like other filters. It runs in-process: Obot creates no system MCP server, container or deployment for it, and the hook processor dispatches it to the guardrails engine instead of the hook runner. A block is a rejection in the chain and a redaction is a mutation, so later filters see the redacted message. It checks `tools/call` arguments and results, `resources/read` contents and `prompts/get` arguments and messages, and records its outcome as the filter's status in the MCP audit log, including, when the filter fails open, which guardrail failed and why. It can block or redact but not log only, since the MCP audit log has no place for findings that changed nothing. Guardrail policies apply to LLM traffic only.
-- **Message policies are folded in.** A message policy is an LLM judge guardrail used by a blocking guardrail policy. Existing policies are converted once at startup. The legacy per-provider LLM routes read judge policies from the guardrail tables. The message policy API becomes read-only.
+- **Message policies are folded in.** A message policy is an LLM judge guardrail used by a blocking guardrail policy. Existing policies are converted once at startup. The message policy API, and the legacy per-provider LLM routes that enforced message policies, are removed.
 
 ## Rationale
 
@@ -41,7 +41,7 @@ Obot implements guardrails itself (`pkg/guardrails`) and applies the same guardr
 - Guardrail policies can block or redact streamed responses only by holding them, which delays the first token until the response is complete. Log-only policies don't hold streams.
 - External checkers add latency and cost to every guarded request. Sampling, conditions and fail-open (the default) limit the impact. Their request and response formats were written from vendor documentation and tested against mocks, not live services.
 - The plugins depend on the gateway engine's plugin ordering and stream-pausing APIs, which are not a stable contract.
-- MessagePolicy resources remain but are unused. Removing them, and the message policy violation records, is follow-up work.
+- MessagePolicy resources remain, read only by the one-time conversion, and past violation records stay in their table with no API to read them. Removing both is follow-up work.
 
 ## References
 
