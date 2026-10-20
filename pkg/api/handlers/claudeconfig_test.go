@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -69,12 +70,52 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 			require.Len(t, environment.Profiles, tc.wantProfiles)
 			require.Equal(t, "1", environment.Runtime.Resources.ActorCPU)
 			require.Equal(t, "2Gi", environment.Runtime.Resources.ActorMemory)
-			gateway := newHandlerTestGateway(t)
+			gateway, db := newHandlerTestGatewayWithDB(t)
 			require.NoError(t, gateway.SaveClaudeEnvironment(t.Context(), &environment, nil))
 			stored, err := gateway.ClaudeEnvironment(t.Context(), environment.ID)
 			require.NoError(t, err)
 			require.Equal(t, environment.Runtime, stored.Runtime)
 			require.Equal(t, environment.Profiles, stored.Profiles)
+
+			// A cleaned-up key must not prevent refreshing the following session.
+			var instances []kclient.Object
+			var activeKey gt.APIKey
+			for _, name := range []string{"a-expired", "z-active"} {
+				key := gt.APIKey{
+					UserID:            123,
+					ClaudeEnvironment: true,
+					ExpiresAt:         new(time.Now().Add(time.Hour)),
+				}
+				require.NoError(t, db.Create(&key).Error)
+				require.NoError(t, gateway.SaveClaudeWorkOrder(t.Context(), gt.Credential{
+					Context: "substrate-agent",
+					Name:    name,
+					Secrets: map[string]string{"keyID": fmt.Sprint(key.ID)},
+				}))
+				instances = append(instances, &v1.AgentInstance{
+					Name:      name,
+					Namespace: "default",
+					Spec: v1.AgentInstanceSpec{
+						ClaudeEnvironment: environment.ID,
+						ClaudeAccount:     "removed-account",
+						UserID:            "123",
+					},
+				})
+				if name == "a-expired" {
+					require.NoError(t, db.Delete(&key).Error)
+				} else {
+					activeKey = key
+				}
+			}
+			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(instances...).Build()
+			require.NoError(t, refreshEnvironmentCredentials(api.Context{
+				Request:       httptest.NewRequest(http.MethodPut, "/", nil),
+				GatewayClient: gateway,
+				Storage:       storage,
+			}, &environment))
+			refreshed, err := gateway.GetAPIKeyByID(t.Context(), activeKey.ID)
+			require.NoError(t, err)
+			require.NotNil(t, refreshed.RevokedAt)
 		})
 	}
 }

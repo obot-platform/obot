@@ -169,6 +169,10 @@ func refreshEnvironmentCredentials(req api.Context, environment *gt.ClaudeEnviro
 			return err
 		}
 		key, err := req.GatewayClient.GetAPIKeyByID(req.Context(), uint(keyID))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Expired keys may already be deleted; renewal checks the current grants.
+			continue
+		}
 		if err != nil {
 			return err
 		}

@@ -75,6 +75,7 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	refreshed, err := provider.fetchSecret(ctx, input)
 	require.NoError(t, err)
 	require.NotEqual(t, first.OpaqueBytes, refreshed.OpaqueBytes)
+	require.ErrorIs(t, db.First(&gt.APIKey{}, key.ID).Error, gorm.ErrRecordNotFound)
 
 	wrong := &pb.FetchSecretRequest{Uri: input.Uri, ActorSpiffeId: "spiffe://substrate-actor.local/actor/other/" + inst.Name}
 	_, err = provider.fetchSecret(ctx, wrong)

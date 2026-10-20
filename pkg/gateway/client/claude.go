@@ -74,7 +74,8 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 				return err
 			}
 			var old types.APIKey
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND user_id = ?", id, userID).First(&old).Error; err != nil {
+			// Expiration cleanup may already have removed the previous key.
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND user_id = ?", id, userID).First(&old).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
 			}
 			if old.RevokedAt != nil {
@@ -85,8 +86,15 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 			}
 
 			oldID = old.ID
-			if err := tx.Model(&old).Update("revoked_at", now).Error; err != nil {
-				return err
+			if old.ID != 0 {
+				if old.ExpiresAt != nil && !old.ExpiresAt.After(now) {
+					err = tx.Delete(&old).Error
+				} else {
+					err = tx.Model(&old).Update("revoked_at", now).Error
+				}
+				if err != nil {
+					return err
+				}
 			}
 		}
 
