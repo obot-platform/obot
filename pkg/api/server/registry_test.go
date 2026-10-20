@@ -32,17 +32,19 @@ func TestRegistryAnonymousAccessAndOAuthChallenge(t *testing.T) {
 		baseURL:       "https://obot.example.com",
 	}
 	handler := s.Wrap(func(req api.Context) error { return req.Write(map[string]bool{"discovered": true}) })
-	for _, enabled := range []bool{false, true, false} {
-		settings.enabled = enabled
-		for _, path := range []string{"/v0.1/servers", "/v0.1/servers/example/versions", "/v0.1/servers/example/versions/latest"} {
-			response := httptest.NewRecorder()
-			handler(response, httptest.NewRequest(http.MethodGet, path, nil))
-			if enabled {
-				if response.Code != http.StatusOK || response.Header().Get("WWW-Authenticate") != "" {
-					t.Fatalf("enabled: %d, %v", response.Code, response.Header())
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		for _, enabled := range []bool{false, true, false} {
+			settings.enabled = enabled
+			for _, path := range []string{"/v0.1/servers", "/v0.1/servers/example/versions", "/v0.1/servers/example/versions/latest"} {
+				response := httptest.NewRecorder()
+				handler(response, httptest.NewRequest(method, path, nil))
+				if enabled {
+					if response.Code != http.StatusOK || response.Header().Get("WWW-Authenticate") != "" {
+						t.Fatalf("%s enabled: %d, %v", method, response.Code, response.Header())
+					}
+				} else if response.Code != http.StatusUnauthorized || !strings.Contains(response.Header().Get("WWW-Authenticate"), "oauth-protected-resource/v0.1/servers") {
+					t.Fatalf("%s disabled: %d, %v", method, response.Code, response.Header())
 				}
-			} else if response.Code != http.StatusUnauthorized || !strings.Contains(response.Header().Get("WWW-Authenticate"), "oauth-protected-resource/v0.1/servers") {
-				t.Fatalf("disabled: %d, %v", response.Code, response.Header())
 			}
 		}
 	}

@@ -12,7 +12,7 @@ import (
 // Every signed-in user may read whether Claude subscriptions are allowed, for the gateway's
 // setup instructions; only administrators may change it.
 func TestLLMGatewaySettingsAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 	tests := []struct {
 		name  string
 		role  types.Role

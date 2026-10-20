@@ -349,7 +349,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				}
 
 				// Challenge denied anonymous registry requests without reading settings again.
-				if !authenticated && isMCPRegistryRequest(req) {
+				if !authenticated && authz.IsMCPRegistryRequest(req) {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
 				}
 
@@ -512,10 +512,6 @@ func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) erro
 }
 
 // isPageLoad reports whether a browser is loading a page, rather than calling the API or fetching an asset.
-func isMCPRegistryRequest(req *http.Request) bool {
-	return req.URL.Path == "/v0.1" || strings.HasPrefix(req.URL.Path, "/v0.1/")
-}
-
 func isPageLoad(req *http.Request) bool {
 	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		return false
