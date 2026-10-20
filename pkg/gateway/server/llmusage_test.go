@@ -31,7 +31,7 @@ func newUsageTestClient(t *testing.T) *client.Client {
 		t.Fatal(err)
 	}
 	// The LLM audit log is off: token usage is recorded without it.
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	return gatewayClient
 }
