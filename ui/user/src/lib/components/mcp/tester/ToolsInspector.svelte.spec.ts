@@ -169,7 +169,7 @@ describe('ToolsInspector', () => {
 
 		await expect.element(page.getByLabelText('replacement')).toBeVisible();
 		await expect.element(page.getByLabelText('value')).not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await expect.element(page.getByLabelText('Arguments JSON')).toHaveValue('{}');
 	});
 

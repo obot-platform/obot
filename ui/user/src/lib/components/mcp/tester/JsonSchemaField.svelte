@@ -4,6 +4,7 @@
 	import { defaultJSONSchemaValue, resolveUnionSchema, type JSONSchema } from './json-schema';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		schema: JSONSchema;
@@ -126,6 +127,21 @@
 
 {#if union}
 	<div class="space-y-2">
+		<div
+			class={twMerge('w-full', disabled || (union.nullable && value === null) ? 'opacity-50' : '')}
+		>
+			<JsonSchemaField
+				schema={union.schema}
+				{value}
+				{label}
+				{path}
+				{required}
+				disabled={disabled || (union.nullable && value === null)}
+				describedBy={[describedBy, alternativesId].filter(Boolean).join(' ') || undefined}
+				{onchange}
+				{onparseerrorchange}
+			/>
+		</div>
 		{#if union.nullable}
 			<label class="flex items-center gap-2 text-sm">
 				<input
@@ -139,17 +155,6 @@
 				{m.mcps_tester_use_null_for({ label })}
 			</label>
 		{/if}
-		<JsonSchemaField
-			schema={union.schema}
-			{value}
-			{label}
-			{path}
-			{required}
-			disabled={disabled || (union.nullable && value === null)}
-			describedBy={[describedBy, alternativesId].filter(Boolean).join(' ') || undefined}
-			{onchange}
-			{onparseerrorchange}
-		/>
 		{#if alternativesId}
 			<p id={alternativesId} class="text-xs text-muted-content">
 				{m.mcps_tester_union_also_accepts({
@@ -188,11 +193,11 @@
 			class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4"
 			aria-describedby={describedBy}
 		>
-			<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
+			<legend class="px-1 text-sm font-medium mb-0">{label}{required ? ' *' : ''}</legend>
 			{#if schema.description}
 				<p class="text-xs text-muted-content">{schema.description}</p>
 			{/if}
-			{#each Object.entries(schema.properties ?? {}) as [name, property] (name)}
+			{#each Object.entries(schema.properties ?? {}) as [name, property], index (name)}
 				<JsonSchemaField
 					schema={property}
 					value={objectValue()[name]}
@@ -203,6 +208,9 @@
 					onchange={(next) => updateProperty(name, next)}
 					{onparseerrorchange}
 				/>
+				{#if index < Object.entries(schema.properties ?? {}).length - 1}
+					<div class="divider"></div>
+				{/if}
 			{/each}
 		</fieldset>
 	{/if}
@@ -211,7 +219,7 @@
 		class="border-base-300 dark:border-base-400 space-y-3 rounded-lg border p-4"
 		aria-describedby={describedBy}
 	>
-		<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
+		<legend class="px-1 text-sm font-medium mb-0">{label}{required ? ' *' : ''}</legend>
 		{#if schema.description}
 			<p class="text-xs text-muted-content">{schema.description}</p>
 		{/if}
@@ -252,6 +260,24 @@
 			{m.mcps_tester_add_item()}
 		</button>
 	</fieldset>
+{:else if type === 'boolean' && !schema.enum}
+	<label for={id} class="flex items-start gap-4 justify-between">
+		<div class="space-y-1">
+			<span class="block text-sm font-medium">{label}{required ? ' *' : ''}</span>
+			{#if schema.description}
+				<p id={`${id}-description`} class="text-xs text-muted-content">{schema.description}</p>
+			{/if}
+		</div>
+		<input
+			{id}
+			type="checkbox"
+			class="toggle"
+			checked={value === true}
+			aria-describedby={controlDescribedBy}
+			{disabled}
+			onchange={(event) => onchange(event.currentTarget.checked)}
+		/>
+	</label>
 {:else}
 	<div class="space-y-1">
 		<label for={id} class="block text-sm font-medium">{label}{required ? ' *' : ''}</label>
@@ -275,16 +301,6 @@
 					>
 				{/each}
 			</select>
-		{:else if type === 'boolean'}
-			<input
-				{id}
-				type="checkbox"
-				class="toggle"
-				checked={value === true}
-				aria-describedby={controlDescribedBy}
-				{disabled}
-				onchange={(event) => onchange(event.currentTarget.checked)}
-			/>
 		{:else if type === 'number' || type === 'integer'}
 			<input
 				{id}

@@ -43,7 +43,7 @@
 </script>
 
 <section
-	class="flex flex-col gap-3 p-1 md:min-h-0"
+	class="flex flex-col gap-3 md:min-h-0"
 	aria-label={m.mcps_tester_capability_list({ label })}
 >
 	<div class="flex shrink-0 flex-wrap gap-2">

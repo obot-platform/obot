@@ -77,12 +77,12 @@ describe('generic object arguments', () => {
 		});
 		await page.getByLabelText('arguments', { exact: true }).fill('{');
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
-		await page.getByRole('button', { name: 'Raw JSON', exact: true }).click();
+		await page.getByRole('tab', { name: 'Raw JSON', exact: true }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"arguments":"valid string"}');
 		await vi.waitFor(() =>
 			expect(onvalidchange).toHaveBeenLastCalledWith({ arguments: 'valid string' })
 		);
-		await page.getByRole('button', { name: 'Generated form', exact: true }).click();
+		await page.getByRole('tab', { name: 'Generated form', exact: true }).click();
 		await expect
 			.element(page.getByLabelText('arguments', { exact: true }))
 			.toHaveValue('valid string');

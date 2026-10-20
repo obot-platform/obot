@@ -105,7 +105,7 @@
 				aria-label={m.mcps_tester_tool_details()}
 			>
 				{#if selected}
-					<div class="space-y-5">
+					<div class="space-y-5 pl-0.5">
 						<div>
 							<h3 class="text-lg font-semibold break-all">{selected.title || selected.name}</h3>
 							{#if selected.title}<p class="text-xs text-muted-content break-all">

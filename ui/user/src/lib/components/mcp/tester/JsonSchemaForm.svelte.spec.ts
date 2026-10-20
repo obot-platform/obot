@@ -41,7 +41,7 @@ describe('JsonSchemaForm', () => {
 			onvalidchange
 		});
 
-		await expect.element(page.getByRole('button', { name: 'Generated form' })).toBeVisible();
+		await expect.element(page.getByRole('tab', { name: 'Generated form' })).toBeVisible();
 		await expect.element(page.getByLabelText('Max Length')).toHaveValue(8000);
 		await expect.element(page.getByLabelText('Start Index')).toHaveValue(0);
 		const backend = page.getByLabelText('Backend', { exact: true });
@@ -66,7 +66,7 @@ describe('JsonSchemaForm', () => {
 			expect(onvalidchange).toHaveBeenLastCalledWith({ ...defaults, backend: null })
 		);
 
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		const raw = page.getByLabelText('Arguments JSON');
 		expect(JSON.parse((raw.element() as HTMLTextAreaElement).value)).toEqual({
 			...defaults,
@@ -75,7 +75,7 @@ describe('JsonSchemaForm', () => {
 		await raw.fill(JSON.stringify({ ...defaults, backend: 42 }));
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
 		await raw.fill(JSON.stringify({ ...defaults, backend: 'requests' }));
-		await page.getByRole('button', { name: 'Generated form' }).click();
+		await page.getByRole('tab', { name: 'Generated form' }).click();
 		await expect.element(useNull).not.toBeChecked();
 		await expect.element(backend).toHaveValue('requests');
 	});
@@ -128,17 +128,17 @@ describe('JsonSchemaForm', () => {
 			},
 			onvalidchange
 		});
-		await expect.element(page.getByRole('button', { name: 'Generated form' })).toBeVisible();
+		await expect.element(page.getByRole('tab', { name: 'Generated form' })).toBeVisible();
 		await expect
 			.element(page.getByText('Also accepts integer, which can be entered in Raw JSON.'))
 			.toBeVisible();
 		await page.getByLabelText('value *').fill('abc');
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: 'abc' }));
 
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"value":7}');
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: 7 }));
-		await page.getByRole('button', { name: 'Generated form' }).click();
+		await page.getByRole('tab', { name: 'Generated form' }).click();
 		await expect.element(page.getByLabelText('value *')).toHaveValue(7);
 		await expect
 			.element(page.getByText('Also accepts string, which can be entered in Raw JSON.'))
@@ -157,9 +157,9 @@ describe('JsonSchemaForm', () => {
 			},
 			onvalidchange
 		});
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"value":7}');
-		await page.getByRole('button', { name: 'Generated form' }).click();
+		await page.getByRole('tab', { name: 'Generated form' }).click();
 
 		const value = page.getByLabelText('value', { exact: true });
 		await expect.element(value).toHaveValue(7);
@@ -202,8 +202,8 @@ describe('JsonSchemaForm', () => {
 			},
 			onvalidchange
 		});
-		const generated = page.getByRole('button', { name: 'Generated form' });
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		const generated = page.getByRole('tab', { name: 'Generated form' });
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"value":{"nested":1}}');
 		await vi.waitFor(() =>
 			expect(onvalidchange).toHaveBeenLastCalledWith({ value: { nested: 1 } })
@@ -238,10 +238,10 @@ describe('JsonSchemaForm', () => {
 			},
 			onvalidchange
 		});
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"value":{"b":"x"}}');
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ value: { b: 'x' } }));
-		await page.getByRole('button', { name: 'Generated form' }).click();
+		await page.getByRole('tab', { name: 'Generated form' }).click();
 		await expect.element(page.getByLabelText('b *')).toHaveValue('x');
 		await expect.element(page.getByLabelText('a *')).not.toBeInTheDocument();
 	});
@@ -260,9 +260,9 @@ describe('JsonSchemaForm', () => {
 			},
 			onvalidchange
 		});
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"mode":true}');
-		await page.getByRole('button', { name: 'Generated form' }).click();
+		await page.getByRole('tab', { name: 'Generated form' }).click();
 		const useNull = page.getByRole('checkbox', { name: 'Use null for mode' });
 		await useNull.click();
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ mode: null }));
@@ -314,7 +314,7 @@ describe('JsonSchemaForm', () => {
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
 		await page.getByLabelText('name *').fill('abc');
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'abc' }));
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await page.getByLabelText('Arguments JSON').fill('{"name":"x"}');
 		await expect.element(page.getByText('name must contain at least 3 characters')).toBeVisible();
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
@@ -337,7 +337,7 @@ describe('JsonSchemaForm', () => {
 				onvalidchange
 			});
 			await expect
-				.element(page.getByRole('button', { name: 'Generated form' }))
+				.element(page.getByRole('tab', { name: 'Generated form' }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByLabelText('Arguments JSON')).toBeVisible();
 			await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: null }));
@@ -364,9 +364,7 @@ describe('JsonSchemaForm', () => {
 			},
 			onvalidchange
 		});
-		await expect
-			.element(page.getByRole('button', { name: 'Generated form' }))
-			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('tab', { name: 'Generated form' })).not.toBeInTheDocument();
 		const raw = page.getByLabelText('Arguments JSON');
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ settings: null }));
 		await raw.fill('{"settings":{"second":"two"}}');
@@ -393,7 +391,7 @@ describe('JsonSchemaForm', () => {
 				onvalidchange
 			});
 			await expect
-				.element(page.getByRole('button', { name: 'Generated form' }))
+				.element(page.getByRole('tab', { name: 'Generated form' }))
 				.not.toBeInTheDocument();
 			await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'allowed' }));
 			await page.getByLabelText('Arguments JSON').fill('{"name":null}');
@@ -449,7 +447,7 @@ describe('JsonSchemaForm', () => {
 	it('validates raw JSON syntax and schema constraints', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, { schema, onvalidchange });
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 
 		const raw = page.getByLabelText('Arguments JSON');
 		await raw.fill('{');
@@ -470,7 +468,7 @@ describe('JsonSchemaForm', () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, { schema, onvalidchange });
 
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		const raw = page.getByLabelText('Arguments JSON');
 		await raw.fill('{"name":"valid","count":1}');
 		await vi.waitFor(() =>
@@ -481,7 +479,7 @@ describe('JsonSchemaForm', () => {
 		await expect.element(page.getByText(/Invalid JSON:/)).toBeVisible();
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
 
-		await page.getByRole('button', { name: 'Generated form' }).click();
+		await page.getByRole('tab', { name: 'Generated form' }).click();
 		await expect.element(page.getByText(/Invalid JSON:/)).not.toBeInTheDocument();
 		await vi.waitFor(() =>
 			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
