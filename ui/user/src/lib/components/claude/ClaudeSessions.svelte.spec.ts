@@ -1,3 +1,4 @@
+import { goto, replaceState } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { Group, UserService, type ClaudeSession, type OrgUser } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
@@ -11,6 +12,7 @@ vi.mock('$app/navigation', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$app/navigation')>();
 	return {
 		...actual,
+		goto: vi.fn(),
 		replaceState: vi.fn()
 	};
 });
@@ -92,6 +94,39 @@ it('keeps repository and slack details on the session card', async () => {
 	await expect
 		.element(page.getByRole('link', { name: 'Open Slack thread' }))
 		.toHaveAttribute('href', 'https://acorn-io.slack.com/archives/C123/p123?thread_ts=1.23');
+});
+
+it('replaces the search url without navigating and keeps focus when searching and clearing', async () => {
+	appPage.url.searchParams.set('status', 'suspended');
+	await renderComparableSessions();
+	const search = page.getByRole('textbox');
+	vi.mocked(goto).mockClear();
+	vi.mocked(replaceState).mockClear();
+
+	await search.fill('Alpha, agent');
+	await vi.waitFor(() => {
+		expect(appPage.url.searchParams.get('query')).toBe('Alpha, agent');
+		expect(replaceState).toHaveBeenCalled();
+	});
+	const [url] = vi.mocked(replaceState).mock.lastCall!;
+	expect(String(url)).toContain('query=Alpha%2C+agent');
+	expect(appPage.url.searchParams.get('status')).toBe('suspended');
+	expect(goto).not.toHaveBeenCalled();
+	await expect.element(search).toHaveFocus();
+	await expect.element(page.getByText('Alpha agent', { exact: true })).not.toBeInTheDocument();
+
+	vi.mocked(replaceState).mockClear();
+	await search.fill('');
+	await vi.waitFor(() => {
+		expect(appPage.url.searchParams.has('query')).toBe(false);
+		expect(replaceState).toHaveBeenCalled();
+	});
+	const [clearedUrl] = vi.mocked(replaceState).mock.lastCall!;
+	expect(String(clearedUrl)).not.toContain('query=');
+	expect(appPage.url.searchParams.get('status')).toBe('suspended');
+	expect(goto).not.toHaveBeenCalled();
+	await expect.element(search).toHaveFocus();
+	await expect.element(page.getByText('Alpha agent', { exact: true })).toBeVisible();
 });
 
 it('shows truncated repository and slack text with links and delete in the row menu', async () => {

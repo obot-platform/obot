@@ -17,7 +17,7 @@
 	import { UserService, type ClaudeSession, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { setFilterUrlParams, setSortUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { setFilterUrlParams, setSortUrlParams } from '$lib/url';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Bot, CircleAlert, Ellipsis, ExternalLink, Pause, Trash2 } from '@lucide/svelte';
@@ -126,7 +126,7 @@
 				break;
 			case 'query':
 				filters.query = values[0] || '';
-				setUrlParamAndUpdateUrl(page.url, 'query', values[0] || null);
+				setFilterUrlParams('query', filters.query ? [filters.query] : []);
 				break;
 			case 'statusFilterBy':
 				filters.statusFilterBy = values.join(',');
