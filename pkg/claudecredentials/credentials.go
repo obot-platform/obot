@@ -68,7 +68,8 @@ func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSec
 func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {
 	name, ok := strings.CutPrefix(input.GetUri(), "ate-secret://obot/claude/")
 	name, secretID, hasSecret := strings.Cut(name, "/")
-	if !ok || (hasSecret && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
+	llm := hasSecret && secretID == "llm"
+	if !ok || (hasSecret && !llm && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
 		return nil, status.Error(codes.PermissionDenied, "Invalid credential reference")
 	}
 
@@ -92,6 +93,20 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 	if err != nil {
 		return nil, err
 	}
+	userID, err := strconv.ParseUint(inst.Spec.UserID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	if llm {
+		credential, err := p.Gateway.EnsureClaudeLLMCredential(ctx, uint(userID), inst.Name, time.Now().Add(5*time.Minute))
+		if errors.Is(err, client.ErrClaudeCredentialRevoked) {
+			return nil, status.Error(codes.PermissionDenied, "Claude session credential has been revoked")
+		}
+		if err != nil {
+			return nil, err
+		}
+		return &pb.FetchSecretResponse{OpaqueBytes: []byte(credential.Secrets["key"])}, nil
+	}
 	if hasSecret {
 		for _, secret := range environment.EgressSecrets {
 			if secret.ID == secretID && clauderunner.EgressHostAllowed(environment.Runtime, secret.Hostname) {
@@ -102,10 +117,6 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 	}
 	if len(environment.MCPServerIDs) == 0 {
 		return nil, status.Error(codes.PermissionDenied, "No MCP access granted")
-	}
-	userID, err := strconv.ParseUint(inst.Spec.UserID, 10, 64)
-	if err != nil {
-		return nil, err
 	}
 
 	credential, err := p.Gateway.EnsureClaudeCredential(ctx, uint(userID), inst.Name, environment.MCPServerIDs, time.Now().Add(5*time.Minute))

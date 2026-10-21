@@ -115,7 +115,7 @@ func (c *Client) deleteUnreferencedAPIKeys(ctx context.Context, condition string
 
 		if referenced == nil {
 			var credentials []types.Credential
-			if err := c.db.WithContext(ctx).Where("context = ?", "substrate-agent").Find(&credentials).Error; err != nil {
+			if err := c.db.WithContext(ctx).Where("context IN ?", []string{"substrate-agent", ClaudeLLMCredentialContext}).Find(&credentials).Error; err != nil {
 				return err
 			}
 			referenced = make(map[uint]bool, len(credentials))

@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"net"
 	"net/url"
@@ -177,6 +178,49 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	cert.URIs[0], _ = url.Parse("spiffe://cluster.local/ns/ate-system/sa/other")
 	_, err = provider.FetchSecret(ctx, input)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
+}
+
+func TestClaudeLLMEgressCredential(t *testing.T) {
+	gateway, _ := newCredentialTestGateway(t)
+
+	ctx := t.Context()
+	env := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, env))
+	// The LLM key does not depend on MCP grants.
+	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}}}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}
+	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
+	provider := &CredentialProvider{Gateway: gateway, Storage: storage}
+	ref := substrate.Ref(inst)
+	actor := "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name
+	input := &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name + "/llm", ActorSpiffeId: actor}
+
+	_, err := provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: actor})
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "no MCP key without MCP grants")
+
+	started := time.Now()
+	first, err := provider.fetchSecret(ctx, input)
+	finished := time.Now()
+	require.NoError(t, err)
+	key, err := gateway.ValidateAPIKey(ctx, string(first.OpaqueBytes))
+	require.NoError(t, err)
+	require.Equal(t, gt.APIKeyScopes{CanAccessLLMProxy: true}, key.APIKeyScopes)
+	require.Equal(t, env.ClaudeTagUserID, fmt.Sprint(key.UserID))
+	require.True(t, key.ClaudeEnvironment)
+	require.WithinRange(t, *key.ExpiresAt, started.Add(5*time.Minute), finished.Add(5*time.Minute))
+
+	for _, uri := range []string{input.Uri + "/extra", input.Uri + "x", "ate-secret://obot/claude/" + inst.Name + "/LLM"} {
+		_, err = provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: uri, ActorSpiffeId: actor})
+		require.Equal(t, codes.PermissionDenied, status.Code(err), uri)
+	}
+
+	env.ClaudeTagEnabled = false
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	_, err = provider.fetchSecret(ctx, input)
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "removing environment access removes LLM access")
 }
 
 func TestEgressPeerRequiresVerifiedCurrentCertificate(t *testing.T) {

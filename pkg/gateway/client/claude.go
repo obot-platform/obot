@@ -13,6 +13,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const (
+	// ClaudeLLMCredentialContext stores each session's LLM proxy key apart from its MCP key,
+	// so MCP grant changes never revoke LLM access.
+	ClaudeLLMCredentialContext = "substrate-agent-llm"
+)
+
 var (
 	ErrClaudeCredentialRevoked = errors.New("the Claude session API key has been revoked")
 )
@@ -52,16 +58,27 @@ func (c *Client) SaveClaudeWorkOrder(ctx context.Context, credential types.Crede
 // EnsureClaudeCredential reuses a valid key or atomically replaces an expired key.
 // The caller must verify the session and account under WithClaudeProvisionLock.
 func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name string, servers []string, expires time.Time) (types.Credential, error) {
+	if len(servers) == 0 {
+		return types.Credential{}, fmt.Errorf("an unexpired session and explicit MCP scopes are required")
+	}
+	return c.ensureClaudeCredential(ctx, "substrate-agent", userID, name, "Claude session "+name, types.APIKeyScopes{MCPServerIDs: servers}, expires)
+}
+
+// EnsureClaudeLLMCredential is EnsureClaudeCredential for the session's LLM proxy key.
+func (c *Client) EnsureClaudeLLMCredential(ctx context.Context, userID uint, name string, expires time.Time) (types.Credential, error) {
+	return c.ensureClaudeCredential(ctx, ClaudeLLMCredentialContext, userID, name, "Claude session LLM "+name, types.APIKeyScopes{CanAccessLLMProxy: true}, expires)
+}
+
+func (c *Client) ensureClaudeCredential(ctx context.Context, credentialContext string, userID uint, name, keyName string, scopes types.APIKeyScopes, expires time.Time) (types.Credential, error) {
 	var credential types.Credential
 	var oldID uint
 	now := time.Now()
-	if !expires.After(now) || len(servers) == 0 {
-		return credential, fmt.Errorf("an unexpired session and explicit MCP scopes are required")
+	if !expires.After(now) || !scopes.HasSomeScope() {
+		return credential, fmt.Errorf("an unexpired session and explicit scopes are required")
 	}
-	scopes := types.APIKeyScopes{MCPServerIDs: servers}
 
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		err := tx.Where("context = ? AND name = ?", "substrate-agent", name).First(&credential).Error
+		err := tx.Where("context = ? AND name = ?", credentialContext, name).First(&credential).Error
 		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
@@ -100,7 +117,7 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 
 		key, err := c.createAPIKey(tx, types.APIKey{
 			UserID:            userID,
-			Name:              "Claude session " + name,
+			Name:              keyName,
 			Description:       "Self-hosted Claude session",
 			ExpiresAt:         &expires,
 			APIKeyScopes:      scopes,
@@ -110,7 +127,7 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 			return err
 		}
 
-		credential = types.Credential{Context: "substrate-agent", Name: name, Secrets: map[string]string{"key": key.Key, "keyID": fmt.Sprint(key.ID)}}
+		credential = types.Credential{Context: credentialContext, Name: name, Secrets: map[string]string{"key": key.Key, "keyID": fmt.Sprint(key.ID)}}
 		stored := credential
 		if err := c.encryptCredential(ctx, &stored); err != nil {
 			return err
@@ -124,4 +141,30 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 		c.invalidateValidatedAPIKeysByID(oldID)
 	}
 	return credential, err
+}
+
+// RevokeClaudeCredentials revokes a session's MCP and LLM keys. The revoked keys stay
+// referenced as revocation markers, so neither can be reissued for the session.
+func (c *Client) RevokeClaudeCredentials(ctx context.Context, name string) error {
+	for _, credentialContext := range []string{"substrate-agent", ClaudeLLMCredentialContext} {
+		if err := c.RevokeClaudeCredential(ctx, credentialContext, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *Client) RevokeClaudeCredential(ctx context.Context, credentialContext, name string) error {
+	credential, err := c.RevealCredential(ctx, []string{credentialContext}, name)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	id, err := strconv.ParseUint(credential.Secrets["keyID"], 10, 64)
+	if err != nil {
+		return err
+	}
+	return c.RevokeAPIKeyByID(ctx, uint(id))
 }

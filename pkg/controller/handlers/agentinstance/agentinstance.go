@@ -3,9 +3,7 @@ package agentinstance
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,7 +17,6 @@ import (
 	pb "github.com/obot-platform/obot/pkg/substrate/ateapipb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -190,19 +187,7 @@ func (h *Handler) Cleanup(req router.Request, resp router.Response) error {
 	defer cancel()
 
 	revoke := func() error {
-		credential, err := h.Gateway.RevealCredential(ctx, []string{"substrate-agent"}, instance.Name)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-
-		keyID, err := strconv.ParseUint(credential.Secrets["keyID"], 10, 64)
-		if err != nil {
-			return err
-		}
-		return h.Gateway.RevokeAPIKeyByID(ctx, uint(keyID))
+		return h.Gateway.RevokeClaudeCredentials(ctx, instance.Name)
 	}
 	var err error
 	if instance.Spec.ClaudeOrder != "" {
@@ -223,6 +208,9 @@ func (h *Handler) Cleanup(req router.Request, resp router.Response) error {
 		}
 	}
 	_, err = h.Gateway.DeleteCredential(ctx, "substrate-agent", instance.Name)
+	if err == nil {
+		_, err = h.Gateway.DeleteCredential(ctx, client.ClaudeLLMCredentialContext, instance.Name)
+	}
 	if err == nil && instance.Spec.ClaudeOrder != "" {
 		_, err = h.Gateway.DeleteCredential(ctx, "claude-runner", instance.Name)
 	}
