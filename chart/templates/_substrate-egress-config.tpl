@@ -821,6 +821,12 @@ data:
         #
         # Spelled through typed_extension_protocol_options because the
         # cluster-level upstream_http_protocol_options field is deprecated.
+        #
+        # max_session_keys: 0 on this and the other upstream TLS clusters: a
+        # cluster keeps one client session cache for every host it dials, and
+        # Envoy offers the cached session whatever the SNI. Origins that share
+        # ticket keys (several Cloudflare zones) resume it and hand back the
+        # first host's certificate, which auto_san_validation then rejects.
         typed_extension_protocol_options:
           envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
             "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
@@ -833,6 +839,7 @@ data:
           name: envoy.transport_sockets.tls
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            max_session_keys: 0
             common_tls_context:
               validation_context:
                 trusted_ca:
@@ -861,6 +868,7 @@ data:
           name: envoy.transport_sockets.tls
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            max_session_keys: 0
             common_tls_context:
               validation_context:
                 trusted_ca:
@@ -882,6 +890,7 @@ data:
           name: envoy.transport_sockets.tls
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            max_session_keys: 0
             common_tls_context:
               validation_context:
                 trusted_ca:
@@ -904,6 +913,7 @@ data:
           name: envoy.transport_sockets.tls
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            max_session_keys: 0
             common_tls_context:
               validation_context:
                 trusted_ca:
