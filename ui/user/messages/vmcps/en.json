@@ -117,7 +117,6 @@
 	"vmcps_deployments_search_deployments": "Search deployments...",
 	"vmcps_deployments_tab_tooltip": "Deployments are running instances of vMCPs created from connection by a user via Inspector or external AI client. View and manage them here.",
 	"vmcps_deployments_this_vmcp": "this vMCP",
-	"vmcps_deployments_view_audit_logs": "View Audit Logs",
 	"vmcps_description_required": "Description is required",
 	"vmcps_deselect_all": "Deselect All",
 	"vmcps_designer": "Designer",

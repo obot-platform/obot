@@ -117,7 +117,6 @@
 	"vmcps_deployments_search_deployments": "デプロイを検索...",
 	"vmcps_deployments_tab_tooltip": "デプロイは、ユーザーがインスペクターまたは外部 AI クライアントから接続したときに作成される、実行中の vMCP インスタンスです。ここで表示・管理できます。",
 	"vmcps_deployments_this_vmcp": "この vMCP",
-	"vmcps_deployments_view_audit_logs": "監査ログを表示",
 	"vmcps_description_required": "説明は必須です",
 	"vmcps_deselect_all": "すべて選択解除",
 	"vmcps_designer": "デザイナー",

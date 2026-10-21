@@ -261,7 +261,7 @@
 									class="menu-button text-left"
 								>
 									<Captions class="size-4" />
-									{m.vmcps_deployments_view_audit_logs()}
+									{m.core_view_audit_logs()}
 								</button>
 								{#if canEditInstanceConfiguration(d) && d.vmcp}
 									<button

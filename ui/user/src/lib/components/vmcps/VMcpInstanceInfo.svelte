@@ -170,7 +170,7 @@
 						href={resolve(vmcpInstanceAuditLogsPath(vmcp.id, d.id) as `/${string}`)}
 						class="btn btn-link"
 					>
-						{m.vmcps_deployments_view_audit_logs()}
+						{m.core_view_audit_logs()}
 					</a>
 				{/if}
 			{/snippet}

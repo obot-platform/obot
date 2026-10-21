@@ -117,7 +117,6 @@
 	"vmcps_deployments_search_deployments": "배포 검색...",
 	"vmcps_deployments_tab_tooltip": "배포는 사용자가 Inspector 또는 외부 AI 클라이언트를 통해 연결할 때 생성되는 실행 중인 vMCP 인스턴스입니다. 여기에서 보고 관리하세요.",
 	"vmcps_deployments_this_vmcp": "이 vMCP",
-	"vmcps_deployments_view_audit_logs": "감사 로그 보기",
 	"vmcps_description_required": "설명은 필수입니다",
 	"vmcps_deselect_all": "모두 선택 해제",
 	"vmcps_designer": "디자이너",

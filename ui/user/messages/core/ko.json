@@ -243,6 +243,7 @@
 	"core_upload_icon": "아이콘 업로드",
 	"core_user_disabled_label": "{name} (비활성화됨)",
 	"core_users_and_groups": "사용자 및 그룹",
+	"core_view_audit_logs": "감사 로그 보기",
 	"core_workspace_not_found": "작업 공간을 찾을 수 없습니다.",
 	"core_write": "작성"
 }

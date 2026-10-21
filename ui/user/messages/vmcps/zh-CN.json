@@ -117,7 +117,6 @@
 	"vmcps_deployments_search_deployments": "搜索部署...",
 	"vmcps_deployments_tab_tooltip": "部署是用户通过检查器或外部 AI 客户端连接时创建的正在运行的 vMCP 实例。可在此处查看和管理它们。",
 	"vmcps_deployments_this_vmcp": "此 vMCP",
-	"vmcps_deployments_view_audit_logs": "查看审计日志",
 	"vmcps_description_required": "描述为必填项",
 	"vmcps_deselect_all": "取消全选",
 	"vmcps_designer": "设计器",

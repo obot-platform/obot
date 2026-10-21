@@ -199,7 +199,7 @@
 			toggle(false);
 		}}
 	>
-		{m.vmcps_deployments_view_audit_logs()}
+		{m.core_view_audit_logs()}
 		<ExternalLink class="size-4" />
 	</a>
 	<a

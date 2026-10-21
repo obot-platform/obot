@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -467,12 +468,42 @@
 							class="flex min-w-0 flex-col relative group h-full text-base-content border-base-300 dark:border-base-300 bg-base-100 dark:bg-base-200 group @container gap-3 rounded-lg border p-4 shadow-xs"
 						>
 							<div class="flex justify-between items-center gap-4 flex-wrap">
-								<h2 class="flex items-center gap-2 text-sm font-semibold">
-									<Bot class="size-5 shrink-0 text-primary" />{session.spec.displayName}
-								</h2>
-								<p class="badge badge-soft badge-sm badge-primary" role="status">
-									{statusLabel(session)}
-								</p>
+								<div class="flex flex-wrap items-center gap-2">
+									<h2 class="flex items-center gap-2 text-sm font-semibold">
+										<Bot class="size-5 shrink-0 text-primary" />{session.spec.displayName}
+									</h2>
+									<p class="badge badge-soft badge-xs badge-primary" role="status">
+										{statusLabel(session)}
+									</p>
+								</div>
+								<DotDotDot
+									class="hover:dark:bg-base-100/50"
+									classes={{ menu: 'min-w-48' }}
+									ariaLabel={m.hosted_agents_sessions_actions_for_named({
+										name: session.spec.displayName
+									})}
+								>
+									{#snippet children({ toggle })}
+										{#if profile.current.hasAdminAccess?.()}
+											{@render auditLogMenuAction(session, toggle)}
+										{/if}
+										{#if canOpenClaude(session)}
+											<a
+												class="menu-button justify-between"
+												href={claudeUrl(session)}
+												target="_blank"
+												rel="external noopener noreferrer"
+												onclick={(e) => {
+													e.stopPropagation();
+													toggle(false);
+												}}
+											>
+												{m.hosted_agents_sessions_open()}
+												<ExternalLink class="size-4" />
+											</a>
+										{/if}
+									{/snippet}
+								</DotDotDot>
 							</div>
 							{#if all}
 								<dl class="break-all space-y-2 text-xs">
@@ -581,28 +612,6 @@
 								</p>
 							{/if}
 							<div class="flex grow"></div>
-							{#if session.spec.userID === profile.current.id || (profile.current.isAdmin?.() && session.status.state === 'RUNNING' && !session.spec.suspended)}
-								<div class="flex flex-wrap items-center gap-4">
-									{#if session.spec.userID === profile.current.id}
-										<a
-											class="btn btn-ghost btn-sm self-start"
-											href={`https://claude.ai/code/${encodeURIComponent(session.spec.claudeSession)}`}
-											target="_blank"
-											rel="noreferrer"
-											>{m.hosted_agents_sessions_open()} <ExternalLink class="size-4" /></a
-										>
-									{/if}
-									{#if profile.current.isAdmin?.() && session.status.state === 'RUNNING' && !session.spec.suspended}
-										<button
-											class="btn btn-ghost btn-sm"
-											disabled={!!deleting || !!suspending || !!session.metadata.deletionTimestamp}
-											onclick={() => (pendingSuspend = session)}
-										>
-											<Pause class="size-4" />{m.hosted_agents_sessions_suspend()}
-										</button>
-									{/if}
-								</div>
-							{/if}
 							<div class="flex flex-wrap items-baseline justify-between gap-4">
 								<dl class="flex items-center gap-1 flex-wrap text-xs text-muted-content font-light">
 									<dt>{m.hosted_agents_sessions_last_used()}:</dt>
@@ -618,18 +627,31 @@
 										{/if}
 									</dd>
 								</dl>
-								<IconButton
-									disabled={!!deleting || !!suspending || !!session.metadata.deletionTimestamp}
-									onclick={() => (pendingDelete = session)}
-									class="btn-sm text-error hover:text-error-content hover:bg-error"
-									tooltip={{ text: m.hosted_agents_sessions_delete() }}
-								>
-									{#if deleting === session.metadata.name}
-										<Loading class="size-4" />
-									{:else}
-										<Trash2 class="size-4" />
+
+								<div class="flex items-center gap-2">
+									{#if profile.current.isAdmin?.() && session.status.state === 'RUNNING' && !session.spec.suspended}
+										<IconButton
+											disabled={!!deleting || !!suspending || !!session.metadata.deletionTimestamp}
+											onclick={() => (pendingSuspend = session)}
+											class="btn-sm"
+											tooltip={{ text: m.hosted_agents_sessions_suspend() }}
+										>
+											<Pause class="size-4" />
+										</IconButton>
 									{/if}
-								</IconButton>
+									<IconButton
+										disabled={!!deleting || !!suspending || !!session.metadata.deletionTimestamp}
+										onclick={() => (pendingDelete = session)}
+										class="btn-sm text-error hover:text-error-content hover:bg-error"
+										tooltip={{ text: m.hosted_agents_sessions_delete() }}
+									>
+										{#if deleting === session.metadata.name}
+											<Loading class="size-4" />
+										{:else}
+											<Trash2 class="size-4" />
+										{/if}
+									</IconButton>
+								</div>
 							</div>
 						</li>
 					{/each}
@@ -763,9 +785,12 @@
 						<Ellipsis class="size-4" />
 					{/snippet}
 					{#snippet children({ toggle })}
+						{#if profile.current.hasAdminAccess?.()}
+							{@render auditLogMenuAction(session, toggle)}
+						{/if}
 						{#if canOpenClaude(session)}
 							<a
-								class="menu-button"
+								class="menu-button justify-between"
 								href={claudeUrl(session)}
 								target="_blank"
 								rel="external noopener noreferrer"
@@ -774,13 +799,13 @@
 									toggle(false);
 								}}
 							>
-								<ExternalLink class="size-4" />
 								{m.hosted_agents_sessions_open()}
+								<ExternalLink class="size-4" />
 							</a>
 						{/if}
 						{#if slackLink}
 							<a
-								class="menu-button"
+								class="menu-button justify-between"
 								href={slackLink}
 								target="_blank"
 								rel="external noopener noreferrer"
@@ -789,8 +814,8 @@
 									toggle(false);
 								}}
 							>
-								<ExternalLink class="size-4" />
 								{m.hosted_agents_slack_thread()}
+								<ExternalLink class="size-4" />
 							</a>
 						{/if}
 						{#if canSuspend(session)}
@@ -828,4 +853,19 @@
 			{/snippet}
 		</Table>
 	</div>
+{/snippet}
+
+{#snippet auditLogMenuAction(session: ClaudeSession, toggle: (value: boolean) => void)}
+	<a
+		class="menu-button justify-between"
+		href={resolve(`/audit-logs?view=egress&claude_session=${session.spec.claudeSession}`)}
+		target="_blank"
+		onclick={(e) => {
+			e.stopPropagation();
+			toggle(false);
+		}}
+	>
+		{m.core_view_audit_logs()}
+		<ExternalLink class="size-4" />
+	</a>
 {/snippet}
