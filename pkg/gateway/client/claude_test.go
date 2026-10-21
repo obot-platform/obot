@@ -136,3 +136,36 @@ func TestClaudeProvisionLockWaiterGivesUpWithItsRequest(t *testing.T) {
 	require.NoError(t, <-done)
 	require.NoError(t, c.WithClaudeProvisionLock(t.Context(), func() error { return nil }), "the lock is free again")
 }
+
+// A rotation that lands between reading a session's credential and reading its key revokes
+// the key the lookup found. The lookup must not report that as the session's revocation.
+func TestCurrentClaudeCredentialDuringRotation(t *testing.T) {
+	var locks atomic.Int64
+	c := newProvisionLockTestClient(t, 2, &locks)
+	ctx := t.Context()
+	user := types.User{Username: "claude", HashedUsername: "claude", Email: "claude@example.com"}
+	require.NoError(t, c.db.WithContext(ctx).Create(&user).Error)
+	// The key expires too soon to reuse, so the next issue rotates it.
+	old, err := c.EnsureClaudeLLMCredential(ctx, user.ID, "acr-test", time.Now().Add(20*time.Second))
+	require.NoError(t, err)
+
+	var rotate atomic.Bool
+	var rotated types.Credential
+	require.NoError(t, c.db.WithContext(ctx).Callback().Query().Before("gorm:query").Register("test_rotate", func(tx *gorm.DB) {
+		if tx.Statement.Table == "api_keys" && rotate.CompareAndSwap(true, false) {
+			rotated, err = c.EnsureClaudeLLMCredential(ctx, user.ID, "acr-test", time.Now().Add(5*time.Minute))
+			require.NoError(t, err)
+		}
+	}))
+	rotate.Store(true)
+	credential, ok, err := c.CurrentClaudeLLMCredential(ctx, user.ID, "acr-test", time.Now().Add(5*time.Minute))
+	require.NoError(t, err, "a rotation is not a revocation")
+	require.False(t, ok, "the caller issues under the lock, which returns the rotated key")
+	require.Empty(t, credential.Secrets)
+	require.NotEqual(t, old.Secrets["keyID"], rotated.Secrets["keyID"], "the hook rotated the key")
+
+	// A revoked key the session still refers to is reported as revoked.
+	require.NoError(t, c.RevokeClaudeCredentials(ctx, "acr-test"))
+	_, _, err = c.CurrentClaudeLLMCredential(ctx, user.ID, "acr-test", time.Now().Add(5*time.Minute))
+	require.ErrorIs(t, err, ErrClaudeCredentialRevoked)
+}

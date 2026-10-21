@@ -13,6 +13,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -60,7 +62,7 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	cert := &x509.Certificate{URIs: []*url.URL{uri}, NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour)}
 	ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: [][]*x509.Certificate{{cert}}}}})
 	started := time.Now()
-	first, err := provider.fetchSecret(ctx, input)
+	first, err := provider.fetchSecret(ctx, input, true)
 	finished := time.Now()
 	require.NoError(t, err)
 	key, err := gateway.ValidateAPIKey(ctx, string(first.OpaqueBytes))
@@ -68,21 +70,21 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	require.Equal(t, []string{"vmcp_one"}, key.MCPServerIDs)
 	require.True(t, key.ClaudeEnvironment)
 	require.WithinRange(t, *key.ExpiresAt, started.Add(5*time.Minute), finished.Add(5*time.Minute))
-	second, err := provider.fetchSecret(ctx, input)
+	second, err := provider.fetchSecret(ctx, input, true)
 	require.NoError(t, err)
 	require.Equal(t, first.OpaqueBytes, second.OpaqueBytes)
 
 	require.NoError(t, db.Model(&gt.APIKey{}).Where("id = ?", key.ID).Update("expires_at", time.Now().Add(-time.Minute)).Error)
-	refreshed, err := provider.fetchSecret(ctx, input)
+	refreshed, err := provider.fetchSecret(ctx, input, true)
 	require.NoError(t, err)
 	require.NotEqual(t, first.OpaqueBytes, refreshed.OpaqueBytes)
 	require.ErrorIs(t, db.First(&gt.APIKey{}, key.ID).Error, gorm.ErrRecordNotFound)
 
 	wrong := &pb.FetchSecretRequest{Uri: input.Uri, ActorSpiffeId: "spiffe://substrate-actor.local/actor/other/" + inst.Name}
-	_, err = provider.fetchSecret(ctx, wrong)
+	_, err = provider.fetchSecret(ctx, wrong, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	wrong = &pb.FetchSecretRequest{Uri: input.Uri + "/../another", ActorSpiffeId: input.ActorSpiffeId}
-	_, err = provider.fetchSecret(ctx, wrong)
+	_, err = provider.fetchSecret(ctx, wrong, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 
 	env.Runtime.EgressHosts = []string{"*.example.com"}
@@ -90,7 +92,7 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	env.Profiles[0].EgressSecrets = []gt.ClaudeEgressSecret{{ID: "ces-profile", Hostname: "api.example.com", Header: "authorization", Value: "profile-secret"}}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
 	secretInput := &pb.FetchSecretRequest{Uri: input.Uri + "/ces-profile", ActorSpiffeId: input.ActorSpiffeId}
-	injected, err := provider.fetchSecret(ctx, secretInput)
+	injected, err := provider.fetchSecret(ctx, secretInput, true)
 	require.NoError(t, err)
 	require.Equal(t, "profile-secret", string(injected.OpaqueBytes))
 
@@ -103,13 +105,13 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	require.NoError(t, storage.Update(ctx, inst))
 	mappedRef := substrate.Ref(inst)
 	mapped := &pb.FetchSecretRequest{Uri: secretInput.Uri, ActorSpiffeId: "spiffe://substrate-actor.local/actor/" + mappedRef.Atespace + "/" + mappedRef.Name}
-	_, err = provider.fetchSecret(ctx, mapped)
+	_, err = provider.fetchSecret(ctx, mapped, true)
 	require.NoError(t, err)
 	require.NoError(t, db.Model(&gt.User{}).Where("id = ?", 123).Update("disabled_at", time.Now()).Error)
-	_, err = provider.fetchSecret(ctx, mapped)
+	_, err = provider.fetchSecret(ctx, mapped, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	mapped.Uri = input.Uri
-	_, err = provider.fetchSecret(ctx, mapped)
+	_, err = provider.fetchSecret(ctx, mapped, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	inst.Spec.UserID, inst.Spec.ClaudeAccount = env.ClaudeTagUserID, clauderunner.ClaudeTagAccount
 	require.NoError(t, storage.Update(ctx, inst))
@@ -137,42 +139,42 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	require.Nil(t, mutation)
 
 	secretInput.Uri = input.Uri + "/ces-env"
-	_, err = provider.fetchSecret(ctx, secretInput)
+	_, err = provider.fetchSecret(ctx, secretInput, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "overridden secrets must not be retrievable")
 	secretInput.Uri = input.Uri + "/ces-profile"
 	env.Runtime.EgressHosts = nil
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	_, err = provider.fetchSecret(ctx, secretInput)
+	_, err = provider.fetchSecret(ctx, secretInput, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "removing egress permission also removes secret access")
 	env.Runtime.AllowAllEgress = true
 	env.Profiles[0].EgressSecrets[0].Value = "rotated"
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	injected, err = provider.fetchSecret(ctx, secretInput)
+	injected, err = provider.fetchSecret(ctx, secretInput, true)
 	require.NoError(t, err)
 	require.Equal(t, "rotated", string(injected.OpaqueBytes))
 	secretInput.ActorSpiffeId = "spiffe://substrate-actor.local/actor/other/" + inst.Name
-	_, err = provider.fetchSecret(ctx, secretInput)
+	_, err = provider.fetchSecret(ctx, secretInput, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 
 	for _, field := range []string{"suspended", "done"} {
 		inst.Spec.Suspended = field == "suspended"
 		inst.Spec.ClaudeDone = field == "done"
 		require.NoError(t, storage.Update(ctx, inst))
-		_, err = provider.fetchSecret(ctx, input)
+		_, err = provider.fetchSecret(ctx, input, true)
 		require.Equal(t, codes.PermissionDenied, status.Code(err))
 	}
 	inst.Spec.Suspended, inst.Spec.ClaudeDone = false, false
 	require.NoError(t, storage.Update(ctx, inst))
 	env.ClaudeTagEnabled = false
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	_, err = provider.fetchSecret(ctx, input)
+	_, err = provider.fetchSecret(ctx, input, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	env.ClaudeTagEnabled = true
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
 	key, err = gateway.ValidateAPIKey(ctx, string(refreshed.OpaqueBytes))
 	require.NoError(t, err)
 	require.NoError(t, gateway.RevokeAPIKeyByID(ctx, key.ID))
-	_, err = provider.fetchSecret(ctx, input)
+	_, err = provider.fetchSecret(ctx, input, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "refresh must not resurrect a revoked key")
 
 	cert.URIs[0], _ = url.Parse("spiffe://cluster.local/ns/ate-system/sa/other")
@@ -198,11 +200,11 @@ func TestClaudeLLMEgressCredential(t *testing.T) {
 	actor := "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name
 	input := &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name + "/llm", ActorSpiffeId: actor}
 
-	_, err := provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: actor})
+	_, err := provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: actor}, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "no MCP key without MCP grants")
 
 	started := time.Now()
-	first, err := provider.fetchSecret(ctx, input)
+	first, err := provider.fetchSecret(ctx, input, true)
 	finished := time.Now()
 	require.NoError(t, err)
 	key, err := gateway.ValidateAPIKey(ctx, string(first.OpaqueBytes))
@@ -213,13 +215,13 @@ func TestClaudeLLMEgressCredential(t *testing.T) {
 	require.WithinRange(t, *key.ExpiresAt, started.Add(5*time.Minute), finished.Add(5*time.Minute))
 
 	for _, uri := range []string{input.Uri + "/extra", input.Uri + "x", "ate-secret://obot/claude/" + inst.Name + "/LLM"} {
-		_, err = provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: uri, ActorSpiffeId: actor})
+		_, err = provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: uri, ActorSpiffeId: actor}, true)
 		require.Equal(t, codes.PermissionDenied, status.Code(err), uri)
 	}
 
 	env.ClaudeTagEnabled = false
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	_, err = provider.fetchSecret(ctx, input)
+	_, err = provider.fetchSecret(ctx, input, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "removing environment access removes LLM access")
 }
 
@@ -326,4 +328,103 @@ func TestProviderTLSHandshake(t *testing.T) {
 	require.NoError(t, os.WriteFile(file, []byte("invalid rotated bundle"), 0600))
 	_, err = config.GetConfigForClient(nil)
 	require.Error(t, err, "a bad rotation must fail closed, not reuse stale certificates")
+}
+
+// The egress gateway fetches a credential for every request, so fetches that return a
+// session's current key or a stored secret must not take the provisioning lock.
+func TestFetchSecretTakesTheLockOnlyToIssueKeys(t *testing.T) {
+	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://" + filepath.Join(t.TempDir(), "credentials.db")})
+	require.NoError(t, err)
+	services.DB.SQLDB.SetMaxOpenConns(2)
+	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	var locks atomic.Int64
+	// SQLite has no advisory locks; count them instead.
+	require.NoError(t, services.DB.DB.Callback().Raw().Before("gorm:raw").Register("test_advisory_lock", func(tx *gorm.DB) {
+		if strings.Contains(tx.Statement.SQL.String(), "pg_advisory_xact_lock") {
+			locks.Add(1)
+			tx.Statement.SQL.Reset()
+			tx.Statement.SQL.WriteString("SELECT 1")
+			tx.Statement.Vars = nil
+		}
+	}))
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() { _ = gateway.Close() })
+	db := services.DB.DB
+
+	ctx := t.Context()
+	env := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, env))
+	env.Runtime.EgressHosts = []string{"api.example.com"}
+	env.EgressSecrets = []gt.ClaudeEgressSecret{{ID: "ces-token", Hostname: "api.example.com", Header: "authorization", Value: "env-secret"}}
+	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}, MCPServerIDs: []string{"vmcp_one"}}}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}
+	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
+	provider := &CredentialProvider{Gateway: gateway, Storage: storage}
+	ref := substrate.Ref(inst)
+	actor := "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name
+	uri, err := url.Parse("spiffe://cluster.local/ns/ate-system/sa/atenet-egress")
+	require.NoError(t, err)
+	cert := &x509.Certificate{URIs: []*url.URL{uri}, NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour)}
+	ctx = peer.NewContext(ctx, &peer.Peer{AuthInfo: credentials.TLSInfo{State: tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}, VerifiedChains: [][]*x509.Certificate{{cert}}}}})
+	fetch := func(tail string) (string, error) {
+		response, err := provider.FetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name + tail, ActorSpiffeId: actor})
+		return string(response.GetOpaqueBytes()), err
+	}
+
+	llmKey, err := fetch("/llm")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, locks.Load(), "issuing the session's first key takes the lock")
+
+	const concurrent = 40
+	keys := make(chan string, concurrent)
+	errs := make(chan error, concurrent)
+	for range concurrent {
+		go func() {
+			key, err := fetch("/llm")
+			keys <- key
+			errs <- err
+		}()
+	}
+	for range concurrent {
+		require.NoError(t, <-errs)
+		require.Equal(t, llmKey, <-keys)
+	}
+	require.EqualValues(t, 1, locks.Load(), "reusing the current key takes no lock")
+
+	_, err = fetch("")
+	require.NoError(t, err)
+	_, err = fetch("")
+	require.NoError(t, err)
+	require.EqualValues(t, 2, locks.Load(), "only issuing the MCP key takes the lock")
+	secret, err := fetch("/ces-token")
+	require.NoError(t, err)
+	require.Equal(t, "env-secret", secret)
+	require.EqualValues(t, 2, locks.Load(), "stored secrets take no lock")
+
+	key, err := gateway.ValidateAPIKey(ctx, llmKey)
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&gt.APIKey{}).Where("id = ?", key.ID).Update("expires_at", time.Now().Add(10*time.Second)).Error)
+	rotated, err := fetch("/llm")
+	require.NoError(t, err)
+	require.NotEqual(t, llmKey, rotated)
+	require.EqualValues(t, 3, locks.Load(), "rotating a key that expires soon takes the lock")
+
+	inst.Spec.Suspended = true
+	require.NoError(t, storage.Update(ctx, inst))
+	_, err = fetch("/llm")
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "every fetch checks the session")
+	inst.Spec.Suspended = false
+	require.NoError(t, storage.Update(ctx, inst))
+
+	require.NoError(t, gateway.RevokeClaudeCredentials(ctx, inst.Name))
+	_, err = fetch("/llm")
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	_, err = fetch("")
+	require.Equal(t, codes.PermissionDenied, status.Code(err))
+	require.EqualValues(t, 3, locks.Load(), "a revoked key is refused without the lock or a new key")
 }

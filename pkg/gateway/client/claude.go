@@ -116,7 +116,7 @@ func (c *Client) ensureClaudeCredential(ctx context.Context, credentialContext s
 			if old.RevokedAt != nil {
 				return ErrClaudeCredentialRevoked
 			}
-			if old.ClaudeEnvironment && old.ExpiresAt != nil && old.ExpiresAt.After(now.Add(30*time.Second)) && !old.ExpiresAt.After(expires) && reflect.DeepEqual(old.APIKeyScopes, scopes) {
+			if claudeKeyReusable(old, scopes, expires, now) {
 				return nil
 			}
 
@@ -159,6 +159,63 @@ func (c *Client) ensureClaudeCredential(ctx context.Context, credentialContext s
 		c.invalidateValidatedAPIKeysByID(oldID)
 	}
 	return credential, err
+}
+
+// claudeKeyReusable reports whether a session's unrevoked key can be returned instead of
+// issuing a new one: it has the scopes asked for and expires neither too soon nor after
+// expires.
+func claudeKeyReusable(key types.APIKey, scopes types.APIKeyScopes, expires, now time.Time) bool {
+	return key.ClaudeEnvironment && key.ExpiresAt != nil && key.ExpiresAt.After(now.Add(30*time.Second)) && !key.ExpiresAt.After(expires) && reflect.DeepEqual(key.APIKeyScopes, scopes)
+}
+
+// CurrentClaudeCredential returns the session's MCP key when EnsureClaudeCredential would
+// reuse it, without the provisioning lock. Returning a key that was already issued grants
+// nothing new, and a key revoked meanwhile is rejected wherever it is used. It reports false
+// when the key must be issued or rotated, which needs EnsureClaudeCredential and the lock.
+func (c *Client) CurrentClaudeCredential(ctx context.Context, userID uint, name string, servers []string, expires time.Time) (types.Credential, bool, error) {
+	return c.currentClaudeCredential(ctx, "substrate-agent", userID, name, types.APIKeyScopes{MCPServerIDs: servers}, expires)
+}
+
+// CurrentClaudeLLMCredential is CurrentClaudeCredential for the session's LLM proxy key.
+func (c *Client) CurrentClaudeLLMCredential(ctx context.Context, userID uint, name string, expires time.Time) (types.Credential, bool, error) {
+	return c.currentClaudeCredential(ctx, ClaudeLLMCredentialContext, userID, name, types.APIKeyScopes{CanAccessLLMProxy: true}, expires)
+}
+
+func (c *Client) currentClaudeCredential(ctx context.Context, credentialContext string, userID uint, name string, scopes types.APIKeyScopes, expires time.Time) (types.Credential, bool, error) {
+	credential, err := c.RevealCredential(ctx, []string{credentialContext}, name)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.Credential{}, false, nil
+	}
+	if err != nil {
+		return types.Credential{}, false, err
+	}
+	id, err := strconv.ParseUint(credential.Secrets["keyID"], 10, 64)
+	if err != nil {
+		return types.Credential{}, false, err
+	}
+	var key types.APIKey
+	if err := c.db.WithContext(ctx).Where("id = ? AND user_id = ?", id, userID).First(&key).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		// Expiration cleanup may already have removed the key.
+		return types.Credential{}, false, nil
+	} else if err != nil {
+		return types.Credential{}, false, err
+	}
+	if key.RevokedAt != nil {
+		// A concurrent rotation revokes the old key as it stores the new one. Report
+		// revocation only when the session still refers to the revoked key.
+		current, err := c.RevealCredential(ctx, []string{credentialContext}, name)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.Credential{}, false, err
+		}
+		if err != nil || current.Secrets["keyID"] != credential.Secrets["keyID"] {
+			return types.Credential{}, false, nil
+		}
+		return types.Credential{}, false, ErrClaudeCredentialRevoked
+	}
+	if !claudeKeyReusable(key, scopes, expires, time.Now()) {
+		return types.Credential{}, false, nil
+	}
+	return credential, true, nil
 }
 
 // RevokeClaudeCredentials revokes a session's MCP and LLM keys. The revoked keys stay
