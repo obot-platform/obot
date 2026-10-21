@@ -49,7 +49,7 @@ func newLifecycleTestTokenService(t *testing.T) (*TokenService, *client.Client) 
 			Role: types.RoleBasic,
 		},
 	}).Build()
-	gatewayClient := client.New(t.Context(), db, storage, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, false)
+	gatewayClient := client.New(t.Context(), db, storage, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 
 	_, privateKey, err := ed25519.GenerateKey(nil)

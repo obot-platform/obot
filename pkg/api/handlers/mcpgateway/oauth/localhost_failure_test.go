@@ -56,7 +56,7 @@ func TestLocalhostCallbackFailuresPreserveRequest(t *testing.T) {
 			db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 			require.NoError(t, err)
 			require.NoError(t, db.AutoMigrate())
-			gw := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+			gw := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true, false, nil, nil, false, nil)
 			t.Cleanup(func() { require.NoError(t, gw.Close()) })
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")

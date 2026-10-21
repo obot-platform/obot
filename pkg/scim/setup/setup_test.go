@@ -43,7 +43,7 @@ func newTestGatewayWithDB(t *testing.T, storage kclient.Client) (*gclient.Client
 	if err := database.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gateway := gclient.New(t.Context(), database, storage, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, storage, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	return gateway, services.DB.DB
 }

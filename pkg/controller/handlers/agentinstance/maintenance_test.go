@@ -39,7 +39,7 @@ func maintenanceGateway(t *testing.T, onLock func()) *gclient.Client {
 	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, database.AutoMigrate())
-	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	require.NoError(t, services.DB.DB.Callback().Raw().Before("gorm:raw").Register("test_lock", func(tx *gorm.DB) {
 		if strings.Contains(tx.Statement.SQL.String(), "pg_advisory_xact_lock") {

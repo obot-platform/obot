@@ -76,3 +76,11 @@ Continue to [Access by Role](../security/audit-data.md#audit-logs-and-usage-acce
 ## Privacy Considerations {#privacy-considerations}
 
 Continue to [Privacy Considerations](../security/audit-data.md#audit-logs-and-usage-privacy-considerations).
+
+## Body storage controls
+
+Continue to [Body storage controls](../security/audit-data.md#body-storage-controls).
+
+## Disabling audit logs
+
+Continue to [Disabling audit logs](../security/audit-data.md#disabling-audit-logs).

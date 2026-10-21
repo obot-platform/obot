@@ -18,7 +18,7 @@ func TestDeleteProfileBudgetsAndGuardrailPolicies(t *testing.T) {
 	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
-	gateway := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { require.NoError(t, gateway.Close()) })
 
 	limits := []gatewaytypes.LLMGatewayBudgetLimit{{Metric: gatewaytypes.LLMGatewayBudgetMetricRequests, Amount: 1, Window: "1d"}}

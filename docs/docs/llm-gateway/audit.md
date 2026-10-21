@@ -70,3 +70,5 @@ Filter LLM logs by:
 ### Exporting LLM Audit Logs {#audit-logs-and-usage-exporting-llm-audit-logs}
 
 LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
+
+For body limits and disabling audit logs, see [Body storage controls](../security/audit-data.md#body-storage-controls) and [Disabling audit logs](../security/audit-data.md#disabling-audit-logs).

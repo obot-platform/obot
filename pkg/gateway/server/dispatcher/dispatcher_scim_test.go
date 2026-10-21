@@ -131,7 +131,7 @@ func TestSCIMConnectionsRelaxTheDirectoryParameters(t *testing.T) {
 					return []string{o.(*v1.AuthProvider).Get("status.configured")}
 				}).
 				Build()
-			gatewayClient := client.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true)
+			gatewayClient := client.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true, false, nil, nil, false, nil)
 			t.Cleanup(func() { _ = gatewayClient.Close() })
 
 			if err := gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{

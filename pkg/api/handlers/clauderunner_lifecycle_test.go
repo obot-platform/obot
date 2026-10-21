@@ -35,7 +35,7 @@ func TestDisabledClaudeUserAdmissionAndReconciliation(t *testing.T) {
 	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, database.AutoMigrate())
-	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	db := services.DB.DB
 	ctx := t.Context()

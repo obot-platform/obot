@@ -176,7 +176,7 @@ func newSCIMChangeTestGateway(t *testing.T, storage kclient.Client, encryption *
 			_ = tx.AddError(errors.New("the SCIM connection could not be deleted"))
 		}
 	}))
-	gateway := gatewayclient.New(t.Context(), database, storage, encryption, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gatewayclient.New(t.Context(), database, storage, encryption, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	return gateway, failSCIMConnectionDeletes
 }

@@ -158,7 +158,7 @@ func newSCIMTestWithDB(t *testing.T, database *gatewaydb.DB) *scimTest {
 		}).
 		Build()
 
-	gateway := gclient.New(t.Context(), database, storage, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, storage, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil, false, nil)
 	t.Cleanup(func() {
 		_ = gateway.Close()
 	})

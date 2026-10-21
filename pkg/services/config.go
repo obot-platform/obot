@@ -125,31 +125,34 @@ type Config struct {
 	ForceEnableBootstrap bool   `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
 	MetricsBearerToken   string `usage:"Bearer token for metrics endpoint authentication" name:"metrics-bearer-token"`
 
-	DefaultMCPCatalogPath       string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
-	DefaultSystemMCPCatalogPath string `usage:"The path to the default System MCP catalog" default:""`
-	MDMAssetSource              string `usage:"The source for MDM assets (a local directory, a tar archive path, or an HTTP(S) tarball URL)" default:"https://github.com/obot-platform/obot-sentry/releases/download/v0.1.8/mdm-assets.tar.gz" env:"OBOT_SERVER_MDM_ASSET_SOURCE"`
-	DefaultSkillRepoURL         string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
-	DefaultSkillRepoRef         string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
-	DisableUpdateCheck          bool   `usage:"Disable Obot server update checks"`
-	HideK8sDetails              bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
-	EnableRegistryAuth          bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
-	EgressAuditLogRetentionDays int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
-	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
-	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
-	LLMGatewayDataDir           string `usage:"Directory for the embedded LLM gateway's configuration and, without a Postgres DSN, its SQLite stores (default: $XDG_DATA_HOME/obot/llm-gateway)" name:"llm-gateway-data-dir" env:"OBOT_SERVER_LLM_GATEWAY_DATA_DIR"`
-	LLMGatewayPostgresDSN       string `usage:"Postgres DSN for the embedded LLM gateway's configuration store. Must be a different database from Obot's. When Obot uses Postgres and this is unset, a <database>_llm_gateway database is created on the same server" name:"llm-gateway-postgres-dsn" env:"OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN"`
-	LLMGatewayEncryptionKey     string `usage:"Key used by the embedded LLM gateway to encrypt provider keys at rest. Set it before the first start: changing it makes stored provider keys unreadable (default: generated, and stored in Obot's database when the gateway uses Postgres, otherwise in the data dir)" name:"llm-gateway-encryption-key" env:"OBOT_SERVER_LLM_GATEWAY_ENCRYPTION_KEY"`
-	LLMGatewayLogLevel          string `usage:"Log level for the embedded LLM gateway (debug, info, warn, error)" name:"llm-gateway-log-level" default:"warn" env:"OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL"`
-	LLMGatewayModelDataURL      string `usage:"Where the LLM gateway refreshes model prices and capabilities from, every 6 hours. Set to off to use only the prices bundled with Obot" name:"llm-gateway-model-data-url" default:"https://upgrade-server.obot.ai/v1/model-data" env:"OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL"`
-	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
-	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:c6bef775ba97a3af60c7cad2c623598c583a6e33b7a1b1c3daec49e4f493cc8a"`
-	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments"`
-	SubstrateWorkerNodeSelector string `usage:"JSON node selector applied to all Substrate workers" default:"{\"kubernetes.io/os\":\"linux\"}"`
-	SubstrateWorkerTolerations  string `usage:"JSON tolerations applied to all Substrate workers, e.g. [{\"key\":\"workload\",\"operator\":\"Equal\",\"value\":\"agents\",\"effect\":\"NoSchedule\"}]" default:"[]"`
-	SubstrateNamespace          string `usage:"Namespace for Claude environment worker pools" default:"obot-agents"`
-	SubstrateAddress            string `usage:"Substrate gRPC address; empty disables Claude environments"`
-	SubstrateSnapshotLocation   string `usage:"Substrate snapshot bucket URI"`
-	SubstrateObotURL            string `usage:"Obot URL reachable from actors; defaults to server URL"`
+	DefaultMCPCatalogPath          string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
+	DefaultSystemMCPCatalogPath    string `usage:"The path to the default System MCP catalog" default:""`
+	MDMAssetSource                 string `usage:"The source for MDM assets (a local directory, a tar archive path, or an HTTP(S) tarball URL)" default:"https://github.com/obot-platform/obot-sentry/releases/download/v0.1.8/mdm-assets.tar.gz" env:"OBOT_SERVER_MDM_ASSET_SOURCE"`
+	DefaultSkillRepoURL            string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
+	DefaultSkillRepoRef            string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
+	DisableUpdateCheck             bool   `usage:"Disable Obot server update checks"`
+	HideK8sDetails                 bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
+	EnableRegistryAuth             bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
+	EgressAuditLogRetentionDays    int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
+	LLMAuditLogRetentionDays       int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
+	LLMAuditLogMaxBodyBytes        *int   `usage:"Maximum original bytes retained per LLM audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
+	DisableLLMAuditLog             bool   `usage:"Disable LLM gateway audit logging" default:"false"`
+	LLMGatewayDataDir              string `usage:"Directory for the embedded LLM gateway's configuration and, without a Postgres DSN, its SQLite stores (default: $XDG_DATA_HOME/obot/llm-gateway)" name:"llm-gateway-data-dir" env:"OBOT_SERVER_LLM_GATEWAY_DATA_DIR"`
+	LLMGatewayPostgresDSN          string `usage:"Postgres DSN for the embedded LLM gateway's configuration store. Must be a different database from Obot's. When Obot uses Postgres and this is unset, a <database>_llm_gateway database is created on the same server" name:"llm-gateway-postgres-dsn" env:"OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN"`
+	LLMGatewayEncryptionKey        string `usage:"Key used by the embedded LLM gateway to encrypt provider keys at rest. Set it before the first start: changing it makes stored provider keys unreadable (default: generated, and stored in Obot's database when the gateway uses Postgres, otherwise in the data dir)" name:"llm-gateway-encryption-key" env:"OBOT_SERVER_LLM_GATEWAY_ENCRYPTION_KEY"`
+	LLMGatewayLogLevel             string `usage:"Log level for the embedded LLM gateway (debug, info, warn, error)" name:"llm-gateway-log-level" default:"warn" env:"OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL"`
+	LLMGatewayModelDataURL         string `usage:"Where the LLM gateway refreshes model prices and capabilities from, every 6 hours. Set to off to use only the prices bundled with Obot" name:"llm-gateway-model-data-url" default:"https://upgrade-server.obot.ai/v1/model-data" env:"OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL"`
+	DisableLocalAgentAuditLog      bool   `usage:"Disable persistence of new local-agent audit logs" default:"false"`
+	LocalAgentAuditLogMaxBodyBytes *int   `usage:"Maximum original bytes retained per local-agent audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
+	DeviceScanRetentionDays        int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
+	SubstrateRunnerImage           string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:c6bef775ba97a3af60c7cad2c623598c583a6e33b7a1b1c3daec49e4f493cc8a"`
+	SubstrateWorkerImage           string `usage:"Default Substrate worker image for new environments"`
+	SubstrateWorkerNodeSelector    string `usage:"JSON node selector applied to all Substrate workers" default:"{\"kubernetes.io/os\":\"linux\"}"`
+	SubstrateWorkerTolerations     string `usage:"JSON tolerations applied to all Substrate workers, e.g. [{\"key\":\"workload\",\"operator\":\"Equal\",\"value\":\"agents\",\"effect\":\"NoSchedule\"}]" default:"[]"`
+	SubstrateNamespace             string `usage:"Namespace for Claude environment worker pools" default:"obot-agents"`
+	SubstrateAddress               string `usage:"Substrate gRPC address; empty disables Claude environments"`
+	SubstrateSnapshotLocation      string `usage:"Substrate snapshot bucket URI"`
+	SubstrateObotURL               string `usage:"Obot URL reachable from actors; defaults to server URL"`
 
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
@@ -438,6 +441,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	if config.MCPAuditLogMaxBodyBytes != nil && *config.MCPAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("mcpaudit-log-max-body-bytes must be non-negative")
+	}
+
+	if config.LLMAuditLogMaxBodyBytes != nil && *config.LLMAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("llmaudit-log-max-body-bytes must be non-negative")
+	}
+
+	if config.LocalAgentAuditLogMaxBodyBytes != nil && *config.LocalAgentAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("local-agent-audit-log-max-body-bytes must be non-negative")
+	}
+
 	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
 	if initialOwnerConfigured {
 		if !config.EnableAuthentication {
@@ -603,6 +618,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.LLMAuditLogRetentionDays,
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
+		config.DisableMCPAuditLog,
+		config.MCPAuditLogMaxBodyBytes,
+		config.LLMAuditLogMaxBodyBytes,
+		config.DisableLocalAgentAuditLog,
+		config.LocalAgentAuditLogMaxBodyBytes,
 	)
 	go scimsetup.RunGroupSubjectCleanups(ctx, gatewayClient, storageClient)
 

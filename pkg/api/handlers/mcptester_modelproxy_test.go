@@ -256,7 +256,7 @@ func newTesterAuditClient(t *testing.T) (*gatewayclient.Client, *gatewaydb.DB) {
 		t.Fatal(err)
 	}
 
-	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
+	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, false, nil, nil, false, nil)
 	t.Cleanup(func() { _ = client.Close() })
 
 	return client, db
