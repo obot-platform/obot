@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -162,6 +163,35 @@ func TestMeteredLLMEndpoint(t *testing.T) {
 	} {
 		if got := meteredLLMEndpoint(path); got != want {
 			t.Errorf("meteredLLMEndpoint(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestTokenCountRequestsAreNotLLMAudited(t *testing.T) {
+	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	audited := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, true)
+	t.Cleanup(func() { _ = audited.Close() })
+	notAudited := newUsageTestClient(t)
+
+	for path, want := range map[string]bool{
+		"v1/messages":              true,
+		"v1/messages/count_tokens": false,
+		"v1/chat/completions":      true,
+	} {
+		req := httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+path, nil)
+		req.SetPathValue("path", path)
+		if got := newProxyLLMAuditRecorder(api.Context{Request: req, GatewayClient: audited}) != nil; got != want {
+			t.Errorf("%s LLM audited = %v, want %v", path, got, want)
+		}
+		if newProxyLLMAuditRecorder(api.Context{Request: req, GatewayClient: notAudited}) != nil {
+			t.Errorf("%s LLM audited with the LLM audit log off", path)
 		}
 	}
 }

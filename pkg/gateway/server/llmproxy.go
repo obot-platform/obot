@@ -610,9 +610,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		// usage records the request in token usage once it is sent to the gateway.
 		usage *llmUsageRecorder
 	)
-	if req.GatewayClient.LLMAuditLogEnabled() {
-		audit = newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
-	}
+	audit = newProxyLLMAuditRecorder(req)
 	defer func() {
 		audit.finish(req.GatewayClient, retErr)
 		usage.finish(retErr)
@@ -780,6 +778,22 @@ func isModelsListRequest(req *http.Request) bool {
 	}
 	// The {path...} route value holds the client path, e.g. "v1/models".
 	return strings.TrimPrefix(strings.Trim(req.PathValue("path"), "/"), "v1/") == "models"
+}
+
+// newProxyLLMAuditRecorder starts the LLM audit entry of a proxy request. It returns nil
+// when the LLM audit log is off or for a token count, which isn't a model request.
+func newProxyLLMAuditRecorder(req api.Context) *llmAuditRecorder {
+	if !req.GatewayClient.LLMAuditLogEnabled() || isTokenCountRequest(req.Request) {
+		return nil
+	}
+	return newLLMAuditRecorder(req.Request, req.User, defaultLLMAuditLogResponseCaptureLimit)
+}
+
+// isTokenCountRequest reports whether req asks the Anthropic Messages API to count a
+// request's tokens (POST .../v1/messages/count_tokens).
+func isTokenCountRequest(req *http.Request) bool {
+	// The {path...} route value holds the client path, e.g. "v1/messages/count_tokens".
+	return strings.TrimPrefix(strings.Trim(req.PathValue("path"), "/"), "v1/") == "messages/count_tokens"
 }
 
 // servedRoute is how the gateway served a request. The model the gateway last admitted, as
