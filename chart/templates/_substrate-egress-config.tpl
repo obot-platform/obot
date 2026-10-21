@@ -433,6 +433,9 @@ data:
                       cluster_name: obot_audit
                   message_timeout: 5s
                   failure_mode_allow: false
+                  # The audit service turns body processing off for upgrade
+                  # requests, which Envoy cannot forward with bodies streamed.
+                  allow_mode_override: true
                   request_attributes:
                   - filter_state['dev.ate.actor.identity']
                   processing_mode:
@@ -650,6 +653,9 @@ data:
                       cluster_name: obot_audit
                   message_timeout: 5s
                   failure_mode_allow: false
+                  # The audit service turns body processing off for upgrade
+                  # requests, which Envoy cannot forward with bodies streamed.
+                  allow_mode_override: true
                   request_attributes:
                   - filter_state['dev.ate.actor.identity']
                   processing_mode:

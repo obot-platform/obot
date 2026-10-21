@@ -12,6 +12,7 @@ import (
 	"uuid"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	ext "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/obot-platform/obot/pkg/clauderunner"
@@ -67,7 +68,7 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 	}
 	var entry types.EgressAuditLog
 	var requestBody, responseBody []byte
-	started := false
+	started, upgrade := false, false
 	defer func() {
 		if !started {
 			return
@@ -144,6 +145,18 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			}
 			reply.Response = &ext.ProcessingResponse_RequestHeaders{RequestHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{HeaderMutation: mutation}}}
 			reply.DynamicMetadata, _ = structpb.NewStruct(map[string]any{"obot.audit": map[string]any{"id": entry.ID}})
+			// Envoy neither forwards an upgrade request nor returns its 101 while
+			// either body is streamed here, so a WebSocket is audited by headers only.
+			if upgrade = firstHeader(headers, "upgrade") != ""; upgrade {
+				reply.ModeOverride = &extprocv3.ProcessingMode{
+					RequestHeaderMode:   extprocv3.ProcessingMode_SEND,
+					ResponseHeaderMode:  extprocv3.ProcessingMode_SEND,
+					RequestBodyMode:     extprocv3.ProcessingMode_NONE,
+					ResponseBodyMode:    extprocv3.ProcessingMode_NONE,
+					RequestTrailerMode:  extprocv3.ProcessingMode_SKIP,
+					ResponseTrailerMode: extprocv3.ProcessingMode_SKIP,
+				}
+			}
 		case *ext.ProcessingRequest_ResponseHeaders:
 			if !started {
 				return status.Error(codes.InvalidArgument, "Missing request headers")
@@ -151,7 +164,8 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			headers := headerValues(data.ResponseHeaders.Headers)
 			entry.ResponseHeaders = redactedEgressHeaders(headers)
 			entry.ResponseStatus, _ = strconv.Atoi(firstHeader(headers, ":status"))
-			complete = data.ResponseHeaders.EndOfStream
+			// An upgraded stream sends nothing after its response headers.
+			complete = data.ResponseHeaders.EndOfStream || upgrade
 			reply.Response = &ext.ProcessingResponse_ResponseHeaders{ResponseHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{}}}
 		case *ext.ProcessingRequest_RequestBody:
 			entry.RequestBytes += int64(len(data.RequestBody.Body))
