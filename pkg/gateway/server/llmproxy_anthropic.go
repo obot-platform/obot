@@ -21,7 +21,8 @@ const (
 var (
 	// anthropicRequestHeaders are the request headers sent on to Anthropic. The others, such
 	// as cookies and the caller's Obot credentials, stay in Obot.
-	anthropicRequestHeaders = []string{"Accept", "Anthropic-Beta", "Anthropic-Version", "Content-Type", "User-Agent"}
+	anthropicRequestHeaders = []string{"Accept", "Anthropic-Beta", "Anthropic-Version", "Content-Type", "User-Agent",
+		"Sec-Websocket-Extensions", "Sec-Websocket-Key", "Sec-Websocket-Protocol", "Sec-Websocket-Version"}
 )
 
 // anthropicProxy forwards the Anthropic API requests Claude Code sends to its API base URL
@@ -70,6 +71,18 @@ func (a *anthropicProxy) agentProxyCACert(req api.Context) error {
 	return nil
 }
 
+// agentProxyWebSocket forwards the WebSocket that carries Claude Code's agent-proxy
+// tunnel, which its git and tool traffic goes through, with the caller's own Anthropic
+// credential.
+func (a *anthropicProxy) agentProxyWebSocket(req api.Context) error {
+	header, credential, ok := callerAnthropicCredential(req.Request.Header)
+	if !ok {
+		header, credential = "", ""
+	}
+	a.forward(req, "/v1/code/agent-proxy/ws", header, credential)
+	return nil
+}
+
 // forward sends the request to target on Anthropic, with only anthropicRequestHeaders and,
 // when header is set, the caller's credential in it.
 func (a *anthropicProxy) forward(req api.Context, target, header, credential string) {
@@ -78,7 +91,13 @@ func (a *anthropicProxy) forward(req api.Context, target, header, credential str
 			u := a.upstream
 			u.Path, u.RawQuery = target, r.In.URL.RawQuery
 			r.Out.URL, r.Out.Host = &u, u.Host
+			// The proxy sets these for a connection upgrade, such as a WebSocket.
+			upgrade, connection := r.Out.Header.Get("Upgrade"), r.Out.Header.Get("Connection")
 			r.Out.Header = http.Header{}
+			if upgrade != "" {
+				r.Out.Header.Set("Connection", connection)
+				r.Out.Header.Set("Upgrade", upgrade)
+			}
 			for _, name := range anthropicRequestHeaders {
 				if values := r.In.Header.Values(name); len(values) > 0 {
 					r.Out.Header[name] = values

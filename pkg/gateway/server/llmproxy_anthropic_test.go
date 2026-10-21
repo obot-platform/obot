@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -230,5 +232,92 @@ func TestAnthropicAgentProxyCACert(t *testing.T) {
 	// The certificate is public: no credential, Obot's or the caller's, leaves Obot.
 	for _, name := range []string{"Authorization", "X-Api-Key", "X-Obot-Api-Key"} {
 		require.Empty(t, received.Header.Get(name), name)
+	}
+}
+
+func TestAnthropicAgentProxyWebSocket(t *testing.T) {
+	received := make(chan http.Header, 1)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r.Header.Clone()
+		if r.URL.Path != "/v1/code/agent-proxy/ws" || !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+			http.Error(w, "not an agent-proxy upgrade", http.StatusBadRequest)
+			return
+		}
+		conn, buf, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer conn.Close()
+		_, _ = buf.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+		_ = buf.Flush()
+		// Echo what the client sends, as frames would flow through the tunnel.
+		line, _ := buf.ReadString('\n')
+		_, _ = buf.WriteString("echo " + line)
+		_ = buf.Flush()
+	}))
+	t.Cleanup(upstream.Close)
+	target, err := url.Parse(upstream.URL)
+	require.NoError(t, err)
+	proxy := &anthropicProxy{upstream: *target, transport: upstream.Client().Transport}
+	obot := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, proxy.agentProxyWebSocket(api.Context{ResponseWriter: w, Request: r}))
+	}))
+	t.Cleanup(obot.Close)
+
+	conn, err := net.Dial("tcp", strings.TrimPrefix(obot.URL, "http://"))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = conn.Close() })
+	require.NoError(t, conn.SetDeadline(time.Now().Add(5*time.Second)))
+	_, err = conn.Write([]byte("GET /api/llm-proxy/v1/code/agent-proxy/ws HTTP/1.1\r\n" +
+		"Host: obot\r\n" +
+		"Connection: Upgrade\r\n" +
+		"Upgrade: websocket\r\n" +
+		"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+		"Sec-WebSocket-Version: 13\r\n" +
+		"Content-Type: application/proto\r\n" +
+		"Authorization: Bearer sk-ant-oat01-caller\r\n" +
+		"X-Obot-Api-Key: ok1-1-2-secret\r\n" +
+		"Cookie: obot_access_token=secret\r\n\r\n"))
+	require.NoError(t, err)
+	reader := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(reader, nil)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusSwitchingProtocols, resp.StatusCode)
+
+	_, err = conn.Write([]byte("frame\n"))
+	require.NoError(t, err)
+	echoed, err := reader.ReadString('\n')
+	require.NoError(t, err)
+	require.Equal(t, "echo frame\n", echoed, "the tunnel carries data both ways")
+
+	headers := <-received
+	require.Equal(t, "Bearer sk-ant-oat01-caller", headers.Get("Authorization"))
+	require.Equal(t, "dGhlIHNhbXBsZSBub25jZQ==", headers.Get("Sec-Websocket-Key"))
+	require.Equal(t, "13", headers.Get("Sec-Websocket-Version"))
+	require.Equal(t, "application/proto", headers.Get("Content-Type"))
+	for _, name := range []string{"X-Obot-Api-Key", "Cookie"} {
+		require.Empty(t, headers.Get(name), name)
+	}
+}
+
+// Obot accepts its own JWTs and tokens as bearer credentials; the agent-proxy WebSocket must
+// never forward them to Anthropic.
+func TestAnthropicAgentProxyWebSocketDropsObotCredentials(t *testing.T) {
+	received := make(chan http.Header, 2)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r.Header.Clone()
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	t.Cleanup(upstream.Close)
+	target, err := url.Parse(upstream.URL)
+	require.NoError(t, err)
+	proxy := &anthropicProxy{upstream: *target, transport: upstream.Client().Transport}
+
+	for _, credential := range []string{"Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIxIn0.c2lnbmF0dXJl", "Bearer 2f8a4c1e9b7d6a5f3c2e1d0b9a8f7e6d"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/code/agent-proxy/ws", nil)
+		req.Header.Set("Authorization", credential)
+		require.NoError(t, proxy.agentProxyWebSocket(api.Context{ResponseWriter: httptest.NewRecorder(), Request: req}))
+		require.Empty(t, (<-received).Get("Authorization"), credential)
 	}
 }

@@ -78,6 +78,7 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("/api/llm-proxy/v1/files", anthropic.files)
 	mux.HandleFunc("/api/llm-proxy/v1/files/{path...}", anthropic.files)
 	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ca-cert", anthropic.agentProxyCACert)
+	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ws", anthropic.agentProxyWebSocket)
 	// Clients set up for the former OpenAI and Anthropic routes speak those APIs, which the
 	// gateway serves too, so they keep working.
 	for _, prefix := range []string{"/api/llm-proxy/openai/", "/api/llm-proxy/anthropic/"} {
