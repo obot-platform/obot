@@ -850,7 +850,7 @@
 	{/if}
 	<div class="grow"></div>
 	{#if switchStep === 'configure'}
-		<button class="btn" disabled={loading} onclick={() => providerConfigure?.close()}>
+		<button class="btn btn-ghost" disabled={loading} onclick={() => providerConfigure?.close()}>
 			{m.common_cancel()}
 		</button>
 		<button class="btn btn-primary" disabled={loading} onclick={submit}>{m.core_continue()}</button>

@@ -25,6 +25,10 @@ function openClient(name: string) {
 	return page.getByRole('button', { name }).click();
 }
 
+function openTab(name: string) {
+	return page.getByRole('tab', { name }).click();
+}
+
 async function pickModel(label: string, picker = page.getByRole('combobox', { name: 'Model' })) {
 	await picker.click();
 	await page.getByRole('button', { name: label, exact: true }).click();
@@ -130,7 +134,8 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models, subscriptionPassthrough: true });
 
 		await openClient('Claude Code');
-		const [subscription, apiKey] = page.getByRole('combobox', { name: 'Model' }).all();
+		await expect.element(page.getByRole('tab', { name: 'Use subscription' })).toBeVisible();
+		const subscription = page.getByRole('combobox', { name: 'Model' });
 		await expect
 			.element(page.getByText('Only Anthropic models use your Claude subscription.'))
 			.toBeVisible();
@@ -150,7 +155,8 @@ describe('GatewayConnect', () => {
 			.toBeInTheDocument();
 
 		// The API key setup has its own choice, from every model.
-		await pickModel('OpenAI · openai/gpt-4o', apiKey);
+		await openTab('Use API key');
+		await pickModel('OpenAI · openai/gpt-4o');
 		await expect
 			.element(page.getByText('export ANTHROPIC_MODEL="openai/gpt-4o"', { exact: false }))
 			.toBeInTheDocument();
@@ -196,6 +202,7 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, subscriptionPassthrough: true });
 
 		await openClient('Claude Code');
+		await expect.element(page.getByRole('tab', { name: 'Use subscription' })).toBeVisible();
 		await expect
 			.element(page.getByText('With a Claude subscription (Pro, Max, Team or Enterprise)'))
 			.toBeInTheDocument();
@@ -210,6 +217,7 @@ describe('GatewayConnect', () => {
 		await expect
 			.element(page.getByText('unset ANTHROPIC', { exact: false }))
 			.not.toBeInTheDocument();
+		await openTab('Use API key');
 		await expect.element(page.getByText('With an Obot API key')).toBeInTheDocument();
 	});
 
@@ -467,7 +475,9 @@ describe('GatewayConnect', () => {
 		await openClient('curl');
 
 		await expect.element(page.getByRole('heading', { name: 'curl' })).toBeVisible();
+		await expect.element(page.getByRole('tab', { name: 'Via Chat Completions' })).toBeVisible();
 		await expect.element(page.getByText('OpenAI Chat Completions (any model)')).toBeVisible();
+		await openTab('Via Messages');
 		await expect.element(page.getByText('Anthropic Messages (any model)')).toBeVisible();
 		await expect
 			.element(page.getByText('export ANTHROPIC_BASE_URL', { exact: false }))

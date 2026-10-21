@@ -7,10 +7,12 @@
 		groupGatewayModels
 	} from '$lib/components/llm-gateway/GatewayModelsDialog.svelte';
 	import LLMGatewayCodeBlock from '$lib/components/llm-gateway/LLMGatewayCodeBlock.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import type { Model } from '$lib/services';
 	import type { SnippetBlock } from '$lib/services/llm-gateway/types';
 	import { Terminal } from '@lucide/svelte';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -42,6 +44,7 @@
 		| 'open-webui';
 	let selected = $state<Client>();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let selectedTab = $state<number>();
 
 	let baseURL = $derived(`${obotURL}/api/llm-proxy`);
 	// Obot's URL as a container on this machine reaches it, when that differs: inside a
@@ -133,7 +136,7 @@
 	}
 
 	function showPicker(key: PickerKey) {
-		return pickerOptions[key].length > 1;
+		return pickerOptions[key].length > 0;
 	}
 
 	// monochrome: a dark single-color logo, inverted in dark mode so it shows on a dark card.
@@ -221,6 +224,7 @@
 
 	function open(client: Client) {
 		selected = client;
+		selectedTab = 0;
 		picked = {};
 		dialog?.open();
 	}
@@ -241,7 +245,7 @@
 		];
 	}
 
-	type ConnectBlock = SnippetBlock & { picker?: PickerKey };
+	type ConnectBlock = SnippetBlock & { tabTitle?: string; picker?: PickerKey; minHeight?: number };
 
 	// Clients set up in their own settings screens get numbered steps, each with an optional
 	// value to copy into a field.
@@ -290,6 +294,7 @@
 		switch (selected) {
 			case 'claude-code': {
 				const apiKey = {
+					tabTitle: m.models_connect_tab_api_key(),
 					picker: 'claude-code' as const,
 					language: 'bash' as const,
 					code: [
@@ -298,13 +303,15 @@
 						...claudeCodeDiscovery,
 						...claudeCodeModelLines(pickedModel('claude-code')),
 						'claude'
-					].join('\n')
+					].join('\n'),
+					minHeight: 280
 				};
 				if (!subscriptionPassthrough) {
 					return [apiKey];
 				}
 				return [
 					{
+						tabTitle: m.models_connect_tab_subscription(),
 						title: m.models_connect_with_subscription(),
 						picker: 'claude-code-subscription' as const,
 						language: 'bash' as const,
@@ -448,6 +455,7 @@
 			case 'curl':
 				return [
 					{
+						tabTitle: m.models_connect_tab_chat_completions(),
 						title: m.models_connect_chat_completions_any_model(),
 						language: 'bash' as const,
 						code: [
@@ -458,6 +466,7 @@
 						].join('\n')
 					},
 					{
+						tabTitle: m.models_connect_tab_messages(),
 						title: m.models_connect_messages_any_model(),
 						language: 'bash' as const,
 						code: [
@@ -466,7 +475,8 @@
 							'  -H "anthropic-version: 2023-06-01" \\',
 							'  -H "content-type: application/json" \\',
 							`  -d '{"model": "${model}", "max_tokens": 512, "messages": [{"role": "user", "content": "hello"}]}'`
-						].join('\n')
+						].join('\n'),
+						minHeight: 244
 					}
 				];
 			case 'opencode':
@@ -536,10 +546,16 @@
 				return [];
 		}
 	});
+
+	let tabBlocks = $derived(blocks.filter((block) => block.tabTitle));
+	let codeBlocks = $derived(blocks.filter((block) => !block.tabTitle));
+	let minBlockHeight = $derived(Math.max(...tabBlocks.map((block) => block.minHeight || 0)));
 </script>
 
-<div class={twMerge('flex flex-col gap-3', klass)}>
-	<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+<div class={twMerge('flex flex-col gap-3 @container', klass)}>
+	<div
+		class="grid grid-cols-1 gap-3 @md:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4 @6xl:grid-cols-5"
+	>
 		{#each clients as client (client.id)}
 			<button
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 hover:border-primary flex items-start gap-3 rounded-lg border border-transparent p-4 text-left shadow-sm transition-colors"
@@ -602,47 +618,92 @@
 {/snippet}
 
 <ResponsiveDialog bind:this={dialog} title={selectedClient?.label} class="max-w-3xl">
-	<div class="flex flex-col gap-3 pt-4">
-		{#if selected !== 'claude-code'}
-			{@render modelPicker('model')}
-		{/if}
-		{#if steps.length > 0}
-			<ol class="flex list-decimal flex-col gap-1.5 pl-5 text-sm">
-				{#each steps as step, i (`${selected}-step-${i}`)}
-					<li>
-						<span>{step.text}</span>
-						{#if step.value}
-							<span class="inline-flex max-w-full items-center gap-1 align-middle">
-								<code class="bg-base-200 dark:bg-base-100 truncate rounded px-1.5 py-0.5 text-xs"
-									>{step.value}</code
-								>
-								<CopyButton text={step.value} />
-							</span>
-						{/if}
-						{#if step.note}
-							<p class="text-muted-content text-xs">
-								{step.note}
-								{#if step.noteValue}
-									<span class="inline-flex max-w-full items-center gap-1 align-middle">
-										<code
-											class="bg-base-200 dark:bg-base-100 truncate rounded px-1.5 py-0.5 text-xs"
-											>{step.noteValue}</code
-										>
-										<CopyButton text={step.noteValue} />
-									</span>
-								{/if}
-							</p>
-						{/if}
-					</li>
-				{/each}
-			</ol>
-		{/if}
-		{#each blocks as block, i (`${selected}-${i}`)}
-			<LLMGatewayCodeBlock {block}>
-				{#if block.picker}
-					{@render modelPicker(block.picker)}
+	<div class="flex flex-col gap-4 p-4 md:p-0">
+		<div class="flex flex-col">
+			{#if tabBlocks.length > 1}
+				<div
+					id="gateway-connect-tabs"
+					role="tablist"
+					class="tabs tabs-box tabs-sm mb-1 flex w-fit items-center mb-4"
+				>
+					{#each tabBlocks as block, i (`${selected}-${i}`)}
+						<button
+							role="tab"
+							class={twMerge('tab', selectedTab === i && 'tab-active')}
+							onclick={() => (selectedTab = i)}
+							aria-selected={selectedTab === i}
+						>
+							{block.tabTitle}
+						</button>
+					{/each}
+				</div>
+			{/if}
+
+			{#each tabBlocks as block, i (`${selected}-${i}-tabblock`)}
+				{#if tabBlocks.length === 1 || selectedTab === i}
+					<div
+						in:fade={{ duration: PAGE_TRANSITION_DURATION }}
+						style={minBlockHeight ? `min-height: ${minBlockHeight}px` : undefined}
+					>
+						<LLMGatewayCodeBlock {block} id={`${selected}-${i}-tabblock`}>
+							{@render modelPicker(block.picker ?? 'model')}
+							<div class="divider my-2"></div>
+							{#if steps.length > 0}
+								{@render connectSteps()}
+							{/if}
+						</LLMGatewayCodeBlock>
+					</div>
 				{/if}
-			</LLMGatewayCodeBlock>
-		{/each}
+			{/each}
+
+			{#if tabBlocks.length === 0}
+				<div class={twMerge('flex flex-col', steps.length > 0 && 'mb-2')}>
+					{@render modelPicker('model')}
+					<div class="divider my-2"></div>
+					{#if steps.length > 0}
+						{@render connectSteps()}
+					{/if}
+				</div>
+			{/if}
+
+			<div class="flex flex-col gap-2">
+				{#each codeBlocks as block, i (`${selected}-${i}-codeblock`)}
+					<LLMGatewayCodeBlock {block} id={`${selected}-${i}-codeblock`} />
+				{/each}
+			</div>
+		</div>
 	</div>
 </ResponsiveDialog>
+
+{#snippet connectSteps()}
+	{#if steps.length > 0}
+		<ol class="flex list-decimal flex-col gap-1.5 pl-5 text-sm">
+			{#each steps as step, i (`${selected}-step-${i}`)}
+				<li>
+					<span>{step.text}</span>
+					{#if step.value}
+						<span class="inline-flex max-w-full items-center gap-1 align-middle">
+							<code class="bg-base-200 dark:bg-base-100 truncate rounded px-1.5 py-0.5 text-xs"
+								>{step.value}</code
+							>
+							<CopyButton text={step.value} />
+						</span>
+					{/if}
+					{#if step.note}
+						<p class="text-muted-content text-xs">
+							{step.note}
+							{#if step.noteValue}
+								<span class="inline-flex max-w-full items-center gap-1 align-middle">
+									<code class="bg-base-200 dark:bg-base-100 truncate rounded px-1.5 py-0.5 text-xs"
+										>{step.noteValue}</code
+									>
+									<CopyButton text={step.noteValue} />
+								</span>
+							{/if}
+						</p>
+					{/if}
+				</li>
+			{/each}
+		</ol>
+	{/if}
+{/snippet}

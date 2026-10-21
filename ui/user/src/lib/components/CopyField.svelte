@@ -29,7 +29,41 @@
 	}: Props = $props();
 
 	let copyButton = $state<ReturnType<typeof CopyButton>>();
+	let codeEl = $state<HTMLElement>();
+	let wrapped = $state(false);
 	let labelId = $derived(`${id}-label`);
+
+	let hasNewline = $derived(variant === 'code' && (value ?? '').includes('\n'));
+	let multiline = $derived(hasNewline || wrapped);
+
+	function countVisualLines(node: HTMLElement) {
+		const range = document.createRange();
+		range.selectNodeContents(node);
+		const tops: number[] = [];
+		for (const rect of range.getClientRects()) {
+			if (rect.height === 0) continue;
+			if (!tops.some((top) => Math.abs(top - rect.top) < 2)) tops.push(rect.top);
+		}
+		return tops.length;
+	}
+
+	$effect(() => {
+		const node = codeEl;
+		const content = value ?? '';
+		if (!node || variant !== 'code') {
+			wrapped = false;
+			return;
+		}
+
+		const measure = () => {
+			wrapped = !content.includes('\n') && countVisualLines(node) > 1;
+		};
+
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(node);
+		return () => observer.disconnect();
+	});
 
 	export function clear() {
 		copyButton?.clearButtonText();
@@ -48,7 +82,8 @@
 <div
 	class={twMerge(
 		'copy-field-input rounded-field bg-base-200 border-none input w-full px-0',
-		variant === 'code' && 'h-auto min-h-10 items-start py-2 pl-2.5',
+		variant === 'code' && 'h-auto min-h-10 py-2 pl-2.5',
+		variant === 'code' && (multiline ? 'items-start' : 'items-center'),
 		klass
 	)}
 >
@@ -56,7 +91,8 @@
 		<div
 			class={twMerge(
 				'label px-2.5 flex items-center gap-2 text-xs text-base-content/75 shrink-0 ml-1 mr-0 ',
-				variant === 'code' && 'pl-0 pr-2.5 mt-0.5',
+				variant === 'code' && 'pl-0 pr-2.5',
+				variant === 'code' && multiline && 'mt-0.5',
 				classes?.inputLabel
 			)}
 		>
@@ -69,10 +105,11 @@
 	{/if}
 	{#if variant === 'code'}
 		<pre
+			bind:this={codeEl}
 			{id}
 			aria-labelledby={label ? labelId : undefined}
 			class={twMerge(
-				'm-0 w-full overflow-x-auto font-mono text-xs whitespace-pre-wrap break-all',
+				'm-0 w-full overflow-x-auto font-mono text-xs whitespace-pre-wrap break-all bg-inherit',
 				classes?.input
 			)}><code class="font-mono text-xs">{value ?? ''}</code></pre>
 	{:else}
@@ -85,7 +122,7 @@
 			{id}
 		/>
 	{/if}
-	<div class={twMerge('mr-2', variant === 'code' && 'mt-0.5')}>
+	<div class={twMerge('mr-2', variant === 'code' && multiline && 'mt-0.5')}>
 		<CopyButton
 			bind:this={copyButton}
 			classes={{

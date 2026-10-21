@@ -63,8 +63,11 @@ describe('ModelsView', () => {
 			.element(page.getByRole('button', { name: '2 models available', exact: true }))
 			.toBeInTheDocument();
 		await expect
-			.element(page.getByText(`${window.location.origin}/api/llm-proxy`, { exact: true }))
-			.toBeVisible();
+			.element(page.getByRole('textbox', { name: 'OpenAI base URL' }))
+			.toHaveValue(`${window.location.origin}/api/llm-proxy/v1`);
+		await expect
+			.element(page.getByRole('textbox', { name: 'Anthropic base URL' }))
+			.toHaveValue(`${window.location.origin}/api/llm-proxy`);
 		await expect
 			.element(
 				page.getByText('Every model is available in the OpenAI Chat Completions', { exact: false })

@@ -20,6 +20,21 @@ const schema: JSONSchema = {
 };
 
 describe('JsonSchemaForm', () => {
+	it('exposes the selected argument-input tab when switching modes', async () => {
+		render(JsonSchemaForm, { schema });
+		const generated = page.getByRole('tab', { name: 'Generated form' });
+		const raw = page.getByRole('tab', { name: 'Raw JSON' });
+
+		await expect.element(generated).toHaveAttribute('aria-selected', 'true');
+		await expect.element(raw).toHaveAttribute('aria-selected', 'false');
+		await raw.click();
+		await expect.element(generated).toHaveAttribute('aria-selected', 'false');
+		await expect.element(raw).toHaveAttribute('aria-selected', 'true');
+		await generated.click();
+		await expect.element(generated).toHaveAttribute('aria-selected', 'true');
+		await expect.element(raw).toHaveAttribute('aria-selected', 'false');
+	});
+
 	it('generates the fetch_content form and preserves or edits its nullable backend', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {

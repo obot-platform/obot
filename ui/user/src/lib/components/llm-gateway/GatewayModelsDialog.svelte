@@ -72,11 +72,11 @@
 </script>
 
 <ResponsiveDialog bind:this={dialog} title={m.models_gateway_available_models()} class="max-w-3xl">
-	<div class="flex max-h-[70vh] flex-col gap-3 overflow-y-auto pt-4 text-sm">
+	<div class="flex max-h-[70vh] flex-col gap-3 overflow-y-auto text-sm px-0.5 pt-0.5">
 		<Search
 			compact
 			value={search}
-			class="bg-base-200 dark:bg-base-100 max-w-sm"
+			class="bg-base-200 dark:bg-base-100"
 			placeholder={m.models_gateway_search_models()}
 			onChange={(v) => (search = v)}
 		/>

@@ -47,7 +47,7 @@
 </script>
 
 <ResponsiveDialog bind:this={dialog} title={m.guardrails_add()} class="max-w-3xl">
-	<div class="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pt-4">
+	<div class="flex max-h-[70vh] flex-col gap-4 overflow-y-auto p-4 md:p-0">
 		{#each categories as c (c.name)}
 			<div class="flex flex-col gap-2">
 				<h3 class="text-muted-content text-xs font-semibold uppercase">

@@ -366,7 +366,7 @@
 		{/if}
 	{/snippet}
 	<form
-		class="flex flex-col gap-4 pt-4"
+		class="flex flex-col gap-4 p-4 md:p-0"
 		onsubmit={(e) => {
 			e.preventDefault();
 			save();
@@ -388,15 +388,22 @@
 			<div class="flex flex-col gap-1 md:col-span-3">
 				<label for="rule-cel" class="text-sm font-light">{m.models_routing_when_cel()}</label>
 				<input id="rule-cel" class="text-input-filled font-mono text-sm" bind:value={cel} />
-				<div class="text-muted-content grid grid-cols-1 gap-x-4 gap-y-1 text-xs md:grid-cols-2">
-					{#each celVariables as v (v.name)}
-						<span><code class="text-base-content">{v.name}</code> — {v.description}</span>
-					{/each}
+				<div class="alert bg-primary/10 border-primary/50 text-xs">
+					<div class="flex flex-col gap-0.5">
+						{#each celVariables as v (v.name)}
+							<div class="grid grid-cols-4 gap-8">
+								<code class="text-base-content col-span-1">{v.name}</code>
+								<span class="col-span-3">{v.description}</span>
+							</div>
+						{/each}
+						<span class="text-muted-content text-xs mt-4">
+							{m.models_routing_cel_example()} <code class="text-base-content">{celExample}</code>
+						</span>
+						<span class="text-muted-content text-xs">
+							{m.models_routing_evaluation_order()}
+						</span>
+					</div>
 				</div>
-				<span class="text-muted-content text-xs">
-					{m.models_routing_cel_example()} <code class="text-base-content">{celExample}</code>
-					{m.models_routing_evaluation_order()}
-				</span>
 			</div>
 		</div>
 
@@ -474,15 +481,17 @@
 					{m.models_routing_ttft_invalid({ max: MAX_TTFT_SECONDS })}
 				</span>
 			{/if}
-			<button
-				type="button"
-				class="btn btn-secondary flex w-fit items-center gap-1 text-xs"
-				onclick={() =>
-					targets.push({ provider: providers[0]?.name ?? '', model: '', weight: 0, ttft: null })}
-			>
-				<Plus class="size-3" />
-				{m.models_routing_add_target()}
-			</button>
+			<div class="flex justify-end">
+				<button
+					type="button"
+					class="btn btn-secondary btn-sm flex w-fit items-center gap-1"
+					onclick={() =>
+						targets.push({ provider: providers[0]?.name ?? '', model: '', weight: 0, ttft: null })}
+				>
+					<Plus class="size-3" />
+					{m.models_routing_add_target()}
+				</button>
+			</div>
 		</div>
 
 		<div class="flex flex-col gap-2">
@@ -519,21 +528,23 @@
 					</IconButton>
 				</div>
 			{/each}
-			<button
-				type="button"
-				class="btn btn-secondary flex w-fit items-center gap-1 text-xs"
-				onclick={() => fallbacks.push({ provider: providers[0]?.name ?? '', model: '' })}
-			>
-				<Plus class="size-3" />
-				{m.models_routing_add_fallback()}
-			</button>
+			<div class="flex justify-end">
+				<button
+					type="button"
+					class="btn btn-secondary btn-sm flex w-fit items-center gap-1"
+					onclick={() => fallbacks.push({ provider: providers[0]?.name ?? '', model: '' })}
+				>
+					<Plus class="size-3" />
+					{m.models_routing_add_fallback()}
+				</button>
+			</div>
 		</div>
 
 		{#if error}
 			<div class="notification-error rounded-md p-2 text-sm">{error}</div>
 		{/if}
 
-		<div class="flex justify-end gap-2">
+		<div class="flex justify-end gap-2 mt-6">
 			<button type="button" class="btn btn-secondary text-sm" onclick={() => dialog?.close()}>
 				{m.common_cancel()}
 			</button>

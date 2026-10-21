@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
-	import CopyButton from '$lib/components/CopyButton.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import GatewayConnect from '$lib/components/llm-gateway/GatewayConnect.svelte';
 	import GatewayModelsDialog, {
 		gatewayModelNames
@@ -68,13 +68,15 @@
 				</div>
 				<!-- OpenAI clients append /chat/completions or /responses to the base URL, and
 				Anthropic clients /v1/messages, so each needs its own. -->
-				{#each [{ label: m.models_gateway_base_url_openai(), url: `${obotURL}/api/llm-proxy/v1` }, { label: m.models_gateway_base_url_anthropic(), url: `${obotURL}/api/llm-proxy` }] as base (base.url)}
-					<div class="flex min-w-0 items-center gap-2 text-sm">
-						<span class="text-muted-content w-32 shrink-0 text-xs font-medium">{base.label}</span>
-						<code class="bg-base-200 dark:bg-base-300 truncate rounded px-2 py-0.5 text-xs"
-							>{base.url}</code
-						>
-						<CopyButton text={base.url} tooltipText={m.models_gateway_copy_base_url()} />
+				{#each [{ label: m.models_gateway_base_url_openai(), url: `${obotURL}/api/llm-proxy/v1`, id: 'openai' }, { label: m.models_gateway_base_url_anthropic(), url: `${obotURL}/api/llm-proxy`, id: 'anthropic' }] as base (base.url)}
+					<div class="flex flex-col gap-0.5">
+						<CopyField
+							id={base.id}
+							value={base.url}
+							label={base.label}
+							class="dark:bg-base-100"
+							classes={{ label: 'text-xs' }}
+						/>
 					</div>
 				{/each}
 				<p class="text-muted-content text-xs">

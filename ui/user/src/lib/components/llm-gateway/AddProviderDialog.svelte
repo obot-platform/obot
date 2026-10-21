@@ -227,7 +227,7 @@
 		</div>
 	{:else}
 		<form
-			class="flex flex-col gap-4 pt-4"
+			class="flex flex-col gap-4 p-4 md:p-0"
 			onsubmit={(e) => {
 				e.preventDefault();
 				save();

@@ -152,14 +152,14 @@
 			onclick={() => onChange('variant', ['grid'])}
 		>
 			<LayoutGrid class="size-4" />
-			{m.vmcps_grid_view()}
+			{m.core_grid_view()}
 		</button>
 		<button
 			class={twMerge('btn', filters.variant === 'table' ? 'btn-active' : undefined)}
 			onclick={() => onChange('variant', ['table'])}
 		>
 			<Table class="size-4" />
-			{m.vmcps_table_view()}
+			{m.core_table_view()}
 		</button>
 	</div>
 </div>

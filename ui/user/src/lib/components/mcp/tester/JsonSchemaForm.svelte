@@ -90,6 +90,7 @@
 			<button
 				type="button"
 				role="tab"
+				aria-selected={mode === 'form'}
 				class={twMerge('tab', mode === 'form' ? 'tab-active bg-primary text-primary-content' : '')}
 				disabled={!generatedRepresents}
 				aria-describedby={generatedRepresents ? undefined : rawOnlyId}
@@ -99,6 +100,7 @@
 		<button
 			type="button"
 			role="tab"
+			aria-selected={mode === 'raw'}
 			class={twMerge('tab', mode === 'raw' ? 'tab-active bg-primary text-primary-content' : '')}
 			onclick={() => setMode('raw')}>{m.mcps_tester_raw_json()}</button
 		>

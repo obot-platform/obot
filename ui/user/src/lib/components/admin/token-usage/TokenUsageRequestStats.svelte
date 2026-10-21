@@ -185,7 +185,7 @@
 				{/if}
 			</div>
 		</div>
-		<div class="paper flex min-h-0 flex-col gap-0 overflow-hidden p-0">
+		<div class="paper flex h-full min-h-0 flex-col gap-0 overflow-hidden p-0">
 			{@render cardHeader(m.audit_usage_usage_spend_by_provider())}
 			<div class="w-full shrink-0 p-4">
 				{#if loading && !stats}
@@ -217,41 +217,48 @@
 	<!-- No overflow-hidden here: it would make this card the table's scroll container, and the
 	table's sticky header, offset for the page's own sticky bar, would cover its first rows. -->
 	<div class="paper flex min-h-0 flex-col gap-0 p-0">
-		<div
-			class="dark:border-base-400 border-base-300 flex shrink-0 items-center gap-4 rounded-t-md border-b px-4"
-		>
+		<div class="bg-base-300 flex shrink-0 items-center rounded-t-md">
 			{#each [{ id: 'requests', label: m.audit_usage_usage_top_models_by_requests() }, { id: 'spend', label: m.audit_usage_usage_top_models_by_spend() }] as const as tab (tab.id)}
 				<button
 					class={twMerge(
-						'border-b-2 border-transparent py-2 text-xs font-medium uppercase transition-colors',
-						topModelsBy === tab.id ? 'border-primary' : 'text-muted-content hover:text-base-content'
+						'relative py-2 text-xs font-medium uppercase transition-colors px-4 first:rounded-tl-md',
+						topModelsBy === tab.id
+							? 'bg-base-100 dark:bg-base-200'
+							: 'text-muted-content hover:text-base-content hover:bg-base-100/50 hover:dark:bg-base-200/50'
 					)}
 					aria-pressed={topModelsBy === tab.id}
 					onclick={() => (topModelsBy = tab.id)}
 				>
 					{tab.label}
+					{#if topModelsBy === tab.id}
+						<span
+							class="absolute bottom-1 left-1/2 -translate-x-1/2 h-0.5 w-[calc(100%-2rem)] bg-primary"
+						></span>
+					{/if}
 				</button>
 			{/each}
 		</div>
-		{#if loading && !stats}
-			<Skeleton type="table" count={3} class="p-4" />
-		{:else}
-			<Table
-				data={topModels}
-				fields={['model', 'provider', 'requests', 'success', 'tokens', 'spend', 'latency']}
-				headers={[
-					{ property: 'model', title: m.audit_usage_audit_logs_model() },
-					{ property: 'provider', title: m.core_col_provider() },
-					{ property: 'requests', title: m.audit_usage_usage_col_requests() },
-					{ property: 'success', title: m.audit_usage_usage_col_success() },
-					{ property: 'tokens', title: m.audit_usage_usage_col_tokens() },
-					{ property: 'spend', title: m.core_spend() },
-					{ property: 'latency', title: m.audit_usage_usage_col_latency() }
-				]}
-				classes={{ root: 'rounded-none shadow-none' }}
-				noDataMessage={m.audit_usage_usage_no_requests()}
-			/>
-		{/if}
+		<div class="p-1">
+			{#if loading && !stats}
+				<Skeleton type="table" count={3} />
+			{:else}
+				<Table
+					data={topModels}
+					fields={['model', 'provider', 'requests', 'success', 'tokens', 'spend', 'latency']}
+					headers={[
+						{ property: 'model', title: m.audit_usage_audit_logs_model() },
+						{ property: 'provider', title: m.core_col_provider() },
+						{ property: 'requests', title: m.audit_usage_usage_col_requests() },
+						{ property: 'success', title: m.audit_usage_usage_col_success() },
+						{ property: 'tokens', title: m.audit_usage_usage_col_tokens() },
+						{ property: 'spend', title: m.core_spend() },
+						{ property: 'latency', title: m.audit_usage_usage_col_latency() }
+					]}
+					classes={{ root: 'rounded-none shadow-none', thead: 'dark:bg-base-100' }}
+					noDataMessage={m.audit_usage_usage_no_requests()}
+				/>
+			{/if}
+		</div>
 	</div>
 </div>
 
