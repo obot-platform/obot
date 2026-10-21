@@ -27,12 +27,30 @@ var (
 // Serialize admission and order deduplication across Obot replicas. Provisioning only
 // writes desired state; this lock is never held while waiting for a runner to boot.
 func (c *Client) WithClaudeProvisionLock(ctx context.Context, fn func() error) error {
+	// The lock's transaction holds a database connection while it waits, and fn's queries
+	// use others. Waiting here first keeps a replica's waiters from filling the pool and
+	// stalling the holder: only one caller per replica holds or waits for the lock.
+	gate := c.claudeProvisionGate()
+	select {
+	case gate <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-gate }()
+
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(672046923)).Error; err != nil {
 			return err
 		}
 		return fn()
 	})
+}
+
+func (c *Client) claudeProvisionGate() chan struct{} {
+	c.claudeProvisionGateOnce.Do(func() {
+		c.claudeProvisionGateSlot = make(chan struct{}, 1)
+	})
+	return c.claudeProvisionGateSlot
 }
 
 func (c *Client) ClaudeWorkOrderSubmitted(ctx context.Context, name string) (bool, error) {
