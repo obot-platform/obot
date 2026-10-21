@@ -78,7 +78,15 @@
 	});
 </script>
 
-<dialog bind:this={dialog} class="dialog">
+<dialog
+	bind:this={dialog}
+	class="dialog"
+	oncancel={(e) => {
+		// Escape on a modal dialog closes it natively; cancel instead so the caller's state follows.
+		e.preventDefault();
+		oncancel();
+	}}
+>
 	<div class="dialog-container w-[calc(100dvw-2rem)] md:w-md">
 		<div class="dialog-title p-4 pb-0">
 			{#if titleContent}

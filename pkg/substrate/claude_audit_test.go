@@ -50,7 +50,7 @@ func (c *auditControl) CreateActorEgressPolicy(_ context.Context, r *pb.CreateAc
 func TestClaudeAuditTrustAndPolicy(t *testing.T) {
 	control := &auditControl{}
 	client := &Client{Control: control, Config: Config{ObotURL: "http://obot.obot.svc:8080"}}
-	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: "7", ClaudeEnvironment: "env", ClaudeRuntime: `{"image":"runner@sha256:abc","egressHosts":["*.github.com"],"managedSettings":{"permissions":{"deny":["Read(./secret)"]}}}`}}
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: "7", ClaudeEnvironment: "env", ClaudeRuntime: `{"image":"runner@sha256:abc","egressHosts":["*.github.com"],"llmProxy":true,"managedSettings":{"permissions":{"deny":["Read(./secret)"]}}}`}}
 	inst.Name = "acr-test"
 	_, err := client.EnsureClaude(t.Context(), inst, map[string]string{"token": "token", "workOrder": "order"}, []string{"*.github.com"}, false, nil)
 	require.NoError(t, err)
@@ -158,7 +158,7 @@ func TestClaudeAllowAllEgress(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, control.policy.Rules, 3)
 	require.Equal(t, []string{"obot.obot.svc"}, control.policy.Rules[0].Http.Hostnames)
-	require.Len(t, control.policy.Rules[0].Http.Effects.ReplaceHeaders, 2)
+	require.Len(t, control.policy.Rules[0].Http.Effects.ReplaceHeaders, 1)
 	require.Equal(t, []string{"*"}, control.policy.Rules[1].Http.Hostnames)
 	// Wildcard HTTP and HTTPS rules must use distinct ports.
 	require.Nil(t, control.policy.Rules[1].Http.Ports.All)
@@ -214,4 +214,18 @@ func TestClaudeGenericSecretPolicy(t *testing.T) {
 	_, err = client.EnsureClaude(t.Context(), instance, nil, nil, false, secrets)
 	require.NoError(t, err)
 	require.Len(t, control.policy.Rules, 2)
+}
+
+func TestClaudeLLMProxyIsOffByDefault(t *testing.T) {
+	control := &auditControl{}
+	client := &Client{Control: control, Config: Config{ObotURL: "http://obot.obot.svc:8080"}}
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: "7", ClaudeEnvironment: "env", ClaudeRuntime: `{"image":"runner@sha256:abc"}`}}
+	inst.Name = "acr-test"
+	_, err := client.EnsureClaude(t.Context(), inst, map[string]string{"token": "token", "workOrder": "order"}, nil, false, nil)
+	require.NoError(t, err)
+	for _, variable := range control.template.Containers[0].Env {
+		require.NotContains(t, []string{"OBOT_ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS", "ANTHROPIC_BASE_URL"}, variable.Name)
+	}
+	require.Len(t, control.policy.Rules[0].Http.Effects.ReplaceHeaders, 1)
+	require.Equal(t, "X-Obot-Egress-Key", control.policy.Rules[0].Http.Effects.ReplaceHeaders[0].Header, "only the MCP key is injected")
 }

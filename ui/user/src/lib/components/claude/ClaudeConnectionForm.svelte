@@ -49,6 +49,7 @@
 	let pendingView = $state<'details' | 'profiles' | 'tag'>();
 	let confirmUnsaved = $state(false);
 	let confirmDelete = $state(false);
+	let confirmLLMProxy = $state(false);
 	let applyingProfile = $state(false);
 	const admin = $derived(profile.current.isAdmin?.() ?? false);
 
@@ -73,6 +74,7 @@
 				image: '',
 				workerImage: '',
 				allowAllEgress: false,
+				llmProxy: false,
 				egressHosts: [],
 				worker: {
 					workerReplicas: 1,
@@ -465,6 +467,27 @@
 							{/if}
 						</details>
 					</fieldset>
+					<fieldset class="space-y-3 block paper">
+						<h3 class="font-semibold">{m.hosted_agents_llm_proxy_title()}</h3>
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={draft.runtime.llmProxy ?? false}
+								onchange={(event) => {
+									if (!draft) return;
+									if (event.currentTarget.checked) {
+										// Enable only once the admin acknowledges what it needs.
+										event.currentTarget.checked = false;
+										confirmLLMProxy = true;
+									} else {
+										draft.runtime.llmProxy = false;
+									}
+								}}
+							/>
+							{m.hosted_agents_llm_proxy_label()}
+						</label>
+						<p class="text-xs text-muted-content">{m.hosted_agents_llm_proxy_help()}</p>
+					</fieldset>
 					<EgressSecrets
 						bind:secrets={
 							() => draft?.egressSecrets ?? [],
@@ -509,6 +532,27 @@
 			}}
 			oncancel={cancelUnsavedSwitch}
 		/>
+		<Confirm
+			show={confirmLLMProxy}
+			type="info"
+			title={m.hosted_agents_llm_proxy_confirm_title()}
+			submitText={m.hosted_agents_llm_proxy_confirm_submit()}
+			onsuccess={() => {
+				if (draft) draft.runtime.llmProxy = true;
+				confirmLLMProxy = false;
+			}}
+			oncancel={() => (confirmLLMProxy = false)}
+		>
+			{#snippet msgContent()}
+				<div class="flex flex-col gap-2 text-sm">
+					<p>{m.hosted_agents_llm_proxy_confirm_msg()}</p>
+					<ol class="list-decimal space-y-1 pl-5">
+						<li>{m.hosted_agents_llm_proxy_requirement_subscriptions()}</li>
+						<li>{m.hosted_agents_llm_proxy_requirement_profile()}</li>
+					</ol>
+				</div>
+			{/snippet}
+		</Confirm>
 		<Confirm
 			show={confirmDelete}
 			title={m.hosted_agents_env_action_delete()}

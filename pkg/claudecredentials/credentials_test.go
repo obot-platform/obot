@@ -192,7 +192,7 @@ func TestClaudeLLMEgressCredential(t *testing.T) {
 	// The LLM key does not depend on MCP grants.
 	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}}}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session", ClaudeRuntime: `{}`}}
 	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
 	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
 	provider := &CredentialProvider{Gateway: gateway, Storage: storage}
@@ -200,7 +200,12 @@ func TestClaudeLLMEgressCredential(t *testing.T) {
 	actor := "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name
 	input := &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name + "/llm", ActorSpiffeId: actor}
 
-	_, err := provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: actor}, true)
+	_, err := provider.fetchSecret(ctx, input, true)
+	require.Equal(t, codes.PermissionDenied, status.Code(err), "no LLM key for a session whose environment leaves the LLM proxy off")
+	inst.Spec.ClaudeRuntime = `{"llmProxy":true}`
+	require.NoError(t, storage.Update(ctx, inst))
+
+	_, err = provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: actor}, true)
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "no MCP key without MCP grants")
 
 	started := time.Now()
@@ -361,7 +366,7 @@ func TestFetchSecretTakesTheLockOnlyToIssueKeys(t *testing.T) {
 	env.EgressSecrets = []gt.ClaudeEgressSecret{{ID: "ces-token", Hostname: "api.example.com", Header: "authorization", Value: "env-secret"}}
 	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}, MCPServerIDs: []string{"vmcp_one"}}}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session", ClaudeRuntime: `{"llmProxy":true}`}}
 	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
 	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
 	provider := &CredentialProvider{Gateway: gateway, Storage: storage}

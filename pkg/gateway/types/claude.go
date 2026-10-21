@@ -28,8 +28,10 @@ type ClaudeRuntime struct {
 	WorkerImage     string          `json:"workerImage"`
 	Worker          ClaudeWorker    `json:"worker"`
 	AllowAllEgress  bool            `json:"allowAllEgress,omitempty"`
-	EgressHosts     []string        `json:"egressHosts"`
-	Resources       ClaudeResources `json:"resources"`
+	// LLMProxy sends the environment's model requests through Obot's LLM proxy.
+	LLMProxy    bool            `json:"llmProxy,omitempty"`
+	EgressHosts []string        `json:"egressHosts"`
+	Resources   ClaudeResources `json:"resources"`
 }
 
 // ClaudeEgressSecret values are write-only in the API and stored separately on the environment.

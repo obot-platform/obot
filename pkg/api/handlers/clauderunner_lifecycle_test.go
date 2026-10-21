@@ -97,6 +97,7 @@ func TestAdmissionRecordsDefaultImages(t *testing.T) {
 	env := &gt.ClaudeEnvironment{
 		ID: "environment", OrganizationID: "org_test", EnvironmentID: "ccpool_test",
 		Profiles: []gt.ClaudeEnvironmentProfile{{Name: "mapped", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "123"}}}},
+		Runtime:  gt.ClaudeRuntime{LLMProxy: true},
 	}
 	token := strings.Repeat("a", 32)
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, map[string]string{"token": token}))
@@ -124,6 +125,7 @@ func TestAdmissionRecordsDefaultImages(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(instances.Items[0].Spec.ClaudeRuntime), &runtime))
 	require.Equal(t, runnerImage, runtime.Image, "the session records the image it runs")
 	require.Equal(t, "example/worker:default", runtime.WorkerImage)
+	require.True(t, runtime.LLMProxy, "the session records whether its environment uses the LLM proxy")
 
 	stored, err := gateway.ClaudeEnvironment(ctx, env.ID)
 	require.NoError(t, err)

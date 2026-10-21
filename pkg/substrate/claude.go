@@ -66,12 +66,10 @@ func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, s
 			Resources:      &pb.Resources{Limits: []*pb.Limits{{Name: "cpu", Quantity: runtime.Resources.ActorCPU}, {Name: "memory", Quantity: runtime.Resources.ActorMemory}}},
 			SnapshotConfig: &pb.SnapshotConfig{OnPause: pb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA, OnCommit: pb.SnapshotContentScope_SNAPSHOT_CONTENT_SCOPE_DATA, StorageLocation: c.Config.SnapshotLocation},
 			Volumes:        []*pb.Volume{{Name: "workspace", DurableDir: &pb.DurableDirVolumeSource{}}, {Name: "identity", SystemInfo: &pb.SystemInfoVolumeSource{DataSources: []*pb.SystemInfoDataSource{{TrustBundle: &pb.TrustBundleDataSource{Names: []string{"egress-mitm.ate.dev"}, Path: "egress-ca.pem"}}, {ActorMetadata: &pb.ActorMetadataDataSource{Items: []*pb.ActorMetadataItem{{Field: pb.ActorMetadataField_ACTOR_METADATA_FIELD_NAME, Path: "name"}}}}}}}},
-			// Claude's self-hosted runner sets ANTHROPIC_BASE_URL for each session it starts, so the
-			// runner's command hook sets it from OBOT_ANTHROPIC_BASE_URL just before starting Claude.
 			Containers: []*pb.Container{{Name: "claude", Image: runtime.Image,
 				VolumeMounts: []*pb.VolumeMount{{Name: "workspace", MountPath: "/workspace"}, {Name: "identity", MountPath: "/run/actor"}},
 				WakeupProbe:  &pb.ContainerWakeupProbe{HttpGet: &pb.HTTPGetAction{Path: "/healthz", Port: 80}, TimeoutSeconds: 120},
-				Env:          []*pb.EnvVar{{Name: "OBOT_CLAUDE_MANAGED_SETTINGS", Value: string(runtime.ManagedSettings)}, {Name: "NODE_EXTRA_CA_CERTS", Value: "/run/actor/egress-ca.pem"}, {Name: "SSL_CERT_FILE", Value: "/run/actor/egress-ca.pem"}, {Name: "REQUESTS_CA_BUNDLE", Value: "/run/actor/egress-ca.pem"}, {Name: "GIT_SSL_CAINFO", Value: "/run/actor/egress-ca.pem"}, {Name: "CURL_CA_BUNDLE", Value: "/run/actor/egress-ca.pem"}, {Name: "OBOT_CLAUDE_IDLE_TIMEOUT_MINUTES", Value: strconv.Itoa(runtime.Resources.IdleTimeoutMinutes)}, {Name: "OBOT_URL", Value: c.Config.ObotURL}, {Name: "OBOT_ANTHROPIC_BASE_URL", Value: strings.TrimSuffix(c.Config.ObotURL, "/") + "/api/llm-proxy"}, {Name: "ANTHROPIC_CUSTOM_HEADERS", Value: "X-Obot-Api-Key: " + llmKeyPlaceholder}, {Name: "OBOT_INSTANCE", Value: instance.Name}, {Name: "OBOT_RUNNER_TOKEN", Value: secrets["token"]}, {Name: "OBOT_WORK_ORDER", Value: secrets["workOrder"]}},
+				Env:          append([]*pb.EnvVar{{Name: "OBOT_CLAUDE_MANAGED_SETTINGS", Value: string(runtime.ManagedSettings)}, {Name: "NODE_EXTRA_CA_CERTS", Value: "/run/actor/egress-ca.pem"}, {Name: "SSL_CERT_FILE", Value: "/run/actor/egress-ca.pem"}, {Name: "REQUESTS_CA_BUNDLE", Value: "/run/actor/egress-ca.pem"}, {Name: "GIT_SSL_CAINFO", Value: "/run/actor/egress-ca.pem"}, {Name: "CURL_CA_BUNDLE", Value: "/run/actor/egress-ca.pem"}, {Name: "OBOT_CLAUDE_IDLE_TIMEOUT_MINUTES", Value: strconv.Itoa(runtime.Resources.IdleTimeoutMinutes)}, {Name: "OBOT_URL", Value: c.Config.ObotURL}, {Name: "OBOT_INSTANCE", Value: instance.Name}, {Name: "OBOT_RUNNER_TOKEN", Value: secrets["token"]}, {Name: "OBOT_WORK_ORDER", Value: secrets["workOrder"]}}, llmProxyEnv(runtime, c.Config.ObotURL)...),
 			}},
 		}})
 	}
@@ -110,12 +108,15 @@ func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, s
 			Header:        "X-Obot-Egress-Key",
 			Prefix:        "Bearer ",
 			CredentialUri: "ate-secret://obot/claude/" + instance.Name,
-		}, {
+		}}},
+	}}
+	if runtime.LLMProxy {
+		rule.Http.Effects.ReplaceHeaders = append(rule.Http.Effects.ReplaceHeaders, &pb.CredentialHeader{
 			// Replaces llmKeyPlaceholder, so the runner never holds its LLM proxy key.
 			Header:        "X-Obot-Api-Key",
 			CredentialUri: "ate-secret://obot/claude/" + instance.Name + "/llm",
-		}}},
-	}}
+		})
+	}
 	hosts := []string{"api.anthropic.com"}
 	for _, host := range egressHosts {
 		if host = strings.TrimSpace(host); host != "" {
@@ -190,4 +191,17 @@ func (c *Client) EnsureClaude(ctx context.Context, instance *v1.AgentInstance, s
 		return nil, err
 	}
 	return actor, nil
+}
+
+// llmProxyEnv points Claude at Obot's LLM proxy when the session's environment enables it.
+// Claude's self-hosted runner sets ANTHROPIC_BASE_URL for each session it starts, so the
+// runner's command hook sets it from OBOT_ANTHROPIC_BASE_URL just before starting Claude.
+func llmProxyEnv(runtime gt.ClaudeRuntime, obotURL string) []*pb.EnvVar {
+	if !runtime.LLMProxy {
+		return nil
+	}
+	return []*pb.EnvVar{
+		{Name: "OBOT_ANTHROPIC_BASE_URL", Value: strings.TrimSuffix(obotURL, "/") + "/api/llm-proxy"},
+		{Name: "ANTHROPIC_CUSTOM_HEADERS", Value: "X-Obot-Api-Key: " + llmKeyPlaceholder},
+	}
 }

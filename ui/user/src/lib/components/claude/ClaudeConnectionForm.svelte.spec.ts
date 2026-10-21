@@ -7,7 +7,7 @@ import ClaudeConnectionForm from './ClaudeConnectionForm.svelte';
 import { http, HttpResponse } from 'msw';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 
 const runtime = {
 	image: 'example/runner@sha256:' + 'a'.repeat(64),
@@ -184,8 +184,125 @@ it('saves blank images so environments follow the default images', async () => {
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 	expect(saved.mock.calls[0][0].runtime).toEqual(
-		expect.objectContaining({ image: '', workerImage: '' })
+		expect.objectContaining({ image: '', workerImage: '', llmProxy: false })
 	);
+}, 5000);
+
+it('confirms the LLM gateway requirements before turning it on', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		),
+		http.post('*/api/claude-environments', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByLabelText('Display name', { exact: true }).fill('Development');
+	await page.getByLabelText('Environment key', { exact: true }).fill('test-key');
+	const toggle = page.getByLabelText("Send model requests through Obot's LLM gateway", {
+		exact: true
+	});
+	await expect.element(toggle).not.toBeChecked();
+
+	// Cancelling the confirmation leaves the LLM gateway off.
+	await toggle.click();
+	await expect
+		.element(
+			page.getByText('The Anthropic model provider must allow Claude subscriptions.', {
+				exact: true
+			})
+		)
+		.toBeVisible();
+	await expect
+		.element(
+			page.getByText(
+				'A model gateway profile must give all users access to Claude Opus 5.5, Sonnet 5.5, Haiku 5.5, and Fable 5.1.',
+				{ exact: true }
+			)
+		)
+		.toBeVisible();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+	await expect.element(toggle).not.toBeChecked();
+
+	await toggle.click();
+	await page.getByRole('button', { name: 'Use the LLM gateway', exact: true }).click();
+	await expect.element(toggle).toBeChecked();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].runtime).toEqual(expect.objectContaining({ llmProxy: true }));
+}, 5000);
+
+it('confirms the LLM gateway again after dismissing it with Escape', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		)
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	const toggle = page.getByLabelText("Send model requests through Obot's LLM gateway", {
+		exact: true
+	});
+	const confirm = page.getByRole('button', { name: 'Use the LLM gateway', exact: true });
+
+	await toggle.click();
+	await expect.element(confirm).toBeVisible();
+	await userEvent.keyboard('{Escape}');
+	await expect.element(confirm).not.toBeInTheDocument();
+	await expect.element(toggle).not.toBeChecked();
+
+	await toggle.click();
+	await confirm.click();
+	await expect.element(toggle).toBeChecked();
+}, 5000);
+
+it('turns the LLM gateway off without confirming', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [{ ...environment, runtime: { ...runtime, llmProxy: true } }],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		),
+		http.put('*/api/claude-environments/one', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: () => {}, onSubmit: () => {} });
+	const toggle = page.getByLabelText("Send model requests through Obot's LLM gateway", {
+		exact: true
+	});
+	await expect.element(toggle).toBeChecked();
+	await toggle.click();
+	await expect.element(toggle).not.toBeChecked();
+	await expect
+		.element(page.getByText('The Anthropic model provider must allow Claude subscriptions.'))
+		.not.toBeVisible();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].runtime).toEqual(expect.objectContaining({ llmProxy: false }));
 }, 5000);
 
 it('clears a pinned image so the environment follows the default again', async () => {

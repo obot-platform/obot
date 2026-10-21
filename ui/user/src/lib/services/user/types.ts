@@ -401,6 +401,7 @@ export type ClaudeRuntime = {
 	image: string;
 	workerImage: string;
 	allowAllEgress?: boolean;
+	llmProxy?: boolean;
 	egressHosts: string[];
 	worker: {
 		workerReplicas: number;

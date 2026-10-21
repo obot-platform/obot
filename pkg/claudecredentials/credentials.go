@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -101,6 +102,14 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 	expected := "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name
 	if input.GetActorSpiffeId() != expected || inst.Spec.ClaudeOrder == "" || inst.DeletionTimestamp != nil || inst.Spec.ClaudeDone || inst.Spec.Suspended {
 		return nil, status.Error(codes.PermissionDenied, "Claude session is not active for this actor")
+	}
+
+	if llm {
+		// The session's runtime records whether its environment enabled the LLM proxy.
+		var runtime gt.ClaudeRuntime
+		if err := json.Unmarshal([]byte(inst.Spec.ClaudeRuntime), &runtime); err != nil || !runtime.LLMProxy {
+			return nil, status.Error(codes.PermissionDenied, "The LLM proxy is not enabled for this Claude session")
+		}
 	}
 
 	environment, err := clauderunner.AuthorizedEnvironment(ctx, p.Gateway, inst.Spec.ClaudeEnvironment, inst.Spec.ClaudeAccount, inst.Spec.UserID)
