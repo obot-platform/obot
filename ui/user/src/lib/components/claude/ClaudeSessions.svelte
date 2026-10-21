@@ -518,10 +518,12 @@
 									{:else}
 										<ul class="space-y-1 p-3">
 											{#each session.spec.claudeRepositories as repository, index (index)}
-												<li>
+												<li class="truncate break-all">
 													{repository.url}
 													{#if repository.revision}
-														<span class="block text-muted-content text-[11px] font-light">
+														<span
+															class="block text-muted-content text-[11px] font-light truncate break-all"
+														>
 															{repository.revision}
 														</span>
 													{/if}

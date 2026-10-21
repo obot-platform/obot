@@ -391,9 +391,9 @@
 				<div class="alert bg-primary/10 border-primary/50 text-xs">
 					<div class="flex flex-col gap-0.5">
 						{#each celVariables as v (v.name)}
-							<div class="grid grid-cols-4 gap-8">
-								<code class="text-base-content col-span-1">{v.name}</code>
-								<span class="col-span-3">{v.description}</span>
+							<div class="grid grid-cols-4 gap-0 md:gap-8 mb-2 md:mb-0">
+								<code class="text-base-content col-span-4 md:col-span-1">{v.name}</code>
+								<span class="col-span-4 md:col-span-3">{v.description}</span>
 							</div>
 						{/each}
 						<span class="text-muted-content text-xs mt-4">
