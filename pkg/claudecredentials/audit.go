@@ -17,6 +17,7 @@ import (
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/obot-platform/obot/pkg/system"
@@ -216,6 +217,25 @@ func anthropicMCPRequest(authority, requestPath string) bool {
 	return ok && session != "" && (endpoint == "mcp" || strings.HasPrefix(endpoint, "mcp/"))
 }
 
+// obotAuthority reports whether a cleartext request's authority is Obot's.
+func obotAuthority(obotURL, authority string) bool {
+	obot, err := url.Parse(obotURL)
+	if err != nil || obot.Scheme != "http" || obot.Hostname() == "" {
+		return false
+	}
+	destination, err := url.Parse("http://" + authority)
+	if err != nil {
+		return false
+	}
+	port := func(u *url.URL) string {
+		if u.Port() == "" {
+			return "80"
+		}
+		return u.Port()
+	}
+	return strings.EqualFold(strings.TrimSuffix(destination.Hostname(), "."), obot.Hostname()) && port(destination) == port(obot)
+}
+
 func egressOutcome(code int) string {
 	if code == 0 {
 		return "interrupted"
@@ -288,6 +308,14 @@ func redactPath(path string) string {
 // The following Substrate filter replaces existing headers, so supply placeholders
 // here before policy enforcement. Secret values never enter the audit stream.
 func (p *AuditProcessor) secretPlaceholders(ctx context.Context, entry *types.EgressAuditLog) (*ext.HeaderMutation, error) {
+	if entry.Scheme == "http" && llm.IsProxyPath(entry.Path) && obotAuthority(p.Provider.ObotURL, entry.Host) {
+		// Claude adds its custom headers to model requests but not to Files API requests, so
+		// every LLM proxy request gets the placeholder egress replaces with the session's LLM key.
+		return &ext.HeaderMutation{SetHeaders: []*core.HeaderValueOption{{
+			Header:       &core.HeaderValue{Key: "x-obot-api-key", RawValue: []byte("obot-egress-placeholder")},
+			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+		}}}, nil
+	}
 	if entry.Scheme != "https" {
 		return nil, nil
 	}

@@ -223,6 +223,39 @@ func TestClaudeLLMEgressCredential(t *testing.T) {
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "removing environment access removes LLM access")
 }
 
+func TestLLMProxyKeyPlaceholder(t *testing.T) {
+	processor := &AuditProcessor{Provider: &CredentialProvider{ObotURL: "http://obot.obot.svc:8080"}}
+	for _, tc := range []struct {
+		name   string
+		scheme string
+		host   string
+		path   string
+		want   bool
+	}{
+		{name: "model request", scheme: "http", host: "obot.obot.svc:8080", path: "/api/llm-proxy/v1/messages?beta=true", want: true},
+		{name: "files request", scheme: "http", host: "OBOT.obot.svc.:8080", path: "/api/llm-proxy/v1/files/file_1/content", want: true},
+		{name: "other Obot path", scheme: "http", host: "obot.obot.svc:8080", path: "/mcp-connect/vmcp_one"},
+		{name: "other port", scheme: "http", host: "obot.obot.svc:8081", path: "/api/llm-proxy/v1/messages"},
+		{name: "default port", scheme: "http", host: "obot.obot.svc", path: "/api/llm-proxy/v1/messages"},
+		{name: "other host", scheme: "http", host: "other.example:8080", path: "/api/llm-proxy/v1/messages"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			mutation, err := processor.secretPlaceholders(t.Context(), &gt.EgressAuditLog{Scheme: tc.scheme, Host: tc.host, Path: tc.path})
+			require.NoError(t, err)
+			if !tc.want {
+				require.Empty(t, mutation.GetSetHeaders())
+				return
+			}
+			require.Len(t, mutation.SetHeaders, 1)
+			require.Equal(t, "x-obot-api-key", mutation.SetHeaders[0].Header.Key)
+			require.Equal(t, "obot-egress-placeholder", string(mutation.SetHeaders[0].Header.RawValue))
+			require.Equal(t, core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD, mutation.SetHeaders[0].AppendAction)
+		})
+	}
+	require.True(t, obotAuthority("http://obot.obot.svc", "obot.obot.svc:80"))
+	require.False(t, obotAuthority("https://obot.example.com", "obot.example.com:443"), "only cleartext Obot URLs receive the key from egress")
+}
+
 func TestEgressPeerRequiresVerifiedCurrentCertificate(t *testing.T) {
 	uri, err := url.Parse(egressIdentity)
 	require.NoError(t, err)

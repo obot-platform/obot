@@ -42,6 +42,8 @@ type CredentialProvider struct {
 	pb.UnimplementedCredentialProviderServer
 	Storage kclient.Reader
 	Gateway *client.Client
+	// ObotURL is the Obot URL actors reach Obot at.
+	ObotURL string
 }
 
 func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {

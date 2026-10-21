@@ -76,6 +76,19 @@ func TestClaudeAuditTrustAndPolicy(t *testing.T) {
 	require.Equal(t, env["SSL_CERT_FILE"], env["GIT_SSL_CAINFO"])
 	require.NotContains(t, env, "NODE_TLS_REJECT_UNAUTHORIZED")
 	require.JSONEq(t, `{"permissions":{"deny":["Read(./secret)"]}}`, env["OBOT_CLAUDE_MANAGED_SETTINGS"])
+
+	// The runner holds only a placeholder; egress replaces it with the session's LLM key.
+	require.Equal(t, "http://obot.obot.svc:8080/api/llm-proxy", env["OBOT_ANTHROPIC_BASE_URL"])
+	require.NotContains(t, env, "ANTHROPIC_BASE_URL", "the self-hosted runner would only overwrite it")
+	require.Equal(t, "X-Obot-Api-Key: "+llmKeyPlaceholder, env["ANTHROPIC_CUSTOM_HEADERS"])
+	replaced := map[string]string{}
+	for _, header := range control.policy.Rules[0].Http.Effects.ReplaceHeaders {
+		replaced[header.Header] = header.Prefix + header.CredentialUri
+	}
+	require.Equal(t, map[string]string{
+		"X-Obot-Egress-Key": "Bearer ate-secret://obot/claude/acr-test",
+		"X-Obot-Api-Key":    "ate-secret://obot/claude/acr-test/llm",
+	}, replaced)
 }
 
 func (c *auditControl) GetActorEgressPolicy(context.Context, *pb.GetActorEgressPolicyRequest, ...grpc.CallOption) (*pb.EgressPolicy, error) {
@@ -145,7 +158,7 @@ func TestClaudeAllowAllEgress(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, control.policy.Rules, 3)
 	require.Equal(t, []string{"obot.obot.svc"}, control.policy.Rules[0].Http.Hostnames)
-	require.Len(t, control.policy.Rules[0].Http.Effects.ReplaceHeaders, 1)
+	require.Len(t, control.policy.Rules[0].Http.Effects.ReplaceHeaders, 2)
 	require.Equal(t, []string{"*"}, control.policy.Rules[1].Http.Hostnames)
 	// Wildcard HTTP and HTTPS rules must use distinct ports.
 	require.Nil(t, control.policy.Rules[1].Http.Ports.All)
