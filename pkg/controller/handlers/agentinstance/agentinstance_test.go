@@ -25,8 +25,51 @@ type resumeControl struct {
 	resume func() error
 }
 
+type suspendControl struct {
+	pb.ControlClient
+	calls    int
+	deadline time.Time
+}
+
 func (c *resumeControl) ResumeActor(context.Context, *pb.ResumeActorRequest, ...grpc.CallOption) (*pb.ResumeActorResponse, error) {
 	return &pb.ResumeActorResponse{}, c.resume()
+}
+
+func (c *suspendControl) SuspendActor(ctx context.Context, _ *pb.SuspendActorRequest, _ ...grpc.CallOption) (*pb.SuspendActorResponse, error) {
+	c.calls++
+	c.deadline, _ = ctx.Deadline()
+	return &pb.SuspendActorResponse{}, nil
+}
+
+func TestSuspendClaudeResumesInterruptedSuspends(t *testing.T) {
+	for _, tc := range []struct {
+		state   pb.ActorState
+		suspend bool
+	}{
+		{state: pb.ActorState_ACTOR_STATE_RUNNING, suspend: true},
+		// A suspend canceled partway leaves the actor SUSPENDING; Substrate resumes it.
+		{state: pb.ActorState_ACTOR_STATE_SUSPENDING, suspend: true},
+		{state: pb.ActorState_ACTOR_STATE_SUSPENDED},
+		{state: pb.ActorState_ACTOR_STATE_RESUMING},
+	} {
+		t.Run(tc.state.String(), func(t *testing.T) {
+			control := &suspendControl{}
+			h := Handler{Substrate: &substrate.Client{Control: control}}
+			// The reconcile's own deadline is too short for a checkpoint.
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			defer cancel()
+
+			suspending, err := h.suspendClaude(ctx, &pb.ObjectRef{Name: "attempt"}, tc.state)
+			require.NoError(t, err)
+			require.Equal(t, tc.suspend, suspending)
+			if !tc.suspend {
+				require.Zero(t, control.calls)
+				return
+			}
+			require.Equal(t, 1, control.calls)
+			require.WithinDuration(t, time.Now().Add(5*time.Minute), control.deadline, 5*time.Second, "the suspend gets its own deadline")
+		})
+	}
 }
 
 func TestResumeClaudeCapacityRetry(t *testing.T) {

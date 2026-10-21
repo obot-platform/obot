@@ -168,8 +168,7 @@ func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstanc
 	state := actor.GetStatus().GetState()
 	ref := substrate.Ref(instance)
 	if instance.Spec.ClaudeDone {
-		if state == pb.ActorState_ACTOR_STATE_RUNNING {
-			_, err = h.Substrate.Control.SuspendActor(ctx, &pb.SuspendActorRequest{Actor: ref})
+		if suspending, err := h.suspendClaude(ctx, ref, state); suspending {
 			return "Suspending", err
 		}
 	} else if state == pb.ActorState_ACTOR_STATE_PAUSED || state == pb.ActorState_ACTOR_STATE_SUSPENDED {
@@ -179,6 +178,21 @@ func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstanc
 		}
 	}
 	return strings.TrimPrefix(state.String(), "ACTOR_STATE_"), nil
+}
+
+// suspendClaude suspends a finished execution's actor. It reports false when the actor
+// needs no suspend. Substrate checkpoints the actor during SuspendActor, which can outlast
+// the reconcile's deadline, and a canceled suspend leaves the actor SUSPENDING. So the call
+// gets its own deadline, and SUSPENDING actors are suspended again: Substrate resumes the
+// interrupted suspend.
+func (h *Handler) suspendClaude(ctx context.Context, ref *pb.ObjectRef, state pb.ActorState) (bool, error) {
+	if state != pb.ActorState_ACTOR_STATE_RUNNING && state != pb.ActorState_ACTOR_STATE_SUSPENDING {
+		return false, nil
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+	_, err := h.Substrate.Control.SuspendActor(ctx, &pb.SuspendActorRequest{Actor: ref})
+	return true, err
 }
 
 func (h *Handler) Cleanup(req router.Request, resp router.Response) error {
