@@ -73,6 +73,11 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 		req.SetPathValue("path", "v1/"+req.PathValue("path"))
 		return gatewayProxy.proxy(req)
 	})
+	// Claude Code sends some Anthropic API requests that name no model to its API base URL too.
+	anthropic := newAnthropicProxy()
+	mux.HandleFunc("/api/llm-proxy/v1/files", anthropic.files)
+	mux.HandleFunc("/api/llm-proxy/v1/files/{path...}", anthropic.files)
+	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ca-cert", anthropic.agentProxyCACert)
 	// Clients set up for the former OpenAI and Anthropic routes speak those APIs, which the
 	// gateway serves too, so they keep working.
 	for _, prefix := range []string{"/api/llm-proxy/openai/", "/api/llm-proxy/anthropic/"} {
