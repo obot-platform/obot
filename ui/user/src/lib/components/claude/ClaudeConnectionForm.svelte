@@ -52,7 +52,7 @@
 	let applyingProfile = $state(false);
 	const admin = $derived(profile.current.isAdmin?.() ?? false);
 
-	function blankDraft(defaults: ClaudeConfig): Draft {
+	function blankDraft(): Draft {
 		return {
 			id: '',
 			displayName: '',
@@ -69,8 +69,9 @@
 				}
 			],
 			runtime: {
-				image: defaults.defaultRunnerImage ?? '',
-				workerImage: defaults.defaultWorkerImage ?? '',
+				// Blank images follow Obot's defaults; only images an admin enters are saved.
+				image: '',
+				workerImage: '',
 				allowAllEgress: false,
 				egressHosts: [],
 				worker: {
@@ -120,7 +121,7 @@
 					return;
 				}
 				if (id === 'new') {
-					draft = blankDraft(nextConfig);
+					draft = blankDraft();
 					managedSettings = '';
 				} else if (!selected) {
 					error = m.hosted_agents_env_not_found();
@@ -400,13 +401,14 @@
 							<label class="flex flex-col gap-1 text-sm"
 								>{m.hosted_agents_env_worker_image()}<input
 									class="text-input-filled"
-									required
 									bind:value={draft.runtime.workerImage}
+									placeholder={config.defaultWorkerImage}
 								/></label
 							>
 						</div>
 						<p class="text-xs text-muted-content">
 							{m.hosted_agents_env_capacity_help()}
+							{m.hosted_agents_env_image_default_help()}
 						</p>
 					</fieldset>
 					<fieldset class="space-y-3 block paper">
@@ -415,6 +417,7 @@
 						<ActorResources bind:resources={draft.runtime.resources} />
 						<p class="text-xs text-muted-content">
 							{m.hosted_agents_env_digest_help()}
+							{m.hosted_agents_env_image_default_help()}
 						</p>
 						<details class="space-y-3">
 							<summary class="cursor-pointer text-sm font-medium"
@@ -422,9 +425,8 @@
 							><label class="flex flex-col gap-1 text-sm"
 								>{m.hosted_agents_env_runner_image()}<input
 									class="text-input-filled"
-									required
 									bind:value={draft.runtime.image}
-									placeholder={m.hosted_agents_env_image_placeholder()}
+									placeholder={config.defaultRunnerImage || m.hosted_agents_env_image_placeholder()}
 									pattern={'[^@\\s]+@sha256:[a-f0-9]{64}'}
 									maxlength={512}
 									title={m.hosted_agents_env_digest_title()}

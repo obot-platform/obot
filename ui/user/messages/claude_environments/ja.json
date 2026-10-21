@@ -141,6 +141,7 @@
 	"hosted_agents_env_runner_image": "ランナーイメージ",
 	"hosted_agents_env_digest_title": "repository@sha256: の後に 64 文字の小文字の 16 進数ダイジェスト全体を指定してください。タグは使用できません。",
 	"hosted_agents_env_image_placeholder": "registry/obot-claude@sha256:…",
+	"hosted_agents_env_image_default_help": "イメージを空欄にすると Obot の既定のイメージが使われ、Obot のアップグレードに合わせて更新されます。",
 	"hosted_agents_env_changes_help": "ワーカーの変更はこの環境のプールに適用されます。アクター設定は新しい実行に適用され、アクセスの変更はアクティブなセッションにも適用されます。",
 	"hosted_agents_env_edit_named": "{name} を編集",
 	"hosted_agents_env_action_delete": "削除",

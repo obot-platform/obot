@@ -141,6 +141,7 @@
 	"hosted_agents_env_runner_image": "Runner 镜像",
 	"hosted_agents_env_digest_title": "请使用 repository@sha256:，后接完整的 64 位小写十六进制摘要。不支持标签。",
 	"hosted_agents_env_image_placeholder": "registry/obot-claude@sha256:…",
+	"hosted_agents_env_image_default_help": "将镜像留空即使用 Obot 的默认镜像，并随 Obot 升级而更新。",
 	"hosted_agents_env_changes_help": "Worker 更改将部署到此环境的池中。Actor 设置适用于新执行。访问权限更改会应用于活跃会话。",
 	"hosted_agents_env_edit_named": "编辑{name}",
 	"hosted_agents_env_action_delete": "删除",

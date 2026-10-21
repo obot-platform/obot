@@ -141,6 +141,7 @@
 	"hosted_agents_env_runner_image": "러너 이미지",
 	"hosted_agents_env_digest_title": "repository@sha256: 뒤에 64자리 소문자 16진수 다이제스트 전체를 입력하세요. 태그는 지원되지 않습니다.",
 	"hosted_agents_env_image_placeholder": "registry/obot-claude@sha256:…",
+	"hosted_agents_env_image_default_help": "이미지를 비워 두면 Obot 기본 이미지가 사용되며 Obot 업그레이드에 맞춰 업데이트됩니다.",
 	"hosted_agents_env_changes_help": "워커 변경은 이 환경의 풀에 배포됩니다. 액터 설정은 새 실행에 적용되며 접근 권한 변경은 활성 세션에도 적용됩니다.",
 	"hosted_agents_env_edit_named": "{name} 편집",
 	"hosted_agents_env_action_delete": "삭제",

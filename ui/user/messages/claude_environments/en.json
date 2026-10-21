@@ -141,6 +141,7 @@
 	"hosted_agents_env_runner_image": "Runner image",
 	"hosted_agents_env_digest_title": "Use repository@sha256: followed by the full 64-character lowercase hexadecimal digest. Tags are not supported.",
 	"hosted_agents_env_image_placeholder": "registry/obot-claude@sha256:…",
+	"hosted_agents_env_image_default_help": "Leave an image blank to use Obot's default, which follows Obot upgrades.",
 	"hosted_agents_env_changes_help": "Worker changes roll out to this environment's pool. Actor settings apply to new executions. Access changes apply to active sessions.",
 	"hosted_agents_env_edit_named": "Edit {name}",
 	"hosted_agents_env_action_delete": "Delete",
