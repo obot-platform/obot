@@ -708,11 +708,16 @@ func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPass
 func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api.Context, model *v1.Model) (gatewayRequest, error) {
 	ctx, gatewayClient, req, user := apiReq.Context(), apiReq.GatewayClient, apiReq.Request, apiReq.User
 	allowSubscription := b.settings.get(ctx, gatewayClient).SubscriptionPassthrough
-	if allowSubscription && isAnthropicOAuthBearer(req.Header.Get("Authorization")) {
+	subscriptionToken := isAnthropicOAuthBearer(req.Header.Get("Authorization"))
+	if allowSubscription && subscriptionToken {
 		// Checked per request, not cached, so a provider change can't redirect the token.
 		allowSubscription = b.engine.AnthropicIsDirect(ctx)
 	}
 	subscription := stripCallerCredentials(req, model, allowSubscription)
+	if subscriptionToken && !subscription && model != nil {
+		// A caller signed in with a Claude subscription must not be served on Obot's keys.
+		return nil, types2.NewErrForbidden("Claude subscriptions cannot be used for model %q", model.Spec.Manifest.TargetModel)
+	}
 	for client, engine := range clientGatewayHeaders {
 		if v := req.Header.Get(client); v != "" {
 			req.Header.Set(engine, v)
