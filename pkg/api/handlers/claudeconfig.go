@@ -230,8 +230,10 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 			environment.Profiles = append(environment.Profiles, gt.ClaudeEnvironmentProfile{Name: profile.Name, Subjects: profile.Subjects})
 		}
 	}
-	clauderunner.DefaultRuntime(&environment.Runtime, h.Substrate.Config.WorkerImage, h.Substrate.Config.RunnerImage)
-	if err := clauderunner.ValidateRuntime(environment.Runtime); err != nil {
+	environment.Runtime.Image = strings.TrimSpace(environment.Runtime.Image)
+	environment.Runtime.WorkerImage = strings.TrimSpace(environment.Runtime.WorkerImage)
+	clauderunner.DefaultRuntime(&environment.Runtime)
+	if err := clauderunner.ValidateRuntime(clauderunner.WithDefaultImages(environment.Runtime, h.Substrate.Config.WorkerImage, h.Substrate.Config.RunnerImage)); err != nil {
 		return types.NewErrBadRequest("%s", err)
 	}
 	egressHosts := slices.Clone(environment.Runtime.EgressHosts)

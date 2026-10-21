@@ -54,7 +54,8 @@ func TestManagedSettingsValidation(t *testing.T) {
 			runtime := types.ClaudeRuntime{
 				ManagedSettings: json.RawMessage(test.input),
 			}
-			DefaultRuntime(&runtime, "worker:main", "runner@sha256:"+strings.Repeat("a", 64))
+			DefaultRuntime(&runtime)
+			runtime = WithDefaultImages(runtime, "worker:main", "runner@sha256:"+strings.Repeat("a", 64))
 
 			err := ValidateRuntime(runtime)
 			if test.valid {
@@ -89,7 +90,8 @@ func TestEgressWildcardValidation(t *testing.T) {
 	} {
 		t.Run(tc.host, func(t *testing.T) {
 			runtime := types.ClaudeRuntime{EgressHosts: []string{tc.host}}
-			DefaultRuntime(&runtime, "worker:main", "runner@sha256:"+strings.Repeat("a", 64))
+			DefaultRuntime(&runtime)
+			runtime = WithDefaultImages(runtime, "worker:main", "runner@sha256:"+strings.Repeat("a", 64))
 			err := ValidateRuntime(runtime)
 			if tc.valid {
 				require.NoError(t, err)

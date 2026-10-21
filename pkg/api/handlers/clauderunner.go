@@ -214,7 +214,8 @@ func (h *ClaudeRunnerHandler) Spawn(req api.Context) error {
 				inst.Spec.ClaudePrevious = previous.Name
 			}
 		}
-		runtime, err := json.Marshal(effective.Runtime)
+		// Record the images this session runs, resolving the environment's defaults now.
+		runtime, err := json.Marshal(clauderunner.WithDefaultImages(effective.Runtime, h.Substrate.Config.WorkerImage, h.Substrate.Config.RunnerImage))
 		if err != nil {
 			return err
 		}
