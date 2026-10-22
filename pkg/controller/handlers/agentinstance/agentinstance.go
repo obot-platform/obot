@@ -68,6 +68,9 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 	defer cancel()
 
 	state, err := h.reconcileClaude(ctx, instance, environment.Runtime.EgressHosts, environment.Runtime.AllowAllEgress, environment.EgressSecrets)
+	if removed, err := removeCrashed(req, instance, state, err); removed {
+		return err
+	}
 	resumeAttempted := state == "ReadyToStart" && err == nil
 	if resumeAttempted {
 		state, err = h.resumeClaude(ctx, req, instance)
@@ -181,6 +184,18 @@ func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstanc
 		}
 	}
 	return strings.TrimPrefix(state.String(), "ACTOR_STATE_"), nil
+}
+
+// removeCrashed deletes an execution whose actor crashed. A crashed execution cannot
+// restart its single-use work order, and the next attempt waits for it to checkpoint,
+// so keeping it blocks the session until the stale-execution timeout. Removing it lets
+// the session resume from its last checkpoint. It reports false when the actor did not
+// crash.
+func removeCrashed(req router.Request, instance *v1.AgentInstance, state string, err error) (bool, error) {
+	if state != "CRASHED" || err != nil {
+		return false, nil
+	}
+	return true, req.Client.Delete(req.Ctx, instance)
 }
 
 // resumeActor resumes an execution's actor. Substrate restores the actor during

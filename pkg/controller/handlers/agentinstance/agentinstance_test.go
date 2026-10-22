@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -152,6 +153,52 @@ func TestResumeClaudeCapacityRetry(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, instance.Status.ClaudeStarted)
 			require.Equal(t, "Resuming", state)
+		})
+	}
+}
+
+func TestRemoveCrashedExecutions(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		state   string
+		err     error
+		removed bool
+	}{
+		{
+			name:    "crashed",
+			state:   "CRASHED",
+			removed: true,
+		},
+		{
+			name:  "running",
+			state: "RUNNING",
+		},
+		{
+			name:  "suspended",
+			state: "SUSPENDED",
+		},
+		{
+			name:  "reconcile error",
+			state: "CRASHED",
+			err:   status.Error(codes.Unavailable, "substrate unavailable"),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			instance := &v1.AgentInstance{}
+			instance.Name = "attempt"
+			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(instance).Build()
+
+			removed, err := removeCrashed(router.Request{Ctx: ctx, Client: storage}, instance, tc.state, tc.err)
+			require.NoError(t, err)
+			require.Equal(t, tc.removed, removed)
+
+			err = storage.Get(ctx, kclient.ObjectKeyFromObject(instance), &v1.AgentInstance{})
+			if tc.removed {
+				require.True(t, apierrors.IsNotFound(err), "a crashed execution must not block its session")
+			} else {
+				require.NoError(t, err)
+			}
 		})
 	}
 }
