@@ -388,8 +388,16 @@ export const CATALOG_SERVER_FIELD_IDS = {
 	compositeEntryConfigureToolsToggleAll: 'composite-entry-choice-configure-tools-toggle-all',
 	compositeEntryConfigureToolsConfirmBtn: 'composite-entry-choice-configure-tools-confirm-btn',
 	compositeEntryToolCollapseBtn: 'composite-entry-tool-collapse-btn',
-	compositeEntryEditToolsDialog: 'composite-entry-edit-tools-dialog'
+	compositeEntryEditToolsDialog: 'composite-entry-edit-tools-dialog',
+	caCertificate: 'catalog-server-ca-certificate',
+	caCertificateError: 'catalog-server-ca-certificate-error'
 };
+
+// Reserved config key auto-assigned to a "caCertificate" usage row — its value is
+// mounted under well-known env var names, not a user-chosen key, so one fixed key
+// both satisfies the backend's non-empty/unique key requirement and keeps only one
+// such row possible per server.
+export const CA_CERTIFICATE_CONFIG_KEY = '__caCertificate';
 
 export const MCP_ACCESS_POLICY_FIELD_IDS = {
 	addPolicyBtn: 'mcp-access-policy-add-btn',

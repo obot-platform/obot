@@ -84,6 +84,12 @@ type File struct {
 	Dynamic bool   `json:"dynamic"`
 }
 
+// caCertificateEnvKeys are the env vars mainstream HTTP/TLS clients (Node, Python,
+// curl, git, and Go via SSL_CERT_FILE) check for an additional trusted CA bundle.
+// A config entry with Usage: types.CACertificate is mounted once per key so every
+// common client picks it up without the user needing to know each one's name.
+var caCertificateEnvKeys = []string{"SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "GIT_SSL_CAINFO"}
+
 type ComponentServer struct {
 	MCPServerInstanceID string               `json:"mcpServerInstanceID,omitempty"`
 	DisableTools        bool                 `json:"disableTools,omitempty"`
@@ -288,7 +294,7 @@ func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntime
 	return nil
 }
 
-func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, expandImage bool) error {
+func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, expandImage bool, caCertificate string) error {
 	if containerizedConfig == nil {
 		return fmt.Errorf("containerized runtime requires containerized config")
 	}
@@ -305,7 +311,38 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 	}
 
+	// Best-effort: install the custom CA into the container's OS trust store before
+	// starting it. This only works when we know the real start command to re-exec
+	// afterward, which is only true when the user gave us an explicit command override.
+	if caCertificate != "" && serverConfig.Command != "" {
+		wrapCommandForCATrustStore(serverConfig)
+	}
+
 	return nil
+}
+
+// caTrustStorePreamble best-effort installs a CA certificate mounted via the
+// SSL_CERT_FILE env var (see caCertificateEnvKeys) into the container's OS trust
+// store, covering both Debian/Ubuntu-style (update-ca-certificates) and
+// RHEL/Fedora-style (update-ca-trust) layouts, before handing control back to the
+// real command. Every step is guarded so a missing tool or read-only path never
+// prevents the real command from starting.
+const caTrustStorePreamble = `if [ -n "$SSL_CERT_FILE" ] && [ -f "$SSL_CERT_FILE" ]; then ` +
+	`mkdir -p /usr/local/share/ca-certificates 2>/dev/null && cp "$SSL_CERT_FILE" /usr/local/share/ca-certificates/obot-custom-ca.crt 2>/dev/null; ` +
+	`mkdir -p /etc/pki/ca-trust/source/anchors 2>/dev/null && cp "$SSL_CERT_FILE" /etc/pki/ca-trust/source/anchors/obot-custom-ca.crt 2>/dev/null; ` +
+	`fi; ` +
+	`update-ca-certificates >/dev/null 2>&1 || update-ca-trust extract >/dev/null 2>&1 || true; ` +
+	`exec "$@"`
+
+// wrapCommandForCATrustStore re-targets the container's command through a shell
+// preamble that attempts a best-effort OS trust-store install before re-exec'ing
+// the original command and arguments.
+func wrapCommandForCATrustStore(serverConfig *ServerConfig) {
+	originalCommand := serverConfig.Command
+	originalArgs := serverConfig.Args
+
+	serverConfig.Command = "/bin/sh"
+	serverConfig.Args = append([]string{"-c", caTrustStorePreamble, "--", originalCommand}, originalArgs...)
 }
 
 func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, config []types.MCPConfig, credEnv map[string]string) ([]string, error) {
@@ -490,7 +527,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		}
 	case types.RuntimeContainerized:
 		serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
-		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, runtimeCredEnv, fileEnvVars, true); err != nil {
+		caCert := resolveCACertificate(mcpServer.Spec.Manifest.Config, runtimeCredEnv)
+		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, runtimeCredEnv, fileEnvVars, true, caCert); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
@@ -527,6 +565,12 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		if env.Usage == types.Interpolated {
 			continue
 		}
+		if env.Usage == types.CACertificate {
+			for _, key := range caCertificateEnvKeys {
+				serverConfig.Files = append(serverConfig.Files, File{Data: val, EnvKey: key})
+			}
+			continue
+		}
 		if env.Usage != types.File && env.Usage != types.DynamicFile {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))
 			continue
@@ -540,6 +584,19 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 	}
 
 	return serverConfig, dedupe(missingRequiredNames), nil
+}
+
+// resolveCACertificate returns the resolved value of the manifest's Usage:
+// CACertificate config entry, if any, so callers that run before the main
+// per-entry resolution loop (e.g. deciding whether to wrap a containerized
+// runtime's command) can see it early.
+func resolveCACertificate(config []types.MCPConfig, runtimeCredEnv map[string]string) string {
+	for _, c := range config {
+		if c.Usage == types.CACertificate {
+			return runtimeCredEnv[c.Key]
+		}
+	}
+	return ""
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
@@ -612,7 +669,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
-		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, false); err != nil {
+		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, false, ""); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:

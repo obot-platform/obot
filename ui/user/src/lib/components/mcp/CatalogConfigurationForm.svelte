@@ -1,9 +1,15 @@
 <script lang="ts">
-	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+	import { CA_CERTIFICATE_CONFIG_KEY, CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import type { MCPAllowedSecretBindingTarget, MCPConfig, MCPConfigUsage } from '$lib/services';
+	import type {
+		MCPAllowedSecretBindingTarget,
+		MCPConfig,
+		MCPConfigUsage,
+		Runtime
+	} from '$lib/services';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
+	import CACertificateField from './CACertificateField.svelte';
 	import CustomConfigurationFieldset from './CustomConfigurationFieldset.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
 
@@ -15,6 +21,9 @@
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		showRequired?: boolean;
 		showInvalid?: boolean;
+		runtime?: Runtime;
+		hasCommand?: boolean;
+		allowCACertificate?: boolean;
 	}
 
 	let {
@@ -24,7 +33,10 @@
 		hasDuplicateKeys = false,
 		secretBindingTargets,
 		showRequired,
-		showInvalid
+		showInvalid,
+		runtime,
+		hasCommand = false,
+		allowCACertificate = true
 	}: Props = $props();
 
 	const usageOptions: { id: MCPConfigUsage; label: string }[] = [
@@ -32,8 +44,17 @@
 		{ id: 'header', label: m.mcps_config_usage_header() },
 		{ id: 'file', label: m.mcps_catalog_config_usage_file() },
 		{ id: 'dynamicFile', label: m.mcps_config_usage_dynamic_file() },
-		{ id: 'interpolated', label: m.mcps_config_usage_interpolated() }
+		{ id: 'interpolated', label: m.mcps_config_usage_interpolated() },
+		{ id: 'caCertificate', label: m.mcps_catalog_config_usage_ca_certificate() }
 	];
+
+	function availableUsageOptions() {
+		return usageOptions.filter((option) => {
+			if (option.id === 'caCertificate') return allowCACertificate;
+			if (headersOnly) return option.id === 'header';
+			return true;
+		});
+	}
 </script>
 
 {#if !readonly || (config?.length ?? 0) > 0}
@@ -67,40 +88,54 @@
 						<Select
 							id={`catalog-config-usage-${i}`}
 							classes={{ root: 'flex grow' }}
-							options={headersOnly
-								? usageOptions.filter((option) => option.id === 'header')
-								: usageOptions}
+							options={availableUsageOptions()}
 							selected={item.usage}
 							disabled={readonly}
 							onSelect={(option) => {
 								item.usage = option.id as MCPConfigUsage;
+								if (option.id === 'caCertificate') {
+									item.key = CA_CERTIFICATE_CONFIG_KEY;
+									item.name = '';
+								}
 							}}
 						/>
 					</div>
 
-					<CustomConfigurationFieldset
-						id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
-						bind:data={config![i]}
-						serverUserType="multiUser"
-						{readonly}
-						{secretBindingTargets}
-						classes={{ input: 'text-input-filled bg-base-100 w-full shadow-none' }}
-						{showRequired}
-						{showInvalid}
-					/>
+					{#if item.usage === 'caCertificate'}
+						<CACertificateField
+							id={`${CATALOG_SERVER_FIELD_IDS.caCertificate}-${i}`}
+							errorId={`${CATALOG_SERVER_FIELD_IDS.caCertificateError}-${i}`}
+							bind:value={config![i].value}
+							{runtime}
+							{hasCommand}
+							{readonly}
+							{showInvalid}
+						/>
+					{:else}
+						<CustomConfigurationFieldset
+							id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
+							bind:data={config![i]}
+							serverUserType="multiUser"
+							{readonly}
+							{secretBindingTargets}
+							classes={{ input: 'text-input-filled bg-base-100 w-full shadow-none' }}
+							{showRequired}
+							{showInvalid}
+						/>
 
-					{#if item.usage === 'header'}
-						<div class="flex w-full flex-col gap-1">
-							<label for={`catalog-config-prefix-${i}`} class="text-sm font-light"
-								>{m.mcps_value_prefix()}</label
-							>
-							<input
-								id={`catalog-config-prefix-${i}`}
-								class="text-input-filled bg-base-100 w-full shadow-none"
-								bind:value={item.prefix}
-								disabled={readonly}
-							/>
-						</div>
+						{#if item.usage === 'header'}
+							<div class="flex w-full flex-col gap-1">
+								<label for={`catalog-config-prefix-${i}`} class="text-sm font-light"
+									>{m.mcps_value_prefix()}</label
+								>
+								<input
+									id={`catalog-config-prefix-${i}`}
+									class="text-input-filled bg-base-100 w-full shadow-none"
+									bind:value={item.prefix}
+									disabled={readonly}
+								/>
+							</div>
+						{/if}
 					{/if}
 				</div>
 				{#if !readonly}
