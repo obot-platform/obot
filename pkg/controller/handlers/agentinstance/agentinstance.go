@@ -146,7 +146,7 @@ func (h *Handler) resumeClaude(ctx context.Context, req router.Request, instance
 		return previous.State, err
 	}
 
-	_, err := h.Substrate.Control.ResumeActor(ctx, &pb.ResumeActorRequest{Actor: substrate.Ref(instance)})
+	err := h.resumeActor(ctx, substrate.Ref(instance))
 	if status.Code(err) == codes.ResourceExhausted {
 		// Capacity rejection happens before the runner starts, so the order is unused.
 		instance.Status.ClaudeStarted = false
@@ -167,6 +167,9 @@ func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstanc
 	}
 	state := actor.GetStatus().GetState()
 	ref := substrate.Ref(instance)
+	if recovering, err := h.recoverResume(ctx, instance, ref, state); recovering {
+		return "Resuming", err
+	}
 	if instance.Spec.ClaudeDone {
 		if suspending, err := h.suspendClaude(ctx, ref, state); suspending {
 			return "Suspending", err
@@ -178,6 +181,27 @@ func (h *Handler) reconcileClaude(ctx context.Context, instance *v1.AgentInstanc
 		}
 	}
 	return strings.TrimPrefix(state.String(), "ACTOR_STATE_"), nil
+}
+
+// resumeActor resumes an execution's actor. Substrate restores the actor during
+// ResumeActor, which can outlast the reconcile's deadline, and a canceled resume leaves the
+// actor RESUMING without a running workload. So the call gets its own deadline.
+func (h *Handler) resumeActor(ctx context.Context, ref *pb.ObjectRef) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Minute)
+	defer cancel()
+	_, err := h.Substrate.Control.ResumeActor(ctx, &pb.ResumeActorRequest{Actor: ref})
+	return err
+}
+
+// recoverResume resumes a started execution's actor again when an earlier resume was
+// interrupted, which leaves the actor RESUMING. Substrate's resume workflow is idempotent and
+// picks up where the interrupted one stopped. It reports false when there is nothing to
+// recover.
+func (h *Handler) recoverResume(ctx context.Context, instance *v1.AgentInstance, ref *pb.ObjectRef, state pb.ActorState) (bool, error) {
+	if state != pb.ActorState_ACTOR_STATE_RESUMING || !instance.Status.ClaudeStarted || instance.Spec.ClaudeDone {
+		return false, nil
+	}
+	return true, h.resumeActor(ctx, ref)
 }
 
 // suspendClaude suspends a finished execution's actor. It reports false when the actor

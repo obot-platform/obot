@@ -22,7 +22,9 @@ import (
 
 type resumeControl struct {
 	pb.ControlClient
-	resume func() error
+	resume   func() error
+	calls    int
+	deadline time.Time
 }
 
 type suspendControl struct {
@@ -31,7 +33,12 @@ type suspendControl struct {
 	deadline time.Time
 }
 
-func (c *resumeControl) ResumeActor(context.Context, *pb.ResumeActorRequest, ...grpc.CallOption) (*pb.ResumeActorResponse, error) {
+func (c *resumeControl) ResumeActor(ctx context.Context, _ *pb.ResumeActorRequest, _ ...grpc.CallOption) (*pb.ResumeActorResponse, error) {
+	c.calls++
+	c.deadline, _ = ctx.Deadline()
+	if c.resume == nil {
+		return &pb.ResumeActorResponse{}, nil
+	}
 	return &pb.ResumeActorResponse{}, c.resume()
 }
 
@@ -72,6 +79,41 @@ func TestSuspendClaudeResumesInterruptedSuspends(t *testing.T) {
 	}
 }
 
+func TestRecoverResumeRetriesInterruptedResumes(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		state   pb.ActorState
+		started bool
+		done    bool
+		recover bool
+	}{
+		// A resume canceled partway leaves the actor RESUMING; Substrate resumes it again.
+		{name: "interrupted", state: pb.ActorState_ACTOR_STATE_RESUMING, started: true, recover: true},
+		{name: "not started", state: pb.ActorState_ACTOR_STATE_RESUMING},
+		{name: "finished", state: pb.ActorState_ACTOR_STATE_RESUMING, started: true, done: true},
+		{name: "running", state: pb.ActorState_ACTOR_STATE_RUNNING, started: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			control := &resumeControl{}
+			h := Handler{Substrate: &substrate.Client{Control: control}}
+			instance := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{ClaudeDone: tc.done}, Status: v1.AgentInstanceStatus{ClaudeStarted: tc.started}}
+			// The reconcile's own deadline is too short for a restore.
+			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+			defer cancel()
+
+			recovering, err := h.recoverResume(ctx, instance, &pb.ObjectRef{Name: "attempt"}, tc.state)
+			require.NoError(t, err)
+			require.Equal(t, tc.recover, recovering)
+			if !tc.recover {
+				require.Zero(t, control.calls)
+				return
+			}
+			require.Equal(t, 1, control.calls)
+			require.WithinDuration(t, time.Now().Add(5*time.Minute), control.deadline, 5*time.Second, "the resume gets its own deadline")
+		})
+	}
+}
+
 func TestResumeClaudeCapacityRetry(t *testing.T) {
 	for _, code := range []codes.Code{codes.ResourceExhausted, codes.Unavailable, codes.DeadlineExceeded, codes.OK} {
 		t.Run(code.String(), func(t *testing.T) {
@@ -93,6 +135,7 @@ func TestResumeClaudeCapacityRetry(t *testing.T) {
 
 			state, err := h.resumeClaude(ctx, req, instance)
 			require.Equal(t, code, status.Code(err))
+			require.WithinDuration(t, time.Now().Add(5*time.Minute), control.deadline, 5*time.Second, "the resume gets its own deadline")
 			if code != codes.ResourceExhausted {
 				require.True(t, instance.Status.ClaudeStarted, "never retry an ambiguous start")
 				require.Equal(t, "Resuming", state)
