@@ -142,7 +142,7 @@ type Config struct {
 	LLMGatewayLogLevel          string `usage:"Log level for the embedded LLM gateway (debug, info, warn, error)" name:"llm-gateway-log-level" default:"warn" env:"OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL"`
 	LLMGatewayModelDataURL      string `usage:"Where the LLM gateway refreshes model prices and capabilities from, every 6 hours. Set to off to use only the prices bundled with Obot" name:"llm-gateway-model-data-url" default:"https://upgrade-server.obot.ai/v1/model-data" env:"OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL"`
 	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
-	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:c6bef775ba97a3af60c7cad2c623598c583a6e33b7a1b1c3daec49e4f493cc8a"`
+	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:8e4764d9e6a832baa70c68ccbd28e8515bb2c08183c9fa359a670c9a0a07955a"`
 	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments"`
 	SubstrateWorkerNodeSelector string `usage:"JSON node selector applied to all Substrate workers" default:"{\"kubernetes.io/os\":\"linux\"}"`
 	SubstrateWorkerTolerations  string `usage:"JSON tolerations applied to all Substrate workers, e.g. [{\"key\":\"workload\",\"operator\":\"Equal\",\"value\":\"agents\",\"effect\":\"NoSchedule\"}]" default:"[]"`

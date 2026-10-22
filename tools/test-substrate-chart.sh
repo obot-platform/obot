@@ -122,7 +122,7 @@ environments = read('environments')
 configmaps = [doc for doc in environments if doc['kind'] == 'ConfigMap']
 config = next(doc['data'] for doc in configmaps if 'OBOT_SERVER_SUBSTRATE_WORKER_IMAGE' in doc.get('data', {}))
 assert config['OBOT_SERVER_SUBSTRATE_ADDRESS'] == 'api.ate-system.svc:443'
-assert config['OBOT_SERVER_SUBSTRATE_WORKER_IMAGE'] == 'ghcr.io/obot-platform/substrate/ateom-gvisor:v0.1.1'
+assert config['OBOT_SERVER_SUBSTRATE_WORKER_IMAGE'] == 'ghcr.io/obot-platform/substrate/ateom-gvisor:v0.2.0'
 # Application defaults and fixed credential paths are not passed as overrides.
 for key in ('RUNNER_IMAGE', 'CA_FILE', 'TOKEN_FILE', 'CREDENTIAL_ADDRESS', 'CREDENTIAL_BUNDLE', 'CREDENTIAL_CLIENT_CA'):
     assert f'OBOT_SERVER_SUBSTRATE_{key}' not in config
