@@ -97,8 +97,9 @@
 	oncancel={(event) => {
 		if (disableEscape) event.preventDefault();
 	}}
-	onclose={() => {
-		// Handle native dialog close (e.g., Escape key)
+	onclose={(event) => {
+		const element = event.currentTarget;
+		if (element instanceof HTMLElement && !element.isConnected) return;
 		onClose?.();
 	}}
 	{id}
