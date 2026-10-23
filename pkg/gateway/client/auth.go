@@ -121,7 +121,8 @@ func (u UserDecorator) resolveUserLimit(ctx context.Context) (UserLimit, error) 
 		return UserLimit{}, fmt.Errorf("failed to resolve user limit: %w", err)
 	}
 
-	if !userLimit.Unlimited && userLimit.Maximum <= 0 {
+	// A limit of 0 allows no new users. Only a negative limit is invalid.
+	if !userLimit.Unlimited && userLimit.Maximum < 0 {
 		return UserLimit{}, fmt.Errorf("invalid user limit %d", userLimit.Maximum)
 	}
 

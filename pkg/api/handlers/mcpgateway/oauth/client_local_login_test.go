@@ -95,7 +95,7 @@ func TestHTTPClientLocalLoginResumesOriginalRequest(t *testing.T) {
 	tokens := mcp.NewGlobalTokenStore(gateway)
 	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "https://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
-		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
+		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil, nil)
 	require.NoError(t, err)
 	factory := NewMCPOAuthHandlerFactory("https://obot.example", manager, storage, gateway, tokens, "", false)
 	factory.resolveOAuthClient = func(context.Context, kclient.Client, string) (v1.OAuthClient, error) {

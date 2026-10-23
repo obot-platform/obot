@@ -130,7 +130,7 @@ func (c RemoteMCPURLValidationConfig) SafeHTTPOptions() safehttp.Options {
 	}
 }
 
-func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager, planLimits func(context.Context) (types.Entitlements, error)) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
@@ -194,6 +194,8 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 			obotStorageClient,
 			opts,
 			validationOptions,
+			planLimits,
+			gatewayClient,
 		)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
@@ -563,6 +565,14 @@ func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (types.MCPCapacit
 		return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
 	}
 	return sm.backend.(*kubernetesBackend).GetCapacityInfo(ctx), nil
+}
+
+// RunningUsage returns what running MCP servers use. The Docker backend reports nothing.
+func (sm *SessionManager) RunningUsage(ctx context.Context) (types.EntitlementsUsage, error) {
+	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
+		return types.EntitlementsUsage{}, nil
+	}
+	return sm.backend.(*kubernetesBackend).runningUsage(ctx)
 }
 
 // GetCapacityInfoForServers returns capacity information for the given MCP server deployments.

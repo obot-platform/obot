@@ -536,7 +536,7 @@ func TestOpenAPIImportDevelopmentMode(t *testing.T) {
 		client,
 		nil,
 		"",
-		nil,
+		nil, nil,
 	)
 	require.NoError(t, err)
 

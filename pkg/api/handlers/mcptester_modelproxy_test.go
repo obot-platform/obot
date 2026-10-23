@@ -367,6 +367,7 @@ func TestVersionExposesProviderAndLicenseBooleans(t *testing.T) {
 	handler := NewVersionHandler(VersionHandlerOptions{
 		GatewayClient:         client,
 		StorageClient:         fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(),
+		Entitlements:          licenseProvider,
 		LicenseProvider:       licenseProvider,
 		ProviderConfiguration: providers,
 		ModelProxyURL:         endpoint,

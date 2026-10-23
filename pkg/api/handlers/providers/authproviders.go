@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -13,7 +13,7 @@ import (
 // AuthProviderStatus reports whether the auth provider's stored configuration is complete, checking its effective
 // required parameters, which depend on its SCIM connection. conn is the provider's SCIM connection, or nil when it has
 // none. When cred is nil, the status the controller computed is reported instead of checking a credential.
-func AuthProviderStatus(ctx context.Context, authProvider v1.AuthProvider, cred map[string]string, conn *gatewaytypes.SCIMConnection, licenseProvider *license.Provider) (*types.AuthProviderStatus, error) {
+func AuthProviderStatus(ctx context.Context, authProvider v1.AuthProvider, cred map[string]string, conn *gatewaytypes.SCIMConnection, licenseProvider entitlements.Source) (*types.AuthProviderStatus, error) {
 	var missingEnvVars []string
 
 	// A stored configuration is the provider's active one, so without a connection it synchronizes its directory.
@@ -37,7 +37,7 @@ func AuthProviderStatus(ctx context.Context, authProvider v1.AuthProvider, cred 
 		}
 	}
 
-	missingEntitlements, err := licenseProvider.MissingEntitlements(ctx, authProvider.Spec.RequiredEntitlements)
+	missingEntitlements, err := entitlements.MissingEntitlements(ctx, licenseProvider, authProvider.Spec.RequiredEntitlements)
 	if err != nil {
 		return nil, err
 	}

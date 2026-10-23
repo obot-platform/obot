@@ -90,10 +90,17 @@ func (p *fakeCommunityLicenseProvider) HasValidLicense(context.Context) (bool, e
 	return p.valid, nil
 }
 
-func (p *fakeCommunityLicenseProvider) Entitlements(context.Context) ([]string, error) {
+func (p *fakeCommunityLicenseProvider) Entitlements(context.Context) (apitypes.Entitlements, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return slices.Clone(p.entitlements), p.entitlementsError
+	return apitypes.Entitlements{
+		Community:  slices.Contains(p.entitlements, license.CommunityEntitlement),
+		Enterprise: slices.Contains(p.entitlements, license.EnterpriseEntitlement),
+	}, p.entitlementsError
+}
+
+func (p *fakeCommunityLicenseProvider) Usage(context.Context) (apitypes.EntitlementsUsage, error) {
+	return apitypes.EntitlementsUsage{}, nil
 }
 
 func (i *fakeCommunityIssuer) Issue(ctx context.Context, request upgrade.CommunityLicenseRequest) (string, error) {
@@ -321,10 +328,6 @@ func TestCreateCommunityLicensePropagatesStatusLookupErrors(t *testing.T) {
 			provider: &fakeCommunityLicenseProvider{licenseKeyError: statusErr},
 		},
 		{
-			name:     "valid license",
-			provider: &fakeCommunityLicenseProvider{validErrors: []error{nil, nil, statusErr}},
-		},
-		{
 			name:     "entitlements",
 			provider: &fakeCommunityLicenseProvider{entitlementsError: statusErr},
 		},
@@ -370,11 +373,8 @@ func TestCreateCommunityLicenseReplacesInvalidDatabaseKeyAndReturnsMaskedStatus(
 	if err := json.NewDecoder(recorder.Body).Decode(&status); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if status.LicenseKey != "****12345678" || status.Source != "database" || !status.Enterprise {
+	if status.LicenseKey != "****12345678" || !status.Entitlements.Community {
 		t.Fatalf("status = %#v", status)
-	}
-	if len(status.Entitlements) != 1 || status.Entitlements[0] != license.CommunityEntitlement {
-		t.Fatalf("entitlements = %v", status.Entitlements)
 	}
 	responseBody := recorder.Body.String()
 	for _, sensitive := range []string{issuedKey, "Ada", "ada@example.com", "Analytical Engines"} {
@@ -470,7 +470,7 @@ func TestCreateCommunityLicenseSerializesRequestsAndAllowsRetry(t *testing.T) {
 	if issuer.requestCount() != 2 {
 		t.Fatalf("issuer calls after retry = %d", issuer.requestCount())
 	}
-	if !bytes.Contains(recorder.Body.Bytes(), []byte(`"enterprise":true`)) {
+	if !bytes.Contains(recorder.Body.Bytes(), []byte(`"licenseKey":"****12345678"`)) {
 		t.Fatalf("retry response = %s", recorder.Body.String())
 	}
 }

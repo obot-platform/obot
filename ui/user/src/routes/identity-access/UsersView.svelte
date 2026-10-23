@@ -107,7 +107,9 @@
 		{ label: m.core_role_standard_user(), id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
+	const isNearUserLimit = $derived(
+		validateVersionUserLimit(version.current) && !version.current.billingEnabled
+	);
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();

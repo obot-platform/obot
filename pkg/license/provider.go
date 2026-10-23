@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -112,8 +111,19 @@ func (s licenseKeySnapshot) equal(other licenseKeySnapshot) bool {
 		s.updatedAt.Equal(other.updatedAt)
 }
 
-// NewProvider creates a Keygen-backed license provider.
+// NewProvider creates a Keygen-backed license provider. It validates the license now and then once a day.
 func NewProvider(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
+	p, err := newProvider(ctx, gatewayClient, config, keygenAPIURL)
+	if err != nil {
+		return nil, err
+	}
+	go p.poll(ctx)
+	return p, nil
+}
+
+// NewProviderValidatedOnce creates a Keygen-backed license provider that validates and activates the license once, when
+// it's created.
+func NewProviderValidatedOnce(ctx context.Context, gatewayClient *client.Client, config Config) (*Provider, error) {
 	return newProvider(ctx, gatewayClient, config, keygenAPIURL)
 }
 
@@ -141,8 +151,6 @@ func newProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 	if k.entitlements != nil {
 		slog.Info("license provider initialized", "entitlements", k.entitlements)
 	}
-
-	go k.poll(ctx)
 
 	return k, nil
 }
@@ -485,35 +493,6 @@ func (p *Provider) HasValidLicense(ctx context.Context) (bool, error) {
 	defer p.lock.RUnlock()
 
 	return p.entitlements != nil, nil
-}
-
-func (p *Provider) Entitlements(ctx context.Context) ([]string, error) {
-	if err := p.refresh(ctx, false); err != nil {
-		return nil, err
-	}
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	if p.entitlements == nil {
-		return nil, nil
-	}
-
-	entitlements := make([]string, 0, len(p.entitlements))
-	for entitlement := range p.entitlements {
-		entitlements = append(entitlements, string(entitlement))
-	}
-
-	slices.Sort(entitlements)
-
-	return entitlements, nil
-}
-
-func (p *Provider) hasEntitlement(key string) bool {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	_, ok := p.entitlements[keygen.EntitlementCode(key)]
-	return ok
 }
 
 // poll checks the license key with Keygen once a day.

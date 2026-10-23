@@ -37,6 +37,7 @@ var (
 	ErrPodSchedulingFailed    = errors.New("pod could not be scheduled")
 	ErrPodConfigurationFailed = errors.New("pod configuration is invalid")
 	ErrInsufficientCapacity   = errors.New("insufficient cluster capacity to deploy MCP server")
+	ErrPlanCapacity           = errors.New("starting this MCP server would exceed the plan's hosted MCP server, memory or CPU limit")
 )
 
 type backend interface {

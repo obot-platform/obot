@@ -22,9 +22,9 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
-	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -50,7 +50,7 @@ var (
 type Handler struct {
 	gatewayClient   *gateway.Client
 	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.Provider
+	licenseProvider entitlements.Source
 	registryPaths   []string
 }
 
@@ -65,7 +65,7 @@ type upstreamProviderLister interface {
 	ConfiguredProviders(ctx context.Context) ([]string, error)
 }
 
-func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, registryPaths []string) *Handler {
+func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider entitlements.Source, registryPaths []string) *Handler {
 	return &Handler{
 		gatewayClient:   gatewayClient,
 		dispatcher:      dispatcher,
@@ -272,7 +272,7 @@ func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.R
 	return SetAuthProviderConfiguredStatus(req.Ctx, h.gatewayClient, h.licenseProvider, authProvider)
 }
 
-func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, authProvider *v1.AuthProvider) error {
+func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider entitlements.Source, authProvider *v1.AuthProvider) error {
 	var (
 		configured          = true
 		missingConfigParams []string

@@ -114,7 +114,7 @@ func TestProviderUserLimit(t *testing.T) {
 			}
 
 			provider := &Provider{entitlements: entitlements}
-			got, err := provider.UserLimit(t.Context())
+			got, err := provider.userLimit(t)
 			if err != nil {
 				t.Fatalf("UserLimit() error = %v, want nil", err)
 			}

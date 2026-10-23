@@ -330,7 +330,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 					ServiceNamespace: tt.serviceNamespace,
 					MCPClusterDomain: tt.clusterDomain,
 				},
-				ValidationOptions{},
+				ValidationOptions{}, nil, nil,
 			)
 			k := backend.(*kubernetesBackend)
 			if k.serviceFQDN != tt.expectedFQDN {

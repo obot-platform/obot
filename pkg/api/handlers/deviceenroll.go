@@ -69,7 +69,8 @@ func (h *DeviceEnrollHandler) Enroll(req api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to resolve device limit: %w", err)
 	}
-	if !deviceLimit.Unlimited && deviceLimit.Maximum <= 0 {
+	// A limit of 0 allows no new devices. Only a negative limit is invalid.
+	if !deviceLimit.Unlimited && deviceLimit.Maximum < 0 {
 		return fmt.Errorf("invalid device limit %d", deviceLimit.Maximum)
 	}
 

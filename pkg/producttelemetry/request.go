@@ -35,7 +35,7 @@ type requestGatewayClient interface {
 }
 
 type licenseEntitlementProvider interface {
-	Entitlements(context.Context) ([]string, error)
+	Entitlements(context.Context) (clienttypes.Entitlements, error)
 }
 
 // buildRequest constructs a telemetry payload, failing when required installation metadata cannot be loaded.

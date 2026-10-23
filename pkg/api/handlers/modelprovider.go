@@ -7,19 +7,19 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/i18n"
-	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ModelProviderHandler struct {
 	dispatcher *dispatcher.Dispatcher
-	license    *license.Provider
+	license    entitlements.Source
 }
 
-func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider) *ModelProviderHandler {
+func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, licenseProvider entitlements.Source) *ModelProviderHandler {
 	return &ModelProviderHandler{
 		dispatcher: dispatcher,
 		license:    licenseProvider,

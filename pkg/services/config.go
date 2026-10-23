@@ -32,9 +32,11 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
+	"github.com/obot-platform/obot/pkg/billing"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/encryption"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	gserver "github.com/obot-platform/obot/pkg/gateway/server"
@@ -101,6 +103,8 @@ type (
 type Config struct {
 	GitMaxRepoSizeMB                               int      `usage:"Maximum git repository size in MB" default:"100" name:"git-max-repo-size-mb"`
 	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables the model proxy" default:"https://model-service.obot.ai"`
+	BillingURL                                     string   `usage:"Obot Cloud billing service URL" default:"https://billing.obot.ai" hidden:"true"`
+	BillingKey                                     string   `usage:"This environment's Obot Cloud billing key; billing is off unless it's set" hidden:"true"`
 	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
 	ProviderRegistries                             []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
@@ -277,6 +281,9 @@ type Services struct {
 
 	// License provider
 	LicenseProvider *license.Provider
+	Entitlements    entitlements.Source
+	Billing         *billing.Billing
+	BillingClient   *billing.Client
 	VersionChecker  *upgrade.VersionChecker
 
 	ModelProxyConfiguredURL string
@@ -587,7 +594,23 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, fmt.Errorf("failed to create every replica router: %w", err)
 	}
 
-	gatewayClient := client.New(
+	// Billing is on when a billing key is set. Every replica creates the BillingSubscription before serving.
+	var (
+		billingClient  *billing.Client
+		billingService *billing.Billing
+		// With billing, the plan sets the audit log retention.
+		auditLogRetention = client.FixedAuditLogRetention(config.MCPAuditLogRetentionDays, config.LLMAuditLogRetentionDays)
+	)
+	if config.BillingKey != "" {
+		billingClient = billing.NewClient(config.BillingURL, config.BillingKey)
+		billingService = billing.New(storageClient, billingClient)
+		if err := billing.EnsureSubscription(ctx, storageClient); err != nil {
+			return nil, err
+		}
+		auditLogRetention = billingService.AuditLogRetention(config.MCPAuditLogRetentionDays, config.LLMAuditLogRetentionDays)
+	}
+
+	gatewayClient := client.NewWithAuditLogRetention(
 		ctx,
 		gatewayDB,
 		storageClient,
@@ -599,12 +622,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.AuthAdminEmails,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
 		config.MCPAuditLogsPersistBatchSize,
-		config.MCPAuditLogRetentionDays,
-		config.LLMAuditLogRetentionDays,
+		auditLogRetention,
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
 	)
 	go scimsetup.RunGroupSubjectCleanups(ctx, gatewayClient, storageClient)
+
+	// With billing, hosted MCP servers only start within the plan's limits.
+	var planLimits func(context.Context) (apiclienttypes.Entitlements, error)
+	if billingService != nil {
+		planLimits = billingService.Entitlements
+	}
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
 		return nil, fmt.Errorf("failed to migrate GPTScript credentials: %w", err)
@@ -793,7 +821,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
 
 	mcpOAuthTokenStorage := mcp.NewGlobalTokenStore(gatewayClient)
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, config.DevMode, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace, tunnelManager)
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, config.DevMode, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace, tunnelManager, planLimits)
 	if err != nil {
 		return nil, err
 	}
@@ -947,9 +975,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	licenseProvider, err := license.NewProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
+	// With billing, a license key is only used for the model proxy, so it's validated once instead of every day.
+	newLicenseProvider := license.NewProvider
+	if billingService != nil {
+		newLicenseProvider = license.NewProviderValidatedOnce
+	}
+	licenseProvider, err := newLicenseProvider(ctx, gatewayClient, license.Config(config.LicenseConfig))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
+	}
+	// Everything that checks entitlements uses this source.
+	var entitlementSource entitlements.Source = licenseProvider
+	if billingService != nil {
+		entitlementSource = billingService
 	}
 
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
@@ -1077,7 +1115,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlements.Limits{Source: entitlementSource})
 		// Tunnel credentials are non-user principals and must be handled after
 		// the user decorator. Authorization restricts them to tunnel setup only.
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1124,7 +1162,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// "Authentication Disabled" flow
 
 		// Add gateway user info if token auth worked
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlements.Limits{Source: entitlementSource})
 
 		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1224,7 +1262,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			config.Hostname,
 			oauthServerConfig.ScopesSupported,
 			registryNoAuth,
-			licenseProvider,
+			entitlementSource,
 		),
 		GatewayClient:                gatewayClient,
 		ProxyManager:                 proxyManager,
@@ -1263,7 +1301,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		ForceDynamicClient:             config.ForceDynamicClient,
 		ProductTelemetryConsent:        telemetryConsent,
-		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient, storageClient, licenseProvider, config.MCPRuntimeBackend),
+		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient, storageClient, entitlementSource, config.MCPRuntimeBackend),
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,
 
@@ -1296,6 +1334,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		LicenseProvider:                      licenseProvider,
+		Entitlements:                         entitlementSource,
+		Billing:                              billingService,
+		BillingClient:                        billingClient,
 		VersionChecker:                       versionChecker,
 	}
 

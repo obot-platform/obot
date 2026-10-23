@@ -446,7 +446,7 @@ func newVMCPActionSessionManager(t *testing.T, objects ...kclient.Object) (*mcp.
 		storageClient,
 		gatewayClient,
 		system.DefaultNamespace,
-		nil,
+		nil, nil,
 	)
 	require.NoError(t, err)
 	return manager, storageClient, gatewayClient

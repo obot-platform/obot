@@ -75,7 +75,7 @@ func TestClaudeAuthorizationLinksReuseOAuthAcrossReplicas(t *testing.T) {
 		tokens := mcp.NewGlobalTokenStore(gateway)
 		manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "https://obot.example", 8080,
 			mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
-			&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
+			&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil, nil)
 		require.NoError(t, err)
 		return NewMCPOAuthHandlerFactory("https://obot.example", manager, storage, gateway, tokens, "", false), tokens
 	}

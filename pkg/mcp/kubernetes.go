@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -77,6 +78,9 @@ type kubernetesBackend struct {
 	obotClient        kclient.Client
 	deploymentCacheMu sync.RWMutex
 	deploymentCache   map[string]*kubernetesDeploymentCacheEntry
+	// planLimits returns the plan's hosted MCP server limits. It's nil without billing.
+	planLimits    func(context.Context) (types.Entitlements, error)
+	gatewayClient *gateway.Client
 }
 
 type kubernetesDeploymentCacheEntry struct {
@@ -98,6 +102,8 @@ func newKubernetesBackend(
 	obotClient kclient.WithWatch,
 	opts Options,
 	validationOptions ValidationOptions,
+	planLimits func(context.Context) (types.Entitlements, error),
+	gatewayClient *gateway.Client,
 ) backend {
 	var serviceFQDN string
 	if opts.ServiceName != "" && opts.ServiceNamespace != "" {
@@ -119,6 +125,8 @@ func newKubernetesBackend(
 		imagePullSecrets:  opts.MCPImagePullSecrets,
 		obotClient:        obotClient,
 		deploymentCache:   map[string]*kubernetesDeploymentCacheEntry{},
+		planLimits:        planLimits,
+		gatewayClient:     gatewayClient,
 	}
 }
 
@@ -138,21 +146,70 @@ func (k *kubernetesBackend) deployServerObjects(ctx context.Context, server Serv
 		return err
 	}
 
-	// Cleanup old deployments if it exists. Notice the server.Scope as the owner sub-context,
-	// which means that only objects with the same scope will be pruned.
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(
-		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
-	).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
-		return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
+	return k.withinPlan(ctx, objs, func() error {
+		// Cleanup old deployments if it exists. Notice the server.Scope as the owner sub-context,
+		// which means that only objects with the same scope will be pruned.
+		if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.Scope).WithPruneTypes(
+			new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+		).Apply(ctx, nil, nil); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to cleanup old MCP deployment %s: %w", server.MCPServerName, err)
+		}
+
+		if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.MCPServerName).WithPruneTypes(
+			new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
+		).Apply(ctx, nil, objs...); err != nil {
+			return fmt.Errorf("failed to create MCP deployment %s: %w", server.MCPServerName, err)
+		}
+
+		return nil
+	})
+}
+
+// withinPlan runs deploy if the plan has room for it, and returns ErrPlanCapacity if not. The count and the deploy run
+// under the capacity lock so two replicas can't both fit the last slot. Starts that add nothing skip the lock.
+func (k *kubernetesBackend) withinPlan(ctx context.Context, objs []kclient.Object, deploy func() error) error {
+	desired := desiredDeployment(objs)
+	if k.planLimits == nil || desired == nil {
+		// No plan, or nothing to start.
+		return deploy()
 	}
 
-	if err := apply.New(k.client).WithNamespace(k.mcpNamespace).WithOwnerSubContext(server.MCPServerName).WithPruneTypes(
-		new(corev1.Secret), new(appsv1.Deployment), new(corev1.Service), new(corev1.PersistentVolumeClaim),
-	).Apply(ctx, nil, objs...); err != nil {
-		return fmt.Errorf("failed to create MCP deployment %s: %w", server.MCPServerName, err)
+	limits, err := k.planLimits(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to read the plan's limits: %w", err)
+	}
+	if limits.HostedMCPServers == nil && limits.MemoryMiB == nil && limits.CPUMillicores == nil {
+		// The plan doesn't limit hosted MCP servers.
+		return deploy()
+	}
+	if start := startUsage(k.desiredAndExisting(ctx, desired)); start == (types.EntitlementsUsage{}) {
+		return deploy()
 	}
 
-	return nil
+	// Count again under the lock, since another replica may have started a server.
+	return k.gatewayClient.WithMCPCapacityLock(ctx, func() error {
+		running, err := k.runningUsage(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to count running MCP servers: %w", err)
+		}
+		if !planHasCapacity(limits, running, startUsage(k.desiredAndExisting(ctx, desired))) {
+			return ErrPlanCapacity
+		}
+		return deploy()
+	})
+}
+
+// runningUsage counts what the running MCP servers use. It lists from the API server, not a cache.
+func (k *kubernetesBackend) runningUsage(ctx context.Context) (types.EntitlementsUsage, error) {
+	deployments, err := k.clientset.AppsV1().Deployments(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return types.EntitlementsUsage{}, err
+	}
+	pods, err := k.clientset.CoreV1().Pods(k.mcpNamespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return types.EntitlementsUsage{}, err
+	}
+	return RunningUsage(deployments.Items, pods.Items), nil
 }
 
 func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server ServerConfig) (ServerConfig, error) {
@@ -1899,13 +1956,7 @@ func int64PtrValue(value *int64) string {
 // requests that applying the objects would add to the namespace are checked, because the existing pods'
 // requests are already counted in the quota's usage.
 func (k *kubernetesBackend) CheckCapacity(ctx context.Context, objs []kclient.Object) error {
-	var desired *appsv1.Deployment
-	for _, obj := range objs {
-		if dep, ok := obj.(*appsv1.Deployment); ok {
-			desired = dep
-			break
-		}
-	}
+	desired := desiredDeployment(objs)
 	if desired == nil {
 		// Nothing will be deployed, so no capacity is needed.
 		return nil
@@ -1937,12 +1988,18 @@ func (k *kubernetesBackend) CheckCapacity(ctx context.Context, objs []kclient.Ob
 // full requests so that a real capacity shortage fails fast instead of timing out on a pod that the quota
 // rejects.
 func (k *kubernetesBackend) additionalRequestsForDeploy(ctx context.Context, desired *appsv1.Deployment) (resource.Quantity, resource.Quantity) {
+	return additionalDeploymentRequests(k.desiredAndExisting(ctx, desired))
+}
+
+// desiredAndExisting returns the desired deployment as the API server would store it, and the existing one. The existing
+// one is nil if there's none or it can't be compared, so the full requests are checked.
+func (k *kubernetesBackend) desiredAndExisting(ctx context.Context, desired *appsv1.Deployment) (*appsv1.Deployment, *appsv1.Deployment) {
 	var existing appsv1.Deployment
 	if err := k.client.Get(ctx, kclient.ObjectKey{Name: desired.Name, Namespace: desired.Namespace}, &existing); apierrors.IsNotFound(err) {
-		return additionalDeploymentRequests(desired, nil)
+		return desired, nil
 	} else if err != nil {
 		slog.Warn("Failed to get existing MCP deployment for capacity check, checking full requests", "deployment", desired.Name, "error", err)
-		return additionalDeploymentRequests(desired, nil)
+		return desired, nil
 	}
 
 	// Ask the API server what the deployment would look like after the update, so that the comparison with
@@ -1952,10 +2009,10 @@ func (k *kubernetesBackend) additionalRequestsForDeploy(ctx context.Context, des
 	updated := desired.DeepCopy()
 	if err := k.client.Update(ctx, updated, kclient.DryRunAll); err != nil {
 		slog.Warn("Failed to dry-run MCP deployment update for capacity check, checking full requests", "deployment", desired.Name, "error", err)
-		return additionalDeploymentRequests(desired, nil)
+		return desired, nil
 	}
 
-	return additionalDeploymentRequests(updated, &existing)
+	return updated, &existing
 }
 
 // additionalDeploymentRequests returns the memory and CPU requests that applying the desired deployment

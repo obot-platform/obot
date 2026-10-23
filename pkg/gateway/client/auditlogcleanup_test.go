@@ -313,7 +313,7 @@ func TestRunRetentionCleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	go c.runRetentionCleanup(ctx, 90, 30)
+	go c.runRetentionCleanup(ctx, FixedAuditLogRetention(90, 30))
 
 	// Wait until the cleanup has deleted old logs, or time out.
 	deadline := time.Now().Add(2 * time.Second)
@@ -336,46 +336,65 @@ func TestRunRetentionCleanup(t *testing.T) {
 	}
 }
 
-func TestRunRetentionCleanupDisabled(t *testing.T) {
-	c := newTestClient(t)
-
-	now := time.Now().UTC()
-	insertAuditLog(t, c, now.AddDate(0, 0, -100))
-	insertAuditLog(t, c, now.AddDate(0, 0, -1))
-
-	expired := now.Add(-time.Minute)
-	future := now.Add(time.Hour)
-	for range 7 {
-		if err := c.db.WithContext(t.Context()).Create(&types.APIKey{ClaudeEnvironment: true, ExpiresAt: &expired}).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
-	for _, key := range []types.APIKey{
+func TestRunRetentionCleanupKeepsAuditLogsWithoutRetention(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		retention AuditLogRetention
+	}{
 		{
-			ClaudeEnvironment: true,
-			ExpiresAt:         &future,
+			name:      "disabled",
+			retention: FixedAuditLogRetention(0, 0),
 		},
-		{ClaudeEnvironment: true},
-		{ExpiresAt: &expired},
+		{
+			name: "unreadable",
+			retention: func(context.Context) (int, int, error) {
+				return 0, 0, errors.New("retention isn't known yet")
+			},
+		},
 	} {
-		if err := c.db.WithContext(t.Context()).Create(&key).Error; err != nil {
-			t.Fatal(err)
-		}
-	}
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestClient(t)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	defer cancel()
-	go c.runRetentionCleanup(ctx, 0, 0)
-	deadline := time.Now().Add(2 * time.Second)
-	for countAPIKeys(t, c) != 3 {
-		if time.Now().After(deadline) {
-			t.Fatal("expired Claude keys were not cleaned up with audit retention disabled")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
+			now := time.Now().UTC()
+			insertAuditLog(t, c, now.AddDate(0, 0, -100))
+			insertAuditLog(t, c, now.AddDate(0, 0, -1))
 
-	if got := countAuditLogs(t, c); got != 2 {
-		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+			expired := now.Add(-time.Minute)
+			future := now.Add(time.Hour)
+			for range 7 {
+				if err := c.db.WithContext(t.Context()).Create(&types.APIKey{ClaudeEnvironment: true, ExpiresAt: &expired}).Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, key := range []types.APIKey{
+				{
+					ClaudeEnvironment: true,
+					ExpiresAt:         &future,
+				},
+				{ClaudeEnvironment: true},
+				{ExpiresAt: &expired},
+			} {
+				if err := c.db.WithContext(t.Context()).Create(&key).Error; err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			// Expired Claude keys don't wait for audit log retention.
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			go c.runRetentionCleanup(ctx, tt.retention)
+			deadline := time.Now().Add(2 * time.Second)
+			for countAPIKeys(t, c) != 3 {
+				if time.Now().After(deadline) {
+					t.Fatal("expired Claude keys were not cleaned up without audit log retention")
+				}
+				time.Sleep(10 * time.Millisecond)
+			}
+
+			if got := countAuditLogs(t, c); got != 2 {
+				t.Errorf("expected 2 audit logs, got %d", got)
+			}
+		})
 	}
 }
 
@@ -386,7 +405,7 @@ func TestRunRetentionCleanupRepeats(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	go c.runRetentionCleanup(ctx, 90, 30)
+	go c.runRetentionCleanup(ctx, FixedAuditLogRetention(90, 30))
 
 	waitUntilEmpty := func(stage string) {
 		t.Helper()

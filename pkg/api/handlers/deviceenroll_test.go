@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -90,7 +89,7 @@ func deviceEnrollTestPublicKey(t *testing.T) []byte {
 	return der
 }
 
-func TestDeviceEnrollRejectsInvalidDeviceLimit(t *testing.T) {
+func TestDeviceEnrollRefusesNewDevicesAtALimitOfZero(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	body, err := json.Marshal(types.DeviceEnrollRequest{
 		DeviceID:  "device-1",
@@ -116,8 +115,9 @@ func TestDeviceEnrollRejectsInvalidDeviceLimit(t *testing.T) {
 	}))
 
 	err = handler.Enroll(apiContext)
-	if err == nil || err.Error() != fmt.Sprintf("invalid device limit %d", 0) {
-		t.Fatalf("Enroll() error = %v, want invalid device limit", err)
+	var httpErr *types.ErrHTTP
+	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusForbidden {
+		t.Fatalf("Enroll() error = %v, want the device limit's Forbidden", err)
 	}
 	if got, err := gatewayClient.DeviceCount(t.Context()); err != nil {
 		t.Fatalf("count devices: %v", err)

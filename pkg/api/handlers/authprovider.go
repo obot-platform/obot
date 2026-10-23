@@ -17,11 +17,11 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/i18n"
-	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -36,10 +36,10 @@ const (
 type AuthProviderHandler struct {
 	dispatcher  *dispatcher.Dispatcher
 	postgresDSN string
-	license     *license.Provider
+	license     entitlements.Source
 }
 
-func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string, licenseProvider *license.Provider) *AuthProviderHandler {
+func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string, licenseProvider entitlements.Source) *AuthProviderHandler {
 	return &AuthProviderHandler{
 		dispatcher:  dispatcher,
 		postgresDSN: postgresDSN,
@@ -247,7 +247,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if err := ap.license.RequireEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements); err != nil {
+	if err := entitlements.RequireEntitlements(req.Context(), ap.license, authProvider.Spec.RequiredEntitlements); err != nil {
 		return err
 	}
 
@@ -323,7 +323,7 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 		return err
 	}
 
-	missingEntitlements, err := ap.license.MissingEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements)
+	missingEntitlements, err := entitlements.MissingEntitlements(req.Context(), ap.license, authProvider.Spec.RequiredEntitlements)
 	if err != nil {
 		return err
 	}

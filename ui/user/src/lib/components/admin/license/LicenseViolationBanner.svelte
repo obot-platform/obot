@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { m } from '$lib/i18n';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
@@ -25,6 +27,41 @@
 			return typeof parsed === 'number' && !Number.isNaN(parsed) ? parsed : undefined;
 		}
 	});
+
+	// Violations that come from the billing plan.
+	const planLimitViolationTypes = new Set([
+		'userLimit',
+		'deviceLimit',
+		'hostedMcpServerLimit',
+		'memoryLimit',
+		'cpuLimit',
+		'restricted'
+	]);
+	let restricted = $derived(
+		version.current.licenseEntitlementViolations?.some(
+			(violation) => violation.type === 'restricted'
+		) ?? false
+	);
+	// The license page shows its own plan banner.
+	let onLicensePage = $derived(
+		page.url.pathname === resolve('/admin/platform') &&
+			(page.url.searchParams.get('view') ?? 'license') === 'license'
+	);
+	let planViolationsOnly = $derived(
+		Boolean(version.current.billingEnabled) &&
+			(version.current.licenseEntitlementViolations?.every((violation) =>
+				planLimitViolationTypes.has(violation.type)
+			) ??
+				true)
+	);
+	let showPlanLimitBanner = $derived(
+		Boolean(version.current.billingEnabled) &&
+			!onLicensePage &&
+			(version.current.licenseEntitlementViolations?.some((violation) =>
+				planLimitViolationTypes.has(violation.type)
+			) ??
+				false)
+	);
 
 	let hasUserLimitViolation = $derived(
 		version.current.licenseEntitlementViolations?.some(
@@ -66,7 +103,25 @@
 	}
 </script>
 
-{#if showUserLimitBanner}
+{#if showPlanLimitBanner}
+	<div class="bg-base-100">
+		<div class="bg-warning/10 text-warning px-4 py-2 flex justify-between md:justify-center gap-2">
+			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
+				<ShieldAlert class="text-warning size-4 shrink-0" />
+				<p class="text-xs">
+					{restricted
+						? m.platform_license_notice_restricted()
+						: m.platform_license_notice_over_plan_limits()}
+				</p>
+			</div>
+			{#if profile.current.hasAdminAccess?.()}
+				<a class="btn btn-xs btn-warning" href={resolve('/admin/platform?view=license')}>
+					{m.platform_license_notice_view_plan()}
+				</a>
+			{/if}
+		</div>
+	</div>
+{:else if showUserLimitBanner}
 	<div class="bg-base-100">
 		<div class="bg-warning/10 text-warning px-4 py-2 flex justify-between md:justify-center gap-2">
 			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
@@ -94,13 +149,15 @@
 			</div>
 		</div>
 	</div>
-{:else if !warnUserLimit}
+{:else if !warnUserLimit && !planViolationsOnly}
 	<div class="bg-base-100">
 		<div class="bg-warning/10 text-warning px-4 py-2 flex justify-between md:justify-center gap-2">
 			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
-					{#if profile.current.hasAdminAccess?.()}
+					{#if profile.current.hasAdminAccess?.() && version.current.billingEnabled}
+						{m.platform_license_notice_plan_missing_feature()}
+					{:else if profile.current.hasAdminAccess?.()}
 						{m.platform_license_notice_status_prefix()}<b class="font-semibold uppercase"
 							>{licenseKey
 								? m.platform_license_notice_status_invalid()

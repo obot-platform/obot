@@ -10,7 +10,7 @@
 	import ResourcesInspector from '$lib/components/mcp/tester/ResourcesInspector.svelte';
 	import TesterError from '$lib/components/mcp/tester/TesterError.svelte';
 	import ToolsInspector from '$lib/components/mcp/tester/ToolsInspector.svelte';
-	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
+	import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { reloadPage } from '$lib/navigation';
@@ -89,13 +89,17 @@
 		'dark:bg-base-200 dark:border-base-400 bg-base-100 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-transparent p-4 shadow-sm';
 
 	const hasCommunityOrEnterprise = $derived.by(() => {
-		if (version.current.enterprise || license.current.enterprise) return true;
-		const entitlements = [
-			...(license.current.entitlements ?? []),
-			...(version.current.licenseEntitlements ?? [])
-		];
+		// Obot Cloud is licensed by billing and never needs a community license.
+		const { community, enterprise, cloud } = license.current.entitlements;
+		const codes = version.current.licenseEntitlements ?? [];
 		return (
-			entitlements.includes(COMMUNITY_ENTITLEMENT) || entitlements.includes(ENTERPRISE_ENTITLEMENT)
+			Boolean(version.current.hasValidLicense) ||
+			community ||
+			enterprise ||
+			cloud ||
+			[COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT, CLOUD_ENTITLEMENT].some((code) =>
+				codes.includes(code)
+			)
 		);
 	});
 	const isAdminReadonly = $derived(profile.current.isAdminReadonly?.());

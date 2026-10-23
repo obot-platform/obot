@@ -278,11 +278,28 @@ export const initiateTempLoginResponse = {
 // License
 
 export const getLicenseResponse = {
-	entitlements: null,
-	enterprise: false,
+	entitlements: {
+		community: false,
+		enterprise: false,
+		cloud: false,
+		enterpriseAuthProviders: false,
+		enterpriseModelProviders: false,
+		users: null,
+		devices: null,
+		hostedMcpServers: null,
+		memoryMiB: null,
+		cpuMillicores: null,
+		auditLogRetentionDays: null
+	},
+	usage: {
+		users: 0,
+		devices: 0,
+		hostedMcpServers: 0,
+		memoryMiB: 0,
+		cpuMillicores: 0
+	},
 	licenseKey: '',
-	locked: false,
-	source: ''
+	locked: false
 } satisfies Awaited<ReturnType<typeof UserService.getLicense>>;
 
 // MCP servers

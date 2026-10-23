@@ -637,13 +637,51 @@ export interface ServerK8sSettings {
 }
 
 // Licensing
-export interface License {
-	licenseKey: string;
-	source: string;
-	locked: boolean;
+export interface Entitlements {
+	community: boolean;
 	enterprise: boolean;
-	entitlements: string[] | null;
+	cloud: boolean;
+	enterpriseAuthProviders: boolean;
+	enterpriseModelProviders: boolean;
+	users: number | null;
+	devices: number | null;
+	hostedMcpServers: number | null;
+	memoryMiB: number | null;
+	cpuMillicores: number | null;
+	auditLogRetentionDays: number | null;
+}
+
+export interface EntitlementsUsage {
+	users: number;
+	devices: number;
+	hostedMcpServers: number;
+	memoryMiB: number;
+	cpuMillicores: number;
+}
+
+export type SubscriptionStatus = 'trialing' | 'active' | 'pastDue' | 'ended';
+
+export interface Subscription {
+	plan: string;
+	status: SubscriptionStatus;
+	periodEnd?: string;
+	cancelAtPeriodEnd: boolean;
+	selfService: boolean;
+}
+
+export interface BillingSession {
+	url: string;
+	expiresAt: string;
+}
+
+export interface License {
+	entitlements: Entitlements;
+	usage: EntitlementsUsage;
+	licenseKey: string;
+	locked: boolean;
 	manualCheckAvailableAt?: string;
+	subscription?: Subscription;
+	syncing?: boolean;
 }
 
 export interface LicenseManifest {
