@@ -236,6 +236,23 @@
 			: requiredConfigurationParameters
 	);
 
+	const parameterNotices = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const notices = new Map<string, ParameterNotice>();
+		if (!parameterNotice || !provider) return notices;
+
+		for (const parameter of [
+			...(provider.requiredConfigurationParameters ?? []),
+			...(provider.optionalConfigurationParameters ?? [])
+		]) {
+			if (parameter.hidden) continue;
+			const notice = parameterNotice(parameter, form);
+			if (notice) notices.set(parameter.name, notice);
+		}
+
+		return notices;
+	});
+
 	function initParamValue(param: ProviderParameter): string {
 		let value = values?.[param.name] ? values?.[param.name] : '';
 		if (booleanInputs.has(param.name) && !value && values && param.name in values) {
@@ -350,21 +367,22 @@
 </script>
 
 {#snippet noticeFor(parameter: ProviderParameter)}
-	{@const notice = parameterNotice?.(parameter, form)}
-	{#if notice}
+	{#if parameterNotices.get(parameter.name)}
 		<div
 			class={twMerge(
 				'mt-1 flex items-start gap-2 p-2 text-xs font-light',
-				notice.kind === 'warning' ? 'notification-alert' : 'notification-info'
+				parameterNotices.get(parameter.name)?.kind === 'warning'
+					? 'notification-alert'
+					: 'notification-info'
 			)}
-			role={notice.kind === 'warning' ? 'alert' : 'note'}
+			role={parameterNotices.get(parameter.name)?.kind === 'warning' ? 'alert' : 'note'}
 		>
-			{#if notice.kind === 'warning'}
+			{#if parameterNotices.get(parameter.name)?.kind === 'warning'}
 				<TriangleAlert class="mt-0.5 size-4 shrink-0" />
 			{:else}
 				<Info class="mt-0.5 size-4 shrink-0" />
 			{/if}
-			<span>{notice.text}</span>
+			<span>{parameterNotices.get(parameter.name)?.text}</span>
 		</div>
 	{/if}
 {/snippet}

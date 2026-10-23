@@ -87,6 +87,7 @@
 }
 
 @plugin 'daisyui' {
+	logs: false;
 	themes:
 		nanobotlight --default,
 		nanobotdark --prefersdark;

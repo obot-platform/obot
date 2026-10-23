@@ -53,6 +53,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 	});
 
 	afterEach(() => {
+		vi.useRealTimers();
 		if (originalUrl) Object.defineProperty(appPage, 'url', originalUrl);
 		adminConfigStore.updateAuthProviders([
 			{ configured: true } as Awaited<ReturnType<typeof AdminService.listAuthProviders>>[number]
@@ -166,6 +167,8 @@ describe('SetupSplashDialog product analytics consent', () => {
 	});
 
 	it('does not treat a gateway that is still starting as having no providers', async () => {
+		// Keep the gateway retry from escaping MSW teardown and reaching the SSR server.
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		adminConfigStore.setModelProviderConfigured(true);
 		worker.use(
 			http.get('/api/auth-providers', () => HttpResponse.json({ items: [{ configured: true }] })),
@@ -182,9 +185,11 @@ describe('SetupSplashDialog product analytics consent', () => {
 		// for again.
 		expect(state.lastFetched).not.toBeNull();
 		expect(state.modelProviderKnown).toBe(false);
+		expect(vi.getTimerCount()).toBe(1);
 	});
 
 	it("doesn't stay blocked while the gateway is starting", async () => {
+		vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 		profile.initialize(createMockProfile([Group.ADMIN]));
 		version.initialize(getVersionResponse);
 		productTelemetryConsent.initialize({ consent: true }, true);

@@ -10,16 +10,18 @@
 	let connection = $state<ReturnType<typeof ConnectVMcp>>();
 	// Instances finish setup first; tracking the ready ID lets navigation start over without a stale view.
 	let readyId = $state<string>();
-	const configuring = $derived(
-		data.compositeMcpId.startsWith('vmcpi1') && readyId !== data.compositeMcpId
-	);
+
+	function needsInstanceSetup(id: string) {
+		return id.startsWith('vmcpi1') && readyId !== id;
+	}
+
 	let error = $state('');
 	let loading = $state(false);
 	let controller: AbortController | undefined;
 
-	async function configure() {
+	async function configure(forId?: string) {
 		const current = controller;
-		const id = data.compositeMcpId;
+		const id = forId ?? data.compositeMcpId;
 		if (!current || !connection) return;
 		loading = true;
 		error = '';
@@ -57,10 +59,11 @@
 		const id = data.compositeMcpId;
 		const current = new AbortController();
 		controller = current;
+		readyId = undefined;
 		untrack(() => {
 			error = '';
 			loading = false;
-			if (id.startsWith('vmcpi1') && readyId !== id) void configure();
+			if (id.startsWith('vmcpi1')) void configure(id);
 		});
 		return () => current.abort();
 	});
@@ -71,7 +74,7 @@
 	<ConnectVMcp bind:this={connection} configureOnly />
 {/key}
 
-{#if configuring}
+{#if needsInstanceSetup(data.compositeMcpId)}
 	<div class="colors-background flex min-h-screen flex-col items-center justify-center gap-4 p-4">
 		{#if error}<p class="notification-error" role="alert">{error}</p>{/if}
 		<button class="btn btn-primary" disabled={loading} onclick={() => configure()}>
