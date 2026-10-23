@@ -1,9 +1,11 @@
 import { page as appPage } from '$app/state';
-import { Group, Role, type OrgUser } from '$lib/services';
+import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
+import { Group, Role, type LocalAuthUser, type OrgUser } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import UsersView from './UsersView.svelte';
 import { http, HttpResponse } from 'msw';
+import { untrack } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -73,10 +75,29 @@ const legacyUser = orgUser({
 	email: 'legacy@example.com'
 });
 
-async function renderUsersView(users: OrgUser[], viewerGroups: string[] = [Group.ADMIN]) {
+async function renderUsersView(
+	users: OrgUser[],
+	viewerGroups: string[] = [Group.ADMIN],
+	options?: { localAuthProviderAvailable?: boolean }
+) {
 	await preparePageData({ profile: createMockProfile(viewerGroups) });
-	return render(UsersView, { users });
+	return render(UsersView, {
+		users,
+		localAuthProviderAvailable: options?.localAuthProviderAvailable
+	});
 }
+
+function localAuthUser(email: string, overrides: Partial<LocalAuthUser> = {}): LocalAuthUser {
+	return {
+		id: overrides.id ?? email,
+		email,
+		created: '2026-02-01T00:00:00.000Z',
+		requirePasswordChange: false,
+		...overrides
+	};
+}
+
+const validPassword = 'a'.repeat(LOCAL_AUTH_MIN_PASSWORD_LENGTH);
 
 function userRow(email: string) {
 	return page.getByRole('row').filter({ hasText: email });
@@ -294,5 +315,197 @@ describe('UsersView', () => {
 		await openRowActions(activeUser.email);
 		await page.getByRole('button', { name: 'Update Role' }).click();
 		await expect.element(page.getByRole('button', { name: 'Update', exact: true })).toBeEnabled();
+	});
+
+	describe('local auth provider', () => {
+		const pending = localAuthUser('pending@example.com', { id: '10', requirePasswordChange: true });
+		const linked = localAuthUser(activeUser.email, { id: '11' });
+
+		function mockLocalAccounts(accounts: LocalAuthUser[]) {
+			let items = accounts;
+			worker.use(
+				http.get('*/api/local-auth/users', () => HttpResponse.json({ items })),
+				http.get('*/api/users', () => HttpResponse.json({ items: [activeUser] }))
+			);
+			return {
+				setItems(next: LocalAuthUser[]) {
+					items = next;
+				}
+			};
+		}
+
+		it('lists a local account that has not signed in, with org actions disabled', async () => {
+			mockLocalAccounts([pending, linked]);
+			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			const pendingRow = userRow(pending.email);
+			await expect.element(pendingRow).toBeVisible();
+			await expect.element(pendingRow.getByText('Active', { exact: true })).not.toBeInTheDocument();
+			await expect
+				.element(userRow(activeUser.email).getByText('Active', { exact: true }))
+				.toBeVisible();
+
+			await openRowActions(pending.email);
+			await expect
+				.element(page.getByRole('button', { name: 'View Access Policies' }))
+				.toBeDisabled();
+			await expect.element(page.getByRole('button', { name: 'Update Role' })).toBeDisabled();
+			await expect
+				.element(page.getByRole('button', { name: 'Enable User' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Reset password' })).toBeEnabled();
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+		});
+
+		it('keeps the org user actions when the local account has signed in', async () => {
+			mockLocalAccounts([linked]);
+			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			await openRowActions(activeUser.email);
+			await expect
+				.element(page.getByRole('button', { name: 'View Access Policies' }))
+				.toBeEnabled();
+			await expect.element(page.getByRole('button', { name: 'Update Role' })).toBeEnabled();
+			await expect.element(page.getByRole('button', { name: 'Reset password' })).toBeEnabled();
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+		});
+
+		it('keeps org users that have no local auth account', async () => {
+			const claudeTagUser = {
+				...orgUser({
+					id: '7',
+					email: '',
+					displayName: 'Claude Tag — Sandbox',
+					username: 'claude-tag:1'
+				}),
+				email: undefined,
+				internal: true
+			} as unknown as OrgUser;
+			mockLocalAccounts([linked]);
+			await renderUsersView([activeUser, claudeTagUser], [Group.ADMIN], {
+				localAuthProviderAvailable: true
+			});
+
+			await expect.element(userRow('Claude Tag — Sandbox')).toBeVisible();
+		});
+
+		it('deletes the org user and the local auth user together', async () => {
+			const removeOrg = vi.fn();
+			const removeLocal = vi.fn();
+			mockLocalAccounts([linked]);
+			worker.use(
+				http.delete(`*/api/users/${activeUser.id}`, () => {
+					removeOrg();
+					return new HttpResponse(null, { status: 204 });
+				}),
+				http.delete('*/api/local-auth/users/11', () => {
+					removeLocal();
+					return new HttpResponse(null, { status: 204 });
+				})
+			);
+			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			await openRowActions(activeUser.email);
+			await page.getByRole('button', { name: 'Delete User' }).click();
+			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+			await vi.waitFor(() => {
+				expect(removeOrg).toHaveBeenCalledOnce();
+				expect(removeLocal).toHaveBeenCalledOnce();
+			});
+		});
+
+		it('deletes only the local auth user when there is no org user', async () => {
+			const removeOrg = vi.fn();
+			const removeLocal = vi.fn();
+			const accounts = mockLocalAccounts([pending]);
+			worker.use(
+				http.delete('*/api/users/*', () => {
+					removeOrg();
+					return new HttpResponse(null, { status: 204 });
+				}),
+				http.delete('*/api/local-auth/users/10', () => {
+					removeLocal();
+					accounts.setItems([]);
+					return new HttpResponse(null, { status: 204 });
+				}),
+				http.get('*/api/users', () => HttpResponse.json({ items: [] }))
+			);
+			await renderUsersView([], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			await openRowActions(pending.email);
+			await page.getByRole('button', { name: 'Delete User' }).click();
+			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+			await vi.waitFor(() => expect(removeLocal).toHaveBeenCalledOnce());
+			expect(removeOrg).not.toHaveBeenCalled();
+			await expect.element(userRow(pending.email)).not.toBeInTheDocument();
+		});
+
+		it('resets the password immediately', async () => {
+			const setPassword = vi.fn();
+			mockLocalAccounts([linked]);
+			worker.use(
+				http.post('*/api/local-auth/users/11/password', async ({ request }) => {
+					setPassword(await request.json());
+					return new HttpResponse(null, { status: 204 });
+				})
+			);
+			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			await openRowActions(activeUser.email);
+			await page.getByRole('button', { name: 'Reset password' }).click();
+			const dialog = page.getByRole('dialog');
+			await expect.element(dialog.getByText(activeUser.email)).toBeVisible();
+			await page.getByCSS('#users-reset-password').fill(validPassword);
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+			await vi.waitFor(() =>
+				expect(setPassword).toHaveBeenCalledWith({
+					password: validPassword,
+					requirePasswordChange: true
+				})
+			);
+			await expect.element(dialog).not.toBeInTheDocument();
+		});
+
+		it('creates a local auth user from the dialog', async () => {
+			const created = vi.fn();
+			const accounts = mockLocalAccounts([]);
+			worker.use(
+				http.post('*/api/local-auth/users', async ({ request }) => {
+					const body = (await request.json()) as {
+						email: string;
+						password: string;
+						requirePasswordChange: boolean;
+					};
+					created(body);
+					const user = localAuthUser(body.email, {
+						id: '20',
+						requirePasswordChange: body.requirePasswordChange
+					});
+					accounts.setItems([user]);
+					return HttpResponse.json(user);
+				}),
+				http.get('*/api/users', () => HttpResponse.json({ items: [] }))
+			);
+			const view = await renderUsersView([], [Group.ADMIN], { localAuthProviderAvailable: true });
+			untrack(() => view.component.openCreateUser());
+
+			const dialog = page.getByRole('dialog');
+			await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+			await page.getByCSS('#users-local-auth-password').fill(validPassword);
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+			await vi.waitFor(() =>
+				expect(created).toHaveBeenCalledWith({
+					email: 'ada@example.com',
+					password: validPassword,
+					requirePasswordChange: true
+				})
+			);
+			await expect.element(userRow('ada@example.com')).toBeVisible();
+			await expect.element(dialog).not.toBeInTheDocument();
+		});
 	});
 });

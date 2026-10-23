@@ -5,6 +5,7 @@ import * as navigation from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
+import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 import errors from '$lib/stores/errors.svelte';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import {
@@ -140,6 +141,7 @@ async function renderIdentityAccessPage({
 		profile
 	});
 
+	adminConfigStore.updateAuthProviders(authProviders);
 	return render(IdentityAccessPage, { data });
 }
 
@@ -264,6 +266,53 @@ afterEach(() => {
 });
 
 describe('Identity & Access Page', () => {
+	it.each([
+		{ configured: true, staged: false, available: true },
+		{ configured: false, staged: true, available: true },
+		{ configured: false, staged: false, available: false }
+	])(
+		'allows Local account management when configured=$configured and staged=$staged',
+		async ({ configured, staged, available }) => {
+			const email = 'pending-local@example.com';
+			const authProviders: AuthProvider[] = [
+				{ ...googleConfigured, configured: !configured },
+				{ ...localProvider, configured, staged }
+			];
+			worker.use(
+				http.get('*/api/auth-providers', () => HttpResponse.json({ items: authProviders })),
+				http.get('*/api/local-auth/users', () =>
+					HttpResponse.json({
+						items: [
+							{
+								id: 'pending-local',
+								email,
+								created: '2026-01-01T00:00:00Z',
+								requirePasswordChange: true
+							}
+						]
+					})
+				)
+			);
+			await renderIdentityAccessPage({
+				view: 'users',
+				groups: [Group.OWNER, Group.ADMIN],
+				authProviders
+			});
+			const createButton = page.getByRole('button', { name: 'Create New User', exact: true });
+			if (available) {
+				await expect.element(createButton).toBeVisible();
+				await expect.element(page.getByRole('row').filter({ hasText: email })).toBeVisible();
+				await createButton.click();
+				await expect.element(page.getByRole('dialog')).toBeVisible();
+			} else {
+				await expect.element(createButton).not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('row').filter({ hasText: email }))
+					.not.toBeInTheDocument();
+			}
+		}
+	);
+
 	describe('local bootstrap setup', () => {
 		const localConfigured: AuthProvider = {
 			...googleProvider,
@@ -325,38 +374,19 @@ describe('Identity & Access Page', () => {
 			await expect.element(signIn).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 		});
 
-		it('prompts for the owner login after saving the initial account', async () => {
-			const { initiate } = mockLocalSetup([]);
+		it('opens domain settings for a configured local provider', async () => {
+			mockLocalSetup([]);
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
 			await providerCard('Local').getByRole('button', { name: 'Modify', exact: true }).click();
 			const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up Local' });
-			await dialog.getByLabelText('Email', { exact: true }).fill('owner@example.com');
-			await page.getByCSS('#local-user-password-draft').fill('initial-owner-password');
-			expect(initiate).not.toHaveBeenCalled();
-			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-
-			await expect.element(ownerLoginPrompt()).toBeVisible();
 			await expect
-				.element(page.getByRole('link', { name: /Sign in as owner@example.com/ }))
+				.element(dialog.getByText('Allowed Email Domains', { exact: true }))
 				.toBeVisible();
-		});
-
-		it('lets the bootstrap user reset a forgotten password from the owner login prompt', async () => {
-			const { setPassword } = mockLocalSetup(['owner@example.com']);
-			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
-
-			await expect.element(ownerLoginPrompt()).toBeVisible();
-			await page.getByRole('button', { name: 'Click here' }).click();
-
-			const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up Local' });
-			await expect.element(dialog.getByText('owner@example.com')).toBeVisible();
-			await dialog.getByRole('button', { name: 'Reset password' }).click();
-			await page.getByCSS('#reset-password-1').fill('a-password-i-will-remember');
-			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-
-			await vi.waitFor(() => expect(setPassword).toHaveBeenCalledOnce());
-			await expect.element(ownerLoginPrompt()).toBeVisible();
+			await expect
+				.element(dialog.getByRole('button', { name: 'Continue', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(dialog.getByLabelText('Email', { exact: true })).not.toBeInTheDocument();
 		});
 
 		it('keeps explicit handoff for a legacy setup with multiple local accounts', async () => {
@@ -1345,8 +1375,11 @@ describe('Identity & Access Page', () => {
 				await renderAsOwner([localConfigured, verifiedGoogle]);
 
 				// The switch confirmation has to spell out both consequences, not just the sign-out.
-				await expect.element(page.getByText(/sessions\s+end/)).toBeVisible();
-				await expect.element(page.getByText(/will\s+not\s+transfer/)).toBeVisible();
+				const confirmation = page.getByRole('dialog').filter({ hasText: 'Switch to Google?' });
+				await expect.element(confirmation.getByText(/sessions\s+end/)).toBeVisible();
+				await expect
+					.element(confirmation.getByText(/users and their work will not transfer/))
+					.toBeVisible();
 			});
 
 			it("says that switching deletes the outgoing provider's SCIM data, and how SCIM starts for the incoming one", async () => {

@@ -3,15 +3,22 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte.js';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
+	import {
+		AdminService,
+		UserService,
+		Group,
+		Role,
+		type LocalAuthUser,
+		type OrgUser
+	} from '$lib/services';
 	import { userRoleOptions } from '$lib/services/admin/constants';
 	import type { OrgUserStatus } from '$lib/services/user/types';
 	import { profile, version } from '$lib/stores';
@@ -26,18 +33,22 @@
 		setFilterUrlParams
 	} from '$lib/url.js';
 	import { getUserRoleLabel, isClaudeTagUser, validateVersionUserLimit } from '$lib/utils';
+	import CreateLocalUserDialog from './CreateLocalUserDialog.svelte';
 	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
-	import { Handshake, Info, ShieldAlert } from '@lucide/svelte';
+	import ResetPasswordDialog from './ResetPasswordDialog.svelte';
+	import { Handshake, Info, KeyRound, ShieldAlert } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	interface Props {
 		users: OrgUser[];
+		localAuthProviderAvailable?: boolean;
 	}
 
-	let { users: initialUsers }: Props = $props();
+	let { users: initialUsers, localAuthProviderAvailable = false }: Props = $props();
 	let users = $state<OrgUser[]>(untrack(() => initialUsers));
+	let localAuthUsers = $state<LocalAuthUser[]>([]);
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
@@ -59,32 +70,105 @@
 	// and the server refuses both.
 	const CLAUDE_TAG_MESSAGE = m.identity_access_users_claude_tag_managed();
 
-	const tableData = $derived(
-		users
-			.map((user) => ({
-				...user,
-				lifecycleStatus: user.status ?? 'active',
-				status: statusLabels[user.status ?? 'active'],
-				disabledReasonLabel: user.disabledReason
-					? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
-					: undefined,
-				assignedRole: user.role,
-				name: getUserDisplayName(user),
-				role: getUserRoleLabel(user.role).split(','),
-				effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
-				roleId: user.role & ~Role.AUDITOR,
-				auditor: user.role & Role.AUDITOR ? true : false,
-				// Only an Owner can enable a user with any of these roles, from their own role or a group.
-				privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0,
-				claudeTag: isClaudeTagUser(user)
-			}))
-			// Match by name or email. The server lists internal users even when they have no email.
-			.filter(
-				(user) =>
-					user.name.toLowerCase().includes(query.toLowerCase()) ||
-					user.email?.toLowerCase().includes(query.toLowerCase())
-			)
-	);
+	function orgUsersByEmail(orgUsers: OrgUser[]) {
+		const byEmail: Record<string, OrgUser> = {};
+		for (const user of orgUsers) {
+			const email = user.email?.trim().toLowerCase();
+			if (email && !byEmail[email]) byEmail[email] = user;
+		}
+		for (const user of orgUsers) {
+			const original = user.originalEmail?.trim().toLowerCase();
+			if (original && !byEmail[original]) byEmail[original] = user;
+		}
+		return byEmail;
+	}
+
+	function mapOrgUser(user: OrgUser, localAuthUser?: LocalAuthUser) {
+		return {
+			...user,
+			orgUserId: user.id,
+			localAuthUserId: localAuthUser?.id,
+			hasOrgUser: true,
+			requirePasswordChange: localAuthUser?.requirePasswordChange ?? false,
+			lifecycleStatus: (user.status ?? 'active') as OrgUserStatus,
+			status: statusLabels[user.status ?? 'active'],
+			disabledReasonLabel: user.disabledReason
+				? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
+				: undefined,
+			assignedRole: user.role,
+			name: getUserDisplayName(user),
+			role: getUserRoleLabel(user.role).split(','),
+			effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
+			roleId: user.role & ~Role.AUDITOR,
+			auditor: Boolean(user.role & Role.AUDITOR),
+			// Only an Owner can enable a user with any of these roles, from their own role or a group.
+			privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0,
+			claudeTag: isClaudeTagUser(user)
+		};
+	}
+
+	function mapLocalOnlyUser(local: LocalAuthUser) {
+		return {
+			id: `local-auth:${local.id}`,
+			email: local.email,
+			username: local.email,
+			created: local.created,
+			iconURL: '',
+			explicitRole: false,
+			internal: false,
+			groups: [] as string[],
+			authProviderGroups: undefined as string[] | undefined,
+			orgUserId: undefined as string | undefined,
+			localAuthUserId: local.id,
+			hasOrgUser: false,
+			requirePasswordChange: local.requirePasswordChange,
+			lifecycleStatus: undefined as OrgUserStatus | undefined,
+			status: '',
+			disabledReasonLabel: undefined as string | undefined,
+			assignedRole: 0,
+			name: '',
+			role: [] as string[],
+			effectiveRole: [] as string[],
+			roleId: Role.BASIC,
+			auditor: false,
+			privileged: false,
+			claudeTag: false,
+			managementSource: undefined as OrgUser['managementSource'],
+			lastActiveDay: undefined as string | undefined,
+			displayName: undefined as string | undefined,
+			deletedAt: undefined as string | undefined,
+			originalEmail: undefined as string | undefined,
+			originalUsername: undefined as string | undefined,
+			disabledAt: undefined as string | undefined,
+			disabledReason: undefined as OrgUser['disabledReason']
+		};
+	}
+
+	function rowsForLocalAuth(orgUsers: OrgUser[], localUsers: LocalAuthUser[]) {
+		const byEmail = orgUsersByEmail(orgUsers);
+		const matched: Record<string, true> = {};
+		const rows = localUsers.map((local) => {
+			const org = byEmail[local.email.trim().toLowerCase()];
+			if (!org) return mapLocalOnlyUser(local);
+			matched[org.id] = true;
+			return mapOrgUser(org, local);
+		});
+		for (const user of orgUsers) {
+			if (!matched[user.id]) rows.push(mapOrgUser(user));
+		}
+		return rows;
+	}
+
+	const tableData = $derived.by(() => {
+		const rows = localAuthProviderAvailable
+			? rowsForLocalAuth(users, localAuthUsers)
+			: users.map((user) => mapOrgUser(user));
+		const q = query.toLowerCase();
+		// Match by name or email. The server lists internal users even when they have no email.
+		return rows.filter(
+			(user) => user.name.toLowerCase().includes(q) || user.email?.toLowerCase().includes(q)
+		);
+	});
 
 	type TableItem = (typeof tableData)[0];
 
@@ -97,6 +181,8 @@
 	let confirmAuditorAdditionToUser = $state<TableItem>();
 	let loading = $state(false);
 	let roleUpdateError = $state('');
+	let createUserDialog = $state<ReturnType<typeof CreateLocalUserDialog>>();
+	let resetPasswordDialog = $state<ReturnType<typeof ResetPasswordDialog>>();
 	let roleOptions = $derived([
 		...(profile.current.groups.includes(Group.OWNER)
 			? [{ label: m.core_role_owner(), id: Role.OWNER }]
@@ -122,6 +208,51 @@
 		return m.identity_access_users_update_role_failed();
 	}
 
+	let localAuthLoad = 0;
+
+	async function reloadListedUsers() {
+		const request = ++localAuthLoad;
+		const [nextUsers, nextLocalUsers] = await Promise.all([
+			UserService.listUsers(),
+			localAuthProviderAvailable
+				? AdminService.listLocalAuthUsers()
+				: Promise.resolve(localAuthUsers)
+		]);
+		if (request !== localAuthLoad) return;
+		users = nextUsers;
+		if (localAuthProviderAvailable) localAuthUsers = nextLocalUsers;
+	}
+
+	$effect(() => {
+		if (!localAuthProviderAvailable) {
+			localAuthLoad += 1;
+			localAuthUsers = [];
+			return;
+		}
+
+		const request = ++localAuthLoad;
+		void AdminService.listLocalAuthUsers()
+			.then((items) => {
+				if (request === localAuthLoad) localAuthUsers = items;
+			})
+			.catch(() => {
+				if (request === localAuthLoad) localAuthUsers = [];
+			});
+
+		return () => {
+			localAuthLoad += 1;
+		};
+	});
+
+	export function openCreateUser() {
+		createUserDialog?.open();
+	}
+
+	function openResetPassword(user: TableItem) {
+		if (!user.localAuthUserId || !user.email) return;
+		resetPasswordDialog?.open({ id: user.localAuthUserId, email: user.email });
+	}
+
 	async function updateUserRole(
 		userID: string,
 		role: number,
@@ -132,7 +263,7 @@
 		try {
 			await AdminService.updateUserRole(userID, role);
 			if (refreshUsers) {
-				users = await UserService.listUsers();
+				await reloadListedUsers();
 			}
 			if (profile.current.id === userID) {
 				// update with the role change
@@ -199,6 +330,10 @@
 
 			{#if version.current.userLimit}
 				<section class="flex items-center justify-end gap-2 text-muted-content">
+					<InfoTooltip
+						placement="bottom-start"
+						text={m.identity_access_users_user_count_tooltip()}
+					/>
 					<p class="text-sm">{m.identity_access_users_user_limits()}</p>
 					{#if !hasValidLicense || isCommunityEdition}
 						<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
@@ -215,7 +350,7 @@
 			/>
 			<Table
 				data={tableData}
-				fields={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
+				fields={['email', 'name', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				filterable={['name', 'email', 'status', 'role', 'effectiveRole']}
 				filters={urlFilters}
 				onFilter={setFilterUrlParams}
@@ -243,44 +378,67 @@
 			>
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'status'}
-						<div class="flex flex-col gap-0.5">
-							<div class="flex items-center gap-1">
-								<span
-									class={[
-										'badge badge-sm whitespace-nowrap',
-										d.lifecycleStatus === 'active' && 'badge-ghost',
-										d.lifecycleStatus === 'disabled' && 'badge-warning badge-soft',
-										d.lifecycleStatus === 'deleted' && 'badge-error badge-soft'
-									]}
-								>
-									{d.status}
+						<div class="flex items-center gap-2">
+							{#if !d.hasOrgUser}
+								<span class="badge badge-sm whitespace-nowrap badge-ghost">
+									{m.identity_access_users_status_created()}
 								</span>
-								{#if d.managementSource === 'scim'}
-									<span
-										class="badge badge-ghost badge-xs"
-										use:tooltip={m.identity_access_users_scim_managed_tooltip()}
-									>
-										{m.identity_access_scim_tab()}
-									</span>
-								{/if}
-							</div>
-							{#if d.disabledReasonLabel}
-								<span class="text-xs text-muted-content">{d.disabledReasonLabel}</span>
+							{:else}
+								<div class="flex flex-col gap-0.5">
+									<div class="flex items-center gap-1">
+										<span
+											class={[
+												'badge badge-sm whitespace-nowrap',
+												d.lifecycleStatus === 'active' && 'badge-ghost',
+												d.lifecycleStatus === 'disabled' && 'badge-warning badge-soft',
+												d.lifecycleStatus === 'deleted' && 'badge-error badge-soft'
+											]}
+										>
+											{d.status}
+										</span>
+										{#if d.managementSource === 'scim'}
+											<span
+												class="badge badge-ghost badge-xs"
+												use:tooltip={m.identity_access_users_scim_managed_tooltip()}
+											>
+												{m.identity_access_scim_tab()}
+											</span>
+										{/if}
+									</div>
+									{#if d.disabledReasonLabel}
+										<span class="text-xs text-muted-content">{d.disabledReasonLabel}</span>
+									{/if}
+								</div>
+							{/if}
+							{#if d.requirePasswordChange}
+								<InfoTooltip
+									text={m.identity_access_users_requires_password_change()}
+									classes={{ icon: 'text-warning' }}
+									icon={KeyRound}
+								/>
 							{/if}
 						</div>
 					{:else if property === 'role'}
-						<div class="flex items-center gap-1">
-							{d.role}
-							{#if d.explicitRole}
-								<div use:tooltip={m.identity_access_users_explicit_role()}>
-									<ShieldAlert class="size-5" />
-								</div>
-							{/if}
-						</div>
+						{#if !d.hasOrgUser}
+							-
+						{:else}
+							<div class="flex items-center gap-1">
+								{d.role}
+								{#if d.explicitRole}
+									<div use:tooltip={m.identity_access_users_explicit_role()}>
+										<ShieldAlert class="size-5" />
+									</div>
+								{/if}
+							</div>
+						{/if}
 					{:else if property === 'effectiveRole'}
-						<div class="flex items-center gap-1">
-							{d.effectiveRole}
-						</div>
+						{#if !d.hasOrgUser}
+							-
+						{:else}
+							<div class="flex items-center gap-1">
+								{d.effectiveRole}
+							</div>
+						{/if}
 					{:else if property === 'lastActiveDay' || property === 'created'}
 						{d[property as keyof typeof d] ? formatTimeAgo(d[property], 'day').relativeTime : '-'}
 					{:else}
@@ -291,10 +449,12 @@
 					<DotDotDot>
 						<button
 							class="menu-button"
+							disabled={!d.hasOrgUser}
 							onclick={() => {
+								if (!d.orgUserId) return;
 								currentAccessDialog?.open({
 									kind: 'user',
-									id: d.id,
+									id: d.orgUserId,
 									name: d.name,
 									obotGroups: d.groups,
 									authProviderGroups: d.authProviderGroups
@@ -306,7 +466,8 @@
 						{#if !isAdminReadonly}
 							<button
 								class="menu-button"
-								disabled={d.claudeTag ||
+								disabled={!d.hasOrgUser ||
+									d.claudeTag ||
 									(!profile.current.groups.includes(Group.OWNER) &&
 										(d.groups.includes(Group.OWNER) || d.explicitRole))}
 								use:tooltip={{
@@ -315,13 +476,14 @@
 									classes: ['z-50']
 								}}
 								onclick={() => {
+									if (!d.hasOrgUser) return;
 									updatingRole = d;
 									updateRoleDialog?.open();
 								}}
 							>
 								{m.identity_access_update_role()}
 							</button>
-							{#if d.lifecycleStatus === 'disabled'}
+							{#if d.hasOrgUser && d.lifecycleStatus === 'disabled'}
 								<button
 									class="menu-button"
 									disabled={d.privileged && !profile.current.groups.includes(Group.OWNER)}
@@ -330,14 +492,21 @@
 									{m.identity_access_users_enable()}
 								</button>
 							{/if}
+							{#if d.localAuthUserId}
+								<button class="menu-button" onclick={() => openResetPassword(d)}>
+									{m.identity_access_auth_providers_local_auth_reset_password()}
+								</button>
+							{/if}
 							{@const stillProvisioned =
-								d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
+								d.hasOrgUser && d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
 								class="menu-button text-error"
-								disabled={d.claudeTag ||
-									stillProvisioned ||
-									d.explicitRole ||
-									(d.groups.includes(Group.OWNER) && !profile.current.groups.includes(Group.OWNER))}
+								disabled={d.hasOrgUser &&
+									(d.claudeTag ||
+										stillProvisioned ||
+										d.explicitRole ||
+										(d.groups.includes(Group.OWNER) &&
+											!profile.current.groups.includes(Group.OWNER)))}
 								use:tooltip={{
 									text: d.claudeTag
 										? CLAUDE_TAG_MESSAGE
@@ -367,10 +536,16 @@
 	{loading}
 	onsuccess={async () => {
 		if (!deletingUser) return;
+		const { orgUserId, localAuthUserId } = deletingUser;
 		loading = true;
 		try {
-			await AdminService.deleteUser(deletingUser.id);
-			users = await UserService.listUsers();
+			if (orgUserId) {
+				await AdminService.deleteUser(orgUserId);
+			}
+			if (localAuthUserId) {
+				await AdminService.deleteLocalAuthUser(localAuthUserId);
+			}
+			await reloadListedUsers();
 		} catch {
 			// The refusal is shown as a notification, and asking again would be refused again.
 		} finally {
@@ -390,11 +565,11 @@
 	type="info"
 	submitText={m.chat_enable()}
 	onsuccess={async () => {
-		if (!enablingUser) return;
+		if (!enablingUser?.orgUserId) return;
 		loading = true;
 		try {
-			await AdminService.enableUser(enablingUser.id);
-			users = await UserService.listUsers();
+			await AdminService.enableUser(enablingUser.orgUserId);
+			await reloadListedUsers();
 		} catch {
 			// The refusal is shown as a notification, and asking again would be refused again.
 		} finally {
@@ -495,7 +670,11 @@
 						return;
 					}
 
-					updateUserRole(updatingRole.id, composeRole(updatingRole.roleId, updatingRole.auditor));
+					if (!updatingRole.orgUserId) return;
+					updateUserRole(
+						updatingRole.orgUserId,
+						composeRole(updatingRole.roleId, updatingRole.auditor)
+					);
 				}}
 				disabled={loading}
 			>
@@ -513,9 +692,9 @@
 	show={Boolean(confirmHandoffToUser)}
 	{loading}
 	onsuccess={async () => {
-		if (!confirmHandoffToUser) return;
+		if (!confirmHandoffToUser?.orgUserId) return;
 		const ok = await updateUserRole(
-			confirmHandoffToUser.id,
+			confirmHandoffToUser.orgUserId,
 			composeRole(confirmHandoffToUser.roleId, confirmHandoffToUser.auditor),
 			false
 		);
@@ -557,9 +736,9 @@
 	{loading}
 	show={Boolean(confirmAuditorAdditionToUser)}
 	onsuccess={async () => {
-		if (!confirmAuditorAdditionToUser) return;
+		if (!confirmAuditorAdditionToUser?.orgUserId) return;
 		await updateUserRole(
-			confirmAuditorAdditionToUser.id,
+			confirmAuditorAdditionToUser.orgUserId,
 			composeRole(confirmAuditorAdditionToUser.roleId, true)
 		);
 		confirmAuditorAdditionToUser = undefined;
@@ -586,3 +765,6 @@
 		</div>
 	{/snippet}
 </Confirm>
+
+<CreateLocalUserDialog bind:this={createUserDialog} onSaved={reloadListedUsers} />
+<ResetPasswordDialog bind:this={resetPasswordDialog} onSaved={reloadListedUsers} />
