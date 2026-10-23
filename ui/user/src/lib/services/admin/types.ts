@@ -804,7 +804,13 @@ export interface RemoteCatalogConfigAdmin {
 export interface LegacyRemoteCatalogConfigAdmin extends RemoteCatalogConfigAdmin {
 	headers?: MCPCatalogEntryFieldManifest[];
 }
-export type MCPConfigUsage = 'env' | 'header' | 'file' | 'dynamicFile' | 'interpolated';
+export type MCPConfigUsage =
+	| 'env'
+	| 'header'
+	| 'file'
+	| 'dynamicFile'
+	| 'interpolated'
+	| 'caCertificate';
 export type MCPConfig = Omit<
 	MCPCatalogEntryFieldManifest,
 	'file' | 'dynamicFile' | 'interpolated'

@@ -370,6 +370,80 @@ describe('CatalogServerForm.svelte', () => {
 		});
 	});
 
+	describe('CA certificate', () => {
+		const validCert = '-----BEGIN CERTIFICATE-----\nMIIBtestcertdata\n-----END CERTIFICATE-----';
+
+		async function addCACertificateRow() {
+			await addConfiguration();
+			await page.getByCSS('#catalog-config-usage-0').click();
+			await page.getByRole('button', { name: 'Embed CA Certificate', exact: true }).click();
+		}
+
+		it('submits a valid entry with a CA certificate', async () => {
+			let submitted: Record<string, unknown> | undefined;
+			worker.use(
+				http.post(`/api/mcp-catalogs/${catalogID}/entries`, async ({ request }) => {
+					submitted = (await request.json()) as Record<string, unknown>;
+					return HttpResponse.json(createMCPCatalogEntryResponse);
+				})
+			);
+			await renderHostedForm();
+			await fillRequiredServerFields();
+			await addCACertificateRow();
+			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.caCertificate}-0`).fill(validCert);
+
+			await submitForm();
+
+			await vi.waitFor(() => expect(submitted).toBeDefined());
+			expect(submitted?.config).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ usage: 'caCertificate', value: validCert })
+				])
+			);
+		});
+
+		it('rejects a malformed CA certificate on submit', async () => {
+			await renderHostedForm();
+			await fillRequiredServerFields();
+			await addCACertificateRow();
+			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.caCertificate}-0`).fill('not a certificate');
+
+			await submitForm();
+
+			await expect
+				.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.caCertificate}-0`))
+				.toHaveAttribute('aria-invalid', 'true');
+		});
+
+		it('shows the OS trust-store note only for containerized runtime without a command', async () => {
+			await renderHostedForm();
+			await addCACertificateRow();
+			await expect
+				.element(page.getByText('Set a container command above', { exact: false }))
+				.not.toBeInTheDocument();
+
+			await page.getByCSS('#runtime-selector').click();
+			await page.getByRole('button', { name: 'Containerized', exact: true }).click();
+			await expect
+				.element(page.getByText('Set a container command above', { exact: false }))
+				.toBeVisible();
+
+			await page.getByCSS('#containerized-command').fill('my-server');
+			await expect
+				.element(page.getByText('Set a container command above', { exact: false }))
+				.not.toBeInTheDocument();
+		});
+
+		it('does not offer Embed CA Certificate for remote catalog entries', async () => {
+			await renderRemoteForm();
+			await addConfiguration();
+			await page.getByCSS('#catalog-config-usage-0').click();
+			await expect
+				.element(page.getByRole('button', { name: 'Embed CA Certificate', exact: true }))
+				.not.toBeInTheDocument();
+		});
+	});
+
 	describe('remote catalog entry', () => {
 		it('shows a required validation indicator when URL is empty', async () => {
 			await renderRemoteForm();

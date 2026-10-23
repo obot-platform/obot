@@ -1,9 +1,40 @@
 package types
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"strings"
 	"testing"
+	"time"
 )
+
+// testCACertificatePEM returns a freshly self-signed, well-formed CERTIFICATE PEM block.
+func testCACertificatePEM(t *testing.T) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "test-ca"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
 
 func TestCatalogConfigValidation(t *testing.T) {
 	for _, test := range []struct {
@@ -36,6 +67,11 @@ func TestCatalogConfigValidation(t *testing.T) {
 				{
 					Key:   "INPUT",
 					Usage: Interpolated,
+				},
+				{
+					Key:   "CA_CERT",
+					Usage: CACertificate,
+					Value: testCACertificatePEM(t),
 				},
 			},
 		},
@@ -83,6 +119,75 @@ func TestCatalogConfigValidation(t *testing.T) {
 				t.Fatalf("ValidateConfig() = %v, want %q", err, test.err)
 			}
 		})
+	}
+}
+
+func TestValidateCACertificate(t *testing.T) {
+	validCert := testCACertificatePEM(t)
+
+	privateKeyBlock := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: []byte("not-a-real-key")}))
+
+	for _, test := range []struct {
+		name string
+		cert string
+		err  string
+	}{
+		{name: "empty is valid"},
+		{name: "valid certificate", cert: validCert},
+		{name: "valid chain of two certificates", cert: validCert + validCert},
+		{name: "garbage", cert: "not a certificate", err: "must be one or more PEM-encoded certificates"},
+		{name: "private key block", cert: privateKeyBlock, err: `"PRIVATE KEY" block`},
+		{name: "trailing garbage after a valid block", cert: validCert + "trailing-data", err: "trailing data"},
+		{name: "oversized", cert: strings.Repeat("a", MaxCACertificateBytes+1), err: "exceeds the maximum size"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateCACertificate(test.cert)
+			if test.err == "" {
+				if err != nil {
+					t.Fatalf("ValidateCACertificate() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), test.err) {
+				t.Fatalf("ValidateCACertificate() = %v, want %q", err, test.err)
+			}
+		})
+	}
+}
+
+func TestManifestValidateConfigRejectsInvalidCACertificate(t *testing.T) {
+	config := []MCPConfig{{Key: "ca-cert", Usage: CACertificate, Value: "garbage"}}
+
+	entry := MCPServerCatalogEntryManifest{Config: config}
+	if err := entry.ValidateConfig(); err == nil {
+		t.Fatal("expected catalog entry validation to reject an invalid CA certificate")
+	}
+
+	server := MCPServerManifest{Config: config}
+	if err := server.ValidateConfig(); err == nil {
+		t.Fatal("expected server manifest validation to reject an invalid CA certificate")
+	}
+}
+
+func TestCACertificatePropagatesThroughConversions(t *testing.T) {
+	cert := testCACertificatePEM(t)
+
+	server := MCPServerManifest{
+		Runtime:   RuntimeUVX,
+		UVXConfig: &UVXRuntimeConfig{Package: "test-package"},
+		Config:    []MCPConfig{{Key: "ca-cert", Usage: CACertificate, Value: cert}},
+	}
+	entry := server.ConvertToCatalogEntry()
+	if len(entry.Config) != 1 || entry.Config[0].Usage != CACertificate || entry.Config[0].Value != cert {
+		t.Fatalf("ConvertToCatalogEntry() dropped the CA certificate config entry: got %+v", entry.Config)
+	}
+
+	roundTripped, err := MapCatalogEntryToServer(entry, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(roundTripped.Config) != 1 || roundTripped.Config[0].Usage != CACertificate || roundTripped.Config[0].Value != cert {
+		t.Fatalf("MapCatalogEntryToServer() dropped the CA certificate config entry: got %+v", roundTripped.Config)
 	}
 }
 
