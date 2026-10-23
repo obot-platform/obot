@@ -22,10 +22,29 @@ const (
 
 	// AuditLogIgnore is a metadata field that tells the audit log persistence layer to ignore audit logs for this server
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
+
+	// caTrustStorePreamble best-effort installs a CA certificate mounted via the
+	// SSL_CERT_FILE env var (see caCertificateEnvKeys) into the container's OS trust
+	// store, covering both Debian/Ubuntu-style (update-ca-certificates) and
+	// RHEL/Fedora-style (update-ca-trust) layouts, before handing control back to the
+	// real command. Every step is guarded so a missing tool or read-only path never
+	// prevents the real command from starting.
+	caTrustStorePreamble = `if [ -n "$SSL_CERT_FILE" ] && [ -f "$SSL_CERT_FILE" ]; then ` +
+		`mkdir -p /usr/local/share/ca-certificates 2>/dev/null && cp "$SSL_CERT_FILE" /usr/local/share/ca-certificates/obot-custom-ca.crt 2>/dev/null; ` +
+		`mkdir -p /etc/pki/ca-trust/source/anchors 2>/dev/null && cp "$SSL_CERT_FILE" /etc/pki/ca-trust/source/anchors/obot-custom-ca.crt 2>/dev/null; ` +
+		`fi; ` +
+		`update-ca-certificates >/dev/null 2>&1 || update-ca-trust extract >/dev/null 2>&1 || true; ` +
+		`exec "$@"`
 )
 
 var (
 	envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+
+	// caCertificateEnvKeys are the env vars mainstream HTTP/TLS clients (Node, Python,
+	// curl, git, and Go via SSL_CERT_FILE) check for an additional trusted CA bundle.
+	// A config entry with Usage: types.CACertificate is mounted once per key so every
+	// common client picks it up without the user needing to know each one's name.
+	caCertificateEnvKeys = []string{"SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "GIT_SSL_CAINFO"}
 )
 
 type ServerConfig struct {
@@ -83,12 +102,6 @@ type File struct {
 	EnvKey  string `json:"envKey"`
 	Dynamic bool   `json:"dynamic"`
 }
-
-// caCertificateEnvKeys are the env vars mainstream HTTP/TLS clients (Node, Python,
-// curl, git, and Go via SSL_CERT_FILE) check for an additional trusted CA bundle.
-// A config entry with Usage: types.CACertificate is mounted once per key so every
-// common client picks it up without the user needing to know each one's name.
-var caCertificateEnvKeys = []string{"SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "GIT_SSL_CAINFO"}
 
 type ComponentServer struct {
 	MCPServerInstanceID string               `json:"mcpServerInstanceID,omitempty"`
@@ -320,19 +333,6 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 
 	return nil
 }
-
-// caTrustStorePreamble best-effort installs a CA certificate mounted via the
-// SSL_CERT_FILE env var (see caCertificateEnvKeys) into the container's OS trust
-// store, covering both Debian/Ubuntu-style (update-ca-certificates) and
-// RHEL/Fedora-style (update-ca-trust) layouts, before handing control back to the
-// real command. Every step is guarded so a missing tool or read-only path never
-// prevents the real command from starting.
-const caTrustStorePreamble = `if [ -n "$SSL_CERT_FILE" ] && [ -f "$SSL_CERT_FILE" ]; then ` +
-	`mkdir -p /usr/local/share/ca-certificates 2>/dev/null && cp "$SSL_CERT_FILE" /usr/local/share/ca-certificates/obot-custom-ca.crt 2>/dev/null; ` +
-	`mkdir -p /etc/pki/ca-trust/source/anchors 2>/dev/null && cp "$SSL_CERT_FILE" /etc/pki/ca-trust/source/anchors/obot-custom-ca.crt 2>/dev/null; ` +
-	`fi; ` +
-	`update-ca-certificates >/dev/null 2>&1 || update-ca-trust extract >/dev/null 2>&1 || true; ` +
-	`exec "$@"`
 
 // wrapCommandForCATrustStore re-targets the container's command through a shell
 // preamble that attempts a best-effort OS trust-store install before re-exec'ing
