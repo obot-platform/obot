@@ -33,7 +33,14 @@ func TestEgressAuditAuthorization(t *testing.T) {
 			allowed: false,
 		},
 	} {
-		for _, path := range []string{"/api/egress-audit-logs", "/api/egress-audit-logs/test", "/api/egress-audit-logs/environments"} {
+		for _, path := range []string{
+			"/api/egress-audit-logs",
+			"/api/egress-audit-logs/test",
+			"/api/egress-audit-logs/environments",
+			"/api/egress-audit-logs/filter-options/host",
+			"/api/egress-audit-logs/filter-options/claude_session",
+			"/api/egress-audit-logs/filter-options/claude_account",
+		} {
 			t.Run(tc.group+path, func(t *testing.T) {
 				req := httptest.NewRequest(http.MethodGet, path, nil)
 				allowed := a.Authorize(req, &user.DefaultInfo{UID: "7", Groups: []string{tc.group}})

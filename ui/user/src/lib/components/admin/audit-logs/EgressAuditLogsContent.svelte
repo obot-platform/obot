@@ -7,11 +7,13 @@
 	import Pagination from '$lib/components/table/Pagination.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import { m } from '$lib/i18n';
+	import { parseMultiValue } from '$lib/multiValue';
 	import {
 		AdminService,
 		Group,
 		UserService,
 		type EgressAuditLog,
+		type EgressAuditLogURLFilters,
 		type OrgUser
 	} from '$lib/services';
 	import { profile, responsive } from '$lib/stores';
@@ -63,7 +65,12 @@
 	const egressOutcomes = ['running', 'complete', 'denied', 'error', 'interrupted'];
 
 	const searchParamFiltersAsArray = $derived(
-		buildSearchParamFiltersArray<EgressDrawerFilters>(supportedFilters)
+		buildSearchParamFiltersArray<EgressDrawerFilters>(supportedFilters).map(
+			([key, value]): [keyof EgressDrawerFilters, string | null | undefined] => [
+				key,
+				value ? appliedFilter(value) : value
+			]
+		)
 	);
 	const searchParamFilters = $derived.by<EgressDrawerFilters>(() => {
 		return searchParamFiltersAsArray.reduce((acc, [key, value]) => {
@@ -97,7 +104,20 @@
 	);
 
 	function appliedFilter(value: string | null | undefined) {
-		return value?.trim() || undefined;
+		return [...new Set(parseMultiValue(value))].join(',') || undefined;
+	}
+
+	function egressRequestFilters(filters: EgressDrawerFilters): EgressAuditLogURLFilters {
+		return {
+			userId: appliedFilter(filters.user_id),
+			environmentId: appliedFilter(filters.environment_id),
+			claudeAccount: appliedFilter(filters.claude_account),
+			claudeSession: appliedFilter(filters.claude_session),
+			host: appliedFilter(filters.host),
+			outcome: appliedFilter(filters.outcome),
+			startTime: timeRangeFilters.startTime.toISOString(),
+			endTime: timeRangeFilters.endTime.toISOString()
+		};
 	}
 
 	$effect(() => {
@@ -108,16 +128,9 @@
 	$effect(() => {
 		const current = ++generation;
 		const request = {
+			...egressRequestFilters(searchParamFilters),
 			limit: pageSize,
-			offset,
-			userId: appliedFilter(searchParamFilters.user_id),
-			environmentId: appliedFilter(searchParamFilters.environment_id),
-			claudeAccount: appliedFilter(searchParamFilters.claude_account),
-			claudeSession: appliedFilter(searchParamFilters.claude_session),
-			host: appliedFilter(searchParamFilters.host),
-			outcome: appliedFilter(searchParamFilters.outcome),
-			startTime: timeRangeFilters.startTime.toISOString(),
-			endTime: timeRangeFilters.endTime.toISOString()
+			offset
 		};
 		loading = true;
 		error = '';
@@ -298,12 +311,7 @@
 			</div>
 		</div>
 		{#if hasFilterPills}
-			<FilterPills
-				{pillsSearchParamFilters}
-				{getFilterDisplayLabel}
-				{getFilterValue}
-				isMultiValueFilter={(key) => !['claude_account', 'claude_session', 'host'].includes(key)}
-			/>
+			<FilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
 		{/if}
 	</div>
 
@@ -426,14 +434,19 @@
 			onClose={handleRightSidebarClose}
 			filters={searchParamFilters}
 			getVisibleFilterKeys={() => supportedFilters}
-			isFilterMultiSelect={() => false}
-			isFilterTextInput={(key) => ['claude_account', 'claude_session', 'host'].includes(key)}
+			isFilterMultiSelect={() => true}
 			getUserDisplayName={(id) => userName(id)}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) => getFilterValue(key as keyof EgressDrawerFilters, value)}
-			endpoint={async (filterId) => ({
-				options: egressFilterOptions(filterId)
-			})}
+			endpoint={async (filterId, opts) => {
+				if (['host', 'claude_session', 'claude_account'].includes(filterId)) {
+					return AdminService.listEgressAuditLogFilterOptions(
+						filterId,
+						egressRequestFilters(opts ?? {})
+					);
+				}
+				return { options: egressFilterOptions(filterId) };
+			}}
 		/>
 	{/if}
 </div>

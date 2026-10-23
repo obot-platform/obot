@@ -340,6 +340,18 @@ export async function listEgressAuditLogs(
 	};
 }
 
+export async function listEgressAuditLogFilterOptions(
+	filter: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal } & Partial<EgressAuditLogURLFilters>
+): Promise<{ options: string[] }> {
+	const { fetch: fetchFn, signal, ...filters } = opts ?? {};
+	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
+	return (await doGet(
+		`/egress-audit-logs/filter-options/${encodeURIComponent(filter)}?${queryString}`,
+		{ fetch: fetchFn, signal }
+	)) as { options: string[] };
+}
+
 export async function getEgressAuditLog(id: string, opts?: { fetch?: Fetcher }) {
 	return (await doGet(`/egress-audit-logs/${encodeURIComponent(id)}`, opts)) as EgressAuditLog;
 }

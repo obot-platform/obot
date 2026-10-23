@@ -78,8 +78,19 @@ const east = {
 	path: '/east'
 };
 
+const egressOptions = {
+	claude_account: ['user_west', 'user_east'],
+	claude_session: ['session_west', 'session_east'],
+	host: ['example.com', 'off-page.example.com']
+};
+
 function mockEgressApis() {
 	worker.use(
+		http.get('*/api/egress-audit-logs/filter-options/:filter', ({ params }) =>
+			HttpResponse.json({
+				options: egressOptions[params.filter as keyof typeof egressOptions] ?? []
+			})
+		),
 		http.get('*/api/egress-audit-logs/environments', () =>
 			HttpResponse.json({
 				'env-west': 'Production US West',
@@ -239,59 +250,124 @@ it('keeps drawer filter edits local until apply, then shows a removable pill', a
 	await expect.element(page.getByText('user_east', { exact: true }).first()).toBeVisible();
 });
 
-it('applies, restores, and clears free-text account, session, and host filters', async () => {
+const filterCases = [
+	{ key: 'user_id', label: 'User', values: ['7', '8'], labels: ['Alice', 'Bob'] },
+	{
+		key: 'environment_id',
+		label: 'Environment',
+		values: ['env-west', 'env-east'],
+		labels: ['Production US West', 'Production US East']
+	},
+	{
+		key: 'outcome',
+		label: 'Outcome',
+		values: ['complete', 'denied'],
+		labels: ['Complete', 'Denied']
+	},
+	{ key: 'claude_account', label: 'Claude account', values: egressOptions.claude_account },
+	{ key: 'claude_session', label: 'Claude session', values: egressOptions.claude_session },
+	{ key: 'host', label: 'Destination', values: egressOptions.host }
+];
+
+for (const { key, label, values, ...rest } of filterCases) {
+	it(`applies, restores, and clears multiple ${key} selections`, async () => {
+		setLocale('en', { reload: false });
+		profile.initialize(createMockProfile([Group.ADMIN]));
+		vi.spyOn(UserService, 'listUsersIncludeDeleted').mockResolvedValue([
+			{ id: '7', displayName: 'Alice' },
+			{ id: '8', displayName: 'Bob' }
+		] as Awaited<ReturnType<typeof UserService.listUsersIncludeDeleted>>);
+		mockEgressApis();
+		const requests = vi.fn();
+		worker.use(
+			http.get('*/api/egress-audit-logs', ({ request }) => {
+				requests(new URL(request.url).searchParams.get(key));
+				return HttpResponse.json({ items: [west], total: 1 });
+			})
+		);
+		render(EgressAuditLogsContent);
+		await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(null));
+		await page.getByRole('button', { name: 'Filters', exact: true }).click();
+		const field = page.getByCSS(`#filter-${key}`);
+		const labels = 'labels' in rest ? rest.labels! : values;
+		for (const option of [...labels].reverse()) {
+			await field.click();
+			await page.getByRole('button', { name: option, exact: true }).click();
+		}
+		expect(requests).toHaveBeenLastCalledWith(null);
+		expect(appPage.url.searchParams.get(key)).toBeNull();
+		await page.getByRole('button', { name: 'Apply Filters', exact: true }).click();
+		await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(values.join(',')));
+		const pill = page.getByCSS('.filter-primary').filter({ hasText: label });
+		for (const option of labels) {
+			await expect.element(pill.getByText(option, { exact: true })).toBeVisible();
+		}
+		await expect.element(pill.getByText('OR', { exact: true }).first()).toBeVisible();
+		await page.getByRole('button', { name: 'Filters', exact: true }).click();
+		for (const option of labels)
+			await expect.element(field.getByText(option, { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Clear All', exact: true }).last().click();
+		await expect.element(field.getByText(labels[0], { exact: true })).not.toBeInTheDocument();
+		expect(requests).toHaveBeenLastCalledWith(values.join(','));
+		await page.getByRole('button', { name: 'Apply Filters', exact: true }).click();
+		await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(null));
+	});
+}
+
+it('scopes remote options to other draft selections and the calendar range', async () => {
 	profile.initialize(createMockProfile([Group.ADMIN]));
 	vi.spyOn(UserService, 'listUsersIncludeDeleted').mockResolvedValue([]);
+	appPage.url.searchParams.set('start_time', '2026-10-20T10:00:00Z');
+	appPage.url.searchParams.set('end_time', '2026-10-21T10:00:00Z');
+	appPage.url.searchParams.set('claude_account', 'user_west,user_east');
 	mockEgressApis();
 	const requests = vi.fn();
-	const values = {
-		claude_account: 'account,unknown',
-		claude_session: 'session/arbitrary',
-		host: 'api.example.com:8443'
-	};
-	const empty = { claude_account: null, claude_session: null, host: null };
 	worker.use(
-		http.get('*/api/egress-audit-logs', ({ request }) => {
-			const params = new URL(request.url).searchParams;
-			requests(Object.fromEntries(Object.keys(values).map((key) => [key, params.get(key)])));
-			return HttpResponse.json({ items: [west], total: 1 });
+		http.get('*/api/egress-audit-logs/filter-options/:filter', ({ params, request }) => {
+			requests(params.filter, Object.fromEntries(new URL(request.url).searchParams));
+			return HttpResponse.json({
+				options: egressOptions[params.filter as keyof typeof egressOptions]
+			});
 		})
 	);
 	render(EgressAuditLogsContent);
-	await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(empty));
 	await page.getByRole('button', { name: 'Filters', exact: true }).click();
-	for (const [key, value] of Object.entries(values)) {
-		await page.getByCSS(`#filter-${key}`).fill(value);
-	}
-	expect(requests).toHaveBeenLastCalledWith(empty);
-	for (const key of Object.keys(values)) {
-		expect(appPage.url.searchParams.get(key)).toBeNull();
-	}
-	await page.getByRole('button', { name: 'Apply Filters', exact: true }).click();
-	await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(values));
-	await page.getByRole('button', { name: 'Filters', exact: true }).click();
-	for (const [key, value] of Object.entries(values)) {
-		await expect.element(page.getByCSS(`#filter-${key}`)).toHaveValue(value);
-	}
-	await page.getByRole('button', { name: 'Clear All', exact: true }).last().click();
-	for (const key of Object.keys(values)) {
-		await expect.element(page.getByCSS(`#filter-${key}`)).toHaveValue('');
-	}
-	expect(requests).toHaveBeenLastCalledWith(values);
-	await page.getByRole('button', { name: 'Apply Filters', exact: true }).click();
-	await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(empty));
+	await page.getByCSS('#filter-environment_id').click();
+	await page.getByRole('button', { name: 'Production US East', exact: true }).click();
+	await page.getByCSS('#filter-environment_id').click();
+	await page.getByRole('button', { name: 'Production US West', exact: true }).click();
+	const common = {
+		start_time: '2026-10-20T10:00:00.000Z',
+		end_time: '2026-10-21T10:00:59.999Z',
+		environment_id: 'env-west,env-east',
+		limit: '1000'
+	};
+	await vi.waitFor(() => {
+		expect(requests).toHaveBeenCalledWith('claude_account', common);
+		expect(requests).toHaveBeenCalledWith('host', {
+			...common,
+			claude_account: 'user_west,user_east'
+		});
+		expect(requests).toHaveBeenCalledWith('claude_session', {
+			...common,
+			claude_account: 'user_west,user_east'
+		});
+	});
+	expect(appPage.url.searchParams.has('environment_id')).toBe(false);
 });
 
-for (const value of ['account,unknown', 'account,account', '["one","two"]']) {
-	it(`preserves scalar account, session, and host pills for ${value}`, async () => {
+for (const { value, normalized } of [
+	{ value: 'account,unknown', normalized: 'account,unknown' },
+	{ value: 'account,account', normalized: 'account' },
+	{ value: '["one","two"]', normalized: 'one,two' }
+]) {
+	it(`normalizes multi-value pills for ${value}`, async () => {
 		setLocale('en', { reload: false });
 		profile.initialize(createMockProfile([Group.ADMIN]));
 		vi.spyOn(UserService, 'listUsersIncludeDeleted').mockResolvedValue([]);
 		mockEgressApis();
 		const keys = ['claude_account', 'claude_session', 'host'];
-		for (const key of keys) {
-			appPage.url.searchParams.set(key, value);
-		}
+		for (const key of keys) appPage.url.searchParams.set(key, value);
 		const requests = vi.fn();
 		worker.use(
 			http.get('*/api/egress-audit-logs', ({ request }) => {
@@ -300,15 +376,22 @@ for (const value of ['account,unknown', 'account,account', '["one","two"]']) {
 				return HttpResponse.json({ items: [], total: 0 });
 			})
 		);
-
 		render(EgressAuditLogsContent);
-		await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(keys.map(() => value)));
+		await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(keys.map(() => normalized)));
 		for (const label of ['Claude account', 'Claude session', 'Destination']) {
-			await expect
-				.element(page.getByCSS('.filter-primary').filter({ hasText: label }))
-				.toHaveTextContent(`${label} : ${value}`);
+			const pill = page.getByCSS('.filter-primary').filter({ hasText: label });
+			for (const option of normalized.split(',')) {
+				await expect.element(pill.getByText(option, { exact: true })).toBeVisible();
+			}
+			if (normalized.includes(',')) {
+				await expect.element(pill.getByText('OR', { exact: true }).first()).toBeVisible();
+			} else {
+				await expect.element(pill.getByText('OR', { exact: true })).not.toBeInTheDocument();
+			}
 		}
 		await page.getByRole('button', { name: 'Remove Claude account filter', exact: true }).click();
-		await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith([null, value, value]));
+		await vi.waitFor(() =>
+			expect(requests).toHaveBeenLastCalledWith([null, normalized, normalized])
+		);
 	});
 }
