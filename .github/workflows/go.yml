@@ -11,14 +11,76 @@ on:
     branches:
       - main
       - 'feat/*'
-    # Workflows for the ignored paths run their own job named lint, which branch protection requires.
     paths-ignore:
-      - chart/**
       - docs/**
-      - ui/user/**
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      lint: ${{ github.event_name == 'push' || steps.changes.outputs.lint == 'true' }}
+      go-version: ${{ steps.go.outputs.go-version }}
+      module-cache-key: ${{ steps.modules.outputs.key }}
+      lint-version: ${{ steps.versions.outputs.lint }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Other workflows provide the required lint check for these paths.
+      - name: Select Go checks
+        if: github.event_name == 'pull_request'
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          predicate-quantifier: every
+          filters: |
+            lint:
+              - '!chart/**'
+              - '!docs/**'
+              - '!ui/user/**'
+
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Read tool versions
+        id: versions
+        run: echo "lint=$(awk '$1 == "GOLANGCI_LINT_VERSION" {print $3}' Makefile)" >> "$GITHUB_OUTPUT"
+
+      - name: Configure module cache
+        id: modules
+        run: |
+          echo "path=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "key=go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.mod', 'go.sum', 'apiclient/go.mod', 'apiclient/go.sum', 'logger/go.mod', 'logger/go.sum') }}" >> "$GITHUB_OUTPUT"
+
+      # Cache module sources independently of the runner image. Build caches below
+      # remain specific to each check and image.
+      - name: Restore and save Go modules
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.modules.outputs.path }}
+          key: ${{ steps.modules.outputs.key }}
+          restore-keys: |
+            go-modules-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.go.outputs.go-version }}-
+
+      - name: Download Go dependencies
+        run: |
+          for module in . apiclient logger; do
+            (cd "$module" && go mod download all)
+          done
+
   lint:
+    needs: prepare
+    if: needs.prepare.outputs.lint == 'true'
     runs-on: depot-ubuntu-22.04
 
     steps:
@@ -27,13 +89,82 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - name: Restore Go environment
+        uses: ./.github/actions/setup-go
         with:
-          go-version-file: go.mod
+          go-version: ${{ needs.prepare.outputs.go-version }}
+          module-cache-key: ${{ needs.prepare.outputs.module-cache-key }}
 
       - name: Build
         run: make build
 
-      - name: Validate Go Code
-        run: make validate-go-code
+      - name: Validate Go modules and generated code
+        run: make tidy generate
+
+      - name: Lint Go code
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: ${{ needs.prepare.outputs.lint-version }}
+
+      - name: Verify no changes
+        run: make no-changes
+
+  test:
+    needs: prepare
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    # The PostgreSQL tests skip without OBOT_TEST_POSTGRES_DSN. They cover the locking that SQLite does not exercise.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: obot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d obot_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Restore Go environment
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ needs.prepare.outputs.go-version }}
+          module-cache-key: ${{ needs.prepare.outputs.module-cache-key }}
+
+      - name: Run Tests
+        run: make test
+        env:
+          GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OBOT_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/obot_test?sslmode=disable
+
+  integration:
+    needs: prepare
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Restore Go environment
+        uses: ./.github/actions/setup-go
+        with:
+          go-version: ${{ needs.prepare.outputs.go-version }}
+          module-cache-key: ${{ needs.prepare.outputs.module-cache-key }}
+
+      - name: Run Integration Tests
+        run: make test-integration

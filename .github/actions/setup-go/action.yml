@@ -1,0 +1,51 @@
+name: Restore Go environment
+description: Activate Go and restore shared modules plus a check-specific build cache
+inputs:
+  go-version:
+    description: Exact Go version resolved by the preparation job
+    required: true
+  module-cache-key:
+    description: Module cache populated by the preparation job
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: false
+
+    - name: Locate Go caches
+      id: paths
+      shell: bash
+      run: |
+        echo "modules=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+        echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore shared Go modules
+      id: modules
+      uses: actions/cache/restore@v4
+      continue-on-error: true
+      with:
+        path: ${{ steps.paths.outputs.modules }}
+        key: ${{ inputs.module-cache-key }}
+
+    - name: Download dependencies if the shared cache is unavailable
+      if: steps.modules.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        echo "::warning::Shared Go module cache unavailable; downloading dependencies."
+        for module in . apiclient logger; do
+          (cd "$module" && go mod download all)
+        done
+
+    - name: Restore and save Go build cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.paths.outputs.build }}
+        key: go-build-v1-${{ github.job }}-${{ steps.paths.outputs.image }}-${{ inputs.module-cache-key }}-${{ github.sha }}
+        restore-keys: |
+          go-build-v1-${{ github.job }}-${{ steps.paths.outputs.image }}-${{ inputs.module-cache-key }}-
