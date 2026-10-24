@@ -891,6 +891,7 @@
 	"mcps_tester_close_fullscreen": "전체 화면 닫기",
 	"mcps_tester_connecting_to": "{name}에 연결하는 중",
 	"mcps_tester_copy_arguments": "인수 복사",
+	"mcps_tester_copy_error": "오류 복사",
 	"mcps_tester_copy_full_text": "전체 텍스트 복사",
 	"mcps_tester_copy_raw_json": "원시 JSON 복사",
 	"mcps_tester_copy_response": "응답 복사",

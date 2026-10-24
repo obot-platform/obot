@@ -891,6 +891,7 @@
 	"mcps_tester_close_fullscreen": "退出全屏",
 	"mcps_tester_connecting_to": "正在连接到 {name}",
 	"mcps_tester_copy_arguments": "复制参数",
+	"mcps_tester_copy_error": "复制错误",
 	"mcps_tester_copy_full_text": "复制全文",
 	"mcps_tester_copy_raw_json": "复制原始 JSON",
 	"mcps_tester_copy_response": "复制响应",

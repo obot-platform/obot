@@ -891,6 +891,7 @@
 	"mcps_tester_close_fullscreen": "全画面表示を閉じる",
 	"mcps_tester_connecting_to": "{name} に接続中",
 	"mcps_tester_copy_arguments": "引数をコピー",
+	"mcps_tester_copy_error": "エラーをコピー",
 	"mcps_tester_copy_full_text": "全文をコピー",
 	"mcps_tester_copy_raw_json": "生の JSON をコピー",
 	"mcps_tester_copy_response": "レスポンスをコピー",
