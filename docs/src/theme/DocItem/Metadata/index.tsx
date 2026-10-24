@@ -54,7 +54,7 @@ function useLatestVersionSlugs(baseUrl: string): Set<string> {
  */
 function resolveCanonicalSlug(
   slug: string,
-  validSlugs: Set<string>
+  validSlugs: Set<string>,
 ): string | null {
   // Case 1: slug maps directly to a real latest-version page
   if (validSlugs.has(slug)) {
@@ -106,6 +106,15 @@ export default function DocItemMetadata(): ReactNode {
 
   return (
     <>
+      {!metadata.unlisted && !frontMatter.draft && (
+        <Head>
+          <link
+            rel="alternate"
+            type="text/markdown"
+            href={`${siteUrl}${baseUrl}${metadata.version === "current" ? "next" : metadata.version}/${metadata.slug.replace(/^\/+|\/+$/g, "") || "index"}.md`}
+          />
+        </Head>
+      )}
       <PageMetadata
         title={metadata.title}
         description={metadata.description}
