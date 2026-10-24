@@ -64,7 +64,6 @@ type Server struct {
 	rateLimiter             *ratelimiter.RateLimiter
 	baseURL                 string
 	mcpOAuthScope           string
-	registryNoAuth          bool
 	providerEntitlementGate *license.ProviderEntitlementGate
 	// devUI is set when the UI is served by the Vite dev server (dev mode).
 	devUI bool
@@ -86,7 +85,7 @@ type responseWriter struct {
 	auditLogger audit.Logger
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool, licenseProvider *license.Provider) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, licenseProvider *license.Provider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
@@ -103,7 +102,6 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, loca
 		mcpOAuthScope:           scope,
 		auditLogger:             auditLogger,
 		rateLimiter:             rateLimiter,
-		registryNoAuth:          registryNoAuth,
 		mux:                     http.NewServeMux(),
 		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
 	}
@@ -350,8 +348,8 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					})
 				}
 
-				// Only set WWW-Authenticate if not in no-auth mode
-				if strings.HasPrefix(req.URL.Path, "/v0.1") && !s.registryNoAuth {
+				// Challenge denied anonymous registry requests without reading settings again.
+				if !authenticated && authz.IsMCPRegistryRequest(req) {
 					rw.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="MCP Registry", resource_metadata="%s/.well-known/oauth-protected-resource/v0.1/servers"`, strings.TrimSuffix(s.baseURL, "/api")))
 				}
 

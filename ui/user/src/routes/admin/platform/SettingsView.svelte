@@ -5,6 +5,7 @@
 		type GitCredential,
 		type ImagePullSecret,
 		type ImagePullSecretCapability,
+		type RegistrySettings,
 		type ModelProxySettings,
 		type ModelProxyUsage,
 		type ProductTelemetryConsent
@@ -15,6 +16,7 @@
 	import NotificationsView from './NotificationsView.svelte';
 	import ProductAnalyticsView from './ProductAnalyticsView.svelte';
 	import RegistryConnectionsView from './RegistryConnectionsView.svelte';
+	import RegistryDiscoveryView from './RegistryDiscoveryView.svelte';
 	import { Plus } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 
@@ -23,6 +25,7 @@
 		capability: ImagePullSecretCapability;
 		gitCredentials: GitCredential[];
 		imagePullSecrets: ImagePullSecret[];
+		registrySettings?: RegistrySettings;
 		modelProxySettings?: ModelProxySettings;
 		modelProxyUsage?: ModelProxyUsage;
 		productTelemetryConsent?: ProductTelemetryConsent;
@@ -35,6 +38,7 @@
 		capability = $bindable(),
 		gitCredentials = $bindable(),
 		imagePullSecrets = $bindable(),
+		registrySettings,
 		modelProxySettings,
 		modelProxyUsage,
 		productTelemetryConsent,
@@ -42,6 +46,8 @@
 		showRegistryConnections = false
 	}: Props = $props();
 
+	let registryDiscoveryView = $state<ReturnType<typeof RegistryDiscoveryView>>();
+	let registryDiscoveryDirty = $state(false);
 	let notificationsView = $state<ReturnType<typeof NotificationsView>>();
 	let productAnalyticsView = $state<ReturnType<typeof ProductAnalyticsView>>();
 	let modelProxyView = $state<ReturnType<typeof ModelProxyView>>();
@@ -56,8 +62,12 @@
 	let saving = $state(false);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let canManageRegistryDiscovery = $derived(
+		profile.current.isAdmin?.() || profile.current.isOwner?.()
+	);
 	let isDirty = $derived(
-		notificationsDirty ||
+		registryDiscoveryDirty ||
+			notificationsDirty ||
 			productAnalyticsDirty ||
 			modelProxyDirty ||
 			registryDirty ||
@@ -89,6 +99,7 @@
 		saving = true;
 		try {
 			await Promise.all([
+				registryDiscoveryDirty ? registryDiscoveryView?.save() : undefined,
 				notificationsDirty ? notificationsView?.save() : undefined,
 				productAnalyticsDirty ? productAnalyticsView?.save() : undefined,
 				registryDirty ? registryView?.save() : undefined,
@@ -103,6 +114,7 @@
 	}
 
 	function handleCancel() {
+		registryDiscoveryView?.reset();
 		notificationsView?.reset();
 		productAnalyticsView?.reset();
 		modelProxyView?.reset();
@@ -125,6 +137,14 @@
 				'product-analytics',
 				descriptions.productAnalytics,
 				productAnalytics
+			)}
+		{/if}
+		{#if canManageRegistryDiscovery}
+			{@render section(
+				m.platform_registry_discovery_title(),
+				'registry-discovery',
+				m.platform_registry_discovery_description(),
+				registryDiscovery
 			)}
 		{/if}
 		{#if modelProxySettings}
@@ -206,6 +226,15 @@
 			<div class="divider mb-0 mt-6"></div>
 		{/if}
 	</section>
+{/snippet}
+
+{#snippet registryDiscovery()}
+	<RegistryDiscoveryView
+		bind:this={registryDiscoveryView}
+		bind:dirty={registryDiscoveryDirty}
+		settings={registrySettings}
+		{saving}
+	/>
 {/snippet}
 
 {#snippet notifications()}
