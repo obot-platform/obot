@@ -1,0 +1,14 @@
+{
+  "*": {
+    "faq": "Frequently asked questions about deploying, configuring, and using Obot.",
+    "reference/schemas": "Find the catalog-definition and MCP filter schema references.",
+    "mcp-gateway/troubleshooting": "Diagnose vMCP connection, authentication, tool discovery, and request failures.",
+    "llm-gateway/connect-clients": "Configure AI clients, obtain an Obot API key, and use the documented LLM Gateway request examples."
+  },
+  "v0.27.0": {
+    "llm-gateway/compatibility": "Provider endpoint compatibility, supported request formats, and model identifiers for the LLM Gateway."
+  },
+  "v0.24.0": {
+    "enterprise/overview": "Enterprise capabilities, support, and how to contact Obot about an enterprise deployment."
+  }
+}

@@ -112,3 +112,39 @@ test('category titles navigate and separate controls expand without navigating',
     await expect(page.locator('article').first()).toBeVisible();
   }
 });
+
+test('Markdown links follow in-app navigation and documentation versions', async ({ page, request }) => {
+  await page.goto('/');
+  const markdown = page.getByRole('link', { name: 'View as Markdown', exact: true });
+  await expect(markdown).toHaveAttribute('href', `/${versions[0]}/index.md`);
+  // Click a real React navigation link rather than issuing another page.goto.
+  await page.locator('article a[href="/installation/docker-deployment/"]').first().click();
+  await expect(page).toHaveURL(/\/installation\/docker-deployment\/$/);
+  await expect(markdown).toHaveAttribute('href', `/${versions[0]}/installation/docker-deployment.md`);
+  await expect(page.locator('head link[rel="alternate"][type="text/markdown"]')).toHaveAttribute('href', new RegExp(`/${versions[0]}/installation/docker-deployment.md$`));
+  for (const [html, expected] of [['/next/', '/next/index.md'], [`/${versions[1]}/`, `/${versions[1]}/index.md`]]) {
+    await page.goto(html);
+    await expect(markdown).toHaveAttribute('href', expected);
+  }
+  for (const url of ['/index.md', `/${versions[0]}/index.md`, '/next/index.md', `/${versions[1]}/installation/docker-deployment.md`]) {
+    const response = await request.get(url);
+    expect(response.status()).toBe(200);
+    expect(response.headers()['content-type']).toContain('text/markdown');
+    expect(response.headers()['x-robots-tag']).toBe('noindex');
+    expect(await response.text()).toMatch(/^---\ntitle:/);
+  }
+  const alias = await request.get('/index.md');
+  const pinned = await request.get(`/${versions[0]}/index.md`);
+  expect(await alias.text()).toBe(await pinned.text());
+  const full = await request.get(`/${versions[0]}/llms-full.txt`);
+  expect(full.status()).toBe(200);
+  expect(full.headers()['content-type']).toContain('text/plain');
+  expect(full.headers()['x-robots-tag']).toBe('noindex');
+  const root = await request.get('/llms.txt');
+  expect(root.status()).toBe(200);
+  expect(root.headers()['x-robots-tag']).toBeUndefined();
+  const old = await request.get(`/${versions[1]}/llms.txt`);
+  expect(old.headers()['x-robots-tag']).toBe('noindex');
+  const missing = await request.get('/no-such-agent-doc.md');
+  expect(missing.status()).toBe(404);
+});

@@ -106,6 +106,13 @@ export default function DocItemMetadata(): ReactNode {
 
   return (
     <>
+      <Head>
+        <link
+          rel="alternate"
+          type="text/markdown"
+          href={`${siteUrl}${baseUrl}${metadata.version === "current" ? "next" : metadata.version}/${metadata.slug.replace(/^\/+|\/+$/g, "") || "index"}.md`}
+        />
+      </Head>
       <PageMetadata
         title={metadata.title}
         description={metadata.description}

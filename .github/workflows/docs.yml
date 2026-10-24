@@ -47,8 +47,8 @@ jobs:
         run: npm ci
         working-directory: docs
 
-      - name: Build documentation
-        run: npm run build
+      - name: Test exports and build documentation
+        run: npm run test:exports && npm run build && npm run test:exports:content
         working-directory: docs
 
       - name: Install browser
