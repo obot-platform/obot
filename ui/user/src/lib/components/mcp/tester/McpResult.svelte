@@ -45,6 +45,7 @@
 			title={label(result.status)}
 			message={result.message ?? rawJSON ?? m.mcps_tester_status_mcp_error()}
 			details={result.details ?? result.value}
+			rawResponse={result.rawResponse}
 			severity={result.status === 'cancelled' || result.status === 'timeout' ? 'warning' : 'error'}
 		>
 			{#snippet icon()}

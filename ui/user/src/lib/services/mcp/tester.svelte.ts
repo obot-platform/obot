@@ -1,6 +1,6 @@
 import { m } from '$lib/i18n';
 import type { DefaultModelAlias, MCPCatalogServer, Model, Version } from '$lib/services/user/types';
-import { LoggingTransport } from './logging-transport';
+import { LoggingTransport, type MCPRawResponse } from './logging-transport';
 import { TesterClient, type RejectedTesterTool } from './tester-client';
 import { testerErrorDetails } from './tester-errors';
 import { MCPTesterLog } from './tester-log.svelte';
@@ -70,6 +70,7 @@ export interface DirectOperationResult<T> {
 	value?: T;
 	message?: string;
 	details?: unknown;
+	rawResponse?: MCPRawResponse;
 }
 
 export interface StagedPromptContext {
@@ -645,15 +646,18 @@ export class MCPTesterSession {
 		}
 	}
 
-	callTool(
+	async callTool(
 		name: string,
 		args: Record<string, unknown>
 	): Promise<DirectOperationResult<CallToolResult>> {
-		return this.executeDirect('tool call', async (signal) => {
-			return (await this.client.callTool({ name, arguments: args }, undefined, {
-				signal
-			})) as CallToolResult;
-		});
+		const workflow = this.beginWorkflow('direct', 'tool call');
+		try {
+			const result = await this.#executeToolCall(name, args, workflow.abort.signal);
+			if (result.status === 'denied') this.status = 'access-denied';
+			return result;
+		} finally {
+			this.finishWorkflow(workflow);
+		}
 	}
 
 	async snapshotChatTools(
@@ -678,12 +682,21 @@ export class MCPTesterSession {
 		}
 	}
 
-	async callChatTool(
+	callChatTool(
+		name: string,
+		args: Record<string, unknown>,
+		signal: AbortSignal
+	): Promise<DirectOperationResult<CallToolResult>> {
+		return this.#executeToolCall(name, args, signal);
+	}
+
+	async #executeToolCall(
 		name: string,
 		args: Record<string, unknown>,
 		signal: AbortSignal
 	): Promise<DirectOperationResult<CallToolResult>> {
 		const started = performance.now();
+		const capture = this.transport.captureResponse('tools/call');
 		try {
 			const value = (await this.client.callTool({ name, arguments: args }, undefined, {
 				signal
@@ -691,13 +704,17 @@ export class MCPTesterSession {
 			return {
 				status: value.isError === true ? 'mcp-error' : 'success',
 				durationMs: performance.now() - started,
-				value
+				value,
+				rawResponse: capture.response
 			};
 		} catch (error) {
 			return {
 				...classifyOperationError(error, signal),
+				rawResponse: capture.response,
 				durationMs: performance.now() - started
 			};
+		} finally {
+			capture.dispose();
 		}
 	}
 
