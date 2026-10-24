@@ -4,6 +4,34 @@ import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
 describe('TesterError', () => {
+	it.each([
+		{ name: 'plain text', message: 'Gateway failed\nPlease retry.', details: undefined },
+		{
+			name: 'JSON text',
+			message: '{"code":-32600,"message":"Invalid output"}',
+			details: undefined
+		},
+		{
+			name: 'structured details',
+			message: 'MCP error',
+			details: { code: -32600, message: 'Invalid output' }
+		}
+	])('copies the complete displayed error for $name', async ({ message, details }) => {
+		const writeText = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+		try {
+			render(TesterError, { title: 'Request failed', message, details });
+			await page.getByRole('button', { name: 'View full error' }).click();
+			const { EditorView } = await import('@codemirror/view');
+			const displayedError = EditorView.findFromDOM(
+				page.getByLabelText('Full error').element() as HTMLElement
+			)?.state.doc.toString();
+			await page.getByRole('button', { name: 'Copy error', exact: true }).click();
+			expect(writeText).toHaveBeenCalledWith(displayedError);
+		} finally {
+			writeText.mockRestore();
+		}
+	});
+
 	it('omits the raw response section when no response was received', async () => {
 		render(TesterError, { title: 'Request failed', message: 'Network unavailable' });
 		await page.getByRole('button', { name: 'View full error' }).click();

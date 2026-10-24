@@ -19,6 +19,14 @@
 	let open = $state(false);
 	let rawOpen = $state(false);
 	let trigger: HTMLButtonElement;
+	let errorText = $derived.by(() => {
+		const value = details ?? message;
+		try {
+			return JSON.stringify(typeof value === 'string' ? JSON.parse(value) : value, null, 2);
+		} catch {
+			return String(value);
+		}
+	});
 	let preview = $derived(message.length > 400 ? `${message.slice(0, 400)}…` : message);
 </script>
 
@@ -57,11 +65,13 @@
 >
 	{#if open}
 		<div class="default-scrollbar-thin mt-4 min-h-0 min-w-0 space-y-4 overflow-y-auto">
-			<JsonPreview
-				value={details ?? message}
-				maxHeight="65dvh"
-				ariaLabel={m.mcps_tester_full_error()}
-			/>
+			<CornerCopyButton text={errorText} label={m.mcps_tester_copy_error()}>
+				<JsonPreview
+					value={details ?? message}
+					maxHeight="65dvh"
+					ariaLabel={m.mcps_tester_full_error()}
+				/>
+			</CornerCopyButton>
 			{#if rawResponse !== undefined}
 				<details bind:open={rawOpen}>
 					<summary class="cursor-pointer text-sm font-medium"

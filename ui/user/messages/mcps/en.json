@@ -891,6 +891,7 @@
 	"mcps_tester_close_fullscreen": "Close fullscreen",
 	"mcps_tester_connecting_to": "Connecting to {name}",
 	"mcps_tester_copy_arguments": "Copy arguments",
+	"mcps_tester_copy_error": "Copy error",
 	"mcps_tester_copy_full_text": "Copy full text",
 	"mcps_tester_copy_raw_json": "Copy raw JSON",
 	"mcps_tester_copy_response": "Copy response",
