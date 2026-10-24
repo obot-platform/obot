@@ -169,7 +169,7 @@ test("v0.28 release rollover keeps versioned links stable and rolls latest alias
       await fs.readFile(path.join(f.outDir, "index.md"), "utf8"),
       pinned,
     );
-    assert.ok(pinned.includes(`/${latest}/custom.md#stable`));
+    assert.ok(pinned.includes(`/${latest}/custom.md#obot-doc-stable`));
     assert.ok(pinned.includes('canonical: "https://docs.example.com/"'));
     const previous = await fs.readFile(
       path.join(f.outDir, names[2], "index.md"),
@@ -252,7 +252,7 @@ test("queries, fragments, external URLs and assets survive link rewriting", asyn
     "utf8",
   );
   for (const url of [
-    "https://docs.example.com/v0.27.0/custom.md#stable",
+    "https://docs.example.com/v0.27.0/custom.md#obot-doc-stable",
     "https://docs.example.com/v0.27.0/index.md?mode=test",
     "https://example.org/path?q=x#y",
     "https://docs.example.com/img/example.png",
@@ -263,6 +263,111 @@ test("queries, fragments, external URLs and assets survive link rewriting", asyn
     "utf8",
   );
   assert.ok(
-    bundle.includes("https://docs.example.com/v0.27.0/custom.md#stable"),
+    bundle.includes(
+      "https://docs.example.com/v0.27.0/custom.md#obot-doc-stable",
+    ),
   );
+});
+
+test("fence-like content stays literal, including nested Markdown examples", () => {
+  const code = "````not-a-close\n# Keep {#id}\n:::warning Literal title";
+  for (const fence of ["```", "~~~"]) {
+    const source = `${fence}markdown\n${code}\n${fence}\n\n# Real {#real}`;
+    const parsed = parseMarkdown(source, "Test");
+    const blocks = [];
+    walk(parsed.tree, (node) => {
+      if (node.type === "code") blocks.push(node.value);
+    });
+    assert.deepEqual(blocks, [code]);
+    assert.ok(parsed.anchors.has("real"));
+    assert.ok(!parsed.anchors.has("id"));
+  }
+});
+
+test("inline HTML heading text resolves incoming links and duplicate anchors", async (t) => {
+  const f = await fixture(t);
+  await fs.writeFile(
+    path.join(f.siteDir, "v0.27.0/01-guide.md"),
+    "# Guide {#stable}\n\n## Heading <code>foo</code>\n\nFirst.\n\n## Heading <code>foo</code>\n\nSecond.",
+  );
+  await fs.writeFile(
+    path.join(f.siteDir, "v0.27.0/overview.md"),
+    "[First](./01-guide.md#heading-foo)\n\n[Second](./01-guide.md#heading-foo-1)",
+  );
+  await generate(f);
+  const output = await fs.readFile(
+    path.join(f.outDir, "v0.27.0/index.md"),
+    "utf8",
+  );
+  assert.ok(output.includes("/v0.27.0/custom.md#obot-doc-heading-foo)"));
+  assert.ok(output.includes("/v0.27.0/custom.md#obot-doc-heading-foo-1)"));
+});
+
+test("fragment destinations survive explicit IDs, synthetic titles and namespace collisions", async (t) => {
+  for (const [body, fragment, destination] of [
+    ["# Foo {#custom}\n\n## Foo\n\nSection.", "foo", "## Foo"],
+    ["## Foo\n\nSection.", "foo", "## Foo"],
+    ["# Obot <code>doc foo</code>\n\n## Foo\n\nSection.", "foo", "## Foo"],
+    ['Intro.\n\n<a id="foo"></a>\n\nTarget.', "foo", "</a>"],
+  ]) {
+    const parsed = parseMarkdown(body, "Foo");
+    const output = render(parsed.tree);
+    const target = parsed.fragmentTargets.get(fragment);
+    assert.ok(target);
+    assert.ok(output.includes(`id="${target}"`));
+    if (destination !== "</a>")
+      assert.ok(output.includes(`<a id="${target}"></a>\n\n${destination}`));
+    if (body.startsWith("# Obot")) assert.equal(target, "_obot-doc-foo");
+    assert.equal(output.split(`id="${target}"`).length - 1, 1);
+    const f = await fixture(t);
+    f.versions[1].docs[1].title = "Foo";
+    await fs.writeFile(path.join(f.siteDir, "v0.27.0/01-guide.md"), body);
+    await fs.writeFile(
+      path.join(f.siteDir, "v0.27.0/overview.md"),
+      `[Section](./01-guide.md#${fragment})`,
+    );
+    await generate(f);
+    assert.ok(
+      (
+        await fs.readFile(path.join(f.outDir, "v0.27.0/index.md"), "utf8")
+      ).includes(`custom.md#${target}`),
+    );
+  }
+});
+
+test("exports are byte-identical across clean builds and missing assets fail", async (t) => {
+  const first = await fixture(t),
+    second = await fixture(t);
+  await generate(first);
+  await generate(second);
+  async function files(root, prefix = "") {
+    const entries = await fs.readdir(path.join(root, prefix), {
+      withFileTypes: true,
+    });
+    return (
+      await Promise.all(
+        entries.map(async (entry) =>
+          entry.isDirectory()
+            ? files(root, path.join(prefix, entry.name))
+            : path.join(prefix, entry.name),
+        ),
+      )
+    )
+      .flat()
+      .sort();
+  }
+  const paths = await files(first.outDir);
+  assert.deepEqual(paths, await files(second.outDir));
+  for (const file of paths)
+    assert.deepEqual(
+      await fs.readFile(path.join(first.outDir, file)),
+      await fs.readFile(path.join(second.outDir, file)),
+      file,
+    );
+  const missing = await fixture(t);
+  await fs.writeFile(
+    path.join(missing.siteDir, "v0.27.0/overview.md"),
+    "![Missing](/img/not-here.png)",
+  );
+  await assert.rejects(generate(missing), /Missing HTML\/asset target/);
 });

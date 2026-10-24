@@ -148,3 +148,25 @@ test('Markdown links follow in-app navigation and documentation versions', async
   const missing = await request.get('/no-such-agent-doc.md');
   expect(missing.status()).toBe(404);
 });
+
+test('Markdown discovery is present in raw server-rendered HTML', async ({ page, request }) => {
+  for (const [route, markdown] of [
+    ['/', `/${versions[0]}/index.md`],
+    ['/next/', '/next/index.md'],
+    [`/${versions[1]}/`, `/${versions[1]}/index.md`],
+  ]) {
+    const response = await request.get(route);
+    expect(response.status()).toBe(200);
+    // DOMParser parses the HTTP body without executing scripts or hydration.
+    const links = await page.evaluate(html => {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      return {
+        alternate: doc.querySelector('head link[rel="alternate"][type="text/markdown"]')?.getAttribute('href'),
+        visible: Array.from(doc.querySelectorAll('a')).find(a => a.textContent === 'View as Markdown')?.getAttribute('href'),
+      };
+    }, await response.text());
+    expect(new URL(links.alternate!).pathname).toBe(markdown);
+    expect(links.visible).toBe(markdown);
+    expect((await request.get(markdown)).status()).toBe(200);
+  }
+});

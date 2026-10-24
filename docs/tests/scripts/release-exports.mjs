@@ -45,6 +45,11 @@ try {
   );
   const next = "v0.28.0";
   assert.ok(!original.includes(next), "Use an unreleased fixture version");
+  // Exercise real metadata/theme behavior for an HTML-only unlisted page.
+  await fs.writeFile(
+    path.join(temp, "docs", "export-unlisted-fixture.md"),
+    "---\ntitle: Unlisted export fixture\nunlisted: true\n---\n\nThis HTML page must not advertise a Markdown export.\n",
+  );
   run(["docs:version", next]);
   const dropped = original.at(-1);
   const versions = JSON.parse(
@@ -98,6 +103,18 @@ try {
     ),
   );
   assert.match(await read("next/index.md"), /unreleased: true/);
+  for (const prefix of ["", "next/"]) {
+    const html = await read(`${prefix}export-unlisted-fixture/index.html`);
+    assert.ok(html.includes("This HTML page must not advertise"));
+    assert.ok(!html.includes("View as Markdown"));
+    assert.ok(!html.includes('type="text/markdown"'));
+  }
+  for (const prefix of ["", "next/", `${next}/`])
+    await assert.rejects(
+      fs.access(
+        path.join(temp, "build", `${prefix}export-unlisted-fixture.md`),
+      ),
+    );
   console.log(
     `PASS: ${next} snapshot, ${original[0]} rollover, ${dropped} removal, stale-file cleanup, and gateway upgrade isolation. Copy: ${temp}`,
   );

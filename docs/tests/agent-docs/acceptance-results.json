@@ -239,5 +239,6 @@
     "Older auth-scope source retains MCP-server terminology and does not explicitly establish vMCP-specific selection.",
     "Production Cloudflare bot/WAF access has not been verified; no Cloudflare account configuration was changed.",
     "These results concern the tested agents, not all OpenAI, Anthropic, or Gemini clients."
-  ]
+  ],
+  "evidence_status": "Historical qualitative summary, not independently rescorable: full answers, answer citations, and exact model identifier were not retained. Counts describe the original run, not the current test suite. Do not infer complete content fidelity or cross-provider certification."
 }

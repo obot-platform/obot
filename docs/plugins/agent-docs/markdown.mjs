@@ -26,25 +26,31 @@ export function walk(node, visit) {
 }
 
 // Explicit Docusaurus heading IDs are not MDX expressions. Protect code fences
-// while translating them to ordinary HTML anchors before parsing MDX.
-export function prepare(source) {
-  let fence;
-  return source
-    .replace(/\r\n/g, "\n")
+// while recording/removing their suffix before parsing MDX.
+export function prepare(source, explicitIds = new Map()) {
+  const normalized = source.replace(/\r\n/g, "\n");
+  const protectedLines = new Set();
+  walk(unified().use(remarkParse).parse(normalized), (node) => {
+    if (node.type === "code") {
+      for (
+        let line = node.position.start.line;
+        line <= node.position.end.line;
+        line++
+      )
+        protectedLines.add(line);
+    }
+  });
+  return normalized
     .split("\n")
-    .map((line) => {
-      const match = line.match(/^\s*(`{3,}|~{3,})/);
-      if (match) {
-        if (!fence) fence = match[1];
-        else if (match[1][0] === fence[0] && match[1].length >= fence.length)
-          fence = undefined;
-        return line;
-      }
-      if (fence) return line;
+    .map((line, index) => {
+      if (protectedLines.has(index + 1)) return line;
       line = line.replace(/^(\s*:{3,}[a-z]+)\s+(.+)$/, "$1[$2]");
       return line.replace(
         /^(#{1,6}\s+.*?)\s+\{#([\w-]+)\}\s*$/,
-        '<a id="$2" />\n\n$1',
+        (_, heading, id) => {
+          explicitIds.set(index + 1, id);
+          return heading;
+        },
       );
     })
     .join("\n");
@@ -52,8 +58,23 @@ export function prepare(source) {
 
 export function parseMarkdown(source, title) {
   const { content, data } = matter(source);
-  const prepared = prepare(content);
+  const explicitIds = new Map();
+  const prepared = prepare(content, explicitIds);
   const tree = processor.parse(prepared);
+  // Capture semantic text before JSX becomes literal HTML serialization.
+  const headingIds = new WeakMap();
+  const headingText = new WeakMap();
+  const sourceSlugger = new GithubSlugger();
+  walk(tree, (node) => {
+    if (node.type === "heading") {
+      headingText.set(node, plainText(node));
+      headingIds.set(
+        node,
+        explicitIds.get(node.position.start.line) ??
+          sourceSlugger.slug(plainText(node)),
+      );
+    }
+  });
   function normalize(parent) {
     parent.children = parent.children.flatMap((node) => {
       if (node.type === "mdxjsEsm") {
@@ -198,12 +219,52 @@ export function parseMarkdown(source, title) {
       children: [text(title)],
     });
   const anchors = new Set();
-  const slugger = new GithubSlugger();
+  const occupied = new Set();
+  const renderedSlugger = new GithubSlugger();
   walk(tree, (node) => {
-    if (node.type === "heading") anchors.add(slugger.slug(plainText(node)));
+    if (node.type === "heading") {
+      occupied.add(
+        renderedSlugger.slug(headingText.get(node) ?? plainText(node)),
+      );
+      if (headingIds.has(node)) anchors.add(headingIds.get(node));
+    }
     if (node.type === "html")
-      for (const m of node.value.matchAll(/\bid="([^"]+)"/g)) anchors.add(m[1]);
+      for (const m of node.value.matchAll(/\bid="([^"]+)"/g)) {
+        anchors.add(m[1]);
+        occupied.add(m[1]);
+      }
   });
+  // Markdown renderers assign automatic IDs even to explicitly anchored headings.
+  // Use a collision-free namespace for heading destinations and rewrite incoming
+  // fragments to it; an injected title must not steal a source section's ID.
+  let prefix = "obot-doc-";
+  while ([...occupied].some((id) => id.startsWith(prefix)))
+    prefix = `_${prefix}`;
+  const fragmentTargets = new Map([...anchors].map((id) => [id, prefix + id]));
+  walk(tree, (node) => {
+    if (node.type === "html")
+      node.value = node.value.replace(
+        /\bid="([^"]+)"/g,
+        (_, id) => `id="${fragmentTargets.get(id)}"`,
+      );
+  });
+  function anchorHeadings(parent) {
+    parent.children = parent.children.flatMap((node) => {
+      if (node.children) anchorHeadings(node);
+      if (!headingIds.has(node)) return [node];
+      const id = headingIds.get(node);
+      const target = prefix + id;
+      fragmentTargets.set(id, target);
+      return [
+        {
+          type: "html",
+          value: `<a id="${target.replaceAll("&", "&amp;").replaceAll('"', "&quot;")}"></a>`,
+        },
+        node,
+      ];
+    });
+  }
+  anchorHeadings(tree);
   const paragraph = tree.children.find(
     (n) => n.type === "paragraph" && plainText(n).trim().length > 30,
   );
@@ -212,7 +273,13 @@ export function parseMarkdown(source, title) {
   )
     .replace(/\s+/g, " ")
     .trim();
-  return { tree, anchors, summary, extracted: !data.description };
+  return {
+    tree,
+    anchors,
+    fragmentTargets,
+    summary,
+    extracted: !data.description,
+  };
 }
 export function render(tree) {
   return processor.stringify(tree);

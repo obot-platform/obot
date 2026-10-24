@@ -156,7 +156,10 @@ export async function generate({
         throw new Error(`Cross-version link ${page.source}: ${value}`);
       if (hash && !target.anchors.has(decodeURIComponent(hash.slice(1))))
         throw new Error(`Missing anchor ${page.source}: ${value}`);
-      return new URL(target.md + query + hash, origin).href;
+      const heading =
+        hash && target.fragmentTargets.get(decodeURIComponent(hash.slice(1)));
+      const fragment = heading ? `#${encodeURIComponent(heading)}` : hash;
+      return new URL(target.md + query + fragment, origin).href;
     }
     if (/\.mdx?$/.test(decoded))
       throw new Error(`Missing document ${page.source}: ${value}`);

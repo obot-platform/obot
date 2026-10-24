@@ -5,7 +5,7 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import type { Props } from "@theme/DocItem/Content";
 
 export default function DocItemContent(props: Props): ReactNode {
-  const { metadata } = useDoc();
+  const { metadata, frontMatter } = useDoc();
   const {
     siteConfig: { baseUrl },
   } = useDocusaurusContext();
@@ -13,9 +13,11 @@ export default function DocItemContent(props: Props): ReactNode {
   const route = metadata.slug.replace(/^\/+|\/+$/g, "") || "index";
   return (
     <>
-      <p>
-        <a href={`${baseUrl}${version}/${route}.md`}>View as Markdown</a>
-      </p>
+      {!metadata.unlisted && !frontMatter.draft && (
+        <p>
+          <a href={`${baseUrl}${version}/${route}.md`}>View as Markdown</a>
+        </p>
+      )}
       <Content {...props} />
     </>
   );

@@ -5,21 +5,20 @@ import assert from "node:assert/strict";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
-import remarkMdx from "remark-mdx";
-import remarkDirective from "remark-directive";
 import matter from "gray-matter";
-import {
-  prepare,
-  walk,
-  plainText,
-} from "../../plugins/agent-docs/markdown.mjs";
-import { markdownPath } from "../../plugins/agent-docs/index.mjs";
+// Independent expectations: do not import exporter transformations or URL helpers.
+function walk(node, visit) {
+  visit(node);
+  for (const child of node.children || []) walk(child, visit);
+}
+function plainText(node) {
+  if (node.type === "image") return node.alt || "";
+  return node.children
+    ? node.children.map(plainText).join("")
+    : node.value || "";
+}
 
-const sourceParser = unified()
-  .use(remarkParse)
-  .use(remarkMdx)
-  .use(remarkGfm)
-  .use(remarkDirective);
+const sourceParser = unified().use(remarkParse).use(remarkGfm);
 const exportParser = unified().use(remarkParse).use(remarkGfm);
 function preservedContent(tree) {
   const result = { code: [], table: [] };
@@ -50,10 +49,23 @@ for (const name of await fs.readdir(metadataDir)) {
   const source = matter(
     await fs.readFile(doc.source.replace("@site/", ""), "utf8"),
   ).content;
-  const exported = matter(
-    await fs.readFile(`build${markdownPath(doc.version, doc.slug)}`, "utf8"),
-  ).content;
-  const before = preservedContent(sourceParser.parse(prepare(source)));
+  const version = doc.version === "current" ? "next" : doc.version;
+  const route = doc.slug.replace(/^\/+|\/+$/g, "") || "index";
+  const exportedFile = matter(
+    await fs.readFile(`build/${version}/${route}.md`, "utf8"),
+  );
+  assert.deepEqual(Object.keys(exportedFile.data).sort(), [
+    "canonical",
+    "title",
+    "unreleased",
+    "version",
+  ]);
+  assert.equal(exportedFile.data.version, version);
+  assert.equal(exportedFile.data.title, doc.title);
+  assert.equal(exportedFile.data.unreleased, version === "next");
+  assert.equal(new URL(exportedFile.data.canonical).pathname, doc.permalink);
+  const exported = exportedFile.content;
+  const before = preservedContent(sourceParser.parse(source));
   const after = preservedContent(exportParser.parse(exported));
   assert.deepEqual(after, before, doc.source);
   pages++;
