@@ -395,6 +395,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// LLM Audit Logs
 	mux.HandleFunc("GET /api/egress-audit-logs", egressAuditLogs.List)
 	mux.HandleFunc("GET /api/egress-audit-logs/environments", egressAuditLogs.Environments)
+	mux.HandleFunc("GET /api/egress-audit-logs/filter-options/{filter}", egressAuditLogs.ListFilterOptions)
 	mux.HandleFunc("GET /api/egress-audit-logs/{audit_log_id}", egressAuditLogs.Get)
 	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
 	mux.HandleFunc("GET /api/llm-audit-logs/filter-options/{filter}", llmAuditLogs.ListFilterOptions)

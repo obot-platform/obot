@@ -20,7 +20,7 @@ var (
 )
 
 type EgressAuditLogOptions struct {
-	UserID, ClaudeAccount, EnvironmentID, ClaudeSession, Host, Outcome string
+	UserID, ClaudeAccount, EnvironmentID, ClaudeSession, Host, Outcome []string
 	StartTime, EndTime                                                 time.Time
 	Limit, Offset                                                      int
 }
@@ -118,18 +118,7 @@ func (c *Client) transformEgressPayload(ctx context.Context, entry *types.Egress
 }
 
 func (c *Client) ListEgressAuditLogs(ctx context.Context, opts EgressAuditLogOptions) ([]types.EgressAuditLog, int64, error) {
-	query := c.db.WithContext(ctx).Model(&types.EgressAuditLog{}).Where("user_id <> ?", "")
-	for column, val := range map[string]string{"user_id": opts.UserID, "claude_account": opts.ClaudeAccount, "environment_id": opts.EnvironmentID, "claude_session": opts.ClaudeSession, "host": opts.Host, "outcome": opts.Outcome} {
-		if val != "" {
-			query = query.Where(column+" = ?", val)
-		}
-	}
-	if !opts.StartTime.IsZero() {
-		query = query.Where("created_at >= ?", opts.StartTime)
-	}
-	if !opts.EndTime.IsZero() {
-		query = query.Where("created_at <= ?", opts.EndTime)
-	}
+	query := applyEgressAuditLogFilters(c.db.WithContext(ctx).Model(&types.EgressAuditLog{}), opts)
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -137,6 +126,23 @@ func (c *Client) ListEgressAuditLogs(ctx context.Context, opts EgressAuditLogOpt
 	var entries []types.EgressAuditLog
 	err := query.Omit(egressPayloadColumns...).Order("created_at DESC, id DESC").Limit(min(max(opts.Limit, 1), 100)).Offset(max(opts.Offset, 0)).Find(&entries).Error
 	return entries, total, err
+}
+
+// GetEgressAuditLogFilterOptions returns distinct nonempty values from the filtered audit logs.
+func (c *Client) GetEgressAuditLogFilterOptions(ctx context.Context, filter string, opts EgressAuditLogOptions) ([]string, error) {
+	switch filter {
+	case "host", "claude_session", "claude_account":
+	default:
+		return nil, fmt.Errorf("invalid egress audit log filter: %s", filter)
+	}
+	query := applyEgressAuditLogFilters(c.db.WithContext(ctx).Model(&types.EgressAuditLog{}), opts).
+		Where(filter+" <> ?", "").Distinct(filter).Order(filter)
+	if opts.Limit > 0 {
+		query = query.Limit(opts.Limit)
+	}
+	result := []string{}
+	err := query.Pluck(filter, &result).Error
+	return result, err
 }
 
 func (c *Client) GetEgressAuditLog(ctx context.Context, id string, auditor bool) (*types.EgressAuditLog, error) {
@@ -180,4 +186,27 @@ func (c *Client) RunEgressAuditCleanup(ctx context.Context, days int) {
 		case <-ticker.C:
 		}
 	}
+}
+
+func applyEgressAuditLogFilters(query *gorm.DB, opts EgressAuditLogOptions) *gorm.DB {
+	query = query.Where("user_id <> ?", "")
+	for column, values := range map[string][]string{
+		"user_id":        opts.UserID,
+		"claude_account": opts.ClaudeAccount,
+		"environment_id": opts.EnvironmentID,
+		"claude_session": opts.ClaudeSession,
+		"host":           opts.Host,
+		"outcome":        opts.Outcome,
+	} {
+		if len(values) > 0 {
+			query = query.Where(column+" IN ?", values)
+		}
+	}
+	if !opts.StartTime.IsZero() {
+		query = query.Where("created_at >= ?", opts.StartTime)
+	}
+	if !opts.EndTime.IsZero() {
+		query = query.Where("created_at <= ?", opts.EndTime)
+	}
+	return query
 }

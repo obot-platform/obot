@@ -33,7 +33,7 @@ func TestEgressAuditPayloadAccess(t *testing.T) {
 			entry.ResponseStatus = 200
 			entry.Outcome = "complete"
 			require.NoError(t, c.SaveEgressAuditLog(t.Context(), entry))
-			list, total, err := c.ListEgressAuditLogs(t.Context(), EgressAuditLogOptions{Limit: 50, UserID: "7"})
+			list, total, err := c.ListEgressAuditLogs(t.Context(), EgressAuditLogOptions{Limit: 50, UserID: []string{"7"}})
 			require.NoError(t, err)
 			require.EqualValues(t, 1, total)
 			require.Len(t, list, 1)
@@ -52,7 +52,7 @@ func TestEgressAuditPayloadAccess(t *testing.T) {
 					require.Empty(t, got.ResponseHeaders)
 				}
 			}
-			_, total, err = c.ListEgressAuditLogs(t.Context(), EgressAuditLogOptions{Limit: 50, EnvironmentID: "different"})
+			_, total, err = c.ListEgressAuditLogs(t.Context(), EgressAuditLogOptions{Limit: 50, EnvironmentID: []string{"different"}})
 			require.NoError(t, err)
 			require.Zero(t, total)
 			c.LogEgressAuditEntry(types.EgressAuditLog{
@@ -224,4 +224,261 @@ func TestEgressAuditFailedFlushPreservesBoundDuringEnqueue(t *testing.T) {
 	require.NoError(t, err)
 	c.LogEgressAuditEntry(types.EgressAuditLog{ID: "recovered", UserID: "7"})
 	require.Equal(t, 1, c.egressAuditPending)
+}
+
+func TestGetEgressAuditLogFilterOptions(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Date(2026, time.October, 21, 12, 0, 0, 0, time.UTC)
+	for i := range 105 {
+		require.NoError(t, c.SaveEgressAuditLog(t.Context(), types.EgressAuditLog{
+			ID:            fmt.Sprintf("filter-%03d", i),
+			CreatedAt:     now.Add(time.Duration(i) * time.Minute),
+			UserID:        "7",
+			Host:          fmt.Sprintf("host-%03d.example", i),
+			ClaudeSession: fmt.Sprintf("session-%03d", i),
+			ClaudeAccount: "account",
+			EnvironmentID: "env",
+			Outcome:       "complete",
+		}))
+	}
+	for _, entry := range []types.EgressAuditLog{
+		{
+			ID:            "duplicate",
+			CreatedAt:     now,
+			UserID:        "8",
+			Host:          "host-000.example",
+			ClaudeSession: "session-000",
+			ClaudeAccount: "account",
+		},
+		{
+			ID:        "empty",
+			CreatedAt: now,
+			UserID:    "7",
+		},
+		{
+			ID:            "unattributed",
+			CreatedAt:     now,
+			Host:          "hidden.example",
+			ClaudeSession: "hidden-session",
+			ClaudeAccount: "hidden-account",
+			Finalized:     true,
+		},
+	} {
+		require.NoError(t, c.SaveEgressAuditLog(t.Context(), entry))
+	}
+
+	for _, tc := range []struct {
+		name   string
+		filter string
+		opts   EgressAuditLogOptions
+		want   []string
+	}{
+		{
+			name:   "hosts sorted before limit and offset ignored",
+			filter: "host",
+			opts: EgressAuditLogOptions{
+				Limit:  2,
+				Offset: 104,
+			},
+			want: []string{"host-000.example", "host-001.example"},
+		},
+		{
+			name:   "sessions",
+			filter: "claude_session",
+			opts: EgressAuditLogOptions{
+				Limit: 2,
+			},
+			want: []string{"session-000", "session-001"},
+		},
+		{
+			name:   "accounts exclude empty duplicates and unattributed records",
+			filter: "claude_account",
+			want:   []string{"account"},
+		},
+		{
+			name:   "all constraints including current field and inclusive time bounds",
+			filter: "host",
+			opts: EgressAuditLogOptions{
+				UserID:        []string{"7"},
+				ClaudeAccount: []string{"account"},
+				EnvironmentID: []string{"env"},
+				ClaudeSession: []string{"session-001"},
+				Host:          []string{"host-001.example"},
+				Outcome:       []string{"complete"},
+				StartTime:     now.Add(time.Minute),
+				EndTime:       now.Add(time.Minute),
+			},
+			want: []string{"host-001.example"},
+		},
+		{
+			name:   "no matches",
+			filter: "host",
+			opts: EgressAuditLogOptions{
+				UserID: []string{"missing"},
+			},
+			want: []string{},
+		},
+		{
+			name:   "outside start time",
+			filter: "host",
+			opts: EgressAuditLogOptions{
+				StartTime: now.Add(2 * time.Hour),
+			},
+			want: []string{},
+		},
+		{
+			name:   "outside end time",
+			filter: "host",
+			opts: EgressAuditLogOptions{
+				EndTime: now.Add(-time.Minute),
+			},
+			want: []string{},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := c.GetEgressAuditLogFilterOptions(t.Context(), tc.filter, tc.opts)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+	for _, tc := range []struct {
+		name string
+		opts EgressAuditLogOptions
+	}{
+		{
+			name: "user",
+			opts: EgressAuditLogOptions{UserID: []string{"missing"}},
+		},
+		{
+			name: "account",
+			opts: EgressAuditLogOptions{ClaudeAccount: []string{"missing"}},
+		},
+		{
+			name: "environment",
+			opts: EgressAuditLogOptions{EnvironmentID: []string{"missing"}},
+		},
+		{
+			name: "session",
+			opts: EgressAuditLogOptions{ClaudeSession: []string{"missing"}},
+		},
+		{
+			name: "host",
+			opts: EgressAuditLogOptions{Host: []string{"missing"}},
+		},
+		{
+			name: "outcome",
+			opts: EgressAuditLogOptions{Outcome: []string{"missing"}},
+		},
+	} {
+		t.Run(tc.name+" excludes nonmatching rows", func(t *testing.T) {
+			got, err := c.GetEgressAuditLogFilterOptions(t.Context(), "host", tc.opts)
+			require.NoError(t, err)
+			require.Equal(t, []string{}, got)
+		})
+	}
+
+	for _, limit := range []int{0, -1, 1000} {
+		got, err := c.GetEgressAuditLogFilterOptions(t.Context(), "host", EgressAuditLogOptions{Limit: limit})
+		require.NoError(t, err)
+		require.Len(t, got, 105)
+	}
+	for _, filter := range []string{"", "user_id", "host; DROP TABLE egress_audit_logs"} {
+		_, err := c.GetEgressAuditLogFilterOptions(t.Context(), filter, EgressAuditLogOptions{})
+		require.ErrorContains(t, err, "invalid egress audit log filter")
+	}
+}
+
+func TestEgressAuditLogMultiValueFilters(t *testing.T) {
+	c := newTestClient(t)
+	for _, value := range []string{"alpha", "beta", "gamma"} {
+		require.NoError(t, c.SaveEgressAuditLog(t.Context(), types.EgressAuditLog{
+			ID:            value,
+			CreatedAt:     time.Now().UTC(),
+			UserID:        value,
+			ClaudeAccount: value,
+			EnvironmentID: value,
+			ClaudeSession: value,
+			Host:          value,
+			Outcome:       value,
+		}))
+	}
+	for _, tc := range []struct {
+		name string
+		opts EgressAuditLogOptions
+		want []string
+	}{
+		{
+			name: "users OR",
+			opts: EgressAuditLogOptions{UserID: []string{"alpha", "beta"}},
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "accounts OR",
+			opts: EgressAuditLogOptions{ClaudeAccount: []string{"alpha", "beta"}},
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "environments OR",
+			opts: EgressAuditLogOptions{EnvironmentID: []string{"alpha", "beta"}},
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "sessions OR",
+			opts: EgressAuditLogOptions{ClaudeSession: []string{"alpha", "beta"}},
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "hosts OR",
+			opts: EgressAuditLogOptions{Host: []string{"alpha", "beta"}},
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "outcomes OR",
+			opts: EgressAuditLogOptions{Outcome: []string{"alpha", "beta"}},
+			want: []string{"alpha", "beta"},
+		},
+		{
+			name: "AND across fields",
+			opts: EgressAuditLogOptions{
+				UserID:        []string{"alpha", "beta"},
+				EnvironmentID: []string{"beta", "gamma"},
+				Outcome:       []string{"alpha", "beta"},
+			},
+			want: []string{"beta"},
+		},
+		{
+			name: "disjoint fields",
+			opts: EgressAuditLogOptions{
+				UserID: []string{"alpha", "beta"},
+				Host:   []string{"gamma"},
+			},
+			want: []string{},
+		},
+		{
+			name: "empty filters",
+			opts: EgressAuditLogOptions{Host: []string{}},
+			want: []string{"alpha", "beta", "gamma"},
+		},
+		{
+			name: "duplicate selections",
+			opts: EgressAuditLogOptions{Host: []string{"alpha", "alpha"}},
+			want: []string{"alpha"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := tc.opts
+			opts.Limit = 100
+			entries, total, err := c.ListEgressAuditLogs(t.Context(), opts)
+			require.NoError(t, err)
+			require.EqualValues(t, len(tc.want), total)
+			ids := make([]string, 0, len(entries))
+			for _, entry := range entries {
+				ids = append(ids, entry.ID)
+			}
+			require.ElementsMatch(t, tc.want, ids)
+			options, err := c.GetEgressAuditLogFilterOptions(t.Context(), "host", opts)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, options)
+		})
+	}
 }

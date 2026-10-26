@@ -3,13 +3,14 @@
 	import { isAuditLogAPIKeyFilterOption, toAuditLogFilterSelectOption } from '$lib/auditlogs';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { m } from '$lib/i18n';
+	import { parseMultiValue } from '$lib/multiValue';
 	import { UserService, type AuditLogFilterOption } from '$lib/services';
 	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/user/constants';
 	import { goto } from '$lib/url';
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
 	import { X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 
 	type FilterKey = Extract<
 		Exclude<
@@ -98,6 +99,10 @@
 	type FilterOptions = Record<FilterKey, FilterOption[]>;
 	type RawFilterOptions = Record<FilterKey, AuditLogFilterOption[]>;
 	let rawFilterOptions: RawFilterOptions = $state({} as RawFilterOptions);
+	// Preserve metadata (such as API key names and owners) for selections excluded by later scopes.
+	let knownFilterOptions = $state<
+		Partial<Record<FilterKey, SvelteMap<string, AuditLogFilterOption>>>
+	>({});
 
 	function formatFilterOptions(filterId: FilterKey, options: AuditLogFilterOption[]) {
 		if (['user_id', 'user_ids'].includes(filterId)) {
@@ -159,7 +164,17 @@
 					return getDefaultValue?.(filterId) as string | number | null | undefined;
 				},
 				get options() {
-					return filtersOptions[filterId];
+					const options = filtersOptions[filterId] ?? [];
+					const missing = [...new Set(parseMultiValue(filters[filterId]))].filter(
+						(id) => !options.some((option) => option.id === id)
+					);
+					return [
+						...options,
+						...formatFilterOptions(
+							filterId,
+							missing.map((id) => knownFilterOptions[filterId]?.get(id) ?? id)
+						)
+					];
 				},
 				get disabled() {
 					return isFilterDisabled?.(filterId) ?? false;
@@ -188,6 +203,11 @@
 			if (filterInputs[id].textInput) return;
 			processLog(id).then((options) => {
 				untrack(() => {
+					const known = new SvelteMap(knownFilterOptions[id]);
+					for (const option of options) {
+						known.set(typeof option === 'string' ? option : option.value, option);
+					}
+					knownFilterOptions[id] = known;
 					rawFilterOptions[id] = options;
 				});
 			});
