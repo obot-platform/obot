@@ -13,6 +13,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -22,10 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	userCreationAdvisoryLockID int64 = 0x6f626f7455736572 // "obotUser"
 )
 
 var (
@@ -624,8 +621,10 @@ func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) 
 		return tx.Create(user).Error
 	}
 
-	if err := lockUserCreation(tx); err != nil {
-		return err
+	// Replicas share Postgres, so serialize seat allocation across them. On SQLite the lock is a no-op, and callers
+	// must have written in this transaction already to hold its write lock before counting.
+	if err := db.Lock(tx, db.UserCreationLock); err != nil {
+		return fmt.Errorf("failed to lock user creation: %w", err)
 	}
 
 	userCount, err := countUsersTowardLimit(tx)
@@ -648,18 +647,6 @@ func countUsersTowardLimit(tx *gorm.DB) (int64, error) {
 			Select("claude_tag_user_id").Where("claude_tag_user_id <> ''")).
 		Count(&userCount).Error
 	return userCount, err
-}
-
-func lockUserCreation(tx *gorm.DB) error {
-	// PostgreSQL installations may have multiple Obot replicas, so serialize
-	// all operations that allocate user seats across them. SQLite operations
-	// acquire its write lock before calling this helper.
-	if tx.Name() == "postgres" {
-		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", userCreationAdvisoryLockID).Error; err != nil {
-			return fmt.Errorf("failed to lock user creation: %w", err)
-		}
-	}
-	return nil
 }
 
 func newUserLimitError() error {
