@@ -25,7 +25,7 @@
 	import { errors, profile, responsive, version, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { clearUrlParams, goto, setSortUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
+	import { connectionsBlocked, getUserDisplayName } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpActions from './VMcpActions.svelte';
@@ -83,9 +83,7 @@
 	let selectedCount = $derived(Object.keys(selected).length);
 	let selectableCount = $derived(items.filter(canSelectRow).length);
 
-	let hasLicenseEntitlementViolations = $derived(
-		(version.current.licenseEntitlementViolations || []).length > 0
-	);
+	let connectBlocked = $derived(connectionsBlocked(version.current));
 
 	let openedConnectID: string | undefined;
 
@@ -178,11 +176,11 @@
 	}
 
 	function connectDisabled(canConnect: boolean) {
-		return hasLicenseEntitlementViolations || !canConnect;
+		return connectBlocked || !canConnect;
 	}
 
 	function connectDisabledMessage(ctx: ReturnType<typeof vmcpItemContext>) {
-		if (hasLicenseEntitlementViolations) return MCP_CONNECTION_INVALID_LICENSE_MESSAGE;
+		if (connectBlocked) return MCP_CONNECTION_INVALID_LICENSE_MESSAGE;
 		if (!ctx.canConnect)
 			return ctx.isShared
 				? m.vmcps_requires_access_to_connect()

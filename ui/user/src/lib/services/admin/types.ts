@@ -638,13 +638,55 @@ export interface ServerK8sSettings {
 }
 
 // Licensing
+// Limits are null when unlimited. A limit of 0 allows none.
+export interface Entitlements {
+	community: boolean;
+	enterprise: boolean;
+	cloud: boolean;
+	enterpriseAuthProviders: boolean;
+	enterpriseModelProviders: boolean;
+	restricted?: boolean;
+	users: number | null;
+	devices: number | null;
+	memoryMiB: number | null;
+	cpuMillicores: number | null;
+	auditLogRetentionDays: number | null;
+}
+
+export interface EntitlementsUsage {
+	users: number;
+	devices: number;
+	memoryMiB: number;
+	cpuMillicores: number;
+}
+
+export type SubscriptionStatus = 'trialing' | 'active' | 'pastDue' | 'ended';
+
+export interface Subscription {
+	plan: string;
+	status: SubscriptionStatus;
+	periodEnd?: string;
+	cancelAtPeriodEnd: boolean;
+	selfService: boolean;
+}
+
+export interface BillingSession {
+	url: string;
+	expiresAt: string;
+}
+
 export interface License {
 	licenseKey: string;
 	source: string;
 	locked: boolean;
 	enterprise: boolean;
-	entitlements: string[] | null;
+	entitlements: Entitlements;
+	// usage is set only while billing is on.
+	usage?: EntitlementsUsage;
 	manualCheckAvailableAt?: string;
+	subscription?: Subscription;
+	syncing?: boolean;
+	syncError?: string;
 }
 
 export interface LicenseManifest {
@@ -742,7 +784,7 @@ export type LLMAuditLogURLFilters = {
 
 // MCP capacity
 
-export type CapacitySource = 'resourceQuota' | 'deployments';
+export type CapacitySource = 'resourceQuota' | 'deployments' | 'plan';
 export interface MCPCapacityInfo {
 	source: CapacitySource;
 	cpuRequested?: string;

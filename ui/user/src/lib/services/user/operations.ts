@@ -126,7 +126,7 @@ export async function getMCPServerOrVMCP(
 
 export async function createVMCP(
 	manifest: VMCPManifest,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<VMCP> {
 	return (await doPost('/vmcps', manifest, opts)) as VMCP;
 }
@@ -141,7 +141,7 @@ export async function revealVMCP(
 export async function updateVMCP(
 	id: string,
 	manifest: VMCPManifest,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<VMCP> {
 	return (await doPut(`/vmcps/${id}`, manifest, opts)) as VMCP;
 }
@@ -150,7 +150,10 @@ export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promis
 	await doDelete(`/vmcps/${id}`, opts);
 }
 
-export async function triggerVMCPUpdate(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+export async function triggerVMCPUpdate(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<void> {
 	await doPost(`/vmcps/${id}/trigger-update`, {}, opts);
 }
 
@@ -201,8 +204,11 @@ export async function getVMCPInstance(
 	return (await doGet(`/vmcp-instances/${id}`, opts)) as VMCPInstance;
 }
 
-export async function createVMCPInstance(vmcpID: string): Promise<VMCPInstance> {
-	return (await doPost('/vmcp-instances', { vmcpID })) as VMCPInstance;
+export async function createVMCPInstance(
+	vmcpID: string,
+	opts?: { dontLogErrors?: boolean }
+): Promise<VMCPInstance> {
+	return (await doPost('/vmcp-instances', { vmcpID }, opts)) as VMCPInstance;
 }
 
 export async function configureVMCPInstance(

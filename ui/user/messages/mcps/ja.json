@@ -70,6 +70,7 @@
 	"mcps_capacity_active_deployments": "アクティブなデプロイ",
 	"mcps_capacity_cpu_requested": "要求 CPU",
 	"mcps_capacity_memory_requested": "要求メモリ",
+	"mcps_capacity_plan_tooltip": "この環境のプランによる上限",
 	"mcps_capacity_quota_tooltip": "最大値はリソースクォータに基づきます",
 	"mcps_capacity_title": "MCP の要求リソース",
 	"mcps_catalog_add_to_vmcp": "vMCP に追加",

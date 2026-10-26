@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { getHttpStatusCode, httpErrorReason } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type VMCP, type VMCPComponent } from '$lib/services';
@@ -12,13 +14,21 @@
 		vmcpManifest,
 		type VMcpFormData
 	} from '$lib/services/vmcps/utils';
-	import { errors } from '$lib/stores';
+	import { errors, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
+	import { CircleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	export type VMcpCreateDraft = VMcpFormData & {
 		components: VMCPComponent[];
+	};
+
+	// SaveFailure is why the last create or update failed. The dialog shows it, so it stays open to fix and retry.
+	type SaveFailure = {
+		title: string;
+		reason?: string;
+		overPlan: boolean;
 	};
 
 	interface Props {
@@ -35,6 +45,7 @@
 	let creatingComponents = $state<VMCPComponent[]>([]);
 	let showRequired = $state<Record<string, boolean>>({});
 	let saving = $state(false);
+	let failure = $state<SaveFailure>();
 	let dialogOpen = $state(false);
 	let confirmToolSearch = $state(false);
 
@@ -63,6 +74,16 @@
 		selectedVMcp = undefined;
 		showRequired = {};
 		confirmToolSearch = false;
+		failure = undefined;
+	}
+
+	// saveFailure explains err: the server's reason when it gave one, and whether the plan had no room for it.
+	function saveFailure(err: unknown, title: string): SaveFailure {
+		return {
+			title,
+			reason: httpErrorReason(err),
+			overPlan: getHttpStatusCode(err) === 402
+		};
 	}
 
 	function openDialog() {
@@ -126,35 +147,43 @@
 			return;
 		}
 
-		await createVMcp(draft);
-	}
-
-	async function createVMcp(draft: VMcpCreateDraft) {
-		if (saving) return false;
+		if (saving) return;
 		saving = true;
+		failure = undefined;
 		try {
-			const created = await UserService.createVMCP({
-				displayName: draft.displayName,
-				description: draft.description,
-				toolSearch: draft.toolSearch,
-				components: draft.components
-			});
-
-			success.add(m.vmcps_vmcp_added({ name: created.displayName }));
-			await onCreated?.(created);
-			closeDialog();
-			return true;
-		} catch {
-			errors.append(m.vmcps_failed_to_create());
-			return false;
+			await createVMcp(draft);
+		} catch (err) {
+			failure = saveFailure(err, m.vmcps_failed_to_create());
 		} finally {
 			saving = false;
 		}
 	}
 
+	async function createVMcp(draft: VMcpCreateDraft) {
+		const created = await UserService.createVMCP(
+			{
+				displayName: draft.displayName,
+				description: draft.description,
+				toolSearch: draft.toolSearch,
+				components: draft.components
+			},
+			{ dontLogErrors: true }
+		);
+
+		success.add(m.vmcps_vmcp_added({ name: created.displayName }));
+		await onCreated?.(created);
+		closeDialog();
+	}
+
+	// saveCreate creates draft for a caller that collected it elsewhere. A failure is thrown, for the caller to show,
+	// and so is a save that's already running, so the caller doesn't take it as done.
 	export async function saveCreate(draft: VMcpCreateDraft) {
-		if (!(await createVMcp(draft))) {
-			throw new Error(m.vmcps_failed_to_create());
+		if (saving) throw new Error(m.vmcps_failed_to_create());
+		saving = true;
+		try {
+			await createVMcp(draft);
+		} finally {
+			saving = false;
 		}
 	}
 
@@ -166,18 +195,23 @@
 
 	async function updateVMcp(vmcp: VMCP) {
 		saving = true;
+		failure = undefined;
 		try {
-			const updatedVMcp = await UserService.updateVMCP(vmcp.id, {
-				...vmcpManifest(vmcp),
-				displayName: form.displayName.trim(),
-				description: form.description.trim(),
-				toolSearch: form.toolSearch
-			});
+			const updatedVMcp = await UserService.updateVMCP(
+				vmcp.id,
+				{
+					...vmcpManifest(vmcp),
+					displayName: form.displayName.trim(),
+					description: form.description.trim(),
+					toolSearch: form.toolSearch
+				},
+				{ dontLogErrors: true }
+			);
 			success.add(m.vmcps_vmcp_updated({ name: updatedVMcp.displayName }));
 			closeDialog();
 			await onUpdated?.(updatedVMcp);
-		} catch {
-			errors.append(m.vmcps_failed_to_update());
+		} catch (err) {
+			failure = saveFailure(err, m.vmcps_failed_to_update());
 		} finally {
 			saving = false;
 		}
@@ -274,6 +308,7 @@
 					? m.vmcps_tool_search_prompt_preview()
 					: m.vmcps_tool_search_prompt_description()}
 			</p>
+			{@render saveFailureNotice()}
 			<div class="mt-4 flex flex-wrap justify-end gap-2">
 				<button
 					type="button"
@@ -368,6 +403,8 @@
 
 			<div class="flex grow"></div>
 
+			{@render saveFailureNotice()}
+
 			{#if !readonly}
 				<div class="flex md:flex-row flex-col justify-end gap-2 mt-4">
 					<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
@@ -385,3 +422,22 @@
 		{/if}
 	</div>
 </ResponsiveDialog>
+
+{#snippet saveFailureNotice()}
+	{#if failure}
+		<div class="notification-error mt-4 flex items-start gap-2 text-sm" role="alert">
+			<CircleAlert class="mt-0.5 size-4 shrink-0" />
+			<div class="flex flex-col gap-1">
+				<p class="font-medium">{failure.title}</p>
+				{#if failure.reason}
+					<p class="font-light">{failure.reason}</p>
+				{/if}
+				{#if failure.overPlan && profile.current.hasAdminAccess?.()}
+					<a class="text-link self-start" href={resolve('/admin/platform?view=license')}>
+						{m.platform_license_notice_view_plan()}
+					</a>
+				{/if}
+			</div>
+		</div>
+	{/if}
+{/snippet}

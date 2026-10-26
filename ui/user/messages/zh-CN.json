@@ -54,6 +54,7 @@
 	"language_select_title": "选择语言",
 	"login_account_inactive": "您无权访问此应用程序。请联系管理员。",
 	"login_continue_with": "使用 {provider} 继续",
+	"login_environment_restricted": "此环境已超出其套餐限额。请联系管理员。",
 	"login_local_heading": "登录 Obot",
 	"login_local_no_account": "还没有账户？请联系管理员为您创建。",
 	"login_local_page_title": "Obot | 登录",

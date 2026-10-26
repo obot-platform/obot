@@ -1,3 +1,5 @@
+import type { Profile } from '$lib/services';
+import type { PageProps } from './$types';
 import LoginPage from './+page.svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -64,5 +66,25 @@ describe('local login page', () => {
 			?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
 		expect(sessionStorage.getItem(emailKey)).toBe(email);
+	});
+
+	it('tells a user signed out of a restricted environment why', async () => {
+		render(LoginPage, {
+			data: {
+				profile: { unauthorized: true, environmentRestricted: true } as Profile
+			} as unknown as PageProps['data'],
+			params: {}
+		});
+
+		await expect
+			.element(page.getByRole('alert'))
+			.toHaveTextContent('This environment has exceeded its plan limits. Contact an admin.');
+	});
+
+	it('does not tell other visitors the environment is restricted', async () => {
+		render(LoginPage);
+
+		await expect.element(page.getByLabelText('Email')).toBeVisible();
+		await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
 	});
 });

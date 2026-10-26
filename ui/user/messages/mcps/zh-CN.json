@@ -70,6 +70,7 @@
 	"mcps_capacity_active_deployments": "活跃部署",
 	"mcps_capacity_cpu_requested": "已请求 CPU",
 	"mcps_capacity_memory_requested": "已请求内存",
+	"mcps_capacity_plan_tooltip": "此环境套餐的上限",
 	"mcps_capacity_quota_tooltip": "最大值基于资源配额",
 	"mcps_capacity_title": "MCP 请求的资源",
 	"mcps_catalog_add_to_vmcp": "添加到 vMCP",
