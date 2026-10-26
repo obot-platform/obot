@@ -13,6 +13,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -147,7 +148,7 @@ func (h *Handler) ListServerVersions(req api.Context) error {
 	// Find the server
 	server, err := h.findServerByName(req, actualServerName, reverseDNS)
 	if err != nil {
-		return h.notFoundError("Server not found")
+		return err
 	}
 
 	// Return as a ServerList with single item (only "latest" version exists)
@@ -189,7 +190,7 @@ func (h *Handler) GetServerVersion(req api.Context) error {
 	// Find the server
 	server, err := h.findServerByName(req, actualServerName, reverseDNS)
 	if err != nil {
-		return h.notFoundError("Server not found")
+		return err
 	}
 
 	return req.Write(server)
@@ -207,6 +208,9 @@ func (h *Handler) findServerByName(req api.Context, serverName, reverseDNS strin
 	}
 	definition, instance, err := vmcp.ResolveID(req.Context(), req.Storage, serverName)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.RegistryServerResponse{}, h.notFoundError("Server not found")
+		}
 		return types.RegistryServerResponse{}, err
 	}
 	if definition == nil || instance != nil || !registryVMCPVisible(req.User, definition) {

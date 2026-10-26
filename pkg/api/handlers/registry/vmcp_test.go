@@ -29,14 +29,22 @@ import (
 // client is nil), or runtime action during discovery fails the endpoint tests.
 type registryTestStorage struct {
 	kclient.WithWatch
-	reader kclient.Reader
+	reader  kclient.Reader
+	getErr  error
+	listErr error
 }
 
 func (s *registryTestStorage) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	if s.getErr != nil {
+		return s.getErr
+	}
 	return s.reader.Get(ctx, key, obj, opts...)
 }
 
 func (s *registryTestStorage) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
+	if s.listErr != nil {
+		return s.listErr
+	}
 	return s.reader.List(ctx, list, opts...)
 }
 
