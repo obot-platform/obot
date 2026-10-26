@@ -48,7 +48,7 @@
     "robots-parser": "^3.0.1",
     "typescript": "~6.0.2",
     "unified": "^11.0.5",
-    "wrangler": "^4.147.0"
+    "wrangler": "^4.153.0"
   },
   "browserslist": {
     "production": [
