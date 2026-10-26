@@ -180,6 +180,13 @@ func TestCheckStateResponse(t *testing.T) {
 			wantInvalidSession: true,
 		},
 		{
+			name:               "OAuth provider rejects a Local session cookie",
+			statusCode:         http.StatusInternalServerError,
+			body:               "failed to get state: failed to load cookied session: cookie signature not valid\n",
+			wantErr:            true,
+			wantInvalidSession: true,
+		},
+		{
 			name:       "other provider error",
 			statusCode: http.StatusInternalServerError,
 			body:       "failed to get state: failed to load cookied session: error loading postgres session: connection refused\n",
