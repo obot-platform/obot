@@ -8,9 +8,18 @@ import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-vi.mock('$app/navigation', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$app/navigation')>()),
-	goto: vi.fn()
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	invalidate: vi.fn(),
+	invalidateAll: vi.fn(),
+	preloadCode: vi.fn(),
+	preloadData: vi.fn(),
+	beforeNavigate: vi.fn(),
+	afterNavigate: vi.fn(),
+	onNavigate: vi.fn(),
+	pushState: vi.fn(),
+	replaceState: vi.fn(),
+	disableScrollHandling: vi.fn()
 }));
 
 it('links dedicated components by instance ID without loading deployment data', async () => {
@@ -40,14 +49,14 @@ it('links dedicated components by instance ID without loading deployment data', 
 		.element(page.getByRole('button', { name: 'View vMCP Deployment', exact: true }))
 		.not.toBeInTheDocument();
 	await vi.waitFor(() =>
-		expect(goto).toHaveBeenCalledWith('/vmcps/vmcp1-test/instance/vmcpi1-test')
+		expect(vi.mocked(goto).mock.calls[0]?.[0]).toBe('/vmcps/vmcp1-test/instance/vmcpi1-test')
 	);
 	await page.getByRole('button', { name: 'Row actions' }).click();
 	await page.getByRole('button', { name: 'View vMCP', exact: true }).click();
-	await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/vmcps/vmcp1-test'));
-	expect(vi.mocked(goto).mock.calls).toEqual([
-		['/vmcps/vmcp1-test/instance/vmcpi1-test'],
-		['/vmcps/vmcp1-test']
+	await vi.waitFor(() => expect(vi.mocked(goto).mock.calls[1]?.[0]).toBe('/vmcps/vmcp1-test'));
+	expect(vi.mocked(goto).mock.calls.map(([url]) => url)).toEqual([
+		'/vmcps/vmcp1-test/instance/vmcpi1-test',
+		'/vmcps/vmcp1-test'
 	]);
 });
 

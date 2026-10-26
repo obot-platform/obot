@@ -30,12 +30,20 @@ vi.mock('$app/state', async (importOriginal) => {
 	return createAppState(actual);
 });
 
-vi.mock('$app/navigation', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$app/navigation')>();
+vi.mock('$app/navigation', async () => {
 	const { applyTestGoto } = await import('../../../tests/helpers/navigation.svelte');
 	return {
-		...actual,
-		goto: (url: string | URL) => applyTestGoto(url)
+		goto: (url: string | URL) => applyTestGoto(url),
+		invalidate: vi.fn(),
+		invalidateAll: vi.fn(),
+		preloadCode: vi.fn(),
+		preloadData: vi.fn(),
+		beforeNavigate: vi.fn(),
+		afterNavigate: vi.fn(),
+		onNavigate: vi.fn(),
+		pushState: vi.fn(),
+		replaceState: vi.fn(),
+		disableScrollHandling: vi.fn()
 	};
 });
 

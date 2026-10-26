@@ -16,13 +16,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-vi.mock('$app/navigation', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$app/navigation')>();
-	return {
-		...actual,
-		invalidate: vi.fn(async () => {})
-	};
-});
+vi.mock('$app/navigation', () => ({
+	goto: vi.fn(),
+	invalidate: vi.fn(async () => {}),
+	invalidateAll: vi.fn(),
+	preloadCode: vi.fn(),
+	preloadData: vi.fn(),
+	beforeNavigate: vi.fn(),
+	afterNavigate: vi.fn(),
+	onNavigate: vi.fn(),
+	pushState: vi.fn(),
+	replaceState: vi.fn(),
+	disableScrollHandling: vi.fn()
+}));
 
 vi.mock('$lib/url', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$lib/url')>()),

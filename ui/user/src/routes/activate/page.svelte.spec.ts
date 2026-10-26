@@ -12,17 +12,22 @@ const setupToken = 'a-high-entropy-owner-setup-token-value';
 // On success the page leaves for /change-password. A real navigation would tear down the test
 // browser, so capture the call. This component test has no initialized SvelteKit router;
 // emulate shallow URL replacement with the browser's native implementation.
-const goto = vi.fn(async (_url: string) => {});
-const replaceState = vi.fn((url: string | URL, state: App.PageState) => {
-	History.prototype.replaceState.call(window.history, state, '', url);
-});
+const { goto } = vi.hoisted(() => ({
+	goto: vi.fn(async (url: string | URL) => {
+		History.prototype.replaceState.call(window.history, null, '', url);
+	})
+}));
 vi.mock('$app/navigation', () => ({
-	goto: (url: string) => goto(url),
-	replaceState: (url: string | URL, state: App.PageState) => replaceState(url, state)
+	goto
 }));
 
 function setFragment(fragment: string) {
-	replaceState(window.location.pathname + fragment, {});
+	History.prototype.replaceState.call(
+		window.history,
+		null,
+		'',
+		window.location.pathname + fragment
+	);
 }
 
 function mockActivate(respond: () => Response) {
@@ -38,7 +43,6 @@ function mockActivate(respond: () => Response) {
 afterEach(() => {
 	goto.mockClear();
 	setFragment('');
-	replaceState.mockClear();
 	profile.initialize();
 });
 
@@ -46,19 +50,16 @@ describe('owner activation page', () => {
 	it('exchanges the token from the URL fragment and leaves for the password page', async () => {
 		const { activate, sentBody } = mockActivate(() => HttpResponse.json({ activated: true }));
 		setFragment(`#token=${setupToken}`);
-		replaceState.mockClear();
+		goto.mockClear();
 
 		render(ActivatePage);
 
 		// Only the token is sent: the endpoint must not accept a caller-supplied email or user ID.
 		// Wait on the body: the spy records the call before its request body has finished parsing.
 		await vi.waitFor(() => expect(sentBody()).toEqual({ setupToken }));
-		expect(replaceState).toHaveBeenCalledWith(
-			window.location.pathname + window.location.search,
-			{}
-		);
+		expect(window.location.hash).toBe('');
 		expect(activate).toHaveBeenCalledTimes(1);
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(2));
 	});
 
 	it('sends a token containing "+" literally rather than form-decoding it to a space', async () => {
@@ -123,7 +124,7 @@ describe('owner activation page', () => {
 				)
 			)
 			.toBeVisible();
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto).toHaveBeenCalledTimes(1); // fragment removal only
 	});
 
 	it('continues to vMCPs once the password is set', async () => {
@@ -133,7 +134,10 @@ describe('owner activation page', () => {
 		render(ActivatePage);
 
 		await vi.waitFor(() =>
-			expect(goto).toHaveBeenCalledWith('/change-password?rd=%2Fvmcps%3Fnew%3Dtrue')
+			expect(goto).toHaveBeenCalledWith(
+				'/change-password?rd=%2Fvmcps%3Fnew%3Dtrue',
+				expect.objectContaining({ invalidateAll: true })
+			)
 		);
 	});
 
@@ -144,7 +148,7 @@ describe('owner activation page', () => {
 
 		await expect.element(page.getByText(/Obot requires activation/)).toBeVisible();
 		expect(activate).not.toHaveBeenCalled();
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto).toHaveBeenCalledTimes(1); // fragment removal only
 	});
 
 	it('sends a setup session without a link on to the password page', async () => {
@@ -153,7 +157,12 @@ describe('owner activation page', () => {
 
 		render(ActivatePage);
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/change-password'));
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith(
+				'/change-password',
+				expect.objectContaining({ invalidateAll: true })
+			)
+		);
 		expect(activate).not.toHaveBeenCalled();
 	});
 
@@ -165,7 +174,7 @@ describe('owner activation page', () => {
 		render(ActivatePage);
 
 		await vi.waitFor(() => expect(sentBody()).toEqual({ setupToken }));
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(2));
 	});
 
 	it('rejects a bad link inline even when a setup session exists', async () => {
@@ -177,6 +186,6 @@ describe('owner activation page', () => {
 
 		await expect.element(page.getByText('invalid or expired setup link')).toBeVisible();
 		expect(profile.current.expired).not.toBe(true);
-		expect(goto).not.toHaveBeenCalled();
+		expect(goto).toHaveBeenCalledTimes(1); // fragment removal only
 	});
 });

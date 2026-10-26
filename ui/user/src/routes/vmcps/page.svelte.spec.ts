@@ -13,11 +13,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-vi.mock('$app/navigation', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$app/navigation')>();
+vi.mock('$app/state', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/state')>();
+	const { createAppState } = await import('../../tests/helpers/navigation.svelte');
+	return createAppState(actual);
+});
+
+vi.mock('$app/navigation', async () => {
+	const { applyTestGoto } = await import('../../tests/helpers/navigation.svelte');
 	return {
-		...actual,
-		replaceState: vi.fn()
+		goto: (url: string | URL) => applyTestGoto(url),
+		invalidate: vi.fn(),
+		invalidateAll: vi.fn(),
+		preloadCode: vi.fn(),
+		preloadData: vi.fn(),
+		beforeNavigate: vi.fn(),
+		afterNavigate: vi.fn(),
+		onNavigate: vi.fn(),
+		pushState: vi.fn(),
+		replaceState: vi.fn(),
+		disableScrollHandling: vi.fn()
 	};
 });
 
