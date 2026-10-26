@@ -5,7 +5,7 @@ title: Product Analytics
 
 # Product Analytics
 
-When enabled, Obot reports aggregate product usage once per day. These reports help the Obot team
+When enabled, Obot reports aggregate product usage 30 minutes after startup and then once per day. These reports help the Obot team
 understand which capabilities are used and prioritize product improvements. Product analytics
 applies to the installation as a whole, not to an individual user.
 
@@ -60,5 +60,5 @@ When available, reports also contain these aggregate usage fields:
 ## Upgrade checks are separate
 
 The software upgrade check is independent of product-analytics consent. It sends the installation ID
-and current version once at startup and every 24 hours, even when analytics consent is undecided or
+and current version 30 minutes after startup and then every 24 hours, even when analytics consent is undecided or
 disabled. Set `OBOT_SERVER_DISABLE_UPDATE_CHECK=true` to disable upgrade checks.

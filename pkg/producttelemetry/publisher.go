@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	dailyReportWindow = 10 * time.Minute
+	initialReportDelay = 30 * time.Minute
+	dailyReportWindow  = 10 * time.Minute
 )
 
 type consentReader interface {
@@ -28,7 +29,7 @@ type reportSender interface {
 	Send(context.Context, clienttypes.ProductTelemetryRequest) error
 }
 
-// Publisher collects and sends product telemetry at startup and at a jittered daily UTC time.
+// Publisher collects and sends product telemetry shortly after startup and at a jittered daily UTC time.
 type Publisher struct {
 	consent         consentReader
 	gatewayClient   requestGatewayClient
@@ -36,6 +37,7 @@ type Publisher struct {
 	licenseProvider licenseEntitlementProvider
 	engine          string
 	sender          reportSender
+	initialDelay    time.Duration
 	done            chan struct{}
 }
 
@@ -69,6 +71,7 @@ func newPublisher(consent consentReader, gatewayClient requestGatewayClient, sto
 		licenseProvider: licenseProvider,
 		engine:          engine,
 		sender:          sender,
+		initialDelay:    initialReportDelay,
 		done:            make(chan struct{}),
 	}
 }
@@ -83,6 +86,11 @@ func (p *Publisher) start(ctx context.Context, currentVersion string, force bool
 
 func (p *Publisher) run(ctx context.Context) {
 	defer close(p.done)
+
+	// Delay the first report so that short-lived instances and frequent restarts don't each send one.
+	if err := wait(ctx, p.initialDelay); err != nil {
+		return
+	}
 	p.runOnce(ctx)
 
 	for {
