@@ -44,6 +44,7 @@ func testVersionChecker(serverURL string) *VersionChecker {
 		httpClient:       http.DefaultClient,
 		currentVersion:   "v1.2.3",
 		upgradeServerURL: serverURL,
+		initialDelay:     10 * time.Millisecond,
 		checkInterval:    10 * time.Millisecond,
 		requestTimeout:   upgradeCheckTimeout,
 		done:             make(chan struct{}),
@@ -154,7 +155,30 @@ func TestVersionCheckerInstallationIDFailureIsSynchronous(t *testing.T) {
 	}
 }
 
-func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
+func TestVersionCheckerWaitsForInitialDelay(t *testing.T) {
+	requests := make(chan *http.Request, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requests <- request.Clone(request.Context())
+		_, _ = w.Write([]byte(`{"upgradeAvailable":false,"latestVersion":""}`))
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	checker := testVersionChecker(server.URL)
+	checker.initialDelay = time.Hour
+	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
+		t.Fatalf("start() error = %v", err)
+	}
+	select {
+	case <-requests:
+		t.Fatal("checker sent a request before the initial delay elapsed")
+	case <-time.After(100 * time.Millisecond):
+	}
+	cancel()
+	waitForDone(t, checker.done)
+}
+
+func TestVersionCheckerChecksAfterInitialDelayAndOnSchedule(t *testing.T) {
 	requests := make(chan *http.Request, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		requests <- request.Clone(request.Context())

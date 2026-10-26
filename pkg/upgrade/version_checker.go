@@ -17,9 +17,10 @@ import (
 )
 
 const (
-	upgradeCheckEndpoint = "check-upgrade"
-	upgradeCheckInterval = 24 * time.Hour
-	upgradeCheckTimeout  = 5 * time.Second
+	upgradeCheckEndpoint     = "check-upgrade"
+	upgradeCheckInitialDelay = 2 * time.Hour
+	upgradeCheckInterval     = 24 * time.Hour
+	upgradeCheckTimeout      = 5 * time.Second
 )
 
 type Status struct {
@@ -37,6 +38,7 @@ type VersionChecker struct {
 	installationID   string
 	currentVersion   string
 	upgradeServerURL string
+	initialDelay     time.Duration
 	checkInterval    time.Duration
 	requestTimeout   time.Duration
 
@@ -57,6 +59,7 @@ func NewVersionChecker(ctx context.Context, opts VersionCheckerOptions) (*Versio
 		httpClient:       http.DefaultClient,
 		currentVersion:   version.Get().String(),
 		upgradeServerURL: EndpointURL(ServerBaseURL(), upgradeCheckEndpoint),
+		initialDelay:     upgradeCheckInitialDelay,
 		checkInterval:    upgradeCheckInterval,
 		requestTimeout:   upgradeCheckTimeout,
 		done:             make(chan struct{}),
@@ -101,21 +104,22 @@ func (c *VersionChecker) Status() Status {
 func (c *VersionChecker) run(ctx context.Context) {
 	defer close(c.done)
 
-	timer := time.NewTimer(c.checkInterval)
+	// Delay the first check so that short-lived instances and frequent restarts don't each trigger a check.
+	timer := time.NewTimer(c.initialDelay)
 	defer timer.Stop()
 
 	for {
-		if err := c.checkForUpgrade(ctx); err != nil {
-			slog.Debug("failed to check for server upgrade", "error", err)
-		}
-
 		select {
 		case <-ctx.Done():
 			slog.Debug("upgrade check context cancelled, exiting")
 			return
 		case <-timer.C:
-			timer.Reset(c.checkInterval)
 		}
+
+		if err := c.checkForUpgrade(ctx); err != nil {
+			slog.Debug("failed to check for server upgrade", "error", err)
+		}
+		timer.Reset(c.checkInterval)
 	}
 }
 
