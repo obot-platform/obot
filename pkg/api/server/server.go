@@ -367,7 +367,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				return
 			}
 
-			if strings.HasPrefix(req.URL.Path, "/api/") {
+			if strings.HasPrefix(req.URL.Path, "/api/") || authz.IsMCPRegistryRequest(req) {
 				rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
 				rw.Header().Set("Pragma", "no-cache")
 				rw.Header().Set("Expires", "0")

@@ -39,6 +39,15 @@ func TestRegistryAnonymousAccessAndOAuthChallenge(t *testing.T) {
 				response := httptest.NewRecorder()
 				handler(response, httptest.NewRequest(method, path, nil))
 				if enabled {
+					for header, want := range map[string]string{
+						"Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+						"Pragma":        "no-cache",
+						"Expires":       "0",
+					} {
+						if got := response.Header().Get(header); got != want {
+							t.Fatalf("%s %s: %s = %q, want %q", method, path, header, got, want)
+						}
+					}
 					if response.Code != http.StatusOK || response.Header().Get("WWW-Authenticate") != "" {
 						t.Fatalf("%s enabled: %d, %v", method, response.Code, response.Header())
 					}
