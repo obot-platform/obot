@@ -535,7 +535,7 @@ func TestTunnelAcceptsMultipleConnections(t *testing.T) {
 
 	_ = connection.Close()
 	select {
-	case <-serveErrors:
+	case <-serveErrors: //nolint:errcheck // Connection close errors are expected; only termination matters here.
 	case <-time.After(time.Second):
 		t.Fatal("second tunnel client did not stop")
 	}
@@ -564,7 +564,7 @@ func TestManagerDisconnectsAllTunnelConnections(t *testing.T) {
 		return localTunnelConnectionCount(manager, "office") == 0
 	}, "tunnel connections remained registered")
 	select {
-	case <-serveErrors:
+	case <-serveErrors: //nolint:errcheck // Disconnect errors are expected; only termination matters here.
 	case <-time.After(time.Second):
 		t.Fatal("second tunnel client remained connected")
 	}
@@ -635,7 +635,7 @@ func TestTunnelRoutesRequestsByName(t *testing.T) {
 	server.Close()
 	for range 2 {
 		select {
-		case <-errorsByClient:
+		case <-errorsByClient: //nolint:errcheck // Shutdown errors are expected; only termination matters here.
 		case <-time.After(time.Second):
 			t.Fatal("named tunnel client did not stop")
 		}
@@ -948,7 +948,7 @@ func TestTunnelRoutesThroughPeerReplicaAndDisconnectsRemotely(t *testing.T) {
 	}, "remote disconnect did not remove the tunnel session")
 	for range 2 {
 		select {
-		case <-serveErrors:
+		case <-serveErrors: //nolint:errcheck // Shutdown errors are expected; only termination matters here.
 		case <-time.After(5 * time.Second):
 			t.Fatal("remote disconnect did not stop every tunnel client session")
 		}
@@ -1382,7 +1382,7 @@ func newConnectedTestTunnel(t *testing.T) (*Manager, *http.Client, func()) {
 		_ = connection.Close()
 		server.Close()
 		select {
-		case <-serveErrors:
+		case <-serveErrors: //nolint:errcheck // Shutdown errors are expected; only termination matters here.
 		case <-time.After(time.Second):
 			t.Errorf("tunnel client did not stop")
 		}

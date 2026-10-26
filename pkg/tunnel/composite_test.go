@@ -345,7 +345,7 @@ func TestCompositeForwardsAcrossReplicaWithStateStreamingCancellationAndTeardown
 	}
 	cancelRequest()
 	select {
-	case <-forwardDone:
+	case <-forwardDone: //nolint:errcheck // Cancellation errors are expected; only termination matters here.
 	case <-time.After(2 * time.Second):
 		t.Fatal("canceled composite request did not return")
 	}

@@ -151,10 +151,10 @@ func runOrchestratorProcess(ctx context.Context, binary, keyFile, home, environm
 func stopOrchestrator(cmd *exec.Cmd, wait <-chan error) {
 	_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 	select {
-	case <-wait:
+	case <-wait: //nolint:errcheck // Termination signals are expected to produce an exit error.
 	case <-time.After(5 * time.Second):
 		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
-		<-wait
+		<-wait //nolint:errcheck // SIGKILL is expected to produce an exit error.
 	}
 }
 

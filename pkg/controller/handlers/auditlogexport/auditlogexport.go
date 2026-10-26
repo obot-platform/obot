@@ -258,7 +258,7 @@ func streamingExport[T any, U any](
 			if !writerClosed {
 				_ = pw.CloseWithError(err)
 			}
-			<-uploadErrCh
+			<-uploadErrCh //nolint:errcheck // Wait for cleanup while preserving the original export error.
 		}
 	}()
 
