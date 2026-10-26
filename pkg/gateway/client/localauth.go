@@ -10,6 +10,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -41,6 +42,28 @@ func (c *Client) LocalAuthUsers(ctx context.Context) ([]types.LocalAuthUser, err
 	}
 
 	return users, nil
+}
+
+// LocalAuthOrgUserIDs resolves local account IDs to organization user IDs in one query.
+// Accounts without a Local identity or with a deleted organization user are omitted.
+// Only IDs and hashes are read, so no user or identity decryption is needed.
+func (c *Client) LocalAuthOrgUserIDs(ctx context.Context) (map[uint]uint, error) {
+	var rows []struct {
+		LocalAuthUserID uint
+		UserID          uint
+	}
+	if err := c.db.WithContext(ctx).Table("local_auth_users").
+		Select("local_auth_users.id AS local_auth_user_id, identities.user_id").
+		Joins("JOIN identities ON identities.hashed_provider_user_id = local_auth_users.hashed_email AND identities.auth_provider_namespace = ? AND identities.auth_provider_name = ?", system.DefaultNamespace, system.LocalAuthProvider).
+		Joins("JOIN users ON users.id = identities.user_id AND users.deleted_at IS NULL").
+		Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to resolve local auth organization user IDs: %w", err)
+	}
+	ids := make(map[uint]uint, len(rows))
+	for _, row := range rows {
+		ids[row.LocalAuthUserID] = row.UserID
+	}
+	return ids, nil
 }
 
 func (c *Client) LocalAuthUserByEmail(ctx context.Context, email string) (*types.LocalAuthUser, error) {

@@ -189,11 +189,11 @@ To set it up:
 1. Go to Admin -> Auth Providers and configure the **Local** provider, setting the email domains that local users are allowed to have (`*` allows any domain).
 2. During bootstrap setup, create your first local account. Bootstrap can create only one account at a time.
 3. Save the account and sign in with its email and password. It becomes **Owner** automatically, and you continue in the same session without confirming a handoff or signing in again.
-4. After signing in as Owner, use **Modify** on the Local provider card to create additional users. Assign their roles from the Users page after their first sign-in.
+4. After signing in as Owner, head to the **Users** section to create additional users. You can assign their roles after their first sign-in.
 
-The first bootstrap-created account's password is ready to use by default. You can select the option to require a password change before completing setup. Other new and administrator-reset local passwords require a password change at next sign-in by default; the administrator can turn this off in the user management dialog. Until the change is complete, the backend restricts that session to the password-change flow. A successful change signs out the user's other sessions while preserving the current one.
+The first bootstrap-created account's password is ready to use by default. You can select the option to require a password change before completing setup. Other new and administrator-reset local passwords require a password change at next sign-in by default; the administrator can turn this off in the users management. Until the change is complete, the backend restricts that session to the password-change flow. A successful change signs out the user's other sessions while preserving the current one.
 
-Local users cannot currently rotate their password voluntarily after completing a required change. An administrator must reset it from **Manage Users**; the user will then be prompted to choose a new password at their next sign-in.
+Local users cannot currently rotate their password voluntarily after completing a required change. An administrator must reset it from the **Users** page; the user will then be prompted to choose a new password at their next sign-in.
 
 Deleting a local user prevents them from signing in again, but it does not delete the Obot user account they created by signing in. Delete that from the Users page, as you would for any other user.
 

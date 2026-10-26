@@ -124,13 +124,14 @@ describe('LocalAuthConfigure.svelte', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('saves domain changes without opening user management', async () => {
+	it('saves domain changes and closes the dialog', async () => {
 		const onConfigure = vi.fn(async () => undefined);
 		const dialog = await renderOpenDialog(LocalAuthConfigure, {
 			provider: localProvider,
 			values: { OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: 'example.com' },
 			onConfigure
 		});
+		const dialogElement = dialog.element();
 
 		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
 
@@ -139,10 +140,7 @@ describe('LocalAuthConfigure.svelte', () => {
 				OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: 'example.com'
 			});
 		});
-		await expect.element(dialog.getByText('Allowed Email Domains', { exact: true })).toBeVisible();
-		await expect
-			.element(dialog.getByRole('button', { name: 'Continue', exact: true }))
-			.not.toBeInTheDocument();
+		await expect.element(dialogElement).not.toHaveAttribute('open');
 	});
 
 	it('hides actions for a readonly admin', async () => {
@@ -157,12 +155,13 @@ describe('LocalAuthConfigure.svelte', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('configures an unconfigured provider and stays on the domain screen', async () => {
+	it('configures an unconfigured provider and closes the dialog', async () => {
 		const onConfigure = vi.fn(async () => undefined);
 		const dialog = await renderOpenDialog(LocalAuthConfigure, {
 			provider: { ...localProvider, configured: false },
 			onConfigure
 		});
+		const dialogElement = dialog.element();
 
 		await expect
 			.element(dialog.getByRole('button', { name: 'Continue', exact: true }))
@@ -174,11 +173,7 @@ describe('LocalAuthConfigure.svelte', () => {
 				OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
 			});
 		});
-		await expect
-			.element(dialog.getByRole('button', { name: 'Continue', exact: true }))
-			.not.toBeInTheDocument();
-		await expect.element(dialog.getByText('Allowed Email Domains', { exact: true })).toBeVisible();
-		await expect.element(dialog.getByText('New user', { exact: true })).not.toBeInTheDocument();
+		await expect.element(dialogElement).not.toHaveAttribute('open');
 	});
 
 	describe('required onboarding', () => {

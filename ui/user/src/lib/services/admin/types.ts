@@ -291,6 +291,7 @@ export interface AuthProviderSCIM {
 // A user of the built-in local auth provider. Passwords are never returned by the API.
 export interface LocalAuthUser {
 	id: string;
+	orgUserId?: string;
 	email: string;
 	created: string;
 	requirePasswordChange: boolean;

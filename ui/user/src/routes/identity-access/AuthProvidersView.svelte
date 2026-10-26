@@ -532,6 +532,7 @@
 		} catch (err) {
 			confirmSwitch = false;
 			switchError = parseErrorContent(err).message;
+			providerConfigure?.open();
 		} finally {
 			switching = false;
 		}

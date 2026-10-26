@@ -28,6 +28,8 @@ type LocalAuthHandler struct {
 // Passwords are never returned, in any form.
 type LocalAuthUser struct {
 	types.Metadata
+	// OrgUserID is resolved only through the Local provider identity.
+	OrgUserID             string `json:"orgUserId,omitempty"`
 	Email                 string `json:"email"`
 	RequirePasswordChange bool   `json:"requirePasswordChange"`
 }
@@ -58,9 +60,19 @@ func (h *LocalAuthHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list local auth users: %w", err)
 	}
 
+	orgUserIDs, err := req.GatewayClient.LocalAuthOrgUserIDs(req.Context())
+	if err != nil {
+		return err
+	}
+
 	items := make([]LocalAuthUser, 0, len(users))
 	for _, user := range users {
+		var orgUserID string
+		if id, ok := orgUserIDs[user.ID]; ok {
+			orgUserID = strconv.FormatUint(uint64(id), 10)
+		}
 		items = append(items, LocalAuthUser{
+			OrgUserID:             orgUserID,
 			ID:                    strconv.FormatUint(uint64(user.ID), 10),
 			Created:               *types.NewTime(user.CreatedAt),
 			Email:                 user.Email,

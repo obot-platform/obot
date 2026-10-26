@@ -319,7 +319,7 @@ describe('UsersView', () => {
 
 	describe('local auth provider', () => {
 		const pending = localAuthUser('pending@example.com', { id: '10', requirePasswordChange: true });
-		const linked = localAuthUser(activeUser.email, { id: '11' });
+		const linked = localAuthUser(activeUser.email, { id: '11', orgUserId: activeUser.id });
 
 		function mockLocalAccounts(accounts: LocalAuthUser[]) {
 			let items = accounts;
@@ -370,6 +370,38 @@ describe('UsersView', () => {
 			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
 		});
 
+		it('keeps an OAuth user separate from a local account with the same email when deleting', async () => {
+			const removeOrg = vi.fn();
+			const removeLocal = vi.fn();
+			const accounts = mockLocalAccounts([localAuthUser(activeUser.email, { id: '10' })]);
+			worker.use(
+				http.delete('*/api/users/*', () => {
+					removeOrg();
+					return new HttpResponse(null, { status: 204 });
+				}),
+				http.delete('*/api/local-auth/users/10', () => {
+					removeLocal();
+					accounts.setItems([]);
+					return new HttpResponse(null, { status: 204 });
+				})
+			);
+			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			const localRow = userRow(activeUser.email).filter({ hasText: 'Created' });
+			await expect.element(localRow).toBeVisible();
+			await expect
+				.element(userRow(activeUser.email).getByText('Active', { exact: true }))
+				.toBeVisible();
+			await localRow.getByRole('button', { name: 'Row actions' }).click();
+			await expect.element(page.getByRole('button', { name: 'Update Role' })).toBeDisabled();
+			await page.getByRole('button', { name: 'Delete User' }).click();
+			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+			await vi.waitFor(() => expect(removeLocal).toHaveBeenCalledOnce());
+			expect(removeOrg).not.toHaveBeenCalled();
+			await expect.element(userRow(activeUser.email)).toBeVisible();
+		});
+
 		it('keeps org users that have no local auth account', async () => {
 			const claudeTagUser = {
 				...orgUser({
@@ -389,7 +421,7 @@ describe('UsersView', () => {
 			await expect.element(userRow('Claude Tag — Sandbox')).toBeVisible();
 		});
 
-		it('deletes the org user and the local auth user together', async () => {
+		it('deletes local auth user', async () => {
 			const removeOrg = vi.fn();
 			const removeLocal = vi.fn();
 			mockLocalAccounts([linked]);
@@ -410,9 +442,9 @@ describe('UsersView', () => {
 			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 
 			await vi.waitFor(() => {
-				expect(removeOrg).toHaveBeenCalledOnce();
 				expect(removeLocal).toHaveBeenCalledOnce();
 			});
+			expect(removeOrg).not.toHaveBeenCalled();
 		});
 
 		it('deletes only the local auth user when there is no org user', async () => {

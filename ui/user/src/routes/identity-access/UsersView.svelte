@@ -70,19 +70,6 @@
 	// and the server refuses both.
 	const CLAUDE_TAG_MESSAGE = m.identity_access_users_claude_tag_managed();
 
-	function orgUsersByEmail(orgUsers: OrgUser[]) {
-		const byEmail: Record<string, OrgUser> = {};
-		for (const user of orgUsers) {
-			const email = user.email?.trim().toLowerCase();
-			if (email && !byEmail[email]) byEmail[email] = user;
-		}
-		for (const user of orgUsers) {
-			const original = user.originalEmail?.trim().toLowerCase();
-			if (original && !byEmail[original]) byEmail[original] = user;
-		}
-		return byEmail;
-	}
-
 	function mapOrgUser(user: OrgUser, localAuthUser?: LocalAuthUser) {
 		return {
 			...user,
@@ -123,7 +110,7 @@
 			hasOrgUser: false,
 			requirePasswordChange: local.requirePasswordChange,
 			lifecycleStatus: undefined as OrgUserStatus | undefined,
-			status: '',
+			status: m.identity_access_users_status_created(),
 			disabledReasonLabel: undefined as string | undefined,
 			assignedRole: 0,
 			name: '',
@@ -145,10 +132,10 @@
 	}
 
 	function rowsForLocalAuth(orgUsers: OrgUser[], localUsers: LocalAuthUser[]) {
-		const byEmail = orgUsersByEmail(orgUsers);
+		const byId = new Map(orgUsers.map((user) => [user.id, user]));
 		const matched: Record<string, true> = {};
 		const rows = localUsers.map((local) => {
-			const org = byEmail[local.email.trim().toLowerCase()];
+			const org = local.orgUserId ? byId.get(local.orgUserId) : undefined;
 			if (!org) return mapLocalOnlyUser(local);
 			matched[org.id] = true;
 			return mapOrgUser(org, local);
@@ -539,11 +526,10 @@
 		const { orgUserId, localAuthUserId } = deletingUser;
 		loading = true;
 		try {
-			if (orgUserId) {
-				await AdminService.deleteUser(orgUserId);
-			}
 			if (localAuthUserId) {
 				await AdminService.deleteLocalAuthUser(localAuthUserId);
+			} else if (orgUserId) {
+				await AdminService.deleteUser(orgUserId);
 			}
 			await reloadListedUsers();
 		} catch {
