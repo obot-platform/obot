@@ -24,6 +24,8 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -2045,5 +2047,74 @@ func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 				t.Fatal("conversion changed the public component snapshot")
 			}
 		})
+	}
+}
+
+func TestReleaseOutdatedLegacyComponentsKeepsGoingPastARefusal(t *testing.T) {
+	component := types.VMCPComponent{
+		ID:   "component",
+		Name: "component",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:    "current",
+				Runtime: types.RuntimeNPX,
+			},
+		},
+	}
+	legacy := component
+	legacy.SourceDigest = utils.Digest([]any{component, ""})
+	legacy.CatalogEntry.Manifest.Name = "outdated"
+	vmcp := v1.VMCP{
+		Name:      "vmcp1",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{component},
+			},
+		},
+	}
+	instance := func(name string) *v1.VMCPInstance {
+		return &v1.VMCPInstance{
+			Name:      name,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPInstanceSpec{
+				Manifest: types.VMCPInstanceManifest{
+					VMCPID: vmcp.Name,
+				},
+				LegacyComponents: []types.VMCPComponent{legacy},
+			},
+		}
+	}
+	storage := newVMCPTestStorage(&vmcp, instance("refused"), instance("released"))
+	// Storage refuses releasing the first connection for going past the plan.
+	storage.onUpdate = func(obj kclient.Object) {
+		storage.updateErr = nil
+		if obj.GetName() == "refused" {
+			storage.updateErr = &apierrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code:    http.StatusPaymentRequired,
+					Message: "There isn't room on the plan for this.",
+				},
+			}
+		}
+	}
+
+	err := releaseOutdatedLegacyComponents(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps/vmcp1/trigger-update", nil),
+		Storage:        storage,
+	}, vmcp)
+	if httpErr, ok := errors.AsType[*types.ErrHTTP](err); !ok || httpErr.Code != http.StatusPaymentRequired ||
+		!strings.Contains(httpErr.Message, "There isn't room on the plan for this.") {
+		t.Fatalf("releaseOutdatedLegacyComponents() error = %v, want the plan's refusal", err)
+	}
+	for name, wantLegacy := range map[string]bool{"refused": true, "released": false} {
+		var stored v1.VMCPInstance
+		if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: name}, &stored); err != nil {
+			t.Fatal(err)
+		}
+		if kept := len(stored.Spec.LegacyComponents) > 0; kept != wantLegacy {
+			t.Errorf("%s kept its outdated snapshot = %v, want %v", name, kept, wantLegacy)
+		}
 	}
 }

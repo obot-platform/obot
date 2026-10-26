@@ -23,9 +23,9 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/i18n"
-	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -53,18 +53,21 @@ var (
 )
 
 type Server struct {
-	storageClient           storage.Client
-	gatewayClient           *gclient.Client
-	localK8sClient          kclient.Client
-	obotNamespace           string
-	authenticator           *authn.Authenticator
-	authorizer              *authz.Authorizer
-	proxyManager            *proxy.Manager
-	auditLogger             audit.Logger
-	rateLimiter             *ratelimiter.RateLimiter
-	baseURL                 string
-	mcpOAuthScope           string
-	providerEntitlementGate *license.ProviderEntitlementGate
+	storageClient  storage.Client
+	gatewayClient  *gclient.Client
+	localK8sClient kclient.Client
+	obotNamespace  string
+	authenticator  *authn.Authenticator
+	authorizer     *authz.Authorizer
+	proxyManager   *proxy.Manager
+	auditLogger    audit.Logger
+	rateLimiter    *ratelimiter.RateLimiter
+	baseURL        string
+	mcpOAuthScope  string
+	entitlements   entitlements.Reader
+	// restrictions is set with billing. While the plan restricts the environment, only admins and owners can use it.
+	restrictions bool
+	gatedPaths   *http.ServeMux
 	// devUI is set when the UI is served by the Vite dev server (dev mode).
 	devUI bool
 
@@ -85,25 +88,27 @@ type responseWriter struct {
 	auditLogger audit.Logger
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, licenseProvider *license.Provider) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, entitlements entitlements.Reader, restrictions bool) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
 	}
 	s := &Server{
-		storageClient:           storageClient,
-		gatewayClient:           gatewayClient,
-		localK8sClient:          localK8sClient,
-		obotNamespace:           obotNamespace,
-		authenticator:           authn,
-		authorizer:              authz,
-		proxyManager:            proxyManager,
-		baseURL:                 baseURL + "/api",
-		mcpOAuthScope:           scope,
-		auditLogger:             auditLogger,
-		rateLimiter:             rateLimiter,
-		mux:                     http.NewServeMux(),
-		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
+		storageClient:  storageClient,
+		gatewayClient:  gatewayClient,
+		localK8sClient: localK8sClient,
+		obotNamespace:  obotNamespace,
+		authenticator:  authn,
+		authorizer:     authz,
+		proxyManager:   proxyManager,
+		baseURL:        baseURL + "/api",
+		mcpOAuthScope:  scope,
+		auditLogger:    auditLogger,
+		rateLimiter:    rateLimiter,
+		mux:            http.NewServeMux(),
+		entitlements:   entitlements,
+		restrictions:   restrictions,
+		gatedPaths:     gatedPaths(),
 	}
 	s.otelHandler = traced(s.mux)
 	return s
@@ -334,7 +339,15 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 
 		var shouldLogError bool
-		err = s.providerEntitlementGate.Check(req)
+		err = s.entitlementGate(req, user)
+		// Users the restriction refuses are signed out, and their page loads go to the login page. MCP clients are
+		// told why the gate refused their call.
+		if errors.Is(err, errRestricted) && signOutRestricted(rw, req) {
+			return
+		}
+		if err != nil && answerRefusedMCPCall(rw, req, err) {
+			return
+		}
 		if err == nil {
 			if !s.authorizer.Authorize(req, user) {
 				if _, err := req.Cookie(auth.ObotAccessTokenCookie); err == nil && req.URL.Path == "/api/me" {

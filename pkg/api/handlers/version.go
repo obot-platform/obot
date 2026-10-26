@@ -8,7 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/billing"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -30,12 +33,16 @@ type UpgradeStatusReader interface {
 }
 
 type VersionHandlerOptions struct {
-	ProviderConfiguration     mcptester.ProviderConfigurationResolver
-	ModelProxyURL             *url.URL
-	ModelProxySettings        mcptester.ModelProxySettingsReader
-	GatewayClient             *client.Client
-	StorageClient             storage.Client
+	ProviderConfiguration mcptester.ProviderConfigurationResolver
+	ModelProxyURL         *url.URL
+	ModelProxySettings    mcptester.ModelProxySettingsReader
+	GatewayClient         *client.Client
+	StorageClient         storage.Client
+	// Entitlements reads the license's or, with billing, the plan's entitlements. LicenseProvider is the Keygen
+	// license, which reports hasValidLicense. Billing is nil without billing.
+	Entitlements              entitlements.Reader
 	LicenseProvider           *license.Provider
+	Billing                   *billing.Subscription
 	PostgresDSN               string
 	Engine                    string
 	MCPNetworkPolicyEnabled   bool
@@ -80,14 +87,9 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		engine = mcp.RuntimeBackendKubernetes
 	}
 
-	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient)
-	if err != nil {
-		return nil, err
-	}
-
 	upgradeStatus := v.upgradeStatus()
 
-	entitlements, err := v.LicenseProvider.Entitlements(ctx)
+	granted, usage, err := v.entitlements(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -102,15 +104,26 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		return nil, err
 	}
 
+	// Users and devices are counted now, since their changes don't trigger billing's recount.
+	var counted types.EntitlementsUsage
+	if usage != nil {
+		counted = *usage
+	}
+	counted.Users, counted.Devices = userCount, deviceCount
+	violations, err := v.violations(ctx, granted, counted)
+	if err != nil {
+		return nil, err
+	}
+
 	values := map[string]any{
 		"upgradeAvailable":             upgradeStatus.UpgradeAvailable,
 		"latestVersion":                upgradeStatus.LatestVersion,
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
-		"enterprise":                   slices.Contains(entitlements, license.EnterpriseEntitlement),
-		"community":                    slices.Contains(entitlements, license.CommunityEntitlement),
-		"licenseEntitlements":          entitlements,
+		"enterprise":                   granted.Enterprise,
+		"community":                    granted.Community,
+		"licenseEntitlements":          license.Codes(granted),
 		"userCount":                    userCount,
 		"deviceCount":                  deviceCount,
 		"engine":                       engine,
@@ -123,20 +136,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		values[key] = value
 	}
 
-	userLimit, err := v.LicenseProvider.UserLimit(ctx)
-	if err != nil {
-		return nil, err
+	if granted.Users != nil {
+		values["userLimit"] = *granted.Users
 	}
-	if !userLimit.Unlimited {
-		values["userLimit"] = userLimit.Maximum
+	if granted.Devices != nil {
+		values["deviceLimit"] = *granted.Devices
 	}
-
-	deviceLimit, err := v.LicenseProvider.DeviceLimit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !deviceLimit.Unlimited {
-		values["deviceLimit"] = deviceLimit.Maximum
+	if v.Billing != nil {
+		values["billingEnabled"] = true
 	}
 
 	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {
@@ -185,7 +192,38 @@ func (v *VersionHandler) featureValues() map[string]bool {
 	}
 }
 
-func missingEntitlements(violations []license.Violation) []string {
+// entitlements returns the environment's entitlements. With billing, it also returns the leader's last count, from the
+// same read of the BillingSubscription.
+func (v *VersionHandler) entitlements(ctx context.Context) (types.Entitlements, *types.EntitlementsUsage, error) {
+	if v.Billing == nil {
+		granted, err := v.Entitlements.Entitlements(ctx)
+		return granted, nil, err
+	}
+	subscription, err := v.Billing.Read(ctx)
+	if err != nil {
+		return types.Entitlements{}, nil, err
+	}
+	return billing.EntitlementsOf(subscription.Status), &subscription.Status.Usage, nil
+}
+
+// violations returns the configured auth providers missing an entitlement, the limits usage is over, and a
+// restriction.
+func (v *VersionHandler) violations(ctx context.Context, granted types.Entitlements, usage types.EntitlementsUsage) ([]entitlements.Violation, error) {
+	violations, err := entitlements.ProviderViolations(ctx, v.StorageClient, granted)
+	if err != nil {
+		return nil, err
+	}
+	violations = append(violations, entitlements.LimitViolations(granted, usage)...)
+	if granted.Restricted {
+		violations = append(violations, entitlements.Violation{
+			Type:    "restricted",
+			Message: entitlements.RestrictedMessage,
+		})
+	}
+	return violations, nil
+}
+
+func missingEntitlements(violations []entitlements.Violation) []string {
 	seen := make(map[string]struct{})
 	for _, violation := range violations {
 		for _, entitlement := range violation.MissingEntitlements {

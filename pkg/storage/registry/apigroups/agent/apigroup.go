@@ -34,7 +34,7 @@ func Stores(services *services.Services) (map[string]rest.Storage, error) {
 	}
 
 	for _, name := range typed.SortedKeys(generics) {
-		store, statusStore, err := generic.NewStore(services.DB, generics[name])
+		store, statusStore, err := generic.NewStore(services.DB, generics[name], services.Limits)
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +47,7 @@ func Stores(services *services.Services) (map[string]rest.Storage, error) {
 }
 
 func LeasesAPIGroup(services *services.Services) (*genericapiserver.APIGroupInfo, error) {
-	store, _, err := generic.NewStore(services.DB, &coordinationv1.Lease{})
+	store, _, err := generic.NewStore(services.DB, &coordinationv1.Lease{}, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +24,8 @@ import (
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	"golang.org/x/oauth2"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestVMCPToolSearchThroughEmbeddedMMMCP(t *testing.T) {
@@ -489,6 +492,31 @@ func TestMCPJSONRPCErrorPropagatesThroughTransport(t *testing.T) {
 	}
 }
 
+func TestDeploymentErrorSaysWhyThePlanRefused(t *testing.T) {
+	const reason = "There isn't room on the plan's hosted MCP server memory for this. Free some up, or ask an owner to change the plan."
+	refused := fmt.Errorf("failed to create vMCP connection: %w", &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusPaymentRequired, Message: reason}})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if response := mcpJSONRPCErrorResponse(req, deploymentError(refused)); response != nil {
+			response.write(w, nil)
+		}
+	}))
+	defer server.Close()
+
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "test", Version: "test"}, nil)
+	_, err := client.Connect(t.Context(), &gomcp.StreamableClientTransport{
+		Endpoint:             server.URL,
+		HTTPClient:           server.Client(),
+		DisableStandaloneSSE: true,
+	}, nil)
+	if err == nil || !strings.Contains(err.Error(), reason) || strings.Contains(err.Error(), "failed to") || strings.Contains(err.Error(), "402") {
+		t.Fatalf("Connect() error = %v, want the plan's reason alone", err)
+	}
+
+	if got := deploymentError(errors.New("container crashed")).Error(); got != "failed to ensure server is deployed: container crashed" {
+		t.Fatalf("deploymentError() = %q, want other failures explained as before", got)
+	}
+}
+
 func TestCompositeLoopbackURLsUsesBackendTargetAndPublicAudience(t *testing.T) {
 	const (
 		serverURL       = "https://obot.example.com/"
@@ -554,7 +582,7 @@ func TestGenericToolCallErrorLeavesUnsupportedRequestsToCaller(t *testing.T) {
 		{
 			name:   "oversized body",
 			method: http.MethodPost,
-			body:   strings.Repeat(" ", maxJSONRPCErrorRequestBody+1),
+			body:   strings.Repeat(" ", 1<<20+1),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

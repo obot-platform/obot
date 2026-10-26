@@ -5,16 +5,19 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/billing"
 	"github.com/obot-platform/obot/pkg/mcp"
 )
 
 type MCPCapacityHandler struct {
 	mcpSessionManager *mcp.SessionManager
+	billing           *billing.Subscription
 }
 
-func NewMCPCapacityHandler(mcpSessionManager *mcp.SessionManager) *MCPCapacityHandler {
+func NewMCPCapacityHandler(mcpSessionManager *mcp.SessionManager, subscription *billing.Subscription) *MCPCapacityHandler {
 	return &MCPCapacityHandler{
 		mcpSessionManager: mcpSessionManager,
+		billing:           subscription,
 	}
 }
 
@@ -28,6 +31,14 @@ func (h *MCPCapacityHandler) GetCapacity(req api.Context) error {
 			return types.NewErrBadRequest("%s", nse.Error())
 		}
 		return err
+	}
+	// With billing, the plan sets the limits, and billing counts what hosted MCP servers request.
+	if h.billing != nil {
+		subscription, err := h.billing.Read(req.Context())
+		if err != nil {
+			return err
+		}
+		info = mcp.PlanCapacity(info, billing.EntitlementsOf(subscription.Status), &subscription.Status.Usage)
 	}
 
 	return req.Write(info)

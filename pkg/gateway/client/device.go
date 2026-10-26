@@ -39,9 +39,12 @@ type DeviceEnrollment struct {
 	OSVersion          string
 }
 
-// DeviceLimitProvider resolves the current license-derived device limit.
-type DeviceLimitProvider interface {
-	DeviceLimit(context.Context) (DeviceLimit, error)
+// NewDeviceLimit returns the limit an entitlement's device count sets. nil is unlimited.
+func NewDeviceLimit(limit *int64) DeviceLimit {
+	if limit == nil {
+		return DeviceLimit{Unlimited: true}
+	}
+	return DeviceLimit{Maximum: *limit}
 }
 
 // EnrollDevice registers a device's identity key trust-on-first-use and returns

@@ -11,6 +11,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -70,19 +71,9 @@ type jsonText struct {
 }
 
 // ResolveIdentity resolves whose budgets and guardrails apply to a request, and whether the
-// caller is an admin. The caller's role is read from its obot_groups, not only its groups: a
-// request made with an API key carries only the groups of the key's scopes, so an LLM-only
-// key of an admin has no admin group.
+// caller is an admin or owner.
 func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Identity, bool, error) {
-	userID := user.GetUID()
-	groups := user.GetExtra()["auth_provider_groups"]
-	isAdmin := false
-	for _, g := range [][]string{user.GetGroups(), user.GetExtra()["obot_groups"]} {
-		if slices.Contains(g, types2.GroupAdmin) || slices.Contains(g, types2.GroupOwner) {
-			isAdmin = true
-		}
-	}
-	return Identity{UserID: userID, Groups: groups}, isAdmin, nil
+	return Identity{UserID: user.GetUID(), Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
 }
 
 // filterPolicy converts a guardrail filter into a policy. A guardrail that doesn't exist fails

@@ -1020,8 +1020,8 @@ func TestUserDecoratorRecordsTheUsersStatusOverAnyProviderValue(t *testing.T) {
 			}, true, nil
 		}),
 		c,
-		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-			return UserLimit{Unlimited: true}, nil
+		entitlementsFunc(func(context.Context) (apitypes.Entitlements, error) {
+			return apitypes.Entitlements{}, nil
 		}),
 	)
 
@@ -1070,8 +1070,8 @@ func TestUserDecoratorFailsWhenItCannotReadTheUser(t *testing.T) {
 			}, true, nil
 		}),
 		c,
-		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-			return UserLimit{Unlimited: true}, nil
+		entitlementsFunc(func(context.Context) (apitypes.Entitlements, error) {
+			return apitypes.Entitlements{}, nil
 		}),
 	)
 

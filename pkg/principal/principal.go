@@ -3,8 +3,10 @@ package principal
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
@@ -60,4 +62,15 @@ func APIKeyAttributionFromUser(user kuser.Info) (APIKeyAttribution, bool) {
 		attribution.Name = names[0]
 	}
 	return attribution, true
+}
+
+// IsAdminOrOwner returns whether the caller is an admin or owner. An API key carries only the groups of its scopes,
+// so the caller's role is also read from obot_groups: an LLM-only key of an admin has no admin group.
+func IsAdminOrOwner(user kuser.Info) bool {
+	for _, groups := range [][]string{user.GetGroups(), user.GetExtra()["obot_groups"]} {
+		if slices.Contains(groups, types.GroupAdmin) || slices.Contains(groups, types.GroupOwner) {
+			return true
+		}
+	}
+	return false
 }

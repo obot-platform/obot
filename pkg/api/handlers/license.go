@@ -35,7 +35,7 @@ type LicenseProvider interface {
 	RemoveLicenseKey(context.Context) error
 	Validate(context.Context) error
 	HasValidLicense(context.Context) (bool, error)
-	Entitlements(context.Context) ([]string, error)
+	Entitlements(context.Context) (apitypes.Entitlements, error)
 }
 
 type LicenseHandler struct {
@@ -48,12 +48,19 @@ type LicenseHandler struct {
 }
 
 type LicenseStatus struct {
-	LicenseKey             string     `json:"licenseKey"`
-	Source                 string     `json:"source"`
-	Locked                 bool       `json:"locked"`
-	Enterprise             bool       `json:"enterprise"`
-	Entitlements           []string   `json:"entitlements"`
-	ManualCheckAvailableAt *time.Time `json:"manualCheckAvailableAt,omitempty"`
+	Entitlements apitypes.Entitlements `json:"entitlements"`
+	// Usage is the leader's last count, set only while billing is on.
+	Usage                  *apitypes.EntitlementsUsage `json:"usage,omitempty"`
+	LicenseKey             string                      `json:"licenseKey"`
+	Source                 string                      `json:"source"`
+	Locked                 bool                        `json:"locked"`
+	Enterprise             bool                        `json:"enterprise"`
+	ManualCheckAvailableAt *time.Time                  `json:"manualCheckAvailableAt,omitempty"`
+	// Subscription is set for admins and auditors while billing is on.
+	Subscription *apitypes.Subscription `json:"subscription,omitempty"`
+	// Syncing is true while a requested billing sync runs. SyncError is why the last sync failed.
+	Syncing   bool   `json:"syncing,omitempty"`
+	SyncError string `json:"syncError,omitempty"`
 }
 
 type LicenseUpdate struct {
@@ -222,10 +229,10 @@ func (h *LicenseHandler) status(req api.Context) (LicenseStatus, error) {
 		return LicenseStatus{}, err
 	}
 	status := LicenseStatus{
+		Entitlements:           entitlements,
 		LicenseKey:             displayLicenseKey(licenseKey, req.UserIsAdmin()),
 		Locked:                 h.licenseProvider.LicenseKeyViaConfiguration(),
 		Enterprise:             enterprise,
-		Entitlements:           entitlements,
 		ManualCheckAvailableAt: h.manualLicenseCheckAvailableAt(),
 	}
 

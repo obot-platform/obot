@@ -3,12 +3,14 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/billing"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/groupref"
@@ -284,6 +286,7 @@ func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
 	if err := req.List(&instances, kclient.MatchingFields{"spec.manifest.vmcpID": vmcp.Name}); err != nil {
 		return err
 	}
+	var refusal *types.ErrHTTP
 	for i := range instances.Items {
 		instance := &instances.Items[i]
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -299,9 +302,17 @@ func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
 			}
 			return err
 		})
+		if refused, ok := billing.Refusal(err); ok {
+			// Keep releasing the others. This connection keeps its snapshot until there's room.
+			refusal = refused
+			continue
+		}
 		if err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to update VMCP instance %q: %w", instance.Name, err)
 		}
+	}
+	if refusal != nil {
+		return types.NewErrHTTP(http.StatusPaymentRequired, "The vMCP was updated, but some of its connections keep their current versions. "+refusal.Message)
 	}
 	return nil
 }
