@@ -71,6 +71,8 @@ type Client struct {
 	serviceAccountCacheTTL    time.Duration
 	locks                     sync.Map
 	auditLogCleanupInterval   time.Duration
+	auditLogRetention         AuditLogRetention
+	retentionCleanupOnce      sync.Once
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration
 	deviceScanDeleteBatchSize int
@@ -83,7 +85,13 @@ type Client struct {
 	claudeProvisionGateSlot chan struct{}
 }
 
+// New creates a gateway client that keeps audit logs for the given number of days.
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
+	return NewWithAuditLogRetention(ctx, db, storageClient, encryptionConfig, mcpOAuthTokenTrigger, auditLogPersistenceInterval, auditLogBatchSize, FixedAuditLogRetention(auditLogRetentionDays, llmAuditLogRetentionDays), deviceScanRetentionDays, llmAuditEnabled)
+}
+
+// NewWithAuditLogRetention creates a gateway client that reads its audit log retention on every cleanup pass.
+func NewWithAuditLogRetention(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, auditLogRetention AuditLogRetention, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	auditLogBatchSize, initialCapacity := auditBatchCapacity(auditLogBatchSize)
 	c := &Client{
 		auditLogBatchSize:      auditLogBatchSize,
@@ -106,6 +114,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		llmAuditBatchSize:         defaultLLMAuditLogBatchSize,
 		llmAuditEnabled:           llmAuditEnabled,
 		auditLogCleanupInterval:   defaultAuditLogCleanupInterval,
+		auditLogRetention:         auditLogRetention,
 		auditLogDeleteBatchSize:   defaultAuditLogDeleteBatchSize,
 		deviceScanCleanupInterval: defaultDeviceScanCleanupInterval,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
@@ -116,7 +125,6 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runPendingStateCleanup(ctx)
 	go c.runTokenCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
 	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	go c.runUserLifecycleEventDelivery(ctx)
 	go c.runSCIMGroupDeletionMarkExpiry(ctx)
