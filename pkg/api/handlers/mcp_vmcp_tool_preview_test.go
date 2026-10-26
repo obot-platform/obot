@@ -49,7 +49,7 @@ func TestVMCPComponentToolPreviewConfigUsesCachedSnapshotAndFixedConfiguration(t
 		},
 	}))
 
-	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, gateway, nil, "")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, gateway, nil, "", nil)
 	request := func(vmcpID, userID, componentID string) api.Context {
 		req := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcpID+"/components/"+componentID+"/generate-tool-previews", nil)
 		req.SetPathValue("vmcp_id", vmcpID)
@@ -114,7 +114,7 @@ func TestVMCPComponentToolPreviewUserConfiguration(t *testing.T) {
 	}
 	require.NoError(t, gateway.UpsertCredential(t.Context(), credential))
 	checker := newRecordingMCPAuthChecker("https://oauth.example/authorize")
-	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, gateway, nil, "")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, gateway, nil, "", nil)
 	request := func(body string) api.Context {
 		req := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/components/"+component.ID+"/generate-tool-previews", strings.NewReader(body))
 		req.SetPathValue("vmcp_id", vmcp.Name)
@@ -184,7 +184,7 @@ func TestVMCPComponentToolPreviewHostnameURL(t *testing.T) {
 	component.Configuration = nil
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp).Build()
 	checker := newRecordingMCPAuthChecker("https://oauth.example/authorize")
-	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, newHandlerTestGateway(t), nil, "")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, newHandlerTestGateway(t), nil, "", nil)
 	request := func(body string) api.Context {
 		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 		req.SetPathValue("vmcp_id", vmcp.Name)
@@ -248,7 +248,7 @@ func TestGenerateVMCPComponentToolPreviewsOAuthURLUsesCachedSnapshot(t *testing.
 		},
 	}))
 	checker := newRecordingMCPAuthChecker("https://oauth.example/authorize")
-	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, gateway, nil, "")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, gateway, nil, "", nil)
 	req := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/components/"+component.ID+"/generate-tool-previews/oauth-url", nil)
 	req.SetPathValue("vmcp_id", vmcp.Name)
 	req.SetPathValue("component_id", component.ID)
@@ -319,7 +319,7 @@ func TestVMCPComponentToolPreviewConfigMissingResourcesAreSafe(t *testing.T) {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(vmcp).
 		Build()
-	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, newHandlerTestGateway(t), nil, "")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, newHandlerTestGateway(t), nil, "", nil)
 
 	t.Run("missing vmcp", func(t *testing.T) {
 		missingStorage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()

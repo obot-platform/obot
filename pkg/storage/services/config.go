@@ -19,9 +19,10 @@ type Config struct {
 }
 
 type Services struct {
-	DB    *db.Factory
-	Authn *authn.Authenticator
-	Authz authorizer.Authorizer
+	DB     *db.Factory
+	Authn  *authn.Authenticator
+	Authz  authorizer.Authorizer
+	Limits *Limits
 }
 
 func New(config Config) (_ *Services, err error) {
@@ -43,9 +44,10 @@ func New(config Config) (_ *Services, err error) {
 	slog.Debug("Database factory created successfully", "dsn", sanitizedDSN)
 
 	services := &Services{
-		DB:    dbClient,
-		Authn: authn.NewAuthenticator(config.StorageToken),
-		Authz: &authz.Authorizer{},
+		DB:     dbClient,
+		Authn:  authn.NewAuthenticator(config.StorageToken),
+		Authz:  &authz.Authorizer{},
+		Limits: new(Limits),
 	}
 
 	return services, nil

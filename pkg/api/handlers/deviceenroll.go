@@ -12,18 +12,19 @@ import (
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 // DeviceEnrollHandler serves device enrollment.
 type DeviceEnrollHandler struct {
-	deviceLimitProvider gateway.DeviceLimitProvider
+	entitlements entitlements.Reader
 }
 
-func NewDeviceEnrollHandler(deviceLimitProvider gateway.DeviceLimitProvider) *DeviceEnrollHandler {
+func NewDeviceEnrollHandler(entitlements entitlements.Reader) *DeviceEnrollHandler {
 	return &DeviceEnrollHandler{
-		deviceLimitProvider: deviceLimitProvider,
+		entitlements: entitlements,
 	}
 }
 
@@ -65,11 +66,13 @@ func (h *DeviceEnrollHandler) Enroll(req api.Context) error {
 		return types.NewErrBadRequest("unsupported public key type %T: publicKey must be an ECDSA P-256/P-384/P-521 or Ed25519 key", pub)
 	}
 
-	deviceLimit, err := h.deviceLimitProvider.DeviceLimit(req.Context())
+	granted, err := h.entitlements.Entitlements(req.Context())
 	if err != nil {
 		return fmt.Errorf("failed to resolve device limit: %w", err)
 	}
-	if !deviceLimit.Unlimited && deviceLimit.Maximum <= 0 {
+	deviceLimit := gateway.NewDeviceLimit(granted.Devices)
+	// A limit of 0 allows no new devices. Only a negative limit is invalid.
+	if !deviceLimit.Unlimited && deviceLimit.Maximum < 0 {
 		return fmt.Errorf("invalid device limit %d", deviceLimit.Maximum)
 	}
 
