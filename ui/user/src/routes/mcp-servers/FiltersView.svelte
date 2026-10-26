@@ -70,7 +70,11 @@
 		loading = false;
 	}
 
-	async function navigateAfterCreated() {
+	async function navigateAfterCreated(filter?: MCPFilter) {
+		if (filter) {
+			goto(`/mcp-servers/filters/${filter.id}`);
+			return;
+		}
 		goto(listUrl(), { replaceState: true });
 		await refresh();
 	}

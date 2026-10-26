@@ -25,8 +25,10 @@
 	import NewGuardrailDialog from '../guardrails/NewGuardrailDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
+	import FilterActions from './FilterActions.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
+	import { filterUnsavedChanges } from './filterUnsavedChanges.svelte';
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -72,13 +74,15 @@
 		{ name: 'user', description: m.guardrails_filter_var_user() }
 	];
 
-	let initialFilterId = $derived(initialFilter?.id);
+	let initialFilterId = $state(untrack(() => initialFilter?.id));
+	let savedFilter = $state<MCPFilterInput | undefined>(
+		untrack(() => (initialFilter ? structuredClone($state.snapshot(initialFilter)) : undefined))
+	);
 
 	let filter = $state<{
 		name: string;
 		resources: MCPFilterResource[];
 		selectors: MCPFilterWebhookSelector[];
-		disabled: boolean;
 		guardrailIDs: string[];
 		action: MCPGuardrailFilterAction;
 		direction: MCPGuardrailFilterDirection;
@@ -91,10 +95,11 @@
 			const guardrail = initialFilter?.guardrail;
 			return {
 				name: initialFilter?.name ?? '',
-				resources: initialFilter?.resources ?? [{ id: 'default', type: 'mcpCatalog' }],
-				selectors: initialFilter?.selectors ?? [],
-				disabled: initialFilter?.disabled ?? false,
-				guardrailIDs: guardrail?.guardrailIDs ?? [],
+				resources: structuredClone(
+					$state.snapshot(initialFilter?.resources ?? [{ id: 'default', type: 'mcpCatalog' }])
+				),
+				selectors: structuredClone($state.snapshot(initialFilter?.selectors ?? [])),
+				guardrailIDs: [...(guardrail?.guardrailIDs ?? [])],
 				// Filters block or redact. Anything else, such as a log-only action saved before it was
 				// removed, blocks, as it does when the filter runs.
 				action: guardrail?.action === 'redact' ? 'redact' : 'block',
@@ -118,6 +123,10 @@
 			)
 		)
 	);
+	let savedDraft = $state(untrack(() => JSON.stringify({ filter, subjects })));
+	let dirty = $derived(JSON.stringify({ filter, subjects }) !== savedDraft);
+	const navigation = filterUnsavedChanges(() => !readonly && dirty);
+
 	let resolved = $state<{ users: OrgUser[]; groups: OrgGroup[] }>({ users: [], groups: [] });
 	let searchUsersDialog = $state<ReturnType<typeof SearchUsers>>();
 
@@ -222,7 +231,6 @@
 			name: filter.name.trim(),
 			resources: filter.resources,
 			selectors,
-			disabled: filter.disabled,
 			guardrail: {
 				guardrailIDs: filter.guardrailIDs,
 				action: filter.action,
@@ -238,7 +246,8 @@
 		};
 	}
 
-	async function handleSave() {
+	async function handleSave(disabled: boolean) {
+		if (saving || readonly) return;
 		const samplingRate = Number(filter.samplingRate);
 		if (
 			!filter.name.trim() ||
@@ -257,14 +266,40 @@
 		saving = true;
 		saveError = '';
 		try {
-			const manifest = buildManifest();
+			const manifest = structuredClone($state.snapshot({ ...buildManifest(), disabled }));
+			const submittedDraft = JSON.stringify({ filter, subjects });
 			if (initialFilterId) {
 				const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
+				savedFilter = structuredClone(
+					$state.snapshot({ ...manifest, id: result.id })
+				) as MCPFilterInput;
+				savedDraft = submittedDraft;
 				onUpdate?.(result);
 			} else {
 				const result = await AdminService.createMCPFilter(manifest);
+				initialFilterId = result.id;
+				savedFilter = structuredClone(
+					$state.snapshot({ ...manifest, id: result.id })
+				) as MCPFilterInput;
+				savedDraft = submittedDraft;
 				onCreate?.(result);
 			}
+		} catch (err) {
+			saveError = parseErrorContent(err).message;
+		} finally {
+			saving = false;
+		}
+	}
+	async function disableFilter() {
+		if (!initialFilterId || !savedFilter || saving || readonly) return;
+		saving = true;
+		saveError = '';
+		try {
+			const { name, resources, selectors, guardrail } = savedFilter;
+			const manifest = { name, resources, selectors, guardrail, disabled: true };
+			const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
+			savedFilter = { ...savedFilter, ...manifest };
+			onUpdate?.(result);
 		} catch (err) {
 			saveError = parseErrorContent(err).message;
 		} finally {
@@ -598,60 +633,22 @@
 			<div class="notification-error rounded-md p-3 text-sm">{saveError}</div>
 		{/if}
 	</div>
-	{#if !readonly}
-		<div
-			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
-			out:fly={{ x: -100, duration }}
-			in:fly={{ x: -100 }}
-		>
-			<div class="flex w-full justify-between gap-2">
-				<div>
-					{#if initialFilterId}
-						<button
-							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
-							disabled={saving}
-							onclick={() => {
-								filter.disabled = !filter.disabled;
-								handleSave();
-							}}
-						>
-							{#if saving}
-								<Loading class="size-4" />
-							{:else}
-								{filter.disabled ? m.mcps_filters_enable() : m.mcps_filters_disable()}
-							{/if}
-						</button>
-					{/if}
-				</div>
-				<div class="flex gap-2">
-					<button
-						class="btn btn-secondary"
-						onclick={() => {
-							if (initialFilterId) {
-								onUpdate?.(undefined);
-							} else {
-								onCreate?.(undefined);
-							}
-						}}
-					>
-						{m.common_cancel()}
-					</button>
-					<button
-						id={MCP_FILTERS_FIELD_IDS.saveBtn}
-						class="btn btn-primary text-sm"
-						disabled={saving || validatingCondition || !!conditionError}
-						onclick={handleSave}
-					>
-						{#if saving}
-							<Loading class="size-4" />
-						{:else}
-							{m.core_save()}
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<FilterActions
+		exists={!!initialFilterId}
+		disabled={savedFilter?.disabled ?? !initialFilterId}
+		{dirty}
+		busy={saving}
+		{readonly}
+		blocked={validatingCondition || !!conditionError || guardrailsLoading || !!guardrailsLoadError}
+		onSave={handleSave}
+		onDisable={disableFilter}
+		onCancel={() => {
+			if (navigation.discard()) {
+				if (onUpdate) onUpdate(undefined);
+				else onCreate?.(undefined);
+			}
+		}}
+	/>
 </div>
 
 <SearchUsers

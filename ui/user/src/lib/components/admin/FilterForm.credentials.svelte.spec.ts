@@ -88,8 +88,8 @@ describe('managed credential filter', () => {
 		}
 	);
 	it.each([
-		{ disabled: false, button: 'Save', launches: true },
-		{ disabled: true, button: 'Save', launches: false },
+		{ disabled: false, button: 'Save & apply changes', launches: true },
+		{ disabled: true, button: 'Save disabled', launches: false },
 		{ disabled: true, button: 'Enable Filter', launches: true }
 	])('updates an older instance: %j', async ({ disabled, button, launches }) => {
 		await preparePageData();
@@ -157,9 +157,11 @@ describe('managed credential filter', () => {
 				)
 			)
 			.toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await expect
+			.element(page.getByRole('button', { name: /Save & (enable|apply changes)/ }))
+			.toBeDisabled();
 		await page.getByRole('button', { name: 'Remove removed.rule' }).click();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
 		expect(configuration).toHaveBeenCalledWith(
 			expect.objectContaining({ CREDENTIAL_ALLOW_RULES: '' })
@@ -175,8 +177,10 @@ describe('managed credential filter', () => {
 		initial.mcpServerManifest!.containerizedConfig!.image = 'previous-image';
 		const onUpdate = vi.fn();
 		render(FilterForm, { filter: initial, mcpSystemCatalogEntryId: 'credential-entry', onUpdate });
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect
+			.element(page.getByRole('button', { name: /Save & (enable|apply changes)/ }))
+			.toBeEnabled();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await expect.element(page.getByText('MCP Filter Launch Failed')).toBeVisible();
 		expect(onUpdate).not.toHaveBeenCalled();
 	});
@@ -195,8 +199,10 @@ describe('managed credential filter', () => {
 			mcpSystemCatalogEntryId: 'credential-entry',
 			onUpdate
 		});
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await expect
+			.element(page.getByRole('button', { name: /Save & (enable|apply changes)/ }))
+			.toBeEnabled();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await expect.element(page.getByText(/Catalog entry unavailable/)).toBeVisible();
 		expect(configuration).not.toHaveBeenCalled();
 		expect(onUpdate).not.toHaveBeenCalled();
@@ -267,7 +273,7 @@ describe('managed credential filter', () => {
 		const { configuration } = mockSave();
 		const onCreate = vi.fn();
 		render(FilterForm, { filter: filter(), mcpSystemCatalogEntryId: 'credential-entry', onCreate });
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await vi.waitFor(() => expect(onCreate).toHaveBeenCalled());
 		expect(configuration).toHaveBeenCalledWith({
 			CREDENTIAL_DEFAULT_ACTION: 'block',
@@ -295,7 +301,7 @@ describe('managed credential filter', () => {
 			onUpdate
 		});
 		await page.getByRole('button', { name: 'Remove Slack Bot Token' }).click();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
 		expect(configuration).toHaveBeenCalledWith({
 			CREDENTIAL_DEFAULT_ACTION: 'block',
@@ -310,7 +316,7 @@ describe('managed credential filter', () => {
 		mockSave(true);
 		const onCreate = vi.fn();
 		render(FilterForm, { filter: filter(), mcpSystemCatalogEntryId: 'credential-entry', onCreate });
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await expect.element(page.getByText('MCP Filter Launch Failed')).toBeVisible();
 		expect(onCreate).not.toHaveBeenCalled();
 	});
@@ -328,7 +334,7 @@ describe('managed credential filter', () => {
 		await page
 			.getByRole('button', { name: action === 'redact' ? 'Redact' : 'Block', exact: true })
 			.click();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 		await vi.waitFor(() => expect(onCreate).toHaveBeenCalled());
 		expect(manifest).toHaveBeenCalledWith(expect.objectContaining({ allowedToMutate: true }));
 	});
@@ -350,7 +356,9 @@ describe('managed credential filter', () => {
 				)
 			)
 			.toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await expect
+			.element(page.getByRole('button', { name: /Save & (enable|apply changes)/ }))
+			.toBeDisabled();
 	});
 	it.each([undefined, 'credential-test'])(
 		'saves a different image version through the standard catalog flow (id: %s)',
@@ -379,7 +387,7 @@ describe('managed credential filter', () => {
 			});
 			await page.getByRole('combobox', { name: 'Default action', exact: true }).click();
 			await page.getByRole('button', { name: 'Redact', exact: true }).click();
-			await page.getByRole('button', { name: 'Save', exact: true }).click();
+			await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 			await vi.waitFor(() => expect(onSave).toHaveBeenCalled());
 			expect(catalogLookup).not.toHaveBeenCalled();
 			expect(manifest).toHaveBeenCalledWith(

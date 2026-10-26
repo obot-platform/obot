@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
 	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
@@ -31,6 +30,7 @@
 	import RemoteRuntimeForm from '../mcp/RemoteRuntimeForm.svelte';
 	import UvxRuntimeForm from '../mcp/UvxRuntimeForm.svelte';
 	import CredentialFilterConfiguration from './CredentialFilterConfiguration.svelte';
+	import FilterActions from './FilterActions.svelte';
 	import FilterFormTypeSelection from './FilterFormTypeSelection.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
 	import {
@@ -40,6 +40,7 @@
 		readCredentialPolicy,
 		validateCredentialPolicy
 	} from './credentialPolicy';
+	import { filterUnsavedChanges } from './filterUnsavedChanges.svelte';
 	import { Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -63,7 +64,12 @@
 		mcpSystemCatalogEntryId
 	}: Props = $props();
 
-	let initialFilterId = $derived(initialFilter?.id);
+	let initialFilterId = $state(untrack(() => initialFilter?.id));
+	let savedFilter = $state<MCPFilterInput | undefined>(
+		untrack(() => (initialFilter ? structuredClone($state.snapshot(initialFilter)) : undefined))
+	);
+	let activationFailed = $state(false);
+	let saveStage = $state<'save' | 'configure' | 'activate'>('save');
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let filter = $state<{
@@ -74,7 +80,6 @@
 		selectors: MCPFilterWebhookSelector[];
 		toolName?: string;
 		allowedToMutate?: boolean;
-		disabled?: boolean;
 	}>(
 		untrack(() =>
 			initialFilter
@@ -90,8 +95,7 @@
 								identifiers: selector.identifiers ? [...selector.identifiers] : undefined
 							})) || [],
 						toolName: initialFilter.toolName || '',
-						allowedToMutate: initialFilter.allowedToMutate || false,
-						disabled: initialFilter.disabled || false
+						allowedToMutate: initialFilter.allowedToMutate || false
 					}
 				: {
 						name: '',
@@ -100,15 +104,14 @@
 						secret: '',
 						selectors: [],
 						toolName: '',
-						allowedToMutate: false,
-						disabled: false
+						allowedToMutate: false
 					}
 		)
 	);
 
 	type FilterRuntimeFormData = Omit<RuntimeFormData, 'serverUserType'>;
 	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
-		untrack(() => convertToRuntimeFormData(initialFilter))
+		untrack(() => convertToRuntimeFormData(structuredClone($state.snapshot(initialFilter))))
 	);
 	let credentialConfigurationLoaded = $state(untrack(() => !initialFilter?.id));
 	let credentialLoadError = $state('');
@@ -135,24 +138,16 @@
 	let removingSecret = $state(false);
 	let showValidation = $state(false);
 
-	let launchFilterData = $state<MCPFilter>();
 	let launchError = $state<string>();
-	let launchProgress = $state<number>(0);
+	let launchProgress = $state(0);
 	let launchLogsEventStream = $state<EventStreamService<string>>();
 	let launchLogs = $state<string[]>([]);
-
-	const UNSAVED_LAUNCH_EXIT_MESSAGE = m.mcps_filters_unsaved_exit();
-
-	beforeNavigate(({ cancel }) => {
-		if (!launchFilterData) return;
-		if (!confirm(UNSAVED_LAUNCH_EXIT_MESSAGE)) {
-			cancel();
-			return;
-		}
-		if (!initialFilterId && launchFilterData.id) {
-			void AdminService.deleteMCPFilter(launchFilterData.id).catch(() => {});
-		}
-	});
+	let savedFields = $state(untrack(() => JSON.stringify(filter)));
+	let savedRuntime = $state(untrack(() => JSON.stringify(runtimeFormData)));
+	let dirty = $derived(
+		JSON.stringify(filter) !== savedFields || JSON.stringify(runtimeFormData) !== savedRuntime
+	);
+	const navigation = filterUnsavedChanges(() => !readonly && dirty);
 
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());
@@ -160,31 +155,8 @@
 	let toolNameError = $derived(showValidation && !filter.toolName?.trim());
 
 	onMount(() => {
-		if (initialFilterId) {
-			void revealServerValues();
-		}
-
-		function handleBeforeUnload(e: BeforeUnloadEvent) {
-			if (!launchFilterData) return;
-			e.preventDefault();
-			e.returnValue = UNSAVED_LAUNCH_EXIT_MESSAGE;
-		}
-
-		function handlePageHide(e: PageTransitionEvent) {
-			if (e.persisted) return;
-			if (initialFilterId) return;
-			const id = launchFilterData?.id;
-			if (!id) return;
-			void AdminService.deleteMCPFilter(id, { keepalive: true }).catch(() => {});
-		}
-
-		window.addEventListener('beforeunload', handleBeforeUnload);
-		window.addEventListener('pagehide', handlePageHide);
-
-		return () => {
-			window.removeEventListener('beforeunload', handleBeforeUnload);
-			window.removeEventListener('pagehide', handlePageHide);
-		};
+		if (initialFilterId) void revealServerValues();
+		return () => launchLogsEventStream?.disconnect();
 	});
 
 	async function revealServerValues() {
@@ -247,7 +219,9 @@
 					'Unable to load the saved credential policy. Reload this page before editing.';
 				return;
 			}
-			throw error;
+			credentialLoadError = error instanceof Error ? error.message : m.mcps_unknown_error();
+		} finally {
+			savedRuntime = JSON.stringify(runtimeFormData);
 		}
 	}
 
@@ -393,25 +367,19 @@
 		});
 	}
 
-	async function handleCloseLaunch() {
-		if (launchLogsEventStream) {
-			launchLogsEventStream.disconnect();
-		}
-
-		if (!initialFilter && launchFilterData) {
-			// delete the filter
-			await AdminService.deleteMCPFilter(launchFilterData.id);
-		}
-
+	function handleCloseLaunch() {
+		launchLogsEventStream?.disconnect();
 		launchError = undefined;
-		launchFilterData = undefined;
 		saving = false;
 	}
 
 	async function validateLaunch(
 		filterData: MCPFilter,
-		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined
+		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined,
+		submittedFields: string,
+		submittedRuntime: string
 	) {
+		saveStage = 'configure';
 		if (mcpServerManifest) {
 			const configValues = isCredentialFilter
 				? {
@@ -432,13 +400,16 @@
 			}
 		}
 
+		savedFields = submittedFields;
+		savedRuntime = submittedRuntime;
+		saveStage = 'activate';
 		const launchResponse = filterData.disabled
 			? { success: true }
 			: await AdminService.launchMCPFilter(filterData.id);
 
 		if (!launchResponse.success) {
 			launchError = launchResponse.message;
-			launchFilterData = filterData;
+			activationFailed = true;
 			listLaunchLogs(filterData.id);
 			return false;
 		}
@@ -448,31 +419,49 @@
 		return true;
 	}
 
-	async function disableCredentialFilter() {
-		if (!initialFilterId || !initialFilter || readonly) return;
+	async function disableFilter() {
+		if (!initialFilterId || !savedFilter || readonly || saving) return;
 		saving = true;
 		disableError = '';
+		launchError = undefined;
+		saveStage = 'save';
 		try {
-			// Use saved settings so disabling never applies unsaved policy changes.
-			const result = await AdminService.updateMCPFilter(initialFilterId, {
-				name: initialFilter.name,
-				resources: initialFilter.resources,
-				url: initialFilter.url,
-				selectors: initialFilter.selectors,
-				toolName: initialFilter.toolName,
-				allowedToMutate: initialFilter.allowedToMutate,
-				systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId,
+			// Only persist the saved manifest. Disabling must never apply draft edits.
+			const {
+				name,
+				resources,
+				url,
+				selectors,
+				toolName,
+				allowedToMutate,
+				mcpServerManifest,
+				systemMCPServerCatalogEntryID
+			} = savedFilter;
+			const manifest: MCPFilterManifest = {
+				name,
+				resources,
+				url,
+				selectors,
+				toolName,
+				allowedToMutate,
+				...(mcpSystemCatalogEntryId
+					? { systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId }
+					: { mcpServerManifest, systemMCPServerCatalogEntryID }),
 				disabled: true
-			});
+			};
+			const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
+			savedFilter = { ...savedFilter, ...manifest, id: initialFilterId };
+			activationFailed = false;
 			onUpdate?.(result);
 		} catch (err) {
-			disableError = err instanceof Error ? err.message : 'Unable to disable filter';
+			disableError = err instanceof Error ? err.message : m.mcps_unknown_error();
 		} finally {
 			saving = false;
 		}
 	}
 
-	async function handleSave() {
+	async function handleSave(disabled: boolean) {
+		if (saving || readonly || (runtimeFormData && !credentialConfigurationLoaded)) return;
 		if (
 			isCredentialFilter &&
 			(!credentialConfigurationLoaded || credentialLoadError || credentialError)
@@ -498,6 +487,9 @@
 		}
 
 		saving = true;
+		saveStage = 'save';
+		const submittedFields = JSON.stringify(filter);
+		const submittedRuntime = JSON.stringify(runtimeFormData);
 
 		if (launchLogsEventStream) {
 			// reset launch logs
@@ -507,7 +499,7 @@
 		}
 
 		launchError = undefined;
-		launchFilterData = undefined;
+
 		launchProgress = 0;
 
 		let timeout1 = setTimeout(() => {
@@ -546,7 +538,7 @@
 				allowedToMutate:
 					!!filter.allowedToMutate ||
 					(isCredentialFilter && credentialMutationRequired(credentialPolicy)),
-				disabled: filter.disabled ?? false,
+				disabled,
 				...(isPrebuiltEntry
 					? {
 							systemMCPServerCatalogEntryID: mcpSystemCatalogEntryId
@@ -556,25 +548,32 @@
 						})
 			};
 
-			if (initialFilterId) {
-				const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
-				// skip launch for disabled mcp filter
-				const launchSuccess = await validateLaunch(result, mcpServerManifest);
-
-				if (launchSuccess) {
-					saving = false;
-					onUpdate?.(result);
-				}
-			} else {
-				const result = await AdminService.createMCPFilter(manifest);
-				const launchSuccess = await validateLaunch(result, mcpServerManifest);
-				if (launchSuccess) {
-					saving = false;
-					onCreate?.(result);
-				}
+			const savedManifest = structuredClone($state.snapshot(manifest));
+			const updating = !!initialFilter?.id;
+			const result = initialFilterId
+				? await AdminService.updateMCPFilter(initialFilterId, manifest)
+				: await AdminService.createMCPFilter(manifest);
+			initialFilterId = result.id;
+			savedFilter = structuredClone(
+				$state.snapshot({ ...savedManifest, id: result.id })
+			) as MCPFilterInput;
+			const launchSuccess = await validateLaunch(
+				{ ...result, disabled },
+				mcpServerManifest,
+				submittedFields,
+				submittedRuntime
+			);
+			if (launchSuccess) {
+				savedFields = submittedFields;
+				savedRuntime = submittedRuntime;
+				activationFailed = false;
+				saving = false;
+				if (updating) onUpdate?.(result);
+				else onCreate?.(result);
 			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
+			if (saveStage !== 'save') activationFailed = true;
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);
@@ -726,7 +725,11 @@
 				</div>
 			</div>
 		{:else if runtimeFormData}
-			<div class="flex flex-col gap-4" id={MCP_FILTERS_FIELD_IDS.runtimeFormDetails}>
+			<fieldset
+				disabled={!credentialConfigurationLoaded}
+				class="flex flex-col gap-4 min-w-0"
+				id={MCP_FILTERS_FIELD_IDS.runtimeFormDetails}
+			>
 				{#if !isPrebuiltEntry}
 					{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
 						<NpxRuntimeForm
@@ -797,77 +800,34 @@
 						{/snippet}
 					</CustomConfigurationForm>
 				{/if}
-			</div>
+			</fieldset>
 		{/if}
 
 		<div class="h-px bg-base-400 w-full my-4"></div>
 
 		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
-	{#if !readonly}
-		{#if disableError}<p role="alert" class="text-error">{disableError}</p>{/if}
-		<div
-			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 text-gray-400 z-50"
-			out:fly={{ x: -100, duration }}
-			in:fly={{ x: -100 }}
-		>
-			<div class="flex w-full justify-between gap-2">
-				<div>
-					{#if initialFilter?.id}
-						<button
-							class={twMerge('text-sm btn btn-soft', filter.disabled ? 'btn-primary' : 'btn-error')}
-							disabled={saving ||
-								(isCredentialFilter &&
-									filter.disabled &&
-									(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
-							onclick={() => {
-								if (isCredentialFilter && !filter.disabled) {
-									void disableCredentialFilter();
-									return;
-								}
-								filter.disabled = !filter.disabled;
-								handleSave();
-							}}
-						>
-							{#if saving}
-								<Loading class="size-4" />
-							{:else}
-								{filter.disabled ? m.mcps_filters_enable() : m.mcps_filters_disable()}
-							{/if}
-						</button>
-					{/if}
-				</div>
-				<div class="flex gap-2">
-					<button
-						class="btn btn-secondary"
-						onclick={() => {
-							if (initialFilterId) {
-								onUpdate?.(undefined);
-							} else {
-								onCreate?.(undefined);
-							}
-						}}
-					>
-						{m.common_cancel()}
-					</button>
-					<button
-						id={MCP_FILTERS_FIELD_IDS.saveBtn}
-						class="btn btn-primary text-sm"
-						disabled={saving ||
-							(isCredentialFilter &&
-								(!credentialConfigurationLoaded || !!credentialLoadError || !!credentialError))}
-						onclick={handleSave}
-					>
-						{#if saving}
-							<Loading class="size-4" />
-						{:else}
-							{m.core_save()}
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-	{/if}
+	<FilterActions
+		exists={!!initialFilterId}
+		disabled={savedFilter?.disabled ?? !initialFilterId}
+		{dirty}
+		busy={!!saving}
+		{readonly}
+		blocked={(!!runtimeFormData && !credentialConfigurationLoaded) ||
+			!!credentialLoadError ||
+			(isCredentialFilter && (!credentialConfigurationLoaded || !!credentialError))}
+		{activationFailed}
+		canReapply={isPrebuiltEntry}
+		error={disableError || (!isCredentialFilter ? credentialLoadError : '')}
+		onSave={handleSave}
+		onDisable={disableFilter}
+		onCancel={() => {
+			if (navigation.discard()) {
+				if (onUpdate) onUpdate(undefined);
+				else onCreate?.(undefined);
+			}
+		}}
+	/>
 </div>
 
 <PageLoading
@@ -882,7 +842,18 @@
 	onClose={handleCloseLaunch}
 >
 	{#snippet errorPreContent()}
-		<h4 class="text-xl font-semibold">{m.mcps_filters_launch_failed_form_filter()}</h4>
+		<h4 class="text-xl font-semibold">
+			{saveStage === 'save'
+				? m.mcps_filters_save_failed()
+				: m.mcps_filters_launch_failed_form_filter()}
+		</h4>
+		<p>
+			{saveStage === 'save'
+				? m.mcps_filters_changes_not_saved()
+				: saveStage === 'configure'
+					? m.mcps_filters_configuration_failed()
+					: m.mcps_filters_saved_activation_failed()}
+		</p>
 	{/snippet}
 
 	{#snippet errorPostContent()}

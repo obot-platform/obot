@@ -1194,5 +1194,17 @@
 	"mcps_filters_kind_builtin": "組み込み",
 	"mcps_filters_kind_mcp_server": "MCP サーバー",
 	"mcps_filters_create_guardrail_filter": "ガードレールフィルターを作成",
-	"mcps_filters_create_guardrail": "ガードレールから作成"
+	"mcps_filters_create_guardrail": "ガードレールから作成",
+	"mcps_filters_save_enable": "保存して有効化",
+	"mcps_filters_save_apply": "保存して変更を適用",
+	"mcps_filters_save_disabled": "無効のまま保存",
+	"mcps_filters_saved": "保存済み",
+	"mcps_filters_unsaved_changes": "未保存の変更",
+	"mcps_filters_edits_not_active": "編集内容はまだ適用されていません。",
+	"mcps_filters_activation_failed": "有効化に失敗しました",
+	"mcps_filters_discard_changes": "未保存のフィルターの変更を破棄しますか？",
+	"mcps_filters_save_failed": "フィルターの保存に失敗しました",
+	"mcps_filters_changes_not_saved": "変更は保存されませんでした。",
+	"mcps_filters_configuration_failed": "フィルター設定は保存されましたが、構成に失敗しました。再試行して変更の適用を完了してください。",
+	"mcps_filters_saved_activation_failed": "変更は保存されましたが、有効化に失敗しました。再試行して保存した設定を有効化してください。"
 }

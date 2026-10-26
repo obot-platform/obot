@@ -1194,5 +1194,17 @@
 	"mcps_filters_kind_builtin": "기본 제공",
 	"mcps_filters_kind_mcp_server": "MCP 서버",
 	"mcps_filters_create_guardrail_filter": "가드레일 필터 만들기",
-	"mcps_filters_create_guardrail": "가드레일로 만들기"
+	"mcps_filters_create_guardrail": "가드레일로 만들기",
+	"mcps_filters_save_enable": "저장 및 활성화",
+	"mcps_filters_save_apply": "저장 및 변경 사항 적용",
+	"mcps_filters_save_disabled": "비활성 상태로 저장",
+	"mcps_filters_saved": "저장됨",
+	"mcps_filters_unsaved_changes": "저장하지 않은 변경 사항",
+	"mcps_filters_edits_not_active": "편집 내용이 아직 적용되지 않았습니다.",
+	"mcps_filters_activation_failed": "활성화 실패",
+	"mcps_filters_discard_changes": "저장하지 않은 필터 변경 사항을 삭제하시겠습니까?",
+	"mcps_filters_save_failed": "필터 저장 실패",
+	"mcps_filters_changes_not_saved": "변경 사항이 저장되지 않았습니다.",
+	"mcps_filters_configuration_failed": "필터 설정은 저장되었지만 구성에 실패했습니다. 다시 시도하여 변경 사항을 적용하세요.",
+	"mcps_filters_saved_activation_failed": "변경 사항은 저장되었지만 활성화에 실패했습니다. 다시 시도하여 저장된 구성을 활성화하세요."
 }

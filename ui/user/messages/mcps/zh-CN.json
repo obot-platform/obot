@@ -1194,5 +1194,17 @@
 	"mcps_filters_kind_builtin": "内置",
 	"mcps_filters_kind_mcp_server": "MCP 服务器",
 	"mcps_filters_create_guardrail_filter": "创建护栏过滤器",
-	"mcps_filters_create_guardrail": "从护栏创建"
+	"mcps_filters_create_guardrail": "从护栏创建",
+	"mcps_filters_save_enable": "保存并启用",
+	"mcps_filters_save_apply": "保存并应用更改",
+	"mcps_filters_save_disabled": "保存为禁用",
+	"mcps_filters_saved": "已保存",
+	"mcps_filters_unsaved_changes": "未保存的更改",
+	"mcps_filters_edits_not_active": "您的编辑尚未生效。",
+	"mcps_filters_activation_failed": "启用失败",
+	"mcps_filters_discard_changes": "放弃未保存的过滤器更改？",
+	"mcps_filters_save_failed": "过滤器保存失败",
+	"mcps_filters_changes_not_saved": "您的更改未保存。",
+	"mcps_filters_configuration_failed": "过滤器设置已保存，但配置失败。请重试以完成应用更改。",
+	"mcps_filters_saved_activation_failed": "您的更改已保存，但启用失败。请重试以启用已保存的配置。"
 }

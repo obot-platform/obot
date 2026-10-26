@@ -93,3 +93,26 @@ describe('/mcp-servers/filters/[id]', () => {
 		await vi.waitFor(() => expect(serverCalls).toHaveBeenCalledWith('reveal'));
 	});
 });
+
+it('keeps the saved filter editor open with the updated name and saved status', async () => {
+	mockFilterApis();
+	const original = createFilter({ name: 'Webhook filter', url: 'https://example.com/hook' });
+	worker.use(
+		http.post('/api/mcp-webhook-validations/:id/reveal', () => HttpResponse.json({})),
+		http.put('/api/mcp-webhook-validations/:id', async ({ request }) =>
+			HttpResponse.json({ ...original, ...((await request.json()) as object) })
+		),
+		http.post('/api/mcp-webhook-validations/:id/launch', () => HttpResponse.json({}))
+	);
+	await renderFilterPage(original);
+	await page.getByLabelText('Name', { exact: true }).fill('Updated webhook filter');
+	await page.getByRole('button', { name: 'Save & apply changes' }).click();
+	await expect.element(page.getByRole('status').getByText('Saved', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('heading', { name: 'Updated webhook filter', exact: true }).first())
+		.toBeVisible();
+	await expect
+		.element(page.getByLabelText('Name', { exact: true }))
+		.toHaveValue('Updated webhook filter');
+	await expect.element(page.getByRole('button', { name: 'Save & apply changes' })).toBeDisabled();
+});

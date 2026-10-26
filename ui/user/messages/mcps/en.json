@@ -1194,5 +1194,17 @@
 	"mcps_filters_kind_builtin": "Built-in",
 	"mcps_filters_kind_mcp_server": "MCP server",
 	"mcps_filters_create_guardrail_filter": "Create Guardrail Filter",
-	"mcps_filters_create_guardrail": "Create From Guardrail"
+	"mcps_filters_create_guardrail": "Create From Guardrail",
+	"mcps_filters_save_enable": "Save & enable",
+	"mcps_filters_save_apply": "Save & apply changes",
+	"mcps_filters_save_disabled": "Save disabled",
+	"mcps_filters_saved": "Saved",
+	"mcps_filters_unsaved_changes": "Unsaved changes",
+	"mcps_filters_edits_not_active": "Your edits are not active yet.",
+	"mcps_filters_activation_failed": "Activation failed",
+	"mcps_filters_discard_changes": "Discard unsaved filter changes?",
+	"mcps_filters_save_failed": "Filter save failed",
+	"mcps_filters_changes_not_saved": "Your changes were not saved.",
+	"mcps_filters_configuration_failed": "Filter settings were saved, but configuration failed. Retry to finish applying your changes.",
+	"mcps_filters_saved_activation_failed": "Your changes were saved, but activation failed. Retry to activate the saved configuration."
 }

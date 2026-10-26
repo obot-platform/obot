@@ -66,105 +66,119 @@
 	{title}
 	showBackButton
 >
-	<div class="h-full w-full flex flex-col gap-4" in:fade={{ duration }}>
-		{#if filter?.id}
-			<div class="flex w-full items-center justify-between gap-4">
-				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{title || filter.name || m.mcps_filters_filter()}
-				</h1>
-				{#if !profile.current.isAdminReadonly?.() && !entry?.id}
-					<IconButton
-						variant="danger2"
-						tooltip={{ text: m.mcps_filters_delete_filter(), placement: 'left' }}
-						onclick={() => (deletingFilter = true)}
-					>
-						<Trash2 class="size-4" />
-					</IconButton>
-				{/if}
-			</div>
-			{#if tabs.length > 1}
-				<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">
-					{#each tabs as tab (tab.view)}
-						<button
-							onclick={() => {
-								onSelectionChange?.(tab.view);
-							}}
-							class={twMerge(
-								'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
-								currentView === tab.view &&
-									'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
-								currentView !== tab.view && 'hover:bg-base-400'
-							)}
+	{#key filter?.id || entry?.id}
+		<div class="h-full w-full flex flex-col gap-4" in:fade={{ duration }}>
+			{#if filter?.id}
+				<div class="flex w-full items-center justify-between gap-4">
+					<h1 class="flex items-center gap-4 text-2xl font-semibold">
+						{title || filter.name || m.mcps_filters_filter()}
+					</h1>
+					{#if !profile.current.isAdminReadonly?.() && !entry?.id}
+						<IconButton
+							variant="danger2"
+							tooltip={{ text: m.mcps_filters_delete_filter(), placement: 'left' }}
+							onclick={() => (deletingFilter = true)}
 						>
-							{tab.label}
-						</button>
-					{/each}
+							<Trash2 class="size-4" />
+						</IconButton>
+					{/if}
 				</div>
-			{/if}
+				{#if tabs.length > 1}
+					<div class="flex flex-1 gap-2 py-1 text-sm font-light max-h-11.5">
+						{#each tabs as tab (tab.view)}
+							<button
+								onclick={() => {
+									onSelectionChange?.(tab.view);
+								}}
+								class={twMerge(
+									'min-w-fit flex-1 rounded-md border border-transparent px-3 py-2 text-center whitespace-nowrap transition-colors duration-300',
+									currentView === tab.view &&
+										'dark:bg-base-200 dark:border-base-400 bg-base-100 shadow-sm',
+									currentView !== tab.view && 'hover:bg-base-400'
+								)}
+							>
+								{tab.label}
+							</button>
+						{/each}
+					</div>
+				{/if}
 
-			{#if currentView === 'configuration' && isGuardrail}
-				<GuardrailFilterForm
-					{filter}
-					onUpdate={() => {
-						goto('/mcp-servers?view=filters', { invalidateAll: true });
-					}}
-					readonly={profile.current.isAdminReadonly?.()}
-				/>
-			{:else if currentView === 'configuration'}
+				{#if currentView === 'configuration' && isGuardrail}
+					<GuardrailFilterForm
+						{filter}
+						onUpdate={(result) => {
+							if (result) {
+								filter = { ...filter, ...result };
+								title = result.name || title;
+								return;
+							}
+							goto('/mcp-servers?view=filters', { invalidateAll: true });
+						}}
+						readonly={profile.current.isAdminReadonly?.()}
+					/>
+				{:else if currentView === 'configuration'}
+					<FilterForm
+						{filter}
+						onUpdate={(result) => {
+							if (result) {
+								filter = { ...filter, ...result };
+								title = result.name || title;
+								return;
+							}
+							goto('/mcp-servers?view=filters', { invalidateAll: true });
+						}}
+						readonly={profile.current.isAdminReadonly?.()}
+						mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
+					/>
+				{:else if currentView === 'server-details'}
+					<McpServerDetails
+						entity="webhook-validation"
+						entityId={filter.id}
+						serverId={filter.id}
+						readonly={profile.current.isAdminReadonly?.()}
+						connectedUsers={[]}
+						k8sOverrides={{
+							title: m.core_details(),
+							classes: {
+								title: 'text-lg font-semibold'
+							}
+						}}
+					/>
+				{:else if currentView === 'audit-logs'}
+					<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
+						<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
+							{#snippet emptyContent()}
+								<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+									<BookOpenText class="text-muted-content size-24 opacity-50" />
+									<h4 class="text-muted-content text-lg font-semibold">
+										{m.mcps_filters_no_recent_audit_logs()}
+									</h4>
+									<p class="text-muted-content text-sm font-light">
+										{m.mcps_filters_filter_no_recent_usage()}
+									</p>
+								</div>
+							{/snippet}
+						</AuditLogsPageContent>
+					</div>
+				{:else if currentView === 'usage'}
+					<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
+						<UsageGraphs mcpId={mcpServerId} mcpServerDisplayName={filter.name} />
+					</div>
+				{/if}
+			{:else}
 				<FilterForm
 					{filter}
-					onUpdate={() => {
-						goto('/mcp-servers?view=filters', { invalidateAll: true });
+					onCreate={(result) => {
+						goto(result ? `/mcp-servers/filters/${result.id}` : '/mcp-servers?view=filters', {
+							invalidateAll: true
+						});
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
-					mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
+					mcpSystemCatalogEntryId={entry?.id}
 				/>
-			{:else if currentView === 'server-details'}
-				<McpServerDetails
-					entity="webhook-validation"
-					entityId={filter.id}
-					serverId={filter.id}
-					readonly={profile.current.isAdminReadonly?.()}
-					connectedUsers={[]}
-					k8sOverrides={{
-						title: m.core_details(),
-						classes: {
-							title: 'text-lg font-semibold'
-						}
-					}}
-				/>
-			{:else if currentView === 'audit-logs'}
-				<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
-					<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>
-						{#snippet emptyContent()}
-							<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-								<BookOpenText class="text-muted-content size-24 opacity-50" />
-								<h4 class="text-muted-content text-lg font-semibold">
-									{m.mcps_filters_no_recent_audit_logs()}
-								</h4>
-								<p class="text-muted-content text-sm font-light">
-									{m.mcps_filters_filter_no_recent_usage()}
-								</p>
-							</div>
-						{/snippet}
-					</AuditLogsPageContent>
-				</div>
-			{:else if currentView === 'usage'}
-				<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
-					<UsageGraphs mcpId={mcpServerId} mcpServerDisplayName={filter.name} />
-				</div>
 			{/if}
-		{:else}
-			<FilterForm
-				{filter}
-				onCreate={() => {
-					goto('/mcp-servers?view=filters', { invalidateAll: true });
-				}}
-				readonly={profile.current.isAdminReadonly?.()}
-				mcpSystemCatalogEntryId={entry?.id}
-			/>
-		{/if}
-	</div>
+		</div>
+	{/key}
 </Layout>
 
 <Confirm

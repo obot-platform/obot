@@ -54,7 +54,7 @@ beforeEach(() => {
 });
 
 async function save() {
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await page.getByRole('button', { name: /Save & (enable|apply changes)/ }).click();
 }
 
 describe('GuardrailFilterForm.svelte', () => {
@@ -210,7 +210,9 @@ describe('GuardrailFilterForm.svelte', () => {
 
 		await expect.element(page.getByText('undeclared reference to "foo"')).toBeVisible();
 		expect(requests.at(-1)).toEqual({ target: 'mcp', condition: 'foo == 1' });
-		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await expect
+			.element(page.getByRole('button', { name: /Save & (enable|apply changes)/ }))
+			.toBeDisabled();
 	});
 
 	it('warns when redacting with a guardrail that cannot redact', async () => {
@@ -252,6 +254,7 @@ describe('GuardrailFilterForm.svelte', () => {
 			.toHaveTextContent('Responses (tool results)');
 		await expect.element(page.getByLabelText('Sampling rate (%)')).toHaveValue(50);
 
+		await page.getByLabelText('Name').fill('Updated guardrail filter');
 		await save();
 		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
 		expect(body?.guardrail).toEqual({
@@ -264,4 +267,91 @@ describe('GuardrailFilterForm.svelte', () => {
 		});
 		expect(reveal).not.toHaveBeenCalled();
 	});
+});
+
+it('saves and enables disabled guardrail edits in one action and stays saved', async () => {
+	const updates = vi.fn();
+	const onUpdate = vi.fn();
+	worker.use(
+		http.put('/api/mcp-webhook-validations/:id', async ({ request, params }) => {
+			const body = await request.json();
+			updates(body);
+			return HttpResponse.json({ ...(body as object), id: params.id });
+		})
+	);
+	await render(GuardrailFilterForm, {
+		filter: createGuardrailFilter({ disabled: true }),
+		onUpdate
+	});
+	await page.getByLabelText('Name', { exact: true }).fill('Updated guardrail');
+	await page.getByRole('button', { name: 'Save & enable', exact: true }).click();
+	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+	expect(updates).toHaveBeenCalledWith(
+		expect.objectContaining({ disabled: false, name: 'Updated guardrail' })
+	);
+	await expect
+		.element(page.getByRole('status').getByText('Enabled', { exact: true }))
+		.toBeVisible();
+	await expect.element(page.getByRole('status').getByText('Saved', { exact: true })).toBeVisible();
+	await expect.element(page.getByRole('button', { name: 'Save & apply changes' })).toBeDisabled();
+});
+
+it('disables saved guardrail settings without submitting invalid draft edits', async () => {
+	const updates = vi.fn();
+	const onUpdate = vi.fn();
+	const initial = createGuardrailFilter();
+	worker.use(
+		http.put('/api/mcp-webhook-validations/:id', async ({ request }) => {
+			const body = await request.json();
+			updates(body);
+			return HttpResponse.json({ ...initial, ...(body as object) });
+		})
+	);
+	await render(GuardrailFilterForm, { filter: initial, onUpdate });
+	await page.getByLabelText('Name', { exact: true }).fill('');
+	await page.getByRole('checkbox', { name: /Secrets scanner/ }).click();
+	await page.getByRole('button', { name: 'Disable Filter', exact: true }).click();
+	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalled());
+	expect(updates).toHaveBeenCalledWith(
+		expect.objectContaining({
+			name: 'Block secrets',
+			disabled: true,
+			guardrail: initial.guardrail,
+			selectors: []
+		})
+	);
+	await expect
+		.element(page.getByRole('status').getByText('Disabled', { exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('status').getByText('Unsaved changes', { exact: true }))
+		.toBeVisible();
+	await expect.element(page.getByLabelText('Name', { exact: true })).toHaveValue('');
+});
+
+it('keeps a guardrail disabled after validation or API failure', async () => {
+	const updates = vi.fn();
+	worker.use(
+		http.put('/api/mcp-webhook-validations/:id', () => {
+			updates();
+			return HttpResponse.json({ error: 'Save failed' }, { status: 500 });
+		})
+	);
+	await render(GuardrailFilterForm, { filter: createGuardrailFilter({ disabled: true }) });
+	await page.getByLabelText('Name', { exact: true }).fill('');
+	await page.getByRole('button', { name: 'Save & enable', exact: true }).click();
+	await expect.element(page.getByText('Name is required')).toBeVisible();
+	expect(updates).not.toHaveBeenCalled();
+	await expect
+		.element(page.getByRole('status').getByText('Disabled', { exact: true }))
+		.toBeVisible();
+	await page.getByLabelText('Name', { exact: true }).fill('Updated guardrail');
+	await page.getByRole('button', { name: 'Save & enable', exact: true }).click();
+	await expect.element(page.getByText('Save failed', { exact: true })).toBeVisible();
+	await expect
+		.element(page.getByRole('status').getByText('Disabled', { exact: true }))
+		.toBeVisible();
+	await expect
+		.element(page.getByRole('status').getByText('Unsaved changes', { exact: true }))
+		.toBeVisible();
 });
