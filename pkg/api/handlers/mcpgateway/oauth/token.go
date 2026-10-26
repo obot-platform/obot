@@ -196,6 +196,18 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		return err
 	}
 
+	// Access may have been revoked after the code was issued.
+	userInfo, err := req.GatewayClient.UserInfoByID(req.Context(), oauthAuthRequest.Spec.UserID)
+	if err != nil {
+		return newOAuthError(ErrServerError, fmt.Sprintf("failed to retrieve user: %v", err), "")
+	}
+	allowed, err := authz.CheckMCPIDAccess(req.Context(), req.Storage, h.acrHelper, userInfo, oauthAuthRequest.Spec.MCPID)
+	if apierrors.IsNotFound(err) || err == nil && !allowed {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid MCP server", ""))
+	} else if err != nil {
+		return newOAuthError(ErrServerError, fmt.Sprintf("failed to check access to MCP server: %v", err), "")
+	}
+
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
