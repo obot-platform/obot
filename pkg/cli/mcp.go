@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,7 +19,6 @@ import (
 	"github.com/obot-platform/obot/pkg/cli/internal"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcpcatalog"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/version"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
@@ -58,12 +56,11 @@ type mcpSearchOutput struct {
 }
 
 type mcpSearchServer struct {
-	Name                  string `json:"name"`
-	Title                 string `json:"title"`
-	Description           string `json:"description"`
-	Status                string `json:"status"`
-	ConfigurationRequired bool   `json:"configurationRequired"`
-	URL                   string `json:"url"`
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Status      string `json:"status"`
+	URL         string `json:"url"`
 }
 
 func (m *MCP) Customize(c *cobra.Command) {
@@ -457,8 +454,7 @@ func (m *MCPSearch) Run(cmd *cobra.Command, args []string) error {
 		return registrySearchError(err)
 	}
 
-	appURL, _ := internal.AppURLForAPIBaseURL(client.BaseURL)
-	output := normalizeRegistryServers(result, appURL)
+	output := normalizeRegistryServers(result)
 	if m.JSON {
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
@@ -509,45 +505,19 @@ func (m *MCPSearch) listServers(cmd *cobra.Command, client *apiclient.Client, qu
 	return results, nil
 }
 
-func normalizeRegistryServers(servers []types.RegistryServerResponse, appURL string) []mcpSearchServer {
+func normalizeRegistryServers(servers []types.RegistryServerResponse) []mcpSearchServer {
 	result := make([]mcpSearchServer, 0, len(servers))
 	for _, registryServer := range servers {
 		url := firstRegistryRemoteURL(registryServer.Server)
-		configurationRequired := registryServer.Meta.Obot != nil && registryServer.Meta.Obot.ConfigurationRequired
-		if configurationRequired && url == "" {
-			url = registryServerConfigurationURL(appURL, registryServer.Server.Name)
-		}
 		result = append(result, mcpSearchServer{
-			Name:                  registryServer.Server.Name,
-			Title:                 registryServer.Server.Title,
-			Description:           registryServer.Server.Description,
-			Status:                registryServerStatus(configurationRequired, url),
-			ConfigurationRequired: configurationRequired,
-			URL:                   url,
+			Name:        registryServer.Server.Name,
+			Title:       registryServer.Server.Title,
+			Description: registryServer.Server.Description,
+			Status:      registryServerStatus(url),
+			URL:         url,
 		})
 	}
 	return result
-}
-
-func registryServerConfigurationURL(appURL, registryName string) string {
-	if appURL == "" {
-		return ""
-	}
-
-	id := registryName
-	if _, resourceName, ok := strings.Cut(registryName, "/"); ok {
-		id = resourceName
-	}
-	if id == "" {
-		return ""
-	}
-
-	route := "c"
-	if system.IsMCPServerID(id) {
-		route = "s"
-	}
-
-	return strings.TrimRight(appURL, "/") + "/mcp-servers/" + route + "/" + url.PathEscape(id)
 }
 
 func firstRegistryRemoteURL(server types.RegistryServerDetail) string {
@@ -557,12 +527,9 @@ func firstRegistryRemoteURL(server types.RegistryServerDetail) string {
 	return server.Remotes[0].URL
 }
 
-func registryServerStatus(configurationRequired bool, url string) string {
-	if configurationRequired {
-		return "configuration required"
-	}
+func registryServerStatus(url string) string {
 	if url != "" {
-		return "ready"
+		return "available"
 	}
 	return "unknown"
 }

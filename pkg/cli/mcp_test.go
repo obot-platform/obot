@@ -41,8 +41,8 @@ func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
 			}
 			_ = json.NewEncoder(w).Encode(types.RegistryServerList{
 				Servers: []types.RegistryServerResponse{
-					registryTestServer("io.example.one", "One", "first", "https://obot.example.com/mcp-connect/one", false),
-					registryTestServer("io.example/two", "Two", "second", "", true),
+					registryTestServer("io.example.one", "One", "first", "https://obot.example.com/mcp-connect/one"),
+					registryTestServer("io.example/two", "Two", "second", ""),
 				},
 				Metadata: &types.RegistryServerListMetadata{NextCursor: "two", Count: 2},
 			})
@@ -52,7 +52,7 @@ func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
 			}
 			_ = json.NewEncoder(w).Encode(types.RegistryServerList{
 				Servers: []types.RegistryServerResponse{
-					registryTestServer("io.example.three", "Three", "third", "", false),
+					registryTestServer("io.example.three", "Three", "third", ""),
 				},
 				Metadata: &types.RegistryServerListMetadata{Count: 1},
 			})
@@ -69,8 +69,8 @@ func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
 
 	for _, want := range []string{
 		"TITLE", "DESCRIPTION", "STATUS", "URL",
-		"One", "first", "ready", "https://obot.example.com/mcp-connect/one",
-		"Two", "second", "configuration required", server.URL + "/mcp-servers/c/two",
+		"One", "first", "available", "https://obot.example.com/mcp-connect/one",
+		"Two", "second", "unknown",
 		"Three", "third", "unknown",
 	} {
 		if !strings.Contains(stdout, want) {
@@ -89,7 +89,7 @@ func TestMCPSearchJSONMode(t *testing.T) {
 		}
 		_ = json.NewEncoder(w).Encode(types.RegistryServerList{
 			Servers: []types.RegistryServerResponse{
-				registryTestServer("io.example.github", "GitHub", "GitHub MCP server", "https://obot.example.com/mcp-connect/github", false),
+				registryTestServer("io.example.github", "GitHub", "GitHub MCP server", "https://obot.example.com/mcp-connect/github"),
 			},
 			Metadata: &types.RegistryServerListMetadata{Count: 1},
 		})
@@ -109,19 +109,19 @@ func TestMCPSearchJSONMode(t *testing.T) {
 		t.Fatalf("server count = %d, want 1", len(result.Servers))
 	}
 	got := result.Servers[0]
-	if got.Name != "io.example.github" || got.Status != "ready" || got.URL == "" || got.ConfigurationRequired {
+	if got.Name != "io.example.github" || got.Status != "available" || got.URL == "" {
 		t.Fatalf("unexpected JSON result: %#v", got)
 	}
 }
 
-func TestMCPSearchJSONModeIncludesConfigurationURL(t *testing.T) {
+func TestMCPSearchJSONModeWithoutRemoteURL(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v0.1/servers" {
 			t.Fatalf("path = %s, want /v0.1/servers", r.URL.Path)
 		}
 		_ = json.NewEncoder(w).Encode(types.RegistryServerList{
 			Servers: []types.RegistryServerResponse{
-				registryTestServer("io.example/ms1server", "Personal", "needs setup", "", true),
+				registryTestServer("io.example/vmcp1example", "Example", "missing remote", ""),
 			},
 			Metadata: &types.RegistryServerListMetadata{Count: 1},
 		})
@@ -141,9 +141,11 @@ func TestMCPSearchJSONModeIncludesConfigurationURL(t *testing.T) {
 		t.Fatalf("server count = %d, want 1", len(result.Servers))
 	}
 	got := result.Servers[0]
-	wantURL := server.URL + "/mcp-servers/s/ms1server"
-	if !got.ConfigurationRequired || got.Status != "configuration required" || got.URL != wantURL {
-		t.Fatalf("unexpected JSON result: %#v, want URL %q", got, wantURL)
+	if got.Status != "unknown" || got.URL != "" {
+		t.Fatalf("unexpected JSON result: %#v", got)
+	}
+	if strings.Contains(stdout, `"configurationRequired"`) || strings.Contains(stdout, "/mcp-servers/") {
+		t.Fatalf("obsolete configuration information in output: %s", stdout)
 	}
 }
 
@@ -719,7 +721,7 @@ func executeMCPTestCommand(t *testing.T, root *Obot, args ...string) (string, er
 	return stdout.String(), err
 }
 
-func registryTestServer(name, title, description, remoteURL string, configurationRequired bool) types.RegistryServerResponse {
+func registryTestServer(name, title, description, remoteURL string) types.RegistryServerResponse {
 	server := types.RegistryServerResponse{
 		Server: types.RegistryServerDetail{
 			Name:        name,
@@ -729,9 +731,6 @@ func registryTestServer(name, title, description, remoteURL string, configuratio
 	}
 	if remoteURL != "" {
 		server.Server.Remotes = []types.RegistryServerRemote{{Type: "streamable-http", URL: remoteURL}}
-	}
-	if configurationRequired {
-		server.Meta.Obot = &types.RegistryObotMeta{ConfigurationRequired: true}
 	}
 	return server
 }
