@@ -25,6 +25,10 @@ const (
 	// LicenseKeyPropertyKey is the database property key used to persist the Keygen license key.
 	LicenseKeyPropertyKey = "obot-license-key"
 
+	// CommunityLicenseKeyPropertyKey is the database property key used to persist the Obot Community license key issued
+	// at registration, so deleting a license key that replaced it falls back to it.
+	CommunityLicenseKeyPropertyKey = "obot-community-license-key"
+
 	// LicenseMachineIDPropertyKey is the database property key used to persist the Keygen machine fingerprint.
 	LicenseMachineIDPropertyKey = "obot-license-machine-id"
 
@@ -89,6 +93,7 @@ type Provider struct {
 type licenseKeySnapshot struct {
 	key              string
 	updatedAt        time.Time
+	propertyKey      string
 	viaConfiguration bool
 }
 
@@ -176,6 +181,8 @@ func (p *Provider) LicenseKeyViaConfiguration() bool {
 	return p.configuredLicenseKey != ""
 }
 
+// loadLicenseKey returns the license key in effect: the configured key, else the key in LicenseKeyPropertyKey, else the
+// registered Community key.
 func (p *Provider) loadLicenseKey(ctx context.Context) (licenseKeySnapshot, error) {
 	if p.configuredLicenseKey != "" {
 		return licenseKeySnapshot{
@@ -187,23 +194,38 @@ func (p *Provider) loadLicenseKey(ctx context.Context) (licenseKeySnapshot, erro
 		return licenseKeySnapshot{}, nil
 	}
 
-	property, err := p.gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return licenseKeySnapshot{}, nil
+	for _, propertyKey := range []string{LicenseKeyPropertyKey, CommunityLicenseKeyPropertyKey} {
+		property, err := p.gatewayClient.GetProperty(ctx, propertyKey)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			continue
+		}
+		if err != nil {
+			return licenseKeySnapshot{}, fmt.Errorf("failed to get %s property: %w", propertyKey, err)
+		}
+		if key := strings.TrimSpace(property.Value); key != "" {
+			return licenseKeySnapshot{
+				key:         key,
+				updatedAt:   property.UpdatedAt,
+				propertyKey: propertyKey,
+			}, nil
+		}
 	}
-	if err != nil {
-		return licenseKeySnapshot{}, fmt.Errorf("failed to get license key property: %w", err)
-	}
-
-	return licenseKeySnapshot{
-		key:       strings.TrimSpace(property.Value),
-		updatedAt: property.UpdatedAt,
-	}, nil
+	return licenseKeySnapshot{}, nil
 }
 
 // SetLicenseKey stores the license key after Keygen accepts it.
 // It returns ErrInvalidLicense when Keygen rejects the key and ErrLicenseCheckFailed when Keygen didn't give a verdict.
 func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
+	return p.setLicenseKey(ctx, licenseKey, false)
+}
+
+// SetCommunityLicenseKey stores the Obot Community license key issued at registration like SetLicenseKey, and keeps it
+// to fall back to when a license key added later is deleted.
+func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string) error {
+	return p.setLicenseKey(ctx, licenseKey, true)
+}
+
+func (p *Provider) setLicenseKey(ctx context.Context, licenseKey string, community bool) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
 	}
@@ -232,21 +254,72 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	if err := p.saveLicenseState(ctx, licenseKey, state); err != nil {
 		return err
 	}
-	property, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey)
+	if community {
+		// Keep the Community key to fall back to.
+		_, err = p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, licenseKey)
+	} else {
+		err = p.rescueCommunityKey(ctx)
+	}
 	if err != nil {
 		return err
 	}
-	p.setCachedState(licenseKeySnapshot{
-		key:       licenseKey,
-		updatedAt: property.UpdatedAt,
-	}, state.Entitlements)
+	// Store the key in effect. A Community key goes here too, so Obot versions that only read LicenseKeyPropertyKey still
+	// find it.
+	if _, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey); err != nil {
+		return err
+	}
+
+	// Cache the snapshot as read back, since the database stores updatedAt with less precision than it was written with.
+	// If that fails, or another replica has replaced the key since, the next refresh catches up.
+	if snapshot, err := p.loadLicenseKey(ctx); err == nil && snapshot.key == licenseKey {
+		p.setCachedState(snapshot, state.Entitlements)
+	}
 	return nil
+}
+
+// rescueCommunityKey keeps the key in LicenseKeyPropertyKey as the registered Community key before a license key
+// replaces it, if it's an Obot Community license. Registrations stored their key there before it had its own property.
+// It goes by the key's saved entitlements, and checks the key with Keygen when none are saved. When it can't tell, it
+// returns the error so the key isn't replaced.
+func (p *Provider) rescueCommunityKey(ctx context.Context) error {
+	_, err := p.gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey)
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		// A registered Community key is already kept, or the lookup failed.
+		return err
+	}
+	snapshot, err := p.loadLicenseKey(ctx)
+	if err != nil || snapshot.propertyKey != LicenseKeyPropertyKey {
+		// There's no key in LicenseKeyPropertyKey to replace.
+		return err
+	}
+
+	state, err := p.loadLicenseState(ctx, snapshot.key)
+	if err == nil && state.Entitlements == nil {
+		state, err = p.validate(ctx, snapshot.key)
+	}
+	if err != nil || !isCommunityLicense(state.Entitlements) {
+		return err
+	}
+	_, err = p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, snapshot.key)
+	return err
+}
+
+// isCommunityLicense reports whether the entitlements are an Obot Community license's.
+// Enterprise and Cloud licenses can include CommunityEntitlement too.
+func isCommunityLicense(entitlements map[keygen.EntitlementCode]struct{}) bool {
+	_, community := entitlements[CommunityEntitlement]
+	_, enterprise := entitlements[EnterpriseEntitlement]
+	_, cloud := entitlements[CloudEntitlement]
+	return community && !enterprise && !cloud
 }
 
 func (p *Provider) Validate(ctx context.Context) error {
 	return p.refresh(ctx, true)
 }
 
+// RemoveLicenseKey removes the license key in effect.
+// Removing a license key that replaced a registered Community key falls back to the Community key, and removing the
+// Community key itself leaves the installation unregistered.
 func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -257,14 +330,31 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	if p.gatewayClient != nil {
-		if err := p.gatewayClient.DeleteProperty(ctx, LicenseKeyPropertyKey); err != nil {
-			return err
-		}
+	if err := p.deleteLicenseKey(ctx); err != nil {
+		return err
 	}
 
 	p.setCachedState(licenseKeySnapshot{}, nil)
 	return nil
+}
+
+// deleteLicenseKey deletes the key in effect from every property that holds it.
+func (p *Provider) deleteLicenseKey(ctx context.Context) error {
+	removed, err := p.loadLicenseKey(ctx)
+	if err != nil || removed.propertyKey == "" {
+		return err
+	}
+	if err := p.gatewayClient.DeleteProperty(ctx, removed.propertyKey); err != nil {
+		return err
+	}
+
+	// A registered Community key is stored in both properties, delete the other copy too. A different key underneath is
+	// the Community key to fall back to.
+	next, err := p.loadLicenseKey(ctx)
+	if err != nil || next.key != removed.key {
+		return err
+	}
+	return p.gatewayClient.DeleteProperty(ctx, next.propertyKey)
 }
 
 func (p *Provider) keygenClient(licenseKey string) *keygen.Client {

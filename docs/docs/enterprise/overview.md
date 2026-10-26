@@ -55,9 +55,10 @@ Add an Enterprise license key in one of two ways:
   way takes precedence over one stored in the database. The **License** page shows it as locked: you can't change,
   delete, or register over it in the UI.
 
-Deleting an Enterprise license key from the **License** page returns the installation to unregistered Obot Community.
-The page has no option to delete a registered Community key: replace it by adding an Enterprise key, or delete it with
-`DELETE /api/license`.
+Obot keeps a registered Community key when you add an Enterprise key over it. Deleting the Enterprise key from the
+**License** page returns the installation to registered Obot Community, or to unregistered Obot Community if it was
+never registered. The page has no option to delete a registered Community key: replace it by adding an Enterprise key,
+or delete it with `DELETE /api/license`.
 
 ## How Obot validates a license
 
@@ -121,6 +122,9 @@ The license service rejects a license when the key is invalid, expired, suspende
 has no installations left to activate. Obot acts on the rejection at the next check: within 24 hours, at the next
 restart, or when an administrator selects **Recheck License**. There is no grace period after a rejection.
 
+A rejected key stays in effect until an administrator replaces or deletes it, even when the installation has a
+registered Community key. Deleting it returns the installation to registered Obot Community.
+
 When an administrator adds a key in the admin UI that the license service rejects, Obot doesn't save it and shows
 "license key is invalid". The previous key, if any, stays in effect.
 
@@ -171,7 +175,8 @@ provider without a license that includes it.
 - **An Enterprise license expires, or is revoked or suspended.** At the next check, the installation falls back to
   unregistered Obot Community. An installation with 250 users is then over the 100-user limit, and any configured
   enterprise auth provider is no longer covered.
-- **An administrator deletes the license key.** The effect is the same as a license that's no longer valid.
+- **An administrator deletes the license key.** The effect is the same as a license that's no longer valid, unless the
+  installation was registered first. A registered installation returns to registered Obot Community.
 - **The license expires while the license service is unreachable.** See
   [When the license service can't be reached](#when-the-license-service-cant-be-reached).
 - **A license key was never validated**, for example on an air-gapped installation. See

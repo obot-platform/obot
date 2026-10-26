@@ -21,19 +21,20 @@ import (
 )
 
 type fakeCommunityLicenseProvider struct {
-	lock              sync.Mutex
-	key               string
-	configured        bool
-	valid             bool
-	entitlements      []string
-	licenseKeyError   error
-	validErrors       []error
-	entitlementsError error
-	setError          error
-	setCalls          int
-	hasValidCalls     int
-	lastInstalledKey  string
-	validateError     error
+	lock               sync.Mutex
+	key                string
+	configured         bool
+	valid              bool
+	entitlements       []string
+	licenseKeyError    error
+	validErrors        []error
+	entitlementsError  error
+	setError           error
+	setCalls           int
+	hasValidCalls      int
+	lastInstalledKey   string
+	installedCommunity bool
+	validateError      error
 }
 
 type fakeCommunityIssuer struct {
@@ -58,10 +59,19 @@ func (p *fakeCommunityLicenseProvider) LicenseKeyViaConfiguration() bool {
 }
 
 func (p *fakeCommunityLicenseProvider) SetLicenseKey(_ context.Context, key string) error {
+	return p.install(key, false)
+}
+
+func (p *fakeCommunityLicenseProvider) SetCommunityLicenseKey(_ context.Context, key string) error {
+	return p.install(key, true)
+}
+
+func (p *fakeCommunityLicenseProvider) install(key string, community bool) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.setCalls++
 	p.lastInstalledKey = key
+	p.installedCommunity = community
 	if p.setError != nil {
 		return p.setError
 	}
@@ -363,8 +373,8 @@ func TestCreateCommunityLicenseReplacesInvalidDatabaseKeyAndReturnsMaskedStatus(
 	if err := handler.CreateCommunityLicense(request); err != nil {
 		t.Fatalf("CreateCommunityLicense() error = %v", err)
 	}
-	if provider.lastInstalledKey != issuedKey || provider.setCalls != 1 {
-		t.Fatalf("installed key = %q, calls = %d", provider.lastInstalledKey, provider.setCalls)
+	if provider.lastInstalledKey != issuedKey || provider.setCalls != 1 || !provider.installedCommunity {
+		t.Fatalf("installed key = %q, calls = %d, as Community key = %t", provider.lastInstalledKey, provider.setCalls, provider.installedCommunity)
 	}
 	var status LicenseStatus
 	if err := json.NewDecoder(recorder.Body).Decode(&status); err != nil {

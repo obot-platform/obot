@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +36,13 @@ type fakeKeygen struct {
 
 	// expiry, if set, is the license's expiry.
 	expiry *time.Time
+}
+
+// keyedKeygen answers license checks with the entitlements it has for the license key, and rejects keys it has none
+// for, unless it's set to fail.
+type keyedKeygen struct {
+	entitlements map[string][]string
+	fail         bool
 }
 
 func (k *fakeKeygen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -70,6 +78,42 @@ func (k *fakeKeygen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func unavailable(w http.ResponseWriter, _ *http.Request) {
 	http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+}
+
+func newKeyedKeygen() *keyedKeygen {
+	return &keyedKeygen{
+		entitlements: map[string][]string{
+			"community-license":  {CommunityEntitlement},
+			"paid-license":       {CommunityEntitlement, EnterpriseEntitlement},
+			"other-paid-license": {CommunityEntitlement, EnterpriseEntitlement},
+		},
+	}
+}
+
+func (k *keyedKeygen) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/vnd.api+json")
+	if k.fail {
+		unavailable(w, r)
+		return
+	}
+
+	entitlements, ok := k.entitlements[strings.TrimPrefix(r.Header.Get("Authorization"), "License ")]
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = fmt.Fprint(w, `{"errors":[{"title":"Rejected","code":"LICENSE_INVALID"}]}`)
+		return
+	}
+
+	switch r.URL.Path {
+	case "/v1/me":
+		_, _ = fmt.Fprint(w, licenseResponse())
+	case "/v1/licenses/license-1/actions/validate":
+		_, _ = fmt.Fprint(w, validationResponse())
+	case "/v1/licenses/license-1/entitlements":
+		_, _ = fmt.Fprint(w, entitlementsResponse(entitlements...))
+	default:
+		http.NotFound(w, r)
+	}
 }
 
 func newTestProvider(ctx context.Context, t *testing.T, gatewayClient *gatewayclient.Client, url string) *Provider {
@@ -590,6 +634,173 @@ func TestRemoveLicenseKeyWaitsForRefreshBeforeClearingState(t *testing.T) {
 	}
 	if provider.hasEntitlement("OLD_ENTITLEMENT") {
 		t.Fatal("expected removed license entitlements to be cleared")
+	}
+}
+
+func TestRemoveLicenseKeyFallsBackToCommunityLicense(t *testing.T) {
+	tests := []struct {
+		name string
+		// legacyKey is stored in LicenseKeyPropertyKey, the way registrations stored the Community key before it had
+		// its own property.
+		legacyKey        string
+		saveLegacyState  bool
+		communityKey     string
+		licenseKey       string
+		failKeygen       bool
+		wantKey          string
+		wantEntitlements []string
+	}{
+		{
+			name:             "paid key over registered Community",
+			communityKey:     "community-license",
+			licenseKey:       "paid-license",
+			wantKey:          "community-license",
+			wantEntitlements: []string{CommunityEntitlement},
+		},
+		{
+			name:             "paid key over registered Community while Keygen is unavailable",
+			communityKey:     "community-license",
+			licenseKey:       "paid-license",
+			failKeygen:       true,
+			wantKey:          "community-license",
+			wantEntitlements: []string{CommunityEntitlement},
+		},
+		{
+			name:         "registered Community",
+			communityKey: "community-license",
+		},
+		{
+			name:       "paid key",
+			licenseKey: "paid-license",
+		},
+		{
+			name:             "paid key over legacy Community key",
+			legacyKey:        "community-license",
+			saveLegacyState:  true,
+			licenseKey:       "paid-license",
+			wantKey:          "community-license",
+			wantEntitlements: []string{CommunityEntitlement},
+		},
+		{
+			name:             "paid key over legacy Community key without saved state",
+			legacyKey:        "community-license",
+			licenseKey:       "paid-license",
+			wantKey:          "community-license",
+			wantEntitlements: []string{CommunityEntitlement},
+		},
+		{
+			name:            "paid key over legacy paid key",
+			legacyKey:       "paid-license",
+			saveLegacyState: true,
+			licenseKey:      "other-paid-license",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keygen := newKeyedKeygen()
+			server := httptest.NewServer(keygen)
+			defer server.Close()
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			gatewayClient := newTestLicenseGatewayClient(t)
+			replicaOne, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+			if err != nil {
+				t.Fatalf("expected first provider to be created: %v", err)
+			}
+			replicaTwo, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+			if err != nil {
+				t.Fatalf("expected second provider to be created: %v", err)
+			}
+
+			if tt.legacyKey != "" {
+				if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, tt.legacyKey); err != nil {
+					t.Fatalf("expected legacy license key to be stored: %v", err)
+				}
+				if tt.saveLegacyState {
+					if err := replicaOne.Validate(ctx); err != nil {
+						t.Fatalf("expected legacy license key to be checked: %v", err)
+					}
+				}
+			}
+			if tt.communityKey != "" {
+				if err := replicaOne.SetCommunityLicenseKey(ctx, tt.communityKey); err != nil {
+					t.Fatalf("expected Community license key to be stored: %v", err)
+				}
+			}
+			if tt.licenseKey != "" {
+				if err := replicaOne.SetLicenseKey(ctx, tt.licenseKey); err != nil {
+					t.Fatalf("expected license key to be stored: %v", err)
+				}
+			}
+			// Load the license on the second replica first, so it has to notice the removal.
+			if _, err := replicaTwo.Entitlements(ctx); err != nil {
+				t.Fatalf("expected second replica to load the license: %v", err)
+			}
+
+			keygen.fail = tt.failKeygen
+			if err := replicaOne.RemoveLicenseKey(ctx); err != nil {
+				t.Fatalf("expected license key to be removed: %v", err)
+			}
+
+			for _, replica := range []*Provider{replicaOne, replicaTwo} {
+				licenseKey, err := replica.LicenseKey(ctx)
+				if err != nil {
+					t.Fatalf("expected license key lookup to succeed: %v", err)
+				}
+				if licenseKey != tt.wantKey {
+					t.Fatalf("expected license key %q, got %q", tt.wantKey, licenseKey)
+				}
+				entitlements, err := replica.Entitlements(ctx)
+				if err != nil {
+					t.Fatalf("expected entitlements lookup to succeed: %v", err)
+				}
+				if !slices.Equal(entitlements, tt.wantEntitlements) {
+					t.Fatalf("expected entitlements %v, got %v", tt.wantEntitlements, entitlements)
+				}
+			}
+		})
+	}
+}
+
+func TestRejectedLicenseKeyStaysInEffectUntilRemoved(t *testing.T) {
+	keygen := newKeyedKeygen()
+	server := httptest.NewServer(keygen)
+	defer server.Close()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); err != nil {
+		t.Fatalf("expected Community license key to be stored: %v", err)
+	}
+	if err := provider.SetLicenseKey(ctx, "paid-license"); err != nil {
+		t.Fatalf("expected license key to be stored: %v", err)
+	}
+
+	delete(keygen.entitlements, "paid-license")
+	if err := provider.Validate(ctx); err != nil {
+		t.Fatalf("expected the rejection to be a successful check: %v", err)
+	}
+	if licenseKey, err := provider.LicenseKey(ctx); err != nil || licenseKey != "paid-license" {
+		t.Fatalf("expected the rejected license key to stay in effect, got %q, %v", licenseKey, err)
+	}
+	if requireValidLicense(ctx, t, provider) {
+		t.Fatal("expected the rejected license key not to fall back to the Community license")
+	}
+
+	if err := provider.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("expected license key to be removed: %v", err)
+	}
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected entitlements lookup to succeed: %v", err)
+	}
+	if !slices.Equal(entitlements, []string{CommunityEntitlement}) {
+		t.Fatalf("expected the Community license after removal, got %v", entitlements)
 	}
 }
 
