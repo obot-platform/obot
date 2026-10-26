@@ -38,7 +38,6 @@ type VersionChecker struct {
 	installationID   string
 	currentVersion   string
 	upgradeServerURL string
-	initialDelay     time.Duration
 	checkInterval    time.Duration
 	requestTimeout   time.Duration
 
@@ -59,18 +58,17 @@ func NewVersionChecker(ctx context.Context, opts VersionCheckerOptions) (*Versio
 		httpClient:       http.DefaultClient,
 		currentVersion:   version.Get().String(),
 		upgradeServerURL: EndpointURL(ServerBaseURL(), upgradeCheckEndpoint),
-		initialDelay:     upgradeCheckInitialDelay,
 		checkInterval:    upgradeCheckInterval,
 		requestTimeout:   upgradeCheckTimeout,
 		done:             make(chan struct{}),
 	}
-	if err := checker.start(ctx, opts.GatewayClient, opts.DisableUpdateCheck, os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true"); err != nil {
+	if err := checker.start(ctx, opts.GatewayClient, opts.DisableUpdateCheck, os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true", upgradeCheckInitialDelay); err != nil {
 		return nil, err
 	}
 	return checker, nil
 }
 
-func (c *VersionChecker) start(ctx context.Context, gatewayClient propertyClient, disableUpdateCheck, forceUpdateCheck bool) error {
+func (c *VersionChecker) start(ctx context.Context, gatewayClient propertyClient, disableUpdateCheck, forceUpdateCheck bool, initialDelay time.Duration) error {
 	c.currentVersion = normalizeVersion(c.currentVersion)
 
 	// Don't start the upgrade check if explicitly disabled or if this is a development version.
@@ -85,7 +83,7 @@ func (c *VersionChecker) start(ctx context.Context, gatewayClient propertyClient
 	}
 	c.installationID = installationID
 
-	go c.run(ctx)
+	go c.run(ctx, initialDelay)
 	return nil
 }
 
@@ -101,11 +99,11 @@ func (c *VersionChecker) Status() Status {
 	return c.status
 }
 
-func (c *VersionChecker) run(ctx context.Context) {
+func (c *VersionChecker) run(ctx context.Context, initialDelay time.Duration) {
 	defer close(c.done)
 
 	// Delay the first check so that short-lived instances and frequent restarts don't each trigger a check.
-	timer := time.NewTimer(c.initialDelay)
+	timer := time.NewTimer(initialDelay)
 	defer timer.Stop()
 
 	for {

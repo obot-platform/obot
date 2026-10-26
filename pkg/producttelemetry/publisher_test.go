@@ -203,7 +203,7 @@ func TestPublisherDoesNotStartForDevelopmentVersion(t *testing.T) {
 		}),
 	)
 
-	publisher.start(t.Context(), "v0.0.0-dev", false)
+	publisher.start(t.Context(), "v0.0.0-dev", false, 0)
 
 	select {
 	case <-publisher.done:
@@ -228,9 +228,8 @@ func TestPublisherDevelopmentVersionCanBeForcedWithoutBypassingConsent(t *testin
 			return nil
 		}),
 	)
-	publisher.initialDelay = 0
 	ctx, cancel := context.WithCancel(t.Context())
-	publisher.start(ctx, "v0.0.0-dev", true)
+	publisher.start(ctx, "v0.0.0-dev", true, 0)
 
 	select {
 	case <-consentRead:
@@ -258,9 +257,8 @@ func TestPublisherStartsForReleaseVersion(t *testing.T) {
 			return nil
 		}),
 	)
-	publisher.initialDelay = 0
 	ctx, cancel := context.WithCancel(t.Context())
-	publisher.start(ctx, "v1.2.3", false)
+	publisher.start(ctx, "v1.2.3", false, 0)
 
 	select {
 	case <-started:
@@ -288,15 +286,15 @@ func TestPublisherWaitsForInitialDelay(t *testing.T) {
 		"docker",
 		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error { return nil }),
 	)
-	publisher.initialDelay = 50 * time.Millisecond
+	const initialDelay = 50 * time.Millisecond
 	ctx, cancel := context.WithCancel(t.Context())
 	started := time.Now()
-	publisher.start(ctx, "v1.2.3", false)
+	publisher.start(ctx, "v1.2.3", false, initialDelay)
 
 	select {
 	case <-consentRead:
-		if elapsed := time.Since(started); elapsed < publisher.initialDelay {
-			t.Fatalf("first run after %v, want at least %v", elapsed, publisher.initialDelay)
+		if elapsed := time.Since(started); elapsed < initialDelay {
+			t.Fatalf("first run after %v, want at least %v", elapsed, initialDelay)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("publisher did not run after initial delay")
@@ -311,8 +309,11 @@ func TestPublisherWaitsForInitialDelay(t *testing.T) {
 
 func TestNewPublisherWaitsBeforeFirstReportAndHonorsCancellation(t *testing.T) {
 	requests := make(chan struct{}, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		requests <- struct{}{}
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		// Only count telemetry reports; ignore unrelated traffic such as port probes.
+		if request.Method == http.MethodPost {
+			requests <- struct{}{}
+		}
 		response.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(server.Close)
