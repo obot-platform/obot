@@ -11,11 +11,11 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -282,6 +282,46 @@ func TestRegistrySearchAndPagination(t *testing.T) {
 	}
 }
 
+func TestRegistryPaginationChronologicalOrder(t *testing.T) {
+	alpha := registryDefinition("vmcp1alpha", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	beta := registryDefinition("vmcp1beta", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
+	alpha.CreationTimestamp = metav1.NewTime(time.Unix(200, 0))
+	beta.CreationTimestamp = metav1.NewTime(time.Unix(100, 0))
+	storage := newRegistryTestStorage(alpha, beta)
+	for _, tc := range []struct {
+		name   string
+		cursor string
+		want   string
+		next   string
+	}{
+		{
+			name: "oldest first",
+			want: beta.Name,
+			next: "com.example.obot/" + beta.Name,
+		},
+		{
+			name:   "next page",
+			cursor: "com.example.obot/" + beta.Name,
+			want:   alpha.Name,
+		},
+		{
+			name:   "unknown cursor starts at first page",
+			cursor: "com.example.obot/missing",
+			want:   beta.Name,
+			next:   "com.example.obot/" + beta.Name,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := registryRequest(t, storage, nil, "/v0.1/servers?limit=1&cursor="+url.QueryEscape(tc.cursor))
+			var list types.RegistryServerList
+			decodeRegistryResponse(t, response, &list)
+			if !slices.Equal(registryIDs(list), []string{tc.want}) || list.Metadata == nil || list.Metadata.Count != 1 || list.Metadata.NextCursor != tc.next {
+				t.Fatalf("unexpected page: %+v", list)
+			}
+		})
+	}
+}
+
 func TestRegistrySearchFullDescription(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -414,7 +454,7 @@ func registryDetailPath(id string) string {
 
 func registryRequest(t *testing.T, storage *registryTestStorage, u user.Info, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	h := NewHandler("https://obot.example.com", mcp.RemoteMCPURLValidationConfig{})
+	h := NewHandler("https://obot.example.com")
 	mux := http.NewServeMux()
 	for pattern, handler := range map[string]api.HandlerFunc{
 		"GET /v0.1/servers":                                 h.ListServers,

@@ -7,7 +7,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,7 +24,7 @@ func TestConvertVMCPToRegistry(t *testing.T) {
 			},
 		},
 	}
-	got := ConvertVMCPToRegistry(t.Context(), definition, "https://obot.example.com/", "com.example.obot", newMimeFetcher(mcp.RemoteMCPURLValidationConfig{}))
+	got := ConvertVMCPToRegistry(definition, "https://obot.example.com/", "com.example.obot")
 	if got.Server.Name != "com.example.obot/vmcp1example" || got.Server.Title != "Example vMCP" {
 		t.Fatalf("unexpected registry identity: %#v", got.Server)
 	}
@@ -45,7 +44,7 @@ func TestConvertVMCPToRegistry(t *testing.T) {
 
 	definition.Spec.Manifest.DisplayName = ""
 	definition.Spec.Manifest.Icon = ""
-	got = ConvertVMCPToRegistry(t.Context(), definition, "https://obot.example.com", "com.example.obot", nil)
+	got = ConvertVMCPToRegistry(definition, "https://obot.example.com", "com.example.obot")
 	if got.Server.Title != definition.Name || len(got.Server.Icons) != 0 {
 		t.Fatalf("unexpected metadata fallbacks: %#v", got.Server)
 	}
@@ -78,7 +77,7 @@ func TestRegistryDescriptionFitsSchema(t *testing.T) {
 			definition := registryDefinition("vmcp1example", "")
 			definition.Spec.Manifest.DisplayName = tc.displayName
 			definition.Spec.Manifest.Description = tc.description
-			got := ConvertVMCPToRegistry(t.Context(), *definition, "https://obot.example.com", "com.example.obot", nil)
+			got := ConvertVMCPToRegistry(*definition, "https://obot.example.com", "com.example.obot")
 			if got.Server.Description != tc.want || !utf8.ValidString(got.Server.Description) {
 				t.Fatalf("description = %q, want %q", got.Server.Description, tc.want)
 			}
@@ -145,7 +144,7 @@ func TestRegistryURLIndependentOfConfiguration(t *testing.T) {
 				},
 				Status: v1.VMCPStatus{Ready: tc.ready},
 			}
-			got := ConvertVMCPToRegistry(t.Context(), definition, "https://obot.example.com", "com.example.obot", nil)
+			got := ConvertVMCPToRegistry(definition, "https://obot.example.com", "com.example.obot")
 			assertRegistryRemote(t, got, definition.Name)
 			if got.Meta.Obot != nil || strings.Contains(got.Server.Meta.PublisherProvided.GitHub.Readme, "Add this server to a vMCP") {
 				t.Fatalf("setup must be handled by consent: %#v", got)
@@ -193,7 +192,7 @@ func TestLocalhostCallbackUsesVMCPRemote(t *testing.T) {
 					},
 				},
 			}
-			got := ConvertVMCPToRegistry(t.Context(), *definition, "https://obot.example.com", "com.example.obot", nil)
+			got := ConvertVMCPToRegistry(*definition, "https://obot.example.com", "com.example.obot")
 			assertRegistryRemote(t, got, definition.Name)
 		})
 	}

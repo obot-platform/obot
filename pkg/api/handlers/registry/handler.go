@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/vmcp"
@@ -19,15 +18,11 @@ import (
 )
 
 type Handler struct {
-	serverURL   string
-	mimeFetcher *mimeFetcher
+	serverURL string
 }
 
-func NewHandler(serverURL string, egress mcp.RemoteMCPURLValidationConfig) *Handler {
-	return &Handler{
-		serverURL:   serverURL,
-		mimeFetcher: newMimeFetcher(egress),
-	}
+func NewHandler(serverURL string) *Handler {
+	return &Handler{serverURL: serverURL}
 }
 
 // ListServers handles GET /v0.1/servers.
@@ -42,7 +37,7 @@ func (h *Handler) ListServers(req api.Context) error {
 		return fmt.Errorf("failed to list vMCPs: %w", err)
 	}
 
-	servers := make([]types.RegistryServerResponse, 0, len(list.Items))
+	definitions := make([]v1.VMCP, 0, len(list.Items))
 	search := strings.ToLower(req.URL.Query().Get("search"))
 	for _, item := range list.Items {
 		if !registryVMCPVisible(req.User, &item) {
@@ -55,9 +50,9 @@ func (h *Handler) ListServers(req api.Context) error {
 			!strings.Contains(strings.ToLower(item.Spec.Manifest.Description), search) {
 			continue
 		}
-		servers = append(servers, ConvertVMCPToRegistry(req.Context(), item, h.serverURL, reverseDNS, h.mimeFetcher))
+		definitions = append(definitions, item)
 	}
-	return req.Write(paginateServers(servers, req.URL.Query().Get("cursor"), parseLimit(req.URL.Query().Get("limit"))))
+	return req.Write(h.paginateVMCPs(definitions, reverseDNS, req.URL.Query().Get("cursor"), parseLimit(req.URL.Query().Get("limit"))))
 }
 
 func registryUserAuthenticated(u user.Info) bool {
@@ -105,55 +100,33 @@ func parseLimit(limitStr string) int {
 	return limit
 }
 
-func paginateServers(servers []types.RegistryServerResponse, cursor string, limit int) types.RegistryServerList {
-	// Sort servers by creation timestamp
-	slices.SortStableFunc(servers, func(i, j types.RegistryServerResponse) int {
-		if result := cmp.Compare(i.CreatedAtUnix, j.CreatedAtUnix); result != 0 {
+func (h *Handler) paginateVMCPs(definitions []v1.VMCP, reverseDNS, cursor string, limit int) types.RegistryServerList {
+	slices.SortStableFunc(definitions, func(i, j v1.VMCP) int {
+		if result := cmp.Compare(i.CreationTimestamp.Unix(), j.CreationTimestamp.Unix()); result != 0 {
 			return result
 		}
-		return strings.Compare(i.Server.Name, j.Server.Name)
+		return strings.Compare(i.Name, j.Name)
 	})
 
-	// Simple cursor-based pagination using server name as cursor
-	startIdx := 0
+	start := 0
 	if cursor != "" {
-		// Find the position after the cursor
-		for i, server := range servers {
-			if server.Server.Name == cursor {
-				startIdx = i + 1
+		for i, definition := range definitions {
+			if FormatRegistryServerName(reverseDNS, definition.Name) == cursor {
+				start = i + 1
 				break
 			}
 		}
 	}
-
-	// Get the page
-	endIdx := startIdx + limit
-	endIdx = min(endIdx, len(servers))
-
-	page := servers[startIdx:endIdx]
-	if page == nil {
-		// This prevents an error from showing up in VSCode when the result is empty.
-		page = []types.RegistryServerResponse{}
+	end := min(start+limit, len(definitions))
+	metadata := &types.RegistryServerListMetadata{Count: end - start}
+	if end < len(definitions) {
+		metadata.NextCursor = FormatRegistryServerName(reverseDNS, definitions[end-1].Name)
 	}
-
-	// Build response
-	response := types.RegistryServerList{
-		Servers: page,
+	servers := make([]types.RegistryServerResponse, 0, end-start)
+	for _, definition := range definitions[start:end] {
+		servers = append(servers, ConvertVMCPToRegistry(definition, h.serverURL, reverseDNS))
 	}
-
-	// Add metadata if there are more results
-	if endIdx < len(servers) {
-		response.Metadata = &types.RegistryServerListMetadata{
-			NextCursor: page[len(page)-1].Server.Name,
-			Count:      len(page),
-		}
-	} else {
-		response.Metadata = &types.RegistryServerListMetadata{
-			Count: len(page),
-		}
-	}
-
-	return response
+	return types.RegistryServerList{Servers: servers, Metadata: metadata}
 }
 
 // ListServerVersions handles GET /v0.1/servers/{serverName}/versions
@@ -239,7 +212,7 @@ func (h *Handler) findServerByName(req api.Context, serverName, reverseDNS strin
 	if definition == nil || instance != nil || !registryVMCPVisible(req.User, definition) {
 		return types.RegistryServerResponse{}, h.notFoundError("Server not found")
 	}
-	return ConvertVMCPToRegistry(req.Context(), *definition, h.serverURL, expectedDNS, h.mimeFetcher), nil
+	return ConvertVMCPToRegistry(*definition, h.serverURL, expectedDNS), nil
 }
 
 // notFoundError returns a standard 404 error response in the format:

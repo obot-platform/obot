@@ -2,7 +2,6 @@ package registry
 
 import (
 	"cmp"
-	"context"
 	"strings"
 	"time"
 
@@ -14,11 +13,9 @@ import (
 // ConvertVMCPToRegistry publishes a definition's canonical endpoint. Authentication,
 // user configuration, and instance creation happen in the connection's consent flow.
 func ConvertVMCPToRegistry(
-	ctx context.Context,
 	definition v1.VMCP,
 	serverURL string,
 	reverseDNS string,
-	mimeFetcher *mimeFetcher,
 ) types.RegistryServerResponse {
 	manifest := definition.Spec.Manifest
 	// The registry schema limits descriptions to 100 characters. Keep the full
@@ -48,7 +45,7 @@ func ConvertVMCPToRegistry(
 		detail.Icons = []types.RegistryServerIcon{
 			{
 				Src:      manifest.Icon,
-				MimeType: mimeFetcher.guessMimeType(ctx, manifest.Icon),
+				MimeType: guessMimeType(manifest.Icon),
 			},
 		}
 	}

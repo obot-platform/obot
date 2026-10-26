@@ -1,119 +1,27 @@
 package registry
 
 import (
-	"context"
-	"net/http"
+	"net/url"
+	"path"
 	"strings"
-	"sync"
-	"time"
-
-	"github.com/obot-platform/obot/pkg/mcp"
-	"github.com/obot-platform/obot/pkg/safehttp"
 )
 
-type mimeFetcher struct {
-	lock   sync.RWMutex
-	cache  map[string]string
-	client *http.Client
-}
-
-func newMimeFetcher(egress mcp.RemoteMCPURLValidationConfig) *mimeFetcher {
-	return &mimeFetcher{
-		lock:  sync.RWMutex{},
-		cache: make(map[string]string),
-		// Icon URLs are user-supplied, so only let the fetch reach local or internal addresses
-		// when the admin's egress settings allow it, the same as remote MCP servers.
-		client: safehttp.NewClient(safehttp.Options{
-			BlockLoopback:  !egress.AllowLocalhostMCP,
-			BlockPrivateIP: !egress.AllowPrivateIPMCP,
-			BlockLinkLocal: !egress.AllowLinkLocalMCP,
-		}),
+// guessMimeType uses the URL path only; registry discovery never fetches icons.
+func guessMimeType(iconURL string) string {
+	u, err := url.Parse(iconURL)
+	if err != nil {
+		return ""
 	}
-}
-
-func (m *mimeFetcher) guessMimeType(ctx context.Context, iconURL string) string {
-	// First, try to guess from the file extension
-	lower := strings.ToLower(iconURL)
-	if strings.HasSuffix(lower, ".png") {
+	switch strings.ToLower(path.Ext(u.Path)) {
+	case ".png":
 		return "image/png"
-	}
-	if strings.HasSuffix(lower, ".jpg") || strings.HasSuffix(lower, ".jpeg") {
+	case ".jpg", ".jpeg":
 		return "image/jpeg"
-	}
-	if strings.HasSuffix(lower, ".svg") {
+	case ".svg":
 		return "image/svg+xml"
-	}
-	if strings.HasSuffix(lower, ".webp") {
+	case ".webp":
 		return "image/webp"
-	}
-
-	// If we couldn't guess from the extension, try to fetch the URL
-	if strings.HasPrefix(lower, "http://") || strings.HasPrefix(lower, "https://") {
-		return m.fetchAndDetectMimeType(ctx, iconURL)
-	}
-
-	return ""
-}
-
-func (m *mimeFetcher) fetchAndDetectMimeType(ctx context.Context, url string) string {
-	m.lock.RLock()
-	mimeType, ok := m.cache[url]
-	m.lock.RUnlock()
-	if ok {
-		return mimeType
-	}
-
-	// Create a context with timeout to prevent hanging
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
+	default:
 		return ""
 	}
-
-	// Perform the request
-	resp, err := m.client.Do(req)
-	if err != nil {
-		return ""
-	}
-	defer resp.Body.Close()
-
-	// First, check the Content-Type header
-	if contentType := resp.Header.Get("Content-Type"); contentType != "" {
-		// Extract just the MIME type (before any semicolon/parameters)
-		if idx := strings.Index(contentType, ";"); idx > 0 {
-			contentType = contentType[:idx]
-		}
-		contentType = strings.TrimSpace(contentType)
-
-		// Validate it's an image MIME type
-		if strings.HasPrefix(contentType, "image/") {
-			m.lock.Lock()
-			m.cache[url] = contentType
-			m.lock.Unlock()
-			return contentType
-		}
-	}
-
-	// If header wasn't useful, read first 512 bytes to detect content type
-	buffer := make([]byte, 512)
-	n, err := resp.Body.Read(buffer)
-	if err != nil && n == 0 {
-		return ""
-	}
-
-	// Detect content type from the actual data
-	detectedType := http.DetectContentType(buffer[:n])
-
-	// Only return if it's an image type
-	if strings.HasPrefix(detectedType, "image/") {
-		m.lock.Lock()
-		m.cache[url] = detectedType
-		m.lock.Unlock()
-		return detectedType
-	}
-
-	return ""
 }
