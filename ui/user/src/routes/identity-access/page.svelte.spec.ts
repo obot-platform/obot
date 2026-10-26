@@ -1375,11 +1375,11 @@ describe('Identity & Access Page', () => {
 				await renderAsOwner([localConfigured, verifiedGoogle]);
 
 				// The switch confirmation has to spell out both consequences, not just the sign-out.
-				const confirmation = page.getByRole('dialog').filter({ hasText: 'Switch to Google?' });
-				await expect.element(confirmation.getByText(/sessions\s+end/)).toBeVisible();
-				await expect
-					.element(confirmation.getByText(/users and their work will not transfer/))
-					.toBeVisible();
+				const warning = page.getByText(
+					'Google becomes the only way to sign in, and Local sessions end. Its users and their work will not transfer.',
+					{ exact: true }
+				);
+				await expect.element(warning).toBeVisible();
 			});
 
 			it("says that switching deletes the outgoing provider's SCIM data, and how SCIM starts for the incoming one", async () => {

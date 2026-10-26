@@ -65,6 +65,51 @@ async function renderConfiguredDialog(props: { readonly?: boolean } = {}) {
 }
 
 describe('LocalAuthConfigure.svelte', () => {
+	it('creates a verification account after staging Local during a provider switch', async () => {
+		const { createUser } = mockLocalUsers();
+		const onConfigure = vi.fn(async () => undefined);
+		const onClose = vi.fn();
+		const dialog = await renderOpenDialog(LocalAuthConfigure, {
+			provider: { ...localProvider, configured: false },
+			switchingProvider: true,
+			onConfigure,
+			onClose
+		});
+
+		await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+		await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
+		expect(onConfigure).toHaveBeenCalledWith({ OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*' });
+		await dialog.getByLabelText('Email', { exact: true }).fill('owner@example.com');
+		await page.getByCSS('#local-user-password-draft').fill(validPassword);
+		await expect
+			.element(dialog.getByRole('checkbox', { name: /Require the user to change this password/ }))
+			.not.toBeChecked();
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(createUser).toHaveBeenCalledWith({
+				email: 'owner@example.com',
+				password: validPassword,
+				requirePasswordChange: false
+			});
+			expect(onClose).toHaveBeenCalledWith(1);
+		});
+	});
+
+	it('opens user management for a staged Local provider only during a switch', async () => {
+		mockLocalUsers({ existing: [createdUser('owner@example.com')] });
+		const dialog = await renderOpenDialog(LocalAuthConfigure, {
+			provider: { ...localProvider, configured: false, staged: true },
+			switchingProvider: true,
+			onConfigure: vi.fn(async () => undefined)
+		});
+
+		await expect.element(dialog.getByText('owner@example.com', { exact: true })).toBeVisible();
+		await expect
+			.element(dialog.getByRole('button', { name: 'Add New User', exact: true }))
+			.toBeVisible();
+	});
+
 	it('shows only the domain configuration for a provider that is already configured', async () => {
 		const dialog = await renderConfiguredDialog();
 

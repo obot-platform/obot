@@ -861,7 +861,14 @@
 			<ArrowLeft class="size-4" />
 			{m.identity_access_auth_providers_step_signin()}
 		</button>
-		<button class="btn btn-primary" disabled={switching} onclick={() => (confirmSwitch = true)}>
+		<button
+			class="btn btn-primary"
+			disabled={switching}
+			onclick={() => {
+				providerConfigure?.close();
+				confirmSwitch = true;
+			}}
+		>
 			{m.identity_access_auth_providers_switch_to({ name: `${configuringAuthProvider?.name}` })}
 		</button>
 	{/if}
@@ -977,7 +984,10 @@
 	cancelText={m.common_cancel()}
 	loading={switching}
 	onsuccess={handleActivateStagedProvider}
-	oncancel={() => (confirmSwitch = false)}
+	oncancel={() => {
+		confirmSwitch = false;
+		providerConfigure?.open();
+	}}
 />
 
 <Confirm
