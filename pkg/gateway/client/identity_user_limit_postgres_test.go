@@ -77,7 +77,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitAcrossPostgresClients(t *testing
 			_ = lockTx.Rollback().Error
 		}
 	}()
-	if err := lockTx.Exec("SELECT pg_advisory_xact_lock(?)", userCreationAdvisoryLockID).Error; err != nil {
+	if err := lockTx.Exec("SELECT pg_advisory_xact_lock(?)", int64(gatewaydb.UserCreationLock)).Error; err != nil {
 		t.Fatalf("holding user-creation advisory lock: %v", err)
 	}
 
@@ -203,8 +203,8 @@ func newPostgresUserLimitTestClient(database *gatewaydb.DB) *Client {
 func waitForPostgresUserLimitLockWaiters(ctx context.Context, db *gorm.DB, want int64) error {
 	const pollInterval = 10 * time.Millisecond
 
-	lockClassID := uint64(userCreationAdvisoryLockID) >> 32
-	lockObjectID := uint64(userCreationAdvisoryLockID) & 0xffffffff
+	lockClassID := uint64(gatewaydb.UserCreationLock) >> 32
+	lockObjectID := uint64(gatewaydb.UserCreationLock) & 0xffffffff
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
