@@ -199,7 +199,7 @@
 	});
 
 	function handleDateChange({ start, end }: { start?: Date; end?: Date }) {
-		const url = page.url;
+		const url = new URL(page.url.toString());
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());
 			url.searchParams.set('end_time', (end ?? endOfDay(start)).toISOString());

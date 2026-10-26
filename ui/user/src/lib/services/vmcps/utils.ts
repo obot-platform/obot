@@ -1,3 +1,4 @@
+import type { ReadonlyURL } from '$app/state';
 import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import { m } from '$lib/i18n';
 import type {
@@ -384,14 +385,18 @@ export type OAuthReturnParam = {
 	value: string;
 };
 
-export function oauthReturnPath(pageURL: URL, returnParam?: OAuthReturnParam) {
+export function oauthReturnPath(pageURL: URL | ReadonlyURL, returnParam?: OAuthReturnParam) {
 	if (!returnParam?.key || !returnParam.value) return;
-	const returnURL = new URL(pageURL);
+	const returnURL = new URL(pageURL.toString());
 	returnURL.searchParams.set(returnParam.key, returnParam.value);
 	return `${returnURL.pathname}${returnURL.search}${returnURL.hash}`;
 }
 
-export function configureOAuthPath(entryID: string, pageURL: URL, returnParam?: OAuthReturnParam) {
+export function configureOAuthPath(
+	entryID: string,
+	pageURL: URL | ReadonlyURL,
+	returnParam?: OAuthReturnParam
+) {
 	const params = new URLSearchParams({ 'configure-oauth': 'true' });
 	const redirect = oauthReturnPath(pageURL, returnParam);
 	if (redirect) params.set('oauth-redirect', redirect);
@@ -401,7 +406,7 @@ export function configureOAuthPath(entryID: string, pageURL: URL, returnParam?: 
 export function handleConfigureOAuth(
 	event: MouseEvent,
 	entryID: string | undefined,
-	pageURL: URL,
+	pageURL: URL | ReadonlyURL,
 	returnParam?: OAuthReturnParam
 ) {
 	if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
@@ -410,8 +415,9 @@ export function handleConfigureOAuth(
 	if (!entryID) return;
 	event.preventDefault();
 	if (returnParam?.key && returnParam.value) {
-		pageURL.searchParams.set(returnParam.key, returnParam.value);
-		replaceState(pageURL, {});
+		const url = new URL(pageURL.toString());
+		url.searchParams.set(returnParam.key, returnParam.value);
+		replaceState(url, {});
 	}
 	goto(configureOAuthPath(entryID, pageURL, returnParam));
 }

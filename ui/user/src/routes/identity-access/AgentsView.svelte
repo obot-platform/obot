@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -13,6 +12,7 @@
 	import { getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import { resolve } from '$lib/url';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { Info, KeyRound, Trash2 } from '@lucide/svelte';
@@ -79,14 +79,14 @@
 	}
 
 	export function showCreateForm() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.toString());
 		url.searchParams.set('view', 'agents');
 		url.searchParams.set('new', 'true');
 		goto(url);
 	}
 
 	export function hideCreateForm() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.toString());
 		url.searchParams.delete('new');
 		goto(url, { replaceState: true });
 	}

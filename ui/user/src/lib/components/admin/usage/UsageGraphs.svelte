@@ -547,7 +547,7 @@
 	}
 
 	function handleDateChange({ start, end }: DateRange) {
-		const url = page.url;
+		const url = new URL(page.url.toString());
 
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());
@@ -760,7 +760,7 @@
 					{#if isClearable}
 						<button
 							onclick={() => {
-								const url = page.url;
+								const url = new URL(page.url.toString());
 								url.searchParams.set(filterKey, '');
 
 								goto(url, { noScroll: true });

@@ -28,19 +28,19 @@ const sessionUrlKeys = [
 ];
 
 beforeEach(() => {
-	for (const key of sessionUrlKeys) appPage.url.searchParams.delete(key);
+	for (const key of sessionUrlKeys) (appPage.url as URL).searchParams.delete(key);
 });
 
 afterEach(() => {
 	cleanup();
 	vi.restoreAllMocks();
-	for (const key of sessionUrlKeys) appPage.url.searchParams.delete(key);
+	for (const key of sessionUrlKeys) (appPage.url as URL).searchParams.delete(key);
 });
 
 it('shows session status and confirms workspace deletion', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
 	profile.initialize(createMockProfile([]));
-	appPage.url.searchParams.set('view', 'sessions');
+	(appPage.url as URL).searchParams.set('view', 'sessions');
 	const removed = vi.fn();
 	worker.use(
 		http.get('*/api/claude-sessions', () =>
@@ -118,7 +118,7 @@ it('shows session status and confirms workspace deletion', async () => {
 
 it('shows all sessions with owner attribution', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
-	appPage.url.searchParams.set('view', 'sessions');
+	(appPage.url as URL).searchParams.set('view', 'sessions');
 	const requested = vi.fn();
 	worker.use(
 		http.get('*/api/users', () =>
@@ -182,7 +182,7 @@ it('shows all sessions with owner attribution', async () => {
 it('loads only the current user’s sessions and hides the owner filter', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
 	profile.initialize(createMockProfile([]));
-	appPage.url.searchParams.set('view', 'sessions');
+	(appPage.url as URL).searchParams.set('view', 'sessions');
 	const requested = vi.fn();
 	worker.use(
 		http.get('*/api/claude-sessions', ({ request }) => {
@@ -204,7 +204,7 @@ it('loads only the current user’s sessions and hides the owner filter', async 
 
 async function renderTwoSessions() {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
-	appPage.url.searchParams.set('view', 'sessions');
+	(appPage.url as URL).searchParams.set('view', 'sessions');
 	worker.use(
 		http.get('*/api/users', () =>
 			HttpResponse.json({
@@ -300,7 +300,7 @@ it('filters sessions by status and owner, and sorts by name', async () => {
 
 it('lets admins request suspension and shows the pending state', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
-	appPage.url.searchParams.set('view', 'sessions');
+	(appPage.url as URL).searchParams.set('view', 'sessions');
 	let suspended = false;
 	worker.use(
 		http.get('*/api/claude-sessions', () =>
@@ -355,7 +355,7 @@ it.each(['sessions', 'all-sessions'])(
 	'hides disabled session views opened directly: %s',
 	async (view) => {
 		await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: false } });
-		appPage.url.searchParams.set('view', view);
+		(appPage.url as URL).searchParams.set('view', view);
 		const requested = vi.fn();
 		worker.use(
 			http.get('*/api/claude-environments', () => HttpResponse.json({ enabled: false })),
@@ -378,7 +378,7 @@ it.each(['sessions', 'all-sessions'])(
 
 it('opens the environment form when the environment query is set', async () => {
 	await preparePageData({ version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true } });
-	appPage.url.searchParams.set('environment', 'new');
+	(appPage.url as URL).searchParams.set('environment', 'new');
 	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 	worker.use(
 		http.get('*/api/claude-environments', () =>

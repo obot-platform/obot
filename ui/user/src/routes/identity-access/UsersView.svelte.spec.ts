@@ -19,7 +19,7 @@ vi.mock('$app/navigation', async (importOriginal) => {
 });
 
 afterEach(() => {
-	appPage.url.searchParams.delete('query');
+	(appPage.url as URL).searchParams.delete('query');
 });
 
 function orgUser(overrides: Partial<OrgUser> & Pick<OrgUser, 'id' | 'email'>): OrgUser {

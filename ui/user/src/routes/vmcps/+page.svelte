@@ -154,7 +154,7 @@
 	}
 
 	function hideCreate() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.toString());
 		url.searchParams.delete('new');
 		goto(url, { replaceState: true });
 	}

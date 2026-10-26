@@ -429,15 +429,16 @@
 	const handleQueryChange = debounce((value: string) => {
 		query = value;
 
+		const url = new URL(page.url.toString());
 		if (value) {
-			page.url.searchParams.set('query', value);
+			url.searchParams.set('query', value);
 		} else {
-			page.url.searchParams.delete('query');
+			url.searchParams.delete('query');
 		}
 
 		// Update the query search param without cause app to react
 		// Prevent losing focus from the input
-		replaceState(page.url, { query: value });
+		replaceState(url, { query: value });
 	}, 100);
 
 	// The fetch $effect below reacts to pageIndex (via allFilters.offset), so updating the page
@@ -507,7 +508,7 @@
 	}
 
 	function handleDateChange({ start, end }: DateRange) {
-		const url = page.url;
+		const url = new URL(page.url.toString());
 
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());

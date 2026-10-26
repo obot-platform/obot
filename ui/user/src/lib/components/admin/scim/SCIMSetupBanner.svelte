@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { SCIM_VIEW_PATH } from '$lib/constants';
 	import { m } from '$lib/i18n';
+	import { resolve } from '$lib/url';
 
 	// The banner cannot be dismissed: until SCIM is enforced, users that the identity provider has not
 	// provisioned can still sign in.

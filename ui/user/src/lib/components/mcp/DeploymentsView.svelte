@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -45,6 +43,7 @@
 		vmcpInstances
 	} from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import { goto, resolve } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CapacityBanner from './CapacityBanner.svelte';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';

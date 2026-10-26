@@ -16,7 +16,7 @@ export const readyStatus = {
 };
 
 export async function renderModelsTab(view: string, groups: string[] = [Group.ADMIN]) {
-	appPage.url.searchParams.set('view', view);
+	(appPage.url as URL).searchParams.set('view', view);
 	// Layout's setup splash would otherwise sit on top of the page for admins.
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 	const data = await preparePageData<PageData>({
@@ -28,7 +28,7 @@ export async function renderModelsTab(view: string, groups: string[] = [Group.AD
 }
 
 export function resetModelsTab() {
-	for (const key of Array.from(appPage.url.searchParams.keys())) {
-		appPage.url.searchParams.delete(key);
+	for (const key of Array.from((appPage.url as URL).searchParams.keys())) {
+		(appPage.url as URL).searchParams.delete(key);
 	}
 }

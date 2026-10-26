@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { page } from '$app/state';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';

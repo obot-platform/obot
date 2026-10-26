@@ -48,11 +48,11 @@ async function renderPlatformPage({
 	productAnalyticsConsent?: ProductTelemetryConsent;
 	modelProxySettings?: ModelProxySettings;
 } = {}) {
-	appPage.url.searchParams.set('view', view);
+	(appPage.url as URL).searchParams.set('view', view);
 	if (create) {
-		appPage.url.searchParams.set('create', 'true');
+		(appPage.url as URL).searchParams.set('create', 'true');
 	} else {
-		appPage.url.searchParams.delete('create');
+		(appPage.url as URL).searchParams.delete('create');
 	}
 
 	const data = await preparePageData<PageData>({
@@ -76,9 +76,9 @@ async function renderPlatformPage({
 }
 
 afterEach(() => {
-	appPage.url.searchParams.delete('view');
-	appPage.url.searchParams.delete('create');
-	appPage.url.searchParams.delete('id');
+	(appPage.url as URL).searchParams.delete('view');
+	(appPage.url as URL).searchParams.delete('create');
+	(appPage.url as URL).searchParams.delete('id');
 });
 
 describe('Platform Page', () => {

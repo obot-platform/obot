@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
@@ -44,6 +43,7 @@
 	} from '$lib/services/dashboard/utils';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { resolve } from '$lib/url';
 	import {
 		Activity,
 		ChevronRight,

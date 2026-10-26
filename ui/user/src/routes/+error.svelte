@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
 	import { m } from '$lib/i18n';
+	import { resolve } from '$lib/url';
 
 	const errorTitles = {
 		400: m.error_page_400,

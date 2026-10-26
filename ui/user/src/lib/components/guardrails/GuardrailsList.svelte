@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -22,6 +21,7 @@
 		type GuardrailProvider
 	} from '$lib/services/llm-gateway/guardrails';
 	import { profile } from '$lib/stores';
+	import { resolve } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -129,12 +129,13 @@
 	);
 
 	function updateQuery(value: string) {
+		const url = new URL(page.url.toString());
 		if (value) {
-			page.url.searchParams.set('query', value);
+			url.searchParams.set('query', value);
 		} else {
-			page.url.searchParams.delete('query');
+			url.searchParams.delete('query');
 		}
-		replaceState(page.url, { query: value });
+		replaceState(url, { query: value });
 	}
 
 	function clearFilters() {

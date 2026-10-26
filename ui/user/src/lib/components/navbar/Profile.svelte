@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import LanguageSelect from '$lib/components/LanguageSelect.svelte';
@@ -17,6 +16,7 @@
 	import { profile, responsive, darkMode, userDeviceSettings } from '$lib/stores';
 	import { version } from '$lib/stores';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
+	import { resolve } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import IconButton from '../primitives/IconButton.svelte';

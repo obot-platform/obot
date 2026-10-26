@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Pagination from '$lib/components/table/Pagination.svelte';
@@ -13,7 +12,7 @@
 		type DeviceMCPServerDetail
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto, setFilterUrlParams } from '$lib/url';
+	import { goto, resolve, setFilterUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';

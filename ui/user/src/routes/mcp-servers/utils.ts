@@ -1,3 +1,4 @@
+import type { ReadonlyURL } from '$app/state';
 import {
 	DEFAULT_MCP_CATALOG_ID,
 	MCP_CONNECTORS_NAV_SOURCE,
@@ -14,7 +15,7 @@ import {
 	type Profile
 } from '$lib/services';
 
-export function isConnectorsNavigation(url: URL) {
+export function isConnectorsNavigation(url: URL | ReadonlyURL) {
 	return url.searchParams.get(MCP_NAV_SOURCE_PARAM) === MCP_CONNECTORS_NAV_SOURCE;
 }
 

@@ -41,12 +41,12 @@ async function renderRegistryConnections({
 	create?: boolean;
 	id?: string;
 } = {}) {
-	appPage.url.searchParams.set('view', 'registry-connections');
+	(appPage.url as URL).searchParams.set('view', 'registry-connections');
 	if (create) {
-		appPage.url.searchParams.set('create', 'true');
+		(appPage.url as URL).searchParams.set('create', 'true');
 	}
 	if (id) {
-		appPage.url.searchParams.set('id', id);
+		(appPage.url as URL).searchParams.set('id', id);
 	}
 
 	await preparePageData();
@@ -54,9 +54,9 @@ async function renderRegistryConnections({
 }
 
 afterEach(() => {
-	appPage.url.searchParams.delete('view');
-	appPage.url.searchParams.delete('create');
-	appPage.url.searchParams.delete('id');
+	(appPage.url as URL).searchParams.delete('view');
+	(appPage.url as URL).searchParams.delete('create');
+	(appPage.url as URL).searchParams.delete('id');
 });
 
 describe('RegistryConnectionsView', () => {

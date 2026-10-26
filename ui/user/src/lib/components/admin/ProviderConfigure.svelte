@@ -1,5 +1,5 @@
 <script module lang="ts">
-	import { resolve } from '$app/paths';
+	import { resolve } from '$lib/url';
 
 	// A notice shown below a configuration parameter.
 	export interface ParameterNotice {

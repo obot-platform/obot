@@ -49,7 +49,7 @@ afterEach(() => {
 		'start_time',
 		'end_time'
 	]) {
-		appPage.url.searchParams.delete(key);
+		(appPage.url as URL).searchParams.delete(key);
 	}
 });
 
@@ -265,7 +265,7 @@ it('applies, restores, and clears free-text account, session, and host filters',
 	}
 	expect(requests).toHaveBeenLastCalledWith(empty);
 	for (const key of Object.keys(values)) {
-		expect(appPage.url.searchParams.get(key)).toBeNull();
+		expect((appPage.url as URL).searchParams.get(key)).toBeNull();
 	}
 	await page.getByRole('button', { name: 'Apply Filters', exact: true }).click();
 	await vi.waitFor(() => expect(requests).toHaveBeenLastCalledWith(values));
@@ -290,7 +290,7 @@ for (const value of ['account,unknown', 'account,account', '["one","two"]']) {
 		mockEgressApis();
 		const keys = ['claude_account', 'claude_session', 'host'];
 		for (const key of keys) {
-			appPage.url.searchParams.set(key, value);
+			(appPage.url as URL).searchParams.set(key, value);
 		}
 		const requests = vi.fn();
 		worker.use(

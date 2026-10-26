@@ -8,7 +8,7 @@
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type ToolOverride, type VMCPProfile } from '$lib/services';
 	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
-	import { goto, setUrlParam } from '$lib/url';
+	import { goto } from '$lib/url';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpComponentDetailsDialog from './VMcpComponentDetailsDialog.svelte';
@@ -177,11 +177,15 @@
 	function openAffectedProfiles() {
 		const targets = pendingAffectedProfiles;
 		pendingAffectedProfiles = [];
-		const url = new URL(page.url);
-		setUrlParam(url, 'view', 'profiles');
+		const url = new URL(page.url.toString());
+		url.searchParams.set('view', 'profiles');
 		const profileId = targets.length === 1 ? targets[0].name : null;
-		setUrlParam(url, 'profile', profileId);
-		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
+		if (profileId) {
+			url.searchParams.set('profile', profileId);
+		} else {
+			url.searchParams.delete('profile');
+		}
+		goto(url, { reset: false, replace: true });
 	}
 
 	$effect(() => {

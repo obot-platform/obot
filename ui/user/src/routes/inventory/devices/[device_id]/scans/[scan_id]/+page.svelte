@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -26,7 +25,7 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Boxes, Cpu, MonitorCheck, PencilRuler, Server, Trash2 } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';

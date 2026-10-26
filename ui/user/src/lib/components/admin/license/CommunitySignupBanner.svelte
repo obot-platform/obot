@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
 	import { m } from '$lib/i18n';
+	import { resolve } from '$lib/url';
 	import { X } from '@lucide/svelte';
 
 	interface Props {

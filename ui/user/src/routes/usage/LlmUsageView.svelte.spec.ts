@@ -9,7 +9,7 @@ import { page } from 'vitest/browser';
 
 describe('LlmUsageView', () => {
 	afterEach(() => {
-		appPage.url.searchParams.delete(TOKEN_USAGE_PARAMS.USER);
+		(appPage.url as URL).searchParams.delete(TOKEN_USAGE_PARAMS.USER);
 	});
 
 	it('keeps a selected user marked as disabled in the active filter', async () => {
@@ -23,7 +23,7 @@ describe('LlmUsageView', () => {
 			http.get('*/api/total-token-usage', () => HttpResponse.json({})),
 			http.get('*/api/token-usage', () => HttpResponse.json({ items: [] }))
 		);
-		appPage.url.searchParams.set(TOKEN_USAGE_PARAMS.USER, 'u2');
+		(appPage.url as URL).searchParams.set(TOKEN_USAGE_PARAMS.USER, 'u2');
 
 		render(LlmUsageView);
 

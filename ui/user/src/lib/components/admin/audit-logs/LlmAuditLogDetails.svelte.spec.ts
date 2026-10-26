@@ -37,7 +37,7 @@ const entry: LLMAuditLog = {
 
 describe('LLM audit log usage', () => {
 	afterEach(() => {
-		appPage.url.searchParams.delete('view');
+		(appPage.url as URL).searchParams.delete('view');
 	});
 
 	it("shows a request's spend, and the cached and reasoning tokens in the details", async () => {
@@ -47,7 +47,7 @@ describe('LLM audit log usage', () => {
 			),
 			http.get('/api/llm-audit-logs/detail/:id', () => HttpResponse.json(entry))
 		);
-		appPage.url.searchParams.set('view', 'llm');
+		(appPage.url as URL).searchParams.set('view', 'llm');
 		await preparePageData();
 		render(AuditLogsPage);
 

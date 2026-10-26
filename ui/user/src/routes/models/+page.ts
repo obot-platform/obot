@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { handleRouteError } from '$lib/errors';
 import { UserService, type Model } from '$lib/services';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';

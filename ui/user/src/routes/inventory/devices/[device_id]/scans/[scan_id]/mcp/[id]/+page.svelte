@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
@@ -8,7 +7,7 @@
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
 	import { m } from '$lib/i18n';
 	import type { DeviceScanMCPServer } from '$lib/services/user/types';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { findParentPlugin, shortHash } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import Logo from '$lib/components/Logo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';

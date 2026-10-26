@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { m } from '$lib/i18n';
@@ -25,7 +24,7 @@
 		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
@@ -289,7 +288,7 @@
 			launchDialog?.open();
 
 			// clear out the launch param
-			const url = new URL(page.url);
+			const url = new URL(page.url.toString());
 			url.searchParams.delete('launch');
 			goto(url, { replaceState: true });
 		}
@@ -301,7 +300,7 @@
 			void openOAuthConfig();
 
 			// clear out the configure-oauth param
-			const url = new URL(page.url);
+			const url = new URL(page.url.toString());
 			url.searchParams.delete('configure-oauth');
 			goto(url, { replaceState: true });
 		}

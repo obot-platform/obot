@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import {
 		DEVICE_SCAN_TOP_N,
 		deviceScanBucketsToDonut,
@@ -8,6 +7,7 @@
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import { m } from '$lib/i18n';
+	import { resolve } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { ChevronRight } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';

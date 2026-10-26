@@ -248,16 +248,17 @@
 	});
 
 	const handleQueryChange = debounce((value: string) => {
+		const url = new URL(page.url.toString());
 		if (value) {
-			page.url.searchParams.set('query', value);
+			url.searchParams.set('query', value);
 		} else {
-			page.url.searchParams.delete('query');
+			url.searchParams.delete('query');
 		}
-		replaceState(page.url, {});
+		replaceState(url, {});
 	}, 100);
 
 	function handleDateChange({ start, end }: { start?: Date; end?: Date }) {
-		const url = page.url;
+		const url = new URL(page.url.toString());
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());
 			url.searchParams.set('end_time', (end ?? endOfDay(start)).toISOString());

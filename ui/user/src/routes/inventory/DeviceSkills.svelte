@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -8,7 +7,7 @@
 	import { PAGE_SIZE } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { AdminService, type DeviceSkillStat, type DeviceSkillStatResponse } from '$lib/services';
-	import { getTableUrlParamsSort, replaceState, setSortUrlParams } from '$lib/url';
+	import { getTableUrlParamsSort, replaceState, resolve, setSortUrlParams } from '$lib/url';
 	import { getSortParams, openUrl } from '$lib/utils';
 	import { defaultSkillSort, deviceSkillSortFields } from './constants';
 	import { PencilRuler } from '@lucide/svelte';
@@ -55,7 +54,7 @@
 	});
 
 	function syncUrl() {
-		const next = new URL(page.url);
+		const next = new URL(page.url.toString());
 		if (nameFilter) next.searchParams.set('name', nameFilter);
 		else next.searchParams.delete('name');
 		if (pageIndex > 0) next.searchParams.set('offset', String(pageIndex * PAGE_SIZE));

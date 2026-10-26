@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import SubjectName from '$lib/components/admin/SubjectName.svelte';
@@ -8,7 +7,7 @@
 	import { formatDeviceCommand } from '$lib/format.js';
 	import { m } from '$lib/i18n';
 	import type { DeviceClientFleetSummary } from '$lib/services';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { isDisabledUser, openUrl } from '$lib/utils.js';
 	import { CheckIcon, PencilRuler, Server, Users, XIcon } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';

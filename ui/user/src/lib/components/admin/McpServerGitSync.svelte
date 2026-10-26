@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -10,6 +9,7 @@
 		type MCPCatalog,
 		type MCPCatalogManifest
 	} from '$lib/services';
+	import { resolve } from '$lib/url';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Info, TriangleAlert, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';

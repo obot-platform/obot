@@ -8,11 +8,11 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-afterEach(() => appPage.url.searchParams.delete('mcp_server'));
+afterEach(() => (appPage.url as URL).searchParams.delete('mcp_server'));
 
 test('preserves comma-containing server names when creating and viewing exports', async () => {
 	const name = 'Outlook, Calendar';
-	appPage.url.searchParams.set('mcp_server', JSON.stringify([name]));
+	(appPage.url as URL).searchParams.set('mcp_server', JSON.stringify([name]));
 	const onSubmit = vi.fn();
 	worker.use(
 		http.get('/api/mcp-audit-logs/filter-options/:filter', () =>

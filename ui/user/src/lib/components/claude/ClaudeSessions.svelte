@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -18,6 +17,7 @@
 	import { UserService, type ClaudeSession, type OrgUser } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import { resolve } from '$lib/url';
 	import { setFilterUrlParams, setSortUrlParams } from '$lib/url';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import IconButton from '../primitives/IconButton.svelte';

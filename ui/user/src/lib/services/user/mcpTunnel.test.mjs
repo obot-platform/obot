@@ -8,7 +8,7 @@ import test from 'node:test';
 
 const remoteServer = {
 	manifest: {
-		runtime: 'remote',
+		runtime: /** @type {'remote'} */ ('remote'),
 		remoteConfig: {
 			tunnelName: 'mt1office'
 		}
@@ -26,7 +26,7 @@ test('does not report a disconnected tunnel when status is unavailable or unused
 		isMcpTunnelDisconnected(
 			{
 				manifest: {
-					runtime: 'remote',
+					runtime: /** @type {'remote'} */ ('remote'),
 					remoteConfig: {}
 				}
 			},
@@ -38,7 +38,7 @@ test('does not report a disconnected tunnel when status is unavailable or unused
 		isMcpTunnelDisconnected(
 			{
 				manifest: {
-					runtime: 'containerized'
+					runtime: /** @type {'containerized'} */ ('containerized')
 				}
 			},
 			[]

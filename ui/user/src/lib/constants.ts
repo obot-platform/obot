@@ -32,7 +32,7 @@ export const SCIM_VIEW_PATH = '/identity-access?view=auth-providers&subview=scim
 const scimViewParams = Array.from(new URL(SCIM_VIEW_PATH, 'http://localhost').searchParams);
 
 // Whether the query of a URL of Identity & Access selects the SCIM sub-tab, as SCIM_VIEW_PATH's does.
-export function isSCIMView(searchParams: URLSearchParams): boolean {
+export function isSCIMView(searchParams: Pick<URLSearchParams, 'get'>): boolean {
 	return scimViewParams.every(([key, value]) => searchParams.get(key) === value);
 }
 

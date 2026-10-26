@@ -1,4 +1,4 @@
-import type { Reroute } from '@sveltejs/kit';
+import type { Reroute } from '@sveltejs/kit/hooks';
 
 const ADMIN_MCP_SERVERS_PREFIX = '/admin/mcp-catalog';
 const ADMIN_MCP_DEPLOYMENTS_PREFIX = '/admin/mcp-deployments';

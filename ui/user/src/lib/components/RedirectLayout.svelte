@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
+	import { resolve } from '$lib/url';
 	import { ArrowUpRight, LayoutDashboard } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fade } from 'svelte/transition';

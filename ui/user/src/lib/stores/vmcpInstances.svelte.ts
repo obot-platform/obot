@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { UserService, type VMCPInstance } from '$lib/services';
 import profile from './profile.svelte';
 

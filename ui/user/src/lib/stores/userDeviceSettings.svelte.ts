@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { AI_CLIENT_PREFERENCE_KEY, OBOT_GUIDE_KEYS } from '$lib/constants';
 import { AiClient } from '$lib/services/user/constants';
 

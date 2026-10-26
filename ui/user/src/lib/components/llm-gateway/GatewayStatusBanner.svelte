@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { m } from '$lib/i18n';
 	import type { GatewayStatus } from '$lib/services/llm-gateway/gateway';
+	import { resolve } from '$lib/url';
 	import { CircleAlert, Info, LoaderCircle } from '@lucide/svelte';
 
 	interface Props {

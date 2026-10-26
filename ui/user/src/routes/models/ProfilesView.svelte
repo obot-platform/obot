@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
@@ -17,7 +16,7 @@
 		resolveSubjects,
 		type ResolvedSubjects
 	} from '$lib/subjectResolver';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { Plus, Trash2, UsersRound } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 

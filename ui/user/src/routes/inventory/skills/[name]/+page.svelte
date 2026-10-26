@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import Pagination from '$lib/components/table/Pagination.svelte';
@@ -14,7 +13,7 @@
 		type DeviceSkillDetail
 	} from '$lib/services';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto, setFilterUrlParams } from '$lib/url';
+	import { goto, resolve, setFilterUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { FileText } from '@lucide/svelte';
 	import { untrack } from 'svelte';
@@ -187,7 +186,11 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(
-							resolve(`/inventory/devices/${d.deviceID}/scans/${d.deviceScanID}/skills/${d.id}`),
+							resolve('/inventory/devices/[device_id]/scans/[scan_id]/skills/[id]', {
+								device_id: d.deviceID,
+								scan_id: d.deviceScanID.toString(),
+								id: d.id.toString()
+							}),
 							isCtrlClick
 						);
 					}}
@@ -195,7 +198,7 @@
 					{#snippet onRenderColumn(property, d: Row)}
 						{#if property === 'shortDeviceID'}
 							<a
-								href={resolve(`/inventory/devices/${d.deviceID}`)}
+								href={resolve('/inventory/devices/[device_id]', { device_id: d.deviceID })}
 								class="btn-link text-primary"
 								title={d.deviceID}
 								onclick={(e) => e.stopPropagation()}

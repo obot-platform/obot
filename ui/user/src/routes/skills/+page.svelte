@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -19,7 +18,13 @@
 		SkillRepository
 	} from '$lib/services/admin/types';
 	import { errors, profile } from '$lib/stores';
-	import { clearUrlParams, getTableUrlParamsFilters, goto, setFilterUrlParams } from '$lib/url';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		goto,
+		resolve,
+		setFilterUrlParams
+	} from '$lib/url';
 	import SkillsPoliciesView from './SkillsPoliciesView.svelte';
 	import SkillsView from './SkillsView.svelte';
 	import SourcesView from './SourcesView.svelte';

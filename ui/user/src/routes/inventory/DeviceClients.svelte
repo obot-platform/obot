@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -13,7 +12,7 @@
 		type DeviceClientFleetSummaryResponse,
 		type OrgUser
 	} from '$lib/services';
-	import { getTableUrlParamsSort, replaceState } from '$lib/url';
+	import { getTableUrlParamsSort, replaceState, resolve } from '$lib/url';
 	import { getSortParams, openUrl } from '$lib/utils';
 	import { defaultClientSort, deviceClientSortFields } from './constants';
 	import { MonitorCheck } from '@lucide/svelte';
@@ -71,7 +70,7 @@
 	});
 
 	function syncUrl(nextPageIndex: number, sort = initSort) {
-		const next = new URL(page.url);
+		const next = new URL(page.url.toString());
 		if (nameFilter) next.searchParams.set('name', nameFilter);
 		else next.searchParams.delete('name');
 		if (nextPageIndex > 0) next.searchParams.set('offset', String(nextPageIndex * pageSize));

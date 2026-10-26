@@ -67,7 +67,7 @@
   },
   "overrides": {
     "qs": "6.16.0",
-    "serialize-javascript": "7.0.5",
+    "serialize-javascript": "7.1.4",
     "uuid": "11.1.1",
     "gray-matter": {
       "js-yaml": "3.15.2"

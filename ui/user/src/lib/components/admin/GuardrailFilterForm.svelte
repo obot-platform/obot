@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { MCP_FILTERS_FIELD_IDS, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
@@ -20,6 +19,7 @@
 	} from '$lib/services';
 	import { guardrailTypeLabel } from '$lib/services/llm-gateway/guardrail-text';
 	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
+	import { resolve } from '$lib/url';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import NewGuardrailDialog from '../guardrails/NewGuardrailDialog.svelte';

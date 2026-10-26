@@ -115,8 +115,8 @@ async function renderApiKeyPage({
 }
 
 afterEach(() => {
-	appPage.url.searchParams.delete('start');
-	appPage.url.searchParams.delete('end');
+	(appPage.url as URL).searchParams.delete('start');
+	(appPage.url as URL).searchParams.delete('end');
 	vi.restoreAllMocks();
 });
 
@@ -182,8 +182,8 @@ describe('Agent Identity API key usage page', () => {
 	});
 
 	it('falls back to the default range when start/end URL params are invalid', async () => {
-		appPage.url.searchParams.set('start', 'not-a-date');
-		appPage.url.searchParams.set('end', 'also-invalid');
+		(appPage.url as URL).searchParams.set('start', 'not-a-date');
+		(appPage.url as URL).searchParams.set('end', 'also-invalid');
 
 		const { requests } = await renderApiKeyPage();
 

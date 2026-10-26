@@ -378,13 +378,14 @@
 	const updateQuery = debounce((value: string) => {
 		query = value;
 
+		const url = new URL(page.url.toString());
 		if (value) {
-			page.url.searchParams.set('query', value);
+			url.searchParams.set('query', value);
 		} else {
-			page.url.searchParams.delete('query');
+			url.searchParams.delete('query');
 		}
 
-		replaceState(page.url, { query });
+		replaceState(url, { query });
 	}, 100);
 
 	const duration = PAGE_TRANSITION_DURATION;

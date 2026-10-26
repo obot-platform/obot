@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
@@ -27,7 +26,7 @@
 		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, MessageCircle } from '@lucide/svelte';
 	import { onMount } from 'svelte';

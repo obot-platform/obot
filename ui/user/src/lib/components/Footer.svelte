@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { m } from '$lib/i18n';
+	import { resolve } from '$lib/url';
 </script>
 
 <footer class="flex w-full flex-col justify-between text-sm shadow-md">

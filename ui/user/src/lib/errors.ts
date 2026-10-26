@@ -25,6 +25,7 @@ export function getHttpStatusCode(e: unknown): number | undefined {
 
 function toAppError(e: Error): App.Error {
 	return {
+		status: e instanceof HttpError ? e.statusCode : 500,
 		message: e.message || m.core_unknown_error_occurred()
 	};
 }
@@ -55,7 +56,7 @@ function parseResponseError(message: string): string {
 
 export function handleRouteError(e: unknown, path: string, profile?: Profile): never {
 	if (!(e instanceof Error)) {
-		throw error(500, { message: m.core_unknown_error_occurred() });
+		throw error(500, m.core_unknown_error_occurred());
 	}
 
 	const appError = toAppError(e);
@@ -65,7 +66,7 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile): n
 		if (profile?.role === 0) {
 			throw redirect(303, `/?rd=${encodeURIComponent(path)}`);
 		}
-		throw error(403, appError);
+		throw error(403, appError.message);
 	}
 
 	if (statusCode === 401) {
@@ -77,10 +78,10 @@ export function handleRouteError(e: unknown, path: string, profile?: Profile): n
 			throw error(404, m.core_chatbot_not_found({ path }));
 		}
 
-		throw error(404, appError);
+		throw error(404, appError.message);
 	}
 
-	throw error(statusCode, appError);
+	throw error(statusCode, appError.message);
 }
 
 export function parseErrorContent(e: unknown) {

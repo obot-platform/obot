@@ -37,9 +37,9 @@ async function renderPageWithEntries(
 	groups: string[] = [Group.ADMIN]
 ) {
 	if (creating) {
-		appPage.url.searchParams.set('new', 'true');
+		(appPage.url as URL).searchParams.set('new', 'true');
 	} else {
-		appPage.url.searchParams.delete('new');
+		(appPage.url as URL).searchParams.delete('new');
 	}
 	mcpServersAndEntries.current = {
 		entries,
@@ -68,7 +68,7 @@ afterEach(() => {
 		'sort',
 		'sortDirection'
 	]) {
-		appPage.url.searchParams.delete(key);
+		(appPage.url as URL).searchParams.delete(key);
 	}
 	vmcpInstances.current = { items: [], loading: false };
 });
@@ -80,9 +80,9 @@ describe('vMCPs Page', () => {
 		it.each(['name', 'componentServers'])(
 			'preserves search relevance with %s sorting',
 			async (sortBy) => {
-				appPage.url.searchParams.set('variant', 'table');
-				appPage.url.searchParams.set('query', 'GitHub');
-				appPage.url.searchParams.set('sort', sortBy);
+				(appPage.url as URL).searchParams.set('variant', 'table');
+				(appPage.url as URL).searchParams.set('query', 'GitHub');
+				(appPage.url as URL).searchParams.set('sort', sortBy);
 				await renderPageWithEntries([componentEntry, slack], false, [
 					createVMCP(
 						{ id: 'description-match', displayName: 'A Tools', description: 'GitHub integration' },
@@ -111,7 +111,7 @@ describe('vMCPs Page', () => {
 		])(
 			'keeps all %s options available for OR selection',
 			async (header, first, second, param, selected) => {
-				appPage.url.searchParams.set('variant', 'table');
+				(appPage.url as URL).searchParams.set('variant', 'table');
 				worker.use(
 					http.get('/api/users', () =>
 						HttpResponse.json({
@@ -144,16 +144,16 @@ describe('vMCPs Page', () => {
 				await expect.element(page.getByText('Slack vMCP', { exact: true })).not.toBeInTheDocument();
 				await page.getByRole('combobox', { name: `Filter by ${header}...` }).click();
 				await page.getByRole('button', { name: second, exact: true }).click();
-				expect(appPage.url.searchParams.get(param)).toBe(selected);
+				expect((appPage.url as URL).searchParams.get(param)).toBe(selected);
 				await expect.element(page.getByText('GitHub vMCP', { exact: true })).toBeVisible();
 				await expect.element(page.getByText('Slack vMCP', { exact: true })).toBeVisible();
 			}
 		);
 
 		it('keeps header options available when combined filters match no rows', async () => {
-			appPage.url.searchParams.set('variant', 'table');
-			appPage.url.searchParams.set('components', 'entry-github');
-			appPage.url.searchParams.set('creator', 'bob');
+			(appPage.url as URL).searchParams.set('variant', 'table');
+			(appPage.url as URL).searchParams.set('components', 'entry-github');
+			(appPage.url as URL).searchParams.set('creator', 'bob');
 			await renderPageWithEntries([componentEntry, slack], false, [
 				createVMCP({ id: 'github-vmcp', displayName: 'GitHub vMCP', creatorUserID: 'alice' }, [
 					componentEntry
@@ -168,7 +168,7 @@ describe('vMCPs Page', () => {
 		});
 
 		it('shares server header filters with settings, grid view, and reloads', async () => {
-			appPage.url.searchParams.set('variant', 'table');
+			(appPage.url as URL).searchParams.set('variant', 'table');
 			const vmcps = [
 				createIssueTrackerVMcp(),
 				createVMCP({ id: 'vmcp-slack', displayName: 'Alerts vMCP' }, [slack])
@@ -179,7 +179,7 @@ describe('vMCPs Page', () => {
 			await page.getByRole('button', { name: 'GitHub', exact: true }).click();
 			await page.getByCSS('#click-catch').click({ position: { x: 1, y: 1 } });
 
-			expect(appPage.url.searchParams.get('components')).toBe('entry-github');
+			expect((appPage.url as URL).searchParams.get('components')).toBe('entry-github');
 			await expect.element(page.getByRole('button', { name: 'Remove GitHub' })).toBeVisible();
 			await page.getByRole('button', { name: 'Grid View' }).click();
 			await expect
@@ -203,7 +203,7 @@ describe('vMCPs Page', () => {
 		});
 
 		it('shares creator header filters with settings and grid view', async () => {
-			appPage.url.searchParams.set('variant', 'table');
+			(appPage.url as URL).searchParams.set('variant', 'table');
 			worker.use(
 				http.get('/api/users', () =>
 					HttpResponse.json({
@@ -226,7 +226,7 @@ describe('vMCPs Page', () => {
 			await page.getByRole('combobox', { name: 'Filter by Created By...' }).click();
 			await page.getByRole('button', { name: 'Alice', exact: true }).click();
 			await page.getByCSS('#click-catch').click({ position: { x: 1, y: 1 } });
-			expect(appPage.url.searchParams.get('creator')).toBe('alice');
+			expect((appPage.url as URL).searchParams.get('creator')).toBe('alice');
 			await expect.element(page.getByRole('button', { name: 'Remove Alice' })).toBeVisible();
 			await page.getByRole('button', { name: 'Grid View' }).click();
 			await expect.element(page.getByRole('button', { name: 'Open Alice vMCP' })).toBeVisible();
@@ -242,7 +242,7 @@ describe('vMCPs Page', () => {
 			['connected', 'Connected'],
 			['not-connected', 'Not Connected']
 		])('persists %s status and restores it after reload', async (id, label) => {
-			appPage.url.searchParams.set('variant', 'table');
+			(appPage.url as URL).searchParams.set('variant', 'table');
 			const screen = await renderPageWithEntries([componentEntry]);
 			vmcpInstances.current = {
 				items:
@@ -261,7 +261,7 @@ describe('vMCPs Page', () => {
 			await page.getByRole('combobox', { name: 'Filter by Status...' }).click();
 			await page.getByRole('button', { name: label, exact: true }).click();
 
-			expect(appPage.url.searchParams.get('status')).toBe(id);
+			expect((appPage.url as URL).searchParams.get('status')).toBe(id);
 			await expect.element(page.getByRole('button', { name: `Remove ${label}` })).toBeVisible();
 			await screen.unmount();
 			await renderPageWithEntries([componentEntry]);
@@ -273,7 +273,7 @@ describe('vMCPs Page', () => {
 		});
 
 		it('keeps server count sorting consistent across settings, views, and reloads', async () => {
-			appPage.url.searchParams.set('variant', 'table');
+			(appPage.url as URL).searchParams.set('variant', 'table');
 			const vmcps = [
 				createVMCP({ id: 'many', displayName: 'Many Servers' }, [componentEntry, slack]),
 				createVMCP({ id: 'one', displayName: 'One Server' }, [slack])
@@ -287,10 +287,10 @@ describe('vMCPs Page', () => {
 			const tableNames = () =>
 				[...document.querySelectorAll('tbody tr')].map((row) => row.textContent);
 			await serverSort.click();
-			expect(appPage.url.searchParams.get('sort')).toBe('componentServers');
+			expect((appPage.url as URL).searchParams.get('sort')).toBe('componentServers');
 			expect(tableNames()[0]).toContain('One Server');
 			await serverSort.click();
-			expect(appPage.url.searchParams.get('sortDirection')).toBe('desc');
+			expect((appPage.url as URL).searchParams.get('sortDirection')).toBe('desc');
 			expect(tableNames()[0]).toContain('Many Servers');
 			await page.getByRole('button', { name: 'Filters', exact: true }).click();
 			await expect

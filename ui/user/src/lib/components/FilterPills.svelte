@@ -65,7 +65,7 @@
 					<button
 						aria-label={m.core_remove_filter({ label: displayLabel })}
 						onclick={() => {
-							const url = new URL(page.url);
+							const url = new URL(page.url.toString());
 							url.searchParams.set(filterKey.toString(), '');
 							goto(url, { noScroll: true });
 						}}

@@ -23,7 +23,7 @@ vi.mock('$lib/url', async (importOriginal) => ({
 function expectedOAuthPath(entryID: string, returnParam?: { key: string; value: string }) {
 	const params = new URLSearchParams({ 'configure-oauth': 'true' });
 	if (returnParam) {
-		const returnURL = new URL(appPage.url);
+		const returnURL = new URL(appPage.url.toString());
 		returnURL.searchParams.set(returnParam.key, returnParam.value);
 		params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
 	}

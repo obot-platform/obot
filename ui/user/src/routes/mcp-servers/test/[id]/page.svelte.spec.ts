@@ -46,9 +46,9 @@ async function renderTester(
 ) {
 	mockMCPInitialization(capabilities, handleRequest, pageOverrides.server?.id);
 	if (tab) {
-		appPage.url.searchParams.set('tab', tab);
+		(appPage.url as URL).searchParams.set('tab', tab);
 	} else {
-		appPage.url.searchParams.delete('tab');
+		(appPage.url as URL).searchParams.delete('tab');
 	}
 	const data = await preparePageData<PageData>({
 		server: {
@@ -144,7 +144,7 @@ describe('MCP Tester page', () => {
 					)
 				)
 			);
-			appPage.url.searchParams.set('tab', 'chat');
+			(appPage.url as URL).searchParams.set('tab', 'chat');
 			const data = await preparePageData<PageData>({
 				...chatModelData,
 				server: {
@@ -197,7 +197,7 @@ describe('MCP Tester page', () => {
 
 	it('keeps server management available for non-vMCP authentication', async () => {
 		mockMCPInitializationFailure(401);
-		appPage.url.searchParams.delete('tab');
+		(appPage.url as URL).searchParams.delete('tab');
 		const backTarget = `/mcp-servers/s/${fixtures.serverSingle.id}`;
 		const data = await preparePageData<PageData>({
 			server: { ...fixtures.serverSingle, configured: true, deploymentStatus: 'Available' },
@@ -1070,7 +1070,7 @@ describe('MCP Tester page', () => {
 	});
 
 	it('shows setup guidance without opening an MCP session', async () => {
-		appPage.url.searchParams.delete('tab');
+		(appPage.url as URL).searchParams.delete('tab');
 		const data = await preparePageData<PageData>({
 			server: {
 				...fixtures.serverSingle,
@@ -1111,7 +1111,7 @@ describe('MCP Tester page', () => {
 
 	it('keeps the MCP Log tab usable when the session fails to connect', async () => {
 		mockMCPInitializationFailure();
-		appPage.url.searchParams.set('tab', 'logs');
+		(appPage.url as URL).searchParams.set('tab', 'logs');
 		const data = await preparePageData<PageData>({
 			server: {
 				...fixtures.serverSingle,
@@ -1136,7 +1136,7 @@ describe('MCP Tester page', () => {
 	});
 
 	it('still shows the log for a server that was never dialled', async () => {
-		appPage.url.searchParams.set('tab', 'logs');
+		(appPage.url as URL).searchParams.set('tab', 'logs');
 		const data = await preparePageData<PageData>({
 			server: {
 				...fixtures.serverSingle,
@@ -1155,7 +1155,7 @@ describe('MCP Tester page', () => {
 });
 
 it('shows CLI login and retries a localhost component in the inspector', async () => {
-	appPage.url.searchParams.delete('tab');
+	(appPage.url as URL).searchParams.delete('tab');
 	mockMCPInitializationFailure(401);
 	const attemptURL = `${window.location.origin}/oauth/mcp/login/ui-attempt`;
 	let checks = 0;
@@ -1189,7 +1189,7 @@ it('shows CLI login and retries a localhost component in the inspector', async (
 });
 
 it('keeps management navigation for a legacy localhost deployment without a vMCP owner', async () => {
-	appPage.url.searchParams.delete('tab');
+	(appPage.url as URL).searchParams.delete('tab');
 	mockMCPInitializationFailure(401);
 	const server = structuredClone(fixtures.serverSingle);
 	server.configured = true;

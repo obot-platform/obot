@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -36,7 +35,7 @@
 	} from '$lib/services/llm-gateway/providers';
 	import { errors, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 

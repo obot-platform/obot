@@ -9,7 +9,7 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 async function renderAuditLogsPage(groups: string[] = [Group.ADMIN], view = 'llm') {
-	appPage.url.searchParams.set('view', view);
+	(appPage.url as URL).searchParams.set('view', view);
 	await preparePageData({ profile: createMockProfile(groups) });
 	return render(AuditLogsPage);
 }
@@ -53,7 +53,7 @@ describe('Audit logs page Claude Environments', () => {
 	])(
 		'shows Claude audit logs for $engine with enabled=$enabled',
 		async ({ engine, enabled, visible }) => {
-			appPage.url.searchParams.delete('view');
+			(appPage.url as URL).searchParams.delete('view');
 			await preparePageData({ version: { engine, claudeEnvironmentsEnabled: enabled } });
 			await render(AuditLogsPage);
 			const tab = page.getByRole('button', { name: 'Environments', exact: true });

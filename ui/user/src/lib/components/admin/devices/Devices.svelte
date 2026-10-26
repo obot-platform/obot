@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -15,6 +14,7 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
+	import { resolve } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -114,7 +114,7 @@
 	});
 
 	function syncUrl() {
-		const next = new URL(page.url);
+		const next = new URL(page.url.toString());
 		if (query) next.searchParams.set('query', query);
 		else next.searchParams.delete('query');
 		if (pageIndex > 0) next.searchParams.set('offset', String(pageIndex * PAGE_SIZE));

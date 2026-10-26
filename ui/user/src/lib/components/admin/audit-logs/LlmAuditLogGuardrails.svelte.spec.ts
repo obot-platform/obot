@@ -91,7 +91,7 @@ describe('LlmAuditLogGuardrails', () => {
 
 describe('Model audit logs guardrail findings', () => {
 	afterEach(() => {
-		appPage.url.searchParams.delete('view');
+		(appPage.url as URL).searchParams.delete('view');
 	});
 
 	function mockAuditLogs() {
@@ -118,7 +118,7 @@ describe('Model audit logs guardrail findings', () => {
 
 	it('marks requests a guardrail acted on and lists the findings in the details', async () => {
 		const { details } = mockAuditLogs();
-		appPage.url.searchParams.set('view', 'llm');
+		(appPage.url as URL).searchParams.set('view', 'llm');
 		await preparePageData();
 		render(AuditLogsPage);
 

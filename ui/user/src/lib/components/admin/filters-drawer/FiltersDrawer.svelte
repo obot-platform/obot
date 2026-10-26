@@ -195,7 +195,7 @@
 	});
 
 	async function handleApplyFilters() {
-		const url = new URL(page.url);
+		const url = new URL(page.url.toString());
 
 		// Drop params for filters that are no longer visible (e.g. source-specific filters left over
 		// after switching event types) so they don't linger in the URL and reappear later.

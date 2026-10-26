@@ -1,8 +1,30 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
+import nodeAdapter from '@sveltejs/adapter-node';
+import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import tailwindcss from '@tailwindcss/vite';
 import { playwright } from '@vitest/browser-playwright';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, loadEnv } from 'vite';
+
+/** @type {import('@sveltejs/kit').Config}*/
+const svelteConfig = {
+	// Consult https://kit.svelte.dev/docs/integrations#preprocessors
+	// for more information about preprocessors
+	preprocess: [vitePreprocess()],
+	// adapter-auto only supports some environments, see https://kit.svelte.dev/docs/adapter-auto for a list.
+	// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
+	// See https://kit.svelte.dev/docs/adapters for more information about adapters.
+	adapter:
+		process.env.BUILD === 'node'
+			? nodeAdapter({
+					out: 'build-node'
+				})
+			: adapter({
+					fallback: 'fallback.html'
+				})
+};
 
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, '.', '');
@@ -27,6 +49,11 @@ export default defineConfig(({ mode }) => {
 	};
 
 	return {
+		resolve: {
+			alias: {
+				$lib: fileURLToPath(new URL('./src/lib', import.meta.url))
+			}
+		},
 		server: {
 			port: 5174,
 			proxy:
@@ -45,7 +72,7 @@ export default defineConfig(({ mode }) => {
 				strategy: ['localStorage', 'preferredLanguage', 'baseLocale']
 			}),
 			tailwindcss(),
-			sveltekit()
+			sveltekit(svelteConfig)
 		],
 		optimizeDeps: {
 			// Only reachable via lazily-imported route nodes, so Vite would otherwise

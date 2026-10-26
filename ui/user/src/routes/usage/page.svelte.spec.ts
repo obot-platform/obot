@@ -9,7 +9,7 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 async function renderUsagePage(groups: string[], view: string) {
-	appPage.url.searchParams.set('view', view);
+	(appPage.url as URL).searchParams.set('view', view);
 	await preparePageData({ profile: createMockProfile(groups) });
 	return render(UsagePage);
 }

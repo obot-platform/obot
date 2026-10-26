@@ -22,7 +22,7 @@ vi.mock('$lib/url', async (importOriginal) => ({
 
 function expectedOAuthPath(entryID: string, vmcpID: string) {
 	const params = new URLSearchParams({ 'configure-oauth': 'true' });
-	const returnURL = new URL(appPage.url);
+	const returnURL = new URL(appPage.url.toString());
 	returnURL.searchParams.set('inspector', vmcpID);
 	params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
 	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;
@@ -123,9 +123,9 @@ async function renderVMcpTester(
 	await preparePageData(overrides);
 
 	if (options?.tab) {
-		appPage.url.searchParams.set('tab', options.tab);
+		(appPage.url as URL).searchParams.set('tab', options.tab);
 	} else {
-		appPage.url.searchParams.delete('tab');
+		(appPage.url as URL).searchParams.delete('tab');
 	}
 
 	const target = options?.vmcp ?? vmcp;

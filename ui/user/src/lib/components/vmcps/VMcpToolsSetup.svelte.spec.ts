@@ -18,7 +18,7 @@ vi.mock('$lib/url', async (importOriginal) => ({
 
 function expectedOAuthPath(entryID: string, modifyToolsID: string) {
 	const params = new URLSearchParams({ 'configure-oauth': 'true' });
-	const returnURL = new URL(appPage.url);
+	const returnURL = new URL(appPage.url.toString());
 	returnURL.searchParams.set('modify-tools', modifyToolsID);
 	params.set('oauth-redirect', `${returnURL.pathname}${returnURL.search}${returnURL.hash}`);
 	return `/mcp-servers/c/${encodeURIComponent(entryID)}?${params.toString()}`;

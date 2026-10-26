@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
 	import { m } from '$lib/i18n';
 	import type { DeviceScanSkill } from '$lib/services/user/types';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { findParentPlugin, formatBytes, lookupFiles } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
 

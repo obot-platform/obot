@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
@@ -27,7 +26,7 @@
 	} from '$lib/services/admin/types.js';
 	import { errors, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
-	import { clearUrlParams } from '$lib/url';
+	import { clearUrlParams, resolve } from '$lib/url';
 	import { TriangleAlert, Info, CircleAlert, ArrowLeft, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';

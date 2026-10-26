@@ -534,14 +534,14 @@
 	});
 
 	function handleDateRangeChange(range: DateRange) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.set(TOKEN_USAGE_PARAMS.START, range.start?.toISOString() ?? '');
 		currentUrl.searchParams.set(TOKEN_USAGE_PARAMS.END, range.end?.toISOString() ?? '');
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleRemoveUserFilter(userId: string) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		const users = currentUrl.searchParams
 			.getAll(TOKEN_USAGE_PARAMS.USER)
 			.filter((id) => id !== userId);
@@ -553,19 +553,19 @@
 	}
 
 	function handleRemoveAllUserFilters() {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.USER);
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleToggleUserFilter(userId: string) {
 		if (userId === ALL_USERS) {
-			const currentUrl = new URL(page.url);
+			const currentUrl = new URL(page.url.toString());
 			currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.USER);
 			goto(currentUrl, { noScroll: true, keepFocus: true });
 			return;
 		}
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		const users = currentUrl.searchParams.getAll(TOKEN_USAGE_PARAMS.USER);
 		if (users.includes(userId)) {
 			handleRemoveUserFilter(userId);
@@ -580,7 +580,7 @@
 	}
 
 	function handleRemoveAPIKeyFilter(apiKeyID: string) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		const apiKeyIDs = currentUrl.searchParams
 			.getAll(TOKEN_USAGE_PARAMS.API_KEY)
 			.filter((id) => id !== apiKeyID);
@@ -592,7 +592,7 @@
 	}
 
 	function handleRemoveAllAPIKeyFilters() {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.API_KEY);
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
@@ -602,7 +602,7 @@
 			handleRemoveAllAPIKeyFilters();
 			return;
 		}
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		const apiKeyIDs = currentUrl.searchParams.getAll(TOKEN_USAGE_PARAMS.API_KEY);
 		if (apiKeyIDs.includes(apiKeyID)) {
 			handleRemoveAPIKeyFilter(apiKeyID);
@@ -617,7 +617,7 @@
 	}
 
 	function handleRemoveModelFilter(modelId: string) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		const models = currentUrl.searchParams
 			.getAll(TOKEN_USAGE_PARAMS.MODEL)
 			.filter((id) => id !== modelId);
@@ -629,19 +629,19 @@
 	}
 
 	function handleRemoveAllModelFilters() {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.MODEL);
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleToggleModelFilter(modelId: string) {
 		if (modelId === ALL_MODELS) {
-			const currentUrl = new URL(page.url);
+			const currentUrl = new URL(page.url.toString());
 			currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.MODEL);
 			goto(currentUrl, { noScroll: true, keepFocus: true });
 			return;
 		}
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		const models = currentUrl.searchParams.getAll(TOKEN_USAGE_PARAMS.MODEL);
 		if (models.includes(modelId)) {
 			handleRemoveModelFilter(modelId);
@@ -656,13 +656,13 @@
 	}
 
 	function handleGroupByChange(groupBy: string) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.set(TOKEN_USAGE_PARAMS.GROUP_BY, groupBy);
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}
 
 	function handleTokenTypeChange(tokenType: TokenType) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.set(TOKEN_USAGE_PARAMS.TOKEN_TYPE, tokenType);
 		goto(currentUrl, { noScroll: true, keepFocus: true });
 	}

@@ -176,14 +176,14 @@
 	});
 
 	function handleDateRangeChange(range: DateRange) {
-		const currentUrl = new URL(page.url);
+		const currentUrl = new URL(page.url.toString());
 		currentUrl.searchParams.set(TOKEN_USAGE_PARAMS.START, range.start?.toISOString() ?? '');
 		currentUrl.searchParams.set(TOKEN_USAGE_PARAMS.END, range.end?.toISOString() ?? '');
 		goto(currentUrl, { noScroll: true, keepFocus: true, replaceState: true });
 	}
 
 	function selectTab(tab: LogTab) {
-		const url = new URL(page.url);
+		const url = new URL(page.url.toString());
 		if (tab === 'mcp') {
 			url.searchParams.delete('tab');
 		} else {

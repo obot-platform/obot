@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -16,6 +15,7 @@
 		type Skill
 	} from '$lib/services';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { resolve } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import {
 		ACCESS_MATCH_REASON_LABEL,

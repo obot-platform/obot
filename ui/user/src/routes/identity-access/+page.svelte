@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TabLayout from '$lib/components/TabLayout.svelte';
 	import {
@@ -11,6 +10,7 @@
 	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { resolve } from '$lib/url';
 	import AgentsView from './AgentsView.svelte';
 	import AuthProvidersView from './AuthProvidersView.svelte';
 	import GroupsView from './GroupsView.svelte';

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Navbar from '$lib/components/Navbar.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
@@ -15,7 +14,7 @@
 		type TempUser
 	} from '$lib/services';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';

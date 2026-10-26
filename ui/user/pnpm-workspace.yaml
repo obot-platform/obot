@@ -1,10 +1,9 @@
 overrides:
-  cookie: 0.7.0
-  ip-address: 10.7.3
+  ip-address: 10.7.4
   minimatch@9>brace-expansion: 2.1.7
   minimatch@10>brace-expansion: 5.0.12
   devalue: 5.9.4
-  fast-uri: 3.1.8
+  fast-uri: 3.1.9
   proxy-addr: 2.0.8
   source-map-js: 1.2.2
   vue: 3.5.42
@@ -12,6 +11,10 @@ overrides:
   prosemirror-model: 1.25.12
   postcss-selector-parser: 7.1.6
   katex: 0.18.2
+  dompurify: 3.4.17
+  zod: 4.6.7
+  body-parser: 2.4.0
+  hono: 4.13.14
 
 engineStrict: true
 allowBuilds:

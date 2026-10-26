@@ -23,11 +23,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
-vi.mock('$app/navigation', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$app/navigation')>();
+vi.mock('$app/navigation', () => {
 	return {
-		...actual,
-		replaceState: vi.fn()
+		goto: vi.fn(),
+		invalidate: vi.fn(),
+		invalidateAll: vi.fn(),
+		preloadCode: vi.fn(),
+		preloadData: vi.fn(),
+		beforeNavigate: vi.fn(),
+		afterNavigate: vi.fn(),
+		onNavigate: vi.fn(),
+		pushState: vi.fn(),
+		replaceState: vi.fn(),
+		disableScrollHandling: vi.fn()
 	};
 });
 
@@ -171,9 +179,9 @@ async function renderIdentityAccessPage({
 		profile.isBootstrapUser = () => true;
 	}
 
-	appPage.url.searchParams.set('view', view);
+	(appPage.url as URL).searchParams.set('view', view);
 	if (provider) {
-		appPage.url.searchParams.set('provider', provider);
+		(appPage.url as URL).searchParams.set('provider', provider);
 	}
 	// Layout's bootstrap splash would otherwise sit on top of the Auth Providers tab.
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
@@ -304,9 +312,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	appPage.url.searchParams.delete('view');
-	appPage.url.searchParams.delete('subview');
-	appPage.url.searchParams.delete('provider');
+	(appPage.url as URL).searchParams.delete('view');
+	(appPage.url as URL).searchParams.delete('subview');
+	(appPage.url as URL).searchParams.delete('provider');
 	if (window.location.hash) {
 		window.history.replaceState(null, '', window.location.pathname + window.location.search);
 	}
@@ -378,7 +386,7 @@ describe('Identity & Access Page', () => {
 			}));
 			const initiate = vi.fn(() => HttpResponse.json(initiateTempLoginResponse));
 			const setPassword = vi.fn(() => new HttpResponse(null, { status: 204 }));
-			vi.mocked(replaceState).mockImplementation(() => {});
+			vi.mocked(replaceState).mockImplementation(() => Promise.resolve());
 
 			worker.use(
 				http.get('/api/auth-providers', () => HttpResponse.json({ items: [localConfigured] })),
@@ -517,7 +525,7 @@ describe('Identity & Access Page', () => {
 			});
 
 			it('shows SCIM on its sub-tab', async () => {
-				appPage.url.searchParams.set('subview', 'scim');
+				(appPage.url as URL).searchParams.set('subview', 'scim');
 				await renderIdentityAccessPage({ groups: [Group.OWNER, Group.ADMIN] });
 
 				await expect

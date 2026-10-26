@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CommunitySignUpForm from '$lib/components/admin/license/CommunitySignUpForm.svelte';
@@ -25,7 +24,7 @@
 		type TesterStatus
 	} from '$lib/services/mcp/tester.svelte';
 	import { license, profile, version } from '$lib/stores';
-	import { setUrlParamAndUpdateUrl } from '$lib/url';
+	import { resolve, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { KeyRound, MessageSquarePlus, RotateCw, TriangleAlert } from '@lucide/svelte';
 	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';

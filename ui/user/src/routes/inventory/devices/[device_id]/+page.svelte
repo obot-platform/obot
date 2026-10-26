@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -19,7 +18,7 @@
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { goto } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Boxes, Cpu, Ellipsis, MonitorCheck, PencilRuler, Scale, Server } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
@@ -20,7 +19,7 @@
 	} from '$lib/services';
 	import type { PaginatedResponse } from '$lib/services/http';
 	import { profile, responsive } from '$lib/stores';
-	import { goto, replaceState } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import EnforcementDecisionDetails from './EnforcementDecisionDetails.svelte';
 	import EnforcementDecisionsTable from './EnforcementDecisionsTable.svelte';
 	import {
@@ -270,16 +269,17 @@
 	const handleQueryChange = debounce((value: string) => {
 		query = value;
 
+		const url = new URL(page.url.toString());
 		if (value) {
-			page.url.searchParams.set('query', value);
+			url.searchParams.set('query', value);
 		} else {
-			page.url.searchParams.delete('query');
+			url.searchParams.delete('query');
 		}
-		replaceState(page.url, {});
+		goto(url, { reset: false, replace: true });
 	}, 100);
 
 	function handleDateChange({ start, end }: { start?: Date; end?: Date }) {
-		const url = page.url;
+		const url = new URL(page.url.toString());
 		if (start) {
 			url.searchParams.set('start_time', start.toISOString());
 			url.searchParams.set('end_time', (end ?? endOfDay(start)).toISOString());
@@ -288,7 +288,7 @@
 	}
 
 	function toggleDecisionFilter(verdict: 'allow' | 'deny') {
-		const url = page.url;
+		const url = new URL(page.url.toString());
 		if (url.searchParams.get('decision') === verdict) {
 			url.searchParams.delete('decision');
 		} else {

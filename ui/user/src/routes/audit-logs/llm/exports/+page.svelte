@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import { afterNavigate, beforeNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
@@ -14,7 +14,7 @@
 	import { m } from '$lib/i18n';
 	import { AdminService, type AuditLogExport, type ScheduledAuditLogExport } from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { goto, replaceState } from '$lib/url';
+	import { goto } from '$lib/url';
 	import { Plus, Settings } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -59,8 +59,9 @@
 
 	async function switchView(newView: View) {
 		view = newView;
-		page.url.searchParams.set('view', newView);
-		replaceState(page.url, {});
+		const updatedUrl = new URL(page.url.toString());
+		updatedUrl.searchParams.set('view', newView);
+		goto(updatedUrl, { reset: false });
 	}
 
 	async function reload() {
@@ -133,13 +134,13 @@
 		const nextForm = page.url.searchParams.get('next') as FormType;
 		if (nextForm) {
 			showForm = nextForm;
-			const url = new URL(page.url);
+			const url = new URL(page.url.toString());
 			url.searchParams.set('form', nextForm);
 			url.searchParams.delete('next');
-			goto(url, { replaceState: false });
+			goto(url);
 		} else {
 			showForm = null;
-			goto(basePath, { replaceState: false });
+			goto(basePath);
 		}
 	}
 

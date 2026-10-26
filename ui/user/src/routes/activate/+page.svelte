@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Logo from '$lib/components/Logo.svelte';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService } from '$lib/services';
 	import { profile } from '$lib/stores';
-	import { goto, replaceState } from '$lib/url';
+	import { goto, replaceState, resolve } from '$lib/url';
 	import { CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 

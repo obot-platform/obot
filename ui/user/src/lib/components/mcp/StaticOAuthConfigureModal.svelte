@@ -114,7 +114,7 @@
 	function offerReturnToPreviousPage() {
 		const destination = safeReturnPath(page.url.searchParams.get('oauth-redirect'));
 		if (!destination) return;
-		const currentURL = new URL(page.url);
+		const currentURL = new URL(page.url.toString());
 		currentURL.searchParams.delete('oauth-redirect');
 		goto(currentURL, { replaceState: true, noScroll: true, keepFocus: true });
 		returnPath = destination;

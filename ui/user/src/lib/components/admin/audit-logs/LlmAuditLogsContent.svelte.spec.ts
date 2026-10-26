@@ -35,7 +35,7 @@ async function auditLogParams(requests: { auditLogs: string | undefined }) {
 }
 
 afterEach(() => {
-	appPage.url.searchParams.delete('hide_models_requests');
+	(appPage.url as URL).searchParams.delete('hide_models_requests');
 	vi.restoreAllMocks();
 });
 
@@ -50,7 +50,7 @@ describe('LlmAuditLogsContent default filters', () => {
 	});
 
 	it('does not restore the default model-discovery filter when the URL param is empty', async () => {
-		appPage.url.searchParams.set('hide_models_requests', '');
+		(appPage.url as URL).searchParams.set('hide_models_requests', '');
 
 		const requests = await renderLlmAuditLogs();
 

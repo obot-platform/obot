@@ -45,10 +45,10 @@ async function filterOptionsParams(requests: { filterOptions: string[] }) {
 }
 
 afterEach(() => {
-	appPage.url.searchParams.delete('mcp_id');
-	appPage.url.searchParams.delete('mcp_server_display_name');
-	appPage.url.searchParams.delete('mcp_server');
-	appPage.url.searchParams.delete('operation');
+	(appPage.url as URL).searchParams.delete('mcp_id');
+	(appPage.url as URL).searchParams.delete('mcp_server_display_name');
+	(appPage.url as URL).searchParams.delete('mcp_server');
+	(appPage.url as URL).searchParams.delete('operation');
 	vi.restoreAllMocks();
 });
 
@@ -56,7 +56,7 @@ describe('AuditLogsPageContent server scoping', () => {
 	it('preserves comma-containing server names in requests and filter pills', async () => {
 		const name = 'Outlook, Calendar';
 		const value = JSON.stringify([name]);
-		appPage.url.searchParams.set('mcp_server', value);
+		(appPage.url as URL).searchParams.set('mcp_server', value);
 
 		const requests = await renderAuditLogs();
 		expect((await auditLogParams(requests)).get('mcp_server')).toBe(value);
@@ -68,7 +68,7 @@ describe('AuditLogsPageContent server scoping', () => {
 	});
 
 	it('applies mcp_id from the URL and pins the source to MCP', async () => {
-		appPage.url.searchParams.set('mcp_id', 'server-1');
+		(appPage.url as URL).searchParams.set('mcp_id', 'server-1');
 
 		const requests = await renderAuditLogs();
 
@@ -79,7 +79,7 @@ describe('AuditLogsPageContent server scoping', () => {
 	});
 
 	it('applies mcp_server_display_name from the URL and pins the source to MCP', async () => {
-		appPage.url.searchParams.set('mcp_server_display_name', 'My Server');
+		(appPage.url as URL).searchParams.set('mcp_server_display_name', 'My Server');
 
 		const requests = await renderAuditLogs();
 
@@ -89,7 +89,7 @@ describe('AuditLogsPageContent server scoping', () => {
 	});
 
 	it('pins the source to MCP when loading filter options for a URL-scoped server', async () => {
-		appPage.url.searchParams.set('mcp_id', 'server-1');
+		(appPage.url as URL).searchParams.set('mcp_id', 'server-1');
 
 		const requests = await renderAuditLogs();
 		await page.getByRole('button', { name: 'Filters' }).click();
@@ -121,7 +121,7 @@ describe('AuditLogsPageContent default filters', () => {
 	});
 
 	it('does not restore the default operation filter when the URL param is empty', async () => {
-		appPage.url.searchParams.set('operation', '');
+		(appPage.url as URL).searchParams.set('operation', '');
 
 		const requests = await renderAuditLogs();
 

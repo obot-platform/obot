@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
@@ -13,7 +12,7 @@
 		type DeviceScanStats,
 		type DeviceSkillStat
 	} from '$lib/services';
-	import { replaceState } from '$lib/url';
+	import { replaceState, resolve } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { DEFAULT_WINDOW_MS } from './constants';
 	import {
@@ -107,7 +106,7 @@
 	}
 
 	function syncUrl() {
-		const next = new URL(page.url);
+		const next = new URL(page.url.toString());
 		const defaultStart = Date.now() - DEFAULT_WINDOW_MS;
 		const startMs = new Date(range.start).getTime();
 		const endMs = new Date(range.end).getTime();

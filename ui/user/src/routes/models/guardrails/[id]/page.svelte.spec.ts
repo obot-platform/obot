@@ -54,13 +54,13 @@ function mockProviders() {
 
 afterEach(() => {
 	delete (appPage.params as Record<string, string>).id;
-	appPage.url.searchParams.delete('type');
+	(appPage.url as URL).searchParams.delete('type');
 });
 
 describe('Guardrail editor', () => {
 	it('creates a guardrail from the provider fields, then enables testing', async () => {
 		mockProviders();
-		appPage.url.searchParams.set('type', 'presidio');
+		(appPage.url as URL).searchParams.set('type', 'presidio');
 		const created = vi.fn();
 		worker.use(
 			http.post('/api/llm-gateway/guardrails', async ({ request }) => {
@@ -172,7 +172,7 @@ describe('Guardrail editor', () => {
 				HttpResponse.json({ items: [presidioWithChoices] })
 			)
 		);
-		appPage.url.searchParams.set('type', 'presidio');
+		(appPage.url as URL).searchParams.set('type', 'presidio');
 		const created = vi.fn();
 		worker.use(
 			http.post('/api/llm-gateway/guardrails', async ({ request }) => {
@@ -251,7 +251,7 @@ describe('Guardrail editor', () => {
 				HttpResponse.text('Presidio request failed: connection refused', { status: 502 })
 			)
 		);
-		appPage.url.searchParams.set('type', 'presidio');
+		(appPage.url as URL).searchParams.set('type', 'presidio');
 		await preparePageData();
 		render(GuardrailPage);
 
@@ -263,7 +263,7 @@ describe('Guardrail editor', () => {
 
 	it('returns to the guardrails list on cancel', async () => {
 		mockProviders();
-		appPage.url.searchParams.set('type', 'presidio');
+		(appPage.url as URL).searchParams.set('type', 'presidio');
 		await preparePageData();
 		render(GuardrailPage);
 
@@ -277,7 +277,7 @@ describe('Guardrail editor', () => {
 
 	it('reports an unknown guardrail type', async () => {
 		mockProviders();
-		appPage.url.searchParams.set('type', 'nope');
+		(appPage.url as URL).searchParams.set('type', 'nope');
 		await preparePageData();
 		render(GuardrailPage);
 

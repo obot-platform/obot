@@ -48,7 +48,7 @@ async function renderFilterPage(filter: MCPFilter) {
 }
 
 afterEach(() => {
-	appPage.url.searchParams.delete('view');
+	(appPage.url as URL).searchParams.delete('view');
 });
 
 describe('/mcp-servers/filters/[id]', () => {

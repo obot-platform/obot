@@ -117,7 +117,7 @@ function createVMcpWithDisabledTool(id: string) {
 
 describe('VMcpProfiles.svelte', () => {
 	afterEach(() => {
-		appPage.url.searchParams.delete('profile');
+		(appPage.url as URL).searchParams.delete('profile');
 	});
 	it.each<{
 		name: string;
@@ -233,7 +233,7 @@ describe('VMcpProfiles.svelte', () => {
 
 	it('opens the profile selected in the URL', async () => {
 		const vmcp = createVMcp('vmcp-profile-from-url');
-		appPage.url.searchParams.set('profile', 'default');
+		(appPage.url as URL).searchParams.set('profile', 'default');
 
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
 

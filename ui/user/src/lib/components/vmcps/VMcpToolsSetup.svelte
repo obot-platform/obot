@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -25,6 +24,7 @@
 		type OAuthReturnParam
 	} from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
+	import { resolve } from '$lib/url';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';

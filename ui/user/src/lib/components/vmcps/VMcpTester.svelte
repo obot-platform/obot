@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
@@ -29,6 +28,7 @@
 		version,
 		vmcpInstances
 	} from '$lib/stores';
+	import { resolve } from '$lib/url';
 	import { Layers, Settings } from '@lucide/svelte';
 
 	interface Props {

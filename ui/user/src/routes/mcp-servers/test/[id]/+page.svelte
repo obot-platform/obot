@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import McpOauth from '$lib/components/mcp/McpOauth.svelte';
@@ -9,6 +7,7 @@
 	import { m } from '$lib/i18n';
 	import { testerChatAvailability } from '$lib/services/mcp/tester.svelte';
 	import { version } from '$lib/stores';
+	import { goto, resolve } from '$lib/url';
 	import { Server, ArrowLeft } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 

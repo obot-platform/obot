@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -7,6 +6,7 @@
 	import { PAGE_SIZE } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { AdminService, type DeviceMCPServerStat, type DeviceScanStats } from '$lib/services';
+	import { resolve } from '$lib/url';
 	import {
 		clearUrlParams,
 		getTableUrlParamsFilters,
@@ -64,7 +64,7 @@
 
 	function updateName(value: string) {
 		nameFilter = value;
-		const next = new URL(page.url);
+		const next = new URL(page.url.toString());
 		if (value) next.searchParams.set('query', value);
 		else next.searchParams.delete('query');
 		replaceState(next, {});

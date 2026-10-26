@@ -123,7 +123,7 @@ describe('LlmAuditLogRouting', () => {
 
 describe('Model audit logs routing', () => {
 	afterEach(() => {
-		appPage.url.searchParams.delete('view');
+		(appPage.url as URL).searchParams.delete('view');
 	});
 
 	it('marks routed requests and shows the routing in the details', async () => {
@@ -151,7 +151,7 @@ describe('Model audit logs routing', () => {
 				return HttpResponse.json(params.id === routed.id ? routed : direct);
 			})
 		);
-		appPage.url.searchParams.set('view', 'llm');
+		(appPage.url as URL).searchParams.set('view', 'llm');
 		await preparePageData();
 		render(AuditLogsPage);
 

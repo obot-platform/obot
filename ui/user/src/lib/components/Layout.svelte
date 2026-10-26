@@ -47,7 +47,6 @@
 
 <script lang="ts">
 	import { afterNavigate } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
@@ -68,6 +67,7 @@
 		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { resolve } from '$lib/url';
 	import { validateVersionUserLimit } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import DotDotDot from './DotDotDot.svelte';

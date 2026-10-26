@@ -67,7 +67,7 @@ async function renderView(groups: string[] = [Group.ADMIN]) {
 const restoreLocale = getLocale;
 
 afterEach(() => {
-	appPage.url.searchParams.delete('query');
+	(appPage.url as URL).searchParams.delete('query');
 	overwriteGetLocale(restoreLocale);
 });
 
@@ -144,7 +144,7 @@ describe('Guardrails list', () => {
 
 	it('filters guardrails by the search query', async () => {
 		mockGuardrails([regexGuardrail, presidioGuardrail]);
-		appPage.url.searchParams.set('query', 'presidio');
+		(appPage.url as URL).searchParams.set('query', 'presidio');
 		await renderView();
 
 		await expect

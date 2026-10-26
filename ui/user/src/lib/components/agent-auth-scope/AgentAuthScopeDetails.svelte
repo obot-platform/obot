@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { stripMarkdownToText } from '$lib/markdown';
@@ -12,6 +11,7 @@
 	} from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import { resolve } from '$lib/url';
 	import Confirm from '../Confirm.svelte';
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import IconButton from '../primitives/IconButton.svelte';

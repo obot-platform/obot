@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
 		type LaunchFormData
@@ -16,6 +15,7 @@
 		hasSecretBinding,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
+	import { resolve } from '$lib/url';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
 	import { onMount, tick, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';

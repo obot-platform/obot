@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
+	import { browser } from '$app/env';
 	import Logo from '$lib/components/Logo.svelte';
 	import { m } from '$lib/i18n';
 	import { type PageProps } from './$types';

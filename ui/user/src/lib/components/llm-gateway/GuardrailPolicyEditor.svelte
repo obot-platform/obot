@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import Select from '$lib/components/Select.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import NewGuardrailDialog from '$lib/components/guardrails/NewGuardrailDialog.svelte';
@@ -19,6 +18,7 @@
 		type GuardrailProvider,
 		type GuardrailPolicy
 	} from '$lib/services/llm-gateway/guardrails';
+	import { resolve } from '$lib/url';
 	import { Plus, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 

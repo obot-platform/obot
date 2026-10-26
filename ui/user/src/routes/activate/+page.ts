@@ -1,4 +1,4 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';

@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { m } from '$lib/i18n';
 	import { UserService, type ClaudeEnvironment } from '$lib/services';
+	import { resolve } from '$lib/url';
 
 	let { environment, onsaved }: { environment: ClaudeEnvironment; onsaved: () => Promise<void> } =
 		$props();
