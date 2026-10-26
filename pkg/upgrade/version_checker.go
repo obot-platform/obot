@@ -18,7 +18,7 @@ import (
 
 const (
 	upgradeCheckEndpoint     = "check-upgrade"
-	upgradeCheckInitialDelay = 2 * time.Hour
+	upgradeCheckInitialDelay = 30 * time.Minute
 	upgradeCheckInterval     = 24 * time.Hour
 	upgradeCheckTimeout      = 5 * time.Second
 )
