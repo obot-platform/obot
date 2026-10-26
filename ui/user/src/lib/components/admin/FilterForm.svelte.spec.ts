@@ -374,6 +374,11 @@ it.each([false, true])(
 		await expect
 			.element(page.getByRole('button', { name: 'Remove Secret', exact: true }))
 			.not.toBeInTheDocument();
+		await vi.waitFor(() =>
+			expect(onUpdate).toHaveBeenLastCalledWith(
+				expect.objectContaining({ hasSecret: false, name: 'Original filter' })
+			)
+		);
 		await expect
 			.element(
 				page

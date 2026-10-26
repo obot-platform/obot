@@ -318,7 +318,16 @@
 			const fields: FilterFields = JSON.parse(savedFields);
 			fields.secret = '';
 			savedFields = JSON.stringify(fields);
-			if (savedFilter) savedFilter.hasSecret = false;
+			if (savedFilter) {
+				const result = {
+					...$state.snapshot(savedFilter),
+					id: initialFilterId,
+					hasSecret: false,
+					secret: undefined
+				};
+				savedFilter = result;
+				onUpdate?.(result);
+			}
 		} finally {
 			removingSecret = false;
 		}
@@ -839,7 +848,7 @@
 		exists={!!initialFilterId}
 		disabled={savedFilter?.disabled ?? !initialFilterId}
 		{dirty}
-		busy={!!saving}
+		busy={!!saving || removingSecret}
 		{readonly}
 		blocked={(!!runtimeFormData && !credentialConfigurationLoaded) ||
 			!!credentialLoadError ||
