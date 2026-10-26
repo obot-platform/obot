@@ -1,4 +1,4 @@
-import type { MCPFilterInput } from '$lib/services';
+import type { MCPFilterInput, MCPFilterManifest } from '$lib/services';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import FilterForm from './FilterForm.svelte';
@@ -26,21 +26,23 @@ function filter(id?: string): MCPFilterInput {
 function mockSave(launchFails = false) {
 	const manifest = vi.fn();
 	const configuration = vi.fn();
+	let saved = filter('credential-test');
 	worker.use(
 		http.post('/api/mcp-webhook-validations', async ({ request }) => {
-			manifest(await request.json());
-			return HttpResponse.json({ id: 'credential-test' });
+			const body = (await request.json()) as MCPFilterManifest;
+			manifest(body);
+			saved = { ...saved, ...body };
+			return HttpResponse.json(saved);
 		}),
 		http.put('/api/mcp-webhook-validations/credential-test', async ({ request }) => {
-			manifest(await request.json());
-			return HttpResponse.json({
-				id: 'credential-test',
-				disabled: manifest.mock.calls.at(-1)?.[0].disabled
-			});
+			const body = (await request.json()) as MCPFilterManifest;
+			manifest(body);
+			saved = { ...saved, ...body };
+			return HttpResponse.json(saved);
 		}),
 		http.post('/api/mcp-webhook-validations/credential-test/configure', async ({ request }) => {
 			configuration(await request.json());
-			return HttpResponse.json({ id: 'credential-test' });
+			return HttpResponse.json(saved);
 		}),
 		http.post('/api/mcp-webhook-validations/credential-test/launch', () =>
 			launchFails

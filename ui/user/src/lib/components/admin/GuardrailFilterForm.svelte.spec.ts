@@ -355,3 +355,49 @@ it('keeps a guardrail disabled after validation or API failure', async () => {
 		.element(page.getByRole('status').getByText('Unsaved changes', { exact: true }))
 		.toBeVisible();
 });
+
+it.each([false, true])(
+	'adopts canonical guardrail settings and preserves newer edits=%s',
+	async (newerEdits) => {
+		let release: () => void = () => {};
+		const pending = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const writes = vi.fn();
+		const onUpdate = vi.fn();
+		worker.use(
+			http.put('/api/mcp-webhook-validations/:id', async ({ request }) => {
+				const body = (await request.json()) as MCPFilterManifest;
+				writes(body);
+				if (!body.disabled) await pending;
+				return HttpResponse.json({
+					...createGuardrailFilter(),
+					...body,
+					name: 'Canonical guardrail'
+				});
+			})
+		);
+		await render(GuardrailFilterForm, { filter: createGuardrailFilter(), onUpdate });
+		await page.getByLabelText('Name', { exact: true }).fill('Submitted guardrail');
+		await page.getByRole('button', { name: 'Save & apply changes' }).click();
+		await vi.waitFor(() => expect(writes).toHaveBeenCalledTimes(1));
+		if (newerEdits) await page.getByLabelText('Name', { exact: true }).fill('Newer draft');
+		release();
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+		await expect
+			.element(page.getByLabelText('Name', { exact: true }))
+			.toHaveValue(newerEdits ? 'Newer draft' : 'Canonical guardrail');
+		await expect
+			.element(
+				page
+					.getByRole('status')
+					.getByText(newerEdits ? 'Unsaved changes' : 'Saved', { exact: true })
+			)
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Disable Filter', exact: true }).click();
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
+		expect(writes).toHaveBeenLastCalledWith(
+			expect.objectContaining({ disabled: true, name: 'Canonical guardrail' })
+		);
+	}
+);

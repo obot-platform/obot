@@ -1,5 +1,7 @@
+import { beforeNavigate } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import type { MCPFilter } from '$lib/services';
+import { goto } from '$lib/url';
 import { preparePageData } from '../../../../tests/helpers/pageData';
 import { worker } from '../../../../tests/mocks/worker';
 import FilterPage from './+page.svelte';
@@ -7,6 +9,15 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$app/navigation', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$app/navigation')>()),
+	beforeNavigate: vi.fn()
+}));
+vi.mock('$lib/url', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/url')>()),
+	goto: vi.fn()
+}));
 
 function createFilter(overrides: Partial<MCPFilter>): MCPFilter {
 	return {
@@ -49,6 +60,8 @@ async function renderFilterPage(filter: MCPFilter) {
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
+	vi.clearAllMocks();
+	vi.restoreAllMocks();
 });
 
 describe('/mcp-servers/filters/[id]', () => {
@@ -116,3 +129,46 @@ it('keeps the saved filter editor open with the updated name and saved status', 
 		.toHaveValue('Updated webhook filter');
 	await expect.element(page.getByRole('button', { name: 'Save & apply changes' })).toBeDisabled();
 });
+
+it.each([false, true])(
+	'confirmed deletion bypasses the dirty editor guard (guardrail=%s)',
+	async (guardrail) => {
+		mockFilterApis();
+		const deleted = vi.fn();
+		worker.use(
+			http.delete('/api/mcp-webhook-validations/:id', () => {
+				deleted();
+				return HttpResponse.json({});
+			})
+		);
+		await renderFilterPage(
+			createFilter(
+				guardrail
+					? { guardrail: { guardrailIDs: ['gp1secrets'], action: 'block' } }
+					: { url: 'https://example.com/hook' }
+			)
+		);
+		const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+		await page.getByLabelText('Name', { exact: true }).fill('Unsaved edits');
+		await page.getByRole('button', { name: 'Delete Filter', exact: true }).click();
+		await page
+			.getByRole('dialog')
+			.getByRole('button', { name: "Yes, I'm sure", exact: true })
+			.click();
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(deleted).toHaveBeenCalledOnce();
+		const cancel = vi.fn();
+		for (const [before] of vi.mocked(beforeNavigate).mock.calls) {
+			before({
+				type: 'goto',
+				from: null,
+				to: null,
+				complete: Promise.resolve(),
+				willUnload: false,
+				cancel
+			});
+		}
+		expect(confirm).not.toHaveBeenCalled();
+		expect(cancel).not.toHaveBeenCalled();
+	}
+);

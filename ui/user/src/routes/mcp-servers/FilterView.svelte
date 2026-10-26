@@ -30,6 +30,7 @@
 	let { title, filter, entry, onSelectionChange, selected = 'configuration' }: Props = $props();
 
 	let deletingFilter = $state(false);
+	let filterForm = $state<{ allowNavigation: () => void }>();
 
 	// Guardrail filters run in-process, so there is no server to show details, audit logs or
 	// usage for: their results are recorded on the audit log entries of the servers they filter.
@@ -105,6 +106,7 @@
 
 				{#if currentView === 'configuration' && isGuardrail}
 					<GuardrailFilterForm
+						bind:this={filterForm}
 						{filter}
 						onUpdate={(result) => {
 							if (result) {
@@ -118,6 +120,7 @@
 					/>
 				{:else if currentView === 'configuration'}
 					<FilterForm
+						bind:this={filterForm}
 						{filter}
 						onUpdate={(result) => {
 							if (result) {
@@ -167,6 +170,7 @@
 				{/if}
 			{:else}
 				<FilterForm
+					bind:this={filterForm}
 					{filter}
 					onCreate={(result) => {
 						goto(result ? `/mcp-servers/filters/${result.id}` : '/mcp-servers?view=filters', {
@@ -189,6 +193,8 @@
 	onsuccess={async () => {
 		if (!filter?.id) return;
 		await AdminService.deleteMCPFilter(filter.id);
+		// Confirming deletion also discards the draft; a successful delete cannot be undone by staying.
+		filterForm?.allowNavigation();
 		await goto('/mcp-servers?view=filters', { invalidateAll: true });
 	}}
 	oncancel={() => (deletingFilter = false)}

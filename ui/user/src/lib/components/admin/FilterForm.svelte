@@ -10,8 +10,6 @@
 		type MCPFilter,
 		type MCPFilterInput,
 		type MCPFilterManifest,
-		type MCPFilterResource,
-		type MCPFilterWebhookSelector,
 		type Runtime,
 		type RuntimeFormData
 	} from '$lib/services';
@@ -40,6 +38,7 @@
 		readCredentialPolicy,
 		validateCredentialPolicy
 	} from './credentialPolicy';
+	import { reconcileFilterDraft } from './filterDraft';
 	import { filterUnsavedChanges } from './filterUnsavedChanges.svelte';
 	import { Eye, EyeOff } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
@@ -72,42 +71,23 @@
 	let saveStage = $state<'save' | 'configure' | 'activate'>('save');
 	const duration = PAGE_TRANSITION_DURATION;
 
-	let filter = $state<{
-		name: string;
-		resources: MCPFilterResource[];
-		url: string;
-		secret: string;
-		selectors: MCPFilterWebhookSelector[];
-		toolName?: string;
-		allowedToMutate?: boolean;
-	}>(
-		untrack(() =>
-			initialFilter
-				? {
-						name: initialFilter.name || '',
-						resources: initialFilter.resources?.map((resource) => ({ ...resource })) || [],
-						url: initialFilter.url || '',
-						secret: initialFilter.secret || '',
-						// Keep editable nested state separate even when the input is already reactive.
-						selectors:
-							initialFilter.selectors?.map((selector) => ({
-								...selector,
-								identifiers: selector.identifiers ? [...selector.identifiers] : undefined
-							})) || [],
-						toolName: initialFilter.toolName || '',
-						allowedToMutate: initialFilter.allowedToMutate || false
-					}
-				: {
-						name: '',
-						resources: [{ id: 'default', type: 'mcpCatalog' }],
-						url: '',
-						secret: '',
-						selectors: [],
-						toolName: '',
-						allowedToMutate: false
-					}
-		)
-	);
+	function toFilterFields(input?: MCPFilterInput, secret = input?.secret ?? '') {
+		return {
+			name: input?.name ?? '',
+			resources: structuredClone(
+				$state.snapshot(
+					input?.resources ?? (input ? [] : [{ id: 'default', type: 'mcpCatalog' as const }])
+				)
+			),
+			url: input?.url ?? '',
+			secret,
+			selectors: structuredClone($state.snapshot(input?.selectors ?? [])),
+			toolName: input?.toolName ?? '',
+			allowedToMutate: input?.allowedToMutate ?? false
+		};
+	}
+	type FilterFields = ReturnType<typeof toFilterFields>;
+	let filter = $state(untrack(() => toFilterFields(initialFilter)));
 
 	type FilterRuntimeFormData = Omit<RuntimeFormData, 'serverUserType'>;
 	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
@@ -148,6 +128,55 @@
 		JSON.stringify(filter) !== savedFields || JSON.stringify(runtimeFormData) !== savedRuntime
 	);
 	const navigation = filterUnsavedChanges(() => !readonly && dirty);
+	export function allowNavigation() {
+		navigation.allowNavigation();
+	}
+
+	function syncSavedFilter(
+		result: MCPFilter,
+		submittedFields: FilterFields,
+		submittedRuntime: FilterRuntimeFormData | undefined
+	) {
+		savedFilter = structuredClone(result);
+		const fields = toFilterFields(result, submittedFields.secret);
+		const runtime = convertToRuntimeFormData(structuredClone(result));
+		if (runtime) {
+			// Configuration credentials are stored separately and are not returned in the manifest.
+			const values = new Map(
+				[
+					...(submittedRuntime?.env ?? []),
+					...(submittedRuntime?.remoteServerConfig?.headers ?? [])
+				].map((field) => [field.key, field.value])
+			);
+			runtime.env = runtime.env.map((field) => ({
+				...field,
+				value: values.get(field.key) ?? field.value
+			}));
+			if (runtime.remoteServerConfig?.headers) {
+				runtime.remoteServerConfig.headers = runtime.remoteServerConfig.headers.map((field) => ({
+					...field,
+					value: values.get(field.key) ?? field.value
+				}));
+			}
+			if (fields.toolName === 'filter_credentials' && mcpSystemCatalogEntryId) {
+				for (const field of submittedRuntime?.env ?? []) {
+					if (
+						credentialKeys.includes(field.key) &&
+						!runtime.env.some((saved) => saved.key === field.key)
+					)
+						runtime.env.push(structuredClone(field));
+				}
+			}
+		}
+		filter = reconcileFilterDraft($state.snapshot(filter), submittedFields, fields);
+		runtimeFormData = reconcileFilterDraft(
+			$state.snapshot(runtimeFormData),
+			submittedRuntime,
+			runtime
+		);
+		savedFields = JSON.stringify(fields);
+		savedRuntime = JSON.stringify(runtime);
+	}
 
 	// Validation
 	let nameError = $derived(showValidation && !filter.name.trim());
@@ -282,14 +311,14 @@
 		if (!initialFilterId) return;
 
 		removingSecret = true;
+		const submittedSecret = filter.secret;
 		try {
 			await AdminService.deconfigureMCPFilter(initialFilterId);
-			// Clear the secret field and update the filter state
-			filter.secret = '';
-			// Update the initial filter to reflect that it no longer has a secret
-			if (initialFilter) {
-				initialFilter.hasSecret = false;
-			}
+			if (filter.secret === submittedSecret) filter.secret = '';
+			const fields: FilterFields = JSON.parse(savedFields);
+			fields.secret = '';
+			savedFields = JSON.stringify(fields);
+			if (savedFilter) savedFilter.hasSecret = false;
 		} finally {
 			removingSecret = false;
 		}
@@ -376,32 +405,32 @@
 	async function validateLaunch(
 		filterData: MCPFilter,
 		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined,
-		submittedFields: string,
-		submittedRuntime: string
+		submittedFields: FilterFields,
+		submittedRuntime: FilterRuntimeFormData | undefined
 	) {
 		saveStage = 'configure';
 		if (mcpServerManifest) {
-			const configValues = isCredentialFilter
-				? {
-						...Object.fromEntries(
-							(runtimeFormData?.env ?? []).map((field) => [field.key, field.value ?? ''])
-						),
-						...credentialEnvironment(credentialPolicy)
-					}
-				: Object.fromEntries(
-						(mcpServerManifest.manifest.config ?? [])
-							.filter((field) => !field.userAllowed && field.key && field.value)
-							.map((field) => [field.key, field.value])
-					);
+			const configValues =
+				submittedFields.toolName === 'filter_credentials' && mcpSystemCatalogEntryId
+					? {
+							...Object.fromEntries(
+								(submittedRuntime?.env ?? []).map((field) => [field.key, field.value ?? ''])
+							),
+							...credentialEnvironment(readCredentialPolicy(submittedRuntime?.env ?? []))
+						}
+					: Object.fromEntries(
+							(mcpServerManifest.manifest.config ?? [])
+								.filter((field) => !field.userAllowed && field.key && field.value)
+								.map((field) => [field.key, field.value])
+						);
 
 			// Configure the server with the collected values if any exist
 			if (Object.keys(configValues).length > 0) {
-				await AdminService.configureMCPFilter(filterData.id, configValues);
+				filterData = await AdminService.configureMCPFilter(filterData.id, configValues);
 			}
 		}
 
-		savedFields = submittedFields;
-		savedRuntime = submittedRuntime;
+		syncSavedFilter(filterData, submittedFields, submittedRuntime);
 		saveStage = 'activate';
 		const launchResponse = filterData.disabled
 			? { success: true }
@@ -411,12 +440,12 @@
 			launchError = launchResponse.message;
 			activationFailed = true;
 			listLaunchLogs(filterData.id);
-			return false;
+			return undefined;
 		}
 
 		launchProgress = 100;
 		await new Promise((resolve) => setTimeout(resolve, 500));
-		return true;
+		return filterData;
 	}
 
 	async function disableFilter() {
@@ -450,7 +479,11 @@
 				disabled: true
 			};
 			const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
-			savedFilter = { ...savedFilter, ...manifest, id: initialFilterId };
+			syncSavedFilter(
+				result,
+				JSON.parse(savedFields),
+				savedRuntime ? JSON.parse(savedRuntime) : undefined
+			);
 			activationFailed = false;
 			onUpdate?.(result);
 		} catch (err) {
@@ -488,8 +521,8 @@
 
 		saving = true;
 		saveStage = 'save';
-		const submittedFields = JSON.stringify(filter);
-		const submittedRuntime = JSON.stringify(runtimeFormData);
+		const submittedFields = $state.snapshot(filter);
+		const submittedRuntime = $state.snapshot(runtimeFormData);
 
 		if (launchLogsEventStream) {
 			// reset launch logs
@@ -516,7 +549,7 @@
 
 		try {
 			const mcpServerManifest = runtimeFormData
-				? convertServerRuntimeFormDataToManifest(runtimeFormData as RuntimeFormData)
+				? convertServerRuntimeFormDataToManifest(submittedRuntime as RuntimeFormData)
 				: undefined;
 			const selectors =
 				filter.selectors.length > 0
@@ -548,28 +581,23 @@
 						})
 			};
 
-			const savedManifest = structuredClone($state.snapshot(manifest));
 			const updating = !!initialFilter?.id;
 			const result = initialFilterId
 				? await AdminService.updateMCPFilter(initialFilterId, manifest)
 				: await AdminService.createMCPFilter(manifest);
 			initialFilterId = result.id;
-			savedFilter = structuredClone(
-				$state.snapshot({ ...savedManifest, id: result.id })
-			) as MCPFilterInput;
+			savedFilter = structuredClone(result);
 			const launchSuccess = await validateLaunch(
-				{ ...result, disabled },
+				result,
 				mcpServerManifest,
 				submittedFields,
 				submittedRuntime
 			);
 			if (launchSuccess) {
-				savedFields = submittedFields;
-				savedRuntime = submittedRuntime;
 				activationFailed = false;
 				saving = false;
-				if (updating) onUpdate?.(result);
-				else onCreate?.(result);
+				if (updating) onUpdate?.(launchSuccess);
+				else onCreate?.(launchSuccess);
 			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : m.mcps_unknown_error();
@@ -673,10 +701,10 @@
 							bind:value={filter.secret}
 							class="text-input-filled pr-10 dark:bg-base-100"
 							type={showSecret ? 'text' : 'password'}
-							placeholder={initialFilter?.hasSecret && !filter.secret ? '*****' : ''}
+							placeholder={savedFilter?.hasSecret && !filter.secret ? '*****' : ''}
 							disabled={readonly || isPrebuiltEntry}
 						/>
-						{#if filter.secret || (initialFilter?.hasSecret && !filter.secret)}
+						{#if filter.secret || (savedFilter?.hasSecret && !filter.secret)}
 							<button
 								type="button"
 								class="absolute top-1/2 right-2 -translate-y-1/2 p-1 text-muted-content hover:text-base-content dark:text-muted-content dark:hover:text-base-content"
@@ -696,7 +724,7 @@
 							</button>
 						{/if}
 					</div>
-					{#if initialFilter?.hasSecret}
+					{#if savedFilter?.hasSecret}
 						<div class="flex items-start justify-between gap-4">
 							<p class="flex-1 text-xs text-amber-600 dark:text-amber-400">
 								{m.mcps_filters_secret_configured()}

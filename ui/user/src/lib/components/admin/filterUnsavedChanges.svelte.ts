@@ -9,7 +9,9 @@ export function filterUnsavedChanges(isDirty: () => boolean) {
 		leaving = true;
 		return true;
 	}
-	beforeNavigate(({ cancel }) => {
+	beforeNavigate(({ cancel, willUnload }) => {
+		// Full-page exits are handled once by the native beforeunload warning below.
+		if (willUnload) return;
 		if (!leaving && isDirty() && !window.confirm(m.mcps_filters_discard_changes())) cancel();
 	});
 	onMount(() => {
@@ -22,5 +24,10 @@ export function filterUnsavedChanges(isDirty: () => boolean) {
 		window.addEventListener('beforeunload', handler);
 		return () => window.removeEventListener('beforeunload', handler);
 	});
-	return { discard };
+	return {
+		discard,
+		allowNavigation: () => {
+			leaving = true;
+		}
+	};
 }

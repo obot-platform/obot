@@ -28,6 +28,7 @@
 	import FilterActions from './FilterActions.svelte';
 	import SearchUsers from './SearchUsers.svelte';
 	import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
+	import { reconcileFilterDraft } from './filterDraft';
 	import { filterUnsavedChanges } from './filterUnsavedChanges.svelte';
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack, type Snippet } from 'svelte';
@@ -79,7 +80,7 @@
 		untrack(() => (initialFilter ? structuredClone($state.snapshot(initialFilter)) : undefined))
 	);
 
-	let filter = $state<{
+	type GuardrailFields = {
 		name: string;
 		resources: MCPFilterResource[];
 		selectors: MCPFilterWebhookSelector[];
@@ -90,42 +91,54 @@
 		samplingRate: number;
 		condition: string;
 		blockMessage: string;
-	}>(
-		untrack(() => {
-			const guardrail = initialFilter?.guardrail;
-			return {
-				name: initialFilter?.name ?? '',
-				resources: structuredClone(
-					$state.snapshot(initialFilter?.resources ?? [{ id: 'default', type: 'mcpCatalog' }])
-				),
-				selectors: structuredClone($state.snapshot(initialFilter?.selectors ?? [])),
-				guardrailIDs: [...(guardrail?.guardrailIDs ?? [])],
-				// Filters block or redact. Anything else, such as a log-only action saved before it was
-				// removed, blocks, as it does when the filter runs.
-				action: guardrail?.action === 'redact' ? 'redact' : 'block',
-				direction: guardrail?.direction ?? 'both',
-				failClosed: guardrail?.failClosed ?? false,
-				samplingRate: guardrail?.samplingRate || 100,
-				condition: guardrail?.condition ?? '',
-				blockMessage: guardrail?.blockMessage ?? ''
-			};
-		})
-	);
+	};
+	function toFilterFields(input?: MCPFilterInput): GuardrailFields {
+		const guardrail = input?.guardrail;
+		return {
+			name: input?.name ?? '',
+			resources: structuredClone(
+				$state.snapshot(input?.resources ?? [{ id: 'default', type: 'mcpCatalog' }])
+			),
+			selectors: structuredClone($state.snapshot(input?.selectors ?? [])),
+			guardrailIDs: [...(guardrail?.guardrailIDs ?? [])],
+			action: guardrail?.action === 'redact' ? 'redact' : 'block',
+			direction: guardrail?.direction ?? 'both',
+			failClosed: guardrail?.failClosed ?? false,
+			samplingRate: guardrail?.samplingRate || 100,
+			condition: guardrail?.condition ?? '',
+			blockMessage: guardrail?.blockMessage ?? ''
+		};
+	}
+	let filter = $state(untrack(() => toFilterFields(initialFilter)));
 
 	// The "everyone" subject is shown as the "All Obot Users" selector, as in access policies.
 	type Subject = { type: 'user' | 'group' | 'selector'; id: string };
-	let subjects = $state<Subject[]>(
-		untrack(() =>
-			(initialFilter?.guardrail?.subjects ?? []).map((s) =>
-				s.type === 'everyone'
-					? { type: 'selector' as const, id: '*' }
-					: { type: s.type, id: s.id ?? '' }
-			)
-		)
-	);
+	function toSubjects(input?: MCPFilterInput): Subject[] {
+		return (input?.guardrail?.subjects ?? []).map((subject) =>
+			subject.type === 'everyone'
+				? { type: 'selector', id: '*' }
+				: { type: subject.type, id: subject.id ?? '' }
+		);
+	}
+	let subjects = $state(untrack(() => toSubjects(initialFilter)));
 	let savedDraft = $state(untrack(() => JSON.stringify({ filter, subjects })));
 	let dirty = $derived(JSON.stringify({ filter, subjects }) !== savedDraft);
 	const navigation = filterUnsavedChanges(() => !readonly && dirty);
+	export function allowNavigation() {
+		navigation.allowNavigation();
+	}
+
+	function syncSavedFilter(
+		result: MCPFilter,
+		submitted: { filter: GuardrailFields; subjects: Subject[] }
+	) {
+		savedFilter = structuredClone(result);
+		const saved = { filter: toFilterFields(result), subjects: toSubjects(result) };
+		const draft = reconcileFilterDraft($state.snapshot({ filter, subjects }), submitted, saved);
+		filter = draft.filter;
+		subjects = draft.subjects;
+		savedDraft = JSON.stringify(saved);
+	}
 
 	let resolved = $state<{ users: OrgUser[]; groups: OrgGroup[] }>({ users: [], groups: [] });
 	let searchUsersDialog = $state<ReturnType<typeof SearchUsers>>();
@@ -267,23 +280,15 @@
 		saveError = '';
 		try {
 			const manifest = structuredClone($state.snapshot({ ...buildManifest(), disabled }));
-			const submittedDraft = JSON.stringify({ filter, subjects });
-			if (initialFilterId) {
-				const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
-				savedFilter = structuredClone(
-					$state.snapshot({ ...manifest, id: result.id })
-				) as MCPFilterInput;
-				savedDraft = submittedDraft;
-				onUpdate?.(result);
-			} else {
-				const result = await AdminService.createMCPFilter(manifest);
-				initialFilterId = result.id;
-				savedFilter = structuredClone(
-					$state.snapshot({ ...manifest, id: result.id })
-				) as MCPFilterInput;
-				savedDraft = submittedDraft;
-				onCreate?.(result);
-			}
+			const submittedDraft = $state.snapshot({ filter, subjects });
+			const updating = !!initialFilterId;
+			const result = initialFilterId
+				? await AdminService.updateMCPFilter(initialFilterId, manifest)
+				: await AdminService.createMCPFilter(manifest);
+			initialFilterId = result.id;
+			syncSavedFilter(result, submittedDraft);
+			if (updating) onUpdate?.(result);
+			else onCreate?.(result);
 		} catch (err) {
 			saveError = parseErrorContent(err).message;
 		} finally {
@@ -298,7 +303,7 @@
 			const { name, resources, selectors, guardrail } = savedFilter;
 			const manifest = { name, resources, selectors, guardrail, disabled: true };
 			const result = await AdminService.updateMCPFilter(initialFilterId, manifest);
-			savedFilter = { ...savedFilter, ...manifest };
+			syncSavedFilter(result, JSON.parse(savedDraft));
 			onUpdate?.(result);
 		} catch (err) {
 			saveError = parseErrorContent(err).message;

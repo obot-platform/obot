@@ -310,3 +310,145 @@ it('can leave a newly created filter after activation fails without deleting sav
 	expect(create).toHaveBeenCalledOnce();
 	expect(deleted).not.toHaveBeenCalled();
 });
+
+it('uses normalized API values for the saved editor and subsequent disable', async () => {
+	await preparePageData();
+	mockApis();
+	const onUpdate = vi.fn();
+	const writes = vi.fn();
+	worker.use(
+		http.put('/api/mcp-webhook-validations/:id', async ({ request }) => {
+			const body = (await request.json()) as MCPFilterManifest;
+			writes(body);
+			return HttpResponse.json({
+				...filter(),
+				...body,
+				name: 'Canonical name',
+				selectors: [{ method: '*' }]
+			});
+		})
+	);
+	await render(FilterForm, { filter: filter(), onUpdate });
+	await page.getByLabelText('Name', { exact: true }).fill('Submitted name');
+	await page.getByRole('button', { name: 'Save & apply changes' }).click();
+	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+	await expect.element(page.getByLabelText('Name', { exact: true })).toHaveValue('Canonical name');
+	await expect.element(page.getByLabelText('Method (Optional)', { exact: true })).toHaveValue('*');
+	await expect.element(page.getByRole('status').getByText('Saved', { exact: true })).toBeVisible();
+	await page.getByLabelText('Name', { exact: true }).fill('Unsubmitted edit');
+	await page.getByRole('button', { name: 'Disable Filter', exact: true }).click();
+	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
+	expect(writes).toHaveBeenLastCalledWith(
+		expect.objectContaining({
+			name: 'Canonical name',
+			selectors: [{ method: '*' }],
+			disabled: true
+		})
+	);
+	await expect
+		.element(page.getByLabelText('Name', { exact: true }))
+		.toHaveValue('Unsubmitted edit');
+});
+
+it.each([false, true])(
+	'removing a saved secret preserves unrelated dirty=%s state',
+	async (otherEdits) => {
+		await preparePageData();
+		mockApis();
+		const onUpdate = vi.fn();
+		worker.use(
+			http.put('/api/mcp-webhook-validations/:id', async ({ request }) =>
+				HttpResponse.json({ ...filter(), ...((await request.json()) as object), hasSecret: true })
+			),
+			http.post(
+				'/api/mcp-webhook-validations/:id/deconfigure',
+				() => new HttpResponse(null, { status: 204 })
+			)
+		);
+		await render(FilterForm, { filter: filter(), onUpdate });
+		await page.getByLabelText('Secret (Optional)', { exact: true }).fill('a-saved-test-secret');
+		await page.getByRole('button', { name: 'Save & apply changes' }).click();
+		await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledOnce());
+		if (otherEdits) await page.getByLabelText('Name', { exact: true }).fill('Unsaved name');
+		await page.getByRole('button', { name: 'Remove Secret', exact: true }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Remove Secret', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(
+				page
+					.getByRole('status')
+					.getByText(otherEdits ? 'Unsaved changes' : 'Saved', { exact: true })
+			)
+			.toBeVisible();
+	}
+);
+
+it('uses the final configure response and retains separately saved credential values', async () => {
+	await preparePageData();
+	mockApis();
+	const onUpdate = vi.fn();
+	const writes = vi.fn();
+	const configured = vi.fn();
+	const initial = filter();
+	initial.url = '';
+	initial.toolName = 'check';
+	initial.mcpServerManifest = {
+		runtime: 'containerized',
+		containerizedConfig: { image: 'old-image', port: 8080, path: '/mcp' },
+		config: [
+			{
+				key: 'TOKEN',
+				name: 'Token',
+				value: '',
+				usage: 'env',
+				required: false,
+				sensitive: true,
+				description: ''
+			}
+		]
+	};
+	let saved = initial;
+	worker.use(
+		http.post('/api/mcp-webhook-validations/:id/reveal', () =>
+			HttpResponse.json({ TOKEN: 'saved-token' })
+		),
+		http.put('/api/mcp-webhook-validations/:id', async ({ request }) => {
+			const body = (await request.json()) as MCPFilterManifest;
+			writes(body);
+			saved = { ...initial, ...body };
+			return HttpResponse.json(saved);
+		}),
+		http.post('/api/mcp-webhook-validations/:id/configure', async ({ request }) => {
+			configured(await request.json());
+			saved = {
+				...saved,
+				mcpServerManifest: {
+					...saved.mcpServerManifest!,
+					containerizedConfig: { image: 'canonical-image', port: 8080, path: '/mcp' }
+				}
+			};
+			return HttpResponse.json(saved);
+		})
+	);
+	await render(FilterForm, { filter: initial, onUpdate });
+	await expect.element(page.getByLabelText('Image', { exact: true })).toBeEnabled();
+	await page.getByLabelText('Name', { exact: true }).fill('Updated filter');
+	await page.getByRole('button', { name: 'Save & apply changes' }).click();
+	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(1));
+	expect(configured).toHaveBeenCalledWith({ TOKEN: 'saved-token' });
+	await expect
+		.element(page.getByLabelText('Image', { exact: true }))
+		.toHaveValue('canonical-image');
+	await expect.element(page.getByRole('status').getByText('Saved', { exact: true })).toBeVisible();
+	await page.getByRole('button', { name: 'Disable Filter', exact: true }).click();
+	await vi.waitFor(() => expect(onUpdate).toHaveBeenCalledTimes(2));
+	expect(writes).toHaveBeenLastCalledWith(
+		expect.objectContaining({
+			disabled: true,
+			mcpServerManifest: expect.objectContaining({
+				containerizedConfig: expect.objectContaining({ image: 'canonical-image' })
+			})
+		})
+	);
+});
