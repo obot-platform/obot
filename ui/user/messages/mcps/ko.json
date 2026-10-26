@@ -70,6 +70,7 @@
 	"mcps_capacity_active_deployments": "활성 배포",
 	"mcps_capacity_cpu_requested": "요청된 CPU",
 	"mcps_capacity_memory_requested": "요청된 메모리",
+	"mcps_capacity_plan_tooltip": "이 환경의 플랜에 따른 최대값",
 	"mcps_capacity_quota_tooltip": "최대값은 리소스 할당량을 기준으로 합니다",
 	"mcps_capacity_title": "MCP 요청 리소스",
 	"mcps_catalog_add_to_vmcp": "vMCP에 추가",

@@ -3,6 +3,11 @@ import { m } from '$lib/i18n';
 export const ABORTED_THREAD_MESSAGE = 'thread was aborted, cancelling run';
 export const ABORTED_BY_USER_MESSAGE = 'aborted by user';
 
+// The server signs out users who can't use a restricted environment, and sets ENVIRONMENT_RESTRICTED_COOKIE so the
+// login page can say why (restrictedCookie and restrictedLoginPath in pkg/api/server/entitlements.go).
+export const ENVIRONMENT_RESTRICTED_COOKIE = 'obot_environment_restricted';
+export const ENVIRONMENT_RESTRICTED_LOGIN_PATH = '/?restricted=true';
+
 export const UNAUTHORIZED_PATHS = new Set([
 	'/',
 	'/privacy-policy',

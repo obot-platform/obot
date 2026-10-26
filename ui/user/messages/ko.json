@@ -54,6 +54,7 @@
 	"language_select_title": "언어 선택",
 	"login_account_inactive": "이 애플리케이션에 액세스할 권한이 없습니다. 관리자에게 문의하세요.",
 	"login_continue_with": "{provider}(으)로 계속",
+	"login_environment_restricted": "이 환경이 플랜 한도를 초과했습니다. 관리자에게 문의하세요.",
 	"login_local_heading": "Obot에 로그인",
 	"login_local_no_account": "계정이 없으신가요? 관리자에게 계정 생성을 요청하세요.",
 	"login_local_page_title": "Obot | 로그인",
