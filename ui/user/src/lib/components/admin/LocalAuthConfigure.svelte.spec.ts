@@ -96,6 +96,24 @@ describe('LocalAuthConfigure.svelte', () => {
 		});
 	});
 
+	it('opens user management without a way back to configuration when bootstrapping', async () => {
+		mockLocalUsers({ existing: [createdUser('owner@example.com')] });
+		const dialog = await renderOpenDialog(LocalAuthConfigure, {
+			provider: localProvider,
+			bootstrap: true,
+			onConfigure: vi.fn(async () => undefined)
+		});
+
+		await expect.element(dialog.getByText('owner@example.com', { exact: true })).toBeVisible();
+		await expect.element(dialog.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
+		await expect
+			.element(dialog.getByRole('button', { name: 'Configuration', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(dialog.getByText('Allowed Email Domains', { exact: true }))
+			.not.toBeInTheDocument();
+	});
+
 	it('opens user management for a staged Local provider only during a switch', async () => {
 		mockLocalUsers({ existing: [createdUser('owner@example.com')] });
 		const dialog = await renderOpenDialog(LocalAuthConfigure, {

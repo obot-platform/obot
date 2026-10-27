@@ -57,13 +57,16 @@
 		error = undefined;
 		try {
 			await AdminService.createLocalAuthUser(trimmed, password, requirePasswordChange);
-			await onSaved();
-			dialog?.close();
 		} catch (err) {
 			error = errorMessage(err);
+			return;
 		} finally {
 			saving = false;
 		}
+
+		dialog?.close();
+		resetForm();
+		await onSaved();
 	}
 </script>
 

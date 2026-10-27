@@ -158,6 +158,27 @@ describe('Setup page', () => {
 		await expect.element(signIn).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 	});
 
+	it('opens user management without configuration when changing the owner account', async () => {
+		const owner = createdUser('owner@example.com');
+		mockSetupApis({ users: [owner] });
+		await renderSetupPage({
+			splashSeen: true,
+			eulaAccepted: true,
+			localProvider: localConfigured,
+			localUsers: [owner]
+		});
+
+		await page.getByRole('button', { name: 'Click here', exact: true }).click();
+
+		await expect.element(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Configuration', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText('Allowed Email Domains', { exact: true }))
+			.not.toBeInTheDocument();
+	});
+
 	it('starts on owner sign-in when a local account already exists', async () => {
 		const owner = createdUser('owner@example.com');
 		const { initiateTempLogin } = mockSetupApis({ users: [owner] });

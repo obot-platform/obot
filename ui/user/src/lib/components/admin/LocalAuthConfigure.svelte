@@ -66,7 +66,8 @@
 	let createInitialUserDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	// The modal is a two-step flow: configure the provider, then manage its users. Users can only
 	// be created once the provider is configured (the server needs the allowed-domains credential),
-	// so an unconfigured provider opens on 'config' and a configured one opens straight on 'users'.
+	// so an unconfigured provider opens on 'config'. A configured provider opens on 'users' during a
+	// switch. Bootstrap setup skips configuration entirely and stays on user management.
 	let step = $state<'config' | 'users'>('config');
 	let domains = $state('');
 	let configuring = $state(false);
@@ -149,7 +150,7 @@
 		} else {
 			resetDialogState();
 			configured = !!(provider?.configured || provider?.staged);
-			step = switchingProvider && configured ? 'users' : 'config';
+			step = bootstrap || (switchingProvider && configured) ? 'users' : 'config';
 			dialog?.open();
 			if (step === 'users') showUsers();
 		}
@@ -638,9 +639,9 @@
 				{/if}
 			</div>
 		</form>
-	{:else if switchingProvider}
+	{:else if step === 'users'}
 		<div class="flex flex-col gap-2 grow md:p-0 p-4">
-			{#if !readonly}
+			{#if !readonly && !bootstrap}
 				<button
 					class="text-link flex items-center gap-1 text-xs font-light"
 					type="button"

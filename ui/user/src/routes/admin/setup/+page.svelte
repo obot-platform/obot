@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Navbar from '$lib/components/Navbar.svelte';
+	import LocalAuthConfigure from '$lib/components/admin/LocalAuthConfigure.svelte';
 	import LocalAuthInitialUserForm from '$lib/components/admin/LocalAuthInitialUserForm.svelte';
 	import OwnerSetupPrompt from '$lib/components/admin/OwnerSetupPrompt.svelte';
 	import SetupSplashContent from '$lib/components/admin/SetupSplashContent.svelte';
@@ -31,6 +32,7 @@
 	let explicitOwners = $state<string[]>([]);
 	let setupTempLoginUrl = $state('');
 	let reduceMotion = $state(false);
+	let localAuthConfigure = $state<ReturnType<typeof LocalAuthConfigure>>();
 
 	const duration = $derived(reduceMotion ? 0 : PAGE_TRANSITION_DURATION);
 	const setupLocalUserEmail = $derived(localUsers.length === 1 ? localUsers[0].email : undefined);
@@ -101,6 +103,19 @@
 		step = 'owner';
 	}
 
+	async function handleManageLocalUsers() {
+		localAuthConfigure?.open();
+	}
+
+	async function handleLocalAuthClose(userCount: number) {
+		localUsers = await AdminService.listLocalAuthUsers();
+		if (userCount === 0) {
+			step = 'owner';
+		} else {
+			await prepareSignIn();
+		}
+	}
+
 	async function handleOwnerCreated(userCount: number, email?: string) {
 		if (userCount <= 0) return;
 		if (email) {
@@ -163,6 +178,7 @@
 							{explicitOwners}
 							provider={localProvider}
 							tempLoginUrl={setupTempLoginUrl}
+							onManageLocalUsers={handleManageLocalUsers}
 						/>
 					</div>
 				{/if}
@@ -170,3 +186,12 @@
 		</div>
 	</main>
 </div>
+
+<LocalAuthConfigure
+	bind:this={localAuthConfigure}
+	provider={localProvider}
+	values={{ OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*' }}
+	onConfigure={handleLocalAuthConfigure}
+	bootstrap
+	onClose={handleLocalAuthClose}
+/>

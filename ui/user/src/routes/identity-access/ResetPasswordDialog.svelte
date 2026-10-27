@@ -53,14 +53,19 @@
 		error = undefined;
 		try {
 			await AdminService.setLocalAuthUserPassword(localAuthUserId, password, requirePasswordChange);
-			await onSaved();
-			dialog?.close();
-			localAuthUserId = undefined;
 		} catch (err) {
 			error = errorMessage(err);
+			return;
 		} finally {
 			saving = false;
 		}
+
+		dialog?.close();
+		localAuthUserId = undefined;
+		email = '';
+		password = '';
+		requirePasswordChange = true;
+		await onSaved();
 	}
 </script>
 

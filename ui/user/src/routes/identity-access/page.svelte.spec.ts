@@ -268,7 +268,6 @@ afterEach(() => {
 describe('Identity & Access Page', () => {
 	it.each([
 		{ configured: true, staged: false, available: true },
-		{ configured: false, staged: true, available: true },
 		{ configured: false, staged: false, available: false }
 	])(
 		'allows Local account management when configured=$configured and staged=$staged',

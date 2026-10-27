@@ -236,6 +236,14 @@
 		}
 	}
 
+	async function refreshAfterLocalAuthSave() {
+		try {
+			await reloadListedUsers();
+		} catch {
+			// The list error state and notification will show refresh failure.
+		}
+	}
+
 	async function loadLocalAuthUsers() {
 		const request = ++localAuthLoad;
 		localAuthUsersLoading = true;
@@ -277,8 +285,15 @@
 	}
 
 	function openResetPassword(user: TableItem) {
-		if (!user.localAuthUserId || !user.email || isOwnerActionRestricted(user)) return;
+		if (!user.localAuthUserId || !user.email || isPasswordResetRestricted(user)) return;
 		resetPasswordDialog?.open({ id: user.localAuthUserId, email: user.email });
+	}
+
+	function isPasswordResetRestricted(user: TableItem) {
+		return (
+			isOwnerActionRestricted(user) ||
+			(user.hasOrgUser && user.auditor && !profile.current.groups.includes(Group.OWNER))
+		);
 	}
 
 	async function updateUserRole(
@@ -382,7 +397,7 @@
 					class="flex items-center justify-between gap-3 notification-error text-xs"
 				>
 					<span>{m.identity_access_users_local_accounts_load_failed()}</span>
-					<button class="btn btn-sm btn-error" onclick={() => loadLocalAuthUsers()}>
+					<button class="btn btn-sm btn-error" onclick={refreshAfterLocalAuthSave}>
 						{m.identity_access_users_local_accounts_retry()}
 					</button>
 				</div>
@@ -536,7 +551,7 @@
 								<button
 									class="menu-button"
 									onclick={() => openResetPassword(d)}
-									disabled={isOwnerActionRestricted(d)}
+									disabled={isPasswordResetRestricted(d)}
 								>
 									{m.identity_access_auth_providers_local_auth_reset_password()}
 								</button>
@@ -817,5 +832,5 @@
 	{/snippet}
 </Confirm>
 
-<CreateLocalUserDialog bind:this={createUserDialog} onSaved={reloadListedUsers} />
-<ResetPasswordDialog bind:this={resetPasswordDialog} onSaved={reloadListedUsers} />
+<CreateLocalUserDialog bind:this={createUserDialog} onSaved={refreshAfterLocalAuthSave} />
+<ResetPasswordDialog bind:this={resetPasswordDialog} onSaved={refreshAfterLocalAuthSave} />

@@ -379,6 +379,62 @@ describe('UsersView', () => {
 		});
 		const ownerAccount = localAuthUser(ownerUser.email, { id: '21', orgUserId: ownerUser.id });
 
+		for (const target of [
+			{ name: 'an auditor', role: Role.BASIC | Role.AUDITOR },
+			{ name: 'an admin with auditor access', role: Role.ADMIN | Role.AUDITOR }
+		]) {
+			it.each([
+				{ name: 'an admin', groups: [Group.ADMIN], allowed: false },
+				{
+					name: 'an admin with auditor access',
+					groups: [Group.ADMIN, Group.AUDITOR],
+					allowed: false
+				},
+				{ name: 'an Owner', groups: [Group.OWNER, Group.ADMIN], allowed: true }
+			])(
+				`only lets an Owner reset ${target.name}'s password: $name`,
+				async ({ groups, allowed }) => {
+					const targetUser = orgUser({
+						id: '30',
+						email: 'auditor@example.com',
+						role: target.role,
+						effectiveRole: target.role,
+						groups: [Group.AUDITOR]
+					});
+					const setPassword = vi.fn();
+					mockLocalAccounts([
+						localAuthUser(targetUser.email, { id: '31', orgUserId: targetUser.id })
+					]);
+					worker.use(
+						http.post('*/api/local-auth/users/31/password', async ({ request }) => {
+							setPassword(await request.json());
+							return new HttpResponse(null, { status: 204 });
+						})
+					);
+					await renderUsersView([targetUser], groups, { localAuthProviderAvailable: true });
+					await openRowActions(targetUser.email);
+					const reset = page.getByRole('button', { name: 'Reset password' });
+					if (!allowed) {
+						await expect.element(reset).toBeDisabled();
+						expect(setPassword).not.toHaveBeenCalled();
+						return;
+					}
+
+					await expect.element(reset).toBeEnabled();
+					await reset.click();
+					await page.getByCSS('#users-reset-password').fill(validPassword);
+					await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+					await vi.waitFor(() =>
+						expect(setPassword).toHaveBeenCalledWith({
+							password: validPassword,
+							requirePasswordChange: true
+						})
+					);
+					await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+				}
+			);
+		}
+
 		it.each([
 			{ name: 'an admin', groups: [Group.ADMIN] },
 			{ name: 'an admin with auditor access', groups: [Group.ADMIN, Group.AUDITOR] }
