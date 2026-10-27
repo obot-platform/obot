@@ -13,6 +13,7 @@
   "local_invalid_body_simple": "请求正文无效",
   "local_user_exists": "使用该电子邮件地址的本地用户已存在",
   "local_user_not_found": "找不到本地身份验证用户",
+  "local_privileged_user_requires_owner": "修改本地身份验证用户需要所有者权限",
   "local_invalid_setup_link": "设置链接无效或已过期",
   "local_not_authenticated": "当前用户未通过本地提供方进行身份验证",
   "local_no_password_change": "当前本地用户无需更改密码",

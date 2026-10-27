@@ -13,6 +13,7 @@
   "local_invalid_body_simple": "invalid request body",
   "local_user_exists": "a local user with that email already exists",
   "local_user_not_found": "local auth user not found",
+  "local_privileged_user_requires_owner": "local auth user requires owner to modify",
   "local_invalid_setup_link": "invalid or expired setup link",
   "local_not_authenticated": "the current user is not authenticated with the local provider",
   "local_no_password_change": "the current local user does not require a password change",

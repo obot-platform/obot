@@ -13,6 +13,7 @@
   "local_invalid_body_simple": "リクエスト本文が無効です",
   "local_user_exists": "そのメールアドレスのローカルユーザーはすでに存在します",
   "local_user_not_found": "ローカル認証ユーザーが見つかりません",
+  "local_privileged_user_requires_owner": "ローカル認証ユーザーの変更にはオーナー権限が必要です",
   "local_invalid_setup_link": "セットアップリンクが無効か期限切れです",
   "local_not_authenticated": "現在のユーザーはローカルプロバイダーで認証されていません",
   "local_no_password_change": "現在のローカルユーザーはパスワードの変更を必要としません",

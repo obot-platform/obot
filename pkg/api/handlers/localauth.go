@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/auth"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/localauth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -124,6 +125,10 @@ func (h *LocalAuthHandler) SetPassword(req api.Context) error {
 		return err
 	}
 
+	if _, err := h.userForMutation(req, id); err != nil {
+		return err
+	}
+
 	var body localAuthUserRequest
 	if err := req.Read(&body); err != nil {
 		return types.NewErrBadRequest("%s", apiMessage(req, "local_invalid_body", "detail", err.Error()))
@@ -222,17 +227,9 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	localUser, err := h.provider.GetUser(req.Context(), id)
+	gatewayUser, err := h.userForMutation(req, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
-		}
-		return fmt.Errorf("failed to get local auth user: %w", err)
-	}
-
-	gatewayUser, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, localUser.Email)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to get user from provider user ID: %w", err)
+		return err
 	}
 
 	if gatewayUser != nil {
@@ -271,6 +268,34 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	}
 
 	return nil
+}
+
+// userForMutation resolves the Local identity and applies the same role protections as OrgUser deletion.
+// A local account that has never signed in may not have an organization user yet.
+func (h *LocalAuthHandler) userForMutation(req api.Context, id uint) (*gatewaytypes.User, error) {
+	localUser, err := h.provider.GetUser(req.Context(), id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
+		}
+		return nil, fmt.Errorf("failed to get local auth user: %w", err)
+	}
+
+	gatewayUser, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, localUser.Email)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user from provider user ID: %w", err)
+	}
+
+	privileged := gatewayUser.Role.HasRole(types.RoleOwner) || gatewayUser.Role.HasRole(types.RoleAuditor)
+	if !req.UserIsOwner() && privileged {
+		slog.Info("Denied local auth user mutation", "targetUserID", gatewayUser.ID, "reason", "privileged_user_mutation_requires_owner")
+		return nil, types.NewErrHTTP(http.StatusForbidden, apiMessage(req, "local_privileged_user_requires_owner"))
+	}
+
+	return gatewayUser, nil
 }
 
 func (h *LocalAuthHandler) enabled(req api.Context) error {
