@@ -56,7 +56,7 @@
 				limit: PAGE_SIZE,
 				offset: idx * PAGE_SIZE
 			});
-			setFilterUrlParams('offset', idx > 0 ? [String(idx * PAGE_SIZE)] : []);
+			setFilterUrlParams({ offset: idx > 0 ? [String(idx * PAGE_SIZE)] : [] });
 		} finally {
 			loading = false;
 		}

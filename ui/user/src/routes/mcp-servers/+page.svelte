@@ -196,7 +196,7 @@
 		} else {
 			urlFilters[property] = values;
 		}
-		setFilterUrlParams(property, values);
+		setFilterUrlParams({ [property]: values });
 	}
 
 	function handleClearAllFilters() {

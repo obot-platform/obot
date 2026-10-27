@@ -18,15 +18,16 @@ export function q(key: string): string {
 	return browser ? new URL(window.location.href).searchParams.get(key) || '' : '';
 }
 
-export function setFilterUrlParams(property: string, values: string[]) {
+export async function setFilterUrlParams(filters: Record<string, string[]>) {
 	const url = new URL(page.url.toString());
-	if (values.length === 0) {
-		url.searchParams.delete(property);
-	} else {
-		url.searchParams.set(property, values.join(','));
+	for (const [key, values] of Object.entries(filters)) {
+		if (values.length === 0) {
+			url.searchParams.delete(key);
+		} else {
+			url.searchParams.set(key, values.join(','));
+		}
 	}
-
-	goto(url, { replace: true, reset: false });
+	return goto(url, { replace: true, reset: false, shallow: true });
 }
 
 export function getTableUrlParamsFilters() {
@@ -62,13 +63,13 @@ export function setSortUrlParams(property?: string, direction?: 'asc' | 'desc') 
 		const url = new URL(page.url.toString());
 		url.searchParams.delete('sort');
 		url.searchParams.delete('sortDirection');
-		goto(url, { reset: false, replace: true });
+		goto(url, { reset: false, replace: true, shallow: true });
 		return;
 	}
 	const url = new URL(page.url.toString());
 	url.searchParams.set('sort', property);
 	url.searchParams.set('sortDirection', direction);
-	goto(url, { reset: false, replace: true });
+	goto(url, { reset: false, replace: true, shallow: true });
 }
 
 export function clearUrlParams(params = Array.from(page.url.searchParams.keys())) {
@@ -77,7 +78,7 @@ export function clearUrlParams(params = Array.from(page.url.searchParams.keys())
 	for (const key of params) {
 		url.searchParams.delete(key);
 	}
-	goto(url, { reset: false, replace: true });
+	goto(url, { reset: false, replace: true, shallow: true });
 }
 
 export function setSearchParamsToLocalStorage(pathname: string, searchParams: string) {
@@ -110,8 +111,7 @@ export function goto(url: string | URL | ReadonlyURL, options: NavigationOptions
 		{
 			...rest,
 			...(replaceState === undefined ? {} : { replace: replaceState }),
-			...(noScroll ? { keepScrollPosition: true } : {}),
-			...(keepFocus ? { keepFocus: true } : {})
+			...(noScroll || keepFocus ? { reset: false } : {})
 		} as Parameters<typeof svelteGoTo>[1]
 	);
 }
@@ -122,9 +122,8 @@ export function resolve(path: string, params?: Record<string, string | number>):
 	)(path, params);
 }
 
-/** Update the current URL without adding a history entry or resetting the page state. */
 export function replaceState(url: string | URL, state: object = {}) {
-	return goto(url, { state, replace: true, reset: false });
+	return goto(url, { state, replace: true, reset: false, shallow: true });
 }
 
 export function setUrlParam(url: URL, key: string, value: string | null): void {

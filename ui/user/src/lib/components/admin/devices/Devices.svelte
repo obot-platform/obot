@@ -204,7 +204,7 @@
 			openUrl(resolve(`/inventory/devices/${d.deviceID}`), isCtrlClick);
 		}}
 		{initSort}
-		onFilter={setFilterUrlParams}
+		onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 		onClearAllFilters={() => clearUrlParams(filterable)}
 		onSort={setSortUrlParams}
 		{filters}

@@ -443,7 +443,7 @@
 				fields={['email', 'name', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				filterable={['name', 'email', 'status', 'role', 'effectiveRole']}
 				filters={urlFilters}
-				onFilter={setFilterUrlParams}
+				onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 				onClearAllFilters={clearUrlParams}
 				sortable={['name', 'email', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				headers={[

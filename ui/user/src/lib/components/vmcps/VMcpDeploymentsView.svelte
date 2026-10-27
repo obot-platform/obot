@@ -161,7 +161,7 @@
 	});
 
 	function handleFilter(property: string, values: string[]) {
-		setFilterUrlParams(property === 'vmcpID' ? 'id' : property, values);
+		setFilterUrlParams({ [property === 'vmcpID' ? 'id' : property]: values });
 	}
 
 	function handleClearAllFilters() {

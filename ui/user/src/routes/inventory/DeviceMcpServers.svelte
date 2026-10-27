@@ -109,7 +109,7 @@
 		filters={urlFilters}
 		{initSort}
 		onSort={setSortUrlParams}
-		onFilter={setFilterUrlParams}
+		onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 		onClearAllFilters={() => clearUrlParams(['name', 'transport'])}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(resolve(`/inventory/mcp-servers/${encodeURIComponent(d.configHash)}`), isCtrlClick);

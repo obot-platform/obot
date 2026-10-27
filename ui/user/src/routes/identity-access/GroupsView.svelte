@@ -173,7 +173,7 @@
 					fields={['name', 'role']}
 					filterable={['name', 'role']}
 					filters={urlFilters}
-					onFilter={setFilterUrlParams}
+					onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 					onClearAllFilters={clearUrlParams}
 					sortable={['name', 'role']}
 					headers={[

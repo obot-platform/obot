@@ -24,7 +24,7 @@
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
 	import { mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
-	import { goto, setFilterUrlParams, setSortUrlParams, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { goto, setFilterUrlParams, setSortUrlParams } from '$lib/url';
 	import { Layers, Pencil, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -169,42 +169,44 @@
 	function handleChange(property: keyof VMcpListSettingsType, values: string[]) {
 		vmcpList?.resetSelection();
 
+		const filtersToSet: Record<string, string[]> = {};
 		switch (property) {
 			case 'showMyVMcpsOnly':
 				filters.showMyVMcpsOnly = values.includes('true');
-				setFilterUrlParams(property, values);
+				filtersToSet.showMyVMcpsOnly = values;
 				break;
 			case 'sortBy':
 				filters.sortBy = sortByValues.includes(values[0] as VMcpSortBy)
 					? (values[0] as VMcpSortBy)
 					: 'name';
-				setFilterUrlParams('sort', [filters.sortBy]);
+				filtersToSet.sort = [filters.sortBy];
 				break;
 			case 'sortDirection':
 				filters.sortDirection = values[0] === 'desc' ? 'desc' : 'asc';
-				setFilterUrlParams('sortDirection', [filters.sortDirection]);
+				filtersToSet.sortDirection = [filters.sortDirection];
 				break;
 			case 'query':
 				filters.query = values[0] || '';
-				setUrlParamAndUpdateUrl(page.url, 'query', values[0] || null);
+				filtersToSet.query = values[0] ? [values[0]] : [];
 				break;
 			case 'componentFilterBy':
 				filters.componentFilterBy = values.join(',');
-				setFilterUrlParams('components', values);
+				filtersToSet.components = values;
 				break;
 			case 'statusFilterBy':
 				filters.statusFilterBy = values.join(',');
-				setFilterUrlParams('status', values);
+				filtersToSet.status = values;
 				break;
 			case 'creatorFilterBy':
 				filters.creatorFilterBy = values.join(',');
-				setFilterUrlParams('creator', values);
+				filtersToSet.creator = values;
 				break;
 			case 'variant':
 				filters.variant = values[0] as 'grid' | 'table';
-				setFilterUrlParams('variant', values);
+				filtersToSet.variant = values;
 				break;
 		}
+		setFilterUrlParams(filtersToSet);
 	}
 </script>
 

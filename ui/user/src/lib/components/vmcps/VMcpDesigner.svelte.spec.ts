@@ -785,8 +785,24 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('combobox', { name: 'API token policy' }))
 				.toHaveValue('userAllowed');
+			const configuration = page.getByRole('dialog', { name: 'Supply Configuration' });
+
+			async function waitForConfigurationAnimations() {
+				await tick();
+				await Promise.all(
+					configuration
+						.element()
+						.getAnimations({ subtree: true })
+						.map((animation) => animation.finished)
+				);
+			}
+
+			await waitForConfigurationAnimations();
 
 			await page.getByRole('button', { name: 'Cancel' }).click();
+			await expect
+				.element(page.getByRole('dialog', { name: 'Supply Configuration' }))
+				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
 				.not.toBeInTheDocument();
@@ -801,6 +817,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(advanced).toBeInTheDocument();
 			const advancedInput = advanced.element() as HTMLInputElement;
 			if (!advancedInput.checked) advancedInput.click();
+			await waitForConfigurationAnimations();
 			await page.getByRole('checkbox', { name: 'Force single-user' }).click();
 			await page.getByRole('button', { name: 'Save' }).click();
 

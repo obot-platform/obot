@@ -61,7 +61,7 @@
 		view = newView;
 		const updatedUrl = new URL(page.url.toString());
 		updatedUrl.searchParams.set('view', newView);
-		goto(updatedUrl, { reset: false });
+		goto(updatedUrl, { reset: false, replace: true });
 	}
 
 	async function reload() {

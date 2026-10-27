@@ -65,7 +65,7 @@
 		view = newView;
 		const url = new URL(page.url.toString());
 		url.searchParams.set('view', newView);
-		goto(url, { reset: false });
+		goto(url, { reset: false, replace: true });
 	}
 
 	async function reload() {

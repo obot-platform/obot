@@ -107,10 +107,11 @@
 	}
 
 	function handleChange(property: keyof SessionListFilters, values: string[]) {
+		const filtersToSet: Record<string, string[]> = {};
 		switch (property) {
 			case 'showMySessionsOnly':
 				filters.showMySessionsOnly = values.includes('true');
-				setFilterUrlParams(property, values);
+				filtersToSet.showMySessionsOnly = values;
 				break;
 			case 'sortBy': {
 				const sortBy = sortByValues.includes(values[0] as SessionSortBy)
@@ -118,32 +119,34 @@
 					: 'lastUsed';
 				filters.sortBy = !all && sortBy === 'user' ? 'lastUsed' : sortBy;
 				filters.sortDirection = filters.sortBy === 'lastUsed' ? 'desc' : 'asc';
-				setSortUrlParams(filters.sortBy, filters.sortDirection);
+				filtersToSet.sort = [filters.sortBy];
+				filtersToSet.sortDirection = [filters.sortDirection];
 				break;
 			}
 			case 'sortDirection':
 				filters.sortDirection = values[0] === 'asc' ? 'asc' : 'desc';
-				setFilterUrlParams('sortDirection', [filters.sortDirection]);
+				filtersToSet.sortDirection = [filters.sortDirection];
 				break;
 			case 'query':
 				filters.query = values[0] || '';
-				setFilterUrlParams('query', filters.query ? [filters.query] : []);
+				filtersToSet.query = filters.query ? [filters.query] : [];
 				break;
 			case 'statusFilterBy':
 				filters.statusFilterBy = values.join(',');
-				setFilterUrlParams('status', values);
+				filtersToSet.status = values;
 				break;
 			case 'userFilterBy':
 				filters.userFilterBy = values.join(',');
-				setFilterUrlParams('user', values);
+				filtersToSet.user = values;
 				break;
 			case 'variant':
 				filters.variant = variantValues.includes(values[0] as SessionListVariant)
 					? (values[0] as SessionListVariant)
 					: 'grid';
-				setFilterUrlParams('variant', values);
+				filtersToSet.variant = values;
 				break;
 		}
+		setFilterUrlParams(filtersToSet);
 	}
 
 	function sessionSearchText(session: Session) {

@@ -205,7 +205,7 @@
 			sortable={['name', 'typeLabel', 'categoryLabel']}
 			filterable={['typeLabel', 'categoryLabel']}
 			filters={urlFilters}
-			onFilter={setFilterUrlParams}
+			onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 			onClearAllFilters={clearFilters}
 			onSort={setSortUrlParams}
 			{initSort}

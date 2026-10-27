@@ -129,7 +129,7 @@
 			}}
 			filterable={['name', 'kind', 'status']}
 			filters={urlFilters}
-			onFilter={setFilterUrlParams}
+			onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 			onClearAllFilters={clearUrlParams}
 			headers={[
 				{

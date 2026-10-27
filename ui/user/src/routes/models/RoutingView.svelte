@@ -304,7 +304,7 @@
 				filterable={['enabledLabel']}
 				filters={urlFilters}
 				displayValue={statusDisplay}
-				onFilter={setFilterUrlParams}
+				onFilter={(property, values) => setFilterUrlParams({ [property]: values })}
 				onClearAllFilters={clearFilters}
 				onSort={setSortUrlParams}
 				{initSort}
