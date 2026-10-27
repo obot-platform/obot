@@ -45,13 +45,24 @@
 	interface Props {
 		users: OrgUser[];
 		localAuthProviderAvailable?: boolean;
+		providerDiscoveryComplete?: boolean;
 	}
 
-	let { users: initialUsers, localAuthProviderAvailable = false }: Props = $props();
+	let {
+		users: initialUsers,
+		localAuthProviderAvailable = false,
+		providerDiscoveryComplete = true
+	}: Props = $props();
 	let users = $state<OrgUser[]>(untrack(() => initialUsers));
 	let localAuthUsers = $state<LocalAuthUser[]>([]);
 	let localAuthUsersLoading = $state(untrack(() => localAuthProviderAvailable));
 	let localAuthUsersFailed = $state(false);
+	let localAuthUsersLoaded = $state(false);
+	const deletionReady = $derived(
+		providerDiscoveryComplete &&
+			(!localAuthProviderAvailable ||
+				(localAuthUsersLoaded && !localAuthUsersLoading && !localAuthUsersFailed))
+	);
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
@@ -244,6 +255,7 @@
 		users = nextUsers;
 		if (localAuthProviderAvailable) {
 			localAuthUsers = nextLocalUsers;
+			localAuthUsersLoaded = true;
 			localAuthUsersFailed = false;
 		}
 	}
@@ -264,6 +276,8 @@
 			const items = await AdminService.listLocalAuthUsers({ signal });
 			if (signal.aborted) return;
 			localAuthUsers = items;
+			localAuthUsersLoaded = true;
+			return items;
 		} catch (error) {
 			if (listedUsersRequestCancelled(signal, error)) return;
 			localAuthUsersFailed = true;
@@ -277,6 +291,7 @@
 			listedUsersRequest?.abort();
 			listedUsersRequest = undefined;
 			localAuthUsers = [];
+			localAuthUsersLoaded = false;
 			return () => {
 				listedUsersRequest?.abort();
 			};
@@ -390,10 +405,12 @@
 
 			{#if version.current.userLimit}
 				<section class="flex items-center justify-end gap-2 text-muted-content">
-					<InfoTooltip
-						placement="bottom-start"
-						text={m.identity_access_users_user_count_tooltip()}
-					/>
+					{#if localAuthProviderAvailable}
+						<InfoTooltip
+							placement="bottom-start"
+							text={m.identity_access_users_user_count_tooltip()}
+						/>
+					{/if}
 					<p class="text-sm">{m.identity_access_users_user_limits()}</p>
 					{#if !hasValidLicense || isCommunityEdition}
 						<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
@@ -577,8 +594,7 @@
 								d.hasOrgUser && d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
 								class="menu-button text-error"
-								disabled={(localAuthProviderAvailable &&
-									(localAuthUsersLoading || localAuthUsersFailed)) ||
+								disabled={!deletionReady ||
 									(d.hasOrgUser &&
 										(d.claudeTag ||
 											stillProvisioned ||
@@ -615,7 +631,7 @@
 	show={Boolean(deletingUser)}
 	{loading}
 	onsuccess={async () => {
-		if (!deletingUser) return;
+		if (!deletingUser || !deletionReady || loading) return;
 		if (isOwnerActionRestricted(deletingUser)) {
 			deletingUser = undefined;
 			return;
@@ -623,8 +639,17 @@
 		const { orgUserId, localAuthUserId } = deletingUser;
 		loading = true;
 		try {
-			if (localAuthUserId) {
-				await AdminService.deleteLocalAuthUser(localAuthUserId);
+			let currentLocalAuthUserId = localAuthUserId;
+			if (localAuthProviderAvailable) {
+				// A local account may have become linked after the dialog opened.
+				const accounts = await loadLocalAuthUsers();
+				if (!accounts) return;
+				currentLocalAuthUserId = accounts.find((account) =>
+					localAuthUserId ? account.id === localAuthUserId : account.orgUserId === orgUserId
+				)?.id;
+			}
+			if (currentLocalAuthUserId) {
+				await AdminService.deleteLocalAuthUser(currentLocalAuthUserId);
 			} else if (orgUserId) {
 				await AdminService.deleteUser(orgUserId);
 			}

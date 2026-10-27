@@ -78,12 +78,13 @@ const legacyUser = orgUser({
 async function renderUsersView(
 	users: OrgUser[],
 	viewerGroups: string[] = [Group.ADMIN],
-	options?: { localAuthProviderAvailable?: boolean }
+	options?: { localAuthProviderAvailable?: boolean; providerDiscoveryComplete?: boolean }
 ) {
 	await preparePageData({ profile: createMockProfile(viewerGroups) });
 	return render(UsersView, {
 		users,
-		localAuthProviderAvailable: options?.localAuthProviderAvailable
+		localAuthProviderAvailable: options?.localAuthProviderAvailable,
+		providerDiscoveryComplete: options?.providerDiscoveryComplete
 	});
 }
 
@@ -334,6 +335,63 @@ describe('UsersView', () => {
 			};
 		}
 
+		it('blocks deletion until provider discovery and local membership lookup succeed', async () => {
+			let finishLookup!: (response: Response) => void;
+			worker.use(
+				http.get(
+					'*/api/local-auth/users',
+					() =>
+						new Promise<Response>((resolve) => {
+							finishLookup = resolve;
+						})
+				)
+			);
+			const view = await renderUsersView([activeUser], [Group.ADMIN], {
+				providerDiscoveryComplete: false
+			});
+			await openRowActions(activeUser.email);
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+			await view.rerender({ providerDiscoveryComplete: true, localAuthProviderAvailable: true });
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+			await vi.waitFor(() => expect(finishLookup).toBeTypeOf('function'));
+			finishLookup(HttpResponse.json({ items: [linked] }));
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+		});
+
+		it.each([false, true])(
+			'rechecks membership on confirmation (lookup fails: %s)',
+			async (fails) => {
+				const accounts = mockLocalAccounts([]);
+				const removeOrg = vi.fn();
+				const removeLocal = vi.fn();
+				worker.use(
+					http.delete('*/api/users/*', () => {
+						removeOrg();
+						return new HttpResponse(null, { status: 204 });
+					}),
+					http.delete('*/api/local-auth/users/11', () => {
+						removeLocal();
+						return new HttpResponse(null, { status: 204 });
+					})
+				);
+				await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+				await openRowActions(activeUser.email);
+				await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+				await page.getByRole('button', { name: 'Delete User' }).click();
+				accounts.setItems([linked]);
+				if (fails)
+					worker.use(
+						http.get('*/api/local-auth/users', () =>
+							HttpResponse.json({ message: 'lookup failed' }, { status: 500 })
+						)
+					);
+				await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+				expect(removeOrg).not.toHaveBeenCalled();
+				expect(removeLocal).toHaveBeenCalledTimes(fails ? 0 : 1);
+			}
+		);
+
 		it('lists a local account that has not signed in, with org actions disabled', async () => {
 			mockLocalAccounts([pending, linked]);
 			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
@@ -505,6 +563,7 @@ describe('UsersView', () => {
 		);
 
 		it('blocks deletion while local account lookup fails and retries the lookup', async () => {
+			mockLocalAccounts([linked]);
 			let attempts = 0;
 			const removeOrg = vi.fn();
 			const removeLocal = vi.fn();

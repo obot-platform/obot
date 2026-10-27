@@ -95,7 +95,12 @@
 {/snippet}
 
 {#snippet users()}
-	<UsersView bind:this={usersView} users={data.users} {localAuthProviderAvailable} />
+	<UsersView
+		bind:this={usersView}
+		users={data.users}
+		{localAuthProviderAvailable}
+		providerDiscoveryComplete={!$adminConfigStore.loading && $adminConfigStore.lastFetched !== null}
+	/>
 {/snippet}
 
 {#snippet groups()}

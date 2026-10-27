@@ -482,7 +482,7 @@
 	"identity_access_users_tab": "Users",
 	"identity_access_users_update_role_failed": "Failed to update user role. Please try again.",
 	"identity_access_users_update_role_title": "Update {name}'s Role",
-	"identity_access_users_user_count_tooltip": "User count accounts for users that have actively logged in at least once.",
+	"identity_access_users_user_count_tooltip": "Creating local user accounts do not count towards the user limit until they have logged in.",
 	"identity_access_users_user_limits": "User Limits:",
 	"identity_access_view_access_policies": "View Access Policies"
 }

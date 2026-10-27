@@ -482,7 +482,7 @@
 	"identity_access_users_tab": "사용자",
 	"identity_access_users_update_role_failed": "사용자 역할을 업데이트하지 못했습니다. 다시 시도하세요.",
 	"identity_access_users_update_role_title": "{name}의 역할 업데이트",
-	"identity_access_users_user_count_tooltip": "사용자 수에는 한 번 이상 로그인한 사용자가 포함됩니다.",
+	"identity_access_users_user_count_tooltip": "로컬 사용자 계정을 생성해도 로그인하기 전까지는 사용자 한도에 포함되지 않습니다.",
 	"identity_access_users_user_limits": "사용자 한도:",
 	"identity_access_view_access_policies": "액세스 정책 보기"
 }
