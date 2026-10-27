@@ -554,7 +554,10 @@ export async function revokePreviousSCIMToken(
 
 // Local auth provider users
 
-export async function listLocalAuthUsers(opts?: { fetch?: Fetcher }): Promise<LocalAuthUser[]> {
+export async function listLocalAuthUsers(opts?: {
+	fetch?: Fetcher;
+	signal?: AbortSignal;
+}): Promise<LocalAuthUser[]> {
 	const list = (await doGet('/local-auth/users', opts)) as ItemsResponse<LocalAuthUser>;
 	return list.items ?? [];
 }

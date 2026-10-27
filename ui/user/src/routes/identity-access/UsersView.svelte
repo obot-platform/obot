@@ -9,6 +9,7 @@
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { COMMUNITY_ENTITLEMENT, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -153,7 +154,6 @@
 			? rowsForLocalAuth(users, localAuthUsers)
 			: users.map((user) => mapOrgUser(user));
 		const q = query.toLowerCase();
-		// Match by name or email. The server lists internal users even when they have no email.
 		return rows.filter(
 			(user) => user.name.toLowerCase().includes(q) || user.email?.toLowerCase().includes(q)
 		);
@@ -197,38 +197,50 @@
 		return m.identity_access_users_update_role_failed();
 	}
 
-	let localAuthLoad = 0;
+	let listedUsersRequest: AbortController | undefined;
+
+	function startListedUsersRequest(): AbortSignal {
+		listedUsersRequest?.abort();
+		const controller = new AbortController();
+		listedUsersRequest = controller;
+		return controller.signal;
+	}
+
+	function listedUsersRequestCancelled(signal: AbortSignal, error?: unknown) {
+		return signal.aborted || isAbortError(error);
+	}
 
 	async function reloadListedUsers() {
-		const request = ++localAuthLoad;
+		const signal = startListedUsersRequest();
 		if (localAuthProviderAvailable) {
 			localAuthUsersLoading = true;
 			localAuthUsersFailed = false;
 		}
 		let nextUsers: OrgUser[];
 		try {
-			nextUsers = await UserService.listUsers();
+			nextUsers = await UserService.listUsers({ signal });
 		} catch (error) {
-			if (request === localAuthLoad && localAuthProviderAvailable) {
+			if (listedUsersRequestCancelled(signal, error)) return;
+			if (localAuthProviderAvailable) {
 				localAuthUsersFailed = true;
 				localAuthUsersLoading = false;
 			}
 			throw error;
 		}
+		if (signal.aborted) return;
 		let nextLocalUsers = localAuthUsers;
 		if (localAuthProviderAvailable) {
 			try {
-				nextLocalUsers = await AdminService.listLocalAuthUsers();
+				nextLocalUsers = await AdminService.listLocalAuthUsers({ signal });
 			} catch (error) {
-				if (request === localAuthLoad) {
-					localAuthUsersFailed = true;
-					throw error;
-				}
+				if (listedUsersRequestCancelled(signal, error)) return;
+				localAuthUsersFailed = true;
+				throw error;
 			} finally {
-				if (request === localAuthLoad) localAuthUsersLoading = false;
+				if (!signal.aborted) localAuthUsersLoading = false;
 			}
 		}
-		if (request !== localAuthLoad) return;
+		if (signal.aborted) return;
 		users = nextUsers;
 		if (localAuthProviderAvailable) {
 			localAuthUsers = nextLocalUsers;
@@ -245,30 +257,35 @@
 	}
 
 	async function loadLocalAuthUsers() {
-		const request = ++localAuthLoad;
+		const signal = startListedUsersRequest();
 		localAuthUsersLoading = true;
 		localAuthUsersFailed = false;
 		try {
-			const items = await AdminService.listLocalAuthUsers();
-			if (request === localAuthLoad) localAuthUsers = items;
-		} catch {
-			if (request === localAuthLoad) localAuthUsersFailed = true;
+			const items = await AdminService.listLocalAuthUsers({ signal });
+			if (signal.aborted) return;
+			localAuthUsers = items;
+		} catch (error) {
+			if (listedUsersRequestCancelled(signal, error)) return;
+			localAuthUsersFailed = true;
 		} finally {
-			if (request === localAuthLoad) localAuthUsersLoading = false;
+			if (!signal.aborted) localAuthUsersLoading = false;
 		}
 	}
 
 	$effect(() => {
 		if (!localAuthProviderAvailable) {
-			localAuthLoad += 1;
+			listedUsersRequest?.abort();
+			listedUsersRequest = undefined;
 			localAuthUsers = [];
-			return;
+			return () => {
+				listedUsersRequest?.abort();
+			};
 		}
 
 		loadLocalAuthUsers();
 
 		return () => {
-			localAuthLoad += 1;
+			listedUsersRequest?.abort();
 		};
 	});
 
