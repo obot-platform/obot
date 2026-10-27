@@ -370,6 +370,121 @@ describe('UsersView', () => {
 			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
 		});
 
+		const ownerUser = orgUser({
+			id: '20',
+			email: 'owner@example.com',
+			role: Role.OWNER,
+			effectiveRole: Role.OWNER,
+			groups: [Group.OWNER, Group.ADMIN]
+		});
+		const ownerAccount = localAuthUser(ownerUser.email, { id: '21', orgUserId: ownerUser.id });
+
+		it.each([
+			{ name: 'an admin', groups: [Group.ADMIN] },
+			{ name: 'an admin with auditor access', groups: [Group.ADMIN, Group.AUDITOR] }
+		])('blocks $name from resetting or deleting a linked Owner account', async ({ groups }) => {
+			mockLocalAccounts([ownerAccount]);
+			await renderUsersView([ownerUser], groups, { localAuthProviderAvailable: true });
+
+			await openRowActions(ownerUser.email);
+			await expect.element(page.getByRole('button', { name: 'Reset password' })).toBeDisabled();
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+		});
+
+		it('hides reset and delete actions from a read-only auditor for a linked Owner account', async () => {
+			mockLocalAccounts([ownerAccount]);
+			await renderUsersView([ownerUser], [Group.AUDITOR], { localAuthProviderAvailable: true });
+
+			await openRowActions(ownerUser.email);
+			await expect
+				.element(page.getByRole('button', { name: 'View Access Policies' }))
+				.toBeEnabled();
+			await expect
+				.element(page.getByRole('button', { name: 'Reset password' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Delete User' }))
+				.not.toBeInTheDocument();
+		});
+
+		it.each(['reset', 'delete'] as const)(
+			'lets an Owner %s a linked Owner account',
+			async (action) => {
+				const act = vi.fn();
+				mockLocalAccounts([ownerAccount]);
+				worker.use(
+					http.post('*/api/local-auth/users/21/password', async ({ request }) => {
+						act(await request.json());
+						return new HttpResponse(null, { status: 204 });
+					}),
+					http.delete('*/api/local-auth/users/21', () => {
+						act();
+						return new HttpResponse(null, { status: 204 });
+					})
+				);
+				await renderUsersView([ownerUser], [Group.OWNER, Group.ADMIN], {
+					localAuthProviderAvailable: true
+				});
+
+				await openRowActions(ownerUser.email);
+				await expect.element(page.getByRole('button', { name: 'Reset password' })).toBeEnabled();
+				await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+				if (action === 'reset') {
+					await page.getByRole('button', { name: 'Reset password' }).click();
+					await page.getByCSS('#users-reset-password').fill(validPassword);
+					await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
+					await vi.waitFor(() =>
+						expect(act).toHaveBeenCalledWith({
+							password: validPassword,
+							requirePasswordChange: true
+						})
+					);
+				} else {
+					await page.getByRole('button', { name: 'Delete User' }).click();
+					await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+					await vi.waitFor(() => expect(act).toHaveBeenCalledOnce());
+				}
+				await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+			}
+		);
+
+		it('blocks deletion while local account lookup fails and retries the lookup', async () => {
+			let attempts = 0;
+			const removeOrg = vi.fn();
+			const removeLocal = vi.fn();
+			worker.use(
+				http.get('*/api/local-auth/users', () => {
+					attempts += 1;
+					return attempts === 1
+						? HttpResponse.json({ message: 'temporary failure' }, { status: 500 })
+						: HttpResponse.json({ items: [linked] });
+				}),
+				http.delete('*/api/users/*', () => {
+					removeOrg();
+					return new HttpResponse(null, { status: 204 });
+				}),
+				http.delete('*/api/local-auth/users/11', () => {
+					removeLocal();
+					return new HttpResponse(null, { status: 204 });
+				})
+			);
+			await renderUsersView([activeUser], [Group.ADMIN], { localAuthProviderAvailable: true });
+
+			await expect.element(page.getByRole('alert')).toBeVisible();
+			await openRowActions(activeUser.email);
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+			await page.getByCSS('#click-catch').click();
+			await page.getByRole('button', { name: 'Retry' }).click();
+			await vi.waitFor(() => expect(attempts).toBe(2));
+			await expect.element(page.getByRole('alert')).not.toBeInTheDocument();
+			await openRowActions(activeUser.email);
+			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
+			await page.getByRole('button', { name: 'Delete User' }).click();
+			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+			await vi.waitFor(() => expect(removeLocal).toHaveBeenCalledOnce());
+			expect(removeOrg).not.toHaveBeenCalled();
+		});
+
 		it('keeps an OAuth user separate from a local account with the same email when deleting', async () => {
 			const removeOrg = vi.fn();
 			const removeLocal = vi.fn();

@@ -49,6 +49,8 @@
 	let { users: initialUsers, localAuthProviderAvailable = false }: Props = $props();
 	let users = $state<OrgUser[]>(untrack(() => initialUsers));
 	let localAuthUsers = $state<LocalAuthUser[]>([]);
+	let localAuthUsersLoading = $state(untrack(() => localAuthProviderAvailable));
+	let localAuthUsersFailed = $state(false);
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
@@ -199,15 +201,53 @@
 
 	async function reloadListedUsers() {
 		const request = ++localAuthLoad;
-		const [nextUsers, nextLocalUsers] = await Promise.all([
-			UserService.listUsers(),
-			localAuthProviderAvailable
-				? AdminService.listLocalAuthUsers()
-				: Promise.resolve(localAuthUsers)
-		]);
+		if (localAuthProviderAvailable) {
+			localAuthUsersLoading = true;
+			localAuthUsersFailed = false;
+		}
+		let nextUsers: OrgUser[];
+		try {
+			nextUsers = await UserService.listUsers();
+		} catch (error) {
+			if (request === localAuthLoad && localAuthProviderAvailable) {
+				localAuthUsersFailed = true;
+				localAuthUsersLoading = false;
+			}
+			throw error;
+		}
+		let nextLocalUsers = localAuthUsers;
+		if (localAuthProviderAvailable) {
+			try {
+				nextLocalUsers = await AdminService.listLocalAuthUsers();
+			} catch (error) {
+				if (request === localAuthLoad) {
+					localAuthUsersFailed = true;
+					throw error;
+				}
+			} finally {
+				if (request === localAuthLoad) localAuthUsersLoading = false;
+			}
+		}
 		if (request !== localAuthLoad) return;
 		users = nextUsers;
-		if (localAuthProviderAvailable) localAuthUsers = nextLocalUsers;
+		if (localAuthProviderAvailable) {
+			localAuthUsers = nextLocalUsers;
+			localAuthUsersFailed = false;
+		}
+	}
+
+	async function loadLocalAuthUsers() {
+		const request = ++localAuthLoad;
+		localAuthUsersLoading = true;
+		localAuthUsersFailed = false;
+		try {
+			const items = await AdminService.listLocalAuthUsers();
+			if (request === localAuthLoad) localAuthUsers = items;
+		} catch {
+			if (request === localAuthLoad) localAuthUsersFailed = true;
+		} finally {
+			if (request === localAuthLoad) localAuthUsersLoading = false;
+		}
 	}
 
 	$effect(() => {
@@ -217,14 +257,7 @@
 			return;
 		}
 
-		const request = ++localAuthLoad;
-		void AdminService.listLocalAuthUsers()
-			.then((items) => {
-				if (request === localAuthLoad) localAuthUsers = items;
-			})
-			.catch(() => {
-				if (request === localAuthLoad) localAuthUsers = [];
-			});
+		loadLocalAuthUsers();
 
 		return () => {
 			localAuthLoad += 1;
@@ -235,8 +268,16 @@
 		createUserDialog?.open();
 	}
 
+	function isOwnerActionRestricted(user: TableItem) {
+		return (
+			user.hasOrgUser &&
+			user.groups.includes(Group.OWNER) &&
+			!profile.current.groups.includes(Group.OWNER)
+		);
+	}
+
 	function openResetPassword(user: TableItem) {
-		if (!user.localAuthUserId || !user.email) return;
+		if (!user.localAuthUserId || !user.email || isOwnerActionRestricted(user)) return;
 		resetPasswordDialog?.open({ id: user.localAuthUserId, email: user.email });
 	}
 
@@ -335,6 +376,18 @@
 				onChange={updateQuery}
 				placeholder={m.identity_access_users_search_placeholder()}
 			/>
+			{#if localAuthProviderAvailable && localAuthUsersFailed}
+				<div
+					role="alert"
+					class="flex items-center justify-between gap-3 notification-error text-xs"
+				>
+					<span>{m.identity_access_users_local_accounts_load_failed()}</span>
+					<button class="btn btn-sm btn-error" onclick={() => loadLocalAuthUsers()}>
+						{m.identity_access_users_local_accounts_retry()}
+					</button>
+				</div>
+			{/if}
+
 			<Table
 				data={tableData}
 				fields={['email', 'name', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
@@ -480,7 +533,11 @@
 								</button>
 							{/if}
 							{#if d.localAuthUserId}
-								<button class="menu-button" onclick={() => openResetPassword(d)}>
+								<button
+									class="menu-button"
+									onclick={() => openResetPassword(d)}
+									disabled={isOwnerActionRestricted(d)}
+								>
 									{m.identity_access_auth_providers_local_auth_reset_password()}
 								</button>
 							{/if}
@@ -488,12 +545,13 @@
 								d.hasOrgUser && d.managementSource === 'scim' && d.lifecycleStatus !== 'disabled'}
 							<button
 								class="menu-button text-error"
-								disabled={d.hasOrgUser &&
-									(d.claudeTag ||
-										stillProvisioned ||
-										d.explicitRole ||
-										(d.groups.includes(Group.OWNER) &&
-											!profile.current.groups.includes(Group.OWNER)))}
+								disabled={(localAuthProviderAvailable &&
+									(localAuthUsersLoading || localAuthUsersFailed)) ||
+									(d.hasOrgUser &&
+										(d.claudeTag ||
+											stillProvisioned ||
+											d.explicitRole ||
+											isOwnerActionRestricted(d)))}
 								use:tooltip={{
 									text: d.claudeTag
 										? CLAUDE_TAG_MESSAGE
@@ -503,7 +561,10 @@
 									placement: 'left',
 									classes: ['z-50']
 								}}
-								onclick={() => (deletingUser = d)}
+								onclick={() => {
+									if (isOwnerActionRestricted(d)) return;
+									deletingUser = d;
+								}}
 							>
 								{m.identity_access_users_delete_user()}
 							</button>
@@ -523,6 +584,10 @@
 	{loading}
 	onsuccess={async () => {
 		if (!deletingUser) return;
+		if (isOwnerActionRestricted(deletingUser)) {
+			deletingUser = undefined;
+			return;
+		}
 		const { orgUserId, localAuthUserId } = deletingUser;
 		loading = true;
 		try {

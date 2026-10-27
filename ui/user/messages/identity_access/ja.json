@@ -463,6 +463,8 @@
 	"identity_access_users_groups_degraded_notice": "Obot がすでに記録しているグループのみを表示しています — ディレクトリ全体のグループ読み取り権限が付与されていない可能性があります。",
 	"identity_access_users_groups_has_more": "最初の {count} 件のグループを表示しています。検索条件を絞り込んで一覧を絞ってください。",
 	"identity_access_users_handoff_note": "最初の管理者またはオーナーユーザーを設定すると、現在使用中のブートストラップユーザーは無効になります。この操作が完了するとログアウトされ、認証プロバイダーを使用してログインするよう求められます。",
+	"identity_access_users_local_accounts_load_failed": "ローカルアカウントを読み込めませんでした。アカウントの関連付けが確認されるまで削除できません。",
+	"identity_access_users_local_accounts_retry": "再試行",
 	"identity_access_users_obot_admin": "Obot 管理者",
 	"identity_access_users_owner_description": "オーナーはプラットフォームのすべての項目を管理でき、他のユーザーにオーナーロールを割り当てることもできます。",
 	"identity_access_users_requires_password_change": "パスワードの変更が必要です",

@@ -31,8 +31,7 @@
 	let showSCIM = $derived(isSCIMView(page.url.searchParams));
 	let localAuthProviderAvailable = $derived(
 		$adminConfigStore.authProviders.some(
-			(provider) =>
-				provider.id === CommonAuthProviderIds.LOCAL && (provider.configured || provider.staged)
+			(provider) => provider.id === CommonAuthProviderIds.LOCAL && provider.configured
 		)
 	);
 </script>

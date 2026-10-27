@@ -463,6 +463,8 @@
 	"identity_access_users_groups_degraded_notice": "Showing only groups Obot has already recorded — directory-wide group read permission may not be granted.",
 	"identity_access_users_groups_has_more": "Showing the first {count} groups. Refine your search to narrow the list.",
 	"identity_access_users_handoff_note": "Once you've established your first admin or owner user, the bootstrap user currently being used will be disabled. Upon completing this action, you'll be logged out and asked to log in using your auth provider.",
+	"identity_access_users_local_accounts_load_failed": "Could not load local accounts. Deletion is unavailable until account membership is confirmed.",
+	"identity_access_users_local_accounts_retry": "Retry",
 	"identity_access_users_obot_admin": "Obot Admin",
 	"identity_access_users_owner_description": "Owners can manage all aspects of the platform and can also assign the Owner role to other users.",
 	"identity_access_users_requires_password_change": "Requires Password Change",

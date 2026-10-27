@@ -463,6 +463,8 @@
 	"identity_access_users_groups_degraded_notice": "仅显示 Obot 已记录的用户组 — 可能未授予目录范围的用户组读取权限。",
 	"identity_access_users_groups_has_more": "显示前 {count} 个用户组。请优化搜索以缩小列表范围。",
 	"identity_access_users_handoff_note": "设置第一个管理员或所有者用户后，当前使用的引导用户将被禁用。完成此操作后，您将被注销，并需要使用身份验证提供商登录。",
+	"identity_access_users_local_accounts_load_failed": "无法加载本地账户。在确认账户关联情况之前，无法删除用户。",
+	"identity_access_users_local_accounts_retry": "重试",
 	"identity_access_users_obot_admin": "Obot 管理员",
 	"identity_access_users_owner_description": "所有者可以管理平台的所有方面，还可以将所有者角色分配给其他用户。",
 	"identity_access_users_requires_password_change": "需要更改密码",
