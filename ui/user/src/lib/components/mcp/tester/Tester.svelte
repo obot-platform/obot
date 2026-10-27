@@ -282,7 +282,16 @@
 				>
 					{#snippet icon()}<KeyRound class="size-5 text-warning" aria-hidden="true" />{/snippet}
 					{#snippet actions()}
-						{#if reauthenticationAction}{@render reauthenticationAction()}{/if}
+						{#if session?.authorizationURL}
+							<!-- OAuth URLs are supplied by the SDK, not SvelteKit routes. -->
+							<!-- eslint-disable svelte/no-navigation-without-resolve -->
+							<a
+								class="btn btn-primary btn-sm"
+								data-sveltekit-reload
+								href={session.authorizationURL}>{m.mcps_oauth_authenticate()}</a
+							>
+							<!-- eslint-enable svelte/no-navigation-without-resolve -->
+						{:else if reauthenticationAction}{@render reauthenticationAction()}{/if}
 					{/snippet}
 				</TesterError>
 			{:else}
@@ -290,7 +299,16 @@
 					<KeyRound class="mb-2 size-5 text-warning" aria-hidden="true" />
 					<h2 class="font-semibold">{m.mcps_tester_reauth_required()}</h2>
 					<p class="mt-1 text-sm">{m.mcps_tester_reauth_required_description()}</p>
-					{#if reauthenticationAction}
+					{#if session?.authorizationURL}
+						<!-- OAuth URLs are supplied by the SDK, not SvelteKit routes. -->
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						<a
+							class="btn btn-primary btn-sm mt-4"
+							data-sveltekit-reload
+							href={session.authorizationURL}>{m.mcps_oauth_authenticate()}</a
+						>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					{:else if reauthenticationAction}
 						<div class="mt-4">
 							{@render reauthenticationAction()}
 						</div>

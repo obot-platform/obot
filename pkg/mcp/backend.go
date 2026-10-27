@@ -43,6 +43,7 @@ type backend interface {
 	// ensureServerDeployment validates before deployment, skips validation on cache hits,
 	// and returns the updated ServerConfig.
 	ensureServerDeployment(ctx context.Context, serverConfig ServerConfig) (ServerConfig, error)
+
 	// deployServer will deploy a server if it is not already deployed, and will not wait or do any readiness checks
 	deployServer(ctx context.Context, server ServerConfig) error
 	streamServerLogs(ctx context.Context, id string) (io.ReadCloser, error)
@@ -194,6 +195,7 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 
 		var (
 			body []byte
+
 			// This must be a non-nil error because Go does weird things when you use %w with a nil error.
 			lastErr = errors.New("MCP server did not respond to health check")
 		)
@@ -206,6 +208,7 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 				return nil
 			case http.StatusServiceUnavailable:
 				lastErr = fmt.Errorf("service unavailable: %s", string(body))
+
 				// Older nanobot versions return 503 when tool listing permanently fails, but service mesh sidecars
 				// (e.g. Istio's envoy) also return 503 during startup. To avoid confusing the two, we don't treat 503
 				// as a permanent failure until we've seen consecutive 503 responses for this duration.
@@ -218,10 +221,12 @@ func ensureHTTPGetOK(ctx context.Context, client *http.Client, url string) error
 
 			case http.StatusInternalServerError:
 				lastErr = fmt.Errorf("internal server error: %s", string(body))
+
 				// Nanobot returns 500 when tool listing permanently fails.
 				return fmt.Errorf("%w: %v", ErrHealthCheckFailed, lastErr)
 			default:
 				lastErr = fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+
 				// A non-503 response (e.g. 425 TooEarly) means we're reaching the actual
 				// nanobot process, not a proxy. Reset the grace period so that any subsequent
 				// 503 gets a fresh window.
@@ -277,6 +282,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 	if serverName == "" {
 		serverName = server.MCPServerName
 	}
+
 	config := &mmmcpconfig.Config{
 		Name:    serverName,
 		Version: version.Get().String(),
@@ -284,14 +290,18 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 
 	if server.Runtime == types.RuntimeVMCP {
 		config.ToolSearch = server.ToolSearch
+		config.RequestScopedDiscovery = true
+
 		// Component connections are authenticated by the gateway's composite OAuth
 		// handler, not the frontend Authorization header: pooled sessions replay
 		// the headers of the request that opened them long after it expires.
 		passthroughHeaders := slices.Clone(server.PassthroughHeaderNames)
 
 		servers := make([]mmmcpconfig.Server, 0, len(server.Components))
+
 		for _, component := range server.Components {
 			tools := make([]mmmcpconfig.ToolOverride, 0, len(component.Tools))
+
 			for _, tool := range component.Tools {
 				tools = append(tools, mmmcpconfig.ToolOverride{
 					Name:                tool.Name,
@@ -314,6 +324,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		}
 
 		config.Servers = servers
+
 		return config
 	}
 
@@ -342,6 +353,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		Args:               slices.Clone(server.Args),
 		Env:                completeEnv,
 	}}
+
 	return config
 }
 

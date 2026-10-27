@@ -20,6 +20,7 @@ type GlobalTokenStore interface {
 type TokenStorage interface {
 	GetTokenConfig(context.Context) (*oauth2.Config, *oauth2.Token, error)
 	SetTokenConfig(context.Context, *oauth2.Config, *oauth2.Token) error
+	RefreshTokenConfig(context.Context, *oauth2.Config, *oauth2.Token, *oauth2.Token) error
 	DeleteTokenConfig(context.Context) error
 	TokenSource(context.Context) (oauth2.TokenSource, error)
 }
@@ -39,8 +40,10 @@ type storageBackedTokenSource struct {
 	tokenStorage TokenStorage
 	conf         *oauth2.Config
 	tok          *oauth2.Token
-	// httpClient performs the refresh request to the server-supplied token endpoint.
-	httpClient *http.Client
+	// Keep the original grant identity even when a refresh replaces the token response.
+	grantToken *oauth2.Token
+	// Retain rotated tokens across failed saves instead of refreshing with a consumed token.
+	source oauth2.TokenSource
 }
 
 func NewGlobalTokenStore(gatewayClient *gateway.Client) GlobalTokenStore {
@@ -67,6 +70,11 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context) (*oauth2.Config, *oauth
 		return nil, nil, err
 	}
 
+	// A grant for another resource must not supply credentials or scopes to this connection.
+	if mcpToken.URL != t.mcpURL {
+		return nil, nil, nil
+	}
+
 	conf := &oauth2.Config{
 		ClientID:     mcpToken.ClientID,
 		ClientSecret: mcpToken.ClientSecret,
@@ -81,13 +89,21 @@ func (t *tokenStore) GetTokenConfig(ctx context.Context) (*oauth2.Config, *oauth
 		conf.Scopes = strings.Split(mcpToken.Scopes, " ")
 	}
 
-	return conf, &oauth2.Token{
+	token := &oauth2.Token{
 		AccessToken:  mcpToken.AccessToken,
 		RefreshToken: mcpToken.RefreshToken,
 		TokenType:    mcpToken.TokenType,
 		ExpiresIn:    mcpToken.ExpiresIn,
 		Expiry:       mcpToken.Expiry,
-	}, nil
+	}
+
+	return conf, token.WithExtra(map[string]any{"obot_grant_id": mcpToken.GrantID}), nil
+}
+
+func (t *tokenStore) RefreshTokenConfig(ctx context.Context, config *oauth2.Config, previous, token *oauth2.Token) error {
+	grantID, _ := previous.Extra("obot_grant_id").(string)
+
+	return t.gatewayClient.RefreshMCPOAuthToken(ctx, t.userID, t.mcpID, t.mcpURL, grantID, config, token)
 }
 
 func (t *tokenStore) SetTokenConfig(ctx context.Context, config *oauth2.Config, token *oauth2.Token) error {
@@ -117,17 +133,20 @@ func newStorageBackedTokenSource(tokenStorage TokenStorage, conf *oauth2.Config,
 	if httpClient == nil {
 		httpClient = strictEgressClient
 	}
+
+	ctx := withOAuthHTTPClient(context.Background(), httpClient)
+
 	return oauth2.ReuseTokenSource(tok, &storageBackedTokenSource{
 		tokenStorage: tokenStorage,
 		conf:         conf,
 		tok:          tok,
-		httpClient:   httpClient,
+		grantToken:   tok,
+		source:       conf.TokenSource(ctx, tok),
 	})
 }
 
 func (ts *storageBackedTokenSource) Token() (*oauth2.Token, error) {
-	ctx := withOAuthHTTPClient(context.Background(), ts.httpClient)
-	tok, err := ts.conf.TokenSource(ctx, ts.tok).Token()
+	tok, err := ts.source.Token()
 	if err != nil {
 		return nil, err
 	}
@@ -136,13 +155,13 @@ func (ts *storageBackedTokenSource) Token() (*oauth2.Token, error) {
 	defer ts.lock.Unlock()
 
 	if tok.AccessToken != ts.tok.AccessToken || tok.RefreshToken != ts.tok.RefreshToken || tok.Expiry.Unix() != ts.tok.Expiry.Unix() {
-		ts.tok = tok
-
 		if ts.tokenStorage != nil {
-			if err = ts.tokenStorage.SetTokenConfig(context.Background(), ts.conf, ts.tok); err != nil {
+			if err = ts.tokenStorage.RefreshTokenConfig(context.Background(), ts.conf, ts.grantToken, tok); err != nil {
 				return nil, fmt.Errorf("failed to store token: %w", err)
 			}
 		}
+
+		ts.tok = tok
 	}
 
 	return ts.tok, nil

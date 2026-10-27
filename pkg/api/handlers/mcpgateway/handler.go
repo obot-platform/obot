@@ -23,6 +23,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
+	"github.com/obot-platform/mmmcp/component"
 	componenthttp "github.com/obot-platform/mmmcp/component/http"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -196,14 +197,19 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 
 	var componentAuth componenthttp.OAuthHandlerProvider
 	if tokenService != nil {
-		componentAuth = compositeComponentAuth{ctx: ctx, tokens: tokenService}
+		componentAuth = compositeComponentAuth{
+			ctx:    ctx,
+			tokens: tokenService,
+		}
 	}
+
 	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{
-		Logger:            slog.Default(),
-		DSN:               dsn,
-		ForwardClientInfo: true,
-		OAuth:             componentAuth,
-		AuthorizationURLs: compositeAuthorizationURLs(authorizationURLs),
+		Logger:                slog.Default(),
+		DSN:                   dsn,
+		ForwardClientInfo:     true,
+		OAuth:                 componentAuth,
+		AuthorizationURLs:     compositeAuthorizationURLs(authorizationURLs),
+		AuthorizationResponse: compositeAuthorizationResponse(mcpSessionManager),
 		ClientInfo: &gomcp.Implementation{
 			Name:    "Obot MCP Gateway",
 			Version: version.Get().String(),
@@ -211,6 +217,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 	})
 	if err != nil {
 		cancel()
+
 		return nil, fmt.Errorf("failed to create composite MCP server: %w", err)
 	}
 
@@ -253,6 +260,7 @@ func (h *Handler) Close() error {
 func (h *Handler) Proxy(req api.Context) error {
 	if !req.UserIsAuthenticated() {
 		mcpAuthRequiredResponse(req, false).write(req.ResponseWriter, nil)
+
 		return nil
 	}
 
@@ -261,11 +269,14 @@ func (h *Handler) Proxy(req api.Context) error {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
 			return nil
 		}
+
 		err = fmt.Errorf("failed to ensure server is deployed: %w", err)
 		if response := mcpJSONRPCErrorResponse(req.Request, err); response != nil {
 			response.write(req.ResponseWriter, nil)
+
 			return nil
 		}
+
 		return err
 	}
 
@@ -274,19 +285,24 @@ func (h *Handler) Proxy(req api.Context) error {
 		ownerMarkerPresent, ownerLocal := h.tunnelManager.ConsumeCompositeOwnerRequest(req.Request)
 		if ownerMarkerPresent && !ownerLocal {
 			http.Error(req.ResponseWriter, "invalid composite owner marker", http.StatusForbidden)
+
 			return nil
 		}
+
 		if !ownerLocal {
 			key := compositeSessionKey(serverConfig)
 			if !h.tunnelManager.HasCompositeSession(key) {
 				if err := h.tunnelManager.ClaimCompositeSession(req.Context(), h.ctx, key); err != nil {
 					http.Error(req.ResponseWriter, "composite owner is unavailable", http.StatusServiceUnavailable)
+
 					return nil
 				}
 			}
+
 			if err := h.tunnelManager.ForwardComposite(req.ResponseWriter, req.Request, key, serverConfig.MCPServerName); err != nil {
 				http.Error(req.ResponseWriter, "composite owner is unavailable", http.StatusServiceUnavailable)
 			}
+
 			return nil
 		}
 	}
@@ -305,12 +321,14 @@ func (h *Handler) Proxy(req api.Context) error {
 			serverConfig.URL = compositeTargetURL
 
 			authorizedMCPIDs := make([]string, 0, len(serverConfig.Components))
+
 			for _, component := range serverConfig.Components {
 				authorizedMCPIDs = append(authorizedMCPIDs, component.ConnectID())
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
-			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, compositeLoopbackTokenContext(req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, now), now)
+			tokenContext := compositeLoopbackTokenContext(req.User, compositeAudienceURL, serverConfig.MCPServerName, authorizedMCPIDs, req.PathValue("mcp_id"), now)
+			token, _, err = newCompositeLoopbackToken(req.Context(), h.tokenService, tokenContext, now)
 			if err != nil {
 				return err
 			}
@@ -322,6 +340,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			if err != nil {
 				return fmt.Errorf("failed to get HTTP client for token refresh: %w", err)
 			}
+
 			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(context.WithValue(h.ctx, oauth2.HTTPClient, refreshClient))
 			if err != nil {
 				return fmt.Errorf("failed to get token source: %w", err)
@@ -332,7 +351,10 @@ func (h *Handler) Proxy(req api.Context) error {
 			serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+token)
 		}
 
-		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{TokenSource: tokenSource, DirectConnect: true})
+		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
+			TokenSource:   tokenSource,
+			DirectConnect: true,
+		})
 		if err != nil {
 			return fmt.Errorf("failed to get HTTP client for server: %w", err)
 		}
@@ -348,23 +370,43 @@ func (h *Handler) Proxy(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
 		}
+
 		var resolvedCall *resolvedToolCall
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
 			// Guardrail filters run in-process, without the hook runner.
 			inspect := audit != nil || (len(hookConfig) > 0 && (h.hookRunner != nil || (h.guardrails != nil && hookConfig.HasGuardrails())))
-			resolvedCall, err = h.resolveGenericToolCall(req.Request, compositeConfig(serverConfig, req.User), token, inspect)
+			cfg, configErr := compositeConfig(req, serverConfig)
+			if configErr != nil {
+				return configErr
+			}
+
+			resolvedCall, err = h.resolveGenericToolCall(req.Request, cfg, token, inspect)
 			if err != nil {
+				if challenges := component.AuthorizationErrors(err); len(challenges) > 0 {
+					response, captureErr := upstreamOAuthResponse(req, serverConfig, h.mcpSessionManager, challenges)
+					if captureErr != nil {
+						return captureErr
+					}
+
+					response.write(req.ResponseWriter, audit)
+
+					return nil
+				}
+
 				if handleGenericToolCallError(req, audit, err) {
 					return nil
 				}
+
 				return err
 			}
+
 			if resolvedCall != nil && audit != nil {
 				audit.entry.CallIdentifier = resolvedCall.name
 			}
 		}
 
 		var filterGuardrails *mcpGuardrails
+
 		// Resolve the caller for guardrail filters on every method: tool results can also
 		// arrive on a GET stream (stream resumption, or the legacy SSE transport).
 		if h.guardrails != nil && hookConfig.HasGuardrails() {
@@ -372,6 +414,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			if err != nil {
 				return err
 			}
+
 			filterGuardrails = newMCPGuardrails(h.guardrails, identity, serverConfig, req.Request.Header)
 		}
 
@@ -380,6 +423,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			if errors.Is(err, errMCPCaseVariantFieldNames) && handleGenericToolCallError(req, audit, err) {
 				return nil
 			}
+
 			return fmt.Errorf("failed to prepare MCP request hooks: %w", err)
 		}
 
@@ -390,6 +434,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			req.ResponseWriter.Header().Set("Content-Type", "application/json")
 			req.WriteHeader(http.StatusOK)
 			_, _ = req.ResponseWriter.Write(body)
+
 			return nil
 		}
 
@@ -399,10 +444,14 @@ func (h *Handler) Proxy(req api.Context) error {
 				rewriteProxyRequest(r, u)
 			},
 			ModifyResponse: func(resp *http.Response) error {
-				rewriteMCPAuthResponse(req, resp)
+				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {
+					return err
+				}
+
 				if err := hooks.filterResponse(resp); err != nil {
 					return err
 				}
+
 				return audit.wrapResponse(resp)
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
@@ -411,6 +460,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				if mcpServerName == "" {
 					mcpServerName = serverConfig.MCPServerName
 				}
+
 				http.Error(w, fmt.Sprintf("failed to proxy request to MCP server %s: %v", mcpServerName, err), http.StatusBadGateway)
 			},
 		}).ServeHTTP(req.ResponseWriter, req.Request)
@@ -424,10 +474,17 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 	}
 
+	cfg, err := compositeConfig(req, serverConfig)
+	if err != nil {
+		return err
+	}
+
 	ctx := context.WithValue(req.Context(), compositeAPIContextKey{}, req)
-	ctx = mmmcp.ContextWithConfig(ctx, compositeConfig(serverConfig, req.User))
+	ctx = context.WithValue(ctx, upstreamCaptureConfigKey{}, serverConfig)
+	ctx = mmmcp.ContextWithConfig(ctx, cfg)
 	ctx = mmmcp.ContextWithConfigID(ctx, fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID))
 	h.composite.HTTPHandler().ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
+
 	return nil
 }
 
@@ -541,16 +598,13 @@ func mcpAuthChallenge(req api.Context) string {
 	return fmt.Sprintf(`Bearer realm="Obot MCP Gateway", resource_metadata="%s/.well-known/oauth-protected-resource/%s/%s"`, baseURL, connectPath, req.PathValue("mcp_id"))
 }
 
-// Upstream authentication challenges must lead clients back through Obot,
-// including when the upstream is an aggregate's internal loopback endpoint.
-func rewriteMCPAuthResponse(req api.Context, resp *http.Response) {
-	if resp.StatusCode != http.StatusUnauthorized {
-		return
-	}
+// Replace upstream headers and bodies so credentials and provider details stay upstream.
+func replaceMCPAuthResponse(resp *http.Response, response *mcpResponse) {
 	if resp.Body != nil {
 		_ = resp.Body.Close()
 	}
-	response := mcpAuthRequiredResponse(req, false)
+
+	resp.StatusCode = response.status
 	resp.Header = response.headers.Clone()
 	resp.Header.Del("Content-Length")
 	resp.Body = io.NopCloser(bytes.NewReader(response.body))
@@ -571,17 +625,19 @@ func mcpAuthRequiredResponse(req api.Context, requiresConfig bool) *mcpResponse 
 
 // compositeLoopbackTokenContext returns the token a composite server's loopback authenticates with, for the caller
 // that reached the composite server.
-func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName string, authorizedMCPIDs []string, now time.Time) persistent.TokenContext {
+func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName string, authorizedMCPIDs []string, connectionID string, now time.Time) persistent.TokenContext {
 	tokenContext := persistent.TokenContext{
-		Audience:         audience,
-		IssuedAt:         persistent.NewTime(now),
-		ExpiresAt:        persistent.NewTime(now.Add(10 * time.Minute)),
-		UserID:           caller.GetUID(),
-		UserName:         caller.GetName(),
-		UserEmail:        cmp.Or(caller.GetExtra()["email"]...),
-		UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
-		MCPID:            mcpServerName,
-		AuthorizedMCPIDs: authorizedMCPIDs,
+		Audience:          audience,
+		IssuedAt:          persistent.NewTime(now),
+		ExpiresAt:         persistent.NewTime(now.Add(10 * time.Minute)),
+		UserID:            caller.GetUID(),
+		UserName:          caller.GetName(),
+		UserEmail:         cmp.Or(caller.GetExtra()["email"]...),
+		UserGroups:        []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
+		MCPID:             mcpServerName,
+		OAuthClientID:     cmp.Or(caller.GetExtra()["oauth_client_id"]...),
+		OAuthConnectionID: connectionID,
+		AuthorizedMCPIDs:  authorizedMCPIDs,
 	}
 	if authz.IsClaudeEnvironment(caller) {
 		tokenContext.UserGroups = append(tokenContext.UserGroups, types.GroupClaudeEnvironment)

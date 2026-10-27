@@ -38,7 +38,8 @@ func TestCompositeLoopbackTokenRecordsCaller(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := compositeLoopbackTokenContext(tt.caller, "https://obot.example.com/mcp-connect-composite/vmcp1", "vmcp1", []string{"component"}, now)
+			got := compositeLoopbackTokenContext(tt.caller, "https://obot.example.com/mcp-connect-composite/vmcp1", "vmcp1", []string{"component"}, "vmcpi1connection", now)
+			require.Equal(t, "vmcpi1connection", got.OAuthConnectionID)
 
 			if got.UserID != tt.caller.GetUID() {
 				t.Errorf("token user = %q, want the caller %q", got.UserID, tt.caller.GetUID())
@@ -68,17 +69,33 @@ func TestCompositeAuthorizationDeferredOnlyForClaudeEnvironment(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			caller := &user.DefaultInfo{UID: "7", Groups: test.groups}
-			if got := compositeConfig(obotmcp.ServerConfig{}, caller).DeferAuthorization; got != test.want {
+			caller := &user.DefaultInfo{
+				UID:    "7",
+				Groups: test.groups,
+			}
+			cfg, err := compositeConfig(api.Context{User: caller}, obotmcp.ServerConfig{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := cfg.DeferAuthorization; got != test.want {
 				t.Fatalf("defer authorization = %v, want %v", got, test.want)
 			}
+
 			// The signed identity must carry the opt-in across loopback and replica forwarding.
-			token := compositeLoopbackTokenContext(caller, "https://obot.example/mcp-connect-composite/vmcp1", "vmcp1", []string{"component"}, time.Now())
+			token := compositeLoopbackTokenContext(caller, "https://obot.example/mcp-connect-composite/vmcp1", "vmcp1", []string{"component"}, "vmcpi1connection", time.Now())
 			if got := slices.Contains(token.UserGroups, types.GroupClaudeEnvironment); got != test.want {
 				t.Fatalf("loopback Claude group = %v, want %v", got, test.want)
 			}
-			forwarded := &user.DefaultInfo{UID: token.UserID, Groups: token.UserGroups}
-			if got := compositeConfig(obotmcp.ServerConfig{}, forwarded).DeferAuthorization; got != test.want {
+
+			forwarded := &user.DefaultInfo{
+				UID:    token.UserID,
+				Groups: token.UserGroups,
+			}
+			cfg, err = compositeConfig(api.Context{User: forwarded}, obotmcp.ServerConfig{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := cfg.DeferAuthorization; got != test.want {
 				t.Fatalf("forwarded defer authorization = %v, want %v", got, test.want)
 			}
 		})

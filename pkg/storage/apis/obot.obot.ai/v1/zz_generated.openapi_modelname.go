@@ -861,6 +861,11 @@ func (in SystemMCPServerStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in UpstreamOAuthRequirement) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.UpstreamOAuthRequirement"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in UserDefaultRoleSetting) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.UserDefaultRoleSetting"
 }

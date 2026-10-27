@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -266,6 +267,122 @@ func TestOAuthDebuggerRequestsAcrossRouteScopes(t *testing.T) {
 
 			_, err = h.gatewayClient.GetMCPOAuthPendingState(t.Context(), registered.State)
 			assert.Error(t, err, "pending state should be deleted after the token exchange")
+		})
+	}
+}
+
+func TestOAuthDebuggerPreservesExistingScopes(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		metadataScopes string
+		authURL        string
+		tokenURL       string
+		mcpURL         string
+		wantScopes     string
+	}{
+		{
+			name:       "metadata omits scopes",
+			wantScopes: "read",
+		},
+		{
+			name:           "merge additional scope",
+			metadataScopes: "write",
+			wantScopes:     "write read",
+		},
+		{
+			name:           "merge without duplicates",
+			metadataScopes: "write read",
+			wantScopes:     "write read",
+		},
+		{
+			name:           "different authorization endpoint",
+			metadataScopes: "write",
+			authURL:        "https://other.test/authorize",
+			wantScopes:     "write",
+		},
+		{
+			name:           "different token endpoint",
+			metadataScopes: "write",
+			tokenURL:       "https://other.test/token",
+			wantScopes:     "write",
+		},
+		{
+			name:           "different MCP target",
+			metadataScopes: "write",
+			mcpURL:         "https://other.test/mcp",
+			wantScopes:     "write",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			registrations := make(chan mcp.ClientRegistrationMetadata, 1)
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/register":
+					var registration mcp.ClientRegistrationMetadata
+					if err := json.NewDecoder(r.Body).Decode(&registration); err != nil {
+						http.Error(w, err.Error(), http.StatusBadRequest)
+
+						return
+					}
+
+					registrations <- registration
+					_, _ = w.Write([]byte(`{"client_id":"debugger-client","token_endpoint_auth_method":"none"}`))
+				case "/token":
+					_, _ = w.Write([]byte(`{"access_token":"new-token","token_type":"Bearer"}`))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer provider.Close()
+
+			scope := oauthDebuggerRouteScope{}
+			server := newOAuthDebuggerTestServer(t, "ms1debugger", scope, &oauthDebuggerAuthServer{Server: provider})
+			server.Status.OAuthMetadata.ClientRegistration.Raw = mustJSON(t, mcp.ClientRegistrationMetadata{Scope: test.metadataScopes})
+			h := newOAuthDebuggerRequestHarness(t, server)
+			conf := oauthDebuggerConfig("existing-client", "", provider.URL+"/authorize", provider.URL+"/token", "none", "https://obot.example/callback", "read read", false)
+			if test.authURL != "" {
+				conf.Endpoint.AuthURL = test.authURL
+			}
+
+			if test.tokenURL != "" {
+				conf.Endpoint.TokenURL = test.tokenURL
+			}
+
+			mcpURL := provider.URL + "/mcp"
+			if test.mcpURL != "" {
+				mcpURL = test.mcpURL
+			}
+
+			require.NoError(t, h.gatewayClient.ReplaceMCPOAuthToken(t.Context(), oauthDebuggerTestUserID, server.Name, mcpURL, "existing", conf, &oauth2.Token{AccessToken: "existing-token"}))
+			recorder, err := h.do(t, (*MCPHandler).RegisterOAuthDebuggerClient, oauthDebuggerTestUserID, server.Name, scope, nil)
+			require.NoError(t, err)
+			require.Equal(t, test.wantScopes, (<-registrations).Scope)
+
+			var registered struct {
+				State string `json:"state"`
+			}
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &registered))
+			recorder, err = h.do(t, (*MCPHandler).GetOAuthDebuggerAuthorizationURL, oauthDebuggerTestUserID, server.Name, scope, types.OAuthDebuggerAuthorizationURLRequest{
+				State: registered.State,
+			})
+			require.NoError(t, err)
+
+			var authorization types.OAuthDebuggerAuthorizationURL
+			require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &authorization))
+			authURL, err := url.Parse(authorization.OAuthURL)
+			require.NoError(t, err)
+			require.Equal(t, test.wantScopes, authURL.Query().Get("scope"))
+
+			_, err = h.do(t, (*MCPHandler).ExchangeOAuthDebuggerToken, oauthDebuggerTestUserID, server.Name, scope, types.OAuthDebuggerTokenRequest{
+				Code:  "authorization-code",
+				State: registered.State,
+			})
+			require.NoError(t, err)
+			stored, err := h.gatewayClient.GetMCPOAuthToken(t.Context(), oauthDebuggerTestUserID, server.Name, provider.URL+"/mcp")
+			require.NoError(t, err)
+			require.Equal(t, test.wantScopes, stored.Scopes)
+			require.Equal(t, "new-token", stored.AccessToken)
 		})
 	}
 }

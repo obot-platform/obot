@@ -1179,6 +1179,8 @@ it('shows CLI login and retries a localhost component in the inspector', async (
 	await expect
 		.element(page.getByLabelText('Authentication command'))
 		.toHaveTextContent(`obot mcp login "${attemptURL}"`);
+	// A second mount would repeat preflight and discard the pending CLI login.
+	expect(checks).toBe(1);
 	await expect.element(page.getByRole('timer')).toBeVisible();
 	mockMCPInitialization();
 	worker.use(http.get('*/oauth/mcp/login/:state', () => new HttpResponse(null, { status: 400 })));

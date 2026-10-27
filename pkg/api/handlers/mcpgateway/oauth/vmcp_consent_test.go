@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -211,6 +212,7 @@ func vmcpConsentStorage(objects ...kclient.Object) storage.Client {
 		WithScheme(scheme.Scheme).
 		WithObjects(objects...).
 		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
@@ -229,14 +231,19 @@ func vmcpConsentRequest(storage storage.Client, gatewayClient *gatewayclient.Cli
 	}
 }
 
-func vmcpConsentGateway(t *testing.T) *gatewayclient.Client {
+func vmcpConsentGateway(t *testing.T, tokenTriggers ...func(context.Context, string) error) *gatewayclient.Client {
 	t.Helper()
 	services, err := ssservices.New(ssservices.Config{DSN: "sqlite://:memory:"})
 	require.NoError(t, err)
 	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
-	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	var trigger func(context.Context, string) error
+	if len(tokenTriggers) > 0 {
+		trigger = tokenTriggers[0]
+	}
+
+	client := gatewayclient.New(t.Context(), db, nil, nil, trigger, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 	return client
 }

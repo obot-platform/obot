@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -37,8 +36,6 @@ var (
 		BlockLinkLocal: true,
 		Timeout:        30 * time.Second,
 	})
-	resourceMetadataRegex = regexp.MustCompile(`resource_metadata="([^"]*)"`)
-	scopeRegex            = regexp.MustCompile(`scope="([^"]*)"`)
 )
 
 // assumeOAuthRequiredTransport synthesizes the initialize challenge used to
@@ -76,6 +73,7 @@ type oauth struct {
 	serverURL                string
 	clientIDMetadataDocument string
 	currentToken             oauth2.Token
+
 	// httpClient performs discovery, client registration, and token exchange and refresh.
 	// Those URLs are server-supplied, so it applies the egress policy and carries none of
 	// the server's headers (see SessionManager.OAuthClientForServer).
@@ -83,6 +81,16 @@ type oauth struct {
 	callbackHandler CallbackHandler
 	clientLookup    ClientCredLookup
 	tokenStorage    TokenStorage
+}
+
+// oauthAuthorization is shared by preflight and captured challenges after metadata discovery.
+type oauthAuthorization struct {
+	authURL         string
+	callback        <-chan CallbackPayload
+	verifier        string
+	conf            *oauth2.Config
+	discovery       oauthMetadataDiscovery
+	hasClientSecret bool
 }
 
 type oauthMetadataDiscovery struct {
@@ -442,53 +450,15 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	// This function is responsible for closing the response body.
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
-	if o.callbackHandler == nil || o.redirectURL == "" {
-		return fmt.Errorf("oauth callback server is not configured")
+	start, err := o.startAuthorization(ctx, req.URL.String(), resp.Header.Get("WWW-Authenticate"))
+	if err != nil {
+		return err
 	}
 
+	authURL, ch, verifier, conf, discovery := start.authURL, start.callback, start.verifier, start.conf, start.discovery
 	connectURL := req.URL.String()
-	slog.Info("starting oauth flow", "server", o.serverName, "connect_url", connectURL)
-
-	resourceCheckURL := o.serverURL
-	if resourceCheckURL == "" {
-		resourceCheckURL = connectURL
-	}
-	discovery, ok, err := discoverOAuthMetadata(ctx, o.httpClient, connectURL, resourceCheckURL, resp.Header.Get("WWW-Authenticate"), o.clientName, o.redirectURL)
-	if err != nil {
-		slog.Warn("oauth metadata discovery failed", "server", o.serverName, "connect_url", connectURL, "error", err)
-		return err
-	}
-	if !ok {
-		slog.Warn("oauth metadata discovery did not find authorization server metadata", "server", o.serverName, "connect_url", connectURL)
-		return fmt.Errorf("failed to get authorization server metadata")
-	}
 	authorizationServerMetadata := discovery.AuthorizationServerMetadata
-	slog.Info("resolved oauth scope for server", "server", o.serverName, "scope", discovery.ClientRegistration.Scope)
-	slog.Info("resolved authorization server", "server", o.serverName, "authorization_server", discovery.AuthorizationServerURL)
-
-	clientInfo, staticClient, err := o.resolveClientInfo(ctx, o.serverName, discovery)
-	if err != nil {
-		return err
-	}
-
-	conf := &oauth2.Config{
-		ClientID:     clientInfo.ClientID,
-		ClientSecret: clientInfo.ClientSecret,
-		RedirectURL:  discovery.ClientRegistration.RedirectURIs[0],
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  authorizationServerMetadata.AuthorizationEndpoint,
-			TokenURL: authorizationServerMetadata.TokenEndpoint,
-		},
-	}
-	if discovery.ClientRegistration.Scope != "" {
-		conf.Scopes = strings.Split(discovery.ClientRegistration.Scope, " ")
-	}
-	conf.Endpoint.AuthStyle = tokenEndpointAuthStyle(discovery.ClientRegistration.TokenEndpointAuthMethod, clientInfo.ClientSecret != "", staticClient)
 	resourceURL := ResolveOAuthResourceURL(authorizationServerMetadata.AuthorizationEndpoint, discovery.ResourceURL, connectURL)
-	authURL, ch, verifier, err := GetOAuthAuthorizationURL(ctx, o.callbackHandler, conf, authorizationServerMetadata.AuthorizationEndpoint, resourceURL)
-	if err != nil {
-		return err
-	}
 
 	slog.Info("handing oauth authorization url to callback handler", "server", o.serverName, "auth_url", authorizationServerMetadata.AuthorizationEndpoint)
 	handled, err := o.callbackHandler.HandleAuthURL(ctx, o.serverName, authURL)
@@ -496,21 +466,26 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 		return fmt.Errorf("failed to handle auth url %s: %w", authURL, err)
 	} else if !handled {
 		slog.Info("oauth authorization url was not handled", "server", o.serverName)
+
 		return nil
 	}
+
 	slog.Info("waiting for oauth callback", "server", o.serverName)
 
 	var cb CallbackPayload
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case cb = <-ch:
 		if cb.Error != "" {
 			slog.Warn("oauth callback returned error", "server", o.serverName, "error", cb.Error, "description", cb.ErrorDescription)
+
 			return fmt.Errorf("authorization failed: %s, %s", cb.Error, cb.ErrorDescription)
 		}
 		if cb.Code == "" {
 			slog.Warn("oauth callback missing authorization code", "server", o.serverName)
+
 			return fmt.Errorf("authorization failed: no code returned")
 		}
 	}
@@ -522,10 +497,12 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 			"connect_url", connectURL,
 			"token_endpoint", conf.Endpoint.TokenURL,
 			"token_endpoint_auth_method", discovery.ClientRegistration.TokenEndpointAuthMethod,
-			"has_client_secret", clientInfo.ClientSecret != "",
+			"has_client_secret", start.hasClientSecret,
 			"error", err)
+
 		return err
 	}
+
 	slog.Info("oauth code exchange succeeded", "server", o.serverName)
 
 	o.currentToken = *tok
@@ -533,8 +510,10 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 	if o.tokenStorage != nil {
 		if err = o.tokenStorage.SetTokenConfig(ctx, conf, tok); err != nil {
 			slog.Info("failed to save token config", "server", o.serverName, "connect_url", connectURL, "error", err)
+
 			return err
 		}
+
 		slog.Info("saved oauth token config", "server", o.serverName, "connect_url", connectURL)
 	}
 
@@ -926,6 +905,7 @@ func getAuthServerMetadata(ctx context.Context, client *http.Client, authURL str
 	authServerURL := strings.TrimSuffix(authURL, "/")
 
 	authServerMetadata := authServerURL
+
 	// If the authServer URL has a path, then the well-known path is prepended to the path
 	if u, err := url.Parse(authServerMetadata); err != nil {
 		return AuthorizationServerMetadata{}, "", nil, false, fmt.Errorf("failed to parse auth server URL: %w", err)
@@ -1176,28 +1156,28 @@ func urlPort(u *url.URL) string {
 	return ""
 }
 
-// parseResourceMetadata extracts the resource_metadata URL from a Bearer authenticate header
+// These parameters belong to one Bearer challenge, as parsed by the SDK.
 func parseResourceMetadata(authenticateHeader string) string {
-	// Use regex to find resource_metadata parameter
-	// Pattern matches: resource_metadata="<URL>"
-	matches := resourceMetadataRegex.FindStringSubmatch(authenticateHeader)
-
-	if len(matches) < 2 {
-		return ""
-	}
-
-	return matches[1]
+	return bearerParameter(authenticateHeader, "resource_metadata")
 }
 
-// parseScopeFromAuthenticateHeader extracts the scope parameter from a Bearer authenticate header
 func parseScopeFromAuthenticateHeader(authenticateHeader string) string {
-	matches := scopeRegex.FindStringSubmatch(authenticateHeader)
+	return bearerParameter(authenticateHeader, "scope")
+}
 
-	if len(matches) < 2 {
+func bearerParameter(header, parameter string) string {
+	challenges, err := oauthex.ParseWWWAuthenticate([]string{header})
+	if err != nil {
 		return ""
 	}
 
-	return matches[1]
+	for _, challenge := range challenges {
+		if strings.EqualFold(challenge.Scheme, "bearer") {
+			return challenge.Params[parameter]
+		}
+	}
+
+	return ""
 }
 
 // AuthCodeURL returns the authorization code URL for the given configuration and resource URL.
@@ -1280,7 +1260,6 @@ func AuthServerMetadataToClientRegistration(authServer AuthorizationServerMetada
 	merged := ClientRegistrationMetadata{}
 
 	// Set default values based on OAuth 2.0 specifications
-
 	// token_endpoint_auth_method: default is "client_secret_basic" if not specified
 	if len(authServer.TokenEndpointAuthMethodsSupported) > 0 {
 		merged.TokenEndpointAuthMethod = authServer.TokenEndpointAuthMethodsSupported[0]
@@ -1340,4 +1319,115 @@ func parseClientRegistrationResponse(reader io.Reader) (clientRegistrationRespon
 	}
 
 	return response, nil
+}
+
+func (o *oauth) startAuthorization(ctx context.Context, connectURL, authenticateHeader string) (oauthAuthorization, error) {
+	if o.callbackHandler == nil || o.redirectURL == "" {
+		return oauthAuthorization{}, fmt.Errorf("oauth callback server is not configured")
+	}
+
+	slog.Info("starting oauth flow", "server", o.serverName, "connect_url", connectURL)
+
+	resourceCheckURL := o.serverURL
+	if resourceCheckURL == "" {
+		resourceCheckURL = connectURL
+	}
+
+	discovery, ok, err := discoverOAuthMetadata(ctx, o.httpClient, connectURL, resourceCheckURL, authenticateHeader, o.clientName, o.redirectURL)
+	if err != nil {
+		slog.Warn("oauth metadata discovery failed", "server", o.serverName, "connect_url", connectURL, "error", err)
+
+		return oauthAuthorization{}, err
+	}
+
+	if !ok {
+		slog.Warn("oauth metadata discovery did not find authorization server metadata", "server", o.serverName, "connect_url", connectURL)
+
+		return oauthAuthorization{}, fmt.Errorf("failed to get authorization server metadata")
+	}
+
+	authorizationServerMetadata := discovery.AuthorizationServerMetadata
+	slog.Info("resolved oauth scope for server", "server", o.serverName, "scope", discovery.ClientRegistration.Scope)
+	slog.Info("resolved authorization server", "server", o.serverName, "authorization_server", discovery.AuthorizationServerURL)
+
+	if o.tokenStorage != nil {
+		existing, _, err := o.tokenStorage.GetTokenConfig(ctx)
+		if err != nil {
+			return oauthAuthorization{}, err
+		}
+
+		// Replacing a grant must retain its scopes, but never carry them to a different provider.
+		if existing != nil && existing.Endpoint.AuthURL == authorizationServerMetadata.AuthorizationEndpoint && existing.Endpoint.TokenURL == authorizationServerMetadata.TokenEndpoint {
+			scopes := strings.Fields(discovery.ClientRegistration.Scope)
+			for _, scope := range existing.Scopes {
+				if !slices.Contains(scopes, scope) {
+					scopes = append(scopes, scope)
+				}
+			}
+
+			discovery.ClientRegistration.Scope = strings.Join(scopes, " ")
+		}
+	}
+
+	clientInfo, staticClient, err := o.resolveClientInfo(ctx, o.serverName, discovery)
+	if err != nil {
+		return oauthAuthorization{}, err
+	}
+
+	conf := &oauth2.Config{
+		ClientID:     clientInfo.ClientID,
+		ClientSecret: clientInfo.ClientSecret,
+		RedirectURL:  discovery.ClientRegistration.RedirectURIs[0],
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  authorizationServerMetadata.AuthorizationEndpoint,
+			TokenURL: authorizationServerMetadata.TokenEndpoint,
+		},
+	}
+	if discovery.ClientRegistration.Scope != "" {
+		conf.Scopes = strings.Split(discovery.ClientRegistration.Scope, " ")
+	}
+
+	conf.Endpoint.AuthStyle = tokenEndpointAuthStyle(discovery.ClientRegistration.TokenEndpointAuthMethod, clientInfo.ClientSecret != "", staticClient)
+	resourceURL := ResolveOAuthResourceURL(authorizationServerMetadata.AuthorizationEndpoint, discovery.ResourceURL, connectURL)
+	authURL, ch, verifier, err := GetOAuthAuthorizationURL(ctx, o.callbackHandler, conf, authorizationServerMetadata.AuthorizationEndpoint, resourceURL)
+	if err != nil {
+		return oauthAuthorization{}, err
+	}
+
+	return oauthAuthorization{
+		authURL:         authURL,
+		callback:        ch,
+		verifier:        verifier,
+		conf:            conf,
+		discovery:       discovery,
+		hasClientSecret: clientInfo.ClientSecret != "",
+	}, nil
+}
+
+// StartOAuthFromChallenge starts OAuth from an actual challenge without issuing any MCP operation.
+func (m *SessionManager) StartOAuthFromChallenge(ctx context.Context, server ServerConfig, opt ClientOption, resourceMetadata, scope string) (string, error) {
+	client, err := m.OAuthClientForServer(server)
+	if err != nil {
+		return "", err
+	}
+
+	return startOAuthFromChallenge(ctx, client, server, opt, resourceMetadata, scope)
+}
+
+func startOAuthFromChallenge(ctx context.Context, client *http.Client, server ServerConfig, opt ClientOption, resourceMetadata, scope string) (string, error) {
+	o := newOAuth(client, opt.CallbackHandler, opt.ClientLookup, opt.TokenStorage, server.MCPServerName, server.URL, opt.OAuthClientName, opt.OAuthRedirectURL, opt.OAuthClientIDMetadataDocument)
+
+	// Use a canonical header only to enter the existing metadata discovery path.
+	// Empty resource_metadata uses safe well-known fallback, never initialize.
+	header := "Bearer scope=" + strconv.Quote(scope)
+	if resourceMetadata != "" {
+		header += ", resource_metadata=" + strconv.Quote(resourceMetadata)
+	}
+
+	start, err := o.startAuthorization(ctx, server.URL, header)
+	if err != nil {
+		return "", err
+	}
+
+	return start.authURL, nil
 }

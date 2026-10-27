@@ -109,6 +109,8 @@ When reviewing changes under docs/, read and follow docs/REVIEW.md. These rules 
 
 ### MCP Server Types and Runtimes
 
+External user connections must go through a virtual MCP server (vMCP). Direct user connections to individual MCP servers are not supported. Internal vMCP-to-component connections are implementation details, not a standalone user connection or login flow.
+
 **Server Types:**
 - **Single-user**: No multitenancy - Obot deploys an instance per user. Stored as `MCPServerCatalogEntry` with runtime `npx`, `uvx`, or `containerized`
 - **Multi-user**: Supports multitenancy - one instance for all users. Stored as `MCPServer`

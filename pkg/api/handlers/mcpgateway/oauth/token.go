@@ -149,6 +149,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	}); err != nil {
 		return err
 	}
+
 	if len(oauthAuthRequestList.Items) != 1 {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code is invalid", ""))
 	}
@@ -185,6 +186,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
 	}
+
 	if user.Status() != types.UserStatusActive {
 		// The user was disabled after approving the request.
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "invalid user", ""))
@@ -212,6 +214,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
 		OAuthScope:            oauthAuthRequest.Spec.Scope,
+		OAuthClientID:         oauthAuthRequest.Spec.ClientID,
 		IssuedAt:              persistent.NewTime(now),
 		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                userID,
@@ -255,9 +258,11 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create oauth token: %w", err)
 	}
+
 	if err := revokeIfUserDenied(req, &oauthToken); err != nil {
 		return err
 	}
+
 	slog.Info("Issued OAuth access and refresh token via authorization_code", "client", oauthClient.Name, "userID", oauthAuthRequest.Spec.UserID, "mcpID", oauthAuthRequest.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
@@ -265,6 +270,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		TokenType:    "bearer",
 		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt.Time).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
+		Scope:        tknCtx.OAuthScope,
 	})
 }
 
@@ -276,6 +282,7 @@ func revokeIfUserDenied(req api.Context, token *v1.OAuthToken) error {
 	if err == nil {
 		return nil
 	}
+
 	// A canceled or unavailable lookup is not a revocation decision.
 	if _, denied := errors.AsType[*gateway.UserAccessDeniedError](err); !denied {
 		return err
@@ -304,12 +311,17 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 	}
 
 	var oauthToken v1.OAuthToken
-	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: name}, &oauthToken); err != nil {
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+		Namespace: oauthClient.Namespace,
+		Name:      name,
+	}, &oauthToken); err != nil {
 		if apierrors.IsNotFound(err) {
 			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 		}
+
 		return fmt.Errorf("failed to retrieve oauth token: %w", err)
 	}
+
 	if oauthToken.Spec.ClientID != oauthClient.Name || !validRefreshToken(&oauthToken, refreshToken) {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 	}
@@ -321,6 +333,7 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 		} else if err != nil {
 			return fmt.Errorf("failed to invalidate oauth token: %w", err)
 		}
+
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, description, ""))
 	}
 
@@ -329,8 +342,10 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return invalidGrant("invalid user")
 		}
+
 		return newOAuthError(ErrServerError, fmt.Sprintf("failed to retrieve user: %v", err), "")
 	}
+
 	if status, _ := principal.UserStatus(user); status != types.UserStatusActive {
 		// Consuming the refresh token keeps it revoked if the user is reactivated.
 		return invalidGrant("invalid user")
@@ -348,6 +363,7 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 	} else if err != nil {
 		return newOAuthError(ErrServerError, fmt.Sprintf("failed to check access to MCP server: %v", err), "")
 	}
+
 	if !allowed {
 		return invalidGrant("invalid MCP server")
 	}
@@ -360,6 +376,7 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
 		OAuthScope:            oauthToken.Spec.Scope,
+		OAuthClientID:         oauthToken.Spec.ClientID,
 		Audience:              oauthToken.Spec.Resource,
 		IssuedAt:              persistent.NewTime(now),
 		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
@@ -388,9 +405,11 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 	if err != nil {
 		return err
 	}
+
 	if err := revokeIfUserDenied(req, &oauthToken); err != nil {
 		return err
 	}
+
 	slog.Info("Issued OAuth access and refresh token via refresh_token", "client", oauthClient.Name, "userID", oauthToken.Spec.UserID, "mcpID", oauthToken.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
@@ -398,5 +417,6 @@ func (h *handler) doRefreshTokenAttempt(req api.Context, oauthClient v1.OAuthCli
 		TokenType:    "bearer",
 		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt.Time).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
+		Scope:        tknCtx.OAuthScope,
 	})
 }

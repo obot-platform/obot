@@ -165,7 +165,7 @@ func TestCompositeUpstreamClientIdentity(t *testing.T) {
 	}
 }
 
-func TestProxyRewritesUpstreamUnauthorized(t *testing.T) {
+func TestProxyAuthorizationResponseSanitization(t *testing.T) {
 	for _, tc := range []struct {
 		path   string
 		id     string
@@ -203,13 +203,21 @@ func TestProxyRewritesUpstreamUnauthorized(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			r := httptest.NewRequest(http.MethodPost, tc.path, nil)
 			r.SetPathValue("mcp_id", tc.id)
 			w := httptest.NewRecorder()
-			ctx := api.Context{Request: r, ResponseWriter: w, APIBaseURL: "https://obot.example/api"}
+			ctx := api.Context{
+				Request:        r,
+				ResponseWriter: w,
+				APIBaseURL:     "https://obot.example/api",
+			}
 			proxy := httputil.NewSingleHostReverseProxy(u)
 			proxy.ModifyResponse = func(resp *http.Response) error {
-				rewriteMCPAuthResponse(ctx, resp)
+				if resp.StatusCode == http.StatusUnauthorized {
+					replaceMCPAuthResponse(resp, mcpAuthRequiredResponse(ctx, false))
+				}
+
 				return nil
 			}
 			proxy.ServeHTTP(w, r)
@@ -219,14 +227,17 @@ func TestProxyRewritesUpstreamUnauthorized(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if resp.StatusCode != tc.status {
 				t.Fatalf("status = %d, want %d", resp.StatusCode, tc.status)
 			}
+
 			if tc.status == http.StatusUnauthorized {
 				want := `Bearer realm="Obot MCP Gateway", resource_metadata="https://obot.example/.well-known/oauth-protected-resource` + tc.path + `"`
 				if resp.Header.Get("WWW-Authenticate") != want {
 					t.Fatalf("challenge = %q, want %q", resp.Header.Get("WWW-Authenticate"), want)
 				}
+
 				if string(body) != "MCP server requires authentication\n" || resp.Header.Get("Set-Cookie") != "" {
 					t.Fatalf("upstream response leaked: headers=%v body=%q", resp.Header, body)
 				}

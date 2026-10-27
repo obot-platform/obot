@@ -48,6 +48,8 @@ type TokenContext struct {
 	UserName              string `json:"name"`
 	UserEmail             string `json:"email"`
 	OAuthScope            string `json:"scope"`
+	OAuthClientID         string `json:"client_id,omitempty"`
+	OAuthConnectionID     string `json:"obot_connection_id,omitempty"`
 	Picture               string `json:"picture"`
 	UserGroups            StringSlice
 	AuthProviderName      string
@@ -211,6 +213,8 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		"mcp_id":                  {tokenContext.MCPID},
 		"resource":                {tokenContext.Audience},
 		"oauthScope":              {tokenContext.OAuthScope},
+		"oauth_client_id":         {tokenContext.OAuthClientID},
+		"oauth_connection_id":     {tokenContext.OAuthConnectionID},
 		"authorized_mcp_ids":      tokenContext.AuthorizedMCPIDs,
 	}
 	if tokenContext.MCPID != "" {
@@ -270,6 +274,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 	tk, err := jwt.Parse(token, func(*jwt.Token) (any, error) {
 		t.lock.RLock()
 		defer t.lock.RUnlock()
+
 		return privateKey.Public(), nil
 	}, jwt.WithIssuer(t.serverURL))
 	if err != nil {
@@ -295,6 +300,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		groups = strings.Split(userGroups, ",")
 		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
 	}
+
 	var authorizedMCPIDs StringSlice
 	if mcpIDs, ok := claims["AuthorizedMCPIDs"].(string); ok && mcpIDs != "" {
 		authorizedMCPIDs = StringSlice(strings.Split(mcpIDs, ","))
@@ -304,6 +310,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 	if iat, ok := claims["iat"].(float64); ok {
 		issuedAt = time.Unix(int64(iat), 0)
 	}
+
 	if exp, ok := claims["exp"].(float64); ok {
 		expiresAt = time.Unix(int64(exp), 0)
 	}
@@ -314,6 +321,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 				return val
 			}
 		}
+
 		return ""
 	}
 
@@ -325,6 +333,8 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		UserID:                getStringClaim("sub"),
 		Picture:               getStringClaim("picture"),
 		OAuthScope:            getStringClaim("scope"),
+		OAuthClientID:         getStringClaim("client_id"),
+		OAuthConnectionID:     getStringClaim("obot_connection_id"),
 		AuthProviderName:      getStringClaim("AuthProviderName"),
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
@@ -333,6 +343,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		Namespace:             getStringClaim("Namespace"),
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),
+
 		// These fields were the latter names and changed the former.
 		// This makes this backwards compatible with older tokens.
 		UserName:  getStringClaim("name", "UserName"),

@@ -547,6 +547,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.SystemMCPServerList{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_SystemMCPServerList(ref),
 		v1.SystemMCPServerSpec{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_SystemMCPServerSpec(ref),
 		v1.SystemMCPServerStatus{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref),
+		v1.UpstreamOAuthRequirement{}.OpenAPIModelName():                                          schema_storage_apis_obotobotai_v1_UpstreamOAuthRequirement(ref),
 		v1.UserDefaultRoleSetting{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_UserDefaultRoleSetting(ref),
 		v1.UserDefaultRoleSettingList{}.OpenAPIModelName():                                        schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingList(ref),
 		v1.UserDefaultRoleSettingSpec{}.OpenAPIModelName():                                        schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingSpec(ref),
@@ -13251,6 +13252,12 @@ func schema_obot_platform_obot_apiclient_types_OAuthToken(ref common.ReferenceCa
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"access_token": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -24303,6 +24310,18 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"upstreamOAuth": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.UpstreamOAuthRequirement{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 					"redirectURI": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -24468,6 +24487,8 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "audience", "authProviderUserID", "authProviderNamespace", "authProviderName", "consentPrepared", "consentMCPConfigRequired", "consentApproved", "consentMCPAuthRequired", "consentMCPAuthURL", "userHasSecondLevelOAuthed", "consentMCPServerName", "consentMCPServerURL"},
 			},
 		},
+		Dependencies: []string{
+			v1.UpstreamOAuthRequirement{}.OpenAPIModelName()},
 	}
 }
 
@@ -26835,6 +26856,116 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref common.Referenc
 		},
 		Dependencies: []string{
 			v1.DeploymentCondition{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_UpstreamOAuthRequirement(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "UpstreamOAuthRequirement is owned by an OAuth transaction after temporary ticket handoff. It contains no credentials or operation payload; completion is recorded only by the callback.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"component": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"realm": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"errorURI": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"connectID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"targetHash": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"statusCode": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"resourceMetadata": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scope": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"errorCode": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"errorDescription": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"started": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"startedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartedAt is Unix time, used to distinguish in-flight setup from lost pending state.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"completed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"failed": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"component", "connectID", "url", "targetHash", "statusCode"},
+			},
+		},
 	}
 }
 

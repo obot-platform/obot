@@ -10,6 +10,7 @@ import (
 )
 
 const (
+
 	// migrationLockID is the Postgres advisory lock that serializes the gateway migrations
 	// across Obot replicas.
 	migrationLockID int64 = 0x6f626f7467776d // "obotgwm"
@@ -123,19 +124,23 @@ func (db *DB) AutoMigrate() (err error) {
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, uiCatalogConfigMigrationName, migrateUICatalogEntryConfig); err != nil {
 		return fmt.Errorf("failed to migrate UI catalog entry configuration: %w", err)
 	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, uiSystemCatalogConfigMigrationName, func(tx *gorm.DB) error {
 		return migrateUICatalogConfigTable(tx, "systemmcpservercatalogentry")
 	}); err != nil {
 		return fmt.Errorf("failed to migrate UI system catalog entry configuration: %w", err)
 	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, mcpServerConfigMigrationName, func(tx *gorm.DB) error {
 		if err := migrateUICatalogConfigTable(tx, "mcpserver"); err != nil {
 			return err
 		}
+
 		return migrateUICatalogConfigTable(tx, "mcpserverinstance")
 	}); err != nil {
 		return fmt.Errorf("failed to migrate MCP server configuration: %w", err)
 	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, systemMCPServerConfigMigrationName, func(tx *gorm.DB) error {
 		return migrateUICatalogConfigTable(tx, "systemmcpserver")
 	}); err != nil {
@@ -161,6 +166,8 @@ func (db *DB) AutoMigrate() (err error) {
 		types.RunTokenActivity{},
 		types.MCPOAuthToken{},
 		types.MCPOAuthPendingState{},
+		types.MCPOAuthChallenge{},
+		types.MCPOAuthAttemptBudget{},
 		types.MCPAuditLog{},
 		types.TempSetupUser{},
 		types.Property{},
@@ -229,6 +236,7 @@ func (db *DB) AutoMigrate() (err error) {
 		if err := tx.Migrator().DropTable(&types.MCPOAuthToken{}); err != nil {
 			return fmt.Errorf("failed to drop mcp_server_instance table: %w", err)
 		}
+
 		if err := tx.AutoMigrate(&types.MCPOAuthToken{}); err != nil {
 			return fmt.Errorf("failed to auto migrate mcp_server_instance table: %w", err)
 		}

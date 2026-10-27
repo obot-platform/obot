@@ -4,6 +4,8 @@ import { LoggingTransport, type MCPRawResponse } from './logging-transport';
 import { TesterClient, type RejectedTesterTool } from './tester-client';
 import { testerErrorDetails } from './tester-errors';
 import { MCPTesterLog } from './tester-log.svelte';
+import { TesterOAuth } from './tester-oauth';
+import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
 	StreamableHTTPClientTransport,
@@ -402,6 +404,8 @@ export class MCPTesterSession {
 	readonly server: MCPCatalogServer;
 	readonly #clientInfo: Implementation;
 	readonly #fetcher: typeof fetch;
+	readonly #oauth: TesterOAuth;
+	authorizationURL = $state<string>();
 	transport: LoggingTransport;
 	readonly log = new MCPTesterLog();
 	#connectionAttempted = false;
@@ -422,6 +426,19 @@ export class MCPTesterSession {
 		this.server = server;
 		this.#clientInfo = clientInfo;
 		this.#fetcher = fetcher;
+
+		const origin = typeof window === 'undefined' ? 'http://localhost' : window.location.origin;
+		// The endpoint is immutable connection configuration.
+		this.#oauth = new TesterOAuth(
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			new URL(`/mcp-connect/${encodeURIComponent(server.id)}`, origin),
+			(url) => {
+				this.authorizationURL = url;
+
+				// Initialization publishes the error and status together, avoiding a second login-widget mount.
+				if (this.status !== 'initializing') this.status = 'reauthentication-required';
+			}
+		);
 		({ client: this.client, transport: this.transport } = this.#createConnection());
 	}
 
@@ -432,7 +449,7 @@ export class MCPTesterSession {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const endpoint = new URL(`/mcp-connect/${encodeURIComponent(this.server.id)}`, origin);
 		const transport = new StreamableHTTPClientTransport(endpoint, {
-			fetch: withAuditMetadata(this.#fetcher),
+			fetch: withAuditMetadata(this.#oauth.fetch(this.#fetcher)),
 			requestInit: { credentials: 'same-origin' }
 		});
 		return { client, transport: new LoggingTransport(transport, this.log) };
@@ -471,12 +488,17 @@ export class MCPTesterSession {
 				await this.#resetConnection();
 			}
 			this.#connectionAttempted = true;
+			await this.#oauth.complete(this.#fetcher);
 			await this.client.connect(this.transport);
 			if (!this.isClosed()) {
 				this.status = 'ready';
 			}
 		} catch (error) {
 			if (this.isClosed()) return;
+			if (error instanceof UnauthorizedError) {
+				this.status = 'reauthentication-required';
+				return;
+			}
 			this.error = error instanceof Error ? error.message : String(error);
 			this.errorDetails = testerErrorDetails(error);
 			if (error instanceof StreamableHTTPError) {

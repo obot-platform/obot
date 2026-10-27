@@ -47,37 +47,59 @@ func (h *handler) checkVMCPComponentAuth(req api.Context) error {
 	if err := req.Get(&component, req.PathValue("component_mcp_id")); err != nil {
 		return err
 	}
+
 	authRequestID := req.URL.Query().Get("oauth_auth_request")
 	if authRequestID != "" {
 		var authRequest v1.OAuthAuthRequest
 		if err := req.Get(&authRequest, authRequestID); err != nil {
 			return err
 		}
+
 		if authRequest.Spec.UserID != req.UserID() || authRequest.Spec.MCPID != req.PathValue("mcp_id") || !authRequest.Spec.ConsentApproved {
 			return types.NewErrForbidden("OAuth request does not belong to this approved vMCP connection")
 		}
+
+		if len(authRequest.Spec.UpstreamOAuth) > 0 {
+			pending, err := h.oauthChecker.pendingCapturedAuth(req, authRequestID, component.Name)
+			if err != nil {
+				return err
+			}
+
+			// Filtering by component returns at most one active provider challenge.
+			if len(pending) > 0 {
+				return req.Write(componentAuthStatus{AuthURL: pending[0].AuthURL})
+			}
+
+			return req.Write(componentAuthStatus{})
+		}
 	}
+
 	connectID := component.Name
 	if component.Spec.VMCPID != "" && component.Spec.Manifest.Runtime == types.RuntimeRemote {
 		config, err := h.oauthChecker.mcpSessionManager.ServerConfigForVMCP(req.Context(), req.PathValue("mcp_id"), req.User)
 		if err != nil {
 			return err
 		}
+
 		connectID = ""
+
 		for _, configured := range config.Components {
 			if configured.Name == component.Name {
 				connectID = configured.ConnectID()
 				break
 			}
 		}
+
 		if connectID == "" {
 			return types.NewErrForbidden("component does not belong to this vMCP connection")
 		}
 	}
+
 	authURL, err := h.oauthChecker.vmcpComponentAuthURL(req, component, connectID, authRequestID)
 	if err != nil {
 		return err
 	}
+
 	return req.Write(componentAuthStatus{AuthURL: authURL})
 }
 
@@ -138,6 +160,17 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 // pendingVMCPAuth checks component authentication for the UI API.
 // OAuth requests and tokens live in shared storage, so callbacks may reach any replica.
 func (f *MCPOAuthHandlerFactory) pendingVMCPAuth(req api.Context, vMCPID, oauthAuthRequestID string) ([]pendingComponentAuth, error) {
+	if oauthAuthRequestID != "" {
+		var request v1.OAuthAuthRequest
+		if err := req.Get(&request, oauthAuthRequestID); err != nil {
+			return nil, err
+		}
+
+		if len(request.Spec.UpstreamOAuth) > 0 {
+			return f.pendingCapturedAuth(req, oauthAuthRequestID, "")
+		}
+	}
+
 	_, vMCPServer, compositeConfig, err := f.mcpSessionManager.ServerForActionWithConnectID(req.Context(), vMCPID, req.User)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vMCP server: %w", err)
@@ -180,6 +213,7 @@ func (f *MCPOAuthHandlerFactory) pendingVMCPAuth(req api.Context, vMCPID, oauthA
 				lock.Lock()
 				defer lock.Unlock()
 				errs = append(errs, fmt.Errorf("failed to check component %s authentication: %w", componentServer.Name, err))
+
 				return
 			}
 

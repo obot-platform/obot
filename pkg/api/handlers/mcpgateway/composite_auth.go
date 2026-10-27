@@ -19,8 +19,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/oauth2"
-	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -116,10 +116,26 @@ func newCompositeLoopbackToken(ctx context.Context, tokens compositeTokenService
 	return token, expiresAt, nil
 }
 
-func compositeConfig(serverConfig mcp.ServerConfig, caller user.Info) *mmmcpconfig.Config {
+func compositeConfig(req api.Context, serverConfig mcp.ServerConfig) (*mmmcpconfig.Config, error) {
+	if len(serverConfig.Components) > 0 {
+		ids := make([]string, 0, len(serverConfig.Components))
+		for _, component := range serverConfig.Components {
+			ids = append(ids, component.ConnectID())
+		}
+
+		revision, err := req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), req.User.GetUID(), ids)
+		if err != nil {
+			return nil, fmt.Errorf("read component OAuth discovery revision: %w", err)
+		}
+
+		// Consult shared state on each request so revocation also invalidates other replicas.
+		serverConfig.ConfigHash = utils.Digest([]string{serverConfig.ConfigHash, revision})
+	}
+
 	cfg := mcp.MMMCPConfig(serverConfig, nil)
-	cfg.DeferAuthorization = authz.IsClaudeEnvironment(caller)
-	return cfg
+	cfg.DeferAuthorization = authz.IsClaudeEnvironment(req.User)
+
+	return cfg, nil
 }
 
 func compositeAuthorizationURLs(lookup func(api.Context) ([]mmmcp.AuthorizationURL, error)) func(context.Context) ([]mmmcp.AuthorizationURL, error) {

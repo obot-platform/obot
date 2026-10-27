@@ -922,3 +922,94 @@ describe('MCPTesterSession', () => {
 		session.close();
 	});
 });
+
+describe('deferred tester authorization', () => {
+	it.each(['initialize', 'tools/list', 'tools/call'])(
+		'offers Obot authentication for a vMCP 401 without a scope ticket on %s',
+		async (method) => {
+			let challengedRequests = 0;
+			const fetcher = readyFetch({ tools: {} }, (request) => {
+				if (request.method === method) {
+					challengedRequests++;
+					return new Response('authentication required', { status: 401 });
+				}
+			});
+			const session = new MCPTesterSession(
+				{ ...server, id: 'vmcpi1tester', manifest: { ...server.manifest, runtime: 'vmcp' } },
+				{ name: 'tester', version: 'test' },
+				fetcher
+			);
+
+			try {
+				await session.initialize();
+				if (method === 'tools/list') await session.loadTools();
+				if (method === 'tools/call') await session.callTool('protected', {});
+
+				expect(session.status).toBe('reauthentication-required');
+				expect(session.authorizationURL).toBeUndefined();
+				expect(challengedRequests).toBe(1);
+			} finally {
+				session.close();
+			}
+		}
+	);
+
+	it.each(['initialize', 'tools/list', 'tools/call'])(
+		'offers authentication for a scope challenge on %s without replaying it',
+		async (method) => {
+			const origin = window.location.origin;
+			let challengedRequests = 0;
+			const mcpFetch = readyFetch({ tools: {} }, (request) => {
+				if (request.method === method) {
+					challengedRequests++;
+					return new Response(null, {
+						status: 403,
+						headers: {
+							'WWW-Authenticate': `Bearer error="insufficient_scope", scope="obot:upstream:pending", resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp-connect/${server.id}"`
+						}
+					});
+				}
+			});
+			const fetcher: typeof fetch = async (input, init) => {
+				const url = new URL(input instanceof Request ? input.url : String(input));
+				if (url.pathname.startsWith('/.well-known/oauth-protected-resource')) {
+					return Response.json({
+						resource: `${origin}/mcp-connect/${server.id}`,
+						authorization_servers: [origin]
+					});
+				}
+				if (url.pathname === '/.well-known/oauth-authorization-server') {
+					return Response.json({
+						issuer: origin,
+						authorization_endpoint: `${origin}/authorize`,
+						token_endpoint: `${origin}/token`,
+						registration_endpoint: `${origin}/register`,
+						response_types_supported: ['code'],
+						code_challenge_methods_supported: ['S256']
+					});
+				}
+				if (url.pathname === '/register') {
+					return Response.json(
+						{ ...JSON.parse(String(init?.body)), client_id: 'tester' },
+						{ status: 201 }
+					);
+				}
+				return mcpFetch(input, init);
+			};
+			const session = new MCPTesterSession(server, { name: 'tester', version: 'test' }, fetcher);
+			try {
+				await session.initialize();
+				if (method === 'tools/list') await session.loadTools();
+				if (method === 'tools/call') await session.callTool('protected', {});
+
+				expect(session.status).toBe('reauthentication-required');
+				expect(new URL(session.authorizationURL!).searchParams.get('scope')).toBe(
+					'obot:upstream:pending'
+				);
+				expect(challengedRequests).toBe(1);
+			} finally {
+				session.close();
+			}
+		}
+	);
+});

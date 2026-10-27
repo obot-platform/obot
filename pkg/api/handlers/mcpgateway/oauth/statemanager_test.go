@@ -208,3 +208,56 @@ func TestOAuthCallbackExchangeUsesStoredTunnel(t *testing.T) {
 
 	require.Equal(t, []string{"private-tunnel", ""}, tunnels)
 }
+
+func TestStateManagerRejectsOverlappingScopeReplacement(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"` + r.Form.Get("code") + `","token_type":"Bearer"}`))
+	}))
+	defer tokenServer.Close()
+
+	gateway := vmcpConsentGateway(t)
+	state := newStateManager(gateway, fixedTokenClient(tokenServer.Client()))
+	conf := &oauth2.Config{
+		ClientID: "client",
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   "https://provider.test/authorize",
+			TokenURL:  tokenServer.URL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+		Scopes: []string{"read"},
+	}
+
+	// Both browser flows start before either callback stores its new grant.
+	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://provider.test/mcp", "", "first-request", "first-state", "verifier", "", conf))
+	conf.Scopes = []string{"write"}
+	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://provider.test/mcp", "", "second-request", "second-state", "verifier", "", conf))
+
+	_, _, err := state.createToken(t.Context(), "first-state", "first-token", "", "")
+	require.NoError(t, err)
+	requestID, mcpID, err := state.createToken(t.Context(), "second-state", "second-token", "", "")
+	require.ErrorContains(t, err, "start a new authorization")
+	require.Equal(t, "second-request", requestID)
+	require.Equal(t, "mcp", mcpID)
+
+	stored, err := gateway.GetMCPOAuthToken(t.Context(), "user", "mcp", "https://provider.test/mcp")
+	require.NoError(t, err)
+	require.Equal(t, "first-token", stored.AccessToken)
+	require.Equal(t, "read", stored.Scopes)
+
+	conf.Scopes = []string{"write", "read"}
+	require.NoError(t, state.store(t.Context(), "user", "mcp", "https://provider.test/mcp", "", "retry-request", "retry-state", "verifier", "", conf))
+	_, _, err = state.createToken(t.Context(), "retry-state", "retry-token", "", "")
+	require.NoError(t, err)
+
+	stored, err = gateway.GetMCPOAuthToken(t.Context(), "user", "mcp", "https://provider.test/mcp")
+	require.NoError(t, err)
+	require.Equal(t, "retry-token", stored.AccessToken)
+	require.Equal(t, "write read", stored.Scopes)
+}

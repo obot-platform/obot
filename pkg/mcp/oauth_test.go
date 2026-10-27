@@ -137,6 +137,7 @@ func TestGetOAuthMetadataAssumesOAuthAfterSuccessfulInitialize(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, metadata.AuthorizationServerMetadata)
 	require.NotEmpty(t, metadata.ClientRegistration)
+
 	// Forced discovery must not create a real MCP session as a side effect.
 	require.Equal(t, int32(1), initializeRequests.Load())
 }
@@ -522,7 +523,7 @@ func TestOAuthResourceMetadataURLs(t *testing.T) {
 		{
 			name:               "uses advertised resource metadata URL exclusively",
 			baseURL:            "https://mcp.example.com/mcp",
-			authenticateHeader: `Bearer resource_metadata="https://auth.example.com/resources/mcp" scope="read"`,
+			authenticateHeader: `Bearer resource_metadata="https://auth.example.com/resources/mcp", scope="read"`,
 			wantURLs:           []string{"https://auth.example.com/resources/mcp"},
 			wantScope:          "read",
 		},
@@ -532,10 +533,13 @@ func TestOAuthResourceMetadataURLs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			urls, scope, err := oauthResourceMetadataURLs(tt.baseURL, tt.authenticateHeader)
 			require.NoError(t, err)
+
 			gotURLs := make([]string, len(urls))
+
 			for i, u := range urls {
 				gotURLs[i] = u.String()
 			}
+
 			require.True(t, slices.Equal(gotURLs, tt.wantURLs), "got URLs %v, want %v", gotURLs, tt.wantURLs)
 			require.Equal(t, tt.wantScope, scope)
 		})
@@ -584,6 +588,10 @@ func (s *recordingTokenStorage) SetTokenConfig(_ context.Context, conf *oauth2.C
 	s.lastConf = conf
 	s.lastToken = token
 	return s.setErr
+}
+
+func (s *recordingTokenStorage) RefreshTokenConfig(ctx context.Context, conf *oauth2.Config, _, token *oauth2.Token) error {
+	return s.SetTokenConfig(ctx, conf, token)
 }
 
 func (*recordingTokenStorage) DeleteTokenConfig(context.Context) error {
@@ -1293,6 +1301,7 @@ func TestGetOAuthMetadataRejectsResourceForAnotherService(t *testing.T) {
 func TestOAuthAuthorizeValidatesResourceAgainstServerURLForTunnels(t *testing.T) {
 	const (
 		redirectURL = "https://obot.example.com/callback"
+
 		// The tunneled server's own URL. Obot reaches it through a bridge URL on its own host,
 		// but the server's metadata names this URL as its resource.
 		upstreamURL = "https://mcp.internal.example/mcp"
@@ -1351,4 +1360,48 @@ func TestOAuthDiscoveryRefusesLocalMetadataWithStrictClient(t *testing.T) {
 	header := `Bearer resource_metadata="` + server.URL + `/.well-known/oauth-protected-resource"`
 	_, _, err := discoverOAuthMetadata(t.Context(), strictEgressClient, "https://mcp.example.com/mcp", "https://mcp.example.com/mcp", header, "test-client", "https://obot.example.com/callback")
 	require.ErrorContains(t, err, "blocked loopback IP")
+}
+
+func TestStorageBackedTokenSourceRetriesSaveAfterRotation(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		if calls > 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+
+			return
+		}
+
+		_, _ = w.Write([]byte(`{"access_token":"fresh","refresh_token":"rotated","expires_in":3600,"token_type":"Bearer"}`))
+	}))
+	defer server.Close()
+
+	storage := &recordingTokenStorage{setErr: errors.New("temporary database error")}
+	conf := &oauth2.Config{
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  server.URL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+	initial := &oauth2.Token{
+		AccessToken:  "expired",
+		RefreshToken: "single-use",
+		Expiry:       time.Now().Add(-time.Hour),
+	}
+	ts := newStorageBackedTokenSource(storage, conf, initial, server.Client())
+
+	for range 2 {
+		_, err := ts.Token()
+		require.ErrorIs(t, err, storage.setErr)
+	}
+
+	storage.setErr = nil
+	token, err := ts.Token()
+	require.NoError(t, err)
+	require.Equal(t, "rotated", token.RefreshToken)
+	require.Equal(t, 1, calls, "retry the save without consuming the old refresh token again")
+	require.Equal(t, 3, storage.setCalls)
+	require.Same(t, token, storage.lastToken)
 }

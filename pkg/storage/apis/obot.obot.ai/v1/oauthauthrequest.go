@@ -19,30 +19,52 @@ type OAuthAuthRequest struct {
 	Status            OAuthAuthRequestStatus `json:"status"`
 }
 
+// UpstreamOAuthRequirement is owned by an OAuth transaction after temporary ticket handoff.
+// It contains no credentials or operation payload; completion is recorded only by the callback.
+type UpstreamOAuthRequirement struct {
+	Component        string `json:"component"`
+	Realm            string `json:"realm,omitempty"`
+	ErrorURI         string `json:"errorURI,omitempty"`
+	ConnectID        string `json:"connectID"`
+	URL              string `json:"url"`
+	TargetHash       string `json:"targetHash"`
+	StatusCode       int    `json:"statusCode"`
+	ResourceMetadata string `json:"resourceMetadata,omitempty"`
+	Scope            string `json:"scope,omitempty"`
+	ErrorCode        string `json:"errorCode,omitempty"`
+	ErrorDescription string `json:"errorDescription,omitempty"`
+	Started          bool   `json:"started,omitempty"`
+	// StartedAt is Unix time, used to distinguish in-flight setup from lost pending state.
+	StartedAt int64 `json:"startedAt,omitempty"`
+	Completed bool  `json:"completed,omitempty"`
+	Failed    bool  `json:"failed,omitempty"`
+}
+
 type OAuthAuthRequestSpec struct {
-	RedirectURI               string `json:"redirectURI"`
-	State                     string `json:"state"`
-	ClientID                  string `json:"clientID"`
-	CodeChallenge             string `json:"codeChallenge"`
-	Scope                     string `json:"scope"`
-	CodeChallengeMethod       string `json:"codeChallengeMethod"`
-	GrantType                 string `json:"grantType"`
-	Resource                  string `json:"resource"`
-	HashedAuthCode            string `json:"hashedAuthCode"`
-	UserID                    uint   `json:"userID"`
-	MCPID                     string `json:"mcpID"`
-	Audience                  string `json:"audience"`
-	AuthProviderUserID        string `json:"authProviderUserID"`
-	AuthProviderNamespace     string `json:"authProviderNamespace"`
-	AuthProviderName          string `json:"authProviderName"`
-	ConsentPrepared           bool   `json:"consentPrepared"`
-	ConsentMCPConfigRequired  bool   `json:"consentMCPConfigRequired"`
-	ConsentApproved           bool   `json:"consentApproved"`
-	ConsentMCPAuthRequired    bool   `json:"consentMCPAuthRequired"`
-	ConsentMCPAuthURL         string `json:"consentMCPAuthURL"`
-	UserHasSecondLevelOAuthed bool   `json:"userHasSecondLevelOAuthed"`
-	ConsentMCPServerName      string `json:"consentMCPServerName"`
-	ConsentMCPServerURL       string `json:"consentMCPServerURL"`
+	UpstreamOAuth             []UpstreamOAuthRequirement `json:"upstreamOAuth,omitempty"`
+	RedirectURI               string                     `json:"redirectURI"`
+	State                     string                     `json:"state"`
+	ClientID                  string                     `json:"clientID"`
+	CodeChallenge             string                     `json:"codeChallenge"`
+	Scope                     string                     `json:"scope"`
+	CodeChallengeMethod       string                     `json:"codeChallengeMethod"`
+	GrantType                 string                     `json:"grantType"`
+	Resource                  string                     `json:"resource"`
+	HashedAuthCode            string                     `json:"hashedAuthCode"`
+	UserID                    uint                       `json:"userID"`
+	MCPID                     string                     `json:"mcpID"`
+	Audience                  string                     `json:"audience"`
+	AuthProviderUserID        string                     `json:"authProviderUserID"`
+	AuthProviderNamespace     string                     `json:"authProviderNamespace"`
+	AuthProviderName          string                     `json:"authProviderName"`
+	ConsentPrepared           bool                       `json:"consentPrepared"`
+	ConsentMCPConfigRequired  bool                       `json:"consentMCPConfigRequired"`
+	ConsentApproved           bool                       `json:"consentApproved"`
+	ConsentMCPAuthRequired    bool                       `json:"consentMCPAuthRequired"`
+	ConsentMCPAuthURL         string                     `json:"consentMCPAuthURL"`
+	UserHasSecondLevelOAuthed bool                       `json:"userHasSecondLevelOAuthed"`
+	ConsentMCPServerName      string                     `json:"consentMCPServerName"`
+	ConsentMCPServerURL       string                     `json:"consentMCPServerURL"`
 }
 
 type OAuthAuthRequestStatus struct {

@@ -175,7 +175,10 @@ func TestAuthorizeConnectionIDs(t *testing.T) {
 					}},
 				}
 				storage := vmcpConsentStorage(append(oauthConnectionTestObjects(test), client,
-					&v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace},
+					&v1.VMCP{
+						Name:      "vmcp1test",
+						Namespace: system.DefaultNamespace,
+					},
 					&v1.VMCPInstance{
 						Name:      "vmcpi1test",
 						Namespace: system.DefaultNamespace,
@@ -190,26 +193,38 @@ func TestAuthorizeConnectionIDs(t *testing.T) {
 					"redirect_uri":  {client.Spec.Manifest.RedirectURIs[0]},
 					"response_type": {"code"},
 					"state":         {"client-state"},
+					"scope":         {"unsupported obot:upstream:zzzzzzzzzzzzzzzzzzzzzzzzzz"},
 				}
 				if resourceParameter {
 					q.Set("resource", "https://obot.example.com/mcp-connect/"+test.id)
 				}
+
 				r := httptest.NewRequest(http.MethodGet, "/oauth/authorize?"+q.Encode(), nil)
 				if !resourceParameter {
 					r.SetPathValue("mcp_id", test.id)
 				}
+
 				recorder := httptest.NewRecorder()
 				h := &handler{oauthConfig: handlers.OAuthAuthorizationServerConfig{ResponseTypesSupported: []string{"code"}}}
+
 				// Authorization must resolve instance aliases before login, when no user is present.
-				require.NoError(t, h.authorize(api.Context{Request: r, ResponseWriter: recorder, Storage: storage}))
+				require.NoError(t, h.authorize(api.Context{
+					Request:        r,
+					ResponseWriter: recorder,
+					Storage:        storage,
+				}))
+
 				location, err := url.Parse(recorder.Header().Get("Location"))
 				require.NoError(t, err)
+
 				var requests v1.OAuthAuthRequestList
 				require.NoError(t, storage.List(t.Context(), &requests))
+
 				if test.allowed {
 					require.Empty(t, location.Query().Get("error"))
 					require.Len(t, requests.Items, 1)
 					require.Equal(t, test.id, requests.Items[0].Spec.MCPID)
+					require.Equal(t, "obot:upstream:zzzzzzzzzzzzzzzzzzzzzzzzzz", requests.Items[0].Spec.Scope)
 					require.Contains(t, location.Query().Get("rd"), "/oauth/callback/")
 				} else {
 					require.Equal(t, "invalid_request", location.Query().Get("error"))
@@ -279,6 +294,7 @@ func TestTokenGrantsConnectionIDs(t *testing.T) {
 				req := api.Context{Request: r, ResponseWriter: recorder, Storage: storage, GatewayClient: gateway}
 				if !test.allowed {
 					require.ErrorContains(t, h.token(req), "invalid_request")
+
 					// Persisted legacy grants must also be rejected on the unscoped endpoint.
 					r.SetPathValue("mcp_id", "")
 				}

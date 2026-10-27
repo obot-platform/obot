@@ -156,6 +156,10 @@ func (*staticOAuthTokenStorage) SetTokenConfig(context.Context, *oauth2.Config, 
 	return nil
 }
 
+func (*staticOAuthTokenStorage) RefreshTokenConfig(context.Context, *oauth2.Config, *oauth2.Token, *oauth2.Token) error {
+	return nil
+}
+
 func (*staticOAuthTokenStorage) DeleteTokenConfig(context.Context) error {
 	return nil
 }

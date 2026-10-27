@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 )
 
 const (
@@ -40,6 +42,23 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 	authServer, registration, resourceURL, err := m.oauthDebuggerMetadata(server)
 	if err != nil {
 		return err
+	}
+
+	existing, err := req.GatewayClient.GetMCPOAuthToken(req.Context(), req.User.GetUID(), server.Name, serverConfig.URL)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("read existing OAuth grant: %w", err)
+	}
+
+	// Registration and authorization must preserve the grant that token storage protects.
+	if existing != nil && existing.URL == serverConfig.URL && existing.AuthURL == authServer.AuthorizationEndpoint && existing.TokenURL == authServer.TokenEndpoint {
+		scopes := strings.Fields(registration.Scope)
+		for scope := range strings.FieldsSeq(existing.Scopes) {
+			if !slices.Contains(scopes, scope) {
+				scopes = append(scopes, scope)
+			}
+		}
+
+		registration.Scope = strings.Join(scopes, " ")
 	}
 
 	clientID, clientSecret, err := m.lookupStaticOAuthClient(req, server)

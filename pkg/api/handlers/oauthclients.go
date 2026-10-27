@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
@@ -253,6 +254,12 @@ func ValidateClientConfig(oauthClient *v1.OAuthClient, oauthConfig OAuthAuthoriz
 		return fmt.Errorf("token_endpoint_auth_method must be %s, not %s", strings.Join(oauthConfig.TokenEndpointAuthMethodsSupported, ", "), oauthClient.Spec.Manifest.TokenEndpointAuthMethod)
 	}
 	for scope := range strings.SplitSeq(oauthClient.Spec.Manifest.Scope, " ") {
+		// SDKs include challenged scopes during registration. These are temporary
+		// references, not permissions; authorization validates their stored bindings.
+		if strings.HasPrefix(scope, client.UpstreamOAuthScopePrefix) {
+			continue
+		}
+
 		if scope != "" && !slices.Contains(oauthConfig.ScopesSupported, scope) {
 			return fmt.Errorf("scope %s is not supported", scope)
 		}

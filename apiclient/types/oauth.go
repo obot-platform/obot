@@ -109,6 +109,7 @@ type OAuthClient struct {
 type OAuthClientList List[OAuthClient]
 
 type OAuthToken struct {
+	Scope        string `json:"scope,omitempty"`
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`

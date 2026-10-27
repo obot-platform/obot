@@ -53,6 +53,7 @@ type mcpOAuthHandler struct {
 	userID             string
 	oauthAuthRequestID string
 	urlChan            chan string
+	upstreamChallenge  string
 
 	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
 	catalogEntryName  string
@@ -90,7 +91,41 @@ func tokenExchangeClient(sessionManager *mcp.SessionManager) tokenClientFunc {
 	}
 }
 
+// CheckForMCPAuth is called after the consent or vMCP handler validates request ownership.
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
+	if oauthAppAuthRequestID != "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeVMCP {
+		var request v1.OAuthAuthRequest
+		if err := req.Get(&request, oauthAppAuthRequestID); err != nil {
+			return "", err
+		}
+
+		if len(request.Spec.UpstreamOAuth) > 0 {
+			connections := componentConnections(mcpServerConfig)
+			var pending bool
+
+			for _, requirement := range request.Spec.UpstreamOAuth {
+				if _, _, err := f.validateUpstreamRequirement(req, connections, requirement); err != nil {
+					return "", err
+				}
+
+				completed, err := reconcileCapturedRequirement(req, request.Name, requirement)
+				if err != nil {
+					return "", err
+				}
+
+				if !completed {
+					pending = true
+				}
+			}
+
+			if pending {
+				return compositeConsentURL(f.baseURL, mcpID, oauthAppAuthRequestID), nil
+			}
+
+			return "", nil
+		}
+	}
+
 	if mcpServer.Spec.Manifest.Runtime == types.RuntimeVMCP {
 		componentServers, err := f.componentServersForAuth(req, mcpServer, mcpServerConfig)
 		if err != nil {
@@ -100,6 +135,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		// Gate the number of parallel calls.
 		limit := make(chan struct{}, 5)
 		defer close(limit)
+
 		// Prime the channel here so we can drain at the end
 		for range cap(limit) {
 			limit <- struct{}{}
@@ -110,6 +146,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			checkErr   error
 			lock       sync.RWMutex
 		)
+
 		for i, componentServer := range componentServers {
 			if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
@@ -120,6 +157,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 				lock.RUnlock()
 				break
 			}
+
 			lock.RUnlock()
 
 			<-limit
@@ -144,6 +182,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 					} else {
 						checkErr = fmt.Errorf("failed to check component server %s OAuth: %w", componentServer.Name, err)
 					}
+
 					return
 				}
 
@@ -167,11 +206,13 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if needsOAuth {
 			// At least one component requires OAuth.
 			slog.Info("Aggregate MCP server requires component OAuth authentication", "mcpID", mcpID)
+
 			return compositeConsentURL(f.baseURL, mcpID, oauthAppAuthRequestID), nil
 		}
 
 		// No component requires OAuth
 		slog.Info("Aggregate MCP server passed OAuth check with no pending component authentication", "mcpID", mcpID)
+
 		return "", nil
 	} else if mcpServerConfig.Runtime != types.RuntimeRemote {
 		// Not a remote or vMCP server, no OAuth required
@@ -188,50 +229,22 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		mcpID = mcpServerConfig.MCPServerInstanceID
 	}
 
-	// Remote server, check for OAuth directly
-	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, mcpServerConfig.TunnelName, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
-	oauthHandler.localLogin = mcpServerConfig.LocalhostCallbackEnabled
-	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
-		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
-		if err != nil {
-			return "", fmt.Errorf("resolve VMCP OAuth credential: %w", err)
-		}
-		oauthHandler.credentialContext = credentialContext
+	oauthHandler, opt, err := f.prepareUpstreamOAuth(req, mcpServer, mcpServerConfig, userID, mcpID, oauthAppAuthRequestID)
+	if err != nil {
+		return "", err
 	}
-	if remote := mcpServer.Spec.Manifest.RemoteConfig; remote != nil && remote.StaticOAuthRequired {
-		if _, _, err := oauthHandler.Lookup(req.Context()); err != nil {
-			if errors.Is(err, errStaticOAuthCredentialsNotConfigured) {
-				return "", types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration", mcpServer.Name)
-			}
-			return "", fmt.Errorf("check static OAuth credentials for MCP server %s: %w", mcpServer.Name, err)
-		}
-	}
+
 	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
 	if err != nil {
 		return "", err
 	}
-	oauthHandler.redirectURL, err = f.upstreamRedirectURL(req, mcpServerConfig, oauthAppAuthRequestID)
-	if err != nil {
-		return "", err
-	}
-	oauthClientName, err := f.oauthClientNameForServer(req, mcpServerConfig.URL, oauthAppAuthRequestID)
-	if err != nil {
-		return "", err
-	}
+
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
 
-		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, mcp.ClientOption{
-			OAuthClientName:               oauthClientName,
-			OAuthRedirectURL:              oauthHandler.redirectURL,
-			OAuthClientIDMetadataDocument: f.clientMetadataForRedirect(oauthHandler.redirectURL),
-			ClientName:                    obotOAuthClientName,
-			TokenStorage:                  f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
-			CallbackHandler:               oauthHandler,
-			ClientLookup:                  oauthHandler,
-		})
+		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, opt)
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
 		} else {
@@ -437,6 +450,7 @@ func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL s
 
 func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, resourceURL, verifier string) (string, <-chan mcp.CallbackPayload, error) {
 	state := strings.ToLower(rand.Text())
+
 	// Mark this pending state explicitly: hosted Obot may itself run on localhost.
 	if m.localLogin {
 		state = localLoginStatePrefix + state
@@ -447,7 +461,8 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 	// callback arrives via a separate HTTP endpoint (oauthCallback) which looks up
 	// the pending state from the DB directly.
 	ch := make(chan mcp.CallbackPayload)
-	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf)
+
+	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf, m.upstreamChallenge)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
@@ -471,4 +486,52 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 	}
 
 	return "", "", fmt.Errorf("%w for MCP server %s", errStaticOAuthCredentialsNotConfigured, m.mcpID)
+}
+
+// prepareUpstreamOAuth keeps credentials and redirect behavior identical for
+// preflight checks and authorization started directly from a captured challenge.
+func (f *MCPOAuthHandlerFactory) prepareUpstreamOAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (*mcpOAuthHandler, mcp.ClientOption, error) {
+	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, mcpServerConfig.TunnelName, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
+	oauthHandler.localLogin = mcpServerConfig.LocalhostCallbackEnabled
+
+	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
+		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
+		if err != nil {
+			return nil, mcp.ClientOption{}, fmt.Errorf("resolve VMCP OAuth credential: %w", err)
+		}
+
+		oauthHandler.credentialContext = credentialContext
+	}
+
+	if remote := mcpServer.Spec.Manifest.RemoteConfig; remote != nil && remote.StaticOAuthRequired {
+		if _, _, err := oauthHandler.Lookup(req.Context()); err != nil {
+			if errors.Is(err, errStaticOAuthCredentialsNotConfigured) {
+				return nil, mcp.ClientOption{}, types.NewErrBadRequest("MCP server %s requires administrator static OAuth configuration", mcpServer.Name)
+			}
+
+			return nil, mcp.ClientOption{}, fmt.Errorf("check static OAuth credentials for MCP server %s: %w", mcpServer.Name, err)
+		}
+	}
+
+	redirectURL, err := f.upstreamRedirectURL(req, mcpServerConfig, oauthAppAuthRequestID)
+	if err != nil {
+		return nil, mcp.ClientOption{}, err
+	}
+
+	oauthHandler.redirectURL = redirectURL
+
+	oauthClientName, err := f.oauthClientNameForServer(req, mcpServerConfig.URL, oauthAppAuthRequestID)
+	if err != nil {
+		return nil, mcp.ClientOption{}, err
+	}
+
+	return oauthHandler, mcp.ClientOption{
+		OAuthClientName:               oauthClientName,
+		OAuthRedirectURL:              oauthHandler.redirectURL,
+		OAuthClientIDMetadataDocument: f.clientMetadataForRedirect(oauthHandler.redirectURL),
+		ClientName:                    obotOAuthClientName,
+		TokenStorage:                  f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
+		CallbackHandler:               oauthHandler,
+		ClientLookup:                  oauthHandler,
+	}, nil
 }
