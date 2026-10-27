@@ -869,6 +869,10 @@ export const convertServerRuntimeFormDataToManifest = (
 				)
 			],
 			runtime: baseData.runtime,
+			injectObotHeaders:
+				baseData.runtime === 'remote' || baseData.runtime === 'containerized'
+					? baseData.injectObotHeaders
+					: undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
 		}

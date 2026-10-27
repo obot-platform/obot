@@ -56,6 +56,11 @@ type TokenContext struct {
 	AuthProviderNamespace string
 	AuthProviderUserID    string
 
+	// Non-secret attribution retained across authenticated composite loopback calls.
+	APIKeyID      string `json:"api_key_id,omitempty"`
+	APIKeyName    string `json:"api_key_name,omitempty"`
+	APIKeyRawName string `json:"api_key_raw_name,omitempty"`
+
 	MCPID            string
 	AuthorizedMCPIDs StringSlice
 
@@ -221,6 +226,13 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], tokenContext.MCPID)
 	}
 
+	// Only signed internal composite tokens propagate the originating API key.
+	if slices.Contains(tokenContext.UserGroups, apitypes.GroupCompositeMCP) && tokenContext.MCPID != "" {
+		extra[principal.APIKeyIDExtra] = []string{tokenContext.APIKeyID}
+		extra[principal.APIKeyNameExtra] = []string{tokenContext.APIKeyName}
+		extra[principal.APIKeyRawNameExtra] = []string{tokenContext.APIKeyRawName}
+	}
+
 	groups := tokenContext.UserGroups
 	extra["obot_groups"] = slices.Clone(groups)
 
@@ -339,6 +351,9 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		MCPID:                 getStringClaim("MCPID"),
+		APIKeyID:              getStringClaim("api_key_id"),
+		APIKeyName:            getStringClaim("api_key_name"),
+		APIKeyRawName:         getStringClaim("api_key_raw_name"),
 		AuthorizedMCPIDs:      authorizedMCPIDs,
 		Namespace:             getStringClaim("Namespace"),
 		ModelProvider:         getStringClaim("ModelProvider"),

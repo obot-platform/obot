@@ -408,6 +408,7 @@ func serverConfigHeaders(serverConfig ServerConfig) map[string][]string {
 			result[http.CanonicalHeaderKey(key)] = []string{value}
 		}
 	}
+	StripObotHeaders(result)
 	return result
 }
 

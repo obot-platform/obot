@@ -1195,5 +1195,12 @@
 	"mcps_filters_kind_builtin": "Built-in",
 	"mcps_filters_kind_mcp_server": "MCP server",
 	"mcps_filters_create_guardrail_filter": "Create Guardrail Filter",
-	"mcps_filters_create_guardrail": "Create From Guardrail"
+	"mcps_filters_create_guardrail": "Create From Guardrail",
+	"mcps_inject_headers_title": "Inject Obot headers",
+	"mcps_inject_headers_description": "Select caller information to share with this MCP server. All headers are optional and disabled by default. Obot removes incoming copies and supplies only the selected values. Names and email addresses may disclose internal information.",
+	"mcps_inject_headers_api_key_name": "Name of the validated Obot API key. Omitted for unnamed keys and callers without an API key. Names are user-controlled, mutable, and not necessarily unique.",
+	"mcps_inject_headers_api_key_id": "ID of the validated Obot API key, unique within this Obot installation. Omitted for callers without an API key.",
+	"mcps_inject_headers_user_id": "Authenticated caller’s Obot account ID. For API keys, identifies the owning account, not an autonomous agent.",
+	"mcps_inject_headers_user_name": "The authenticated account’s username, not its display name. May change over time.",
+	"mcps_inject_headers_user_email": "Email carried by the authenticated principal. Omitted when unavailable; does not guarantee the address is verified."
 }

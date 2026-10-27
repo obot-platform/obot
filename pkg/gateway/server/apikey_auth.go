@@ -97,11 +97,12 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		groups = append(groups, types2.GroupClaudeEnvironment)
 	}
 	extra := map[string][]string{
-		"email":                   {u.Email},
-		"authorized_mcp_ids":      apiKey.MCPServerIDs,
-		"obot_groups":             u.Role.RoleGroups(),
-		principal.APIKeyIDExtra:   {fmt.Sprintf("%d", attribution.ID)},
-		principal.APIKeyNameExtra: {attribution.Name},
+		"email":                      {u.Email},
+		"authorized_mcp_ids":         apiKey.MCPServerIDs,
+		"obot_groups":                u.Role.RoleGroups(),
+		principal.APIKeyIDExtra:      {fmt.Sprintf("%d", attribution.ID)},
+		principal.APIKeyNameExtra:    {attribution.Name},
+		principal.APIKeyRawNameExtra: {apiKey.Name},
 	}
 
 	if authProviderGroups != nil {

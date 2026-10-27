@@ -810,7 +810,15 @@ export type MCPConfig = Omit<
 	MCPCatalogEntryFieldManifest,
 	'file' | 'dynamicFile' | 'interpolated'
 > & { usage: MCPConfigUsage; userAllowed?: boolean };
+export type ObotHeader =
+	| 'X-Obot-Api-Key-Name'
+	| 'X-Obot-Api-Key-Id'
+	| 'X-Obot-User-Id'
+	| 'X-Obot-User-Name'
+	| 'X-Obot-User-Email';
+
 export interface MCPCatalogEntryServerManifest {
+	injectObotHeaders?: ObotHeader[];
 	entryKey?: string;
 	upgradeNote?: string;
 	minObotVersion?: string;
@@ -865,6 +873,7 @@ export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metad
 
 // New runtime-based form data structure
 export interface RuntimeFormData {
+	injectObotHeaders?: ObotHeader[];
 	// Common fields
 	name: string;
 	shortDescription?: string;

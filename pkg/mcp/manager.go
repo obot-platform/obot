@@ -497,6 +497,8 @@ func serverID(server ServerConfig) string {
 	server.PassthroughHeaderValues = nil
 	// The Webhooks are handled dynamically and are not part of the server ID.
 	server.Webhooks = nil
+	// Attribution selection is applied by the gateway, without changing the deployment.
+	server.InjectObotHeaders = nil
 
 	// File values are dynamic and can be updated in place.
 	// Keep file env keys, but clear file contents before hashing.

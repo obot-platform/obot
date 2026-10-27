@@ -38,13 +38,14 @@ type ServerConfig struct {
 	Files   []File   `json:"files"`
 
 	// Remote configuration.
-	LocalhostCallbackEnabled bool     `json:"localhostCallbackEnabled,omitempty"`
-	LocalhostCallbackPath    string   `json:"localhostCallbackPath,omitempty"`
-	URL                      string   `json:"url"`
-	TunnelName               string   `json:"tunnelName,omitempty"`
-	Headers                  []string `json:"headers"`
-	PassthroughHeaderNames   []string `json:"passthroughHeaderNames"`
-	PassthroughHeaderValues  []string `json:"passthroughHeaderValues"`
+	LocalhostCallbackEnabled bool               `json:"localhostCallbackEnabled,omitempty"`
+	LocalhostCallbackPath    string             `json:"localhostCallbackPath,omitempty"`
+	URL                      string             `json:"url"`
+	TunnelName               string             `json:"tunnelName,omitempty"`
+	Headers                  []string           `json:"headers"`
+	InjectObotHeaders        []types.ObotHeader `json:"injectObotHeaders,omitempty"`
+	PassthroughHeaderNames   []string           `json:"passthroughHeaderNames"`
+	PassthroughHeaderValues  []string           `json:"passthroughHeaderValues"`
 
 	// Containerized configuration.
 	ContainerImage string `json:"containerImage"`
@@ -450,6 +451,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		Runtime:                mcpServer.Spec.Manifest.Runtime,
 		Audiences:              audiences,
 		PassthroughHeaderNames: passthroughHeaderNames,
+		InjectObotHeaders:      slices.Clone(mcpServer.Spec.Manifest.InjectObotHeaders),
 		ComponentMCPServer:     mcpServer.Spec.VMCPComponentID != "",
 		StartupTimeout:         startupTimeout,
 		Resources:              resources,
@@ -685,4 +687,5 @@ func copyHeaders(headers http.Header, keys, values []string) {
 			headers.Set(key, values[i])
 		}
 	}
+	StripObotHeaders(headers)
 }

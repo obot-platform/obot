@@ -288,6 +288,10 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		Version: version.Get().String(),
 	}
 
+	passthroughHeaders := slices.DeleteFunc(slices.Clone(server.PassthroughHeaderNames), func(name string) bool {
+		_, reserved := types.CanonicalObotHeader(name)
+		return reserved
+	})
 	if server.Runtime == types.RuntimeVMCP {
 		config.ToolSearch = server.ToolSearch
 		config.RequestScopedDiscovery = true
@@ -295,7 +299,6 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		// Component connections are authenticated by the gateway's composite OAuth
 		// handler, not the frontend Authorization header: pooled sessions replay
 		// the headers of the request that opened them long after it expires.
-		passthroughHeaders := slices.Clone(server.PassthroughHeaderNames)
 
 		servers := make([]mmmcpconfig.Server, 0, len(server.Components))
 
@@ -344,11 +347,17 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 
 	componentName := replacer.Replace(serverName)
 
+	headers := keyValueSliceToMap(server.Headers)
+	for name := range headers {
+		if _, reserved := types.CanonicalObotHeader(name); reserved {
+			delete(headers, name)
+		}
+	}
 	config.Servers = []mmmcpconfig.Server{{
 		Name:               componentName,
 		URL:                server.URL,
-		Headers:            keyValueSliceToMap(server.Headers),
-		PassthroughHeaders: server.PassthroughHeaderNames,
+		Headers:            headers,
+		PassthroughHeaders: passthroughHeaders,
 		Command:            server.Command,
 		Args:               slices.Clone(server.Args),
 		Env:                completeEnv,

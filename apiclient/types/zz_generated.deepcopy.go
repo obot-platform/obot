@@ -3351,6 +3351,11 @@ func (in *MCPServerCatalogEntryManifest) DeepCopyInto(out *MCPServerCatalogEntry
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.InjectObotHeaders != nil {
+		in, out := &in.InjectObotHeaders, &out.InjectObotHeaders
+		*out = make([]ObotHeader, len(*in))
+		copy(*out, *in)
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(MCPResourceRequirements)
@@ -3558,6 +3563,11 @@ func (in *MCPServerManifest) DeepCopyInto(out *MCPServerManifest) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
+	}
+	if in.InjectObotHeaders != nil {
+		in, out := &in.InjectObotHeaders, &out.InjectObotHeaders
+		*out = make([]ObotHeader, len(*in))
+		copy(*out, *in)
 	}
 	if in.DeprecatedEnv != nil {
 		in, out := &in.DeprecatedEnv, &out.DeprecatedEnv

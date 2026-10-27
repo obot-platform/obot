@@ -42,6 +42,7 @@
 	import CatalogConfigurationForm from '../mcp/CatalogConfigurationForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
+	import InjectObotHeaders from '../mcp/InjectObotHeaders.svelte';
 	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import OpenAPIConfiguration from '../mcp/OpenAPIConfiguration.svelte';
@@ -234,6 +235,7 @@
 			const isHostedType = type === 'hosted' || type === 'openapi';
 			return {
 				categories: [''],
+				injectObotHeaders: [],
 				metadata: undefined,
 				name: '',
 				shortDescription: '',
@@ -278,6 +280,7 @@
 				serverUserType: 'multiUser',
 				env: getManifestConfiguration(manifest).env?.map((env) => ({ ...env, value: '' })) ?? [],
 				runtime: manifest.runtime,
+				injectObotHeaders: [...(manifest.injectObotHeaders ?? [])],
 				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
@@ -340,6 +343,7 @@
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
 				runtime: manifest.runtime,
+				injectObotHeaders: [...(manifest.injectObotHeaders ?? [])],
 				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
@@ -568,6 +572,10 @@
 				return config.secretBinding ? { ...config, static: false } : config;
 			}),
 			runtime: baseData.runtime,
+			injectObotHeaders:
+				baseData.runtime === 'remote' || baseData.runtime === 'containerized'
+					? baseData.injectObotHeaders
+					: undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
 		};
@@ -1003,7 +1011,7 @@
 	{#if type !== 'openapi'}
 		<RuntimeSelector
 			bind:runtime={formData.runtime}
-			serverType={type}
+			serverType={type === 'multi' && entry?.manifest.runtime === 'remote' ? 'remote' : type}
 			{readonly}
 			onRuntimeChange={handleRuntimeChange}
 		/>
@@ -1141,6 +1149,10 @@
 
 	{#if type === 'multi' && formData.multiUserConfig}
 		<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
+	{/if}
+
+	{#if formData.runtime === 'remote' || formData.runtime === 'containerized'}
+		<InjectObotHeaders bind:selected={formData.injectObotHeaders} {readonly} />
 	{/if}
 
 	{#if !readonly}
