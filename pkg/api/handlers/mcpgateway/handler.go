@@ -32,6 +32,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -264,6 +265,10 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
+	// Authentication is complete; none of the inbound attribution headers are trusted.
+	req.Request.Header = req.Request.Header.Clone()
+	mcp.StripObotHeaders(req.Request.Header)
+
 	serverConfig, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
@@ -349,6 +354,11 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		if token != "" {
 			serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+token)
+		}
+
+		obotHeaders, err := callerObotHeaders(serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User)
+		if err != nil {
+			return types.NewErrBadRequest("%v", err)
 		}
 
 		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
@@ -442,6 +452,9 @@ func (h *Handler) Proxy(req api.Context) error {
 			Transport: client.Transport,
 			Rewrite: func(r *httputil.ProxyRequest) {
 				rewriteProxyRequest(r, u)
+				for name, values := range obotHeaders {
+					r.Out.Header[name] = append([]string(nil), values...)
+				}
 			},
 			ModifyResponse: func(resp *http.Response) error {
 				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {
@@ -474,6 +487,8 @@ func (h *Handler) Proxy(req api.Context) error {
 		}
 	}
 
+	mcp.StripObotHeaders(req.Request.Header)
+
 	cfg, err := compositeConfig(req, serverConfig)
 	if err != nil {
 		return err
@@ -504,6 +519,7 @@ func isLoopbackHost(hostport string) bool {
 }
 
 func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
+	mcp.StripObotHeaders(r.Out.Header)
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
 	// explicitly configured upstream credentials after this rewrite.
@@ -638,6 +654,11 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		OAuthClientID:     cmp.Or(caller.GetExtra()["oauth_client_id"]...),
 		OAuthConnectionID: connectionID,
 		AuthorizedMCPIDs:  authorizedMCPIDs,
+	}
+	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
+		tokenContext.APIKeyID = fmt.Sprint(key.ID)
+		tokenContext.APIKeyName = key.Name
+		tokenContext.APIKeyRawName = firstExtra(caller.GetExtra(), principal.APIKeyRawNameExtra)
 	}
 	if authz.IsClaudeEnvironment(caller) {
 		tokenContext.UserGroups = append(tokenContext.UserGroups, types.GroupClaudeEnvironment)

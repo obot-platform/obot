@@ -1,0 +1,176 @@
+package mcp
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/moby/moby/api/types/container"
+	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/utils"
+	"github.com/stretchr/testify/require"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
+
+func TestObotHeadersCannotBeConfiguredAsStaticHeaders(t *testing.T) {
+	config := ServerConfig{
+		Headers:                 []string{"x-obot-api-key-name=static-spoof", "X-Obot-User-Id=static-spoof", "X-Tenant=tenant"},
+		PassthroughHeaderNames:  []string{"X-OBOT-USER-EMAIL"},
+		PassthroughHeaderValues: []string{"spoof@example.com"},
+	}
+	headers := http.Header(serverConfigHeaders(config))
+	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)
+	wrapper := MMMCPConfig(config, nil)
+	require.Equal(t, map[string]string{"X-Tenant": "tenant"}, wrapper.Servers[0].Headers)
+	require.Empty(t, wrapper.Servers[0].PassthroughHeaders)
+	probeHeaders := make(http.Header)
+	copyHeaders(probeHeaders, config.PassthroughHeaderNames, config.PassthroughHeaderValues)
+	require.Empty(t, probeHeaders, "readiness probes must not carry configured attribution")
+}
+
+func TestStripObotHeaders(t *testing.T) {
+	headers := http.Header{
+		"x-obot-api-key-name": {"spoof", "another spoof"},
+		"X-Obot-Api-Key-Id":   {"999"},
+		"X-OBOT-USER-ID":      {"999"},
+		"X-Obot-User-Name":    {"spoof"},
+		"X-Obot-User-Email":   {"spoof@example.com"},
+		"X-Tenant":            {"tenant"},
+	}
+	StripObotHeaders(headers)
+	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)
+}
+
+func TestServerConfigPreservesObotHeaderSelection(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:           types.RuntimeRemote,
+				RemoteConfig:      &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
+				InjectObotHeaders: []types.ObotHeader{types.ObotHeaderAPIKeyName},
+			},
+		},
+	}
+	config, missing, err := ServerToServerConfig(server, nil, "7", "scope", "default", nil, false)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	require.Equal(t, server.Spec.Manifest.InjectObotHeaders, config.InjectObotHeaders)
+}
+
+func TestHTTPClientsCannotRestoreConfiguredObotHeaders(t *testing.T) {
+	received := make(chan http.Header, 3)
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r.Header.Clone()
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer backend.Close()
+	manager := &SessionManager{
+		backend: &kubernetesBackend{},
+		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
+			AllowLocalhostMCP: true,
+			AllowPrivateIPMCP: true,
+		},
+	}
+	config := ServerConfig{
+		Headers: []string{"X-Obot-Api-Key-Name=spoof", "X-Obot-User-Id=999", "X-Tenant=tenant"},
+	}
+	client, err := manager.HTTPClientForServer(config, HTTPClientOptions{DirectConnect: true})
+	require.NoError(t, err)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, backend.URL, nil)
+	require.NoError(t, err)
+	req.Header.Set("X-Obot-Api-Key-Name", "authenticated-writer")
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	headers := <-received
+	require.Equal(t, "authenticated-writer", headers.Get("X-Obot-Api-Key-Name"))
+	require.Empty(t, headers.Get("X-Obot-User-Id"))
+	require.Equal(t, "tenant", headers.Get("X-Tenant"))
+
+	// Background requests do not inherit the previous caller's headers.
+	req, err = http.NewRequestWithContext(t.Context(), http.MethodPost, backend.URL, nil)
+	require.NoError(t, err)
+	resp, err = client.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	headers = <-received
+	require.Empty(t, headers.Get("X-Obot-Api-Key-Name"))
+	require.Empty(t, headers.Get("X-Obot-User-Id"))
+
+	oauthClient, err := manager.OAuthClientForServer(config)
+	require.NoError(t, err)
+	resp, err = oauthClient.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	headers = <-received
+	require.Empty(t, headers.Get("X-Obot-Api-Key-Name"))
+	require.Empty(t, headers.Get("X-Tenant"))
+}
+
+func TestHostedConnectionsPreserveObotHeaders(t *testing.T) {
+	server := ServerConfig{
+		Runtime:        types.RuntimeContainerized,
+		MCPServerName:  "jira",
+		ContainerPort:  8080,
+		StartupTimeout: time.Second,
+	}
+	deploymentID := serverID(server)
+	server.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName}
+	require.Equal(t, deploymentID, serverID(server), "gateway selection must not restart the deployment")
+	t.Run("docker", func(t *testing.T) {
+		connection, err := (&dockerBackend{}).buildServerConfig(server, &container.Summary{
+			ID: "container",
+			Ports: []container.Port{
+				{
+					PrivatePort: 8080,
+					PublicPort:  18080,
+				},
+			},
+		}, 8080, false)
+		require.NoError(t, err)
+		require.Equal(t, server.InjectObotHeaders, connection.InjectObotHeaders)
+	})
+	t.Run("kubernetes cached deployment", func(t *testing.T) {
+		scheme := runtime.NewScheme()
+		require.NoError(t, appsv1.AddToScheme(scheme))
+		require.NoError(t, corev1.AddToScheme(scheme))
+		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+			&appsv1.Deployment{
+				Name:      server.MCPServerName,
+				Namespace: "mcp",
+				Status: appsv1.DeploymentStatus{
+					Replicas:          1,
+					UpdatedReplicas:   1,
+					ReadyReplicas:     1,
+					AvailableReplicas: 1,
+				},
+			},
+			&corev1.Pod{
+				Name:              "running-pod",
+				Namespace:         "mcp",
+				CreationTimestamp: metav1.Now(),
+				Labels:            map[string]string{"app": server.MCPServerName},
+				Status:            corev1.PodStatus{Phase: corev1.PodRunning},
+			},
+		).Build()
+		backend := &kubernetesBackend{
+			client:          client,
+			cachedClient:    client,
+			mcpNamespace:    "mcp",
+			deploymentCache: map[string]*kubernetesDeploymentCacheEntry{},
+		}
+		backend.setDeploymentCache(server.MCPServerName, kubernetesDeploymentCacheEntry{
+			hash:    serverID(server) + utils.Digest(server.Files),
+			podName: "running-pod",
+		})
+		connection, err := backend.ensureServerDeployment(t.Context(), server)
+		require.NoError(t, err)
+		require.Equal(t, server.InjectObotHeaders, connection.InjectObotHeaders)
+	})
+}

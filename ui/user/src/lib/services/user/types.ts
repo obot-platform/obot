@@ -15,7 +15,7 @@
  * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
  *    and keep all types for that domain inside it.
  */
-import type { MCPCatalogEntryServerManifest, MCPConfig } from '../admin/types';
+import type { MCPCatalogEntryServerManifest, MCPConfig, ObotHeader } from '../admin/types';
 
 // Access control rules
 
@@ -912,6 +912,7 @@ export interface MCPServer {
 	description?: string;
 	shortDescription?: string;
 	icon?: string;
+	injectObotHeaders?: ObotHeader[];
 	name?: string;
 	config?: MCPConfig[];
 	toolPreview?: MCPServerTool[];

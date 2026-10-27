@@ -15,6 +15,8 @@ const (
 	// must use APIKeyAttributionFromUser instead of interpreting these values.
 	APIKeyIDExtra   = "api_key_id"
 	APIKeyNameExtra = "api_key_name"
+	// APIKeyRawNameExtra preserves the actual name separately from the audit display fallback.
+	APIKeyRawNameExtra = "api_key_raw_name"
 )
 
 // APIKeyAttribution identifies the API key that authenticated a request.

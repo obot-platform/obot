@@ -9115,6 +9115,20 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"injectObotHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InjectObotHeaders selects non-secret caller attribution sent to this HTTP MCP backend. Empty disables injection. Incoming copies of all supported attribution headers are stripped.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"staticConfigurationRevision": {
 						SchemaProps: spec.SchemaProps{
 							Description: "StaticConfigurationRevision identifies the credential holding the values of Static configuration. It is assigned by Obot; values supplied by clients are ignored.",
@@ -9564,6 +9578,20 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
+									},
+								},
+							},
+						},
+					},
+					"injectObotHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InjectObotHeaders selects non-secret caller attribution sent to this HTTP MCP backend. Empty disables injection. Incoming copies of all supported attribution headers are stripped.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
 									},
 								},
 							},
