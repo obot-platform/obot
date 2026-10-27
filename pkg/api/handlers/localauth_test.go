@@ -187,9 +187,10 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 	for _, operation := range []string{"reset password", "delete"} {
 		for _, callerRole := range []apitypes.Role{apitypes.RoleAdmin, apitypes.RoleOwner} {
 			for _, target := range []struct {
-				name     string
-				role     apitypes.Role
-				provider string
+				name            string
+				role            apitypes.Role
+				provider        string
+				configuredOwner bool
 			}{
 				{
 					name:     "owner",
@@ -220,13 +221,21 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					name: "no org user",
 				},
 				{
+					name:            "explicit owner role set with no org user",
+					configuredOwner: true,
+				},
+				{
 					name:     "owner under another provider with same email",
 					role:     apitypes.RoleOwner,
 					provider: "google-auth-provider",
 				},
 			} {
 				t.Run(operation+"/"+strconv.Itoa(int(callerRole))+"/"+target.name, func(t *testing.T) {
-					f := newLocalSetupFixture(t, nil, nil)
+					var owners []string
+					if target.configuredOwner {
+						owners = []string{"target@example.com"}
+					}
+					f := newLocalSetupFixture(t, owners, nil)
 					// Keep a separate owner so last-owner/admin checks do not mask authorization.
 					f.identity(t, "existing-owner@example.com", system.LocalAuthProvider, apitypes.RoleOwner)
 					localUser, err := f.gateway.CreateLocalAuthUser(t.Context(), "target@example.com", passwordHash, false)
@@ -254,7 +263,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					}
 
 					privileged := target.role.HasRole(apitypes.RoleOwner) || target.role.HasRole(apitypes.RoleAuditor)
-					denied := callerRole != apitypes.RoleOwner && target.provider == system.LocalAuthProvider && privileged
+					denied := callerRole != apitypes.RoleOwner && (target.configuredOwner || target.provider == system.LocalAuthProvider && privileged)
 					if denied {
 						var httpErr *apitypes.ErrHTTP
 						require.ErrorAs(t, err, &httpErr)
@@ -265,8 +274,10 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 						require.False(t, stored.RequirePasswordChange)
 						_, _, err = f.gateway.LocalAuthSession(t.Context(), sessionID)
 						require.NoError(t, err)
-						_, err = f.gateway.UserByID(t.Context(), orgUserID)
-						require.NoError(t, err)
+						if orgUserID != "" {
+							_, err = f.gateway.UserByID(t.Context(), orgUserID)
+							require.NoError(t, err)
+						}
 						var cleanups v1.UserDeleteList
 						require.NoError(t, f.storage.List(t.Context(), &cleanups))
 						require.Empty(t, cleanups.Items)

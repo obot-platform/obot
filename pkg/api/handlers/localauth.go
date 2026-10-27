@@ -283,15 +283,18 @@ func (h *LocalAuthHandler) userForMutation(req api.Context, id uint) (*gatewayty
 
 	gatewayUser, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, localUser.Email)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
+		gatewayUser = nil
+	} else if err != nil {
 		return nil, fmt.Errorf("failed to get user from provider user ID: %w", err)
 	}
 
-	privileged := gatewayUser.Role.HasRole(types.RoleOwner) || gatewayUser.Role.HasRole(types.RoleAuditor)
+	role := req.GatewayClient.HasExplicitRole(localUser.Email)
+	if gatewayUser != nil {
+		role |= gatewayUser.Role
+	}
+	privileged := role.HasRole(types.RoleOwner) || role.HasRole(types.RoleAuditor)
 	if !req.UserIsOwner() && privileged {
-		slog.Info("Denied local auth user mutation", "targetUserID", gatewayUser.ID, "reason", "privileged_user_mutation_requires_owner")
+		slog.Info("Denied local auth user mutation", "targetLocalUserID", localUser.ID, "reason", "privileged_user_mutation_requires_owner")
 		return nil, types.NewErrHTTP(http.StatusForbidden, apiMessage(req, "local_privileged_user_requires_owner"))
 	}
 
