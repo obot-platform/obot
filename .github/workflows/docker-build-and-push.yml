@@ -22,6 +22,8 @@ on:
 jobs:
   build:
     runs-on: depot-ubuntu-22.04
+    outputs:
+      image-digest: ${{ steps.build-and-push.outputs.digest }}
 
     steps:
       - name: Checkout code
@@ -133,7 +135,8 @@ jobs:
       - name: Run Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          image-ref: ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image-digest }}
+          trivyignores: .trivyignore.yaml
           skip-dirs: "**/venv"
           format: "sarif"
           output: "trivy-results.sarif"

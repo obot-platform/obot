@@ -33,8 +33,17 @@ GIT_TAG := $(shell git describe --tags --exact-match 2>/dev/null | xargs -I {} e
 GO_LD_FLAGS := "-s -w $(GIT_TAG)"
 # Obot does not load Kustomize Go plugins; omit their dynamic symbol overhead.
 GO_BUILD_TAGS := kustomize_disable_go_plugin_support
-build:
+build: check-go-security-deps
 	go build -trimpath -tags=$(GO_BUILD_TAGS) -ldflags=$(GO_LD_FLAGS) -o bin/obot .
+
+# The scoped GO-2026-5932 exception in .trivyignore.yaml is valid only while
+# the Obot binary excludes the deprecated OpenPGP package and its subpackages.
+check-go-security-deps:
+	@deps=$$(go list -mod=readonly -deps -tags=$(GO_BUILD_TAGS) .) || exit $$?; \
+	if printf '%s\n' "$$deps" | grep -E '^golang.org/x/crypto/openpgp(/|$$)'; then \
+		echo "Deprecated OpenPGP dependency invalidates the GO-2026-5932 Trivy exception." >&2; \
+		exit 1; \
+	fi
 
 dev:
 	./tools/dev.sh $(ARGS)
@@ -134,4 +143,4 @@ remove-docs-version:
 	rm -rf "./docs/versioned_docs/version-${version}"
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 
-.PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration test-e2e-llm-gateway test-e2e-llm-gateway-upgrade no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: ui ui-user build check-go-security-deps all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration test-e2e-llm-gateway test-e2e-llm-gateway-upgrade no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
