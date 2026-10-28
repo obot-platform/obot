@@ -103,7 +103,7 @@ func TestAuthorizationCodeForRevokedVMCPAccess(t *testing.T) {
 			require.NotEmpty(t, response.AccessToken)
 
 			// Authenticate and authorize the issued token the way the server does for /mcp-connect.
-			authorizer := authz.NewAuthorizer(gatewayClient, storage, storage, false, nil, nil, false)
+			authorizer := authz.NewAuthorizer(gatewayClient, storage, storage, false, nil, nil, nil)
 			for _, id := range []string{vmcpID, instanceID} {
 				t.Run("mcp-connect "+id, func(t *testing.T) {
 					req := httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil)
