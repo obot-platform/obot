@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,7 +40,7 @@ func (h *Handler) ListServers(req api.Context) error {
 	definitions := make([]v1.VMCP, 0, len(list.Items))
 	search := strings.ToLower(req.URL.Query().Get("search"))
 	for _, item := range list.Items {
-		if !registryVMCPVisible(req.User, &item) {
+		if !registryVMCPVisible(req, &item) {
 			continue
 		}
 		// Search the full manifest description before conversion truncates it.
@@ -56,20 +55,16 @@ func (h *Handler) ListServers(req api.Context) error {
 	return req.Write(h.paginateVMCPs(definitions, reverseDNS, req.URL.Query().Get("cursor"), parseLimit(req.URL.Query().Get("limit"))))
 }
 
-func registryUserAuthenticated(u user.Info) bool {
-	return u != nil && !slices.Contains(u.GetGroups(), authz.UnauthenticatedGroup)
-}
-
 // Registry visibility follows consumption permissions, including for administrators.
 // Anonymous discovery deliberately publishes only shared definitions with an explicit
 // wildcard profile, without interpreting anonymous user IDs or groups as grants.
-func registryVMCPVisible(u user.Info, definition *v1.VMCP) bool {
+func registryVMCPVisible(req api.Context, definition *v1.VMCP) bool {
 	// Empty drafts cannot accept connections through the advertised remote.
 	if len(definition.Spec.Manifest.Components) == 0 {
 		return false
 	}
-	if registryUserAuthenticated(u) {
-		return authz.UserCanReadVMCP(u, definition)
+	if req.User != nil && req.UserIsAuthenticated() {
+		return authz.UserCanReadVMCP(req.User, definition)
 	}
 	if definition.IsPersonal() {
 		return false
@@ -213,7 +208,7 @@ func (h *Handler) findServerByName(req api.Context, serverName, reverseDNS strin
 		}
 		return types.RegistryServerResponse{}, err
 	}
-	if definition == nil || instance != nil || !registryVMCPVisible(req.User, definition) {
+	if definition == nil || instance != nil || !registryVMCPVisible(req, definition) {
 		return types.RegistryServerResponse{}, h.notFoundError("Server not found")
 	}
 	return ConvertVMCPToRegistry(*definition, h.serverURL, expectedDNS), nil

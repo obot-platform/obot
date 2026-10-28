@@ -86,14 +86,25 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 			want: []string{"vmcp1public"},
 		},
 		{
+			name: "identity without authenticated group cannot grant private access",
+			user: &user.DefaultInfo{
+				UID: "user-1",
+			},
+			want: []string{"vmcp1public"},
+		},
+		{
 			name: "authenticated personal and user profiles",
-			user: &user.DefaultInfo{UID: "user-1"},
+			user: &user.DefaultInfo{
+				UID:    "user-1",
+				Groups: []string{types.GroupAuthenticated},
+			},
 			want: []string{"vmcp1personal", "vmcp1public", "vmcp1user"},
 		},
 		{
 			name: "Obot and identity provider groups",
 			user: &user.DefaultInfo{
-				UID: "user-3",
+				UID:    "user-3",
+				Groups: []string{types.GroupAuthenticated},
 				Extra: map[string][]string{
 					"obot_groups":          {"engineering"},
 					"auth_provider_groups": {"developers"},
@@ -103,14 +114,17 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 		},
 		{
 			name: "revoked group membership",
-			user: &user.DefaultInfo{UID: "user-3"},
+			user: &user.DefaultInfo{
+				UID:    "user-3",
+				Groups: []string{types.GroupAuthenticated},
+			},
 			want: []string{"vmcp1public"},
 		},
 		{
 			name: "admin must match consumption profiles",
 			user: &user.DefaultInfo{
 				UID:    "admin",
-				Groups: []string{types.GroupAdmin},
+				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
 				Extra:  map[string][]string{"obot_groups": {types.GroupAdmin}},
 			},
 			want: []string{"vmcp1admin", "vmcp1public"},
@@ -186,7 +200,7 @@ func TestRegistryOnlyPublishesDefinitions(t *testing.T) {
 			},
 		},
 	)
-	for _, u := range []user.Info{nil, &user.DefaultInfo{UID: "user-1"}} {
+	for _, u := range []user.Info{nil, &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAuthenticated}}} {
 		response := registryRequest(t, storage, u, "/v0.1/servers")
 		var list types.RegistryServerList
 		decodeRegistryResponse(t, response, &list)
@@ -382,14 +396,15 @@ func TestRegistryExcludesEmptyDefinitions(t *testing.T) {
 		{
 			name: "authenticated",
 			user: &user.DefaultInfo{
-				UID: "user-1",
+				UID:    "user-1",
+				Groups: []string{types.GroupAuthenticated},
 			},
 		},
 		{
 			name: "admin",
 			user: &user.DefaultInfo{
 				UID:    "user-1",
-				Groups: []string{types.GroupAdmin},
+				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
 			},
 		},
 	} {
