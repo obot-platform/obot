@@ -40,8 +40,11 @@ unsupported runtimes are rejected. Header values are derived for each request.
 vMCP preserves API-key attribution in signed internal tokens. Each component
 decides what to disclose to its own backend, irrespective of the parent vMCP.
 Raw key names are kept separately from the masked names used by audit logs.
-Pooled component connections are partitioned by the five emitted attribution
-values so changing credentials or account metadata cannot reuse stale claims.
+Each component MCP message forwards the current request's signed loopback token,
+so pooled connections do not retain stale caller attribution. Background SSE
+reconnects keep the OAuth handler's refreshable connection credential. Caller
+metadata does not participate in discovery cache keys, and redirects to another
+origin never receive an internal gateway credential.
 Changing the header selection does not require restarting a hosted backend.
 
 ## Rationale

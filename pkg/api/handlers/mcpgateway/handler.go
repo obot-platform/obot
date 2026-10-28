@@ -196,12 +196,16 @@ func compositeSessionKey(serverConfig mcp.ServerConfig) string {
 func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error), guardrailEngine *guardrails.Engine) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	var componentAuth componenthttp.OAuthHandlerProvider
+	var (
+		componentAuth       componenthttp.OAuthHandlerProvider
+		componentHTTPClient *http.Client
+	)
 	if tokenService != nil {
 		componentAuth = compositeComponentAuth{
 			ctx:    ctx,
 			tokens: tokenService,
 		}
+		componentHTTPClient = newCompositeHTTPClient()
 	}
 
 	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{
@@ -211,6 +215,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		OAuth:                 componentAuth,
 		AuthorizationURLs:     compositeAuthorizationURLs(authorizationURLs),
 		AuthorizationResponse: compositeAuthorizationResponse(mcpSessionManager),
+		HTTPClient: componentHTTPClient,
 		ClientInfo: &gomcp.Implementation{
 			Name:    "Obot MCP Gateway",
 			Version: version.Get().String(),
