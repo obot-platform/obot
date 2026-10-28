@@ -11,6 +11,8 @@ const (
 	ObotHeaderUserID     ObotHeader = "X-Obot-User-Id"
 	ObotHeaderUserName   ObotHeader = "X-Obot-User-Name"
 	ObotHeaderUserEmail  ObotHeader = "X-Obot-User-Email"
+	ObotHeaderIDPUserID  ObotHeader = "X-Obot-IDP-User-Id"
+	ObotHeaderIDPGroups  ObotHeader = "X-Obot-IDP-Groups"
 )
 
 // ObotHeader is an optional, gateway-derived attribution header sent to an MCP backend.
@@ -18,7 +20,7 @@ type ObotHeader string
 
 // CanonicalObotHeader recognizes only the reserved attribution header names.
 func CanonicalObotHeader(name string) (ObotHeader, bool) {
-	for _, header := range []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderAPIKeyID, ObotHeaderUserID, ObotHeaderUserName, ObotHeaderUserEmail} {
+	for _, header := range []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderAPIKeyID, ObotHeaderUserID, ObotHeaderUserName, ObotHeaderUserEmail, ObotHeaderIDPUserID, ObotHeaderIDPGroups} {
 		if strings.EqualFold(name, string(header)) {
 			return header, true
 		}

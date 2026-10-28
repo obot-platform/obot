@@ -31,8 +31,10 @@ optional `injectObotHeaders` list. Each destination independently selects any of
 | `X-Obot-User-Id` | Caller account ID; for API keys, the owning account, not an autonomous agent. |
 | `X-Obot-User-Name` | Authenticated account username, not display name; mutable. |
 | `X-Obot-User-Email` | Email carried by the authenticated principal, when available; not an assertion that the address is verified. |
+| `X-Obot-IDP-User-Id` | Provider-assigned user ID read from the caller account's stored identity. The request's provider selects the identity when available; otherwise exactly one linked identity must exist. Omitted when missing or ambiguous. For API keys, identifies the key owner. |
+| `X-Obot-IDP-Groups` | JSON array of the caller's IdP group IDs stored by Obot, including provider prefixes, sorted and deduplicated. Uses the authenticated principal's `auth_provider_groups`, which are refreshed from stored memberships during token/API-key authentication. Excludes Obot roles and display names; omitted when empty. For API keys, describes the key owner. |
 
-Empty selections disclose nothing. Incoming copies of all five headers are
+Empty selections disclose nothing. Incoming copies of all seven headers are
 always stripped, and configured static or per-user headers cannot override
 gateway-derived values. Unknown names, duplicate selections, and selections on
 unsupported runtimes are rejected. Header values are derived for each request.
@@ -66,3 +68,12 @@ STDIO environment mapping, or downstream OpenAPI REST forwarding are introduced.
 - `apiclient/types/obotheaders.go`
 - `pkg/api/handlers/mcpgateway/obotheaders.go`
 - `pkg/jwt/persistent/persistent.go`
+
+IdP attribution is optional personal and organizational metadata. Group IDs can
+reveal the backing provider through their prefixes. Only selected destinations
+receive these values. Group membership follows Obot's existing provider/SCIM
+synchronization and caching; it is not a live IdP query or an authorization grant.
+The IdP user ID is looked up only when selected. Lookup failures fail the request
+rather than silently forwarding incomplete attribution. Composite tokens retain
+the request's provider reference, while component requests read current stored
+identities and memberships; caller values never affect discovery cache keys.

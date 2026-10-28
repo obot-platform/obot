@@ -815,7 +815,9 @@ export type ObotHeader =
 	| 'X-Obot-Api-Key-Id'
 	| 'X-Obot-User-Id'
 	| 'X-Obot-User-Name'
-	| 'X-Obot-User-Email';
+	| 'X-Obot-User-Email'
+	| 'X-Obot-IDP-User-Id'
+	| 'X-Obot-IDP-Groups';
 
 export interface MCPCatalogEntryServerManifest {
 	injectObotHeaders?: ObotHeader[];

@@ -1202,5 +1202,7 @@
 	"mcps_inject_headers_api_key_id": "검증된 Obot API 키의 ID로, 이 Obot 설치 내에서 고유합니다. API 키를 사용하지 않는 호출자는 생략됩니다.",
 	"mcps_inject_headers_user_id": "인증된 호출자의 Obot 계정 ID입니다. API 키의 경우 자율 에이전트가 아닌 키 소유 계정을 식별합니다.",
 	"mcps_inject_headers_user_name": "인증된 계정의 사용자 이름이며 표시 이름이 아닙니다. 변경될 수 있습니다.",
-	"mcps_inject_headers_user_email": "인증된 주체에 포함된 이메일 주소입니다. 사용할 수 없으면 생략되며, 주소가 검증되었음을 보장하지 않습니다."
+	"mcps_inject_headers_user_email": "인증된 주체에 포함된 이메일 주소입니다. 사용할 수 없으면 생략되며, 주소가 검증되었음을 보장하지 않습니다.",
+	"mcps_inject_headers_idp_user_id": "인증 공급자가 할당한 사용자 식별자입니다. API 키의 경우 키 소유자를 식별합니다. 사용할 수 없거나 연결된 여러 ID 중 하나를 특정할 수 없으면 생략됩니다.",
+	"mcps_inject_headers_idp_groups": "Obot에 저장된 호출자의 IdP 그룹 ID를 공급자 접두사를 포함한 JSON 배열로 전달합니다. API 키는 소유자의 그룹을 사용합니다. Obot 역할 및 그룹 표시 이름은 제외하며 비어 있으면 생략됩니다."
 }

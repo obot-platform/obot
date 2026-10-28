@@ -1,24 +1,34 @@
 package mcpgateway
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	"golang.org/x/net/http/httpguts"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+// identityReader keeps the database lookup local to requests that select the IdP ID.
+type identityReader interface {
+	FindIdentitiesForUser(context.Context, uint) ([]gatewaytypes.Identity, error)
+}
+
 // callerObotHeaders derives only the fields explicitly selected by the destination.
 // It is request-local: caller identity must never enter a shared deployment or client.
-func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (http.Header, error) {
+func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
 	headers := make(http.Header)
 	if caller == nil || (runtime != types.RuntimeRemote && runtime != types.RuntimeContainerized) {
 		return headers, nil
 	}
 	values := map[types.ObotHeader]string{
+		types.ObotHeaderIDPUserID: idpUserID,
 		types.ObotHeaderUserID:    caller.GetUID(),
 		types.ObotHeaderUserName:  caller.GetName(),
 		types.ObotHeaderUserEmail: firstExtra(caller.GetExtra(), "email"),
@@ -34,6 +44,18 @@ func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, calle
 			return nil, fmt.Errorf("unsupported injectObotHeaders header %q", name)
 		}
 		value := values[header]
+		if header == types.ObotHeaderIDPGroups {
+			groups := slices.Clone(caller.GetExtra()["auth_provider_groups"])
+			groups = slices.DeleteFunc(groups, func(group string) bool { return group == "" })
+			if len(groups) > 0 {
+				slices.Sort(groups)
+				encoded, err := json.Marshal(slices.Compact(groups))
+				if err != nil {
+					return nil, fmt.Errorf("encode IdP groups: %w", err)
+				}
+				value = string(encoded)
+			}
+		}
 		if value == "" {
 			continue
 		}
@@ -43,4 +65,43 @@ func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, calle
 		headers.Set(string(header), value)
 	}
 	return headers, nil
+}
+
+func selectedIDPUserID(ctx context.Context, reader identityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (string, error) {
+	if caller == nil || (runtime != types.RuntimeRemote && runtime != types.RuntimeContainerized) {
+		return "", nil
+	}
+	selectedID := false
+	for _, name := range selected {
+		header, _ := types.CanonicalObotHeader(string(name))
+		selectedID = selectedID || header == types.ObotHeaderIDPUserID
+	}
+	if !selectedID {
+		return "", nil
+	}
+	userID, err := strconv.ParseUint(caller.GetUID(), 10, 64)
+	if err != nil {
+		return "", nil
+	}
+	identities, err := reader.FindIdentitiesForUser(ctx, uint(userID))
+	if err != nil {
+		return "", fmt.Errorf("resolve IdP user ID: %w", err)
+	}
+	providerName := firstExtra(caller.GetExtra(), "auth_provider_name")
+	providerNamespace := firstExtra(caller.GetExtra(), "auth_provider_namespace")
+	var matches []gatewaytypes.Identity
+	for _, identity := range identities {
+		if providerName != "" && identity.AuthProviderName != providerName {
+			continue
+		}
+		if providerNamespace != "" && identity.AuthProviderNamespace != providerNamespace {
+			continue
+		}
+		matches = append(matches, identity)
+	}
+	// API keys identify an account, not a provider identity. Never pick an arbitrary identity.
+	if len(matches) != 1 {
+		return "", nil
+	}
+	return matches[0].ProviderUserID, nil
 }
