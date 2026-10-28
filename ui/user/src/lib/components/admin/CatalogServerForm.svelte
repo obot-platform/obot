@@ -34,6 +34,7 @@
 		hasSecretBinding,
 		isKubernetesRuntimeBackend,
 		sanitizeEgressDomains,
+		supportsObotHeaders,
 		sanitizeResourceRuntimeConfig,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
@@ -572,10 +573,9 @@
 				return config.secretBinding ? { ...config, static: false } : config;
 			}),
 			runtime: baseData.runtime,
-			injectObotHeaders:
-				baseData.runtime === 'remote' || baseData.runtime === 'containerized'
-					? baseData.injectObotHeaders
-					: undefined,
+			injectObotHeaders: supportsObotHeaders(baseData.runtime)
+				? baseData.injectObotHeaders
+				: undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
 		};
@@ -1151,7 +1151,7 @@
 		<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
 	{/if}
 
-	{#if formData.runtime === 'remote' || formData.runtime === 'containerized'}
+	{#if supportsObotHeaders(formData.runtime)}
 		<InjectObotHeaders bind:selected={formData.injectObotHeaders} {readonly} />
 	{/if}
 

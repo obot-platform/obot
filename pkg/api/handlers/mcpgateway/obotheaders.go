@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
+	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -14,6 +16,9 @@ import (
 	"golang.org/x/net/http/httpguts"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
+
+// Bound each attribution value independently.
+const maxObotHeaderValueCharacters = 512
 
 // identityReader keeps the database lookup local to requests that select the IdP ID.
 type identityReader interface {
@@ -24,7 +29,7 @@ type identityReader interface {
 // It is request-local: caller identity must never enter a shared deployment or client.
 func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
 	headers := make(http.Header)
-	if caller == nil || (runtime != types.RuntimeRemote && runtime != types.RuntimeContainerized) {
+	if caller == nil || !types.SupportsObotHeaders(runtime) {
 		return headers, nil
 	}
 	values := map[types.ObotHeader]string{
@@ -60,7 +65,12 @@ func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, calle
 			continue
 		}
 		if !httpguts.ValidHeaderFieldValue(value) {
-			return nil, fmt.Errorf("invalid value for attribution header %s", header)
+			slog.Warn("Omitting MCP attribution header", "header", header, "reason", "invalid header value")
+			continue
+		}
+		if utf8.RuneCountInString(value) > maxObotHeaderValueCharacters {
+			slog.Warn("Omitting MCP attribution header", "header", header, "reason", "header size limit exceeded")
+			continue
 		}
 		headers.Set(string(header), value)
 	}
@@ -68,7 +78,7 @@ func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, calle
 }
 
 func selectedIDPUserID(ctx context.Context, reader identityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (string, error) {
-	if caller == nil || (runtime != types.RuntimeRemote && runtime != types.RuntimeContainerized) {
+	if caller == nil || !types.SupportsObotHeaders(runtime) {
 		return "", nil
 	}
 	selectedID := false

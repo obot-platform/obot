@@ -36,6 +36,9 @@ describe('InjectObotHeaders', () => {
 			.element(page.getByRole('checkbox', { name: 'X-Obot-IDP-Groups', exact: true }))
 			.toBeChecked();
 		await expect.element(page.getByText(/ambiguous across linked identities/)).toBeVisible();
+		await expect
+			.element(page.getByText(/Unavailable, invalid or oversized values are omitted/))
+			.toBeVisible();
 		await expect.element(page.getByText(/including provider prefixes/)).toBeVisible();
 		await expect.element(page.getByText(/not an autonomous agent/)).toBeVisible();
 		await expect.element(page.getByText(/not guarantee the address is verified/)).toBeVisible();

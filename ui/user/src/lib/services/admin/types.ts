@@ -810,14 +810,17 @@ export type MCPConfig = Omit<
 	MCPCatalogEntryFieldManifest,
 	'file' | 'dynamicFile' | 'interpolated'
 > & { usage: MCPConfigUsage; userAllowed?: boolean };
-export type ObotHeader =
-	| 'X-Obot-Api-Key-Name'
-	| 'X-Obot-Api-Key-Id'
-	| 'X-Obot-User-Id'
-	| 'X-Obot-User-Name'
-	| 'X-Obot-User-Email'
-	| 'X-Obot-IDP-User-Id'
-	| 'X-Obot-IDP-Groups';
+export const OBOT_HEADERS = {
+	apiKeyName: 'X-Obot-Api-Key-Name',
+	apiKeyId: 'X-Obot-Api-Key-Id',
+	userId: 'X-Obot-User-Id',
+	userName: 'X-Obot-User-Name',
+	userEmail: 'X-Obot-User-Email',
+	idpUserId: 'X-Obot-IDP-User-Id',
+	idpGroups: 'X-Obot-IDP-Groups'
+} as const;
+
+export type ObotHeader = (typeof OBOT_HEADERS)[keyof typeof OBOT_HEADERS];
 
 export interface MCPCatalogEntryServerManifest {
 	injectObotHeaders?: ObotHeader[];

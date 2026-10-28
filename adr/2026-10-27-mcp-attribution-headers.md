@@ -58,16 +58,10 @@ client-supplied headers or forwarding Obot credentials to a backend.
 ## Consequences
 
 Backends must restrict access to trusted gateway traffic before relying on these
-headers. Existing clients cannot forward their own values under the five reserved
+headers. Existing clients cannot forward their own values under the seven reserved
 names, including when injection is disabled. Key names provide attribution, not
 verified autonomous-agent identity. No request/session correlation fields,
 STDIO environment mapping, or downstream OpenAPI REST forwarding are introduced.
-
-## References
-
-- `apiclient/types/obotheaders.go`
-- `pkg/api/handlers/mcpgateway/obotheaders.go`
-- `pkg/jwt/persistent/persistent.go`
 
 IdP attribution is optional personal and organizational metadata. Group IDs can
 reveal the backing provider through their prefixes. Only selected destinations
@@ -77,3 +71,15 @@ The IdP user ID is looked up only when selected. Lookup failures fail the reques
 rather than silently forwarding incomplete attribution. Composite tokens retain
 the request's provider reference, while component requests read current stored
 identities and memberships; caller values never affect discovery cache keys.
+
+Selected attribution values are omitted when they contain invalid HTTP header
+characters or exceed 512 Unicode characters per header value. Omission logs
+contain the header name and reason, never its value. Values and group lists are never truncated. Backends must
+handle missing metadata explicitly. Identity lookup failures still fail the request.
+New header configuration using a reserved name is rejected during validation.
+
+## References
+
+- `apiclient/types/obotheaders.go`
+- `pkg/api/handlers/mcpgateway/obotheaders.go`
+- `pkg/jwt/persistent/persistent.go`

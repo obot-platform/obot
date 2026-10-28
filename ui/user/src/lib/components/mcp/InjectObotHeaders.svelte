@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
-	import type { ObotHeader } from '$lib/services';
+	import { OBOT_HEADERS, type ObotHeader } from '$lib/services';
 
 	interface Props {
 		selected?: ObotHeader[];
@@ -10,13 +10,13 @@
 	let { selected = $bindable([]), readonly = false }: Props = $props();
 	const uid = $props.id();
 	const options = $derived([
-		{ header: 'X-Obot-Api-Key-Name', description: m.mcps_inject_headers_api_key_name() },
-		{ header: 'X-Obot-Api-Key-Id', description: m.mcps_inject_headers_api_key_id() },
-		{ header: 'X-Obot-User-Id', description: m.mcps_inject_headers_user_id() },
-		{ header: 'X-Obot-User-Name', description: m.mcps_inject_headers_user_name() },
-		{ header: 'X-Obot-User-Email', description: m.mcps_inject_headers_user_email() },
-		{ header: 'X-Obot-IDP-User-Id', description: m.mcps_inject_headers_idp_user_id() },
-		{ header: 'X-Obot-IDP-Groups', description: m.mcps_inject_headers_idp_groups() }
+		{ header: OBOT_HEADERS.apiKeyName, description: m.mcps_inject_headers_api_key_name() },
+		{ header: OBOT_HEADERS.apiKeyId, description: m.mcps_inject_headers_api_key_id() },
+		{ header: OBOT_HEADERS.userId, description: m.mcps_inject_headers_user_id() },
+		{ header: OBOT_HEADERS.userName, description: m.mcps_inject_headers_user_name() },
+		{ header: OBOT_HEADERS.userEmail, description: m.mcps_inject_headers_user_email() },
+		{ header: OBOT_HEADERS.idpUserId, description: m.mcps_inject_headers_idp_user_id() },
+		{ header: OBOT_HEADERS.idpGroups, description: m.mcps_inject_headers_idp_groups() }
 	] satisfies { header: ObotHeader; description: string }[]);
 </script>
 

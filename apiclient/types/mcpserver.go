@@ -304,7 +304,7 @@ func (m MCPServerCatalogEntryManifest) ValidateConfig() error {
 }
 
 func (m MCPServerManifest) ValidateConfig() error {
-	if err := NormalizeObotHeaders(m.Runtime, m.InjectObotHeaders); err != nil {
+	if err := ValidateObotHeaders(m.Runtime, m.InjectObotHeaders); err != nil {
 		return err
 	}
 	keys := make(map[string]struct{}, len(m.Config))
@@ -312,6 +312,12 @@ func (m MCPServerManifest) ValidateConfig() error {
 		if config.Key == "" {
 			return fmt.Errorf("config key must not be empty")
 		}
+		if config.Usage == Header {
+			if _, reserved := CanonicalObotHeader(config.Key); reserved {
+				return fmt.Errorf("config key %q is reserved for injectObotHeaders", config.Key)
+			}
+		}
+
 		if _, exists := keys[config.Key]; exists {
 			return fmt.Errorf("duplicate config key %q", config.Key)
 		}

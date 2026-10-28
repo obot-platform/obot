@@ -2,6 +2,9 @@ package types
 
 import (
 	"encoding/json"
+	"slices"
+	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,8 +58,10 @@ func TestInjectObotHeadersValidation(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			original := slices.Clone(tt.headers)
 			manifest := MCPServerManifest{Runtime: tt.runtime, InjectObotHeaders: tt.headers}
 			err := manifest.ValidateConfig()
+			require.Equal(t, original, manifest.InjectObotHeaders)
 			if tt.wantErr {
 				require.Error(t, err)
 				require.Error(t, manifest.ConvertToCatalogEntry().ValidateConfig())
@@ -66,7 +71,7 @@ func TestInjectObotHeadersValidation(t *testing.T) {
 			for _, header := range manifest.InjectObotHeaders {
 				canonical, ok := CanonicalObotHeader(string(header))
 				require.True(t, ok)
-				require.Equal(t, canonical, header)
+				require.NotEmpty(t, canonical)
 			}
 		})
 	}
@@ -92,4 +97,57 @@ func TestInjectObotHeadersCatalogRoundTrip(t *testing.T) {
 	var restored MCPServerCatalogEntryManifest
 	require.NoError(t, json.Unmarshal(data, &restored))
 	require.Equal(t, entry.InjectObotHeaders, restored.InjectObotHeaders)
+}
+
+func TestObotHeaderValidationDoesNotMutateSharedManifest(t *testing.T) {
+	manifest := MCPServerManifest{
+		Runtime:           RuntimeRemote,
+		InjectObotHeaders: []ObotHeader{"x-obot-user-id", "x-obot-idp-groups"},
+	}
+	original := slices.Clone(manifest.InjectObotHeaders)
+	var workers sync.WaitGroup
+	failures := make(chan error, 2)
+	for range 2 {
+		workers.Go(func() {
+			for range 100 {
+				if err := manifest.ValidateConfig(); err != nil {
+					failures <- err
+					return
+				}
+			}
+		})
+	}
+	workers.Wait()
+	close(failures)
+	for err := range failures {
+		require.NoError(t, err)
+	}
+	require.Equal(t, original, manifest.InjectObotHeaders)
+}
+
+func TestReservedObotHeaderConfiguration(t *testing.T) {
+	for _, header := range ObotHeaders() {
+		t.Run(string(header), func(t *testing.T) {
+			manifest := MCPServerManifest{
+				Runtime: RuntimeRemote,
+				Config: []MCPConfig{{
+					Key:   strings.ToLower(string(header)),
+					Usage: Header,
+					Value: "spoofed",
+				}},
+			}
+			require.ErrorContains(t, manifest.ValidateConfig(), "reserved for injectObotHeaders")
+			require.ErrorContains(t, manifest.ConvertToCatalogEntry().ValidateConfig(), "reserved for injectObotHeaders")
+			manifest.Config[0].Usage = Env
+			require.NoError(t, manifest.ValidateConfig(), "only HTTP headers reserve these names")
+		})
+	}
+}
+
+func TestObotHeaderDecodingCanonicalizesSelections(t *testing.T) {
+	var manifest MCPServerManifest
+	err := json.Unmarshal([]byte(`{"runtime":"remote","injectObotHeaders":["x-obot-user-id","x-obot-idp-groups"]}`), &manifest)
+	require.NoError(t, err)
+	require.Equal(t, []ObotHeader{ObotHeaderUserID, ObotHeaderIDPGroups}, manifest.InjectObotHeaders)
+	require.NoError(t, manifest.ValidateConfig())
 }
