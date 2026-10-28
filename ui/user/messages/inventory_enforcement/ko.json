@@ -118,7 +118,7 @@
 	"inventory_enforcement_configuration_no_release": "아직 사용 가능한 Obot Sentry 릴리스가 없습니다. 업데이트를 확인하여 최신 버전을 가져오세요.",
 	"inventory_enforcement_configuration_not_enforced": "현재 적용되지 않음 — 이 규칙은 정책 적용을 활성화하면 적용됩니다.",
 	"inventory_enforcement_configuration_readonly_create_note": "쓰기 권한이 있는 관리자가 초기 구성을 만들어야 합니다.",
-	"inventory_enforcement_configuration_reinstall_note": "정책 적용 후크는 Obot Sentry 패키지로 설치됩니다. 이 변경 사항을 적용하려면 위의 설치 패키지를 다시 다운로드하여 기기에 다시 설치하세요.",
+	"inventory_enforcement_configuration_reinstall_note": "정책 적용 후크는 Obot Sentry 패키지로 설치됩니다. 위의 설치 패키지를 다시 다운로드하고 안내에 따라 이 변경 사항을 적용하세요. Obot Sentry가 이미 실행 중인 기기도 마찬가지입니다.",
 	"inventory_enforcement_configuration_rejected": "거부됨",
 	"inventory_enforcement_configuration_remove_allowed_msg": "허용 목록에서 \"{server}\"을(를) 제거하시겠습니까? 다른 규칙에서 허용하지 않는 한 이 서버에 대한 호출이 차단됩니다.",
 	"inventory_enforcement_configuration_remove_allowed_title": "허용된 서버 제거",

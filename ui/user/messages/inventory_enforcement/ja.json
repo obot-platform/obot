@@ -118,7 +118,7 @@
 	"inventory_enforcement_configuration_no_release": "利用可能な Obot Sentry のリリースはまだありません。アップデートを確認して最新版を取得してください。",
 	"inventory_enforcement_configuration_not_enforced": "現在は適用されていません。これらのルールはポリシー適用を有効にすると反映されます。",
 	"inventory_enforcement_configuration_readonly_create_note": "初期設定は、書き込み権限を持つ管理者が作成する必要があります。",
-	"inventory_enforcement_configuration_reinstall_note": "ポリシー適用フックは Obot Sentry パッケージによってインストールされます。この変更を反映するには、上のインストールパッケージを再ダウンロードし、デバイスに再インストールしてください。",
+	"inventory_enforcement_configuration_reinstall_note": "ポリシー適用フックは Obot Sentry パッケージによってインストールされます。上のインストールパッケージを再ダウンロードし、その手順に従ってこの変更を適用してください。Obot Sentry を実行中のデバイスも対象です。",
 	"inventory_enforcement_configuration_rejected": "拒否",
 	"inventory_enforcement_configuration_remove_allowed_msg": "「{server}」を許可リストから削除しますか？他のルールで許可されていない限り、このサーバーへの呼び出しはブロックされます。",
 	"inventory_enforcement_configuration_remove_allowed_title": "許可されたサーバーを削除",
