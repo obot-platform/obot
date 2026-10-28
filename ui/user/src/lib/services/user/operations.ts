@@ -35,6 +35,11 @@ import {
 	type McpAuditLogUsageFilters,
 	type McpAuditLogUsageStats,
 	type BootstrapStatus,
+	type ClaudeConfig,
+	type ClaudeEnvironment,
+	type ClaudeEnvironmentPayload,
+	type ClaudeOrganizationAccount,
+	type ClaudeSession,
 	type DefaultModelAlias,
 	type DeviceCodeVerificationResponse,
 	type DeviceScan,
@@ -48,7 +53,6 @@ import {
 	type McpServerResource,
 	type MCPServerTool,
 	type Model,
-	type ModelProviderList,
 	type OrgGroup,
 	type OrgGroupPage,
 	type OrgUser,
@@ -105,8 +109,19 @@ export async function getMCPServerOrVMCP(
 	id: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPCatalogServer | VMCP> {
+	// Resolve metadata without changing the connection used for authentication.
+	if (id.startsWith('vmcpi1')) {
+		const instance = await getVMCPInstance(id, opts);
+		return getVMCP(instance.vmcpID, opts);
+	}
+
 	const path = id.startsWith('vmcp1') ? `/vmcps/${id}` : `/mcp-servers/${id}`;
-	return (await doGet(path, opts)) as MCPCatalogServer | VMCP;
+	const parent = (await doGet(path, opts)) as MCPCatalogServer | VMCP;
+	if ('vmcpID' in parent && parent.vmcpID) {
+		return getVMCP(parent.vmcpID, opts);
+	}
+
+	return parent;
 }
 
 export async function createVMCP(
@@ -181,7 +196,7 @@ export async function listVMCPInstances(opts?: {
 
 export async function getVMCPInstance(
 	id: string,
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal }
 ): Promise<VMCPInstance> {
 	return (await doGet(`/vmcp-instances/${id}`, opts)) as VMCPInstance;
 }
@@ -722,13 +737,6 @@ export async function listSingleOrRemoteMcpServerResources(
 export async function listModels(opts?: { fetch?: Fetcher }): Promise<Model[]> {
 	const response = (await doGet('/models', opts)) as ItemsResponse<Model>;
 	return response.items ?? [];
-}
-
-export async function listGlobalModelProviders(opts?: {
-	fetch?: Fetcher;
-}): Promise<ModelProviderList> {
-	const response = (await doGet('/model-providers', opts)) as ModelProviderList;
-	return response;
 }
 
 // Organization
@@ -1522,4 +1530,87 @@ export async function downloadSkill(
 		...opts,
 		blob: true
 	})) as Blob;
+}
+
+// Claude
+
+export async function getClaudeConfig(opts?: { fetch?: Fetcher }): Promise<ClaudeConfig> {
+	return (await doGet('/claude-environments', opts)) as ClaudeConfig;
+}
+
+export async function createClaudeEnvironment(
+	environment: ClaudeEnvironmentPayload,
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeEnvironment> {
+	return (await doPost('/claude-environments', environment, opts)) as ClaudeEnvironment;
+}
+
+export async function updateClaudeEnvironment(
+	id: string,
+	environment: ClaudeEnvironmentPayload,
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeEnvironment> {
+	return (await doPut(`/claude-environments/${id}`, environment, opts)) as ClaudeEnvironment;
+}
+
+export async function deleteClaudeEnvironment(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doDelete(`/claude-environments/${id}`, opts);
+}
+
+export async function updateClaudeEnvironmentTag(
+	id: string,
+	enabled: boolean,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPut(`/claude-environments/${id}/claude-tag`, { enabled }, opts);
+}
+
+export async function listClaudeSessions(opts?: {
+	all?: boolean;
+	dontLogErrors?: boolean;
+	fetch?: Fetcher;
+}): Promise<ClaudeSession[]> {
+	const response = (await doGet(opts?.all ? '/claude-sessions?all=true' : '/claude-sessions', {
+		dontLogErrors: opts?.dontLogErrors,
+		fetch: opts?.fetch
+	})) as ItemsResponse<ClaudeSession>;
+	return response.items ?? [];
+}
+
+export async function suspendClaudeSession(
+	name: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/claude-sessions/${encodeURIComponent(name)}/suspend`, {}, opts);
+}
+
+export async function deleteClaudeSession(name: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doDelete(`/claude-sessions/${encodeURIComponent(name)}`, opts);
+}
+
+export async function listClaudeOrganizationAccounts(
+	organization: string,
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeOrganizationAccount[]> {
+	const response = (await doGet(
+		`/claude-organizations/${encodeURIComponent(organization)}/accounts`,
+		opts
+	)) as ItemsResponse<ClaudeOrganizationAccount>;
+	return response.items ?? [];
+}
+
+export async function updateClaudeOrganizationAccounts(
+	organization: string,
+	items: ClaudeOrganizationAccount[],
+	opts?: { fetch?: Fetcher }
+): Promise<ClaudeOrganizationAccount[]> {
+	const response = (await doPut(
+		`/claude-organizations/${encodeURIComponent(organization)}/accounts`,
+		{ items },
+		opts
+	)) as ItemsResponse<ClaudeOrganizationAccount>;
+	return response.items ?? [];
 }

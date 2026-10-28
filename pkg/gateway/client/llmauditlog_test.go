@@ -6,11 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
 	"uuid"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -157,6 +159,53 @@ func TestGetLLMAuditLogStripsSensitiveFields(t *testing.T) {
 	}
 	if len(got.RequestHeaders) != 0 || len(got.RequestBody) != 0 || len(got.PolicyModifiedRequestBody) != 0 || len(got.ResponseHeaders) != 0 || len(got.ResponseBody) != 0 {
 		t.Fatalf("expected sensitive fields to be stripped, got %#v", got)
+	}
+}
+
+// Guardrail findings hold no content, so they are kept unencrypted and returned without the
+// sensitive fields, in the list and the detail view.
+func TestLLMAuditLogGuardrailFindingsAreNotSensitive(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			llmAuditLogGroupResource: testTransformer{},
+		},
+	}
+	findings := []apitypes.LLMAuditGuardrailFinding{
+		{
+			Stage:         "input",
+			PolicyID:      "r1",
+			PolicyName:    "block secrets",
+			GuardrailName: "secrets",
+			GuardrailType: "secrets",
+			Outcome:       "blocked",
+			Categories:    []string{"secret"},
+		},
+	}
+	entry := types.LLMAuditLog{
+		ID:                uuid.New().String(),
+		CreatedAt:         time.Now().UTC(),
+		UserID:            "user-1",
+		RequestBody:       json.RawMessage(`{"prompt":"secret"}`),
+		GuardrailFindings: findings,
+	}
+	if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+		t.Fatalf("failed to insert LLM audit log: %v", err)
+	}
+
+	got, err := c.GetLLMAuditLog(t.Context(), entry.ID, false)
+	if err != nil {
+		t.Fatalf("failed to get LLM audit log: %v", err)
+	}
+	if !reflect.DeepEqual(got.GuardrailFindings, findings) {
+		t.Fatalf("expected guardrail findings %v, got %v", findings, got.GuardrailFindings)
+	}
+	logs, _, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{})
+	if err != nil {
+		t.Fatalf("failed to list LLM audit logs: %v", err)
+	}
+	if len(logs) != 1 || !reflect.DeepEqual(logs[0].GuardrailFindings, findings) {
+		t.Fatalf("expected guardrail findings %v in the list, got %#v", findings, logs)
 	}
 }
 
@@ -404,38 +453,6 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	if !slices.Equal(statuses, []string{"200", "500"}) {
 		t.Fatalf("expected response status options, got %v", statuses)
 	}
-
-	policyTriggered, err := c.GetLLMAuditLogFilterOptions(t.Context(), "message_policy_triggered", LLMAuditLogOptions{ModelProvider: []string{system.OpenAIModelProvider}})
-	if err != nil {
-		t.Fatalf("failed to get message policy triggered filter options: %v", err)
-	}
-	slices.Sort(policyTriggered)
-	if !slices.Equal(policyTriggered, []string{"false", "true"}) {
-		t.Fatalf("expected message policy triggered options, got %v", policyTriggered)
-	}
-	policyTriggered, err = c.GetLLMAuditLogFilterOptions(t.Context(), "message_policy_triggered", LLMAuditLogOptions{ModelProvider: []string{system.AnthropicModelProvider}})
-	if err != nil {
-		t.Fatalf("failed to get filtered message policy triggered options: %v", err)
-	}
-	if !slices.Equal(policyTriggered, []string{"false"}) {
-		t.Fatalf("expected filtered message policy triggered options, got %v", policyTriggered)
-	}
-
-	triggeredLogs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{true}})
-	if err != nil {
-		t.Fatalf("failed to filter input policy triggered logs: %v", err)
-	}
-	if total != 1 || len(triggeredLogs) != 1 || !triggeredLogs[0].MessagePolicyTriggered {
-		t.Fatalf("expected one input policy triggered log, got total=%d logs=%#v", total, triggeredLogs)
-	}
-
-	notTriggeredLogs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{false}})
-	if err != nil {
-		t.Fatalf("failed to filter non-triggered input policy logs: %v", err)
-	}
-	if total != 3 || len(notTriggeredLogs) != 3 {
-		t.Fatalf("expected three non-triggered input policy logs, got total=%d logs=%#v", total, notTriggeredLogs)
-	}
 }
 
 func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
@@ -508,7 +525,8 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 		c.LogLLMAuditEntry(types.LLMAuditLog{
 			ID:            uuid.New().String(),
 			CreatedAt:     time.Now().UTC(),
-			ModelProvider: system.OpenAIModelProvider,
+			ModelProvider: system.LLMGatewayModelProvider,
+			RequestPath:   "/api/llm-proxy/v1/responses",
 			RequestBody:   json.RawMessage(fmt.Sprintf(`{"prompt":"secret-%d"}`, i)),
 		}, []byte(`data: {"type":"response.created","response":{"id":"resp_async","output":[]}}`+"\n"))
 	}
@@ -579,5 +597,26 @@ func waitForLLMAuditLogCount(t *testing.T, c *Client, want int64) {
 				return
 			}
 		}
+	}
+}
+
+// Exports scheduled before message policies became guardrails filter on the flag that rows
+// recorded back then carry, and must keep exporting only those rows.
+func TestGetLLMAuditLogsFiltersByMessagePolicyTriggered(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	flagged := types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: now, MessagePolicyTriggered: true}
+	for _, entry := range []types.LLMAuditLog{flagged, {ID: uuid.New().String(), CreatedAt: now}} {
+		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+	}
+
+	logs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{MessagePolicyTriggered: []bool{true}})
+	if err != nil {
+		t.Fatalf("filter LLM audit logs: %v", err)
+	}
+	if total != 1 || len(logs) != 1 || logs[0].ID != flagged.ID {
+		t.Fatalf("expected only the flagged row, got total=%d logs=%#v", total, logs)
 	}
 }

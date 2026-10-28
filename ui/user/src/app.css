@@ -87,6 +87,7 @@
 }
 
 @plugin 'daisyui' {
+	logs: false;
 	themes:
 		nanobotlight --default,
 		nanobotdark --prefersdark;
@@ -1581,7 +1582,8 @@
 	.btn-secondary:not(.btn-circle):not(.btn-square),
 	.btn-error:not(.btn-circle):not(.btn-square),
 	.btn-warning:not(.btn-circle):not(.btn-square),
-	.btn-success:not(.btn-circle):not(.btn-square) {
+	.btn-success:not(.btn-circle):not(.btn-square),
+	.btn-ghost:not(.btn-circle):not(.btn-square) {
 		border-radius: var(--radius-4xl);
 		padding-left: 1.25rem;
 		padding-right: 1.25rem;

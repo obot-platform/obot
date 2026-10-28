@@ -15,6 +15,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/modeldata"
+
+	"github.com/adrg/xdg"
 	"github.com/glebarez/sqlite"
 	kinmdb "github.com/obot-platform/kinm/pkg/db"
 	"github.com/obot-platform/nah"
@@ -30,6 +33,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/bootstrap"
+	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
@@ -37,10 +41,12 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	otime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/guardrails"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -124,16 +130,19 @@ type Config struct {
 	MDMAssetSource              string `usage:"The source for MDM assets (a local directory, a tar archive path, or an HTTP(S) tarball URL)" default:"https://github.com/obot-platform/obot-sentry/releases/download/v0.1.8/mdm-assets.tar.gz" env:"OBOT_SERVER_MDM_ASSET_SOURCE"`
 	DefaultSkillRepoURL         string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
 	DefaultSkillRepoRef         string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
-	ModelInfoSourceURL          string `usage:"Authoritative URL for the model info (pricing) source synced into model costs; changes take effect on restart, empty disables it" default:"https://models.dev/api.json"`
 	DisableUpdateCheck          bool   `usage:"Disable Obot server update checks"`
 	HideK8sDetails              bool   `usage:"Hide Kubernetes configuration details such as the Server Scheduling page from the UI" default:"false"`
 	EnableRegistryAuth          bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
-	EnableMessagePolicies       bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	EgressAuditLogRetentionDays int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
 	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
+	LLMGatewayDataDir           string `usage:"Directory for the embedded LLM gateway's configuration and, without a Postgres DSN, its SQLite stores (default: $XDG_DATA_HOME/obot/llm-gateway)" name:"llm-gateway-data-dir" env:"OBOT_SERVER_LLM_GATEWAY_DATA_DIR"`
+	LLMGatewayPostgresDSN       string `usage:"Postgres DSN for the embedded LLM gateway's configuration store. Must be a different database from Obot's. When Obot uses Postgres and this is unset, a <database>_llm_gateway database is created on the same server" name:"llm-gateway-postgres-dsn" env:"OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN"`
+	LLMGatewayEncryptionKey     string `usage:"Key used by the embedded LLM gateway to encrypt provider keys at rest. Set it before the first start: changing it makes stored provider keys unreadable (default: generated, and stored in Obot's database when the gateway uses Postgres, otherwise in the data dir)" name:"llm-gateway-encryption-key" env:"OBOT_SERVER_LLM_GATEWAY_ENCRYPTION_KEY"`
+	LLMGatewayLogLevel          string `usage:"Log level for the embedded LLM gateway (debug, info, warn, error)" name:"llm-gateway-log-level" default:"warn" env:"OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL"`
+	LLMGatewayModelDataURL      string `usage:"Where the LLM gateway refreshes model prices and capabilities from, every 6 hours. Set to off to use only the prices bundled with Obot" name:"llm-gateway-model-data-url" default:"https://upgrade-server.obot.ai/v1/model-data" env:"OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL"`
 	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
-	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:d8869222186116d867e54c5c8b33ab0a4c9864e044d333bb190cd29fe0a98d58"`
+	SubstrateRunnerImage        string `usage:"Default digest-pinned Claude runner image for new environments" default:"ghcr.io/obot-platform/obot-claude-runner@sha256:3fc6fde0409805b8878c364bc4f14da9dc7aff54cb2a07094a61a688f6183b72"`
 	SubstrateWorkerImage        string `usage:"Default Substrate worker image for new environments"`
 	SubstrateWorkerNodeSelector string `usage:"JSON node selector applied to all Substrate workers" default:"{\"kubernetes.io/os\":\"linux\"}"`
 	SubstrateWorkerTolerations  string `usage:"JSON tolerations applied to all Substrate workers, e.g. [{\"key\":\"workload\",\"operator\":\"Equal\",\"value\":\"agents\",\"effect\":\"NoSchedule\"}]" default:"[]"`
@@ -187,21 +196,24 @@ type Services struct {
 	MCPSecretBindingAllowedLabel string
 	RegistryNoAuth               bool
 
-	PostgresDSN                 string
-	ProviderRegistryPaths       []string
-	DevUIPort                   int
-	DevMode                     bool
-	UserUIPort                  int
-	GatewayServer               *gserver.Server
-	Bootstrapper                *bootstrap.Bootstrap
-	LocalAuthProvider           *localauth.Provider
+	PostgresDSN           string
+	ProviderRegistryPaths []string
+	DevUIPort             int
+	DevMode               bool
+	UserUIPort            int
+	GatewayServer         *gserver.Server
+	Bootstrapper          *bootstrap.Bootstrap
+	LocalAuthProvider     *localauth.Provider
+	// BifrostEngine is the embedded LLM gateway.
+	BifrostEngine *llmengine.Engine
+	// GuardrailEngine checks LLM gateway traffic and MCP tool calls.
+	GuardrailEngine             *guardrails.Engine
 	AuthEnabled                 bool
 	DefaultMCPCatalogPath       string
 	DefaultSystemMCPCatalogPath string
 	MDMAssetSource              string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
-	ModelInfoSourceURL          string
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -250,7 +262,6 @@ type Services struct {
 	MCPRuntimeBackend                    string
 	MCPImagePullSecrets                  []string
 	MCPHTTPWebhookBaseImage              string
-	MessagePoliciesEnabled               bool
 	MCPNetworkPolicyEnabled              bool
 	MCPDefaultDenyAllEgress              bool
 	Substrate                            *substrate.Client
@@ -943,12 +954,72 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 
-	var msgPolicyHelper *messagepolicy.Helper
-	if config.EnableMessagePolicies {
-		msgPolicyHelper, err = messagepolicy.NewHelper(ctx, r.Backend(), storageClient, providerDispatcher, gatewayClient)
-		if err != nil {
-			return nil, err
+	bifrostEngine := llmengine.New()
+	providerDispatcher.RegisterBuiltinModelProvider(system.DefaultNamespace, system.LLMGatewayModelProvider, bifrostEngine)
+
+	// Message policies are now LLM judge guardrails, evaluated with the message policy judge.
+	judge := messagepolicy.NewHelper(storageClient, bifrostEngine)
+	guardrailEngine := guardrails.New(gatewayClient, judge)
+	go func() {
+		// LLM gateway traffic is governed by budgets rather than the daily token quota, so
+		// carry the configured daily limits over as budgets, once. This runs first so the
+		// profiles the message policy conversion creates, which grant no models, don't get one.
+		migrateDailyTokenLimits(ctx, storageClient, gatewayClient, config.DailyUserInputTokenLimit, config.DailyUserOutputTokenLimit)
+		migrateMessagePolicies(ctx, storageClient, gatewayClient, guardrailEngine)
+	}()
+	{
+		guardrailInput, guardrailOutput := guardrailEngine.Plugins()
+		dataDir := config.LLMGatewayDataDir
+		if dataDir == "" {
+			dataDir = filepath.Join(xdg.DataHome, "obot", "llm-gateway")
 		}
+		// Bootstrapping contacts configured providers to list their models, so it runs in
+		// the background; requests made before it finishes get a 503.
+		go func() {
+			gatewayDSN := config.LLMGatewayPostgresDSN
+			if gatewayDSN == "" && postgresDSN != "" {
+				// Keep the gateway's state in Postgres alongside Obot's so every replica shares
+				// it. There's no fallback to SQLite: with several replicas, each would have its
+				// own providers, keys and routing.
+				derived, err := llmengine.DerivePostgresDSN(ctx, postgresDSN)
+				if err != nil {
+					bifrostEngine.Fail(err)
+					return
+				}
+				gatewayDSN = derived
+			}
+			var sharedKeys llmengine.SharedKeyStore
+			if gatewayDSN != "" {
+				// Every replica shares the stores, so they must share the encryption key.
+				sharedKeys = llmengine.CredentialKeyStore(ctx, gatewayClient)
+			}
+			modelDataURL, err := modeldata.RefreshURL(config.LLMGatewayModelDataURL)
+			if err != nil {
+				bifrostEngine.Fail(err)
+				return
+			}
+			_ = bifrostEngine.Start(ctx, llmengine.Options{
+				DataDir:       dataDir,
+				PostgresDSN:   gatewayDSN,
+				EncryptionKey: config.LLMGatewayEncryptionKey,
+				SharedKeys:    sharedKeys,
+				LogLevel:      config.LLMGatewayLogLevel,
+				ModelDataURL:  modelDataURL,
+				// Guardrails are part of the gateway: it doesn't serve until they're in place.
+				FirstPlugin: guardrailInput,
+				LastPlugin:  guardrailOutput,
+				CurrentRevision: func(ctx context.Context) (int64, error) {
+					return providerconfigurationchange.CurrentLLMGatewayRevision(ctx, storageClient)
+				},
+				// Replicas that start together boot one at a time, and not while another
+				// changes the configuration.
+				WithLock: gatewayClient.WithLLMGatewayLock,
+				ClaudeSubscriptions: func(ctx context.Context) (bool, error) {
+					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
+					return settings.SubscriptionPassthrough, err
+				},
+			})
+		}()
 	}
 
 	apply.AddValidOwnerChange("otto-controller", "obot-controller")
@@ -964,10 +1035,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, msgPolicyHelper, gatewayOpts)
+	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
 	}
+	gatewayServer.SetLLMGateway(bifrostEngine)
 
 	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
 	var localAuthProvider *localauth.Provider
@@ -1178,6 +1250,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AuthEnabled:                  config.EnableAuthentication,
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
+		BifrostEngine:                bifrostEngine,
+		GuardrailEngine:              guardrailEngine,
 
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
 		GitMaxRepoSizeMB:               config.GitMaxRepoSizeMB,
@@ -1185,7 +1259,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
-		ModelInfoSourceURL:             config.ModelInfoSourceURL,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
 		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		ForceDynamicClient:             config.ForceDynamicClient,
@@ -1215,7 +1288,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPHTTPWebhookBaseImage:              config.MCPHTTPWebhookBaseImage,
 		SingleUserIdleServerShutdownInterval: time.Duration(config.SingleUserIdleServerShutdownHours) * time.Hour,
 		MultiUserIdleServerShutdownInterval:  time.Duration(config.MultiUserIdleServerShutdownHours) * time.Hour,
-		MessagePoliciesEnabled:               config.EnableMessagePolicies,
 		MCPNetworkPolicyEnabled:              mcpNetworkPolicyEnabled,
 		MCPDefaultDenyAllEgress:              config.MCPDefaultDenyAllEgress,
 		MCPNetworkPolicyProviderChartRepo:    config.MCPNetworkPolicyProviderChartRepo,
@@ -1365,5 +1437,79 @@ func localK8sCacheByObject(mcpServerNamespace, runtimeNamespace string) map[kcli
 		&corev1.Secret{}: {
 			Namespaces: secretNamespaces,
 		},
+	}
+}
+
+// migrateDailyTokenLimits carries the daily token limits over as a budget on every profile,
+// once. It retries until storage is ready.
+func migrateDailyTokenLimits(ctx context.Context, storageClient kclient.Client, gatewayClient *client.Client, input, output int) {
+	for {
+		err := gatewayClient.CarryOverDailyTokenLimits(ctx, func(ctx context.Context) ([]string, error) {
+			return modelaccesspolicy.EnsureProfiles(ctx, storageClient)
+		}, input, output)
+		if err == nil {
+			return
+		}
+		slog.Warn("failed to carry the daily token limits over as LLM gateway budgets; retrying", "error", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
+	}
+}
+
+// messagePolicyProfile returns the gateway profile a converted message policy's guardrail policy belongs
+// to: the everyone profile if the policy applied to everyone, otherwise a profile named after
+// the policy with its subjects and no models. A policy that applied to no one gets a profile
+// with no subjects, so its guardrail policy still applies to no one if an administrator enables it.
+func messagePolicyProfile(storageClient kclient.Client) guardrails.ProfileFor {
+	return func(ctx context.Context, p guardrails.LegacyPolicy) (string, error) {
+		subjects := p.Manifest.Subjects
+		if modelaccesspolicy.AppliesToEveryone(subjects) {
+			return modelaccesspolicy.EnsureEveryoneProfile(ctx, storageClient)
+		}
+		name := system.ModelAccessPolicyPrefix + "-" + p.ID
+		displayName := p.Manifest.DisplayName
+		if displayName == "" {
+			displayName = p.ID
+		}
+		return name, modelaccesspolicy.EnsureProfile(ctx, storageClient, name, displayName+" (message policy)", subjects)
+	}
+}
+
+// migrateMessagePolicies converts message policies into guardrails, once. MessagePolicy
+// resources are left in place, unenforced, so the conversion can be reviewed.
+func migrateMessagePolicies(ctx context.Context, storageClient kclient.Client, gatewayClient *client.Client, engine *guardrails.Engine) {
+	for {
+		err := gatewayClient.MigrateKinmIfNotRun(ctx, "guardrails_message_policies", func() error {
+			var list v1.MessagePolicyList
+			if err := storageClient.List(ctx, &list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+				return err
+			}
+			policies := make([]guardrails.LegacyPolicy, 0, len(list.Items))
+			for _, p := range list.Items {
+				if p.DeletionTimestamp.IsZero() {
+					policies = append(policies, guardrails.LegacyPolicy{ID: p.Name, Manifest: p.Spec.Manifest})
+				}
+			}
+			if err := guardrails.MigrateMessagePolicies(ctx, gatewayClient, policies, messagePolicyProfile(storageClient)); err != nil {
+				return err
+			}
+			if len(policies) > 0 {
+				slog.Info("converted message policies into guardrails", "count", len(policies))
+			}
+			return nil
+		})
+		if err == nil {
+			engine.Invalidate()
+			return
+		}
+		slog.Warn("failed to convert message policies into guardrails; retrying", "error", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
 	}
 }

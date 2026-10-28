@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/auth"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/localauth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -28,6 +29,8 @@ type LocalAuthHandler struct {
 // Passwords are never returned, in any form.
 type LocalAuthUser struct {
 	types.Metadata
+	// OrgUserID is resolved only through the Local provider identity.
+	OrgUserID             string `json:"orgUserId,omitempty"`
 	Email                 string `json:"email"`
 	RequirePasswordChange bool   `json:"requirePasswordChange"`
 }
@@ -58,9 +61,19 @@ func (h *LocalAuthHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list local auth users: %w", err)
 	}
 
+	orgUserIDs, err := req.GatewayClient.LocalAuthOrgUserIDs(req.Context())
+	if err != nil {
+		return err
+	}
+
 	items := make([]LocalAuthUser, 0, len(users))
 	for _, user := range users {
+		var orgUserID string
+		if id, ok := orgUserIDs[user.ID]; ok {
+			orgUserID = strconv.FormatUint(uint64(id), 10)
+		}
 		items = append(items, LocalAuthUser{
+			OrgUserID:             orgUserID,
 			ID:                    strconv.FormatUint(uint64(user.ID), 10),
 			Created:               *types.NewTime(user.CreatedAt),
 			Email:                 user.Email,
@@ -109,6 +122,10 @@ func (h *LocalAuthHandler) SetPassword(req api.Context) error {
 
 	id, err := localAuthUserID(req)
 	if err != nil {
+		return err
+	}
+
+	if _, err := h.userForMutation(req, id); err != nil {
 		return err
 	}
 
@@ -210,17 +227,9 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	localUser, err := h.provider.GetUser(req.Context(), id)
+	gatewayUser, err := h.userForMutation(req, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
-		}
-		return fmt.Errorf("failed to get local auth user: %w", err)
-	}
-
-	gatewayUser, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, localUser.Email)
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return fmt.Errorf("failed to get user from provider user ID: %w", err)
+		return err
 	}
 
 	if gatewayUser != nil {
@@ -259,6 +268,37 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 	}
 
 	return nil
+}
+
+// userForMutation resolves the Local identity and applies the same role protections as OrgUser deletion.
+// A local account that has never signed in may not have an organization user yet.
+func (h *LocalAuthHandler) userForMutation(req api.Context, id uint) (*gatewaytypes.User, error) {
+	localUser, err := h.provider.GetUser(req.Context(), id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
+		}
+		return nil, fmt.Errorf("failed to get local auth user: %w", err)
+	}
+
+	gatewayUser, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, localUser.Email)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		gatewayUser = nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get user from provider user ID: %w", err)
+	}
+
+	role := req.GatewayClient.HasExplicitRole(localUser.Email)
+	if gatewayUser != nil {
+		role |= gatewayUser.Role
+	}
+	privileged := role.HasRole(types.RoleOwner) || role.HasRole(types.RoleAuditor)
+	if !req.UserIsOwner() && privileged {
+		slog.Info("Denied local auth user mutation", "targetLocalUserID", localUser.ID, "reason", "privileged_user_mutation_requires_owner")
+		return nil, types.NewErrHTTP(http.StatusForbidden, apiMessage(req, "local_privileged_user_requires_owner"))
+	}
+
+	return gatewayUser, nil
 }
 
 func (h *LocalAuthHandler) enabled(req api.Context) error {

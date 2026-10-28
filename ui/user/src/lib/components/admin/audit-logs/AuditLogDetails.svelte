@@ -21,7 +21,6 @@
 			requestID?: string;
 			requestHeaders?: AuditLogHeaders;
 			requestBody?: unknown;
-			policyModifiedRequestBody?: unknown;
 			mutatedRequestBody?: unknown;
 			originalResponseBody?: unknown;
 			responseBody?: unknown;
@@ -106,13 +105,6 @@
 						{@render jsonBody(m.audit_usage_audit_logs_request_body(), auditLog?.requestBody)}
 					{:else if !hasAuditorAccess}
 						{@render noAuditorAccessInfo()}
-					{/if}
-
-					{#if hasBody(auditLog?.policyModifiedRequestBody)}
-						{@render jsonBody(
-							m.audit_usage_audit_logs_policy_modified_request_body(),
-							auditLog?.policyModifiedRequestBody
-						)}
 					{/if}
 
 					{#if hasBody(auditLog?.mutatedRequestBody)}

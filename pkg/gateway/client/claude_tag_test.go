@@ -9,10 +9,16 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
 )
 
 func TestClaudeTagServiceUser(t *testing.T) {
 	c := newTestClient(t)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{credentialGroupResource: testTransformer{}},
+	}
 	ctx := t.Context()
 	environment := &types.ClaudeEnvironment{
 		ID:             "env",
@@ -35,6 +41,40 @@ func TestClaudeTagServiceUser(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, user.ID, key.UserID)
 	require.Equal(t, []string{"vmcp_test"}, key.MCPServerIDs)
+
+	// An active session can renew after retention cleanup removes its expired key.
+	require.NoError(t, c.db.WithContext(ctx).Model(key).Update("expires_at", time.Now().Add(-time.Minute)).Error)
+	require.NoError(t, c.cleanupRetainedData(ctx, time.Now(), 0, 0))
+	_, err = c.ValidateAPIKey(ctx, credential.Secrets["key"])
+	require.ErrorIs(t, err, ErrInvalidAPIKey)
+	credential, err = c.EnsureClaudeCredential(ctx, user.ID, "tag-session", []string{"vmcp_test"}, time.Now().Add(time.Hour))
+	require.NoError(t, err)
+	renewed, err := c.ValidateAPIKey(ctx, credential.Secrets["key"])
+	require.NoError(t, err)
+	require.NotEqual(t, key.ID, renewed.ID)
+	require.EqualValues(t, 1, countAPIKeys(t, c))
+	// Keep only the referenced revocation marker, including beyond normal retention.
+	credential, err = c.EnsureClaudeCredential(ctx, user.ID, "tag-session", []string{"vmcp_changed"}, time.Now().Add(time.Hour))
+	require.NoError(t, err)
+	current, err := c.ValidateAPIKey(ctx, credential.Secrets["key"])
+	require.NoError(t, err)
+	require.NoError(t, c.RevokeAPIKeyByID(ctx, current.ID))
+	require.NoError(t, c.db.WithContext(ctx).Model(&types.APIKey{}).
+		Where("id IN ?", []uint{renewed.ID, current.ID}).Update("expires_at", time.Now().Add(-time.Minute)).Error)
+	c.auditLogDeleteBatchSize = 1
+	require.NoError(t, c.db.WithContext(ctx).Create(&types.APIKey{
+		ClaudeEnvironment: true,
+		ExpiresAt:         new(time.Now().Add(-time.Minute)),
+	}).Error)
+	require.NoError(t, c.cleanupRetainedData(ctx, time.Now(), 0, 0))
+	require.EqualValues(t, 1, countAPIKeys(t, c))
+	require.NoError(t, c.deleteOldRevokedAPIKeys(ctx, time.Now().AddDate(0, 0, 100), 90))
+	_, err = c.EnsureClaudeCredential(ctx, user.ID, "tag-session", []string{"vmcp_changed"}, time.Now().Add(time.Hour))
+	require.ErrorIs(t, err, ErrClaudeCredentialRevoked)
+	_, err = c.DeleteCredential(ctx, "substrate-agent", "tag-session")
+	require.NoError(t, err)
+	require.NoError(t, c.cleanupRetainedData(ctx, time.Now(), 0, 0))
+	require.EqualValues(t, 0, countAPIKeys(t, c))
 	info, err := c.UserInfoByID(ctx, user.ID)
 	require.NoError(t, err)
 	require.NotContains(t, info.GetGroups(), api.GroupAdmin)

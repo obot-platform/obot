@@ -29,7 +29,7 @@ type testerAuditReader struct {
 }
 
 // NewTesterAudit reuses gateway audit capture and persistence without invoking
-// gateway dispatch, token metering, or message policies. Caller identity comes
+// gateway dispatch, token metering, budgets or guardrails. Caller identity comes
 // from the inbound request and is never attached to the external request.
 func NewTesterAudit(c *client.Client, inbound *http.Request, user user.Info, body []byte) *TesterAudit {
 	if !c.LLMAuditLogEnabled() {

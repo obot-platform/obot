@@ -157,6 +157,17 @@ func refreshEnvironmentCredentials(req api.Context, environment *gt.ClaudeEnviro
 		if instance.Spec.ClaudeEnvironment != environment.ID || instance.Spec.ClaudeDone || instance.DeletionTimestamp != nil {
 			continue
 		}
+		effective, err := clauderunner.AuthorizedEnvironment(req.Context(), req.GatewayClient, instance.Spec.ClaudeEnvironment, instance.Spec.ClaudeAccount, instance.Spec.UserID)
+		if clauderunner.AccessDenied(err) {
+			// Revoke the LLM key too, including for sessions that never had MCP tools.
+			if err := revokeClaudeKey(req, instance.Name); err != nil {
+				return err
+			}
+			continue
+		}
+		if err != nil {
+			return err
+		}
 		credential, err := req.GatewayClient.RevealCredential(req.Context(), []string{"substrate-agent"}, instance.Name)
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			continue
@@ -169,26 +180,23 @@ func refreshEnvironmentCredentials(req api.Context, environment *gt.ClaudeEnviro
 			return err
 		}
 		key, err := req.GatewayClient.GetAPIKeyByID(req.Context(), uint(keyID))
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Expired keys may already be deleted; renewal checks the current grants.
+			continue
+		}
 		if err != nil {
 			return err
 		}
 		if key.RevokedAt != nil {
 			continue
 		}
-		effective, err := clauderunner.AuthorizedEnvironment(req.Context(), req.GatewayClient, instance.Spec.ClaudeEnvironment, instance.Spec.ClaudeAccount, instance.Spec.UserID)
-		denied := clauderunner.AccessDenied(err)
-		if err != nil && !denied {
-			return err
-		}
-		if denied || len(effective.MCPServerIDs) == 0 {
-			if err := revokeClaudeKey(req, instance.Name); err != nil {
+		if len(effective.MCPServerIDs) == 0 {
+			// No tools are available now; a future grant may issue a new scoped key.
+			if err := req.GatewayClient.RevokeClaudeCredential(req.Context(), "substrate-agent", instance.Name); err != nil {
 				return err
 			}
-			if !denied {
-				// No tools are available now; a future grant may issue a new scoped key.
-				if _, err := req.GatewayClient.DeleteCredential(req.Context(), "substrate-agent", instance.Name); err != nil {
-					return err
-				}
+			if _, err := req.GatewayClient.DeleteCredential(req.Context(), "substrate-agent", instance.Name); err != nil {
+				return err
 			}
 		} else if key.ExpiresAt != nil && key.ExpiresAt.After(time.Now()) {
 			if _, err := req.GatewayClient.EnsureClaudeCredential(req.Context(), key.UserID, instance.Name, effective.MCPServerIDs, *key.ExpiresAt); err != nil {
@@ -222,8 +230,10 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 			environment.Profiles = append(environment.Profiles, gt.ClaudeEnvironmentProfile{Name: profile.Name, Subjects: profile.Subjects})
 		}
 	}
-	clauderunner.DefaultRuntime(&environment.Runtime, h.Substrate.Config.WorkerImage, h.Substrate.Config.RunnerImage)
-	if err := clauderunner.ValidateRuntime(environment.Runtime); err != nil {
+	environment.Runtime.Image = strings.TrimSpace(environment.Runtime.Image)
+	environment.Runtime.WorkerImage = strings.TrimSpace(environment.Runtime.WorkerImage)
+	clauderunner.DefaultRuntime(&environment.Runtime)
+	if err := clauderunner.ValidateRuntime(clauderunner.WithDefaultImages(environment.Runtime, h.Substrate.Config.WorkerImage, h.Substrate.Config.RunnerImage)); err != nil {
 		return types.NewErrBadRequest("%s", err)
 	}
 	egressHosts := slices.Clone(environment.Runtime.EgressHosts)

@@ -111,7 +111,7 @@ The Local provider is configured automatically. Bootstrap-token login is disable
 ## Next Steps
 
 1. **Configure Authentication**: Set up [auth providers](../security/authentication.md) for secure access
-2. **Configure Model Providers**: Configure [model providers](../configuration/model-providers.md) (OpenAI, Anthropic, etc.)
+2. **Add LLM Providers**: Add providers (OpenAI, Anthropic, etc.) under **LLM Gateway** → **Providers**. See [Configure providers and models](../configuration/model-providers.md).
 3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md) for extended functionality
 
 ## Related Documentation

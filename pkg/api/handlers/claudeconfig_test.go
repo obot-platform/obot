@@ -7,16 +7,21 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/clauderunner"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -69,14 +74,106 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 			require.Len(t, environment.Profiles, tc.wantProfiles)
 			require.Equal(t, "1", environment.Runtime.Resources.ActorCPU)
 			require.Equal(t, "2Gi", environment.Runtime.Resources.ActorMemory)
-			gateway := newHandlerTestGateway(t)
+			gateway, db := newHandlerTestGatewayWithDB(t)
 			require.NoError(t, gateway.SaveClaudeEnvironment(t.Context(), &environment, nil))
 			stored, err := gateway.ClaudeEnvironment(t.Context(), environment.ID)
 			require.NoError(t, err)
 			require.Equal(t, environment.Runtime, stored.Runtime)
 			require.Equal(t, environment.Profiles, stored.Profiles)
+
+			// A cleaned-up key must not prevent refreshing the following session.
+			var instances []kclient.Object
+			var activeKey gt.APIKey
+			for _, name := range []string{"a-expired", "z-active"} {
+				key := gt.APIKey{
+					UserID:            123,
+					ClaudeEnvironment: true,
+					ExpiresAt:         new(time.Now().Add(24 * time.Hour)),
+				}
+				require.NoError(t, db.Create(&key).Error)
+				require.NoError(t, gateway.SaveClaudeWorkOrder(t.Context(), gt.Credential{
+					Context: "substrate-agent",
+					Name:    name,
+					Secrets: map[string]string{"keyID": fmt.Sprint(key.ID)},
+				}))
+				instances = append(instances, &v1.AgentInstance{
+					Name:      name,
+					Namespace: "default",
+					Spec: v1.AgentInstanceSpec{
+						ClaudeEnvironment: environment.ID,
+						ClaudeAccount:     "removed-account",
+						UserID:            "123",
+					},
+				})
+				if name == "a-expired" {
+					require.NoError(t, db.Delete(&key).Error)
+				} else {
+					activeKey = key
+				}
+			}
+			llmKey := gt.APIKey{
+				UserID:            123,
+				ClaudeEnvironment: true,
+				ExpiresAt:         new(time.Now().Add(24 * time.Hour)),
+			}
+			require.NoError(t, db.Create(&llmKey).Error)
+			require.NoError(t, gateway.SaveClaudeWorkOrder(t.Context(), gt.Credential{
+				Context: gclient.ClaudeLLMCredentialContext,
+				Name:    "z-active",
+				Secrets: map[string]string{"keyID": fmt.Sprint(llmKey.ID)},
+			}))
+			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(instances...).Build()
+			require.NoError(t, refreshEnvironmentCredentials(api.Context{
+				Request:       httptest.NewRequest(http.MethodPut, "/", nil),
+				GatewayClient: gateway,
+				Storage:       storage,
+			}, &environment))
+			refreshed, err := gateway.GetAPIKeyByID(t.Context(), activeKey.ID)
+			require.NoError(t, err)
+			require.NotNil(t, refreshed.RevokedAt)
+			refreshed, err = gateway.GetAPIKeyByID(t.Context(), llmKey.ID)
+			require.NoError(t, err)
+			require.NotNil(t, refreshed.RevokedAt, "losing environment access revokes the LLM key")
 		})
 	}
+}
+
+func TestEnvironmentRefreshKeepsLLMKeyWithoutMCPGrants(t *testing.T) {
+	gateway, _ := newHandlerTestGatewayWithDB(t)
+	ctx := t.Context()
+	environment := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, environment, nil))
+	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, environment))
+	environment.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: environment.ClaudeTagUserID}}}}
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, environment, nil))
+	userID, err := strconv.ParseUint(environment.ClaudeTagUserID, 10, 64)
+	require.NoError(t, err)
+	mcp, err := gateway.EnsureClaudeCredential(ctx, uint(userID), "acr-test", []string{"vmcp_removed"}, time.Now().Add(24*time.Hour))
+	require.NoError(t, err)
+	llm, err := gateway.EnsureClaudeLLMCredential(ctx, uint(userID), "acr-test", time.Now().Add(24*time.Hour))
+	require.NoError(t, err)
+
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.AgentInstance{
+		Name:      "acr-test",
+		Namespace: "default",
+		Spec: v1.AgentInstanceSpec{
+			ClaudeEnvironment: environment.ID,
+			ClaudeAccount:     clauderunner.ClaudeTagAccount,
+			UserID:            environment.ClaudeTagUserID,
+		},
+	}).Build()
+	require.NoError(t, refreshEnvironmentCredentials(api.Context{
+		Request:       httptest.NewRequest(http.MethodPut, "/", nil),
+		GatewayClient: gateway,
+		Storage:       storage,
+	}, environment))
+
+	_, err = gateway.ValidateAPIKey(ctx, mcp.Secrets["key"])
+	require.ErrorIs(t, err, gclient.ErrInvalidAPIKey)
+	_, err = gateway.RevealCredential(ctx, []string{"substrate-agent"}, "acr-test")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound, "a future MCP grant can issue a new key")
+	_, err = gateway.ValidateAPIKey(ctx, llm.Secrets["key"])
+	require.NoError(t, err, "MCP grant changes must not revoke LLM access")
 }
 
 func TestEnvironmentIgnoresWorkerSchedulingOverrides(t *testing.T) {

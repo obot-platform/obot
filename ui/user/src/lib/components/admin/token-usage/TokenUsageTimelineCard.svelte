@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Select from '$lib/components/Select.svelte';
+	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -182,105 +183,139 @@
 		}
 		internalGroupBy = nextGroupBy as TokenGroupBy;
 	}
+
+	const btnClasses =
+		'btn btn-secondary bg-base-300 dark:bg-base-400 dark:hover:bg-base-400 border-base-300 dark:border-base-400 border text-xs';
+	const btnInactiveClasses =
+		'bg-base-100 dark:bg-base-200 hover:bg-base-400 dark:hover:bg-base-300';
 </script>
 
-<div class={twMerge('paper w-full gap-0 pt-4', className)}>
-	<div class="mb-1 flex flex-wrap justify-between gap-2">
-		<div class="flex flex-wrap items-center gap-4">
-			<h4 class="flex items-center gap-2 font-semibold">
-				{m.audit_usage_usage_tokens_title()}
-				{#if loading}
-					<Loading class="size-4 animate-spin" />
-				{/if}
-			</h4>
-
-			{#if !responsive.isMobile}
-				<div class="flex shrink-0">
-					<button
-						class={twMerge(
-							'btn btn-secondary bg-base-300 dark:hover:bg-base-400 border-base-300 rounded-r-none! border border-r-0 text-xs',
-							selectedTokenType !== TOKEN_TYPE.INPUT &&
-								'bg-base-100 dark:bg-base-200 hover:bg-base-400 '
-						)}
-						onclick={() => handleTokenTypeChange(TOKEN_TYPE.INPUT)}
-					>
-						{m.audit_usage_usage_tokens_input_tokens()}
-					</button>
-					<button
-						class={twMerge(
-							'btn btn-secondary bg-base-300 dark:hover:bg-base-400 border-base-300 rounded-none! border border-r-0 text-xs',
-							selectedTokenType !== TOKEN_TYPE.OUTPUT &&
-								'bg-base-100 dark:bg-base-200 hover:bg-base-400'
-						)}
-						onclick={() => handleTokenTypeChange(TOKEN_TYPE.OUTPUT)}
-					>
-						{m.audit_usage_usage_tokens_output_tokens()}
-					</button>
-					<button
-						class={twMerge(
-							'btn btn-secondary bg-base-300 dark:hover:bg-base-400 border-base-300 rounded-l-none! border text-xs',
-							selectedTokenType !== TOKEN_TYPE.SPEND &&
-								'bg-base-100 dark:bg-base-200 hover:bg-base-400'
-						)}
-						onclick={() => handleTokenTypeChange(TOKEN_TYPE.SPEND)}
-					>
-						{m.core_spend()}
-					</button>
-				</div>
+<div class={twMerge('paper w-full gap-0 p-0', className)}>
+	<GraphTitle title={m.audit_usage_usage_tokens_title()} element="h4">
+		{#snippet rightContent()}
+			{#if loading}
+				<Loading class="size-4 animate-spin" />
 			{/if}
-		</div>
-		{#if responsive.isMobile}
+		{/snippet}
+	</GraphTitle>
+	<div class="flex flex-col gap-2 p-4">
+		<div class="mb-1 flex flex-wrap justify-between gap-2">
+			<div class="flex flex-wrap items-center gap-4">
+				{#if !responsive.isMobile}
+					<div class="flex shrink-0">
+						<button
+							class={twMerge(
+								btnClasses,
+								'rounded-r-none! border-r-0',
+								selectedTokenType !== TOKEN_TYPE.INPUT && btnInactiveClasses
+							)}
+							onclick={() => handleTokenTypeChange(TOKEN_TYPE.INPUT)}
+						>
+							{m.audit_usage_usage_tokens_input_tokens()}
+						</button>
+						<button
+							class={twMerge(
+								btnClasses,
+								'rounded-none! border-r-0',
+								selectedTokenType !== TOKEN_TYPE.OUTPUT && btnInactiveClasses
+							)}
+							onclick={() => handleTokenTypeChange(TOKEN_TYPE.OUTPUT)}
+						>
+							{m.audit_usage_usage_tokens_output_tokens()}
+						</button>
+						<button
+							class={twMerge(
+								btnClasses,
+								'rounded-l-none!',
+								selectedTokenType !== TOKEN_TYPE.SPEND && btnInactiveClasses
+							)}
+							onclick={() => handleTokenTypeChange(TOKEN_TYPE.SPEND)}
+						>
+							{m.core_spend()}
+						</button>
+					</div>
+				{/if}
+			</div>
+			{#if responsive.isMobile}
+				<Select
+					class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-full border border-transparent shadow-inner md:w-64"
+					classes={{
+						root: 'w-full md:w-64'
+					}}
+					options={TOKEN_TYPE_OPTIONS}
+					selected={selectedTokenType}
+					onSelect={(option) => handleTokenTypeChange(option.id as TokenType)}
+				/>
+			{/if}
 			<Select
 				class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-full border border-transparent shadow-inner md:w-64"
 				classes={{
 					root: 'w-full md:w-64'
 				}}
-				options={TOKEN_TYPE_OPTIONS}
-				selected={selectedTokenType}
-				onSelect={(option) => handleTokenTypeChange(option.id as TokenType)}
+				options={TOKEN_GROUP_BY_OPTIONS}
+				selected={groupBy ?? DEFAULT_TOKEN_GROUP_BY}
+				onSelect={(option) => handleGroupByChange(option.id)}
 			/>
-		{/if}
-		<Select
-			class="bg-base-300 dark:bg-base-100 dark:border-base-400 w-full border border-transparent shadow-inner md:w-64"
-			classes={{
-				root: 'w-full md:w-64'
-			}}
-			options={TOKEN_GROUP_BY_OPTIONS}
-			selected={groupBy ?? DEFAULT_TOKEN_GROUP_BY}
-			onSelect={(option) => handleGroupByChange(option.id)}
-		/>
-	</div>
-	<div class="w-full pt-2">
-		{#key `${groupBy}-${selectedTokenType}`}
-			<StackedTimeline
-				start={startDate}
-				end={endDate}
-				data={mainChartData}
-				dateKey="date"
-				{primaryValueKey}
-				{tooltipValueKeys}
-				categoryKey="category"
-				class="h-96"
-				legend={{
-					showSecondaryLabel: false,
-					primaryLabel: groupBy === TOKEN_GROUP_BY.DEFAULT ? primaryLabel : '',
-					hideCategoryLabel: groupBy === TOKEN_GROUP_BY.DEFAULT && !usesSpendBuckets
-				}}
-			>
-				{#snippet tooltipContent(item)}
-					{@const value = item.primaryTotal ?? 0}
-					<div class="flex flex-col gap-0 text-xs">
-						<div class="text-sm font-light">{item.key}</div>
-						<div class="text-muted-content">{item.date}</div>
-						<div class="tooltip-divider"></div>
-					</div>
-					<div class="flex flex-col gap-1">
-						<div class="text-base-content flex flex-col">
-							{#if selectedTokenType === TOKEN_TYPE.SPEND}
-								<div class="text-xl font-bold">{formatTokenUsageUSD(value)}</div>
-								{#if usesSpendBuckets}
-									{#if item.key === USAGE_BUCKET_LABEL.INPUT}
+		</div>
+		<div class="w-full pt-2">
+			{#key `${groupBy}-${selectedTokenType}`}
+				<StackedTimeline
+					start={startDate}
+					end={endDate}
+					data={mainChartData}
+					dateKey="date"
+					{primaryValueKey}
+					{tooltipValueKeys}
+					categoryKey="category"
+					class="h-96"
+					legend={{
+						showSecondaryLabel: false,
+						primaryLabel: groupBy === TOKEN_GROUP_BY.DEFAULT ? primaryLabel : '',
+						hideCategoryLabel: groupBy === TOKEN_GROUP_BY.DEFAULT && !usesSpendBuckets
+					}}
+				>
+					{#snippet tooltipContent(item)}
+						{@const value = item.primaryTotal ?? 0}
+						<div class="flex flex-col gap-0 text-xs">
+							<div class="text-sm font-light">{item.key}</div>
+							<div class="text-muted-content">{item.date}</div>
+							<div class="tooltip-divider"></div>
+						</div>
+						<div class="flex flex-col gap-1">
+							<div class="text-base-content flex flex-col">
+								{#if selectedTokenType === TOKEN_TYPE.SPEND}
+									<div class="text-xl font-bold">{formatTokenUsageUSD(value)}</div>
+									{#if usesSpendBuckets}
+										{#if item.key === USAGE_BUCKET_LABEL.INPUT}
+											<div class="text-muted-content mt-1 text-xs">
+												{m.audit_usage_usage_tokens_tooltip_cache_read({
+													value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
+												})}
+											</div>
+											<div class="text-muted-content text-xs">
+												{m.audit_usage_usage_tokens_tooltip_cache_write({
+													value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
+												})}
+											</div>
+										{:else if item.key === USAGE_BUCKET_LABEL.OUTPUT && (item.details?.thinkingTokens ?? 0) > 0}
+											<div class="text-muted-content mt-1 text-xs">
+												{m.audit_usage_usage_tokens_tooltip_thinking({
+													count: (item.details?.thinkingTokens ?? 0).toLocaleString()
+												})}
+											</div>
+										{/if}
+									{:else}
 										<div class="text-muted-content mt-1 text-xs">
+											{m.audit_usage_usage_tokens_tooltip_input({
+												value: formatTokenUsageUSD(item.details?.inputSpend ?? 0)
+											})}
+										</div>
+										<div class="text-muted-content text-xs">
+											{m.audit_usage_usage_tokens_tooltip_output({
+												value: formatTokenUsageUSD(item.details?.outputSpend ?? 0)
+											})}
+										</div>
+										<div class="text-muted-content text-xs">
 											{m.audit_usage_usage_tokens_tooltip_cache_read({
 												value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
 											})}
@@ -290,67 +325,40 @@
 												value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
 											})}
 										</div>
-									{:else if item.key === USAGE_BUCKET_LABEL.OUTPUT && (item.details?.thinkingTokens ?? 0) > 0}
+									{/if}
+								{:else}
+									{@const spend =
+										selectedTokenType === TOKEN_TYPE.INPUT
+											? (item.details?.inputSpend ?? 0)
+											: (item.details?.outputSpend ?? 0)}
+									<div class="text-xl font-bold">{value.toLocaleString()}</div>
+									<div class="text-muted-content text-xs">{formatTokenUsageUSD(spend)}</div>
+									{#if selectedTokenType === TOKEN_TYPE.INPUT}
+										<div class="text-muted-content mt-1 text-xs">
+											{m.audit_usage_usage_tokens_tooltip_cache_read_tokens({
+												count: (item.details?.cacheReadTokens ?? 0).toLocaleString(),
+												value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
+											})}
+										</div>
+										<div class="text-muted-content text-xs">
+											{m.audit_usage_usage_tokens_tooltip_cache_write_tokens({
+												count: (item.details?.cacheWriteTokens ?? 0).toLocaleString(),
+												value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
+											})}
+										</div>
+									{:else if (item.details?.thinkingTokens ?? 0) > 0}
 										<div class="text-muted-content mt-1 text-xs">
 											{m.audit_usage_usage_tokens_tooltip_thinking({
 												count: (item.details?.thinkingTokens ?? 0).toLocaleString()
 											})}
 										</div>
 									{/if}
-								{:else}
-									<div class="text-muted-content mt-1 text-xs">
-										{m.audit_usage_usage_tokens_tooltip_input({
-											value: formatTokenUsageUSD(item.details?.inputSpend ?? 0)
-										})}
-									</div>
-									<div class="text-muted-content text-xs">
-										{m.audit_usage_usage_tokens_tooltip_output({
-											value: formatTokenUsageUSD(item.details?.outputSpend ?? 0)
-										})}
-									</div>
-									<div class="text-muted-content text-xs">
-										{m.audit_usage_usage_tokens_tooltip_cache_read({
-											value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
-										})}
-									</div>
-									<div class="text-muted-content text-xs">
-										{m.audit_usage_usage_tokens_tooltip_cache_write({
-											value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
-										})}
-									</div>
 								{/if}
-							{:else}
-								{@const spend =
-									selectedTokenType === TOKEN_TYPE.INPUT
-										? (item.details?.inputSpend ?? 0)
-										: (item.details?.outputSpend ?? 0)}
-								<div class="text-xl font-bold">{value.toLocaleString()}</div>
-								<div class="text-muted-content text-xs">{formatTokenUsageUSD(spend)}</div>
-								{#if selectedTokenType === TOKEN_TYPE.INPUT}
-									<div class="text-muted-content mt-1 text-xs">
-										{m.audit_usage_usage_tokens_tooltip_cache_read_tokens({
-											count: (item.details?.cacheReadTokens ?? 0).toLocaleString(),
-											value: formatTokenUsageUSD(item.details?.cacheReadSpend ?? 0)
-										})}
-									</div>
-									<div class="text-muted-content text-xs">
-										{m.audit_usage_usage_tokens_tooltip_cache_write_tokens({
-											count: (item.details?.cacheWriteTokens ?? 0).toLocaleString(),
-											value: formatTokenUsageUSD(item.details?.cacheWriteSpend ?? 0)
-										})}
-									</div>
-								{:else if (item.details?.thinkingTokens ?? 0) > 0}
-									<div class="text-muted-content mt-1 text-xs">
-										{m.audit_usage_usage_tokens_tooltip_thinking({
-											count: (item.details?.thinkingTokens ?? 0).toLocaleString()
-										})}
-									</div>
-								{/if}
-							{/if}
+							</div>
 						</div>
-					</div>
-				{/snippet}
-			</StackedTimeline>
-		{/key}
+					{/snippet}
+				</StackedTimeline>
+			{/key}
+		</div>
 	</div>
 </div>

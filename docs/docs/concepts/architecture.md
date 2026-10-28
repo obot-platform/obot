@@ -82,7 +82,7 @@ Clients using an existing Obot token or MCP API key begin with authenticated req
 
 ## Data Persistence
 
-- **Database**: Postgres stores configuration, metadata, and audit data. In production, host it independently of the Obot deployment.
+- **Database**: Postgres stores configuration, metadata, and audit data. In production, host it independently of the Obot deployment. The LLM gateway keeps its configuration in a separate `<database>_llm_gateway` database on the same Postgres server.
 
 ## Encryption
 
@@ -90,4 +90,4 @@ Application-level encryption is disabled by default. When configured, an encrypt
 
 ## LLMs
 
-Obot supports multiple model providers, available in every edition without registration or a license key. Configure upstream credentials and models for your organization. See [Model Providers](../configuration/model-providers.md).
+Obot reaches models through its built-in [LLM Gateway](../llm-gateway/how-it-works.md), which supports many providers in every edition, without registration or a license key. Administrators add providers and their credentials under **LLM Gateway** → **Providers**. See [Configure providers and models](../configuration/model-providers.md).

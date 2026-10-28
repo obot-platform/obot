@@ -2,11 +2,15 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { m } from '$lib/i18n';
-	import { type OrgGroup, type OrgUser } from '$lib/services';
-	import { doGet, doPut } from '$lib/services/http';
+	import {
+		UserService,
+		type OrgGroup,
+		type OrgUser,
+		type ClaudeEnvironment,
+		type EnvironmentProfile
+	} from '$lib/services';
 	import { success } from '$lib/stores/success';
 	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
-	import type { ClaudeConfig, ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { Plus, Trash2, UsersRound } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -90,10 +94,10 @@
 		saving = true;
 		error = '';
 		try {
-			const latest = (await doGet('/claude-environments')) as ClaudeConfig;
+			const latest = await UserService.getClaudeConfig();
 			const current = latest.environments?.find((item) => item.id === environment.id);
 			if (!current) throw new Error(m.hosted_agents_env_not_found());
-			await doPut(`/claude-environments/${current.id}`, {
+			await UserService.updateClaudeEnvironment(current.id, {
 				...structuredClone(current),
 				organizationID: undefined,
 				environmentID: undefined,

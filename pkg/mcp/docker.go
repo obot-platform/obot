@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -80,11 +81,12 @@ func newDockerBackend(ctx context.Context, authEnabled bool, exposedPort int, op
 	}
 
 	d := &dockerBackend{
-		client:                 cli,
-		containerEnv:           containerEnv,
-		network:                network,
-		httpListenPort:         exposedPort,
-		hostBaseURLWithPort:    "http://" + fmt.Sprintf("%s:%d", host, exposedPort),
+		client:         cli,
+		containerEnv:   containerEnv,
+		network:        network,
+		httpListenPort: exposedPort,
+		// JoinHostPort brackets an IPv6 address, which the local IP can be on an IPv6-only host.
+		hostBaseURLWithPort:    "http://" + net.JoinHostPort(host, strconv.Itoa(exposedPort)),
 		containerizedBaseImage: opts.MCPBaseImage,
 		openAPIImage:           opts.MCPOpenAPIImage,
 		validationOptions:      validationOptions,
@@ -148,19 +150,78 @@ func detectContainerCurrentNetworkIP(ctx context.Context, cli *client.Client) (s
 
 // detectCurrentLocalIP detects the local IP.
 func detectCurrentLocalIP() (string, error) {
-	// Use UDP dial to determine the source IP address that would be used to reach an external IP.
-	// This is equivalent to `ip route get 1.1.1.1` on Linux.
-	// No actual connection is made since UDP is connectionless.
-	conn, err := net.Dial("udp", "1.1.1.1:80")
-	if err != nil {
-		return "", fmt.Errorf("failed to determine local IP: %w", err)
+	return localIP(func() (net.Conn, error) {
+		// Use UDP dial to determine the source IP address that would be used to reach an
+		// external IP. This is equivalent to `ip route get 1.1.1.1` on Linux. No actual
+		// connection is made since UDP is connectionless.
+		return net.Dial("udp", "1.1.1.1:80")
+	}, upInterfaceAddrs), nil
+}
+
+// localIP returns the address Obot would reach the outside from, given a way to dial out and
+// the addresses of the network interfaces that are up.
+func localIP(dial func() (net.Conn, error), interfaceAddrs func() ([]net.Addr, error)) string {
+	conn, err := dial()
+	if err == nil {
+		defer conn.Close()
+		if addr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+			return addr.IP.String()
+		}
 	}
-	defer conn.Close()
+	// Without a default route (e.g. an air-gapped host whose traffic goes through a proxy),
+	// fall back to the first non-loopback interface address.
+	if ip := firstInterfaceIP(interfaceAddrs); ip != "" {
+		return ip
+	}
+	// Without any network, as in a container started with --network none, only the loopback
+	// address is left. Obot still starts; MCP servers it runs in Docker can't reach it then.
+	slog.Warn("no network interface besides loopback; MCP servers run in Docker won't be able to reach Obot", "error", err)
+	return "127.0.0.1"
+}
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	ip := localAddr.IP.String()
+// upInterfaceAddrs returns the addresses of the network interfaces that are up and aren't
+// loopback interfaces.
+func upInterfaceAddrs() ([]net.Addr, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+	var addrs []net.Addr
+	for _, iface := range interfaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		ifaceAddrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		addrs = append(addrs, ifaceAddrs...)
+	}
+	return addrs, nil
+}
 
-	return ip, nil
+// firstInterfaceIP returns the first non-loopback IPv4 address interfaceAddrs returns, or
+// the first such IPv6 address when there is no IPv4 one. Obot passes the addresses of the
+// interfaces that are up.
+func firstInterfaceIP(interfaceAddrs func() ([]net.Addr, error)) string {
+	addrs, err := interfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	var v6 string
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok || ipNet.IP.IsLoopback() || ipNet.IP.IsLinkLocalUnicast() || ipNet.IP.IsUnspecified() {
+			continue
+		}
+		if ipNet.IP.To4() != nil {
+			return ipNet.IP.String()
+		}
+		if v6 == "" {
+			v6 = ipNet.IP.String()
+		}
+	}
+	return v6
 }
 
 func (d *dockerBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string) {
@@ -1334,12 +1395,12 @@ func (d *dockerBackend) createVolumeWithFiles(ctx context.Context, files []File,
 	return volumeName, envVars, nil
 }
 
-// runInitContainer pulls alpine:latest (if not present), runs a one-shot sh -c container
+// runInitContainer pulls the configured MCP base image (if not present), runs a one-shot sh -c container
 // with the given script and mounts, waits for it to exit, and returns any error. When files is
 // not nil, initFilesDir is created in the container with those files before it starts, so their
 // contents never pass through the script or the container's arguments.
 func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script string, files map[string]string, mounts []mount.Mount) error {
-	initImage := "alpine:latest"
+	initImage := d.containerizedBaseImage
 	if err := d.pullImage(ctx, initImage, true); err != nil {
 		return fmt.Errorf("failed to ensure init image exists: %w", err)
 	}
@@ -1354,6 +1415,7 @@ func (d *dockerBackend) runInitContainer(ctx context.Context, namePrefix, script
 	resp, err := d.client.ContainerCreate(ctx,
 		&container.Config{
 			Image:      initImage,
+			User:       "0", // Setup must write to volumes even when the base image defaults to a non-root user.
 			Entrypoint: []string{"sh", "-c"},
 			Cmd:        []string{script},
 		},

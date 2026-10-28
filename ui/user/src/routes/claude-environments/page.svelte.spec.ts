@@ -6,14 +6,35 @@ import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import Sessions from './+page.svelte';
 import { http, HttpResponse } from 'msw';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cleanup, render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
+vi.mock('$app/navigation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/navigation')>();
+	return { ...actual, goto: vi.fn(), replaceState: vi.fn() };
+});
+
+const sessionUrlKeys = [
+	'view',
+	'environment',
+	'sort',
+	'sortDirection',
+	'query',
+	'status',
+	'user',
+	'variant',
+	'showMySessionsOnly'
+];
+
+beforeEach(() => {
+	for (const key of sessionUrlKeys) appPage.url.searchParams.delete(key);
+});
+
 afterEach(() => {
 	cleanup();
-	appPage.url.searchParams.delete('view');
-	appPage.url.searchParams.delete('environment');
+	vi.restoreAllMocks();
+	for (const key of sessionUrlKeys) appPage.url.searchParams.delete(key);
 });
 
 it('shows session status and confirms workspace deletion', async () => {
@@ -70,14 +91,14 @@ it('shows session status and confirms workspace deletion', async () => {
 		.element(page.getByRole('link', { name: 'Open Slack thread' }))
 		.toHaveAttribute('href', 'https://acorn-io.slack.com/archives/C123/p123?thread_ts=1.23');
 	await expect
-		.element(page.getByRole('listitem').getByText('Last used', { exact: true }))
+		.element(page.getByRole('listitem').getByText('Last used:', { exact: true }))
 		.toBeVisible();
-	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
+	await expect.element(page.getByCSS('time')).toHaveAttribute('datetime', '2026-01-01T12:00:00Z');
 	await expect
 		.element(page.getByText('https://github.com/obot-platform/obot', { exact: false }))
 		.toBeVisible();
 	await expect.element(page.getByText('main', { exact: true })).toBeVisible();
-	await page.getByRole('button', { name: 'Delete workspace', exact: true }).click();
+	await page.getByRole('button', { name: 'Delete session', exact: true }).click();
 	await expect
 		.element(
 			page.getByText(
@@ -86,7 +107,7 @@ it('shows session status and confirms workspace deletion', async () => {
 		)
 		.toBeVisible();
 	expect(removed).not.toHaveBeenCalled();
-	await page.getByRole('button', { name: 'Delete workspace', exact: true }).last().click();
+	await page.getByRole('button', { name: 'Delete session', exact: true }).last().click();
 	await vi.waitFor(() => expect(removed).toHaveBeenCalledTimes(1));
 	await expect
 		.element(
@@ -150,9 +171,9 @@ it('shows all sessions with owner attribution', async () => {
 		.toBeVisible();
 	await expect.element(page.getByText('v0.3.0', { exact: true })).toBeVisible();
 	await expect
-		.element(page.getByRole('listitem').getByText('Last used', { exact: true }))
+		.element(page.getByRole('listitem').getByText('Last used:', { exact: true }))
 		.toBeVisible();
-	expect(document.querySelector('time')?.getAttribute('datetime')).toBe('2026-01-01T12:00:00Z');
+	await expect.element(page.getByCSS('time')).toHaveAttribute('datetime', '2026-01-01T12:00:00Z');
 	await expect.element(page.getByText('env-one', { exact: true })).toBeVisible();
 	await expect.element(page.getByText('Runner unavailable', { exact: true })).toBeVisible();
 	expect(requested).toHaveBeenCalledWith('true');

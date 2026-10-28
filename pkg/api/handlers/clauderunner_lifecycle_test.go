@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -77,4 +78,57 @@ func TestDisabledClaudeUserAdmissionAndReconciliation(t *testing.T) {
 	require.NoError(t, controller.Reconcile(router.Request{Ctx: ctx, Client: storage, Object: inst}, nil))
 	require.NoError(t, storage.Get(ctx, kclient.ObjectKeyFromObject(inst), inst))
 	require.NotNil(t, inst.DeletionTimestamp, "revoked sessions must go through resource cleanup")
+}
+
+func TestAdmissionRecordsDefaultImages(t *testing.T) {
+	// Admission holds a transaction while reading through another connection.
+	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://" + filepath.Join(t.TempDir(), "admission.db")})
+	require.NoError(t, err)
+	services.DB.SQLDB.SetMaxOpenConns(2)
+	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() { _ = gateway.Close() })
+	db := services.DB.DB
+	ctx := t.Context()
+	require.NoError(t, db.Create(&gt.User{ID: 123, Username: "mapped", HashedUsername: "mapped", Email: "mapped@example.com"}).Error)
+	// The environment sets no images, so it runs Obot's defaults.
+	env := &gt.ClaudeEnvironment{
+		ID: "environment", OrganizationID: "org_test", EnvironmentID: "ccpool_test",
+		Profiles: []gt.ClaudeEnvironmentProfile{{Name: "mapped", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "123"}}}},
+		Runtime:  gt.ClaudeRuntime{LLMProxy: true},
+	}
+	token := strings.Repeat("a", 32)
+	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, map[string]string{"token": token}))
+	require.NoError(t, gateway.SaveClaudeOrganizationAccounts(ctx, env.OrganizationID, []gt.ClaudeOrganizationAccount{{Account: "user_mapped", UserID: "123"}}))
+	require.NoError(t, db.Callback().Raw().Before("gorm:raw").Register("test_advisory_lock", func(tx *gorm.DB) {
+		if strings.Contains(tx.Statement.SQL.String(), "pg_advisory_xact_lock") {
+			tx.Statement.SQL.Reset()
+			tx.Statement.SQL.WriteString("SELECT 1")
+			tx.Statement.Vars = nil
+		}
+	}))
+
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	runnerImage := "example/runner@sha256:" + strings.Repeat("b", 64)
+	h := &ClaudeRunnerHandler{Substrate: &substrate.Client{Config: substrate.Config{RunnerImage: runnerImage, WorkerImage: "example/worker:default"}}}
+	req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"account":"user_mapped","pool":"ccpool_test","order":"order","session":"session","workOrder":"`+token+`"}`))
+	req.Header.Set("X-Obot-Claude-Environment", env.ID)
+	req.Header.Set("X-Obot-Orchestrator-Token", token)
+	require.NoError(t, h.Spawn(api.Context{Request: req, ResponseWriter: httptest.NewRecorder(), GatewayClient: gateway, Storage: storage}))
+
+	var instances v1.AgentInstanceList
+	require.NoError(t, storage.List(ctx, &instances))
+	require.Len(t, instances.Items, 1)
+	var runtime gt.ClaudeRuntime
+	require.NoError(t, json.Unmarshal([]byte(instances.Items[0].Spec.ClaudeRuntime), &runtime))
+	require.Equal(t, runnerImage, runtime.Image, "the session records the image it runs")
+	require.Equal(t, "example/worker:default", runtime.WorkerImage)
+	require.True(t, runtime.LLMProxy, "the session records whether its environment uses the LLM proxy")
+
+	stored, err := gateway.ClaudeEnvironment(ctx, env.ID)
+	require.NoError(t, err)
+	require.Empty(t, stored.Runtime.Image, "admission does not pin the environment's image")
+	require.Empty(t, stored.Runtime.WorkerImage)
 }

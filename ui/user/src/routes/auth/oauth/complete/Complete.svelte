@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { m } from '$lib/i18n';
-	import { CheckCheck } from '@lucide/svelte';
+	import { CircleCheckBig } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	type Props = {
@@ -49,9 +49,9 @@
 	<section class="paper pt-4 md:w-md w-sm items-center justify-center border-base-400 gap-0">
 		<BetaLogo />
 
-		<div class="flex flex-col items-center justify-center pt-10 pb-12">
-			<span class="oauth-complete-check">
-				<CheckCheck class="size-18 text-success" />
+		<div class="flex flex-col items-center justify-center pt-6 pb-6">
+			<span class="oauth-complete-circle mb-2">
+				<CircleCheckBig class="size-18 text-success" />
 			</span>
 
 			<h1 class="text-base-content text-2xl font-semibold">
@@ -78,30 +78,46 @@
 </main>
 
 <style>
-	.oauth-complete-check :global(path) {
-		stroke-dasharray: var(--check-length);
-		stroke-dashoffset: calc(var(--check-length) * -1);
-		animation: oauth-complete-check-draw 0.42s cubic-bezier(0.65, 0, 0.35, 1) forwards;
+	/* The arc is authored clockwise from the right side up to the top gap, so a
+	   negative offset draws one loop from the top, counterclockwise. */
+	.oauth-complete-circle :global(path:nth-child(1)) {
+		--len: 54.37;
+		stroke-dasharray: var(--len);
+		stroke-dashoffset: -54.37;
+		animation: oauth-complete-circle-draw 0.7s cubic-bezier(0.65, 0, 0.35, 1) forwards;
 	}
 
-	.oauth-complete-check :global(path:nth-child(1)) {
-		--check-length: 22.63;
+	.oauth-complete-circle :global(path:nth-child(2)) {
+		--check-length: 18.38;
+		--check-gap: 22.38;
+		stroke-dasharray: 0 var(--check-gap);
+		stroke-dashoffset: 2;
+		animation: oauth-complete-check-draw 0.42s cubic-bezier(0.65, 0, 0.35, 1) 0.7s forwards;
 	}
 
-	.oauth-complete-check :global(path:nth-child(2)) {
-		--check-length: 12.73;
-		animation-delay: 0.24s;
-	}
-
-	@keyframes oauth-complete-check-draw {
+	@keyframes oauth-complete-circle-draw {
 		to {
 			stroke-dashoffset: 0;
 		}
 	}
 
+	@keyframes oauth-complete-check-draw {
+		from {
+			stroke-dasharray: 0 var(--check-gap);
+			stroke-dashoffset: 2;
+		}
+
+		to {
+			stroke-dasharray: var(--check-length) var(--check-length);
+			stroke-dashoffset: 0;
+		}
+	}
+
 	@media (prefers-reduced-motion: reduce) {
-		.oauth-complete-check :global(path) {
+		.oauth-complete-circle :global(path:nth-child(1)),
+		.oauth-complete-circle :global(path:nth-child(2)) {
 			animation: none;
+			stroke-dasharray: none;
 			stroke-dashoffset: 0;
 		}
 	}

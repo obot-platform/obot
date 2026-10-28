@@ -486,7 +486,7 @@ describe('ScimView', () => {
 		await expect.element(page.getByText('1 referenced group not pushed yet.')).toBeVisible();
 		await expect.element(page.getByText('Legacy', { exact: true })).toBeVisible();
 		await expect
-			.element(page.getByText('Referenced by model access policy “Models”'))
+			.element(page.getByText('Referenced by LLM gateway profile “Models”'))
 			.toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Open in Okta' }))

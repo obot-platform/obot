@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -14,6 +15,7 @@ const (
 	responseFormatUnknown responseFormat = iota
 	responseFormatOpenAIResponses
 	responseFormatAnthropicMessages
+	responseFormatOpenAIChatCompletions
 )
 
 type ResponseAccumulator struct {
@@ -26,6 +28,7 @@ type ResponseAccumulator struct {
 
 	openAI    openAIResponseAccumulator
 	anthropic anthropicResponseAccumulator
+	chat      chatCompletionsAccumulator
 }
 
 type responseFormat int
@@ -33,6 +36,14 @@ type responseFormat int
 type openAIResponseAccumulator struct {
 	response map[string]any
 	finalRaw json.RawMessage
+}
+
+// chatCompletionsAccumulator rebuilds a streamed Chat Completions response as the
+// chat.completion object a non-streaming request would have returned.
+type chatCompletionsAccumulator struct {
+	completion map[string]any
+	choices    map[int]map[string]any
+	toolCalls  map[int]map[int]map[string]any
 }
 
 type anthropicResponseAccumulator struct {
@@ -58,6 +69,8 @@ func responseFormatForRequestPath(requestPath string) responseFormat {
 		return responseFormatAnthropicMessages
 	case requestPath == "responses" || strings.HasSuffix(requestPath, "/responses"):
 		return responseFormatOpenAIResponses
+	case requestPath == "chat/completions" || strings.HasSuffix(requestPath, "/chat/completions"):
+		return responseFormatOpenAIChatCompletions
 	default:
 		return responseFormatUnknown
 	}
@@ -65,10 +78,8 @@ func responseFormatForRequestPath(requestPath string) responseFormat {
 
 func responseFormatForProvider(modelProvider string) responseFormat {
 	switch modelProvider {
-	case system.OpenAIModelProvider, system.ModelProxyModelProvider:
+	case system.ModelProxyModelProvider:
 		return responseFormatOpenAIResponses
-	case system.AnthropicModelProvider:
-		return responseFormatAnthropicMessages
 	default:
 		return responseFormatUnknown
 	}
@@ -110,6 +121,8 @@ func (a *ResponseAccumulator) JSON() json.RawMessage {
 		raw = a.openAI.JSON()
 	case responseFormatAnthropicMessages:
 		raw = a.anthropic.JSON()
+	case responseFormatOpenAIChatCompletions:
+		raw = a.chat.JSON()
 	}
 	if len(raw) == 0 {
 		return json.RawMessage(`{}`)
@@ -129,6 +142,8 @@ func (a *ResponseAccumulator) ResponseID() string {
 		return a.openAI.ResponseID()
 	case responseFormatAnthropicMessages:
 		return a.anthropic.ResponseID()
+	case responseFormatOpenAIChatCompletions:
+		return a.chat.ResponseID()
 	default:
 		return ""
 	}
@@ -168,6 +183,12 @@ func (a *ResponseAccumulator) processJSON(body []byte) {
 		a.anthropic.Process(body)
 		if a.responseID == "" {
 			a.responseID = a.anthropic.ResponseID()
+		}
+		return
+	case responseFormatOpenAIChatCompletions:
+		a.chat.Process(body)
+		if a.responseID == "" {
+			a.responseID = a.chat.ResponseID()
 		}
 		return
 	}
@@ -278,6 +299,123 @@ func (a *openAIResponseAccumulator) ensureOutputItem(index int) map[string]any {
 	output[index] = item
 	response["output"] = output
 	return item
+}
+
+func (a *chatCompletionsAccumulator) Process(body []byte) {
+	var chunk map[string]any
+	if err := json.Unmarshal(body, &chunk); err != nil {
+		return
+	}
+	if a.completion == nil {
+		a.completion = map[string]any{"object": "chat.completion"}
+	}
+	for _, key := range []string{"id", "created", "model", "system_fingerprint", "service_tier"} {
+		if v, ok := chunk[key]; ok && v != nil {
+			a.completion[key] = v
+		}
+	}
+	if usage, ok := chunk["usage"].(map[string]any); ok {
+		a.completion["usage"] = cloneMap(usage)
+	}
+	choices, _ := chunk["choices"].([]any)
+	for _, raw := range choices {
+		c, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		index := intValue(c["index"])
+		choice := a.choice(index)
+		if reason, ok := c["finish_reason"].(string); ok && reason != "" {
+			choice["finish_reason"] = reason
+		}
+		delta, ok := c["delta"].(map[string]any)
+		if !ok {
+			continue
+		}
+		message := choice["message"].(map[string]any)
+		if role := stringValue(delta["role"]); role != "" {
+			message["role"] = role
+		}
+		for _, key := range []string{"content", "reasoning_content", "refusal"} {
+			if text := stringValue(delta[key]); text != "" {
+				message[key] = stringValue(message[key]) + text
+			}
+		}
+		calls, _ := delta["tool_calls"].([]any)
+		for _, rawCall := range calls {
+			if call, ok := rawCall.(map[string]any); ok {
+				a.applyToolCall(index, call)
+			}
+		}
+	}
+}
+
+func (a *chatCompletionsAccumulator) choice(index int) map[string]any {
+	if a.choices == nil {
+		a.choices = map[int]map[string]any{}
+	}
+	choice := a.choices[index]
+	if choice == nil {
+		choice = map[string]any{"index": index, "message": map[string]any{"role": "assistant"}}
+		a.choices[index] = choice
+	}
+	return choice
+}
+
+func (a *chatCompletionsAccumulator) applyToolCall(choice int, delta map[string]any) {
+	if a.toolCalls == nil {
+		a.toolCalls = map[int]map[int]map[string]any{}
+	}
+	if a.toolCalls[choice] == nil {
+		a.toolCalls[choice] = map[int]map[string]any{}
+	}
+	index := intValue(delta["index"])
+	call := a.toolCalls[choice][index]
+	if call == nil {
+		call = map[string]any{"type": "function", "function": map[string]any{"name": "", "arguments": ""}}
+		a.toolCalls[choice][index] = call
+	}
+	if id := stringValue(delta["id"]); id != "" {
+		call["id"] = id
+	}
+	if typ := stringValue(delta["type"]); typ != "" {
+		call["type"] = typ
+	}
+	if fn, ok := delta["function"].(map[string]any); ok {
+		function := call["function"].(map[string]any)
+		function["name"] = stringValue(function["name"]) + stringValue(fn["name"])
+		function["arguments"] = stringValue(function["arguments"]) + stringValue(fn["arguments"])
+	}
+}
+
+func (a *chatCompletionsAccumulator) JSON() json.RawMessage {
+	if a.completion == nil {
+		return nil
+	}
+	completion := cloneMap(a.completion)
+	choices := make([]any, 0, len(a.choices))
+	for _, index := range slices.Sorted(maps.Keys(a.choices)) {
+		choice := cloneMap(a.choices[index])
+		message := cloneMap(choice["message"].(map[string]any))
+		if calls := a.toolCalls[index]; len(calls) > 0 {
+			list := make([]any, 0, len(calls))
+			for _, i := range slices.Sorted(maps.Keys(calls)) {
+				list = append(list, calls[i])
+			}
+			message["tool_calls"] = list
+		}
+		choice["message"] = message
+		choices = append(choices, choice)
+	}
+	completion["choices"] = choices
+	return mustMarshal(completion)
+}
+
+func (a *chatCompletionsAccumulator) ResponseID() string {
+	if a.completion == nil {
+		return ""
+	}
+	return stringValue(a.completion["id"])
 }
 
 func (a *anthropicResponseAccumulator) Process(body []byte) {

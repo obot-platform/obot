@@ -4,199 +4,83 @@ title: "Configure providers and models"
 
 # Configure providers and models {#model-providers}
 
-The Model Providers page allows administrators to configure and manage various AI model providers. This guide will walk you through the setup process and explain the available options.
+Obot reaches models through its built-in [LLM gateway](../llm-gateway/how-it-works.md). Administrators add the upstream providers it serves, and their keys, under **LLM Gateway** → **Providers**. Every provider is available in the default Obot edition without Community registration or an Enterprise license. You still need credentials and access to the upstream model service.
 
-### Configuring Model Providers
+## Adding providers and keys {#adding-providers-and-keys}
 
-Obot supports a variety of model providers, including:
+The gateway serves models from OpenAI, Anthropic, Amazon Bedrock, Google Vertex AI and Gemini, Azure, Mistral, Groq, xAI, DeepSeek, OpenRouter, Cohere, vLLM, Ollama and more. On the **Providers** tab of the **LLM Gateway** page:
 
-- OpenAI
-- Anthropic
-- [Generic Responses Compatible Provider](./model-providers.md#generic-responses-compatible-provider)
-- [Azure OpenAI / Microsoft Foundry](./model-providers.md#azure)
-- [Amazon Bedrock](./model-providers.md#amazon-bedrock)
-- Google Vertex (Gemini models)
+- **Add a provider and its keys.** Several keys on one provider are load-balanced by weight, and a key can be limited to specific models.
+- **Keep retries on for failover.** A request moves to another of the provider's keys only when it is retried. New providers retry twice, with backoff from 500 ms to 5 s.
+- **Tune the connection.** Set base URLs (for self-hosted or proxied endpoints), timeouts, retries with backoff, concurrency and extra headers.
+- **Add custom providers.** A custom provider points at any OpenAI-, Anthropic-, Gemini- or Cohere-compatible endpoint.
+- **Set the default models.** **Set Default Models** chooses the models behind the aliases Obot's own features use. See [Default models](../llm-gateway/how-it-works.md#default-models).
 
-The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
+Models from gateway providers are listed on the **LLM Gateway** page under the *LLM Gateway* provider. Adding a provider does not make its models available to every user: grant them with [Profiles](../functionality/model-access-policies.md).
 
-All listed model providers are available in every edition, without registration or a license key. You still need credentials and access to the upstream model service.
+## Provider notes {#provider-notes}
 
-#### Configuring and enabling a provider
+### OpenAI and Anthropic keys at startup {#openai-and-anthropic-keys-at-startup}
 
-To configure a provider:
+When the server's `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` environment variable is set, Obot configures the gateway's `openai` or `anthropic` provider with that key at startup, as a key named `env-OPENAI_API_KEY` or `env-ANTHROPIC_API_KEY`, and updates the key when the value changes. You can disable, edit or delete it like any other key. See [Server Configuration](./server-configuration.md).
 
-1. Click its "Configure" button
-2. Enter the required information, such as API keys or endpoints
-3. Save the configuration to apply the settings
+Obot only writes the key when the variable's value is new to it, so a key you delete stays deleted after a restart. That includes deleting the provider, and changing its base URL, which removes its keys. To restore the key, add it again on the provider's page with the same value (any name works), or change the variable's value and restart Obot, which adds the key again as `env-OPENAI_API_KEY` or `env-ANTHROPIC_API_KEY`, and adds the provider too if it's gone.
 
-Upon saving the configuration, the platform will validate your configuration to ensure it can connect to the model provider. You can configure multiple model providers, which will allow you to pick the right provider and model for each use case.
+### Private and local addresses {#private-and-local-addresses}
 
-### Viewing and managing models
+A provider's base URL, and the server URL or endpoint of its keys (Ollama, vLLM, SGLang, Azure, Databricks), may point at a private network address (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7`) or at Obot's own host (`localhost`, `127.0.0.0/8`, `::1`) only when the provider's **Allow private network addresses** setting is on. Host names are resolved, and every address they resolve to is checked. Link-local addresses (`169.254.0.0/16`, `fe80::/10`) and cloud metadata addresses, such as `169.254.169.254` and AWS's `fd00:ec2::254`, are never allowed.
 
-Once a provider is configured, you can view and manage the models it offers. You can set the usage type for each model, which determines how the models are utilized within the application:
+### Changing where keys are sent {#changing-where-keys-are-sent}
 
-| Usage Type | Description | Application |
-|------------|-------------|-------------|
-| **Language Model** | Used to drive text generation and tool calls | Used by AI clients for text generation and tool calls |
-| **Text Embedding** | Converts text into numerical vectors | Used in the knowledge tool for RAG functionality |
-| **Image Generation** | Creates images from textual descriptions | Used by image generation tools |
-| **Vision** | Analyzes and processes visual data | Used by the image vision tool |
-| **Other** | Default if no specific usage is selected | Available for all purposes |
+Keys are only sent to the address they were entered for:
 
-You can also activate or deactivate specific models, controlling their availability to users.
+- **Changing a provider's base URL removes its keys.** The provider page asks you to confirm, and you add the keys again after saving. Through the API, a base URL change is refused while the provider has keys, unless the request adds `?removeKeys=true` to `PUT /api/llm-gateway/admin/providers/{name}`.
+- **Changing a key's server URL or endpoint requires entering its secrets again** (its API key or client secret), so a stored secret can't be redirected to another server.
 
-### Setting Default Models
+### Amazon Bedrock {#amazon-bedrock}
 
-The "Set Default Models" feature allows you to configure default models for various tasks. Choose default models for the following categories:
+Add the **AWS Bedrock** provider with a Bedrock API key or an access key ID and secret access key, and the region.
 
-- **Language Model (Chat)** - Primary conversational model
-- **Language Model (Chat - Fast)** - Optimized for quick responses
+Anthropic models on Bedrock require you to submit Anthropic's use case details form in your AWS account first. Until you do, requests can fail with `Model use case details have not been submitted for this account`. See the [AWS model access documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html). Model availability depends on region; see the [AWS Bedrock Anthropic model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html).
 
-These defaults determine which specific model is used when a [Model Access Policy](../functionality/model-access-policies.md) grants access to a default model alias (such as "Language Model (Chat)"). When you change a default here, any user with access to that alias automatically gains access to the new model.
+### Azure {#azure}
 
-After selecting the desired defaults, click "Save Changes" to confirm your configurations.
+Add the **Azure OpenAI / AI Foundry** provider with the resource endpoint and either an API key or the tenant ID, client ID and client secret of a Microsoft Entra service principal. Assign the service principal **Cognitive Services User** or **Foundry User** (formerly Azure AI User) on the Foundry resource. **Cognitive Services OpenAI User** can allow OpenAI requests while Anthropic requests fail with `Principal does not have access to API/Operation`. See [Configure keyless authentication with Microsoft Entra ID](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id).
 
-:::note
-Setting a default model here does not automatically grant users access to it. Users must be included in a Model Access Policy that grants access to the corresponding alias. See [Model Access Policies](../functionality/model-access-policies.md) for details.
-:::
+A key with neither uses Obot's own managed or workload identity. Its endpoint must then be an Azure OpenAI or AI Services host (`https://<resource>.openai.azure.com`, `.cognitiveservices.azure.com` or `.services.ai.azure.com`), and it can't request other scopes.
 
-### Instructions for configuring specific providers
+Certificate checks can't be turned off, and a custom CA can't be added, on Azure, Vertex AI and Bedrock providers, in their network or proxy settings, since they may use Obot's own cloud identity.
 
-#### Azure
+### Google Vertex AI {#google-vertex-ai}
 
-Obot supports two Azure providers, each with a different authentication method. These are compatible with both Azure OpenAI deployments and Foundry deployments.
+Add the **Google Vertex AI** provider with the project ID, the region and a service account key (JSON). Only service account keys are accepted: other Google credential types, such as external account, impersonated service account or authorized user credentials, are refused. A key without credentials uses Obot's own Google Cloud identity (application default credentials).
 
-##### API Key Authentication
+### Ollama, vLLM and other self-hosted models {#ollama-vllm-and-other-self-hosted-models}
 
-Use the **Azure** provider for API key-based authentication.
+Add the built-in **Ollama** or **vLLM** provider with the server URL; they don't need a key. For other OpenAI-compatible services, such as LiteLLM, add a custom OpenAI-compatible provider with its base URL. A base URL ending in `/v1`, as such servers usually document it, is saved without it, since the gateway adds `/v1` to every path itself. A server on your own network or on Obot's host needs **Allow private network addresses** on the provider; see [Private and local addresses](#private-and-local-addresses).
 
-In the Azure portal, find your API key and endpoint URL after setting up at least one deployment — both are required.
+Many OpenAI-compatible servers serve only Chat Completions, not the OpenAI Responses API. Leave **Serves the OpenAI Responses API** off for them when adding the custom provider: the gateway then serves Responses API and Anthropic Messages requests (from Codex or Claude Code, for example) to it through Chat Completions. Turn it on only for a server that serves `/v1/responses`. Through the API, the same choice is the provider's `custom_provider_config.allowed_requests`: list the request types the server serves (`list_models`, `chat_completion`, `chat_completion_stream`, `embedding` and so on), leaving out `responses` and `responses_stream`.
 
-You must also specify deployment names as a comma-separated list using `deployment[:usage[:dialect]]`. Usage defaults to `llm`. Dialect defaults to `openai`; specify `anthropic` for Claude deployments. For example: `my-gpt-deployment,my-claude-deployment:llm:anthropic`.
+When Obot runs in Docker and Ollama runs on the host, start Ollama with `OLLAMA_HOST=0.0.0.0` and use `http://host.docker.internal:11434` as the server URL. On Linux, also start the Obot container with `--add-host=host.docker.internal:host-gateway`.
 
-:::note
-Obot reports token counts for the Azure API key provider and estimates spend when a deployment name exactly matches a model in its pricing catalog. Azure API key requests use deployment names, so deployments with different names cannot be reliably mapped to an underlying model and do not have estimated spend.
-:::
+## Server configuration {#server-configuration}
 
-##### Microsoft Entra ID Authentication
+The gateway is always on. These settings control it:
 
-Use the **Azure (Entra ID)** provider for service principal authentication via Microsoft Entra ID. Deployments are discovered automatically from the Azure Management API.
+| Flag / environment variable | Description |
+| --- | --- |
+| `--llm-gateway-data-dir` / `OBOT_SERVER_LLM_GATEWAY_DATA_DIR` | Where the gateway keeps its generated configuration and model price data and, with SQLite, its stores and encryption key (default `$XDG_DATA_HOME/obot/llm-gateway`). |
+| `--llm-gateway-postgres-dsn` / `OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN` | Postgres database for gateway configuration. Must be a different database from Obot's. When Obot itself uses Postgres and this is unset, Obot creates a `<database>_llm_gateway` database on the same server, so every replica shares the gateway's state. If Obot's database user can't create databases, create it yourself, owned by Obot's database user, or set this; otherwise the gateway doesn't start, rather than keep separate state on each replica. When the configuration changes, every replica reloads it within seconds; requests already in flight finish first. |
+| `--llm-gateway-encryption-key` / `OBOT_SERVER_LLM_GATEWAY_ENCRYPTION_KEY` | Key that encrypts provider credentials at rest. When unset, a key is generated: when the gateway uses Postgres (Obot on Postgres, or `OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN` set) it is stored in Obot's database (encrypted with Obot's own encryption configuration, if any) and shared by every replica; with SQLite it is stored in the data dir. Set it before the first start: changing it later makes stored provider keys unreadable, and they must be entered again. |
+| `--llm-gateway-log-level` / `OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL` | Log level for the embedded gateway (default `warn`). |
+| `--llm-gateway-model-data-url` / `OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL` | Where the gateway refreshes model prices and capabilities from, every 6 hours (default `https://upgrade-server.obot.ai/v1/model-data`). Obot's published images and release binaries include a copy of this data, so the gateway works without reaching this URL; set `off` to use only that copy, for example in air-gapped installs. See [model pricing](../llm-gateway/audit.md#model-pricing). |
+| `--daily-user-input-token-limit` / `--daily-user-output-token-limit` | Seed the *Daily token limit* budget, with administrators exempt, on every profile that exists when the gateway first starts (the *Default Policy* on a new installation). After that, edit or remove each profile's copy on its page; changing these settings has no effect. |
+| `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | Obot routes gateway providers through the environment's egress proxy, except endpoints `NO_PROXY` excludes or that are on localhost. Connections through it verify the provider's certificate against the system's trusted CAs. A proxy set on a provider explicitly takes precedence. |
 
-###### 1. Create a service principal
+Through the API, the gateway's global proxy (`/api/llm-gateway/admin/proxy-config`) can't turn off certificate checks (`skip_tls_verify`), since that would apply to every provider. To use a proxy that inspects TLS, add its CA to the proxy settings (`proxy_config.ca_cert_pem`) of each provider that uses its own API keys.
 
-```bash
-az ad sp create-for-rbac --name "<sp-name>" \
-  --role "Cognitive Services User" \
-  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.CognitiveServices/accounts/<resource-name>
-```
+## Related topics {#related-topics}
 
-This outputs the `appId` (Client ID), `password` (Client Secret), and `tenant` (Tenant ID) needed below.
-
-###### 2. Find your resource details
-
-```bash
-az cognitiveservices account show \
-  --name <resource-name> \
-  --resource-group <resource-group> \
-  --query "{endpoint:properties.endpoint, id:id}"
-```
-
-###### 3. Configure the provider
-
-Obot requires:
-- **Azure Endpoint** — your Azure OpenAI endpoint URL (`https://<resource_name>.openai.azure.com`)
-- **Client ID** — the Entra app's application (client) ID
-- **Client Secret** — the Entra app's client secret
-- **Tenant ID** — the Entra app's tenant ID
-- **Subscription ID** — the Azure subscription ID containing the Cognitive Services account
-- **Resource Group** — the resource group containing the Cognitive Services account
-- **Resource Name** — the Cognitive Services resource name
-
-The service principal requires the **Cognitive Services User** role on the specific Foundry resource for inference. **Foundry User** (formerly Azure AI User) also includes the permissions required to invoke Claude models. The narrower **Cognitive Services OpenAI User** role can allow OpenAI requests while Anthropic requests fail with `Principal does not have access to API/Operation`.
-
-Deployments are discovered automatically. Obot uses the Azure deployment name as the target model and derives the request dialect from the deployment's model metadata.
-
-Official references:
-
-- [Configure keyless authentication with Microsoft Entra ID](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/how-to/configure-entra-id) — required inference role and resource scope
-- [Claude in Microsoft Foundry](https://platform.claude.com/docs/en/build-with-claude/claude-in-microsoft-foundry) — Claude authentication and RBAC requirements
-- [Claude Code on Microsoft Foundry](https://code.claude.com/docs/en/microsoft-foundry#azure-rbac-configuration) — Claude Code RBAC requirements
-- [Assign Azure roles using the Azure portal](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal) — portal instructions and role-assignment permissions
-
-#### Amazon Bedrock
-
-Obot supports two Amazon Bedrock providers, each with a different authentication method.
-
-:::note
-Both Bedrock providers use _AWS Bedrock Inference Profiles_ rather than direct on-demand model access. Inference profiles are resources that route model invocation requests and enable cost tracking — AWS provides system-defined cross-region inference profiles by default for supported models, so no manual setup is typically required. Only models with an available inference profile will appear in Obot. See the [AWS documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-use.html) for more details.
-:::
-
-:::warning
-**First-time Anthropic model use requires explicit access.** When using Anthropic models through Bedrock on an AWS account that has not previously been granted access, requests may succeed initially and then begin failing with the following error:
-
-> Model use case details have not been submitted for this account. Fill out the Anthropic use case details form before using the model. If you have already filled out the form, try again in 15 minutes.
-
-This is expected AWS behavior — Anthropic models on Bedrock require you to submit a use case details form before they can be used. See the [AWS model access documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/model-access.html) to request and enable access for the Anthropic models you intend to use.
-:::
-
-##### Static Credentials
-
-Use the **Amazon Bedrock (Static Credentials)** provider to authenticate with long-lived AWS credentials.
-
-Obot requires:
-- **AWS Access Key ID** — your IAM user's access key
-- **AWS Secret Access Key** — your IAM user's secret key
-- **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
-- **AWS Session Token** (optional) — required when using temporary security credentials from AWS STS (e.g. when assuming an IAM role or using federated access). Not needed for long-lived IAM user credentials.
-
-##### API Key
-
-Use the **Amazon Bedrock (API Key)** provider to authenticate with a Bedrock API key.
-
-Obot requires:
-- **API Key** — your Bedrock API key
-- **AWS Region** — the region where your inference profiles are configured (e.g. `us-east-1`)
-
-#### Generic Responses Compatible Provider
-
-Use **Generic Responses Compatible Provider** to connect Obot to any Responses-compatible API.
-
-This provider supports:
-- A provider-level **Base URL** and optional **API Key**
-
-##### Common examples
-
-- **Ollama**: `http://127.0.0.1:11434/v1`
-- **LiteLLM**: `http://<litellm-host>:4000/v1`
-
-##### Using Ollama
-
-[Ollama](https://ollama.ai/) allows you to run models locally. When Obot runs in Docker, make Ollama reachable from the container:
-
-1. **Expose Ollama to the network**
-   Set `OLLAMA_HOST=0.0.0.0` before starting Ollama.
-
-2. **Set Base URL in Obot**
-   Use one of:
-   - `http://host.docker.internal:11434/v1` (recommended for Docker Desktop)
-   - `http://<your-host-ip>:11434/v1`
-
-For Linux Docker, add `--add-host=host.docker.internal:host-gateway` (or use another host-networking approach) so `host.docker.internal` resolves inside the Obot container.
-
-See [Ollama's FAQ](https://docs.ollama.com/faq) for platform-specific details.
-
-##### LiteLLM config example
-
-If you use LiteLLM, Obot works with LiteLLM's wildcard model list:
-
-```yaml
-model_list:
-  - model_name: openai/*
-    litellm_params:
-      model: openai/*
-      api_key: os.environ/OPENAI_API_KEY
-```
-
-In Obot, models discovered through this provider are currently treated as **Language Model (LLM chat)** models by default.
-
-If your upstream includes non-chat-capable models, use more specific model mappings instead of a broad wildcard, or avoid using these models with Obot.
+- [LLM Gateway overview](../llm-gateway/how-it-works.md) — the LLM Gateway page, default models, routing rules and fallbacks
+- [Profiles](../functionality/model-access-policies.md) — grant users access to specific models
+- [Upgrading from model providers](../llm-gateway/upgrade.md) — how earlier model provider configuration moves to the gateway

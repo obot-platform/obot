@@ -13,10 +13,13 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "verify": "npm run typecheck && npm run build",
+    "verify": "npm run clear && npm run test:exports && npm run typecheck && npm run build && npm run test:exports:content",
     "test:docs": "playwright test navigation.spec.ts",
     "preview:pages": "WRANGLER_SEND_METRICS=false wrangler pages dev build --ip 0.0.0.0 --port 3000 --compatibility-date=2026-09-25",
-    "test:obot": "playwright test --config playwright.obot.config.ts"
+    "test:obot": "playwright test --config playwright.obot.config.ts",
+    "test:exports": "node --test tests/agent-docs/*.test.mjs",
+    "test:exports:release": "node tests/scripts/release-exports.mjs",
+    "test:exports:content": "node tests/scripts/check-export-content.mjs"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",
@@ -35,7 +38,16 @@
     "@docusaurus/tsconfig": "3.10.2",
     "@docusaurus/types": "3.10.2",
     "@playwright/test": "^1.63.0",
+    "github-slugger": "^2.0.0",
+    "gray-matter": "^4.0.3",
+    "remark-directive": "^4.0.0",
+    "remark-gfm": "^4.0.1",
+    "remark-mdx": "^3.1.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "robots-parser": "^3.0.1",
     "typescript": "~6.0.2",
+    "unified": "^11.0.5",
     "wrangler": "^4.147.0"
   },
   "browserslist": {
@@ -58,7 +70,7 @@
     "serialize-javascript": "7.0.5",
     "uuid": "11.1.1",
     "gray-matter": {
-      "js-yaml": "3.15.0"
+      "js-yaml": "3.15.2"
     },
     "tinypool": "2.1.2",
     "sharp": "0.35.5",

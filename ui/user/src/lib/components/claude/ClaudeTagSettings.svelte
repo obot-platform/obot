@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { m } from '$lib/i18n';
-	import { doPut } from '$lib/services/http';
-	import type { ClaudeEnvironment } from './types';
+	import { UserService, type ClaudeEnvironment } from '$lib/services';
 
 	let { environment, onsaved }: { environment: ClaudeEnvironment; onsaved: () => Promise<void> } =
 		$props();
@@ -20,9 +19,10 @@
 		error = '';
 		saved = false;
 		try {
-			await doPut(`/claude-environments/${environment.id}/claude-tag`, {
-				enabled: environment.claudeTagUserID ? enabled : true
-			});
+			await UserService.updateClaudeEnvironmentTag(
+				environment.id,
+				environment.claudeTagUserID ? enabled : true
+			);
 			await onsaved();
 			saved = true;
 		} catch (e) {

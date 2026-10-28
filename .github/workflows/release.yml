@@ -68,6 +68,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: ${{ github.ref_name }}
+          # The binaries embed the LLM gateway's model data (see tools/fetch-model-data).
+          MODEL_DATA_URL: https://upgrade-server.obot.ai/v1/model-data
           QUILL_SIGN_P12: ${{ secrets.QUILL_SIGN_P12 }}
           QUILL_SIGN_PASSWORD: ${{ secrets.QUILL_SIGN_PASSWORD }}
           QUILL_NOTARY_KEY: ${{ secrets.QUILL_NOTARY_KEY }}
@@ -76,15 +78,11 @@ jobs:
   winget-release:
     needs: release-tag
     if: "! contains(github.ref_name, '-')"
-    runs-on: windows-latest
-    steps:
-      - name: Install winget-create
-        run: |
-          Invoke-WebRequest -Uri 'https://aka.ms/wingetcreate/latest' -OutFile 'wingetcreate.exe'
-      - name: Create WinGet Package Update Pull Request
-        run: |
-          $url = "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}/obot_${{ github.ref_name }}_windows_amd64.zip"
-          ./wingetcreate.exe update --submit --token "${{ secrets.WINGET_GH_TOKEN }}" --urls $url --version "${{ github.ref_name }}" obot-platform.obot
+    uses: ./.github/workflows/winget-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets:
+      WINGET_GH_TOKEN: ${{ secrets.WINGET_GH_TOKEN }}
   chart-release:
     needs: release-tag
     runs-on: ubuntu-latest

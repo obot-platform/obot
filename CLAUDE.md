@@ -64,6 +64,7 @@ The UI uses Paraglide JS. Each feature area has a catalog in `messages/<area>/{e
 ```bash
 make serve-docs       # Start local docs server
 ```
+When reviewing changes under docs/, read and follow docs/REVIEW.md. These rules apply only to documentation changes.
 
 ## Design Proposals and Architecture Decisions
 

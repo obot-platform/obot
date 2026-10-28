@@ -3,6 +3,7 @@ import { useShortTimeouts } from './helpers/shortTimeouts';
 import { worker } from './mocks/worker';
 import 'devicon/devicon.min.css';
 import { beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
+import { cleanup } from 'vitest-browser-svelte/pure';
 import { locators } from 'vitest/browser';
 
 locators.extend({
@@ -36,6 +37,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
+	cleanup();
 	restoreTimeouts?.();
 	await worker.stop();
 	// Chromium collects removed test iframes lazily and can exhaust CI memory first.

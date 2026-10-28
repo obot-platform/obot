@@ -1,0 +1,14 @@
+vulnerabilities:
+  - id: GO-2026-5932
+    paths:
+      - usr/bin/obot
+    statement: >-
+      Helm v3.21.4 replaced golang.org/x/crypto/openpgp with the maintained
+      ProtonMail fork. The Obot binary does not import the affected OpenPGP
+      packages; make build enforces this with check-go-security-deps using
+      the same build tags and target environment. Trivy reports this advisory
+      for the entire golang.org/x/crypto module, which is still needed for
+      other packages. This exception applies only to the Obot binary.
+      https://pkg.go.dev/vuln/GO-2026-5932
+      https://github.com/helm/helm/releases/tag/v3.21.4
+      https://github.com/aquasecurity/trivy/discussions/10944

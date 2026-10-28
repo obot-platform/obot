@@ -9,6 +9,7 @@ Back up the stores that hold your installation's state, together with the config
 | Store | Preserve |
 |---|---|
 | PostgreSQL | Platform configuration, identities, metadata, and retained database-backed audit records |
+| LLM gateway database | The `<database>_llm_gateway` database on the same server, or the one in `OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN`. Back it up together with Obot's database, which holds its encryption key. With SQLite, back up the gateway's data directory (`config.db` and `encryption.key`) instead. |
 | Deployment configuration | Image/chart versions, Helm values, runtime settings, and references to external secrets |
 | Encryption | Custom key material or access to the original cloud KMS keys, protected separately |
 

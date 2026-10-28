@@ -147,9 +147,6 @@ func defaultDialect(manifest types.ModelManifest) llmtypes.Dialect {
 	if manifest.Dialect != "" {
 		return llmtypes.Dialect(manifest.Dialect)
 	}
-	if manifest.ModelProvider == system.AnthropicModelProvider {
-		return llmtypes.DialectAnthropicMessages
-	}
 	return llmtypes.DialectOpenAIResponses
 }
 
@@ -166,23 +163,12 @@ func apiPathForDialect(dialect llmtypes.Dialect) (string, error) {
 	}
 }
 
+// proxyPath returns the LLM proxy route for a model's provider, relative to /api/llm-proxy.
+// Every model is served by the LLM gateway, whose route is the proxy's root: the API path
+// (/v1/...) follows /api/llm-proxy directly.
 func proxyPath(provider string) (string, bool) {
-	switch provider {
-	case system.AnthropicModelProvider:
-		return "anthropic", true
-	case system.OpenAIModelProvider:
-		return "openai", true
-	case system.GenericResponsesModelProvider:
-		return "generic-responses", true
-	case system.AmazonBedrockModelProvider:
-		return "aws-bedrock", true
-	case system.AmazonBedrockAPIKeyModelProvider:
-		return "aws-bedrock-api-key", true
-	case system.AzureModelProvider:
-		return "azure", true
-	case system.AzureEntraModelProvider:
-		return "azure-entra", true
-	default:
-		return "", false
+	if provider == system.LLMGatewayModelProvider {
+		return "", true
 	}
+	return "", false
 }

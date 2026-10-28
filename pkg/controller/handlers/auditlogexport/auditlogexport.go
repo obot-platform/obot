@@ -140,17 +140,18 @@ func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		filters = &types.LLMAuditLogExportFilters{}
 	}
 	return client.LLMAuditLogOptions{
-		StartTime:              export.Spec.StartTime.Time,
-		EndTime:                export.Spec.EndTime.Time,
-		APIKeyID:               filters.APIKeyIDs,
-		UserID:                 filters.UserIDs,
-		ModelProvider:          filters.ModelProviders,
-		TargetModel:            filters.TargetModels,
-		RequestPath:            filters.RequestPaths,
-		ResponseStatus:         filters.ResponseStatuses,
-		Outcome:                filters.Outcomes,
-		UserAgent:              filters.UserAgents,
-		ClientSessionID:        filters.ClientSessionIDs,
+		StartTime:       export.Spec.StartTime.Time,
+		EndTime:         export.Spec.EndTime.Time,
+		APIKeyID:        filters.APIKeyIDs,
+		UserID:          filters.UserIDs,
+		ModelProvider:   filters.ModelProviders,
+		TargetModel:     filters.TargetModels,
+		RequestPath:     filters.RequestPaths,
+		ResponseStatus:  filters.ResponseStatuses,
+		Outcome:         filters.Outcomes,
+		UserAgent:       filters.UserAgents,
+		ClientSessionID: filters.ClientSessionIDs,
+		// Exports scheduled before message policies became guardrails keep their filter.
 		MessagePolicyTriggered: filters.MessagePolicyTriggered,
 		Query:                  filters.Query,
 		Limit:                  limit,
@@ -257,7 +258,7 @@ func streamingExport[T any, U any](
 			if !writerClosed {
 				_ = pw.CloseWithError(err)
 			}
-			<-uploadErrCh
+			<-uploadErrCh //nolint:errcheck // Wait for cleanup while preserving the original export error.
 		}
 	}()
 

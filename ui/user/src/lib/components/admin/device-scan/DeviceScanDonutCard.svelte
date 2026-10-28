@@ -6,6 +6,7 @@
 		type DeviceScanTopBucket
 	} from '$lib/components/admin/device-scan/deviceScanTopBuckets';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
+	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import { m } from '$lib/i18n';
 	import { openUrl } from '$lib/utils';
 	import { ChevronRight } from '@lucide/svelte';
@@ -37,103 +38,113 @@
 	}: Props = $props();
 </script>
 
-<div class={twMerge('paper flex h-full min-w-0 flex-col gap-2 pt-4', klass)}>
-	<div class="flex min-w-0 items-baseline justify-between gap-2">
-		<h4 class="min-w-0 truncate font-semibold">{title}</h4>
-		{#if totalGroups > topN}
-			<span class="text-muted-content shrink-0 text-xs">
-				{m.inventory_enforcement_devices_scan_top_n_of({ topN, total: totalGroups })}
-			</span>
-		{:else if totalGroups > 0}
-			<span class="text-muted-content shrink-0 text-xs">
-				{totalGroups === 1
-					? m.inventory_enforcement_devices_scan_entries_one({ count: totalGroups })
-					: m.inventory_enforcement_devices_scan_entries_other({ count: totalGroups })}
-			</span>
+<div class={twMerge('paper flex h-full min-w-0 flex-col gap-2 p-0', klass)}>
+	<GraphTitle {title} element="h4">
+		{#snippet rightContent()}
+			{#if totalGroups > topN}
+				<span class="text-muted-content shrink-0 text-xs">
+					{m.inventory_enforcement_devices_scan_top_n_of({ topN, total: totalGroups })}
+				</span>
+			{:else if totalGroups > 0}
+				<span class="text-muted-content shrink-0 text-xs">
+					{totalGroups === 1
+						? m.inventory_enforcement_devices_scan_entries_one({ count: totalGroups })
+						: m.inventory_enforcement_devices_scan_entries_other({ count: totalGroups })}
+				</span>
+			{/if}
+		{/snippet}
+	</GraphTitle>
+
+	<div class="flex flex-col gap-2 p-4">
+		{#if buckets.length === 0}
+			<p class="text-muted-content py-8 text-center text-sm font-light">{emptyMsg}</p>
+		{:else}
+			<div
+				class={twMerge(
+					'flex min-w-0 flex-col items-center gap-4',
+					!legendOnBottom && 'sm:flex-row'
+				)}
+			>
+				<div class={twMerge('h-56 w-56 shrink-0', classes?.graphContainer)}>
+					<DonutGraph
+						class={twMerge('h-56 w-56', classes?.graph)}
+						data={deviceScanBucketsToDonut(buckets)}
+						hideLegend
+					/>
+				</div>
+				<ul class="flex min-w-0 w-full flex-col gap-1 text-sm">
+					{#each buckets as bucket (bucket.key)}
+						{#if bucket.drilldown === 'mcp' && !bucket.isOther}
+							<li class="min-w-0">
+								<a
+									href={resolve(`/inventory/mcp-servers/${encodeURIComponent(bucket.key)}`)}
+									onclick={(e) => {
+										e.preventDefault();
+										openUrl(
+											resolve(`/inventory/mcp-servers/${encodeURIComponent(bucket.key)}`),
+											e.ctrlKey || e.metaKey
+										);
+									}}
+									class="hover:bg-base-200 dark:hover:bg-base-300 group -mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors"
+								>
+									<span
+										class="size-3 shrink-0 rounded-full"
+										style="background-color: {bucket.color}"
+									></span>
+									<span class="min-w-0 flex-1 truncate">{bucket.label}</span>
+									<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>
+									<ChevronRight
+										class="text-muted-content size-3 shrink-0 opacity-0 group-hover:opacity-100"
+									/>
+								</a>
+							</li>
+						{:else if bucket.drilldown === 'skill' && !bucket.isOther}
+							<li class="min-w-0">
+								<a
+									href={resolve(`/inventory/skills/${encodeURIComponent(bucket.key)}`)}
+									onclick={(e) => {
+										e.preventDefault();
+										openUrl(
+											resolve(`/inventory/skills/${encodeURIComponent(bucket.key)}`),
+											e.ctrlKey || e.metaKey
+										);
+									}}
+									class="hover:bg-base-200 dark:hover:bg-base-300 group -mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors"
+								>
+									<span
+										class="size-3 shrink-0 rounded-full"
+										style="background-color: {bucket.color}"
+									></span>
+									<span class="min-w-0 flex-1 truncate">{bucket.label}</span>
+									<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>
+									<ChevronRight
+										class="text-muted-content size-3 shrink-0 opacity-0 group-hover:opacity-100"
+									/>
+								</a>
+							</li>
+						{:else}
+							<li
+								class="-mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5"
+								class:text-muted-content={bucket.isOther}
+							>
+								<span class="size-3 shrink-0 rounded-full" style="background-color: {bucket.color}"
+								></span>
+								<span class="min-w-0 flex-1 truncate" class:italic={bucket.isOther}>
+									{bucket.label}
+									{#if bucket.isOther && bucket.otherCount !== undefined}
+										<span class="text-muted-content ml-1 not-italic"
+											>{m.inventory_enforcement_devices_scan_n_more({
+												count: bucket.otherCount
+											})}</span
+										>
+									{/if}
+								</span>
+								<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>
+							</li>
+						{/if}
+					{/each}
+				</ul>
+			</div>
 		{/if}
 	</div>
-
-	{#if buckets.length === 0}
-		<p class="text-muted-content py-8 text-center text-sm font-light">{emptyMsg}</p>
-	{:else}
-		<div
-			class={twMerge('flex min-w-0 flex-col items-center gap-4', !legendOnBottom && 'sm:flex-row')}
-		>
-			<div class={twMerge('h-56 w-56 shrink-0', classes?.graphContainer)}>
-				<DonutGraph
-					class={twMerge('h-56 w-56', classes?.graph)}
-					data={deviceScanBucketsToDonut(buckets)}
-					hideLegend
-				/>
-			</div>
-			<ul class="flex min-w-0 w-full flex-col gap-1 text-sm">
-				{#each buckets as bucket (bucket.key)}
-					{#if bucket.drilldown === 'mcp' && !bucket.isOther}
-						<li class="min-w-0">
-							<a
-								href={resolve(`/inventory/mcp-servers/${encodeURIComponent(bucket.key)}`)}
-								onclick={(e) => {
-									e.preventDefault();
-									openUrl(
-										resolve(`/inventory/mcp-servers/${encodeURIComponent(bucket.key)}`),
-										e.ctrlKey || e.metaKey
-									);
-								}}
-								class="hover:bg-base-200 dark:hover:bg-base-300 group -mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors"
-							>
-								<span class="size-3 shrink-0 rounded-full" style="background-color: {bucket.color}"
-								></span>
-								<span class="min-w-0 flex-1 truncate">{bucket.label}</span>
-								<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>
-								<ChevronRight
-									class="text-muted-content size-3 shrink-0 opacity-0 group-hover:opacity-100"
-								/>
-							</a>
-						</li>
-					{:else if bucket.drilldown === 'skill' && !bucket.isOther}
-						<li class="min-w-0">
-							<a
-								href={resolve(`/inventory/skills/${encodeURIComponent(bucket.key)}`)}
-								onclick={(e) => {
-									e.preventDefault();
-									openUrl(
-										resolve(`/inventory/skills/${encodeURIComponent(bucket.key)}`),
-										e.ctrlKey || e.metaKey
-									);
-								}}
-								class="hover:bg-base-200 dark:hover:bg-base-300 group -mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 transition-colors"
-							>
-								<span class="size-3 shrink-0 rounded-full" style="background-color: {bucket.color}"
-								></span>
-								<span class="min-w-0 flex-1 truncate">{bucket.label}</span>
-								<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>
-								<ChevronRight
-									class="text-muted-content size-3 shrink-0 opacity-0 group-hover:opacity-100"
-								/>
-							</a>
-						</li>
-					{:else}
-						<li
-							class="-mx-1 flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5"
-							class:text-muted-content={bucket.isOther}
-						>
-							<span class="size-3 shrink-0 rounded-full" style="background-color: {bucket.color}"
-							></span>
-							<span class="min-w-0 flex-1 truncate" class:italic={bucket.isOther}>
-								{bucket.label}
-								{#if bucket.isOther && bucket.otherCount !== undefined}
-									<span class="text-muted-content ml-1 not-italic"
-										>{m.inventory_enforcement_devices_scan_n_more({
-											count: bucket.otherCount
-										})}</span
-									>
-								{/if}
-							</span>
-							<span class="text-muted-content shrink-0 tabular-nums">{bucket.value}</span>
-						</li>
-					{/if}
-				{/each}
-			</ul>
-		</div>
-	{/if}
 </div>

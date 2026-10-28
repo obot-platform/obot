@@ -1,7 +1,9 @@
 package system
 
 const (
-	ModelProxyModelProvider          = "model-proxy"
+	ModelProxyModelProvider = "model-proxy"
+	// LLMGatewayModelProvider is the built-in LLM gateway.
+	LLMGatewayModelProvider          = "llm-gateway-model-provider"
 	OpenAIModelProvider              = "openai-model-provider"
 	AnthropicModelProvider           = "anthropic-model-provider"
 	GenericResponsesModelProvider    = "generic-responses-model-provider"

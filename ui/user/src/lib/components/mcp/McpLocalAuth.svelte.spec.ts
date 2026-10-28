@@ -13,7 +13,7 @@ it('keeps a compact row until Authenticate is clicked, then shows status beside 
 			return HttpResponse.json({ expiresIn: 600 });
 		})
 	);
-	await render(McpLocalAuth, {
+	const view = await render(McpLocalAuth, {
 		url: '/oauth/mcp/login/compact?serverName=Vercel',
 		serverName: 'Parent vMCP',
 		onComplete: vi.fn()
@@ -39,6 +39,7 @@ it('keeps a compact row until Authenticate is clicked, then shows status beside 
 	await expect.element(page.getByRole('timer')).toHaveTextContent('Command expires in 10:00');
 	await expect.element(page.getByText('This page', { exact: false })).not.toBeInTheDocument();
 	expect(await page.getByRole('listitem').elements()).toHaveLength(2);
+	await view.unmount();
 });
 
 it.each([390, 1280])(
@@ -47,7 +48,7 @@ it.each([390, 1280])(
 		await page.viewport(width, 900);
 		try {
 			worker.use(http.get('*/oauth/mcp/login/layout', () => HttpResponse.json({ expiresIn: 600 })));
-			await render(McpLocalAuth, {
+			const view = await render(McpLocalAuth, {
 				url: '/oauth/mcp/login/layout',
 				serverName: 'Vercel',
 				onComplete: vi.fn()
@@ -64,6 +65,7 @@ it.each([390, 1280])(
 			expect(timerBox.bottom).toBeGreaterThan(refresh.top);
 			expect(refresh.right).toBeLessThanOrEqual(width);
 			await expect.element(timer).toHaveClass('text-base-content');
+			await view.unmount();
 		} finally {
 			await page.viewport(1280, 720);
 		}

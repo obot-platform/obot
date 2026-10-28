@@ -71,7 +71,6 @@ var (
 			"GET    /api/users/{user_id}/activities",
 			"GET    /api/users/{user_id}/token-usage",
 			"GET    /api/users/{user_id}/total-token-usage",
-			"GET    /api/users/{user_id}/remaining-token-usage",
 			"GET    /api/workspaces",
 		},
 		types.GroupPowerUser: {
@@ -114,6 +113,10 @@ var (
 			"GET    /mcp-connect/{mcp_id}/",
 			"POST   /mcp-connect/{mcp_id}/",
 			"DELETE /mcp-connect/{mcp_id}/",
+		},
+		types.GroupClaudeEnvironment: {
+			// Runners poll component OAuth with the same current-user and MCP scope checks as connecting.
+			"GET    /api/oauth/vmcp/{mcp_id}",
 		},
 		types.GroupCompositeMCP: {
 			"GET    /mcp-connect-composite/{mcp_id}",

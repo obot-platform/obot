@@ -34,8 +34,8 @@ type vmcpOAuthFixture struct {
 }
 
 func TestMigratedCompositeConsentURL(t *testing.T) {
-	got := compositeConsentURL("https://obot.example.com", "ms1legacy", "vmcp1migrated", "oar1request")
-	require.Equal(t, "https://obot.example.com/auth/mcp/composite/ms1legacy?oauth_auth_request=oar1request&vmcp_id=vmcp1migrated", got)
+	got := compositeConsentURL("https://obot.example.com", "ms1legacy", "oar1request")
+	require.Equal(t, "https://obot.example.com/auth/mcp/composite/ms1legacy?oauth_auth_request=oar1request", got)
 }
 
 func TestVMCPComponentServersForAuthUsesConfiguredComponents(t *testing.T) {

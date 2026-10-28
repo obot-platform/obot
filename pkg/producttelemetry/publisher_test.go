@@ -203,7 +203,7 @@ func TestPublisherDoesNotStartForDevelopmentVersion(t *testing.T) {
 		}),
 	)
 
-	publisher.start(t.Context(), "v0.0.0-dev", false)
+	publisher.start(t.Context(), "v0.0.0-dev", false, 0)
 
 	select {
 	case <-publisher.done:
@@ -229,7 +229,7 @@ func TestPublisherDevelopmentVersionCanBeForcedWithoutBypassingConsent(t *testin
 		}),
 	)
 	ctx, cancel := context.WithCancel(t.Context())
-	publisher.start(ctx, "v0.0.0-dev", true)
+	publisher.start(ctx, "v0.0.0-dev", true, 0)
 
 	select {
 	case <-consentRead:
@@ -258,7 +258,7 @@ func TestPublisherStartsForReleaseVersion(t *testing.T) {
 		}),
 	)
 	ctx, cancel := context.WithCancel(t.Context())
-	publisher.start(ctx, "v1.2.3", false)
+	publisher.start(ctx, "v1.2.3", false, 0)
 
 	select {
 	case <-started:
@@ -273,10 +273,47 @@ func TestPublisherStartsForReleaseVersion(t *testing.T) {
 	}
 }
 
-func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
-	started := make(chan struct{})
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
-		close(started)
+func TestPublisherWaitsForInitialDelay(t *testing.T) {
+	consentRead := make(chan struct{})
+	publisher := newPublisher(
+		consentReaderFunc(func(context.Context) (*bool, error) {
+			close(consentRead)
+			return new(true), nil
+		}),
+		newRequestGateway(),
+		testStorageClient(),
+		testEntitlements(),
+		"docker",
+		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error { return nil }),
+	)
+	const initialDelay = 50 * time.Millisecond
+	ctx, cancel := context.WithCancel(t.Context())
+	started := time.Now()
+	publisher.start(ctx, "v1.2.3", false, initialDelay)
+
+	select {
+	case <-consentRead:
+		if elapsed := time.Since(started); elapsed < initialDelay {
+			t.Fatalf("first run after %v, want at least %v", elapsed, initialDelay)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("publisher did not run after initial delay")
+	}
+	cancel()
+	select {
+	case <-publisher.done:
+	case <-time.After(time.Second):
+		t.Fatal("publisher did not stop after context cancellation")
+	}
+}
+
+func TestNewPublisherWaitsBeforeFirstReportAndHonorsCancellation(t *testing.T) {
+	requests := make(chan struct{}, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+		// Only count telemetry reports; ignore unrelated traffic such as port probes.
+		if request.Method == http.MethodPost {
+			requests <- struct{}{}
+		}
 		response.WriteHeader(http.StatusAccepted)
 	}))
 	t.Cleanup(server.Close)
@@ -292,9 +329,9 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 	publisher := NewPublisher(ctx, consent, gatewayClient, testStorageClient(), testEntitlements(), "docker")
 
 	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("background job did not start")
+	case <-requests:
+		t.Fatal("report sent before the initial delay elapsed")
+	case <-time.After(100 * time.Millisecond):
 	}
 	cancel()
 	select {

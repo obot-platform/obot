@@ -1,42 +1,38 @@
-<script lang="ts">
-	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import Search from '$lib/components/Search.svelte';
-	import Select from '$lib/components/Select.svelte';
+<script module lang="ts">
 	import { m } from '$lib/i18n';
-	import { Funnel, X } from '@lucide/svelte';
 
-	const BUTTON_ID = 'claude-sessions-settings-button';
-	const SORT_LABEL_ID = 'claude-sessions-sort-by-label';
-	const STATUS_FILTER_LABEL_ID = 'claude-sessions-filter-by-status-label';
-	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
-
-	export type SessionSortBy = 'lastUsed' | 'name' | 'status';
+	export type SessionSortBy = 'lastUsed' | 'displayName' | 'user' | 'status';
+	export type SessionSortDirection = 'asc' | 'desc';
+	export type SessionListVariant = 'grid' | 'table';
 
 	export interface SessionListFilters {
 		showMySessionsOnly: boolean;
 		sortBy: SessionSortBy;
+		sortDirection: SessionSortDirection;
 		query: string;
 		statusFilterBy: string;
+		userFilterBy: string;
+		variant: SessionListVariant;
 	}
 
-	interface FilterOption {
+	export interface SessionFilterOption {
 		id: string;
 		label: string;
 	}
 
-	interface Props {
-		filters: SessionListFilters;
-		onChange: (property: keyof SessionListFilters, values: string[]) => void;
-		showMine?: boolean;
-	}
-
-	const SORT_OPTIONS: FilterOption[] = [
+	export const SESSION_SORT_OPTIONS: SessionFilterOption[] = [
 		{ id: 'lastUsed', label: m.hosted_agents_sessions_last_used() },
-		{ id: 'name', label: m.core_name() },
+		{ id: 'displayName', label: m.core_name() },
+		{ id: 'user', label: m.hosted_agents_sessions_user() },
 		{ id: 'status', label: m.core_status() }
 	];
 
-	const STATUS_FILTER_OPTIONS: FilterOption[] = [
+	export const SESSION_SORT_DIRECTION_OPTIONS: SessionFilterOption[] = [
+		{ id: 'asc', label: m.hosted_agents_sessions_sort_ascending() },
+		{ id: 'desc', label: m.hosted_agents_sessions_sort_descending() }
+	];
+
+	export const SESSION_STATUS_FILTER_OPTIONS: SessionFilterOption[] = [
 		{ id: 'running', label: m.hosted_agents_sessions_running() },
 		{ id: 'resuming', label: m.hosted_agents_sessions_resuming() },
 		{ id: 'suspending', label: m.hosted_agents_sessions_suspending() },
@@ -45,17 +41,55 @@
 		{ id: 'suspended', label: m.hosted_agents_sessions_suspended() },
 		{ id: 'deleting', label: m.hosted_agents_sessions_deleting() }
 	];
+</script>
 
-	let { filters, onChange, showMine = false }: Props = $props();
+<script lang="ts">
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import Search from '$lib/components/Search.svelte';
+	import Select from '$lib/components/Select.svelte';
+	import { Funnel, LayoutGrid, Table, X } from '@lucide/svelte';
+	import { twMerge } from 'tailwind-merge';
+
+	const BUTTON_ID = 'claude-sessions-settings-button';
+	const SORT_LABEL_ID = 'claude-sessions-sort-by-label';
+	const STATUS_FILTER_LABEL_ID = 'claude-sessions-filter-by-status-label';
+	const USER_FILTER_LABEL_ID = 'claude-sessions-filter-by-user-label';
+	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
+
+	interface Props {
+		filters: SessionListFilters;
+		onChange: (property: keyof SessionListFilters, values: string[]) => void;
+		showMine?: boolean;
+		userFilterOptions?: SessionFilterOption[];
+	}
+
+	let { filters, onChange, showMine = false, userFilterOptions = [] }: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let statusDraft = $state<string | number | undefined>('');
+	let userDraft = $state<string | number | undefined>('');
 
-	let activeFilterPills = $derived(
-		pillsFor(STATUS_FILTER_OPTIONS, filters.statusFilterBy).map((item) => ({
+	let sortOptions = $derived(
+		showMine ? SESSION_SORT_OPTIONS : SESSION_SORT_OPTIONS.filter((option) => option.id !== 'user')
+	);
+
+	type MultiFilter = 'statusFilterBy' | 'userFilterBy';
+
+	let activeFilterPills = $derived([
+		...pillsFor(SESSION_STATUS_FILTER_OPTIONS, filters.statusFilterBy).map((item) => ({
 			...item,
 			property: 'statusFilterBy' as const
-		}))
-	);
+		})),
+		...(showMine
+			? pillsFor(userFilterOptions, filters.userFilterBy).map((item) => ({
+					...item,
+					property: 'userFilterBy' as const
+				}))
+			: [])
+	]);
+
+	function selectedFilter(property: MultiFilter) {
+		return property === 'statusFilterBy' ? filters.statusFilterBy : filters.userFilterBy;
+	}
 
 	function parseSelectedFilterIds(selected: string) {
 		return selected
@@ -76,12 +110,12 @@
 			.join(',');
 	}
 
-	function unusedOptions(options: FilterOption[], selected: string) {
+	function unusedOptions(options: SessionFilterOption[], selected: string) {
 		const ids = new Set(parseSelectedFilterIds(selected));
 		return options.filter((option) => !ids.has(option.id));
 	}
 
-	function pillsFor(options: FilterOption[], selected: string) {
+	function pillsFor(options: SessionFilterOption[], selected: string) {
 		return parseSelectedFilterIds(selected).map(
 			(id) => options.find((option) => option.id === id) ?? { id, label: id }
 		);
@@ -112,8 +146,8 @@
 						aria-label={m.hosted_agents_sessions_remove_named({ name: item.label })}
 						onclick={() =>
 							onChange(
-								'statusFilterBy',
-								parseSelectedFilterIds(removeFilter(filters.statusFilterBy, item.id))
+								item.property,
+								parseSelectedFilterIds(removeFilter(selectedFilter(item.property), item.id))
 							)}
 					>
 						<X class="size-3" />
@@ -122,6 +156,23 @@
 			{/each}
 		</div>
 	{/if}
+</div>
+
+<div class="flex items-center justify-end gap-2">
+	<button
+		class={twMerge('btn', filters.variant === 'grid' ? 'btn-active' : undefined)}
+		onclick={() => onChange('variant', ['grid'])}
+	>
+		<LayoutGrid class="size-4" />
+		{m.core_grid_view()}
+	</button>
+	<button
+		class={twMerge('btn', filters.variant === 'table' ? 'btn-active' : undefined)}
+		onclick={() => onChange('variant', ['table'])}
+	>
+		<Table class="size-4" />
+		{m.core_table_view()}
+	</button>
 </div>
 
 <ResponsiveDialog bind:this={dialog} title={m.hosted_agents_sessions_settings()} class="md:w-md">
@@ -145,16 +196,27 @@
 		<label id={SORT_LABEL_ID} for="claude-sessions-sort-by" class="divider my-2 text-xs uppercase">
 			{m.hosted_agents_sessions_sort_by_heading()}
 		</label>
-		<Select
-			id="claude-sessions-sort-by"
-			options={SORT_OPTIONS}
-			selected={filters.sortBy}
-			placeholder={m.hosted_agents_sessions_sort_by()}
-			ariaLabelledby={SORT_LABEL_ID}
-			class={selectClasses}
-			classes={{ root: 'grow', option: 'text-sm' }}
-			onSelect={(option) => onChange('sortBy', [String(option.id)])}
-		/>
+		<div class="flex flex-col gap-2">
+			<Select
+				id="claude-sessions-sort-by"
+				options={sortOptions}
+				selected={filters.sortBy}
+				placeholder={m.hosted_agents_sessions_sort_by()}
+				ariaLabelledby={SORT_LABEL_ID}
+				class={selectClasses}
+				classes={{ root: 'grow', option: 'text-sm' }}
+				onSelect={(option) => onChange('sortBy', [String(option.id)])}
+			/>
+			<Select
+				id="claude-sessions-sort-direction"
+				options={SESSION_SORT_DIRECTION_OPTIONS}
+				selected={filters.sortDirection}
+				placeholder={m.hosted_agents_sessions_sort_direction()}
+				class={selectClasses}
+				classes={{ root: 'grow', option: 'text-sm' }}
+				onSelect={(option) => onChange('sortDirection', [option.id === 'asc' ? 'asc' : 'desc'])}
+			/>
+		</div>
 
 		<label
 			id={STATUS_FILTER_LABEL_ID}
@@ -165,7 +227,7 @@
 		</label>
 		<Select
 			id="claude-sessions-filter-by-status"
-			options={unusedOptions(STATUS_FILTER_OPTIONS, filters.statusFilterBy)}
+			options={unusedOptions(SESSION_STATUS_FILTER_OPTIONS, filters.statusFilterBy)}
 			bind:selected={statusDraft}
 			placeholder={m.hosted_agents_sessions_filter_by_status()}
 			ariaLabelledby={STATUS_FILTER_LABEL_ID}
@@ -179,11 +241,43 @@
 				statusDraft = '';
 			}}
 		/>
-		{@render dialogFilterPills(pillsFor(STATUS_FILTER_OPTIONS, filters.statusFilterBy))}
+		{@render dialogFilterPills(
+			pillsFor(SESSION_STATUS_FILTER_OPTIONS, filters.statusFilterBy),
+			'statusFilterBy'
+		)}
+
+		{#if showMine}
+			<label
+				id={USER_FILTER_LABEL_ID}
+				for="claude-sessions-filter-by-user"
+				class="divider my-2 text-xs uppercase"
+			>
+				{m.hosted_agents_sessions_filter_by_user_heading()}
+			</label>
+			<Select
+				id="claude-sessions-filter-by-user"
+				options={unusedOptions(userFilterOptions, filters.userFilterBy)}
+				bind:selected={userDraft}
+				searchInDropdown
+				placeholder={m.hosted_agents_sessions_filter_by_user()}
+				searchPlaceholder={m.hosted_agents_sessions_search_users()}
+				ariaLabelledby={USER_FILTER_LABEL_ID}
+				class={selectClasses}
+				classes={{ root: 'grow', option: 'text-sm' }}
+				onSelect={(option) => {
+					onChange(
+						'userFilterBy',
+						parseSelectedFilterIds(addFilter(filters.userFilterBy, String(option.id)))
+					);
+					userDraft = '';
+				}}
+			/>
+			{@render dialogFilterPills(pillsFor(userFilterOptions, filters.userFilterBy), 'userFilterBy')}
+		{/if}
 	</div>
 </ResponsiveDialog>
 
-{#snippet dialogFilterPills(items: FilterOption[])}
+{#snippet dialogFilterPills(items: SessionFilterOption[], property: MultiFilter)}
 	{#if items.length > 0}
 		<ul class="mt-2 flex flex-wrap gap-1">
 			{#each items as item (item.id)}
@@ -195,8 +289,8 @@
 						aria-label={m.hosted_agents_sessions_remove_named({ name: item.label })}
 						onclick={() =>
 							onChange(
-								'statusFilterBy',
-								parseSelectedFilterIds(removeFilter(filters.statusFilterBy, item.id))
+								property,
+								parseSelectedFilterIds(removeFilter(selectedFilter(property), item.id))
 							)}
 					>
 						<X class="size-3" />

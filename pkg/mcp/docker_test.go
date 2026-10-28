@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -123,6 +124,45 @@ func TestDockerBackendNetworkConfigReturnsLocalIPError(t *testing.T) {
 	}
 	if !errors.Is(err, routeErr) {
 		t.Fatalf("expected wrapped route error, got %v", err)
+	}
+}
+
+func TestLocalIP(t *testing.T) {
+	unreachable := func() (net.Conn, error) { return nil, errors.New("network is unreachable") }
+	tests := []struct {
+		name           string
+		dial           func() (net.Conn, error)
+		interfaceAddrs []net.Addr
+		want           string
+	}{
+		{
+			name: "default route",
+			dial: func() (net.Conn, error) { return net.Dial("udp", "127.0.0.1:9") },
+			want: "127.0.0.1",
+		},
+		{
+			name: "no default route",
+			dial: unreachable,
+			interfaceAddrs: []net.Addr{
+				&net.IPNet{IP: net.ParseIP("fe80::1"), Mask: net.CIDRMask(64, 128)},
+				&net.IPNet{IP: net.ParseIP("10.1.2.3"), Mask: net.CIDRMask(8, 32)},
+			},
+			want: "10.1.2.3",
+		},
+		{
+			// As in a container started with --network none: Obot still starts.
+			name: "no network",
+			dial: unreachable,
+			want: "127.0.0.1",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := localIP(tt.dial, func() ([]net.Addr, error) { return tt.interfaceAddrs, nil })
+			if got != tt.want {
+				t.Fatalf("localIP() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

@@ -45,6 +45,9 @@ const (
 	GroupTunnel        = "obot-tunnel"
 	GroupTunnelBridge  = "obot-tunnel-bridge"
 	GroupTunnelPeer    = "obot-tunnel-peer"
+	// GroupClaudeEnvironment identifies server-issued Claude runner credentials.
+	GroupClaudeEnvironment = "claude-environment"
+
 	// GroupSCIM is the group of a SCIM connection's principal, which may only use that connection's SCIM endpoint.
 	GroupSCIM = "obot-scim"
 )

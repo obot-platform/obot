@@ -17,7 +17,8 @@ import (
 )
 
 const (
-	dailyReportWindow = 10 * time.Minute
+	initialReportDelay = 30 * time.Minute
+	dailyReportWindow  = 10 * time.Minute
 )
 
 type consentReader interface {
@@ -28,7 +29,7 @@ type reportSender interface {
 	Send(context.Context, clienttypes.ProductTelemetryRequest) error
 }
 
-// Publisher collects and sends product telemetry at startup and at a jittered daily UTC time.
+// Publisher collects and sends product telemetry shortly after startup and at a jittered daily UTC time.
 type Publisher struct {
 	consent         consentReader
 	gatewayClient   requestGatewayClient
@@ -54,7 +55,7 @@ func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayc
 		engine,
 		NewClient(upgrade.ServerBaseURL(), nil),
 	)
-	publisher.start(ctx, version.Get().String(), os.Getenv("OBOT_FORCE_PRODUCT_TELEMETRY") == "true")
+	publisher.start(ctx, version.Get().String(), os.Getenv("OBOT_FORCE_PRODUCT_TELEMETRY") == "true", initialReportDelay)
 	return publisher
 }
 
@@ -73,16 +74,21 @@ func newPublisher(consent consentReader, gatewayClient requestGatewayClient, sto
 	}
 }
 
-func (p *Publisher) start(ctx context.Context, currentVersion string, force bool) {
+func (p *Publisher) start(ctx context.Context, currentVersion string, force bool, initialDelay time.Duration) {
 	if version.IsDev(currentVersion) && !force {
 		close(p.done)
 		return
 	}
-	go p.run(ctx)
+	go p.run(ctx, initialDelay)
 }
 
-func (p *Publisher) run(ctx context.Context) {
+func (p *Publisher) run(ctx context.Context, initialDelay time.Duration) {
 	defer close(p.done)
+
+	// Delay the first report so that short-lived instances and frequent restarts don't each send one.
+	if err := wait(ctx, initialDelay); err != nil {
+		return
+	}
 	p.runOnce(ctx)
 
 	for {

@@ -9,7 +9,7 @@ These controls are experimental. Validate access restrictions and credential han
 
 ## Allowed destinations
 
-The internal Obot service and `api.anthropic.com` are always allowed for the integration to function. Additional hosts are configured on the environment and its profiles. Profiles add destinations; they cannot remove the environment's destinations. Matching profiles combine by union.
+The internal Obot service and `api.anthropic.com` are always allowed for the integration to function, except that Obot blocks Anthropic's `/v2/ccr-sessions/<session-id>/mcp` relay endpoint, and every path beneath it, with HTTP 403. Profiles can enable **Allow Claude MCP** (`allowClaudeMCP`, default `false`) to permit this endpoint. Any matching profile can grant access. Without that grant, this restriction applies even when all web destinations are allowed and is recorded as a denied request in the egress audit log. Other Anthropic requests continue through the normal policy checks. Additional hosts are configured on the environment and its profiles. Profiles add destinations; they cannot remove the environment's destinations. Matching profiles combine by union.
 
 Enter hostnames rather than URLs. A wildcard such as `*.github.com` matches **one subdomain level**, such as `api.github.com`. It does not match `github.com` or `a.b.github.com`; add those separately when needed. The environment and profiles support up to 100 unique additional hosts in total. Remember to allow destinations needed for repository cloning, dependencies, and third-party tools.
 
@@ -52,6 +52,8 @@ This is configuration delivery, not a tamper-proof filesystem boundary: the curr
 Open **Audit Logs → Claude Environments** as an administrator. Filter by user, Claude account, environment, session, destination, result, and time. **Details** opens the right-side panel. Membership in the **auditor** group is additionally required to view request/response bodies and headers; administrator or owner status alone does not grant payload access.
 
 HTTP and HTTPS passing through the egress gateway are audited. HTTPS interception uses Substrate's certificate infrastructure and still verifies upstream certificates. Certificate-pinned clients or clients that ignore the provided trust configuration can fail.
+
+HTTPS hostname denials during the TLS handshake are also recorded with outcome **denied** and scheme `tls`. These records include the requested hostname and session identity, but no HTTP method, path, response status, or payload because the connection was rejected before an HTTP request could be read.
 
 Obot buffers streamed captures and persists them in batches after streams close. Graceful shutdown stops handlers and flushes partial captures. Retention is separate from session retention: `config.OBOT_SERVER_EGRESS_AUDIT_LOG_RETENTION_DAYS` defaults to **90 days**, and **0 disables audit cleanup**. Age is measured from the record's last update.
 

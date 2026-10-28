@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ResponsiveDialog, {
 		type ResponsiveDialogAnimate
 	} from '$lib/components/ResponsiveDialog.svelte';
@@ -43,7 +44,7 @@
 		// True when this dialog is the first step of a provider switch. The account created here is
 		// signed in with immediately to prove the switch works, so a forced password change would
 		// put that sign-in behind the restricted-session wall. The toggle stays available.
-		switching?: boolean;
+		switchingProvider?: boolean;
 	}
 
 	const {
@@ -56,7 +57,7 @@
 		animate,
 		required,
 		additionalActions,
-		switching
+		switchingProvider
 	}: Props = $props();
 
 	const DOMAINS_KEY = 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS';
@@ -65,10 +66,12 @@
 	let createInitialUserDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	// The modal is a two-step flow: configure the provider, then manage its users. Users can only
 	// be created once the provider is configured (the server needs the allowed-domains credential),
-	// so an unconfigured provider opens on 'config' and a configured one opens straight on 'users'.
+	// so an unconfigured provider opens on 'config'. A configured provider opens on 'users' during a
+	// switch. Bootstrap setup skips configuration entirely and stays on user management.
 	let step = $state<'config' | 'users'>('config');
 	let domains = $state('');
 	let configuring = $state(false);
+	let configured = $state(false);
 	let configError = $state<string>();
 
 	let users = $state<LocalAuthUser[]>([]);
@@ -125,7 +128,7 @@
 		draftingNewUser = false;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching && !bootstrap;
+		draftRequirePasswordChange = !switchingProvider && !bootstrap;
 		draftReset = undefined;
 		shakingDraft = false;
 		shakingReset = false;
@@ -146,7 +149,8 @@
 			openBootstrapSetup();
 		} else {
 			resetDialogState();
-			step = provider?.configured ? 'users' : 'config';
+			configured = !!(provider?.configured || provider?.staged);
+			step = bootstrap || (switchingProvider && configured) ? 'users' : 'config';
 			dialog?.open();
 			if (step === 'users') showUsers();
 		}
@@ -158,15 +162,17 @@
 		createInitialUserDialog?.close();
 	}
 
-	async function handleContinue(e?: SubmitEvent) {
-		e?.preventDefault();
-
-		// A readonly admin can look but not save; just move on to view the users.
-		if (readonly) {
-			step = 'users';
-			await showUsers();
-			return;
+	async function handleDialogClose() {
+		try {
+			onClose?.((await AdminService.listLocalAuthUsers()).length);
+		} catch {
+			onClose?.(0);
 		}
+	}
+
+	async function handleSubmit(e?: SubmitEvent) {
+		e?.preventDefault();
+		if (readonly) return;
 
 		if (!domains.trim()) {
 			configError = m.identity_access_auth_providers_local_auth_domains_required();
@@ -181,8 +187,13 @@
 				configError = err;
 				return;
 			}
-			step = 'users';
-			await showUsers();
+			configured = true;
+			if (switchingProvider) {
+				step = 'users';
+				await showUsers();
+			} else {
+				close();
+			}
 		} finally {
 			configuring = false;
 		}
@@ -312,7 +323,7 @@
 		newUserError = undefined;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching && !bootstrap;
+		draftRequirePasswordChange = !switchingProvider && !bootstrap;
 		draftingNewUser = true;
 	}
 
@@ -356,7 +367,7 @@
 		draftingNewUser = false;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching && !bootstrap;
+		draftRequirePasswordChange = !switchingProvider && !bootstrap;
 		newUserError = undefined;
 		return true;
 	}
@@ -365,7 +376,7 @@
 		draftingNewUser = false;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching && !bootstrap;
+		draftRequirePasswordChange = !switchingProvider && !bootstrap;
 		newUserError = undefined;
 	}
 
@@ -554,7 +565,7 @@
 <ResponsiveDialog
 	bind:this={dialog}
 	class={twMerge('md:w-xl', step === 'users' && 'md:max-h-[calc(100dvh-1rem)]')}
-	onClose={() => onClose?.(users.length)}
+	onClose={handleDialogClose}
 	{animate}
 	disableClickOutside={required}
 	hideClose={required}
@@ -564,11 +575,25 @@
 	{/snippet}
 
 	{#if step === 'config'}
-		<form class="flex flex-col gap-4 md:p-0 p-4" onsubmit={handleContinue}>
+		<form class="flex flex-col gap-4 p-4 md:p-0" onsubmit={handleSubmit}>
 			{#if configError}
 				<div class="notification-error flex items-center gap-2">
 					<CircleAlert class="text-error size-5 shrink-0" />
 					<p class="text-sm font-light">{configError}</p>
+				</div>
+			{/if}
+
+			<div class="notification-info text-xs">
+				{m.identity_access_auth_providers_local_auth_provider_note()}
+			</div>
+
+			{#if !switchingProvider}
+				<div class="notification-info text-xs">
+					{m.identity_access_auth_providers_local_auth_add_user_prefix()}<a
+						class="link link-primary"
+						href={resolve('/identity-access?view=users')}
+						>{m.nav_identity_access()} → {m.identity_access_users_tab()}</a
+					>{m.identity_access_auth_providers_local_auth_add_user_suffix()}
 				</div>
 			{/if}
 
@@ -595,18 +620,28 @@
 						{@render additionalActions?.()}
 					{/if}
 				</div>
-				<button class="btn btn-primary" type="submit" disabled={configuring}>
-					{#if configuring}
-						<Loading class="size-4" />
-					{:else}
-						{m.core_continue()}
-					{/if}
-				</button>
+				{#if !readonly && (!configured || switchingProvider)}
+					<button class="btn btn-primary" type="submit" disabled={configuring}>
+						{#if configuring}
+							<Loading class="size-4" />
+						{:else}
+							{m.core_continue()}
+						{/if}
+					</button>
+				{:else if !readonly}
+					<button class="btn btn-primary" type="submit" disabled={configuring}>
+						{#if configuring}
+							<Loading class="size-4" />
+						{:else}
+							{m.core_save()}
+						{/if}
+					</button>
+				{/if}
 			</div>
 		</form>
-	{:else}
+	{:else if step === 'users'}
 		<div class="flex flex-col gap-2 grow md:p-0 p-4">
-			{#if !readonly}
+			{#if !readonly && !bootstrap}
 				<button
 					class="text-link flex items-center gap-1 text-xs font-light"
 					type="button"

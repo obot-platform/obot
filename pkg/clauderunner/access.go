@@ -18,7 +18,8 @@ import (
 
 type ResolvedEnvironment struct {
 	types.ClaudeEnvironment
-	MCPServerIDs []string
+	MCPServerIDs   []string
+	AllowClaudeMCP bool
 }
 
 // ResolveEnvironment combines matching profile grants and inherits unspecified resources.
@@ -39,6 +40,10 @@ func ResolveEnvironment(user kuser.Info, env *types.ClaudeEnvironment) (*Resolve
 			continue
 		}
 		matched = true
+
+		// Profile permissions combine by union, including access to Claude's MCP relay.
+		resolved.AllowClaudeMCP = resolved.AllowClaudeMCP || profile.AllowClaudeMCP
+
 		for _, secret := range profile.EgressSecrets {
 			key := SecretKey(secret)
 			if overridden[key] {

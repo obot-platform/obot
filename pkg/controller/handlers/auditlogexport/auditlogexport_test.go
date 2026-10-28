@@ -56,8 +56,8 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 			Outcomes:               []string{gatewaytypes.LLMAuditOutcomeSuccess},
 			UserAgents:             []string{"obot/1.0"},
 			ClientSessionIDs:       []string{"session-1"},
-			MessagePolicyTriggered: []bool{true, false},
 			Query:                  "needle",
+			MessagePolicyTriggered: []bool{true},
 		},
 	}}
 
@@ -75,7 +75,7 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 		t.Fatalf("API key filter was not mapped: %#v", got)
 	}
 	if !reflect.DeepEqual(got.MessagePolicyTriggered, export.Spec.LLMFilters.MessagePolicyTriggered) {
-		t.Fatalf("message policy filter was not mapped: %#v", got)
+		t.Fatalf("message policy filter of an older export was not mapped: %#v", got)
 	}
 	if !reflect.DeepEqual(got.UserAgent, export.Spec.LLMFilters.UserAgents) {
 		t.Fatalf("user agent filter was not mapped: %#v", got)

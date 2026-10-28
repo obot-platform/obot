@@ -73,6 +73,9 @@ type Client struct {
 	groupRefresh              singleflight.Group
 	groupCooldown             groupRefreshCooldown
 	kickLifecycleDelivery     chan struct{}
+	// claudeProvisionGateSlot admits one caller at a time to WithClaudeProvisionLock.
+	claudeProvisionGateOnce sync.Once
+	claudeProvisionGateSlot chan struct{}
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {

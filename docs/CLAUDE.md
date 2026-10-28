@@ -9,7 +9,7 @@ The `docs/` directory holds the Docusaurus 3 site published at docs.obot.ai. It 
 - `docs/` holds the current, unreleased documentation. It is served at `/next/` and is excluded from search indexes.
 - `versioned_docs/version-vX.Y.Z/` holds the snapshot taken when that release was cut. The first entry in `versions.json` is the latest release, and it is served at the site root.
 - `versioned_sidebars/` holds one sidebar snapshot per version, and `sidebars.ts` is the sidebar for `docs/`.
-- `plugins/` holds two custom plugins, `canonical-urls.ts` and `structured-data.ts`, along with the shared `PATH_REDIRECTS` map in `utils.ts`.
+- `plugins/` holds `canonical-urls.ts`, `structured-data.ts`, and the `agent-docs/` Markdown exporter, along with the shared `PATH_REDIRECTS` map in `utils.ts`.
 - `static/` holds images and downloadable files, and it is not versioned.
 
 ## Never link to a doc page with an absolute path
@@ -53,6 +53,8 @@ Leave `versioned_docs/` alone. Each snapshot keeps its own copy of the page unde
 ## Verifying changes
 
 Run `npm run build` from `docs/` after any change to links, filenames, or the sidebar. A broken link fails the build because `onBrokenLinks` is `throw`, and `.github/workflows/docs.yml` runs the same build on every pull request that touches `docs/**`.
+
+Agent-readable indexes and Markdown are generated during production builds. Run `npm run verify` to include exporter unit tests and full-corpus content checks. Review `.docusaurus/agent-docs-summaries.json` for extracted index summaries. See `README.md` for the Pages preview and isolated release-transition test; never edit generated exports by hand.
 
 For a live preview, run `make serve-docs` from the repository root, or `npm run start` from `docs/`.
 

@@ -136,9 +136,9 @@ secret:
   OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN: ""
   # secret.OBOT_SERVER_DSN -- The DSN for your database. For example: postgres://<username>:<password>@<hostname>/<db_name>
   OBOT_SERVER_DSN: ""
-  # secret.OPENAI_API_KEY -- An OpenAI API Key used to configure access to OpenAI models, which are the default in Obot.
+  # secret.OPENAI_API_KEY -- An OpenAI API key. At startup, Obot configures the LLM gateway's openai provider with it, and updates the provider's key when the value changes. You can also add providers under LLM Gateway > Providers.
   OPENAI_API_KEY: ""
-  # secret.ANTHROPIC_API_KEY -- An Anthropic API Key used to configure access to Anthropic models, which can be used as the default in Obot.
+  # secret.ANTHROPIC_API_KEY -- An Anthropic API key. At startup, Obot configures the LLM gateway's anthropic provider with it, and updates the provider's key when the value changes.
   ANTHROPIC_API_KEY: ""
 
   # secret.OBOT_SERVER_OTEL_BEARER_TOKEN -- The bearer token for authentication with OpenTelemetry
@@ -216,9 +216,9 @@ config:
   # config.OBOT_SERVER_HOSTNAME -- The hostname of your Obot instance, including protocol
   OBOT_SERVER_HOSTNAME: ""
 
-  # config.OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT -- The maximum number of prompt/input tokens allowed per user per day. Set to a negative value to disable this limit. Defaults to 10000000.
+  # config.OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT -- Daily input token limit per user in the LLM gateway's "Daily token limit" budget, which the gateway puts on every profile when it first starts. Only used then; after that, edit each profile's budget under LLM Gateway > Profiles. Set to a negative value to leave out this limit. Defaults to 10000000.
   OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT: ""
-  # config.OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT -- The maximum number of completion/output tokens allowed per user per day. Set to a negative value to disable this limit. Defaults to 100000.
+  # config.OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT -- Daily output token limit per user in the LLM gateway's "Daily token limit" budget, which the gateway puts on every profile when it first starts. Only used then. Set to a negative value to leave out this limit. Defaults to 100000.
   OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT: ""
 
   # config.OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS -- The interval in hours to check for idle single-user MCP servers and shut them down. Set to -1 to disable. Defaults to 24.
@@ -307,6 +307,9 @@ runtimeClassName: ""
 
 persistence:
   # persistence.enabled -- Enables persistence using a PVC mounted at /data.
+  # With dev.useEmbeddedDb, the built-in Postgres lives on this volume, including the LLM gateway's
+  # database and its encryption key. With an external secret.OBOT_SERVER_DSN, the gateway keeps its
+  # state in Postgres, so it doesn't depend on this volume.
   enabled: true
   # persistence.path -- The path the volume will be mounted
   path: /data

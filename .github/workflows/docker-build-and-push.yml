@@ -22,6 +22,8 @@ on:
 jobs:
   build:
     runs-on: depot-ubuntu-22.04
+    outputs:
+      image-digest: ${{ steps.build-and-push.outputs.digest }}
 
     steps:
       - name: Checkout code
@@ -67,6 +69,7 @@ jobs:
             ${{ github.ref_type == 'tag' && !contains(github.ref_name, '-') && format('docker.io/obot/{0}:{1}', github.event.repository.name, github.ref_name) || '' }}
           build-args: |
             BASE_IMAGE=ghcr.io/obot-platform/obot/base:latest
+            MODEL_DATA_URL=https://upgrade-server.obot.ai/v1/model-data
 
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.8.1
@@ -132,7 +135,8 @@ jobs:
       - name: Run Trivy
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+          image-ref: ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image-digest }}
+          trivyignores: .trivyignore.yaml
           skip-dirs: "**/venv"
           format: "sarif"
           output: "trivy-results.sarif"

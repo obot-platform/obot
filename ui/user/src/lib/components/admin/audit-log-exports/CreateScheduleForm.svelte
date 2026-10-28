@@ -85,7 +85,6 @@
 			session_id: '',
 			user_agent: '',
 			client_session_id: '',
-			message_policy_triggered: '',
 			model_provider: '',
 			outcome: '',
 			request_path: '',
@@ -141,7 +140,6 @@
 					outcome: filters.outcomes ? filters.outcomes.join(',') : '',
 					user_agent: filters.userAgents ? filters.userAgents.join(',') : '',
 					client_session_id: filters.clientSessionIDs ? filters.clientSessionIDs.join(',') : '',
-					message_policy_triggered: filters.messagePolicyTriggered?.map(String).join(',') ?? '',
 					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
@@ -201,7 +199,6 @@
 							user_id: 'user_id',
 							user_agent: 'user_agent',
 							client_session_id: 'client_session_id',
-							message_policy_triggered: 'message_policy_triggered',
 							model_provider: 'model_provider',
 							outcome: 'outcome',
 							request_path: 'request_path',
@@ -282,7 +279,6 @@
 		'user_id',
 		'user_agent',
 		'client_session_id',
-		'message_policy_triggered',
 		'model_provider',
 		'outcome',
 		'request_path',
@@ -348,7 +344,6 @@
 			| 'mcp_server_catalog_entry_name'
 			| 'user_agent'
 			| 'client_session_id'
-			| 'message_policy_triggered'
 			| 'model_provider'
 			| 'outcome'
 			| 'request_path'
@@ -434,19 +429,6 @@
 					label: m.audit_usage_exports_filter_title_client_session_ids(),
 					description: m.audit_usage_exports_filter_desc_csv_client_session_ids(),
 					options: filtersOptions['client_session_id']?.map?.(sameLabel) ?? []
-				},
-				{
-					fieldId: 'message_policy_triggered',
-					filterKey: 'message_policy_triggered',
-					label: m.audit_usage_exports_filter_title_message_policy_action(),
-					description: m.audit_usage_exports_filter_desc_message_policy_triggered(),
-					options: toStringFilterSelectOptions(
-						filtersOptions['message_policy_triggered'],
-						(value) =>
-							value === 'true'
-								? m.audit_usage_exports_triggered()
-								: m.audit_usage_exports_not_triggered()
-					)
 				}
 			];
 		}
@@ -629,10 +611,6 @@
 				split(value)
 					.map((s) => Number(s))
 					.filter((n) => !Number.isNaN(n));
-			const splitBooleans = (value: string | null | undefined): boolean[] =>
-				split(value).flatMap((item) =>
-					item === 'true' ? [true] : item === 'false' ? [false] : []
-				);
 
 			if (logType === 'llm') {
 				const request = {
@@ -653,7 +631,6 @@
 						outcomes: split(form.filters.outcome),
 						userAgents: split(form.filters.user_agent),
 						clientSessionIDs: split(form.filters.client_session_id),
-						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
 						query: form.filters.query ?? ''
 					}
 				};

@@ -30,7 +30,11 @@ test('preserves comma-containing server names when creating and viewing exports'
 	await vi.waitFor(() =>
 		expect(page.getByRole('button', { name: 'Create Export', exact: true })).toBeEnabled()
 	);
-	await page.getByRole('button', { name: 'Create Export', exact: true }).click({ force: true });
+	// A forced pointer click lands wherever the button was, so a layout shift or overlay can
+	// swallow it; clicking the element itself always submits the form.
+	(
+		page.getByRole('button', { name: 'Create Export', exact: true }).element() as HTMLElement
+	).click();
 	await vi.waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
 	const exported = onSubmit.mock.calls[0][0] as AuditLogExport;
 	expect(exported.filters?.mcpServers).toEqual([name]);

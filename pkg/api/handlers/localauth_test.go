@@ -27,6 +27,7 @@ import (
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -177,6 +178,134 @@ func TestLocalAuthValidationUsesRequestLocale(t *testing.T) {
 	require.ErrorAs(t, err, &httpErr)
 	require.Equal(t, http.StatusBadRequest, httpErr.Code)
 	require.Contains(t, httpErr.Message, "유효한 이메일 주소")
+}
+
+func TestLocalAuthUserRoleProtections(t *testing.T) {
+	passwordHash, err := localauth.HashPassword(localSetupPassword)
+	require.NoError(t, err)
+
+	for _, operation := range []string{"reset password", "delete"} {
+		for _, callerRole := range []apitypes.Role{apitypes.RoleAdmin, apitypes.RoleOwner} {
+			for _, target := range []struct {
+				name            string
+				role            apitypes.Role
+				provider        string
+				configuredOwner bool
+			}{
+				{
+					name:     "owner",
+					role:     apitypes.RoleOwner,
+					provider: system.LocalAuthProvider,
+				},
+				{
+					name:     "auditor",
+					role:     apitypes.RoleAuditor,
+					provider: system.LocalAuthProvider,
+				},
+				{
+					name:     "admin with auditor role",
+					role:     apitypes.RoleAdmin | apitypes.RoleAuditor,
+					provider: system.LocalAuthProvider,
+				},
+				{
+					name:     "admin",
+					role:     apitypes.RoleAdmin,
+					provider: system.LocalAuthProvider,
+				},
+				{
+					name:     "basic",
+					role:     apitypes.RoleBasic,
+					provider: system.LocalAuthProvider,
+				},
+				{
+					name: "no org user",
+				},
+				{
+					name:            "explicit owner role set with no org user",
+					configuredOwner: true,
+				},
+				{
+					name:     "owner under another provider with same email",
+					role:     apitypes.RoleOwner,
+					provider: "google-auth-provider",
+				},
+			} {
+				t.Run(operation+"/"+strconv.Itoa(int(callerRole))+"/"+target.name, func(t *testing.T) {
+					var owners []string
+					if target.configuredOwner {
+						owners = []string{"target@example.com"}
+					}
+					f := newLocalSetupFixture(t, owners, nil)
+					// Keep a separate owner so last-owner/admin checks do not mask authorization.
+					f.identity(t, "existing-owner@example.com", system.LocalAuthProvider, apitypes.RoleOwner)
+					localUser, err := f.gateway.CreateLocalAuthUser(t.Context(), "target@example.com", passwordHash, false)
+					require.NoError(t, err)
+					var orgUserID string
+					if target.provider != "" {
+						orgUserID = f.identity(t, localUser.Email, target.provider, target.role).User.GetUID()
+					}
+					sessionID := hash.String("target-session")
+					require.NoError(t, f.gateway.CreateLocalAuthSession(t.Context(), sessionID, localUser.ID, time.Now().Add(time.Hour)))
+
+					request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"password":"replacement-password"}`))
+					request.SetPathValue("id", strconv.FormatUint(uint64(localUser.ID), 10))
+					req := api.Context{
+						Request:        request,
+						ResponseWriter: httptest.NewRecorder(),
+						GatewayClient:  f.gateway,
+						Storage:        f.storage,
+						User:           &kuser.DefaultInfo{Groups: callerRole.Groups()},
+					}
+					if operation == "delete" {
+						err = f.handler.Delete(req)
+					} else {
+						err = f.handler.SetPassword(req)
+					}
+
+					privileged := target.role.HasRole(apitypes.RoleOwner) || target.role.HasRole(apitypes.RoleAuditor)
+					denied := callerRole != apitypes.RoleOwner && (target.configuredOwner || target.provider == system.LocalAuthProvider && privileged)
+					if denied {
+						var httpErr *apitypes.ErrHTTP
+						require.ErrorAs(t, err, &httpErr)
+						require.Equal(t, http.StatusForbidden, httpErr.Code)
+						stored, err := f.gateway.LocalAuthUserByID(t.Context(), localUser.ID)
+						require.NoError(t, err)
+						require.Equal(t, passwordHash, stored.PasswordHash)
+						require.False(t, stored.RequirePasswordChange)
+						_, _, err = f.gateway.LocalAuthSession(t.Context(), sessionID)
+						require.NoError(t, err)
+						if orgUserID != "" {
+							_, err = f.gateway.UserByID(t.Context(), orgUserID)
+							require.NoError(t, err)
+						}
+						var cleanups v1.UserDeleteList
+						require.NoError(t, f.storage.List(t.Context(), &cleanups))
+						require.Empty(t, cleanups.Items)
+						return
+					}
+
+					require.NoError(t, err)
+					_, _, err = f.gateway.LocalAuthSession(t.Context(), sessionID)
+					require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+					stored, err := f.gateway.LocalAuthUserByID(t.Context(), localUser.ID)
+					if operation == "delete" {
+						require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+					} else {
+						require.NoError(t, err)
+						require.NoError(t, localauth.VerifyPassword(stored.PasswordHash, "replacement-password"))
+					}
+					if orgUserID != "" {
+						_, err := f.gateway.UserByID(t.Context(), orgUserID)
+						if operation == "delete" && target.provider == system.LocalAuthProvider {
+							require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+						} else {
+							require.NoError(t, err)
+						}
+					}
+				})
+			}
+		}
+	}
 }
 
 func TestLocalAuthBootstrapLoginCompletesInOneSession(t *testing.T) {

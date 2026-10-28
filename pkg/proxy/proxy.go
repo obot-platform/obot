@@ -439,6 +439,7 @@ func checkStateResponse(statusCode int, body []byte) error {
 		for _, msg := range []string{
 			"record not found",
 			"session ticket cookie failed validation",
+			"cookie signature not valid",
 			"refreshing token returned 401",
 			"refreshing token returned 403",
 		} {

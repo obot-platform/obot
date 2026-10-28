@@ -289,6 +289,12 @@ export function withDisabledMarker(label: string, user?: Pick<OrgUser, 'status'>
 	return isDisabledUser(user) ? m.core_user_disabled_label({ name: label }) : label;
 }
 
+// isClaudeTagUser reports whether a user is the service identity a Claude environment creates for Claude Tag.
+// The environment owns it, so the server refuses to change or delete it through user management.
+export function isClaudeTagUser(user: OrgUser): boolean {
+	return !!user.internal && !!user.username?.startsWith('claude-tag:');
+}
+
 /**
  * Generates a display name for a user with fallbacks and contextual information.
  *

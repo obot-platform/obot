@@ -68,20 +68,7 @@ func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
 	if err := c.List(ctx, &policies); err != nil {
 		return err
 	} else if len(policies.Items) == 0 && len(defaultModelAccessPolicyResources) > 0 {
-		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &v1.ModelAccessPolicy{
-			Name:      system.ModelAccessPolicyPrefix + "-default",
-			Namespace: system.DefaultNamespace,
-			Spec: v1.ModelAccessPolicySpec{
-				Manifest: types.ModelAccessPolicyManifest{
-					DisplayName: "Default Policy",
-					Subjects: []types.Subject{{
-						Type: types.SubjectTypeSelector,
-						ID:   "*",
-					}},
-					Models: defaultModelAccessPolicyResources,
-				},
-			},
-		})); err != nil {
+		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, modelaccesspolicy.DefaultPolicy(defaultModelAccessPolicyResources))); err != nil {
 			return err
 		}
 	}

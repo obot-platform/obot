@@ -51,7 +51,7 @@ const (
 	keygenCheckTimeout  = 15 * time.Second
 	keygenProduct       = "18a762f2-5281-45cf-93fc-e45e2d932094"
 	keygenAccount       = "7565373b-6069-4a0b-9495-9777d9db3fd9"
-	keygenAPIURL        = "https://api.keygen.sh"
+	keygenAPIURL        = "https://license.obot.ai"
 	keygenAPIPrefix     = "v1"
 	keygenAPIVersion    = "1.8"
 )

@@ -1,0 +1,244 @@
+{
+  "date": "2026-10-24",
+  "source_base_commit": "535fc944b07be021949798ae7868ebdd3b196f3b",
+  "environment": "Local Wrangler Pages preview, http://localhost:3000; Docusaurus 3.10.2",
+  "agent": "Codex subagents using inherited session model; no explicit model override",
+  "method": "Fresh fork_turns:none agents, no inherited conversation, repository/source/plan access prohibited. Read-only HTTP documentation tasks. Two runs per scenario, plus two homepage-only discovery runs. Qualitative evidence, not cross-provider certification.",
+  "automated_checks": {
+    "unit_tests": 7,
+    "browser_tests": 5,
+    "exported_pages": 368,
+    "preserved_fenced_code_blocks": 834,
+    "preserved_tables": 243,
+    "baseline_html_pages_compared": 397,
+    "baseline_comparison": "Article text (excluding View as Markdown), canonical URLs, and robots tags unchanged.",
+    "release_simulation": "Actual docs:version v0.28.0 in temporary copy; v0.27.0 moved under version path; v0.24.0 removed; seeded stale outputs removed by clean build; v0.28 unified-gateway and v0.27 provider-route content remain distinct.",
+    "runtime": "Unit tests also checked on Node 22 (CI runtime)."
+  },
+  "usability": [
+    {
+      "scenario": "default",
+      "prompt": "Explain what Obot does and how to evaluate it locally with Docker. Include documentation version, prerequisites, commands, and success checks.",
+      "runs": [
+        {
+          "agent": "accept_default_1",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.27.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/index.md",
+            "http://localhost:3000/v0.27.0/installation/docker-deployment.md",
+            "http://localhost:3000/v0.27.0/start-here/govern.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        },
+        {
+          "agent": "accept_default_2",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.27.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/index.md",
+            "http://localhost:3000/v0.27.0/installation/docker-deployment.md",
+            "http://localhost:3000/v0.27.0/start-here/govern.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        }
+      ],
+      "observations": "Both agents selected the default release, retrieved Markdown, and cited the expected prerequisites, command, and verification steps. Both explicitly identified mutable image tags and unreleased wording in the released source guide."
+    },
+    {
+      "scenario": "old",
+      "prompt": "I run v0.26.0. Explain how to connect an AI client to an Obot vMCP, including authentication and troubleshooting. Cite version-correct sources.",
+      "runs": [
+        {
+          "agent": "accept_old_1",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.26.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.26.0/llms.txt",
+            "http://localhost:3000/v0.26.0/functionality/virtual-mcps.md",
+            "http://localhost:3000/v0.26.0/functionality/agent-auth-scopes.md",
+            "http://localhost:3000/v0.26.0/functionality/mcp-inspector.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        },
+        {
+          "agent": "accept_old_2",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.26.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.26.0/llms.txt",
+            "http://localhost:3000/v0.26.0/functionality/virtual-mcps.md",
+            "http://localhost:3000/v0.26.0/functionality/agent-auth-scopes.md",
+            "http://localhost:3000/v0.26.0/functionality/mcp-inspector.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        }
+      ],
+      "observations": "Both stayed on v0.26.0, distinguished gateway authentication from upstream OAuth, and explained affected-user troubleshooting. Both flagged legacy MCP-server wording in scope selection."
+    },
+    {
+      "scenario": "tabs",
+      "prompt": "For the latest release, explain Azure LLM Gateway authentication alternatives and show request examples. Distinguish client-to-Obot credentials from provider credentials.",
+      "runs": [
+        {
+          "agent": "accept_tabs_1",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.27.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/configuration/model-providers.md",
+            "http://localhost:3000/v0.27.0/llm-gateway/connect-clients.md",
+            "http://localhost:3000/v0.27.0/llm-gateway/compatibility.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        },
+        {
+          "agent": "accept_tabs_2",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.27.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/configuration/model-providers.md",
+            "http://localhost:3000/v0.27.0/llm-gateway/connect-clients.md",
+            "http://localhost:3000/v0.27.0/llm-gateway/how-it-works.md",
+            "http://localhost:3000/v0.27.0/llm-gateway/compatibility.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        }
+      ],
+      "observations": "Both recovered API-key and Entra alternatives, the non-default tab endpoints, client Obot keys, upstream credentials, and model-discovery limitations."
+    },
+    {
+      "scenario": "roles",
+      "prompt": "An administrator sees audit metadata but not sensitive MCP request/response bodies. Explain documented permission requirements and next steps.",
+      "runs": [
+        {
+          "agent": "accept_roles_1",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.27.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/security/policy-coverage.md",
+            "http://localhost:3000/v0.27.0/security/audit-data.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        },
+        {
+          "agent": "accept_roles_2",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.27.0",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/security/policy-coverage.md",
+            "http://localhost:3000/v0.27.0/security/audit-data.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        }
+      ],
+      "observations": "Both correctly required the Auditor add-on and an Owner to assign it, without claiming Admin implies sensitive-payload access."
+    },
+    {
+      "scenario": "next",
+      "prompt": "I develop against main. Find CLI setup instructions including non-interactive usage. Identify differences from the latest release only where documented.",
+      "runs": [
+        {
+          "agent": "accept_next_1",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "next",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/next/llms.txt",
+            "http://localhost:3000/next/reference/cli-api.md",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/reference/cli-api.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        },
+        {
+          "agent": "accept_next_2",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "next",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt",
+            "http://localhost:3000/next/llms.txt",
+            "http://localhost:3000/next/reference/cli-api.md",
+            "http://localhost:3000/v0.27.0/llms.txt",
+            "http://localhost:3000/v0.27.0/reference/cli-api.md"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        }
+      ],
+      "observations": "Both selected unreleased next, explained non-interactive does not necessarily eliminate browser authentication, compared release docs, and reported no documented CLI setup difference without claiming implementation equivalence."
+    },
+    {
+      "scenario": "missing",
+      "prompt": "I run v0.1.0. Give me version-correct installation instructions.",
+      "runs": [
+        {
+          "agent": "accept_missing_1",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.1.0 (unavailable)",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        },
+        {
+          "agent": "accept_missing_2",
+          "entry_url": "http://localhost:3000/llms.txt",
+          "selected_version": "v0.1.0 (unavailable)",
+          "fetched_urls": [
+            "http://localhost:3000/llms.txt"
+          ],
+          "assessment": "Expected retrieval and version behavior observed"
+        }
+      ],
+      "observations": "Both stated that this version is unavailable and declined to substitute another release or invent installation commands."
+    }
+  ],
+  "discovery": [
+    {
+      "agent": "accept_discovery_1",
+      "entry_url": "http://localhost:3000/",
+      "prompt": "Explain what Obot does and how to evaluate it locally with Docker. Include documentation version, prerequisites, commands, and success checks.",
+      "used_markdown": true,
+      "fetched_paths": [
+        "/",
+        "/v0.27.0/index.md",
+        "/installation/overview/",
+        "/v0.27.0/installation/docker-deployment.md",
+        "/v0.27.0/start-here/govern.md"
+      ],
+      "observation": "Discovered page Markdown from HTML without being told the format or index URL."
+    },
+    {
+      "agent": "accept_discovery_2",
+      "entry_url": "http://localhost:3000/",
+      "prompt": "Explain what Obot does and how to evaluate it locally with Docker. Include documentation version, prerequisites, commands, and success checks.",
+      "used_markdown": false,
+      "fetched_paths": [
+        "/",
+        "/installation/docker-deployment/",
+        "/start-here/govern/"
+      ],
+      "observation": "Answered from HTML, with correct version and source caveats; automatic Markdown discovery is not universal."
+    }
+  ],
+  "limitations": [
+    "Released Docker source uses mutable :latest and contains a :main Local-owner example labeled unreleased. Export preserves this source inconsistency; no snapshots edited.",
+    "Older auth-scope source retains MCP-server terminology and does not explicitly establish vMCP-specific selection.",
+    "Production Cloudflare bot/WAF access has not been verified; no Cloudflare account configuration was changed.",
+    "These results concern the tested agents, not all OpenAI, Anthropic, or Gemini clients."
+  ],
+  "evidence_status": "Historical qualitative summary, not independently rescorable: full answers, answer citations, and exact model identifier were not retained. Counts describe the original run, not the current test suite. Do not infer complete content fidelity or cross-provider certification."
+}

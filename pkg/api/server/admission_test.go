@@ -162,3 +162,28 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 		})
 	}
 }
+
+// LLM API clients only understand errors in their API's format, so failures on the LLM proxy
+// are written in the format of the request, OpenAI's or Anthropic's.
+func TestWrapWritesLLMProxyErrorsInTheRequestFormat(t *testing.T) {
+	s := &Server{
+		authenticator: authn.NewAuthenticator(failingAuthenticator{err: errors.New("bad credentials")}),
+	}
+	handler := s.Wrap(func(api.Context) error {
+		t.Fatal("the handler ran for an unauthenticated request")
+		return nil
+	})
+	for path, want := range map[string]string{
+		"/api/llm-proxy/v1/chat/completions": `{"error":{"code":null,"message":"bad credentials","param":null,"type":"authentication_error"}}`,
+		"/api/llm-proxy/v1/messages":         `{"error":{"message":"bad credentials","type":"authentication_error"},"type":"error"}`,
+	} {
+		rec := httptest.NewRecorder()
+		handler(rec, httptest.NewRequest(http.MethodPost, path, nil))
+		if rec.Code != http.StatusUnauthorized || rec.Header().Get("Content-Type") != "application/json" {
+			t.Errorf("%s: got %d %s", path, rec.Code, rec.Header().Get("Content-Type"))
+		}
+		if got := strings.TrimSpace(rec.Body.String()); got != want {
+			t.Errorf("%s: body %s, want %s", path, got, want)
+		}
+	}
+}

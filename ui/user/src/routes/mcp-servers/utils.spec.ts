@@ -2,6 +2,7 @@ import type { Fetcher, Profile } from '$lib/services';
 import {
 	getCreatedEntryUrl,
 	getMCPCatalogEntry,
+	getMCPFilterKind,
 	getMCPCatalogServer,
 	getSingleOrRemoteMcpServer
 } from './utils';
@@ -145,5 +146,21 @@ describe('mcp-servers route loaders', () => {
 		expect(userService.getMcpCatalogServer).toHaveBeenCalledWith('server-1', { fetch });
 		expect(adminService.getMCPCatalogEntry).not.toHaveBeenCalled();
 		expect(adminService.getMCPCatalogServer).not.toHaveBeenCalled();
+	});
+});
+
+describe('getMCPFilterKind', () => {
+	it('classifies filters by what backs them', () => {
+		expect(getMCPFilterKind({ guardrail: { guardrailIDs: ['gp1'], action: 'block' } })).toBe(
+			'guardrail'
+		);
+		expect(
+			getMCPFilterKind({
+				systemMCPServerCatalogEntryID: 'sce1',
+				mcpServerManifest: { runtime: 'containerized' }
+			})
+		).toBe('builtin');
+		expect(getMCPFilterKind({ url: 'https://example.com/hook' })).toBe('webhook');
+		expect(getMCPFilterKind({ mcpServerManifest: { runtime: 'npx' } })).toBe('mcpServer');
 	});
 });

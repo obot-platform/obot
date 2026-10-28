@@ -4,6 +4,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
+	import TokenUsageRequestStats from '$lib/components/admin/token-usage/TokenUsageRequestStats.svelte';
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import {
 		ALL_API_KEYS,
@@ -41,6 +42,7 @@
 		type TokenUsageTimelineItem
 	} from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import { getAPIKeyFilterOptions, getUserLabels } from '$lib/components/admin/token-usage/utils';
+	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
@@ -124,6 +126,12 @@
 			);
 		}
 		return result;
+	});
+	// The request statistics are filtered on the server, by the same filters.
+	const statsFilters = $derived({
+		userIDs: selectedUserIds.filter((id) => id !== ALL_USERS),
+		models: selectedTargetModels ? [...selectedTargetModels] : [],
+		apiKeyIDs: selectedAPIKeyIDs.filter((id) => id !== ALL_API_KEYS)
 	});
 	let groupBy = $derived(
 		(page.url.searchParams.get(TOKEN_USAGE_PARAMS.GROUP_BY) as TokenGroupBy) ??
@@ -704,32 +712,32 @@
 	{/if}
 
 	<div class="mb-4 flex flex-col gap-4" transition:fade={{ duration }}>
-		<div class="bg-base-300 dark:bg-base-200 w-full">
-			<div class="m-auto w-full px-4 py-4 md:max-w-(--breakpoint-xl) md:px-8">
-				<h4 class="font-semibold">{m.audit_usage_usage_overall_stats()}</h4>
-				<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row">
-					{@render summary(m.core_total_label(), totalTokensData?.totalTokens ?? 0)}
-					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(m.core_col_input(), totalTokensData?.inputTokens ?? 0)}
-					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(m.core_col_output(), totalTokensData?.outputTokens ?? 0)}
-					<div class="divider-horizontal hidden md:block"></div>
-					{@render summary(
-						m.audit_usage_usage_cached_input(),
-						(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
-					)}
-					<div class="divider-horizontal hidden md:block"></div>
-					{@render spendSummary(m.core_spend(), totalTokensData?.totalSpend)}
-				</div>
+		<div class="m-auto w-full p-0 paper gap-0">
+			<h4
+				class="border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md text-xs uppercase font-medium"
+			>
+				{m.audit_usage_usage_overall_stats()}
+			</h4>
+			<div class="flex flex-col flex-wrap items-stretch gap-4 md:flex-row p-4">
+				{@render summary(m.core_total_label(), totalTokensData?.totalTokens ?? 0)}
+				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
+				{@render summary(m.core_col_input(), totalTokensData?.inputTokens ?? 0)}
+				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
+				{@render summary(m.core_col_output(), totalTokensData?.outputTokens ?? 0)}
+				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
+				{@render summary(
+					m.audit_usage_usage_cached_input(),
+					(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0)
+				)}
+				<div class="divider-horizontal hidden md:block bg-base-300! dark:bg-base-400!"></div>
+				{@render spendSummary(m.core_spend(), totalTokensData?.totalSpend)}
 			</div>
 		</div>
-		<div
-			class="m-auto flex w-full max-w-full flex-col gap-4 px-4 md:max-w-(--breakpoint-xl) md:px-8"
-		>
+		<div class="m-auto flex w-full max-w-full flex-col gap-4">
 			<div class="flex w-full flex-wrap items-center justify-end gap-4">
 				<p class="text-muted-content w-full text-sm md:w-fit">{m.audit_usage_usage_filter_by()}</p>
 				<Select
-					class="dark:border-base-400 border border-transparent"
+					class="bg-base-100 border-base-300 dark:border-base-400"
 					classes={{
 						root: 'w-full md:min-w-72 md:flex-[2] dark:border-base-400'
 					}}
@@ -749,7 +757,7 @@
 					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				/>
 				<Select
-					class="dark:border-base-400 border border-transparent"
+					class="bg-base-100 border-base-300 dark:border-base-400"
 					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
@@ -769,7 +777,7 @@
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== ALL_USERS}
 				/>
 				<Select
-					class="dark:border-base-400 border border-transparent"
+					class="bg-base-100 border-base-300 dark:border-base-400"
 					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
@@ -840,6 +848,12 @@
 					{/if}
 				</div>
 			{/if}
+			<TokenUsageRequestStats
+				{startDate}
+				{endDate}
+				filters={statsFilters}
+				modelLabel={(model) => targetModelToDisplayName.get(model) ?? model}
+			/>
 			<TokenUsageTimelineCard
 				{startDate}
 				{endDate}
@@ -937,13 +951,9 @@
 						{:else if displayGraphItems.length > 0}
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 								{#each displayGraphItems.slice(0, visibleChartCount) as item (`${item.metric}-${item.key}`)}
-									<div class="paper p-0 flex min-h-0 flex-col overflow-hidden">
-										<h5
-											class="shrink-0 text-xs font-medium uppercase border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md"
-										>
-											{item.label}
-										</h5>
-										<div class="w-full shrink-0 p-4">
+									<div class="paper p-0 gap-0 flex min-h-0 flex-col overflow-hidden">
+										<GraphTitle title={item.label} element="h5" />
+										<div class="w-full shrink-0 p-4 pt-0">
 											{#if item.mode === GRAPH_MODE.BUCKET}
 												{@const isSpend = item.metric === GRAPH_METRIC.SPEND}
 												<StackedTimeline
@@ -1109,8 +1119,8 @@
 
 {#snippet summary(title: string, value: number)}
 	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-		<div class="text-base-content text-xs font-light">{title}</div>
-		<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+		<div class="text-muted-content text-xs font-light">{title}</div>
+		<div class="flex items-center gap-1 text-xl font-semibold">
 			{#if loadingTotalTokensData}
 				<div class="py-2">
 					<Loading class="size-4 animate-spin" />
@@ -1124,8 +1134,8 @@
 
 {#snippet spendSummary(title: string, value: number | undefined)}
 	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
-		<div class="text-base-content text-xs font-light">{title}</div>
-		<div class="text-primary flex items-center gap-1 text-xl font-semibold">
+		<div class="text-muted-content text-xs font-light">{title}</div>
+		<div class="flex items-center gap-1 text-xl font-semibold">
 			{#if loadingTotalTokensData}
 				<div class="py-2">
 					<Loading class="size-4 animate-spin" />

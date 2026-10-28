@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gt "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/substrate"
 	pb "github.com/obot-platform/obot/pkg/substrate/credproviderpb"
@@ -37,11 +39,19 @@ const (
 	egressIdentity = "spiffe://cluster.local/ns/ate-system/sa/atenet-egress"
 )
 
+var (
+	// errKeyIssueNeeded reports that a session's key must be issued or rotated, which
+	// fetchSecret does only when FetchSecret holds the provisioning lock.
+	errKeyIssueNeeded = errors.New("the Claude session key must be issued")
+)
+
 // CredentialProvider is reachable only by the egress gateway, never by actors.
 type CredentialProvider struct {
 	pb.UnimplementedCredentialProviderServer
 	Storage kclient.Reader
 	Gateway *client.Client
+	// ObotURL is the Obot URL actors reach Obot at.
+	ObotURL string
 }
 
 func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {
@@ -49,12 +59,18 @@ func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSec
 		return nil, err
 	}
 
-	var result *pb.FetchSecretResponse
-	err := p.Gateway.WithClaudeProvisionLock(ctx, func() error {
-		var err error
-		result, err = p.fetchSecret(ctx, input)
-		return err
-	})
+	// Most fetches return a session's current key or a stored secret, which needs no lock.
+	// Only issuing or rotating a key takes the provisioning lock, so that no key is issued
+	// for a session while it is revoked. The egress gateway fetches on every request, so
+	// taking the lock each time would serialize them all.
+	result, err := p.fetchSecret(ctx, input, false)
+	if errors.Is(err, errKeyIssueNeeded) {
+		err = p.Gateway.WithClaudeProvisionLock(ctx, func() error {
+			var err error
+			result, err = p.fetchSecret(ctx, input, true)
+			return err
+		})
+	}
 	if err != nil {
 		if status.Code(err) == codes.PermissionDenied {
 			return nil, err
@@ -65,10 +81,13 @@ func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSec
 	return result, nil
 }
 
-func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {
+// fetchSecret checks the session and its access on every fetch. It issues or rotates a
+// session key only when issue is true; otherwise it returns errKeyIssueNeeded.
+func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSecretRequest, issue bool) (*pb.FetchSecretResponse, error) {
 	name, ok := strings.CutPrefix(input.GetUri(), "ate-secret://obot/claude/")
 	name, secretID, hasSecret := strings.Cut(name, "/")
-	if !ok || (hasSecret && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
+	llm := hasSecret && secretID == "llm"
+	if !ok || (hasSecret && !llm && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
 		return nil, status.Error(codes.PermissionDenied, "Invalid credential reference")
 	}
 
@@ -85,12 +104,32 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 		return nil, status.Error(codes.PermissionDenied, "Claude session is not active for this actor")
 	}
 
+	if llm {
+		// The session's runtime records whether its environment enabled the LLM proxy.
+		var runtime gt.ClaudeRuntime
+		if err := json.Unmarshal([]byte(inst.Spec.ClaudeRuntime), &runtime); err != nil || !runtime.LLMProxy {
+			return nil, status.Error(codes.PermissionDenied, "The LLM proxy is not enabled for this Claude session")
+		}
+	}
+
 	environment, err := clauderunner.AuthorizedEnvironment(ctx, p.Gateway, inst.Spec.ClaudeEnvironment, inst.Spec.ClaudeAccount, inst.Spec.UserID)
 	if clauderunner.AccessDenied(err) {
 		return nil, status.Error(codes.PermissionDenied, "Claude environment access has been removed")
 	}
 	if err != nil {
 		return nil, err
+	}
+	userID, err := strconv.ParseUint(inst.Spec.UserID, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	expires := time.Now().Add(5 * time.Minute)
+	if llm {
+		return sessionKey(issue, func() (gt.Credential, bool, error) {
+			return p.Gateway.CurrentClaudeLLMCredential(ctx, uint(userID), inst.Name, expires)
+		}, func() (gt.Credential, error) {
+			return p.Gateway.EnsureClaudeLLMCredential(ctx, uint(userID), inst.Name, expires)
+		})
 	}
 	if hasSecret {
 		for _, secret := range environment.EgressSecrets {
@@ -103,12 +142,30 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 	if len(environment.MCPServerIDs) == 0 {
 		return nil, status.Error(codes.PermissionDenied, "No MCP access granted")
 	}
-	userID, err := strconv.ParseUint(inst.Spec.UserID, 10, 64)
-	if err != nil {
-		return nil, err
-	}
 
-	credential, err := p.Gateway.EnsureClaudeCredential(ctx, uint(userID), inst.Name, environment.MCPServerIDs, time.Now().Add(5*time.Minute))
+	return sessionKey(issue, func() (gt.Credential, bool, error) {
+		return p.Gateway.CurrentClaudeCredential(ctx, uint(userID), inst.Name, environment.MCPServerIDs, expires)
+	}, func() (gt.Credential, error) {
+		return p.Gateway.EnsureClaudeCredential(ctx, uint(userID), inst.Name, environment.MCPServerIDs, expires)
+	})
+}
+
+// sessionKey returns a session key: the current one, or, when issue is true, one ensure
+// reuses or issues.
+func sessionKey(issue bool, current func() (gt.Credential, bool, error), ensure func() (gt.Credential, error)) (*pb.FetchSecretResponse, error) {
+	var (
+		credential gt.Credential
+		err        error
+	)
+	if issue {
+		credential, err = ensure()
+	} else {
+		var ok bool
+		credential, ok, err = current()
+		if err == nil && !ok {
+			return nil, errKeyIssueNeeded
+		}
+	}
 	if errors.Is(err, client.ErrClaudeCredentialRevoked) {
 		return nil, status.Error(codes.PermissionDenied, "Claude session credential has been revoked")
 	}

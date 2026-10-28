@@ -103,6 +103,19 @@
 		step = 'owner';
 	}
 
+	async function handleManageLocalUsers() {
+		localAuthConfigure?.open();
+	}
+
+	async function handleLocalAuthClose(userCount: number) {
+		localUsers = await AdminService.listLocalAuthUsers();
+		if (userCount === 0) {
+			step = 'owner';
+		} else {
+			await prepareSignIn();
+		}
+	}
+
 	async function handleOwnerCreated(userCount: number, email?: string) {
 		if (userCount <= 0) return;
 		if (email) {
@@ -119,19 +132,6 @@
 		}
 		step = 'signin';
 		await prepareSignIn();
-	}
-
-	async function handleManageLocalUsers() {
-		localAuthConfigure?.open();
-	}
-
-	async function handleLocalAuthClose(userCount: number) {
-		localUsers = await AdminService.listLocalAuthUsers();
-		if (userCount === 0) {
-			step = 'owner';
-		} else {
-			await prepareSignIn();
-		}
 	}
 </script>
 

@@ -5,15 +5,19 @@ import (
 	"encoding/json"
 	"io"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 	"uuid"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	ext "github.com/envoyproxy/go-control-plane/envoy/service/ext_proc/v3"
+	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/obot-platform/obot/pkg/system"
@@ -65,7 +69,7 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 	}
 	var entry types.EgressAuditLog
 	var requestBody, responseBody []byte
-	started := false
+	started, upgrade := false, false
 	defer func() {
 		if !started {
 			return
@@ -115,12 +119,45 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			entry.Path = redactPath(firstHeader(headers, ":path"))
 			entry.RequestHeaders = redactedEgressHeaders(headers)
 			started = true
+
+			// Recheck current profile grants before forwarding to Claude's MCP relay.
+			if anthropicMCPRequest(entry.Host, firstHeader(headers, ":path")) {
+				env, err := clauderunner.AuthorizedEnvironment(stream.Context(), p.Provider.Gateway, entry.EnvironmentID, entry.ClaudeAccount, entry.UserID)
+				if err != nil && !clauderunner.AccessDenied(err) {
+					return status.Error(codes.Unavailable, "Cannot check Claude MCP access")
+				}
+
+				if env == nil || !env.AllowClaudeMCP {
+					entry.ResponseStatus = 403
+					entry.Outcome = "denied"
+					return stream.Send(&ext.ProcessingResponse{
+						Response: &ext.ProcessingResponse_ImmediateResponse{ImmediateResponse: &ext.ImmediateResponse{
+							Status:  &typev3.HttpStatus{Code: typev3.StatusCode_Forbidden},
+							Body:    []byte("Anthropic MCP relay requests are blocked by Obot"),
+							Details: "obot_anthropic_mcp_denied",
+						}},
+					})
+				}
+			}
+
 			mutation, err := p.secretPlaceholders(stream.Context(), &entry)
 			if err != nil {
 				return status.Error(codes.Unavailable, "Cannot prepare egress headers")
 			}
 			reply.Response = &ext.ProcessingResponse_RequestHeaders{RequestHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{HeaderMutation: mutation}}}
 			reply.DynamicMetadata, _ = structpb.NewStruct(map[string]any{"obot.audit": map[string]any{"id": entry.ID}})
+			// Envoy neither forwards an upgrade request nor returns its 101 while
+			// either body is streamed here, so a WebSocket is audited by headers only.
+			if upgrade = firstHeader(headers, "upgrade") != ""; upgrade {
+				reply.ModeOverride = &extprocv3.ProcessingMode{
+					RequestHeaderMode:   extprocv3.ProcessingMode_SEND,
+					ResponseHeaderMode:  extprocv3.ProcessingMode_SEND,
+					RequestBodyMode:     extprocv3.ProcessingMode_NONE,
+					ResponseBodyMode:    extprocv3.ProcessingMode_NONE,
+					RequestTrailerMode:  extprocv3.ProcessingMode_SKIP,
+					ResponseTrailerMode: extprocv3.ProcessingMode_SKIP,
+				}
+			}
 		case *ext.ProcessingRequest_ResponseHeaders:
 			if !started {
 				return status.Error(codes.InvalidArgument, "Missing request headers")
@@ -128,7 +165,8 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			headers := headerValues(data.ResponseHeaders.Headers)
 			entry.ResponseHeaders = redactedEgressHeaders(headers)
 			entry.ResponseStatus, _ = strconv.Atoi(firstHeader(headers, ":status"))
-			complete = data.ResponseHeaders.EndOfStream
+			// An upgraded stream sends nothing after its response headers.
+			complete = data.ResponseHeaders.EndOfStream || upgrade
 			reply.Response = &ext.ProcessingResponse_ResponseHeaders{ResponseHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{}}}
 		case *ext.ProcessingRequest_RequestBody:
 			entry.RequestBytes += int64(len(data.RequestBody.Body))
@@ -159,6 +197,43 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			return err
 		}
 	}
+}
+
+func anthropicMCPRequest(authority, requestPath string) bool {
+	destination, err := url.Parse("https://" + authority)
+	if err != nil || !strings.EqualFold(strings.TrimSuffix(destination.Hostname(), "."), "api.anthropic.com") {
+		return false
+	}
+
+	parsed, err := url.ParseRequestURI(requestPath)
+	if err != nil {
+		return false
+	}
+
+	// Match decoded, normalized paths so escaping and dot segments cannot bypass the block.
+	// The relay endpoint and every path beneath it require the grant.
+	remainder, ok := strings.CutPrefix(path.Clean(parsed.Path), "/v2/ccr-sessions/")
+	session, endpoint, _ := strings.Cut(remainder, "/")
+	return ok && session != "" && (endpoint == "mcp" || strings.HasPrefix(endpoint, "mcp/"))
+}
+
+// obotAuthority reports whether a cleartext request's authority is Obot's.
+func obotAuthority(obotURL, authority string) bool {
+	obot, err := url.Parse(obotURL)
+	if err != nil || obot.Scheme != "http" || obot.Hostname() == "" {
+		return false
+	}
+	destination, err := url.Parse("http://" + authority)
+	if err != nil {
+		return false
+	}
+	port := func(u *url.URL) string {
+		if u.Port() == "" {
+			return "80"
+		}
+		return u.Port()
+	}
+	return strings.EqualFold(strings.TrimSuffix(destination.Hostname(), "."), obot.Hostname()) && port(destination) == port(obot)
 }
 
 func egressOutcome(code int) string {
@@ -233,6 +308,14 @@ func redactPath(path string) string {
 // The following Substrate filter replaces existing headers, so supply placeholders
 // here before policy enforcement. Secret values never enter the audit stream.
 func (p *AuditProcessor) secretPlaceholders(ctx context.Context, entry *types.EgressAuditLog) (*ext.HeaderMutation, error) {
+	if entry.Scheme == "http" && llm.IsProxyPath(entry.Path) && obotAuthority(p.Provider.ObotURL, entry.Host) {
+		// Claude adds its custom headers to model requests but not to Files API requests, so
+		// every LLM proxy request gets the placeholder egress replaces with the session's LLM key.
+		return &ext.HeaderMutation{SetHeaders: []*core.HeaderValueOption{{
+			Header:       &core.HeaderValue{Key: "x-obot-api-key", RawValue: []byte("obot-egress-placeholder")},
+			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+		}}}, nil
+	}
 	if entry.Scheme != "https" {
 		return nil, nil
 	}

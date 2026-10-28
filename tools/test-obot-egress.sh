@@ -36,6 +36,14 @@ for name, source in data.items():
     substitute(doc)
     if name == 'envoy.yaml':
         doc['node'] = {'id': 'test', 'cluster': 'test'}
+        inner = next(listener for listener in doc['static_resources']['listeners']
+                     if listener['name'] == 'inner_listener')
+        denial_log = next(log for log in inner['access_log']
+                          if log['name'] == 'envoy.access_loggers.tcp_grpc')
+        assert denial_log['filter']['response_flag_filter']['flags'] == ['NR']
+        config = denial_log['typed_config']['common_config']
+        assert config['grpc_service']['envoy_grpc']['cluster_name'] == 'obot_audit'
+        assert 'dev.ate.actor.identity' in config['filter_state_objects_to_log']
         for listener in doc['static_resources']['listeners']:
             for chain in listener.get('filter_chains', []):
                 for filter in chain['filters']:

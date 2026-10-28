@@ -9,7 +9,7 @@ Deploying Obot to Amazon Elastic Kubernetes Service follows the standard Helm wo
 
 * AWS account
 * VPC with subnets
-* Amazon RDS instance running PostgreSQL 17+
+* Amazon RDS instance running PostgreSQL 17+. Obot also uses a second database on the same server, `<db name>_llm_gateway`, for the LLM gateway. Give Obot's database user `CREATEDB`, create it first with `CREATE DATABASE <db name>_llm_gateway OWNER <db user>;`, or set `OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN`.
 * VPC Security Groups configured to allow connectivity between your EKS cluster and RDS instance
 * (Optional) AWS KMS key for encrypting sensitive information
 * (Optional) IAM role and policy for service account (IRSA) if you're using AWS services like KMS for encryption
@@ -95,7 +95,7 @@ secret:
   # Optional: generated automatically when omitted from the chart-managed Secret
   OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
 
-  # Optionally configure model providers
+  # Optional: configures the LLM gateway's OpenAI provider at startup
   OPENAI_API_KEY: "<your openai api key>"
 
 # Non-sensitive configuration

@@ -1,14 +1,13 @@
-import { Group, UserService, type VMCP } from '$lib/services';
+import { Group, UserService, type ClaudeEnvironment, type VMCP } from '$lib/services';
 import { profile } from '$lib/stores';
 import { success } from '$lib/stores/success';
 import { createMockProfile } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import ClaudeConnectionForm from './ClaudeConnectionForm.svelte';
-import type { ClaudeEnvironment } from './types';
 import { http, HttpResponse } from 'msw';
 import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 
 const runtime = {
 	image: 'example/runner@sha256:' + 'a'.repeat(64),
@@ -73,9 +72,11 @@ it('saves a new environment from the details form with a default profile', async
 	expect(page.getByLabelText('Worker CPU request').all()).toHaveLength(0);
 	expect(page.getByLabelText('Worker memory request').all()).toHaveLength(0);
 	await page.getByText('Advanced configuration', { exact: true }).click();
+	// A blank image follows Obot's default, which the field shows as its placeholder.
+	await expect.element(page.getByLabelText('Runner image', { exact: true })).toHaveValue('');
 	await expect
 		.element(page.getByLabelText('Runner image', { exact: true }))
-		.toHaveValue(runtime.image);
+		.toHaveAttribute('placeholder', runtime.image);
 	await expect
 		.element(page.getByLabelText('Allow all web destinations', { exact: true }))
 		.not.toBeChecked();
@@ -153,6 +154,190 @@ it('saves a new environment from the details form with a default profile', async
 	expect(saved.mock.calls[0][0].runtime.worker).not.toHaveProperty('nodeSelector');
 	expect(saved.mock.calls[0][0].runtime.worker).not.toHaveProperty('tolerations');
 	await vi.waitFor(() => expect(submitted).toHaveBeenCalled());
+}, 5000);
+
+it('saves blank images so environments follow the default images', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		),
+		http.post('*/api/claude-environments', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByLabelText('Display name', { exact: true }).fill('Development');
+	await page.getByLabelText('Environment key', { exact: true }).fill('test-key');
+	await expect.element(page.getByLabelText('Worker image', { exact: true })).toHaveValue('');
+	await expect
+		.element(page.getByLabelText('Worker image', { exact: true }))
+		.toHaveAttribute('placeholder', runtime.workerImage);
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].runtime).toEqual(
+		expect.objectContaining({ image: '', workerImage: '', llmProxy: false })
+	);
+}, 5000);
+
+it('confirms the LLM gateway requirements before turning it on', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		),
+		http.post('*/api/claude-environments', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	await page.getByLabelText('Display name', { exact: true }).fill('Development');
+	await page.getByLabelText('Environment key', { exact: true }).fill('test-key');
+	const toggle = page.getByLabelText("Send model requests through Obot's LLM gateway", {
+		exact: true
+	});
+	await expect.element(toggle).not.toBeChecked();
+
+	// Cancelling the confirmation leaves the LLM gateway off.
+	await toggle.click();
+	await expect
+		.element(
+			page.getByText('The Anthropic model provider must allow Claude subscriptions.', {
+				exact: true
+			})
+		)
+		.toBeVisible();
+	await expect
+		.element(
+			page.getByText(
+				'A model gateway profile must give all users access to Claude Opus 5.5, Sonnet 5.5, Haiku 5.5, and Fable 5.1.',
+				{ exact: true }
+			)
+		)
+		.toBeVisible();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+	await expect.element(toggle).not.toBeChecked();
+
+	await toggle.click();
+	await page.getByRole('button', { name: 'Use the LLM gateway', exact: true }).click();
+	await expect.element(toggle).toBeChecked();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].runtime).toEqual(expect.objectContaining({ llmProxy: true }));
+}, 5000);
+
+it('confirms the LLM gateway again after dismissing it with Escape', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		)
+	);
+	render(ClaudeConnectionForm, { environment: 'new', onCancel: () => {}, onSubmit: () => {} });
+	const toggle = page.getByLabelText("Send model requests through Obot's LLM gateway", {
+		exact: true
+	});
+	const confirm = page.getByRole('button', { name: 'Use the LLM gateway', exact: true });
+
+	await toggle.click();
+	await expect.element(confirm).toBeVisible();
+	await userEvent.keyboard('{Escape}');
+	await expect.element(confirm).not.toBeInTheDocument();
+	await expect.element(toggle).not.toBeChecked();
+
+	await toggle.click();
+	await confirm.click();
+	await expect.element(toggle).toBeChecked();
+}, 5000);
+
+it('turns the LLM gateway off without confirming', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [{ ...environment, runtime: { ...runtime, llmProxy: true } }],
+				defaultWorkerImage: runtime.workerImage,
+				defaultRunnerImage: runtime.image
+			})
+		),
+		http.put('*/api/claude-environments/one', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: () => {}, onSubmit: () => {} });
+	const toggle = page.getByLabelText("Send model requests through Obot's LLM gateway", {
+		exact: true
+	});
+	await expect.element(toggle).toBeChecked();
+	await toggle.click();
+	await expect.element(toggle).not.toBeChecked();
+	await expect
+		.element(page.getByText('The Anthropic model provider must allow Claude subscriptions.'))
+		.not.toBeVisible();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].runtime).toEqual(expect.objectContaining({ llmProxy: false }));
+}, 5000);
+
+it('clears a pinned image so the environment follows the default again', async () => {
+	profile.initialize(createMockProfile());
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	const saved = vi.fn();
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [environment],
+				defaultWorkerImage: 'example/worker:v0.4.0',
+				defaultRunnerImage: 'example/runner@sha256:' + 'b'.repeat(64)
+			})
+		),
+		http.put('*/api/claude-environments/one', async ({ request }) => {
+			saved(await request.json());
+			return HttpResponse.json({});
+		})
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: () => {}, onSubmit: () => {} });
+	await expect
+		.element(page.getByLabelText('Worker image', { exact: true }))
+		.toHaveValue(runtime.workerImage);
+	await page.getByLabelText('Worker image', { exact: true }).fill('');
+	await page.getByText('Advanced configuration', { exact: true }).click();
+	await expect
+		.element(page.getByLabelText('Runner image', { exact: true }))
+		.toHaveValue(runtime.image);
+	await page.getByLabelText('Runner image', { exact: true }).fill('');
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await vi.waitFor(() => expect(saved).toHaveBeenCalled());
+	expect(saved.mock.calls[0][0].runtime).toEqual(
+		expect.objectContaining({ image: '', workerImage: '' })
+	);
 }, 5000);
 
 it('keeps a new profile on an unsaved environment until the connection form is saved', async () => {

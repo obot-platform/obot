@@ -10,15 +10,19 @@ import { page } from 'vitest/browser';
 const setupToken = 'a-high-entropy-owner-setup-token-value';
 
 // On success the page leaves for /change-password. A real navigation would tear down the test
-// browser, so capture the call and keep the rest of the module intact.
+// browser, so capture the call. This component test has no initialized SvelteKit router;
+// emulate shallow URL replacement with the browser's native implementation.
 const goto = vi.fn(async (_url: string) => {});
-vi.mock('$app/navigation', async (importOriginal) => ({
-	...(await importOriginal<typeof import('$app/navigation')>()),
-	goto: (url: string) => goto(url)
+const replaceState = vi.fn((url: string | URL, state: App.PageState) => {
+	History.prototype.replaceState.call(window.history, state, '', url);
+});
+vi.mock('$app/navigation', () => ({
+	goto: (url: string) => goto(url),
+	replaceState: (url: string | URL, state: App.PageState) => replaceState(url, state)
 }));
 
 function setFragment(fragment: string) {
-	window.history.replaceState(null, '', window.location.pathname + fragment);
+	replaceState(window.location.pathname + fragment, {});
 }
 
 function mockActivate(respond: () => Response) {
@@ -34,6 +38,7 @@ function mockActivate(respond: () => Response) {
 afterEach(() => {
 	goto.mockClear();
 	setFragment('');
+	replaceState.mockClear();
 	profile.initialize();
 });
 
@@ -41,12 +46,17 @@ describe('owner activation page', () => {
 	it('exchanges the token from the URL fragment and leaves for the password page', async () => {
 		const { activate, sentBody } = mockActivate(() => HttpResponse.json({ activated: true }));
 		setFragment(`#token=${setupToken}`);
+		replaceState.mockClear();
 
 		render(ActivatePage);
 
 		// Only the token is sent: the endpoint must not accept a caller-supplied email or user ID.
 		// Wait on the body: the spy records the call before its request body has finished parsing.
 		await vi.waitFor(() => expect(sentBody()).toEqual({ setupToken }));
+		expect(replaceState).toHaveBeenCalledWith(
+			window.location.pathname + window.location.search,
+			{}
+		);
 		expect(activate).toHaveBeenCalledTimes(1);
 		await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1));
 	});

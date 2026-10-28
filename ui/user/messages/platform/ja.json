@@ -207,7 +207,7 @@
 	"platform_mcp_config_scheduling_tolerations_desc_1": "{target}の tolerations フィールドを定義します。この値は、Kubernetes デプロイの",
 	"platform_mcp_config_scheduling_tolerations_desc_2": "フィールドの設定に使用され、有効な",
 	"platform_mcp_config_tab": "MCP 設定",
-	"platform_na": "N/A",
+	"platform_na": "該当なし",
 	"platform_opens_new_tab": "（新しいタブで開きます）",
 	"platform_refresh": "更新",
 	"platform_refresh_now": "今すぐ更新",

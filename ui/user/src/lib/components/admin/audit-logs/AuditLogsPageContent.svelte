@@ -754,7 +754,7 @@
 		{@render emptyContent()}
 	{:else}
 		<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-			<Captions class="text-muted-content size-24 opacity-50" />
+			<Captions class="text-muted-content size-20 opacity-50" />
 			<h4 class="text-muted-content text-lg font-semibold">{m.audit_usage_audit_logs_no_logs()}</h4>
 			<p class="text-muted-content text-sm font-light">
 				{m.audit_usage_audit_logs_no_logs_hint()}

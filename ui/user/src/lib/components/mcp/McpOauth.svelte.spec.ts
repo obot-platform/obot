@@ -3,7 +3,7 @@ import { createMcpServerDetailsFixtures } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import McpOauth from './McpOauth.svelte';
 import { HttpResponse, http } from 'msw';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, onTestFinished, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -73,6 +73,9 @@ it('uses the pending UI attempt and checks authentication before resuming', asyn
 });
 
 it('shows endpoint failures and retries the same component without treating errors as login success', async () => {
+	// This failure is intentional; keep its Error object out of Vitest's console forwarding.
+	const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+	onTestFinished(() => consoleError.mockRestore());
 	const entry = structuredClone(createMcpServerDetailsFixtures().serverSingle);
 	entry.vmcpInstanceID = 'vmcpi1exact';
 	let calls = 0;
@@ -97,6 +100,12 @@ it('shows endpoint failures and retries the same component without treating erro
 		.toHaveTextContent(`obot mcp login "${window.location.origin}/oauth/mcp/login/retry-attempt"`);
 	expect(onAuthenticate).not.toHaveBeenCalled();
 	expect(calls).toBe(2);
+	expect(consoleError).toHaveBeenCalledExactlyOnceWith(
+		expect.objectContaining({
+			statusCode: 503,
+			message: expect.stringContaining('Provider unavailable')
+		})
+	);
 });
 
 it('keeps provider URLs with a matching login path in the browser OAuth flow', async () => {

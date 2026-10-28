@@ -11,7 +11,8 @@ import (
 
 func TestEnvironmentRuntimeValidation(t *testing.T) {
 	runtime := gt.ClaudeRuntime{Image: "example/runner@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}
-	clauderunner.DefaultRuntime(&runtime, "example/worker:v0.3.0", "example/runner:main")
+	clauderunner.DefaultRuntime(&runtime)
+	runtime = clauderunner.WithDefaultImages(runtime, "example/worker:v0.3.0", "example/runner:main")
 	require.NoError(t, clauderunner.ValidateRuntime(runtime))
 	for _, image := range []string{"", "example/runner:main", "example/runner@sha256:abc", "runner image", strings.Repeat("a", 513)} {
 		invalid := runtime

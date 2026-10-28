@@ -1,6 +1,6 @@
 -- Run after chart/files/obot-egress.lua with obot_authority set to obot.obot.svc:8080.
-local function check(host, path, key, want_status, want_auth)
-  local values = {[":authority"] = host, [":path"] = path,
+local function check(host, path, key, want_status, want_auth, method)
+  local values = {[":authority"] = host, [":path"] = path, [":method"] = method or "GET",
                   ["x-obot-egress-key"] = key, authorization = "actor-supplied"}
   local metadata = {}
   local headers = {
@@ -33,3 +33,29 @@ check("obot.obot.svc:8080", "/api/claude-runners/credentials", "Bearer secret", 
 check("obot.obot.svc:8080", "/mcp-connect/vmcp_one/../../echo", "Bearer secret", "403", nil)
 check("obot.obot.svc:8080", "/mcp-connect/%2e%2e", "Bearer secret", "403", nil)
 check("obot.obot.svc:8080", "/mcp-connect/vmcp_one", nil, nil, nil)
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcp1one", "Bearer secret", nil, "Bearer secret")
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcpi1one", "Bearer secret", nil, "Bearer secret")
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcp1one", "Bearer secret", "403", nil, "POST")
+check("obot.obot.svc:8080", "/api/oauth/vmcp/vmcp1one/components/ms1one", "Bearer secret", "403", nil)
+check("obot.obot.svc:8080", "/api/oauth/vmcp/../echo", "Bearer secret", "403", nil)
+check("obot.obot.svc:8080", "/api/oauth/vmcp/%2e%2e", "Bearer secret", "403", nil)
+check("other.example:8080", "/api/oauth/vmcp/vmcp1one", "Bearer secret", nil, nil)
+
+local function check_llm(host, path, want_key)
+  local values = {[":authority"] = host, [":path"] = path, [":method"] = "POST", ["x-obot-api-key"] = "ok1-llm"}
+  local headers = {
+    get = function(_, name) return values[name] end,
+    remove = function(_, name) values[name] = nil end,
+    replace = function(_, name, value) values[name] = value end
+  }
+  envoy_on_request({headers = function() return headers end})
+  assert(values["x-obot-api-key"] == want_key, "LLM key escaped the LLM proxy: " .. path)
+end
+check_llm("obot.obot.svc:8080", "/api/llm-proxy/v1/messages?beta=true", "ok1-llm")
+check_llm("obot.obot.svc:8080", "/api/llm-proxy/anthropic/v1/messages/count_tokens", "ok1-llm")
+check_llm("obot.obot.svc:8080", "/mcp-connect/vmcp_one", nil)
+check_llm("obot.obot.svc:8080", "/api/me", nil)
+check_llm("obot.obot.svc:8080", "/api/llm-proxy/../me", nil)
+check_llm("obot.obot.svc:8080", "/api/llm-proxy/%2E%2E/me", nil)
+check_llm("obot.obot.svc:8080", "/api/llm-proxy//v1/messages", nil)
+check_llm("other.example:8080", "/api/me", "ok1-llm")

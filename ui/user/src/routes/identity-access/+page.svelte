@@ -2,9 +2,15 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import TabLayout from '$lib/components/TabLayout.svelte';
-	import { AUTH_PROVIDERS_VIEW_PATH, isSCIMView, SCIM_VIEW_PATH } from '$lib/constants';
+	import {
+		AUTH_PROVIDERS_VIEW_PATH,
+		CommonAuthProviderIds,
+		isSCIMView,
+		SCIM_VIEW_PATH
+	} from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { profile } from '$lib/stores';
+	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import AgentsView from './AgentsView.svelte';
 	import AuthProvidersView from './AuthProvidersView.svelte';
 	import GroupsView from './GroupsView.svelte';
@@ -17,11 +23,17 @@
 	let { data } = $props();
 	let groupsView = $state<ReturnType<typeof GroupsView>>();
 	let agentsView = $state<ReturnType<typeof AgentsView>>();
+	let usersView = $state<ReturnType<typeof UsersView>>();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let showCreateAgent = $derived(page.url.searchParams.has('new'));
 	// The Auth Providers tab shows the auth providers, or SCIM.
 	let showSCIM = $derived(isSCIMView(page.url.searchParams));
+	let localAuthProviderAvailable = $derived(
+		$adminConfigStore.authProviders.some(
+			(provider) => provider.id === CommonAuthProviderIds.LOCAL && provider.configured
+		)
+	);
 </script>
 
 <svelte:head>
@@ -71,11 +83,24 @@
 			<Plus class="size-4" />
 			{m.identity_access_create_agent_identity()}
 		</button>
+	{:else if view === 'users' && !isAdminReadonly && localAuthProviderAvailable}
+		<button
+			class="btn btn-primary w-full text-sm sm:w-auto"
+			onclick={() => usersView?.openCreateUser()}
+		>
+			<Plus class="size-4" />
+			{m.identity_access_auth_providers_local_auth_create_new_user()}
+		</button>
 	{/if}
 {/snippet}
 
 {#snippet users()}
-	<UsersView users={data.users} />
+	<UsersView
+		bind:this={usersView}
+		users={data.users}
+		{localAuthProviderAvailable}
+		providerDiscoveryComplete={!$adminConfigStore.loading && $adminConfigStore.lastFetched !== null}
+	/>
 {/snippet}
 
 {#snippet groups()}

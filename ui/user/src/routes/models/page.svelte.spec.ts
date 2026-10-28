@@ -1,80 +1,140 @@
-import { page as appPage } from '$app/state';
-import type { MessagePolicy } from '$lib/services';
-import { preparePageData } from '../../tests/helpers/pageData';
-import { getVersionResponse } from '../../tests/mocks/data';
-import type { PageData } from './$types';
-import ModelsPage from './+page.svelte';
-import { afterEach, describe, expect, it } from 'vitest';
-import { render } from 'vitest-browser-svelte';
+import { Group } from '$lib/services';
+import { goto } from '$lib/url';
+import { worker } from '../../tests/mocks/worker';
+import { renderModelsTab, resetModelsTab } from './testing';
+import { http, HttpResponse } from 'msw';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 
-const toolPolicy: MessagePolicy = {
-	id: 'tool-policy',
-	displayName: 'Block shell tools',
-	definition: 'Do not allow shell tools',
-	direction: 'tool-calls',
-	created: '2026-01-01T00:00:00Z',
-	subjects: []
-};
-const userPolicy: MessagePolicy = {
-	id: 'user-policy',
-	displayName: 'Block travel booking',
-	definition: 'Do not allow travel booking',
-	direction: 'user-message',
-	created: '2026-01-01T00:00:00Z',
-	subjects: []
-};
+vi.mock(import('$lib/url'), async (importOriginal) => ({
+	...(await importOriginal()),
+	goto: vi.fn()
+}));
 
-async function renderModelsPage({
-	view = 'models',
-	messagePolicies = [],
-	messagePoliciesEnabled = false
-}: {
-	view?: string;
-	messagePolicies?: MessagePolicy[];
-	messagePoliciesEnabled?: boolean;
-} = {}) {
-	appPage.url.searchParams.set('view', view);
-	localStorage.setItem('seenSplashDialog', new Date().toISOString());
-	const data = await preparePageData<PageData>({
-		models: [],
-		modelProviders: [],
-		modelAccessPolicies: [],
-		messagePolicies,
-		hasAdminAccess: true,
-		...(messagePoliciesEnabled
-			? { version: { ...getVersionResponse, messagePoliciesEnabled: true } }
-			: {})
-	});
-	return render(ModelsPage, { data });
+const gatewayTabs = ['Providers', 'Profiles', 'Guardrails', 'Routing', 'Settings'];
+
+function mockProfiles(items: unknown[] = []) {
+	worker.use(
+		http.get('/api/model-access-policies', () => HttpResponse.json({ items })),
+		http.get('/api/llm-gateway/budgets', () => HttpResponse.json({ items: [] })),
+		http.get('/api/llm-gateway/guardrail-policies', () => HttpResponse.json({ items: [] }))
+	);
 }
 
-afterEach(() => {
-	appPage.url.searchParams.delete('view');
-	appPage.url.searchParams.delete('new');
-});
+function mockGuardrails() {
+	worker.use(
+		http.get('/api/llm-gateway/guardrails', () =>
+			HttpResponse.json({ items: [{ id: 'g1', name: 'Common PII', type: 'regex', config: {} }] })
+		),
+		http.get('/api/llm-gateway/guardrails/providers', () =>
+			HttpResponse.json({
+				items: [
+					{
+						type: 'regex',
+						label: 'Custom Regex',
+						description: '',
+						category: 'Built-in',
+						fields: [],
+						redacts: true
+					}
+				]
+			})
+		),
+		http.get('/api/llm-gateway/guardrail-policies', () =>
+			HttpResponse.json({
+				items: [{ id: 'r1', name: 'Block PII', guardrailIDs: ['g1'], profileID: 'p-eng' }]
+			})
+		),
+		http.get('/api/mcp-webhook-validations', () => HttpResponse.json({ items: [] }))
+	);
+}
 
-describe('Models page message policies tab', () => {
-	it('shows user-message policies and hides tool-call policies', async () => {
-		await renderModelsPage({
-			view: 'ai-judge-policies',
-			messagePoliciesEnabled: true,
-			messagePolicies: [toolPolicy, userPolicy]
-		});
+afterEach(resetModelsTab);
 
-		await expect.element(page.getByRole('button', { name: 'AI Judge Policies' })).toBeVisible();
-		await expect.element(page.getByRole('row', { name: /Block travel booking/ })).toBeVisible();
+describe('Models page', () => {
+	it('shows admins the Connect tab and every gateway tab', async () => {
+		await renderModelsTab('connect');
+
+		await expect.element(page.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'LLM Gateway' }).first()).toBeVisible();
 		await expect
-			.element(page.getByRole('row', { name: /Block shell tools/ }))
+			.element(page.getByRole('button', { name: 'Models', exact: true }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByRole('button', { name: 'Add AI Judge Policy' })).toBeVisible();
+		for (const tab of gatewayTabs) {
+			await expect.element(page.getByRole('button', { name: tab, exact: true })).toBeVisible();
+		}
 	});
 
-	it('hides the tab when message policies are disabled', async () => {
-		await renderModelsPage({ view: 'access-policies' });
+	it('shows users only their models, without gateway tabs', async () => {
+		await renderModelsTab('connect', [Group.USER]);
+
+		// With only the Connect tab, there is no tab bar at all.
+		await expect.element(page.getByRole('heading', { name: 'LLM Gateway' }).first()).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Connect', exact: true }))
+			.not.toBeInTheDocument();
+		for (const tab of gatewayTabs) {
+			await expect
+				.element(page.getByRole('button', { name: tab, exact: true }))
+				.not.toBeInTheDocument();
+		}
+	});
+
+	it('opens the Connect tab by default', async () => {
+		await renderModelsTab('');
+
+		await expect.element(page.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'LLM Gateway' }).first()).toBeVisible();
+	});
+
+	it('does not show intro copy on the Connect tab', async () => {
+		await renderModelsTab('connect');
 
 		await expect
-			.element(page.getByRole('button', { name: 'AI Judge Policies' }))
+			.element(page.getByText('Use the Obot LLM Gateway to call', { exact: false }))
 			.not.toBeInTheDocument();
+	});
+
+	it('offers Add Profile on the profiles tab', async () => {
+		mockProfiles([{ id: 'p1', displayName: 'Engineering', subjects: [], models: [] }]);
+		await renderModelsTab('profiles');
+
+		await expect.element(page.getByRole('heading', { name: 'Engineering' })).toBeInTheDocument();
+		await page.getByRole('button', { name: 'Add Profile' }).first().click();
+
+		expect(goto).toHaveBeenCalledWith('/models/profiles/new');
+	});
+
+	it('lists the shared guardrails on the Guardrails tab, with what uses them', async () => {
+		mockGuardrails();
+		await renderModelsTab('guardrails');
+
+		await expect.element(page.getByRole('cell', { name: 'Common PII' })).toBeInTheDocument();
+		await expect.element(page.getByText('Applied in: Block PII', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText(/shared by the LLM gateway and MCP servers/))
+			.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Add Guardrail' }).first().click();
+		await page.getByRole('button', { name: /Custom Regex/ }).click();
+		expect(goto).toHaveBeenCalledWith('/models/guardrails/new?type=regex');
+	});
+
+	it('hides Add Guardrail from read-only admins', async () => {
+		mockGuardrails();
+		await renderModelsTab('guardrails', [Group.USER, Group.AUDITOR]);
+
+		await expect.element(page.getByRole('cell', { name: 'Common PII' })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Guardrail' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('hides create actions from read-only admins', async () => {
+		mockProfiles();
+		await renderModelsTab('profiles', [Group.USER, Group.AUDITOR]);
+
+		await expect.element(page.getByRole('heading', { name: 'No profiles' })).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Add Profile' })).not.toBeInTheDocument();
 	});
 });

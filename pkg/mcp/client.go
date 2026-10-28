@@ -88,6 +88,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	isOAuthCheck := clientScope == oauthCheckClientScope
+	isHook := clientScope == hookClientScope
 	clientScope = clientID(server, clientScope)
 
 	existing, ok := clientSessions.Load(clientScope)
@@ -171,6 +172,9 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	httpClient, err := sm.HTTPClientForServer(server, HTTPClientOptions{Timeout: 0, DirectConnect: directConnect})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
+	}
+	if isHook {
+		httpClient.Transport = &hookSessionTransport{base: httpClient.Transport}
 	}
 
 	// A tunneled server is reached through a bridge URL on Obot's own host, but its OAuth

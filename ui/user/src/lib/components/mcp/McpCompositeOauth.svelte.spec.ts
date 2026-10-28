@@ -61,11 +61,29 @@ function mockConsentApis(
 describe('McpCompositeOauth', () => {
 	it('loads migrated metadata by canonical ID while authenticating the legacy connection', async () => {
 		const { oauthPendingGet, vmcpGet } = mockConsentApis();
-		render(McpCompositeOauth, { compositeMcpId: 'ms1legacy', vmcpId: 'vmcp1migrated' });
+		worker.use(
+			http.get('/api/mcp-servers/ms1legacy', () =>
+				HttpResponse.json({ id: 'ms1legacy', vmcpID: 'vmcp1migrated' })
+			)
+		);
+		render(McpCompositeOauth, { compositeMcpId: 'ms1legacy' });
 		await expect.element(page.getByRole('heading', { name: 'Virtual MCP' })).toBeVisible();
 		await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
 		await vi.waitFor(() => expect(oauthPendingGet).toHaveBeenCalledWith('ms1legacy'));
 		expect(vmcpGet).toHaveBeenCalledWith('vmcp1migrated');
+	});
+	it('resolves instance metadata while authenticating the selected instance', async () => {
+		const { oauthPendingGet, vmcpGet } = mockConsentApis();
+		worker.use(
+			http.get('/api/vmcp-instances/vmcpi1selected', () =>
+				HttpResponse.json({ id: 'vmcpi1selected', vmcpID: 'vmcp1parent' })
+			)
+		);
+
+		render(McpCompositeOauth, { compositeMcpId: 'vmcpi1selected' });
+		await expect.element(page.getByRole('heading', { name: 'Virtual MCP' })).toBeVisible();
+		expect(vmcpGet).toHaveBeenCalledWith('vmcp1parent');
+		expect(oauthPendingGet).toHaveBeenCalledWith('vmcpi1selected');
 	});
 	it('loads vMCP metadata from the vMCP endpoint for vmcp1 IDs', async () => {
 		const id = 'vmcp1-consent-test';

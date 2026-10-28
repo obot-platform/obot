@@ -2,8 +2,14 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import { Group, UserService, type VMCP } from '$lib/services';
-	import { doDelete, doGet, doPost, doPut } from '$lib/services/http';
+	import {
+		Group,
+		UserService,
+		type ClaudeConfig,
+		type ClaudeEnvironment,
+		type EnvironmentProfile,
+		type VMCP
+	} from '$lib/services';
 	import { profile } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
 	import ActorResources from './ActorResources.svelte';
@@ -12,7 +18,6 @@
 	import ClaudeTagSettings from './ClaudeTagSettings.svelte';
 	import EgressHosts from './EgressHosts.svelte';
 	import EgressSecrets from './EgressSecrets.svelte';
-	import type { ClaudeConfig, ClaudeEnvironment, EnvironmentProfile } from './types';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -44,10 +49,11 @@
 	let pendingView = $state<'details' | 'profiles' | 'tag'>();
 	let confirmUnsaved = $state(false);
 	let confirmDelete = $state(false);
+	let confirmLLMProxy = $state(false);
 	let applyingProfile = $state(false);
 	const admin = $derived(profile.current.isAdmin?.() ?? false);
 
-	function blankDraft(defaults: ClaudeConfig): Draft {
+	function blankDraft(): Draft {
 		return {
 			id: '',
 			displayName: '',
@@ -64,9 +70,11 @@
 				}
 			],
 			runtime: {
-				image: defaults.defaultRunnerImage ?? '',
-				workerImage: defaults.defaultWorkerImage ?? '',
+				// Blank images follow Obot's defaults; only images an admin enters are saved.
+				image: '',
+				workerImage: '',
 				allowAllEgress: false,
+				llmProxy: false,
 				egressHosts: [],
 				worker: {
 					workerReplicas: 1,
@@ -100,7 +108,7 @@
 			error = '';
 			ready = false;
 			try {
-				const nextConfig = (await doGet('/claude-environments')) as ClaudeConfig;
+				const nextConfig = await UserService.getClaudeConfig();
 				const nextServers = (await UserService.listVMCPs(isAdmin ? { all: true } : {})).filter(
 					(server) => !isAdmin || !server.userID
 				);
@@ -115,7 +123,7 @@
 					return;
 				}
 				if (id === 'new') {
-					draft = blankDraft(nextConfig);
+					draft = blankDraft();
 					managedSettings = '';
 				} else if (!selected) {
 					error = m.hosted_agents_env_not_found();
@@ -159,8 +167,8 @@
 			delete (draft.runtime.worker as { nodeSelector?: unknown }).nodeSelector;
 
 			const payload = { ...draft, organizationID: undefined, environmentID: undefined };
-			if (draft.id) await doPut(`/claude-environments/${draft.id}`, payload);
-			else await doPost('/claude-environments', payload);
+			if (draft.id) await UserService.updateClaudeEnvironment(draft.id, payload);
+			else await UserService.createClaudeEnvironment(payload);
 			onSubmit();
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
@@ -171,7 +179,7 @@
 
 	async function refreshTag() {
 		if (!draft?.id) return;
-		const nextConfig = (await doGet('/claude-environments')) as ClaudeConfig;
+		const nextConfig = await UserService.getClaudeConfig();
 		const match = nextConfig.environments?.find((item) => item.id === draft?.id);
 		if (!match || !draft) return;
 		draft.claudeTagEnabled = match.claudeTagEnabled;
@@ -247,7 +255,7 @@
 		busy = true;
 		error = '';
 		try {
-			await doDelete(`/claude-environments/${draft.id}`);
+			await UserService.deleteClaudeEnvironment(draft.id);
 			confirmDelete = false;
 			onSubmit();
 		} catch (e) {
@@ -395,13 +403,14 @@
 							<label class="flex flex-col gap-1 text-sm"
 								>{m.hosted_agents_env_worker_image()}<input
 									class="text-input-filled"
-									required
 									bind:value={draft.runtime.workerImage}
+									placeholder={config.defaultWorkerImage}
 								/></label
 							>
 						</div>
 						<p class="text-xs text-muted-content">
 							{m.hosted_agents_env_capacity_help()}
+							{m.hosted_agents_env_image_default_help()}
 						</p>
 					</fieldset>
 					<fieldset class="space-y-3 block paper">
@@ -410,6 +419,7 @@
 						<ActorResources bind:resources={draft.runtime.resources} />
 						<p class="text-xs text-muted-content">
 							{m.hosted_agents_env_digest_help()}
+							{m.hosted_agents_env_image_default_help()}
 						</p>
 						<details class="space-y-3">
 							<summary class="cursor-pointer text-sm font-medium"
@@ -417,9 +427,8 @@
 							><label class="flex flex-col gap-1 text-sm"
 								>{m.hosted_agents_env_runner_image()}<input
 									class="text-input-filled"
-									required
 									bind:value={draft.runtime.image}
-									placeholder={m.hosted_agents_env_image_placeholder()}
+									placeholder={config.defaultRunnerImage || m.hosted_agents_env_image_placeholder()}
 									pattern={'[^@\\s]+@sha256:[a-f0-9]{64}'}
 									maxlength={512}
 									title={m.hosted_agents_env_digest_title()}
@@ -457,6 +466,27 @@
 								/>
 							{/if}
 						</details>
+					</fieldset>
+					<fieldset class="space-y-3 block paper">
+						<h3 class="font-semibold">{m.hosted_agents_llm_proxy_title()}</h3>
+						<label class="flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={draft.runtime.llmProxy ?? false}
+								onchange={(event) => {
+									if (!draft) return;
+									if (event.currentTarget.checked) {
+										// Enable only once the admin acknowledges what it needs.
+										event.currentTarget.checked = false;
+										confirmLLMProxy = true;
+									} else {
+										draft.runtime.llmProxy = false;
+									}
+								}}
+							/>
+							{m.hosted_agents_llm_proxy_label()}
+						</label>
+						<p class="text-xs text-muted-content">{m.hosted_agents_llm_proxy_help()}</p>
 					</fieldset>
 					<EgressSecrets
 						bind:secrets={
@@ -502,6 +532,27 @@
 			}}
 			oncancel={cancelUnsavedSwitch}
 		/>
+		<Confirm
+			show={confirmLLMProxy}
+			type="info"
+			title={m.hosted_agents_llm_proxy_confirm_title()}
+			submitText={m.hosted_agents_llm_proxy_confirm_submit()}
+			onsuccess={() => {
+				if (draft) draft.runtime.llmProxy = true;
+				confirmLLMProxy = false;
+			}}
+			oncancel={() => (confirmLLMProxy = false)}
+		>
+			{#snippet msgContent()}
+				<div class="flex flex-col gap-2 text-sm">
+					<p>{m.hosted_agents_llm_proxy_confirm_msg()}</p>
+					<ol class="list-decimal space-y-1 pl-5">
+						<li>{m.hosted_agents_llm_proxy_requirement_subscriptions()}</li>
+						<li>{m.hosted_agents_llm_proxy_requirement_profile()}</li>
+					</ol>
+				</div>
+			{/snippet}
+		</Confirm>
 		<Confirm
 			show={confirmDelete}
 			title={m.hosted_agents_env_action_delete()}

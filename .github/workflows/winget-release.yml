@@ -1,0 +1,52 @@
+name: winget-release
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+    secrets:
+      WINGET_GH_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish to WinGet (e.g. v0.27.0)
+        required: true
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid tag: expected a stable release tag like v0.27.0"
+            exit 1
+          fi
+  winget-release:
+    needs: validate
+    runs-on: windows-latest
+    concurrency:
+      group: winget-release-${{ inputs.tag }}
+      cancel-in-progress: false
+    env:
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Install winget-create
+        run: |
+          Invoke-WebRequest -Uri 'https://aka.ms/wingetcreate/latest' -OutFile 'wingetcreate.exe'
+      - name: Create WinGet Package Update Pull Request
+        env:
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_GH_TOKEN }}
+        run: |
+          $base = "${{ github.server_url }}/${{ github.repository }}/releases/download/$env:TAG/obot_$env:TAG"
+          $urls = @(
+            "${base}_windows_amd64.zip|x64"
+            "${base}_windows_arm64.zip|arm64"
+          )
+          ./wingetcreate.exe update --submit --urls $urls --version $env:TAG obot-platform.obot

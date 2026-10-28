@@ -12,14 +12,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-func DefaultRuntime(runtime *types.ClaudeRuntime, workerImage, runnerImage string) {
-	if runtime.Image == "" {
-		runtime.Image = runnerImage
-	}
-	if runtime.WorkerImage == "" {
-		runtime.WorkerImage = workerImage
-	}
-
+// DefaultRuntime fills an environment's unset settings before it is saved. Images are left
+// unset, so the environment follows Obot's default images: see WithDefaultImages.
+func DefaultRuntime(runtime *types.ClaudeRuntime) {
 	w := &runtime.Worker
 	if w.WorkerReplicas == 0 {
 		w.WorkerReplicas = 1
@@ -46,6 +41,19 @@ func DefaultRuntime(runtime *types.ClaudeRuntime, workerImage, runnerImage strin
 	}
 }
 
+// WithDefaultImages returns runtime with Obot's default worker and runner images in place of
+// the ones it doesn't set. Only images an administrator sets are saved with an environment.
+func WithDefaultImages(runtime types.ClaudeRuntime, workerImage, runnerImage string) types.ClaudeRuntime {
+	if runtime.Image == "" {
+		runtime.Image = runnerImage
+	}
+	if runtime.WorkerImage == "" {
+		runtime.WorkerImage = workerImage
+	}
+	return runtime
+}
+
+// ValidateRuntime validates the runtime an environment runs with, including its images.
 func ValidateRuntime(runtime types.ClaudeRuntime) error {
 	// The policy is delivered as a single environment variable to the runner.
 	if len(runtime.ManagedSettings) > 64*1024 {

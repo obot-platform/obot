@@ -133,6 +133,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "functionality/guardrails",
+					"label": "Guardrails"
+				},
+				{
+					"type": "doc",
 					"id": "llm-gateway/audit",
 					"label": "Audit usage and costs"
 				},
@@ -140,6 +145,11 @@ const sidebars = {
 					"type": "doc",
 					"id": "llm-gateway/compatibility",
 					"label": "API compatibility"
+				},
+				{
+					"type": "doc",
+					"id": "llm-gateway/upgrade",
+					"label": "Upgrading from model providers"
 				},
 				{
 					"type": "doc",

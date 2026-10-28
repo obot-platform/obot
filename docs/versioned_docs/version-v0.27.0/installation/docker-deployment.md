@@ -1,0 +1,121 @@
+---
+title: "Docker (evaluation)"
+---
+
+# Docker (evaluation) {#docker-deployment}
+
+Deploy Obot using Docker for local development, testing, and proof-of-concept scenarios.
+
+## Overview
+
+Docker deployment is the fastest way to get Obot running. It's ideal for:
+
+- Local development and testing
+- Single-machine deployments
+- Proof-of-concept and evaluation
+- Small team usage
+
+For production deployments, see [Kubernetes Deployment](./kubernetes-deployment.md).
+
+## Prerequisites
+
+- Docker installed
+- 2+ CPU cores and 4GB RAM available
+- 10GB disk space
+
+## Quick Start
+
+### Basic Deployment (Built-in PostgreSQL)
+
+Run Obot with the built-in PostgreSQL instance (suitable for development and testing):
+
+```bash
+docker run -d \
+  --name obot \
+  -v obot-data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 8080:8080 \
+  ghcr.io/obot-platform/obot:latest
+```
+
+:::important
+Running Obot without authentication is not recommended unless you are behind a secure firewall, as unauthenticated users could launch MCP servers by sending requests to port 8080 on your system.
+:::
+
+:::warning Host access and trusted users
+This deployment bind-mounts the host Docker socket (`-v /var/run/docker.sock:/var/run/docker.sock`) so Obot can run MCP servers as sibling containers. Any MCP server Obot launches — including a **containerized** server, which runs an arbitrary container image with a user-supplied command — therefore runs on the host Docker daemon, which is equivalent to host-level access on that machine.
+
+Users with the **Power User** or **Power User+** role can deploy MCP servers, so on this deployment they can effectively run code on the host. Use Docker deployment only for development, evaluation, or single-tenant use where all such users are trusted. For multi-tenant deployments or untrusted users, use the [Kubernetes deployment](./kubernetes-deployment.md), which runs each MCP server in its own pod and supports stronger isolation controls you configure (restricted Pod Security Admission, a NetworkPolicy, and sandboxed runtimes such as gVisor or Kata Containers). See [User Roles — Security Model](../security/policy-coverage.md#user-roles-security-model).
+:::
+
+#### With Authentication (Recommended)
+
+```bash
+docker run -d \
+  --name obot \
+  -v obot-data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 8080:8080 \
+  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_BOOTSTRAP_TOKEN=your-bootstrap-token \
+  ghcr.io/obot-platform/obot:latest
+```
+
+#### Using a Custom Port
+
+If you want to expose Obot on a different port (e.g., `-p 9999:8080`), you must also set `OBOT_SERVER_HOSTNAME` so that authentication redirects and MCP server connection URLs work correctly:
+
+```bash
+docker run -d \
+  --name obot \
+  -v obot-data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 9999:8080 \
+  -e OBOT_SERVER_HOSTNAME=localhost:9999 \
+  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_BOOTSTRAP_TOKEN=your-bootstrap-token \
+  ghcr.io/obot-platform/obot:latest
+```
+
+## Accessing Obot
+
+Once started, access Obot at http://localhost:8080.
+
+If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
+
+### Preconfigure a Local owner
+
+For an unattended initial deployment, configure Local authentication with an owner email and a one-time setup token. This is an alternative to bootstrap-token login; use a new data volume for a new evaluation installation.
+
+```bash
+export OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL="owner@example.com"
+export OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN="$(openssl rand -hex 32)"
+
+docker run -d \
+  --name obot \
+  -v obot-data:/data \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -p 8080:8080 \
+  -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
+  -e OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL \
+  -e OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN \
+  ghcr.io/obot-platform/obot:main
+```
+
+This preconfiguration requires a build that includes the Local owner setup flow. The example uses the development `main` image for the unreleased documentation; record its digest when you need a reproducible evaluation.
+
+Open `http://localhost:8080/activate#token=<setup-token>` in your browser, substituting the generated token. Set and confirm a password of at least 12 characters. After activation, sign in with the owner email and that password; the setup token is revoked when password setup completes. Treat the setup link as a credential and do not include it in shared screenshots or logs.
+
+The Local provider is configured automatically. Bootstrap-token login is disabled for this initial-owner setup. See [authentication configuration](../security/authentication.md) for setup-link expiration and [Local authentication](../configuration/auth-providers.md#local) for account management.
+
+## Next Steps
+
+1. **Configure Authentication**: Set up [auth providers](../security/authentication.md) for secure access
+2. **Configure Model Providers**: Configure [model providers](../configuration/model-providers.md) (OpenAI, Anthropic, etc.)
+3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md) for extended functionality
+
+## Related Documentation
+
+- [Installation Overview](./overview.md)
+- [Kubernetes Deployment](./kubernetes-deployment.md)
+- [Server Configuration](../configuration/server-configuration.md)

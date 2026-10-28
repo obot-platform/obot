@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -27,6 +28,7 @@ func (c *Client) ReconcileWorkerPools(ctx context.Context, environments []types.
 	for _, env := range environments {
 		desired[env.ID] = true
 		w := env.Runtime.Worker
+		workerImage := clauderunner.WithDefaultImages(env.Runtime, c.Config.WorkerImage, c.Config.RunnerImage).WorkerImage
 		nodeSelector := map[string]any{}
 		for key, value := range c.Config.WorkerNodeSelector {
 			nodeSelector[key] = value
@@ -45,7 +47,7 @@ func (c *Client) ReconcileWorkerPools(ctx context.Context, environments []types.
 			"apiVersion": "ate.dev/v1alpha1", "kind": "WorkerPool",
 			"metadata": map[string]any{"name": env.ID, "namespace": c.Config.Namespace, "labels": map[string]any{environmentLabel: env.ID}},
 			"spec": map[string]any{
-				"replicas": int64(w.WorkerReplicas), "sandboxClass": "gvisor", "workerImage": env.Runtime.WorkerImage,
+				"replicas": int64(w.WorkerReplicas), "sandboxClass": "gvisor", "workerImage": workerImage,
 				"template": map[string]any{"nodeSelector": nodeSelector, "tolerations": tolerations, "resources": map[string]any{
 					"requests": map[string]any{"cpu": w.CPULimit, "memory": w.MemoryLimit},
 					"limits":   map[string]any{"cpu": w.CPULimit, "memory": w.MemoryLimit},

@@ -12,6 +12,7 @@
 	} from './json-schema';
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		schema: JSONSchema;
@@ -80,13 +81,17 @@
 </script>
 
 <div class="space-y-4">
-	<div class="flex flex-wrap items-center gap-2" aria-label={m.mcps_tester_argument_input_mode()}>
+	<div
+		class="tabs tabs-box w-fit shadow-inner bg-base-200 dark:bg-base-100"
+		role="tablist"
+		aria-label={m.mcps_tester_argument_input_mode()}
+	>
 		{#if generatedSupported}
 			<button
 				type="button"
-				class="btn btn-sm"
-				class:btn-primary={mode === 'form'}
-				class:btn-ghost={mode !== 'form'}
+				role="tab"
+				aria-selected={mode === 'form'}
+				class={twMerge('tab', mode === 'form' ? 'tab-active bg-primary text-primary-content' : '')}
 				disabled={!generatedRepresents}
 				aria-describedby={generatedRepresents ? undefined : rawOnlyId}
 				onclick={() => setMode('form')}>{m.mcps_tester_generated_form()}</button
@@ -94,9 +99,9 @@
 		{/if}
 		<button
 			type="button"
-			class="btn btn-sm"
-			class:btn-primary={mode === 'raw'}
-			class:btn-ghost={mode !== 'raw'}
+			role="tab"
+			aria-selected={mode === 'raw'}
+			class={twMerge('tab', mode === 'raw' ? 'tab-active bg-primary text-primary-content' : '')}
 			onclick={() => setMode('raw')}>{m.mcps_tester_raw_json()}</button
 		>
 		{#if generatedSupported && !generatedRepresents}
@@ -135,14 +140,16 @@
 			{m.mcps_tester_invalid_json_error({ error: rawParseError })}
 		</p>
 	{:else if validationErrors.length}
-		<ul
-			class="list-disc space-y-1 pl-5 text-sm text-error"
-			aria-label={m.mcps_tester_argument_validation_errors()}
-		>
-			{#each validationErrors as error (error)}
-				<li>{error}</li>
-			{/each}
-		</ul>
+		<div class="alert alert-error alert-soft">
+			<ul
+				class="list-disc space-y-1 pl-4 text-sm text-error"
+				aria-label={m.mcps_tester_argument_validation_errors()}
+			>
+				{#each validationErrors as error (error)}
+					<li>{error}</li>
+				{/each}
+			</ul>
+		</div>
 	{/if}
 
 	<details>

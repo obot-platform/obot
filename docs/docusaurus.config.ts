@@ -37,7 +37,7 @@ const config: Config = {
   title: "Obot Docs",
   tagline: "",
   favicon: "img/favicon.ico",
-  url: "https://docs.obot.ai",
+  url: process.env.DOCS_SITE_URL || "https://docs.obot.ai",
   baseUrl: "/",
   trailingSlash: true,
   organizationName: "obot-platform",
@@ -58,6 +58,7 @@ const config: Config = {
   themes: ["@docusaurus/theme-mermaid"],
 
   plugins: [
+    "./plugins/agent-docs/index.mjs",
     // Custom plugin to rewrite canonical URLs in versioned docs to point to latest
     "./plugins/canonical-urls.ts",
     // Custom plugin to inject JSON-LD structured data into built HTML pages
@@ -99,14 +100,6 @@ const config: Config = {
             to: "/next/registries/publish-skills",
           },
           {
-            from: "/next/functionality/ai-judge-policies",
-            to: "/next/security/policy-coverage",
-          },
-          {
-            from: "/next/functionality/message-policies",
-            to: "/next/security/policy-coverage",
-          },
-          {
             from: "/functionality/mcp-registries",
             to: "/functionality/mcp-access-policies",
           },
@@ -128,11 +121,27 @@ const config: Config = {
           },
           {
             from: "/configuration/workspace-provider",
-            to: "/concepts/obot-agent",
+            to: "/start-here/choose",
           },
           {
             from: "/functionality/chat/overview",
-            to: "/concepts/obot-agent",
+            to: "/start-here/choose",
+          },
+          {
+            from: "/concepts/obot-agent",
+            to: "/start-here/choose",
+          },
+          {
+            from: "/functionality/obot-agent-management",
+            to: "/security/model",
+          },
+          {
+            from: "/functionality/workflow-sharing",
+            to: "/registries/publish-skills",
+          },
+          {
+            from: "/functionality/mcp-inspector",
+            to: "/mcp-gateway/inspector",
           },
         ],
         createRedirects(existingPath: string) {
@@ -142,7 +151,7 @@ const config: Config = {
               "/functionality/api-keys/",
             );
           }
-          if (!existingPath.startsWith("/next/") && existingPath.endsWith("/functionality/ai-judge-policies/")) {
+          if (existingPath.endsWith("/functionality/ai-judge-policies/")) {
             return existingPath.replace(
               "/functionality/ai-judge-policies/",
               "/functionality/message-policies/",
@@ -218,6 +227,7 @@ const config: Config = {
       // forces Infima's slate background in both modes. See src/css/custom.css.
       style: "light",
       links: [
+        { html: '<a href="/llms.txt">Documentation for AI agents</a>' },
         {
           label: "GitHub",
           to: "https://github.com/obot-platform/obot",

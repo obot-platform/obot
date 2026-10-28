@@ -26,9 +26,10 @@ func TestEnvironmentWorkerPoolLifecycle(t *testing.T) {
 		Namespace:          "workers",
 		WorkerNodeSelector: map[string]string{"dedicated": "agents"},
 		WorkerTolerations:  []corev1.Toleration{toleration},
+		WorkerImage:        "worker:test",
 	}}
 	env := gt.ClaudeEnvironment{ID: "environment"}
-	clauderunner.DefaultRuntime(&env.Runtime, "worker:test", "runner:test")
+	clauderunner.DefaultRuntime(&env.Runtime)
 	ctx := t.Context()
 	require.NoError(t, c.ReconcileWorkerPools(ctx, []gt.ClaudeEnvironment{env}, nil, mutateWorkerPool))
 	pool := &unstructured.Unstructured{}
@@ -40,6 +41,9 @@ func TestEnvironmentWorkerPoolLifecycle(t *testing.T) {
 	replicas, _, err := unstructured.NestedInt64(pool.Object, "spec", "replicas")
 	require.NoError(t, err)
 	require.EqualValues(t, 1, replicas)
+	workerImage, _, err := unstructured.NestedString(pool.Object, "spec", "workerImage")
+	require.NoError(t, err)
+	require.Equal(t, "worker:test", workerImage, "an environment without a worker image uses Obot's default")
 	resources, _, err := unstructured.NestedMap(pool.Object, "spec", "template", "resources")
 	require.NoError(t, err)
 	require.Equal(t, map[string]any{"cpu": "2", "memory": "4Gi"}, resources["limits"])
@@ -86,6 +90,21 @@ func TestEnvironmentWorkerPoolLifecycle(t *testing.T) {
 	tolerations, _, err = unstructured.NestedSlice(pool.Object, "spec", "template", "tolerations")
 	require.NoError(t, err)
 	require.Equal(t, []any{map[string]any{"key": "dedicated", "value": "agents", "effect": "NoSchedule"}}, tolerations)
+
+	// A new default image reaches environments that don't set one; a set image stays.
+	c.Config.WorkerImage = "worker:new"
+	require.NoError(t, c.ReconcileWorkerPools(ctx, []gt.ClaudeEnvironment{env}, nil, mutateWorkerPool))
+	require.NoError(t, kube.Get(ctx, key, pool))
+	workerImage, _, err = unstructured.NestedString(pool.Object, "spec", "workerImage")
+	require.NoError(t, err)
+	require.Equal(t, "worker:new", workerImage)
+	env.Runtime.WorkerImage = "worker:pinned"
+	c.Config.WorkerImage = "worker:newer"
+	require.NoError(t, c.ReconcileWorkerPools(ctx, []gt.ClaudeEnvironment{env}, nil, mutateWorkerPool))
+	require.NoError(t, kube.Get(ctx, key, pool))
+	workerImage, _, err = unstructured.NestedString(pool.Object, "spec", "workerImage")
+	require.NoError(t, err)
+	require.Equal(t, "worker:pinned", workerImage)
 
 	require.NoError(t, c.ReconcileWorkerPools(ctx, nil, map[string]bool{env.ID: true}, mutateWorkerPool))
 	require.NoError(t, kube.Get(ctx, key, pool), "retain pool while its sessions are being finalized")

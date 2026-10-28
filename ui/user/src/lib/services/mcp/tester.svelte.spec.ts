@@ -59,6 +59,149 @@ function readyFetch(
 	});
 }
 
+describe('tool response diagnostics', () => {
+	it.each(['direct', 'chat'] as const)(
+		'preserves the raw response when %s tool output validation fails',
+		async (mode) => {
+			const response = {
+				content: [
+					{
+						type: 'text',
+						text: '{"code":"no_subscription","message":"Plan does not include MCP access."}'
+					}
+				]
+			};
+			let envelope: unknown;
+			const session = new MCPTesterSession(
+				server,
+				{ name: 'tester', version: 'test' },
+				readyFetch({ tools: {} }, (request) => {
+					if (request.method === 'tools/list')
+						return Response.json({
+							jsonrpc: '2.0',
+							id: request.id,
+							result: {
+								tools: [
+									{
+										name: 'audience_research',
+										inputSchema: { type: 'object' },
+										outputSchema: { type: 'object' }
+									}
+								]
+							}
+						});
+					if (request.method === 'tools/call') {
+						envelope = { jsonrpc: '2.0', id: request.id, result: response };
+						// Clearing the log while awaiting the response must not break capture.
+						session.log.clear();
+						return Response.json(envelope);
+					}
+				})
+			);
+			await session.initialize();
+			await session.loadTools();
+			const result =
+				mode === 'direct'
+					? await session.callTool('audience_research', {})
+					: await session.callChatTool('audience_research', {}, new AbortController().signal);
+			expect(result.message).toContain('did not return structured content');
+			expect(result.details).toMatchObject({ name: 'McpError', code: -32600 });
+			expect(result.value).toBeUndefined();
+			for (let index = 0; index < 600; index++) {
+				session.log.recordMessage('incoming', { jsonrpc: '2.0', method: 'notifications/message' });
+			}
+			expect(session.log.dropped).toBeGreaterThan(0);
+			expect(result.rawResponse).toEqual(envelope);
+			session.log.clear();
+			expect(result.rawResponse).toEqual(envelope);
+			session.close();
+		}
+	);
+
+	it.each(['direct', 'chat'] as const)(
+		'preserves JSON-RPC errors for %s calls without retaining them for a later failed request',
+		async (mode) => {
+			let failTransport = false;
+			let envelope: unknown;
+			const session = new MCPTesterSession(
+				server,
+				{ name: 'tester', version: 'test' },
+				readyFetch({ tools: {} }, (request) => {
+					if (request.method !== 'tools/call') return;
+					if (failTransport) return new Response('Forbidden', { status: 403 });
+					envelope = {
+						jsonrpc: '2.0',
+						id: request.id,
+						error: { code: -32602, message: 'Invalid arguments', data: { field: 'query' } }
+					};
+					return Response.json(envelope);
+				})
+			);
+			await session.initialize();
+			const call = () =>
+				mode === 'direct'
+					? session.callTool('lookup', {})
+					: session.callChatTool('lookup', {}, new AbortController().signal);
+			const first = await call();
+			expect(first.details).toMatchObject({ code: -32602, data: { field: 'query' } });
+			expect(first.rawResponse).toEqual(envelope);
+			failTransport = true;
+			const second = await call();
+			expect(second.status).toBe('denied');
+			expect(second.rawResponse).toBeUndefined();
+			expect(first.rawResponse).toEqual(envelope);
+			session.close();
+		}
+	);
+
+	it('does not attach a response to a timed-out tool call', async () => {
+		const session = new MCPTesterSession(
+			server,
+			{ name: 'tester', version: 'test' },
+			readyFetch({ tools: {} }, (request) => {
+				if (request.method === 'tools/call') return new Response(null, { status: 202 });
+			})
+		);
+		await session.initialize();
+		const callTool = session.client.callTool.bind(session.client);
+		vi.spyOn(session.client, 'callTool').mockImplementation((params, schema, options) =>
+			callTool(params, schema, { ...options, timeout: 1 })
+		);
+		const result = await session.callTool('lookup', {});
+		expect(result.status).toBe('timeout');
+		expect(result.rawResponse).toBeUndefined();
+		session.close();
+	});
+
+	it('does not attach a response to a cancelled tool call', async () => {
+		const fetcher = readyFetch({ tools: {} });
+		const original = fetcher.getMockImplementation()!;
+		let sent = false;
+		fetcher.mockImplementation(async (input, init) => {
+			if (init?.method === 'POST' && JSON.parse(String(init.body)).method === 'tools/call') {
+				sent = true;
+				return new Promise<Response>((_resolve, reject) => {
+					init.signal?.addEventListener(
+						'abort',
+						() => reject(new DOMException('Cancelled', 'AbortError')),
+						{ once: true }
+					);
+				});
+			}
+			return original(input, init);
+		});
+		const session = new MCPTesterSession(server, { name: 'tester', version: 'test' }, fetcher);
+		await session.initialize();
+		const pending = session.callTool('lookup', {});
+		await vi.waitFor(() => expect(sent).toBe(true));
+		session.cancelActiveWorkflow();
+		const result = await pending;
+		expect(result.status).toBe('cancelled');
+		expect(result.rawResponse).toBeUndefined();
+		session.close();
+	});
+});
+
 describe('partial tool discovery', () => {
 	it('preserves the cached list and its diagnostics when a refresh is cancelled', async () => {
 		const fetcher = readyFetch({ tools: {} }, (request) => {
@@ -243,8 +386,12 @@ describe('partial tool discovery', () => {
 		expect(result.status).toBe('transport-error');
 		expect(result.message).toContain('output schema');
 		expect(result.details).toMatchObject({ code: -32602 });
+		expect(result.rawResponse).toMatchObject({
+			result: { content: [], structuredContent: { value: 42 } }
+		});
 		const task = await session.callTool('task', {});
 		expect(task.message).toContain('requires task-based execution');
+		expect(task.rawResponse).toBeUndefined();
 		session.close();
 	});
 });

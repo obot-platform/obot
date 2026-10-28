@@ -5,9 +5,12 @@ import (
 )
 
 const (
-	ProviderTypeAuth                 ProviderType         = "auth"
-	ProviderTypeModel                ProviderType         = "model"
-	ProviderTypeLicense              ProviderType         = "license"
+	ProviderTypeAuth    ProviderType = "auth"
+	ProviderTypeModel   ProviderType = "model"
+	ProviderTypeLicense ProviderType = "license"
+	// ProviderTypeLLMGateway is the embedded LLM gateway's configuration (providers, keys,
+	// routing rules, settings), which every replica reloads when it changes.
+	ProviderTypeLLMGateway           ProviderType         = "llm-gateway"
 	ProviderDesiredStateConfigured   ProviderDesiredState = "configured"
 	ProviderDesiredStateDeconfigured ProviderDesiredState = "deconfigured"
 	// ProviderDesiredStateSwitched replaces the configured auth provider with another in one

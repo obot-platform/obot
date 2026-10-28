@@ -34,7 +34,10 @@
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	let { reconciliationRetryMs = 1000 }: { reconciliationRetryMs?: number } = $props();
+	let {
+		reconciliationRetryMs = 1000,
+		configureOnly = false
+	}: { reconciliationRetryMs?: number; configureOnly?: boolean } = $props();
 	let vmcp = $state<VMCP>();
 	let instance = $state<VMCPInstance>();
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -191,7 +194,7 @@
 	}
 
 	export async function openEditConfiguration(
-		target: VMCP,
+		target: VMCP | string,
 		targetInstance: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
@@ -201,12 +204,14 @@
 
 		let resolved: VMCP;
 		try {
-			resolved = await UserService.getVMCP(target.id, {
+			resolved = await UserService.getVMCP(typeof target === 'string' ? target : target.id, {
 				dontLogErrors: true,
 				signal: controller.signal
 			});
 		} catch (err) {
 			if (controller.signal.aborted || isAbortError(err)) return;
+			// A caller that passed only an ID has no vMCP to fall back to.
+			if (typeof target === 'string') throw err;
 			resolved = target;
 		}
 
@@ -628,6 +633,16 @@
 					)
 				: targetInstance;
 			instance = await waitForReconciledInstance(submitted);
+
+			// The consent page authenticates this exact instance after configuration settles.
+			if (configureOnly) {
+				if (!instanceConfigurationSettled(instance)) {
+					launchError = m.vmcps_failed_to_launch();
+					return;
+				}
+				finishLaunch();
+				return;
+			}
 
 			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(target.id);
 			if (!launchResponse.success) {

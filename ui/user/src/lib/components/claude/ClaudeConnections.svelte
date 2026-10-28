@@ -1,11 +1,15 @@
 <script lang="ts">
 	import CopyField from '$lib/components/CopyField.svelte';
 	import { m } from '$lib/i18n';
-	import { doGet } from '$lib/services/http';
+	import {
+		UserService,
+		type ClaudeSession,
+		type ClaudeConfig,
+		type ClaudeEnvironment
+	} from '$lib/services';
 	import { COMMON_AI_CLIENTS_MAP, AiClient } from '$lib/services/user/constants';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import type { ClaudeConfig, ClaudeEnvironment } from './types';
 	import { Pencil } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -13,13 +17,7 @@
 	let { onEdit }: { onEdit: (environment: ClaudeEnvironment) => void } = $props();
 
 	let config = $state<ClaudeConfig>({ enabled: false });
-	let sessions = $state<
-		{
-			metadata: { deletionTimestamp?: string };
-			spec: { claudeEnvironment: string; claudeDone?: boolean; claudeFinishedAt?: string };
-			status: { state?: string };
-		}[]
-	>([]);
+	let sessions = $state<ClaudeSession[]>([]);
 	let statsLoaded = $state(false);
 	let statsError = $state(false);
 	let refreshingStats = false;
@@ -53,10 +51,10 @@
 		refreshingStats = true;
 
 		try {
-			const response = (await doGet(admin ? '/claude-sessions?all=true' : '/claude-sessions', {
+			sessions = await UserService.listClaudeSessions({
+				all: admin,
 				dontLogErrors: true
-			})) as { items: typeof sessions };
-			sessions = response.items;
+			});
 			statsLoaded = true;
 			statsError = false;
 		} catch {
@@ -67,7 +65,7 @@
 	}
 
 	async function load() {
-		config = (await doGet('/claude-environments')) as ClaudeConfig;
+		config = await UserService.getClaudeConfig();
 		void refreshStats();
 	}
 
@@ -84,7 +82,7 @@
 		<p class="text-sm text-muted-content">
 			{m.hosted_agents_env_help()}
 		</p>
-		<div class="space-y-4">
+		<div class="space-y-4 grid grid-cols-1">
 			{#each config.environments ?? [] as environment (environment.id)}
 				{@const mapping = config.mappings?.find(
 					(mapping) => mapping.organizationID === environment.organizationID
@@ -137,7 +135,7 @@
 												<code>{host}</code>
 											</li>
 										{:else}
-											<li class="text-muted-content">
+											<li class="text-muted-content text-xs">
 												{m.hosted_agents_no_additional_egress()}
 											</li>
 										{/each}
@@ -156,10 +154,10 @@
 								variant="code"
 								value={`claude "${m.hosted_agents_cli_prompt()}" --environment ${environment.environmentID}`}
 								classes={{
-									input: 'font-mono dark:bg-base-300 pt-0.5 pl-4',
+									input: 'font-mono dark:bg-base-400 pt-0.5 pl-4',
 									label: 'text-sm text-base-content mb-1'
 								}}
-								class="dark:bg-base-300"
+								class="dark:bg-base-400"
 							>
 								{#snippet preContent()}
 									{@const claude = COMMON_AI_CLIENTS_MAP.get(AiClient.Claude)}
@@ -196,16 +194,16 @@
 						{@const summary = stats[environment.id] ?? { total: 0, active: 0 }}
 						{@const lastUsed = formatTimeAgo(summary.lastUsed)}
 						<dl class="grid grid-cols-3 gap-3 text-sm">
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_environment_stats_total()}</dt>
+							<div class="bg-base-200 dark:bg-base-400 p-3 rounded-lg text-xs">
+								<dt class="font-medium">{m.hosted_agents_environment_stats_total()}</dt>
 								<dd>{summary.total}</dd>
 							</div>
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_environment_stats_active()}</dt>
+							<div class="bg-base-200 dark:bg-base-400 p-3 rounded-lg text-xs">
+								<dt class="font-medium">{m.hosted_agents_environment_stats_active()}</dt>
 								<dd>{summary.active}</dd>
 							</div>
-							<div>
-								<dt class="text-muted-content">{m.hosted_agents_environment_stats_last_used()}</dt>
+							<div class="bg-base-200 dark:bg-base-400 p-3 rounded-lg text-xs">
+								<dt class="font-medium">{m.hosted_agents_environment_stats_last_used()}</dt>
 								<dd>
 									{#if summary.active}
 										{m.hosted_agents_environment_stats_now()}

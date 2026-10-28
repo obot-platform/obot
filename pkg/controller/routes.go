@@ -21,7 +21,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/model"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
-	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
@@ -49,7 +48,6 @@ func (c *Controller) setupRoutes() {
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager, c.services.GitMaxRepoSizeMB)
-	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
 	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.ServerURL, c.services.GatewayClient)
 	skillRepository := skillrepository.New(c.services.GatewayClient, c.services.GitMaxRepoSizeMB)
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
@@ -101,8 +99,6 @@ func (c *Controller) setupRoutes() {
 	// Provider Configuration Changes
 	root.Type(&v1.ProviderConfigurationChange{}).HandlerFunc(providerConfigurationChanges.Reconcile)
 
-	// ModelInfoSource
-	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 
 	// MDMAssetSource
@@ -208,6 +204,7 @@ func (c *Controller) setupRoutes() {
 
 	// ModelAccessPolicys
 	root.Type(&v1.ModelAccessPolicy{}).HandlerFunc(modelaccesspolicy.PruneDefaultPolicy)
+	root.Type(&v1.ModelAccessPolicy{}).FinalizeFunc(v1.ModelAccessPolicyFinalizer, modelaccesspolicy.DeleteProfileBudgetsAndGuardrailPolicies(c.services.GatewayClient))
 
 	// OAuthClients
 	root.Type(&v1.OAuthClient{}).IncludeFinalizing().HandlerFunc(cleanup.OAuthClients)
@@ -252,6 +249,5 @@ func (c *Controller) setupRoutes() {
 	c.providerHandler = providers
 	c.mcpCatalogHandler = mcpCatalog
 	c.mdmAssetSourceHandler = mdmAssetSource
-	c.modelInfoSourceHandler = modelInfoSource
 	c.adminWorkspaceHandler = adminWorkspaceHandler
 }

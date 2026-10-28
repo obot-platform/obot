@@ -16,9 +16,11 @@
 		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
 		filterIds?: string[];
 		initialUsers?: OrgUser[];
+		// offerObotAdmin offers the Obot Admin group, which only subjects that accept Obot groups can hold.
+		offerObotAdmin?: boolean;
 	}
 
-	let { onAdd, filterIds, initialUsers = [] }: Props = $props();
+	let { onAdd, filterIds, initialUsers = [], offerObotAdmin = true }: Props = $props();
 
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
@@ -60,6 +62,7 @@
 		const shouldIncludeEveryone =
 			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);
 		const shouldIncludeAdmin =
+			offerObotAdmin &&
 			profile.current.isAdmin?.() &&
 			(!searchNames.length || adminGroup.name.toLowerCase().includes(query));
 

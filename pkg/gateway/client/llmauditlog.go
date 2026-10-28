@@ -34,17 +34,20 @@ type llmAuditEntry struct {
 }
 
 type LLMAuditLogOptions struct {
-	WithSensitiveFields    bool
-	HideModelsRequests     bool
-	APIKeyID               []uint
-	UserID                 []string
-	ModelProvider          []string
-	TargetModel            []string
-	RequestPath            []string
-	ResponseStatus         []int
-	Outcome                []string
-	UserAgent              []string
-	ClientSessionID        []string
+	WithSensitiveFields bool
+	HideModelsRequests  bool
+	APIKeyID            []uint
+	UserID              []string
+	ModelProvider       []string
+	TargetModel         []string
+	ServedProvider      []string
+	RequestPath         []string
+	ResponseStatus      []int
+	Outcome             []string
+	UserAgent           []string
+	ClientSessionID     []string
+	// MessagePolicyTriggered filters on the message policy flag of rows recorded before
+	// message policies became guardrails. Only scheduled exports that set it use it.
 	MessagePolicyTriggered []bool
 	Query                  string
 	StartTime              time.Time
@@ -111,6 +114,8 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 		"user_id":           {},
 		"model_provider":    {},
 		"target_model":      {},
+		"served_provider":   {},
+		"served_model":      {},
 		"request_path":      {},
 		"response_status":   {},
 		"outcome":           {},
@@ -169,19 +174,6 @@ func (c *Client) GetLLMAuditLogFilterOptions(ctx context.Context, option string,
 	}
 	if opts.Limit > 0 {
 		db = db.Order(option).Limit(opts.Limit)
-	}
-
-	if option == "message_policy_triggered" {
-		var values []bool
-		if err := db.Select(option).Scan(&values).Error; err != nil {
-			return nil, err
-		}
-
-		result := make([]string, 0, len(values))
-		for _, value := range values {
-			result = append(result, strconv.FormatBool(value))
-		}
-		return result, nil
 	}
 
 	var result []string
@@ -255,7 +247,7 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 		if db.Name() == "postgres" {
 			like = "ILIKE"
 		}
-		query := `user_id %[1]s ? OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
+		query := `user_id %[1]s ? OR model_provider %[1]s ? OR model_id %[1]s ? OR target_model %[1]s ? OR served_provider %[1]s ? OR served_model %[1]s ? OR provider_key %[1]s ? OR request_path %[1]s ? OR response_id %[1]s ? OR outcome %[1]s ? OR error %[1]s ? OR request_id %[1]s ? OR user_agent %[1]s ? OR client_session_id %[1]s ? OR client_ip %[1]s ?`
 		args := make([]any, strings.Count(query, "%[1]s ?"))
 		for i := range args {
 			args[i] = searchTerm
@@ -277,6 +269,9 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	}
 	if len(opts.TargetModel) > 0 {
 		db = db.Where("target_model IN (?)", opts.TargetModel)
+	}
+	if len(opts.ServedProvider) > 0 {
+		db = db.Where("served_provider IN (?)", opts.ServedProvider)
 	}
 	if len(opts.RequestPath) > 0 {
 		db = db.Where("request_path IN (?)", opts.RequestPath)

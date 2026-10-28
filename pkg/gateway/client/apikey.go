@@ -177,7 +177,7 @@ func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, descriptio
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
 
-		resp, err = c.createAPIKey(tx, userID, name, description, expiresAt, scopes)
+		resp, err = c.createAPIKey(tx, types.APIKey{UserID: userID, Name: name, Description: description, ExpiresAt: expiresAt, APIKeyScopes: scopes})
 		return err
 	}); err != nil {
 		return nil, err
@@ -210,7 +210,7 @@ func (c *Client) createAPIKeyFromTokenRequest(tx *gorm.DB, userID uint, tr *type
 		expiresAt = new(time.Now().Add(expirationDur))
 	}
 
-	resp, err := c.createAPIKey(tx, userID, tr.Name, tr.Description, expiresAt, tr.Scopes)
+	resp, err := c.createAPIKey(tx, types.APIKey{UserID: userID, Name: tr.Name, Description: tr.Description, ExpiresAt: expiresAt, APIKeyScopes: tr.Scopes})
 	if err != nil {
 		return nil, err
 	}
@@ -459,11 +459,12 @@ func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, key *types.APIKey) er
 	return nil
 }
 
-func (c *Client) createAPIKey(tx *gorm.DB, userID uint, name, description string, expiresAt *time.Time, scopes types.APIKeyScopes) (*types.APIKeyCreateResponse, error) {
+// createAPIKey inserts key with a new secret. The caller supplies ownership, metadata, scopes, and expiration.
+func (c *Client) createAPIKey(tx *gorm.DB, key types.APIKey) (*types.APIKeyCreateResponse, error) {
 	// Every key is created here, including by paths that finish without the user present, such as device login
 	// polling and hosted agent reconciliation. Checking in the same transaction means none of them can issue a key
 	// to a user who is disabled or deleted.
-	if err := checkCredentialOwner(tx, userID); err != nil {
+	if err := checkCredentialOwner(tx, key.UserID); err != nil {
 		return nil, err
 	}
 
@@ -481,22 +482,16 @@ func (c *Client) createAPIKey(tx *gorm.DB, userID uint, name, description string
 	}
 
 	// Create the API key record
-	apiKey := &types.APIKey{
-		UserID:       userID,
-		Name:         name,
-		Description:  description,
-		HashedSecret: string(hashedSecret),
-		APIKeyScopes: scopes,
-		ExpiresAt:    expiresAt,
-		CreatedAt:    time.Now(),
-	}
+	apiKey := &key
+	apiKey.HashedSecret = string(hashedSecret)
+	apiKey.CreatedAt = time.Now()
 
 	if err := tx.Create(apiKey).Error; err != nil {
 		return nil, fmt.Errorf("failed to create API key: %w", err)
 	}
 
 	// Construct the full key with the auto-generated ID
-	fullKey := fmt.Sprintf("%s-%d-%d-%s", system.APIKeyPrefix, userID, apiKey.ID, secret)
+	fullKey := fmt.Sprintf("%s-%d-%d-%s", system.APIKeyPrefix, apiKey.UserID, apiKey.ID, secret)
 
 	return &types.APIKeyCreateResponse{
 		APIKey: *apiKey,

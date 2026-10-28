@@ -17,6 +17,9 @@ type APIKey struct {
 	ID     uint `json:"id" gorm:"primaryKey;autoIncrement"`
 	UserID uint `json:"userId" gorm:"index"`
 
+	// ClaudeEnvironment is set only by the server when issuing runner credentials.
+	ClaudeEnvironment bool `json:"-"`
+
 	Name         string     `json:"name"`                  // User-provided name for the key
 	Description  string     `json:"description,omitempty"` // Optional description
 	HashedSecret string     `json:"-"`                     // bcrypt hash of the secret portion only

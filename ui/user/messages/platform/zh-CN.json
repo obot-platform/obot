@@ -207,7 +207,7 @@
 	"platform_mcp_config_scheduling_tolerations_desc_1": "为{target}定义容忍度字段。此值将用于设置 Kubernetes 部署的",
 	"platform_mcp_config_scheduling_tolerations_desc_2": "字段，并且必须是有效的",
 	"platform_mcp_config_tab": "MCP 配置",
-	"platform_na": "N/A",
+	"platform_na": "不适用",
 	"platform_opens_new_tab": "（在新标签页中打开）",
 	"platform_refresh": "刷新",
 	"platform_refresh_now": "立即刷新",

@@ -36,7 +36,10 @@
 	}
 </script>
 
-<script lang="ts" generics="T extends { id: string | number; label: string; disabled?: boolean }">
+<script
+	lang="ts"
+	generics="T extends { id: string | number; label: string; disabled?: boolean; searchText?: string }"
+>
 	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import { ChevronDown, X, Check, SearchIcon } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
@@ -97,8 +100,14 @@
 	let input = $state<HTMLInputElement>();
 	let optionHighlightIndex = $state(-1);
 
+	// An option matches the query by its label, or by searchText: other names it is known by,
+	// such as a model's ID when its label is a display name.
 	let availableOptions = $derived(
-		options.filter((option) => option.label.toLowerCase().includes(query?.toLowerCase() ?? ''))
+		options.filter((option) =>
+			[option.label, option.searchText ?? ''].some((text) =>
+				text.toLowerCase().includes(query?.toLowerCase() ?? '')
+			)
+		)
 	);
 
 	let selectedOptions = $derived(

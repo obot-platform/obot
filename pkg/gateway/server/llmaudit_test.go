@@ -129,22 +129,6 @@ func TestNewLLMAuditRecorderCapturesMaskedUnnamedAPIKeyAttribution(t *testing.T)
 	}
 }
 
-func TestLLMAuditRecorderCapturesOriginalAndPolicyModifiedRequestBodies(t *testing.T) {
-	recorder := &llmAuditRecorder{}
-	recorder.setRequestBody([]byte(`{"prompt":"original"}`))
-	recorder.setPolicyModifiedRequestBody([]byte(`{"prompt":"blocked"}`))
-
-	if got := string(recorder.log.RequestBody); got != `{"prompt":"original"}` {
-		t.Fatalf("expected original request body, got %q", got)
-	}
-	if got := string(recorder.log.PolicyModifiedRequestBody); got != `{"prompt":"blocked"}` {
-		t.Fatalf("expected policy-modified request body, got %q", got)
-	}
-	if !recorder.log.MessagePolicyTriggered {
-		t.Fatal("expected input policy trigger metadata")
-	}
-}
-
 func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 	for _, tt := range []struct {
 		name           string
@@ -284,19 +268,19 @@ func TestExtractLLMReasoningEffort(t *testing.T) {
 	}{
 		{
 			name:          "openai reasoning effort",
-			modelProvider: system.OpenAIModelProvider,
+			modelProvider: system.LLMGatewayModelProvider,
 			body:          `{"reasoning":{"effort":"medium"}}`,
 			want:          "medium",
 		},
 		{
 			name:          "anthropic output effort",
-			modelProvider: system.AnthropicModelProvider,
+			modelProvider: system.LLMGatewayModelProvider,
 			body:          `{"output_config":{"effort":"high"}}`,
 			want:          "high",
 		},
 		{
 			name:          "anthropic thinking type is not effort",
-			modelProvider: system.AnthropicModelProvider,
+			modelProvider: system.LLMGatewayModelProvider,
 			body:          `{"thinking":{"type":"adaptive"}}`,
 		},
 		{
@@ -314,7 +298,7 @@ func TestExtractLLMReasoningEffort(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_123","model":"gpt-5","output":null}}`,
 		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"ignored"}`,
@@ -331,7 +315,7 @@ func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockAPIKeyModelProvider, "/api/llm-proxy/aws-bedrock-api-key/openai/v1/responses")
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_bedrock","model":"openai.gpt-5.5","output":[]}}`,
 		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"hello"}`,
@@ -347,7 +331,7 @@ func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
 	a.Write([]byte(`data: {"type":"response.created","response":{"id":"resp_partial","model":"gpt-5","output":null}}` + "\n"))
 	a.Write([]byte(`data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"hel`))
 	a.Write([]byte(`lo"}` + "\n"))
@@ -359,7 +343,7 @@ func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"response.created","response":{"id":"resp_tools","model":"gpt-5","output":[]}}`,
 		`data: {"type":"response.output_item.added","output_index":0,"item":{"id":"call_1","type":"function_call","name":"lookup","arguments":""}}`,
@@ -378,7 +362,7 @@ func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.AnthropicModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/messages")
 	a.Write([]byte(strings.Join([]string{
 		`event: message_start`,
 		`data: {"type":"message_start","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":1}}}`,
@@ -403,7 +387,7 @@ func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockModelProvider, "/api/llm-proxy/aws-bedrock/anthropic/v1/messages")
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/messages")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"message_start","message":{"id":"msg_bedrock","type":"message","role":"assistant","model":"claude","content":[]}}`,
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
@@ -420,7 +404,7 @@ func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.AnthropicModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/messages")
 	a.Write([]byte(strings.Join([]string{
 		`data: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","content":[]}}`,
 		`data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_1","name":"lookup","input":{}}}`,
@@ -442,13 +426,13 @@ func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 }
 
 func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
+	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
 	a.Write([]byte(`{"id":"resp_plain","status":"completed"}`))
 	if got := a.JSON(); gjson.GetBytes(got, "id").String() != "resp_plain" {
 		t.Fatalf("expected plain JSON response, got %s", got)
 	}
 
-	empty := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
+	empty := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
 	if got := empty.JSON(); !bytes.Equal(got, []byte(`{}`)) {
 		t.Fatalf("expected empty object, got %s", got)
 	}
@@ -477,5 +461,25 @@ func TestLLMAuditRecorderCapsResponseCapture(t *testing.T) {
 
 	if got := recorder.responseStream.String(); got != "hello" {
 		t.Fatalf("expected capped response stream, got %q", got)
+	}
+}
+
+func TestLLMAuditRecordsSpendAndCachedTokens(t *testing.T) {
+	recorder := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), nil, 5<<20)
+	r := &responseModifier{audit: recorder}
+	r.recordUsage(types.TokenUsage{
+		InputTokens:      3132,
+		CacheReadTokens:  3072,
+		CacheWriteTokens: 10,
+		OutputTokens:     40,
+		ThinkingTokens:   12,
+		TotalTokens:      3172,
+		TotalSpend:       0.0002394,
+	})
+
+	entry := types.ConvertLLMAuditLog(recorder.log)
+	if entry.InputTokens != 3132 || entry.CacheReadTokens != 3072 || entry.CacheWriteTokens != 10 ||
+		entry.OutputTokens != 40 || entry.ReasoningTokens != 12 || entry.Spend != 0.0002394 {
+		t.Fatalf("the audit entry doesn't carry the request's usage and spend: %+v", entry)
 	}
 }

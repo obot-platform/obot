@@ -1,90 +1,107 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
-	import MessagePoliciesView from '$lib/components/admin/MessagePoliciesView.svelte';
+	import GuardrailsList from '$lib/components/guardrails/GuardrailsList.svelte';
 	import { getAdminModels, initModels } from '$lib/context/admin/models.svelte.js';
 	import { m } from '$lib/i18n';
-	import { profile, version } from '$lib/stores';
+	import { AdminService } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import AccessPoliciesView from './AccessPoliciesView.svelte';
-	import ModelProvidersView from './ModelProvidersView.svelte';
+	import GatewaySettingsView from './GatewaySettingsView.svelte';
 	import ModelsView from './ModelsView.svelte';
+	import ProfilesView from './ProfilesView.svelte';
+	import ProvidersView from './ProvidersView.svelte';
+	import RoutingView from './RoutingView.svelte';
 	import { Plus } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? data.hasAdminAccess);
-	let messagePoliciesEnabled = $derived(version.current.messagePoliciesEnabled === true);
-	let creatingView = $derived(page.url.searchParams.get('view'));
-	let creating = $derived(
-		hasAdminAccess &&
-			!isAdminReadonly &&
-			page.url.searchParams.has('new') &&
-			(creatingView === 'access-policies' ||
-				(messagePoliciesEnabled && creatingView === 'ai-judge-policies'))
-	);
 
 	initModels([]);
 	const adminModels = getAdminModels();
-	let defaultModelsDialog = $state<ReturnType<typeof DefaultModels>>();
+	let providersView = $state<ReturnType<typeof ProvidersView>>();
+	let routingView = $state<ReturnType<typeof RoutingView>>();
+	let guardrailsList = $state<ReturnType<typeof GuardrailsList>>();
+	let gatewayReady = $state(false);
+
+	const titles: Record<string, string> = {
+		connect: m.models_page_title(),
+		providers: m.models_providers_tab(),
+		profiles: m.models_profiles_page_title(),
+		guardrails: m.guardrails_page_title(),
+		routing: m.models_routing_page_title(),
+		settings: m.models_settings_page_title()
+	};
 
 	let views = $derived.by(() => {
 		const items: TabView[] = [
 			{
-				label: m.models_title(),
-				value: 'models',
-				content: models,
-				tooltip: m.models_tab_tooltip()
+				label: m.models_connect_tab(),
+				value: 'connect',
+				content: connect,
+				tooltip: m.models_connect_tab_tooltip()
 			}
 		];
 		if (hasAdminAccess) {
 			items.push(
 				{
-					label: m.models_providers_tab(),
-					value: 'model-providers',
-					content: modelProviders,
+					label: m.models_tab_providers(),
+					value: 'providers',
+					content: providers,
 					tooltip: m.models_providers_tab_tooltip()
 				},
 				{
-					label: m.models_access_policies_tab(),
-					value: 'access-policies',
-					content: accessPolicies,
-					tooltip: m.models_access_policies_tab_tooltip()
+					label: m.models_profiles_tab(),
+					value: 'profiles',
+					content: profiles,
+					tooltip: m.models_profiles_tab_tooltip()
+				},
+				{
+					label: m.guardrails_tab(),
+					value: 'guardrails',
+					content: guardrails,
+					tooltip: m.models_guardrails_tab_tooltip()
+				},
+				{
+					label: m.models_tab_routing(),
+					value: 'routing',
+					content: routing,
+					tooltip: m.models_routing_tab_tooltip()
+				},
+				{
+					label: m.models_tab_settings(),
+					value: 'settings',
+					content: settings,
+					tooltip: m.models_settings_tab_tooltip()
 				}
 			);
-			if (messagePoliciesEnabled) {
-				items.push({
-					label: m.models_tab_ai_judge(),
-					value: 'ai-judge-policies',
-					content: messagePolicies,
-					tooltip: m.models_tab_ai_judge_tooltip()
-				});
-			}
 		}
 		return items;
 	});
 
-	function hideCreate() {
-		const url = new URL(page.url);
-		url.searchParams.delete('new');
-		goto(url, { replaceState: true });
-	}
-
-	function showCreate(view: string) {
-		goto(`${page.url.pathname}?view=${view}&new=true`);
-	}
-
-	let title = $derived.by(() => {
-		if (!creating) return m.models_title();
-		return creatingView === 'ai-judge-policies'
-			? m.models_create_ai_judge_policy()
-			: m.models_create_access_policy();
+	let selectedView = $derived.by(() => {
+		const requested = page.url.searchParams.get('view') ?? 'connect';
+		return views.some((v) => v.value === requested) ? requested : 'connect';
 	});
 
-	function handleFirstConfigure(required: boolean) {
-		defaultModelsDialog?.open(required);
+	let title = $derived(titles[selectedView] ?? m.models_page_title());
+
+	// The default models dialog on the Providers tab chooses from every model the gateway has.
+	$effect(() => {
+		if (selectedView === 'providers' && hasAdminAccess) {
+			untrack(loadAdminModels);
+		}
+	});
+
+	async function loadAdminModels() {
+		try {
+			adminModels.items = await AdminService.listModels({ all: true });
+		} catch {
+			// The dialog stays unavailable; the Providers tab reports gateway errors itself.
+		}
 	}
 </script>
 
@@ -92,72 +109,75 @@
 	<title>Obot | {title}</title>
 </svelte:head>
 
-{#if creating}
-	<Layout {title} showBackButton onBackButtonClick={hideCreate}>
-		{#if creatingView === 'ai-judge-policies'}
-			<MessagePoliciesView
-				messagePolicies={data.messagePolicies ?? []}
-				policyDirection="user-message"
-				creating
-			/>
-		{:else}
-			<AccessPoliciesView modelAccessPolicies={data.modelAccessPolicies} creating />
-		{/if}
-	</Layout>
-{:else}
-	<TabLayout
-		title={m.models_title()}
-		defaultView="models"
-		rightNavActions={navActions}
-		{views}
-		classes={{ childrenContainer: 'max-w-none' }}
-	/>
-{/if}
+<TabLayout
+	title={m.models_page_title()}
+	defaultView="connect"
+	rightNavActions={navActions}
+	{views}
+	classes={{ childrenContainer: 'max-w-none' }}
+/>
 
 {#snippet navActions(view: string)}
-	{#if view === 'model-providers'}
-		<DefaultModels
-			bind:this={defaultModelsDialog}
-			availableModels={adminModels.items}
-			readonly={isAdminReadonly}
-		/>
-	{:else if view === 'access-policies' && !isAdminReadonly}
+	{#if view === 'providers'}
+		<div class="flex items-center gap-2">
+			<DefaultModels availableModels={adminModels.items} readonly={isAdminReadonly} />
+			{#if !isAdminReadonly && gatewayReady}
+				<button
+					class="btn btn-primary flex items-center gap-1 text-sm"
+					onclick={() => providersView?.openAddCustomProvider()}
+				>
+					<Plus class="size-4" />
+					{m.models_providers_add_custom()}
+				</button>
+			{/if}
+		</div>
+	{:else if !isAdminReadonly && gatewayReady && view === 'routing'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => showCreate('access-policies')}
+			onclick={() => routingView?.open()}
 		>
 			<Plus class="size-4" />
-			{m.models_add_access_policy()}
+			{m.models_routing_add_rule()}
 		</button>
-	{:else if view === 'ai-judge-policies' && messagePoliciesEnabled && !isAdminReadonly}
+	{:else if view === 'profiles' && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => showCreate('ai-judge-policies')}
+			onclick={() => goto('/models/profiles/new')}
 		>
 			<Plus class="size-4" />
-			{m.models_add_ai_judge_policy()}
+			{m.models_profiles_add()}
+		</button>
+	{:else if view === 'guardrails' && !isAdminReadonly}
+		<button
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => guardrailsList?.openTypePicker()}
+		>
+			<Plus class="size-4" />
+			{m.guardrails_add()}
 		</button>
 	{/if}
 {/snippet}
 
-{#snippet models()}
+{#snippet connect()}
 	<ModelsView />
 {/snippet}
 
-{#snippet modelProviders()}
-	<ModelProvidersView
-		modelProviders={data.modelProviders}
-		onFirstConfigure={handleFirstConfigure}
-	/>
+{#snippet providers()}
+	<ProvidersView bind:this={providersView} onReadyChange={(ready) => (gatewayReady = ready)} />
 {/snippet}
 
-{#snippet accessPolicies()}
-	<AccessPoliciesView modelAccessPolicies={data.modelAccessPolicies} />
+{#snippet routing()}
+	<RoutingView bind:this={routingView} onReadyChange={(ready) => (gatewayReady = ready)} />
 {/snippet}
 
-{#snippet messagePolicies()}
-	<MessagePoliciesView
-		messagePolicies={data.messagePolicies ?? []}
-		policyDirection="user-message"
-	/>
+{#snippet profiles()}
+	<ProfilesView />
+{/snippet}
+
+{#snippet guardrails()}
+	<GuardrailsList bind:this={guardrailsList} />
+{/snippet}
+
+{#snippet settings()}
+	<GatewaySettingsView />
 {/snippet}

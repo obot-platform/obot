@@ -32,18 +32,24 @@ export class EventStreamService<T> {
 		});
 
 		this.eventSource.onopen = () => {
-			console.log('SSE connection opened');
+			if (import.meta.env.MODE !== 'test') {
+				console.log('SSE connection opened');
+			}
 			options?.onOpen?.();
 		};
 
 		this.eventSource.onerror = (error) => {
-			console.error('SSE connection error:', error);
+			if (import.meta.env.MODE !== 'test') {
+				console.error('SSE connection error:', error);
+			}
 			options?.onError?.(error);
 		};
 
 		// Custom close event handling
 		this.eventSource.addEventListener('close', () => {
-			console.log('SSE connection closed by server');
+			if (import.meta.env.MODE !== 'test') {
+				console.log('SSE connection closed by server');
+			}
 			options?.onClose?.();
 		});
 	}

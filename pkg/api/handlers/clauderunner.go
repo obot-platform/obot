@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -215,7 +214,8 @@ func (h *ClaudeRunnerHandler) Spawn(req api.Context) error {
 				inst.Spec.ClaudePrevious = previous.Name
 			}
 		}
-		runtime, err := json.Marshal(effective.Runtime)
+		// Record the images this session runs, resolving the environment's defaults now.
+		runtime, err := json.Marshal(clauderunner.WithDefaultImages(effective.Runtime, h.Substrate.Config.WorkerImage, h.Substrate.Config.RunnerImage))
 		if err != nil {
 			return err
 		}
@@ -313,25 +313,23 @@ func (h *ClaudeRunnerHandler) credentials(req api.Context) error {
 	}
 	servers := map[string]any{}
 	for _, id := range environment.MCPServerIDs {
-		servers[id] = map[string]any{"type": "http", "url": system.MCPConnectURL(h.Substrate.Config.ObotURL, id), "headers": map[string]string{"X-Obot-Egress-Key": "placeholder"}}
+		// Tell Claude authentication is configured so a component's 401 does not
+		// trigger client registration. Egress replaces this placeholder with the scoped key.
+		servers[id] = map[string]any{
+			"type": "http",
+			"url":  system.MCPConnectURL(h.Substrate.Config.ObotURL, id),
+			"headers": map[string]string{
+				"Authorization":     "Bearer obot-egress-placeholder",
+				"X-Obot-Egress-Key": "placeholder",
+			},
+		}
 	}
 	req.ResponseWriter.Header().Set("Cache-Control", "no-store")
 	return req.Write(map[string]any{"mcpServers": servers})
 }
 
 func revokeClaudeKey(req api.Context, name string) error {
-	credential, err := req.GatewayClient.RevealCredential(req.Context(), []string{"substrate-agent"}, name)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	id, err := strconv.ParseUint(credential.Secrets["keyID"], 10, 64)
-	if err != nil {
-		return err
-	}
-	return req.GatewayClient.RevokeAPIKeyByID(req.Context(), uint(id))
+	return req.GatewayClient.RevokeClaudeCredentials(req.Context(), name)
 }
 
 // Status is polled with the per-runner credential; it exposes no session secrets.

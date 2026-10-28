@@ -1,14 +1,22 @@
 package provider
 
 import (
+	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
+	openai "github.com/obot-platform/chat-completion-client"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	kfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+type fakeLister []string
 
 func TestReadLocalProviderRegistryFromSubdirectories(t *testing.T) {
 	dir := t.TempDir()
@@ -44,30 +52,16 @@ groupIDPrefix: github/
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(objs) != 2 {
-		t.Fatalf("expected 2 provider objects, got %d", len(objs))
+	// Registries still ship model providers, which the LLM gateway replaced; they're ignored.
+	if len(objs) != 1 {
+		t.Fatalf("expected 1 provider object, got %d", len(objs))
 	}
 
-	var foundModel, foundAuth bool
+	var foundAuth bool
 	for _, obj := range objs {
 		switch provider := obj.(type) {
 		case *v1.ModelProvider:
-			foundModel = true
-			if provider.Name != "openai-model-provider" {
-				t.Fatalf("expected model provider name openai-model-provider, got %q", provider.Name)
-			}
-			if provider.Spec.Name != "${openai_model_provider_name}" {
-				t.Fatalf("expected model provider display name OpenAI, got %q", provider.Spec.Name)
-			}
-			if provider.Spec.Command != filepath.Join(dir, "bin/openai-model-provider") {
-				t.Fatalf("expected model provider command %q, got %q", filepath.Join(dir, "bin/openai-model-provider"), provider.Spec.Command)
-			}
-			if provider.Spec.Dialect != "OpenAIResponses" {
-				t.Fatalf("expected model provider dialect OpenAIResponses, got %q", provider.Spec.Dialect)
-			}
-			if provider.Spec.RequiredConfigurationParameters[0].FriendlyName != "${openai_model_provider_api_key_friendly_name}" {
-				t.Fatal("model provider reference was not preserved")
-			}
+			t.Fatalf("model provider %q from the registry should be ignored", provider.Name)
 		case *v1.AuthProvider:
 			foundAuth = true
 			if provider.Name != "github-auth-provider" {
@@ -87,8 +81,8 @@ groupIDPrefix: github/
 			t.Fatalf("unexpected object type %T", obj)
 		}
 	}
-	if !foundModel || !foundAuth {
-		t.Fatalf("expected both model and auth providers, foundModel=%v foundAuth=%v", foundModel, foundAuth)
+	if !foundAuth {
+		t.Fatal("expected the auth provider")
 	}
 }
 
@@ -114,7 +108,7 @@ func TestAppendProvidersSkipsInvalidGroupIDPrefix(t *testing.T) {
 		},
 	}
 
-	objects := appendProviders("/registry", providers, nil)
+	objects := appendProviders("/registry", providers)
 	if len(objects) != 1 {
 		t.Fatalf("providers = %d, want 1", len(objects))
 	}
@@ -250,5 +244,49 @@ func TestModelDialectPrefersMetadataDialect(t *testing.T) {
 				t.Fatalf("modelDialect() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestKeepModelEdits(t *testing.T) {
+	override := &types.ModelCost{Input: 1}
+	discovered := types.ModelManifest{Name: "gpt-5", DisplayName: "GPT-5", TargetModel: "openai/gpt-5", Active: true, Usage: types.ModelUsageLLM, Dialect: "openai"}
+	keepModelEdits(&discovered, types.ModelManifest{DisplayName: "Our GPT", Active: false, Alias: "main", OverrideCost: override, Usage: types.ModelUsageEmbedding})
+	want := types.ModelManifest{Name: "gpt-5", DisplayName: "Our GPT", TargetModel: "openai/gpt-5", Alias: "main", Active: false, Usage: types.ModelUsageEmbedding, Dialect: "openai", OverrideCost: override}
+	if discovered != want {
+		t.Fatalf("got %+v, want %+v", discovered, want)
+	}
+}
+
+func (f fakeLister) ConfiguredProviders(context.Context) ([]string, error) { return f, nil }
+
+func TestUnlistedProviderModels(t *testing.T) {
+	model := func(name, target string) v1.Model {
+		return v1.Model{Namespace: "default", Name: name, Spec: v1.ModelSpec{Manifest: types.ModelManifest{TargetModel: target, ModelProvider: system.LLMGatewayModelProvider, DisplayName: "edited " + name}}}
+	}
+	existing := []v1.Model{
+		model("m-openai", "openai/gpt-5"),
+		model("m-anthropic", "anthropic/claude-sonnet-5"),
+		model("m-groq", "groq/llama"),
+	}
+	info := &v1.ModelInfo{Namespace: "default", Name: v1.ModelInfoName(system.LLMGatewayModelProvider, "anthropic/claude-sonnet-5")}
+	client := kfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(info).Build()
+	// OpenAI listed its models; Anthropic is configured but its list call failed; Groq was
+	// removed from the gateway.
+	listed := &openai.ModelsList{Models: []openai.Model{{ID: "openai/gpt-5"}}}
+
+	kept, err := unlistedProviderModels(context.Background(), client, fakeLister{"openai", "anthropic"}, listed, existing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, o := range kept {
+		names = append(names, o.GetName())
+	}
+	want := []string{"m-anthropic", info.Name}
+	if !slices.Equal(names, want) {
+		t.Fatalf("kept %v, want %v", names, want)
+	}
+	if m := kept[0].(*v1.Model); m.Spec.Manifest.DisplayName != "edited m-anthropic" {
+		t.Fatalf("the kept model lost its edits: %+v", m.Spec.Manifest)
 	}
 }

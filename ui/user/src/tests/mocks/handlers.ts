@@ -33,11 +33,13 @@ export const handlers = [
 	),
 	http.get('/api/image-pull-secrets/capability', () => HttpResponse.json({ available: false })),
 	http.get('/api/image-pull-secrets', () => HttpResponse.json({ items: [] })),
+	http.get('/api/egress-audit-logs', () => HttpResponse.json({ items: [], total: 0 })),
 	http.get('/api/egress-audit-logs/environments', () => HttpResponse.json({})),
 	http.get('/api/eula', () => HttpResponse.json({ accepted: true })),
 	http.get('/api/license', () => HttpResponse.json(data.getLicenseResponse)),
 	http.delete('/api/license', () => HttpResponse.json(data.getLicenseResponse)),
 	http.get('/api/mcp-capacity', () => HttpResponse.json(data.getMCPCapacityResponse)),
+	http.get('/api/token-usage-stats', () => HttpResponse.json(data.getTokenUsageStatsResponse)),
 	http.get('/api/setup/explicit-role-emails', () =>
 		HttpResponse.json(data.listExplicitRoleEmailsResponse)
 	),
@@ -69,6 +71,10 @@ export const handlers = [
 	),
 	http.get('/api/mcp-servers/:id', () => HttpResponse.json()),
 	http.get('/api/mcp-servers/:id/logs', () => HttpResponse.json({ items: [] })),
+	http.get(
+		'/api/mcp-webhook-validations/:id/logs',
+		() => new HttpResponse('', { headers: { 'Content-Type': 'text/event-stream' } })
+	),
 	http.get('/api/workspaces/:workspaceID/entries/:entryID/servers/:serverID/logs', () =>
 		HttpResponse.json({ items: [] })
 	),
@@ -87,9 +93,17 @@ export const handlers = [
 	),
 	http.get('/api/mcp-audit-logs/filter-options/:filter', () => HttpResponse.json({ options: [] })),
 	http.get('/api/me', () => HttpResponse.json(data.getProfileResponse)),
+	http.get('/api/llm-gateway/status', () => HttpResponse.json(data.getGatewayStatusResponse)),
+	http.get('/api/llm-gateway/settings', () =>
+		HttpResponse.json({ subscriptionPassthrough: false })
+	),
+	http.get('/api/llm-gateway/guardrails', () => HttpResponse.json({ items: [] })),
+	http.get('/api/llm-gateway/guardrails/providers', () => HttpResponse.json({ items: [] })),
+	http.get('/api/model-access-policies', () => HttpResponse.json({ items: [] })),
 	http.get('/api/model-providers', () => HttpResponse.json({ items: [] })),
 	http.get('/api/models', () => HttpResponse.json({ items: data.listModelsResponse })),
 	http.get('/api/oauth/mcp/login/:id', () => new HttpResponse(null, { status: 400 })),
+	http.get('/oauth/mcp/login/:id', () => HttpResponse.json({ expiresIn: 600 })),
 	http.get('/api/product-telemetry-consent', () => HttpResponse.json({})),
 	http.get('/api/users', () => HttpResponse.json({ items: data.listUsersResponse })),
 	http.get('/api/vmcps', () => HttpResponse.json({ items: [] })),

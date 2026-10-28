@@ -36,8 +36,9 @@ npm ci
 npm run verify
 ```
 
-The generated site is written to `docs/build/`. Verification runs TypeScript
-checking and the Docusaurus production build. Broken internal links, Markdown
+The generated site is written to `docs/build/`. Verification clears generated metadata and build output before running TypeScript
+checking and the Docusaurus production build. This prevents deleted pages from
+leaving stale metadata in local corpus checks. Broken internal links, Markdown
 links, and heading anchors fail the build.
 
 ## Links
@@ -137,3 +138,105 @@ developer machines; this setting does not change the application's timezone.
 These tests verify UI entry points, managed tool discovery, a successful tool
 call, and its audit record. They do not validate Kubernetes deployments, cloud
 services, hosted-agent execution, or live LLM compatibility.
+
+## Agent-readable documentation
+
+The local `plugins/agent-docs` plugin exports source Markdown using the docs
+plugin's resolved version and route metadata. It runs during production builds;
+there is no runtime service or additional release step.
+
+- `/llms.txt` identifies the latest release and links to retained version indexes.
+- `/vX.Y.Z/llms.txt` and `/next/llms.txt` organize that version's Markdown by sidebar
+  topic. `/next/` is explicitly unreleased.
+- `/vX.Y.Z/<route>.md` pins a document to a release; a version homepage uses
+  `index.md`. `/installation/` maps to `installation.md`, not
+  `installation/index.md`. Root Markdown aliases serve the latest release's exact
+  exported bytes, including version-pinned links. Heading and explicit-anchor fragments
+  are rewritten to collision-free export IDs so duplicate headings and generated titles
+  cannot change a link destination.
+- Each page includes YAML `title`, `version`, `canonical` (that version's HTML
+  URL), and `unreleased`. This source URL is independent of the HTML SEO canonical.
+- Each version index links to `llms-full.txt`, with its byte size and an approximate
+  token count (bytes divided by four, not a tokenizer guarantee). Individual pages
+  are the default retrieval path.
+
+Pages receive an alternate Markdown head link and a “View as Markdown” link that
+follows client navigation. The footer links to the root index. Cloudflare Pages
+headers give Markdown exports `text/markdown` and `noindex`; full bundles and
+older/unreleased indexes are also excluded from indexing. Keep exports crawlable
+in `robots.txt` so crawlers can read those headers. Existing HTML indexing rules
+are unchanged. Missing Markdown URLs remain 404s.
+
+The normalizer supports Markdown, GFM tables, explicit heading anchors, Mermaid,
+Docusaurus admonitions, Tabs/TabItem, and the ordinary HTML elements allowlisted
+in `markdown.mjs`. It scans all retained versions, preserves fenced code, and
+fails on unsupported MDX components/expressions/imports. Add a focused fixture
+before extending it. Draft/unlisted documents, partials, generated category
+pages, and HTML redirect stubs are not exported. Local document links and anchors,
+asset targets, output collisions, and effective robots rules are validated.
+
+Review `.docusaurus/agent-docs-summaries.json` after content changes. It records
+all summaries and whether they were extracted from prose. Add authored frontmatter
+descriptions to current docs, or use a small entry in
+`plugins/agent-docs/summaries.json` for an index-only correction to frozen release
+content. Version-specific overrides take precedence over shared (`*`) overrides.
+The build abbreviates long summaries to keep indexes useful.
+
+Run `npm run test:exports` for the Node test suite (also part of `verify` and CI).
+After a build, `npm run test:exports:content` compares every exported page's code
+blocks and table text with its unmodified source using independent test helpers,
+and checks the frontmatter schema and version/HTML URL metadata (also part of
+`verify` and CI). This does not establish complete prose or formatting fidelity.
+Unit tests also compare clean-build output bytes and reject missing assets.
+Run `npm run test:exports:release` for an isolated v0.28.0 snapshot, previous-latest
+rollover, oldest-version removal, and clean rebuild. This invokes Docusaurus's
+actual version command without modifying this checkout. Update the fixture version
+once v0.28.0 is released. `KEEP_RELEASE_FIXTURE=1` retains the temporary copy for
+inspection. Browser tests verify headers, raw server-rendered discovery links, and Markdown
+links after in-app navigation.
+
+For a preview whose generated absolute links stay local, build with
+`DOCS_SITE_URL=http://localhost:3000 npm run build`, then run `npm run preview:pages`.
+Production builds default to `https://docs.obot.ai`. No Docker or Obot application
+instance is needed for documentation tests. A preview cannot verify production
+Cloudflare bot/WAF policies.
+
+Community alternatives include `docusaurus-plugin-llms` (which supports multiple
+versions) and `@signalwire/docusaurus-plugin-llms-txt`. The local implementation
+keeps Obot's exact pinned/alias URL contract, source-preserving conversion,
+fail-on-unknown behavior, and release regression checks together. The former's
+configurable content cleaning and the latter's rendered-HTML conversion do not
+provide this exact validation contract out of the box. Reassess them if maintaining
+this small adapter becomes more costly. Publishing these files does not guarantee
+automatic agent discovery or improved search rankings; evaluate retrieval and
+homepage-only discovery separately.
+
+### Verification boundaries and acceptance evidence
+
+Docusaurus 3.10.2 is the existing pinned version, not an upgrade made by this
+change. Run verification, browser tests, and the isolated release test when
+upgrading it; current results do not certify future versions.
+
+`tests/agent-docs/acceptance-results.json` is a historical summary. Its original
+answers and exact model identifier were not retained, so it cannot be independently
+rescored. Do not rewrite historical counts to match today's suite. For new runs,
+retain the exact prompt, entry URL, model identifier (or explicitly unknown),
+complete answer with citations, fetched URLs, expected criteria written before
+execution, and a criterion-by-criterion assessment. Keep unsupported discovery
+or source-content claims separate from exporter defects. Never reconstruct a
+missing transcript from an assessment summary.
+
+The exporter processes trusted repository sources; it is not an untrusted-Markdown
+sanitizer. Local tests cannot establish production Cloudflare bot/WAF access.
+After deployment, check the public indexes, Markdown MIME/noindex headers, 404s,
+and provider access/logs; record the date and client rather than claiming universal
+agent discovery. Dependency audits are point-in-time checks, not a security guarantee.
+
+The 2026-10-24 QA audit found one newly affected dependency in the exporter’s
+`gray-matter` dependency; its scoped `js-yaml` override was patched to 3.15.2.
+The existing docs stack still has 26 npm audit findings (20 low, 3 moderate,
+2 high, 1 critical), also present on the base branch. Advisory roots include
+`body-parser`, `dompurify`, `fast-uri`, `serialize-javascript`, and `undici`.
+These need separate dependency maintenance; the exporter review does not establish
+that they are harmless. Avoid `npm audit fix --force`, whose suggested changes
+include downgrading the pinned Docusaurus/Wrangler stack.

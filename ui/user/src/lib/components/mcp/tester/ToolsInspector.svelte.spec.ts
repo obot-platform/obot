@@ -67,6 +67,33 @@ function detailsPane(): HTMLElement {
 }
 
 describe('ToolsInspector', () => {
+	it('shows the original tool response inside the full-error dialog', async () => {
+		const { session } = renderInspector(1);
+		const rawResponse = {
+			jsonrpc: '2.0' as const,
+			id: 3,
+			result: { content: [{ type: 'text', text: 'no_subscription' }] }
+		};
+		vi.spyOn(session, 'callTool').mockResolvedValue({
+			status: 'transport-error',
+			durationMs: 10,
+			message: 'Output schema validation failed',
+			details: { name: 'McpError', code: -32600 },
+			rawResponse
+		});
+		await page.getByRole('button', { name: 'tool_0', exact: false }).click();
+		await page.getByLabelText('value').fill('test');
+		await page.getByRole('button', { name: 'Call', exact: true }).click();
+		await page.getByRole('button', { name: 'View full error' }).click();
+		await page.getByRole('dialog').getByText('Raw response', { exact: true }).click();
+		const preview = page.getByRole('dialog').getByLabelText('Raw MCP response');
+		await expect.element(preview).toBeVisible();
+		expect(EditorView.findFromDOM(preview.element() as HTMLElement)?.state.doc.toString()).toBe(
+			JSON.stringify(rawResponse, null, 2)
+		);
+		session.close();
+	});
+
 	it('keeps cached rejected-tool warnings visible after a cancelled refresh', async () => {
 		const { session } = renderInspector(2);
 		session.toolDiscoveryIssues = [{ name: 'rejected', index: 2, issues: [] }];
@@ -169,7 +196,7 @@ describe('ToolsInspector', () => {
 
 		await expect.element(page.getByLabelText('replacement')).toBeVisible();
 		await expect.element(page.getByLabelText('value')).not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByRole('tab', { name: 'Raw JSON' }).click();
 		await expect.element(page.getByLabelText('Arguments JSON')).toHaveValue('{}');
 	});
 

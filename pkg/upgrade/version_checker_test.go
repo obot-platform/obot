@@ -131,7 +131,7 @@ func TestVersionCheckerDoesNotStartWhenDisabledOrDevelopment(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			propertyClient := &checkerPropertyClient{}
 			checker := &VersionChecker{currentVersion: test.version, done: make(chan struct{})}
-			if err := checker.start(t.Context(), propertyClient, test.disabled, false); err != nil {
+			if err := checker.start(t.Context(), propertyClient, test.disabled, false, 0); err != nil {
 				t.Fatalf("start() error = %v", err)
 			}
 			if calls := propertyClient.callCount(); calls != 0 {
@@ -148,13 +148,38 @@ func TestVersionCheckerDoesNotStartWhenDisabledOrDevelopment(t *testing.T) {
 func TestVersionCheckerInstallationIDFailureIsSynchronous(t *testing.T) {
 	wantErr := errors.New("database unavailable")
 	checker := &VersionChecker{currentVersion: "v1.2.3", done: make(chan struct{})}
-	err := checker.start(t.Context(), &checkerPropertyClient{err: wantErr}, false, false)
+	err := checker.start(t.Context(), &checkerPropertyClient{err: wantErr}, false, false, 0)
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("start() error = %v, want %v", err, wantErr)
 	}
 }
 
-func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
+func TestVersionCheckerWaitsForInitialDelay(t *testing.T) {
+	requests := make(chan *http.Request, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		// Only count upgrade checks; ignore unrelated traffic such as port probes.
+		if request.Method == http.MethodGet {
+			requests <- request.Clone(request.Context())
+		}
+		_, _ = w.Write([]byte(`{"upgradeAvailable":false,"latestVersion":""}`))
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	checker := testVersionChecker(server.URL)
+	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false, time.Hour); err != nil {
+		t.Fatalf("start() error = %v", err)
+	}
+	select {
+	case <-requests:
+		t.Fatal("checker sent a request before the initial delay elapsed")
+	case <-time.After(100 * time.Millisecond):
+	}
+	cancel()
+	waitForDone(t, checker.done)
+}
+
+func TestVersionCheckerChecksAfterInitialDelayAndOnSchedule(t *testing.T) {
 	requests := make(chan *http.Request, 2)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		requests <- request.Clone(request.Context())
@@ -170,7 +195,7 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 	propertyClient := &checkerPropertyClient{value: "installation-1"}
 	checker := testVersionChecker(server.URL + "/check-upgrade")
 	checker.currentVersion = "v1.2.3-rc.1+build.4"
-	if err := checker.start(ctx, propertyClient, false, true); err != nil {
+	if err := checker.start(ctx, propertyClient, false, true, 10*time.Millisecond); err != nil {
 		t.Fatalf("start() error = %v", err)
 	}
 
@@ -214,7 +239,7 @@ func TestVersionCheckerDevelopmentVersionCanBeForced(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	checker := testVersionChecker(server.URL)
 	checker.currentVersion = "v0.0.0-dev"
-	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, true); err != nil {
+	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, true, 10*time.Millisecond); err != nil {
 		t.Fatalf("start() error = %v", err)
 	}
 	waitForRequest(t, requests)
@@ -250,7 +275,7 @@ func TestVersionCheckerResponseFailuresDoNotChangeStatusOrStopSchedule(t *testin
 
 			ctx, cancel := context.WithCancel(t.Context())
 			checker := testVersionChecker(server.URL)
-			if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
+			if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false, 10*time.Millisecond); err != nil {
 				t.Fatalf("start() error = %v", err)
 			}
 			waitForRequest(t, requests)
@@ -280,7 +305,7 @@ func TestVersionCheckerRequestTimeoutDoesNotStopSchedule(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	checker := testVersionChecker(server.URL)
 	checker.requestTimeout = 20 * time.Millisecond
-	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
+	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false, 10*time.Millisecond); err != nil {
 		t.Fatalf("start() error = %v", err)
 	}
 	select {
