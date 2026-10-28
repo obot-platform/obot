@@ -13,7 +13,9 @@ type registrySettingsStore interface {
 	SetAnonymousRegistryAccessEnabled(context.Context, bool) error
 }
 
-type RegistrySettingsHandler struct{ settings registrySettingsStore }
+type RegistrySettingsHandler struct{
+    settings registrySettingsStore
+}
 
 func NewRegistrySettingsHandler(settings registrySettingsStore) *RegistrySettingsHandler {
 	return &RegistrySettingsHandler{settings: settings}
