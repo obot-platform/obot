@@ -71,10 +71,11 @@ telepresence-setup:
 	telepresence intercept obot-upstream -p 8080:8080
 
 # Lint the project
-lint: lint-go
+lint: lint-go lint-i18n
 
 tidy:
 	go mod tidy
+	cd tools/i18n-lint && go mod tidy
 
 GOLANGCI_LINT_VERSION ?= v2.14.0
 setup-env:
@@ -82,6 +83,10 @@ setup-env:
 		echo "Could not find golangci-lint, installing version $(GOLANGCI_LINT_VERSION)."; \
 		go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION); \
 	fi
+
+lint-i18n:
+	cd tools/i18n-lint && go build -o ../../bin/i18n-lint .
+	go vet -vettool="$(CURDIR)/bin/i18n-lint" ./...
 
 lint-go: setup-env
 	golangci-lint run
@@ -93,6 +98,7 @@ test:
 	go test -v -cover ./...
 	cd apiclient && go test -v -cover ./... && cd ..
 	cd logger && go test -v -cover ./... && cd ..
+	cd tools/i18n-lint && go test -v -cover ./...
 
 # Integration tests start an isolated obot server and require Docker plus npm
 # and GHCR registry access.
@@ -114,7 +120,7 @@ test-e2e-llm-gateway-upgrade:
 	go test -count=1 -v -tags=e2e -timeout=30m ./tests/e2e/llmgatewayupgrade/...
 
 # Runs Go linters and validates that all generated code is committed.
-validate-go-code: tidy generate lint-go no-changes
+validate-go-code: tidy generate lint-go lint-i18n no-changes
 
 no-changes:
 	@if [ -n "$$(git status --porcelain)" ]; then \
@@ -143,4 +149,4 @@ remove-docs-version:
 	rm -rf "./docs/versioned_docs/version-${version}"
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
 
-.PHONY: ui ui-user build check-go-security-deps all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration test-e2e-llm-gateway test-e2e-llm-gateway-upgrade no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
+.PHONY: lint-i18n ui ui-user build check-go-security-deps all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api test-integration test-e2e-llm-gateway test-e2e-llm-gateway-upgrade no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
