@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
-	"sync"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -24,49 +22,15 @@ type hookMCPClient interface {
 	CallTool(context.Context, *gomcp.CallToolParams) (*gomcp.CallToolResult, error)
 }
 
-type hookSessionTransport struct {
-	base http.RoundTripper
-}
-
 // SessionManagerHookRunner invokes hook tools through Obot's MCP session manager.
 type SessionManagerHookRunner struct {
-	clientForServer  func(context.Context, ServerConfig) (hookMCPClient, error)
-	invalidateClient func(ServerConfig, hookMCPClient)
-}
-
-func (t *hookSessionTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.base.RoundTrip(req)
-	if err != nil {
-		return resp, err
-	}
-
-	// Discard JSON-RPC bodies so the SDK records ErrSessionMissing and skips DELETE on close.
-	if req.Method == http.MethodPost && req.Header.Get("Mcp-Session-Id") != "" && resp.StatusCode == http.StatusNotFound {
-		_ = resp.Body.Close()
-		resp.Body = http.NoBody
-		resp.ContentLength = 0
-		resp.Header.Del("Content-Length")
-	}
-
-	return resp, nil
+	clientForServer func(context.Context, ServerConfig) (hookMCPClient, error)
 }
 
 func NewHookRunner(sessionManager *SessionManager) *SessionManagerHookRunner {
 	return &SessionManagerHookRunner{
 		clientForServer: func(ctx context.Context, server ServerConfig) (hookMCPClient, error) {
 			return sessionManager.clientForServerWithScope(ctx, hookClientScope, server)
-		},
-		invalidateClient: func(server ServerConfig, client hookMCPClient) {
-			sessions, ok := sessionManager.sessions.Load(server.MCPServerName)
-			if !ok {
-				return
-			}
-
-			// CloseClient removes whichever client is cached, possibly a concurrent replacement.
-			// CompareAndDelete evicts only the failed client so that replacement stays usable.
-			if sessions.(*sync.Map).CompareAndDelete(clientID(server, hookClientScope), client) {
-				_ = client.(*Client).Close()
-			}
 		},
 	}
 }
@@ -85,26 +49,13 @@ func (r *SessionManagerHookRunner) RunHook(ctx context.Context, servers HookServ
 		return nil, errors.New("MCP hook runner is not configured")
 	}
 
-	var result *gomcp.CallToolResult
-	for attempt := range 2 {
-		client, err := r.clientForServer(ctx, server)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get client for MCP hook server %q: %w", serverName, err)
-		}
+	client, err := r.clientForServer(ctx, server)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client for MCP hook server %q: %w", serverName, err)
+	}
 
-		result, err = client.CallTool(ctx, &gomcp.CallToolParams{Name: toolName, Arguments: input})
-		if err == nil {
-			break
-		}
-
-		// Only explicit session loss permits replay: other failures may follow execution.
-		if errors.Is(err, gomcp.ErrSessionMissing) && r.invalidateClient != nil {
-			r.invalidateClient(server, client)
-			if attempt == 0 {
-				continue
-			}
-		}
-
+	result, err := client.CallTool(ctx, &gomcp.CallToolParams{Name: toolName, Arguments: input})
+	if err != nil {
 		return nil, fmt.Errorf("failed to call MCP hook %q: %w", target, err)
 	}
 	if result == nil {

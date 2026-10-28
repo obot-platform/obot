@@ -24,7 +24,8 @@ const (
 type Client struct {
 	*gomcp.ClientSession
 
-	jwt *jwt.Token
+	jwt      *jwt.Token
+	recovery *sessionRecovery
 }
 
 type ClientOption struct {
@@ -42,6 +43,10 @@ type ClientOption struct {
 }
 
 func (c *Client) hasValidToken() bool {
+	if c.recovery.ctx.Err() != nil {
+		return false
+	}
+
 	if c.jwt != nil {
 		expiration, err := c.jwt.Claims.GetExpirationTime()
 		return err == nil && (expiration == nil || expiration.After(time.Now().Add(5*time.Minute)))
@@ -88,7 +93,6 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	isOAuthCheck := clientScope == oauthCheckClientScope
-	isHook := clientScope == hookClientScope
 	clientScope = clientID(server, clientScope)
 
 	existing, ok := clientSessions.Load(clientScope)
@@ -173,9 +177,6 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
-	if isHook {
-		httpClient.Transport = &hookSessionTransport{base: httpClient.Transport}
-	}
 
 	// A tunneled server is reached through a bridge URL on Obot's own host, but its OAuth
 	// metadata names its real URL, so validate the metadata against the server's URL.
@@ -189,20 +190,17 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 	oauthHandler := sm.oauthHandlerForClient(oauthClient, server.MCPServerName, resourceCheckURL, clientOpts)
 
-	session, err := c.Connect(ctx, &gomcp.StreamableClientTransport{
+	result, err := newRecoveringClient(ctx, c, gomcp.StreamableClientTransport{
 		Endpoint:             url,
 		HTTPClient:           httpClient,
 		DisableStandaloneSSE: true,
 		OAuthHandler:         oauthHandler,
-	}, nil)
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect MCP client: %w", err)
 	}
 
-	result := &Client{
-		ClientSession: session,
-		jwt:           jwtToken,
-	}
+	result.jwt = jwtToken
 
 	res, ok := clientSessions.LoadOrStore(clientScope, result)
 	if ok {
