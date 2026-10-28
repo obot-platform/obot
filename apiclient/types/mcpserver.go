@@ -307,17 +307,25 @@ func (m MCPServerManifest) ValidateConfig() error {
 	if err := ValidateObotHeaders(m.Runtime, m.InjectObotHeaders); err != nil {
 		return err
 	}
-	keys := make(map[string]struct{}, len(m.Config))
 	for _, config := range m.Config {
-		if config.Key == "" {
-			return fmt.Errorf("config key must not be empty")
-		}
 		if config.Usage == Header {
 			if _, reserved := CanonicalObotHeader(config.Key); reserved {
 				return fmt.Errorf("config key %q is reserved for injectObotHeaders", config.Key)
 			}
 		}
+	}
+	return ValidateMCPConfigStructure(m.Config)
+}
 
+// ValidateMCPConfigStructure checks keys and usages without applying policy for
+// new configuration. Storage migrations use it to preserve legacy headers that
+// are now reserved for gateway-derived attribution.
+func ValidateMCPConfigStructure(config []MCPConfig) error {
+	keys := make(map[string]struct{}, len(config))
+	for _, config := range config {
+		if config.Key == "" {
+			return fmt.Errorf("config key must not be empty")
+		}
 		if _, exists := keys[config.Key]; exists {
 			return fmt.Errorf("duplicate config key %q", config.Key)
 		}

@@ -171,6 +171,37 @@ func TestServerConfigMigrationRejectsConflictingKeys(t *testing.T) {
 	}
 }
 
+func TestAutoMigratePreservesLegacyReservedHeaders(t *testing.T) {
+	for _, table := range []string{"mcpserver", "systemmcpserver", "mcpservercatalogentry", "systemmcpservercatalogentry"} {
+		t.Run(table, func(t *testing.T) {
+			db, sql := newCatalogConfigMigrationDB(t)
+			if err := sql.Exec("CREATE TABLE " + table + " (id INTEGER PRIMARY KEY, name TEXT NOT NULL, namespace TEXT NOT NULL, deleted INTEGER NOT NULL, value TEXT NOT NULL)").Error; err != nil {
+				t.Fatal(err)
+			}
+			legacy := catalogEntryValue(t, "", map[string]any{
+				"runtime": "remote",
+				"remoteConfig": map[string]any{
+					"headers": []any{map[string]any{"key": "X-Obot-User-Email", "value": "legacy@example.com"}},
+				},
+			})
+			if err := sql.Exec("INSERT INTO "+table+" VALUES (1, 'legacy', 'default', 0, ?)", legacy).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := db.AutoMigrate(); err != nil {
+				t.Fatalf("legacy reserved header must not block startup: %v", err)
+			}
+			var value string
+			if err := sql.Table(table).Select("value").Scan(&value).Error; err != nil {
+				t.Fatal(err)
+			}
+			config := configByKey(t, catalogEntryManifest(t, value), "X-Obot-User-Email")
+			if config.Usage != types.Header || config.Value != "legacy@example.com" {
+				t.Fatalf("legacy header changed: %#v", config)
+			}
+		})
+	}
+}
+
 func TestAutoMigrateFlattensUICatalogEntryConfigOnce(t *testing.T) {
 	db, gormDB := newCatalogConfigMigrationDB(t)
 	createCatalogEntryTable(t, gormDB)

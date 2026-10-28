@@ -43,8 +43,9 @@ vMCP preserves API-key attribution in signed internal tokens. Each component
 decides what to disclose to its own backend, irrespective of the parent vMCP.
 Raw key names are kept separately from the masked names used by audit logs.
 Each component MCP message forwards the current request's signed loopback token,
-so pooled connections do not retain stale caller attribution. Background SSE
-reconnects keep the OAuth handler's refreshable connection credential. Caller
+so pooled connections do not retain stale caller attribution. Background responses
+to server-initiated requests, SSE reconnects, and session cleanup keep the OAuth
+handler's refreshable connection credential. Caller
 metadata does not participate in discovery cache keys, and redirects to another
 origin never receive an internal gateway credential.
 Changing the header selection does not require restarting a hosted backend.
@@ -77,6 +78,8 @@ characters or exceed 512 Unicode characters per header value. Omission logs
 contain the header name and reason, never its value. Values and group lists are never truncated. Backends must
 handle missing metadata explicitly. Identity lookup failures still fail the request.
 New header configuration using a reserved name is rejected during validation.
+Storage migrations validate configuration structure separately and preserve
+legacy reserved headers so existing configuration cannot block startup.
 
 ## References
 
