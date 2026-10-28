@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -31,14 +32,34 @@ func (t compositeRequestTransport) RoundTrip(req *http.Request) (*http.Response,
 		outbound.Header.Del("Authorization")
 		return t.base.RoundTrip(outbound)
 	}
-	if req.Method == http.MethodPost {
+	if req.Method == http.MethodPost && req.GetBody != nil {
 		if authorization := component.RequestHeadersFromContext(req.Context()).Get("Authorization"); authorization != "" {
-			outbound := req.Clone(req.Context())
-			outbound.Header.Set("Authorization", authorization)
-			return t.base.RoundTrip(outbound)
+			// The SDK provides GetBody for its JSON-RPC POSTs. Inspect a copy so
+			// the original body and redirect/retry behavior remain intact.
+			body, err := req.GetBody()
+			if err != nil {
+				_ = req.Body.Close()
+				return nil, err
+			}
+			var message struct {
+				Method string `json:"method"`
+			}
+			err = json.NewDecoder(body).Decode(&message)
+			_ = body.Close()
+			if err != nil {
+				_ = req.Body.Close()
+				return nil, err
+			}
+			// Responses to server-initiated requests have no method and retain
+			// the opening context, rather than a current frontend credential.
+			if message.Method != "" {
+				outbound := req.Clone(req.Context())
+				outbound.Header.Set("Authorization", authorization)
+				return t.base.RoundTrip(outbound)
+			}
 		}
 	}
-	// Background SSE reconnects and session cleanup have no current frontend
+	// Background responses, SSE reconnects and cleanup have no current frontend
 	// message. Keep the OAuth handler's refreshable connection credential: the
 	// request context retained at connection creation may contain an expired one.
 	return t.base.RoundTrip(req)

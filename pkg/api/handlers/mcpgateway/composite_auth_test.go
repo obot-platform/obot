@@ -1,9 +1,11 @@
 package mcpgateway
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -20,6 +22,8 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 )
 
 // fakeCompositeTokens encodes token claims as JSON and, like the persistent
@@ -130,6 +134,74 @@ func TestCompositeComponentAuthReusesValidLoopbackToken(t *testing.T) {
 	if token.AccessToken != initial {
 		t.Fatal("token source re-minted a token that is not near expiry")
 	}
+}
+
+func TestCompositeBackgroundPingResponseAfterTokenExpiry(t *testing.T) {
+	tokens := fakeCompositeTokens{}
+	expiresAt := time.Now().Add(2 * time.Second)
+	initial := compositeTestToken(t, compositeTestTokenContext(), expiresAt)
+	ctx := compositeTestAuthContext(t.Context(), "Bearer "+initial)
+	handler, err := (compositeComponentAuth{ctx: t.Context(), tokens: tokens}).OAuthHandler(ctx, mmmcpconfig.Server{})
+	require.NoError(t, err)
+	source, err := handler.TokenSource(ctx)
+	require.NoError(t, err)
+	server := gomcp.NewServer(&gomcp.Implementation{Name: "component", Version: "test"}, nil)
+	mcpHandler := gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil)
+	statuses := make(chan int, 1)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bearer, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		_, authErr := tokens.DecodeToken(r.Context(), bearer)
+		if r.Method == http.MethodPost {
+			var message struct {
+				Method string `json:"method"`
+			}
+			body, readErr := io.ReadAll(r.Body)
+			if readErr != nil {
+				t.Errorf("read component message: %v", readErr)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if err := json.Unmarshal(body, &message); err != nil {
+				t.Errorf("decode component message: %v", err)
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			if message.Method == "" {
+				status := http.StatusOK
+				if authErr != nil {
+					status = http.StatusUnauthorized
+				}
+				statuses <- status
+			}
+		}
+		if authErr != nil {
+			http.Error(w, "expired credential", http.StatusUnauthorized)
+			return
+		}
+		mcpHandler.ServeHTTP(w, r)
+	}))
+	defer upstream.Close()
+	client := &http.Client{Transport: &oauth2.Transport{Source: source, Base: newCompositeHTTPClient().Transport}}
+	session, err := gomcp.NewClient(&gomcp.Implementation{Name: "client", Version: "test"}, nil).Connect(ctx, &gomcp.StreamableClientTransport{Endpoint: upstream.URL, HTTPClient: client}, &gomcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
+	require.NoError(t, err)
+	defer session.Close()
+	// The SSE reader retains ctx even after its frontend token expires.
+	<-time.After(time.Until(expiresAt) + 50*time.Millisecond)
+	pingCtx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	var pingErr error
+	for ss := range server.Sessions() {
+		pingErr = ss.Ping(pingCtx, nil)
+		break
+	}
+	select {
+	case status := <-statuses:
+		require.Equal(t, http.StatusOK, status, "background response must keep the OAuth credential")
+	case <-pingCtx.Done():
+		t.Fatal("no background ping response received")
+	}
+	require.NoError(t, pingErr)
 }
 
 func TestCompositeComponentAuthIgnoresOtherAuthorization(t *testing.T) {

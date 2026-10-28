@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/mmmcp/component"
@@ -23,6 +24,7 @@ func TestCompositeRequestTransportSelectsRequestCredential(t *testing.T) {
 		name          string
 		method        string
 		authorization string
+		body          string
 		want          string
 	}{
 		{
@@ -50,6 +52,27 @@ func TestCompositeRequestTransportSelectsRequestCredential(t *testing.T) {
 			want:          "Bearer refreshed-connection",
 		},
 		{
+			name:          "background success response retains refreshed credential",
+			method:        http.MethodPost,
+			authorization: "Bearer expired-opening-credential",
+			body:          `{"jsonrpc":"2.0","id":1,"result":{}}`,
+			want:          "Bearer refreshed-connection",
+		},
+		{
+			name:          "background error response retains refreshed credential",
+			method:        http.MethodPost,
+			authorization: "Bearer expired-opening-credential",
+			body:          `{"jsonrpc":"2.0","id":1,"error":{"code":-32603,"message":"failed"}}`,
+			want:          "Bearer refreshed-connection",
+		},
+		{
+			name:          "current frontend notification",
+			method:        http.MethodPost,
+			authorization: "Bearer current-caller",
+			body:          `{"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":1}}`,
+			want:          "Bearer current-caller",
+		},
+		{
 			name:   "no frontend message",
 			method: http.MethodPost,
 			want:   "Bearer refreshed-connection",
@@ -57,12 +80,19 @@ func TestCompositeRequestTransportSelectsRequestCredential(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := component.ContextWithRequestHeaders(t.Context(), http.Header{"Authorization": {tt.authorization}})
-			req, err := http.NewRequestWithContext(ctx, tt.method, "https://obot.example/mcp-connect/component", nil)
+			body := tt.body
+			if body == "" {
+				body = `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`
+			}
+			req, err := http.NewRequestWithContext(ctx, tt.method, "https://obot.example/mcp-connect/component", strings.NewReader(body))
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "Bearer refreshed-connection")
 			var got string
 			transport := compositeRequestTransport{base: compositeRoundTripFunc(func(outbound *http.Request) (*http.Response, error) {
 				got = outbound.Header.Get("Authorization")
+				gotBody, err := io.ReadAll(outbound.Body)
+				require.NoError(t, err)
+				require.Equal(t, body, string(gotBody), "credential selection must preserve the message body")
 				return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody}, nil
 			})}
 			resp, err := transport.RoundTrip(req)
@@ -125,7 +155,7 @@ func TestCompositeHTTPClientHandlesRedirects(t *testing.T) {
 			}))
 			defer gateway.Close()
 			ctx := component.ContextWithRequestHeaders(t.Context(), http.Header{"Authorization": {"Bearer current-caller"}})
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway.URL+"/start", nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway.URL+"/start", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "Bearer retained-connection")
 			resp, err := newCompositeHTTPClient().Do(req)
@@ -151,7 +181,7 @@ func TestCompositeHTTPClientConcurrentCallers(t *testing.T) {
 		calls.Go(func() error {
 			want := fmt.Sprintf("Bearer caller-%d", i)
 			ctx := component.ContextWithRequestHeaders(t.Context(), http.Header{"Authorization": {want}})
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway.URL, nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, gateway.URL, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
 			if err != nil {
 				return err
 			}
