@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -18,9 +19,19 @@ const (
 // ObotHeader is an optional, gateway-derived attribution header sent to an MCP backend.
 type ObotHeader string
 
+// ObotHeaders returns the supported attribution headers in display order.
+func ObotHeaders() []ObotHeader {
+	return []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderAPIKeyID, ObotHeaderUserID, ObotHeaderUserName, ObotHeaderUserEmail, ObotHeaderIDPUserID, ObotHeaderIDPGroups}
+}
+
+// SupportsObotHeaders reports whether a runtime supports HTTP caller attribution.
+func SupportsObotHeaders(runtime Runtime) bool {
+	return runtime == RuntimeRemote || runtime == RuntimeContainerized
+}
+
 // CanonicalObotHeader recognizes only the reserved attribution header names.
 func CanonicalObotHeader(name string) (ObotHeader, bool) {
-	for _, header := range []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderAPIKeyID, ObotHeaderUserID, ObotHeaderUserName, ObotHeaderUserEmail, ObotHeaderIDPUserID, ObotHeaderIDPGroups} {
+	for _, header := range ObotHeaders() {
 		if strings.EqualFold(name, string(header)) {
 			return header, true
 		}
@@ -28,13 +39,27 @@ func CanonicalObotHeader(name string) (ObotHeader, bool) {
 	return "", false
 }
 
-// NormalizeObotHeaders validates and canonicalizes the selected attribution headers.
-func NormalizeObotHeaders(runtime Runtime, headers []ObotHeader) error {
-	if len(headers) > 0 && runtime != RuntimeRemote && runtime != RuntimeContainerized {
+// UnmarshalJSON canonicalizes a selection at the decoding boundary, keeping validation read-only.
+func (h *ObotHeader) UnmarshalJSON(data []byte) error {
+	var name string
+	if err := json.Unmarshal(data, &name); err != nil {
+		return err
+	}
+	canonical, ok := CanonicalObotHeader(name)
+	if !ok {
+		canonical = ObotHeader(name)
+	}
+	*h = canonical
+	return nil
+}
+
+// ValidateObotHeaders validates attribution selections without modifying the caller's slice.
+func ValidateObotHeaders(runtime Runtime, headers []ObotHeader) error {
+	if len(headers) > 0 && !SupportsObotHeaders(runtime) {
 		return fmt.Errorf("injectObotHeaders is only supported for remote and containerized MCP servers")
 	}
 	seen := make(map[ObotHeader]bool, len(headers))
-	for i, name := range headers {
+	for _, name := range headers {
 		header, ok := CanonicalObotHeader(string(name))
 		if !ok {
 			return fmt.Errorf("unsupported injectObotHeaders header %q", name)
@@ -43,7 +68,6 @@ func NormalizeObotHeaders(runtime Runtime, headers []ObotHeader) error {
 			return fmt.Errorf("duplicate injectObotHeaders header %q", name)
 		}
 		seen[header] = true
-		headers[i] = header
 	}
 	return nil
 }

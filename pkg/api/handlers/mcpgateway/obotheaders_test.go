@@ -46,7 +46,7 @@ func headerTestCaller(id, name string) *user.DefaultInfo {
 }
 
 func allObotHeaders() []types.ObotHeader {
-	return []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderAPIKeyID, types.ObotHeaderUserID, types.ObotHeaderUserName, types.ObotHeaderUserEmail, types.ObotHeaderIDPUserID, types.ObotHeaderIDPGroups}
+	return types.ObotHeaders()
 }
 
 func TestCallerObotHeaders(t *testing.T) {
@@ -99,10 +99,11 @@ func TestCallerObotHeadersOmitUnavailableValues(t *testing.T) {
 	require.Equal(t, http.Header{"X-Obot-User-Id": {"7"}, "X-Obot-User-Name": {"alice"}}, got)
 }
 
-func TestCallerObotHeadersRejectInvalidSelectedValues(t *testing.T) {
+func TestCallerObotHeadersOmitInvalidSelectedValues(t *testing.T) {
 	caller := headerTestCaller("42", "invalid\r\nX-Injected: true")
-	_, err := callerObotHeaders(types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderAPIKeyName}, caller, "")
-	require.Error(t, err)
+	headers, err := callerObotHeaders(types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderAPIKeyName}, caller, "")
+	require.NoError(t, err)
+	require.Empty(t, headers)
 	_, err = callerObotHeaders(types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderUserID}, caller, "")
 	require.NoError(t, err, "unselected values do not affect forwarding")
 }
@@ -356,8 +357,10 @@ func TestCallerIDPHeaders(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(headers.Get(string(types.ObotHeaderIDPGroups))), &decoded))
 	require.Equal(t, []string{"okta:a,comma", "okta:line\nbreak", "okta:quote\"", "okta:z"}, decoded)
 	require.Equal(t, groups, caller.Extra["auth_provider_groups"], "must not mutate the authenticated principal")
-	_, err = callerObotHeaders(types.RuntimeRemote, selected, caller, "id\r\nX-Spoof: true")
-	require.Error(t, err)
+	headers, err = callerObotHeaders(types.RuntimeRemote, selected, caller, "id\r\nX-Spoof: true")
+	require.NoError(t, err)
+	require.Empty(t, headers.Get(string(types.ObotHeaderIDPUserID)))
+	require.NotEmpty(t, headers.Get(string(types.ObotHeaderIDPGroups)))
 	delete(caller.Extra, "auth_provider_groups")
 	headers, err = callerObotHeaders(types.RuntimeRemote, selected, caller, "")
 	require.NoError(t, err)
@@ -371,4 +374,31 @@ func TestCompositeLoopbackPreservesIdentityProvider(t *testing.T) {
 	claims := compositeLoopbackTokenContext(caller, "https://obot.example", "component", nil, time.Now())
 	require.Equal(t, "okta", claims.AuthProviderName)
 	require.Equal(t, "default", claims.AuthProviderNamespace)
+}
+
+func TestCallerObotHeaderSizeLimits(t *testing.T) {
+	caller := headerTestCaller("42", "writer")
+	caller.Name = strings.Repeat("界", maxObotHeaderValueCharacters)
+	caller.Extra["email"] = []string{strings.Repeat("b", maxObotHeaderValueCharacters)}
+	headers, err := callerObotHeaders(types.RuntimeRemote, []types.ObotHeader{
+		types.ObotHeaderUserName,
+		types.ObotHeaderUserEmail,
+		types.ObotHeaderUserID,
+	}, caller, "")
+	require.NoError(t, err)
+	require.Equal(t, caller.Name, headers.Get(string(types.ObotHeaderUserName)), "a value at the per-field limit fits")
+	require.Equal(t, caller.Extra["email"][0], headers.Get(string(types.ObotHeaderUserEmail)), "each header has an independent limit")
+	require.Equal(t, "7", headers.Get(string(types.ObotHeaderUserID)), "other selected headers are still forwarded")
+
+	caller.Name += "a"
+	caller.Extra["auth_provider_groups"] = []string{"okta:small", strings.Repeat("g", maxObotHeaderValueCharacters)}
+	headers, err = callerObotHeaders(types.RuntimeRemote, []types.ObotHeader{
+		types.ObotHeaderUserName,
+		types.ObotHeaderIDPGroups,
+		types.ObotHeaderUserID,
+	}, caller, "")
+	require.NoError(t, err)
+	require.Empty(t, headers.Get(string(types.ObotHeaderUserName)))
+	require.Empty(t, headers.Get(string(types.ObotHeaderIDPGroups)), "omit the entire group list instead of forwarding partial memberships")
+	require.Equal(t, "7", headers.Get(string(types.ObotHeaderUserID)))
 }

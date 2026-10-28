@@ -20,12 +20,17 @@ import {
 	type MCPSubField,
 	type OrgUser,
 	type RuntimeFormData,
+	type Runtime,
 	type SystemMCPServerCatalogEntry,
 	type SystemMCPServerCatalogEntryManifest,
 	type ToolOverride,
 	type VMCPComponentCatalogEntrySnapshot
 } from '..';
 import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
+
+export function supportsObotHeaders(runtime: Runtime): boolean {
+	return runtime === 'remote' || runtime === 'containerized';
+}
 
 export interface MCPServerInfo extends MCPServer {
 	id?: string;
@@ -869,10 +874,9 @@ export const convertServerRuntimeFormDataToManifest = (
 				)
 			],
 			runtime: baseData.runtime,
-			injectObotHeaders:
-				baseData.runtime === 'remote' || baseData.runtime === 'containerized'
-					? baseData.injectObotHeaders
-					: undefined,
+			injectObotHeaders: supportsObotHeaders(baseData.runtime)
+				? baseData.injectObotHeaders
+				: undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
 		}

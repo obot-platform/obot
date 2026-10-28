@@ -1197,7 +1197,7 @@
 	"mcps_filters_create_guardrail_filter": "ガードレールフィルターを作成",
 	"mcps_filters_create_guardrail": "ガードレールから作成",
 	"mcps_inject_headers_title": "Obot ヘッダーを挿入",
-	"mcps_inject_headers_description": "この MCP サーバーと共有する呼び出し元情報を選択します。すべてのヘッダーは任意で、初期状態では無効です。Obot は受信した同名ヘッダーを削除し、選択された値だけを設定します。名前やメールアドレスから内部情報が開示される可能性があります。",
+	"mcps_inject_headers_description": "この MCP サーバーと共有する呼び出し元情報を選択します。すべてのヘッダーは任意で、初期状態では無効です。Obot は受信した同名ヘッダーを削除し、選択された値だけを設定します。名前やメールアドレスから内部情報が開示される可能性があります。 取得できない値、無効な値、サイズ上限を超える値は省略されます。",
 	"mcps_inject_headers_api_key_name": "検証済み Obot API キーの名前。名前のないキーや API キーを使用しない呼び出し元では省略されます。名前はユーザーが設定・変更でき、一意とは限りません。",
 	"mcps_inject_headers_api_key_id": "検証済み Obot API キーの ID。この Obot インストール内で一意です。API キーを使用しない呼び出し元では省略されます。",
 	"mcps_inject_headers_user_id": "認証された呼び出し元の Obot アカウント ID。API キーの場合、自律エージェントではなくキーの所有アカウントを識別します。",
