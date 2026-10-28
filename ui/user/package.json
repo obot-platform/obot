@@ -12,7 +12,7 @@
 		"build": "svelte-kit sync && vite build",
 		"preview": "vite preview",
 		"test": "vitest run --browser.headless",
-		"i18n:lint": "node tools/i18n-lint.js",
+		"i18n:lint": "node --test tools/i18n-lint.test.js && node tools/i18n-lint.js",
 		"i18n:compile": "paraglide-js compile --project ./project.inlang --outdir ./src/lib/paraglide --emit-ts-declarations --strategy localStorage preferredLanguage baseLocale",
 		"check": "pnpm run i18n:compile && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --config ./svelte.compiler.config.js",
 		"check:watch": "pnpm run i18n:compile && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --config ./svelte.compiler.config.js --watch",
