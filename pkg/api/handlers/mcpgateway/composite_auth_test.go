@@ -227,7 +227,8 @@ func TestCompositeComponentSessionSurvivesLoopbackTokenExpiry(t *testing.T) {
 	defer upstream.Close()
 
 	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
-		OAuth: compositeComponentAuth{ctx: t.Context(), tokens: tokens},
+		OAuth:      compositeComponentAuth{ctx: t.Context(), tokens: tokens},
+		HTTPClient: newCompositeHTTPClient(),
 	})
 	if err != nil {
 		t.Fatal(err)

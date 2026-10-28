@@ -191,7 +191,8 @@ func TestVMCPAttributionChangesWithCallerOnStatefulSession(t *testing.T) {
 	}))
 	defer componentGateway.Close()
 	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
-		OAuth: compositeComponentAuth{ctx: t.Context(), tokens: tokens},
+		OAuth:      compositeComponentAuth{ctx: t.Context(), tokens: tokens},
+		HTTPClient: newCompositeHTTPClient(),
 	})
 	require.NoError(t, err)
 	defer composite.Close()
