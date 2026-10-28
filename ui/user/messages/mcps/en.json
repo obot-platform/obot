@@ -1202,5 +1202,7 @@
 	"mcps_inject_headers_api_key_id": "ID of the validated Obot API key, unique within this Obot installation. Omitted for callers without an API key.",
 	"mcps_inject_headers_user_id": "Authenticated caller’s Obot account ID. For API keys, identifies the owning account, not an autonomous agent.",
 	"mcps_inject_headers_user_name": "The authenticated account’s username, not its display name. May change over time.",
-	"mcps_inject_headers_user_email": "Email carried by the authenticated principal. Omitted when unavailable; does not guarantee the address is verified."
+	"mcps_inject_headers_user_email": "Email carried by the authenticated principal. Omitted when unavailable; does not guarantee the address is verified.",
+	"mcps_inject_headers_idp_user_id": "User identifier assigned by the authentication provider. For API keys, identifies the key owner. Omitted when unavailable or ambiguous across linked identities.",
+	"mcps_inject_headers_idp_groups": "JSON array of the caller’s IdP group IDs stored by Obot, including provider prefixes. For API keys, uses the owner’s memberships. Excludes Obot roles and group display names; omitted when empty."
 }

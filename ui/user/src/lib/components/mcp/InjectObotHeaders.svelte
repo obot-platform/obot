@@ -14,7 +14,9 @@
 		{ header: 'X-Obot-Api-Key-Id', description: m.mcps_inject_headers_api_key_id() },
 		{ header: 'X-Obot-User-Id', description: m.mcps_inject_headers_user_id() },
 		{ header: 'X-Obot-User-Name', description: m.mcps_inject_headers_user_name() },
-		{ header: 'X-Obot-User-Email', description: m.mcps_inject_headers_user_email() }
+		{ header: 'X-Obot-User-Email', description: m.mcps_inject_headers_user_email() },
+		{ header: 'X-Obot-IDP-User-Id', description: m.mcps_inject_headers_idp_user_id() },
+		{ header: 'X-Obot-IDP-Groups', description: m.mcps_inject_headers_idp_groups() }
 	] satisfies { header: ObotHeader; description: string }[]);
 </script>
 

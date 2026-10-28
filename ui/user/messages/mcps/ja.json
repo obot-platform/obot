@@ -1202,5 +1202,7 @@
 	"mcps_inject_headers_api_key_id": "検証済み Obot API キーの ID。この Obot インストール内で一意です。API キーを使用しない呼び出し元では省略されます。",
 	"mcps_inject_headers_user_id": "認証された呼び出し元の Obot アカウント ID。API キーの場合、自律エージェントではなくキーの所有アカウントを識別します。",
 	"mcps_inject_headers_user_name": "認証されたアカウントのユーザー名。表示名ではありません。変更される場合があります。",
-	"mcps_inject_headers_user_email": "認証されたプリンシパルのメールアドレス。取得できない場合は省略されます。アドレスの検証済み状態を保証するものではありません。"
+	"mcps_inject_headers_user_email": "認証されたプリンシパルのメールアドレス。取得できない場合は省略されます。アドレスの検証済み状態を保証するものではありません。",
+	"mcps_inject_headers_idp_user_id": "認証プロバイダーが割り当てたユーザー識別子。API キーではキー所有者を識別します。取得できない場合や、複数の連携 ID から特定できない場合は省略されます。",
+	"mcps_inject_headers_idp_groups": "Obot に保存された呼び出し元の IdP グループ ID の JSON 配列。プロバイダーのプレフィックスを含みます。API キーでは所有者の所属を使用します。Obot のロールやグループ表示名は含まず、空の場合は省略されます。"
 }

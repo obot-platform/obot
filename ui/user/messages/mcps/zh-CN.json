@@ -1202,5 +1202,7 @@
 	"mcps_inject_headers_api_key_id": "已验证的 Obot API 密钥的 ID，在此 Obot 安装中唯一。未使用 API 密钥的调用方将省略此标头。",
 	"mcps_inject_headers_user_id": "已认证调用方的 Obot 账户 ID。对于 API 密钥，此值标识密钥所属的账户，而非自主代理。",
 	"mcps_inject_headers_user_name": "已认证账户的用户名，而非显示名称。此值可能更改。",
-	"mcps_inject_headers_user_email": "已认证主体携带的电子邮件地址。不可用时省略；不保证该地址已经验证。"
+	"mcps_inject_headers_user_email": "已认证主体携带的电子邮件地址。不可用时省略；不保证该地址已经验证。",
+	"mcps_inject_headers_idp_user_id": "认证提供商分配的用户标识符。对于 API 密钥，标识密钥所有者。不可用或无法从多个关联身份中确定时省略。",
+	"mcps_inject_headers_idp_groups": "Obot 存储的调用者 IdP 群组 ID 的 JSON 数组，包含提供商前缀。API 密钥使用所有者的群组成员关系。不包含 Obot 角色或群组显示名称；为空时省略。"
 }

@@ -20,9 +20,9 @@ import (
 
 func TestObotHeadersCannotBeConfiguredAsStaticHeaders(t *testing.T) {
 	config := ServerConfig{
-		Headers:                 []string{"x-obot-api-key-name=static-spoof", "X-Obot-User-Id=static-spoof", "X-Tenant=tenant"},
-		PassthroughHeaderNames:  []string{"X-OBOT-USER-EMAIL"},
-		PassthroughHeaderValues: []string{"spoof@example.com"},
+		Headers:                 []string{"x-obot-api-key-name=static-spoof", "X-Obot-User-Id=static-spoof", "X-Obot-IDP-User-Id=spoof", "x-obot-idp-groups=[\"spoof\"]", "X-Tenant=tenant"},
+		PassthroughHeaderNames:  []string{"X-OBOT-USER-EMAIL", "X-Obot-IDP-Groups"},
+		PassthroughHeaderValues: []string{"spoof@example.com", "[\"spoof\"]"},
 	}
 	headers := http.Header(serverConfigHeaders(config))
 	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)
@@ -42,6 +42,8 @@ func TestStripObotHeaders(t *testing.T) {
 		"X-Obot-User-Name":    {"spoof"},
 		"X-Obot-User-Email":   {"spoof@example.com"},
 		"X-Tenant":            {"tenant"},
+		"X-OBOT-IDP-USER-ID":  {"spoof"},
+		"x-obot-idp-groups":   {"[\"spoof\"]"},
 	}
 	StripObotHeaders(headers)
 	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)

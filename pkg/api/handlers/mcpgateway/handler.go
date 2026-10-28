@@ -361,7 +361,11 @@ func (h *Handler) Proxy(req api.Context) error {
 			serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+token)
 		}
 
-		obotHeaders, err := callerObotHeaders(serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User)
+		idpUserID, err := selectedIDPUserID(req.Context(), req.GatewayClient, serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User)
+		if err != nil {
+			return err
+		}
+		obotHeaders, err := callerObotHeaders(serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User, idpUserID)
 		if err != nil {
 			return types.NewErrBadRequest("%v", err)
 		}
@@ -659,6 +663,8 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		OAuthClientID:     cmp.Or(caller.GetExtra()["oauth_client_id"]...),
 		OAuthConnectionID: connectionID,
 		AuthorizedMCPIDs:  authorizedMCPIDs,
+		AuthProviderName: firstExtra(caller.GetExtra(), "auth_provider_name"),
+		AuthProviderNamespace: firstExtra(caller.GetExtra(), "auth_provider_namespace"),
 	}
 	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
 		tokenContext.APIKeyID = fmt.Sprint(key.ID)

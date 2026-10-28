@@ -21,12 +21,12 @@ func TestInjectObotHeadersValidation(t *testing.T) {
 		{
 			name:    "remote",
 			runtime: RuntimeRemote,
-			headers: []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderUserID},
+			headers: []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderUserID, ObotHeaderIDPUserID, ObotHeaderIDPGroups},
 		},
 		{
 			name:    "containerized case insensitive",
 			runtime: RuntimeContainerized,
-			headers: []ObotHeader{"x-obot-api-key-name"},
+			headers: []ObotHeader{"x-obot-api-key-name", "x-obot-idp-user-id", "x-obot-idp-groups"},
 		},
 		{
 			name:    "unknown",
@@ -76,7 +76,7 @@ func TestInjectObotHeadersCatalogRoundTrip(t *testing.T) {
 	entry := MCPServerCatalogEntryManifest{
 		Runtime:           RuntimeRemote,
 		RemoteConfig:      &RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-		InjectObotHeaders: []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderUserID},
+		InjectObotHeaders: []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderUserID, ObotHeaderIDPUserID, ObotHeaderIDPGroups},
 	}
 	server, err := MapCatalogEntryToServer(entry, "", false)
 	require.NoError(t, err)
