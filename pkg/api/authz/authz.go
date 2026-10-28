@@ -306,6 +306,16 @@ var (
 			"POST /api/api-keys/auth",
 		},
 
+		types.GroupBasic: {
+			"GET /v0.1",
+			"GET /v0.1/",
+		},
+
+		types.GroupMCP: {
+			"GET /v0.1",
+			"GET /v0.1/",
+		},
+
 		types.GroupAPI: {
 			"GET /api/claude-sessions",
 			"GET /api/claude-sessions/{session_id}",
@@ -544,19 +554,8 @@ func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient
 }
 
 func defaultRules(devMode bool) []rule {
-	var (
-		f     = (*fake)(nil)
-		rules = rulesFromStatic(staticRules)
-	)
-
-	registryRuleBasic := rule{group: types.GroupBasic, mux: http.NewServeMux()}
-	registryRuleMCPOAuth := rule{group: types.GroupMCP, mux: http.NewServeMux()}
-
-	registryRuleBasic.mux.Handle("GET /v0.1", f)
-	registryRuleBasic.mux.Handle("GET /v0.1/", f)
-	registryRuleMCPOAuth.mux.Handle("GET /v0.1", f)
-	registryRuleMCPOAuth.mux.Handle("GET /v0.1/", f)
-	rules = append(rules, registryRuleBasic, registryRuleMCPOAuth)
+	f := (*fake)(nil)
+	rules := rulesFromStatic(staticRules)
 
 	if devMode {
 		for group := range devModeRules {
