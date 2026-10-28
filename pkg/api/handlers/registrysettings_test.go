@@ -6,7 +6,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -37,9 +36,13 @@ func TestRegistrySettingsAPI(t *testing.T) {
 		}
 	}
 	get(false)
-	for _, enabled := range []bool{true, false} {
+	for _, body := range []string{`{"anonymousAccessEnabled":true}`, `{"anonymousAccessEnabled":false}`, "{}", "null", `{"anonymousAccessEnabled":null}`} {
+		if err := h.settings.SetAnonymousRegistryAccessEnabled(t.Context(), true); err != nil {
+			t.Fatal(err)
+		}
+		enabled := body == `{"anonymousAccessEnabled":true}`
 		w := httptest.NewRecorder()
-		if err := h.Update(api.Context{Request: httptest.NewRequest(http.MethodPut, "/api/registry-settings", strings.NewReader(`{"anonymousAccessEnabled":`+strconv.FormatBool(enabled)+`}`)), ResponseWriter: w}); err != nil {
+		if err := h.Update(api.Context{Request: httptest.NewRequest(http.MethodPut, "/api/registry-settings", strings.NewReader(body)), ResponseWriter: w}); err != nil {
 			t.Fatal(err)
 		}
 		var got types.RegistrySettings
@@ -48,7 +51,7 @@ func TestRegistrySettingsAPI(t *testing.T) {
 		}
 		get(enabled)
 	}
-	for _, body := range []string{"", "null", "{}", `{"anonymousAccessEnabled":null}`, `{"anonymousAccessEnabled":"true"}`, `{"anonymousAccessEnabled":1}`, `{"anonymousAccessEnabled":true} {}`} {
+	for _, body := range []string{"", `{"anonymousAccessEnabled":"true"}`, `{"anonymousAccessEnabled":1}`, `{"anonymousAccessEnabled":true} {}`} {
 		err := h.Update(api.Context{Request: httptest.NewRequest(http.MethodPut, "/api/registry-settings", strings.NewReader(body)), ResponseWriter: httptest.NewRecorder()})
 		requireModelProxyHTTPError(t, err, http.StatusBadRequest)
 		get(false)

@@ -13,8 +13,8 @@ type registrySettingsStore interface {
 	SetAnonymousRegistryAccessEnabled(context.Context, bool) error
 }
 
-type RegistrySettingsHandler struct{
-    settings registrySettingsStore
+type RegistrySettingsHandler struct {
+	settings registrySettingsStore
 }
 
 func NewRegistrySettingsHandler(settings registrySettingsStore) *RegistrySettingsHandler {
@@ -30,12 +30,12 @@ func (h *RegistrySettingsHandler) Get(req api.Context) error {
 }
 
 func (h *RegistrySettingsHandler) Update(req api.Context) error {
-	var input types.RegistrySettingsUpdate
-	if err := req.Read(&input); err != nil || input.AnonymousAccessEnabled == nil {
-		return types.NewErrHTTP(http.StatusBadRequest, "request must contain an anonymousAccessEnabled boolean")
+	var input types.RegistrySettings
+	if err := req.Read(&input); err != nil {
+		return types.NewErrHTTP(http.StatusBadRequest, "invalid registry settings request")
 	}
-	if err := h.settings.SetAnonymousRegistryAccessEnabled(req.Context(), *input.AnonymousAccessEnabled); err != nil {
+	if err := h.settings.SetAnonymousRegistryAccessEnabled(req.Context(), input.AnonymousAccessEnabled); err != nil {
 		return types.NewErrHTTP(http.StatusServiceUnavailable, "registry settings unavailable")
 	}
-	return req.Write(types.RegistrySettings{AnonymousAccessEnabled: *input.AnonymousAccessEnabled})
+	return req.Write(input)
 }

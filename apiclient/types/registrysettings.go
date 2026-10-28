@@ -4,7 +4,3 @@ package types
 type RegistrySettings struct {
 	AnonymousAccessEnabled bool `json:"anonymousAccessEnabled"`
 }
-
-type RegistrySettingsUpdate struct {
-	AnonymousAccessEnabled *bool `json:"anonymousAccessEnabled"`
-}
