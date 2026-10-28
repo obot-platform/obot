@@ -1,7 +1,7 @@
 {
 	"extends": "$app/tsconfig",
 	"include": ["src", "test", "*"],
-	"exclude": ["src/service-worker"],
+	"exclude": ["src/service-worker", "src/lib/paraglide"],
 	"compilerOptions": {
 		"allowJs": true,
 		"checkJs": true,
