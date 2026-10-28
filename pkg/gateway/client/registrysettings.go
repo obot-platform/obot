@@ -5,9 +5,7 @@ import (
 	"errors"
 	"strconv"
 
-	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const (
@@ -32,24 +30,8 @@ func (c *Client) AnonymousRegistryAccessEnabled(ctx context.Context) (bool, erro
 	return enabled, nil
 }
 
-// SetAnonymousRegistryAccessEnabled uses an atomic upsert so concurrent first writes cannot
-// race to create the singleton. Preserve the existing property encryption path.
+// SetAnonymousRegistryAccessEnabled stores the setting through the shared encrypted property upsert.
 func (c *Client) SetAnonymousRegistryAccessEnabled(ctx context.Context, enabled bool) error {
-	p := types.Property{
-		Key:   registryAnonymousAccessEnabledKey,
-		Value: strconv.FormatBool(enabled),
-	}
-
-	if err := c.encryptProperty(ctx, &p); err != nil {
-		return errors.New("registry settings unavailable")
-	}
-
-	if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "key"}},
-		DoUpdates: clause.AssignmentColumns([]string{"value", "encrypted", "updated_at"}),
-	}).Create(&p).Error; err != nil {
-		return errors.New("registry settings unavailable")
-	}
-
-	return nil
+	_, err := c.SetProperty(ctx, registryAnonymousAccessEnabledKey, strconv.FormatBool(enabled))
+	return err
 }

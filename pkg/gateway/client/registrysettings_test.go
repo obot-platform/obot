@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,6 +45,36 @@ func TestRegistrySettingsSharedAndFailClosed(t *testing.T) {
 
 	if err := c.SetAnonymousRegistryAccessEnabled(ctx, true); err == nil {
 		t.Fatal("failed write reported success")
+	}
+}
+
+func TestRegistrySettingsPropertyTimestamps(t *testing.T) {
+	c := newTestClient(t)
+	if err := c.SetAnonymousRegistryAccessEnabled(t.Context(), true); err != nil {
+		t.Fatal(err)
+	}
+	created, err := c.GetProperty(t.Context(), registryAnonymousAccessEnabledKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.CreatedAt.IsZero() || created.UpdatedAt.IsZero() {
+		t.Fatalf("missing property timestamps: %+v", created)
+	}
+
+	// Give the existing row an older update time without relying on clock precision.
+	oldUpdate := created.UpdatedAt.Add(-time.Hour)
+	if err := c.db.WithContext(t.Context()).Model(&types.Property{}).Where("key = ?", registryAnonymousAccessEnabledKey).Update("updated_at", oldUpdate).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SetAnonymousRegistryAccessEnabled(t.Context(), false); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := c.GetProperty(t.Context(), registryAnonymousAccessEnabledKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !updated.CreatedAt.Equal(created.CreatedAt) || !updated.UpdatedAt.After(oldUpdate) {
+		t.Fatalf("unexpected timestamps after update: created=%+v, updated=%+v", created, updated)
 	}
 }
 
