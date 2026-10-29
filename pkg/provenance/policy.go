@@ -110,6 +110,34 @@ type Settings struct {
 	DefaultApprovalTTL time.Duration `json:"defaultApprovalTTL,omitempty"`
 	// RetentionDays is how long sessions and events are kept.
 	RetentionDays int `json:"retentionDays,omitempty"`
+	// ContentTagging configures the optional, additive AI content tagger. It is
+	// off by default and never required.
+	ContentTagging ContentTagging `json:"contentTagging,omitzero"`
+}
+
+// ContentTagging configures the optional AI content tagger, which may add extra
+// sensitivity and trust labels to content entering a session, beyond the
+// deterministic Classify pass. The deterministic pass always runs first and its
+// labels are never removed; the tagger can only ADD labels from ContentLabels.
+// It is disabled by default.
+type ContentTagging struct {
+	// Enabled turns the tagger on. Default false.
+	Enabled bool `json:"enabled"`
+	// SampleRate is the fraction of eligible ingests to tag, 0..1. 0 (or any
+	// value <= 0) means every eligible ingest.
+	SampleRate float64 `json:"sampleRate,omitempty"`
+	// MinBytes skips content shorter than this. Default 200.
+	MinBytes int `json:"minBytes,omitempty"`
+	// OnlyUnlabeled runs the tagger only when the deterministic pass found no
+	// sensitivity label. Default true.
+	OnlyUnlabeled bool `json:"onlyUnlabeled"`
+	// Capabilities runs the tagger only when the producing tool has one of these
+	// capability labels. Empty means any. Default reads-private, reads-untrusted.
+	Capabilities []Label `json:"capabilities,omitempty"`
+	// Mode is "async" (default) or "sync".
+	Mode string `json:"mode,omitempty"`
+	// BudgetSeconds bounds a sync classification. Default 3.
+	BudgetSeconds int `json:"budgetSeconds,omitempty"`
 }
 
 // PolicyInput is everything a condition can see.
@@ -136,6 +164,16 @@ func DefaultSettings() Settings {
 		SupervisorBudget:   4 * time.Second,
 		DefaultApprovalTTL: 10 * time.Minute,
 		RetentionDays:      90,
+		// The AI content tagger is optional and off by default; the rest are the
+		// values it uses once an administrator turns it on.
+		ContentTagging: ContentTagging{
+			Enabled:       false,
+			MinBytes:      200,
+			OnlyUnlabeled: true,
+			Capabilities:  []Label{CapReadsPrivate, CapReadsUntrusted},
+			Mode:          ContentTagAsync,
+			BudgetSeconds: 3,
+		},
 	}
 }
 

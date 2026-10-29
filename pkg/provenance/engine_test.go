@@ -414,6 +414,28 @@ func TestPolicyVocabulary(t *testing.T) {
 	}
 }
 
+func TestContentTaggingAsyncLeavesIngestEventDeterministic(t *testing.T) {
+	ctx := t.Context()
+	e, _ := newTestEngine(t)
+	cl := &fakeContentClassifier{labels: NewLabels(LabelCustomerData)}
+	e.SetContentClassifier(cl)
+	setContentTagging(t, e, ContentTagging{Enabled: true, MinBytes: 200, OnlyUnlabeled: true, Mode: ContentTagAsync, BudgetSeconds: 3})
+
+	// In async mode Ingest returns with the deterministic labels; the AI tag lands
+	// in the session taint later (tested deterministically in
+	// content_classifier_test.go), never on this already-returned event.
+	ev, err := e.Ingest(ctx, taggableIngest(taggableContent))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ev.Labels.Has(LabelUntrusted) {
+		t.Fatalf("deterministic labels should be on the returned event, got %v", ev.Labels)
+	}
+	if ev.Labels.Has(LabelCustomerData) {
+		t.Fatalf("async tagging must not rewrite the returned event, got %v", ev.Labels)
+	}
+}
+
 func TestFingerprintsAndClassification(t *testing.T) {
 	c := Classify("contact ada@customer.example or +1 (415) 555-0100, card 4111 1111 1111 1111, key AKIAIOSFODNN7EXAMPLE")
 	for _, want := range []Label{LabelPII, LabelFinancial, LabelSecret, LabelConfidential} {

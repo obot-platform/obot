@@ -49,6 +49,13 @@ type Engine struct {
 
 	classifyLock    sync.Mutex
 	classifyPending map[string]bool
+
+	// contentClassifier is the optional, additive AI content tagger. The
+	// deterministic Classify always runs first and its labels are never removed.
+	contentClassifier ContentClassifier
+	contentCacheLock  sync.Mutex
+	contentCache      map[uint64]ContentClassification
+	contentCacheKeys  []uint64
 }
 
 type cachedSession struct {
@@ -116,6 +123,13 @@ func WithSupervisor(s Supervisor) Option {
 	return func(e *Engine) { e.supervisor = s }
 }
 
+// WithContentClassifier sets the optional, additive AI content tagger. The
+// deterministic Classify always runs first and its labels are never removed; the
+// tagger can only ADD labels from ContentLabels.
+func WithContentClassifier(c ContentClassifier) Option {
+	return func(e *Engine) { e.contentClassifier = c }
+}
+
 // WithClock sets the clock, for tests.
 func WithClock(now func() time.Time) Option {
 	return func(e *Engine) { e.now = now }
@@ -135,6 +149,7 @@ func New(store Store, opts ...Option) *Engine {
 		sessions:        map[string]*cachedSession{},
 		waiters:         map[string][]chan Approval{},
 		classifyPending: map[string]bool{},
+		contentCache:    map[uint64]ContentClassification{},
 	}
 	for _, o := range opts {
 		o(e)
@@ -151,6 +166,14 @@ func (e *Engine) Supervisor() Supervisor { return e.supervisor }
 
 // SetSupervisor installs a Supervisor after construction.
 func (e *Engine) SetSupervisor(s Supervisor) { e.supervisor = s }
+
+// ContentClassifier returns the optional AI content tagger, which may be nil.
+func (e *Engine) ContentClassifier() ContentClassifier { return e.contentClassifier }
+
+// SetContentClassifier installs the optional AI content tagger after
+// construction. One object (the Supervisor) can serve as both this and the
+// Supervisor.
+func (e *Engine) SetContentClassifier(c ContentClassifier) { e.contentClassifier = c }
 
 // Invalidate makes the next call reload policies, kills, honeytokens, tool
 // labels and settings.
@@ -522,6 +545,13 @@ func (e *Engine) Ingest(ctx context.Context, in IngestRequest) (*Event, error) {
 	if err := e.persist(ctx, &snapshot, ev); err != nil {
 		return nil, err
 	}
+
+	// Optional, additive AI content tagging. The deterministic labels above are
+	// already applied and persisted; the tagger can only ADD labels from
+	// ContentLabels, never remove any, and a tagger error never affects this
+	// result. In async mode (the default) the extra labels land in the session
+	// taint for subsequent decisions, not on this already-persisted event.
+	e.tagContent(ctx, in, &ev, s, labels)
 	return &ev, nil
 }
 

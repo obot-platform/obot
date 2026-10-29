@@ -66,6 +66,9 @@ type ProvenanceSettingsAPI struct {
 	SupervisorBudgetSeconds   int      `json:"supervisorBudgetSeconds"`
 	DefaultApprovalTTLSeconds int      `json:"defaultApprovalTTLSeconds"`
 	RetentionDays             int      `json:"retentionDays"`
+	// ContentTagging configures the optional, additive AI content tagger. Its
+	// budget is already in seconds, so it maps through unchanged.
+	ContentTagging provenance.ContentTagging `json:"contentTagging"`
 }
 
 // ProvenanceOverview is the supervision dashboard's summary.
@@ -168,6 +171,7 @@ func settingsToAPI(s provenance.Settings) ProvenanceSettingsAPI {
 		SupervisorBudgetSeconds:   int(s.SupervisorBudget / time.Second),
 		DefaultApprovalTTLSeconds: int(s.DefaultApprovalTTL / time.Second),
 		RetentionDays:             s.RetentionDays,
+		ContentTagging:            s.ContentTagging,
 	}
 }
 
@@ -180,6 +184,7 @@ func settingsFromAPI(in ProvenanceSettingsAPI) provenance.Settings {
 		SupervisorBudget:     time.Duration(in.SupervisorBudgetSeconds) * time.Second,
 		DefaultApprovalTTL:   time.Duration(in.DefaultApprovalTTLSeconds) * time.Second,
 		RetentionDays:        in.RetentionDays,
+		ContentTagging:       in.ContentTagging,
 	}
 }
 

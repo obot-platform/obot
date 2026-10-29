@@ -960,7 +960,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// The Supervisor is the model that resolves judge effects, triages approvals, drafts
 	// policies and narrates sessions. It calls the default model aliases through the LLM
 	// gateway, like the guardrails judge.
-	provenanceEngine.SetSupervisor(supervisor.New(judge, provenanceEngine.Settings))
+	sup := supervisor.New(judge, provenanceEngine.Settings)
+	provenanceEngine.SetSupervisor(sup)
+	// The Supervisor also serves as the optional AI content tagger (off until enabled in settings).
+	provenanceEngine.SetContentClassifier(sup)
 	go runProvenanceRetention(ctx, gatewayClient, provenanceEngine)
 	go func() {
 		// LLM gateway traffic is governed by budgets rather than the daily token quota, so
