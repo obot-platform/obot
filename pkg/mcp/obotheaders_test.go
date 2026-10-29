@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp/attribution"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/stretchr/testify/require"
@@ -24,29 +26,73 @@ func TestObotHeadersCannotBeConfiguredAsStaticHeaders(t *testing.T) {
 		PassthroughHeaderNames:  []string{"X-OBOT-USER-EMAIL", "X-Obot-IDP-Groups"},
 		PassthroughHeaderValues: []string{"spoof@example.com", "[\"spoof\"]"},
 	}
-	headers := http.Header(serverConfigHeaders(config))
+	headers := attribution.Configured(config.Headers, config.PassthroughHeaderNames, config.PassthroughHeaderValues)
 	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)
 	wrapper := MMMCPConfig(config, nil)
 	require.Equal(t, map[string]string{"X-Tenant": "tenant"}, wrapper.Servers[0].Headers)
 	require.Empty(t, wrapper.Servers[0].PassthroughHeaders)
-	probeHeaders := make(http.Header)
-	copyHeaders(probeHeaders, config.PassthroughHeaderNames, config.PassthroughHeaderValues)
-	require.Empty(t, probeHeaders, "readiness probes must not carry configured attribution")
 }
 
-func TestStripObotHeaders(t *testing.T) {
-	headers := http.Header{
-		"x-obot-api-key-name": {"spoof", "another spoof"},
-		"X-Obot-Api-Key-Id":   {"999"},
-		"X-OBOT-USER-ID":      {"999"},
-		"X-Obot-User-Name":    {"spoof"},
-		"X-Obot-User-Email":   {"spoof@example.com"},
-		"X-Tenant":            {"tenant"},
-		"X-OBOT-IDP-USER-ID":  {"spoof"},
-		"x-obot-idp-groups":   {"[\"spoof\"]"},
+func TestReadinessProbesExcludeConfiguredAttribution(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		fallback   bool
+		lastMethod string
+	}{
+		{
+			name:       "streamable POST and cleanup",
+			lastMethod: http.MethodDelete,
+		},
+		{
+			name:       "SSE fallback",
+			fallback:   true,
+			lastMethod: http.MethodGet,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			type probe struct {
+				method  string
+				headers http.Header
+			}
+			received := make(chan probe, 2)
+			backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				received <- probe{method: r.Method, headers: r.Header.Clone()}
+				if tt.fallback && r.Method == http.MethodPost {
+					w.WriteHeader(http.StatusMethodNotAllowed)
+					return
+				}
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte("event: endpoint\ndata: /messages\n\n"))
+					return
+				}
+				w.Header().Set("Mcp-Session-Id", "probe-session")
+			}))
+			defer backend.Close()
+			config := ServerConfig{
+				PassthroughHeaderNames:  []string{"X-Tenant"},
+				PassthroughHeaderValues: []string{"tenant"},
+			}
+			for _, name := range types.ObotHeaders() {
+				config.PassthroughHeaderNames = append(config.PassthroughHeaderNames, string(name))
+				config.PassthroughHeaderValues = append(config.PassthroughHeaderValues, "spoof")
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			require.NoError(t, ensureServerReady(ctx, backend.URL, config))
+			for _, method := range []string{http.MethodPost, tt.lastMethod} {
+				select {
+				case request := <-received:
+					require.Equal(t, method, request.method)
+					require.Equal(t, "tenant", request.headers.Get("X-Tenant"))
+					for _, name := range types.ObotHeaders() {
+						require.Empty(t, request.headers.Get(string(name)))
+					}
+				case <-ctx.Done():
+					t.Fatalf("missing %s probe", method)
+				}
+			}
+		})
 	}
-	StripObotHeaders(headers)
-	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)
 }
 
 func TestServerConfigPreservesObotHeaderSelection(t *testing.T) {

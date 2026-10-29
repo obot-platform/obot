@@ -3,7 +3,6 @@ package mcp
 import (
 	"fmt"
 	"maps"
-	"net/http"
 	"regexp"
 	"slices"
 	"strings"
@@ -679,13 +678,4 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	}
 
 	return serverConfig, dedupe(missingRequiredNames), nil
-}
-
-func copyHeaders(headers http.Header, keys, values []string) {
-	for i, key := range keys {
-		if i < len(values) {
-			headers.Set(key, values[i])
-		}
-	}
-	StripObotHeaders(headers)
 }

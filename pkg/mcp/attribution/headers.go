@@ -1,4 +1,5 @@
-package mcpgateway
+// Package attribution owns MCP caller attribution and reserves its header names.
+package attribution
 
 import (
 	"context"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -18,16 +20,34 @@ import (
 )
 
 // Bound each attribution value independently.
-const maxObotHeaderValueCharacters = 512
+const (
+	maxObotHeaderValueCharacters = 512
+)
 
-// identityReader keeps the database lookup local to requests that select the IdP ID.
-type identityReader interface {
+// IdentityReader supplies stored identities for the authenticated caller.
+// It is only consulted when the destination selects the IdP user ID.
+type IdentityReader interface {
 	FindIdentitiesForUser(context.Context, uint) ([]gatewaytypes.Identity, error)
 }
 
-// callerObotHeaders derives only the fields explicitly selected by the destination.
+// ForCaller derives only the attribution fields selected by the destination,
+// resolving the caller's provider identity only when needed. Returned headers
+// belong to this request and must not be stored in a shared client or deployment.
+func ForCaller(ctx context.Context, reader IdentityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (http.Header, error) {
+	idpUserID, err := selectedIDPUserID(ctx, reader, runtime, selected, caller)
+	if err != nil {
+		return nil, err
+	}
+	headers, err := callerHeaders(runtime, selected, caller, idpUserID)
+	if err != nil {
+		return nil, types.NewErrBadRequest("%v", err)
+	}
+	return headers, nil
+}
+
+// callerHeaders derives only the fields explicitly selected by the destination.
 // It is request-local: caller identity must never enter a shared deployment or client.
-func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
+func callerHeaders(runtime types.Runtime, selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
 	headers := make(http.Header)
 	if caller == nil || !types.SupportsObotHeaders(runtime) {
 		return headers, nil
@@ -77,7 +97,7 @@ func callerObotHeaders(runtime types.Runtime, selected []types.ObotHeader, calle
 	return headers, nil
 }
 
-func selectedIDPUserID(ctx context.Context, reader identityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (string, error) {
+func selectedIDPUserID(ctx context.Context, reader IdentityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (string, error) {
 	if caller == nil || !types.SupportsObotHeaders(runtime) {
 		return "", nil
 	}
@@ -114,4 +134,44 @@ func selectedIDPUserID(ctx context.Context, reader identityReader, runtime types
 		return "", nil
 	}
 	return matches[0].ProviderUserID, nil
+}
+
+// Strip removes all reserved attribution names, including non-canonical map keys
+// supplied by in-process callers. Apply it before consuming incoming headers.
+func Strip(headers http.Header) {
+	for name := range headers {
+		if _, reserved := types.CanonicalObotHeader(name); reserved {
+			delete(headers, name)
+		}
+	}
+}
+
+// Configured combines per-user and static headers, excluding reserved attribution
+// names. Static values take precedence. Copying the result onto an outgoing request
+// cannot overwrite or remove attribution already derived for its caller.
+func Configured(static, keys, values []string) http.Header {
+	headers := make(http.Header, len(keys)+len(static))
+	set := func(name, value string) {
+		if _, reserved := types.CanonicalObotHeader(name); !reserved {
+			headers.Set(name, value)
+		}
+	}
+	for i, key := range keys {
+		if i < len(values) {
+			set(key, values[i])
+		}
+	}
+	for _, header := range static {
+		if key, value, ok := strings.Cut(header, "="); ok {
+			set(key, value)
+		}
+	}
+	return headers
+}
+
+func firstExtra(extra map[string][]string, key string) string {
+	if values := extra[key]; len(values) > 0 {
+		return values[0]
+	}
+	return ""
 }

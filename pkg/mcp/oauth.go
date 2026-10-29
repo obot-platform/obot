@@ -395,23 +395,6 @@ func getOAuthMetadataWithClient(ctx context.Context, httpClient *http.Client, se
 	return GetOAuthMetadataWithClient(ctx, httpClient, serverConfig, clientName, redirectURL)
 }
 
-func serverConfigHeaders(serverConfig ServerConfig) map[string][]string {
-	result := make(map[string][]string, len(serverConfig.PassthroughHeaderNames)+len(serverConfig.Headers))
-	for i, key := range serverConfig.PassthroughHeaderNames {
-		if i < len(serverConfig.PassthroughHeaderValues) {
-			result[http.CanonicalHeaderKey(key)] = []string{serverConfig.PassthroughHeaderValues[i]}
-		}
-	}
-	for _, header := range serverConfig.Headers {
-		key, value, ok := strings.Cut(header, "=")
-		if ok {
-			result[http.CanonicalHeaderKey(key)] = []string{value}
-		}
-	}
-	StripObotHeaders(result)
-	return result
-}
-
 func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mu.Lock()
 	if !t.done && req.Method == http.MethodPost {
