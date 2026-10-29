@@ -85,7 +85,7 @@ func Run(ctx context.Context, c services.Config) error {
 	stopOrchestrator := func() {}
 	stopCredentials := func() {}
 	if svcs.Substrate != nil {
-		stopCredentials, err = claudecredentials.StartCredentialProvider(ctx, ":8444", "/run/substrate/credential.pem", "/run/substrate/pod-identity-ca.pem", &claudecredentials.CredentialProvider{Storage: svcs.StorageClient, Gateway: svcs.GatewayClient, ObotURL: svcs.Substrate.Config.ObotURL})
+		stopCredentials, err = claudecredentials.StartCredentialProvider(ctx, ":8444", "/run/substrate/credential.pem", "/run/substrate/pod-identity-ca.pem", &claudecredentials.CredentialProvider{Storage: svcs.StorageClient, Gateway: svcs.GatewayClient, ObotURL: svcs.Substrate.Config.ObotURL, Provenance: svcs.ProvenanceEngine})
 		if err != nil {
 			return fmt.Errorf("start Claude egress credentials: %w", err)
 		}

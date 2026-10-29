@@ -204,6 +204,15 @@ func (db *DB) AutoMigrate() (err error) {
 		types.SCIMGroupSubjectCleanup{},
 		types.SCIMReferenceWrite{},
 		types.SCIMRequestFailure{},
+		types.ProvenanceSession{},
+		types.ProvenanceSessionLink{},
+		types.ProvenanceEvent{},
+		types.ProvenancePolicy{},
+		types.ProvenanceApproval{},
+		types.ProvenanceKill{},
+		types.ProvenanceHoneytoken{},
+		types.ProvenanceToolLabel{},
+		types.ProvenanceSettings{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

@@ -16,9 +16,11 @@ import (
 	"net/netip"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/guardrails"
+	"github.com/obot-platform/obot/pkg/provenance"
 
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -65,6 +67,12 @@ type Handler struct {
 	tunnelManager             *tunnel.Manager
 	secretBindingAllowedLabel string
 	serverURL                 string
+	// provenance decides every tool call and records every result in the session
+	// graph. It is always on when set; there is no administrator configuration.
+	provenance *provenance.Engine
+	// toolDescriptions caches tool descriptions from tools/list results for the
+	// provenance filter's capability labelling, keyed by server ID and tool name.
+	toolDescriptions sync.Map
 }
 
 // mcpResponse keeps the client response and its audit representation together.
@@ -194,7 +202,7 @@ func compositeSessionKey(serverConfig mcp.ServerConfig) string {
 	return tunnel.CompositeSessionKey(serverConfig.MCPServerName)
 }
 
-func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error), guardrailEngine *guardrails.Engine) (*Handler, error) {
+func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error), guardrailEngine *guardrails.Engine, provenanceEngine *provenance.Engine) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	var componentAuth componenthttp.OAuthHandlerProvider
@@ -236,6 +244,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		tunnelManager:             tunnelManager,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 		serverURL:                 serverURL,
+		provenance:                provenanceEngine,
 	}, nil
 }
 
@@ -438,10 +447,18 @@ func (h *Handler) Proxy(req api.Context) error {
 			req.Request.Header.Del(mcpSessionHeader)
 		}
 
+		// The provenance filter is always on for the user-facing hop. Component servers
+		// of a vMCP are reached through that vMCP, where the decision was already made.
+		var filterProvenance *mcpProvenance
+		if h.provenance != nil && !serverConfig.ComponentMCPServer && !serverConfig.SystemMCPServer {
+			filterProvenance = newMCPProvenance(h.provenance, req.User, serverConfig, req.Request, audit, &h.toolDescriptions)
+			hookConfig = append(provenanceHooks(), hookConfig...)
+		}
+
 		var resolvedCall *resolvedToolCall
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
-			// Guardrail filters run in-process, without the hook runner.
-			inspect := audit != nil || (len(hookConfig) > 0 && (h.hookRunner != nil || (h.guardrails != nil && hookConfig.HasGuardrails())))
+			// Guardrail filters and the provenance filter run in-process, without the hook runner.
+			inspect := audit != nil || (len(hookConfig) > 0 && (h.hookRunner != nil || hookConfig.HasNative() || (h.guardrails != nil && hookConfig.HasGuardrails())))
 			cfg, configErr := compositeConfig(req, serverConfig)
 			if configErr != nil {
 				return configErr
@@ -485,7 +502,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			filterGuardrails = newMCPGuardrails(h.guardrails, identity, serverConfig, req.Request.Header)
 		}
 
-		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall, filterGuardrails)
+		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall, filterGuardrails, filterProvenance)
 		if err != nil {
 			if errors.Is(err, errMCPCaseVariantFieldNames) && handleGenericToolCallError(req, audit, err) {
 				return nil

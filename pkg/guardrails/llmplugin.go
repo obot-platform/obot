@@ -17,6 +17,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/llm"
+	provllm "github.com/obot-platform/obot/pkg/provenance/llm"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -48,6 +49,8 @@ type outputState struct {
 	plan    Plan
 	request Request
 	stream  *streamState
+	// provenance, when set, decides the tool calls the response proposes.
+	provenance *ProvenanceContext
 }
 
 // InputPlugin applies input policies to model requests.
@@ -113,6 +116,9 @@ type RequestHooks struct {
 	// Cost, when set, receives what the response cost, priced by the gateway for the model
 	// that served it.
 	Cost CostSink
+	// Provenance, when set, is the request's place in the provenance session graph: the
+	// plugins feed the graph from the request and decide the tool calls the model proposes.
+	Provenance *ProvenanceContext
 }
 
 // requestBinding is what Obot knows about a request it sent to the gateway.
@@ -298,6 +304,12 @@ func conditionVarsForRequest(req *schemas.BifrostRequest, headers map[string]str
 
 func (e *Engine) guardrailError(stage, message string) *schemas.BifrostError {
 	e.blocks.WithLabelValues(stage).Inc()
+	return guardrailError(message)
+}
+
+// guardrailError builds a blocked-request error without counting it as a guardrail block;
+// Obot Policy denials use it directly.
+func guardrailError(message string) *schemas.BifrostError {
 	status := http.StatusBadRequest
 	errType := guardrailErrorType
 	allowFallbacks := false
@@ -318,8 +330,27 @@ func (p *InputPlugin) Describe(ch chan<- *prometheus.Desc) { p.engine.blocks.Des
 
 func (p *InputPlugin) Collect(ch chan<- prometheus.Metric) { p.engine.blocks.Collect(ch) }
 
-func (p *InputPlugin) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostRequest) error {
+// PreRequestHook runs once per request, before any attempt. A request bound to the provenance
+// session graph records its model turn and the tool results it feeds back to the model here,
+// so a request the gateway retries on a fallback is recorded once.
+func (p *InputPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) error {
+	binding, ok := bindingFromContext(ctx)
+	if !ok || binding.Provenance == nil || !feedsSessionGraph(req) {
+		return nil
+	}
+	binding.Provenance.recordTurn(ctx, req)
 	return nil
+}
+
+// feedsSessionGraph reports whether a request carries a conversation the session graph
+// records: a model call in the Chat Completions or Responses shape (Anthropic Messages
+// requests arrive as Responses). Embeddings, token counts and model listing don't.
+func feedsSessionGraph(req *schemas.BifrostRequest) bool {
+	if req == nil || (req.ChatRequest == nil && req.ResponsesRequest == nil) {
+		return false
+	}
+	_, model, _ := req.GetRequestFields()
+	return model != ""
 }
 
 func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
@@ -331,6 +362,14 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	if trimmed := withoutUnsupportedReasoning(req); trimmed != req {
 		disableRawPassthrough(ctx)
 		req = trimmed
+	}
+	if binding, ok := bindingFromContext(ctx); ok && binding.Provenance != nil && feedsSessionGraph(req) {
+		// A quarantined session's untrusted tool results are summarized before the model,
+		// and the guardrails, see them. The rewrite is in place, so it holds for every
+		// attempt; a rewritten result is left alone on the next one.
+		if binding.Provenance.quarantine(ctx, req) {
+			disableRawPassthrough(ctx)
+		}
 	}
 	identity, headers, ok := identityFromContext(ctx)
 	if !ok {
@@ -465,17 +504,24 @@ func (p *OutputPlugin) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostR
 func (p *OutputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
 	// Nested judge calls and empty plans must not reuse the parent inference's state.
 	ctx.SetValue(outputStateKey, (*outputState)(nil))
-	identity, headers, ok := identityFromContext(ctx)
+	binding, ok := bindingFromContext(ctx)
 	if !ok {
 		return req, nil, nil
 	}
+	identity, headers, _ := identityFromContext(ctx)
 	vars, _ := conditionVarsForRequest(req, headers)
 	plan, err := p.engine.Plan(ctx, types.GuardrailTargetLLM, StageOutput, identity, vars)
 	if err != nil {
 		slog.Error("failed to load guardrail policies; blocking the request", "error", err)
 		return req, &schemas.LLMPluginShortCircuit{Error: p.engine.guardrailError(StageOutput, "Request blocked: guardrails could not be evaluated.")}, nil
 	}
-	if plan.Empty() {
+	// The session graph decides the tool calls a response proposes, which it can only do
+	// when the request offers the model tools.
+	provenance := binding.Provenance
+	if provenance != nil && (!feedsSessionGraph(req) || !provllm.DeclaresTools(req)) {
+		provenance = nil
+	}
+	if plan.Empty() && provenance == nil {
 		return req, nil, nil
 	}
 	disableRawPassthrough(ctx)
@@ -486,11 +532,13 @@ func (p *OutputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifr
 			// The (already input-checked) request is context for output checks.
 			History: requestText(req).segments(),
 		},
+		provenance: provenance,
 	}
 	if bifrostcore.IsStreamRequestType(req.RequestType) {
 		state.stream = newStreamState()
-		if plan.Modifies() {
-			// Hold the stream until the complete response has been checked.
+		if plan.Modifies() || provenance != nil {
+			// Hold the stream until the complete response has been checked: a tool call is
+			// decided once its arguments are complete.
 			ctx.PauseStream()
 			state.stream.held = streamPaused(ctx)
 			if !state.stream.held {
@@ -540,16 +588,23 @@ func (p *OutputPlugin) PostLLMHook(ctx *schemas.BifrostContext, resp *schemas.Bi
 		return p.postStream(ctx, state, resp, bifrostErr)
 	}
 
-	refs := responseText(resp)
-	req := state.request
-	req.Segments = refs.segments()
-	d := p.engine.Evaluate(ctx, state.plan, req)
-	reportDetections(ctx, StageOutput, d)
-	if d.Blocked {
-		return nil, p.engine.guardrailError(StageOutput, d.Message), nil
+	if !state.plan.Empty() {
+		refs := responseText(resp)
+		req := state.request
+		req.Segments = refs.segments()
+		d := p.engine.Evaluate(ctx, state.plan, req)
+		reportDetections(ctx, StageOutput, d)
+		if d.Blocked {
+			return nil, p.engine.guardrailError(StageOutput, d.Message), nil
+		}
+		if d.Redacted {
+			refs.apply(d.Segments)
+		}
 	}
-	if d.Redacted {
-		refs.apply(d.Segments)
+	if state.provenance != nil {
+		if denied := state.provenance.decide(ctx, provllm.ExtractProposedToolCalls(resp)); denied != nil {
+			return nil, denied, nil
+		}
 	}
 	return resp, bifrostErr, nil
 }
@@ -567,19 +622,31 @@ func (p *OutputPlugin) postStream(ctx *schemas.BifrostContext, state *outputStat
 		return resp, bifrostErr, nil
 	}
 
-	req := state.request
-	req.Segments = st.segments()
-	req.Delivered = !st.held
-	d := p.engine.Evaluate(ctx, state.plan, req)
-	reportDetections(ctx, StageOutput, d)
+	var (
+		d      Decision
+		denied *schemas.BifrostError
+	)
+	if !state.plan.Empty() {
+		req := state.request
+		req.Segments = st.segments()
+		req.Delivered = !st.held
+		d = p.engine.Evaluate(ctx, state.plan, req)
+		reportDetections(ctx, StageOutput, d)
+		if d.Blocked {
+			denied = p.engine.guardrailError(StageOutput, d.Message)
+		}
+	}
+	if denied == nil && state.provenance != nil {
+		denied = state.provenance.decide(ctx, st.proposedCalls())
+	}
 	switch {
-	case d.Blocked:
+	case denied != nil:
 		if st.held {
 			if err := ctx.ClearPausedStreamBuffer(); err != nil {
 				slog.Warn("failed to discard a blocked stream's buffered content", "error", err)
 			}
 		}
-		ctx.EndStream(p.engine.guardrailError(StageOutput, d.Message))
+		ctx.EndStream(denied)
 		return resp, bifrostErr, nil
 	case !st.held:
 		return resp, bifrostErr, nil

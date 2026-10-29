@@ -95,7 +95,8 @@
 		X,
 		Logs,
 		Settings2,
-		ChevronRight
+		ChevronRight,
+		ShieldCheck
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -301,6 +302,41 @@
 					: [])
 			]
 		},
+		// Supervision is the cross-surface session graph, Obot Policy and the Supervisor. The nav
+		// renders one level of items under a group, so it is its own group next to Operations.
+		...(profile.current.hasAdminAccess?.()
+			? [
+					{
+						id: 'supervision',
+						icon: ShieldCheck,
+						label: m.nav_supervision(),
+						collapsible: true,
+						beta: true,
+						items: [
+							{
+								id: 'supervision-overview',
+								label: m.nav_supervision_overview(),
+								href: '/supervision'
+							},
+							{
+								id: 'sessions',
+								label: m.nav_sessions(),
+								href: '/sessions'
+							},
+							{
+								id: 'policies',
+								label: m.nav_policies(),
+								href: '/policies'
+							},
+							{
+								id: 'approvals',
+								label: m.nav_approvals(),
+								href: '/approvals'
+							}
+						]
+					}
+				]
+			: []),
 		{
 			id: 'identity-and-access',
 			label: m.nav_identity_access(),
@@ -319,10 +355,15 @@
 			: [])
 	]);
 
+	// A beta group marks every page under it as beta without badging each item.
 	function collectBetaHrefs(links: NavLink[]): string[] {
 		return links.flatMap((link) => [
 			...(link.beta && link.href ? [link.href] : []),
-			...(link.items ? collectBetaHrefs(link.items) : [])
+			...(link.items
+				? link.beta
+					? link.items.flatMap((item) => (item.href ? [item.href] : []))
+					: collectBetaHrefs(link.items)
+				: [])
 		]);
 	}
 

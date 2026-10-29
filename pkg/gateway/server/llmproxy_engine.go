@@ -20,11 +20,15 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/llmcore"
 	"github.com/obot-platform/obot/pkg/llmengine"
+	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/provenance"
+	"github.com/obot-platform/obot/pkg/provenance/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -42,6 +46,11 @@ const (
 	// gateway response, which routing rules and fallbacks can make differ from the request's.
 	headerServedProvider = "X-Obot-LLM-Provider"
 	headerServedModel    = "X-Obot-LLM-Model"
+
+	// headerSessionID names the provenance session a request belongs to. Callers send it to
+	// join a session the engine issued; every response names the session it was recorded in,
+	// so a client can propagate it.
+	headerSessionID = "X-Obot-Session-ID"
 )
 
 var (
@@ -49,7 +58,7 @@ var (
 	// their own requests, and the engine headers they map to. Everything else the engine reads
 	// from headers (such as direct keys) is controlled by Obot.
 	clientGatewayHeaders = map[string]string{
-		"X-Obot-Session-ID": "x-bf-session-id",
+		headerSessionID: "x-bf-session-id",
 	}
 )
 
@@ -60,6 +69,8 @@ var (
 type bifrostProviderBackend struct {
 	engine   *llmengine.Engine
 	settings settingsCache
+	// provenance, when set, is the session graph every model request feeds.
+	provenance *provenance.Engine
 }
 
 // settingsCache holds the LLM gateway settings the proxy last read.
@@ -119,6 +130,8 @@ type gatewayAttempts struct {
 	detections map[string][]guardrails.Detection
 	// priced is what the gateway priced the response at, when it did.
 	priced *guardrails.Cost
+	// session is the provenance session the request was recorded in, when one was bound.
+	session string
 }
 
 func (c *settingsCache) get(ctx context.Context, gatewayClient *client.Client) gatewaytypes.LLMGatewaySettings {
@@ -148,9 +161,16 @@ func (s *Server) LLMGateway() *llmengine.Engine {
 	return s.llmGateway
 }
 
+// SetProvenance attaches the provenance engine. Every model request through the LLM proxy
+// then feeds its session graph, and the tool calls a model proposes are decided by Obot
+// Policy before the client sees them. It must be called before the routes are built.
+func (s *Server) SetProvenance(engine *provenance.Engine) {
+	s.provenance = engine
+}
+
 func (s *Server) newBifrostLLMProviderProxy() *llmProviderProxy {
 	return &llmProviderProxy{
-		backend:   &bifrostProviderBackend{engine: s.llmGateway},
+		backend:   &bifrostProviderBackend{engine: s.llmGateway, provenance: s.provenance},
 		mapHelper: s.mapHelper,
 	}
 }
@@ -414,6 +434,9 @@ func (a *gatewayAttempts) paidBySubscription() bool {
 
 func (a *gatewayAttempts) release() { a.unbind() }
 
+// sessionID is the provenance session the request was recorded in, or "" when none was.
+func (a *gatewayAttempts) sessionID() string { return a.session }
+
 // recordDetections keeps what a stage's guardrail policies did to the request. The input is
 // checked again for every model the gateway tries, and the last check is the one that held.
 func (a *gatewayAttempts) recordDetections(stage string, detections []guardrails.Detection) {
@@ -631,6 +654,9 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 		// A caller signed in with a Claude subscription must not be served on Obot's keys.
 		return nil, types2.NewErrForbidden("Claude subscriptions cannot be used for model %q", model.Spec.Manifest.TargetModel)
 	}
+	// A session the caller names joins that session; the header is also the engine's own
+	// session header, which the loop below moves.
+	explicitSession := req.Header.Get(headerSessionID)
 	for client, engine := range clientGatewayHeaders {
 		if v := req.Header.Get(client); v != "" {
 			req.Header.Set(engine, v)
@@ -645,14 +671,98 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 		return nil, err
 	}
 	attempts := &gatewayAttempts{budgets: map[string][]string{}, subscription: subscription, identity: identity, isAdmin: isAdmin}
-	token, unbind := guardrails.BindRequest(identity, guardrails.RequestHooks{
+	hooks := guardrails.RequestHooks{
 		AttemptCheck: attempts.check(b, l, apiReq, model),
 		Detections:   attempts.recordDetections,
 		Cost:         attempts.recordCost,
-	})
+	}
+	if b.provenance != nil && model != nil {
+		// Only model requests feed the session graph; model listing doesn't. A
+		// store failure here means the request can't be placed in a session; it
+		// is served unobserved rather than refused, since the guardrails and the
+		// access checks still apply to it.
+		if prov, err := b.provenanceContext(apiReq, explicitSession); err != nil {
+			slog.Warn("LLM request could not be placed in a provenance session", "user", identity.UserID, "error", err)
+		} else {
+			hooks.Provenance = prov
+			attempts.session = prov.Session.Explicit
+		}
+	}
+	token, unbind := guardrails.BindRequest(identity, hooks)
 	attempts.unbind = unbind
 	req.Header.Set(guardrails.HeaderRequestToken, token)
 	return attempts, nil
+}
+
+// provenanceContext places a request in the session graph: who it is for, which agent sent
+// it, and which session it joins. The session is resolved here, so every event the request
+// records lands in the same session and the response can name it. A session named by the
+// caller (X-Obot-Session-ID) is joined; otherwise the agent's own session ID, the same one
+// the LLM audit log keeps, stitches the request to the agent's session across surfaces.
+func (b *bifrostProviderBackend) provenanceContext(apiReq api.Context, explicitSession string) (*guardrails.ProvenanceContext, error) {
+	req := apiReq.Request
+	body, err := copyBody(&req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the request body: %w", err)
+	}
+	route, err := resolveBifrostRoute(req)
+	if err != nil {
+		return nil, err
+	}
+	subject, key := provenanceSubject(apiReq.User, req.UserAgent(), extractLLMClientSessionID(route.dialect, req.Header, body))
+	key.Explicit = explicitSession
+	session, err := b.provenance.Resolve(apiReq.Context(), subject, key, provenance.SurfaceLLM)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve the request's session: %w", err)
+	}
+	if explicitSession != "" && session.ID == explicitSession && session.UserID != subject.UserID {
+		// A caller may only join their own sessions; another user's is ignored, not
+		// polluted. Resolve the request's own session instead.
+		slog.Warn("ignoring a session ID that belongs to another user", "userID", subject.UserID, "sessionID", explicitSession)
+		key.Explicit = ""
+		if session, err = b.provenance.Resolve(apiReq.Context(), subject, key, provenance.SurfaceLLM); err != nil {
+			return nil, fmt.Errorf("failed to resolve the request's session: %w", err)
+		}
+	}
+	key.Explicit = session.ID
+	return &guardrails.ProvenanceContext{
+		Engine:  b.provenance,
+		Subject: subject,
+		Session: key,
+		// The LLM audit log records the request under the same request ID.
+		AuditID: gatewaycontext.GetRequestID(apiReq.Context()),
+	}, nil
+}
+
+// provenanceSubject describes who a request is for and the actor sending it, and the key
+// that stitches it to a session: the agent program named by the User-Agent, the agent's own
+// session ID when it sent one, and the user and API key otherwise.
+func provenanceSubject(user kuser.Info, userAgent, clientSessionID string) (provenance.Subject, provenance.SessionKey) {
+	agent, version := llm.AgentFromUserAgent(userAgent)
+	if agent == "" {
+		agent = "client"
+	}
+	subject := provenance.Subject{
+		Actor: provenance.Actor{Agent: agent, AgentVersion: version, ClientSessionID: clientSessionID},
+	}
+	if user != nil {
+		subject.UserID = user.GetUID()
+		extra := user.GetExtra()
+		if emails := extra["email"]; len(emails) > 0 {
+			subject.Email = emails[0]
+		}
+		subject.Groups = slices.Clone(extra["auth_provider_groups"])
+		if attribution, ok := principal.APIKeyAttributionFromUser(user); ok {
+			subject.Actor.APIKeyID = strconv.FormatUint(uint64(attribution.ID), 10)
+		}
+	}
+	key := provenance.SessionKey{
+		ClientSessionID: clientSessionID,
+		Agent:           agent,
+		UserID:          subject.UserID,
+		APIKeyID:        subject.Actor.APIKeyID,
+	}
+	return subject, key
 }
 
 // admit enforces LLM gateway budgets. It replaces the daily token quota for gateway traffic:

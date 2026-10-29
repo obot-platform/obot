@@ -21,6 +21,7 @@
 			"./messages/models/{locale}.json",
 			"./messages/platform/{locale}.json",
 			"./messages/skills/{locale}.json",
+			"./messages/supervision/{locale}.json",
 			"./messages/vmcps/{locale}.json"
 		]
 	}

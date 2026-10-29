@@ -30,7 +30,7 @@ const (
 func newEnforcementTestHandler(t *testing.T) *EnforcementHandler {
 	t.Helper()
 
-	h, err := NewEnforcementHandler(enforcementTestServerURL)
+	h, err := NewEnforcementHandler(enforcementTestServerURL, nil)
 	if err != nil {
 		t.Fatalf("new enforcement handler: %v", err)
 	}

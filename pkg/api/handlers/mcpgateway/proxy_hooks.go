@@ -35,6 +35,9 @@ type pendingRequest struct {
 	name        string
 	genericCall bool
 	mutations   map[string]mcp.HookMutation
+	// provenanceEventID is the provenance event the request was decided as, so its
+	// response is ingested as that event's child.
+	provenanceEventID string
 }
 
 // hookProcessor filters MCP messages for one proxied HTTP exchange.
@@ -46,6 +49,7 @@ type hookProcessor struct {
 	audit      *proxyAudit
 	store      *hookCorrelationStore
 	guardrails *mcpGuardrails
+	provenance *mcpProvenance
 	sessionID  string
 	request    *pendingRequest
 	requestID  string
@@ -82,6 +86,8 @@ type hookResult struct {
 	originalBody    json.RawMessage
 	mutatedBody     json.RawMessage
 	responseChanged bool
+	// provenanceEventID is the event the provenance filter recorded for a request.
+	provenanceEventID string
 }
 
 type hookStatus struct {
@@ -107,9 +113,10 @@ type hookSSELine struct {
 
 // newHookProcessor filters the messages of one proxied exchange with hooks. Server-backed
 // hooks run on runner; guardrail filters run in-process with guardrails, which may be nil
-// when no hook is a guardrail filter. resolved is the tool a vMCP's generic tool call
-// resolved to, if any.
-func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore, resolved *resolvedToolCall, guardrails *mcpGuardrails) (*hookProcessor, error) {
+// when no hook is a guardrail filter; the provenance filter runs in-process with
+// provenance, which may be nil when no hook is the native provenance target. resolved is
+// the tool a vMCP's generic tool call resolved to, if any.
+func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore, resolved *resolvedToolCall, guardrails *mcpGuardrails, provenance *mcpProvenance) (*hookProcessor, error) {
 	if runner == nil {
 		hooks = hooks.GuardrailsOnly()
 	}
@@ -121,6 +128,7 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 		audit:      audit,
 		store:      store,
 		guardrails: guardrails,
+		provenance: provenance,
 		sessionID:  mcpSessionID(req.Header, req.URL),
 		disabled:   len(hooks) == 0,
 		resolved:   resolved,
@@ -394,7 +402,7 @@ func (h *hookProcessor) filterResponseMessage(body []byte, origin hookOrigin) []
 	hookMessage := wireMessage
 	hookMessage.Method = request.message.Method
 	hookMessage.HookMutations = cloneMCPHookMutations(request.mutations)
-	result := h.run(hookMessage, request.message.Method, request.name, "response", request.mutations, request.genericCall, request.message.Params)
+	result := h.run(hookMessage, request.message.Method, request.name, "response", request.mutations, request.genericCall, request.message.Params, request.provenanceEventID)
 	result.captureBody(body)
 
 	if result.err != nil {
@@ -475,7 +483,7 @@ func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, orig
 		}
 		name = h.resolved.name
 	}
-	result := h.run(hookMessage, wireMessage.Method, name, "request", nil, genericCall, nil)
+	result := h.run(hookMessage, wireMessage.Method, name, "request", nil, genericCall, nil, "")
 	if result.err != nil {
 		return filteredRequest{body: mcpHookErrorResponse(wireMessage, "request", result.err), hooks: result}, nil
 	}
@@ -518,6 +526,7 @@ func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, orig
 		body: body,
 		request: pendingRequest{
 			message: message, name: requestName, genericCall: genericCall, mutations: cloneMCPHookMutations(result.mutations),
+			provenanceEventID: result.provenanceEventID,
 		},
 		requestID: requestID,
 		hooks:     result,
@@ -546,21 +555,23 @@ func (e *hookBlockedError) Error() string {
 	return fmt.Sprintf("MCP %s blocked by hook: %s", e.direction, strings.Join(e.reasons, "; "))
 }
 
-// run runs the matching hook chain. Server-backed filters run on the hook runner and
-// guardrail filters run in-process, in the chain's order. genericCall is true for a vMCP's
-// generic tool call, and requestParams are the params of the request a response answers.
-func (h *hookProcessor) run(message mcp.Message, method, name, direction string, priorMutations map[string]mcp.HookMutation, genericCall bool, requestParams json.RawMessage) hookResult {
+// run runs the matching hook chain. Server-backed filters run on the hook runner;
+// guardrail filters and the provenance filter run in-process, in the chain's order.
+// genericCall is true for a vMCP's generic tool call, requestParams are the params of the
+// request a response answers, and callEventID is the provenance event of that request.
+func (h *hookProcessor) run(message mcp.Message, method, name, direction string, priorMutations map[string]mcp.HookMutation, genericCall bool, requestParams json.RawMessage, callEventID string) hookResult {
 	if len(h.hooks) == 0 {
 		return hookResult{message: message, mutations: cloneMCPHookMutations(priorMutations)}
 	}
 
 	var (
-		errs       []error
-		statuses   []hookStatus
-		mutations  = cloneMCPHookMutations(priorMutations)
-		mutated    bool
-		current    = message
-		rejections []string
+		errs              []error
+		statuses          []hookStatus
+		mutations         = cloneMCPHookMutations(priorMutations)
+		mutated           bool
+		current           = message
+		rejections        []string
+		provenanceEventID string
 	)
 	message.HookMutations = cloneMCPHookMutations(mutations)
 	hookResponse := mcp.SessionMessageHook{Accept: true, Message: &message}
@@ -577,10 +588,20 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 				hookErr error
 				tool    = target.Target
 			)
-			if target.Guardrail != nil {
+			switch {
+			case target.Guardrail != nil:
 				tool = guardrailHookTool
 				output, hookErr = h.guardrails.run(h.ctx, target, *hookResponse.Message, method, name, direction, requestParams)
-			} else {
+			case target.Native == mcp.HookNativeProvenance:
+				var eventID string
+				tool = target.Native
+				output, eventID, hookErr = h.provenance.run(h.ctx, *hookResponse.Message, method, name, direction, callEventID)
+				if eventID != "" {
+					provenanceEventID = eventID
+				}
+			case target.Native != "":
+				hookErr = fmt.Errorf("unknown native hook %q", target.Native)
+			default:
 				output, hookErr = h.runner.RunHook(h.ctx, h.servers, hookResponse, target.Target)
 			}
 			if hookErr != nil {
@@ -652,6 +673,7 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 	}
 	return hookResult{
 		message: *hookResponse.Message, mutations: mutations, statuses: statuses, mutated: mutated, err: errors.Join(errs...),
+		provenanceEventID: provenanceEventID,
 	}
 }
 

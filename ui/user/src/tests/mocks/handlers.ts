@@ -114,6 +114,51 @@ export const handlers = [
 		() => new HttpResponse(null, { status: 404 })
 	),
 	http.get('/api/groups', () => HttpResponse.json({ items: [] })),
+	// Supervision (provenance) defaults: empty lists so the pages render; specs override with
+	// the fixtures in ./provenance.
+	http.get('/api/provenance/overview', () =>
+		HttpResponse.json({
+			coverage: { sessions: 0, surfaces: {}, blind: 0 },
+			decisions: { allowed: 0, denied: 0, shadowed: 0, approvals_pending: 0 },
+			byEffect: {},
+			bySurface: {},
+			riskiest: [],
+			policies: { enforce: 0, shadow: 0 },
+			supervisor: { enabled: false }
+		})
+	),
+	http.get('/api/provenance/sessions', () =>
+		HttpResponse.json({ items: [], total: 0, limit: 50, offset: 0 })
+	),
+	http.get('/api/provenance/sessions/:id', () => new HttpResponse(null, { status: 404 })),
+	http.get('/api/provenance/sessions/:id/events', () => HttpResponse.json({ items: [], total: 0 })),
+	http.get('/api/provenance/sessions/:id/narrative', () =>
+		HttpResponse.json({ summary: '', timeline: [], concerns: [] })
+	),
+	http.post('/api/provenance/sessions/:id/warrant', () => new HttpResponse(null, { status: 404 })),
+	http.post('/api/provenance/sessions/:id/end', () => new HttpResponse(null, { status: 204 })),
+	http.get('/api/provenance/events', () => HttpResponse.json({ items: [], total: 0 })),
+	http.get('/api/provenance/policies', () => HttpResponse.json({ items: [] })),
+	http.post('/api/provenance/policies', () => new HttpResponse(null, { status: 400 })),
+	http.post('/api/provenance/policies/validate', () => HttpResponse.json({ valid: true })),
+	http.post('/api/provenance/policies/simulate', () => new HttpResponse(null, { status: 400 })),
+	http.post('/api/provenance/policies/draft', () =>
+		HttpResponse.json({ error: 'supervisor unavailable' }, { status: 503 })
+	),
+	http.get('/api/provenance/policies/:id', () => new HttpResponse(null, { status: 404 })),
+	http.put('/api/provenance/policies/:id', () => new HttpResponse(null, { status: 404 })),
+	http.delete('/api/provenance/policies/:id', () => new HttpResponse(null, { status: 404 })),
+	http.get('/api/provenance/approvals', () => HttpResponse.json({ items: [], total: 0 })),
+	http.get('/api/provenance/approvals/:id', () => new HttpResponse(null, { status: 404 })),
+	http.post('/api/provenance/approvals/:id/approve', () => new HttpResponse(null, { status: 404 })),
+	http.post('/api/provenance/approvals/:id/deny', () => new HttpResponse(null, { status: 404 })),
+	http.get('/api/provenance/kills', () => HttpResponse.json({ items: [] })),
+	http.post('/api/provenance/kills', () => new HttpResponse(null, { status: 400 })),
+	http.delete('/api/provenance/kills/:id', () => new HttpResponse(null, { status: 204 })),
+	http.get('/api/provenance/honeytokens', () => HttpResponse.json({ items: [] })),
+	http.get('/api/provenance/tool-labels', () => HttpResponse.json({ items: [] })),
+	http.get('/api/provenance/settings', () => HttpResponse.json({ supervisorEnabled: false })),
+	http.post('/api/provenance/redteam/run', () => HttpResponse.json({ scenarios: [] })),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>
 		HttpResponse.json({ items: data.listAllUserWorkspaceCatalogEntriesResponse })

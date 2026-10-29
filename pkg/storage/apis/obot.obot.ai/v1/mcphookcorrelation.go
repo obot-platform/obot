@@ -25,7 +25,10 @@ type MCPHookCorrelationSpec struct {
 	Name            string           `json:"name,omitempty"`
 	GenericCall     bool             `json:"genericCall,omitempty"`
 	RequestMutation *MCPHookMutation `json:"requestMutation,omitempty"`
-	ExpiresAt       metav1.Time      `json:"expiresAt"`
+	// ProvenanceEventID is the provenance event recorded for the request (a tool.call),
+	// so the response can be ingested as its child on any replica.
+	ProvenanceEventID string      `json:"provenanceEventID,omitempty"`
+	ExpiresAt         metav1.Time `json:"expiresAt"`
 }
 
 type MCPHookMutation struct {

@@ -110,6 +110,10 @@ var (
 		"DELETE /api/mdm/devices/",
 		"GET /api/enforcement-decisions",
 		"GET /api/enforcement-decisions/",
+		"/api/provenance",
+		"/api/provenance/",
+		"POST /api/copilot-studio/runtime-monitor",
+		"POST /api/copilot-studio/validate",
 		"/api/mdm/asset-source",
 		"/api/mdm/asset-source/",
 		"GET /api/mdm/assets",
@@ -241,6 +245,8 @@ var (
 			"GET /api/skill-access-rules/",
 			"GET /api/enforcement-decisions",
 			"GET /api/enforcement-decisions/",
+			"GET /api/provenance",
+			"GET /api/provenance/",
 			"GET /api/devices/scan-stats",
 			"GET /api/devices/mcp-servers/",
 			"GET /api/devices/skills",
@@ -320,6 +326,9 @@ var (
 		},
 
 		types.GroupAPI: {
+			// Copilot Studio agents report into the provenance engine with an API key.
+			"POST /api/copilot-studio/runtime-monitor",
+			"POST /api/copilot-studio/validate",
 			"GET /api/claude-sessions",
 			"GET /api/claude-sessions/{session_id}",
 			"DELETE /api/claude-sessions/{session_id}",

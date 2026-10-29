@@ -45,7 +45,8 @@ func (s *hookCorrelationStore) save(ctx context.Context, sessionID, requestID st
 	key := s.key(sessionID, requestID, origin)
 	spec := v1.MCPHookCorrelationSpec{
 		Method: request.message.Method, Name: request.name, GenericCall: request.genericCall,
-		ExpiresAt: metav1.NewTime(time.Now().Add(v1.MCPHookCorrelationTTL)),
+		ProvenanceEventID: request.provenanceEventID,
+		ExpiresAt:         metav1.NewTime(time.Now().Add(v1.MCPHookCorrelationTTL)),
 	}
 	if mutation, ok := request.mutations["request"]; ok {
 		spec.RequestMutation = &v1.MCPHookMutation{
@@ -92,7 +93,10 @@ func (s *hookCorrelationStore) loadAndDelete(ctx context.Context, sessionID, req
 		return pendingRequest{}, false, nil
 	}
 
-	request := pendingRequest{message: mcp.Message{Method: correlation.Spec.Method}, name: correlation.Spec.Name, genericCall: correlation.Spec.GenericCall}
+	request := pendingRequest{
+		message: mcp.Message{Method: correlation.Spec.Method}, name: correlation.Spec.Name, genericCall: correlation.Spec.GenericCall,
+		provenanceEventID: correlation.Spec.ProvenanceEventID,
+	}
 	if mutation := correlation.Spec.RequestMutation; mutation != nil {
 		request.mutations = map[string]mcp.HookMutation{"request": {
 			Mutated: mutation.Mutated,

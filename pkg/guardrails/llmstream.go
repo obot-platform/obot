@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/pkg/provenance/llm"
 )
 
 // streamPart is one piece of streamed content: assistant text, reasoning, a refusal, or a
@@ -31,6 +32,9 @@ type streamState struct {
 	parts map[string]*streamPart
 	// names maps Responses output item IDs to their tool names.
 	names map[string]string
+	// ids maps tool call parts to their call IDs, which the session graph pairs with the
+	// results a later request feeds back.
+	ids map[string]string
 }
 
 // textField is one text field in a chunk, identified by its stream part key.
@@ -45,7 +49,7 @@ type textField struct {
 }
 
 func newStreamState() *streamState {
-	return &streamState{parts: map[string]*streamPart{}, names: map[string]string{}}
+	return &streamState{parts: map[string]*streamPart{}, names: map[string]string{}, ids: map[string]string{}}
 }
 
 func (s *streamState) part(key, role, name string) *streamPart {
@@ -256,14 +260,24 @@ func (s *streamState) observe(resp *schemas.BifrostResponse) {
 			if c.ChatStreamResponseChoice == nil || c.Delta == nil {
 				continue
 			}
+			for j := range c.Delta.ToolCalls {
+				// A tool call starts a part even before any arguments, so a call without
+				// arguments is still proposed; its ID arrives with the first delta.
+				tc := &c.Delta.ToolCalls[j]
+				key := chatToolKey(c.Index, tc.Index)
+				s.part(key, RoleToolCall, derefString(tc.Function.Name))
+				if id := derefString(tc.ID); id != "" {
+					s.ids[key] = id
+				}
+			}
 			for _, f := range chatDeltaFields(c.Index, c.Delta) {
 				s.record(f)
 			}
 		}
 	case resp.ResponsesStreamResponse != nil:
 		ev := resp.ResponsesStreamResponse
-		if ev.Type == schemas.ResponsesStreamResponseTypeOutputItemAdded && ev.Item != nil && ev.Item.ID != nil && ev.Item.ResponsesToolMessage != nil && ev.Item.Name != nil {
-			s.names[*ev.Item.ID] = *ev.Item.Name
+		if ev.Item != nil {
+			s.noteItem(ev.Item)
 		}
 		for _, f := range s.responsesEventFields(ev) {
 			s.record(f)
@@ -275,12 +289,47 @@ func (s *streamState) observe(resp *schemas.BifrostResponse) {
 		}
 		if ev.Response != nil {
 			for i := range ev.Response.Output {
+				s.noteItem(&ev.Response.Output[i])
 				for _, f := range itemFields(&ev.Response.Output[i]) {
 					s.record(f)
 				}
 			}
 		}
 	}
+}
+
+// noteItem remembers a Responses tool call item's name and call ID, and starts its part so
+// the call is proposed even without arguments.
+func (s *streamState) noteItem(item *schemas.ResponsesMessage) {
+	if item.ID == nil || item.ResponsesToolMessage == nil || item.Type == nil {
+		return
+	}
+	switch *item.Type {
+	case schemas.ResponsesMessageTypeFunctionCall, schemas.ResponsesMessageTypeCustomToolCall:
+	default:
+		return
+	}
+	if item.Name != nil {
+		s.names[*item.ID] = *item.Name
+	}
+	key := respArgsKey(*item.ID)
+	s.part(key, RoleToolCall, s.names[*item.ID])
+	if item.CallID != nil && *item.CallID != "" {
+		s.ids[key] = *item.CallID
+	}
+}
+
+// proposedCalls returns the tool calls the accumulated response proposes, in order.
+func (s *streamState) proposedCalls() []llm.ProposedCall {
+	var out []llm.ProposedCall
+	for _, key := range s.order {
+		p := s.parts[key]
+		if p.role != RoleToolCall {
+			continue
+		}
+		out = append(out, llm.ProposedCall{CallID: s.ids[key], Name: p.name, ArgumentsJSON: p.text.String()})
+	}
+	return out
 }
 
 func (s *streamState) segments() []Segment {

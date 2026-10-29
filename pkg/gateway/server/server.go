@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/provenance"
 )
 
 type Options struct {
@@ -27,6 +28,8 @@ type Server struct {
 	acrHelper      *accesscontrolrule.Helper
 	mapHelper      *modelaccesspolicy.Helper
 	llmGateway     *llmengine.Engine
+	// provenance is the session graph the LLM proxy feeds; see SetProvenance.
+	provenance *provenance.Engine
 }
 
 func New(db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, acrHelper *accesscontrolrule.Helper, mapHelper *modelaccesspolicy.Helper, opts Options) (*Server, error) {

@@ -305,3 +305,11 @@ func (e *Engine) ChatCompletion(ctx context.Context, model string, messages []sc
 	}
 	return e.core.Load().ChatCompletion(ctx, model, messages)
 }
+
+// ChatCompletionWithParams is ChatCompletion with request parameters.
+func (e *Engine) ChatCompletionWithParams(ctx context.Context, model string, messages []schemas.ChatMessage, params *schemas.ChatParameters) (*schemas.BifrostChatResponse, error) {
+	if !e.Ready() {
+		return nil, errors.New("LLM gateway unavailable")
+	}
+	return e.core.Load().ChatCompletionWithParams(ctx, model, messages, params)
+}

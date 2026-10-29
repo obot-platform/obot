@@ -12,6 +12,9 @@ import (
 const (
 	// HookMutationsMetaKey identifies hook mutation metadata in MCP results.
 	HookMutationsMetaKey = "ai.obot.hooks/mutations"
+	// HookNativeProvenance is the native hook target that decides tool calls with the
+	// provenance engine (Obot Policy) and ingests their results into the session graph.
+	HookNativeProvenance = "provenance"
 )
 
 var (
@@ -39,6 +42,9 @@ type HookTarget struct {
 	// Guardrail is set for a guardrail filter, which Obot runs in-process instead of
 	// calling Target on a filter MCP server.
 	Guardrail *GuardrailTarget
+	// Native names a filter built into the gateway (HookNativeProvenance), which runs
+	// in-process with no filter server and no administrator configuration.
+	Native string
 }
 
 // GuardrailTarget is a guardrail filter in a hook chain.
@@ -90,14 +96,32 @@ func (h Hooks) HasGuardrails() bool {
 	return false
 }
 
-// GuardrailsOnly returns the hooks with only their guardrail filter targets, which need no
-// hook runner.
+// HasNative reports whether any hook target is a native gateway filter.
+func (h Hooks) HasNative() bool {
+	for _, hook := range h {
+		for _, target := range hook.Targets {
+			if target.Native != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// NeedsInProcess reports whether any hook target runs in-process (a guardrail filter or a
+// native filter), so the gateway must inspect messages even without a hook runner.
+func (h Hooks) NeedsInProcess() bool {
+	return h.HasGuardrails() || h.HasNative()
+}
+
+// GuardrailsOnly returns the hooks with only their in-process targets (guardrail filters
+// and native filters), which need no hook runner.
 func (h Hooks) GuardrailsOnly() Hooks {
 	var result Hooks
 	for _, hook := range h {
 		var targets []HookTarget
 		for _, target := range hook.Targets {
-			if target.Guardrail != nil {
+			if target.Guardrail != nil || target.Native != "" {
 				targets = append(targets, target)
 			}
 		}

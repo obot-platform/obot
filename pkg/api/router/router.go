@@ -62,6 +62,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		services.TunnelManager,
 		oauthChecker.ClaudeAuthorizationURLs,
 		services.GuardrailEngine,
+		services.ProvenanceEngine,
 	)
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
-	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
+	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler(services.ProvenanceEngine)
 	llmAuditLogs := handlers.NewLLMAuditLogHandler()
 	egressAuditLogs := &handlers.EgressAuditLogHandler{}
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
@@ -122,7 +123,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mcpTunnelHandler := handlers.NewMCPTunnelHandler(services.TunnelManager)
 	k8sSettingsHandler := handlers.NewK8sSettingsHandler(services.MCPSessionManager)
 
-	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
+	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL, services.ProvenanceEngine)
 	if err != nil {
 		_ = mcpGateway.Close()
 		return nil, err
@@ -392,6 +393,46 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/enforcement-decisions/filter-options/{filter}", enforcement.ListFilterOptions)
 	mux.HandleFunc("GET /api/enforcement-decisions/allowlist-check/{id}", enforcement.CheckDecisionAllowlist)
 	mux.HandleFunc("GET /api/enforcement-decisions/{id}", enforcement.GetDecision)
+
+	// Provenance: the cross-surface session graph, Obot Policy and the Supervisor
+	prov := handlers.NewProvenanceHandler(services.ProvenanceEngine)
+	mux.HandleFunc("GET /api/provenance/overview", prov.Overview)
+	mux.HandleFunc("POST /api/provenance/redteam/run", prov.RunRedTeam)
+	mux.HandleFunc("GET /api/provenance/sessions", prov.ListSessions)
+	mux.HandleFunc("GET /api/provenance/sessions/{id}", prov.GetSession)
+	mux.HandleFunc("GET /api/provenance/sessions/{id}/events", prov.ListSessionEvents)
+	mux.HandleFunc("GET /api/provenance/sessions/{id}/narrative", prov.SessionNarrative)
+	mux.HandleFunc("POST /api/provenance/sessions/{id}/warrant", prov.IssueWarrant)
+	mux.HandleFunc("POST /api/provenance/sessions/{id}/end", prov.EndSession)
+	mux.HandleFunc("GET /api/provenance/events", prov.ListEvents)
+	mux.HandleFunc("GET /api/provenance/policies", prov.ListPolicies)
+	mux.HandleFunc("POST /api/provenance/policies", prov.CreatePolicy)
+	mux.HandleFunc("POST /api/provenance/policies/validate", prov.ValidatePolicy)
+	mux.HandleFunc("POST /api/provenance/policies/simulate", prov.SimulatePolicy)
+	mux.HandleFunc("POST /api/provenance/policies/draft", prov.DraftPolicy)
+	mux.HandleFunc("GET /api/provenance/policies/{id}", prov.GetPolicy)
+	mux.HandleFunc("PUT /api/provenance/policies/{id}", prov.UpdatePolicy)
+	mux.HandleFunc("DELETE /api/provenance/policies/{id}", prov.DeletePolicy)
+	mux.HandleFunc("GET /api/provenance/approvals", prov.ListApprovals)
+	mux.HandleFunc("GET /api/provenance/approvals/{id}", prov.GetApproval)
+	mux.HandleFunc("POST /api/provenance/approvals/{id}/approve", prov.ApproveApproval)
+	mux.HandleFunc("POST /api/provenance/approvals/{id}/deny", prov.DenyApproval)
+	mux.HandleFunc("GET /api/provenance/kills", prov.ListKills)
+	mux.HandleFunc("POST /api/provenance/kills", prov.CreateKill)
+	mux.HandleFunc("DELETE /api/provenance/kills/{id}", prov.DeleteKill)
+	mux.HandleFunc("GET /api/provenance/honeytokens", prov.ListHoneytokens)
+	mux.HandleFunc("POST /api/provenance/honeytokens", prov.CreateHoneytoken)
+	mux.HandleFunc("DELETE /api/provenance/honeytokens/{id}", prov.DeleteHoneytoken)
+	mux.HandleFunc("GET /api/provenance/tool-labels", prov.ListToolLabels)
+	mux.HandleFunc("PUT /api/provenance/tool-labels", prov.PutToolLabel)
+	mux.HandleFunc("GET /api/provenance/settings", prov.GetSettings)
+	mux.HandleFunc("PUT /api/provenance/settings", prov.UpdateSettings)
+
+	// Microsoft Copilot Studio runtime monitoring hook (handler in copilotstudio.go)
+	// TODO(lead): enable once B5 lands
+	copilot := handlers.NewCopilotStudioHandler(services.ProvenanceEngine)
+	mux.HandleFunc("POST /api/copilot-studio/runtime-monitor", copilot.RuntimeMonitor)
+	mux.HandleFunc("POST /api/copilot-studio/validate", copilot.Validate)
 
 	// LLM Audit Logs
 	mux.HandleFunc("GET /api/egress-audit-logs", egressAuditLogs.List)

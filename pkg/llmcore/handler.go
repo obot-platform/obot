@@ -476,7 +476,13 @@ func writeBodyReadError(w http.ResponseWriter, d dialect, err error) {
 
 // ChatCompletion is for trusted internal callers that consume a complete result.
 // It shares HTTP model normalization and the configured routing/plugin chain.
-func (e *Engine) ChatCompletion(parent context.Context, model string, messages []schemas.ChatMessage) (resp *schemas.BifrostChatResponse, err error) {
+func (e *Engine) ChatCompletion(parent context.Context, model string, messages []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+	return e.ChatCompletionWithParams(parent, model, messages, nil)
+}
+
+// ChatCompletionWithParams is ChatCompletion with request parameters, such as a
+// response_format constraining the output.
+func (e *Engine) ChatCompletionWithParams(parent context.Context, model string, messages []schemas.ChatMessage, params *schemas.ChatParameters) (resp *schemas.BifrostChatResponse, err error) {
 	// Policy workers have no HTTP recovery. Contain synchronous hook failures here
 	// and discard partial results without including potentially secret panic values.
 	defer func() {
@@ -493,7 +499,7 @@ func (e *Engine) ChatCompletion(parent context.Context, model string, messages [
 	if provider == "" {
 		return nil, fmt.Errorf("model %q must be named as provider/model", model)
 	}
-	resp, engineErr := e.client.ChatCompletionRequest(ctx, &schemas.BifrostChatRequest{Provider: provider, Model: normalized, Input: messages})
+	resp, engineErr := e.client.ChatCompletionRequest(ctx, &schemas.BifrostChatRequest{Provider: provider, Model: normalized, Input: messages, Params: params})
 	if engineErr != nil {
 		_, _, message := errorParts(engineErr)
 		return nil, errors.New(message)

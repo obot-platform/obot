@@ -220,6 +220,14 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 // Policies consume complete text, so a native unary call avoids an internal SSE
 // round trip while retaining core normalization, routing and policy plugins.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
+	resp, err := h.llmGateway.ChatCompletion(ctx, resolved.targetModel, toBifrostMessages(messages))
+	if err != nil {
+		return "", fmt.Errorf("LLM call failed: %w", err)
+	}
+	return responseText(resp)
+}
+
+func toBifrostMessages(messages []chatMessage) []schemas.ChatMessage {
 	input := make([]schemas.ChatMessage, 0, len(messages))
 	for _, message := range messages {
 		input = append(input, schemas.ChatMessage{
@@ -227,10 +235,10 @@ func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages 
 			Content: &schemas.ChatMessageContent{ContentStr: &message.Content},
 		})
 	}
-	resp, err := h.llmGateway.ChatCompletion(ctx, resolved.targetModel, input)
-	if err != nil {
-		return "", fmt.Errorf("LLM call failed: %w", err)
-	}
+	return input
+}
+
+func responseText(resp *schemas.BifrostChatResponse) (string, error) {
 	if resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message == nil || resp.Choices[0].Message.Content == nil || resp.Choices[0].Message.Content.ContentStr == nil {
 		return "", fmt.Errorf("LLM call returned no text")
 	}

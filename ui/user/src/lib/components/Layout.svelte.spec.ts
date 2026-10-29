@@ -28,7 +28,14 @@ const children = createRawSnippet(() => ({ render: () => '<div></div>' }));
 
 const sharedLinks = ['/vmcps', '/skills', '/models', '/audit-logs', '/usage', '/identity-access'];
 
-const adminOnlyLinks = ['/inventory', '/admin/platform'];
+const adminOnlyLinks = [
+	'/inventory',
+	'/supervision',
+	'/sessions',
+	'/policies',
+	'/approvals',
+	'/admin/platform'
+];
 
 function createProfile(groups: string[]): Profile {
 	return {
@@ -106,6 +113,7 @@ async function expectSharedNavigation() {
 
 async function expectAdminOnlyNavigation() {
 	await expandSection('operations', '/inventory');
+	await expandSection('supervision', '/supervision');
 
 	for (const href of adminOnlyLinks) {
 		await expectLink(href);

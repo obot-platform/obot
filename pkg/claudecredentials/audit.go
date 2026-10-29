@@ -69,6 +69,7 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 	}
 	var entry types.EgressAuditLog
 	var requestBody, responseBody []byte
+	var prov *egressProvenance
 	started, upgrade := false, false
 	defer func() {
 		if !started {
@@ -76,6 +77,10 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 		}
 		if entry.Outcome == "running" {
 			entry.Outcome = "interrupted"
+		}
+		if prov != nil {
+			// What an interrupted response already delivered is in the sandbox.
+			prov.ingest(context.WithoutCancel(stream.Context()))
 		}
 		entry.DurationMs = time.Since(entry.CreatedAt).Milliseconds()
 		if requestBody != nil {
@@ -140,6 +145,16 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 				}
 			}
 
+			// Obot Policy sees the request before the egress gateway's own policy.
+			// Requests without a body are decided here; the rest once the body
+			// (or its first provenanceBodyLimit bytes) has been seen.
+			prov = p.newEgressProvenance(stream.Context(), &entry)
+			if prov != nil && prov.decideOnHeaders(headers, data.RequestHeaders.EndOfStream, firstHeader(headers, "upgrade") != "") {
+				if denied := prov.decide(stream.Context()); denied != nil {
+					return stream.Send(denied)
+				}
+			}
+
 			mutation, err := p.secretPlaceholders(stream.Context(), &entry)
 			if err != nil {
 				return status.Error(codes.Unavailable, "Cannot prepare egress headers")
@@ -165,6 +180,15 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			headers := headerValues(data.ResponseHeaders.Headers)
 			entry.ResponseHeaders = redactedEgressHeaders(headers)
 			entry.ResponseStatus, _ = strconv.Atoi(firstHeader(headers, ":status"))
+			if prov != nil {
+				prov.responseHeaders(headers)
+				// A request whose body never arrived is decided late: the
+				// request went out, but a denial still keeps the response from
+				// the sandbox and records the decision.
+				if denied := prov.decide(stream.Context()); denied != nil {
+					return stream.Send(denied)
+				}
+			}
 			// An upgraded stream sends nothing after its response headers.
 			complete = data.ResponseHeaders.EndOfStream || upgrade
 			reply.Response = &ext.ProcessingResponse_ResponseHeaders{ResponseHeaders: &ext.HeadersResponse{Response: &ext.CommonResponse{}}}
@@ -172,17 +196,31 @@ func (p *AuditProcessor) Process(stream ext.ExternalProcessor_ProcessServer) err
 			entry.RequestBytes += int64(len(data.RequestBody.Body))
 			requestBody = appendCaptured(requestBody, data.RequestBody.Body)
 			entry.RequestTruncated = entry.RequestBytes > egressBodyLimit
+			if prov != nil && prov.addRequest(data.RequestBody.Body, data.RequestBody.EndOfStream) {
+				if denied := prov.decide(stream.Context()); denied != nil {
+					return stream.Send(denied)
+				}
+			}
 			reply.Response = &ext.ProcessingResponse_RequestBody{RequestBody: &ext.BodyResponse{Response: &ext.CommonResponse{}}}
 		case *ext.ProcessingRequest_ResponseBody:
 			entry.ResponseBytes += int64(len(data.ResponseBody.Body))
 			responseBody = appendCaptured(responseBody, data.ResponseBody.Body)
 			entry.ResponseTruncated = entry.ResponseBytes > egressBodyLimit
 			complete = data.ResponseBody.EndOfStream
+			if prov != nil {
+				prov.addResponse(data.ResponseBody.Body)
+				if complete {
+					prov.ingest(stream.Context())
+				}
+			}
 			reply.Response = &ext.ProcessingResponse_ResponseBody{ResponseBody: &ext.BodyResponse{Response: &ext.CommonResponse{}}}
 		case *ext.ProcessingRequest_RequestTrailers:
 			reply.Response = &ext.ProcessingResponse_RequestTrailers{RequestTrailers: &ext.TrailersResponse{}}
 		case *ext.ProcessingRequest_ResponseTrailers:
 			complete = true
+			if prov != nil {
+				prov.ingest(stream.Context())
+			}
 			reply.Response = &ext.ProcessingResponse_ResponseTrailers{ResponseTrailers: &ext.TrailersResponse{}}
 		default:
 			return status.Error(codes.InvalidArgument, "Unsupported audit event")

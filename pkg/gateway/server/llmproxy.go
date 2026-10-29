@@ -123,6 +123,12 @@ type bodyLimitingBackend interface {
 	maxRequestBodyBytes() int64
 }
 
+// sessionNamingRequest is implemented by gateway requests recorded in a provenance session,
+// which responses name so clients can propagate it.
+type sessionNamingRequest interface {
+	sessionID() string
+}
+
 // gatewayRequest is what the LLM gateway backend tracks about one request. The gateway's
 // routing rules and fallbacks choose the model that serves it, and its traffic is governed by
 // budgets, which apply to that model, instead of the daily token quota.
@@ -553,6 +559,12 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 	defer gateway.release()
 	audit.setGuardrailFindings(gateway.guardrailFindings)
+	if naming, ok := gateway.(sessionNamingRequest); ok {
+		if id := naming.sessionID(); id != "" {
+			// Set before the proxy writes, so every response, including an error, names it.
+			req.ResponseWriter.Header().Set(headerSessionID, id)
+		}
+	}
 
 	output := &llmResponseWriter{
 		user:              req.User,

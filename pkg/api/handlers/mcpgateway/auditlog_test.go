@@ -209,7 +209,7 @@ func TestListAuditLogAPIKeyFilterOptionsIncludesLocalAgentKeysForMixedSources(t 
 		t.Fatalf("create API key: %v", err)
 	}
 	event := validLocalAgentAuditLogInput(time.Now().UTC(), "local-api-key-filter", types.AuditLogOutcomeStatusSuccess)
-	if err := NewLocalAgentAuditLogHandler().Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event}, &user.DefaultInfo{
+	if err := NewLocalAgentAuditLogHandler(nil).Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event}, &user.DefaultInfo{
 		UID:    "7",
 		Groups: []string{types.GroupAuthenticated},
 		Extra: map[string][]string{
@@ -245,7 +245,7 @@ func TestLocalAgentAuditLogSubmitAuthenticatedBatchSucceeds(t *testing.T) {
 	occurredAt := time.Date(2026, 6, 30, 12, 0, 0, 0, time.UTC)
 
 	beforeSubmit := time.Now().UTC()
-	handler := NewLocalAgentAuditLogHandler()
+	handler := NewLocalAgentAuditLogHandler(nil)
 	err := handler.Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{
 		validLocalAgentAuditLogInput(occurredAt, "entry-1", types.AuditLogOutcomeStatusSuccess),
 		validLocalAgentAuditLogInput(occurredAt.Add(time.Second), "entry-2", types.AuditLogOutcomeStatusFailure),
@@ -319,7 +319,7 @@ func TestLocalAgentAuditLogSubmitAPIKeyAttribution(t *testing.T) {
 				validLocalAgentAuditLogInput(time.Now().UTC(), "entry-2", types.AuditLogOutcomeStatusSuccess),
 			}
 
-			err := NewLocalAgentAuditLogHandler().Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, events, &user.DefaultInfo{
+			err := NewLocalAgentAuditLogHandler(nil).Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, events, &user.DefaultInfo{
 				UID:    "7",
 				Groups: []string{types.GroupAuthenticated, types.GroupAPI},
 				Extra: map[string][]string{
@@ -350,7 +350,7 @@ func TestLocalAgentAuditLogSubmitAPIKeyAttribution(t *testing.T) {
 func TestLocalAgentAuditLogSubmitDeviceJWTStampsDeviceAttribution(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
 	event := validLocalAgentAuditLogInput(time.Now().UTC(), "device-entry", types.AuditLogOutcomeStatusSuccess)
-	handler := NewLocalAgentAuditLogHandler()
+	handler := NewLocalAgentAuditLogHandler(nil)
 
 	err := handler.Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event}, &user.DefaultInfo{
 		UID:    "device:server-device",
@@ -392,7 +392,7 @@ func TestLocalAgentAuditLogSubmitDeviceJWTStampsDeviceAttribution(t *testing.T) 
 
 func TestLocalAgentAuditLogSubmitInvalidBatchDoesNotPartiallyPersist(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	handler := NewLocalAgentAuditLogHandler()
+	handler := NewLocalAgentAuditLogHandler(nil)
 	occurredAt := time.Now().UTC()
 
 	err := handler.Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{
@@ -419,7 +419,7 @@ func TestLocalAgentAuditLogSubmitInvalidBatchDoesNotPartiallyPersist(t *testing.
 func TestLocalAgentAuditLogSubmitRejectsRemovedLogsEnvelope(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/local-agent-audit-logs", strings.NewReader(`{"logs":[]}`))
-	err := NewLocalAgentAuditLogHandler().Submit(api.Context{
+	err := NewLocalAgentAuditLogHandler(nil).Submit(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
 		Request:        req,
 		GatewayClient:  gatewayClient,
@@ -436,7 +436,7 @@ func TestLocalAgentAuditLogSubmitRejectsRemovedLogsEnvelope(t *testing.T) {
 
 func TestLocalAgentAuditLogSubmitDuplicateIdempotencyKeyIsSuccessNoop(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	handler := NewLocalAgentAuditLogHandler()
+	handler := NewLocalAgentAuditLogHandler(nil)
 	event := validLocalAgentAuditLogInput(time.Now().UTC(), "same-entry", types.AuditLogOutcomeStatusSuccess)
 	reqUser := &user.DefaultInfo{
 		UID:    "42",
@@ -801,7 +801,7 @@ func seedLocalAgentAuditLog(t *testing.T, gatewayClient *gatewayclient.Client) {
 	t.Helper()
 	event := validLocalAgentAuditLogInput(time.Now().UTC(), "entry-1", types.AuditLogOutcomeStatusSuccess)
 	event.Details.Environment.CWD = "/Users/alice/project"
-	handler := NewLocalAgentAuditLogHandler()
+	handler := NewLocalAgentAuditLogHandler(nil)
 	if err := handler.Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event}, &user.DefaultInfo{
 		UID:    "42",
 		Groups: []string{types.GroupAuthenticated, types.GroupDeviceScans},

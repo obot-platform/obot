@@ -253,6 +253,17 @@ const sidebars = {
 		},
 		{
 			"type": "category",
+			"label": "Supervision (experimental)",
+			"link": { "type": "doc", "id": "supervision/overview" },
+			"items": [
+				{ "type": "doc", "id": "supervision/overview", "label": "Overview" },
+				{ "type": "doc", "id": "supervision/policies", "label": "Policies" },
+				{ "type": "doc", "id": "supervision/supervisor", "label": "The Supervisor" },
+				{ "type": "doc", "id": "supervision/surfaces", "label": "Surfaces" }
+			]
+		},
+		{
+			"type": "category",
 			"label": "Security & Governance",
 			"link": {
 				"type": "doc",

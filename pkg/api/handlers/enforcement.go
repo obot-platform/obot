@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"sort"
 	"strconv"
@@ -16,6 +17,8 @@ import (
 	"github.com/obot-platform/obot/pkg/enforcement"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/provenance"
+	"github.com/obot-platform/obot/pkg/provenance/device"
 	"gorm.io/gorm"
 )
 
@@ -23,6 +26,14 @@ const (
 	maxUnresolvedReasonRunes = 512
 	maxIdentifierRunes       = 256
 	maxServerURLRunes        = 2048
+
+	// provenanceBudget bounds the Obot Policy decision: the device hook is
+	// holding the agent's tool call while it waits.
+	provenanceBudget = 4 * time.Second
+
+	// allowlistPolicyName is the policy name recorded in the session graph
+	// for a call the fleet allowlist denied.
+	allowlistPolicyName = "device allowlist"
 )
 
 // enforcementDecisionFilters are the filter keys the decision-log UI may request
@@ -43,20 +54,37 @@ type EnforcementHandler struct {
 	// device-reported call as Obot-hosted never has to handle a parse error.
 	// It is nil when no server URL is configured.
 	serverURL *url.URL
+	// engine is the provenance engine that decides a call the allowlist let
+	// through with the session's history in view. It may be nil, in which
+	// case the allowlist verdict is final.
+	engine *provenance.Engine
 }
 
-func NewEnforcementHandler(serverURL string) (*EnforcementHandler, error) {
+// provenanceOutcome is what Obot Policy said about a call.
+type provenanceOutcome struct {
+	sessionID string
+	decision  provenance.Decision
+}
+
+func NewEnforcementHandler(serverURL string, engine *provenance.Engine) (*EnforcementHandler, error) {
 	if serverURL == "" {
-		return &EnforcementHandler{}, nil
+		return &EnforcementHandler{engine: engine}, nil
 	}
 	parsed, err := url.Parse(serverURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse server URL %q: %w", serverURL, err)
 	}
-	return &EnforcementHandler{serverURL: parsed}, nil
+	return &EnforcementHandler{serverURL: parsed, engine: engine}, nil
 }
 
 // Decide handles POST /api/enforcement/decisions.
+//
+// Two layers decide a call. The fleet allowlist (MDM enforcement) is evaluated
+// exactly as before and is fail-closed. A call it allows, or a call with no
+// allowlist to apply, is then decided by Obot Policy through the provenance
+// engine, which sees the session's history across every surface; its verdict
+// is final. A call the allowlist denies is recorded in the session graph so
+// the session's replay shows it.
 func (h *EnforcementHandler) Decide(req api.Context) error {
 	var in types.EnforcementDecisionRequest
 	if err := req.Read(&in); err != nil {
@@ -65,19 +93,28 @@ func (h *EnforcementHandler) Decide(req api.Context) error {
 
 	extra := req.User.GetExtra()
 	deviceID := cmp.Or(extra["device_id"]...)
+	obotHosted := h.isObotHosted(in.Server.URL)
+	call := normalizedCallFromRequest(in, obotHosted)
 
 	// Resolve the fleet configuration strictly from the authenticated identity.
-	// A caller that is not an enrolled device has no fleet to enforce against:
-	// deny without recording, so only devices can write decision rows.
+	// A caller that is not an enrolled device has no fleet to enforce against,
+	// and only devices write decision rows. Obot Policy is additive to the fleet
+	// allowlist, not a replacement for it, so such a caller is still denied;
+	// when it reports its agent session the denial is recorded in the session
+	// graph so the session shows it.
 	configID, ok := parseConfigurationID(cmp.Or(extra["mdm_configuration_id"]...))
 	if deviceID == "" || !ok {
-		return respondDecision(req, enforcement.Decision{
+		denied := enforcement.Decision{
 			Allow:  false,
 			Reason: "no MDM configuration is associated with this device",
-		})
+		}
+		var outcome *provenanceOutcome
+		if in.SessionID != "" && h.engine != nil {
+			outcome = h.recordDenied(req, in, call, deviceID, denied)
+		}
+		return respondDecision(req, denied, outcome)
 	}
 
-	obotHosted := h.isObotHosted(in.Server.URL)
 	base := gtypes.EnforcementDecisionLog{
 		MDMConfigurationID: configID,
 		DeviceID:           deviceID,
@@ -87,23 +124,125 @@ func (h *EnforcementHandler) Decide(req api.Context) error {
 
 	policy, err := req.GatewayClient.GetMDMConfigurationEnforcement(req.Context(), configID)
 	if err != nil {
-		return h.recordAndRespond(req, base, in, enforcement.Decision{
+		decision := enforcement.Decision{
 			Allow:  false,
 			Reason: "MDM configuration could not be loaded",
-		})
+		}
+		return h.recordAndRespond(req, base, in, decision, h.recordDenied(req, in, call, deviceID, decision))
 	}
 
-	// Enforcement is opt-in per fleet. When it is disabled there is nothing to
-	// enforce: allow the call unconditionally and skip logging.
+	// Enforcement is opt-in per fleet. When it is disabled the allowlist has
+	// nothing to say and no row is logged; Obot Policy still applies, because
+	// provenance applies to everyone.
 	if !policy.Enabled {
-		return respondDecision(req, enforcement.Decision{
+		outcome := h.provenanceDecide(req, in, call, deviceID)
+		return respondDecision(req, outcome.verdict(enforcement.Decision{
 			Allow:  true,
 			Reason: "enforcement is not enabled",
-		})
+		}), outcome)
 	}
 
-	decision := enforcement.Evaluate(normalizedCallFromRequest(in, obotHosted), policy.Allowlist)
-	return h.recordAndRespond(req, base, in, decision)
+	decision := enforcement.Evaluate(call, policy.Allowlist)
+	if !decision.Allow {
+		return h.recordAndRespond(req, base, in, decision, h.recordDenied(req, in, call, deviceID, decision))
+	}
+	outcome := h.provenanceDecide(req, in, call, deviceID)
+	return h.recordAndRespond(req, base, in, outcome.verdict(decision), outcome)
+}
+
+// verdict folds the policy decision into the allowlist decision: a policy
+// deny overrides an allowlist allow, and a policy allow keeps the allowlist's
+// reason.
+func (o *provenanceOutcome) verdict(allowlist enforcement.Decision) enforcement.Decision {
+	if o == nil || !allowlist.Allow || o.decision.Allow {
+		return allowlist
+	}
+	return enforcement.Decision{Allow: false, Reason: o.decision.Reason}
+}
+
+// present fills the policy fields of the response.
+func (o *provenanceOutcome) present(resp *types.EnforcementDecisionResponse) {
+	if o == nil {
+		return
+	}
+	resp.SessionID = o.sessionID
+	resp.Effect = string(o.decision.Effect)
+	resp.ApprovalID = o.decision.ApprovalID
+	resp.PolicyName = o.decision.PolicyName
+	resp.Labels = o.decision.Labels.Strings()
+	resp.Risk = o.decision.Risk
+}
+
+// resolver adapts the engine for the device mappings.
+func (h *EnforcementHandler) resolver(req api.Context) device.Resolver {
+	return device.Resolver{
+		ToolCapabilities: func(server, tool string) provenance.Labels {
+			return h.engine.ToolCapabilities(req.Context(), server, tool, "")
+		},
+		IsExternal: func(host string) bool {
+			return h.engine.IsExternal(req.Context(), host)
+		},
+	}
+}
+
+// subjectUserID is the Obot user a call is performed for. A device principal
+// is not tied to a user; a user principal (an API key with the device-scans
+// scope) is the user.
+func subjectUserID(req api.Context, deviceID string) string {
+	if deviceID != "" {
+		return ""
+	}
+	return req.User.GetUID()
+}
+
+// provenanceDecide asks Obot Policy to decide a call the allowlist allowed. A
+// failure of the engine itself is logged and leaves the allowlist verdict in
+// force: the hook is holding the agent's tool call, and the fleet's own
+// policy has already spoken.
+func (h *EnforcementHandler) provenanceDecide(req api.Context, in types.EnforcementDecisionRequest, call enforcement.NormalizedCall, deviceID string) *provenanceOutcome {
+	if h.engine == nil {
+		return nil
+	}
+	ev, decision, err := h.engine.Decide(req.Context(), provenance.DecideRequest{
+		Subject: device.Subject(in, deviceID, subjectUserID(req, deviceID)),
+		Session: device.Key(in, deviceID),
+		Action:  device.BuildAction(in, call, h.resolver(req)),
+		Budget:  provenanceBudget,
+	})
+	if err != nil {
+		slog.WarnContext(req.Context(), "provenance: device decision failed", "device", deviceID, "agent", in.Agent, "kind", in.Kind, "error", err)
+		return nil
+	}
+	return &provenanceOutcome{sessionID: ev.SessionID, decision: decision}
+}
+
+// recordDenied records a call the allowlist denied in the session graph, so
+// the session's replay shows the denial next to everything else the agent
+// did. Nothing is decided: the allowlist's verdict stands.
+func (h *EnforcementHandler) recordDenied(req api.Context, in types.EnforcementDecisionRequest, call enforcement.NormalizedCall, deviceID string, denied enforcement.Decision) *provenanceOutcome {
+	if h.engine == nil {
+		return nil
+	}
+	action := device.BuildAction(in, call, h.resolver(req))
+	action.Arguments, action.Text = nil, ""
+	decision := provenance.Decision{
+		Allow:      false,
+		Effect:     provenance.EffectDeny,
+		Reason:     denied.Reason,
+		PolicyName: allowlistPolicyName,
+	}
+	ev, err := h.engine.Record(req.Context(), device.Subject(in, deviceID, subjectUserID(req, deviceID)), device.Key(in, deviceID), provenance.Event{
+		Surface:  provenance.SurfaceDevice,
+		Kind:     action.Kind,
+		Action:   &action,
+		Decision: &decision,
+		Summary:  provenance.ActionSummary(action),
+	})
+	if err != nil {
+		slog.WarnContext(req.Context(), "provenance: recording device denial failed", "device", deviceID, "agent", in.Agent, "kind", in.Kind, "error", err)
+		return nil
+	}
+	return &provenanceOutcome{sessionID: ev.SessionID, decision: decision}
 }
 
 func verdict(decision enforcement.Decision) string {
@@ -115,21 +254,25 @@ func verdict(decision enforcement.Decision) string {
 
 // respondDecision returns the synchronous verdict to the device without
 // recording it, for the paths that deliberately produce no audit row.
-func respondDecision(req api.Context, decision enforcement.Decision) error {
-	return req.Write(types.EnforcementDecisionResponse{
+func respondDecision(req api.Context, decision enforcement.Decision, outcome *provenanceOutcome) error {
+	resp := types.EnforcementDecisionResponse{
 		Decision: verdict(decision),
 		Reason:   decision.Reason,
-	})
+	}
+	outcome.present(&resp)
+	return req.Write(resp)
 }
 
 // recordAndRespond stamps the normalized call onto the decision-log row, records
-// it (buffered/async), and returns the synchronous verdict to the device.
+// it (buffered/async), and returns the synchronous verdict to the device. The
+// row records what the device was told: a policy deny on an allowlisted call
+// is logged as a deny with the policy's reason.
 //
 // The device-supplied strings are bounded here, on their way to storage only. The
 // verdict is decided from the values as they arrived (normalizedCallFromRequest):
 // truncating before evaluation would be a bypass, because a long URL cut mid-path
 // can land exactly on an allowlisted path prefix that the real URL only extended.
-func (h *EnforcementHandler) recordAndRespond(req api.Context, entry gtypes.EnforcementDecisionLog, in types.EnforcementDecisionRequest, decision enforcement.Decision) error {
+func (h *EnforcementHandler) recordAndRespond(req api.Context, entry gtypes.EnforcementDecisionLog, in types.EnforcementDecisionRequest, decision enforcement.Decision, outcome *provenanceOutcome) error {
 	entry.CreatedAt = time.Now().UTC()
 	entry.Agent = truncateRunes(in.Agent, maxIdentifierRunes)
 	entry.Tool = truncateRunes(in.Tool, maxIdentifierRunes)
@@ -153,7 +296,7 @@ func (h *EnforcementHandler) recordAndRespond(req api.Context, entry gtypes.Enfo
 
 	req.GatewayClient.LogEnforcementDecision(entry)
 
-	return respondDecision(req, decision)
+	return respondDecision(req, decision, outcome)
 }
 
 // ListDecisions handles GET /api/enforcement-decisions (admin-only).

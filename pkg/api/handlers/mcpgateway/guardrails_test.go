@@ -78,7 +78,7 @@ func newGuardrailChainWithConfig(t *testing.T, config apitypes.MCPGuardrailFilte
 
 func (c guardrailChain) process(t *testing.T, request *http.Request, audit *proxyAudit, store *hookCorrelationStore) *hookProcessor {
 	t.Helper()
-	processor, err := newHookProcessor(request, c.runner, c.hooks, c.servers, audit, store, nil, c.guardrails)
+	processor, err := newHookProcessor(request, c.runner, c.hooks, c.servers, audit, store, nil, c.guardrails, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -289,7 +289,7 @@ func TestGuardrailFilterRejectsBatchesAndUncheckableCalls(t *testing.T) {
 }
 
 func TestUnparseableMessagesPassWithoutFilters(t *testing.T) {
-	processor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1} {}`), nil, nil, nil, nil, nil, nil, nil)
+	processor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1} {}`), nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +324,7 @@ func TestGuardrailFilterChecksResultsOnGETStreams(t *testing.T) {
 
 func TestGuardrailFiltersRunWithoutAHookRunner(t *testing.T) {
 	chain := newGuardrailChain(t, apitypes.MCPGuardrailActionBlock, nil, nil)
-	processor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write","arguments":{"text":"`+testSecret+`"}}}`), nil, chain.hooks, nil, nil, nil, nil, chain.guardrails)
+	processor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write","arguments":{"text":"`+testSecret+`"}}}`), nil, chain.hooks, nil, nil, nil, nil, chain.guardrails, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

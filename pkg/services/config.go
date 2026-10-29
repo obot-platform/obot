@@ -55,6 +55,8 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/otel"
 	"github.com/obot-platform/obot/pkg/producttelemetry"
+	"github.com/obot-platform/obot/pkg/provenance"
+	"github.com/obot-platform/obot/pkg/provenance/supervisor"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/scim"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
@@ -199,7 +201,9 @@ type Services struct {
 	// BifrostEngine is the embedded LLM gateway.
 	BifrostEngine *llmengine.Engine
 	// GuardrailEngine checks LLM gateway traffic and MCP tool calls.
-	GuardrailEngine             *guardrails.Engine
+	GuardrailEngine *guardrails.Engine
+	// ProvenanceEngine is the cross-surface session graph and Obot Policy engine.
+	ProvenanceEngine            *provenance.Engine
 	AuthEnabled                 bool
 	DefaultMCPCatalogPath       string
 	DefaultSystemMCPCatalogPath string
@@ -948,6 +952,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	judge := messagepolicy.NewHelper(storageClient, bifrostEngine)
 	guardrailEngine := guardrails.New(gatewayClient, judge)
 	go backfillIdentityGroupLookupIDHashes(ctx, gatewayClient)
+	// The provenance engine is the cross-surface session graph and Obot Policy engine.
+	provenanceEngine := provenance.New(gatewayClient.ProvenanceStore())
+	if err := provenanceEngine.Seed(ctx); err != nil {
+		return nil, err
+	}
+	// The Supervisor is the model that resolves judge effects, triages approvals, drafts
+	// policies and narrates sessions. It calls the default model aliases through the LLM
+	// gateway, like the guardrails judge.
+	provenanceEngine.SetSupervisor(supervisor.New(judge, provenanceEngine.Settings))
+	go runProvenanceRetention(ctx, gatewayClient, provenanceEngine)
 	go func() {
 		// LLM gateway traffic is governed by budgets rather than the daily token quota, so
 		// carry the configured daily limits over as budgets, once. This runs first so the
@@ -1012,6 +1026,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 	gatewayServer.SetLLMGateway(bifrostEngine)
+	gatewayServer.SetProvenance(provenanceEngine)
 
 	authenticators := gserver.NewGatewayTokenReviewer(gatewayClient, providerDispatcher)
 	var localAuthProvider *localauth.Provider
@@ -1219,6 +1234,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,
 		GuardrailEngine:              guardrailEngine,
+		ProvenanceEngine:             provenanceEngine,
 
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
 		GitMaxRepoSizeMB:               config.GitMaxRepoSizeMB,
@@ -1494,6 +1510,23 @@ func migrateMessagePolicies(ctx context.Context, storageClient kclient.Client, g
 		case <-ctx.Done():
 			return
 		case <-time.After(10 * time.Second):
+		}
+	}
+}
+
+// runProvenanceRetention deletes sessions and events older than the configured retention,
+// once at startup and then daily.
+func runProvenanceRetention(ctx context.Context, gatewayClient *client.Client, engine *provenance.Engine) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		if err := gatewayClient.RunProvenanceRetention(ctx, time.Now(), engine.Settings(ctx).RetentionDays); err != nil && !errors.Is(err, context.Canceled) {
+			slog.Error("Provenance retention failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 		}
 	}
 }

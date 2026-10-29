@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/clauderunner"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/provenance"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/substrate"
 	pb "github.com/obot-platform/obot/pkg/substrate/credproviderpb"
@@ -52,6 +53,9 @@ type CredentialProvider struct {
 	Gateway *client.Client
 	// ObotURL is the Obot URL actors reach Obot at.
 	ObotURL string
+	// Provenance decides every intercepted egress request with Obot Policy and
+	// feeds what comes back into the session graph. Nil disables it.
+	Provenance *provenance.Engine
 }
 
 func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {

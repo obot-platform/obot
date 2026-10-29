@@ -5737,6 +5737,54 @@ func schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref co
 							Format: "",
 						},
 					},
+					"sessionID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SessionID is the agent's own session identifier (Claude Code's session_id).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"toolUseID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolUseID is the agent's identifier for this tool call.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"input": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Input is the tool's input as the agent reported it (Claude Code's tool_input). It is scanned for lineage and classified; it is never stored.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+					"cwd": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CWD is the agent's working directory.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hostname and LocalUsername describe the device as it sees itself.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"localUsername": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"userEmail": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserEmail is the user's email as the device reports it (git config, the agent's login). It is unverified and used only to label the session.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"server"},
 			},
@@ -5763,6 +5811,55 @@ func schema_obot_platform_obot_apiclient_types_EnforcementDecisionResponse(ref c
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"sessionID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SessionID is the provenance session the call was recorded in.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"effect": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Effect is the policy effect that produced the decision: allow, log, redact, downshift, quarantine, require_approval or deny.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"approvalID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ApprovalID is set when the call is held for approval. The device blocks the call; the approval can be resolved by an administrator.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"policyName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PolicyName names the policy that produced the effect.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"labels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Labels is the session's label set at decision time.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"risk": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Risk is the session's risk score at decision time, 0 to 100.",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},
@@ -22111,6 +22208,13 @@ func schema_storage_apis_obotobotai_v1_MCPHookCorrelationSpec(ref common.Referen
 					"requestMutation": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref(v1.MCPHookMutation{}.OpenAPIModelName()),
+						},
+					},
+					"provenanceEventID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProvenanceEventID is the provenance event recorded for the request (a tool.call), so the response can be ingested as its child on any replica.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"expiresAt": {

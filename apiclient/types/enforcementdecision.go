@@ -1,5 +1,7 @@
 package types
 
+import "encoding/json"
+
 const (
 	EnforcementDecisionAllow = "allow"
 	EnforcementDecisionDeny  = "deny"
@@ -33,11 +35,52 @@ type EnforcementDecisionRequest struct {
 	// this exists so the decision log records why.
 	Unresolved       bool   `json:"unresolved,omitempty"`
 	UnresolvedReason string `json:"unresolvedReason,omitempty"`
+
+	// Session context for the provenance session graph. Every field is
+	// optional: a hook that reports them gets a session-aware Obot Policy
+	// decision on top of the fleet allowlist verdict, stitched into the same
+	// session as the agent's LLM and MCP gateway traffic.
+
+	// SessionID is the agent's own session identifier (Claude Code's
+	// session_id).
+	SessionID string `json:"sessionID,omitempty"`
+	// ToolUseID is the agent's identifier for this tool call.
+	ToolUseID string `json:"toolUseID,omitempty"`
+	// Input is the tool's input as the agent reported it (Claude Code's
+	// tool_input). It is scanned for lineage and classified; it is never
+	// stored.
+	Input json.RawMessage `json:"input,omitempty"`
+	// CWD is the agent's working directory.
+	CWD string `json:"cwd,omitempty"`
+	// Hostname and LocalUsername describe the device as it sees itself.
+	Hostname      string `json:"hostname,omitempty"`
+	LocalUsername string `json:"localUsername,omitempty"`
+	// UserEmail is the user's email as the device reports it (git config, the
+	// agent's login). It is unverified and used only to label the session.
+	UserEmail string `json:"userEmail,omitempty"`
 }
 
 type EnforcementDecisionResponse struct {
 	Decision string `json:"decision"`
 	Reason   string `json:"reason,omitempty"`
+
+	// The fields below are set when Obot Policy decided the call (the
+	// allowlist allowed it, or there was no allowlist to apply).
+
+	// SessionID is the provenance session the call was recorded in.
+	SessionID string `json:"sessionID,omitempty"`
+	// Effect is the policy effect that produced the decision: allow, log,
+	// redact, downshift, quarantine, require_approval or deny.
+	Effect string `json:"effect,omitempty"`
+	// ApprovalID is set when the call is held for approval. The device blocks
+	// the call; the approval can be resolved by an administrator.
+	ApprovalID string `json:"approvalID,omitempty"`
+	// PolicyName names the policy that produced the effect.
+	PolicyName string `json:"policyName,omitempty"`
+	// Labels is the session's label set at decision time.
+	Labels []string `json:"labels,omitempty"`
+	// Risk is the session's risk score at decision time, 0 to 100.
+	Risk int `json:"risk,omitempty"`
 }
 
 // EnforcementDecisionEvent is the public, read-side shape of a recorded decision.

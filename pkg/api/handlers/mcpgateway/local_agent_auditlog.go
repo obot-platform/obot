@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -9,16 +10,22 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/provenance"
+	"github.com/obot-platform/obot/pkg/provenance/device"
 )
 
-type LocalAgentAuditLogHandler struct{}
+type LocalAgentAuditLogHandler struct {
+	// engine is the provenance engine the tool results are ingested into, so
+	// what the agent read on the laptop taints its session. It may be nil.
+	engine *provenance.Engine
+}
 
-func NewLocalAgentAuditLogHandler() *LocalAgentAuditLogHandler {
-	return nil
+func NewLocalAgentAuditLogHandler(engine *provenance.Engine) *LocalAgentAuditLogHandler {
+	return &LocalAgentAuditLogHandler{engine: engine}
 }
 
 // Submit handles POST /api/local-agent-audit-logs for completed local-agent tool calls.
-func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
+func (h *LocalAgentAuditLogHandler) Submit(req api.Context) error {
 	var input types.LocalAgentToolCallAuditLogSubmitRequest
 	if err := req.Read(&input); err != nil {
 		return types.NewErrBadRequest("failed to read input: %v", err)
@@ -54,7 +61,47 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 		return err
 	}
 
+	h.ingest(req, input.Events, actorType, actorID)
 	return nil
+}
+
+// ingest feeds the result of every completed tool call into the provenance
+// session graph. The audit rows are already stored; a failure here is logged
+// and does not fail the submission.
+func (h *LocalAgentAuditLogHandler) ingest(req api.Context, events []types.LocalAgentToolCallAuditLogInput, actorType types.AuditLogActorType, actorID string) {
+	if h.engine == nil {
+		return
+	}
+	var deviceID, userID string
+	switch actorType {
+	case types.AuditLogActorTypeDevice:
+		deviceID = actorID
+	case types.AuditLogActorTypeUser:
+		userID = actorID
+	default:
+		return
+	}
+	resolver := device.Resolver{
+		ToolCapabilities: func(server, tool string) provenance.Labels {
+			return h.engine.ToolCapabilities(req.Context(), server, tool, "")
+		},
+		IsExternal: func(host string) bool {
+			return h.engine.IsExternal(req.Context(), host)
+		},
+	}
+	for _, event := range events {
+		switch event.Outcome.Status {
+		case types.AuditLogOutcomeStatusSuccess, types.AuditLogOutcomeStatusFailure:
+		default:
+			// A denied or timed-out call produced no content the agent saw.
+			continue
+		}
+		in := device.BuildIngest(event, deviceID, userID, resolver)
+		if _, err := h.engine.Ingest(req.Context(), in); err != nil {
+			slog.WarnContext(req.Context(), "provenance: ingesting local agent tool result failed",
+				"device", deviceID, "agent", in.Session.Agent, "tool", in.Tool, "error", err)
+		}
+	}
 }
 
 func localAgentSubmitterAttribution(req api.Context) (actorType types.AuditLogActorType, actorID string, deviceDeploymentID uint) {
