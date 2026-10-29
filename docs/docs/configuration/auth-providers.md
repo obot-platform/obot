@@ -77,13 +77,27 @@ secret:
 
 ### Step 2: Start Obot and Login {#enabling-authentication-step-2-start-obot-and-login}
 
-Start (or restart) your Obot deployment with the new environment variables. Navigate to your Obot installation and use the bootstrap token to login. Open **Identity & Access** to continue setup.
+Start (or restart) your Obot deployment with the new environment variables. Navigate to your Obot installation and log in with the bootstrap token. Obot then walks you through creating the owner account:
+
+1. Accept the license agreement.
+2. In **Set Up Owner Account**, create the owner as a [Local](#local) account, with an email address and password.
+3. Sign in with that account. You continue as the owner, and the bootstrap login is no longer needed.
+
+If you [preconfigured a Local owner](../installation/docker-deployment.md#preconfigure-a-local-owner), there is no bootstrap login. Activate the owner from the setup link instead.
 
 ### Step 3: Configure Authentication Provider {#enabling-authentication-step-3-configure-authentication-provider}
 
-1. Go to **Identity & Access > Auth Providers**
-2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, and Auth0 require free Obot Community registration or an Enterprise license.
-3. Follow the provider-specific configuration steps
+Local is now the active provider. To use Local accounts, you're done; see [Local](#local) to manage them.
+
+To use a different provider, switch to it:
+
+1. Go to **Identity & Access > Auth Providers**.
+2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 require free Obot Community registration or an Enterprise license.
+3. Configure the provider, sign in with it to verify your account, and complete the switch. See [Switching Between Auth Providers](#switching-between-auth-providers) for each step.
+
+:::important
+The account you sign in with during the switch becomes the owner. The Local owner account doesn't carry over, so switch before you set up anything as the Local owner.
+:::
 
 For detailed provider configuration, see the [Auth Providers](./auth-providers.md) documentation.
 
@@ -110,6 +124,18 @@ Note that you can always assign the owner or admin role to additional users thro
 - Verify callback URLs match between Obot and your OAuth provider
 - Check that client ID and secret are correct
 - Ensure proper scopes and permissions are configured
+
+#### Locked Out After Changing Provider Settings {#locked-out-after-changing-provider-settings}
+
+Changes to the active auth provider take effect immediately. If the provider can't start with the new settings, such as an issuer it can't reach or rejects, nobody can sign in, even when the dialog reports that the change couldn't be saved.
+
+To recover:
+
+1. Restart Obot with `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` and sign in with the bootstrap token.
+2. Fix the provider's settings in **Identity & Access > Auth Providers**.
+3. Restart Obot without `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP`.
+
+The provider's reason for failing is in the Obot server log.
 
 ## Next Steps {#enabling-authentication-next-steps}
 
@@ -138,7 +164,7 @@ supplied by `OBOT_BOOTSTRAP_TOKEN`), and all future server launches will use tha
 `OBOT_BOOTSTRAP_TOKEN` can always be used to override the stored value.
 :::
 
-### Preconfiguring Owner & Admin Users
+### Preconfiguring Owner & Admin Users {#preconfiguring-owner--admin-users}
 
 If you want to preconfigure owner or admin users, you can set the `OBOT_SERVER_AUTH_OWNER_EMAILS` or `OBOT_SERVER_AUTH_ADMIN_EMAILS` environment variable, respectively.
 This is a comma-separated list of email addresses that will be granted owner or admin access when they log in,
@@ -170,7 +196,7 @@ You can:
 | Providers | Availability |
 |-----------|--------------|
 | Local, GitHub, Google | Available in every edition, without registration |
-| Entra, Okta, OneLogin, JumpCloud, Auth0 | Require free Obot Community registration or an Enterprise license |
+| Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0 | Require free Obot Community registration or an Enterprise license |
 
 To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
 
@@ -360,6 +386,57 @@ You can now return to Obot and finish configuring JumpCloud. Use the table below
 :::important Account Status Requirement
 The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
 :::
+
+### Keycloak {#keycloak}
+
+Use Keycloak 24 or later. Create two clients in the same realm: one lets users sign in to Obot, and the other lets Obot read users and groups for access control.
+
+#### Setup {#keycloak-setup}
+
+**Create the sign-in client**
+
+1. In Keycloak, create an **OpenID Connect** client for signing in to Obot.
+2. Enable **Client authentication** and **Standard flow**. Disable the other authentication flows and service accounts.
+3. Set **Valid redirect URIs** to the callback URL shown in Obot.
+4. In the client's **Client scopes**, make sure `profile`, `email`, and `offline_access` are available. Keep the default `profile` and `email` scopes.
+5. Assign users the `offline_access` realm role. If you restrict the client's role scope mappings, include this role.
+
+**Create the directory client**
+
+1. Create a second **OpenID Connect** client for reading users and groups.
+2. Enable **Client authentication** and **Service accounts roles**. Disable the other authentication flows.
+3. Assign the service account the **`view-users`** role from **`realm-management`**. This is the only role it needs.
+4. In the directory client's scope settings, turn **Full Scope Allowed** off and include **`view-users`** in the allowed roles. Keep the default `roles` client scope.
+
+**Set up email verification**
+
+By default, users must have a verified email address in Keycloak to sign in to Obot. Enable **Verify email** under **Realm settings > Login** to have users verify their addresses. For existing accounts, check their **Email verified** setting.
+
+If your organization does not verify email addresses, enable **Allow Unverified Emails** in Obot.
+
+:::important
+When allowing unverified emails, avoid granting owner or administrator access automatically by email address through [deployment settings](#preconfiguring-owner--admin-users). Email-domain restrictions also depend on users having trustworthy email addresses.
+:::
+
+In **Identity & Access > Auth Providers**, configure **Keycloak**:
+
+| Obot field | Keycloak value |
+| --- | --- |
+| Realm Issuer URL | Realm URL, such as `https://id.example.com/realms/employees`; include `/auth` if used |
+| Client ID / Client Secret | Sign-in client credentials |
+| Directory Service Client ID / Secret | Directory client credentials |
+| Allowed E-Mail Domains | Allowed domains, or `*` for all domains |
+| Admin URL (optional) | Leave blank unless your Keycloak administrator provides a separate address for the Admin API. For example, `https://keycloak-admin.internal`; include `/auth` if used, but not `/admin` or `/realms`. |
+
+Changes to the Realm Issuer URL or Admin URL of the active provider take effect immediately. If Keycloak can't be reached or rejects the new value, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
+
+For optional avatars, map a `picture` user attribute to the OIDC `picture` claim in UserInfo. Use HTTPS URLs restricted to a trusted image host. See Keycloak's [avatar guide](https://www.keycloak.org/ui-customization/avatars).
+
+#### Sessions {#keycloak-sessions}
+
+**Token Refresh Duration** controls how often Obot refreshes authentication tokens for active sessions. The default is 1 hour.
+
+Keep **Revoke Refresh Token** off in the realm, so that parallel refreshes from the same browser succeed.
 
 ### Auth0
 

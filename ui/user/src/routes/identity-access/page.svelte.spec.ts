@@ -541,6 +541,93 @@ describe('Identity & Access Page', () => {
 			});
 		});
 
+		describe('Keycloak realm configuration', () => {
+			const issuerParameter = 'OBOT_KEYCLOAK_AUTH_PROVIDER_ISSUER_URL';
+			const keycloakProvider: AuthProvider = {
+				...googleProvider,
+				id: CommonAuthProviderIds.KEYCLOAK,
+				name: 'Keycloak',
+				configured: false,
+				missingConfigurationParameters: [],
+				missingEntitlements: [],
+				requiredConfigurationParameters: [
+					{ name: issuerParameter, friendlyName: 'Realm Issuer URL' },
+					{ name: 'OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID', friendlyName: 'Client ID' },
+					{
+						name: 'OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_SECRET',
+						friendlyName: 'Client Secret',
+						sensitive: true
+					},
+					{
+						name: 'OBOT_KEYCLOAK_AUTH_PROVIDER_SERVICE_CLIENT_ID',
+						friendlyName: 'Directory Service Client ID'
+					},
+					{
+						name: 'OBOT_KEYCLOAK_AUTH_PROVIDER_SERVICE_CLIENT_SECRET',
+						friendlyName: 'Directory Service Client Secret',
+						sensitive: true
+					}
+				],
+				optionalConfigurationParameters: []
+			};
+
+			async function openKeycloakForm(provider: AuthProvider, values?: Record<string, string>) {
+				worker.use(
+					http.post(`/api/auth-providers/${provider.id}/reveal`, () =>
+						values ? HttpResponse.json(values) : HttpResponse.json(null, { status: 404 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [provider],
+					groups: [Group.OWNER, Group.ADMIN]
+				});
+				await providerCard('Keycloak')
+					.getByRole('button', { name: provider.configured ? 'Modify' : 'Configure', exact: true })
+					.click();
+				const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up Keycloak' });
+				await expect
+					.element(dialog.getByLabelText('Realm Issuer URL', { exact: true }))
+					.toBeVisible();
+				return dialog;
+			}
+
+			it('submits a changed issuer for a configured Keycloak provider', async () => {
+				const configure = vi.fn<(body: Record<string, string>) => void>();
+				worker.use(
+					http.post(`/api/auth-providers/${keycloakProvider.id}/configure`, async ({ request }) => {
+						configure((await request.json()) as Record<string, string>);
+						return HttpResponse.json({ ...keycloakProvider, configured: true });
+					})
+				);
+				const values = {
+					[issuerParameter]: 'https://old.example.com/realms/employees',
+					OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID: 'login-client',
+					OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_SECRET: 'login-secret',
+					OBOT_KEYCLOAK_AUTH_PROVIDER_SERVICE_CLIENT_ID: 'directory-client',
+					OBOT_KEYCLOAK_AUTH_PROVIDER_SERVICE_CLIENT_SECRET: 'directory-secret'
+				};
+				const dialog = await openKeycloakForm({ ...keycloakProvider, configured: true }, values);
+				const issuer = dialog.getByLabelText('Realm Issuer URL', { exact: true });
+				await expect.element(issuer).not.toBeDisabled();
+				await issuer.fill('https://new.example.com/realms/employees');
+				await dialog.getByRole('button', { name: 'Confirm', exact: true }).click();
+				await vi.waitFor(() => {
+					expect(configure).toHaveBeenCalledExactlyOnceWith({
+						...values,
+						[issuerParameter]: 'https://new.example.com/realms/employees'
+					});
+				});
+			});
+
+			it('links the Keycloak setup documentation', async () => {
+				const dialog = await openKeycloakForm(keycloakProvider);
+
+				await expect
+					.element(dialog.getByRole('link', { name: 'the documentation', exact: true }))
+					.toHaveAttribute('href', 'https://docs.obot.ai/configuration/auth-providers/#keycloak');
+			});
+		});
+
 		describe('SCIM setup of the Okta provider', () => {
 			async function openOktaForm(provider: AuthProvider, values?: Record<string, string>) {
 				worker.use(
