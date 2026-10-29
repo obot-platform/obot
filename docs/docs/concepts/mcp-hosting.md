@@ -6,6 +6,8 @@ title: "Add hosted MCP servers"
 
 Obot deploys and manages hosted MCP server workloads on Kubernetes or Docker. For production workloads, prefer a container image that packages the server and its dependencies together. Pin the image by digest to deploy the same artifact consistently across environments; rebuild and update it deliberately when dependencies change.
 
+See [MCP image maintenance](../security/mcp-images.md) for how Obot maintains its catalog images.
+
 ## Runtime Types
 
 - **[Node.js (npx)](./mcp-hosting.md#mcp-servers-npx-nodetypescript-based-mcp-servers)**: Run npm-packaged MCP servers via STDIO

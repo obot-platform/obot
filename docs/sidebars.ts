@@ -266,6 +266,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "security/mcp-images",
+					"label": "MCP image maintenance"
+				},
+				{
+					"type": "doc",
 					"id": "security/audit-data",
 					"label": "Audit data and retention"
 				}
