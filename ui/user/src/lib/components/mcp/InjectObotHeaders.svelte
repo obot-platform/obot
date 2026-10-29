@@ -18,6 +18,16 @@
 		{ header: OBOT_HEADERS.idpUserId, description: m.mcps_inject_headers_idp_user_id() },
 		{ header: OBOT_HEADERS.idpGroups, description: m.mcps_inject_headers_idp_groups() }
 	] satisfies { header: ObotHeader; description: string }[]);
+
+	function setSelected(header: ObotHeader, checked: boolean) {
+		selected = options
+			.map(({ header }) => header)
+			.filter((name) =>
+				name === header
+					? checked
+					: selected.some((value) => value.toLowerCase() === name.toLowerCase())
+			);
+	}
 </script>
 
 <details class="paper">
@@ -31,7 +41,8 @@
 					type="checkbox"
 					class="checkbox checkbox-sm mt-0.5"
 					value={option.header}
-					bind:group={selected}
+					checked={selected.some((name) => name.toLowerCase() === option.header.toLowerCase())}
+					onchange={(event) => setSelected(option.header, event.currentTarget.checked)}
 					disabled={readonly}
 					aria-describedby={`${uid}-${option.header}-description`}
 				/>

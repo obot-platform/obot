@@ -202,10 +202,9 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		componentHTTPClient *http.Client
 	)
 	if tokenService != nil {
-		componentAuth = compositeComponentAuth{
-			ctx:    ctx,
-			tokens: tokenService,
-		}
+		// mmmcp uses this client for its internal component connections. Pair
+		// refreshable connection auth with per-message caller credentials.
+		componentAuth = compositeComponentAuth{ctx: ctx, tokens: tokenService}
 		componentHTTPClient = newCompositeHTTPClient()
 	}
 
@@ -457,8 +456,8 @@ func (h *Handler) Proxy(req api.Context) error {
 			Transport: client.Transport,
 			Rewrite: func(r *httputil.ProxyRequest) {
 				rewriteProxyRequest(r, u)
-				for name, values := range obotHeaders {
-					r.Out.Header[name] = append([]string(nil), values...)
+				for name := range obotHeaders {
+					r.Out.Header.Set(name, obotHeaders.Get(name))
 				}
 			},
 			ModifyResponse: func(resp *http.Response) error {

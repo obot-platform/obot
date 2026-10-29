@@ -1,9 +1,23 @@
+import type { ObotHeader } from '$lib/services';
 import InjectObotHeaders from './InjectObotHeaders.svelte';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('InjectObotHeaders', () => {
+	it('displays mixed-case selections in read-only views', async () => {
+		await render(InjectObotHeaders, {
+			selected: ['x-obot-user-id', 'X-OBOT-IDP-GROUPS'] as ObotHeader[],
+			readonly: true
+		});
+		await page.getByText('Inject Obot headers', { exact: true }).click();
+		for (const name of ['X-Obot-User-Id', 'X-Obot-IDP-Groups']) {
+			const checkbox = page.getByRole('checkbox', { name, exact: true });
+			await expect.element(checkbox).toBeChecked();
+			await expect.element(checkbox).toBeDisabled();
+		}
+	});
+
 	it('starts collapsed with every header disabled and allows independent selection', async () => {
 		await render(InjectObotHeaders);
 		await expect.element(page.getByCSS('details')).not.toHaveAttribute('open');

@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -37,20 +36,6 @@ func CanonicalObotHeader(name string) (ObotHeader, bool) {
 		}
 	}
 	return "", false
-}
-
-// UnmarshalJSON canonicalizes a selection at the decoding boundary, keeping validation read-only.
-func (h *ObotHeader) UnmarshalJSON(data []byte) error {
-	var name string
-	if err := json.Unmarshal(data, &name); err != nil {
-		return err
-	}
-	canonical, ok := CanonicalObotHeader(name)
-	if !ok {
-		canonical = ObotHeader(name)
-	}
-	*h = canonical
-	return nil
 }
 
 // ValidateObotHeaders validates attribution selections without modifying the caller's slice.

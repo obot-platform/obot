@@ -1,5 +1,5 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
-import type { MCPCatalogEntryServerManifest } from '$lib/services';
+import type { MCPCatalogEntryServerManifest, ObotHeader } from '$lib/services';
 import { createMCPCatalogEntry, createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
@@ -10,6 +10,43 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('catalog attribution headers', () => {
+	it('loads mixed-case selections and saves canonical names when edited', async () => {
+		const entry = createMCPCatalogEntry({
+			id: 'jira',
+			name: 'Jira',
+			runtime: 'remote',
+			manifest: {
+				remoteConfig: { fixedURL: 'https://example.com/mcp' },
+				injectObotHeaders: ['x-obot-user-id'] as ObotHeader[]
+			}
+		});
+		let submitted: MCPCatalogEntryServerManifest | undefined;
+		worker.use(
+			http.put('/api/mcp-catalogs/test/entries/jira', async ({ request }) => {
+				submitted = (await request.json()) as MCPCatalogEntryServerManifest;
+				return HttpResponse.json(createMCPCatalogEntryResponse);
+			})
+		);
+		await render(CatalogServerForm, {
+			id: 'test',
+			entity: 'catalog',
+			type: 'remote',
+			entry,
+			onSubmit: vi.fn()
+		});
+		await page.getByText('Inject Obot headers', { exact: true }).click();
+		const userID = page.getByRole('checkbox', { name: 'X-Obot-User-Id', exact: true });
+		await expect.element(userID).toBeChecked();
+		await userID.click();
+		await expect.element(userID).not.toBeChecked();
+		await userID.click();
+		await page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
+		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
+		await vi.waitFor(() =>
+			expect(submitted?.injectObotHeaders).toEqual(['X-Obot-Api-Key-Name', 'X-Obot-User-Id'])
+		);
+	});
+
 	it('saves selected headers on a remote catalog entry', async () => {
 		let submitted: MCPCatalogEntryServerManifest | undefined;
 		worker.use(

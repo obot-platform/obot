@@ -32,35 +32,37 @@ func (t compositeRequestTransport) RoundTrip(req *http.Request) (*http.Response,
 		outbound.Header.Del("Authorization")
 		return t.base.RoundTrip(outbound)
 	}
-	if req.Method == http.MethodPost && req.GetBody != nil {
-		if authorization := component.RequestHeadersFromContext(req.Context()).Get("Authorization"); authorization != "" {
-			// The SDK provides GetBody for its JSON-RPC POSTs. Inspect a copy so
-			// the original body and redirect/retry behavior remain intact.
-			body, err := req.GetBody()
-			if err != nil {
-				_ = req.Body.Close()
-				return nil, err
-			}
-			var message struct {
-				Method string `json:"method"`
-			}
-			err = json.NewDecoder(body).Decode(&message)
-			_ = body.Close()
-			if err != nil {
-				_ = req.Body.Close()
-				return nil, err
-			}
-			// Responses to server-initiated requests have no method and retain
-			// the opening context, rather than a current frontend credential.
-			if message.Method != "" {
-				outbound := req.Clone(req.Context())
-				outbound.Header.Set("Authorization", authorization)
-				return t.base.RoundTrip(outbound)
-			}
-		}
+	if req.Method != http.MethodPost || req.GetBody == nil {
+		// Background SSE reconnects and cleanup retain the OAuth handler's
+		// refreshable credential; the opening context may contain an expired one.
+		return t.base.RoundTrip(req)
 	}
-	// Background responses, SSE reconnects and cleanup have no current frontend
-	// message. Keep the OAuth handler's refreshable connection credential: the
-	// request context retained at connection creation may contain an expired one.
-	return t.base.RoundTrip(req)
+	authorization := component.RequestHeadersFromContext(req.Context()).Get("Authorization")
+	if authorization == "" {
+		return t.base.RoundTrip(req)
+	}
+	// The SDK provides GetBody for its JSON-RPC POSTs. Inspect a copy so
+	// the original body and redirect/retry behavior remain intact.
+	body, err := req.GetBody()
+	if err != nil {
+		_ = req.Body.Close()
+		return nil, err
+	}
+	var message struct {
+		Method string `json:"method"`
+	}
+	err = json.NewDecoder(body).Decode(&message)
+	_ = body.Close()
+	if err != nil {
+		_ = req.Body.Close()
+		return nil, err
+	}
+	if message.Method == "" {
+		// Responses to server-initiated requests retain the opening context,
+		// rather than a current frontend credential. Keep the OAuth credential.
+		return t.base.RoundTrip(req)
+	}
+	outbound := req.Clone(req.Context())
+	outbound.Header.Set("Authorization", authorization)
+	return t.base.RoundTrip(outbound)
 }
