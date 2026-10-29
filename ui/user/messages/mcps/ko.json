@@ -1197,6 +1197,8 @@
 	"mcps_filters_create_guardrail_filter": "가드레일 필터 만들기",
 	"mcps_filters_create_guardrail": "가드레일로 만들기",
 	"mcps_inject_headers_title": "Obot 헤더 삽입",
+	"mcps_inject_headers_enable": "Obot 헤더 주입 활성화",
+	"mcps_inject_headers_disable": "Obot 헤더 주입 비활성화",
 	"mcps_inject_headers_description": "이 MCP 서버와 공유할 호출자 정보를 선택하세요. 모든 헤더는 선택 사항이며 기본적으로 비활성화됩니다. Obot은 수신된 동일 이름의 헤더를 제거하고 선택한 값만 설정합니다. 이름과 이메일 주소는 내부 정보를 노출할 수 있습니다. 사용할 수 없거나 유효하지 않거나 크기 제한을 초과하는 값은 생략됩니다.",
 	"mcps_inject_headers_api_key_name": "검증된 Obot API 키의 이름입니다. 이름이 없는 키 또는 API 키를 사용하지 않는 호출자는 생략됩니다. 이름은 사용자가 지정하고 변경할 수 있으며 고유하지 않을 수 있습니다.",
 	"mcps_inject_headers_api_key_id": "검증된 Obot API 키의 ID로, 이 Obot 설치 내에서 고유합니다. API 키를 사용하지 않는 호출자는 생략됩니다.",

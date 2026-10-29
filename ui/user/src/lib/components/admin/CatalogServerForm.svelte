@@ -43,7 +43,6 @@
 	import CatalogConfigurationForm from '../mcp/CatalogConfigurationForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
-	import InjectObotHeaders from '../mcp/InjectObotHeaders.svelte';
 	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
 	import NpxRuntimeForm from '../mcp/NpxRuntimeForm.svelte';
 	import OpenAPIConfiguration from '../mcp/OpenAPIConfiguration.svelte';
@@ -1077,6 +1076,7 @@
 		{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
 			<RemoteRuntimeForm
 				bind:config={formData.remoteServerConfig}
+				bind:injectObotHeaders={formData.injectObotHeaders}
 				variant="server"
 				{readonly}
 				{showRequired}
@@ -1103,6 +1103,7 @@
 		{:else if formData.runtime === 'remote' && formData.remoteConfig}
 			<RemoteRuntimeForm
 				bind:config={formData.remoteConfig}
+				bind:injectObotHeaders={formData.injectObotHeaders}
 				hideHeaders={type !== 'multi'}
 				tunnels={canConfigureTunnels ? mcpTunnels : undefined}
 				tunnelsLoading={canConfigureTunnels && mcpTunnels === undefined}
@@ -1149,10 +1150,6 @@
 
 	{#if type === 'multi' && formData.multiUserConfig}
 		<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
-	{/if}
-
-	{#if supportsObotHeaders(formData.runtime)}
-		<InjectObotHeaders bind:selected={formData.injectObotHeaders} {readonly} />
 	{/if}
 
 	{#if !readonly}

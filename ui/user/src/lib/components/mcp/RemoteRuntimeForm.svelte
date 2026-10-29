@@ -2,7 +2,7 @@
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import type { MCPAllowedSecretBindingTarget, MCPTunnel } from '$lib/services';
+	import type { MCPAllowedSecretBindingTarget, MCPTunnel, ObotHeader } from '$lib/services';
 	import type {
 		LegacyRemoteCatalogConfigAdmin,
 		RemoteCatalogConfigAdmin,
@@ -16,6 +16,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import Label from './CatalogFormLabel.svelte';
 	import CustomConfigurationOptions from './CustomConfigurationOptions.svelte';
+	import InjectObotHeaders from './InjectObotHeaders.svelte';
 	import LocalhostCallbackForm from './LocalhostCallbackForm.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings, TriangleAlert } from '@lucide/svelte';
@@ -39,6 +40,7 @@
 		tunnels?: MCPTunnel[];
 		tunnelsLoading?: boolean;
 		hideHeaders?: boolean;
+		injectObotHeaders?: ObotHeader[];
 		children?: Snippet;
 		afterHeaders?: Snippet;
 	}
@@ -58,6 +60,7 @@
 		tunnels,
 		tunnelsLoading = false,
 		hideHeaders = false,
+		injectObotHeaders = $bindable(),
 		children,
 		afterHeaders
 	}: Props = $props();
@@ -66,6 +69,7 @@
 	let showAdvanced = $state(
 		untrack(() =>
 			Boolean(
+				injectObotHeaders?.length ||
 				(config as RemoteCatalogConfigAdmin).hostname ||
 				(config as RemoteCatalogConfigAdmin).urlTemplate ||
 				((tunnels !== undefined || tunnelsLoading) &&
@@ -659,6 +663,9 @@
 
 {#if showAdvanced}
 	<LocalhostCallbackForm bind:config {readonly} />
+	{#if injectObotHeaders !== undefined}
+		<InjectObotHeaders bind:selected={injectObotHeaders} {readonly} />
+	{/if}
 {/if}
 
 <button
@@ -669,6 +676,9 @@
 		showAdvanced = !showAdvanced;
 
 		if (!showAdvanced && variant === 'catalog') {
+			if (!readonly && injectObotHeaders !== undefined) {
+				injectObotHeaders = [];
+			}
 			const catalogConfig = config as RemoteCatalogConfigAdmin;
 			catalogConfig.hostname = undefined;
 			catalogConfig.tunnelName = undefined;

@@ -1197,6 +1197,8 @@
 	"mcps_filters_create_guardrail_filter": "创建护栏过滤器",
 	"mcps_filters_create_guardrail": "从护栏创建",
 	"mcps_inject_headers_title": "注入 Obot 标头",
+	"mcps_inject_headers_enable": "启用 Obot 请求头注入",
+	"mcps_inject_headers_disable": "禁用 Obot 请求头注入",
 	"mcps_inject_headers_description": "选择与此 MCP 服务器共享的调用方信息。所有标头均为可选，默认禁用。Obot 会移除传入的同名标头，仅设置所选值。名称和电子邮件地址可能泄露内部信息。 不可用、无效或超出大小限制的值会被省略。",
 	"mcps_inject_headers_api_key_name": "已验证的 Obot API 密钥的名称。未命名的密钥或未使用 API 密钥的调用方将省略此标头。名称由用户控制，可以更改，且不一定唯一。",
 	"mcps_inject_headers_api_key_id": "已验证的 Obot API 密钥的 ID，在此 Obot 安装中唯一。未使用 API 密钥的调用方将省略此标头。",

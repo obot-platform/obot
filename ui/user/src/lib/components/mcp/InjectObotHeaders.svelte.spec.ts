@@ -7,12 +7,11 @@ import { page } from 'vitest/browser';
 describe('InjectObotHeaders', () => {
 	it('displays mixed-case selections in read-only views', async () => {
 		await render(InjectObotHeaders, {
-			selected: ['x-obot-user-id', 'X-OBOT-IDP-GROUPS'] as ObotHeader[],
+			selected: ['x-obot-user-id', 'X-OBOT-IDP-GROUPS'] as unknown as ObotHeader[],
 			readonly: true
 		});
-		await page.getByText('Inject Obot headers', { exact: true }).click();
 		for (const name of ['X-Obot-User-Id', 'X-Obot-IDP-Groups']) {
-			const checkbox = page.getByRole('checkbox', { name, exact: true });
+			const checkbox = page.getByRole('switch', { name, exact: true });
 			await expect.element(checkbox).toBeChecked();
 			await expect.element(checkbox).toBeDisabled();
 		}
@@ -20,8 +19,13 @@ describe('InjectObotHeaders', () => {
 
 	it('starts collapsed with every header disabled and allows independent selection', async () => {
 		await render(InjectObotHeaders);
-		await expect.element(page.getByCSS('details')).not.toHaveAttribute('open');
-		await page.getByText('Inject Obot headers', { exact: true }).click();
+		const master = page.getByRole('switch', { name: /Obot header injection/ });
+		await expect.element(master).not.toBeChecked();
+		await expect
+			.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
+			.not.toBeInTheDocument();
+		await master.click();
+		await expect.element(master).toBeChecked();
 		for (const name of [
 			'X-Obot-Api-Key-Name',
 			'X-Obot-Api-Key-Id',
@@ -31,23 +35,23 @@ describe('InjectObotHeaders', () => {
 			'X-Obot-IDP-User-Id',
 			'X-Obot-IDP-Groups'
 		]) {
-			await expect.element(page.getByRole('checkbox', { name, exact: true })).not.toBeChecked();
+			await expect.element(page.getByRole('switch', { name, exact: true })).not.toBeChecked();
 		}
-		await page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
-		await page.getByRole('checkbox', { name: 'X-Obot-User-Id', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-Api-Key-Name', exact: true }))
 			.toBeChecked();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-User-Email', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-User-Email', exact: true }))
 			.not.toBeChecked();
-		await page.getByRole('checkbox', { name: 'X-Obot-IDP-User-Id', exact: true }).click();
-		await page.getByRole('checkbox', { name: 'X-Obot-IDP-Groups', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-IDP-User-Id', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-IDP-Groups', exact: true }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-IDP-User-Id', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-IDP-User-Id', exact: true }))
 			.toBeChecked();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-IDP-Groups', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-IDP-Groups', exact: true }))
 			.toBeChecked();
 		await expect.element(page.getByText(/ambiguous across linked identities/)).toBeVisible();
 		await expect
@@ -63,18 +67,17 @@ describe('InjectObotHeaders', () => {
 			selected: ['X-Obot-Api-Key-Name', 'X-Obot-IDP-User-Id', 'X-Obot-IDP-Groups'],
 			readonly: true
 		});
-		await page.getByText('Inject Obot headers', { exact: true }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-Api-Key-Name', exact: true }))
 			.toBeChecked();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-IDP-User-Id', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-IDP-User-Id', exact: true }))
 			.toBeChecked();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-IDP-Groups', exact: true }))
+			.element(page.getByRole('switch', { name: 'X-Obot-IDP-Groups', exact: true }))
 			.toBeChecked();
-		for (let i = 0; i < 7; i++) {
-			await expect.element(page.getByRole('checkbox').nth(i)).toBeDisabled();
+		for (let i = 0; i < 8; i++) {
+			await expect.element(page.getByRole('switch').nth(i)).toBeDisabled();
 		}
 	});
 });

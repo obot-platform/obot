@@ -10,14 +10,14 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('catalog attribution headers', () => {
-	it('loads mixed-case selections and saves canonical names when edited', async () => {
+	it('clears saved headers when the master toggle is disabled', async () => {
 		const entry = createMCPCatalogEntry({
 			id: 'jira',
 			name: 'Jira',
 			runtime: 'remote',
 			manifest: {
 				remoteConfig: { fixedURL: 'https://example.com/mcp' },
-				injectObotHeaders: ['x-obot-user-id'] as ObotHeader[]
+				injectObotHeaders: ['X-Obot-User-Id']
 			}
 		});
 		let submitted: MCPCatalogEntryServerManifest | undefined;
@@ -34,13 +34,47 @@ describe('catalog attribution headers', () => {
 			entry,
 			onSubmit: vi.fn()
 		});
-		await page.getByText('Inject Obot headers', { exact: true }).click();
-		const userID = page.getByRole('checkbox', { name: 'X-Obot-User-Id', exact: true });
+		await expect
+			.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
+			.toBeChecked();
+		await page.getByRole('switch', { name: 'Disable Obot header injection', exact: true }).click();
+		await expect
+			.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
+			.not.toBeInTheDocument();
+		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
+		await vi.waitFor(() => expect(submitted?.injectObotHeaders).toEqual([]));
+	});
+
+	it('loads mixed-case selections and saves canonical names when edited', async () => {
+		const entry = createMCPCatalogEntry({
+			id: 'jira',
+			name: 'Jira',
+			runtime: 'remote',
+			manifest: {
+				remoteConfig: { fixedURL: 'https://example.com/mcp' },
+				injectObotHeaders: ['x-obot-user-id'] as unknown as ObotHeader[]
+			}
+		});
+		let submitted: MCPCatalogEntryServerManifest | undefined;
+		worker.use(
+			http.put('/api/mcp-catalogs/test/entries/jira', async ({ request }) => {
+				submitted = (await request.json()) as MCPCatalogEntryServerManifest;
+				return HttpResponse.json(createMCPCatalogEntryResponse);
+			})
+		);
+		await render(CatalogServerForm, {
+			id: 'test',
+			entity: 'catalog',
+			type: 'remote',
+			entry,
+			onSubmit: vi.fn()
+		});
+		const userID = page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true });
 		await expect.element(userID).toBeChecked();
 		await userID.click();
 		await expect.element(userID).not.toBeChecked();
 		await userID.click();
-		await page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
 		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
 		await vi.waitFor(() =>
 			expect(submitted?.injectObotHeaders).toEqual(['X-Obot-Api-Key-Name', 'X-Obot-User-Id'])
@@ -64,9 +98,13 @@ describe('catalog attribution headers', () => {
 		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`).fill('Jira');
 		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill('Jira tools');
 		await page.getByCSS('#basic-url').fill('https://example.com/mcp');
-		await page.getByText('Inject Obot headers', { exact: true }).click();
-		await page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
-		await page.getByRole('checkbox', { name: 'X-Obot-User-Id', exact: true }).click();
+		await expect
+			.element(page.getByText('Inject Obot headers', { exact: true }))
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+		await page.getByRole('switch', { name: 'Enable Obot header injection', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
+		await page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }).click();
 		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
 		await vi.waitFor(() =>
 			expect(submitted?.injectObotHeaders).toEqual(['X-Obot-Api-Key-Name', 'X-Obot-User-Id'])
@@ -90,9 +128,11 @@ describe('catalog attribution headers', () => {
 			entry,
 			onSubmit: vi.fn()
 		});
-		await page.getByText('Inject Obot headers', { exact: true }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'X-Obot-User-Email', exact: true }))
+			.element(page.getByRole('button', { name: 'Reset Default Configuration', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('switch', { name: 'X-Obot-User-Email', exact: true }))
 			.toBeChecked();
 	});
 
@@ -144,11 +184,10 @@ describe('catalog attribution headers', () => {
 				});
 				return;
 			}
-			await page.getByText('Inject Obot headers', { exact: true }).click();
 			await expect
-				.element(page.getByRole('checkbox', { name: 'X-Obot-User-Id', exact: true }))
+				.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
 				.toBeChecked();
-			await page.getByRole('checkbox', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
+			await page.getByRole('switch', { name: 'X-Obot-Api-Key-Name', exact: true }).click();
 			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
 			await vi.waitFor(() =>
 				expect(submitted?.injectObotHeaders).toEqual(['X-Obot-Api-Key-Name', 'X-Obot-User-Id'])
