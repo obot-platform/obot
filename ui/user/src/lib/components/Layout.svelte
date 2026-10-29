@@ -13,6 +13,9 @@
 		note?: Snippet;
 		beta?: boolean;
 		nodes?: NavLink[];
+		/** A count badge, such as pending approvals. Hidden when zero. */
+		count?: number;
+		countLabel?: string;
 	};
 
 	const NAV_COLLAPSED_KEY = '@obot/layout/nav-collapsed';
@@ -59,6 +62,7 @@
 	import { m } from '$lib/i18n';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
+	import { getPendingApprovalCount } from '$lib/services/provenance';
 	import {
 		license as licenseStore,
 		profile,
@@ -103,6 +107,28 @@
 	import { twMerge } from 'tailwind-merge';
 
 	let navCollapsed = $state({ ...navCollapsedCache });
+
+	// Pending approvals for the Supervisor nav badge. Admins and auditors only; failures leave
+	// the badge hidden.
+	const PENDING_APPROVALS_REFRESH_MS = 15_000;
+	let pendingApprovals = $state(0);
+	let hasAdminAccess = $derived(!!profile.current.hasAdminAccess?.());
+	$effect(() => {
+		if (!hasAdminAccess) return;
+		let cancelled = false;
+		const poll = () =>
+			getPendingApprovalCount({ dontLogErrors: true })
+				.then((n) => {
+					if (!cancelled) pendingApprovals = n;
+				})
+				.catch(() => undefined);
+		poll();
+		const timer = setInterval(poll, PENDING_APPROVALS_REFRESH_MS);
+		return () => {
+			cancelled = true;
+			clearInterval(timer);
+		};
+	});
 	let animatingNavSectionId = $state<string | null>(null);
 
 	function isNavCollapsed(id: string): boolean {
@@ -302,8 +328,9 @@
 					: [])
 			]
 		},
-		// Supervision is the cross-surface session graph, Obot Policy and the Supervisor. The nav
-		// renders one level of items under a group, so it is its own group next to Operations.
+		// The Supervisor: the cross-surface session graph, Obot Policy and the AI Supervisor. The
+		// nav renders one level of items under a group, so it is its own group next to Operations.
+		// The group shows the pending approvals count while collapsed; Approvals always does.
 		...(profile.current.hasAdminAccess?.()
 			? [
 					{
@@ -312,6 +339,8 @@
 						label: m.nav_supervision(),
 						collapsible: true,
 						beta: true,
+						count: isNavCollapsed('supervision') ? pendingApprovals : 0,
+						countLabel: m.nav_approvals_pending({ count: pendingApprovals }),
 						items: [
 							{
 								id: 'supervision-overview',
@@ -331,7 +360,9 @@
 							{
 								id: 'approvals',
 								label: m.nav_approvals(),
-								href: '/approvals'
+								href: '/approvals',
+								count: pendingApprovals,
+								countLabel: m.nav_approvals_pending({ count: pendingApprovals })
 							}
 						]
 					}
@@ -1001,6 +1032,15 @@
 	{link.label}
 	{#if link.beta}
 		<span class="badge badge-primary badge-xs font-medium uppercase">{m.common_beta()}</span>
+	{/if}
+	{#if link.count}
+		<span
+			class="badge badge-warning badge-xs ml-auto font-semibold tabular-nums"
+			title={link.countLabel}
+		>
+			<span aria-hidden="true">{link.count}</span>
+			<span class="sr-only">{link.countLabel}</span>
+		</span>
 	{/if}
 {/snippet}
 

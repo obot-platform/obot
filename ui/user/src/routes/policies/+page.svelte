@@ -6,6 +6,7 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import SupervisorInsights from '$lib/components/supervision/SupervisorInsights.svelte';
 	import SurfaceBadge from '$lib/components/supervision/SurfaceBadge.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { parseErrorContent } from '$lib/errors';
@@ -14,9 +15,11 @@
 		deletePolicy,
 		effectBadgeClass,
 		effectLabel,
+		getSupervisorInsights,
 		listPolicies,
 		modeLabel,
 		updatePolicy,
+		type Insight,
 		type Policy
 	} from '$lib/services/provenance';
 	import { profile } from '$lib/stores';
@@ -28,6 +31,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	// Obot Policy list. Mode and enabled toggle inline; built-ins can be switched but not deleted.
+	// Above it, the Supervisor suggests shadow policies that would have caught real activity.
 
 	let policies = $state<Policy[]>([]);
 	let loading = $state(true);
@@ -50,7 +54,22 @@
 		}
 	}
 
-	onMount(load);
+	let suggestions = $state<Insight[]>([]);
+
+	async function loadSuggestions() {
+		try {
+			const insights = await getSupervisorInsights(false, { dontLogErrors: true });
+			suggestions = insights.items.filter((i) => i.kind === 'shadow-policy');
+		} catch {
+			// Suggestions are optional; the list works without the Supervisor.
+			suggestions = [];
+		}
+	}
+
+	onMount(() => {
+		load();
+		loadSuggestions();
+	});
 
 	let rows = $derived(
 		policies
@@ -118,6 +137,15 @@
 
 		{#if error}
 			<div class="notification-error rounded-md p-3 text-sm" role="alert">{error}</div>
+		{/if}
+
+		{#if suggestions.length}
+			<SupervisorInsights
+				items={suggestions}
+				title={m.supervision_suggests_title()}
+				description={m.supervision_suggests_description()}
+				onActed={() => Promise.all([load(), loadSuggestions()])}
+			/>
 		{/if}
 
 		{#if loading}

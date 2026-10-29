@@ -16,7 +16,7 @@ import (
 const (
 	// provenanceDecisionBudget bounds how long a proposed tool call may be decided, which
 	// bounds how long a response is held.
-	provenanceDecisionBudget = 3 * time.Second
+	provenanceDecisionBudget = 10 * time.Second
 	// provenanceTitleLimit is how much of the first user message a session's title keeps.
 	provenanceTitleLimit = 80
 	// provenanceDefaultAgent names the tools' "server" when the agent is unknown.

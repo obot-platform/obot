@@ -5,9 +5,9 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import KillSwitchDialog from '$lib/components/supervision/KillSwitchDialog.svelte';
 	import LabelBadges from '$lib/components/supervision/LabelBadges.svelte';
-	import NarrativePanel from '$lib/components/supervision/NarrativePanel.svelte';
 	import RiskPill from '$lib/components/supervision/RiskPill.svelte';
 	import SessionTimeline from '$lib/components/supervision/SessionTimeline.svelte';
+	import SupervisorCommentary from '$lib/components/supervision/SupervisorCommentary.svelte';
 	import SurfaceBadge from '$lib/components/supervision/SurfaceBadge.svelte';
 	import WarrantDialog from '$lib/components/supervision/WarrantDialog.svelte';
 	import { parseErrorContent } from '$lib/errors';
@@ -29,7 +29,10 @@
 	import { twMerge } from 'tailwind-merge';
 
 	// Session replay: the session's state and warrant, its event timeline with decisions and
-	// lineage, and the Supervisor's narrative.
+	// lineage, and the Supervisor's commentary. While the session is open the page follows it
+	// live.
+
+	const LIVE_REFRESH_MS = 5_000;
 
 	let sessionId = $derived(page.params.id ?? '');
 	let session = $state<Session>();
@@ -39,7 +42,7 @@
 	let killDialog = $state<ReturnType<typeof KillSwitchDialog>>();
 	let warrantDialog = $state<ReturnType<typeof WarrantDialog>>();
 	let timeline = $state<ReturnType<typeof SessionTimeline>>();
-	let narrative = $state<ReturnType<typeof NarrativePanel>>();
+	let commentary = $state<ReturnType<typeof SupervisorCommentary>>();
 	let confirmEnd = $state(false);
 	let ending = $state(false);
 
@@ -47,8 +50,8 @@
 	let title = $derived(session ? sessionDisplayName(session) : m.supervision_session_title());
 	let reported = $derived(new Set(session?.state.surfaces ?? []));
 
-	async function load() {
-		loading = true;
+	async function load(quiet = false) {
+		if (!quiet) loading = true;
 		error = '';
 		notFound = false;
 		try {
@@ -62,10 +65,23 @@
 		}
 	}
 
-	onMount(load);
+	onMount(() => load());
+
+	let live = $derived(!!session && !session.endedAt && !session.state.killed);
+
+	// Follow an open session: refresh its state and timeline on an interval. setInterval, not
+	// setTimeout, so the cadence is not shortened by the test harness.
+	$effect(() => {
+		if (!live) return;
+		const timer = setInterval(() => {
+			load(true);
+			timeline?.refresh();
+		}, LIVE_REFRESH_MS);
+		return () => clearInterval(timer);
+	});
 
 	async function refreshAll() {
-		await Promise.all([load(), timeline?.load(), narrative?.load()]);
+		await Promise.all([load(), timeline?.load(), commentary?.load()]);
 	}
 
 	async function end() {
@@ -258,7 +274,7 @@
 				</section>
 
 				<div class="flex flex-col gap-4">
-					<NarrativePanel bind:this={narrative} {sessionId} />
+					<SupervisorCommentary bind:this={commentary} {sessionId} {live} />
 
 					<section class="paper gap-2" aria-label={m.supervision_session_coverage()}>
 						<h3 class="text-base font-semibold">{m.supervision_session_coverage()}</h3>

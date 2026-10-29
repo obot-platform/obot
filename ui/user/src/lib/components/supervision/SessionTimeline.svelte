@@ -6,12 +6,14 @@
 		effectLabel,
 		listSessionEvents,
 		modeLabel,
+		supervisorLine,
 		type ProvenanceEvent
 	} from '$lib/services/provenance';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import { resolve } from '$lib/url';
 	import DecisionPill from './DecisionPill.svelte';
+	import DecisionVoice from './DecisionVoice.svelte';
 	import LabelBadges from './LabelBadges.svelte';
 	import SurfaceBadge from './SurfaceBadge.svelte';
 	import { ChevronDown, ChevronUp, Flag } from '@lucide/svelte';
@@ -56,6 +58,28 @@
 	}
 
 	onMount(() => load());
+
+	/** Reloads what is already shown without resetting pagination or showing a spinner. */
+	export async function refresh() {
+		try {
+			const resp = await listSessionEvents(
+				sessionId,
+				{ limit: Math.max(events.length, pageSize), offset: 0, ascending: true },
+				{ dontLogErrors: true }
+			);
+			events = resp.items ?? [];
+			total = resp.total ?? events.length;
+			error = '';
+		} catch (e) {
+			error = parseErrorContent(e).message;
+		}
+	}
+
+	// The Supervisor speaks up in the timeline when it judged, held or blocked an action.
+	function speaks(e: ProvenanceEvent) {
+		const tone = supervisorLine(e)?.tone;
+		return tone === 'judged' || tone === 'held' || tone === 'blocked';
+	}
 
 	let byID = $derived(new SvelteMap(events.map((e) => [e.id, e])));
 
@@ -148,6 +172,10 @@
 							</button>
 						{/if}
 					</div>
+
+					{#if speaks(event)}
+						<DecisionVoice {event} meta={false} reason={false} class="mt-1.5 ml-0 sm:ml-46" />
+					{/if}
 
 					{#if isOpen}
 						<div

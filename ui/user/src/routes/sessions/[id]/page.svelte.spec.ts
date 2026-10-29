@@ -1,6 +1,13 @@
 import { page as appPage } from '$app/state';
 import { preparePageData } from '../../../tests/helpers/pageData';
-import { narrative, riskyEvents, riskySession } from '../../../tests/mocks/provenance';
+import {
+	judgedEvent,
+	narrative,
+	quietSession,
+	riskyEvents,
+	riskySession,
+	supervisorAnswer
+} from '../../../tests/mocks/provenance';
 import { worker } from '../../../tests/mocks/worker';
 import SessionPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
@@ -79,11 +86,11 @@ describe('Session replay', () => {
 			.toHaveAttribute('href', '/approvals?approval=apr-1');
 	});
 
-	it('shows the Supervisor narrative with concerns', async () => {
+	it('shows the Supervisor commentary with concerns', async () => {
 		mockSession();
 		await renderPage();
 
-		const panel = page.getByRole('region', { name: 'Supervisor narrative' });
+		const panel = page.getByRole('region', { name: 'Supervisor commentary' });
 		await expect
 			.element(panel.getByText('tried to post them to paste.example', { exact: false }))
 			.toBeInTheDocument();
@@ -146,5 +153,85 @@ describe('Session replay', () => {
 	it('says when the session does not exist', async () => {
 		await renderPage('ses-missing');
 		await expect.element(page.getByText('Session not found.')).toBeInTheDocument();
+	});
+
+	it('follows an open session live', async () => {
+		mockSession();
+		await renderPage();
+
+		const panel = page.getByRole('region', { name: 'Supervisor commentary' });
+		await expect.element(panel.getByText('Following this session live')).toBeInTheDocument();
+	});
+
+	it('does not follow an ended session', async () => {
+		worker.use(
+			http.get('/api/provenance/sessions/ses-quiet', () => HttpResponse.json(quietSession))
+		);
+		await renderPage('ses-quiet');
+
+		const panel = page.getByRole('region', { name: 'Supervisor commentary' });
+		await expect.element(panel.getByText('What I see in this session')).toBeInTheDocument();
+		await expect.element(panel.getByText('Following this session live')).not.toBeInTheDocument();
+	});
+
+	it('answers questions scoped to the session', async () => {
+		mockSession();
+		const asked = vi.fn();
+		worker.use(
+			http.post('/api/provenance/supervisor/ask', async ({ request }) => {
+				asked(await request.json());
+				return HttpResponse.json(supervisorAnswer);
+			})
+		);
+		await renderPage();
+
+		const panel = page.getByRole('region', { name: 'Supervisor commentary' });
+		await panel.getByRole('button', { name: 'Is it safe to let this session continue?' }).click();
+		await vi.waitFor(() =>
+			expect(asked).toHaveBeenCalledWith({
+				question: 'Is it safe to let this session continue?',
+				sessionID: 'ses-risky'
+			})
+		);
+		await expect
+			.element(
+				panel.getByText("The riskiest thing right now is alice's session.", { exact: false })
+			)
+			.toBeInTheDocument();
+	});
+
+	it('speaks for held and judged decisions in the timeline', async () => {
+		const events = [...riskyEvents, judgedEvent];
+		worker.use(
+			http.get('/api/provenance/sessions/ses-risky', () => HttpResponse.json(riskySession)),
+			http.get('/api/provenance/sessions/ses-risky/events', () =>
+				HttpResponse.json({ items: events, total: events.length })
+			),
+			http.get('/api/provenance/sessions/ses-risky/narrative', () => HttpResponse.json(narrative))
+		);
+		await renderPage();
+
+		const timeline = page.getByRole('list', { name: 'Timeline' });
+		await expect
+			.element(
+				timeline.getByText(
+					'I held POST paste.example for approval under PII lineage to external destination.'
+				)
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(
+				timeline.getByText('I reviewed tools/call acme-crm.send_report and held it', {
+					exact: false
+				})
+			)
+			.toBeInTheDocument();
+		await expect.element(timeline.getByText('My call')).toBeInTheDocument();
+		await expect
+			.element(timeline.getByText('the report carries customer PII', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(timeline.getByText('I allowed tools/call github.search_issues.'))
+			.not.toBeInTheDocument();
 	});
 });

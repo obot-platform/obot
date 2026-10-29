@@ -3,16 +3,20 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { getSessionNarrative, type Narrative } from '$lib/services/provenance';
-	import { RefreshCw, Sparkles } from '@lucide/svelte';
+	import SupervisorAsk from './SupervisorAsk.svelte';
+	import SupervisorAvatar from './SupervisorAvatar.svelte';
+	import { RefreshCw } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
-	// The Supervisor's plain-language account of a session, or the engine's deterministic fallback.
+	// The Supervisor's commentary on one session: its account of what happened, what concerns
+	// it, and a place to ask it about this session.
 
 	interface Props {
 		sessionId: string;
+		live?: boolean;
 	}
 
-	let { sessionId }: Props = $props();
+	let { sessionId, live = false }: Props = $props();
 
 	let narrative = $state<Narrative>();
 	let loading = $state(true);
@@ -33,12 +37,17 @@
 	onMount(load);
 </script>
 
-<section class="paper gap-3" aria-label={m.supervision_session_narrative()}>
-	<div class="flex items-center justify-between gap-2">
-		<h3 class="flex items-center gap-2 text-base font-semibold">
-			<Sparkles class="text-primary size-4" />
-			{m.supervision_session_narrative()}
-		</h3>
+<section class="paper border-primary/30 gap-3 border" aria-label={m.supervision_commentary_title()}>
+	<div class="flex items-start justify-between gap-2">
+		<div class="flex items-center gap-2">
+			<SupervisorAvatar pulse={live} />
+			<div class="flex flex-col">
+				<h3 class="text-base font-semibold">{m.supervision_commentary_title()}</h3>
+				<span class="text-muted-content text-xs">
+					{live ? m.supervision_commentary_live() : m.supervision_commentary_subtitle()}
+				</span>
+			</div>
+		</div>
 		<button
 			type="button"
 			class="btn btn-ghost btn-sm"
@@ -57,7 +66,22 @@
 	{:else if !narrative?.summary}
 		<p class="text-muted-content text-sm">{m.supervision_session_narrative_none()}</p>
 	{:else}
-		<p class="text-sm leading-relaxed">{narrative.summary}</p>
+		<p class="bg-primary/5 rounded-2xl rounded-tl-sm px-3 py-2 text-sm leading-relaxed">
+			{narrative.summary}
+		</p>
+
+		{#if narrative.concerns?.length}
+			<div class="flex flex-col gap-1">
+				<h4 class="text-error text-xs font-semibold uppercase">
+					{m.supervision_commentary_concerns()}
+				</h4>
+				<ul class="flex list-disc flex-col gap-1 pl-5 text-sm">
+					{#each narrative.concerns as item, i (i)}
+						<li>{item}</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 
 		{#if narrative.timeline?.length}
 			<div class="flex flex-col gap-1">
@@ -72,23 +96,23 @@
 			</div>
 		{/if}
 
-		{#if narrative.concerns?.length}
-			<div class="flex flex-col gap-1">
-				<h4 class="text-error text-xs font-semibold uppercase">
-					{m.supervision_session_narrative_concerns()}
-				</h4>
-				<ul class="flex list-disc flex-col gap-1 pl-5 text-sm">
-					{#each narrative.concerns as item, i (i)}
-						<li>{item}</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-
 		{#if narrative.model}
 			<span class="text-muted-content text-xs">
 				{m.supervision_session_narrative_model({ model: narrative.model })}
 			</span>
 		{/if}
 	{/if}
+
+	<div class="border-base-300 dark:border-base-400 border-t pt-3">
+		<SupervisorAsk
+			{sessionId}
+			embedded
+			intro={m.supervision_ask_session_intro()}
+			suggestions={[
+				m.supervision_ask_suggest_session_safe(),
+				m.supervision_ask_suggest_session_data(),
+				m.supervision_ask_suggest_last_hold()
+			]}
+		/>
+	</div>
 </section>

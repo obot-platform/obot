@@ -3,7 +3,7 @@
 // the API never returns tool arguments, and nothing here should render them.
 import { m } from '$lib/i18n';
 import { buildQueryString } from '$lib/url';
-import { doDelete, doGet, doPost, doPut, type Fetcher } from './http';
+import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from './http';
 
 type Opts = { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean };
 
@@ -147,6 +147,8 @@ export interface Decision {
 	risk: number;
 	killed?: boolean;
 	honeytoken?: boolean;
+	/** Set when the Supervisor decided the action itself (a judge effect it resolved). */
+	judged?: boolean;
 }
 
 export interface SurfaceRef {
@@ -665,6 +667,161 @@ export async function runRedTeam(opts?: Opts): Promise<RedTeamResult> {
 	return { ranAt: res.ranAt ?? res.runAt, scenarios };
 }
 
+// The Supervisor: presence, proactive insights and questions
+
+export interface SupervisorStatus {
+	enabled: boolean;
+	configured: boolean;
+	model?: string;
+	deciderModel?: string;
+	watching: { sessions: number; openSessions: number; surfaces: Surface[] };
+	lastDecisionAt: string | null;
+	lastJudgementAt: string | null;
+	today: {
+		decided: number;
+		judged: number;
+		held: number;
+		denied: number;
+		allowed: number;
+		shadowed: number;
+		triaged: number;
+	};
+	pendingApprovals: number;
+}
+
+export type InsightKind =
+	| 'shadow-policy'
+	| 'open-risky-session'
+	| 'honeytoken-tripped'
+	| 'approvals-aging'
+	| 'coverage-gap'
+	| 'unlabeled-tools';
+
+export type InsightSeverity = 'info' | 'warning' | 'critical';
+
+/** A one-click follow-up the Supervisor proposes: an existing provenance API call. */
+export interface InsightAction {
+	label: string;
+	method: string;
+	path: string;
+	body?: unknown;
+}
+
+export interface Insight {
+	id: string;
+	kind: InsightKind | string;
+	severity: InsightSeverity;
+	title: string;
+	detail: string;
+	sessionID?: string;
+	policyID?: string;
+	action?: InsightAction;
+}
+
+export interface SupervisorInsights {
+	generatedAt: string;
+	briefing: string;
+	briefingModel?: string;
+	items: Insight[];
+}
+
+export interface SupervisorAnswer {
+	answer: string;
+	model?: string;
+	context?: { sessions: number; events: number };
+}
+
+export async function getSupervisorStatus(opts?: Opts): Promise<SupervisorStatus> {
+	const s = (await doGet(`${B}/supervisor/status`, opts)) as Partial<SupervisorStatus>;
+	return {
+		enabled: s.enabled ?? false,
+		configured: s.configured ?? false,
+		model: s.model,
+		deciderModel: s.deciderModel,
+		watching: {
+			sessions: s.watching?.sessions ?? 0,
+			openSessions: s.watching?.openSessions ?? 0,
+			surfaces: s.watching?.surfaces ?? []
+		},
+		lastDecisionAt: s.lastDecisionAt ?? null,
+		lastJudgementAt: s.lastJudgementAt ?? null,
+		today: {
+			decided: s.today?.decided ?? 0,
+			judged: s.today?.judged ?? 0,
+			held: s.today?.held ?? 0,
+			denied: s.today?.denied ?? 0,
+			allowed: s.today?.allowed ?? 0,
+			shadowed: s.today?.shadowed ?? 0,
+			triaged: s.today?.triaged ?? 0
+		},
+		pendingApprovals: s.pendingApprovals ?? 0
+	};
+}
+
+/** Pending approvals for the nav badge: from the Supervisor status, else from the approvals list. */
+export async function getPendingApprovalCount(opts?: Opts): Promise<number> {
+	try {
+		return (await getSupervisorStatus(opts)).pendingApprovals;
+	} catch {
+		const resp = await listApprovals({ status: 'pending', limit: 1 }, opts);
+		return resp.total ?? resp.items?.length ?? 0;
+	}
+}
+
+export async function getSupervisorInsights(
+	refresh = false,
+	opts?: Opts
+): Promise<SupervisorInsights> {
+	const res = (await doGet(
+		`${B}/supervisor/insights${refresh ? '?refresh=true' : ''}`,
+		opts
+	)) as Partial<SupervisorInsights>;
+	return {
+		generatedAt: res.generatedAt ?? '',
+		briefing: res.briefing ?? '',
+		briefingModel: res.briefingModel,
+		items: res.items ?? []
+	};
+}
+
+export async function askSupervisor(
+	question: string,
+	sessionID?: string,
+	opts?: Opts
+): Promise<SupervisorAnswer> {
+	return (await doPost(
+		`${B}/supervisor/ask`,
+		sessionID ? { question, sessionID } : { question },
+		opts
+	)) as SupervisorAnswer;
+}
+
+/**
+ * Performs an insight's one-click action. Only provenance API calls are allowed: the action
+ * comes from the server, but the UI should never be steered into calling arbitrary endpoints.
+ */
+export async function performInsightAction(action: InsightAction, opts?: Opts): Promise<unknown> {
+	const path = action.path.startsWith('/api/') ? action.path.slice(4) : action.path;
+	if (!path.startsWith(`${B}/`) || path.includes('..')) {
+		throw new Error(`unsupported action path: ${action.path}`);
+	}
+	const body = (action.body ?? {}) as object;
+	switch (action.method.toUpperCase()) {
+		case 'GET':
+			return doGet(path, opts);
+		case 'POST':
+			return doPost(path, body, opts);
+		case 'PUT':
+			return doPut(path, body, opts);
+		case 'PATCH':
+			return doPatch(path, body, opts);
+		case 'DELETE':
+			return doDelete(path, opts);
+		default:
+			throw new Error(`unsupported action method: ${action.method}`);
+	}
+}
+
 // Presentation helpers
 
 export type RiskLevel = 'ok' | 'warning' | 'error';
@@ -812,4 +969,78 @@ export function describeAction(action: Action | undefined): string {
 		default:
 			return action.kind;
 	}
+}
+
+/** What the Supervisor contributed to a decision it judged. */
+export interface Judgement {
+	judged: boolean;
+	rationale?: string;
+	model?: string;
+	confidence?: number;
+}
+
+// The engine appends the Supervisor's verdict to the reason as
+// "Supervisor (<model>, confidence <n>%): <rationale>".
+const JUDGEMENT_RE = /Supervisor \(([^,()]+), confidence (\d+)%\):\s*([\s\S]*)$/;
+
+export function judgementOf(decision: Decision | null | undefined): Judgement {
+	if (!decision) return { judged: false };
+	const match = decision.reason ? JUDGEMENT_RE.exec(decision.reason) : null;
+	if (!match) return { judged: !!decision.judged };
+	return {
+		judged: true,
+		model: match[1].trim(),
+		confidence: Number(match[2]),
+		rationale: match[3].trim()
+	};
+}
+
+export type VoiceTone = 'judged' | 'held' | 'blocked' | 'shadow' | 'acted' | 'allowed';
+
+export interface SupervisorLine {
+	text: string;
+	tone: VoiceTone;
+	judgement: Judgement;
+}
+
+/** The subject of a decision in the Supervisor's sentences: the event's content-free summary. */
+export function eventSubject(event: Pick<ProvenanceEvent, 'summary' | 'action' | 'kind'>): string {
+	return event.summary || describeAction(event.action) || event.kind;
+}
+
+/** A decision told by the Supervisor in the first person: "I held tools/call acme.send_report…". */
+export function supervisorLine(event: ProvenanceEvent): SupervisorLine | undefined {
+	const d = event.decision;
+	if (!d) return undefined;
+	const action = eventSubject(event);
+	const policy = d.policyName || m.supervision_voice_a_policy();
+	const effect = effectLabel(d.effect).toLowerCase();
+	const judgement = judgementOf(d);
+	const line = (text: string, tone: VoiceTone) => ({ text, tone, judgement });
+
+	if (d.killed) return line(m.supervision_voice_killed({ action }), 'blocked');
+	if (d.honeytoken && !d.allow) return line(m.supervision_voice_honeytoken({ action }), 'blocked');
+	if (judgement.judged && !d.shadow) {
+		if (d.effect === 'require_approval' || d.approvalID) {
+			return line(m.supervision_voice_judged_hold({ action }), 'judged');
+		}
+		if (!d.allow) return line(m.supervision_voice_judged_deny({ action }), 'judged');
+		return line(m.supervision_voice_judged_allow({ action }), 'judged');
+	}
+	if (d.shadow && d.effect !== 'allow') {
+		return line(m.supervision_voice_shadow({ action, policy, effect }), 'shadow');
+	}
+	if (d.effect === 'require_approval' || d.approvalID) {
+		return line(m.supervision_voice_held({ action, policy }), 'held');
+	}
+	if (!d.allow) return line(m.supervision_voice_blocked({ action, policy }), 'blocked');
+	if (d.effect !== 'allow')
+		return line(m.supervision_voice_effect({ action, policy, effect }), 'acted');
+	return line(m.supervision_voice_allowed({ action }), 'allowed');
+}
+
+/** Whether a decision is one the Supervisor should speak up about, not a routine allow. */
+export function isIntervention(event: ProvenanceEvent): boolean {
+	const line = supervisorLine(event);
+	return !!line && line.tone !== 'allowed';
 }

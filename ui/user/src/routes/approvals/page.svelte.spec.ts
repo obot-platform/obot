@@ -51,8 +51,22 @@ describe('Approvals inbox', () => {
 			.toBeInTheDocument();
 		await expect.element(card.getByLabelText('Risk 72')).toBeInTheDocument();
 		await expect.element(card.getByText('POST paste.example')).toBeInTheDocument();
-		await expect.element(card.getByText('Recommends deny')).toBeInTheDocument();
-		await expect.element(card.getByText('92% confidence')).toBeInTheDocument();
+		const recommendation = card.getByRole('region', { name: 'My recommendation' });
+		await expect.element(recommendation.getByText('I recommend denying this.')).toBeInTheDocument();
+		await expect
+			.element(recommendation.getByText('92% confidence', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				recommendation.getByText('PII from Salesforce is leaving to a paste site', { exact: false })
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(recommendation.getByText(/^Triaged by claude-sonnet-4/))
+			.toBeInTheDocument();
+		await expect
+			.element(card.getByRole('button', { name: 'Accept recommendation' }))
+			.toBeInTheDocument();
 		await expect
 			.element(card.getByRole('link', { name: 'View session' }))
 			.toHaveAttribute('href', '/sessions/ses-risky');
@@ -110,5 +124,80 @@ describe('Approvals inbox', () => {
 		mockApprovals();
 		await renderPage('denied');
 		await expect.element(page.getByText('No denied approvals.')).toBeInTheDocument();
+	});
+
+	it("accepts the recommendation, keeping the approver's note", async () => {
+		mockApprovals();
+		const denied = vi.fn();
+		worker.use(
+			http.post('/api/provenance/approvals/:id/deny', async ({ params, request }) => {
+				denied(params.id, await request.json());
+				return HttpResponse.json({ ...pendingApproval, status: 'denied' });
+			})
+		);
+		await renderPage();
+
+		await page.getByLabelText('Note (optional)').fill('Agreed');
+		await page.getByRole('button', { name: 'Accept recommendation' }).click();
+		await vi.waitFor(() => expect(denied).toHaveBeenCalledWith('apr-1', { note: 'Agreed' }));
+		await expect.element(page.getByText('No pending approvals.')).toBeInTheDocument();
+	});
+
+	it('accepts an approve recommendation with a default note', async () => {
+		const approve = {
+			...pendingApproval,
+			triage: { ...pendingApproval.triage!, recommendation: 'approve', rationale: 'Routine.' }
+		};
+		const approved = vi.fn();
+		worker.use(
+			http.get('/api/provenance/approvals', () =>
+				HttpResponse.json({ items: [approve], total: 1 })
+			),
+			http.post('/api/provenance/approvals/:id/approve', async ({ params, request }) => {
+				approved(params.id, await request.json());
+				return HttpResponse.json({ ...approve, status: 'approved' });
+			})
+		);
+		await renderPage();
+
+		await expect.element(page.getByText('I recommend approving this.')).toBeInTheDocument();
+		await page.getByRole('button', { name: 'Accept recommendation' }).click();
+		await vi.waitFor(() =>
+			expect(approved).toHaveBeenCalledWith('apr-1', {
+				note: "Accepted the Supervisor's recommendation."
+			})
+		);
+	});
+
+	it('leaves the decision to a person when the Supervisor escalates or has not triaged', async () => {
+		const escalated = {
+			...pendingApproval,
+			triage: { ...pendingApproval.triage!, recommendation: 'escalate' }
+		};
+		const untriaged = {
+			...pendingApproval,
+			id: 'apr-9',
+			policyName: 'Untriaged',
+			triage: undefined
+		};
+		worker.use(
+			http.get('/api/provenance/approvals', () =>
+				HttpResponse.json({ items: [escalated, untriaged], total: 2 })
+			)
+		);
+		await renderPage();
+
+		const first = page.getByRole('article', { name: 'PII lineage to external destination' });
+		await expect
+			.element(first.getByText('This one needs a person.', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(first.getByRole('button', { name: 'Accept recommendation' }))
+			.not.toBeInTheDocument();
+		const second = page.getByRole('article', { name: 'Untriaged' });
+		await expect
+			.element(second.getByText("I haven't weighed in on this one yet.", { exact: false }))
+			.toBeInTheDocument();
+		await expect.element(second.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
 	});
 });

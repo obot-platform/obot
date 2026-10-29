@@ -9,7 +9,10 @@ import type {
 	ProvenanceEvent,
 	RedTeamResult,
 	Session,
-	SimulationResult
+	SimulationResult,
+	SupervisorAnswer,
+	SupervisorInsights,
+	SupervisorStatus
 } from '$lib/services/provenance';
 
 const now = Date.now();
@@ -416,4 +419,110 @@ export const redTeam: RedTeamResult = {
 			notes: 'Device hook not enrolled'
 		}
 	]
+};
+
+/** A decision the Supervisor judged itself: a judge policy resolved to require_approval. */
+export const judgedEvent: ProvenanceEvent = {
+	id: 'ev-6',
+	sessionID: 'ses-risky',
+	surface: 'mcp',
+	kind: 'tool.call',
+	at: minutesAgo(1),
+	userID: 'u-alice',
+	actor: { agent: 'claude_code' },
+	parentID: 'ev-1',
+	summary: 'tools/call acme-crm.send_report',
+	action: {
+		surface: 'mcp',
+		kind: 'tool.call',
+		tool: 'send_report',
+		server: 'acme-crm',
+		capabilities: ['writes-external'],
+		sink: { external: true, destination: 'acme-crm', writes: true, exec: false },
+		source: { private: true, untrusted: false }
+	},
+	decision: {
+		allow: false,
+		effect: 'require_approval',
+		policyID: 'pol-judge-crm',
+		policyName: 'Judge CRM writes',
+		reason:
+			'Judge CRM writes: Session read 14 PII records. Now: tools/call acme-crm.send_report. Supervisor (claude-sonnet-4, confidence 81%): I held this because the report carries customer PII the task never asked for.',
+		approvalID: 'apr-3',
+		risk: 64,
+		matched: [
+			{ policyID: 'pol-judge-crm', policyName: 'Judge CRM writes', effect: 'judge', shadow: false }
+		]
+	}
+};
+
+/** The feed: newest first, as GET /provenance/events returns it. */
+export const feedEvents: ProvenanceEvent[] = [
+	judgedEvent,
+	riskyEvents[4],
+	riskyEvents[3],
+	riskyEvents[1]
+];
+
+export const supervisorStatus: SupervisorStatus = {
+	enabled: true,
+	configured: true,
+	model: 'claude-sonnet-4',
+	deciderModel: 'claude-haiku-4',
+	watching: { sessions: 12, openSessions: 3, surfaces: ['llm', 'mcp', 'egress'] },
+	lastDecisionAt: minutesAgo(1),
+	lastJudgementAt: minutesAgo(1),
+	today: { decided: 154, judged: 7, held: 4, denied: 3, allowed: 140, shadowed: 11, triaged: 4 },
+	pendingApprovals: 2
+};
+
+export const supervisorInsights: SupervisorInsights = {
+	generatedAt: minutesAgo(0),
+	briefing:
+		"I watched 12 sessions today and held 4 actions. The one I would look at first is alice's Claude Code session, which pulled customer records and then tried to post them to paste.example.",
+	briefingModel: 'claude-sonnet-4',
+	items: [
+		{
+			id: 'ins-shadow',
+			kind: 'shadow-policy',
+			severity: 'warning',
+			title: 'Lethal trifecta would have held 3 actions',
+			detail: 'It is in shadow. Enforcing it would have held 3 actions in 2 sessions.',
+			policyID: 'builtin-lethal-trifecta',
+			action: {
+				label: 'Enforce policy',
+				method: 'PUT',
+				path: '/api/provenance/policies/builtin-lethal-trifecta',
+				body: { ...policies[1], mode: 'enforce' }
+			}
+		},
+		{
+			id: 'ins-honeytoken',
+			kind: 'honeytoken-tripped',
+			severity: 'critical',
+			title: 'A honeytoken left a session',
+			detail: 'The AWS canary key appeared in outbound content.',
+			sessionID: 'ses-risky',
+			action: {
+				label: 'Kill session',
+				method: 'POST',
+				path: '/api/provenance/kills',
+				body: { scope: 'session', target: 'ses-risky', reason: 'Honeytoken tripped' }
+			}
+		},
+		{
+			id: 'ins-coverage',
+			kind: 'coverage-gap',
+			severity: 'info',
+			title: '2 sessions were seen on only one surface',
+			detail: 'I cannot follow data between surfaces I do not observe.'
+		}
+	]
+};
+
+export const supervisorAnswer: SupervisorAnswer = {
+	answer:
+		"The riskiest thing right now is alice's session. I held its POST to paste.example because it carries PII from salesforce.query.",
+	model: 'claude-sonnet-4',
+	context: { sessions: 12, events: 40 }
 };

@@ -17,6 +17,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/provenance"
@@ -31,6 +32,16 @@ const (
 	// maxDescriptionChars bounds a tool description or schema shown for
 	// classification.
 	maxDescriptionChars = 4000
+
+	// judgeQuestion and triageQuestion ask for a first-person, concrete
+	// rationale: the administrator reads it as the Supervisor explaining its
+	// own call.
+	judgeQuestion = `Should this action proceed? Write the rationale in the first person, as yourself explaining the call ` +
+		`to the administrator ("I allowed this because...", "I held this for approval because...", "I denied this because..."), ` +
+		`and name the specific evidence: the tool or host, the session labels or lineage, the policy that fired.`
+	triageQuestion = `What should the approver do with this request? Write the rationale in the first person, as your recommendation ` +
+		`to the approver ("I recommend approving: ...", "I recommend denying: ...", "I'd send this to a security reviewer: ..."), ` +
+		`and name the specific evidence: what the session read, where the data would go, and whether it fits the task.`
 
 	narrateSystemPrompt = `You are Obot's Supervisor, explaining what an AI agent session did to a security reviewer. ` +
 		`You see a content-free event log: tool names, hosts, labels, policy decisions and lineage, never the content itself. ` +
@@ -91,6 +102,13 @@ type Supervisor struct {
 	// model is reported when the backend does not say which model answered.
 	model string
 	now   func() time.Time
+	// textModel and decisionModel name the configured models (an alias until
+	// a call reports the gateway model that answered).
+	textModel     func(context.Context) string
+	decisionModel func(context.Context) string
+	// lastText and lastDecision are the models that most recently answered.
+	lastText     atomic.Pointer[string]
+	lastDecision atomic.Pointer[string]
 }
 
 // Option configures a Supervisor.
@@ -167,9 +185,11 @@ func New(completer Completer, settings func(context.Context) provenance.Settings
 		}
 	}
 	s := &Supervisor{
-		decider: NewGatewayDeciderFunc(completer, modelOr(DefaultDecisionModel)),
-		writer:  NewGatewayTextModelFunc(completer, modelOr(DefaultTextModel)),
-		now:     func() time.Time { return time.Now().UTC() },
+		decider:       NewGatewayDeciderFunc(completer, modelOr(DefaultDecisionModel)),
+		writer:        NewGatewayTextModelFunc(completer, modelOr(DefaultTextModel)),
+		now:           func() time.Time { return time.Now().UTC() },
+		textModel:     modelOr(DefaultTextModel),
+		decisionModel: modelOr(DefaultDecisionModel),
 	}
 	for _, o := range opts {
 		o(s)
@@ -198,7 +218,7 @@ func (s *Supervisor) Judge(ctx context.Context, in provenance.JudgeInput) (prove
 		defer cancel()
 	}
 	ans, err := s.decider.Decide(ctx, provenance.Question{
-		Question: "Should this action proceed?",
+		Question: judgeQuestion,
 		Context:  JudgeContext(in),
 		Guidance: in.Policy.Guidance,
 		Options:  provenance.JudgeOptions,
@@ -210,8 +230,10 @@ func (s *Supervisor) Judge(ctx context.Context, in provenance.JudgeInput) (prove
 	if !slices.ContainsFunc(provenance.JudgeOptions, func(c provenance.Choice) bool { return c.Key == ans.Option }) {
 		return provenance.JudgeOutput{}, fmt.Errorf("the Supervisor chose %q, which is not a judge option", ans.Option)
 	}
+	model := firstNonEmpty(ans.Model, s.model)
+	s.remember(&s.lastDecision, model)
 	return provenance.JudgeOutput{
-		Effect: effect, Rationale: ans.Rationale, Confidence: ans.Confidence, Model: firstNonEmpty(ans.Model, s.model),
+		Effect: effect, Rationale: ans.Rationale, Confidence: ans.Confidence, Model: model,
 	}, nil
 }
 
@@ -222,7 +244,7 @@ func (s *Supervisor) TriageApproval(ctx context.Context, a provenance.Approval, 
 		return provenance.Triage{}, errors.New("the Supervisor has no decider")
 	}
 	ans, err := s.decider.Decide(ctx, provenance.Question{
-		Question: "What should the approver do with this request?",
+		Question: triageQuestion,
 		Context:  TriageContext(a, sess, recent),
 		Options:  provenance.TriageOptions,
 	})
@@ -232,9 +254,11 @@ func (s *Supervisor) TriageApproval(ctx context.Context, a provenance.Approval, 
 	if !slices.ContainsFunc(provenance.TriageOptions, func(c provenance.Choice) bool { return c.Key == ans.Option }) {
 		return provenance.Triage{}, fmt.Errorf("the Supervisor chose %q, which is not a triage option", ans.Option)
 	}
+	model := firstNonEmpty(ans.Model, s.model)
+	s.remember(&s.lastDecision, model)
 	return provenance.Triage{
 		Recommendation: ans.Option, Rationale: ans.Rationale, Confidence: ans.Confidence,
-		Model: firstNonEmpty(ans.Model, s.model), At: s.now(),
+		Model: model, At: s.now(),
 	}, nil
 }
 
@@ -302,7 +326,38 @@ func (s *Supervisor) completeJSON(ctx context.Context, system, user string, sche
 	if err := parseJSON(text, out); err != nil {
 		return "", fmt.Errorf("the model did not answer in the expected JSON: %w", err)
 	}
-	return firstNonEmpty(model, s.model), nil
+	model = firstNonEmpty(model, s.model)
+	s.remember(&s.lastText, model)
+	return model, nil
+}
+
+// Models reports the models the Supervisor uses for text (narration,
+// drafting, briefings, answers) and for bounded decisions: the model that most
+// recently answered when one has, otherwise the configured model or alias.
+func (s *Supervisor) Models(ctx context.Context) (text, decision string) {
+	text = loadModel(&s.lastText)
+	if text == "" && s.textModel != nil {
+		text = s.textModel(ctx)
+	}
+	decision = loadModel(&s.lastDecision)
+	if decision == "" && s.decisionModel != nil {
+		decision = s.decisionModel(ctx)
+	}
+	return firstNonEmpty(text, s.model), firstNonEmpty(decision, s.model)
+}
+
+// remember records the model that answered a call.
+func (s *Supervisor) remember(slot *atomic.Pointer[string], model string) {
+	if model != "" {
+		slot.Store(&model)
+	}
+}
+
+func loadModel(slot *atomic.Pointer[string]) string {
+	if v := slot.Load(); v != nil {
+		return *v
+	}
+	return ""
 }
 
 // JudgeContext renders what the Supervisor sees for a judge decision. It is

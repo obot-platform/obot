@@ -232,6 +232,67 @@ describe('Layout.svelte', () => {
 		});
 	});
 
+	describe('Supervisor navigation', () => {
+		function mockPending(count: number) {
+			worker.use(
+				http.get('/api/provenance/supervisor/status', () =>
+					HttpResponse.json({ enabled: true, pendingApprovals: count })
+				)
+			);
+		}
+
+		it('names the group Supervisor and badges Approvals with the pending count', async () => {
+			mockPending(3);
+			await renderLayout([Group.ADMIN]);
+			await expandSection('supervision', '/supervision');
+
+			await expect
+				.element(page.getByRole('button', { name: /^Supervisor/ }).first())
+				.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('link', { name: /Approvals.*3 pending approvals/ }))
+				.toHaveAttribute('href', '/approvals');
+		});
+
+		it('falls back to the approvals list when there is no status endpoint', async () => {
+			worker.use(
+				http.get(
+					'/api/provenance/supervisor/status',
+					() => new HttpResponse(null, { status: 404 })
+				),
+				http.get('/api/provenance/approvals', () => HttpResponse.json({ items: [], total: 5 }))
+			);
+			await renderLayout([Group.ADMIN]);
+			await expandSection('supervision', '/supervision');
+
+			await expect
+				.element(page.getByRole('link', { name: /Approvals.*5 pending approvals/ }))
+				.toBeInTheDocument();
+		});
+
+		it('shows no badge when nothing is pending', async () => {
+			mockPending(0);
+			await renderLayout([Group.ADMIN]);
+			await expandSection('supervision', '/supervision');
+
+			await expectLink('/approvals');
+			await expect.element(page.getByText(/pending approvals/)).not.toBeInTheDocument();
+		});
+
+		it('does not ask for pending approvals for basic users', async () => {
+			const requested = vi.fn();
+			worker.use(
+				http.get('/api/provenance/supervisor/status', () => {
+					requested();
+					return HttpResponse.json({ pendingApprovals: 1 });
+				})
+			);
+			await renderLayout();
+			await expectSharedNavigation();
+			expect(requested).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('SCIM setup banner', () => {
 		const communityLicense: Partial<License> = {
 			licenseKey: 'community-license-key',

@@ -45,6 +45,8 @@ const (
 // approvals, the kill switch, honeytokens, tool labels and settings.
 type ProvenanceHandler struct {
 	engine *provenance.Engine
+	// insights caches the Supervisor's insights (provenance_supervisor.go).
+	insights supervisorInsightsCache
 }
 
 // provenanceList is the shape of every list response.

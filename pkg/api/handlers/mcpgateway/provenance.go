@@ -26,7 +26,7 @@ const (
 	// provenanceHookName is the provenance filter's display name in MCP audit logs.
 	provenanceHookName = "Session policy"
 	// provenanceDecisionBudget bounds how long a tool call waits for Obot Policy.
-	provenanceDecisionBudget = 5 * time.Second
+	provenanceDecisionBudget = 10 * time.Second
 	// maxProvenanceContentBytes caps how much of a result is scanned for labels.
 	maxProvenanceContentBytes = 1 << 20
 	// defaultMCPAgent names the agent when the MCP client did not identify itself.
@@ -85,11 +85,19 @@ func newMCPProvenance(engine *provenance.Engine, caller user.Info, serverConfig 
 		userID = cmp.Or(userID, caller.GetUID())
 	}
 
+	// A harness that already knows its provenance session (the LLM gateway returns it as
+	// X-Obot-Session-ID) names it explicitly, so its tool calls land in the same session
+	// as its model turns.
+	var explicit string
+	if req != nil {
+		explicit = req.Header.Get("X-Obot-Session-ID")
+	}
+
 	actor := provenance.Actor{Agent: agent, AgentVersion: clientVersion, APIKeyID: apiKeyID, ClientSessionID: sessionID}
 	return &mcpProvenance{
 		engine:       engine,
 		subject:      provenance.Subject{UserID: userID, Email: email, Groups: groups, Actor: actor},
-		session:      provenance.SessionKey{ClientSessionID: sessionID, Agent: agent, UserID: userID, APIKeyID: apiKeyID},
+		session:      provenance.SessionKey{Explicit: explicit, ClientSessionID: sessionID, Agent: agent, UserID: userID, APIKeyID: apiKeyID},
 		server:       cmp.Or(serverConfig.MCPServerDisplayName, serverConfig.MCPServerName),
 		serverID:     cmp.Or(serverConfig.AuditLogMetadata["mcpID"], serverConfig.MCPServerName),
 		descriptions: descriptions,

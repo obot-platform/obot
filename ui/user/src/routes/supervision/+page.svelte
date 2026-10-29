@@ -1,41 +1,69 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
-	import HorizontalBarList from '$lib/components/graph/HorizontalBarList.svelte';
 	import ActiveKills from '$lib/components/supervision/ActiveKills.svelte';
+	import ApprovalCard from '$lib/components/supervision/ApprovalCard.svelte';
 	import KillSwitchDialog from '$lib/components/supervision/KillSwitchDialog.svelte';
 	import LabelBadges from '$lib/components/supervision/LabelBadges.svelte';
 	import RedTeamScorecard from '$lib/components/supervision/RedTeamScorecard.svelte';
 	import RiskPill from '$lib/components/supervision/RiskPill.svelte';
+	import SupervisorAsk from '$lib/components/supervision/SupervisorAsk.svelte';
+	import SupervisorAvatar from '$lib/components/supervision/SupervisorAvatar.svelte';
+	import SupervisorBriefing from '$lib/components/supervision/SupervisorBriefing.svelte';
+	import SupervisorFeed from '$lib/components/supervision/SupervisorFeed.svelte';
+	import SupervisorInsights from '$lib/components/supervision/SupervisorInsights.svelte';
+	import SupervisorPresence from '$lib/components/supervision/SupervisorPresence.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
-		effectLabel,
 		getOverview,
+		getSupervisorInsights,
+		getSupervisorStatus,
+		listApprovals,
 		listKills,
 		runRedTeam,
 		sessionDisplayName,
 		SURFACES,
 		surfaceLabel,
+		type Approval,
 		type Kill,
 		type Overview,
-		type RedTeamResult
+		type ProvenanceEvent,
+		type RedTeamResult,
+		type SupervisorInsights as Insights,
+		type SupervisorStatus
 	} from '$lib/services/provenance';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { resolve } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import { CircleHelp, OctagonX, Sparkles, Swords } from '@lucide/svelte';
+	import { CircleHelp, Inbox, OctagonX, Swords } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
-	// The Supervision overview: coverage per surface, decisions, the riskiest sessions, policy
-	// and Supervisor status, the kill switch and the red team scorecard.
+	// The Supervisor's home. The reader looks over the Supervisor's shoulder: whether it is on and
+	// what it watches, its briefing, the held actions waiting on a person (its recommendation
+	// first), what it noticed, every decision as it lands, and a place to ask it questions.
+	// The kill switch and red team sit below as controls.
+
+	const LIVE_REFRESH_MS = 5_000;
+	const SLOW_REFRESH_MS = 30_000;
+	const ATTENTION_LIMIT = 3;
 
 	let hours = $state(24);
 	let overview = $state<Overview>();
+	let status = $state<SupervisorStatus>();
+	let statusLive = $state(true);
+	let insights = $state<Insights>();
+	let insightsLoading = $state(true);
+	let insightsUnavailable = $state(false);
+	let refreshingBriefing = $state(false);
+	let attention = $state<Approval[]>([]);
+	let attentionTotal = $state(0);
+	let attentionLoading = $state(true);
+	let latestEventAt = $state<string>();
 	let kills = $state<Kill[]>([]);
 	let loading = $state(true);
 	let error = $state('');
@@ -46,26 +74,91 @@
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 
-	async function load() {
-		loading = true;
-		error = '';
+	async function loadOverview() {
 		try {
-			[overview, kills] = await Promise.all([
-				getOverview(hours, { dontLogErrors: true }),
-				listKills({ dontLogErrors: true }).catch((): Kill[] => [])
-			]);
+			overview = await getOverview(hours, { dontLogErrors: true });
+			error = '';
 		} catch (e) {
 			error = parseErrorContent(e).message;
-		} finally {
-			loading = false;
 		}
 	}
 
-	onMount(load);
+	async function loadStatus() {
+		try {
+			status = await getSupervisorStatus({ dontLogErrors: true });
+			statusLive = true;
+		} catch {
+			// Older servers have no status endpoint: describe the Supervisor from the overview.
+			statusLive = false;
+		}
+	}
+
+	async function loadInsights(refresh = false) {
+		try {
+			insights = await getSupervisorInsights(refresh, { dontLogErrors: true });
+			insightsUnavailable = false;
+		} catch {
+			insightsUnavailable = true;
+		} finally {
+			insightsLoading = false;
+		}
+	}
+
+	async function loadAttention() {
+		try {
+			const resp = await listApprovals(
+				{ status: 'pending', limit: ATTENTION_LIMIT },
+				{ dontLogErrors: true }
+			);
+			attention = resp.items ?? [];
+			attentionTotal = Math.max(resp.total ?? 0, attention.length);
+		} catch {
+			// The attention queue is best effort; the approvals page shows errors.
+		} finally {
+			attentionLoading = false;
+		}
+	}
+
+	async function load() {
+		loading = true;
+		await Promise.all([
+			loadOverview(),
+			loadStatus(),
+			loadInsights(),
+			loadAttention(),
+			listKills({ dontLogErrors: true })
+				.then((k) => (kills = k))
+				.catch(() => undefined)
+		]);
+		loading = false;
+	}
+
+	onMount(() => {
+		load();
+		// setInterval, not setTimeout, so the cadence is not shortened by the test harness.
+		const fast = setInterval(() => {
+			loadStatus();
+			loadAttention();
+		}, LIVE_REFRESH_MS);
+		const slow = setInterval(() => {
+			loadInsights();
+			loadOverview();
+		}, SLOW_REFRESH_MS);
+		return () => {
+			clearInterval(fast);
+			clearInterval(slow);
+		};
+	});
 
 	async function setHours(h: number) {
 		hours = h;
-		await load();
+		await loadOverview();
+	}
+
+	async function refreshBriefing() {
+		refreshingBriefing = true;
+		await loadInsights(true);
+		refreshingBriefing = false;
 	}
 
 	async function runRed() {
@@ -80,52 +173,46 @@
 		}
 	}
 
-	let decisionTiles = $derived(
-		overview
-			? [
-					{
-						id: 'allowed',
-						label: m.supervision_overview_allowed(),
-						value: overview.decisions.allowed,
-						color: 'text-success'
-					},
-					{
-						id: 'denied',
-						label: m.supervision_overview_denied(),
-						value: overview.decisions.denied,
-						color: 'text-error'
-					},
-					{
-						id: 'shadowed',
-						label: m.supervision_overview_shadowed(),
-						value: overview.decisions.shadowed,
-						color: 'text-warning'
-					},
-					{
-						id: 'pending',
-						label: m.supervision_overview_pending_approvals(),
-						value: overview.decisions.approvals_pending,
-						color: 'text-primary',
-						href: '/approvals'
-					}
-				]
-			: []
-	);
+	function onFeed(events: ProvenanceEvent[]) {
+		latestEventAt = events[0]?.at;
+	}
 
-	let bySurface = $derived(
-		overview
-			? Object.entries(overview.bySurface)
-					.map(([surface, count]) => ({ label: surfaceLabel(surface), value: count ?? 0 }))
-					.sort((a, b) => b.value - a.value)
-			: []
-	);
-	let byEffect = $derived(
-		overview
-			? Object.entries(overview.byEffect)
-					.map(([effect, count]) => ({ label: effectLabel(effect), value: count ?? 0 }))
-					.sort((a, b) => b.value - a.value)
-			: []
-	);
+	function onResolved(resolved: Approval) {
+		attention = attention.filter((a) => a.id !== resolved.id);
+		attentionTotal = Math.max(0, attentionTotal - 1);
+		loadAttention();
+		loadStatus();
+	}
+
+	// What the presence header shows: the live status, or a description built from the overview
+	// and the feed when the server has no status endpoint.
+	let presence = $derived.by<SupervisorStatus | undefined>(() => {
+		if (statusLive && status) return status;
+		if (!overview) return undefined;
+		const o = overview;
+		return {
+			enabled: o.supervisor.enabled,
+			configured: true,
+			model: o.supervisor.model,
+			watching: {
+				sessions: o.coverage.sessions,
+				openSessions: 0,
+				surfaces: SURFACES.filter((s) => (o.coverage.surfaces[s] ?? 0) > 0)
+			},
+			lastDecisionAt: latestEventAt ?? null,
+			lastJudgementAt: null,
+			today: {
+				decided: o.decisions.allowed + o.decisions.denied,
+				judged: o.byEffect.judge ?? 0,
+				held: o.byEffect.require_approval ?? 0,
+				denied: o.decisions.denied,
+				allowed: o.decisions.allowed,
+				shadowed: o.decisions.shadowed,
+				triaged: 0
+			},
+			pendingApprovals: o.decisions.approvals_pending
+		};
+	});
 
 	let riskiestRows = $derived(
 		(overview?.riskiest ?? []).map((s) => ({
@@ -150,100 +237,117 @@
 			<div class="notification-error rounded-md p-3 text-sm" role="alert">{error}</div>
 		{/if}
 
+		<SupervisorPresence status={presence} loading={loading && !presence} onChanged={load} />
+
 		{#if loading && !overview}
-			<Skeleton type="card" class="min-h-40 w-full" />
-			<Skeleton type="card" class="min-h-40 w-full" />
-			<Skeleton type="table" count={4} />
+			<Skeleton type="card" class="min-h-16 w-full" />
 		{:else if overview}
-			<!-- Coverage -->
-			<section class="paper gap-3" aria-label={m.supervision_overview_coverage()}>
-				<div class="flex flex-wrap items-baseline justify-between gap-2">
-					<h2 class="text-base font-semibold">{m.supervision_overview_coverage()}</h2>
+			<!-- Coverage strip -->
+			<section
+				class="paper flex-row flex-wrap items-center gap-x-6 gap-y-2 py-3"
+				aria-label={m.supervision_overview_coverage()}
+			>
+				<div class="flex flex-col">
+					<h2 class="text-sm font-semibold">{m.supervision_overview_coverage()}</h2>
 					<span class="text-muted-content text-xs">
-						{m.supervision_overview_coverage_description()} · {m.supervision_hours_window({
-							hours
-						})}
+						{m.supervision_hours_window({ hours })}
 					</span>
 				</div>
-				<div class="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
-					<div class="bg-base-200 dark:bg-base-300 flex flex-col rounded-md p-3">
-						<span class="text-muted-content text-xs">{m.supervision_overview_sessions()}</span>
-						<span class="text-2xl font-semibold tabular-nums">{overview.coverage.sessions}</span>
+				<div class="flex flex-col">
+					<span class="text-muted-content text-xs">{m.supervision_overview_sessions()}</span>
+					<span class="text-lg font-semibold tabular-nums">{overview.coverage.sessions}</span>
+				</div>
+				{#each SURFACES as surface (surface)}
+					{@const count = overview.coverage.surfaces[surface] ?? 0}
+					<div class={twMerge('flex flex-col', count === 0 && 'opacity-50')}>
+						<span class="text-muted-content truncate text-xs">{surfaceLabel(surface)}</span>
+						<span class="text-lg font-semibold tabular-nums">{count}</span>
 					</div>
-					{#each SURFACES as surface (surface)}
-						{@const count = overview.coverage.surfaces[surface] ?? 0}
-						<div
-							class={twMerge(
-								'bg-base-200 dark:bg-base-300 flex flex-col rounded-md p-3',
-								count === 0 && 'opacity-60'
-							)}
-						>
-							<span class="text-muted-content truncate text-xs">{surfaceLabel(surface)}</span>
-							<span class="text-2xl font-semibold tabular-nums">{count}</span>
+				{/each}
+				<div
+					class={twMerge(
+						'flex flex-col rounded-md px-2',
+						overview.coverage.blind > 0 && 'bg-warning/15'
+					)}
+					title={m.supervision_overview_blind_sessions_help()}
+				>
+					<span class="text-muted-content flex items-center gap-1 text-xs">
+						{m.supervision_overview_blind_sessions()}
+						<CircleHelp class="size-3" />
+					</span>
+					<span class="text-lg font-semibold tabular-nums">{overview.coverage.blind}</span>
+				</div>
+			</section>
+		{/if}
+
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+			<div class="flex min-w-0 flex-col gap-4 lg:col-span-2">
+				<SupervisorBriefing
+					{insights}
+					loading={insightsLoading}
+					refreshing={refreshingBriefing}
+					unavailable={insightsUnavailable}
+					onRefresh={refreshBriefing}
+				/>
+
+				<!-- Needs your attention -->
+				<section class="paper gap-3" aria-label={m.supervision_attention_title()}>
+					<div class="flex flex-wrap items-baseline justify-between gap-2">
+						<h2 class="flex items-center gap-2 text-base font-semibold">
+							<Inbox class="text-warning size-4" />
+							{m.supervision_attention_title()}
+							{#if attentionTotal > 0}
+								<span class="badge badge-sm badge-warning">{attentionTotal}</span>
+							{/if}
+						</h2>
+						<a href={resolve('/approvals')} class="text-link text-sm">
+							{m.supervision_attention_view_all()}
+						</a>
+					</div>
+					{#if attentionLoading && attention.length === 0}
+						<Skeleton type="card" class="min-h-24 w-full" />
+					{:else if attention.length === 0}
+						<div class="text-muted-content flex items-center gap-2 text-sm">
+							<SupervisorAvatar size="sm" active={false} />
+							{m.supervision_attention_empty()}
 						</div>
-					{/each}
-					<div
-						class={twMerge(
-							'flex flex-col rounded-md p-3',
-							overview.coverage.blind > 0 ? 'bg-warning/15' : 'bg-base-200 dark:bg-base-300'
-						)}
-						title={m.supervision_overview_blind_sessions_help()}
-					>
-						<span class="text-muted-content flex items-center gap-1 text-xs">
-							{m.supervision_overview_blind_sessions()}
-							<CircleHelp class="size-3" />
-						</span>
-						<span class="text-2xl font-semibold tabular-nums">{overview.coverage.blind}</span>
-					</div>
-				</div>
-			</section>
-
-			<!-- Decisions -->
-			<section class="paper gap-3" aria-label={m.supervision_overview_decisions()}>
-				<h2 class="text-base font-semibold">{m.supervision_overview_decisions()}</h2>
-				<div class="grid grid-cols-2 gap-2 md:grid-cols-4">
-					{#each decisionTiles as tile (tile.id)}
-						{#if tile.href}
-							<a
-								href={resolve(tile.href as `/${string}`)}
-								class="bg-base-200 dark:bg-base-300 hover:bg-base-300 dark:hover:bg-base-400 flex flex-col rounded-md p-3 transition-colors"
-							>
-								<span class="text-muted-content text-xs">{tile.label}</span>
-								<span class={twMerge('text-2xl font-semibold tabular-nums', tile.color)}
-									>{tile.value}</span
-								>
+					{:else}
+						<div class="flex flex-col gap-3">
+							{#each attention as approval (approval.id)}
+								<ApprovalCard {approval} {onResolved} compact />
+							{/each}
+						</div>
+						{#if attentionTotal > attention.length}
+							<a href={resolve('/approvals')} class="text-link self-center text-sm">
+								{m.supervision_attention_more({ count: attentionTotal - attention.length })}
 							</a>
-						{:else}
-							<div class="bg-base-200 dark:bg-base-300 flex flex-col rounded-md p-3">
-								<span class="text-muted-content text-xs">{tile.label}</span>
-								<span class={twMerge('text-2xl font-semibold tabular-nums', tile.color)}
-									>{tile.value}</span
-								>
-							</div>
 						{/if}
-					{/each}
-				</div>
-				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-					<div class="flex flex-col gap-2">
-						<h3 class="text-sm font-medium">{m.supervision_overview_by_surface()}</h3>
-						{#if bySurface.length}
-							<HorizontalBarList data={bySurface} labelKey="label" valueKey="value" />
-						{:else}
-							<p class="text-muted-content text-sm">{m.supervision_overview_no_decisions()}</p>
-						{/if}
-					</div>
-					<div class="flex flex-col gap-2">
-						<h3 class="text-sm font-medium">{m.supervision_overview_by_effect()}</h3>
-						{#if byEffect.length}
-							<HorizontalBarList data={byEffect} labelKey="label" valueKey="value" />
-						{:else}
-							<p class="text-muted-content text-sm">{m.supervision_overview_no_decisions()}</p>
-						{/if}
-					</div>
-				</div>
-			</section>
+					{/if}
+				</section>
 
-			<!-- Riskiest sessions -->
+				<SupervisorFeed onEvents={onFeed} />
+			</div>
+
+			<div class="flex min-w-0 flex-col gap-4">
+				<SupervisorInsights
+					items={insights?.items ?? []}
+					loading={insightsLoading}
+					error={insightsUnavailable ? m.supervision_insights_unavailable() : ''}
+					onActed={() => Promise.all([loadInsights(), loadStatus(), loadOverview()])}
+				/>
+				<SupervisorAsk
+					intro={m.supervision_ask_intro()}
+					suggestions={[
+						m.supervision_ask_suggest_riskiest(),
+						m.supervision_ask_suggest_last_hold(),
+						m.supervision_ask_suggest_next_policy()
+					]}
+				/>
+			</div>
+		</div>
+
+		<!-- Riskiest sessions -->
+		{#if overview}
 			<section class="paper gap-3" aria-label={m.supervision_overview_riskiest()}>
 				<div class="flex items-baseline justify-between gap-2">
 					<h2 class="text-base font-semibold">{m.supervision_overview_riskiest()}</h2>
@@ -287,11 +391,16 @@
 					</Table>
 				{/if}
 			</section>
+		{/if}
 
-			<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-				<!-- Policies -->
-				<section class="paper gap-2" aria-label={m.supervision_overview_policies()}>
-					<h2 class="text-base font-semibold">{m.supervision_overview_policies()}</h2>
+		<!-- Controls: policies, the kill switch and the red team -->
+		<h2 class="text-muted-content mt-2 text-xs font-semibold uppercase">
+			{m.supervision_home_controls()}
+		</h2>
+		<div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+			<section class="paper gap-2" aria-label={m.supervision_overview_policies()}>
+				<h3 class="text-base font-semibold">{m.supervision_overview_policies()}</h3>
+				{#if overview}
 					<div class="flex gap-4">
 						<div class="flex flex-col">
 							<span class="text-2xl font-semibold tabular-nums">{overview.policies.enforce}</span>
@@ -306,57 +415,48 @@
 							</span>
 						</div>
 					</div>
-					<a href={resolve('/policies')} class="text-link w-fit text-sm">
-						{m.supervision_overview_manage_policies()}
-					</a>
-				</section>
+				{/if}
+				<a href={resolve('/policies')} class="text-link w-fit text-sm">
+					{m.supervision_overview_manage_policies()}
+				</a>
+			</section>
 
-				<!-- Supervisor -->
-				<section class="paper gap-2" aria-label={m.supervision_overview_supervisor()}>
-					<h2 class="flex items-center gap-2 text-base font-semibold">
-						<Sparkles class="text-primary size-4" />
-						{m.supervision_overview_supervisor()}
-					</h2>
-					<div class="flex items-center gap-2">
-						<span
-							class={twMerge(
-								'badge badge-sm badge-soft',
-								overview.supervisor.enabled ? 'badge-success' : 'badge-ghost'
-							)}
+			<section class="paper gap-2" aria-label={m.supervision_kill_active()}>
+				<div class="flex items-center justify-between gap-2">
+					<h3 class="text-base font-semibold">{m.supervision_kill_active()}</h3>
+					{#if !readonly}
+						<button
+							type="button"
+							class="btn btn-error btn-sm text-xs"
+							onclick={() => killDialog?.open()}
 						>
-							{overview.supervisor.enabled
-								? m.supervision_overview_supervisor_enabled()
-								: m.supervision_overview_supervisor_disabled()}
-						</span>
-						<span class="text-muted-content text-xs">
-							{m.supervision_overview_supervisor_model({
-								model:
-									overview.supervisor.model || m.supervision_overview_supervisor_default_model()
-							})}
-						</span>
-					</div>
-					<p class="text-muted-content text-xs">{m.supervision_overview_supervisor_help()}</p>
-				</section>
+							<OctagonX class="size-4" />
+							{m.supervision_kill_switch()}
+						</button>
+					{/if}
+				</div>
+				<p class="text-muted-content text-xs">{m.supervision_kill_switch_description()}</p>
+				<ActiveKills {kills} onRevoked={(id) => (kills = kills.filter((k) => k.id !== id))} />
+			</section>
 
-				<!-- Kill switch -->
-				<section class="paper gap-2" aria-label={m.supervision_kill_active()}>
-					<div class="flex items-center justify-between gap-2">
-						<h2 class="text-base font-semibold">{m.supervision_kill_active()}</h2>
-						{#if !readonly}
-							<button
-								type="button"
-								class="btn btn-error btn-sm text-xs"
-								onclick={() => killDialog?.open()}
-							>
-								<OctagonX class="size-4" />
-								{m.supervision_kill_switch()}
-							</button>
-						{/if}
-					</div>
-					<ActiveKills {kills} onRevoked={(id) => (kills = kills.filter((k) => k.id !== id))} />
-				</section>
-			</div>
-		{/if}
+			<section class="paper gap-2" aria-label={m.supervision_home_redteam()}>
+				<div class="flex items-center justify-between gap-2">
+					<h3 class="text-base font-semibold">{m.supervision_home_redteam()}</h3>
+					{#if !readonly}
+						<button
+							type="button"
+							class="btn btn-secondary btn-sm text-xs"
+							disabled={runningRedTeam}
+							onclick={runRed}
+						>
+							{#if runningRedTeam}<Loading class="size-4" />{:else}<Swords class="size-4" />{/if}
+							{m.supervision_redteam_run()}
+						</button>
+					{/if}
+				</div>
+				<p class="text-muted-content text-xs">{m.supervision_redteam_description()}</p>
+			</section>
+		</div>
 
 		{#if redTeamError}
 			<div class="notification-error rounded-md p-3 text-sm" role="alert">{redTeamError}</div>
@@ -368,41 +468,20 @@
 </Layout>
 
 {#snippet navActions()}
-	<div class="flex items-center gap-2">
-		<div class="join" role="group" aria-label={m.supervision_sessions_filter_range()}>
-			{#each [24, 168] as h (h)}
-				<button
-					type="button"
-					class={twMerge(
-						'btn btn-sm join-item text-xs',
-						hours === h ? 'btn-primary' : 'btn-secondary'
-					)}
-					aria-pressed={hours === h}
-					onclick={() => setHours(h)}
-				>
-					{h === 24 ? m.supervision_sessions_range_24h() : m.supervision_sessions_range_7d()}
-				</button>
-			{/each}
-		</div>
-		{#if !readonly}
+	<div class="join" role="group" aria-label={m.supervision_sessions_filter_range()}>
+		{#each [24, 168] as h (h)}
 			<button
 				type="button"
-				class="btn btn-secondary rounded-4xl text-sm"
-				disabled={runningRedTeam}
-				onclick={runRed}
+				class={twMerge(
+					'btn btn-sm join-item text-xs',
+					hours === h ? 'btn-primary' : 'btn-secondary'
+				)}
+				aria-pressed={hours === h}
+				onclick={() => setHours(h)}
 			>
-				{#if runningRedTeam}<Loading class="size-4" />{:else}<Swords class="size-4" />{/if}
-				{m.supervision_redteam_run()}
+				{h === 24 ? m.supervision_sessions_range_24h() : m.supervision_sessions_range_7d()}
 			</button>
-			<button
-				type="button"
-				class="btn btn-error rounded-4xl text-sm"
-				onclick={() => killDialog?.open()}
-			>
-				<OctagonX class="size-4" />
-				{m.supervision_kill_switch()}
-			</button>
-		{/if}
+		{/each}
 	</div>
 {/snippet}
 

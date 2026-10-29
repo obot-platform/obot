@@ -1,6 +1,6 @@
 import { goto } from '$lib/url';
 import { preparePageData } from '../../tests/helpers/pageData';
-import { policies } from '../../tests/mocks/provenance';
+import { policies, supervisorInsights } from '../../tests/mocks/provenance';
 import { worker } from '../../tests/mocks/worker';
 import PoliciesPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
@@ -104,5 +104,53 @@ describe('Policies list', () => {
 	it('shows an empty state without policies', async () => {
 		await renderPage();
 		await expect.element(page.getByText('No policies yet.')).toBeInTheDocument();
+	});
+
+	describe('Supervisor suggests', () => {
+		it('shows only shadow-policy suggestions and enforces one with a click', async () => {
+			mockPolicies();
+			const updated = vi.fn();
+			worker.use(
+				http.get('/api/provenance/supervisor/insights', () =>
+					HttpResponse.json(supervisorInsights)
+				),
+				http.put('/api/provenance/policies/:id', async ({ params, request }) => {
+					const body = (await request.json()) as Record<string, unknown>;
+					updated(params.id, body.mode);
+					return HttpResponse.json(body);
+				})
+			);
+			await renderPage();
+
+			const suggests = page.getByRole('region', { name: 'Supervisor suggests' });
+			await expect
+				.element(suggests.getByText('Lethal trifecta would have held 3 actions', { exact: false }))
+				.toBeInTheDocument();
+			await expect
+				.element(suggests.getByText('A honeytoken left a session', { exact: false }))
+				.not.toBeInTheDocument();
+			await suggests.getByRole('button', { name: 'Enforce policy' }).click();
+			await vi.waitFor(() =>
+				expect(updated).toHaveBeenCalledWith('builtin-lethal-trifecta', 'enforce')
+			);
+		});
+
+		it('is hidden when the Supervisor has no suggestions', async () => {
+			mockPolicies();
+			worker.use(
+				http.get(
+					'/api/provenance/supervisor/insights',
+					() => new HttpResponse(null, { status: 404 })
+				)
+			);
+			await renderPage();
+
+			await expect
+				.element(page.getByRole('link', { name: 'Honeytoken exfiltration' }))
+				.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('region', { name: 'Supervisor suggests' }))
+				.not.toBeInTheDocument();
+		});
 	});
 });

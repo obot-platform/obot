@@ -29,7 +29,7 @@ const (
 
 	// provenanceBudget bounds the Obot Policy decision: the device hook is
 	// holding the agent's tool call while it waits.
-	provenanceBudget = 4 * time.Second
+	provenanceBudget = 10 * time.Second
 
 	// allowlistPolicyName is the policy name recorded in the session graph
 	// for a call the fleet allowlist denied.

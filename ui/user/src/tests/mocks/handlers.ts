@@ -159,6 +159,23 @@ export const handlers = [
 	http.get('/api/provenance/tool-labels', () => HttpResponse.json({ items: [] })),
 	http.get('/api/provenance/settings', () => HttpResponse.json({ supervisorEnabled: false })),
 	http.post('/api/provenance/redteam/run', () => HttpResponse.json({ scenarios: [] })),
+	http.get('/api/provenance/supervisor/status', () =>
+		HttpResponse.json({
+			enabled: false,
+			configured: false,
+			watching: { sessions: 0, openSessions: 0, surfaces: [] },
+			lastDecisionAt: null,
+			lastJudgementAt: null,
+			today: { decided: 0, judged: 0, held: 0, denied: 0, allowed: 0, shadowed: 0, triaged: 0 },
+			pendingApprovals: 0
+		})
+	),
+	http.get('/api/provenance/supervisor/insights', () =>
+		HttpResponse.json({ generatedAt: new Date().toISOString(), briefing: '', items: [] })
+	),
+	http.post('/api/provenance/supervisor/ask', () =>
+		HttpResponse.json({ error: 'supervisor unavailable' }, { status: 503 })
+	),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>
 		HttpResponse.json({ items: data.listAllUserWorkspaceCatalogEntriesResponse })
