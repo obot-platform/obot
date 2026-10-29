@@ -17,6 +17,9 @@ const (
 	issuerParam   = "OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL"
 	clientIDParam = "OBOT_OKTA_AUTH_PROVIDER_SERVICE_CLIENT_ID"
 	keyParam      = "OBOT_OKTA_AUTH_PROVIDER_SERVICE_PRIVATE_KEY"
+
+	entraTenantParam = "OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID"
+	entraChoiceParam = "OBOT_ENTRA_AUTH_PROVIDER_SCIM"
 )
 
 func TestCheckConfiguration(t *testing.T) {
@@ -58,6 +61,35 @@ func TestCheckConfiguration(t *testing.T) {
 	partial := map[string]string{
 		issuerParam:   "https://example.okta.com",
 		clientIDParam: "client",
+	}
+	// Entra has no directory parameters. Its choice parameter chooses SCIM-first setup, and is never stored.
+	entra := v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: clienttypes.AuthProviderManifest{
+				CommonProviderMetadata: clienttypes.CommonProviderMetadata{
+					Name: "Microsoft Entra",
+					RequiredConfigurationParameters: []clienttypes.ProviderConfigurationParameter{
+						{
+							Name: entraTenantParam,
+						},
+					},
+				},
+				GroupIDPrefix: "entra/",
+			},
+		},
+	}
+	entraConfig := map[string]string{
+		entraTenantParam: "00000000-0000-4000-8000-000000000001",
+	}
+	entraSCIM := map[string]string{
+		entraTenantParam: "00000000-0000-4000-8000-000000000001",
+		entraChoiceParam: "true",
+	}
+	entraNotSCIM := map[string]string{
+		entraTenantParam: "00000000-0000-4000-8000-000000000001",
+		entraChoiceParam: "false",
 	}
 
 	tests := []struct {
@@ -150,15 +182,73 @@ func TestCheckConfiguration(t *testing.T) {
 			wantSetup:    SetupKept,
 			wantSecrets:  oidcOnly,
 		},
+		{
+			name:         "an Entra provider that is not configured, choosing SCIM",
+			authProvider: entra,
+			secrets:      entraSCIM,
+			wantSetup:    SetupSCIMFirst,
+			wantSecrets:  entraConfig,
+		},
+		{
+			name:         "an Entra provider that is not configured, without the choice, which synchronizes its directory",
+			authProvider: entra,
+			secrets:      entraConfig,
+			wantSetup:    SetupKept,
+			wantSecrets:  entraConfig,
+		},
+		{
+			name:         "an Entra provider that is not configured, with a choice other than true",
+			authProvider: entra,
+			secrets:      entraNotSCIM,
+			wantSetup:    SetupKept,
+			wantSecrets:  entraConfig,
+		},
+		{
+			name:         "a configured Entra provider that synchronizes its directory, which has no parameters to require",
+			authProvider: entra,
+			configured:   true,
+			secrets:      entraConfig,
+			wantSetup:    SetupKept,
+			wantSecrets:  entraConfig,
+		},
+		{
+			name:         "a configured Entra provider that synchronizes its directory cannot choose SCIM by configuration",
+			authProvider: entra,
+			configured:   true,
+			secrets:      entraSCIM,
+			wantSetup:    SetupKept,
+			wantSecrets:  entraConfig,
+		},
+		{
+			name:         "an Entra provider with a connection",
+			authProvider: entra,
+			connection:   types.SCIMConnectionOriginSCIMFirst,
+			secrets:      entraSCIM,
+			wantSetup:    SetupKept,
+			wantSecrets:  entraConfig,
+		},
+		{
+			name:         "an Entra provider whose connection replaced directory synchronization",
+			authProvider: entra,
+			connection:   types.SCIMConnectionOriginMigrated,
+			stored:       entraConfig,
+			secrets:      entraSCIM,
+			wantSetup:    SetupKept,
+			wantSecrets:  entraConfig,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gateway := newTestGateway(t)
 			if tt.connection != "" {
+				// A connection that matches users by group lookup ID waits for the backfill of their hashes.
+				if err := gateway.BackfillIdentityGroupLookupIDHashes(t.Context()); err != nil {
+					t.Fatal(err)
+				}
 				if _, _, err := gateway.CreateSCIMConnection(t.Context(), gclient.CreateSCIMConnectionOptions{
 					AuthProviderNamespace: tt.authProvider.Namespace,
 					AuthProviderName:      tt.authProvider.Name,
-					GroupIDPrefix:         "okta/",
+					GroupIDPrefix:         tt.authProvider.Spec.GroupIDPrefix,
 					Origin:                tt.connection,
 				}); err != nil {
 					t.Fatal(err)

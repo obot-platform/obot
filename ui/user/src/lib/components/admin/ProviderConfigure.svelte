@@ -14,6 +14,13 @@
 		// The parameters that only the `with` option provides. They are required when it is selected,
 		// and never submitted otherwise.
 		parameters: string[];
+		// A hidden parameter that the `without` option submits as "true", for a provider whose options
+		// differ in no parameters of their own.
+		choiceParameter?: string;
+		// The option selected when the form opens, for a choice that choiceParameter makes, since the
+		// form's values never hold it. Otherwise the `with` option is selected when any of its
+		// parameters has a value.
+		selected?: 'with' | 'without';
 		without: ParameterChoiceOption;
 		with: ParameterChoiceOption;
 		// Set when the choice is already made and cannot be changed in this form. Only that option is
@@ -277,9 +284,14 @@
 				form[param.name] = initParamValue(param);
 			}
 		}
-		choiceProvides = parameterChoice?.made
-			? parameterChoice.made === 'with'
-			: (parameterChoice?.parameters.some((name) => Boolean(values?.[name]?.trim())) ?? false);
+		if (parameterChoice?.made) {
+			choiceProvides = parameterChoice.made === 'with';
+		} else if (parameterChoice?.choiceParameter) {
+			choiceProvides = parameterChoice.selected === 'with';
+		} else {
+			choiceProvides =
+				parameterChoice?.parameters.some((name) => Boolean(values?.[name]?.trim())) ?? false;
+		}
 	}
 
 	function onClose() {
@@ -351,6 +363,9 @@
 				},
 				{} as Record<string, string>
 			);
+		if (parameterChoice?.choiceParameter && !parameterChoice.made && !choiceProvides) {
+			processedForm[parameterChoice.choiceParameter] = 'true';
+		}
 
 		onConfigure(processedForm);
 	}
@@ -586,8 +601,8 @@
 			{/if}
 
 			<!-- A made choice is shown even without parameters of its own, so that the way the provider
-			works stays visible. -->
-			{#if parameterChoice && (choiceParameters.length > 0 || parameterChoice.made)}
+			works stays visible, and so is a choice that a hidden parameter makes. -->
+			{#if parameterChoice && (choiceParameters.length > 0 || parameterChoice.made || parameterChoice.choiceParameter)}
 				{@const option = choiceProvides ? parameterChoice.with : parameterChoice.without}
 				<!-- Outlined rather than filled, so that the choice and the fields it brings in read as one
 				section, apart from the filled inputs around them. -->
@@ -622,7 +637,7 @@
 							</a>
 						{/if}
 					</span>
-					{#if choiceProvides}
+					{#if choiceProvides && choiceParameters.length > 0}
 						<ul class="flex flex-col gap-4" in:slide={{ axis: 'y' }}>
 							{#each choiceParameters as parameter (parameter.name)}
 								{#if parameter.name in form}

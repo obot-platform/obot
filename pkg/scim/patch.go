@@ -54,6 +54,15 @@ type valueSet struct {
 	others  []map[string]any
 }
 
+// singleReference is the value and $ref of a single-valued reference, such as the enterprise extension's manager,
+// before a PATCH applies.
+type singleReference struct {
+	urn   string
+	attr  *attribute
+	value any
+	ref   any
+}
+
 // decodePatchOperations reads the operations of a PatchOp request. Member names are case-insensitive.
 func decodePatchOperations(body map[string]any) ([]patchOperation, error) {
 	if schemas, ok := lookupKey(body, "schemas").([]any); ok && !containsFold(schemas, patchOpSchema) {
@@ -100,12 +109,59 @@ func decodePatchOperations(body map[string]any) ([]patchOperation, error) {
 // unless rules, the client's, say otherwise. The caller validates the result and commits it once, so a failed
 // operation leaves nothing applied.
 func applyPatch(schema *resourceSchema, resource map[string]any, ops []patchOperation, rules adapter.PatchRules) error {
+	refs := singleReferences(schema, resource)
 	for _, op := range ops {
 		if err := applyOperation(schema, resource, op, rules); err != nil {
 			return err
 		}
 	}
+	dropStaleRefs(resource, refs)
 	return nil
+}
+
+// singleReferences returns the single-valued references of the schema and its extensions, as the resource holds them.
+func singleReferences(schema *resourceSchema, resource map[string]any) []singleReference {
+	var refs []singleReference
+	collect := func(s *resourceSchema, urn string) {
+		for _, attr := range s.Attributes {
+			if attr.MultiValued || !identifiedByValue(attr) {
+				continue
+			}
+			current, _ := attributesOf(resource, urn)[attr.Name].(map[string]any)
+			refs = append(refs, singleReference{
+				urn:   urn,
+				attr:  attr,
+				value: current["value"],
+				ref:   current["$ref"],
+			})
+		}
+	}
+	collect(schema, "")
+	for _, ext := range schema.extensions {
+		collect(ext, ext.ID)
+	}
+	return refs
+}
+
+// dropStaleRefs removes the $ref of each single-valued reference whose value the PATCH changed or removed without
+// changing its $ref. The $ref is the URI of the resource the value identifies, so it would otherwise point at the one
+// the value used to identify. A $ref that the PATCH set is kept.
+func dropStaleRefs(resource map[string]any, refs []singleReference) {
+	for _, r := range refs {
+		holder := attributesOf(resource, r.urn)
+		current, _ := holder[r.attr.Name].(map[string]any)
+		if current == nil || !reflect.DeepEqual(current["$ref"], r.ref) || subValuesEqual(r.attr.subAttribute("value"), current["value"], r.value) {
+			continue
+		}
+		delete(current, "$ref")
+		if len(current) > 0 {
+			continue
+		}
+		delete(holder, r.attr.Name)
+		if r.urn != "" && len(holder) == 0 {
+			delete(resource, r.urn)
+		}
+	}
 }
 
 func applyOperation(schema *resourceSchema, resource map[string]any, op patchOperation, rules adapter.PatchRules) error {
@@ -150,8 +206,9 @@ func applyOperation(schema *resourceSchema, resource map[string]any, op patchOpe
 }
 
 // pathlessMembers returns the members of the value of an operation without a path, in the order they apply. JSON
-// objects have no order, so they apply by attribute, each attribute before the members that select a part of it,
-// which refine it. The members of an object under the resource's own schema URN are members too.
+// objects have no order, so they apply by schema and attribute, each attribute before the members that select a part
+// of it, which refine it. The members of an object under the resource's own schema URN, or under the URN of one of its
+// extensions, are members too.
 func pathlessMembers(schema *resourceSchema, values map[string]any) ([]pathlessMember, error) {
 	members := make([]pathlessMember, 0, len(values))
 	add := func(key string, value any) error {
@@ -168,7 +225,7 @@ func pathlessMembers(schema *resourceSchema, values map[string]any) ([]pathlessM
 	}
 
 	for key, value := range values {
-		if !strings.EqualFold(key, schema.ID) {
+		if !strings.EqualFold(key, schema.ID) && schema.extensionSchema(key) == nil {
 			if err := add(key, value); err != nil {
 				return nil, err
 			}
@@ -186,6 +243,12 @@ func pathlessMembers(schema *resourceSchema, values map[string]any) ([]pathlessM
 		}
 	}
 
+	extension := func(p patchPath) string {
+		if schema.extensionSchema(p.Attr.URN) == nil {
+			return ""
+		}
+		return strings.ToLower(p.Attr.URN)
+	}
 	part := func(p patchPath) int {
 		if p.Filter == nil && p.Attr.Sub == "" {
 			return 0
@@ -194,6 +257,7 @@ func pathlessMembers(schema *resourceSchema, values map[string]any) ([]pathlessM
 	}
 	slices.SortFunc(members, func(a, b pathlessMember) int {
 		return cmp.Or(
+			strings.Compare(extension(a.path), extension(b.path)),
 			strings.Compare(strings.ToLower(a.path.Attr.Name), strings.ToLower(b.path.Attr.Name)),
 			cmp.Compare(part(a.path), part(b.path)),
 			strings.Compare(a.key, b.key),
@@ -206,6 +270,9 @@ func pathlessMembers(schema *resourceSchema, values map[string]any) ([]pathlessM
 // schema ignores is left alone, and so is a read-only attribute that the operation leaves as it is, as when a client
 // echoes the id. Any other change to a read-only attribute is refused.
 func applyToTarget(schema *resourceSchema, resource map[string]any, op, target string, path patchPath, value any, rules adapter.PatchRules) error {
+	if ext := schema.extensionSchema(path.Attr.URN); ext != nil {
+		return applyToExtension(ext, resource, op, target, path, value, rules)
+	}
 	if !path.Attr.inSchema(schema) {
 		return badRequest(scimTypeInvalidPath, "attribute path %q is not in the %s schema", target, schema.Name)
 	}
@@ -219,6 +286,12 @@ func applyToTarget(schema *resourceSchema, resource map[string]any, op, target s
 	// Adding to a multi-valued attribute only adds values, as RFC 7644 section 3.5.2.1 says, and null, like an empty
 	// array, adds none. That changes nothing, even of a read-only attribute.
 	if value == nil && op == patchAdd && attr.MultiValued && path.Attr.Sub == "" && path.Sub == "" {
+		return nil
+	}
+	// The server derives schemas from the attributes the resource has, as RFC 7643 section 3 says, so a client cannot
+	// know which extensions it lists before the other changes apply. A value that names only the resource's own
+	// schemas, as when a client echoes them, changes nothing, whatever their order and whichever extensions it names.
+	if attr.Name == "schemas" && op != patchRemove && path.Filter == nil && path.Attr.Sub == "" && ownSchemas(schema, value) {
 		return nil
 	}
 	if attr.Mutability == mutabilityReadOnly {
@@ -243,6 +316,24 @@ func applyToTarget(schema *resourceSchema, resource map[string]any, op, target s
 	return applyToPath(resource, attr, path, op, value, rules)
 }
 
+// applyToExtension applies an operation to an attribute of a schema extension, which the resource holds in an object
+// under the extension's URN. The object is removed when the operation leaves it empty.
+func applyToExtension(ext *resourceSchema, resource map[string]any, op, target string, path patchPath, value any, rules adapter.PatchRules) error {
+	obj, _ := resource[ext.ID].(map[string]any)
+	if obj == nil {
+		obj = map[string]any{}
+	}
+	if err := applyToTarget(ext, obj, op, target, path, value, rules); err != nil {
+		return err
+	}
+	if len(obj) == 0 {
+		delete(resource, ext.ID)
+	} else {
+		resource[ext.ID] = obj
+	}
+	return nil
+}
+
 // alreadyHeld reports whether the multi-valued attribute already holds every value that an add of value would add, so
 // that the add changes nothing.
 func alreadyHeld(resource map[string]any, attr *attribute, value any) bool {
@@ -260,6 +351,22 @@ func alreadyHeld(resource map[string]any, attr *attribute, value any) bool {
 			continue
 		}
 		if !slices.ContainsFunc(existing, func(e any) bool { return sameValue(attr, e, v) }) {
+			return false
+		}
+	}
+	return true
+}
+
+// ownSchemas reports whether value names only the schema's URN and the URNs of its extensions, which are compared
+// case-insensitively.
+func ownSchemas(schema *resourceSchema, value any) bool {
+	urns, ok := value.([]any)
+	if !ok {
+		urns = []any{value}
+	}
+	for _, urn := range urns {
+		s, ok := urn.(string)
+		if !ok || !strings.EqualFold(s, schema.ID) && schema.extensionSchema(s) == nil {
 			return false
 		}
 	}
@@ -379,12 +486,21 @@ func applyToAttribute(resource map[string]any, attr *attribute, op string, value
 		if err != nil {
 			return err
 		}
-		// Replacing or adding a complex attribute changes only the sub-attributes the value specifies.
+		// Replacing or adding a complex attribute changes only the sub-attributes the value specifies. A null one makes
+		// the sub-attribute unassigned, as RFC 7643 section 2.5 says, which removes it. Canonicalization drops nulls,
+		// so they are found in the value as sent.
 		merged, _ := resource[attr.Name].(map[string]any)
 		if merged == nil {
 			merged = map[string]any{}
 		}
 		maps.Copy(merged, v.(map[string]any))
+		for _, name := range nullSubAttributes(attr, value) {
+			delete(merged, name)
+		}
+		if len(merged) == 0 {
+			delete(resource, attr.Name)
+			return nil
+		}
 		resource[attr.Name] = merged
 	default:
 		v, err := canonicalValue(attr, value)
@@ -394,6 +510,22 @@ func applyToAttribute(resource map[string]any, attr *attribute, op string, value
 		resource[attr.Name] = v
 	}
 	return nil
+}
+
+// nullSubAttributes returns the canonical names of the sub-attributes that value, a value of the complex attribute,
+// sets to null. It accepts the value in the forms canonicalSingle does.
+func nullSubAttributes(attr *attribute, value any) []string {
+	if items, isList := value.([]any); isList && len(items) == 1 && attr.listOfOne {
+		value = items[0]
+	}
+	m, _ := value.(map[string]any)
+	var names []string
+	for key, subValue := range m {
+		if sub := attr.subAttribute(key); sub != nil && subValue == nil {
+			names = append(names, sub.Name)
+		}
+	}
+	return names
 }
 
 func applyToSubAttribute(resource map[string]any, attr, sub *attribute, op string, value any) error {
@@ -685,17 +817,23 @@ func sameValue(attr *attribute, a, b any) bool {
 
 // selects reports whether a value that a remove lists selects an existing value of a multi-valued complex attribute:
 // it has the existing value's value, and every other sub-attribute it sets apart from primary is equal, as sameValue
-// compares them. So a listed email address removes that address whatever its type.
+// compares them. So a listed email address removes that address whatever its type. A value of an attribute without
+// a value sub-attribute, such as an address, must set at least one sub-attribute apart from primary.
 func selects(attr *attribute, selector, value map[string]any) bool {
-	if absent(selector["value"]) {
-		return false
-	}
+	set := false
 	for _, sub := range attr.SubAttributes {
-		if sub.Name != "primary" && !absent(selector[sub.Name]) && !subValuesEqual(sub, selector[sub.Name], value[sub.Name]) {
+		if sub.Name == "primary" || absent(selector[sub.Name]) {
+			continue
+		}
+		if !subValuesEqual(sub, selector[sub.Name], value[sub.Name]) {
 			return false
 		}
+		set = true
 	}
-	return true
+	if attr.subAttribute("value") != nil {
+		return !absent(selector["value"])
+	}
+	return set
 }
 
 func subValuesEqual(sub *attribute, a, b any) bool {

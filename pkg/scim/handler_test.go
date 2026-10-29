@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -70,7 +71,7 @@ func TestAvailabilityAndAuthentication(t *testing.T) {
 	}
 
 	// While the connection's auth provider is not the configured one, only an authenticated caller learns why.
-	s.env.name = "entra-auth-provider"
+	s.env.name = "google-auth-provider"
 	s.request(http.MethodGet, s.path("Users"), "", nil).expect(t, http.StatusUnauthorized)
 	s.do(http.MethodGet, "Users", nil).expect(t, http.StatusServiceUnavailable)
 	s.env.name = ""
@@ -127,14 +128,30 @@ func TestDiscoveryAndUnsupportedOperations(t *testing.T) {
 		t.Error("patch is not reported as supported")
 	}
 
-	if got := len(s.do(http.MethodGet, "Schemas", nil).expect(t, http.StatusOK).resources()); got != 2 {
-		t.Errorf("got %d schemas, want 2", got)
+	if got := len(s.do(http.MethodGet, "Schemas", nil).expect(t, http.StatusOK).resources()); got != 3 {
+		t.Errorf("got %d schemas, want 3", got)
 	}
 	s.do(http.MethodGet, "Schemas/"+userSchema, nil).expect(t, http.StatusOK)
+	s.do(http.MethodGet, "Schemas/"+enterpriseUserSchema, nil).expect(t, http.StatusOK)
 	if got := len(s.do(http.MethodGet, "ResourceTypes", nil).expect(t, http.StatusOK).resources()); got != 2 {
 		t.Errorf("got %d resource types, want 2", got)
 	}
 	s.do(http.MethodGet, "ResourceTypes/Group", nil).expect(t, http.StatusOK)
+
+	// The User resource type lists the enterprise extension as optional, and the Group resource type has none.
+	userType := s.do(http.MethodGet, "ResourceTypes/User", nil).expect(t, http.StatusOK).body
+	wantExtensions := []any{
+		map[string]any{
+			"schema":   enterpriseUserSchema,
+			"required": false,
+		},
+	}
+	if got := userType["schemaExtensions"]; !reflect.DeepEqual(got, wantExtensions) {
+		t.Errorf("User schemaExtensions = %v, want %v", got, wantExtensions)
+	}
+	if got, ok := s.do(http.MethodGet, "ResourceTypes/Group", nil).expect(t, http.StatusOK).body["schemaExtensions"]; ok {
+		t.Errorf("Group schemaExtensions = %v, want none", got)
+	}
 
 	// Deleting a user is an operation the RFC defines that is not supported, and other methods are not defined.
 	s.do(http.MethodDelete, "Users/anything", nil).expect(t, http.StatusNotImplemented)
@@ -237,15 +254,7 @@ func TestUserBinding(t *testing.T) {
 	}
 
 	// A user disabled for never having been provisioned, when the bound Owner enforced SCIM, is re-enabled when it is.
-	if _, err := s.gateway.EnforceSCIMConnection(t.Context(), s.conn.ID, gclient.EnforceSCIMOptions{
-		Actor: gclient.SCIMEnforceActor{
-			UserID:                existing.ID,
-			AuthProviderNamespace: system.DefaultNamespace,
-			AuthProviderName:      testOktaProviderName,
-		},
-	}); err != nil {
-		t.Fatal(err)
-	}
+	s.enforce(existing.ID)
 	if u := s.user(unprovisioned.ID); u.DisabledReason != types.UserDisabledReasonSCIMUnprovisioned {
 		t.Fatalf("unprovisioned user after enforcing = %+v, want disabled as unprovisioned", u)
 	}
@@ -540,6 +549,17 @@ func (s *scimTest) bindingByID(id string) types.SCIMUserBinding {
 	return binding
 }
 
+// groupBindingByID returns a group binding.
+func (s *scimTest) groupBindingByID(id string) types.SCIMGroupBinding {
+	s.t.Helper()
+
+	var binding types.SCIMGroupBinding
+	if err := s.gorm().Where("id = ?", id).Take(&binding).Error; err != nil {
+		s.t.Fatalf("failed to get group binding %s: %v", id, err)
+	}
+	return binding
+}
+
 func TestEmptyFilterValuesMatchNothing(t *testing.T) {
 	s := newSCIMTest(t)
 	s.enable()
@@ -552,6 +572,8 @@ func TestEmptyFilterValuesMatchNothing(t *testing.T) {
 		"Users?filter=" + url.QueryEscape(`id eq ""`),
 		"Groups?filter=" + url.QueryEscape(`displayName eq ""`),
 		"Groups?filter=" + url.QueryEscape(`id eq ""`),
+		"Users?filter=" + url.QueryEscape(`externalId eq ""`),
+		"Groups?filter=" + url.QueryEscape(`externalId eq ""`),
 	} {
 		resp := s.do(http.MethodGet, resource, nil).expect(t, http.StatusOK)
 		if got := resp.resources(); len(got) != 0 || resp.body["totalResults"] != float64(0) {
@@ -652,8 +674,11 @@ func TestWriteResponsesAreProjected(t *testing.T) {
 		})
 	}
 
-	// An invalid projection is refused before anything is written.
+	// An invalid projection is refused before anything is written, and so is one that both selects and excludes
+	// attributes, which RFC 7644 section 3.9 makes mutually exclusive.
 	s.do(http.MethodPost, "Users?attributes="+url.QueryEscape("not an attribute"), scimUser("third@example.com", "00u-third")).expect(t, http.StatusBadRequest)
+	s.do(http.MethodPost, "Users?attributes=userName&excludedAttributes=emails", scimUser("third@example.com", "00u-third")).expect(t, http.StatusBadRequest)
+	s.do(http.MethodGet, "Users?attributes=userName&excludedAttributes=emails", nil).expect(t, http.StatusBadRequest)
 	if n := s.count(new(types.SCIMUserBinding), ""); n != 2 {
 		t.Fatalf("got %d users, want 2", n)
 	}
@@ -780,6 +805,439 @@ func TestUsersHaveAtMostOnePrimaryValue(t *testing.T) {
 		"path":  "emails",
 		"value": twoPrimaries,
 	})).expect(t, http.StatusBadRequest)
+}
+
+// TestUserAddressesAndEnterpriseExtension checks that addresses and the enterprise extension are stored and returned,
+// so that an identity provider that compares its source with what it reads back, as Entra does, sees them unchanged.
+func TestUserAddressesAndEnterpriseExtension(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	// The body has the shapes Entra sent in Phase 0: null sub-values, a false primary, and both schemas listed.
+	body := scimUser("user@example.com", "00u-user")
+	body["schemas"] = []string{userSchema, enterpriseUserSchema}
+	body["addresses"] = []any{
+		map[string]any{
+			"country":       "US",
+			"formatted":     "Building 1",
+			"locality":      "Redmond",
+			"postalCode":    nil,
+			"primary":       false,
+			"region":        "WA",
+			"streetAddress": nil,
+			"type":          "work",
+		},
+	}
+	body[enterpriseUserSchema] = map[string]any{
+		"department":     "Engineering",
+		"employeeNumber": "42",
+		"costCenter":     nil,
+		"manager": map[string]any{
+			"value":       "manager-1",
+			"displayName": "The Boss",
+		},
+	}
+
+	wantAddresses := []any{
+		map[string]any{
+			"country":   "US",
+			"formatted": "Building 1",
+			"locality":  "Redmond",
+			"region":    "WA",
+			"type":      "work",
+		},
+	}
+	wantEnterprise := map[string]any{
+		"department":     "Engineering",
+		"employeeNumber": "42",
+		// The manager's displayName is read-only, so it is not stored.
+		"manager": map[string]any{
+			"value": "manager-1",
+		},
+	}
+	wantSchemas := []any{userSchema, enterpriseUserSchema}
+	check := func(what string, got map[string]any, wantAddresses []any, wantEnterprise map[string]any, wantSchemas []any) {
+		t.Helper()
+		if !reflect.DeepEqual(got["addresses"], wantAddresses) {
+			t.Errorf("%s: addresses = %#v, want %#v", what, got["addresses"], wantAddresses)
+		}
+		if !reflect.DeepEqual(got[enterpriseUserSchema], wantEnterprise) {
+			t.Errorf("%s: %s = %#v, want %#v", what, enterpriseUserSchema, got[enterpriseUserSchema], wantEnterprise)
+		}
+		if !reflect.DeepEqual(got["schemas"], wantSchemas) {
+			t.Errorf("%s: schemas = %#v, want %#v", what, got["schemas"], wantSchemas)
+		}
+	}
+
+	created := s.do(http.MethodPost, "Users", body).expect(t, http.StatusCreated)
+	user := created.id()
+	check("POST", created.body, wantAddresses, wantEnterprise, wantSchemas)
+	check("GET", s.do(http.MethodGet, "Users/"+user, nil).expect(t, http.StatusOK).body, wantAddresses, wantEnterprise, wantSchemas)
+
+	// The operations Entra sent in Phase 0 run 004 for a user whose read-back lacked them.
+	run004 := patchOp(
+		map[string]any{
+			"op":    "Add",
+			"path":  `addresses[type eq "work"].formatted`,
+			"value": "Building 2",
+		},
+		map[string]any{
+			"op":    "Add",
+			"path":  `addresses[type eq "work"].locality`,
+			"value": "Seattle",
+		},
+		map[string]any{
+			"op":    "Add",
+			"path":  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber",
+			"value": "43",
+		},
+		map[string]any{
+			"op":    "Add",
+			"path":  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department",
+			"value": "Sales",
+		},
+		map[string]any{
+			"op":    "Replace",
+			"path":  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager",
+			"value": "manager-2",
+		},
+	)
+	wantAddresses = []any{
+		map[string]any{
+			"country":   "US",
+			"formatted": "Building 2",
+			"locality":  "Seattle",
+			"region":    "WA",
+			"type":      "work",
+		},
+	}
+	wantEnterprise = map[string]any{
+		"department":     "Sales",
+		"employeeNumber": "43",
+		"manager": map[string]any{
+			"value": "manager-2",
+		},
+	}
+	check("PATCH", s.do(http.MethodPatch, "Users/"+user, run004).expect(t, http.StatusOK).body, wantAddresses, wantEnterprise, wantSchemas)
+	check("GET after PATCH", s.do(http.MethodGet, "Users/"+user, nil).expect(t, http.StatusOK).body, wantAddresses, wantEnterprise, wantSchemas)
+
+	// Repeating the PATCH changes nothing.
+	before := s.bindingByID(user).Revision
+	s.do(http.MethodPatch, "Users/"+user, run004).expect(t, http.StatusOK)
+	if after := s.bindingByID(user).Revision; after != before {
+		t.Errorf("revision changed from %d to %d on a repeated PATCH", before, after)
+	}
+
+	// The extension's attributes and addresses can be projected.
+	projected := s.do(http.MethodGet, "Users/"+user+"?attributes="+url.QueryEscape("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department,addresses.locality"), nil).expect(t, http.StatusOK).body
+	wantProjected := map[string]any{
+		"id":      user,
+		"schemas": wantSchemas,
+		"addresses": []any{
+			map[string]any{
+				"locality": "Seattle",
+			},
+		},
+		enterpriseUserSchema: map[string]any{
+			"department": "Sales",
+		},
+	}
+	if !reflect.DeepEqual(projected, wantProjected) {
+		t.Errorf("projected = %#v, want %#v", projected, wantProjected)
+	}
+	projected = s.do(http.MethodGet, "Users/"+user+"?attributes="+url.QueryEscape(enterpriseUserSchema), nil).expect(t, http.StatusOK).body
+	if !reflect.DeepEqual(projected[enterpriseUserSchema], wantEnterprise) {
+		t.Errorf("projected %s = %#v, want %#v", enterpriseUserSchema, projected[enterpriseUserSchema], wantEnterprise)
+	}
+	excluded := s.do(http.MethodGet, "Users/"+user+"?excludedAttributes="+url.QueryEscape("urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager,addresses"), nil).expect(t, http.StatusOK).body
+	wantExcluded := map[string]any{
+		"department":     "Sales",
+		"employeeNumber": "43",
+	}
+	if _, ok := excluded["addresses"]; ok || !reflect.DeepEqual(excluded[enterpriseUserSchema], wantExcluded) {
+		t.Errorf("excluded = %#v, want no addresses and %s %#v", excluded, enterpriseUserSchema, wantExcluded)
+	}
+	excluded = s.do(http.MethodGet, "Users/"+user+"?excludedAttributes="+url.QueryEscape(enterpriseUserSchema), nil).expect(t, http.StatusOK).body
+	if _, ok := excluded[enterpriseUserSchema]; ok {
+		t.Errorf("excluded %s = %#v, want none", enterpriseUserSchema, excluded[enterpriseUserSchema])
+	}
+
+	// A null manager ID clears the stored manager.
+	clearManager := patchOp(
+		map[string]any{
+			"op":    "Replace",
+			"path":  "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager",
+			"value": map[string]any{"value": nil},
+		},
+	)
+	wantEnterprise = map[string]any{
+		"department":     "Sales",
+		"employeeNumber": "43",
+	}
+	check("PATCH with a null manager ID", s.do(http.MethodPatch, "Users/"+user, clearManager).expect(t, http.StatusOK).body, wantAddresses, wantEnterprise, wantSchemas)
+	check("GET after clearing the manager", s.do(http.MethodGet, "Users/"+user, nil).expect(t, http.StatusOK).body, wantAddresses, wantEnterprise, wantSchemas)
+
+	// A PUT without them removes them, and the extension is no longer listed in schemas.
+	got := s.do(http.MethodPut, "Users/"+user, scimUser("user@example.com", "00u-user")).expect(t, http.StatusOK).body
+	if _, ok := got["addresses"]; ok {
+		t.Errorf("PUT: addresses = %#v, want none", got["addresses"])
+	}
+	if _, ok := got[enterpriseUserSchema]; ok {
+		t.Errorf("PUT: %s = %#v, want none", enterpriseUserSchema, got[enterpriseUserSchema])
+	}
+	if want := []any{userSchema}; !reflect.DeepEqual(got["schemas"], want) {
+		t.Errorf("PUT: schemas = %#v, want %#v", got["schemas"], want)
+	}
+
+	// A user can have at most one primary address.
+	twoPrimaries := scimUser("other@example.com", "00u-other")
+	twoPrimaries["addresses"] = []any{
+		map[string]any{
+			"type":    "work",
+			"primary": true,
+		},
+		map[string]any{
+			"type":    "home",
+			"primary": true,
+		},
+	}
+	s.do(http.MethodPost, "Users", twoPrimaries).expect(t, http.StatusBadRequest)
+
+	// An extension value that is not an object is refused.
+	notAnObject := scimUser("other@example.com", "00u-other")
+	notAnObject[enterpriseUserSchema] = "Sales"
+	s.do(http.MethodPost, "Users", notAnObject).expect(t, http.StatusBadRequest)
+}
+
+// TestProjectionsListOnlyTheExtensionsTheyReturn checks that schemas lists a schema extension only while the response
+// holds its object, as RFC 7643 section 3 requires.
+func TestProjectionsListOnlyTheExtensionsTheyReturn(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	body := scimUser("user@example.com", "00u-user")
+	body[enterpriseUserSchema] = map[string]any{
+		"department": "Engineering",
+	}
+	user := s.do(http.MethodPost, "Users", body).expect(t, http.StatusCreated).id()
+
+	tests := []struct {
+		name        string
+		query       string
+		wantSchemas []any
+	}{
+		{
+			name:        "the whole resource",
+			wantSchemas: []any{userSchema, enterpriseUserSchema},
+		},
+		{
+			name:        "the extension excluded",
+			query:       "excludedAttributes=" + url.QueryEscape(enterpriseUserSchema),
+			wantSchemas: []any{userSchema},
+		},
+		{
+			name:        "the extension's only attribute excluded",
+			query:       "excludedAttributes=" + url.QueryEscape(enterpriseUserSchema+":department"),
+			wantSchemas: []any{userSchema},
+		},
+		{
+			name:        "only core attributes selected",
+			query:       "attributes=userName",
+			wantSchemas: []any{userSchema},
+		},
+		{
+			name:        "an extension attribute selected",
+			query:       "attributes=" + url.QueryEscape(enterpriseUserSchema+":department"),
+			wantSchemas: []any{userSchema, enterpriseUserSchema},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := s.do(http.MethodGet, "Users/"+user+"?"+tt.query, nil).expect(t, http.StatusOK).body
+			if !reflect.DeepEqual(got["schemas"], tt.wantSchemas) {
+				t.Fatalf("schemas = %#v, want %#v", got["schemas"], tt.wantSchemas)
+			}
+		})
+	}
+}
+
+// TestProjectionsReturnNothingEmpty checks that a projection leaves out the values that lack the sub-attributes it
+// selects or that it excludes all of, rather than returning them empty.
+func TestProjectionsReturnNothingEmpty(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	body := scimUser("user@example.com", "00u-user")
+	body["addresses"] = []any{
+		map[string]any{
+			"type": "work",
+		},
+		map[string]any{
+			"type":    "home",
+			"country": "US",
+		},
+	}
+	body[enterpriseUserSchema] = map[string]any{
+		"manager": map[string]any{
+			"$ref": "https://example.com/scim/Users/manager-1",
+		},
+	}
+	user := s.do(http.MethodPost, "Users", body).expect(t, http.StatusCreated).id()
+
+	tests := []struct {
+		name  string
+		query string
+		want  map[string]any
+	}{
+		{
+			name:  "a sub-attribute that no value has",
+			query: "attributes=" + url.QueryEscape(enterpriseUserSchema+":manager.value,name.middleName"),
+			want: map[string]any{
+				"id":      user,
+				"schemas": []any{userSchema},
+			},
+		},
+		{
+			name:  "sub-attributes of the same extension attribute that no value has",
+			query: "attributes=" + url.QueryEscape(enterpriseUserSchema+":manager.value,"+enterpriseUserSchema+":manager.displayName"),
+			want: map[string]any{
+				"id":      user,
+				"schemas": []any{userSchema},
+			},
+		},
+		{
+			name:  "a sub-attribute that only some values have",
+			query: "attributes=addresses.country",
+			want: map[string]any{
+				"id":      user,
+				"schemas": []any{userSchema},
+				"addresses": []any{
+					map[string]any{
+						"country": "US",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := s.do(http.MethodGet, "Users/"+user+"?"+tt.query, nil).expect(t, http.StatusOK).body
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("projected = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+
+	// Excluding all the sub-attributes that some values have leaves them out too.
+	got := s.do(http.MethodGet, "Users/"+user+"?excludedAttributes="+url.QueryEscape("addresses.type,"+enterpriseUserSchema+":manager.$ref"), nil).expect(t, http.StatusOK).body
+	wantAddresses := []any{
+		map[string]any{
+			"country": "US",
+		},
+	}
+	if !reflect.DeepEqual(got["addresses"], wantAddresses) {
+		t.Errorf("addresses = %#v, want %#v", got["addresses"], wantAddresses)
+	}
+	if _, ok := got[enterpriseUserSchema]; ok {
+		t.Errorf("%s = %#v, want none", enterpriseUserSchema, got[enterpriseUserSchema])
+	}
+	if want := []any{userSchema}; !reflect.DeepEqual(got["schemas"], want) {
+		t.Errorf("schemas = %#v, want %#v", got["schemas"], want)
+	}
+}
+
+func TestExternalIDFilters(t *testing.T) {
+	s := newSCIMTest(t)
+	s.enable()
+
+	user := s.do(http.MethodPost, "Users", scimUser("user@example.com", "00u-user")).expect(t, http.StatusCreated).id()
+	s.do(http.MethodPost, "Users", scimUser("other@example.com", "00u-other")).expect(t, http.StatusCreated)
+
+	tests := []struct {
+		name    string
+		filter  string
+		wantIDs []string
+	}{
+		{
+			name:    "matches the user's externalId",
+			filter:  `externalId eq "00u-user"`,
+			wantIDs: []string{user},
+		},
+		{
+			name:   "matches only the externalId as it was sent, which is case exact",
+			filter: `externalId eq " 00u-user "`,
+		},
+		{
+			name:   "matches no other externalId",
+			filter: `externalId eq "00u-nobody"`,
+		},
+		{
+			name:   "matches nothing for an externalId the adapter refuses",
+			filter: `externalId eq "not an id"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := s.do(http.MethodGet, "Users?filter="+url.QueryEscape(tt.filter), nil).expect(t, http.StatusOK)
+			var ids []string
+			for _, r := range resp.resources() {
+				ids = append(ids, r["id"].(string))
+			}
+			if !slices.Equal(ids, tt.wantIDs) {
+				t.Fatalf("ids = %v, want %v", ids, tt.wantIDs)
+			}
+		})
+	}
+
+	// An inactive user is still found by its externalId.
+	s.do(http.MethodPatch, "Users/"+user, patchOp(map[string]any{
+		"op":    "replace",
+		"path":  "active",
+		"value": false,
+	})).expect(t, http.StatusOK)
+	if found := s.do(http.MethodGet, "Users?filter="+url.QueryEscape(`externalId eq "00u-user"`), nil).expect(t, http.StatusOK).resources(); len(found) != 1 {
+		t.Fatalf("an inactive user's externalId found %v, want the user", found)
+	}
+
+	// Okta groups bind by name, and their externalId is kept and returned as it was sent, and matched exactly.
+	group := scimGroup("team", user)
+	group["externalId"] = "00g-team"
+	created := s.do(http.MethodPost, "Groups", group).expect(t, http.StatusCreated)
+	if created.body["externalId"] != "00g-team" {
+		t.Fatalf("externalId = %v, want 00g-team", created.body["externalId"])
+	}
+	findGroups := func(externalID string) []map[string]any {
+		t.Helper()
+		return s.do(http.MethodGet, "Groups?filter="+url.QueryEscape(`externalId eq "`+externalID+`"`), nil).expect(t, http.StatusOK).resources()
+	}
+	if found := findGroups("00g-team"); len(found) != 1 || found[0]["id"] != created.id() {
+		t.Fatalf("externalId eq found %v, want the group", found)
+	}
+	if found := findGroups("00G-TEAM"); len(found) != 0 {
+		t.Fatalf("externalId eq in another case found %v, want none", found)
+	}
+
+	// It is readWrite, so a PATCH changes it, and a PUT that omits it keeps it.
+	s.do(http.MethodPatch, "Groups/"+created.id(), patchOp(map[string]any{
+		"op":    "replace",
+		"path":  "externalId",
+		"value": "00g-renamed",
+	})).expect(t, http.StatusNoContent)
+	s.do(http.MethodPut, "Groups/"+created.id(), scimGroup("team", user)).expect(t, http.StatusOK)
+	if got := s.do(http.MethodGet, "Groups/"+created.id(), nil).expect(t, http.StatusOK).body["externalId"]; got != "00g-renamed" {
+		t.Fatalf("externalId = %v, want 00g-renamed", got)
+	}
+	if found := findGroups("00g-team"); len(found) != 0 {
+		t.Fatalf("the old externalId found %v, want none", found)
+	}
+
+	s.do(http.MethodPatch, "Groups/"+created.id(), patchOp(map[string]any{
+		"op":   "remove",
+		"path": "externalId",
+	})).expect(t, http.StatusNoContent)
+	if got, ok := s.do(http.MethodGet, "Groups/"+created.id(), nil).expect(t, http.StatusOK).body["externalId"]; ok {
+		t.Fatalf("externalId = %v, want none", got)
+	}
 }
 
 func TestBaseURL(t *testing.T) {

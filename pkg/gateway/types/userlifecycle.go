@@ -10,6 +10,9 @@ const (
 	// UserLifecycleEventReconcile recomputes what depends on a user's roles and, when the user left a group,
 	// the resources that group granted.
 	UserLifecycleEventReconcile UserLifecycleEventType = "reconcile"
+	// UserLifecycleEventDeleted removes what a deleted user owns: their identities, sessions, API keys, agents,
+	// vMCPs, and MCP servers.
+	UserLifecycleEventDeleted UserLifecycleEventType = "deleted"
 )
 
 // UserLifecycleEventType is the kind of work a UserLifecycleEvent records.

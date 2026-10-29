@@ -17,11 +17,11 @@ import (
 const (
 	// fixtureBaseURL is the base URL of the Phase 0 capture responder, as the sanitized fixtures record it.
 	fixtureBaseURL = "https://scim-capture.example.invalid/scim/v2"
-	// fixtureUserAgent identifies the requests that Okta sent. The others are local smoke checks.
-	fixtureUserAgent = "Okta SCIM Client"
+	// oktaUserAgent identifies the requests that Okta sent. The others are local smoke checks.
+	oktaUserAgent = "Okta SCIM Client"
 )
 
-// fixture is one sanitized request and response captured from Okta in Phase 0.
+// fixture is one sanitized request and response captured from an identity provider in Phase 0.
 type fixture struct {
 	Sequence     int             `json:"sequence"`
 	UserAgent    string          `json:"userAgent"`
@@ -31,6 +31,17 @@ type fixture struct {
 	RequestBody  json.RawMessage `json:"requestBody"`
 	Status       int             `json:"status"`
 	ResponseBody map[string]any  `json:"responseBody"`
+	// Fault marks an answer that the responder's fault injection gave, which this server would not give.
+	Fault bool `json:"fault"`
+}
+
+// replayOptions selects the exchanges of a capture run to replay, and what this server must answer to each.
+type replayOptions struct {
+	// include reports whether an exchange is replayed.
+	include func(f fixture) bool
+	// expect returns the status and response that this server must give to an exchange, where it intentionally
+	// differs from the responder. A nil expect, or one that returns the fixture's own, requires the responder's.
+	expect func(f fixture) (int, map[string]any)
 }
 
 // phase0Inventory is the Obot data of the Phase 0 development installation, keyed by the pseudonyms the
@@ -39,14 +50,21 @@ type phase0Inventory struct {
 	owner, basic, unprovisioned *types.User
 }
 
-// replay is the state of replaying a Phase 0 capture run: the Okta requests are sent with the responder's IDs
-// remapped to the IDs this server issues, and every response must match the one Okta received.
+// replay is the state of replaying Phase 0 capture runs: the identity provider's requests are sent with the
+// responder's IDs remapped to the IDs this server issues, and every response must match the one the identity provider
+// received. Runs that continued the same responder state are replayed one after another with the same replay.
 type replay struct {
 	s *scimTest
 	// ids maps responder IDs to the IDs this server issued.
 	ids map[string]string
-	// eventsAfter is the number of lifecycle events recorded after each sequence number.
+	// eventsAfter is the number of lifecycle events recorded after each sequence number of the last run replayed.
 	eventsAfter map[int]int64
+}
+
+// oktaExchanges selects the requests that Okta sent. Local smoke checks are not Okta's traffic, and a 401 was a
+// probe whose token is not recorded.
+func oktaExchanges(f fixture) bool {
+	return strings.HasPrefix(f.UserAgent, oktaUserAgent) && f.Status != http.StatusUnauthorized
 }
 
 func TestReplayPhase0Run003(t *testing.T) {
@@ -67,7 +85,7 @@ func testReplayPhase0Run003(t *testing.T, s *scimTest) {
 	usersBefore := s.count(new(types.User), "")
 	s.enable()
 
-	r := replayFixtures(t, s, "run-003.json")
+	r := replayFixtures(t, s, "run-003.json", replayOptions{include: oktaExchanges})
 
 	// Users are bound by native ID and keep their IDs. The never-provisioned user stays unbound, and one user
 	// is created for the new Okta-only user.
@@ -141,7 +159,7 @@ func testReplayPhase0Run001(t *testing.T, s *scimTest) {
 	usersBefore := s.count(new(types.User), "")
 	s.enable()
 
-	r := replayFixtures(t, s, "run-001.json")
+	r := replayFixtures(t, s, "run-001.json", replayOptions{include: oktaExchanges})
 
 	owner := r.boundUser("f750689c-4994-41c7-afd0-81ae51fca0b1")
 	basic := r.boundUser("add54f90-c78e-4df2-a945-64bd4defe307")
@@ -192,26 +210,46 @@ func seedPhase0Inventory(s *scimTest, ownerNativeID, basicNativeID string) phase
 	return inv
 }
 
-func replayFixtures(t *testing.T, s *scimTest, name string) *replay {
+// replayFixtures replays one capture run on a new replay.
+func replayFixtures(t *testing.T, s *scimTest, name string, opts replayOptions) *replay {
 	t.Helper()
 
-	data, err := os.ReadFile(filepath.Join("testdata", "phase0", name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var fixtures []fixture
-	if err := json.Unmarshal(data, &fixtures); err != nil {
-		t.Fatal(err)
-	}
+	r := newReplay(s)
+	r.run(t, name, opts)
+	return r
+}
 
-	r := &replay{
+func newReplay(s *scimTest) *replay {
+	return &replay{
 		s:           s,
 		ids:         map[string]string{},
 		eventsAfter: map[int]int64{},
 	}
-	for _, f := range fixtures {
-		// Local smoke checks are not Okta's traffic, and a 401 was a probe whose token is not recorded.
-		if !strings.HasPrefix(f.UserAgent, fixtureUserAgent) || f.Status == http.StatusUnauthorized {
+}
+
+// readPhase0 reads a file of the Phase 0 test data, such as a capture run's fixtures or the seed it started from.
+func readPhase0[T any](t *testing.T, name string) T {
+	t.Helper()
+
+	var v T
+	data, err := os.ReadFile(filepath.Join("testdata", "phase0", name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		t.Fatal(err)
+	}
+	return v
+}
+
+// run replays the exchanges of a capture run that opts selects.
+func (r *replay) run(t *testing.T, name string, opts replayOptions) {
+	t.Helper()
+
+	s := r.s
+	r.eventsAfter = map[int]int64{}
+	for _, f := range readPhase0[[]fixture](t, name) {
+		if !opts.include(f) {
 			continue
 		}
 
@@ -224,15 +262,20 @@ func replayFixtures(t *testing.T, s *scimTest, name string) *replay {
 			body = r.remap(string(f.RequestBody))
 		}
 
+		wantStatus, wantBody := f.Status, f.ResponseBody
+		if opts.expect != nil {
+			wantStatus, wantBody = opts.expect(f)
+		}
+
 		resp := s.do(f.Method, resource, body)
-		if f.Method == http.MethodPatch && strings.HasPrefix(resource, "Groups/") && f.Status == http.StatusOK {
+		if f.Method == http.MethodPatch && strings.HasPrefix(resource, "Groups/") && wantStatus == http.StatusOK {
 			// The responder answered a group PATCH with the group, where this server answers with no body. The
 			// group it reads afterwards must match the responder's answer.
 			resp.expect(t, http.StatusNoContent)
 			resp = s.do(http.MethodGet, resource, nil)
 		}
-		if resp.status != f.Status {
-			t.Fatalf("%04d %s %s: got status %d, want %d: %v", f.Sequence, f.Method, f.Path, resp.status, f.Status, resp.body)
+		if resp.status != wantStatus {
+			t.Fatalf("%s %04d %s %s: got status %d, want %d: %v", name, f.Sequence, f.Method, f.Path, resp.status, wantStatus, resp.body)
 		}
 
 		// Learn the IDs this server issued for the responder's.
@@ -240,12 +283,11 @@ func replayFixtures(t *testing.T, s *scimTest, name string) *replay {
 			r.ids[fixtureID] = resp.id()
 		}
 
-		if want, got := r.normalize(f.ResponseBody, false), r.normalize(resp.body, true); !jsonEqual(want, got) {
-			t.Fatalf("%04d %s %s: response differs\nwant %s\n got %s", f.Sequence, f.Method, f.Path, mustJSON(want), mustJSON(got))
+		if want, got := r.normalize(wantBody, false), r.normalize(resp.body, true); !jsonEqual(want, got) {
+			t.Fatalf("%s %04d %s %s: response differs\nwant %s\n got %s", name, f.Sequence, f.Method, f.Path, mustJSON(want), mustJSON(got))
 		}
 		r.eventsAfter[f.Sequence] = s.count(new(types.UserLifecycleEvent), "")
 	}
-	return r
 }
 
 // remap replaces the responder's IDs and base URL in s with this server's.
@@ -381,11 +423,7 @@ func (r *replay) groupBinding(fixtureID string) types.SCIMGroupBinding {
 	if !ok {
 		r.s.t.Fatalf("no SCIM group was created for %s", fixtureID)
 	}
-	var binding types.SCIMGroupBinding
-	if err := r.s.gorm().Where("id = ?", id).Take(&binding).Error; err != nil {
-		r.s.t.Fatal(err)
-	}
-	return binding
+	return r.s.groupBindingByID(id)
 }
 
 // assertNoEffect checks that the requests with the given sequence numbers recorded no lifecycle events.

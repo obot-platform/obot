@@ -71,6 +71,11 @@ refresh tokens from the controller store. Memberships, data, and API keys are
 kept, so reactivation restores the same account. Okta never deletes users over
 SCIM. An admin can delete a user once Okta has deactivated them.
 
+*Amended 2026-11-02:* whether a SCIM `DELETE` deletes a user is now a rule of
+each adapter. Okta and OneLogin still refuse it. Entra deletes the user, as
+recorded in [2026-11-02: Provision Microsoft Entra ID users and groups through
+SCIM](./2026-11-02-entra-scim-provisioning.md).
+
 **Setup is two permanent steps.**
 
 | State | How it is reached | Effect |
@@ -144,7 +149,10 @@ credential path locks users out instead of admitting disabled ones.
 - Every new resource that can reference a group must be added to `pkg/groupref`,
   or Enable and Enforce will not account for it, and cleanup will not remove it.
 - Supporting another identity provider means adding an adapter. Shared SCIM code
-  should not need to change.
+  should not need to change. OneLogin needed only small shared additions, but
+  Entra needed larger ones; see
+  [2026-11-02: Provision Microsoft Entra ID users and groups through
+  SCIM](./2026-11-02-entra-scim-provisioning.md).
 - Downgrading Obot after Enable is not supported.
 
 ## References

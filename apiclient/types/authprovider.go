@@ -42,6 +42,10 @@ type AuthProviderSCIM struct {
 	// While the provider is configured or staged without a SCIM connection, providing them sets up directory
 	// synchronization, and omitting them sets up SCIM.
 	DirectoryParameters []string `json:"directoryParameters"`
+	// ChoiceParameter names the configuration parameter that chooses SCIM-first setup when it is "true", for a
+	// provider without directory parameters. Obot drops it from the configuration, so it is never stored. Empty when
+	// omitting the directory parameters chooses SCIM.
+	ChoiceParameter string `json:"choiceParameter,omitempty"`
 	// IssuerParameter names the configuration parameter that holds the identity provider's issuer URL.
 	IssuerParameter string `json:"issuerParameter"`
 	// ConnectionIssuer is the issuer URL recorded when the provider's SCIM connection was created, and empty while

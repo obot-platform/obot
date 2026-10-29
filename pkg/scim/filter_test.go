@@ -38,6 +38,12 @@ func TestParseListFilter(t *testing.T) {
 			wantValue:     "user@example.com",
 		},
 		{
+			name:          "externalId lookup, as Entra documents it",
+			filter:        `externalId eq "6d1a5c1e-2f43-4f4e-9b1a-0c2d3e4f5a6b"`,
+			wantAttribute: "externalId",
+			wantValue:     "6d1a5c1e-2f43-4f4e-9b1a-0c2d3e4f5a6b",
+		},
+		{
 			name:         "unsupported attribute",
 			filter:       `emails eq "user@example.com"`,
 			wantScimType: scimTypeInvalidFilter,
@@ -87,7 +93,7 @@ func TestParseListFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := parseListFilter(userResourceSchema, tt.filter, "userName", "id")
+			f, err := parseListFilter(userResourceSchema, tt.filter, "userName", "id", "externalId")
 			if tt.wantScimType != "" {
 				var scimErr *Error
 				if !errors.As(err, &scimErr) || scimErr.ScimType != tt.wantScimType {
@@ -173,6 +179,37 @@ func TestFilterMatches(t *testing.T) {
 			}
 			if got := f.matches(members, member); got != tt.want {
 				t.Fatalf("matches() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSupportedFilters(t *testing.T) {
+	tests := []struct {
+		name  string
+		names []string
+		want  string
+	}{
+		{
+			name:  "one",
+			names: []string{"userName"},
+			want:  `"userName eq"`,
+		},
+		{
+			name:  "two",
+			names: []string{"userName", "id"},
+			want:  `"userName eq" and "id eq"`,
+		},
+		{
+			name:  "three",
+			names: []string{"userName", "id", "externalId"},
+			want:  `"userName eq", "id eq", and "externalId eq"`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := supportedFilters(tt.names); got != tt.want {
+				t.Fatalf("supportedFilters() = %s, want %s", got, tt.want)
 			}
 		})
 	}

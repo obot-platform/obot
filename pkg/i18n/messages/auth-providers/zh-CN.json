@@ -9,6 +9,7 @@
   "onelogin_client_id_setup": "具有 Read Users 访问权限的 OneLogin API 凭据的客户端 ID。Obot 在用户登录时用它从 OneLogin API 获取用户角色。如需通过 SCIM 预配用户和用户组，请将此值和客户端密钥留空。",
   "onelogin_client_secret_setup": "OneLogin API 凭据的客户端密钥。如需通过 SCIM 预配用户和用户组，请将此值和客户端 ID 留空。",
   "onelogin_parameter_unused": "未使用：OneLogin 通过 SCIM 预配用户和用户组，因此 Obot 不再调用 OneLogin API。可以移除此值，然后删除 OneLogin 中的 API 凭据。",
+  "entra_scim_choice": "设为 true 以通过 SCIM 预配用户和用户组。否则，Obot 会在每个用户登录时从 Microsoft Graph 读取其用户组，这需要 Graph 应用程序权限 GroupMember.Read.All 和 User.Read.All。SCIM 不需要这两项权限。",
   "provider_only_one": "一次只能配置一个身份验证提供商。请先取消配置 {provider}。",
   "provider_missing_configuration": "缺少必需的配置参数：{parameters}",
   "provider_missing_entitlements": "缺少必需的许可证权限：{entitlements}",

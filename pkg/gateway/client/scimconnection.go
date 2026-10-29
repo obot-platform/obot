@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"time"
 	"uuid"
 
@@ -102,6 +103,15 @@ func (c *Client) CreateSCIMConnection(ctx context.Context, opts CreateSCIMConnec
 	if opts.GroupIDPrefix == "" {
 		return nil, "", fmt.Errorf("auth provider %s/%s declares no group ID prefix", opts.AuthProviderNamespace, opts.AuthProviderName)
 	}
+	if a.UserKey() == adapter.UserKeyGroupLookupID {
+		// SCIM finds the provider's users by the hashes of their group lookup IDs from now on.
+		if err := c.prepareIdentitiesForLookupMatching(ctx, AuthProviderRef{
+			Namespace: opts.AuthProviderNamespace,
+			Name:      opts.AuthProviderName,
+		}); err != nil {
+			return nil, "", err
+		}
+	}
 	switch opts.Origin {
 	case types.SCIMConnectionOriginSCIMFirst, types.SCIMConnectionOriginMigrated:
 	default:
@@ -149,6 +159,23 @@ func (c *Client) CreateSCIMConnection(ctx context.Context, opts CreateSCIMConnec
 		if len(existing) > 0 {
 			return &SCIMConnectionExistsError{
 				ConnectionID: existing[0].ID,
+			}
+		}
+
+		// Under the exclusive mode lock, no sign-in is creating an identity, so none can appear without a group lookup
+		// ID once this check passes. Sign-ins after it require one.
+		if a.UserKey() == adapter.UserKeyGroupLookupID {
+			missing, err := c.usersWithoutGroupLookupIDTx(ctx, tx, AuthProviderRef{
+				Namespace: opts.AuthProviderNamespace,
+				Name:      opts.AuthProviderName,
+			})
+			if err != nil {
+				return err
+			}
+			if len(missing) > 0 {
+				return &SCIMGroupLookupIDsMissingError{
+					Users: missing,
+				}
 			}
 		}
 
@@ -437,6 +464,22 @@ func lockSCIMWrites(tx *gorm.DB) error {
 	}
 	if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", scimWriteLockID).Error; err != nil {
 		return fmt.Errorf("failed to lock SCIM writes: %w", err)
+	}
+	return nil
+}
+
+// lockSCIMPersonTx serializes, for the rest of the transaction, the writes that bind or claim the identity of one
+// person: a SCIM user create and a first sign-in, for an auth provider whose adapter matches users by group lookup ID.
+// Neither can find the other's identity by the key it knows, so without the lock each could create an identity and a
+// user for the same person. SQLite needs no lock, because its single connection already serializes transactions.
+func lockSCIMPersonTx(tx *gorm.DB, namespace, name, groupLookupID string) error {
+	if tx.Name() != "postgres" {
+		return nil
+	}
+	key := fnv.New64a()
+	_, _ = key.Write([]byte(namespace + "/" + name + "/" + groupLookupID))
+	if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", int64(key.Sum64())).Error; err != nil {
+		return fmt.Errorf("failed to lock the identity of a person: %w", err)
 	}
 	return nil
 }

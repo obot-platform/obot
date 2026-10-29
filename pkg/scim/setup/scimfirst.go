@@ -164,6 +164,14 @@ func EnsureSCIMFirstConnection(ctx context.Context, storage kclient.Reader, gate
 		return nil, &IneligibleError{
 			Message: message(ctx, "scim_connection_occupied", "provider", displayName(ctx, authProvider), "connection", exists.ConnectionID),
 		}
+	} else if _, ok := errors.AsType[*gclient.SCIMIdentitiesNotReadyError](err); ok {
+		return nil, &IneligibleError{
+			Message: message(ctx, "scim_identities_preparing"),
+		}
+	} else if missing, ok := errors.AsType[*gclient.SCIMGroupLookupIDsMissingError](err); ok {
+		return nil, &IneligibleError{
+			Message: strings.Join(missingGroupLookupIDBlockers(ctx, displayName(ctx, authProvider), missing.Users), " "),
+		}
 	} else if _, ok := errors.AsType[*gclient.SCIMResidualGroupDataError](err); ok {
 		// Group data appeared after it was listed.
 		residual, listErr := ResidualGroupData(ctx, storage, gateway, authProvider)

@@ -949,6 +949,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Message policies are now LLM judge guardrails, evaluated with the message policy judge.
 	judge := messagepolicy.NewHelper(storageClient, bifrostEngine)
 	guardrailEngine := guardrails.New(gatewayClient, judge)
+	go backfillIdentityGroupLookupIDHashes(ctx, gatewayClient)
 	go func() {
 		// LLM gateway traffic is governed by budgets rather than the daily token quota, so
 		// carry the configured daily limits over as budgets, once. This runs first so the
@@ -1421,6 +1422,23 @@ func localK8sCacheByObject(mcpServerNamespace, runtimeNamespace string) map[kcli
 		&corev1.Secret{}: {
 			Namespaces: secretNamespaces,
 		},
+	}
+}
+
+// backfillIdentityGroupLookupIDHashes stores the hashed group lookup IDs of identities written without them, once. It
+// runs in the background because it reads every identity, and retries until it succeeds.
+func backfillIdentityGroupLookupIDHashes(ctx context.Context, gatewayClient *client.Client) {
+	for {
+		err := gatewayClient.BackfillIdentityGroupLookupIDHashes(ctx)
+		if err == nil {
+			return
+		}
+		slog.Warn("failed to backfill the hashed identity group lookup IDs; retrying", "error", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
 	}
 }
 

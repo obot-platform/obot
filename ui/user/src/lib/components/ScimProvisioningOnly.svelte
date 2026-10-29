@@ -8,8 +8,10 @@
 	<title>{m.identity_access_scim_landing_title()}</title>
 </svelte:head>
 
-<!-- The login page of an identity provider's app that provisions users and groups through SCIM. Okta and OneLogin
-require one, but the app is never used to sign in, so anyone who opens it is sent to Obot's own sign-in. -->
+<!-- The login page of an identity provider's app that provisions users and groups through SCIM.
+Okta and OneLogin require one, but the app is never used to sign in, so anyone who opens it is sent
+to Obot's own sign-in. Microsoft Entra needs none: it provisions through the enterprise app that Obot
+signs in with, and a separate provisioning app has no login URL to set. -->
 <div
 	class="text-base-content dark:from-base-300 to-base-200 flex h-dvh w-full flex-col items-center justify-center bg-radial-[at_50%_50%] from-gray-50 dark:to-black md:p-0 p-4"
 >

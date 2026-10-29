@@ -9,6 +9,7 @@
   "onelogin_client_id_setup": "Read Users アクセス権を持つ OneLogin API 認証情報のクライアント ID。Obot がサインイン時に OneLogin API からユーザーのロールを取得するために使用します。SCIM でユーザーとグループをプロビジョニングする場合は、この値とクライアントシークレットを空のままにしてください。",
   "onelogin_client_secret_setup": "OneLogin API 認証情報のクライアントシークレット。SCIM でユーザーとグループをプロビジョニングする場合は、この値とクライアント ID を空のままにしてください。",
   "onelogin_parameter_unused": "未使用: OneLogin は SCIM でユーザーとグループをプロビジョニングするため、Obot は OneLogin API を呼び出しません。この値を削除し、OneLogin の API 認証情報も削除できます。",
+  "entra_scim_choice": "SCIM でユーザーとグループをプロビジョニングするには true に設定します。それ以外の場合、Obot はサインイン時に各ユーザーのグループを Microsoft Graph から読み取ります。これには Graph のアプリケーション権限 GroupMember.Read.All と User.Read.All が必要です。SCIM ではどちらも不要です。",
   "provider_only_one": "一度に設定できる認証プロバイダーは 1 つだけです。先に {provider} の設定を解除してください。",
   "provider_missing_configuration": "必須の設定パラメーターがありません：{parameters}",
   "provider_missing_entitlements": "必要なライセンス権限がありません：{entitlements}",

@@ -6,7 +6,7 @@
 	import { describeGroupReference } from '$lib/components/admin/scim/groupReferences';
 	import { tokenExpiryState } from '$lib/components/admin/scim/tokenExpiry';
 	import Pagination from '$lib/components/table/Pagination.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { CommonAuthProviderIds, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { AdminService } from '$lib/services';
@@ -55,6 +55,14 @@
 	const ONELOGIN_ADAPTER_TYPE = 'onelogin';
 	// The adapter type of Okta's SCIM connections, whose SCIM connector base URL must end with a slash.
 	const OKTA_ADAPTER_TYPE = 'okta';
+	// The adapter type of Microsoft Entra's SCIM connections, whose setup steps have help of their own.
+	const ENTRA_ADAPTER_TYPE = 'entra';
+	// How long Microsoft Entra may send no request before its provisioning job is likely quarantined
+	// or stopped. A running job starts a cycle, which sends a request, every 20 to 40 minutes.
+	const ENTRA_SILENCE_MS = 90 * 60 * 1000;
+	// How often the activity is loaded again while Microsoft Entra is shown to be silent, so that a
+	// job restarted while the page is open clears the warning.
+	const ENTRA_SILENCE_RECHECK_MS = 5 * 60 * 1000;
 	// What OneLogin's SCIM JSON Template must add, so that each user's externalId is their OneLogin
 	// user ID, and its userName line, which must stay as it is: SCIM Username sets userName, and
 	// OneLogin's lookup before a create uses SCIM Username, so the two must agree. Both are passed to
@@ -112,9 +120,45 @@
 			enablePreview?.authProviderDisplayName ||
 			m.identity_access_scim_provider_fallback()
 	);
+	// Whether the connection, or the provider that SCIM would be enabled for, is Microsoft Entra's.
+	let isEntra = $derived(
+		connection
+			? connection.adapterType === ENTRA_ADAPTER_TYPE
+			: enablePreview?.authProviderName === CommonAuthProviderIds.ENTRA
+	);
 
 	// The page each list shows, which starts as the review's first page.
 	let pages = $state<Pages>(untrack(() => pagesFrom(initialReview)));
+	// The current time, which advances every minute while the connection is Microsoft Entra's, so that
+	// its silence is noticed on a page left open.
+	let now = $state(Date.now());
+	// When the activity shown was loaded. Only activity loaded once Entra had been silent for too long
+	// shows that it was, since Entra may have sent requests after an older load.
+	let activityLoadedAt = $state(Date.now());
+	// The time by which Microsoft Entra should have sent another request, after the last one shown.
+	let entraDueAt = $derived(
+		review?.activity.lastRequestAt
+			? new Date(review.activity.lastRequestAt).getTime() + ENTRA_SILENCE_MS
+			: undefined
+	);
+	$effect(() => {
+		if (!isEntra) return;
+		const timer = setInterval(() => {
+			now = Date.now();
+			void reloadEntraActivity();
+		}, 60 * 1000);
+		return () => clearInterval(timer);
+	});
+	// Set when Microsoft Entra has sent no request for longer than a running provisioning job goes
+	// without one. Until Entra has provisioned a user or group, its job may not have been started yet,
+	// and Test Connection alone sends a request, so silence says nothing then.
+	let entraSilent = $derived(
+		isEntra &&
+			entraDueAt !== undefined &&
+			pages.provisionedUsers.total + pages.boundGroups.total > 0 &&
+			now > entraDueAt &&
+			activityLoadedAt > entraDueAt
+	);
 
 	let isOwner = $derived(!!profile.current.isOwner?.());
 	let isBootstrapUser = $derived(!!profile.current.isBootstrapUser?.());
@@ -230,13 +274,16 @@
 		return chosen < 0 ? lastReachableStep : Math.min(chosen, lastReachableStep);
 	});
 	let currentStep = $derived<SetupStep | undefined>(setupSteps[stepIndex]);
-	// Groups pushed under some names bind to no group until the unreferenced groups are deleted, so
-	// setup offers to delete them, unless the report of a failed deletion already does.
+	// Where groups bind by name, groups pushed under some names bind to no group until the
+	// unreferenced groups are deleted, so setup offers to delete them, unless the report of a failed
+	// deletion already does. Entra binds groups by object ID, so deleting them does not resolve its
+	// duplicate names, which must be renamed or have their references removed.
 	let offerGroupDeletion = $derived(
 		!deletionError &&
 			pages.unreferencedGroups.total > 0 &&
 			!!review?.warnings.some(
-				(warning) => warning.type === 'duplicateName' || warning.type === 'unreferencedNamesake'
+				(warning) =>
+					warning.type === 'unreferencedNamesake' || (warning.type === 'duplicateName' && !isEntra)
 			)
 	);
 	// Counts a noun, as in "1 group" or "2 groups".
@@ -317,6 +364,83 @@
 		}
 	}
 
+	// Whether reloadEntraActivity is waiting for the review.
+	let reloadingActivity = false;
+
+	// Loads the activity again once the last request shown is older than Microsoft Entra goes
+	// without one, so that silence is shown only if Entra has sent nothing since, and again every few
+	// minutes while it is shown, so that it clears once Entra sends a request. Only the activity, and
+	// the page of its failures shown, are replaced, so that the other lists keep the pages shown. The
+	// failures are loaded separately, so that a failed load of them does not keep the activity, and
+	// the silence it shows, from being updated. A failed load is tried again the next time the
+	// activity is due to be loaded; a failed load of only the failures does not make it due sooner.
+	async function reloadEntraActivity() {
+		const id = connection?.id;
+		if (
+			!id ||
+			reloadingActivity ||
+			entraDueAt === undefined ||
+			now <= entraDueAt ||
+			(activityLoadedAt > entraDueAt && now - activityLoadedAt < ENTRA_SILENCE_RECHECK_MS)
+		) {
+			return;
+		}
+		reloadingActivity = true;
+		const generation = reviewGeneration;
+		// A page of failures asked for meanwhile, whether or not it has arrived, is newer than the one
+		// loaded here. One asked for just before is caught by the offset shown having moved on.
+		const failuresRequest = pageRequests.failures;
+		const failuresOffset = pages.failures.offset;
+		const loadedAt = Date.now();
+		const failures = loadFailuresPage(id, failuresOffset).catch(() => undefined);
+		try {
+			try {
+				const next = await AdminService.getSCIMConnectionReview(id, { limit: 1, ...quiet });
+				// A review loaded meanwhile is newer.
+				if (generation === reviewGeneration && review) {
+					review.activity = next.activity;
+					activityLoadedAt = loadedAt;
+				}
+			} catch {
+				// The activity shown is kept, and shows silence only if it already did.
+			}
+			const loaded = await failures;
+			if (
+				loaded &&
+				generation === reviewGeneration &&
+				failuresRequest === pageRequests.failures &&
+				failuresOffset === pages.failures.offset
+			) {
+				pages.failures = loaded;
+			}
+		} finally {
+			reloadingActivity = false;
+		}
+	}
+
+	// Loads the page of failures at offset, or their last page if they aged out since it was shown.
+	async function loadFailuresPage(id: string, offset: number): Promise<Paged<SCIMRequestFailure>> {
+		const page = { offset, limit: pageSize };
+		let result = await AdminService.listSCIMFailures(id, page, quiet);
+		if (pastEnd(result, page.offset)) {
+			page.offset = lastPage(result.total);
+			result = await AdminService.listSCIMFailures(id, page, quiet);
+		}
+		return { ...result, offset: page.offset };
+	}
+
+	// The offset of the last page of a list with the given total.
+	function lastPage(total: number) {
+		return Math.floor((total - 1) / pageSize) * pageSize;
+	}
+
+	// Whether a page asked for at offset is past the end of its list, which shrank since the page was
+	// shown. Its last page must come before offset, so that a page that keeps coming back empty is
+	// shown empty rather than asked for again forever.
+	function pastEnd(result: SCIMPage<unknown>, offset: number) {
+		return result.items.length === 0 && result.total > 0 && lastPage(result.total) < offset;
+	}
+
 	// Keeps the step shown, before what decides whether steps are done changes, so that the step
 	// does not move on by itself once it is done, or back to a step it was moved back from.
 	function pinStep() {
@@ -327,6 +451,7 @@
 	function applyReview(next: SCIMConnectionReview) {
 		pinStep();
 		review = next;
+		activityLoadedAt = Date.now();
 		enablePreview = undefined;
 		pages = pagesFrom(next);
 	}
@@ -340,12 +465,6 @@
 		// A response for a page that has since been replaced, by a newer page or by loading the review
 		// again, is dropped.
 		const current = () => request === pageRequests[list] && generation === reviewGeneration;
-		const lastPage = (total: number) => Math.floor((total - 1) / pageSize) * pageSize;
-		// The list shrank since it was shown, so the page is past its end: show its last page instead.
-		// The last page must come before this one, so that a page that keeps coming back empty is
-		// shown empty rather than asked for again forever.
-		const pastEnd = (result: SCIMPage<unknown>) =>
-			result.items.length === 0 && result.total > 0 && lastPage(result.total) < page.offset;
 
 		actionError = undefined;
 		try {
@@ -357,14 +476,16 @@
 					quiet
 				);
 				if (!current()) return;
-				if (pastEnd(result)) return showPage(list, lastPage(result.total));
+				// The list shrank since it was shown: show its last page instead.
+				if (pastEnd(result, page.offset)) return showPage(list, lastPage(result.total));
 				// A page's total can finish a step, such as pushing the referenced groups.
 				pinStep();
 				pages[list] = { ...result, offset: page.offset };
 			} else if (list === 'failures') {
 				const result = await AdminService.listSCIMFailures(connection.id, page, quiet);
 				if (!current()) return;
-				if (pastEnd(result)) return showPage(list, lastPage(result.total));
+				// The list shrank since it was shown: show its last page instead.
+				if (pastEnd(result, page.offset)) return showPage(list, lastPage(result.total));
 				pages.failures = { ...result, offset: page.offset };
 			} else {
 				const result = await AdminService.listSCIMGroups(
@@ -374,7 +495,8 @@
 					quiet
 				);
 				if (!current()) return;
-				if (pastEnd(result)) return showPage(list, lastPage(result.total));
+				// The list shrank since it was shown: show its last page instead.
+				if (pastEnd(result, page.offset)) return showPage(list, lastPage(result.total));
 				// A page's total can finish a step, such as pushing the referenced groups.
 				pinStep();
 				pages[list] = { ...result, offset: page.offset };
@@ -663,6 +785,15 @@
 			</div>
 		{/if}
 
+		{#if entraSilent && review}
+			<div class="notification-alert flex items-start gap-2 text-sm font-light" role="status">
+				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+				<span>
+					{m.identity_access_scim_entra_silent({ time: timeAgo(review.activity.lastRequestAt) })}
+				</span>
+			</div>
+		{/if}
+
 		<!-- Its token cannot be rotated while the provider is not configured, which the alert above says. -->
 		{#if conn.hasToken && conn.authProviderConfigured}
 			{@const expiry = tokenExpiry(conn)}
@@ -922,6 +1053,8 @@
 {#snippet appStep(r: SCIMConnectionReview, conn: SCIMConnection)}
 	{#if conn.adapterType === ONELOGIN_ADAPTER_TYPE}
 		{@render oneLoginAppHelp(conn)}
+	{:else if conn.adapterType === ENTRA_ADAPTER_TYPE}
+		{@render entraAppHelp()}
 	{:else}
 		<p class="text-muted-content text-sm font-light">
 			{m.identity_access_scim_app_help({ provider: providerName })}
@@ -983,6 +1116,28 @@ not apply later changes to the users it has provisioned, and a user it provision
 	</ul>
 {/snippet}
 
+<!-- Entra provisions through the enterprise app that Obot signs in with, when that app was created
+under Enterprise applications. Its default user mapping sends mailNickname as externalId, which Obot
+refuses, so the mapping is changed before provisioning starts. Test Connection already completes the
+step, so the help asks for every item to be finished regardless. The note on quarantine is with the
+activity, which a quarantined job stops. -->
+{#snippet entraAppHelp()}
+	<p class="text-muted-content text-sm font-light">{m.identity_access_scim_entra_app_intro()}</p>
+	<ol
+		class="text-muted-content flex list-decimal flex-col gap-2 pl-4 text-sm font-light wrap-break-word"
+	>
+		<li>{m.identity_access_scim_entra_app_connection()}</li>
+		<li>
+			<strong class="text-base-content font-semibold"
+				>{m.identity_access_scim_entra_app_mapping()}</strong
+			>
+		</li>
+		<li>{m.identity_access_scim_entra_app_delete()}</li>
+		<li>{m.identity_access_scim_entra_app_scope()}</li>
+		<li>{m.identity_access_scim_entra_app_start()}</li>
+	</ol>
+{/snippet}
+
 {#snippet usersStep()}
 	<p class="text-muted-content text-sm font-light">
 		{m.identity_access_scim_assign_help({ provider: providerName })}
@@ -1009,7 +1164,10 @@ not apply later changes to the users it has provisioned, and a user it provision
 
 {#snippet groupsStep(r: SCIMConnectionReview, conn: SCIMConnection)}
 	<p class="text-muted-content text-sm font-light">
-		{#if conn.origin === 'migrated'}
+		{#if conn.origin === 'migrated' && conn.adapterType === ENTRA_ADAPTER_TYPE}
+			<!-- Entra groups bind by object ID, so they need no renaming to match. -->
+			{m.identity_access_scim_entra_groups_migrated({ provider: providerName })}
+		{:else if conn.origin === 'migrated'}
 			{m.identity_access_scim_groups_migrated({ provider: providerName })}
 		{:else}
 			{m.identity_access_scim_groups_new({ provider: providerName })}
@@ -1018,6 +1176,10 @@ not apply later changes to the users it has provisioned, and a user it provision
 	{#if conn.adapterType === ONELOGIN_ADAPTER_TYPE}
 		<p class="text-muted-content text-sm font-light">
 			{m.identity_access_scim_onelogin_groups_help()}
+		</p>
+	{:else if conn.adapterType === ENTRA_ADAPTER_TYPE}
+		<p class="text-muted-content text-sm font-light">
+			{m.identity_access_scim_entra_groups_help()}
 		</p>
 	{/if}
 	{@render warnings(r.warnings)}
@@ -1096,7 +1258,12 @@ not apply later changes to the users it has provisioned, and a user it provision
 					})}
 				</h3>
 				<p class="text-muted-content text-xs font-light">
-					{m.identity_access_scim_push_or_remove({ provider: providerName })}
+					{#if isEntra}
+						<!-- Entra groups bind by object ID, so they need no renaming to match. -->
+						{m.identity_access_scim_entra_push_or_remove({ provider: providerName })}
+					{:else}
+						{m.identity_access_scim_push_or_remove({ provider: providerName })}
+					{/if}
 				</p>
 				{@render groupList('unboundReferencedGroups', '')}
 			</div>
@@ -1171,6 +1338,11 @@ not apply later changes to the users it has provisioned, and a user it provision
 			<p class="text-muted-content text-xs font-light">
 				{m.identity_access_scim_activity_help({ provider: providerName })}
 			</p>
+			{#if isEntra}
+				<p class="text-muted-content text-xs font-light">
+					{m.identity_access_scim_entra_quarantine()}
+				</p>
+			{/if}
 		</div>
 		<dl class="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
 			<div class="flex flex-col gap-1">
@@ -1228,6 +1400,18 @@ not apply later changes to the users it has provisioned, and a user it provision
 
 		{#if p.blockers.length > 0}
 			{@render blockerList(m.identity_access_scim_cannot_enable_yet(), p.blockers)}
+		{/if}
+
+		<!-- Entra creates each group empty and adds its members one at a time, and provisions only
+		direct members, where directory synchronization read nested memberships. -->
+		{#if isEntra}
+			<div class="notification-alert flex items-start gap-2 text-sm font-light" role="note">
+				<TriangleAlert class="mt-0.5 size-5 shrink-0" />
+				<div class="flex flex-col gap-1">
+					<p>{m.identity_access_scim_entra_enable_members()}</p>
+					<p>{m.identity_access_scim_entra_enable_nested()}</p>
+				</div>
+			</div>
 		{/if}
 
 		{#each p.duplicateGroupNames as duplicate (duplicate.name)}

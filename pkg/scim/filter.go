@@ -342,8 +342,8 @@ func (p attrPath) String() string {
 	return s
 }
 
-// inSchema reports whether the path's URN, if any, names the resource's own schema. Extension schemas are not
-// supported.
+// inSchema reports whether the path's URN, if any, names the schema itself. A path into one of a resource's schema
+// extensions is in the extension's schema, not the resource's.
 func (p attrPath) inSchema(schema *resourceSchema) bool {
 	return p.URN == "" || strings.EqualFold(p.URN, schema.ID)
 }
@@ -580,5 +580,8 @@ func supportedFilters(names []string) string {
 	for _, name := range names {
 		quoted = append(quoted, `"`+name+` eq"`)
 	}
-	return strings.Join(quoted, " and ")
+	if len(quoted) <= 2 {
+		return strings.Join(quoted, " and ")
+	}
+	return strings.Join(quoted[:len(quoted)-1], ", ") + ", and " + quoted[len(quoted)-1]
 }

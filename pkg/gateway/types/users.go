@@ -19,6 +19,9 @@ const (
 	// UserDisabledReasonSCIMUnprovisioned means SCIM was enforced for the user's auth provider before the
 	// identity provider provisioned the user.
 	UserDisabledReasonSCIMUnprovisioned UserDisabledReason = "scim_unprovisioned"
+	// UserDisabledReasonSCIMDeleted means the identity provider deleted the user through SCIM. The user is deleted in
+	// the same transaction, so the reason shows only until their data is cleaned up.
+	UserDisabledReasonSCIMDeleted UserDisabledReason = "scim_deleted"
 )
 
 var (
@@ -70,7 +73,7 @@ type UserQuery struct {
 // Valid reports whether r is a known disable reason.
 func (r UserDisabledReason) Valid() bool {
 	switch r {
-	case UserDisabledReasonSCIMInactive, UserDisabledReasonSCIMUnprovisioned:
+	case UserDisabledReasonSCIMInactive, UserDisabledReasonSCIMUnprovisioned, UserDisabledReasonSCIMDeleted:
 		return true
 	default:
 		return false

@@ -93,6 +93,11 @@ already provide. Testing showed that Suspend deactivates users on app-access
 removal, suspension, and deletion, and that restoring access reuses the same
 account. Unlicensing sends no SCIM request and leaves the Obot user active.
 
+*Amended 2026-11-02:* whether a SCIM `DELETE` deletes a user is now a rule of
+each adapter. OneLogin still refuses it, for the reasons above. Entra deletes
+the user, as recorded in [2026-11-02: Provision Microsoft Entra ID users and
+groups through SCIM](./2026-11-02-entra-scim-provisioning.md).
+
 **Roles, not OneLogin groups.** A OneLogin user belongs to at most one group,
 and groups exist mainly to apply security policies. Roles are multi-valued, and
 are what OneLogin admins use to grant app access, so they are the natural match

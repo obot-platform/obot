@@ -39,10 +39,12 @@ func (e *ConfigurationError) Error() string {
 // before submitting it, and the provider configuration change, which applies it, check it here, so that they agree.
 //
 // It first drops from secrets the parameters that the provider no longer uses, so that a provider whose directory is
-// managed through SCIM is configured again without them. It then refuses, with a *ConfigurationError:
+// managed through SCIM is configured again without them, and the adapter's SCIM choice parameter, which is never
+// stored. A configuration chooses SCIM-first setup only for a provider that is not configured and has no connection;
+// for any other provider, the choice parameter is ignored. It then refuses, with a *ConfigurationError:
 //   - some but not all of the parameters that the provider needs together;
 //   - a configuration of a configured provider that synchronizes its directory, without the directory parameters.
-//     Moving it to SCIM is Enable and Enforce.
+//     Moving it to SCIM is Enable and Enforce. A provider without directory parameters has none to omit.
 //
 // It does not check the provider's other required parameters, which the API checks against the parameters it returns.
 func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvider v1.AuthProvider, configured func() (bool, error), stored func() (map[string]string, error), secrets map[string]string) (adapter.Parameters, Setup, error) {
@@ -70,6 +72,8 @@ func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvid
 	}
 
 	params := adapter.EffectiveParameters(authProvider.Spec.AuthProviderManifest, state)
+	// The SCIM choice parameter is dropped below, so the choice is read first.
+	scimChosen := hasRules && adapter.SCIMChosen(a, secrets)
 	for _, name := range params.Dropped {
 		delete(secrets, name)
 	}
@@ -100,7 +104,7 @@ func CheckConfiguration(ctx context.Context, gateway *gclient.Client, authProvid
 		}
 		return params, SetupKept, nil
 	}
-	if adapter.DirectoryParametersProvided(a, secrets) {
+	if !scimChosen {
 		return params, SetupKept, nil
 	}
 	return params, SetupSCIMFirst, nil

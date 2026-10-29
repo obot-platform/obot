@@ -16,7 +16,6 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/localauth"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
@@ -244,20 +243,6 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 				// If the error is a record not found error, then someone else already deleted the user while we were processing.
 				return types.NewErrHTTP(status, apiMessage(req, "local_delete_failed", "detail", err.Error()))
 			}
-		}
-
-		if err == nil {
-			if err = req.Create(&v1.UserDelete{
-				GenerateName: system.UserDeletePrefix,
-				Namespace:    req.Namespace(),
-				Spec: v1.UserDeleteSpec{
-					UserID: gatewayUser.ID,
-				},
-			}); err != nil {
-				return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
-			}
-
-			slog.Info("Scheduled user cleanup after deletion", "targetUserID", gatewayUser.ID)
 		}
 	}
 

@@ -691,21 +691,33 @@ func planProviderGroups(ctx context.Context, gateway *gclient.Client, finder *gr
 	return plan, nil
 }
 
-// nameWarnings warns about the names under which a pushed group can bind to none of the provider's unbound
-// referenced groups. Enabling SCIM refuses the first kind, and deletes the groups of the second, so only a review of a
-// connection has them.
+// nameWarnings warns about the names that keep a pushed group from binding to the provider's unbound referenced
+// groups. Enabling SCIM refuses the first kind, and deletes the groups of the second, so only a review of a connection
+// has them.
 func nameWarnings(ctx context.Context, p *provider, plan *groupPlan) []types2.SCIMSetupWarning {
+	// A provider that binds groups by externalId binds a pushed group whatever the names of the unbound groups, but
+	// the names of bound groups must still be unique, so of several referenced groups with one name only one can be
+	// pushed under it.
+	byID := p.adapter.GroupKey() == adapter.GroupKeyExternalID
+	duplicateKey := "scim_duplicate_warning"
+	if byID {
+		duplicateKey = "scim_duplicate_warning_by_id"
+	}
+
 	warnings := make([]types2.SCIMSetupWarning, 0, len(plan.duplicates)+len(plan.namesakes))
 	for _, duplicate := range plan.duplicates {
 		warnings = append(warnings, types2.SCIMSetupWarning{
 			Type: warningDuplicateName,
-			Message: message(ctx, "scim_duplicate_warning",
+			Message: message(ctx, duplicateKey,
 				"count", fmt.Sprint(len(duplicate.Groups)),
 				"name", fmt.Sprintf("%q", duplicate.Name),
 				"provider", p.displayName),
 			GroupID:   duplicate.Groups[0].ID,
 			GroupName: duplicate.Name,
 		})
+	}
+	if byID {
+		return warnings
 	}
 	for _, group := range plan.namesakes {
 		warnings = append(warnings, types2.SCIMSetupWarning{
@@ -811,7 +823,12 @@ func accountName(user *types.User) string {
 }
 
 func unboundGroupMessage(ctx context.Context, p *provider, group types2.SCIMSetupGroup) string {
-	return message(ctx, "scim_unbound_group", "group", describeGroupLocale(i18n.FromContext(ctx), group), "provider", p.displayName)
+	key := "scim_unbound_group"
+	// A group pushed from a provider that binds groups by externalId binds whatever its name, so it needs no renaming.
+	if p.adapter.GroupKey() == adapter.GroupKeyExternalID {
+		key = "scim_unbound_group_by_id"
+	}
+	return message(ctx, key, "group", describeGroupLocale(i18n.FromContext(ctx), group), "provider", p.displayName)
 }
 
 // blockedMessageLocale lists everything that blocks the SCIM transition named by its past participle, such as "enforced".

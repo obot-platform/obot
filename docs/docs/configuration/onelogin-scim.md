@@ -198,9 +198,9 @@ error from Obot that says which setting to fix.
    - Turn on **Enable provisioning**.
    - Set both **When users are deleted in OneLogin, or the user's app access is
      removed** and **When user accounts are suspended in OneLogin** to
-     **Suspend**. Obot never deletes users over SCIM. To delete a suspended
-     user, delete them on Obot's **Users** page. With **Do Nothing**, users you
-     suspend in OneLogin stay active in Obot.
+     **Suspend**. Obot doesn't delete OneLogin users over SCIM. To delete a
+     suspended user, delete them on Obot's **Users** page. With **Do Nothing**,
+     users you suspend in OneLogin stay active in Obot.
    - Turn off **Require admin approval** for each action, unless you want to
      approve every change by hand.
 5. On the **Parameters** tab:

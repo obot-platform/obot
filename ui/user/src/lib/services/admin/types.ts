@@ -281,6 +281,9 @@ export interface AuthProviderSCIM {
 	// While the provider is configured or staged without a SCIM connection, providing these
 	// parameters sets up directory synchronization, and leaving them empty sets up SCIM.
 	directoryParameters: string[];
+	// For a provider without directory parameters, such as Microsoft Entra, the parameter that sets
+	// up SCIM when it is "true". Omitting it sets up directory synchronization. Obot never stores it.
+	choiceParameter?: string;
 	// The parameter that holds the identity provider's issuer, such as the Okta Org URL.
 	issuerParameter: string;
 	// The issuer recorded when the provider's SCIM connection was created. SCIM bindings belong to
@@ -1742,7 +1745,10 @@ export interface SCIMSetupGroup {
 }
 
 export interface SCIMSetupWarning {
-	// 'duplicateName' and 'unreferencedNamesake' name groups whose name a pushed group cannot bind by.
+	// 'duplicateName' names referenced groups that share a name, of which only one can be pushed, and
+	// where groups bind by name, none can be bound. 'unreferencedNamesake' names unreferenced groups
+	// with the name of a referenced group, which keep a group pushed under that name from binding
+	// where groups bind by name.
 	type: 'everyoneGroup' | 'missingGroup' | 'duplicateName' | 'unreferencedNamesake';
 	message: string;
 	groupID: string;

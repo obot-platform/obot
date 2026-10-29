@@ -432,3 +432,70 @@ func TestAuthProviderServesTheSetupChoice(t *testing.T) {
 	assert.NotNil(t, provider.SCIM)
 	assert.Equal(t, string(gatewaytypes.SCIMConnectionStateConnected), provider.SCIMState)
 }
+
+// useEntra makes the test's provider the Entra provider, which chooses SCIM with its choice parameter.
+func (s *authProviderSCIMTest) useEntra() {
+	s.provider = &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: clienttypes.AuthProviderManifest{
+				CommonProviderMetadata: clienttypes.CommonProviderMetadata{
+					RequiredConfigurationParameters: []clienttypes.ProviderConfigurationParameter{
+						{
+							Name: "OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID",
+						},
+					},
+				},
+				GroupIDPrefix: "entra/",
+			},
+		},
+	}
+	s.storage = newAuthProviderTestStorage(s.provider)
+	s.dispatcher = dispatcher.New(nil, s.storage, s.gateway, s.license, "", "", "")
+}
+
+// TestConfigureStagesTheEntraSCIMChoice checks that Configure stages Entra's SCIM choice parameter as submitted, since
+// the provider configuration change applies the SCIM rules again to what is staged, and creates the SCIM connection
+// only if the choice is still there.
+func TestConfigureStagesTheEntraSCIMChoice(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	s.useEntra()
+
+	staged := s.configure(`{"OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID":"00000000-0000-4000-8000-000000000001","OBOT_ENTRA_AUTH_PROVIDER_SCIM":"true"}`)
+	assert.Equal(t, "true", staged["OBOT_ENTRA_AUTH_PROVIDER_SCIM"])
+	assert.Equal(t, "00000000-0000-4000-8000-000000000001", staged["OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID"])
+
+	// Without the choice, nothing chooses SCIM.
+	staged = s.configure(`{"OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID":"00000000-0000-4000-8000-000000000001"}`)
+	assert.NotContains(t, staged, "OBOT_ENTRA_AUTH_PROVIDER_SCIM")
+}
+
+func TestAuthProviderServesTheEntraSetupChoice(t *testing.T) {
+	s := newAuthProviderSCIMTest(t)
+	s.useEntra()
+
+	req, rec := s.context(http.MethodGet, "/api/auth-providers/entra-auth-provider", "", clienttypes.GroupAdmin)
+	require.NoError(t, s.handler().ByID(req))
+	var provider clienttypes.AuthProvider
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
+
+	// Entra has no directory parameters, so the form sets the choice parameter to choose SCIM, which it lists as
+	// hidden.
+	require.NotNil(t, provider.SCIM)
+	assert.Empty(t, provider.SCIM.DirectoryParameters)
+	assert.Equal(t, "OBOT_ENTRA_AUTH_PROVIDER_SCIM", provider.SCIM.ChoiceParameter)
+	assert.Equal(t, "OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID", provider.SCIM.IssuerParameter)
+	require.Len(t, provider.OptionalConfigurationParameters, 1)
+	assert.Equal(t, "OBOT_ENTRA_AUTH_PROVIDER_SCIM", provider.OptionalConfigurationParameters[0].Name)
+	assert.True(t, provider.OptionalConfigurationParameters[0].Hidden)
+
+	// Okta chooses by omission, and has no choice parameter.
+	okta := newAuthProviderSCIMTest(t)
+	req, rec = okta.context(http.MethodGet, "/api/auth-providers/okta-auth-provider", "", clienttypes.GroupAdmin)
+	require.NoError(t, okta.handler().ByID(req))
+	provider = clienttypes.AuthProvider{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &provider))
+	require.NotNil(t, provider.SCIM)
+	assert.Empty(t, provider.SCIM.ChoiceParameter)
+}

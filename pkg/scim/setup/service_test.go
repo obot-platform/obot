@@ -13,6 +13,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/scim/adapter"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -719,5 +720,170 @@ func TestMissingGroupMessage(t *testing.T) {
 				t.Fatalf("missingGroupMessage() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestUnboundGroupMessage(t *testing.T) {
+	tests := []struct {
+		name        string
+		adapterType string
+		displayName string
+		group       clienttypes.SCIMSetupGroup
+		want        string
+	}{
+		{
+			name:        "provider that binds groups by name",
+			adapterType: "okta",
+			displayName: "Okta",
+			group: clienttypes.SCIMSetupGroup{
+				ID:   "okta/00g0000000000team",
+				Name: "Team",
+			},
+			want: `The referenced group "Team" (okta/00g0000000000team) has not been pushed from Okta. Push it, renaming it there first if its name differs, or remove its references.`,
+		},
+		{
+			name:        "provider that binds groups by externalId",
+			adapterType: "entra",
+			displayName: "Microsoft Entra",
+			group: clienttypes.SCIMSetupGroup{
+				ID:   "entra/67c9c700-d629-4cbe-92f6-8d644bbba82d",
+				Name: "Team",
+			},
+			want: `The referenced group "Team" (entra/67c9c700-d629-4cbe-92f6-8d644bbba82d) has not been pushed from Microsoft Entra. Push it, or remove its references.`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := unboundGroupMessage(t.Context(), testProvider(t, tt.adapterType, tt.displayName), tt.group); got != tt.want {
+				t.Fatalf("unboundGroupMessage() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNameWarnings(t *testing.T) {
+	plan := &groupPlan{
+		duplicates: []clienttypes.SCIMDuplicateGroupName{
+			{
+				Name: "Team",
+				Groups: []clienttypes.SCIMSetupGroup{
+					{
+						ID:   "group-1",
+						Name: "Team",
+					},
+					{
+						ID:   "group-2",
+						Name: "team",
+					},
+				},
+			},
+		},
+		namesakes: []clienttypes.SCIMSetupGroup{
+			{
+				ID:   "group-3",
+				Name: "Sales",
+			},
+		},
+	}
+	tests := []struct {
+		name        string
+		adapterType string
+		displayName string
+		want        []string
+	}{
+		{
+			name:        "provider that binds groups by name",
+			adapterType: "okta",
+			displayName: "Okta",
+			want: []string{
+				`2 referenced groups are named "Team", so a group pushed from Okta under that name binds to neither. Remove the references to all but one of them, and then delete the unreferenced groups.`,
+				`The unreferenced group "Sales" has the name of a referenced group, so a group pushed from Okta under that name binds to neither. Delete the unreferenced groups.`,
+			},
+		},
+		{
+			name:        "provider that binds groups by externalId",
+			adapterType: "entra",
+			displayName: "Microsoft Entra",
+			want: []string{
+				`2 referenced groups are named "Team", and only one group with that name can be pushed from Microsoft Entra. Rename all but one of them in Microsoft Entra before pushing them, or remove the references to all but one of them.`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := make([]string, 0, len(tt.want))
+			for _, warning := range nameWarnings(t.Context(), testProvider(t, tt.adapterType, tt.displayName), plan) {
+				got = append(got, warning.Message)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("nameWarnings() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEnableMessagesFollowHowGroupsBind(t *testing.T) {
+	duplicate := clienttypes.SCIMDuplicateGroupName{
+		Name: "Team",
+		Groups: []clienttypes.SCIMSetupGroup{
+			{
+				ID:   "group-1",
+				Name: "Team",
+			},
+			{
+				ID:   "group-2",
+				Name: "Team",
+			},
+		},
+	}
+	tests := []struct {
+		name          string
+		adapterType   string
+		displayName   string
+		wantDuplicate string
+		wantDeletion  string
+	}{
+		{
+			name:          "provider that binds groups by name",
+			adapterType:   "okta",
+			displayName:   "Okta",
+			wantDuplicate: `2 referenced groups are named "Team", so a group pushed under that name binds to neither. Remove the references to all but one of them, and enabling SCIM deletes the others as unreferenced, or rename the group in Okta so that the next sign-in of one of its members updates its name in Obot. References synced from Git must be changed at their source.`,
+			wantDeletion:  "SCIM is enabled, but the groups that nothing references could not be deleted. Retry the deletion on Identity & Access → Auth Providers → SCIM before pushing groups from Okta: a pushed group cannot bind to a referenced group while an unreferenced group has the same name.",
+		},
+		{
+			name:          "provider that binds groups by externalId",
+			adapterType:   "entra",
+			displayName:   "Microsoft Entra",
+			wantDuplicate: `2 referenced groups are named "Team", and only one group with that name can be pushed from Microsoft Entra. Rename all but one of them in Microsoft Entra, and the next sign-in of one of their members updates their names in Obot, or remove the references to all but one of them, and enabling SCIM deletes the others as unreferenced. References synced from Git must be changed at their source.`,
+			wantDeletion:  "SCIM is enabled, but the groups that nothing references could not be deleted. Retry the deletion on Identity & Access → Auth Providers → SCIM.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := testProvider(t, tt.adapterType, tt.displayName)
+			if got := duplicateEnableMessage(t.Context(), p, duplicate); got != tt.wantDuplicate {
+				t.Fatalf("duplicateEnableMessage() = %q, want %q", got, tt.wantDuplicate)
+			}
+			if got := deletionErrorMessage(t.Context(), p); got != tt.wantDeletion {
+				t.Fatalf("deletionErrorMessage() = %q, want %q", got, tt.wantDeletion)
+			}
+		})
+	}
+}
+
+// testProvider returns a provider with the given display name and the registered adapter of the given type.
+func testProvider(t *testing.T, adapterType, displayName string) *provider {
+	t.Helper()
+
+	a, ok := adapter.Lookup(adapterType)
+	if !ok {
+		t.Fatalf("no adapter of type %q", adapterType)
+	}
+	return &provider{
+		displayName: displayName,
+		adapter:     a,
 	}
 }

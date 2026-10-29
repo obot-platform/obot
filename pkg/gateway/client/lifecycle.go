@@ -510,6 +510,8 @@ func (c *Client) deliverUserLifecycleEvent(ctx context.Context, event types.User
 		return c.deliverUserDisabledEvent(ctx, event, oauthTokens)
 	case types.UserLifecycleEventReconcile:
 		return c.deliverUserReconcileEvent(ctx, event)
+	case types.UserLifecycleEventDeleted:
+		return c.deliverUserDeletedEvent(ctx, event)
 	default:
 		return fmt.Errorf("unknown user lifecycle event type %q", event.Type)
 	}
@@ -609,6 +611,23 @@ func (c *Client) deliverUserReconcileEvent(ctx context.Context, event types.User
 		return fmt.Errorf("failed to create the group change of user %d: %w", event.UserID, err)
 	}
 
+	return nil
+}
+
+// deliverUserDeletedEvent creates the UserDelete that makes the controller remove what a deleted user owns. Its name
+// comes from the event, so a repeated delivery creates nothing new while it exists, and the cleanup tolerates what an
+// earlier one already removed if it does.
+func (c *Client) deliverUserDeletedEvent(ctx context.Context, event types.UserLifecycleEvent) error {
+	if err := c.storageClient.Create(ctx, &v1.UserDelete{
+		Name:      userLifecycleObjectName(system.UserDeletePrefix, event.ID),
+		Namespace: system.DefaultNamespace,
+		Spec: v1.UserDeleteSpec{
+			UserID: event.UserID,
+		},
+	}); err != nil && !apierrors.IsAlreadyExists(err) {
+		return fmt.Errorf("failed to start the cleanup of deleted user %d: %w", event.UserID, err)
+	}
+	slog.Info("Scheduled user cleanup after deletion", "targetUserID", event.UserID)
 	return nil
 }
 

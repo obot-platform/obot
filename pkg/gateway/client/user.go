@@ -23,10 +23,38 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
+const (
+	// profileIconCheckInterval is how long sign-in waits before asking the auth provider for a user's profile
+	// picture again.
+	profileIconCheckInterval = 7 * 24 * time.Hour
+)
+
 var (
 	userGroupResource = schema.GroupResource{
 		Group:    "obot.obot.ai",
 		Resource: "users",
+	}
+
+	// userEncryptedColumns are the columns that encryptUser writes, for an update that writes a user encrypted again
+	// without the rest of its row. It must list every column that encryptUser writes.
+	userEncryptedColumns = []string{"username", "email", "icon_url", "display_name", "original_email", "original_username", "encrypted"}
+
+	// profileIconURLs read the profile picture URL in an auth provider's answer to /obot-get-user-info, by auth
+	// provider, and report whether the answer sets one. Auth providers without profile pictures, such as Okta,
+	// OneLogin, and the local auth provider, have none.
+	profileIconURLs = map[string]func(profile map[string]any) (string, bool){
+		"github-auth-provider":   profileString("avatar_url"),
+		"google-auth-provider":   profileString("picture"),
+		"entra-auth-provider":    profileString("icon_url"),
+		"auth0-auth-provider":    profileString("icon_url"),
+		"keycloak-auth-provider": profileString("icon_url"),
+		"jumpcloud-auth-provider": func(profile map[string]any) (string, bool) {
+			iconURL, _ := profile["icon_url"].(string)
+			if iconURL == "" {
+				iconURL, _ = profile["picture"].(string)
+			}
+			return iconURL, iconURL != ""
+		},
 	}
 )
 
@@ -222,92 +250,122 @@ func (c *Client) UsersIncludeDeleted(ctx context.Context, query types.UserQuery)
 	return c.Users(ctx, query)
 }
 
+// DeleteUser deletes a user as an administrator does: the user is soft-deleted and renamed, their group memberships
+// are removed, and an outbox event removes what they own once the deletion commits. A user that SCIM has provisioned
+// can be deleted only once the identity provider has deprovisioned them.
 func (c *Client) DeleteUser(ctx context.Context, userID string) error {
-	existingUser := new(types.User)
-
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
 			return err
 		}
 
-		if err := tx.Where("id = ?", userID).First(existingUser).Error; err != nil {
+		// A deleted user is not deleted again, which would rename them again and repeat their cleanup.
+		existingUser := new(types.User)
+		if err := tx.Where("id = ? AND deleted_at IS NULL", userID).First(existingUser).Error; err != nil {
 			return err
 		}
 
-		// A user that SCIM has provisioned can be deleted only once the identity provider has deprovisioned them.
-		// Their SCIM ID is retired, so it answers 404 and userName lookups no longer find them.
+		// The user's SCIM ID is retired, so it answers 404 and userName lookups no longer find them.
 		if err := retireSCIMUserBindingForDeletionTx(tx, existingUser.ID); err != nil {
 			return err
 		}
 
-		// Decrypt user to get original values before soft delete
-		if err := c.decryptUser(ctx, existingUser); err != nil {
-			return fmt.Errorf("failed to decrypt user: %w", err)
+		if err := refuseLastOwnerOrAdminTx(tx, existingUser); err != nil {
+			return err
 		}
+		return c.deleteUserTx(ctx, tx, existingUser)
+	}); err != nil {
+		return err
+	}
 
-		// Check if we're deleting a user with Owner or Admin role
-		// We filter out empty email users here, because that is the bootstrap user.
-		// Also exclude already soft-deleted users and the current user from the count.
-		if existingUser.Role.HasRole(types2.RoleOwner) {
-			// Can't delete the user if they're an owner and there are no other owners
-			var ownerCount int64
-			if err := tx.Model(new(types.User)).Where("id != ? AND (role & ?) != 0 AND hashed_email != '' AND deleted_at IS NULL",
-				userID,
-				types2.RoleOwner,
-			).Count(&ownerCount).Error; err != nil {
-				return err
-			}
+	c.kickUserLifecycleDelivery()
+	return nil
+}
 
-			if ownerCount == 0 {
-				return new(LastOwnerError)
-			}
-		} else if existingUser.Role.HasRole(types2.RoleAdmin) {
-			// Can't delete the user if they're an admin and there are no other owners or admins
-			var adminCount int64
-			if err := tx.Model(new(types.User)).Where("id != ? AND ((role & ?) != 0 OR (role & ?) != 0) AND hashed_email != '' AND deleted_at IS NULL",
-				userID,
-				types2.RoleOwner,
-				types2.RoleAdmin,
-			).Count(&adminCount).Error; err != nil {
-				return err
-			}
-
-			if adminCount == 0 {
-				return new(LastAdminError)
-			}
-		}
-
-		// Soft delete: set timestamp and preserve original values
-		now := time.Now()
-		existingUser.DeletedAt = &now
-		existingUser.OriginalEmail = existingUser.Email
-		existingUser.OriginalUsername = existingUser.Username
-
-		// Clear sensitive data and make fields unique to allow re-signup
-		// Append timestamp to prevent conflicts with new users using same email
-		deletedSuffix := fmt.Sprintf("_deleted_%d", now.Unix())
-		existingUser.Email = existingUser.Email + deletedSuffix
-		existingUser.Username = existingUser.Username + deletedSuffix
-		existingUser.HashedEmail = hash.String(existingUser.Email)
-		existingUser.HashedUsername = hash.String(existingUser.Username)
-
-		// Encrypt the modified user
-		if err := c.encryptUser(ctx, existingUser); err != nil {
-			return fmt.Errorf("failed to encrypt user: %w", err)
-		}
-
-		// Clean up group memberships for the deleted user
-		if err := c.deleteGroupMembershipsForUser(ctx, tx, existingUser.ID); err != nil {
+// refuseLastOwnerOrAdminTx refuses to delete user when they are the last Owner, or the last Admin when there is no
+// other Owner, with *LastOwnerError or *LastAdminError. user need not be decrypted.
+func refuseLastOwnerOrAdminTx(tx *gorm.DB, user *types.User) error {
+	// We filter out empty email users here, because that is the bootstrap user.
+	// Also exclude soft-deleted and disabled users, who cannot act as Owners or Admins, and the current user from the
+	// count.
+	if user.Role.HasRole(types2.RoleOwner) {
+		// Can't delete the user if they're an owner and there are no other owners
+		var ownerCount int64
+		if err := tx.Model(new(types.User)).Where("id != ? AND (role & ?) != 0 AND hashed_email != '' AND deleted_at IS NULL AND disabled_at IS NULL",
+			user.ID,
+			types2.RoleOwner,
+		).Count(&ownerCount).Error; err != nil {
 			return err
 		}
 
-		// Update the user with soft delete fields and modified email/username
-		if err := tx.Omit(types.UserLifecycleColumns...).Save(existingUser).Error; err != nil {
+		if ownerCount == 0 {
+			return new(LastOwnerError)
+		}
+	} else if user.Role.HasRole(types2.RoleAdmin) {
+		// Can't delete the user if they're an admin and there are no other owners or admins
+		var adminCount int64
+		if err := tx.Model(new(types.User)).Where("id != ? AND ((role & ?) != 0 OR (role & ?) != 0) AND hashed_email != '' AND deleted_at IS NULL AND disabled_at IS NULL",
+			user.ID,
+			types2.RoleOwner,
+			types2.RoleAdmin,
+		).Count(&adminCount).Error; err != nil {
 			return err
 		}
 
-		return nil
-	})
+		if adminCount == 0 {
+			return new(LastAdminError)
+		}
+	}
+	return nil
+}
+
+// deleteUserTx deletes existingUser, which was read in tx and is not decrypted, within tx. Callers that act for an
+// administrator or an identity provider check refuseLastOwnerOrAdminTx first. It records the event whose delivery
+// removes what the user owns, so the caller must kick lifecycle delivery after committing.
+func (c *Client) deleteUserTx(ctx context.Context, tx *gorm.DB, existingUser *types.User) error {
+	// Decrypt user to get original values before soft delete
+	if err := c.decryptUser(ctx, existingUser); err != nil {
+		return fmt.Errorf("failed to decrypt user: %w", err)
+	}
+
+	// Soft delete: set timestamp and preserve original values
+	now := time.Now()
+	existingUser.DeletedAt = &now
+	existingUser.OriginalEmail = existingUser.Email
+	existingUser.OriginalUsername = existingUser.Username
+
+	// Clear sensitive data and make fields unique to allow re-signup
+	// Append timestamp to prevent conflicts with new users using same email
+	deletedSuffix := fmt.Sprintf("_deleted_%d", now.Unix())
+	existingUser.Email = existingUser.Email + deletedSuffix
+	existingUser.Username = existingUser.Username + deletedSuffix
+	existingUser.HashedEmail = hash.String(existingUser.Email)
+	existingUser.HashedUsername = hash.String(existingUser.Username)
+
+	// Encrypt the modified user
+	if err := c.encryptUser(ctx, existingUser); err != nil {
+		return fmt.Errorf("failed to encrypt user: %w", err)
+	}
+
+	// Clean up group memberships for the deleted user
+	if err := c.deleteGroupMembershipsForUser(ctx, tx, existingUser.ID); err != nil {
+		return err
+	}
+
+	// Update the user with soft delete fields and modified email/username
+	if err := tx.Omit(types.UserLifecycleColumns...).Save(existingUser).Error; err != nil {
+		return err
+	}
+
+	// What the user owns lives in the controller store, which cannot share this transaction, so it is removed once
+	// the deletion commits, and until that succeeds.
+	if err := tx.Create(&types.UserLifecycleEvent{
+		UserID: existingUser.ID,
+		Type:   types.UserLifecycleEventDeleted,
+	}).Error; err != nil {
+		return fmt.Errorf("failed to record the deletion event of user %d: %w", existingUser.ID, err)
+	}
+	return nil
 }
 
 func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, updatedUser *types.User, userID string) (*types.User, error) {
@@ -356,11 +414,12 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 
 				if removingOwner || removingAdmin {
 					// We filter out empty email users here, because that is the bootstrap user.
-					// Also exclude soft-deleted users and the current user from the count.
+					// Also exclude soft-deleted and disabled users, who cannot act as Owners or Admins, and the current
+					// user from the count.
 					if removingOwner {
 						// Can't change role from owner if there are no other owners
 						var ownerCount int64
-						if err := tx.Model(new(types.User)).Where("id != ? AND (role & ?) != 0 AND hashed_email != '' AND deleted_at IS NULL",
+						if err := tx.Model(new(types.User)).Where("id != ? AND (role & ?) != 0 AND hashed_email != '' AND deleted_at IS NULL AND disabled_at IS NULL",
 							userID,
 							types2.RoleOwner,
 						).Count(&ownerCount).Error; err != nil {
@@ -373,7 +432,7 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 					} else if removingAdmin {
 						// Can't change role from admin if there are no other owners or admins
 						var adminCount int64
-						if err := tx.Model(new(types.User)).Where("id != ? AND ((role & ?) != 0 OR (role & ?) != 0) AND hashed_email != '' AND deleted_at IS NULL",
+						if err := tx.Model(new(types.User)).Where("id != ? AND ((role & ?) != 0 OR (role & ?) != 0) AND hashed_email != '' AND deleted_at IS NULL AND disabled_at IS NULL",
 							userID,
 							types2.RoleOwner,
 							types2.RoleAdmin,
@@ -421,11 +480,11 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return nil
 	}
 
-	// While a SCIM connection manages the auth provider, only SCIM writes the profiles of its users, so they are not
-	// refreshed at sign-in, and neither are the profiles of users SCIM has provisioned. The one exception is a user
-	// of a SCIM-managed provider whom SCIM has not provisioned yet and who has no display name: sign-in fills it in,
-	// because until SCIM provisions the user it is the only name Obot has for them. Both are read with the identity,
-	// before the provider is asked, and checked again before its answer is written. A failed lookup fails the refresh.
+	// While a SCIM connection manages the auth provider, only SCIM writes the names and emails of its users, and of
+	// users SCIM has provisioned. Sign-in still refreshes what SCIM does not send, the profile picture, and fills in
+	// the display name of a user whom SCIM has not provisioned yet and who has none, because until SCIM provisions the
+	// user it is the only name Obot has for them. Both are read with the identity, before the provider is asked, and
+	// the binding is checked again before its answer is written. A failed lookup fails the refresh.
 	var rows []struct {
 		types.Identity
 		SCIMManaged bool
@@ -445,11 +504,8 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	if len(rows) == 0 {
 		return gorm.ErrRecordNotFound
 	}
-	if rows[0].SCIMBound {
-		return nil
-	}
-	if rows[0].SCIMManaged {
-		return c.fillUnprovisionedDisplayName(ctx, user, authProviderURL, accessToken)
+	if rows[0].SCIMBound || rows[0].SCIMManaged {
+		return c.refreshSCIMManagedProfile(ctx, user, rows[0].Identity, rows[0].SCIMBound, authProviderName, authProviderURL, accessToken)
 	}
 	identity := rows[0].Identity
 
@@ -457,7 +513,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return fmt.Errorf("failed to decrypt identity: %w", err)
 	}
 
-	if user.IconURL == identity.IconURL && time.Since(identity.IconLastChecked) < 7*24*time.Hour && user.DisplayName != "" {
+	if user.IconURL == identity.IconURL && time.Since(identity.IconLastChecked) < profileIconCheckInterval && user.DisplayName != "" {
 		// Icon was checked less than 7 days ago, and the user is still using the same auth provider and DisplayName is already set
 		return nil
 	}
@@ -467,12 +523,13 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		return err
 	}
 
+	if iconURL, ok := profileIconURL(authProviderName, profile); ok {
+		user.IconURL = iconURL
+		identity.IconURL = iconURL
+	}
+
 	switch authProviderName {
 	case "github-auth-provider":
-		if iconURL, ok := profile["avatar_url"].(string); ok {
-			user.IconURL = iconURL
-			identity.IconURL = iconURL
-		}
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 			if user.DisplayName == "" {
@@ -481,41 +538,12 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 				}
 			}
 		}
-	case "google-auth-provider":
-		if iconURL, ok := profile["picture"].(string); ok {
-			user.IconURL = iconURL
-			identity.IconURL = iconURL
-		}
-		if displayName, ok := profile["name"].(string); ok {
-			user.DisplayName = displayName
-		}
-	case "okta-auth-provider", "onelogin-auth-provider":
-		// Neither Okta nor OneLogin supports profile pictures
-		if displayName, ok := profile["name"].(string); ok {
-			user.DisplayName = displayName
-		}
-	case system.LocalAuthProvider:
-		// Local users have no profile beyond their email address, and no picture.
-		if displayName, ok := profile["name"].(string); ok {
-			user.DisplayName = displayName
-		}
 	case "entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider":
-		if iconURL, ok := profile["icon_url"].(string); ok {
-			user.IconURL = iconURL
-			identity.IconURL = iconURL
-		}
 		if displayName, ok := profile["name"].(string); ok && displayName != "" {
 			user.DisplayName = displayName
 		}
-	case "jumpcloud-auth-provider":
-		iconURL, _ := profile["icon_url"].(string)
-		if iconURL == "" {
-			iconURL, _ = profile["picture"].(string)
-		}
-		if iconURL != "" {
-			user.IconURL = iconURL
-			identity.IconURL = iconURL
-		}
+	case "google-auth-provider", "okta-auth-provider", "onelogin-auth-provider", system.LocalAuthProvider,
+		"jumpcloud-auth-provider":
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
@@ -571,11 +599,41 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 	})
 }
 
-// fillUnprovisionedDisplayName gives a user of a SCIM-managed auth provider whom SCIM has not provisioned the display
-// name that the provider reports, when the user has none. It never overwrites a display name and writes nothing else,
-// so SCIM stays the only writer of every profile it has started managing.
-func (c *Client) fillUnprovisionedDisplayName(ctx context.Context, user *types.User, authProviderURL, accessToken string) error {
-	if user.DisplayName != "" {
+// profileIconURL returns the profile picture URL in an auth provider's answer to /obot-get-user-info, and whether the
+// answer sets one.
+func profileIconURL(authProviderName string, profile map[string]any) (string, bool) {
+	if read, ok := profileIconURLs[authProviderName]; ok {
+		return read(profile)
+	}
+	return "", false
+}
+
+// hasProfilePictures reports whether an auth provider's users have profile pictures.
+func hasProfilePictures(authProviderName string) bool {
+	_, ok := profileIconURLs[authProviderName]
+	return ok
+}
+
+// profileString reads the string at key in an auth provider's answer to /obot-get-user-info.
+func profileString(key string) func(profile map[string]any) (string, bool) {
+	return func(profile map[string]any) (string, bool) {
+		value, ok := profile[key].(string)
+		return value, ok
+	}
+}
+
+// refreshSCIMManagedProfile refreshes, at sign-in, what SCIM does not write in the profile of a user of a SCIM-managed
+// auth provider: the profile picture, as often as for any other user, and the display name of a user whom SCIM has
+// not provisioned (bound is false) and who has none. identity is the user's identity as stored. Nothing is written,
+// and no lock is taken, when there is nothing to refresh.
+func (c *Client) refreshSCIMManagedProfile(ctx context.Context, user *types.User, identity types.Identity, bound bool, authProviderName, authProviderURL, accessToken string) error {
+	if err := c.decryptStoredIdentity(ctx, &identity); err != nil {
+		return err
+	}
+	fillName := !bound && user.DisplayName == ""
+	iconDue := hasProfilePictures(authProviderName) &&
+		(user.IconURL != identity.IconURL || time.Since(identity.IconLastChecked) >= profileIconCheckInterval)
+	if !fillName && !iconDue {
 		return nil
 	}
 
@@ -583,8 +641,10 @@ func (c *Client) fillUnprovisionedDisplayName(ctx context.Context, user *types.U
 	if err != nil {
 		return err
 	}
+	iconURL, hasIcon := profileIconURL(authProviderName, profile)
 	displayName, _ := profile["name"].(string)
-	if displayName = strings.TrimSpace(displayName); displayName == "" {
+	displayName = strings.TrimSpace(displayName)
+	if !iconDue && displayName == "" {
 		return nil
 	}
 
@@ -592,7 +652,8 @@ func (c *Client) fillUnprovisionedDisplayName(ctx context.Context, user *types.U
 		// SCIM may have provisioned the user, or another sign-in may have filled in the display name, while the
 		// profile was being fetched. The SCIM write lock keeps SCIM from provisioning the user between these checks
 		// and the write; the user lock alone does not, because SCIM binds a user without locking it when the profile
-		// carries neither an email nor a display name. The locks are taken in the order SCIM takes them.
+		// carries neither an email nor a display name. The locks are taken in the order SCIM takes them, also when
+		// only the picture is written, so that this write cannot deadlock with SCIM's writes of the user and identity.
 		if err := lockSCIMWrites(tx); err != nil {
 			return err
 		}
@@ -600,29 +661,64 @@ func (c *Client) fillUnprovisionedDisplayName(ctx context.Context, user *types.U
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", user.ID).Take(current).Error; err != nil {
 			return err
 		}
-		binding, err := activeSCIMUserBindingForUserTx(tx, user.ID, false)
-		if err != nil {
+		// The identity is read again too, so that only its picture and the time it was checked change.
+		var identities []types.Identity
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", identity.AuthProviderNamespace, identity.AuthProviderName, identity.HashedProviderUserID).
+			Limit(1).
+			Find(&identities).Error; err != nil {
+			return fmt.Errorf("failed to get identity: %w", err)
+		}
+		// The user was deleted, or the identity moved to another user, while the profile was being fetched, so the
+		// answer is no longer this user's.
+		if current.DeletedAt != nil || len(identities) == 0 || identities[0].UserID != user.ID {
+			return nil
+		}
+		if err := c.decryptStoredUser(ctx, current); err != nil {
 			return err
 		}
-		if binding != nil {
-			return nil
-		}
-		if err := c.decryptUser(ctx, current); err != nil {
-			return fmt.Errorf("failed to decrypt user: %w", err)
-		}
-		if current.DisplayName != "" {
-			return nil
-		}
 
-		current.DisplayName = displayName
+		if fillName && displayName != "" && current.DisplayName == "" {
+			binding, err := activeSCIMUserBindingForUserTx(tx, user.ID, false)
+			if err != nil {
+				return err
+			}
+			if binding == nil {
+				current.DisplayName = displayName
+			}
+		}
+		if iconDue && hasIcon {
+			current.IconURL = iconURL
+		}
+		name, icon := current.DisplayName, current.IconURL
 		if err := c.encryptUser(ctx, current); err != nil {
 			return fmt.Errorf("failed to encrypt user: %w", err)
 		}
-		if err := tx.Omit(types.UserLifecycleColumns...).Updates(current).Error; err != nil {
+		// Every encrypted column is written, so that the row stays consistent with its encrypted flag, and so is a
+		// picture the provider no longer has.
+		if err := tx.Model(current).Select(userEncryptedColumns).Updates(current).Error; err != nil {
 			return err
 		}
 
-		user.DisplayName = displayName
+		if iconDue {
+			stored := &identities[0]
+			if err := c.decryptStoredIdentity(ctx, stored); err != nil {
+				return err
+			}
+			stored.IconURL = icon
+			if err := c.encryptIdentity(ctx, stored); err != nil {
+				return fmt.Errorf("failed to encrypt identity: %w", err)
+			}
+			columns := identityEncryptedColumns(stored)
+			columns["icon_last_checked"] = time.Now()
+			if err := tx.Model(new(types.Identity)).
+				Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", stored.AuthProviderNamespace, stored.AuthProviderName, stored.HashedProviderUserID).
+				UpdateColumns(columns).Error; err != nil {
+				return fmt.Errorf("failed to store the profile picture of identity: %w", err)
+			}
+		}
+
+		user.DisplayName, user.IconURL = name, icon
 		return nil
 	})
 }
@@ -734,6 +830,18 @@ func (c *Client) encryptUser(ctx context.Context, user *types.User) error {
 	user.Encrypted = true
 
 	return errors.Join(errs...)
+}
+
+// decryptStoredUser decrypts a user read from the database, refusing one that is encrypted while encryption is not
+// configured, which decryptUser would leave encrypted.
+func (c *Client) decryptStoredUser(ctx context.Context, user *types.User) error {
+	if user.Encrypted && (c.encryptionConfig == nil || c.encryptionConfig.Transformers[userGroupResource] == nil) {
+		return errors.New("user is encrypted but encryption is not configured")
+	}
+	if err := c.decryptUser(ctx, user); err != nil {
+		return fmt.Errorf("failed to decrypt user: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) decryptUser(ctx context.Context, user *types.User) error {

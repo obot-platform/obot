@@ -56,6 +56,8 @@ type testResponse struct {
 	status int
 	header http.Header
 	body   map[string]any
+	// raw is the body as written.
+	raw []byte
 }
 
 func (e *testEnvironment) ConfiguredAuthProvider(context.Context) (string, string, error) {
@@ -189,8 +191,14 @@ func (s *scimTest) enable() {
 }
 
 // enableProvider configures the named auth provider and creates its SCIM connection, whose groups get IDs with the
-// given prefix.
+// given prefix, as Enable does for a provider that synchronized its directory.
 func (s *scimTest) enableProvider(providerName, groupIDPrefix, issuer string) {
+	s.t.Helper()
+	s.enableProviderWithOrigin(providerName, groupIDPrefix, issuer, types.SCIMConnectionOriginMigrated)
+}
+
+// enableProviderWithOrigin configures the named auth provider and creates its SCIM connection with the given origin.
+func (s *scimTest) enableProviderWithOrigin(providerName, groupIDPrefix, issuer string, origin types.SCIMConnectionOrigin) {
 	s.t.Helper()
 
 	s.env.name = providerName
@@ -199,7 +207,7 @@ func (s *scimTest) enableProvider(providerName, groupIDPrefix, issuer string) {
 		AuthProviderName:      providerName,
 		GroupIDPrefix:         groupIDPrefix,
 		Issuer:                issuer,
-		Origin:                types.SCIMConnectionOriginMigrated,
+		Origin:                origin,
 		IssueToken:            true,
 	})
 	if err != nil {
@@ -207,6 +215,21 @@ func (s *scimTest) enableProvider(providerName, groupIDPrefix, issuer string) {
 	}
 	s.conn = conn
 	s.token = token
+}
+
+// enforce enforces the test's connection, with actor as the Owner who enforces it.
+func (s *scimTest) enforce(actor uint) {
+	s.t.Helper()
+
+	if _, err := s.gateway.EnforceSCIMConnection(s.t.Context(), s.conn.ID, gclient.EnforceSCIMOptions{
+		Actor: gclient.SCIMEnforceActor{
+			UserID:                actor,
+			AuthProviderNamespace: system.DefaultNamespace,
+			AuthProviderName:      s.env.name,
+		},
+	}); err != nil {
+		s.t.Fatalf("failed to enforce: %v", err)
+	}
 }
 
 // path returns the URL path of a SCIM resource of the test's connection.
@@ -252,6 +275,7 @@ func (s *scimTest) request(method, path, token string, body any) testResponse {
 	resp := testResponse{
 		status: rec.Code,
 		header: rec.Header(),
+		raw:    rec.Body.Bytes(),
 	}
 	if rec.Body.Len() > 0 {
 		if err := json.Unmarshal(rec.Body.Bytes(), &resp.body); err != nil {

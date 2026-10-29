@@ -320,6 +320,11 @@ const sidebars = {
 					"label": "OneLogin SCIM provisioning"
 				},
 				{
+					"type": "doc",
+					"id": "configuration/entra-scim",
+					"label": "Entra SCIM provisioning"
+				},
+				{
 					"type": "category",
 					"label": "Cloud deployments",
 					"collapsible": false,

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -1239,5 +1240,88 @@ func TestSCIMGroupSubjectCleanupClaims(t *testing.T) {
 	}
 	if failed.Attempts != 1 || failed.LastError != "conflict" {
 		t.Fatalf("the failed cleanup = %+v", failed)
+	}
+}
+
+func TestNormalizeSCIMUserProfile(t *testing.T) {
+	tests := []struct {
+		name    string
+		profile types.SCIMUserProfile
+		want    types.SCIMUserProfile
+	}{
+		{
+			name: "empty addresses are absent",
+			profile: types.SCIMUserProfile{
+				Addresses: []types.SCIMAddress{},
+			},
+			want: types.SCIMUserProfile{},
+		},
+		{
+			name: "an empty enterprise extension is absent",
+			profile: types.SCIMUserProfile{
+				EnterpriseUser: &types.SCIMEnterpriseUser{},
+			},
+			want: types.SCIMUserProfile{},
+		},
+		{
+			name: "an enterprise extension with only an empty manager is absent",
+			profile: types.SCIMUserProfile{
+				EnterpriseUser: &types.SCIMEnterpriseUser{
+					Manager: &types.SCIMManager{},
+				},
+			},
+			want: types.SCIMUserProfile{},
+		},
+		{
+			name: "an empty manager is absent",
+			profile: types.SCIMUserProfile{
+				EnterpriseUser: &types.SCIMEnterpriseUser{
+					Department: "Sales",
+					Manager:    &types.SCIMManager{},
+				},
+			},
+			want: types.SCIMUserProfile{
+				EnterpriseUser: &types.SCIMEnterpriseUser{
+					Department: "Sales",
+				},
+			},
+		},
+		{
+			name: "a manager is kept",
+			profile: types.SCIMUserProfile{
+				EnterpriseUser: &types.SCIMEnterpriseUser{
+					Manager: &types.SCIMManager{
+						Value: "manager-1",
+					},
+				},
+			},
+			want: types.SCIMUserProfile{
+				EnterpriseUser: &types.SCIMEnterpriseUser{
+					Manager: &types.SCIMManager{
+						Value: "manager-1",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeSCIMUserProfile(tt.profile); !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("normalizeSCIMUserProfile() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeSCIMUserProfileLeavesItsArgumentAlone(t *testing.T) {
+	profile := types.SCIMUserProfile{
+		EnterpriseUser: &types.SCIMEnterpriseUser{
+			Department: "Sales",
+			Manager:    &types.SCIMManager{},
+		},
+	}
+	normalizeSCIMUserProfile(profile)
+	if profile.EnterpriseUser.Manager == nil {
+		t.Fatal("normalizeSCIMUserProfile() changed the profile it was given")
 	}
 }

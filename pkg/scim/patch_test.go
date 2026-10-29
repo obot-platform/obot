@@ -184,6 +184,32 @@ func TestApplyPatchUser(t *testing.T) {
 			},
 		},
 		{
+			name: "pathless schemas that name the enterprise extension before its attributes apply are ignored",
+			ops:  `[{"op":"replace","value":{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User","urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"],"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":{"department":"Sales"}}}]`,
+			want: map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Sales",
+				},
+			},
+		},
+		{
+			name: "schemas in another order and case are ignored",
+			ops:  `[{"op":"replace","path":"schemas","value":["URN:IETF:PARAMS:SCIM:SCHEMAS:EXTENSION:ENTERPRISE:2.0:USER","urn:ietf:params:scim:schemas:core:2.0:User"]}]`,
+			want: map[string]any{
+				"schemas": []any{userSchema},
+			},
+		},
+		{
+			name:         "schemas that name another schema are refused",
+			ops:          `[{"op":"replace","value":{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User","urn:example:custom"],"nickName":"Nick"}}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name:         "removing schemas is refused",
+			ops:          `[{"op":"remove","path":"schemas"}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
 			name:         "a pathless change to a read-only attribute is refused",
 			ops:          `[{"op":"replace","value":{"id":"other","nickName":"Nick"}}]`,
 			wantScimType: scimTypeMutability,
@@ -194,8 +220,8 @@ func TestApplyPatchUser(t *testing.T) {
 			wantScimType: scimTypeInvalidPath,
 		},
 		{
-			name:         "a pathless extension attribute is refused",
-			ops:          `[{"op":"replace","value":{"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":{"department":"x"}}}]`,
+			name:         "a pathless attribute of an unknown extension is refused",
+			ops:          `[{"op":"replace","value":{"urn:example:params:scim:schemas:extension:custom:2.0:User":{"department":"x"}}}]`,
 			wantScimType: scimTypeInvalidPath,
 		},
 		{
@@ -286,8 +312,8 @@ func TestApplyPatchUser(t *testing.T) {
 			wantScimType: scimTypeInvalidPath,
 		},
 		{
-			name:         "an extension path is refused",
-			ops:          `[{"op":"replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department","value":"x"}]`,
+			name:         "a path into an unknown extension is refused",
+			ops:          `[{"op":"replace","path":"urn:example:params:scim:schemas:extension:custom:2.0:User:department","value":"x"}]`,
 			wantScimType: scimTypeInvalidPath,
 		},
 		{
@@ -435,6 +461,22 @@ func TestApplyPatchUser(t *testing.T) {
 			},
 		},
 		{
+			name: "a null sub-attribute of a complex value removes it",
+			ops:  `[{"op":"replace","path":"name","value":{"givenName":null,"familyName":"New"}}]`,
+			want: map[string]any{
+				"name": map[string]any{
+					"familyName": "New",
+				},
+			},
+		},
+		{
+			name: "a complex value whose sub-attributes are all null removes the attribute, without a path",
+			ops:  `[{"op":"replace","value":{"name":{"givenName":null,"familyName":null}}}]`,
+			want: map[string]any{
+				"name": nil,
+			},
+		},
+		{
 			name: "adding null to a multi-valued attribute adds nothing, with or without a filter or a path",
 			ops: `[{"op":"add","path":"emails","value":null},` +
 				`{"op":"add","path":"emails[type eq \"work\"]","value":null},` +
@@ -544,6 +586,377 @@ func TestApplyPatchUser(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestApplyPatchUserAddressesAndEnterpriseExtension(t *testing.T) {
+	entra := adapter.PatchRules{
+		ReplaceAddsUnmatched: true,
+	}
+	// withChanges returns the test resource with the given attributes set, or removed when nil.
+	withChanges := func(changes map[string]any) map[string]any {
+		resource := testExtendedUserResource()
+		for key, value := range changes {
+			if value == nil {
+				delete(resource, key)
+				continue
+			}
+			resource[key] = value
+		}
+		return resource
+	}
+	tests := []struct {
+		name         string
+		ops          string
+		rules        adapter.PatchRules
+		want         map[string]any
+		wantScimType string
+	}{
+		{
+			name:  "adds to the work address, as Entra's provision on demand does",
+			ops:   `[{"op":"Add","path":"addresses[type eq \"work\"].formatted","value":"Building 1"},{"op":"Add","path":"addresses[type eq \"work\"].locality","value":"Redmond"}]`,
+			rules: entra,
+			want: withChanges(map[string]any{
+				"addresses": []any{
+					map[string]any{
+						"type":      "work",
+						"locality":  "Redmond",
+						"formatted": "Building 1",
+					},
+				},
+			}),
+		},
+		{
+			name:  "adding to an address that does not exist creates it",
+			ops:   `[{"op":"Add","path":"addresses[type eq \"home\"].locality","value":"Kirkland"}]`,
+			rules: entra,
+			want: withChanges(map[string]any{
+				"addresses": []any{
+					map[string]any{
+						"type":     "work",
+						"locality": "Seattle",
+					},
+					map[string]any{
+						"type":     "home",
+						"locality": "Kirkland",
+					},
+				},
+			}),
+		},
+		{
+			name:  "replacing a sub-attribute of an address that does not exist creates it under Entra's rules",
+			ops:   `[{"op":"Replace","path":"addresses[type eq \"home\"].formatted","value":"Home"}]`,
+			rules: entra,
+			want: withChanges(map[string]any{
+				"addresses": []any{
+					map[string]any{
+						"type":     "work",
+						"locality": "Seattle",
+					},
+					map[string]any{
+						"type":      "home",
+						"formatted": "Home",
+					},
+				},
+			}),
+		},
+		{
+			name:         "replacing a sub-attribute of an address that does not exist fails without Entra's rules",
+			ops:          `[{"op":"Replace","path":"addresses[type eq \"home\"].formatted","value":"Home"}]`,
+			wantScimType: scimTypeNoTarget,
+		},
+		{
+			name: "replaces a sub-attribute of the work address",
+			ops:  `[{"op":"Replace","path":"addresses[type eq \"work\"].locality","value":"Redmond"}]`,
+			want: withChanges(map[string]any{
+				"addresses": []any{
+					map[string]any{
+						"type":     "work",
+						"locality": "Redmond",
+					},
+				},
+			}),
+		},
+		{
+			name: "removes a sub-attribute of the work address",
+			ops:  `[{"op":"Remove","path":"addresses[type eq \"work\"].locality"}]`,
+			want: withChanges(map[string]any{
+				"addresses": []any{
+					map[string]any{
+						"type": "work",
+					},
+				},
+			}),
+		},
+		{
+			name: "removes the work address",
+			ops:  `[{"op":"Remove","path":"addresses[type eq \"work\"]"}]`,
+			want: withChanges(map[string]any{
+				"addresses": []any{},
+			}),
+		},
+		{
+			name: "removes a listed address",
+			ops:  `[{"op":"Remove","path":"addresses","value":[{"type":"work","locality":"Seattle"}]}]`,
+			want: withChanges(map[string]any{
+				"addresses": []any{},
+			}),
+		},
+		{
+			name: "removes nothing for a listed address that differs",
+			ops:  `[{"op":"Remove","path":"addresses","value":[{"type":"work","locality":"Redmond"}]}]`,
+			want: testExtendedUserResource(),
+		},
+		{
+			name: "removes nothing for a listed address that sets nothing",
+			ops:  `[{"op":"Remove","path":"addresses","value":[{"primary":false}]}]`,
+			want: testExtendedUserResource(),
+		},
+		{
+			name:  "adds extension attributes, as Entra does",
+			ops:   `[{"op":"Add","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:employeeNumber","value":"42"},{"op":"Add","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department","value":"Sales"}]`,
+			rules: entra,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"employeeNumber": "42",
+					"department":     "Sales",
+					"manager": map[string]any{
+						"value": "manager-1",
+					},
+				},
+			}),
+		},
+		{
+			name: "extension URNs and attribute names are case-insensitive",
+			ops:  `[{"op":"replace","path":"URN:IETF:PARAMS:SCIM:SCHEMAS:EXTENSION:ENTERPRISE:2.0:USER:DEPARTMENT","value":"Sales"}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Sales",
+					"manager": map[string]any{
+						"value": "manager-1",
+					},
+				},
+			}),
+		},
+		{
+			name: "replaces the manager with a string",
+			ops:  `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager","value":"manager-2"}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+					"manager": map[string]any{
+						"value": "manager-2",
+					},
+				},
+			}),
+		},
+		{
+			name: "replaces the manager with an object",
+			ops:  `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager","value":{"value":"manager-3"}}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+					"manager": map[string]any{
+						"value": "manager-3",
+					},
+				},
+			}),
+		},
+		{
+			name: "a null manager ID removes the manager",
+			ops:  `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager","value":{"value":null}}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+				},
+			}),
+		},
+		{
+			name: "a null manager ID removes the manager, without a path",
+			ops:  `[{"op":"Replace","value":{"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":{"manager":{"value":null}}}}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+				},
+			}),
+		},
+		{
+			name: "pathless schemas without the extension, which the user has, are ignored",
+			ops:  `[{"op":"replace","value":{"schemas":["urn:ietf:params:scim:schemas:core:2.0:User"],"title":"Engineer"}}]`,
+			want: withChanges(map[string]any{
+				"title": "Engineer",
+			}),
+		},
+		{
+			name:  "replaces the manager with a list of one object, as Microsoft's SCIM documentation shows Entra sending it",
+			ops:   `[{"op":"Add","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager","value":[{"$ref":"https://example.com/scim/Users/manager-5","value":"manager-5"}]}]`,
+			rules: entra,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+					"manager": map[string]any{
+						"value": "manager-5",
+						"$ref":  "https://example.com/scim/Users/manager-5",
+					},
+				},
+			}),
+		},
+		{
+			name:         "a manager list of more than one is refused",
+			ops:          `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager","value":[{"value":"manager-5"},{"value":"manager-6"}]}]`,
+			wantScimType: scimTypeInvalidValue,
+		},
+		{
+			name: "replaces a sub-attribute of the manager",
+			ops:  `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager.value","value":"manager-4"}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+					"manager": map[string]any{
+						"value": "manager-4",
+					},
+				},
+			}),
+		},
+		{
+			name:         "the manager's displayName is read-only",
+			ops:          `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager.displayName","value":"Boss"}]`,
+			wantScimType: scimTypeMutability,
+		},
+		{
+			name: "pathless extension object",
+			ops:  `[{"op":"Replace","value":{"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":{"department":"Sales","costCenter":"CC1"},"title":"Engineer"}}]`,
+			want: withChanges(map[string]any{
+				"title": "Engineer",
+				enterpriseUserSchema: map[string]any{
+					"department": "Sales",
+					"costCenter": "CC1",
+					"manager": map[string]any{
+						"value": "manager-1",
+					},
+				},
+			}),
+		},
+		{
+			name: "pathless extension attribute",
+			ops:  `[{"op":"Replace","value":{"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:division":"Cloud"}}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+					"division":   "Cloud",
+					"manager": map[string]any{
+						"value": "manager-1",
+					},
+				},
+			}),
+		},
+		{
+			name:         "a pathless extension value that is not an object is refused",
+			ops:          `[{"op":"Replace","value":{"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User":"Sales"}}]`,
+			wantScimType: scimTypeInvalidValue,
+		},
+		{
+			name: "removes an extension attribute",
+			ops:  `[{"op":"Remove","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department"}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"manager": map[string]any{
+						"value": "manager-1",
+					},
+				},
+			}),
+		},
+		{
+			name: "removing every extension attribute removes the extension object",
+			ops:  `[{"op":"Remove","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department"},{"op":"Remove","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager"}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: nil,
+			}),
+		},
+		{
+			name: "removing the manager's value removes the manager",
+			ops:  `[{"op":"Remove","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager.value"}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"department": "Engineering",
+				},
+			}),
+		},
+		{
+			name: "replacing an extension attribute with null removes it",
+			ops:  `[{"op":"Replace","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department","value":null}]`,
+			want: withChanges(map[string]any{
+				enterpriseUserSchema: map[string]any{
+					"manager": map[string]any{
+						"value": "manager-1",
+					},
+				},
+			}),
+		},
+		{
+			name:         "an unknown extension attribute is refused",
+			ops:          `[{"op":"Add","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:badge","value":"1"}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+		{
+			name:         "an extension's attributes are not core attributes",
+			ops:          `[{"op":"Add","path":"department","value":"Sales"}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+		{
+			name:         "core attributes are not an extension's attributes",
+			ops:          `[{"op":"Add","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:externalId","value":"x"}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+		{
+			name:         "an unknown URN is refused",
+			ops:          `[{"op":"Add","path":"urn:example:params:scim:schemas:extension:custom:2.0:User:department","value":"Sales"}]`,
+			wantScimType: scimTypeInvalidPath,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resource := testExtendedUserResource()
+			err := applyPatch(userResourceSchema, resource, decodeTestOperations(t, tt.ops), tt.rules)
+			if tt.wantScimType != "" {
+				var scimErr *Error
+				if !errors.As(err, &scimErr) || scimErr.ScimType != tt.wantScimType {
+					t.Fatalf("applyPatch() error = %v, want scimType %q", err, tt.wantScimType)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("applyPatch() error = %v", err)
+			}
+			if !reflect.DeepEqual(resource, tt.want) {
+				t.Fatalf("resource = %#v, want %#v", resource, tt.want)
+			}
+		})
+	}
+}
+
+func TestApplyPatchAddsExtensionToAUserWithoutOne(t *testing.T) {
+	resource := testUserResource()
+	ops := decodeTestOperations(t, `[{"op":"Add","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department","value":"Sales"}]`)
+	if err := applyPatch(userResourceSchema, resource, ops, adapter.PatchRules{}); err != nil {
+		t.Fatalf("applyPatch() error = %v", err)
+	}
+	want := map[string]any{
+		"department": "Sales",
+	}
+	if got := resource[enterpriseUserSchema]; !reflect.DeepEqual(got, want) {
+		t.Fatalf("%s = %#v, want %#v", enterpriseUserSchema, got, want)
+	}
+
+	// Removing what was never there leaves no empty extension object.
+	resource = testUserResource()
+	ops = decodeTestOperations(t, `[{"op":"Remove","path":"urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:department"}]`)
+	if err := applyPatch(userResourceSchema, resource, ops, adapter.PatchRules{}); err != nil {
+		t.Fatalf("applyPatch() error = %v", err)
+	}
+	if got, ok := resource[enterpriseUserSchema]; ok {
+		t.Fatalf("%s = %#v, want none", enterpriseUserSchema, got)
 	}
 }
 
@@ -847,6 +1260,25 @@ func testUserResource() map[string]any {
 	}
 }
 
+// testExtendedUserResource returns the test user with a work address and enterprise extension attributes.
+func testExtendedUserResource() map[string]any {
+	resource := testUserResource()
+	resource["schemas"] = []any{userSchema, enterpriseUserSchema}
+	resource["addresses"] = []any{
+		map[string]any{
+			"type":     "work",
+			"locality": "Seattle",
+		},
+	}
+	resource[enterpriseUserSchema] = map[string]any{
+		"department": "Engineering",
+		"manager": map[string]any{
+			"value": "manager-1",
+		},
+	}
+	return resource
+}
+
 func decodeTestOperations(t *testing.T, ops string) []patchOperation {
 	t.Helper()
 
@@ -864,4 +1296,94 @@ func decodeTestOperations(t *testing.T, ops string) []patchOperation {
 		t.Fatalf("failed to decode operations: %v", err)
 	}
 	return decoded
+}
+
+func TestApplyPatchManagerRef(t *testing.T) {
+	const (
+		manager = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User:manager"
+		ref1    = "https://example.com/scim/Users/manager-1"
+	)
+	tests := []struct {
+		name string
+		ops  string
+		want map[string]any
+	}{
+		{
+			name: "a new manager ID alone drops the old manager's $ref",
+			ops:  `[{"op":"Replace","path":"` + manager + `","value":["manager-6"]}]`,
+			want: map[string]any{
+				"value": "manager-6",
+			},
+		},
+		{
+			name: "a new manager.value drops the old manager's $ref",
+			ops:  `[{"op":"Replace","path":"` + manager + `.value","value":"manager-7"}]`,
+			want: map[string]any{
+				"value": "manager-7",
+			},
+		},
+		{
+			name: "a $ref set in the same request is kept",
+			ops:  `[{"op":"Replace","path":"` + manager + `.$ref","value":"https://example.com/scim/Users/manager-8"},{"op":"Replace","path":"` + manager + `.value","value":"manager-8"}]`,
+			want: map[string]any{
+				"value": "manager-8",
+				"$ref":  "https://example.com/scim/Users/manager-8",
+			},
+		},
+		{
+			name: "restating the manager's ID keeps its $ref",
+			ops:  `[{"op":"Replace","path":"` + manager + `","value":"manager-1"}]`,
+			want: map[string]any{
+				"value": "manager-1",
+				"$ref":  ref1,
+			},
+		},
+		{
+			name: "a manager ID that differs only in case keeps its $ref",
+			ops:  `[{"op":"Replace","path":"` + manager + `","value":"MANAGER-1"}]`,
+			want: map[string]any{
+				"value": "MANAGER-1",
+				"$ref":  ref1,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resource := testExtendedUserResource()
+			resource[enterpriseUserSchema] = map[string]any{
+				"manager": map[string]any{
+					"value": "manager-1",
+					"$ref":  ref1,
+				},
+			}
+			if err := applyPatch(userResourceSchema, resource, decodeTestOperations(t, tt.ops), adapter.PatchRules{}); err != nil {
+				t.Fatalf("applyPatch() error = %v", err)
+			}
+			got, _ := resource[enterpriseUserSchema].(map[string]any)
+			if !reflect.DeepEqual(got["manager"], tt.want) {
+				t.Fatalf("manager = %#v, want %#v", got["manager"], tt.want)
+			}
+		})
+	}
+
+	// Removing the manager's ID, or setting it to null, removes its $ref, and so the manager.
+	for _, ops := range []string{
+		`[{"op":"Remove","path":"` + manager + `.value"}]`,
+		`[{"op":"Replace","path":"` + manager + `","value":{"value":null}}]`,
+	} {
+		resource := testExtendedUserResource()
+		resource[enterpriseUserSchema] = map[string]any{
+			"department": "Engineering",
+			"manager": map[string]any{
+				"value": "manager-1",
+				"$ref":  ref1,
+			},
+		}
+		if err := applyPatch(userResourceSchema, resource, decodeTestOperations(t, ops), adapter.PatchRules{}); err != nil {
+			t.Fatalf("applyPatch(%s) error = %v", ops, err)
+		}
+		if want := map[string]any{"department": "Engineering"}; !reflect.DeepEqual(resource[enterpriseUserSchema], want) {
+			t.Fatalf("applyPatch(%s): %s = %#v, want %#v", ops, enterpriseUserSchema, resource[enterpriseUserSchema], want)
+		}
+	}
 }

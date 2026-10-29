@@ -3,6 +3,8 @@ import type {
 	SCIMConnection,
 	SCIMConnectionReview,
 	SCIMEnablePreview,
+	SCIMPage,
+	SCIMRequestFailure,
 	SCIMSetupGroup,
 	SCIMSetupUser,
 	SCIMSetupWarning
@@ -13,7 +15,7 @@ import { worker } from '../../tests/mocks/worker';
 import ScimView from './ScimView.svelte';
 import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -53,6 +55,16 @@ function group(id: string, name: string, overrides: Partial<SCIMSetupGroup> = {}
 		id,
 		name,
 		...overrides
+	};
+}
+
+function failure(resource: string, detail = 'unavailable'): SCIMRequestFailure {
+	return {
+		time: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+		method: 'PATCH',
+		resource,
+		status: 400,
+		detail
 	};
 }
 
@@ -266,6 +278,39 @@ describe('ScimView', () => {
 			.element(page.getByRole('heading', { name: 'Push the referenced groups' }))
 			.toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Next' })).toBeEnabled();
+	});
+
+	// Okta groups bind by name, so a migrated connection asks for the referenced groups under their names.
+	it('asks to push the referenced groups of a migrated Okta connection under their names', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: reviewAtEnforce({
+				connection: connection({ origin: 'migrated', hasToken: true }),
+				unboundReferencedGroups: {
+					items: [group('okta/g1', 'Group 1')],
+					total: 1
+				}
+			})
+		});
+
+		await expect.element(page.getByText(/under exactly the name shown/)).toBeVisible();
+		await expect.element(page.getByText(/doesn't need to match/)).not.toBeInTheDocument();
+	});
+
+	it('asks to push the referenced groups of an enforced Okta connection under their names', async () => {
+		await renderScimView([Group.OWNER, Group.ADMIN], {
+			review: enforcedReview({
+				connection: connection({ origin: 'migrated', state: 'enforced', hasToken: true }),
+				unboundReferencedGroups: {
+					items: [group('okta/g1', 'Group 1')],
+					total: 1
+				}
+			})
+		});
+
+		await expect
+			.element(page.getByText(/renaming it there first if its name differs/))
+			.toBeVisible();
+		await expect.element(page.getByText(/doesn't need to match/)).not.toBeInTheDocument();
 	});
 
 	it('shows a failed refresh inline, and keeps what it showed', async () => {
@@ -588,6 +633,436 @@ describe('ScimView', () => {
 		});
 	});
 
+	describe('a Microsoft Entra connection', () => {
+		const objectID = '00000000-0000-4000-8000-000000000011';
+
+		function entraConnection(overrides: Partial<SCIMConnection> = {}): SCIMConnection {
+			return connection({
+				adapterType: 'entra',
+				authProviderName: 'entra-auth-provider',
+				authProviderDisplayName: 'Microsoft Entra',
+				issuer: '00000000-0000-4000-8000-0000000000aa',
+				...overrides
+			});
+		}
+
+		// A time the given number of minutes ago.
+		function minutesAgo(minutes: number) {
+			return new Date(Date.now() - minutes * 60 * 1000).toISOString();
+		}
+
+		it('says how to set up provisioning on the enterprise app, with the objectId mapping', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: review({ connection: entraConnection({ hasToken: true }) })
+			});
+
+			await expect
+				.element(page.getByText(/open the enterprise app that Obot signs in with/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/An app created under App registrations can't be provisioned to/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/Finish every step below before you select Start provisioning/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/select Test Connection, then select Create\./))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/change the source of externalId from mailNickname to objectId/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/clear Delete under Target object actions/))
+				.toBeVisible();
+			await expect.element(page.getByText(/Sync only assigned users and groups/)).toBeVisible();
+			// The note on quarantine is shown once, with the activity.
+			await expect
+				.element(page.getByText(/Entra may have quarantined the provisioning job/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText('Waiting for Microsoft Entra to send a request.'))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/create a SCIM 2\.0 application/))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByText(/SCIM Provisioner with SAML/)).not.toBeInTheDocument();
+		});
+
+		it('says how Entra pushes groups, with a link to each in the admin center', async () => {
+			const consoleURL = `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${objectID}`;
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: reviewAtEnforce({
+					connection: entraConnection({ origin: 'migrated', hasToken: true }),
+					unboundReferencedGroups: {
+						items: [
+							group(`entra/${objectID}`, 'Engineering', {
+								nativeID: objectID,
+								consoleURL,
+								references: [{ kind: 'modelAccessPolicy', id: 'map1', displayName: 'Models' }]
+							})
+						],
+						total: 1
+					}
+				})
+			});
+
+			await expect
+				.element(page.getByText(/Assign the groups listed below to the enterprise app/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/Provision on demand pushes one group immediately/))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'Open in Microsoft Entra' }))
+				.toHaveAttribute('href', consoleURL);
+			await expect
+				.element(page.getByText(/OneLogin pushes roles as groups/))
+				.not.toBeInTheDocument();
+		});
+
+		// Entra groups bind by object ID, so a migrated connection does not ask for renames.
+		it('does not ask to rename the referenced groups of a migrated Entra connection', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: reviewAtEnforce({
+					connection: entraConnection({ origin: 'migrated', hasToken: true }),
+					unboundReferencedGroups: {
+						items: [group(`entra/${objectID}`, 'Engineering', { nativeID: objectID })],
+						total: 1
+					}
+				})
+			});
+
+			await expect
+				.element(page.getByText(/its name in Microsoft Entra doesn't need to match/))
+				.toBeVisible();
+			await expect.element(page.getByText(/under exactly the name shown/)).not.toBeInTheDocument();
+		});
+
+		it('asks a new Entra connection for the groups to grant roles and policies to', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: reviewAtEnforce({
+					connection: entraConnection({ hasToken: true }),
+					unboundReferencedGroups: {
+						items: [group(`entra/${objectID}`, 'Engineering', { nativeID: objectID })],
+						total: 1
+					}
+				})
+			});
+
+			await expect.element(page.getByText(/should be granted to/)).toBeVisible();
+			await expect.element(page.getByText(/doesn't need to match/)).not.toBeInTheDocument();
+		});
+
+		it('does not ask to rename the referenced groups of an enforced Entra connection', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: enforcedReview({
+					connection: entraConnection({ origin: 'migrated', state: 'enforced', hasToken: true }),
+					unboundReferencedGroups: {
+						items: [group(`entra/${objectID}`, 'Engineering', { nativeID: objectID })],
+						total: 1
+					}
+				})
+			});
+
+			await expect
+				.element(page.getByText(/Push each group from Microsoft Entra, or remove its references/))
+				.toBeVisible();
+			await expect.element(page.getByText(/renaming it there first/)).not.toBeInTheDocument();
+		});
+
+		it('warns once Entra has sent no request for longer than a running job goes without one', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: enforcedReview({
+					connection: entraConnection({ state: 'enforced', hasToken: true }),
+					activity: {
+						lastRequestAt: minutesAgo(120),
+						recentFailures: { items: [], total: 0 }
+					}
+				})
+			});
+
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.toBeVisible();
+		});
+
+		// Test Connection sends a request before the provisioning job has been started.
+		it('does not warn about silence before Entra has provisioned anything', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: review({
+					connection: entraConnection({ hasToken: true }),
+					activity: {
+						lastRequestAt: minutesAgo(120),
+						recentFailures: { items: [], total: 0 }
+					}
+				})
+			});
+
+			await expect.element(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.not.toBeInTheDocument();
+		});
+
+		it('does not warn while Entra keeps sending requests', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: enforcedReview({
+					connection: entraConnection({ state: 'enforced', hasToken: true }),
+					activity: {
+						lastRequestAt: minutesAgo(30),
+						recentFailures: { items: [], total: 0 }
+					}
+				})
+			});
+
+			await expect.element(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.not.toBeInTheDocument();
+			// The note on quarantine stays with the activity, which a quarantined job stops.
+			await expect.element(page.getByText(/Entra may have quarantined/)).toBeVisible();
+		});
+
+		// Renders an enforced Entra connection whose last request was 80 minutes ago, with the clock and
+		// the page's timer under the test's control, and the review loaded again with the given last
+		// request. The failures are those at each offset, and the first page of them is shown first.
+		async function renderEntraLeftOpen(
+			reloadedLastRequestAt: () => string,
+			{
+				failures = () => ({ items: [], total: 0 }),
+				pageSize
+			}: {
+				failures?: (offset: number) => SCIMPage<SCIMRequestFailure>;
+				pageSize?: number;
+			} = {}
+		) {
+			vi.useFakeTimers({
+				toFake: ['setInterval', 'clearInterval', 'Date'],
+				shouldAdvanceTime: true
+			});
+			onTestFinished(() => {
+				vi.useRealTimers();
+			});
+			worker.use(
+				http.get(`*/api/scim-connections/${connectionID}/review`, () =>
+					HttpResponse.json(
+						enforcedReview({
+							connection: entraConnection({ state: 'enforced', hasToken: true }),
+							activity: {
+								lastRequestAt: reloadedLastRequestAt(),
+								recentFailures: failures(0)
+							}
+						})
+					)
+				),
+				http.get(`*/api/scim-connections/${connectionID}/failures`, ({ request }) =>
+					HttpResponse.json(failures(Number(new URL(request.url).searchParams.get('offset'))))
+				)
+			);
+			const lastRequestAt = minutesAgo(80);
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				pageSize,
+				review: enforcedReview({
+					connection: entraConnection({ state: 'enforced', hasToken: true }),
+					activity: {
+						lastRequestAt,
+						recentFailures: failures(0)
+					}
+				})
+			});
+			await expect.element(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+			return lastRequestAt;
+		}
+
+		it('loads the activity again before warning on a page left open', async () => {
+			await renderEntraLeftOpen(() => minutesAgo(5));
+
+			// Entra kept sending requests while the page was open, so it is not silent.
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await expect.element(page.getByText('5 minutes ago', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.not.toBeInTheDocument();
+		});
+
+		it('warns on a page left open once Entra has still sent nothing', async () => {
+			let lastRequestAt = '';
+			lastRequestAt = await renderEntraLeftOpen(() => lastRequestAt);
+
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.toBeVisible();
+		});
+
+		it('clears the warning on a page left open once Entra sends a request again', async () => {
+			let lastRequestAt = '';
+			lastRequestAt = await renderEntraLeftOpen(() => lastRequestAt);
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.toBeVisible();
+
+			// The admin restarts provisioning, and Entra sends a request.
+			lastRequestAt = new Date().toISOString();
+			await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.not.toBeInTheDocument();
+		});
+
+		it('shows the failures loaded again with the activity on a page left open', async () => {
+			let failed = false;
+			await renderEntraLeftOpen(() => minutesAgo(5), {
+				failures: () =>
+					failed
+						? {
+								items: [failure('/Users/u-1', 'externalId identifies the user and cannot change')],
+								total: 1
+							}
+						: { items: [], total: 0 }
+			});
+			await expect.element(page.getByText('No recent failures.')).toBeVisible();
+			failed = true;
+
+			// Entra's requests since the page was opened include a failure.
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await expect.element(page.getByText('PATCH /Users/u-1')).toBeVisible();
+			await expect
+				.element(page.getByText('externalId identifies the user and cannot change'))
+				.toBeVisible();
+			await expect.element(page.getByText('No recent failures.')).not.toBeInTheDocument();
+		});
+
+		it('shows the last page of failures on a page left open once the page shown aged out', async () => {
+			let agedOut = false;
+			const all = [failure('/Users/u-1'), failure('/Users/u-2'), failure('/Users/u-3')];
+			await renderEntraLeftOpen(() => minutesAgo(5), {
+				pageSize: 2,
+				failures: (offset) => {
+					const shown = agedOut ? all.slice(0, 2) : all;
+					return { items: shown.slice(offset, offset + 2), total: shown.length };
+				}
+			});
+			await page.getByRole('button', { name: 'Next page of recent failures' }).click();
+			await expect.element(page.getByText('PATCH /Users/u-3')).toBeVisible();
+
+			// The third failure ages out, so the second page is empty.
+			agedOut = true;
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await expect.element(page.getByText('PATCH /Users/u-1')).toBeVisible();
+			await expect.element(page.getByText('PATCH /Users/u-3')).not.toBeInTheDocument();
+		});
+
+		it('keeps a page of failures asked for just before the activity is loaded again', async () => {
+			const all = [failure('/Users/u-1'), failure('/Users/u-2'), failure('/Users/u-3')];
+			const failuresAt = (offset: number) => ({ items: all.slice(offset, offset + 2), total: 3 });
+			await renderEntraLeftOpen(() => minutesAgo(5), {
+				pageSize: 2,
+				failures: failuresAt
+			});
+			let releasePage!: () => void;
+			const pageHeld = new Promise<void>((resolve) => (releasePage = resolve));
+			let releaseReview!: () => void;
+			const reviewHeld = new Promise<void>((resolve) => (releaseReview = resolve));
+			worker.use(
+				http.get(`*/api/scim-connections/${connectionID}/failures`, async ({ request }) => {
+					const offset = Number(new URL(request.url).searchParams.get('offset'));
+					if (offset === 2) await pageHeld;
+					return HttpResponse.json(failuresAt(offset));
+				}),
+				http.get(`*/api/scim-connections/${connectionID}/review`, async () => {
+					await reviewHeld;
+					return HttpResponse.json(
+						enforcedReview({
+							connection: entraConnection({ state: 'enforced', hasToken: true }),
+							activity: {
+								lastRequestAt: minutesAgo(5),
+								recentFailures: failuresAt(0)
+							}
+						})
+					);
+				})
+			);
+
+			// The admin asks for the second page, and the activity is loaded again before it arrives.
+			await page.getByRole('button', { name: 'Next page of recent failures' }).click();
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			releasePage();
+			await expect.element(page.getByText('PATCH /Users/u-3')).toBeVisible();
+
+			// The activity arrives last, and the second page stays.
+			releaseReview();
+			await expect.element(page.getByText('5 minutes ago', { exact: true })).toBeVisible();
+			await tick();
+			await expect.element(page.getByText('PATCH /Users/u-3')).toBeVisible();
+			await expect.element(page.getByText('PATCH /Users/u-1')).not.toBeInTheDocument();
+		});
+
+		it('warns on a page left open when Entra has sent nothing, even if its failures fail to load', async () => {
+			let lastRequestAt = '';
+			lastRequestAt = await renderEntraLeftOpen(() => lastRequestAt);
+			worker.use(
+				http.get(`*/api/scim-connections/${connectionID}/failures`, () =>
+					HttpResponse.json({ error: 'unavailable' }, { status: 500 })
+				)
+			);
+
+			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.toBeVisible();
+		});
+
+		it('does not warn about silence from another identity provider', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: enforcedReview({
+					activity: {
+						lastRequestAt: minutesAgo(120),
+						recentFailures: { items: [], total: 0 }
+					}
+				})
+			});
+
+			await expect.element(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+			await expect
+				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByText(/may have quarantined/)).not.toBeInTheDocument();
+		});
+
+		it('warns before enabling that pushed groups lose members until Entra adds them', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				enablePreview: enablePreview({
+					authProviderName: 'entra-auth-provider',
+					authProviderDisplayName: 'Microsoft Entra'
+				})
+			});
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Move Microsoft Entra to SCIM' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/Groups with many members will take longer to push/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/Provision on demand does not shorten this/))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/Access that came through a nested group ends/))
+				.toBeVisible();
+		});
+
+		it('does not warn about Entra before enabling SCIM for another provider', async () => {
+			await renderScimView([Group.OWNER, Group.ADMIN], { enablePreview: enablePreview() });
+
+			await expect.element(page.getByRole('heading', { name: 'Move Okta to SCIM' })).toBeVisible();
+			await expect
+				.element(page.getByText(/Groups with many members will take longer to push/))
+				.not.toBeInTheDocument();
+		});
+	});
+
 	describe('offering to delete the unreferenced groups that keep a push from binding', () => {
 		// The groups step of a migrated connection with a warning of the given type, and that many
 		// unreferenced groups.
@@ -653,6 +1128,45 @@ describe('ScimView', () => {
 			});
 
 			await expect.element(deleteButton()).toBeVisible();
+		});
+
+		// Entra binds groups by object ID, so deleting unreferenced groups does not resolve duplicate names.
+		it('does not offer it for referenced Entra groups that share a name', async () => {
+			const message =
+				'2 referenced groups are named "Engineering", and only one group with that name can be pushed from Microsoft Entra.';
+			await renderScimView([Group.OWNER, Group.ADMIN], {
+				review: reviewAtEnforce({
+					connection: connection({
+						origin: 'migrated',
+						hasToken: true,
+						adapterType: 'entra',
+						authProviderName: 'entra-auth-provider',
+						authProviderDisplayName: 'Microsoft Entra'
+					}),
+					unboundReferencedGroups: {
+						items: [
+							group('entra/00000000-0000-4000-8000-000000000001', 'Engineering'),
+							group('entra/00000000-0000-4000-8000-000000000002', 'Engineering')
+						],
+						total: 2
+					},
+					unreferencedGroups: {
+						items: [group('entra/00000000-0000-4000-8000-000000000003', 'Sales')],
+						total: 1
+					},
+					warnings: [
+						{
+							type: 'duplicateName',
+							message,
+							groupID: 'entra/00000000-0000-4000-8000-000000000001',
+							groupName: 'Engineering'
+						}
+					]
+				})
+			});
+
+			await expect.element(page.getByText(message)).toBeVisible();
+			await expect.element(deleteButton()).not.toBeInTheDocument();
 		});
 
 		it.each(['everyoneGroup', 'missingGroup'] as const)(
