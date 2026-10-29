@@ -32,6 +32,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/attribution"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -271,8 +272,7 @@ func (h *Handler) Proxy(req api.Context) error {
 	}
 
 	// Authentication is complete; none of the inbound attribution headers are trusted.
-	req.Request.Header = req.Request.Header.Clone()
-	mcp.StripObotHeaders(req.Request.Header)
+	attribution.Strip(req.Request.Header)
 
 	serverConfig, err := h.ensureServerIsDeployed(req)
 	if err != nil {
@@ -361,13 +361,9 @@ func (h *Handler) Proxy(req api.Context) error {
 			serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+token)
 		}
 
-		idpUserID, err := selectedIDPUserID(req.Context(), req.GatewayClient, serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User)
+		obotHeaders, err := attribution.ForCaller(req.Context(), req.GatewayClient, serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User)
 		if err != nil {
 			return err
-		}
-		obotHeaders, err := callerObotHeaders(serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User, idpUserID)
-		if err != nil {
-			return types.NewErrBadRequest("%v", err)
 		}
 
 		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
@@ -490,13 +486,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
-	for i := range serverConfig.PassthroughHeaderNames {
-		if i < len(serverConfig.PassthroughHeaderValues) {
-			req.Request.Header.Set(serverConfig.PassthroughHeaderNames[i], serverConfig.PassthroughHeaderValues[i])
-		}
-	}
-
-	mcp.StripObotHeaders(req.Request.Header)
+	maps.Copy(req.Request.Header, attribution.Configured(nil, serverConfig.PassthroughHeaderNames, serverConfig.PassthroughHeaderValues))
 
 	cfg, err := compositeConfig(req, serverConfig)
 	if err != nil {
@@ -528,7 +518,6 @@ func isLoopbackHost(hostport string) bool {
 }
 
 func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
-	mcp.StripObotHeaders(r.Out.Header)
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
 	// explicitly configured upstream credentials after this rewrite.

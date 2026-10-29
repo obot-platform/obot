@@ -39,6 +39,12 @@ always stripped, and configured static or per-user headers cannot override
 gateway-derived values. Unknown names, duplicate selections, and selections on
 unsupported runtimes are rejected. Header values are derived for each request.
 
+The `pkg/mcp/attribution` package owns stripping, caller-value derivation, and
+filtering configured headers. The gateway strips incoming attribution once at
+entry, before hooks, auditing, and forwarding. Client setup, readiness probes,
+and composite passthrough copy only filtered configuration, preserving any
+trusted attribution already derived for the request.
+
 vMCP preserves API-key attribution in signed internal tokens. Each component
 decides what to disclose to its own backend, irrespective of the parent vMCP.
 Raw key names are kept separately from the masked names used by audit logs.
@@ -84,5 +90,5 @@ legacy reserved headers so existing configuration cannot block startup.
 ## References
 
 - `apiclient/types/obotheaders.go`
-- `pkg/api/handlers/mcpgateway/obotheaders.go`
+- `pkg/mcp/attribution/headers.go`
 - `pkg/jwt/persistent/persistent.go`
