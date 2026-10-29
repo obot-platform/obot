@@ -2,7 +2,7 @@ package attribution
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/csv"
 	"fmt"
 	"maps"
 	"net/http"
@@ -161,15 +161,15 @@ func TestSelectedIDPUserID(t *testing.T) {
 func TestCallerIDPHeaders(t *testing.T) {
 	caller := headerTestCaller("42", "writer")
 	caller.Groups = []string{types.GroupAdmin, types.GroupAuthenticated}
-	groups := []string{"okta:z", "okta:a,comma", "okta:z", "", "okta:quote\"", "okta:line\nbreak"}
+	groups := []string{"okta:z", "okta:a,comma", "okta:z", "", "okta:quote\""}
 	caller.Extra["auth_provider_groups"] = groups
 	selected := []types.ObotHeader{types.ObotHeaderIDPUserID, types.ObotHeaderIDPGroups}
 	headers, err := ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: "00u-alice"}}}, types.RuntimeRemote, selected, caller)
 	require.NoError(t, err)
 	require.Equal(t, "00u-alice", headers.Get(string(types.ObotHeaderIDPUserID)))
-	var decoded []string
-	require.NoError(t, json.Unmarshal([]byte(headers.Get(string(types.ObotHeaderIDPGroups))), &decoded))
-	require.Equal(t, []string{"okta:a,comma", "okta:line\nbreak", "okta:quote\"", "okta:z"}, decoded)
+	decoded, err := csv.NewReader(strings.NewReader(headers.Get(string(types.ObotHeaderIDPGroups)))).Read()
+	require.NoError(t, err)
+	require.Equal(t, []string{"okta:a,comma", "okta:quote\"", "okta:z"}, decoded)
 	require.Equal(t, groups, caller.Extra["auth_provider_groups"], "must not mutate the authenticated principal")
 	headers, err = ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: "id\r\nX-Spoof: true"}}}, types.RuntimeRemote, selected, caller)
 	require.NoError(t, err)
@@ -179,6 +179,46 @@ func TestCallerIDPHeaders(t *testing.T) {
 	headers, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, selected, caller)
 	require.NoError(t, err)
 	require.Empty(t, headers, "Obot role groups must never become IdP groups")
+}
+
+func TestCallerIDPGroupsCommaSeparated(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		groups []string
+		want   string
+	}{
+		{
+			name:   "sorted and deduplicated without extra spaces or quotes",
+			groups: []string{"okta:z", "", "okta:a", "okta:z"},
+			want:   "okta:a,okta:z",
+		},
+		{
+			name:   "commas and quotes use CSV escaping",
+			groups: []string{"okta:z", "okta:a,comma", "okta:quote\""},
+			want:   `"okta:a,comma","okta:quote""",okta:z`,
+		},
+		{
+			name:   "invalid HTTP characters omit the whole list",
+			groups: []string{"okta:safe", "okta:line\nbreak"},
+		},
+		{
+			name:   "512 characters fit without JSON overhead",
+			groups: []string{strings.Repeat("a", 255), strings.Repeat("z", 256)},
+			want:   strings.Repeat("a", 255) + "," + strings.Repeat("z", 256),
+		},
+		{
+			name:   "513 characters omit the whole list",
+			groups: []string{strings.Repeat("a", 256), strings.Repeat("z", 256)},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			caller := headerTestCaller("42", "writer")
+			caller.Extra["auth_provider_groups"] = tt.groups
+			headers, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderIDPGroups}, caller)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, headers.Get(string(types.ObotHeaderIDPGroups)))
+		})
+	}
 }
 
 func TestCallerObotHeaderSizeLimits(t *testing.T) {

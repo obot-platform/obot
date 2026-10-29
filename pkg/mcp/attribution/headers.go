@@ -3,7 +3,7 @@ package attribution
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/csv"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -74,11 +74,16 @@ func callerHeaders(runtime types.Runtime, selected []types.ObotHeader, caller us
 			groups = slices.DeleteFunc(groups, func(group string) bool { return group == "" })
 			if len(groups) > 0 {
 				slices.Sort(groups)
-				encoded, err := json.Marshal(slices.Compact(groups))
-				if err != nil {
+				var encoded strings.Builder
+				writer := csv.NewWriter(&encoded)
+				if err := writer.Write(slices.Compact(groups)); err != nil {
 					return nil, fmt.Errorf("encode IdP groups: %w", err)
 				}
-				value = string(encoded)
+				writer.Flush()
+				if err := writer.Error(); err != nil {
+					return nil, fmt.Errorf("encode IdP groups: %w", err)
+				}
+				value = strings.TrimSuffix(encoded.String(), "\n")
 			}
 		}
 		if value == "" {

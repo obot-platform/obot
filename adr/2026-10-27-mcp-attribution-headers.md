@@ -32,7 +32,7 @@ optional `injectObotHeaders` list. Each destination independently selects any of
 | `X-Obot-User-Name` | Authenticated account username, not display name; mutable. |
 | `X-Obot-User-Email` | Email carried by the authenticated principal, when available; not an assertion that the address is verified. |
 | `X-Obot-IDP-User-Id` | Provider-assigned user ID read from the caller account's stored identity. The request's provider selects the identity when available; otherwise exactly one linked identity must exist. Omitted when missing or ambiguous. For API keys, identifies the key owner. |
-| `X-Obot-IDP-Groups` | JSON array of the caller's IdP group IDs stored by Obot, including provider prefixes, sorted and deduplicated. Uses the authenticated principal's `auth_provider_groups`, which are refreshed from stored memberships during token/API-key authentication. Excludes Obot roles and display names; omitted when empty. For API keys, describes the key owner. |
+| `X-Obot-IDP-Groups` | Comma-separated list of the caller's IdP group IDs stored by Obot, including provider prefixes, sorted and deduplicated. Uses the authenticated principal's `auth_provider_groups`, which are refreshed from stored memberships during token/API-key authentication. Excludes Obot roles and display names; omitted when empty. For API keys, describes the key owner. CSV quoting preserves commas and quotes within individual IDs. |
 
 Empty selections disclose nothing. Incoming copies of all seven headers are
 always stripped, and configured static or per-user headers cannot override
