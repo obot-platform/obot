@@ -35,7 +35,7 @@ If Obot cannot directly reach a remote server, use an [MCP tunnel](./filters-tun
 
 Remote MCP servers can receive selected information about the caller authenticated by Obot. This is useful when a backend uses shared credentials but needs to record who performed an action.
 
-For entries managed in Obot, edit the catalog entry or server, expand **Inject Obot headers**, select the values to share, and save. For Git-managed entries, configure [`injectObotHeaders`](../configuration/mcp-server-gitops.md#caller-attribution-headers) in the catalog file. All selections are optional and disabled by default.
+For entries managed in Obot, edit the catalog entry or server, open **Advanced Configuration**, enable **Inject Obot headers**, turn on the individual headers to share, and save. For Git-managed entries, configure [`injectObotHeaders`](../configuration/mcp-server-gitops.md#caller-attribution-headers) in the catalog file. All selections are optional and disabled by default.
 
 | Header | Value |
 | --- | --- |

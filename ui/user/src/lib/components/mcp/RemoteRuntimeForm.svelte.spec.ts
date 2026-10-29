@@ -1,8 +1,65 @@
+import type { ObotHeader } from '$lib/services';
 import { reactive } from '../../../tests/helpers/reactive.svelte';
 import RemoteRuntimeForm from './RemoteRuntimeForm.svelte';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+for (const variant of ['catalog', 'server'] as const) {
+	it(`places attribution headers under advanced configuration for ${variant}`, async () => {
+		await render(RemoteRuntimeForm, {
+			variant,
+			config: reactive(
+				variant === 'catalog'
+					? { fixedURL: 'https://example.com/mcp' }
+					: { url: 'https://example.com/mcp' }
+			),
+			injectObotHeaders: []
+		});
+		const section = page.getByText('Inject Obot headers', { exact: true });
+		await expect.element(section).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+		await expect.element(section).toBeVisible();
+	});
+
+	it(`handles saved attribution selections when closing advanced configuration for ${variant}`, async () => {
+		const selections = reactive({ headers: ['X-Obot-User-Id'] as ObotHeader[] });
+		await render(RemoteRuntimeForm, {
+			variant,
+			config: reactive(
+				variant === 'catalog'
+					? { fixedURL: 'https://example.com/mcp' }
+					: { url: 'https://example.com/mcp' }
+			),
+			get injectObotHeaders() {
+				return selections.headers;
+			},
+			set injectObotHeaders(value) {
+				selections.headers = value ?? [];
+			}
+		});
+		await expect.element(page.getByText('Inject Obot headers', { exact: true })).toBeVisible();
+		await page
+			.getByRole('button', {
+				name: variant === 'catalog' ? 'Reset Default Configuration' : 'Hide Advanced Configuration',
+				exact: true
+			})
+			.click();
+		await vi.waitFor(() =>
+			expect(selections.headers).toEqual(variant === 'catalog' ? [] : ['X-Obot-User-Id'])
+		);
+		await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+		if (variant === 'catalog') {
+			await page.getByRole('switch', { name: 'Enable Obot header injection', exact: true }).click();
+		}
+		const checkbox = page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true });
+		if (variant === 'catalog') {
+			await expect.element(checkbox).not.toBeChecked();
+		} else {
+			await expect.element(checkbox).toBeChecked();
+		}
+	});
+}
 
 for (const variant of ['catalog', 'server'] as const) {
 	it(`places localhost OAuth under advanced configuration for ${variant}`, async () => {
