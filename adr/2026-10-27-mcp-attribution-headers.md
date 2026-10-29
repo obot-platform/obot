@@ -48,6 +48,10 @@ trusted attribution already derived for the request.
 vMCP preserves API-key attribution in signed internal tokens. Each component
 decides what to disclose to its own backend, irrespective of the parent vMCP.
 Raw key names are kept separately from the masked names used by audit logs.
+Before token signing, raw key names exceeding 512 Unicode characters are
+omitted, and oversized audit names use the masked key identifier. This applies
+to initial tokens and refreshes, including when header injection is disabled,
+so API-key names cannot inflate loopback Authorization headers without bound.
 Each component MCP message forwards the current request's signed loopback token,
 so pooled connections do not retain stale caller attribution. Background responses
 to server-initiated requests, SSE reconnects, and session cleanup keep the OAuth
