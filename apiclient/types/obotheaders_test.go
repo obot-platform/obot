@@ -154,10 +154,10 @@ func TestReservedObotHeaderConfiguration(t *testing.T) {
 	}
 }
 
-func TestObotHeaderDecodingCanonicalizesSelections(t *testing.T) {
+func TestObotHeaderDecodingPreservesSelections(t *testing.T) {
 	var manifest MCPServerManifest
 	err := json.Unmarshal([]byte(`{"runtime":"remote","injectObotHeaders":["x-obot-user-id","x-obot-idp-groups"]}`), &manifest)
 	require.NoError(t, err)
-	require.Equal(t, []ObotHeader{ObotHeaderUserID, ObotHeaderIDPGroups}, manifest.InjectObotHeaders)
+	require.Equal(t, []ObotHeader{"x-obot-user-id", "x-obot-idp-groups"}, manifest.InjectObotHeaders)
 	require.NoError(t, manifest.ValidateConfig())
 }

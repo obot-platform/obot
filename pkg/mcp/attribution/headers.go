@@ -70,20 +70,10 @@ func callerHeaders(runtime types.Runtime, selected []types.ObotHeader, caller us
 		}
 		value := values[header]
 		if header == types.ObotHeaderIDPGroups {
-			groups := slices.Clone(caller.GetExtra()["auth_provider_groups"])
-			groups = slices.DeleteFunc(groups, func(group string) bool { return group == "" })
-			if len(groups) > 0 {
-				slices.Sort(groups)
-				var encoded strings.Builder
-				writer := csv.NewWriter(&encoded)
-				if err := writer.Write(slices.Compact(groups)); err != nil {
-					return nil, fmt.Errorf("encode IdP groups: %w", err)
-				}
-				writer.Flush()
-				if err := writer.Error(); err != nil {
-					return nil, fmt.Errorf("encode IdP groups: %w", err)
-				}
-				value = strings.TrimSuffix(encoded.String(), "\n")
+			var err error
+			value, err = idpGroupsHeader(caller.GetExtra()["auth_provider_groups"])
+			if err != nil {
+				return nil, err
 			}
 		}
 		if value == "" {
@@ -100,6 +90,25 @@ func callerHeaders(runtime types.Runtime, selected []types.ObotHeader, caller us
 		headers.Set(string(header), value)
 	}
 	return headers, nil
+}
+
+func idpGroupsHeader(groups []string) (string, error) {
+	groups = slices.Clone(groups)
+	groups = slices.DeleteFunc(groups, func(group string) bool { return group == "" })
+	if len(groups) == 0 {
+		return "", nil
+	}
+	slices.Sort(groups)
+	var encoded strings.Builder
+	writer := csv.NewWriter(&encoded)
+	if err := writer.Write(slices.Compact(groups)); err != nil {
+		return "", fmt.Errorf("encode IdP groups: %w", err)
+	}
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return "", fmt.Errorf("encode IdP groups: %w", err)
+	}
+	return strings.TrimSuffix(encoded.String(), "\n"), nil
 }
 
 func selectedIDPUserID(ctx context.Context, reader IdentityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (string, error) {

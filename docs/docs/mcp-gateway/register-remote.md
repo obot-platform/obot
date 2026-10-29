@@ -59,8 +59,6 @@ Group IDs containing commas or quotes use CSV quoting. For example, the two IDs 
 
 Obot removes incoming copies of all seven headers and supplies only the selected values. These names are reserved and cannot be configured as static or per-user headers. Unavailable values, values containing invalid HTTP header characters, and values exceeding 512 Unicode characters are omitted. An oversized groups list is omitted in full rather than truncated.
 
-After changing a catalog entry's selections, apply the catalog update to existing vMCP components that use it. They keep their saved catalog definition until an update is applied; see [Snapshots and updates](./publish.md#virtual-mcps-snapshots-and-updates).
-
 Backends should accept attribution only through trusted Obot gateway traffic. API-key names are mutable and not necessarily unique; use IDs when you need stable attribution.
 
 ## Localhost OAuth callbacks
