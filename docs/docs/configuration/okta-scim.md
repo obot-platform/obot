@@ -197,6 +197,12 @@ You'll need your Obot URL, and the SCIM base URL and token from Obot.
      Updates**, and **Push Groups**. Leave the import options unselected.
    - **Authentication Mode:** **HTTP Header**, with the token from Obot as the
      bearer token.
+
+   :::important
+   The SCIM connector base URL must end with a trailing slash, such as
+   `https://<your-obot-url>/scim/v2/`. Obot shows it with the slash.
+   :::
+
 8. Select **Test Connector Configuration**, then **Save**.
 9. In the **Provisioning** tab, under **To App**, select **Edit**, enable
    **Create Users**, **Update User Attributes**, and **Deactivate Users**, and

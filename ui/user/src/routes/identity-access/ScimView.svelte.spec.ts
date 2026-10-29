@@ -286,11 +286,11 @@ describe('ScimView', () => {
 		await expect.element(page.getByText('Waiting for Okta to send a request.')).toBeVisible();
 	});
 
-	it('shows the base URL with a button that copies it', async () => {
+	it('shows the base URL with a trailing slash and a button that copies it', async () => {
 		await renderScimView([Group.OWNER, Group.ADMIN], { review: review() });
 
 		await expect
-			.element(page.getByText('https://obot.example.com/scim/v2', { exact: true }))
+			.element(page.getByText('https://obot.example.com/scim/v2/', { exact: true }))
 			.toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Copy base URL' })).toBeVisible();
 	});

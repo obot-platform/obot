@@ -53,6 +53,8 @@
 
 	// The adapter type of OneLogin's SCIM connections, whose setup steps have help of their own.
 	const ONELOGIN_ADAPTER_TYPE = 'onelogin';
+	// The adapter type of Okta's SCIM connections, whose SCIM connector base URL must end with a slash.
+	const OKTA_ADAPTER_TYPE = 'okta';
 	// What OneLogin's SCIM JSON Template must add, so that each user's externalId is their OneLogin
 	// user ID, and its userName line, which must stay as it is: SCIM Username sets userName, and
 	// OneLogin's lookup before a create uses SCIM Username, so the two must agree. Both are passed to
@@ -283,11 +285,19 @@
 		}
 	}
 
+	// The base URL to enter in the identity provider's SCIM app. Okta requires a trailing slash.
+	function scimBaseURL(conn: SCIMConnection) {
+		if (conn.adapterType === OKTA_ADAPTER_TYPE && !conn.baseURL.endsWith('/')) {
+			return `${conn.baseURL}/`;
+		}
+		return conn.baseURL;
+	}
+
 	// Shows a token just issued. The confirmation that issued it closes first, so that the token's
 	// dialog is the only one open, and keeps the focus.
 	async function showToken(title: string, conn: SCIMConnection) {
 		if (!conn.token) return;
-		issuedToken = { title, baseURL: conn.baseURL, token: conn.token };
+		issuedToken = { title, baseURL: scimBaseURL(conn), token: conn.token };
 		confirmEnable = false;
 		confirmTokenAction = undefined;
 		await tick();
@@ -683,7 +693,7 @@
 			<div class="flex min-w-0 flex-col gap-1 md:col-span-2">
 				<dt class="text-muted-content text-xs">{m.identity_access_scim_base_url()}</dt>
 				<dd class="min-w-0">
-					{@render copyableValue(conn.baseURL, m.identity_access_scim_copy_base_url())}
+					{@render copyableValue(scimBaseURL(conn), m.identity_access_scim_copy_base_url())}
 				</dd>
 			</div>
 			<div class="flex flex-col gap-1">
