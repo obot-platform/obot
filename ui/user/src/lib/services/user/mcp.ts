@@ -29,7 +29,7 @@ import {
 import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
 
 export function supportsObotHeaders(runtime: Runtime): boolean {
-	return runtime === 'remote' || runtime === 'containerized';
+	return runtime === 'remote';
 }
 
 export interface MCPServerInfo extends MCPServer {

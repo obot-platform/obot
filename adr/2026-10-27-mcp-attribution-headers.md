@@ -21,7 +21,7 @@ disclose internal account information and API-key names to existing backends.
 
 ## Decision
 
-Remote and containerized MCP Server and Catalog Entry manifests expose an
+Remote MCP Server and Catalog Entry manifests expose an
 optional `injectObotHeaders` list. Each destination independently selects any of:
 
 | Header | Value |

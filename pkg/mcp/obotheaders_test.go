@@ -161,16 +161,14 @@ func TestHTTPClientsCannotRestoreConfiguredObotHeaders(t *testing.T) {
 	require.Empty(t, headers.Get("X-Tenant"))
 }
 
-func TestHostedConnectionsPreserveObotHeaders(t *testing.T) {
+func TestHostedConnectionsDiscardObotHeaderSelections(t *testing.T) {
 	server := ServerConfig{
 		Runtime:        types.RuntimeContainerized,
 		MCPServerName:  "jira",
 		ContainerPort:  8080,
 		StartupTimeout: time.Second,
 	}
-	deploymentID := serverID(server)
 	server.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName}
-	require.Equal(t, deploymentID, serverID(server), "gateway selection must not restart the deployment")
 	t.Run("docker", func(t *testing.T) {
 		connection, err := (&dockerBackend{}).buildServerConfig(server, &container.Summary{
 			ID: "container",
@@ -182,7 +180,7 @@ func TestHostedConnectionsPreserveObotHeaders(t *testing.T) {
 			},
 		}, 8080, false)
 		require.NoError(t, err)
-		require.Equal(t, server.InjectObotHeaders, connection.InjectObotHeaders)
+		require.Empty(t, connection.InjectObotHeaders, "hosted connections must not inherit legacy attribution selections")
 	})
 	t.Run("kubernetes cached deployment", func(t *testing.T) {
 		scheme := runtime.NewScheme()
@@ -219,6 +217,6 @@ func TestHostedConnectionsPreserveObotHeaders(t *testing.T) {
 		})
 		connection, err := backend.ensureServerDeployment(t.Context(), server)
 		require.NoError(t, err)
-		require.Equal(t, server.InjectObotHeaders, connection.InjectObotHeaders)
+		require.Empty(t, connection.InjectObotHeaders, "hosted connections must not inherit legacy attribution selections")
 	})
 }

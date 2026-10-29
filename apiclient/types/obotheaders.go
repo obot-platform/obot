@@ -26,7 +26,7 @@ func ObotHeaders() []ObotHeader {
 
 // SupportsObotHeaders reports whether a runtime supports HTTP caller attribution.
 func SupportsObotHeaders(runtime Runtime) bool {
-	return runtime == RuntimeRemote || runtime == RuntimeContainerized
+	return runtime == RuntimeRemote
 }
 
 // CanonicalObotHeader recognizes only the reserved attribution header names.
@@ -56,7 +56,7 @@ func (h *ObotHeader) UnmarshalJSON(data []byte) error {
 // ValidateObotHeaders validates attribution selections without modifying the caller's slice.
 func ValidateObotHeaders(runtime Runtime, headers []ObotHeader) error {
 	if len(headers) > 0 && !SupportsObotHeaders(runtime) {
-		return fmt.Errorf("injectObotHeaders is only supported for remote and containerized MCP servers")
+		return fmt.Errorf("injectObotHeaders is only supported for remote MCP servers")
 	}
 	seen := make(map[ObotHeader]bool, len(headers))
 	for _, name := range headers {

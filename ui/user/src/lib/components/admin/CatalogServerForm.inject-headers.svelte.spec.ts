@@ -72,7 +72,7 @@ describe('catalog attribution headers', () => {
 	});
 
 	it.each(['remote', 'containerized'] as const)(
-		'saves selections on a deployed %s server',
+		'saves remote-only attribution settings on a deployed %s server',
 		async (runtime) => {
 			const server = createMCPCatalogServer({
 				id: 'jira-server',
@@ -96,6 +96,17 @@ describe('catalog attribution headers', () => {
 				})
 			);
 			await render(CatalogServerForm, { id: 'test', entity: 'catalog', entry: server });
+			if (runtime === 'containerized') {
+				await expect
+					.element(page.getByText('Inject Obot headers', { exact: true }))
+					.not.toBeInTheDocument();
+				await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
+				await vi.waitFor(() => {
+					expect(submitted).toBeDefined();
+					expect(submitted?.injectObotHeaders).toBeUndefined();
+				});
+				return;
+			}
 			await page.getByText('Inject Obot headers', { exact: true }).click();
 			await expect
 				.element(page.getByRole('checkbox', { name: 'X-Obot-User-Id', exact: true }))

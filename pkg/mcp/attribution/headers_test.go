@@ -55,22 +55,20 @@ func TestCallerObotHeaders(t *testing.T) {
 		"X-Obot-User-Name":    {"alice"},
 		"X-Obot-User-Email":   {"alice@example.com"},
 	}
-	for _, runtime := range []types.Runtime{types.RuntimeRemote, types.RuntimeContainerized} {
-		t.Run(string(runtime), func(t *testing.T) {
-			got, err := ForCaller(t.Context(), &headerIdentityReader{}, runtime, allObotHeaders(), caller)
+	t.Run("remote", func(t *testing.T) {
+		got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, allObotHeaders(), caller)
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+		for _, selected := range allObotHeaders() {
+			got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{selected}, caller)
 			require.NoError(t, err)
-			require.Equal(t, want, got)
-			for _, selected := range allObotHeaders() {
-				got, err := ForCaller(t.Context(), &headerIdentityReader{}, runtime, []types.ObotHeader{selected}, caller)
-				require.NoError(t, err)
-				if value := want.Get(string(selected)); value != "" {
-					require.Equal(t, http.Header{string(selected): {value}}, got)
-				} else {
-					require.Empty(t, got)
-				}
+			if value := want.Get(string(selected)); value != "" {
+				require.Equal(t, http.Header{string(selected): {value}}, got)
+			} else {
+				require.Empty(t, got)
 			}
-		})
-	}
+		}
+	})
 	got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, nil, caller)
 	require.NoError(t, err)
 	require.Empty(t, got)
@@ -80,6 +78,11 @@ func TestCallerObotHeaders(t *testing.T) {
 	got, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeVMCP, allObotHeaders(), caller)
 	require.NoError(t, err)
 	require.Empty(t, got, "a parent vMCP cannot opt its components in")
+	reader := &headerIdentityReader{err: fmt.Errorf("must not look up unsupported attribution")}
+	got, err = ForCaller(t.Context(), reader, types.RuntimeContainerized, allObotHeaders(), caller)
+	require.NoError(t, err)
+	require.Empty(t, got, "containerized servers must not inject caller headers")
+	require.Zero(t, reader.calls)
 }
 
 func TestCallerObotHeadersOmitUnavailableValues(t *testing.T) {
