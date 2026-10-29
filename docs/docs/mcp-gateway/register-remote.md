@@ -33,7 +33,7 @@ If Obot cannot directly reach a remote server, use an [MCP tunnel](./filters-tun
 
 ## Caller attribution headers
 
-Remote and containerized MCP servers can receive selected information about the caller authenticated by Obot. This is useful when a backend uses shared credentials but needs to record who performed an action.
+Remote MCP servers can receive selected information about the caller authenticated by Obot. This is useful when a backend uses shared credentials but needs to record who performed an action.
 
 For entries managed in Obot, edit the catalog entry or server, expand **Inject Obot headers**, select the values to share, and save. For Git-managed entries, configure [`injectObotHeaders`](../configuration/mcp-server-gitops.md#caller-attribution-headers) in the catalog file. All selections are optional and disabled by default.
 
@@ -59,7 +59,7 @@ Group IDs containing commas or quotes use CSV quoting. For example, the two IDs 
 
 Obot removes incoming copies of all seven headers and supplies only the selected values. These names are reserved and cannot be configured as static or per-user headers. Unavailable values, values containing invalid HTTP header characters, and values exceeding 512 Unicode characters are omitted. An oversized groups list is omitted in full rather than truncated.
 
-Each vMCP component controls its own selections; configuring a parent vMCP does not enable attribution for its components. Existing components keep their saved catalog definition until an update is applied; see [Snapshots and updates](./publish.md#virtual-mcps-snapshots-and-updates).
+After changing a catalog entry's selections, apply the catalog update to existing vMCP components that use it. They keep their saved catalog definition until an update is applied; see [Snapshots and updates](./publish.md#virtual-mcps-snapshots-and-updates).
 
 Backends should accept attribution only through trusted Obot gateway traffic. API-key names are mutable and not necessarily unique; use IDs when you need stable attribution.
 

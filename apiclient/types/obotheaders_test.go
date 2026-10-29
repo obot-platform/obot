@@ -27,9 +27,19 @@ func TestInjectObotHeadersValidation(t *testing.T) {
 			headers: []ObotHeader{ObotHeaderAPIKeyName, ObotHeaderUserID, ObotHeaderIDPUserID, ObotHeaderIDPGroups},
 		},
 		{
-			name:    "containerized case insensitive",
-			runtime: RuntimeContainerized,
+			name:    "remote case insensitive",
+			runtime: RuntimeRemote,
 			headers: []ObotHeader{"x-obot-api-key-name", "x-obot-idp-user-id", "x-obot-idp-groups"},
+		},
+		{
+			name:    "containerized unsupported",
+			runtime: RuntimeContainerized,
+			headers: []ObotHeader{ObotHeaderUserID},
+			wantErr: true,
+		},
+		{
+			name:    "containerized without selections remains valid",
+			runtime: RuntimeContainerized,
 		},
 		{
 			name:    "unknown",

@@ -363,7 +363,7 @@ env:
 
 ### Caller attribution headers
 
-Set `injectObotHeaders` on a `remote` or `containerized` catalog entry to select caller information sent to its backend. Omit the field or use an empty list to disable injection. Other runtimes do not support this setting.
+Set `injectObotHeaders` on a `remote` catalog entry to select caller information sent to its backend. Omit the field or use an empty list to disable injection. Other runtimes do not support this setting.
 
 ```yaml
 name: Internal API
