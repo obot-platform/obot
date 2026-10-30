@@ -436,6 +436,8 @@ For optional avatars, map a `picture` user attribute to the OIDC `picture` claim
 
 **Token Refresh Duration** controls how often Obot refreshes authentication tokens for active sessions. The default is 1 hour.
 
+Set **Token Refresh Duration** shorter than the realm's **Access Token Lifespan**, under **Realm settings > Tokens**. Keycloak's default lifespan is 5 minutes, so a value such as `4m` works. If tokens expire before Obot refreshes them, updates to users' display names and avatars fail until the next refresh.
+
 Keep **Revoke Refresh Token** off in the realm, so that parallel refreshes from the same browser succeed.
 
 ### Auth0
