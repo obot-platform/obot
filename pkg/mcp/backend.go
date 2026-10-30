@@ -301,6 +301,11 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		// Component connections are authenticated by the gateway's composite OAuth
 		// handler, not the frontend Authorization header: pooled sessions replay
 		// the headers of the request that opened them long after it expires.
+		// Attribution was derived before the loopback and travels independently
+		// of Authorization. Each component gateway applies its own selections.
+		for _, name := range types.ObotHeaders() {
+			passthroughHeaders = append(passthroughHeaders, string(name))
+		}
 
 		servers := make([]mmmcpconfig.Server, 0, len(server.Components))
 

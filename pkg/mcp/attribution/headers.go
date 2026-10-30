@@ -33,12 +33,13 @@ type IdentityReader interface {
 // ForCaller derives only the attribution fields selected by the destination,
 // resolving the caller's provider identity only when needed. Returned headers
 // belong to this request and must not be stored in a shared client or deployment.
-func ForCaller(ctx context.Context, reader IdentityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (http.Header, error) {
-	idpUserID, err := selectedIDPUserID(ctx, reader, runtime, selected, caller)
+// The caller is responsible for checking the destination runtime supports attribution.
+func ForCaller(ctx context.Context, reader IdentityReader, selected []types.ObotHeader, caller user.Info) (http.Header, error) {
+	idpUserID, err := selectedIDPUserID(ctx, reader, selected, caller)
 	if err != nil {
 		return nil, err
 	}
-	headers, err := callerHeaders(runtime, selected, caller, idpUserID)
+	headers, err := callerHeaders(selected, caller, idpUserID)
 	if err != nil {
 		return nil, types.NewErrBadRequest("%v", err)
 	}
@@ -47,9 +48,9 @@ func ForCaller(ctx context.Context, reader IdentityReader, runtime types.Runtime
 
 // callerHeaders derives only the fields explicitly selected by the destination.
 // It is request-local: caller identity must never enter a shared deployment or client.
-func callerHeaders(runtime types.Runtime, selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
+func callerHeaders(selected []types.ObotHeader, caller user.Info, idpUserID string) (http.Header, error) {
 	headers := make(http.Header)
-	if caller == nil || !types.SupportsObotHeaders(runtime) {
+	if caller == nil {
 		return headers, nil
 	}
 	values := map[types.ObotHeader]string{
@@ -111,8 +112,8 @@ func idpGroupsHeader(groups []string) (string, error) {
 	return strings.TrimSuffix(encoded.String(), "\n"), nil
 }
 
-func selectedIDPUserID(ctx context.Context, reader IdentityReader, runtime types.Runtime, selected []types.ObotHeader, caller user.Info) (string, error) {
-	if caller == nil || !types.SupportsObotHeaders(runtime) {
+func selectedIDPUserID(ctx context.Context, reader IdentityReader, selected []types.ObotHeader, caller user.Info) (string, error) {
+	if caller == nil {
 		return "", nil
 	}
 	selectedID := false
@@ -148,6 +149,25 @@ func selectedIDPUserID(ctx context.Context, reader IdentityReader, runtime types
 		return "", nil
 	}
 	return matches[0].ProviderUserID, nil
+}
+
+// Selected copies only the destination's selected attribution from trusted internal
+// headers. It must not be used for untrusted client-supplied headers.
+func Selected(headers http.Header, runtime types.Runtime, selected []types.ObotHeader) http.Header {
+	result := make(http.Header)
+	if !types.SupportsObotHeaders(runtime) {
+		return result
+	}
+	for _, name := range selected {
+		header, ok := types.CanonicalObotHeader(string(name))
+		if !ok {
+			continue
+		}
+		if value := headers.Get(string(header)); value != "" {
+			result.Set(string(header), value)
+		}
+	}
+	return result
 }
 
 // Strip removes all reserved attribution names, including non-canonical map keys

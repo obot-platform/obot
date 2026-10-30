@@ -18,6 +18,8 @@ import (
 	"github.com/obot-platform/mmmcp"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcp/attribution"
@@ -66,7 +68,7 @@ func TestProxyStripsAllReservedAttributionHeaders(t *testing.T) {
 			defer upstream.Close()
 			target, err := url.Parse(upstream.URL)
 			require.NoError(t, err)
-			derived, err := attribution.ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, selected, headerTestCaller("42", "jira-writer"))
+			derived, err := attribution.ForCaller(t.Context(), &headerIdentityReader{}, selected, headerTestCaller("42", "jira-writer"))
 			require.NoError(t, err)
 			proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				attribution.Strip(r.Header)
@@ -94,7 +96,7 @@ func TestCompositeTokensPreserveKeyAttribution(t *testing.T) {
 	for _, name := range []string{"jira-writer", ""} {
 		t.Run(name, func(t *testing.T) {
 			caller := headerTestCaller("42", name)
-			claims := compositeLoopbackTokenContext(caller, "https://obot.example/mcp-connect-composite/vmcp", "vmcp", []string{"component"}, time.Now())
+			claims := compositeLoopbackTokenContext(caller, "https://obot.example/mcp-connect-composite/vmcp", "vmcp", []string{"component"}, "vmcpi1connection", time.Now())
 			token, _, err := newCompositeLoopbackToken(t.Context(), fakeCompositeTokens{}, claims, time.Now())
 			require.NoError(t, err)
 			decoded, err := (fakeCompositeTokens{}).DecodeToken(t.Context(), token)
@@ -106,10 +108,19 @@ func TestCompositeTokensPreserveKeyAttribution(t *testing.T) {
 	}
 }
 
-// A single stateful frontend can switch credentials between calls. Its pooled
-// component connections must not retain stale key or user attribution.
+// Current attribution passes through mmmcp independently of its pooled OAuth credential.
 func TestVMCPAttributionChangesWithCallerOnStatefulSession(t *testing.T) {
+	for _, selected := range [][]types.ObotHeader{nil, {types.ObotHeaderAPIKeyName}, allObotHeaders()} {
+		t.Run(fmt.Sprint(selected), func(t *testing.T) {
+			testVMCPAttributionPassthrough(t, selected)
+		})
+	}
+}
+
+func testVMCPAttributionPassthrough(t *testing.T, selected []types.ObotHeader) {
+	t.Helper()
 	tokens := fakeCompositeTokens{}
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
 	var current atomic.Int32
 	var callers []*user.DefaultInfo
 	backend := gomcp.NewServer(&gomcp.Implementation{Name: "component", Version: "test"}, nil)
@@ -134,29 +145,29 @@ func TestVMCPAttributionChangesWithCallerOnStatefulSession(t *testing.T) {
 			http.Error(w, "invalid internal token", http.StatusUnauthorized)
 			return
 		}
-		caller := headerTestCaller(claims.APIKeyID, claims.APIKeyRawName)
-		caller.UID = claims.UserID
-		caller.Name = claims.UserName
-		caller.Extra["email"] = []string{claims.UserEmail}
-		caller.Extra["auth_provider_name"] = []string{claims.AuthProviderName}
-		caller.Extra["auth_provider_namespace"] = []string{claims.AuthProviderNamespace}
-		// The real token authenticator reloads memberships from the database for each request.
-		active := callers[current.Load()]
-		caller.Extra["auth_provider_groups"] = active.Extra["auth_provider_groups"]
-		reader := &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: firstExtra(active.Extra, "test_idp_user_id")}}}
-		derived, err := attribution.ForCaller(r.Context(), reader, types.RuntimeRemote, allObotHeaders(), caller)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
+		caller := &user.DefaultInfo{
+			Groups: claims.UserGroups,
+			Extra: map[string][]string{
+				"authorized_mcp_ids": claims.AuthorizedMCPIDs,
+			},
 		}
+		if claims.UserID == callers[0].GetUID() {
+			require.Equal(t, "42", claims.APIKeyID, "connection authentication keeps the opening caller's token within the same user")
+		} else {
+			require.Equal(t, "8", claims.UserID)
+			require.Empty(t, claims.APIKeyID, "a different user's discovery revision opens its own connection")
+		}
+		if !authz.IsCompositeMCPRequest(caller, "component") {
+			attribution.Strip(r.Header)
+		}
+		derived := attribution.Selected(r.Header, types.RuntimeRemote, selected)
 		attribution.Strip(r.Header)
 		maps.Copy(r.Header, derived)
 		backendHandler.ServeHTTP(w, r)
 	}))
 	defer componentGateway.Close()
 	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
-		OAuth:      compositeComponentAuth{ctx: t.Context(), tokens: tokens},
-		HTTPClient: newCompositeHTTPClient(),
+		OAuth: compositeComponentAuth{ctx: t.Context(), tokens: tokens},
 	})
 	require.NoError(t, err)
 	defer composite.Close()
@@ -194,14 +205,26 @@ func TestVMCPAttributionChangesWithCallerOnStatefulSession(t *testing.T) {
 	callers = append(callers, renamed, changedEmail, ordinaryRenamed, ordinaryChangedEmail, otherUser, changedIDP, changedGroups)
 	frontend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		caller := callers[current.Load()]
-		claims := compositeLoopbackTokenContext(caller, "https://obot.example/vmcp", "vmcp", []string{"component"}, time.Now())
+		claims := compositeLoopbackTokenContext(caller, "https://obot.example/vmcp", "vmcp", []string{"component"}, "vmcpi1connection", time.Now())
 		token, _, err := newCompositeLoopbackToken(r.Context(), tokens, claims, time.Now())
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		attribution.Strip(r.Header)
+		derived, err := attribution.ForCaller(r.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: firstExtra(caller.Extra, "test_idp_user_id")}}}, allObotHeaders(), caller)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		maps.Copy(r.Header, derived)
 		r.Header.Set("Authorization", "Bearer "+token)
-		ctx := mmmcp.ContextWithConfig(r.Context(), compositeConfig(serverConfig, caller))
+		cfg, err := compositeConfig(api.Context{Request: r, GatewayClient: gatewayClient, User: caller}, serverConfig)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		ctx := mmmcp.ContextWithConfig(r.Context(), cfg)
 		composite.HTTPHandler().ServeHTTP(w, r.WithContext(ctx))
 	}))
 	defer frontend.Close()
@@ -220,7 +243,7 @@ func TestVMCPAttributionChangesWithCallerOnStatefulSession(t *testing.T) {
 		require.Len(t, result.Content, 1)
 		var got http.Header
 		require.NoError(t, json.Unmarshal([]byte(result.Content[0].(*gomcp.TextContent).Text), &got))
-		want, err := attribution.ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: firstExtra(callers[i].Extra, "test_idp_user_id")}}}, types.RuntimeRemote, allObotHeaders(), callers[i])
+		want, err := attribution.ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: firstExtra(callers[i].Extra, "test_idp_user_id")}}}, selected, callers[i])
 		require.NoError(t, err)
 		require.Equal(t, want, got, "attribution for caller %d must reflect the current request", i)
 	}
@@ -236,7 +259,7 @@ func TestCompositeLoopbackPreservesIdentityProvider(t *testing.T) {
 	caller := headerTestCaller("42", "writer")
 	caller.Extra["auth_provider_name"] = []string{"okta"}
 	caller.Extra["auth_provider_namespace"] = []string{"default"}
-	claims := compositeLoopbackTokenContext(caller, "https://obot.example", "component", nil, time.Now())
+	claims := compositeLoopbackTokenContext(caller, "https://obot.example", "component", nil, "vmcpi1connection", time.Now())
 	require.Equal(t, "okta", claims.AuthProviderName)
 	require.Equal(t, "default", claims.AuthProviderNamespace)
 }

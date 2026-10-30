@@ -163,8 +163,12 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}
 
 	components := make([]ComponentServer, 0, len(configuredComponents))
+	var injectObotHeaders []types.ObotHeader
 	for _, component := range configuredComponents {
 		server := serversByComponent[component.ID]
+		if types.SupportsObotHeaders(server.Spec.Manifest.Runtime) {
+			injectObotHeaders = append(injectObotHeaders, server.Spec.Manifest.InjectObotHeaders...)
+		}
 		connectID := server.Name
 		if connections[component.ID] != "" {
 			connectID = connections[component.ID]
@@ -178,6 +182,9 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			ToolPrefix:          component.ToolPrefix,
 		})
 	}
+
+	slices.Sort(injectObotHeaders)
+	injectObotHeaders = slices.Compact(injectObotHeaders)
 
 	allowedTools := vmcpaccess.InstanceGrant(user, *vmcp, *instance)
 	for i := range components {
@@ -207,6 +214,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		OwnerUserID:          vmcp.Spec.UserID,
 		MCPServerNamespace:   vmcp.Namespace,
 		Components:           components,
+		InjectObotHeaders:    injectObotHeaders,
 		Webhooks:             webhooks,
 		StartupTimeout:       types.DefaultStartupTimeoutSeconds * time.Second,
 		AuditLogMetadata: map[string]string{

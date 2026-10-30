@@ -1,13 +1,12 @@
-import type { ObotHeader } from '$lib/services';
 import InjectObotHeaders from './InjectObotHeaders.svelte';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('InjectObotHeaders', () => {
-	it('displays mixed-case selections in read-only views', async () => {
+	it('displays saved user and group selections in read-only views', async () => {
 		await render(InjectObotHeaders, {
-			selected: ['x-obot-user-id', 'X-OBOT-IDP-GROUPS'] as unknown as ObotHeader[],
+			selected: ['X-Obot-User-Id', 'X-Obot-IDP-Groups'],
 			readonly: true
 		});
 		for (const name of ['X-Obot-User-Id', 'X-Obot-IDP-Groups']) {

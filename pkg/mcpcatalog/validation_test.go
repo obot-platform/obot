@@ -7,6 +7,51 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestNormalizeManifestObotHeaders(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		headers []types.ObotHeader
+		want    []types.ObotHeader
+		wantErr string
+	}{
+		{
+			name: "absent",
+		},
+		{
+			name:    "canonical names",
+			headers: []types.ObotHeader{"x-obot-user-id", "X-OBOT-IDP-GROUPS"},
+			want:    []types.ObotHeader{types.ObotHeaderUserID, types.ObotHeaderIDPGroups},
+		},
+		{
+			name:    "unknown names remain invalid",
+			headers: []types.ObotHeader{"X-Unknown"},
+			want:    []types.ObotHeader{"X-Unknown"},
+			wantErr: "unsupported injectObotHeaders",
+		},
+		{
+			name:    "case variant duplicates remain invalid",
+			headers: []types.ObotHeader{"x-obot-user-id", "X-Obot-User-Id"},
+			want:    []types.ObotHeader{types.ObotHeaderUserID, types.ObotHeaderUserID},
+			wantErr: "duplicate injectObotHeaders",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := types.MCPServerCatalogEntryManifest{
+				Runtime:           types.RuntimeRemote,
+				InjectObotHeaders: tt.headers,
+			}
+			NormalizeManifest(&entry)
+			require.Equal(t, tt.want, entry.InjectObotHeaders)
+			err := entry.ValidateConfig()
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestValidateConfigurationFields(t *testing.T) {
 	for _, tc := range []struct {
 		name  string

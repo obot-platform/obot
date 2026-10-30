@@ -1,5 +1,5 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
-import type { MCPCatalogEntryServerManifest, ObotHeader } from '$lib/services';
+import type { MCPCatalogEntryServerManifest } from '$lib/services';
 import { createMCPCatalogEntry, createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
@@ -45,14 +45,14 @@ describe('catalog attribution headers', () => {
 		await vi.waitFor(() => expect(submitted?.injectObotHeaders).toEqual([]));
 	});
 
-	it('loads mixed-case selections and saves canonical names when edited', async () => {
+	it('loads saved selections and saves header changes', async () => {
 		const entry = createMCPCatalogEntry({
 			id: 'jira',
 			name: 'Jira',
 			runtime: 'remote',
 			manifest: {
 				remoteConfig: { fixedURL: 'https://example.com/mcp' },
-				injectObotHeaders: ['x-obot-user-id'] as unknown as ObotHeader[]
+				injectObotHeaders: ['X-Obot-User-Id']
 			}
 		});
 		let submitted: MCPCatalogEntryServerManifest | undefined;
