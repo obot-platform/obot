@@ -266,6 +266,13 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 	return server, serverConfig, nil, nil
 }
 
+// ServerConfigForDeployment builds configuration without requiring a personal connection.
+// The caller must authorize management access to the server before calling this method.
+func (sm *SessionManager) ServerConfigForDeployment(ctx context.Context, server v1.MCPServer) (ServerConfig, error) {
+	config, _, err := sm.serverConfigForAction(ctx, server, server.Spec.UserID, false)
+	return config, err
+}
+
 func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.MCPServer, userID string, allowMissingConfig bool) (ServerConfig, []string, error) {
 	if server.Spec.NeedsURL {
 		if allowMissingConfig {

@@ -1586,8 +1586,8 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryID := req.PathValue("entry_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
-	if err != nil {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
 
@@ -1611,6 +1611,11 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	} else if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
 		// Multi-user server was not in the specified catalog or workspace
 		return types.NewErrNotFound("MCP server not found")
+	}
+
+	serverConfig, err := m.mcpSessionManager.ServerConfigForDeployment(req.Context(), server)
+	if err != nil {
+		return err
 	}
 
 	// Check if server has K8sSettingsHash in Status
