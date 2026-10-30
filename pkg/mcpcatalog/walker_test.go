@@ -216,7 +216,8 @@ npxConfig:
 
 func TestNormalizeManifest(t *testing.T) {
 	entry := types.MCPServerCatalogEntryManifest{
-		Runtime: types.RuntimeRemote,
+		Runtime:           types.RuntimeRemote,
+		InjectObotHeaders: []types.ObotHeader{"x-obot-user-id", "X-OBOT-IDP-GROUPS"},
 		Config: []types.MCPConfig{
 			{Name: "config-file.json", Usage: types.File},
 			{Name: "api_key", Usage: types.Header},
@@ -227,6 +228,7 @@ func TestNormalizeManifest(t *testing.T) {
 
 	require.Equal(t, "CONFIG_FILE_JSON", entry.Config[0].Key)
 	require.Equal(t, "API-KEY", entry.Config[1].Key)
+	require.Equal(t, []types.ObotHeader{types.ObotHeaderUserID, types.ObotHeaderIDPGroups}, entry.InjectObotHeaders)
 }
 
 func TestNormalizeSystemManifest(t *testing.T) {

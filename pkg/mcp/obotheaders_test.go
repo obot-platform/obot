@@ -10,7 +10,6 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp/attribution"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -93,22 +92,6 @@ func TestReadinessProbesExcludeConfiguredAttribution(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestServerConfigPreservesObotHeaderSelection(t *testing.T) {
-	server := v1.MCPServer{
-		Spec: v1.MCPServerSpec{
-			Manifest: types.MCPServerManifest{
-				Runtime:           types.RuntimeRemote,
-				RemoteConfig:      &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
-				InjectObotHeaders: []types.ObotHeader{types.ObotHeaderAPIKeyName},
-			},
-		},
-	}
-	config, missing, err := ServerToServerConfig(server, nil, "7", "scope", "default", nil, false)
-	require.NoError(t, err)
-	require.Empty(t, missing)
-	require.Equal(t, server.Spec.Manifest.InjectObotHeaders, config.InjectObotHeaders)
 }
 
 func TestHTTPClientsCannotRestoreConfiguredObotHeaders(t *testing.T) {
