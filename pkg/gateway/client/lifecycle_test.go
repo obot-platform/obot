@@ -1352,3 +1352,51 @@ func TestEnableUser(t *testing.T) {
 		t.Fatalf("EnableUser() of an unknown user = %v, want gorm.ErrRecordNotFound", err)
 	}
 }
+
+func TestSignInOfDeletedUserIsRefusedUntilCleanup(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	ctx := t.Context()
+	unlimited := UserLimit{Unlimited: true}
+
+	user, err := c.EnsureIdentity(ctx, signInIdentity("gina", "gina@example.com"), "", unlimited)
+	if err != nil {
+		t.Fatalf("failed to sign in: %v", err)
+	}
+	if err := c.DeleteUser(ctx, fmt.Sprint(user.ID)); err != nil {
+		t.Fatalf("failed to delete user: %v", err)
+	}
+
+	// A session that outlives the deletion is refused, and no user replaces the deleted one.
+	var users int64
+	c.db.WithContext(ctx).Model(new(types.User)).Count(&users)
+	_, err = c.EnsureIdentity(ctx, signInIdentity("gina", "gina@example.com"), "", unlimited)
+	if denied, ok := errors.AsType[*UserAccessDeniedError](err); !ok || denied.Status != apitypes.UserStatusDeleted || denied.UserID != user.ID {
+		t.Fatalf("sign-in of deleted user failed with %v, want a UserAccessDeniedError for user %d", err, user.ID)
+	}
+	var usersAfter int64
+	c.db.WithContext(ctx).Model(new(types.User)).Count(&usersAfter)
+	if usersAfter != users {
+		t.Fatalf("refused sign-in created %d users", usersAfter-users)
+	}
+
+	// The identity still belongs to the deleted user, so the cleanup finds it and ends its sessions.
+	identities, err := c.FindIdentitiesForUser(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to find identities: %v", err)
+	}
+	if len(identities) != 1 {
+		t.Fatalf("identities of deleted user = %d, want 1", len(identities))
+	}
+
+	// Once the cleanup removes the identity, the person can sign up again as a new user.
+	if err := c.RemoveIdentity(ctx, &identities[0]); err != nil {
+		t.Fatalf("failed to remove identity: %v", err)
+	}
+	recreated, err := c.EnsureIdentity(ctx, signInIdentity("gina", "gina@example.com"), "", unlimited)
+	if err != nil {
+		t.Fatalf("failed to sign up again after cleanup: %v", err)
+	}
+	if recreated.ID == user.ID {
+		t.Fatalf("sign-up after cleanup returned the deleted user %d", user.ID)
+	}
+}

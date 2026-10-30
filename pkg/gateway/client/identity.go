@@ -444,6 +444,20 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 			if mode.enforced {
 				return nil, false, false, scimUnprovisionedSignInError(user.ID)
 			}
+			if user.ID != 0 {
+				if status, exists, err := userStatus(tx, user.ID); err != nil {
+					return nil, false, false, err
+				} else if exists && status == types2.UserStatusDeleted {
+					// The identity belongs to a user who has been deleted. Until the user's cleanup ends their sessions
+					// and removes the identity, a request with one of those sessions must be refused, not given a new
+					// user. Otherwise the identity would move to the new user, the cleanup would find no identity of the
+					// deleted user, and the sessions would never end.
+					return nil, false, false, &UserAccessDeniedError{
+						UserID: user.ID,
+						Status: types2.UserStatusDeleted,
+					}
+				}
+			}
 
 			// Clear user ID so that it can be auto-generated.
 			u.ID = 0
