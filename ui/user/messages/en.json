@@ -54,6 +54,7 @@
 	"language_select_title": "Select Language",
 	"login_account_inactive": "You are not authorized to access this application. Contact your administrator.",
 	"login_continue_with": "Continue with {provider}",
+	"login_environment_restricted": "This environment has exceeded its plan limits. Contact an admin.",
 	"login_local_heading": "Sign in to Obot",
 	"login_local_no_account": "Don't have an account? Ask an administrator to create one for you.",
 	"login_local_page_title": "Obot | Sign In",

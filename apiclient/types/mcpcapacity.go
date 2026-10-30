@@ -3,6 +3,7 @@ package types
 const (
 	CapacitySourceResourceQuota CapacitySource = "resourceQuota"
 	CapacitySourceDeployments   CapacitySource = "deployments"
+	CapacitySourcePlan          CapacitySource = "plan"
 )
 
 // CapacitySource indicates where the capacity data comes from

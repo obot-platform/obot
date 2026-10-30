@@ -30,6 +30,16 @@ function toAppError(e: Error): App.Error {
 	};
 }
 
+// httpErrorReason returns why a request failed, as the server said it, or nothing when it wasn't an HTTP error or the
+// server didn't say.
+export function httpErrorReason(e: unknown): string | undefined {
+	if (!(e instanceof HttpError)) {
+		return undefined;
+	}
+	const body = e.message.match(/^\d+\s+\/[^:]+:\s+(.*)/s)?.[1]?.trim();
+	return body ? parseResponseError(body) : undefined;
+}
+
 function parseHttpErrorMessage(message: string): string {
 	// Match format i.e. "400 /path/to/resource: message"
 	const errorMatch = message.match(/^\d+\s+\/[^:]+:\s+(.*)/s);

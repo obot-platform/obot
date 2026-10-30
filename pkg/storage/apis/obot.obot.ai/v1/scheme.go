@@ -123,6 +123,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ModelInfoSourceList{},
 		&ModelInfo{},
 		&ModelInfoList{},
+		&BillingSubscription{},
+		&BillingSubscriptionList{},
 	); err != nil {
 		return err
 	}

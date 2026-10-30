@@ -191,6 +191,8 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	// notifications, and a peer that was not sending them leaves the cache up to a
 	// poll interval behind. Have every watch list again before acting on it.
 	c.services.StorageDB.Refresh()
+	// Delete data past retention from the leader only, so replicas don't repeat the same deletes.
+	c.services.GatewayClient.StartRetentionCleanup(ctx)
 	if c.services.Substrate != nil {
 		handler := &agentinstance.Handler{Substrate: c.services.Substrate, Gateway: c.services.GatewayClient}
 		go handler.RunMaintenance(ctx, client)
@@ -678,7 +680,7 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 		}
 
 		for _, authProvider := range authProviders.Items {
-			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.LicenseProvider, &authProvider); err != nil {
+			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.Entitlements, &authProvider); err != nil {
 				return fmt.Errorf("failed to set auth provider configured status: %w", err)
 			}
 

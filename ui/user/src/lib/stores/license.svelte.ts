@@ -1,11 +1,22 @@
 import { type License } from '$lib/services/admin/types';
 
-const emptyLicense: License = {
+export const emptyLicense: License = {
 	licenseKey: '',
 	source: '',
 	locked: false,
 	enterprise: false,
-	entitlements: null
+	entitlements: {
+		community: false,
+		enterprise: false,
+		cloud: false,
+		enterpriseAuthProviders: false,
+		enterpriseModelProviders: false,
+		users: null,
+		devices: null,
+		memoryMiB: null,
+		cpuMillicores: null,
+		auditLogRetentionDays: null
+	}
 };
 const store = $state<{ current: License; initialize: (license?: License) => void }>({
 	current: emptyLicense,

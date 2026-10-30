@@ -41,8 +41,8 @@ type credentialRequest struct {
 
 type userLimitUnlimited struct{}
 
-func (userLimitUnlimited) UserLimit(context.Context) (gatewayclient.UserLimit, error) {
-	return gatewayclient.UserLimit{Unlimited: true}, nil
+func (userLimitUnlimited) Entitlements(context.Context) (types2.Entitlements, error) {
+	return types2.Entitlements{}, nil
 }
 
 func (s sessionAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {

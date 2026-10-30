@@ -1,3 +1,4 @@
+import { httpErrorReason } from '$lib/errors';
 import { m } from '$lib/i18n';
 import { UserService, type VMCP, type VMCPInstance } from '$lib/services';
 import {
@@ -137,7 +138,7 @@ export async function updateVMcp(
 	if (!startAction(vmcpActionProgress.updatingIds, vmcp.id)) return;
 	const name = vmcp.displayName || m.vmcps_untitled_vmcp();
 	try {
-		await UserService.triggerVMCPUpdate(vmcp.id);
+		await UserService.triggerVMCPUpdate(vmcp.id, { dontLogErrors: true });
 		let updated: VMCP | undefined;
 		await poll(
 			async () => {
@@ -150,9 +151,10 @@ export async function updateVMcp(
 		if (isCancelled?.() || !updated || vmcpNeedsUpdate(updated)) return;
 		onUpdated?.(updated);
 		success.add(m.vmcps_updated_named({ name }));
-	} catch {
+	} catch (err) {
+		// One toast that says why, like the plan not having room for the update.
 		if (!isCancelled?.()) {
-			errors.append(m.vmcps_failed_to_update());
+			errors.append(httpErrorReason(err) ?? m.vmcps_failed_to_update());
 		}
 	} finally {
 		vmcpActionProgress.updatingIds.delete(vmcp.id);

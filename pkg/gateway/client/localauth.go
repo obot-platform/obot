@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/system"
@@ -132,8 +133,8 @@ func (c *Client) createLocalAuthUser(ctx context.Context, email, passwordHash st
 			}
 		}
 
-		if err := lockUserCreation(tx); err != nil {
-			return err
+		if err := db.Lock(tx, db.UserCreationLock); err != nil {
+			return fmt.Errorf("failed to lock user creation: %w", err)
 		}
 
 		if bootstrap {

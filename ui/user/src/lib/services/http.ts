@@ -1,4 +1,9 @@
-import { UNAUTHORIZED_PATHS } from '$lib/constants';
+import {
+	ENVIRONMENT_RESTRICTED_COOKIE,
+	ENVIRONMENT_RESTRICTED_LOGIN_PATH,
+	UNAUTHORIZED_PATHS
+} from '$lib/constants';
+import { hasCookie } from '$lib/cookies';
 import { createHttpError } from '$lib/errors';
 import { getLocale } from '$lib/i18n';
 import { profile } from '$lib/stores';
@@ -62,6 +67,25 @@ function handle401Redirect() {
 	}
 }
 
+// handleRestrictedSignOut sends an open page to the login page once the server has signed its user out of a
+// restricted environment, so the login page can say why. Other 402s, like a plan's limit, leave the page alone.
+function handleRestrictedSignOut() {
+	if (typeof window === 'undefined') return;
+	if (UNAUTHORIZED_PATHS.has(window.location.pathname)) return;
+	if (hasCookie(ENVIRONMENT_RESTRICTED_COOKIE)) {
+		window.location.href = ENVIRONMENT_RESTRICTED_LOGIN_PATH;
+	}
+}
+
+// handleSignedOut follows the server when it ends the session.
+function handleSignedOut(status: number) {
+	if (status === 401) {
+		handle401Redirect();
+	} else if (status === 402) {
+		handleRestrictedSignOut();
+	}
+}
+
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 	const resp = await doGetForResponse(path, opts);
 
@@ -91,9 +115,7 @@ export async function doGetForResponse(path: string, opts?: GetOptions): Promise
 	});
 
 	if (!resp.ok) {
-		if (resp.status === 401) {
-			handle401Redirect();
-		}
+		handleSignedOut(resp.status);
 		const body = await resp.text();
 		const e = createHttpError(resp.status, path, body);
 		if (opts?.dontLogErrors) {
@@ -131,8 +153,8 @@ export async function doDelete(
 		...(opts?.keepalive ? { keepalive: true } : { signal: opts?.signal })
 	});
 
-	if (!resp.ok && resp.status === 401) {
-		handle401Redirect();
+	if (!resp.ok) {
+		handleSignedOut(resp.status);
 	}
 	return opts?.responseHandler?.(resp, path, opts) ?? handleResponse(resp, path, opts);
 }
@@ -213,8 +235,8 @@ export async function doWithBody(
 			signal: opts?.signal
 		});
 
-		if (!resp.ok && resp.status === 401) {
-			handle401Redirect();
+		if (!resp.ok) {
+			handleSignedOut(resp.status);
 		}
 		return opts?.responseHandler?.(resp, path, opts) ?? handleResponse(resp, path, opts);
 	} catch (e) {

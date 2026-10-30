@@ -169,7 +169,7 @@ func TestRequireEntitlement(t *testing.T) {
 	if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected entitlement to be accepted")
 	}
-	entitlements, err := provider.Entitlements(ctx)
+	entitlements, err := provider.codes(ctx)
 	if err != nil {
 		t.Fatalf("expected entitlements lookup to succeed: %v", err)
 	}
@@ -410,7 +410,7 @@ func TestValidateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 	if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected entitlement to be cleared")
 	}
-	entitlements, err := provider.Entitlements(ctx)
+	entitlements, err := provider.codes(ctx)
 	if err != nil {
 		t.Fatalf("expected entitlements lookup to succeed: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
 	if err := replicaOne.SetLicenseKey(ctx, "license-one"); err != nil {
 		t.Fatalf("expected first license key to be stored: %v", err)
 	}
-	entitlements, err := replicaTwo.Entitlements(ctx)
+	entitlements, err := replicaTwo.codes(ctx)
 	if err != nil {
 		t.Fatalf("expected second replica to load first license: %v", err)
 	}
@@ -469,7 +469,7 @@ func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
 	if err := replicaOne.SetLicenseKey(ctx, "license-two"); err != nil {
 		t.Fatalf("expected replacement license key to be stored: %v", err)
 	}
-	entitlements, err = replicaTwo.Entitlements(ctx)
+	entitlements, err = replicaTwo.codes(ctx)
 	if err != nil {
 		t.Fatalf("expected second replica to refresh replacement license: %v", err)
 	}
@@ -483,7 +483,7 @@ func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
 	if requireValidLicense(ctx, t, replicaTwo) {
 		t.Fatal("expected second replica to clear its cached license after removal")
 	}
-	entitlements, err = replicaTwo.Entitlements(ctx)
+	entitlements, err = replicaTwo.codes(ctx)
 	if err != nil {
 		t.Fatalf("expected second replica entitlement lookup after removal to succeed: %v", err)
 	}
@@ -755,7 +755,7 @@ func TestRemoveLicenseKeyFallsBackToCommunityLicense(t *testing.T) {
 				if err != nil {
 					t.Fatalf("expected entitlements lookup to succeed: %v", err)
 				}
-				if !slices.Equal(entitlements, tt.wantEntitlements) {
+				if !slices.Equal(Codes(entitlements), tt.wantEntitlements) {
 					t.Fatalf("expected entitlements %v, got %v", tt.wantEntitlements, entitlements)
 				}
 			}
@@ -799,7 +799,7 @@ func TestRejectedLicenseKeyStaysInEffectUntilRemoved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected entitlements lookup to succeed: %v", err)
 	}
-	if !slices.Equal(entitlements, []string{CommunityEntitlement}) {
+	if !slices.Equal(Codes(entitlements), []string{CommunityEntitlement}) {
 		t.Fatalf("expected the Community license after removal, got %v", entitlements)
 	}
 }

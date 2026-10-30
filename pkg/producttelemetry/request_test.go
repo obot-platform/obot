@@ -39,7 +39,7 @@ type requestGateway struct {
 	dayEnd         time.Time
 }
 
-type entitlementProviderFunc func(context.Context) ([]string, error)
+type entitlementProviderFunc func(context.Context) (clienttypes.Entitlements, error)
 
 type errorStorageReader struct {
 	err error
@@ -159,12 +159,14 @@ func (g *requestGateway) recordWindow(start, end time.Time) {
 	}
 }
 
-func (f entitlementProviderFunc) Entitlements(ctx context.Context) ([]string, error) {
+func (f entitlementProviderFunc) Entitlements(ctx context.Context) (clienttypes.Entitlements, error) {
 	return f(ctx)
 }
 
 func testEntitlements(values ...string) licenseEntitlementProvider {
-	return entitlementProviderFunc(func(context.Context) ([]string, error) { return values, nil })
+	return entitlementProviderFunc(func(context.Context) (clienttypes.Entitlements, error) {
+		return license.Features(values), nil
+	})
 }
 
 func testStorageClient(objects ...kclient.Object) storage.Client {
@@ -417,8 +419,8 @@ func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
 		t.Context(),
 		newRequestGateway(),
 		testStorageClient(),
-		entitlementProviderFunc(func(context.Context) ([]string, error) {
-			return nil, errors.New("license unavailable")
+		entitlementProviderFunc(func(context.Context) (clienttypes.Entitlements, error) {
+			return clienttypes.Entitlements{}, errors.New("license unavailable")
 		}),
 		"docker",
 	)

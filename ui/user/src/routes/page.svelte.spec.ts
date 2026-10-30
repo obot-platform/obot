@@ -12,7 +12,7 @@ const oktaProvider = {
 	icon: '/okta.svg'
 } as AuthProvider;
 
-function signedOutProfile(accountInactive: boolean): Profile {
+function signedOutProfile(accountInactive: boolean, environmentRestricted = false): Profile {
 	return {
 		id: '',
 		email: '',
@@ -22,16 +22,17 @@ function signedOutProfile(accountInactive: boolean): Profile {
 		groups: [],
 		unauthorized: true,
 		accountInactive,
+		environmentRestricted,
 		username: ''
 	};
 }
 
-function renderHomePage(accountInactive: boolean) {
+function renderHomePage(accountInactive: boolean, environmentRestricted = false) {
 	return render(HomePage, {
 		data: {
 			loggedIn: false,
 			authProviders: [oktaProvider],
-			profile: signedOutProfile(accountInactive)
+			profile: signedOutProfile(accountInactive, environmentRestricted)
 		} as unknown as PageProps['data'],
 		params: {}
 	});
@@ -46,6 +47,15 @@ describe('home page', () => {
 			.toHaveTextContent(
 				'You are not authorized to access this application. Contact your administrator.'
 			);
+		await expect.element(page.getByRole('button', { name: /Continue with Okta/ })).toBeVisible();
+	});
+
+	it('tells a user signed out of a restricted environment why', async () => {
+		renderHomePage(false, true);
+
+		await expect
+			.element(page.getByRole('alert'))
+			.toHaveTextContent('This environment has exceeded its plan limits. Contact an admin.');
 		await expect.element(page.getByRole('button', { name: /Continue with Okta/ })).toBeVisible();
 	});
 

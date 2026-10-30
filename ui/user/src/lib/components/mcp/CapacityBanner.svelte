@@ -62,11 +62,14 @@
 	<div class="bg-base-300 dark:bg-base-200 p-4 shadow-sm">
 		<div class="mb-3 flex items-center gap-1">
 			<h3 class="text-sm font-semibold">{m.mcps_capacity_title()}</h3>
-			{#if capacityInfo.source === 'resourceQuota'}
+			{#if capacityInfo.source === 'resourceQuota' || capacityInfo.source === 'plan'}
 				<span
 					class="text-muted-content"
 					use:tooltip={{
-						text: m.mcps_capacity_quota_tooltip(),
+						text:
+							capacityInfo.source === 'plan'
+								? m.mcps_capacity_plan_tooltip()
+								: m.mcps_capacity_quota_tooltip(),
 						disablePortal: true
 					}}
 				>

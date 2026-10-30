@@ -151,6 +151,26 @@ func (in AuthProviderStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BillingSubscription) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.BillingSubscription"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BillingSubscriptionList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.BillingSubscriptionList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BillingSubscriptionPlan) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.BillingSubscriptionPlan"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in BillingSubscriptionStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.BillingSubscriptionStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ClaudeSessionRepository) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ClaudeSessionRepository"
 }

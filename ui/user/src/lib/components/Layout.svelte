@@ -217,7 +217,9 @@
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations?.length ?? 0) > 0
 	);
-	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
+	const isNearUserLimit = $derived(
+		validateVersionUserLimit(version.current) && !version.current.billingEnabled
+	);
 
 	let routes = $derived([
 		...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
@@ -334,6 +336,7 @@
 
 	let logoVariant = $derived.by(() => {
 		if (version.current.enterprise) return 'enterprise' as const;
+		if (version.current.billingEnabled) return 'default' as const;
 		return 'community' as const;
 	});
 	$effect(() => {
@@ -450,13 +453,16 @@
 	}
 
 	const hasCommunityOrEnterpriseLicense = $derived.by(() => {
+		// Obot Cloud is licensed by billing and never needs a community license.
+		if (version.current.billingEnabled) return true;
 		if (version.current.enterprise || licenseStore.current.enterprise) return true;
-		const entitlements = [
-			...(licenseStore.current.entitlements ?? []),
-			...(version.current.licenseEntitlements ?? [])
-		];
+		const { community, enterprise } = licenseStore.current.entitlements;
+		const codes = version.current.licenseEntitlements ?? [];
 		return (
-			entitlements.includes(COMMUNITY_ENTITLEMENT) || entitlements.includes(ENTERPRISE_ENTITLEMENT)
+			community ||
+			enterprise ||
+			codes.includes(COMMUNITY_ENTITLEMENT) ||
+			codes.includes(ENTERPRISE_ENTITLEMENT)
 		);
 	});
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/billing"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -202,6 +203,66 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 			assert.Equal(t, tt.wantResponse, got)
 		})
 	}
+}
+
+func TestMCPCatalogHandlerGetEntryCapacityWithBilling(t *testing.T) {
+	provider := &fakeCapacityInfoProvider{info: types.MCPCapacityInfo{
+		Source:            types.CapacitySourceResourceQuota,
+		CPURequested:      "250m",
+		CPULimit:          "8",
+		MemoryRequested:   "512Mi",
+		MemoryLimit:       "16Gi",
+		ActiveDeployments: 1,
+	}}
+	storage := newFakeStorage(t,
+		&v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace},
+		&v1.MCPServerCatalogEntry{
+			Name: "entry-1", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerCatalogEntrySpec{
+				MCPCatalogName: "catalog-1",
+				Manifest:       types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeContainerized},
+			},
+		},
+		&v1.MCPServer{
+			Name:      "server-1",
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
+		},
+		&v1.BillingSubscription{
+			Name:      billing.Key.Name,
+			Namespace: billing.Key.Namespace,
+			Status: v1.BillingSubscriptionStatus{
+				Entitlements: &types.Entitlements{
+					CPUMillicores: new(int64(1000)),
+					MemoryMiB:     new(int64(4096)),
+				},
+				Usage: types.EntitlementsUsage{CPUMillicores: 900, MemoryMiB: 3000},
+			},
+		},
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/mcp-catalogs/catalog-1/entries/entry-1/mcp-capacity", nil)
+	req.SetPathValue("catalog_id", "catalog-1")
+	req.SetPathValue("entry_id", "entry-1")
+	rec := httptest.NewRecorder()
+	handler := &MCPCatalogHandler{capacityInfoProvider: provider, billing: billing.NewSubscription(storage, nil)}
+	require.NoError(t, handler.GetEntryCapacity(api.Context{
+		ResponseWriter: rec,
+		Request:        req,
+		Storage:        storage,
+	}))
+
+	// The entry's deployments keep their requests, against the plan's limits.
+	var got types.MCPCapacityInfo
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&got))
+	assert.Equal(t, types.MCPCapacityInfo{
+		Source:            types.CapacitySourcePlan,
+		CPURequested:      "250m",
+		CPULimit:          "1",
+		MemoryRequested:   "512Mi",
+		MemoryLimit:       "4Gi",
+		ActiveDeployments: 1,
+	}, got)
 }
 
 func TestNormalizeName(t *testing.T) {

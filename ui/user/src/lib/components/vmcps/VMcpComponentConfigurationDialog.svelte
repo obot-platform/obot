@@ -10,7 +10,7 @@
 		selectedConfigurationOption
 	} from '$lib/components/mcp/configurationOptions';
 	import McpServerIcon from '$lib/components/vmcps/McpServerIcon.svelte';
-	import { isAbortError } from '$lib/errors';
+	import { httpErrorReason, isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { LocalizedString } from '$lib/paraglide/messages';
@@ -280,8 +280,10 @@
 				!hasUserAllowedNonHeaderConfiguration && forceSingleUser
 			);
 			dialog?.close();
-		} catch {
-			error = failureMessage;
+		} catch (err) {
+			// The server's reason, like a plan without room, says more than the failure alone.
+			const reason = httpErrorReason(err);
+			error = reason ? `${failureMessage} ${reason}` : failureMessage;
 		} finally {
 			saving = false;
 		}

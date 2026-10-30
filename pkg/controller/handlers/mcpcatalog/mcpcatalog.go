@@ -20,6 +20,7 @@ import (
 	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/billing"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/git"
 	"github.com/obot-platform/obot/pkg/gitcredential"
@@ -211,8 +212,17 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// delete a freshly detached entry
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
 	applyObjects := func() error {
-		if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
+		refused, err := applyWithinPlan(req.Ctx, app, mcpCatalog, toAdd)
+		if err != nil {
 			return err
+		}
+		if len(refused) > 0 {
+			for sourceURL, errMsg := range refused {
+				addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+			}
+			if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
+				return fmt.Errorf("failed to update catalog status: %w", err)
+			}
 		}
 		if forceSync {
 			delete(mcpCatalog.Annotations, v1.MCPCatalogSyncAnnotation)
@@ -272,6 +282,37 @@ func (h *Handler) SyncNow(ctx context.Context, client kclient.WithWatch, key kcl
 		Name:      key.Name,
 		Key:       key.String(),
 	}, discardResponse{})
+}
+
+// applyWithinPlan applies the catalog's objects. Each vMCP is applied on its own, and only if hosted MCP servers stay
+// within the plan after it. It returns why vMCPs were left out, by source. A vMCP left out keeps its current version,
+// since the apply doesn't prune.
+func applyWithinPlan(ctx context.Context, app apply.Apply, catalog *v1.MCPCatalog, objs []kclient.Object) (map[string]string, error) {
+	var (
+		others []kclient.Object
+		vmcps  []*v1.VMCP
+	)
+	for _, obj := range objs {
+		if vmcp, ok := obj.(*v1.VMCP); ok {
+			vmcps = append(vmcps, vmcp)
+		} else {
+			others = append(others, obj)
+		}
+	}
+	if err := app.Apply(ctx, catalog, others...); err != nil {
+		return nil, err
+	}
+
+	refused := make(map[string]string)
+	for _, vmcp := range vmcps {
+		err := app.Apply(ctx, catalog, vmcp)
+		if refusal, ok := billing.Refusal(err); ok {
+			addSyncError(refused, vmcp.Spec.SourceURL, fmt.Sprintf("vMCP %s: %s", vmcp.Name, refusal.Message))
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	return refused, nil
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {

@@ -25,6 +25,7 @@
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto, resolve } from '$lib/url';
+	import { connectionsBlocked } from '$lib/utils';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import ConnectToServer from './ConnectToServer.svelte';
@@ -188,9 +189,7 @@
 	let canCreateAnotherMultiUserServer = $derived(
 		isMultiUserCatalogEntry(entry) && (!!catalogID || !!workspaceID) && configuredServers.length > 0
 	);
-	let hasLicenseEntitlementViolations = $derived(
-		(version.current.licenseEntitlementViolations || []).length > 0
-	);
+	let connectBlocked = $derived(connectionsBlocked(version.current));
 	let hasActions = $derived.by(() => {
 		return Boolean(
 			(entry && server && isServerOwner) ||
@@ -243,7 +242,7 @@
 	let connectionDisabled = $derived(
 		Boolean(
 			loading ||
-			hasLicenseEntitlementViolations ||
+			connectBlocked ||
 			(isMultiUserCatalogEntryRow && !catalogID && !workspaceID) ||
 			!canConnect ||
 			(requiresStaticOAuth && oauthConfigured === false)
@@ -337,7 +336,7 @@
 		class="btn btn-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
 		class:hidden={!showConnectButton}
 		use:tooltip={{
-			text: hasLicenseEntitlementViolations
+			text: connectBlocked
 				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
 				: isMultiUserCatalogEntryRow && !catalogID && !workspaceID
 					? m.mcps_servers_actions_multi_user_entry_tooltip()
@@ -488,7 +487,7 @@
 				{/if}
 			</p>
 		{/if}
-		{#if hasLicenseEntitlementViolations}
+		{#if connectBlocked}
 			<p class="mb-2 text-center text-muted-content">
 				{m.mcps_servers_actions_license_disabled()}
 			</p>
@@ -512,7 +511,7 @@
 							server
 						});
 					}}
-					disabled={hasLicenseEntitlementViolations}
+					disabled={connectBlocked}
 				>
 					{#if isMultiUserCatalogEntry(entry)}
 						{m.mcps_servers_launch_server()}

@@ -64,8 +64,10 @@ type Client struct {
 	serviceAccountCacheLock   sync.RWMutex
 	serviceAccountCache       map[[32]byte]serviceAccountValidationCacheEntry
 	serviceAccountCacheTTL    time.Duration
-	deviceCreationLock        sync.Mutex
+	locks                     sync.Map
 	auditLogCleanupInterval   time.Duration
+	auditLogRetention         AuditLogRetention
+	retentionCleanupOnce      sync.Once
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration
 	deviceScanDeleteBatchSize int
@@ -78,7 +80,13 @@ type Client struct {
 	claudeProvisionGateSlot chan struct{}
 }
 
+// New creates a gateway client that keeps audit logs for the given number of days.
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
+	return NewWithAuditLogRetention(ctx, db, storageClient, encryptionConfig, mcpOAuthTokenTrigger, ownerEmails, adminEmails, auditLogPersistenceInterval, auditLogBatchSize, FixedAuditLogRetention(auditLogRetentionDays, llmAuditLogRetentionDays), deviceScanRetentionDays, llmAuditEnabled)
+}
+
+// NewWithAuditLogRetention creates a gateway client that reads its audit log retention on every cleanup pass.
+func NewWithAuditLogRetention(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize int, auditLogRetention AuditLogRetention, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -110,6 +118,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		llmAuditBatchSize:         defaultLLMAuditLogBatchSize,
 		llmAuditEnabled:           llmAuditEnabled,
 		auditLogCleanupInterval:   defaultAuditLogCleanupInterval,
+		auditLogRetention:         auditLogRetention,
 		auditLogDeleteBatchSize:   defaultAuditLogDeleteBatchSize,
 		deviceScanCleanupInterval: defaultDeviceScanCleanupInterval,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
@@ -123,7 +132,6 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runPendingStateCleanup(ctx)
 	go c.runTokenCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
 	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	go c.runUserLifecycleEventDelivery(ctx)
 	go c.runSCIMGroupDeletionMarkExpiry(ctx)

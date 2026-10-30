@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/guardrails"
+	"github.com/obot-platform/obot/pkg/mcp/rpcerror"
 
-	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
 	"github.com/obot-platform/mmmcp/component"
@@ -29,6 +29,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/billing"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -40,10 +41,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
-)
-
-const (
-	maxJSONRPCErrorRequestBody = 1 << 20
 )
 
 var (
@@ -109,40 +106,13 @@ func mcpJSONResponse(body []byte) *mcpResponse {
 }
 
 func mcpJSONRPCErrorResponse(req *http.Request, rpcErr error) *mcpResponse {
-	if req.Method != http.MethodPost || req.Body == nil {
-		return nil
+	message := rpcErr.Error()
+	if httpErr, ok := rpcErr.(*types.ErrHTTP); ok {
+		// The client shows the message to its user, so it's said without the status.
+		message = httpErr.Message
 	}
-
-	decoded, _, err := decodeMCPHookBody(req.Body, req.Header.Get("Content-Encoding"))
-	if err != nil {
-		return nil
-	}
-
-	defer decoded.Close()
-
-	body, err := io.ReadAll(io.LimitReader(decoded, maxJSONRPCErrorRequestBody+1))
-	if err != nil || len(body) > maxJSONRPCErrorRequestBody {
-		return nil
-	}
-
-	msg, err := jsonrpc.DecodeMessage(body)
-	if err != nil {
-		return nil
-	}
-
-	call, ok := msg.(*jsonrpc.Request)
-	if !ok || call == nil || !call.IsCall() {
-		return nil
-	}
-
-	response, err := jsonrpc.EncodeMessage(&jsonrpc.Response{
-		ID: call.ID,
-		Error: &jsonrpc.Error{
-			Code:    jsonrpc.CodeInternalError,
-			Message: rpcErr.Error(),
-		},
-	})
-	if err != nil {
+	response, ok := rpcerror.Answer(req, message)
+	if !ok {
 		return nil
 	}
 
@@ -270,7 +240,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			return nil
 		}
 
-		err = fmt.Errorf("failed to ensure server is deployed: %w", err)
+		err = deploymentError(err)
 		if response := mcpJSONRPCErrorResponse(req.Request, err); response != nil {
 			response.write(req.ResponseWriter, nil)
 
@@ -552,6 +522,15 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 		}
 	}
 	r.Out.URL.RawQuery = upstreamQuery.Encode()
+}
+
+// deploymentError is what a client is told when its server can't be deployed. A plan without room for the server is
+// said as it is, since the client shows the message to its user.
+func deploymentError(err error) error {
+	if refusal, ok := billing.Refusal(err); ok {
+		return refusal
+	}
+	return fmt.Errorf("failed to ensure server is deployed: %w", err)
 }
 
 func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, error) {
