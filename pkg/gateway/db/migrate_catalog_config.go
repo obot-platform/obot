@@ -213,7 +213,7 @@ func flattenStoredMCPConfig(data []byte, server bool) ([]byte, error) {
 	if !changed {
 		return nil, nil
 	}
-	if err := (types.MCPServerManifest{Config: config}).ValidateConfig(); err != nil {
+	if err := types.ValidateMCPConfigStructure(config); err != nil {
 		if sourceManaged {
 			// The next catalog sync replaces the entry, so it must not block startup.
 			return nil, nil

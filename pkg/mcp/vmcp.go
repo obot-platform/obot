@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -163,8 +164,14 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}
 
 	components := make([]ComponentServer, 0, len(configuredComponents))
+	injectObotHeaders := make(map[types.ObotHeader]struct{})
 	for _, component := range configuredComponents {
 		server := serversByComponent[component.ID]
+		if types.SupportsObotHeaders(server.Spec.Manifest.Runtime) {
+			for _, header := range server.Spec.Manifest.InjectObotHeaders {
+				injectObotHeaders[header] = struct{}{}
+			}
+		}
 		connectID := server.Name
 		if connections[component.ID] != "" {
 			connectID = connections[component.ID]
@@ -207,6 +214,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		OwnerUserID:          vmcp.Spec.UserID,
 		MCPServerNamespace:   vmcp.Namespace,
 		Components:           components,
+		InjectObotHeaders:    slices.Collect(maps.Keys(injectObotHeaders)),
 		Webhooks:             webhooks,
 		StartupTimeout:       types.DefaultStartupTimeoutSeconds * time.Second,
 		AuditLogMetadata: map[string]string{

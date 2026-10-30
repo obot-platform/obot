@@ -34,6 +34,7 @@
 		hasSecretBinding,
 		isKubernetesRuntimeBackend,
 		sanitizeEgressDomains,
+		supportsObotHeaders,
 		sanitizeResourceRuntimeConfig,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
@@ -234,6 +235,7 @@
 			const isHostedType = type === 'hosted' || type === 'openapi';
 			return {
 				categories: [''],
+				injectObotHeaders: [],
 				metadata: undefined,
 				name: '',
 				shortDescription: '',
@@ -278,6 +280,7 @@
 				serverUserType: 'multiUser',
 				env: getManifestConfiguration(manifest).env?.map((env) => ({ ...env, value: '' })) ?? [],
 				runtime: manifest.runtime,
+				injectObotHeaders: [...(manifest.injectObotHeaders ?? [])],
 				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
@@ -340,6 +343,7 @@
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
 				runtime: manifest.runtime,
+				injectObotHeaders: [...(manifest.injectObotHeaders ?? [])],
 				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
@@ -568,6 +572,9 @@
 				return config.secretBinding ? { ...config, static: false } : config;
 			}),
 			runtime: baseData.runtime,
+			injectObotHeaders: supportsObotHeaders(baseData.runtime)
+				? baseData.injectObotHeaders
+				: undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
 		};
@@ -1003,7 +1010,7 @@
 	{#if type !== 'openapi'}
 		<RuntimeSelector
 			bind:runtime={formData.runtime}
-			serverType={type}
+			serverType={type === 'multi' && entry?.manifest.runtime === 'remote' ? 'remote' : type}
 			{readonly}
 			onRuntimeChange={handleRuntimeChange}
 		/>
@@ -1069,6 +1076,7 @@
 		{:else if formData.runtime === 'remote' && type === 'multi' && formData.remoteServerConfig}
 			<RemoteRuntimeForm
 				bind:config={formData.remoteServerConfig}
+				bind:injectObotHeaders={formData.injectObotHeaders}
 				variant="server"
 				{readonly}
 				{showRequired}
@@ -1095,6 +1103,7 @@
 		{:else if formData.runtime === 'remote' && formData.remoteConfig}
 			<RemoteRuntimeForm
 				bind:config={formData.remoteConfig}
+				bind:injectObotHeaders={formData.injectObotHeaders}
 				hideHeaders={type !== 'multi'}
 				tunnels={canConfigureTunnels ? mcpTunnels : undefined}
 				tunnelsLoading={canConfigureTunnels && mcpTunnels === undefined}

@@ -1195,5 +1195,16 @@
 	"mcps_filters_kind_builtin": "組み込み",
 	"mcps_filters_kind_mcp_server": "MCP サーバー",
 	"mcps_filters_create_guardrail_filter": "ガードレールフィルターを作成",
-	"mcps_filters_create_guardrail": "ガードレールから作成"
+	"mcps_filters_create_guardrail": "ガードレールから作成",
+	"mcps_inject_headers_title": "Obot ヘッダーを挿入",
+	"mcps_inject_headers_enable": "Obot ヘッダーの挿入を有効にする",
+	"mcps_inject_headers_disable": "Obot ヘッダーの挿入を無効にする",
+	"mcps_inject_headers_description": "この MCP サーバーと共有する呼び出し元情報を選択します。すべてのヘッダーは任意で、初期状態では無効です。Obot は受信した同名ヘッダーを削除し、選択された値だけを設定します。名前やメールアドレスから内部情報が開示される可能性があります。 取得できない値、無効な値、サイズ上限を超える値は省略されます。",
+	"mcps_inject_headers_api_key_name": "検証済み Obot API キーの名前。名前のないキーや API キーを使用しない呼び出し元では省略されます。名前はユーザーが設定・変更でき、一意とは限りません。",
+	"mcps_inject_headers_api_key_id": "検証済み Obot API キーの ID。この Obot インストール内で一意です。API キーを使用しない呼び出し元では省略されます。",
+	"mcps_inject_headers_user_id": "認証された呼び出し元の Obot アカウント ID。API キーの場合、自律エージェントではなくキーの所有アカウントを識別します。",
+	"mcps_inject_headers_user_name": "認証されたアカウントのユーザー名。表示名ではありません。変更される場合があります。",
+	"mcps_inject_headers_user_email": "認証されたプリンシパルのメールアドレス。取得できない場合は省略されます。アドレスの検証済み状態を保証するものではありません。",
+	"mcps_inject_headers_idp_user_id": "認証プロバイダーが割り当てたユーザー識別子。API キーではキー所有者を識別します。取得できない場合や、複数の連携 ID から特定できない場合は省略されます。",
+	"mcps_inject_headers_idp_groups": "Obot に保存された呼び出し元の IdP グループ ID のカンマ区切りのリスト。プロバイダーのプレフィックスを含みます。API キーでは所有者の所属を使用します。Obot のロールやグループ表示名は含まず、空の場合は省略されます。"
 }

@@ -82,8 +82,18 @@ func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
 	}
 	// The gateway authenticates components itself; forwarding the frontend
 	// Authorization header would pin pooled sessions to an expiring token.
-	if !slices.Equal(server.PassthroughHeaders, []string{"X-Tenant"}) {
-		t.Fatalf("vMCP passthrough headers = %#v, want only configured headers", server.PassthroughHeaders)
+	wantPassthrough := []string{
+		"X-Tenant",
+		"X-Obot-Api-Key-Name",
+		"X-Obot-Api-Key-Id",
+		"X-Obot-User-Id",
+		"X-Obot-User-Name",
+		"X-Obot-User-Email",
+		"X-Obot-IDP-User-Id",
+		"X-Obot-IDP-Groups",
+	}
+	if !slices.Equal(server.PassthroughHeaders, wantPassthrough) {
+		t.Fatalf("vMCP passthrough headers = %#v, want configured and trusted attribution headers", server.PassthroughHeaders)
 	}
 	if len(server.Tools) != 1 {
 		t.Fatalf("vMCP tool overrides = %#v, want one", server.Tools)

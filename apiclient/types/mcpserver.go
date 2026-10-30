@@ -167,6 +167,10 @@ type MCPServerCatalogEntryManifest struct {
 
 	Config []MCPConfig `json:"config,omitempty"`
 
+	// InjectObotHeaders selects non-secret caller attribution sent to this HTTP MCP backend.
+	// Empty disables injection. Incoming copies of all supported attribution headers are stripped.
+	InjectObotHeaders []ObotHeader `json:"injectObotHeaders,omitempty"`
+
 	// StaticConfigurationRevision identifies the credential holding the values of Static
 	// configuration. It is assigned by Obot; values supplied by clients are ignored.
 	StaticConfigurationRevision string `json:"staticConfigurationRevision,omitempty"`
@@ -296,12 +300,29 @@ func (m MCPServerCatalogEntryManifest) ValidateConfig() error {
 			return fmt.Errorf("config key %q: userAllowed is only supported on deployed servers", config.Key)
 		}
 	}
-	return (MCPServerManifest{Config: m.Config}).ValidateConfig()
+	return (MCPServerManifest{Config: m.Config, Runtime: m.Runtime, InjectObotHeaders: m.InjectObotHeaders}).ValidateConfig()
 }
 
 func (m MCPServerManifest) ValidateConfig() error {
-	keys := make(map[string]struct{}, len(m.Config))
+	if err := ValidateObotHeaders(m.Runtime, m.InjectObotHeaders); err != nil {
+		return err
+	}
 	for _, config := range m.Config {
+		if config.Usage == Header {
+			if _, reserved := CanonicalObotHeader(config.Key); reserved {
+				return fmt.Errorf("config key %q is reserved for injectObotHeaders", config.Key)
+			}
+		}
+	}
+	return ValidateMCPConfigStructure(m.Config)
+}
+
+// ValidateMCPConfigStructure checks keys and usages without applying policy for
+// new configuration. Storage migrations use it to preserve legacy headers that
+// are now reserved for gateway-derived attribution.
+func ValidateMCPConfigStructure(config []MCPConfig) error {
+	keys := make(map[string]struct{}, len(config))
+	for _, config := range config {
 		if config.Key == "" {
 			return fmt.Errorf("config key must not be empty")
 		}
@@ -386,6 +407,10 @@ type MCPServerManifest struct {
 	DeprecatedMultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
 	Config []MCPConfig `json:"config,omitempty"`
+
+	// InjectObotHeaders selects non-secret caller attribution sent to this HTTP MCP backend.
+	// Empty disables injection. Incoming copies of all supported attribution headers are stripped.
+	InjectObotHeaders []ObotHeader `json:"injectObotHeaders,omitempty"`
 	// StaticConfigurationRevision identifies the source catalog entry's credential holding the
 	// values of Static configuration.
 	StaticConfigurationRevision string `json:"staticConfigurationRevision,omitempty"`
@@ -628,15 +653,16 @@ func (m SystemMCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int 
 // ConvertToCatalogEntry converts an MCPServerManifest to an MCPServerCatalogEntryManifest.
 func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest {
 	catalogManifest := MCPServerCatalogEntryManifest{
-		Metadata:         m.Metadata,
-		Name:             m.Name,
-		ShortDescription: m.ShortDescription,
-		Description:      m.Description,
-		Icon:             m.Icon,
-		Runtime:          m.Runtime,
-		ToolPreview:      m.ToolPreview,
-		Resources:        m.Resources,
-		Config:           m.DeepCopy().Config,
+		Metadata:          m.Metadata,
+		Name:              m.Name,
+		ShortDescription:  m.ShortDescription,
+		Description:       m.Description,
+		Icon:              m.Icon,
+		Runtime:           m.Runtime,
+		ToolPreview:       m.ToolPreview,
+		Resources:         m.Resources,
+		Config:            m.DeepCopy().Config,
+		InjectObotHeaders: append([]ObotHeader(nil), m.InjectObotHeaders...),
 
 		StaticConfigurationRevision: m.StaticConfigurationRevision,
 	}
@@ -683,15 +709,16 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 	catalogConfiguration := catalogEntry.DeepCopy()
 	serverManifest := MCPServerManifest{
 		// Copy common fields
-		Metadata:         catalogEntry.Metadata,
-		Name:             catalogEntry.Name,
-		ShortDescription: catalogEntry.ShortDescription,
-		Description:      catalogEntry.Description,
-		Icon:             catalogEntry.Icon,
-		ToolPreview:      catalogEntry.ToolPreview,
-		Runtime:          catalogEntry.Runtime,
-		Config:           catalogConfiguration.Config,
-		Resources:        catalogEntry.Resources,
+		Metadata:          catalogEntry.Metadata,
+		Name:              catalogEntry.Name,
+		ShortDescription:  catalogEntry.ShortDescription,
+		Description:       catalogEntry.Description,
+		Icon:              catalogEntry.Icon,
+		ToolPreview:       catalogEntry.ToolPreview,
+		Runtime:           catalogEntry.Runtime,
+		Config:            catalogConfiguration.Config,
+		InjectObotHeaders: catalogConfiguration.InjectObotHeaders,
+		Resources:         catalogEntry.Resources,
 
 		StaticConfigurationRevision: catalogEntry.StaticConfigurationRevision,
 	}

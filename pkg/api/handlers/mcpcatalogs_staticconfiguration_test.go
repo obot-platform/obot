@@ -43,6 +43,31 @@ func catalogEntryRequest(t *testing.T, storage kclient.WithWatch, gatewayClient 
 	}, recorder
 }
 
+func TestCatalogEntryNormalizesObotHeadersOnWrite(t *testing.T) {
+	storage := newFakeStorage(t, &v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace})
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	handler := &MCPCatalogHandler{mcpBackend: "docker", sessionManager: &mcp.SessionManager{}}
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:              "attribution",
+		Runtime:           types.RuntimeRemote,
+		RemoteConfig:      &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+		InjectObotHeaders: []types.ObotHeader{"x-obot-user-id"},
+	}
+	req, _ := catalogEntryRequest(t, storage, gatewayClient, http.MethodPost, "/api/mcp-catalogs/catalog-1/entries", manifest, map[string]string{"catalog_id": "catalog-1"})
+	require.NoError(t, handler.CreateEntry(req))
+	var entries v1.MCPServerCatalogEntryList
+	require.NoError(t, storage.List(t.Context(), &entries))
+	require.Len(t, entries.Items, 1)
+	entry := entries.Items[0]
+	require.Equal(t, []types.ObotHeader{types.ObotHeaderUserID}, entry.Spec.Manifest.InjectObotHeaders)
+
+	manifest.InjectObotHeaders = []types.ObotHeader{"X-OBOT-IDP-GROUPS"}
+	req, _ = catalogEntryRequest(t, storage, gatewayClient, http.MethodPut, "/api/mcp-catalogs/catalog-1/entries/"+entry.Name, manifest, map[string]string{"catalog_id": "catalog-1", "entry_id": entry.Name})
+	require.NoError(t, handler.UpdateEntry(req))
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(&entry), &entry))
+	require.Equal(t, []types.ObotHeader{types.ObotHeaderIDPGroups}, entry.Spec.Manifest.InjectObotHeaders)
+}
+
 func TestCatalogEntryStaticConfigurationIsStoredInCredential(t *testing.T) {
 	storage := newFakeStorage(t, &v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace})
 	gatewayClient := newEnforcementTestGatewayClient(t)

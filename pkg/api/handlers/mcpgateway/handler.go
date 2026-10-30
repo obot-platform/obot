@@ -32,6 +32,8 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/attribution"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -264,6 +266,13 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
+	// Authorization has already checked component membership. Only signed,
+	// scoped composite callers may supply attribution generated at the outer gateway.
+	internalComposite := authz.IsCompositeMCPRequest(req.User, req.PathValue("mcp_id"))
+	if !internalComposite {
+		attribution.Strip(req.Request.Header)
+	}
+
 	serverConfig, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
@@ -351,6 +360,22 @@ func (h *Handler) Proxy(req api.Context) error {
 			serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+token)
 		}
 
+		// At the outer vMCP gateway, derive attribution for this frontend request.
+		// At a component gateway, select the trusted values forwarded by mmmcp;
+		// re-deriving them from its pooled JWT would restore the opening caller.
+		var obotHeaders http.Header
+		if internalComposite && serverConfig.Runtime != types.RuntimeVMCP {
+			// The connection's JWT can belong to an earlier request. Use only the
+			// trusted forwarded values selected by this component, including omissions.
+			obotHeaders = attribution.Selected(req.Request.Header, serverConfig.Runtime, serverConfig.InjectObotHeaders)
+			attribution.Strip(req.Request.Header)
+		} else if types.SupportsObotHeaders(serverConfig.Runtime) || serverConfig.Runtime == types.RuntimeVMCP {
+			obotHeaders, err = attribution.ForCaller(req.Context(), req.GatewayClient, serverConfig.InjectObotHeaders, req.User)
+			if err != nil {
+				return err
+			}
+		}
+
 		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
 			TokenSource:   tokenSource,
 			DirectConnect: true,
@@ -380,7 +405,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				return configErr
 			}
 
-			resolvedCall, err = h.resolveGenericToolCall(req.Request, cfg, token, inspect)
+			resolvedCall, err = h.resolveGenericToolCall(req.Request, cfg, token, obotHeaders, inspect)
 			if err != nil {
 				if challenges := component.AuthorizationErrors(err); len(challenges) > 0 {
 					response, captureErr := upstreamOAuthResponse(req, serverConfig, h.mcpSessionManager, challenges)
@@ -442,6 +467,9 @@ func (h *Handler) Proxy(req api.Context) error {
 			Transport: client.Transport,
 			Rewrite: func(r *httputil.ProxyRequest) {
 				rewriteProxyRequest(r, u)
+				for name := range obotHeaders {
+					r.Out.Header.Set(name, obotHeaders.Get(name))
+				}
 			},
 			ModifyResponse: func(resp *http.Response) error {
 				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {
@@ -468,11 +496,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
-	for i := range serverConfig.PassthroughHeaderNames {
-		if i < len(serverConfig.PassthroughHeaderValues) {
-			req.Request.Header.Set(serverConfig.PassthroughHeaderNames[i], serverConfig.PassthroughHeaderValues[i])
-		}
-	}
+	maps.Copy(req.Request.Header, attribution.Configured(nil, serverConfig.PassthroughHeaderNames, serverConfig.PassthroughHeaderValues))
 
 	cfg, err := compositeConfig(req, serverConfig)
 	if err != nil {
@@ -627,17 +651,24 @@ func mcpAuthRequiredResponse(req api.Context, requiresConfig bool) *mcpResponse 
 // that reached the composite server.
 func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName string, authorizedMCPIDs []string, connectionID string, now time.Time) persistent.TokenContext {
 	tokenContext := persistent.TokenContext{
-		Audience:          audience,
-		IssuedAt:          persistent.NewTime(now),
-		ExpiresAt:         persistent.NewTime(now.Add(10 * time.Minute)),
-		UserID:            caller.GetUID(),
-		UserName:          caller.GetName(),
-		UserEmail:         cmp.Or(caller.GetExtra()["email"]...),
-		UserGroups:        []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
-		MCPID:             mcpServerName,
-		OAuthClientID:     cmp.Or(caller.GetExtra()["oauth_client_id"]...),
-		OAuthConnectionID: connectionID,
-		AuthorizedMCPIDs:  authorizedMCPIDs,
+		Audience:              audience,
+		IssuedAt:              persistent.NewTime(now),
+		ExpiresAt:             persistent.NewTime(now.Add(10 * time.Minute)),
+		UserID:                caller.GetUID(),
+		UserName:              caller.GetName(),
+		UserEmail:             cmp.Or(caller.GetExtra()["email"]...),
+		UserGroups:            []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
+		MCPID:                 mcpServerName,
+		OAuthClientID:         cmp.Or(caller.GetExtra()["oauth_client_id"]...),
+		OAuthConnectionID:     connectionID,
+		AuthorizedMCPIDs:      authorizedMCPIDs,
+		AuthProviderName:      firstExtra(caller.GetExtra(), "auth_provider_name"),
+		AuthProviderNamespace: firstExtra(caller.GetExtra(), "auth_provider_namespace"),
+	}
+	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
+		tokenContext.APIKeyID = fmt.Sprint(key.ID)
+		tokenContext.APIKeyName = key.Name
+		tokenContext.APIKeyRawName = firstExtra(caller.GetExtra(), principal.APIKeyRawNameExtra)
 	}
 	if authz.IsClaudeEnvironment(caller) {
 		tokenContext.UserGroups = append(tokenContext.UserGroups, types.GroupClaudeEnvironment)

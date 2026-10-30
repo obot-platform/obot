@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -15,6 +16,7 @@ import (
 	"github.com/oasdiff/yaml"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp/attribution"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/version"
 )
@@ -117,7 +119,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 		}
 		req.Header.Set("Accept", "application/json,text/event-stream")
 		req.Header.Set("Content-Type", "application/json")
-		copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
+		maps.Copy(req.Header, attribution.Configured(nil, server.PassthroughHeaderNames, server.PassthroughHeaderValues))
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -133,7 +135,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 				req, err := http.NewRequestWithContext(ctx, http.MethodDelete, url, nil)
 				if err == nil {
 					req.Header.Set("Mcp-Session-Id", sessionID)
-					copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
+					maps.Copy(req.Header, attribution.Configured(nil, server.PassthroughHeaderNames, server.PassthroughHeaderValues))
 					_, _ = http.DefaultClient.Do(req)
 				}
 			}
@@ -151,7 +153,7 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 		req.Header.Set("Accept", "text/event-stream")
-		copyHeaders(req.Header, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
+		maps.Copy(req.Header, attribution.Configured(nil, server.PassthroughHeaderNames, server.PassthroughHeaderValues))
 
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
@@ -288,6 +290,10 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		Version: version.Get().String(),
 	}
 
+	passthroughHeaders := slices.DeleteFunc(slices.Clone(server.PassthroughHeaderNames), func(name string) bool {
+		_, reserved := types.CanonicalObotHeader(name)
+		return reserved
+	})
 	if server.Runtime == types.RuntimeVMCP {
 		config.ToolSearch = server.ToolSearch
 		config.RequestScopedDiscovery = true
@@ -295,7 +301,11 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		// Component connections are authenticated by the gateway's composite OAuth
 		// handler, not the frontend Authorization header: pooled sessions replay
 		// the headers of the request that opened them long after it expires.
-		passthroughHeaders := slices.Clone(server.PassthroughHeaderNames)
+		// Attribution was derived before the loopback and travels independently
+		// of Authorization. Each component gateway applies its own selections.
+		for _, name := range types.ObotHeaders() {
+			passthroughHeaders = append(passthroughHeaders, string(name))
+		}
 
 		servers := make([]mmmcpconfig.Server, 0, len(server.Components))
 
@@ -344,11 +354,18 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 
 	componentName := replacer.Replace(serverName)
 
+	headers := make(map[string]string)
+	for name, values := range attribution.Configured(server.Headers, nil, nil) {
+		if values[0] != "" {
+			headers[name] = values[0]
+		}
+	}
+
 	config.Servers = []mmmcpconfig.Server{{
 		Name:               componentName,
 		URL:                server.URL,
-		Headers:            keyValueSliceToMap(server.Headers),
-		PassthroughHeaders: server.PassthroughHeaderNames,
+		Headers:            headers,
+		PassthroughHeaders: passthroughHeaders,
 		Command:            server.Command,
 		Args:               slices.Clone(server.Args),
 		Env:                completeEnv,
@@ -466,18 +483,4 @@ func webhookServerName(webhook Webhook, replacer *strings.Replacer) string {
 		name = replacer.Replace(webhook.DisplayName)
 	}
 	return name
-}
-
-func keyValueSliceToMap(values []string) map[string]string {
-	if len(values) == 0 {
-		return nil
-	}
-
-	result := make(map[string]string, len(values))
-	for _, value := range values {
-		if k, v, ok := strings.Cut(value, "="); ok && v != "" {
-			result[k] = v
-		}
-	}
-	return result
 }
