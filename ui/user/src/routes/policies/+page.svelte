@@ -56,9 +56,10 @@
 
 	let suggestions = $state<Insight[]>([]);
 
-	async function loadSuggestions() {
+	// Findings are cached for 30 minutes; after acting on one, refresh so it doesn't linger.
+	async function loadSuggestions(refresh = false) {
 		try {
-			const insights = await getSupervisorInsights(false, { dontLogErrors: true });
+			const insights = await getSupervisorInsights(refresh, { dontLogErrors: true });
 			suggestions = insights.items.filter((i) => i.kind === 'shadow-policy');
 		} catch {
 			// Suggestions are optional; the list works without the Supervisor.
@@ -145,7 +146,7 @@
 				items={suggestions}
 				title={m.supervision_suggests_title()}
 				description={m.supervision_suggests_description()}
-				onActed={() => Promise.all([load(), loadSuggestions()])}
+				onActed={() => Promise.all([load(), loadSuggestions(true)])}
 			/>
 		{/if}
 

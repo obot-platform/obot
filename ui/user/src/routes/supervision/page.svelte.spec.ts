@@ -229,7 +229,9 @@ describe('Supervision overview', () => {
 			await expect
 				.element(briefing.getByText('I watched 12 sessions today', { exact: false }))
 				.toBeInTheDocument();
-			await expect.element(briefing.getByText(/^Written by claude-sonnet-4/)).toBeInTheDocument();
+			await expect
+				.element(briefing.getByText(/^Updated .* · written by claude-sonnet-4/))
+				.toBeInTheDocument();
 			await briefing.getByRole('button', { name: 'Refresh briefing' }).click();
 			await vi.waitFor(() => expect(refreshed).toHaveBeenCalled());
 		});
@@ -294,10 +296,21 @@ describe('Supervision overview', () => {
 			await expect
 				.element(noticed.getByText('2 sessions were seen on only one surface', { exact: false }))
 				.toBeInTheDocument();
+			await expect.element(noticed.getByText(/^Updated /)).toBeInTheDocument();
+
+			const reads = vi.fn();
+			worker.use(
+				http.get('/api/provenance/supervisor/insights', ({ request }) => {
+					reads(new URL(request.url).searchParams.get('refresh'));
+					return HttpResponse.json(supervisorInsights);
+				})
+			);
 			await noticed.getByRole('button', { name: 'Enforce policy' }).click();
 			await vi.waitFor(() =>
 				expect(updated).toHaveBeenCalledWith('builtin-lethal-trifecta', 'enforce')
 			);
+			// Findings are cached for 30 minutes; acting on one forces a fresh read.
+			await vi.waitFor(() => expect(reads).toHaveBeenCalledWith('true'));
 		});
 
 		it('shows the five most severe findings until asked for all', async () => {

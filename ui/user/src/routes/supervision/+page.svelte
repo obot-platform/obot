@@ -333,7 +333,8 @@
 					items={insights?.items ?? []}
 					loading={insightsLoading}
 					error={insightsUnavailable ? m.supervision_insights_unavailable() : ''}
-					onActed={() => Promise.all([loadInsights(), loadStatus(), loadOverview()])}
+					generatedAt={insights?.generatedAt}
+					onActed={() => Promise.all([loadInsights(true), loadStatus(), loadOverview()])}
 				/>
 				<SupervisorAsk
 					intro={m.supervision_ask_intro()}

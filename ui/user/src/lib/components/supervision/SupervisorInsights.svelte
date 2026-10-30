@@ -6,6 +6,7 @@
 	import { performInsightAction, type Insight } from '$lib/services/provenance';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
+	import { formatTimeAgo } from '$lib/time';
 	import { resolve } from '$lib/url';
 	import { Info, Lightbulb, Siren, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -20,6 +21,8 @@
 		emptyText?: string;
 		error?: string;
 		loading?: boolean;
+		/** When the findings were computed; shown as "Updated … ago" when set. */
+		generatedAt?: string;
 		/** How many to show before "Show all"; the most severe come first. */
 		limit?: number;
 		onActed?: (insight: Insight) => void;
@@ -32,6 +35,7 @@
 		emptyText = m.supervision_insights_empty(),
 		error = '',
 		loading = false,
+		generatedAt = '',
 		limit = 5,
 		onActed
 	}: Props = $props();
@@ -95,6 +99,11 @@
 		</h2>
 		{#if description}
 			<p class="text-muted-content text-xs">{description}</p>
+		{/if}
+		{#if generatedAt}
+			<span class="text-muted-content text-xs" title={formatTimeAgo(generatedAt).fullDate}>
+				{m.supervision_insights_updated({ time: formatTimeAgo(generatedAt).relativeTime })}
+			</span>
 		{/if}
 	</div>
 

@@ -20,7 +20,7 @@ const (
 	// supervisorWindow is the window status and insights look back over.
 	supervisorWindow = 24 * time.Hour
 	// supervisorInsightsTTL is how long computed insights are reused.
-	supervisorInsightsTTL = 30 * time.Second
+	supervisorInsightsTTL = 30 * time.Minute
 	// supervisorApprovalAging is how long a pending approval may wait before
 	// it is an insight.
 	supervisorApprovalAging = 10 * time.Minute
@@ -193,7 +193,8 @@ func (h *ProvenanceHandler) SupervisorStatus(req api.Context) error {
 }
 
 // SupervisorInsights reports what the Supervisor noticed in the last 24 hours
-// with a first-person briefing. Results are cached for 30 seconds;
+// with a first-person briefing. Results are cached for 30 minutes, so the briefing (a model call)
+// is written at most that often;
 // ?refresh=true recomputes them.
 func (h *ProvenanceHandler) SupervisorInsights(req api.Context) error {
 	refresh := req.URL.Query().Get("refresh") == "true"
