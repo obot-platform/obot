@@ -1126,6 +1126,9 @@
 			secretBindingTargets={editableSecretBindingTargets}
 			showRequired={showRequired.env}
 			showInvalid={showInvalid.env}
+			runtime={formData.runtime}
+			hasCommand={!!formData.containerizedConfig?.command?.trim()}
+			allowCACertificate={formData.runtime !== 'remote'}
 		/>
 	{:else if formData.runtime !== 'remote'}
 		<CustomConfigurationForm

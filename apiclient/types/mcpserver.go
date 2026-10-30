@@ -1,11 +1,16 @@
 package types
 
 import (
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"net/url"
 	"strings"
 )
+
+// MaxCACertificateBytes bounds the size of a user-supplied CA certificate bundle.
+const MaxCACertificateBytes = 32 * 1024
 
 const (
 	// Runtime constants for different MCP server execution environments
@@ -287,6 +292,10 @@ const (
 	File         Usage = "file"
 	DynamicFile  Usage = "dynamicFile"
 	Interpolated Usage = "interpolated"
+
+	// CACertificate marks a config entry whose value is a PEM-encoded CA certificate
+	// bundle injected into the server's container so it can trust a private CA.
+	CACertificate Usage = "caCertificate"
 )
 
 // ValidateConfig rejects ambiguous keys and missing or unknown usages.
@@ -310,10 +319,50 @@ func (m MCPServerManifest) ValidateConfig() error {
 		}
 		keys[config.Key] = struct{}{}
 		switch config.Usage {
+		case CACertificate:
+			if err := ValidateCACertificate(config.Value); err != nil {
+				return err
+			}
 		case Env, Header, File, DynamicFile, Interpolated:
 		default:
 			return fmt.Errorf("invalid usage %q for config key %q", config.Usage, config.Key)
 		}
+	}
+	return nil
+}
+
+// ValidateCACertificate rejects anything that isn't one or more PEM-encoded
+// certificates: no private keys, no garbage, and a bounded size. An empty
+// string is valid - it means no certificate was supplied.
+func ValidateCACertificate(certPEM string) error {
+	if certPEM == "" {
+		return nil
+	}
+	if len(certPEM) > MaxCACertificateBytes {
+		return fmt.Errorf("CA certificate exceeds the maximum size of %d bytes", MaxCACertificateBytes)
+	}
+
+	rest := []byte(certPEM)
+	blockCount := 0
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			return fmt.Errorf("CA certificate contains a %q block; only CERTIFICATE blocks are allowed", block.Type)
+		}
+		if _, err := x509.ParseCertificate(block.Bytes); err != nil {
+			return fmt.Errorf("invalid CA certificate: %w", err)
+		}
+		blockCount++
+	}
+	if blockCount == 0 {
+		return fmt.Errorf("CA certificate must be one or more PEM-encoded certificates")
+	}
+	if len(strings.TrimSpace(string(rest))) > 0 {
+		return fmt.Errorf("CA certificate contains trailing data that is not a valid PEM block")
 	}
 	return nil
 }

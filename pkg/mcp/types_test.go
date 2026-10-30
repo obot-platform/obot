@@ -157,6 +157,95 @@ func TestServerToServerConfig_ContainerizedHealthzPath(t *testing.T) {
 	}
 }
 
+func TestServerToServerConfig_CACertificateMountsFilesAndEnvVars(t *testing.T) {
+	const cert = "-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----\n"
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "example-server"},
+				Config:    []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	gotKeys := make(map[string]string, len(config.Files))
+	for _, file := range config.Files {
+		gotKeys[file.EnvKey] = file.Data
+	}
+	for _, key := range caCertificateEnvKeys {
+		if gotKeys[key] != cert {
+			t.Fatalf("expected a File for env key %q with the cert data, files: %+v", key, config.Files)
+		}
+	}
+}
+
+func TestServerToServerConfig_CACertificateWrapsContainerizedCommandWhenSet(t *testing.T) {
+	const cert = "-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----\n"
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image:   "test-image",
+					Port:    8080,
+					Path:    "/mcp",
+					Command: "my-mcp-server",
+					Args:    []string{"--flag"},
+				},
+				Config: []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.Command != "/bin/sh" {
+		t.Fatalf("expected command to be wrapped with /bin/sh, got %q", config.Command)
+	}
+	wantArgs := []string{"-c", caTrustStorePreamble, "--", "my-mcp-server", "--flag"}
+	if !slices.Equal(config.Args, wantArgs) {
+		t.Fatalf("unexpected wrapped args: got %v, want %v", config.Args, wantArgs)
+	}
+}
+
+func TestServerToServerConfig_CACertificateDoesNotWrapWithoutExplicitCommand(t *testing.T) {
+	const cert = "-----BEGIN CERTIFICATE-----\nMIIBtest\n-----END CERTIFICATE-----\n"
+	mcpServer := v1.MCPServer{
+		Name: "test-server",
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "test-image",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+				Config: []types.MCPConfig{{Key: "ca-cert", Usage: types.CACertificate, Value: cert}},
+			},
+		},
+	}
+
+	config, _, err := ServerToServerConfig(mcpServer, mcpServer.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if config.Command != "" {
+		t.Fatalf("expected no command wrap without an explicit command override, got %q", config.Command)
+	}
+}
+
 func TestServerToServerConfig_ConfigurationOptions(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Runtime:   types.RuntimeNPX,

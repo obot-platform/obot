@@ -661,6 +661,17 @@ function validateHeaders(type: LaunchServerType | 'filter', headers: MCPServerIn
 	});
 }
 
+// isValidCACertificate does a light client-side sanity check (balanced PEM
+// certificate blocks); the server is the source of truth for real validation.
+export function isValidCACertificate(pem?: string): boolean {
+	const trimmed = pem?.trim();
+	if (!trimmed) return true;
+
+	const begins = trimmed.match(/-----BEGIN CERTIFICATE-----/g)?.length ?? 0;
+	const ends = trimmed.match(/-----END CERTIFICATE-----/g)?.length ?? 0;
+	return begins > 0 && begins === ends;
+}
+
 export const validateRuntimeForm = (
 	formData: RuntimeFormData,
 	type: LaunchServerType | 'filter',
@@ -694,6 +705,11 @@ export const validateRuntimeForm = (
 		missingFields.env = true;
 	}
 	if (hasDuplicateConfigurationOptionValues(formData.env)) {
+		invalid.env = true;
+	}
+
+	const caCertificateEntry = formData.config?.find((c) => c.usage === 'caCertificate');
+	if (caCertificateEntry && !isValidCACertificate(caCertificateEntry.value)) {
 		invalid.env = true;
 	}
 
