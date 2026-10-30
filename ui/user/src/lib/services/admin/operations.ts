@@ -2364,6 +2364,19 @@ export async function listMDMDevices(
 	return response.items ?? [];
 }
 
+export async function listAllMDMDevices(opts?: { fetch?: Fetcher }): Promise<MDMDevice[]> {
+	const response = (await doGet('/mdm/devices', opts)) as { items: MDMDevice[] | null };
+	return response.items ?? [];
+}
+
+export async function deleteMDMDevice(
+	deviceID: string,
+	opts?: { deleteScans?: boolean }
+): Promise<void> {
+	const query = opts?.deleteScans ? '?deleteScans=true' : '';
+	await doDelete(`/mdm/devices/${encodeURIComponent(deviceID)}${query}`);
+}
+
 export async function getMDMConfiguration(
 	id: number | string,
 	opts?: { fetch?: Fetcher }

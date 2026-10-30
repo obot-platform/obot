@@ -54,6 +54,10 @@ func TestMDMRouteAuthorization(t *testing.T) {
 			info: &user.DefaultInfo{Name: "enroll", Groups: []string{types.GroupDeviceEnroll}},
 		},
 		{
+			name: "enrolled device",
+			info: &user.DefaultInfo{Name: "device:device-1", Groups: []string{types.GroupDeviceScans, types.GroupAuthenticated}},
+		},
+		{
 			name: "unauthenticated user",
 			info: &user.DefaultInfo{Name: "anonymous", Groups: []string{UnauthenticatedGroup}},
 		},
@@ -92,6 +96,12 @@ func TestMDMRouteAuthorization(t *testing.T) {
 			name:     "download rendered artifact",
 			method:   http.MethodGet,
 			path:     "/api/mdm/configurations/1/download/macos-jamf",
+			readOnly: true,
+		},
+		{
+			name:     "list all enrolled devices",
+			method:   http.MethodGet,
+			path:     "/api/mdm/devices",
 			readOnly: true,
 		},
 		{
@@ -140,6 +150,11 @@ func TestMDMRouteAuthorization(t *testing.T) {
 			name:   "refresh asset source",
 			method: http.MethodPost,
 			path:   "/api/mdm/asset-source/refresh",
+		},
+		{
+			name:   "delete enrolled device",
+			method: http.MethodDelete,
+			path:   "/api/mdm/devices/device-1",
 		},
 	}
 

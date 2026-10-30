@@ -22,15 +22,26 @@ const (
 // that it presents directly when submitting scans; a request to bind a
 // different key to an existing DeviceID is rejected (anti-takeover).
 type Device struct {
-	ID                 uint       `json:"id" gorm:"primaryKey;autoIncrement"`
-	DeviceID           string     `json:"deviceID" gorm:"uniqueIndex;not null"`                                                   // client-computed, stable
-	MDMConfigurationID uint       `json:"mdmConfigurationID" gorm:"index:idx_devices_configuration_enrolled,priority:1;not null"` // the configuration this device belongs to
-	PublicKey          []byte     `json:"-"`                                                                                      // DER SubjectPublicKeyInfo (PKIX) of the identity key
-	Hostname           string     `json:"hostname,omitempty"`
-	OS                 string     `json:"os,omitempty"`
-	OSVersion          string     `json:"osVersion,omitempty"`
-	EnrolledAt         time.Time  `json:"enrolledAt" gorm:"index:idx_devices_configuration_enrolled,priority:2"`
-	LastSeenAt         *time.Time `json:"lastSeenAt,omitempty"`
+	ID                 uint              `json:"id" gorm:"primaryKey;autoIncrement"`
+	DeviceID           string            `json:"deviceID" gorm:"uniqueIndex;not null"`                                                   // client-computed, stable
+	MDMConfigurationID uint              `json:"mdmConfigurationID" gorm:"index:idx_devices_configuration_enrolled,priority:1;not null"` // the configuration this device belongs to
+	PublicKey          []byte            `json:"-"`                                                                                      // DER SubjectPublicKeyInfo (PKIX) of the identity key
+	Hostname           string            `json:"hostname,omitempty"`
+	OS                 string            `json:"os,omitempty"`
+	OSVersion          string            `json:"osVersion,omitempty"`
+	EnrolledAt         time.Time         `json:"enrolledAt" gorm:"index:idx_devices_configuration_enrolled,priority:2"`
+	LastSeenAt         *time.Time        `json:"lastSeenAt,omitempty"`
+	LatestScan         *DeviceLatestScan `json:"-" gorm:"-"` // derived from the device's latest scan, not stored
+}
+
+// DeviceLatestScan summarizes a device's latest scan for device lists: the scan envelope
+// plus how many of each kind of observation it has, without loading the observations.
+type DeviceLatestScan struct {
+	DeviceScan
+	MCPServerCount int64
+	SkillCount     int64
+	PluginCount    int64
+	ClientCount    int64
 }
 
 // DevicePrincipalName returns the stable principal identity for an enrolled
@@ -55,6 +66,22 @@ func ConvertDevice(d Device) types2.Device {
 	}
 	if d.LastSeenAt != nil {
 		out.LastSeenAt = types2.NewTime(*d.LastSeenAt)
+	}
+	if d.LatestScan != nil {
+		out.LatestScan = &types2.DeviceLatestScan{
+			ID:             d.LatestScan.ID,
+			ScannedAt:      *types2.NewTime(d.LatestScan.ScannedAt),
+			Hostname:       d.LatestScan.Hostname,
+			Username:       d.LatestScan.Username,
+			OS:             d.LatestScan.OS,
+			Arch:           d.LatestScan.Arch,
+			ScannerVersion: d.LatestScan.ScannerVersion,
+			SubmittedBy:    d.LatestScan.SubmittedBy,
+			MCPServerCount: d.LatestScan.MCPServerCount,
+			SkillCount:     d.LatestScan.SkillCount,
+			PluginCount:    d.LatestScan.PluginCount,
+			ClientCount:    d.LatestScan.ClientCount,
+		}
 	}
 	return out
 }

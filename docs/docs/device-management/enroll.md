@@ -33,6 +33,7 @@ Each download's install instructions cover installing, configuring the enrollmen
 - Keys can be named and given an expiration date. The default expiration is one year.
 - Revoking a key stops new devices from enrolling with it. Already-enrolled devices are unaffected.
 - New devices cannot enroll until at least one key exists.
+- New devices cannot enroll once your license's device limit is reached. Remove devices you no longer use from the [Devices](./inventory.md#devices-1) view to free their seats.
 
 ### Settings and updates {#settings-and-updates}
 

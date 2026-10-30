@@ -78,6 +78,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DeviceClientStat":                          schema_obot_platform_obot_apiclient_types_DeviceClientStat(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceEnrollRequest":                       schema_obot_platform_obot_apiclient_types_DeviceEnrollRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceEnrollResponse":                      schema_obot_platform_obot_apiclient_types_DeviceEnrollResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.DeviceLatestScan":                          schema_obot_platform_obot_apiclient_types_DeviceLatestScan(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceList":                                schema_obot_platform_obot_apiclient_types_DeviceList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerDetail":                     schema_obot_platform_obot_apiclient_types_DeviceMCPServerDetail(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceMCPServerOccurrence":                 schema_obot_platform_obot_apiclient_types_DeviceMCPServerOccurrence(ref),
@@ -3379,12 +3380,17 @@ func schema_obot_platform_obot_apiclient_types_Device(ref common.ReferenceCallba
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"latestScan": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.DeviceLatestScan"),
+						},
+					},
 				},
 				Required: []string{"id", "deviceID", "mdmConfigurationID", "enrolledAt"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.DeviceLatestScan", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -3683,6 +3689,98 @@ func schema_obot_platform_obot_apiclient_types_DeviceEnrollResponse(ref common.R
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Device"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_DeviceLatestScan(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "DeviceLatestScan summarizes an enrolled device's latest scan: the scan's metadata and how many MCP servers, skills, plugins, and clients it found.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"scannedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"username": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"os": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"arch": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"scannerVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"submittedBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mcpServerCount": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"skillCount": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"pluginCount": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"clientCount": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"id", "scannedAt", "mcpServerCount", "skillCount", "pluginCount", "clientCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 

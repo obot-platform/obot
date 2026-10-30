@@ -1489,9 +1489,25 @@ export interface MDMDevice {
 	hostname?: string;
 	id: number;
 	lastSeenAt?: string;
+	latestScan?: MDMDeviceLatestScan;
 	mdmConfigurationID: number;
 	os?: string;
 	osVersion?: string;
+}
+
+export interface MDMDeviceLatestScan {
+	id: number;
+	scannedAt: string;
+	hostname?: string;
+	username?: string;
+	os?: string;
+	arch?: string;
+	scannerVersion?: string;
+	submittedBy?: string;
+	mcpServerCount: number;
+	skillCount: number;
+	pluginCount: number;
+	clientCount: number;
 }
 
 // MDMAssetField is one property of the assets manifest's fields JSON

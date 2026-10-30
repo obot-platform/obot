@@ -8,7 +8,7 @@ The Overview is a dashboard that summarizes the submitted scans for the selected
 
 It helps administrators answer questions like:
 
-- How many devices are reporting scan data?
+- How many devices have submitted scans?
 - Which users are submitting scans?
 - Which local AI clients are most common?
 - Which MCP servers and skills appear most often?
@@ -19,15 +19,17 @@ Its inventory totals use the latest scan for each device in the selected window.
 
 ## Devices {#devices-1}
 
-The Devices view lists scanned devices using each device's latest scan.
+The Devices view lists every device enrolled through an enrollment key. These are the devices that count toward your license's device limit.
+
+For each device, the list shows its hostname, device ID, operating system and architecture, and when it enrolled. If the device has submitted a scan, the list also shows details from its latest scan: the user, when it was scanned, and counts of MCP servers, skills, plugins, and clients.
 
 From this view, administrators can:
 
-- Search by device ID or submitting user.
-- See operating system and architecture.
-- See the user who submitted the latest scan.
-- Compare counts for MCP servers, skills, plugins, and clients observed on each device.
+- Search by hostname, device ID, operating system, or user.
+- Remove one or more devices. Removing a device frees its seat, revokes its access right away, and deletes its scan history. Its audit logs are kept. If the device still has a valid enrollment key, it enrolls again automatically the next time it submits a scan or audit log.
 - Open a device detail page.
+
+Scans submitted with `obot scan` from devices that aren't enrolled don't appear in this list, but they're still included in the Overview and in the Clients, MCP Servers, and Skills views.
 
 The device detail page shows metadata from the latest scan and separates the latest inventory into MCP servers, skills, plugins, and clients.
 
@@ -141,7 +143,7 @@ Any authenticated user can submit a device scan.
 
 Reading submitted scan data is limited to users with administrative, owner, or auditor access. In the Obot UI, submitted scans appear in the admin Device Management section. Repeated submissions from the same workstation are grouped as scans from the same device.
 
-Admins and owners can delete an individual device scan from the scan detail page.
+Admins and owners can delete an individual device scan from the scan detail page and remove enrolled devices from the Devices view. Auditors can view enrolled devices but cannot remove them.
 
 Creating the device configuration, changing agent or enforcement settings, and managing enrollment keys require administrative or owner access. Auditors can view the Configuration and Enforcement Decisions views but cannot make changes.
 

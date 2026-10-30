@@ -87,6 +87,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
 	mdmAssets := handlers.NewMDMAssetHandler()
 	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
+	mdmDevices := handlers.NewMDMDevicesHandler()
 	deviceEnroll := handlers.NewDeviceEnrollHandler(services.LicenseProvider)
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
@@ -652,6 +653,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("DELETE /api/mdm/configurations/{id}/enrollment-keys/{key_id}", mdmConfigurations.DeleteEnrollmentKey)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}/devices", mdmConfigurations.ListDevices)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}/download/{slug}", mdmConfigurations.DownloadArtifact)
+
+	// Enrolled devices across all configurations (admin).
+	mux.HandleFunc("GET /api/mdm/devices", mdmDevices.List)
+	mux.HandleFunc("DELETE /api/mdm/devices/{device_id}", mdmDevices.Delete)
 
 	// Device enrollment (authenticated by an enrollment token -> MDMConfiguration principal)
 	mux.HandleFunc("POST /api/mdm/enroll", deviceEnroll.Enroll)
