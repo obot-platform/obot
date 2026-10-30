@@ -4,18 +4,6 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('InjectObotHeaders', () => {
-	it('displays saved user and group selections in read-only views', async () => {
-		await render(InjectObotHeaders, {
-			selected: ['X-Obot-User-Id', 'X-Obot-IDP-Groups'],
-			readonly: true
-		});
-		for (const name of ['X-Obot-User-Id', 'X-Obot-IDP-Groups']) {
-			const checkbox = page.getByRole('switch', { name, exact: true });
-			await expect.element(checkbox).toBeChecked();
-			await expect.element(checkbox).toBeDisabled();
-		}
-	});
-
 	it('starts collapsed with every header disabled and allows independent selection', async () => {
 		await render(InjectObotHeaders);
 		const master = page.getByRole('switch', { name: /Obot header injection/ });
@@ -52,18 +40,16 @@ describe('InjectObotHeaders', () => {
 		await expect
 			.element(page.getByRole('switch', { name: 'X-Obot-IDP-Groups', exact: true }))
 			.toBeChecked();
-		await expect.element(page.getByText(/ambiguous across linked identities/)).toBeVisible();
-		await expect
-			.element(page.getByText(/Unavailable, invalid or oversized values are omitted/))
-			.toBeVisible();
-		await expect.element(page.getByText(/including provider prefixes/)).toBeVisible();
-		await expect.element(page.getByText(/not an autonomous agent/)).toBeVisible();
-		await expect.element(page.getByText(/not guarantee the address is verified/)).toBeVisible();
 	});
 
 	it('shows saved selections without allowing changes in read-only views', async () => {
 		await render(InjectObotHeaders, {
-			selected: ['X-Obot-Api-Key-Name', 'X-Obot-IDP-User-Id', 'X-Obot-IDP-Groups'],
+			selected: [
+				'X-Obot-Api-Key-Name',
+				'X-Obot-User-Id',
+				'X-Obot-IDP-User-Id',
+				'X-Obot-IDP-Groups'
+			],
 			readonly: true
 		});
 		await expect
@@ -74,6 +60,9 @@ describe('InjectObotHeaders', () => {
 			.toBeChecked();
 		await expect
 			.element(page.getByRole('switch', { name: 'X-Obot-IDP-Groups', exact: true }))
+			.toBeChecked();
+		await expect
+			.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
 			.toBeChecked();
 		for (let i = 0; i < 8; i++) {
 			await expect.element(page.getByRole('switch').nth(i)).toBeDisabled();

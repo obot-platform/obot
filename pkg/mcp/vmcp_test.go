@@ -330,7 +330,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
-	require.Equal(t, []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}, serverConfig.InjectObotHeaders, "collect the remote components' selections")
+	require.ElementsMatch(t, []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}, serverConfig.InjectObotHeaders, "collect unique remote component selections")
 	// API clients mint a loopback token for the vMCP, which requires an audience.
 	wantAudiences := []string{"https://obot.example.test/mcp-connect/" + instanceID, "https://obot.example.test/mcp-connect/" + vmcpID}
 	if !slices.Equal(serverConfig.Audiences, wantAudiences) {

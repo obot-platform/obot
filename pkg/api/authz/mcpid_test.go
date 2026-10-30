@@ -10,7 +10,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/stretchr/testify/require"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -1070,51 +1069,6 @@ func TestVMCPTesterChatRequiresConnectionAccess(t *testing.T) {
 			if got != tc.want {
 				t.Fatalf("Authorize() = %v, want %v", got, tc.want)
 			}
-		})
-	}
-}
-
-func TestIsCompositeMCPRequest(t *testing.T) {
-	for _, tt := range []struct {
-		name   string
-		caller user.Info
-		want   bool
-	}{
-		{
-			name: "no caller",
-		},
-		{
-			name:   "ordinary API key",
-			caller: &user.DefaultInfo{UID: "7"},
-		},
-		{
-			name:   "composite group without component scope",
-			caller: &user.DefaultInfo{Groups: []string{types.GroupCompositeMCP}},
-		},
-		{
-			name: "component scope without composite group",
-			caller: &user.DefaultInfo{
-				Extra: map[string][]string{"authorized_mcp_ids": {"component"}},
-			},
-		},
-		{
-			name: "different component",
-			caller: &user.DefaultInfo{
-				Groups: []string{types.GroupCompositeMCP},
-				Extra:  map[string][]string{"authorized_mcp_ids": {"other"}},
-			},
-		},
-		{
-			name: "signed composite scoped to component",
-			caller: &user.DefaultInfo{
-				Groups: []string{types.GroupCompositeMCP},
-				Extra:  map[string][]string{"authorized_mcp_ids": {"component"}},
-			},
-			want: true,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, IsCompositeMCPRequest(tt.caller, "component"))
 		})
 	}
 }

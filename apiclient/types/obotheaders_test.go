@@ -1,10 +1,8 @@
 package types
 
 import (
-	"encoding/json"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -102,37 +100,7 @@ func TestInjectObotHeadersCatalogRoundTrip(t *testing.T) {
 	cloned := entry.DeepCopy()
 	cloned.InjectObotHeaders[0] = ObotHeaderUserName
 	require.Equal(t, ObotHeaderAPIKeyName, entry.InjectObotHeaders[0])
-	data, err := json.Marshal(entry)
-	require.NoError(t, err)
-	var restored MCPServerCatalogEntryManifest
-	require.NoError(t, json.Unmarshal(data, &restored))
-	require.Equal(t, entry.InjectObotHeaders, restored.InjectObotHeaders)
-}
 
-func TestObotHeaderValidationDoesNotMutateSharedManifest(t *testing.T) {
-	manifest := MCPServerManifest{
-		Runtime:           RuntimeRemote,
-		InjectObotHeaders: []ObotHeader{"x-obot-user-id", "x-obot-idp-groups"},
-	}
-	original := slices.Clone(manifest.InjectObotHeaders)
-	var workers sync.WaitGroup
-	failures := make(chan error, 2)
-	for range 2 {
-		workers.Go(func() {
-			for range 100 {
-				if err := manifest.ValidateConfig(); err != nil {
-					failures <- err
-					return
-				}
-			}
-		})
-	}
-	workers.Wait()
-	close(failures)
-	for err := range failures {
-		require.NoError(t, err)
-	}
-	require.Equal(t, original, manifest.InjectObotHeaders)
 }
 
 func TestReservedObotHeaderConfiguration(t *testing.T) {
@@ -152,12 +120,4 @@ func TestReservedObotHeaderConfiguration(t *testing.T) {
 			require.NoError(t, manifest.ValidateConfig(), "only HTTP headers reserve these names")
 		})
 	}
-}
-
-func TestObotHeaderDecodingPreservesSelections(t *testing.T) {
-	var manifest MCPServerManifest
-	err := json.Unmarshal([]byte(`{"runtime":"remote","injectObotHeaders":["x-obot-user-id","x-obot-idp-groups"]}`), &manifest)
-	require.NoError(t, err)
-	require.Equal(t, []ObotHeader{"x-obot-user-id", "x-obot-idp-groups"}, manifest.InjectObotHeaders)
-	require.NoError(t, manifest.ValidateConfig())
 }

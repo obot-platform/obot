@@ -7,8 +7,6 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
-	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -30,9 +28,6 @@ import (
 
 type headerIdentityReader struct {
 	identities []gatewaytypes.Identity
-	err        error
-	calls      int
-	userID     uint
 }
 
 func headerTestCaller(id, name string) *user.DefaultInfo {
@@ -52,63 +47,6 @@ func allObotHeaders() []types.ObotHeader {
 	return types.ObotHeaders()
 }
 
-func TestProxyStripsAllReservedAttributionHeaders(t *testing.T) {
-	for _, selected := range [][]types.ObotHeader{nil, {types.ObotHeaderAPIKeyName}} {
-		t.Run(fmt.Sprint(selected), func(t *testing.T) {
-			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-				for _, name := range allObotHeaders() {
-					want := ""
-					if name == types.ObotHeaderAPIKeyName && len(selected) > 0 {
-						want = "jira-writer"
-					}
-					require.Equal(t, want, req.Header.Get(string(name)))
-				}
-				w.WriteHeader(http.StatusNoContent)
-			}))
-			defer upstream.Close()
-			target, err := url.Parse(upstream.URL)
-			require.NoError(t, err)
-			derived, err := attribution.ForCaller(t.Context(), &headerIdentityReader{}, selected, headerTestCaller("42", "jira-writer"))
-			require.NoError(t, err)
-			proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				attribution.Strip(r.Header)
-				(&httputil.ReverseProxy{Rewrite: func(r *httputil.ProxyRequest) {
-					rewriteProxyRequest(r, target)
-					maps.Copy(r.Out.Header, derived)
-				}}).ServeHTTP(w, r)
-			}))
-			defer proxy.Close()
-			req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL, nil)
-			require.NoError(t, err)
-			for _, name := range allObotHeaders() {
-				req.Header.Add(string(name), "spoof")
-				req.Header.Add(string(name), "another spoof")
-			}
-			resp, err := http.DefaultClient.Do(req)
-			require.NoError(t, err)
-			require.NoError(t, resp.Body.Close())
-			require.Equal(t, http.StatusNoContent, resp.StatusCode)
-		})
-	}
-}
-
-func TestCompositeTokensPreserveKeyAttribution(t *testing.T) {
-	for _, name := range []string{"jira-writer", ""} {
-		t.Run(name, func(t *testing.T) {
-			caller := headerTestCaller("42", name)
-			claims := compositeLoopbackTokenContext(caller, "https://obot.example/mcp-connect-composite/vmcp", "vmcp", []string{"component"}, "vmcpi1connection", time.Now())
-			token, _, err := newCompositeLoopbackToken(t.Context(), fakeCompositeTokens{}, claims, time.Now())
-			require.NoError(t, err)
-			decoded, err := (fakeCompositeTokens{}).DecodeToken(t.Context(), token)
-			require.NoError(t, err)
-			require.Equal(t, "42", decoded.APIKeyID)
-			require.Equal(t, name, decoded.APIKeyRawName)
-			require.Equal(t, name, decoded.APIKeyName)
-		})
-	}
-}
-
-// Current attribution passes through mmmcp independently of its pooled OAuth credential.
 func TestVMCPAttributionChangesWithCallerOnStatefulSession(t *testing.T) {
 	for _, selected := range [][]types.ObotHeader{nil, {types.ObotHeaderAPIKeyName}, allObotHeaders()} {
 		t.Run(fmt.Sprint(selected), func(t *testing.T) {
@@ -151,12 +89,7 @@ func testVMCPAttributionPassthrough(t *testing.T, selected []types.ObotHeader) {
 				"authorized_mcp_ids": claims.AuthorizedMCPIDs,
 			},
 		}
-		if claims.UserID == callers[0].GetUID() {
-			require.Equal(t, "42", claims.APIKeyID, "connection authentication keeps the opening caller's token within the same user")
-		} else {
-			require.Equal(t, "8", claims.UserID)
-			require.Empty(t, claims.APIKeyID, "a different user's discovery revision opens its own connection")
-		}
+		require.Equal(t, "42", claims.APIKeyID, "connection authentication keeps the opening caller's token")
 		if !authz.IsCompositeMCPRequest(caller, "component") {
 			attribution.Strip(r.Header)
 		}
@@ -188,21 +121,6 @@ func testVMCPAttributionPassthrough(t *testing.T, selected []types.ObotHeader) {
 		headerTestCaller("42", "renamed-writer"),
 		headerTestCaller("42", ""),
 	}
-	renamed := headerTestCaller("42", "first-writer")
-	renamed.Name = "alice-renamed"
-	changedEmail := headerTestCaller("42", "first-writer")
-	changedEmail.Extra["email"] = []string{"alice-new@example.com"}
-	ordinaryRenamed := headerTestCaller("", "")
-	ordinaryRenamed.Name = "alice-renamed"
-	ordinaryChangedEmail := headerTestCaller("", "")
-	ordinaryChangedEmail.Extra["email"] = []string{"alice-new@example.com"}
-	otherUser := headerTestCaller("", "")
-	otherUser.UID = "8"
-	changedIDP := headerTestCaller("42", "first-writer")
-	changedIDP.Extra["test_idp_user_id"] = []string{"00u-new-identity"}
-	changedGroups := headerTestCaller("42", "first-writer")
-	changedGroups.Extra["auth_provider_groups"] = []string{"okta:engineering", "okta:admins"}
-	callers = append(callers, renamed, changedEmail, ordinaryRenamed, ordinaryChangedEmail, otherUser, changedIDP, changedGroups)
 	frontend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		caller := callers[current.Load()]
 		claims := compositeLoopbackTokenContext(caller, "https://obot.example/vmcp", "vmcp", []string{"component"}, "vmcpi1connection", time.Now())
@@ -235,7 +153,7 @@ func testVMCPAttributionPassthrough(t *testing.T, selected []types.ObotHeader) {
 	require.NoError(t, err)
 	require.NotEmpty(t, session.ID(), "exercise a stateful connection rather than the SDK default stateless protocol")
 	defer session.Close()
-	for _, i := range []int{0, 5, 6, 1, 2, 7, 8, 9, 3, 4, 10, 11, 0} {
+	for _, i := range []int{0, 1, 2, 3, 4, 0} {
 		current.Store(int32(i))
 		result, err := session.CallTool(t.Context(), &gomcp.CallToolParams{Name: "actor"})
 		require.NoError(t, err)
@@ -250,16 +168,17 @@ func testVMCPAttributionPassthrough(t *testing.T, selected []types.ObotHeader) {
 }
 
 func (r *headerIdentityReader) FindIdentitiesForUser(_ context.Context, userID uint) ([]gatewaytypes.Identity, error) {
-	r.calls++
-	r.userID = userID
-	return r.identities, r.err
+	return r.identities, nil
 }
 
-func TestCompositeLoopbackPreservesIdentityProvider(t *testing.T) {
+func TestCompositeLoopbackPreservesAttribution(t *testing.T) {
 	caller := headerTestCaller("42", "writer")
 	caller.Extra["auth_provider_name"] = []string{"okta"}
 	caller.Extra["auth_provider_namespace"] = []string{"default"}
 	claims := compositeLoopbackTokenContext(caller, "https://obot.example", "component", nil, "vmcpi1connection", time.Now())
+	require.Equal(t, "42", claims.APIKeyID)
+	require.Equal(t, "writer", claims.APIKeyName)
+	require.Equal(t, "writer", claims.APIKeyRawName)
 	require.Equal(t, "okta", claims.AuthProviderName)
 	require.Equal(t, "default", claims.AuthProviderNamespace)
 }

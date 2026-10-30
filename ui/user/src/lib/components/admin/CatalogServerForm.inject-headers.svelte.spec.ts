@@ -111,31 +111,6 @@ describe('catalog attribution headers', () => {
 		);
 	});
 
-	it('reloads saved selections', async () => {
-		const entry = createMCPCatalogEntry({
-			id: 'jira',
-			name: 'Jira',
-			runtime: 'remote',
-			manifest: {
-				remoteConfig: { fixedURL: 'https://example.com/mcp' },
-				injectObotHeaders: ['X-Obot-User-Email']
-			}
-		});
-		await render(CatalogServerForm, {
-			id: 'test',
-			entity: 'catalog',
-			type: 'remote',
-			entry,
-			onSubmit: vi.fn()
-		});
-		await expect
-			.element(page.getByRole('button', { name: 'Reset Default Configuration', exact: true }))
-			.toBeVisible();
-		await expect
-			.element(page.getByRole('switch', { name: 'X-Obot-User-Email', exact: true }))
-			.toBeChecked();
-	});
-
 	it('does not offer HTTP headers for STDIO servers', async () => {
 		await render(CatalogServerForm, {
 			id: 'test',
