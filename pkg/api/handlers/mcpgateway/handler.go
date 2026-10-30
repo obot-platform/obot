@@ -402,7 +402,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				return configErr
 			}
 
-			resolvedCall, err = h.resolveGenericToolCall(req.Request, cfg, token, inspect)
+			resolvedCall, err = h.resolveGenericToolCall(req.Request, cfg, token, obotHeaders, inspect)
 			if err != nil {
 				if challenges := component.AuthorizationErrors(err); len(challenges) > 0 {
 					response, captureErr := upstreamOAuthResponse(req, serverConfig, h.mcpSessionManager, challenges)

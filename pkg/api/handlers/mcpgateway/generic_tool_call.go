@@ -46,12 +46,13 @@ func (e *failedGenericToolCall) Error() string {
 // resolveGenericToolCall resolves a call_tool request before the gateway runs
 // tool-specific hooks or records its audit identity. inspect enables this work
 // when hooks or auditing need to know the underlying operation.
+// obotHeaders supplies gateway-derived attribution for component discovery.
 //
 // A nil call and nil error leave normal request processing in charge. A resolved
 // call supplies the policy-facing name and arguments without executing the tool.
 // An error prevents forwarding; failedGenericToolCall is handled as a tool
 // result, while other errors use the gateway's protocol or HTTP error responses.
-func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Config, token string, inspect bool) (*resolvedToolCall, error) {
+func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Config, token string, obotHeaders http.Header, inspect bool) (*resolvedToolCall, error) {
 	if !inspect || !cfg.ToolSearch || req.Method != http.MethodPost || req.Body == nil {
 		return nil, nil
 	}
@@ -104,9 +105,10 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, nil
 	}
 
-	// Discovery uses the request's headers and, when supplied, the composite
-	// loopback token that authorizes the caller's selected components.
+	// Discovery needs the same derived attribution as the forwarded request,
+	// before the proxy rewrite runs. Keep the original headers for hooks and auditing.
 	headers := req.Header.Clone()
+	maps.Copy(headers, obotHeaders)
 	if token != "" {
 		headers.Set("Authorization", "Bearer "+token)
 	}
