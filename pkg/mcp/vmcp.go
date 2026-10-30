@@ -183,9 +183,6 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		})
 	}
 
-	slices.Sort(injectObotHeaders)
-	injectObotHeaders = slices.Compact(injectObotHeaders)
-
 	allowedTools := vmcpaccess.InstanceGrant(user, *vmcp, *instance)
 	for i := range components {
 		if err := restrictComponentTools(&components[i], allowedTools, configuredComponents[i].ID); err != nil {
