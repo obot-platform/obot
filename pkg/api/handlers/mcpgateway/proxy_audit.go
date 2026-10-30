@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"mime"
 	"net/http"
@@ -19,7 +18,6 @@ import (
 
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -45,9 +43,7 @@ type proxyMessageKind int
 // persistence layer correlates same-exchange entries by proxyExchangeID and
 // uses protocol session metadata only for legacy cross-request responses.
 type proxyAudit struct {
-	virtualSession  bool
 	collector       proxyAuditCollector
-	storage         kclient.Client
 	ctx             context.Context
 	entry           auditlogs.MCPAuditLog
 	method          string
@@ -83,7 +79,7 @@ type auditSSEBody struct {
 	once       sync.Once
 }
 
-func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector, storageClient kclient.Client) (*proxyAudit, error) {
+func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector) (*proxyAudit, error) {
 	if collector == nil || metadata[obotmcp.AuditLogIgnore] == "true" {
 		return nil, nil
 	}
@@ -127,7 +123,6 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 
 	audit := &proxyAudit{
 		collector:              collector,
-		storage:                storageClient,
 		ctx:                    req.Context(),
 		entry:                  entry,
 		method:                 req.Method,
@@ -138,10 +133,6 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	}
 	if kind == proxyMessageRequest {
 		audit.proxyExchangeID = rand.Text()
-	}
-	_, err := saveMCPClientSession(audit.ctx, audit.storage, &audit.entry, false)
-	if err != nil {
-		slog.ErrorContext(req.Context(), "failed to load MCP client session for audit logging", "error", err)
 	}
 
 	return audit, nil
@@ -336,9 +327,6 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 		a.entry.SessionID = sessionID
 	}
 
-	if _, err := saveMCPClientSession(a.ctx, a.storage, &a.entry, a.virtualSession); err != nil {
-		slog.Error("failed to save MCP client session for audit logging", "error", err)
-	}
 	responseHeaders, _ := json.Marshal(sanitizedMCPHeaders(resp.Header))
 	a.entry.ResponseHeaders = responseHeaders
 	a.recordNotification(resp.StatusCode, nil)

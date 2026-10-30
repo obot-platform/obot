@@ -332,9 +332,9 @@ func TestVirtualSessionUsesExistingAuditInspection(t *testing.T) {
 			collector = new(recordingProxyAuditCollector)
 		}
 
-		audit, err := newProxyAudit(req, map[string]string{"mcpID": "connection", "userID": "alice"}, collector, storage)
+		audit, err := newProxyAudit(req, map[string]string{"mcpID": "connection", "userID": "alice"}, collector)
 		require.NoError(t, err)
-		owner.initialize = audit != nil && audit.initialize
+		owner.trackAudit(audit)
 
 		resp := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header)}
 		require.NoError(t, owner.response(resp))
@@ -424,16 +424,92 @@ func TestAuditSessionDoesNotEstablishOwnership(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://obot/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"client","version":"1"}}}`))
 	req.Header.Set(mcpSessionHeader, "session")
 
-	audit, err := newProxyAudit(req, map[string]string{"mcpID": "connection", "userID": "alice"}, new(recordingProxyAuditCollector), storage)
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "connection", "userID": "alice"}, new(recordingProxyAuditCollector))
 	require.NoError(t, err)
 	require.NotNil(t, audit)
 
-	var record v1.MCPClientSession
-	key := kclient.ObjectKey{Namespace: "default", Name: mcpClientSessionName(audit.entry.Metadata, "session")}
-	require.NoError(t, storage.Get(t.Context(), key, &record))
+	var sessions v1.MCPClientSessionList
+	require.NoError(t, storage.List(t.Context(), &sessions))
+	require.Empty(t, sessions.Items)
+
+	// Old audit-only records must not be promoted to ownership records.
+	record := v1.MCPClientSession{
+		ObjectMeta: metav1.ObjectMeta{Name: "mcp-client-session-old-audit", Namespace: "default"},
+		Spec:       v1.MCPClientSessionSpec{MCPServerID: "connection", UserID: "alice", ClientName: "client", ClientVersion: "1"},
+	}
+	require.NoError(t, storage.Create(t.Context(), &record))
 
 	guard := &sessionOwnership{ctx: t.Context(), storage: storage, connection: "connection", user: "alice"}
 	status, err := guard.prepare(req)
 	require.Error(t, err)
 	require.Equal(t, http.StatusNotFound, status)
+}
+
+func TestSessionOwnershipAndAuditShareOneRecord(t *testing.T) {
+	for _, virtual := range []bool{false, true} {
+		storage := newMCPProxyTestStorage()
+		collector := new(recordingProxyAuditCollector)
+		metadata := map[string]string{"mcpID": "vmcp-parent", "userID": "alice"}
+		owner := &sessionOwnership{ctx: t.Context(), storage: storage, connection: "vmcp-instance", user: "alice"}
+		req := httptest.NewRequest(http.MethodPost, "http://obot/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Claude Desktop","version":"1.2.3"}}}`))
+
+		status, err := owner.prepare(req)
+		require.NoError(t, err)
+		require.Zero(t, status)
+
+		audit, err := newProxyAudit(req, metadata, collector)
+		require.NoError(t, err)
+		owner.trackAudit(audit)
+		audit.recordRequest()
+
+		var sessions v1.MCPClientSessionList
+		require.NoError(t, storage.List(t.Context(), &sessions))
+		require.Empty(t, sessions.Items, "incoming requests must not create sessions")
+
+		resp := &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": {"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"jsonrpc":"2.0","id":1,"result":{}}`)),
+		}
+		if !virtual {
+			resp.Header.Set(mcpSessionHeader, "session")
+		}
+
+		require.NoError(t, owner.response(resp))
+		consumeAuditResponse(t, audit, resp)
+		require.NoError(t, storage.List(t.Context(), &sessions))
+		require.Len(t, sessions.Items, 1, "ownership and audit metadata must use one record")
+		record := sessions.Items[0]
+		require.Equal(t, "vmcp-instance", record.Spec.ConnectionID)
+		require.Equal(t, "vmcp-parent", record.Spec.MCPServerID)
+		require.Equal(t, "alice", record.Spec.UserID)
+		require.Equal(t, "Claude Desktop", record.Spec.ClientName)
+		require.Equal(t, "1.2.3", record.Spec.ClientVersion)
+		require.Equal(t, virtual, record.Spec.Virtual)
+
+		// Simulate the next request landing on another replica.
+		record.Status.LastUsed = metav1.NewTime(time.Now().Add(-time.Hour))
+		require.NoError(t, storage.Status().Update(t.Context(), &record))
+		followup := httptest.NewRequest(http.MethodPost, "http://obot/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`))
+		followup.Header.Set(mcpSessionHeader, resp.Header.Get(mcpSessionHeader))
+		next := &sessionOwnership{ctx: t.Context(), storage: storage, connection: "vmcp-instance", user: "alice"}
+
+		status, err = next.prepare(followup)
+		require.NoError(t, err)
+		require.Zero(t, status)
+		nextAudit, err := newProxyAudit(followup, metadata, collector)
+		require.NoError(t, err)
+		next.trackAudit(nextAudit)
+		require.Equal(t, "Claude Desktop", nextAudit.entry.ClientName)
+		require.Equal(t, "1.2.3", nextAudit.entry.ClientVersion)
+		require.Equal(t, virtual, next.virtual)
+		require.NoError(t, storage.List(t.Context(), &sessions))
+		require.Len(t, sessions.Items, 1)
+		require.True(t, sessions.Items[0].Status.LastUsed.After(record.Status.LastUsed.Time))
+
+		next.method = http.MethodDelete
+		require.NoError(t, next.response(&http.Response{StatusCode: http.StatusNoContent}))
+		require.NoError(t, storage.List(t.Context(), &sessions))
+		require.Empty(t, sessions.Items, "deleting a session must remove ownership and audit metadata together")
+	}
 }

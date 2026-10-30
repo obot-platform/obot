@@ -8,15 +8,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -62,7 +58,7 @@ func TestMCPProxyAuditCollectsRequestAndResponseSeparately(t *testing.T) {
 	req.Header.Set(mcpSessionHeader, "session-1")
 	req.Header.Set("Authorization", "Bearer secret-api-key-that-must-be-redacted")
 
-	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +123,7 @@ func TestMCPProxyAuditDecodesGzipResponse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +179,7 @@ func TestMCPProxyAuditRecordsSubscriptionsListenSSEStatusImmediately(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +212,7 @@ func TestMCPProxyAuditPreservesLargeNumericRequestIDForResponseHooks(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,94 +253,13 @@ func TestMCPProxyAuditPreservesLargeNumericRequestIDForResponseHooks(t *testing.
 	}
 }
 
-func TestMCPProxyAuditPersistsAndLoadsClientInfoBySession(t *testing.T) {
-	collector := new(recordingProxyAuditCollector)
-	storageClient := newMCPProxyTestStorage()
-	metadata := map[string]string{"mcpID": "mcp-1", "userID": "user-1"}
-	req, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Claude Desktop","version":"1.2.3"}}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	auditor, err := newProxyAudit(req, metadata, collector, storageClient)
-	if err != nil {
-		t.Fatal(err)
-	}
-	auditor.recordRequest()
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header: http.Header{
-			"Content-Type":   []string{"application/json"},
-			mcpSessionHeader: []string{"session-1"},
-		},
-		Body: io.NopCloser(strings.NewReader(`{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}`)),
-	}
-	consumeAuditResponse(t, auditor, resp)
-
-	if len(collector.entries) != 2 {
-		t.Fatalf("expected initialize request and response, got %d", len(collector.entries))
-	}
-	if collector.entries[0].SessionID != "" || collector.entries[1].SessionID != "session-1" {
-		t.Fatalf("expected persistence to join empty request session to assigned response session: request=%q response=%q", collector.entries[0].SessionID, collector.entries[1].SessionID)
-	}
-	for i, entry := range collector.entries {
-		if entry.ClientName != "Claude Desktop" || entry.ClientVersion != "1.2.3" {
-			t.Fatalf("entry %d lost same-exchange client info: name=%q version=%q", i, entry.ClientName, entry.ClientVersion)
-		}
-	}
-
-	key := kclient.ObjectKey{
-		Namespace: system.DefaultNamespace,
-		Name:      mcpClientSessionName(metadata, "session-1"),
-	}
-	var session v1.MCPClientSession
-	if err := storageClient.Get(t.Context(), key, &session); err != nil {
-		t.Fatalf("client session was not persisted: %v", err)
-	}
-	if session.Spec.MCPServerID != "mcp-1" || session.Spec.UserID != "user-1" || session.Spec.ClientName != "Claude Desktop" || session.Spec.ClientVersion != "1.2.3" {
-		t.Fatalf("unexpected persisted client session: %#v", session.Spec)
-	}
-	if session.Spec.Virtual {
-		t.Fatal("upstream-provided session was marked virtual")
-	}
-	if session.Status.LastUsed.IsZero() {
-		t.Fatal("new client session did not record its initial last-used time")
-	}
-	oldLastUsed := metav1.NewTime(time.Unix(1, 0))
-	session.Status.LastUsed = oldLastUsed
-	if err := storageClient.Status().Update(t.Context(), &session); err != nil {
-		t.Fatal(err)
-	}
-
-	followup, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	followup.Header.Set(mcpSessionHeader, "session-1")
-	followupAuditor, err := newProxyAudit(followup, metadata, collector, storageClient)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if followupAuditor.entry.ClientName != "Claude Desktop" || followupAuditor.entry.ClientVersion != "1.2.3" {
-		t.Fatalf("client identity was not loaded from storage: name=%q version=%q", followupAuditor.entry.ClientName, followupAuditor.entry.ClientVersion)
-	}
-	if got := followup.Header.Get(mcpSessionHeader); got != "session-1" {
-		t.Fatalf("upstream-provided session header was changed: got %q", got)
-	}
-	if err := storageClient.Get(t.Context(), key, &session); err != nil {
-		t.Fatal(err)
-	}
-	if !session.Status.LastUsed.After(oldLastUsed.Time) {
-		t.Fatalf("last-used time was not updated: %v", session.Status.LastUsed)
-	}
-}
-
 func TestMCPProxyAuditWaitsForNotificationResponseStatus(t *testing.T) {
 	collector := new(recordingProxyAuditCollector)
 	req, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(`{"jsonrpc":"2.0","method":"notifications/initialized"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -379,7 +294,7 @@ func TestMCPProxyAuditLogsSessionDeleteAsNotification(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Set(mcpSessionHeader, "session-1")
-	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -420,8 +335,7 @@ func TestMCPProxyAuditCorrelatesLegacySSEThroughPersistenceFields(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	storageClient := newMCPProxyTestStorage()
-	postAuditor, err := newProxyAudit(post, metadata, collector, storageClient)
+	postAuditor, err := newProxyAudit(post, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +347,7 @@ func TestMCPProxyAuditCorrelatesLegacySSEThroughPersistenceFields(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	getAuditor, err := newProxyAudit(get, metadata, collector, storageClient)
+	getAuditor, err := newProxyAudit(get, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -483,7 +397,7 @@ func TestMCPProxyAuditCorrelatesServerRequestResponseWithoutHooks(t *testing.T) 
 		t.Fatal(err)
 	}
 	get.Header.Set(mcpSessionHeader, "session-1")
-	getAuditor, err := newProxyAudit(get, metadata, collector, storageClient)
+	getAuditor, err := newProxyAudit(get, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -500,7 +414,7 @@ func TestMCPProxyAuditCorrelatesServerRequestResponseWithoutHooks(t *testing.T) 
 	}
 	post.Header.Set(mcpSessionHeader, "session-1")
 	post.Header.Set("X-Client-Response", "roots-listed")
-	postAuditor, err := newProxyAudit(post, metadata, collector, storageClient)
+	postAuditor, err := newProxyAudit(post, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}

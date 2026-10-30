@@ -376,13 +376,12 @@ func (h *Handler) Proxy(req api.Context) error {
 			return nil
 		}
 
-		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector, req.Storage)
+		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector)
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
 		}
 
-		// Virtual IDs are for audit attribution; reuse the audit's existing request parsing.
-		ownership.initialize = audit != nil && audit.initialize
+		ownership.trackAudit(audit)
 
 		if ownership.virtual {
 			req.Request.Header.Del(mcpSessionHeader)
@@ -472,9 +471,6 @@ func (h *Handler) Proxy(req api.Context) error {
 					return err
 				}
 
-				if audit != nil {
-					audit.virtualSession = ownership.virtual
-				}
 				return audit.wrapResponse(resp)
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {

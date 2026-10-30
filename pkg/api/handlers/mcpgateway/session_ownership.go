@@ -2,6 +2,7 @@ package mcpgateway
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -33,6 +34,8 @@ type sessionOwnership struct {
 	connection, user, id string
 	initialize, virtual  bool
 	method               string
+	clientInfo           clientInfo
+	mcpServerID          string
 }
 
 func (s *sessionOwnership) key(id string) kclient.ObjectKey {
@@ -84,6 +87,8 @@ func (s *sessionOwnership) prepare(req *http.Request) (int, error) {
 		}
 
 		s.virtual = record.Spec.Virtual
+		s.clientInfo = clientInfo{Name: record.Spec.ClientName, Version: record.Spec.ClientVersion}
+		s.mcpServerID = record.Spec.MCPServerID
 		record.Status.LastUsed = metav1.Now()
 		if err = s.storage.Status().Update(s.ctx, &record); err != nil && !apierrors.IsConflict(err) {
 			return http.StatusServiceUnavailable, err
@@ -93,15 +98,32 @@ func (s *sessionOwnership) prepare(req *http.Request) (int, error) {
 	return 0, nil
 }
 
+// trackAudit shares client metadata with auditing without creating another session record.
+func (s *sessionOwnership) trackAudit(audit *proxyAudit) {
+	if audit == nil {
+		return
+	}
+
+	s.initialize = audit.initialize
+	s.mcpServerID = audit.entry.Metadata["mcpID"]
+	s.clientInfo.Name = cmp.Or(s.clientInfo.Name, audit.entry.ClientName)
+	s.clientInfo.Version = cmp.Or(s.clientInfo.Version, audit.entry.ClientVersion)
+	audit.entry.ClientName = s.clientInfo.Name
+	audit.entry.ClientVersion = s.clientInfo.Version
+}
+
 func (s *sessionOwnership) register(id string, virtual bool) error {
 	key := s.key(id)
 	record := v1.MCPClientSession{
 		Name:      key.Name,
 		Namespace: key.Namespace,
 		Spec: v1.MCPClientSessionSpec{
-			ConnectionID: s.connection,
-			UserID:       s.user,
-			Virtual:      virtual,
+			MCPServerID:   s.mcpServerID,
+			ClientName:    s.clientInfo.Name,
+			ClientVersion: s.clientInfo.Version,
+			ConnectionID:  s.connection,
+			UserID:        s.user,
+			Virtual:       virtual,
 		},
 	}
 	if err := s.storage.Create(s.ctx, &record); err != nil {
