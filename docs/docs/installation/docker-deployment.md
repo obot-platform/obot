@@ -81,7 +81,7 @@ docker run -d \
 
 Once started, access Obot at http://localhost:8080.
 
-If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
+If you enabled authentication, log in with your bootstrap token, create the owner account, and then set up an authentication provider. See [Setting up Authentication](../configuration/auth-providers.md#setting-up-authentication). If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
 
 ### Preconfigure a Local owner
 

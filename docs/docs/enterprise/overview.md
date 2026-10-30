@@ -32,7 +32,7 @@ and Google [authentication](../configuration/auth-providers.md). It supports up 
 ### Registering Obot Community
 
 Registration is free and unlocks the enterprise [auth providers](../configuration/auth-providers.md): Entra, Okta,
-OneLogin, JumpCloud, and Auth0. The 100 user and 100 device limits still apply.
+OneLogin, JumpCloud, Keycloak, and Auth0. The 100 user and 100 device limits still apply.
 
 To register, an administrator opens the **License** page, or the registration prompt shown when they configure one of
 those auth providers, and enters a name, an email address, and optionally a company. Obot sends those details with the
@@ -160,7 +160,7 @@ already have: no data, users, devices, or configuration. What it blocks depends 
 
 | Out of compliance when | What happens | How to fix it |
 |---|---|---|
-| An enterprise auth provider (Entra, Okta, OneLogin, JumpCloud, or Auth0) is configured and the license doesn't include it | **Limited functionality.** Obot returns `402 Payment Required` for MCP server connections (including OAuth authorization for MCP servers), the LLM gateway, the skills API, and device scan uploads from Obot Sentry. Users can still sign in. | Register Obot Community, add an Enterprise license key, or deconfigure the provider |
+| An enterprise auth provider (Entra, Okta, OneLogin, JumpCloud, Keycloak, or Auth0) is configured and the license doesn't include it | **Limited functionality.** Obot returns `402 Payment Required` for MCP server connections (including OAuth authorization for MCP servers), the LLM gateway, the skills API, and device scan uploads from Obot Sentry. Users can still sign in. | Register Obot Community, add an Enterprise license key, or deconfigure the provider |
 | There are more users than the user limit | Existing users keep working. Obot refuses to create new users, whether they sign in for the first time or are provisioned through SCIM. | Add an Enterprise license key, or delete users |
 | There are more enrolled devices than the device limit | Enrolled devices keep working. Obot refuses to enroll new devices. | Add an Enterprise license key, or remove devices |
 

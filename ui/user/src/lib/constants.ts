@@ -56,6 +56,7 @@ export const CommonAuthProviderIds = {
 	ENTRA: 'entra-auth-provider',
 	AUTH0: 'auth0-auth-provider',
 	JUMPCLOUD: 'jumpcloud-auth-provider',
+	KEYCLOAK: 'keycloak-auth-provider',
 	LOCAL: 'local-auth-provider'
 } as const;
 
