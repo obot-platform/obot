@@ -131,9 +131,10 @@ Changes to the active auth provider take effect immediately. If the provider can
 
 To recover:
 
-1. Restart Obot with `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` and sign in with the bootstrap token.
-2. Fix the provider's settings in **Identity & Access > Auth Providers**.
-3. Restart Obot without `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP`.
+1. Remove both `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` and `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` from the deployment configuration if they are still set. These initial Local-owner provisioning variables disable bootstrap authentication even when force-enabled; removing only one prevents Obot from starting.
+2. Restart Obot with `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` and sign in with the bootstrap token.
+3. Fix the provider's settings in **Identity & Access > Auth Providers**.
+4. Restart Obot without `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP`.
 
 The provider's reason for failing is in the Obot server log.
 

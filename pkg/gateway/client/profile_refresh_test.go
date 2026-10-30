@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/aes"
 	"encoding/json"
 	"maps"
 	"net/http"
@@ -16,6 +17,10 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
+	encryptaes "k8s.io/apiserver/pkg/storage/value/encrypt/aes"
 )
 
 const (
@@ -179,15 +184,46 @@ func TestProfileRefreshSchedule(t *testing.T) {
 		assert.Equal(t, "https://id.example/first.png", stored.IconURL)
 	})
 
-	t.Run("an empty name from the provider keeps the stored display name", func(t *testing.T) {
-		f := newProfileRefreshFixture(t)
-		f.refresh(t)
-		f.setProfile("name", "")
-		f.setLastChecked(t, time.Time{})
+	t.Run("an empty name from the provider keeps the display name", func(t *testing.T) {
+		for _, encrypted := range []bool{false, true} {
+			name := "plaintext"
+			if encrypted {
+				name = "encrypted"
+			}
+			t.Run(name, func(t *testing.T) {
+				f := newProfileRefreshFixture(t)
+				if encrypted {
+					block, err := aes.NewCipher(make([]byte, 32))
+					require.NoError(t, err)
+					transformer, err := encryptaes.NewGCMTransformer(block)
+					require.NoError(t, err)
+					f.c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+						Transformers: map[schema.GroupResource]value.Transformer{
+							userGroupResource: transformer,
+						},
+					}
+				}
+				f.refresh(t)
+				f.setProfile("name", "")
+				f.setLastChecked(t, time.Time{})
 
-		stored := f.refresh(t)
-		f.expectFetches(t, 2)
-		assert.Equal(t, "First Name", stored.DisplayName)
+				user, err := f.c.UserByID(f.ctx, fmtUserID(f.user.ID))
+				require.NoError(t, err)
+				require.NoError(t, f.c.UpdateProfileIfNeeded(f.ctx, user, refreshTestProvider, system.DefaultNamespace, f.url))
+				f.expectFetches(t, 2)
+				assert.Equal(t, "First Name", user.DisplayName, "caller's display name")
+
+				var raw types.User
+				require.NoError(t, f.c.db.WithContext(f.ctx).Where("id = ?", user.ID).Take(&raw).Error)
+				assert.Equal(t, encrypted, raw.Encrypted)
+				if encrypted {
+					assert.NotEqual(t, "First Name", raw.DisplayName)
+				}
+				stored, err := f.c.UserByID(f.ctx, fmtUserID(f.user.ID))
+				require.NoError(t, err)
+				assert.Equal(t, "First Name", stored.DisplayName, "stored display name")
+			})
+		}
 	})
 
 	t.Run("every read fetches while the user has no display name", func(t *testing.T) {

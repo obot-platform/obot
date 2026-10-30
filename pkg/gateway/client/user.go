@@ -509,7 +509,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 			user.IconURL = iconURL
 			identity.IconURL = iconURL
 		}
-		if displayName, ok := profile["name"].(string); ok {
+		if displayName, ok := profile["name"].(string); ok && displayName != "" {
 			user.DisplayName = displayName
 		}
 	case "jumpcloud-auth-provider":
