@@ -199,7 +199,10 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 
 	var componentAuth componenthttp.OAuthHandlerProvider
 	if tokenService != nil {
-		componentAuth = compositeComponentAuth{ctx: ctx, tokens: tokenService}
+		componentAuth = compositeComponentAuth{
+			ctx:    ctx,
+			tokens: tokenService,
+		}
 	}
 
 	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{
