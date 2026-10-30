@@ -703,7 +703,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// MCP Gateway Endpoints
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
-	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
+	// Streamable HTTP uses one endpoint; legacy secondary endpoints are unsupported.
+	mux.HTTPHandle("/mcp-connect/{mcp_id}/{rest...}", http.NotFoundHandler())
 	// This is a special path for internal MCP composite requests.
 	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)
 

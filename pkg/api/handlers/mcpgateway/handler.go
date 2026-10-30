@@ -366,9 +366,25 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		hookConfig, hookServers := mcp.ServerHookConfig(serverConfig)
 
-		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector, req.Storage)
+		connectionID := serverConfig.MCPServerInstanceID
+		if connectionID == "" {
+			connectionID = serverConfig.MCPServerName
+		}
+		ownership := &sessionOwnership{ctx: req.Context(), storage: req.Storage, connection: connectionID, user: req.User.GetUID()}
+		if status, err := ownership.prepare(req.Request); err != nil {
+			http.Error(req.ResponseWriter, err.Error(), status)
+			return nil
+		}
+
+		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector)
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
+		}
+
+		ownership.trackAudit(audit)
+
+		if ownership.virtual {
+			req.Request.Header.Del(mcpSessionHeader)
 		}
 
 		var resolvedCall *resolvedToolCall
@@ -444,6 +460,9 @@ func (h *Handler) Proxy(req api.Context) error {
 				rewriteProxyRequest(r, u)
 			},
 			ModifyResponse: func(resp *http.Response) error {
+				if err := ownership.response(resp); err != nil {
+					return err
+				}
 				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {
 					return err
 				}
@@ -534,13 +553,6 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	r.Out.URL.Scheme = upstreamURL.Scheme
 	r.Out.URL.Host = upstreamURL.Host
 	r.Out.URL.Path = upstreamURL.Path
-	if rest := r.In.PathValue("rest"); rest != "" {
-		if strings.HasPrefix(rest, "/") {
-			r.Out.URL.Path = rest
-		} else {
-			r.Out.URL.Path = "/" + rest
-		}
-	}
 
 	// Merge query parameters from the incoming request and the upstream URL.
 	// Preserve all values; if a key exists in both, both values will be present.

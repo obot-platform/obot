@@ -86,7 +86,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(string(requestBody)))
 	collector := new(recordingProxyAuditCollector)
-	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 
 	stale := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"stale","arguments":{"path":"secret.txt"}}}}`)
 	staleCollector := new(recordingProxyAuditCollector)
-	staleAudit, err := newProxyAudit(stale, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, staleCollector, newMCPProxyTestStorage())
+	staleAudit, err := newProxyAudit(stale, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, staleCollector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +311,7 @@ func TestGenericToolCallCaseVariantRejectionIsAudited(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := mustMCPHookRequest(t, tt.body)
 			collector := new(recordingProxyAuditCollector)
-			audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+			audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -368,7 +368,7 @@ func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
 	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{Runtime: types.RuntimeVMCP, ToolSearch: true}, nil)
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file"}}}`)
 	collector := new(recordingProxyAuditCollector)
-	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,7 +393,7 @@ func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
 func TestGenericToolCallDiscoveryFailureIsAudited(t *testing.T) {
 	req := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"call_tool","arguments":{"name":"delete_file","revision":"revision","arguments":{}}}}`)
 	collector := new(recordingProxyAuditCollector)
-	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +446,7 @@ func TestGenericToolCallGzipDiscoveryFailureKeepsRequestIDAndAudit(t *testing.T)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Content-Encoding", "gzip")
 	collector := new(recordingProxyAuditCollector)
-	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -642,7 +642,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 	req.URL.Path = "/mcp-connect/vmcpi1test"
 	req.SetPathValue("mcp_id", "vmcpi1test")
 	collector := new(recordingProxyAuditCollector)
-	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "vmcp", "userID": "user-1"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}

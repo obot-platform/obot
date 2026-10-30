@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"mime"
 	"net/http"
@@ -16,11 +15,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"uuid"
 
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -47,7 +44,6 @@ type proxyMessageKind int
 // uses protocol session metadata only for legacy cross-request responses.
 type proxyAudit struct {
 	collector       proxyAuditCollector
-	storage         kclient.Client
 	ctx             context.Context
 	entry           auditlogs.MCPAuditLog
 	method          string
@@ -83,7 +79,7 @@ type auditSSEBody struct {
 	once       sync.Once
 }
 
-func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector, storageClient kclient.Client) (*proxyAudit, error) {
+func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector) (*proxyAudit, error) {
 	if collector == nil || metadata[obotmcp.AuditLogIgnore] == "true" {
 		return nil, nil
 	}
@@ -127,7 +123,6 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 
 	audit := &proxyAudit{
 		collector:              collector,
-		storage:                storageClient,
 		ctx:                    req.Context(),
 		entry:                  entry,
 		method:                 req.Method,
@@ -138,15 +133,6 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	}
 	if kind == proxyMessageRequest {
 		audit.proxyExchangeID = rand.Text()
-	}
-	virtualSession, err := saveMCPClientSession(audit.ctx, audit.storage, &audit.entry, false)
-	if err != nil {
-		slog.ErrorContext(req.Context(), "failed to load MCP client session for audit logging", "error", err)
-	}
-
-	// If this is a virtual session, then remove the session ID header from the request because the upstream server isn't expecting it.
-	if virtualSession {
-		req.Header.Del(mcpSessionHeader)
 	}
 
 	return audit, nil
@@ -337,18 +323,10 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 		clearMCPHookResponseHeaders(resp.Header)
 	}
 
-	var virtual bool
 	if sessionID := resp.Header.Get(mcpSessionHeader); sessionID != "" {
 		a.entry.SessionID = sessionID
-	} else if a.entry.CallType == "initialize" && resp.StatusCode == http.StatusOK {
-		a.entry.SessionID = uuid.New().String()
-		resp.Header.Set(mcpSessionHeader, a.entry.SessionID)
-		virtual = true
 	}
 
-	if _, err := saveMCPClientSession(a.ctx, a.storage, &a.entry, virtual); err != nil {
-		slog.Error("failed to save MCP client session for audit logging", "error", err)
-	}
 	responseHeaders, _ := json.Marshal(sanitizedMCPHeaders(resp.Header))
 	a.entry.ResponseHeaders = responseHeaders
 	a.recordNotification(resp.StatusCode, nil)

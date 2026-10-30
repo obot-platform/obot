@@ -110,7 +110,7 @@ func TestGuardrailFilterRedactsToolCallsInTheChain(t *testing.T) {
 	})
 	collector := new(recordingProxyAuditCollector)
 	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write","arguments":{"text":"hello"}}}`)
-	auditor, err := newProxyAudit(request, map[string]string{"mcpID": "ms1files", "userID": "alice"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(request, map[string]string{"mcpID": "ms1files", "userID": "alice"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestGuardrailFilterFailOpenErrorIsInTheAuditLog(t *testing.T) {
 	}, nil, nil)
 	collector := new(recordingProxyAuditCollector)
 	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"write","arguments":{"text":"hello"}}}`)
-	auditor, err := newProxyAudit(request, map[string]string{"mcpID": "ms1files", "userID": "alice"}, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(request, map[string]string{"mcpID": "ms1files", "userID": "alice"}, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
