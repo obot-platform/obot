@@ -1,0 +1,14 @@
+/*
+ * Loaded only from the browser test setup.
+ * Duration 0s applies the end state immediately. A 1ms duration turns the
+ * initial `transition-property: all` into a real transition, so height and
+ * dialog stacking stay mid-animation for synchronous checks and clicks.
+ */
+*,
+*::before,
+*::after {
+	animation-delay: 0s !important;
+	animation-duration: 0s !important;
+	transition-delay: 0s !important;
+	transition-duration: 0s !important;
+}

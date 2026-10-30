@@ -46,11 +46,23 @@ export default defineConfig(({ mode }) => {
 		headers: apiToken ? { Authorization: `Bearer ${apiToken}` } : undefined
 	};
 
+	// Vitest sets VITEST. Components pass an explicit transition duration, so the
+	// test modules replace svelte/transition and svelte/animate and force 0ms.
+	const alias: Record<string, string> = {
+		$lib: fileURLToPath(new URL('./src/lib', import.meta.url))
+	};
+	if (process.env.VITEST) {
+		alias['svelte/transition'] = fileURLToPath(
+			new URL('./src/tests/helpers/svelteTransition.ts', import.meta.url)
+		);
+		alias['svelte/animate'] = fileURLToPath(
+			new URL('./src/tests/helpers/svelteAnimate.ts', import.meta.url)
+		);
+	}
+
 	return {
 		resolve: {
-			alias: {
-				$lib: fileURLToPath(new URL('./src/lib', import.meta.url))
-			}
+			alias
 		},
 		server: {
 			port: 5174,

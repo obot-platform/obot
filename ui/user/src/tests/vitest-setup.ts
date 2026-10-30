@@ -1,6 +1,8 @@
 import '../app.css';
+import { useFastAnimations } from './helpers/fastAnimations';
 import { useShortTimeouts } from './helpers/shortTimeouts';
 import { worker } from './mocks/worker';
+import './test.css';
 import 'devicon/devicon.min.css';
 import { beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import { cleanup } from 'vitest-browser-svelte/pure';
@@ -13,9 +15,11 @@ locators.extend({
 });
 
 let restoreTimeouts: (() => void) | undefined;
+let restoreAnimations: (() => void) | undefined;
 
 beforeAll(async () => {
 	restoreTimeouts = useShortTimeouts();
+	restoreAnimations = useFastAnimations();
 	await worker.start({
 		quiet: true,
 		onUnhandledRequest(request, print) {
@@ -38,6 +42,7 @@ afterEach(async () => {
 
 afterAll(async () => {
 	cleanup();
+	restoreAnimations?.();
 	restoreTimeouts?.();
 	await worker.stop();
 	// Chromium collects removed test iframes lazily and can exhaust CI memory first.
