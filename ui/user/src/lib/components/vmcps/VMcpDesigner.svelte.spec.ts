@@ -618,6 +618,63 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('component without stored tool overrides', () => {
+		async function renderConfigurableGitHub() {
+			const entry = createMCPCatalogEntry({
+				id: 'entry-github',
+				name: 'GitHub',
+				manifest: {
+					toolPreview: componentEntry.manifest.toolPreview,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						{
+							id: `component-${entry.id}`,
+							name: entry.manifest.name ?? entry.id,
+							mcpCatalogID: 'default',
+							mcpServerCatalogEntryID: entry.id,
+							catalogEntry: { manifest: entry.manifest },
+							toolPrefix: 'github_',
+							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
+						}
+					]
+				},
+				[entry]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([entry], vmcp);
+			return update;
+		}
+
+		function configurationDialog() {
+			return page.getByRole('dialog', { name: 'Supply Configuration' });
+		}
+
+		async function waitForConfigurationAnimations() {
+			await tick();
+			await Promise.all(
+				configurationDialog()
+					.element()
+					.getAnimations({ subtree: true })
+					.map((animation) => animation.finished)
+			);
+		}
+
 		it('hides configuration actions when a remote server has nothing to configure', async () => {
 			const entry = createMCPCatalogEntry({
 				id: 'entry-remote',
@@ -739,73 +796,26 @@ describe('VMcpDesigner.svelte', () => {
 			expect(JSON.stringify(update.mock.calls)).not.toContain('preview-secret');
 		});
 
-		it('edits existing configuration policies from the actions dialog', async () => {
-			const entry = createMCPCatalogEntry({
-				id: 'entry-github',
-				name: 'GitHub',
-				manifest: {
-					toolPreview: componentEntry.manifest.toolPreview,
-					config: [
-						{
-							key: 'API_TOKEN',
-							name: 'API token',
-							description: 'Token',
-							required: true,
-							sensitive: false,
-							value: '',
-							usage: 'env'
-						}
-					]
-				}
-			});
-			const vmcp = createVMCP(
-				{
-					id: 'vmcp-1',
-					displayName: 'Issue Tracker vMCP',
-					components: [
-						{
-							id: `component-${entry.id}`,
-							name: entry.manifest.name ?? entry.id,
-							mcpCatalogID: 'default',
-							mcpServerCatalogEntryID: entry.id,
-							catalogEntry: { manifest: entry.manifest },
-							toolPrefix: 'github_',
-							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
-						}
-					]
-				},
-				[entry]
-			);
-			const update = vi.fn();
-			mockUpdateVMcp(vmcp, update);
-			await renderDesigner([entry], vmcp);
+		it('shows existing configuration policies and cancels without saving', async () => {
+			const update = await renderConfigurableGitHub();
 
 			await componentBlock().click();
 			await page.getByRole('button', { name: 'Change Configuration' }).click();
 			await expect
 				.element(page.getByRole('combobox', { name: 'API token policy' }))
 				.toHaveValue('userAllowed');
-			const configuration = page.getByRole('dialog', { name: 'Supply Configuration' });
-
-			async function waitForConfigurationAnimations() {
-				await tick();
-				await Promise.all(
-					configuration
-						.element()
-						.getAnimations({ subtree: true })
-						.map((animation) => animation.finished)
-				);
-			}
-
 			await waitForConfigurationAnimations();
 
 			await page.getByRole('button', { name: 'Cancel' }).click();
-			await expect
-				.element(page.getByRole('dialog', { name: 'Supply Configuration' }))
-				.not.toBeInTheDocument();
+			await expect.element(configurationDialog()).not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Modify Tools' }))
 				.not.toBeInTheDocument();
+			expect(update).not.toHaveBeenCalled();
+		});
+
+		it('edits existing configuration policies from the actions dialog', async () => {
+			const update = await renderConfigurableGitHub();
 
 			await componentBlock().click();
 			await page.getByRole('button', { name: 'Change Configuration' }).click();
