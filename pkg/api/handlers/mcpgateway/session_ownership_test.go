@@ -201,7 +201,7 @@ func TestSessionOwnershipHTTPBoundary(t *testing.T) {
 	require.Equal(t, http.StatusOK, send("alice", http.MethodPost, "upstream-session", `{"jsonrpc":"2.0","id":2,"method":"tools/call"}`))
 }
 
-func TestSessionOwnershipRejectsUnverifiedAndExpired(t *testing.T) {
+func TestSessionOwnershipRejectsInconsistentAndExpired(t *testing.T) {
 	storage := newMCPProxyTestStorage()
 
 	guard := &sessionOwnership{ctx: t.Context(), storage: storage, connection: "connection", user: "alice"}
@@ -210,7 +210,7 @@ func TestSessionOwnershipRejectsUnverifiedAndExpired(t *testing.T) {
 	var record v1.MCPClientSession
 	require.NoError(t, storage.Get(t.Context(), guard.key("session"), &record))
 
-	record.Spec.OwnershipVerified = false
+	record.Spec.UserID = "bob"
 	require.NoError(t, storage.Update(t.Context(), &record))
 
 	req := httptest.NewRequest(http.MethodGet, "http://obot/mcp", nil)
@@ -220,7 +220,7 @@ func TestSessionOwnershipRejectsUnverifiedAndExpired(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, http.StatusNotFound, status)
 
-	record.Spec.OwnershipVerified = true
+	record.Spec.UserID = "alice"
 	require.NoError(t, storage.Update(t.Context(), &record))
 
 	record.Status.LastUsed = metav1.NewTime(time.Now().Add(-8 * 24 * time.Hour))
@@ -404,4 +404,36 @@ func TestSessionOwnershipPreservesStreamableSSE(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, stream, string(body))
+}
+
+func TestSessionOwnershipRejectsConflictingHeaders(t *testing.T) {
+	guard := &sessionOwnership{ctx: t.Context(), storage: newMCPProxyTestStorage(), connection: "connection", user: "alice"}
+	require.NoError(t, guard.register("session", false))
+
+	req := httptest.NewRequest(http.MethodPost, "http://obot/mcp", nil)
+	req.Header.Add(mcpSessionHeader, "session")
+	req.Header.Add(mcpSessionHeader, "another-session")
+
+	status, err := guard.prepare(req)
+	require.ErrorContains(t, err, "conflicting MCP session identifiers")
+	require.Equal(t, http.StatusBadRequest, status)
+}
+
+func TestAuditSessionDoesNotEstablishOwnership(t *testing.T) {
+	storage := newMCPProxyTestStorage()
+	req := httptest.NewRequest(http.MethodPost, "http://obot/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"client","version":"1"}}}`))
+	req.Header.Set(mcpSessionHeader, "session")
+
+	audit, err := newProxyAudit(req, map[string]string{"mcpID": "connection", "userID": "alice"}, new(recordingProxyAuditCollector), storage)
+	require.NoError(t, err)
+	require.NotNil(t, audit)
+
+	var record v1.MCPClientSession
+	key := kclient.ObjectKey{Namespace: "default", Name: mcpClientSessionName(audit.entry.Metadata, "session")}
+	require.NoError(t, storage.Get(t.Context(), key, &record))
+
+	guard := &sessionOwnership{ctx: t.Context(), storage: storage, connection: "connection", user: "alice"}
+	status, err := guard.prepare(req)
+	require.Error(t, err)
+	require.Equal(t, http.StatusNotFound, status)
 }

@@ -15,13 +15,11 @@ type MCPClientSession struct {
 }
 
 type MCPClientSessionSpec struct {
-	// OwnershipVerified is set only for gateway ownership records created from server responses.
-	OwnershipVerified bool   `json:"ownershipVerified,omitempty"`
-	ConnectionID      string `json:"connectionID,omitempty"`
-	MCPServerID       string `json:"mcpServerID"`
-	UserID            string `json:"userID"`
-	ClientName        string `json:"clientName"`
-	ClientVersion     string `json:"clientVersion"`
+	ConnectionID  string `json:"connectionID,omitempty"`
+	MCPServerID   string `json:"mcpServerID"`
+	UserID        string `json:"userID"`
+	ClientName    string `json:"clientName"`
+	ClientVersion string `json:"clientVersion"`
 	// A Virtual session is one that doesn't come back from an MCP server,
 	// but is used by Obot to track clients.
 	Virtual bool `json:"virtual"`

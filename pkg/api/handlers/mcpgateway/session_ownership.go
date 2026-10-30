@@ -20,6 +20,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// Match the MCPClientSession cleanup controller's seven-day idle retention.
+	// Enforce it during requests too, since cleanup may not have deleted an expired record yet.
+	mcpSessionMaxIdleTime = 7 * 24 * time.Hour
+)
+
 // Ownership records use a separate key space from untrusted audit metadata.
 type sessionOwnership struct {
 	ctx                  context.Context
@@ -30,22 +36,24 @@ type sessionOwnership struct {
 }
 
 func (s *sessionOwnership) key(id string) kclient.ObjectKey {
-	return kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: name.SafeConcatName("mcp-session-owner", hash.String([]string{s.connection, s.user, id}))}
+	return kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      name.SafeConcatName("mcp-session-owner", hash.String([]string{s.connection, s.user, id})),
+	}
 }
 
 func suppliedSessionID(req *http.Request) (string, error) {
-	var id string
+	// Only the header identifies a Streamable HTTP session. Query parameters are upstream inputs.
+	id := mcpSessionID(req.Header, nil)
 
 	for _, value := range req.Header.Values(mcpSessionHeader) {
 		if value == "" {
 			continue
 		}
 
-		if id != "" && id != value {
+		if id != value {
 			return "", fmt.Errorf("conflicting MCP session identifiers")
 		}
-
-		id = value
 	}
 
 	return id, nil
@@ -71,7 +79,7 @@ func (s *sessionOwnership) prepare(req *http.Request) (int, error) {
 			return http.StatusServiceUnavailable, err
 		}
 
-		if !record.Spec.OwnershipVerified || record.Spec.ConnectionID != s.connection || record.Spec.UserID != s.user || time.Since(record.Status.LastUsed.Time) > 7*24*time.Hour {
+		if record.Spec.ConnectionID != s.connection || record.Spec.UserID != s.user || time.Since(record.Status.LastUsed.Time) > mcpSessionMaxIdleTime {
 			return http.StatusNotFound, fmt.Errorf("MCP session not found")
 		}
 
@@ -87,7 +95,15 @@ func (s *sessionOwnership) prepare(req *http.Request) (int, error) {
 
 func (s *sessionOwnership) register(id string, virtual bool) error {
 	key := s.key(id)
-	record := v1.MCPClientSession{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}, Spec: v1.MCPClientSessionSpec{OwnershipVerified: true, ConnectionID: s.connection, UserID: s.user, Virtual: virtual}}
+	record := v1.MCPClientSession{
+		Name:      key.Name,
+		Namespace: key.Namespace,
+		Spec: v1.MCPClientSessionSpec{
+			ConnectionID: s.connection,
+			UserID:       s.user,
+			Virtual:      virtual,
+		},
+	}
 	if err := s.storage.Create(s.ctx, &record); err != nil {
 		if !apierrors.IsAlreadyExists(err) {
 			return err
@@ -97,7 +113,7 @@ func (s *sessionOwnership) register(id string, virtual bool) error {
 			return err
 		}
 
-		if !record.Spec.OwnershipVerified || record.Spec.ConnectionID != s.connection || record.Spec.UserID != s.user || record.Spec.Virtual != virtual {
+		if record.Spec.ConnectionID != s.connection || record.Spec.UserID != s.user || record.Spec.Virtual != virtual {
 			return fmt.Errorf("inconsistent session ownership")
 		}
 	}
@@ -117,7 +133,10 @@ func (s *sessionOwnership) response(resp *http.Response) error {
 	}
 
 	if s.method == http.MethodDelete && s.id != "" {
-		record := v1.MCPClientSession{ObjectMeta: metav1.ObjectMeta{Name: s.key(s.id).Name, Namespace: system.DefaultNamespace}}
+		record := v1.MCPClientSession{
+			Name:      s.key(s.id).Name,
+			Namespace: system.DefaultNamespace,
+		}
 		if err := s.storage.Delete(s.ctx, &record); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
@@ -125,8 +144,8 @@ func (s *sessionOwnership) response(resp *http.Response) error {
 		return nil
 	}
 
-	if resp.StatusCode == http.StatusOK && (s.initialize || (s.id == "" && resp.Header.Get(mcpSessionHeader) != "")) {
-		id := resp.Header.Get(mcpSessionHeader)
+	id := mcpSessionID(resp.Header, nil)
+	if resp.StatusCode == http.StatusOK && (s.initialize || (s.id == "" && id != "")) {
 		virtual := id == ""
 		if virtual {
 			id = uuid.NewString()
@@ -164,6 +183,8 @@ type streamableSSEBody struct {
 
 func (b *streamableSSEBody) Close() error { return b.source.Close() }
 
+// Read is called as the reverse proxy streams an upstream SSE response to the client.
+// It passes Streamable HTTP events through and rejects legacy endpoint events before delivery.
 func (b *streamableSSEBody) Read(p []byte) (int, error) {
 	for len(b.output) == 0 {
 		if b.err != nil {
