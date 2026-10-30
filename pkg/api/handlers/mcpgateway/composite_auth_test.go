@@ -182,7 +182,7 @@ func TestCompositeBackgroundPingResponseAfterTokenExpiry(t *testing.T) {
 		mcpHandler.ServeHTTP(w, r)
 	}))
 	defer upstream.Close()
-	client := &http.Client{Transport: &oauth2.Transport{Source: source, Base: newCompositeHTTPClient().Transport}}
+	client := &http.Client{Transport: &oauth2.Transport{Source: source}}
 	session, err := gomcp.NewClient(&gomcp.Implementation{Name: "client", Version: "test"}, nil).Connect(ctx, &gomcp.StreamableClientTransport{Endpoint: upstream.URL, HTTPClient: client}, &gomcp.ClientSessionOptions{ProtocolVersion: "2025-11-25"})
 	require.NoError(t, err)
 	defer session.Close()
@@ -299,8 +299,7 @@ func TestCompositeComponentSessionSurvivesLoopbackTokenExpiry(t *testing.T) {
 	defer upstream.Close()
 
 	composite, err := mmmcp.New(t.Context(), &mmmcpconfig.Config{}, mmmcp.Options{
-		OAuth:      compositeComponentAuth{ctx: t.Context(), tokens: tokens},
-		HTTPClient: newCompositeHTTPClient(),
+		OAuth: compositeComponentAuth{ctx: t.Context(), tokens: tokens},
 	})
 	if err != nil {
 		t.Fatal(err)

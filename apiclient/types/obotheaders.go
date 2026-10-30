@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -36,6 +37,18 @@ func CanonicalObotHeader(name string) (ObotHeader, bool) {
 		}
 	}
 	return "", false
+}
+
+// NormalizeObotHeaders returns a copy with supported names in canonical case.
+// Unknown names and duplicates remain so validation can reject them.
+func NormalizeObotHeaders(headers []ObotHeader) []ObotHeader {
+	result := slices.Clone(headers)
+	for i, name := range result {
+		if header, ok := CanonicalObotHeader(string(name)); ok {
+			result[i] = header
+		}
+	}
+	return result
 }
 
 // ValidateObotHeaders validates attribution selections without modifying the caller's slice.

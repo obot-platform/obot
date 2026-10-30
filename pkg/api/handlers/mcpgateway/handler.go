@@ -197,15 +197,9 @@ func compositeSessionKey(serverConfig mcp.ServerConfig) string {
 func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error), guardrailEngine *guardrails.Engine) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	var (
-		componentAuth       componenthttp.OAuthHandlerProvider
-		componentHTTPClient *http.Client
-	)
+	var componentAuth componenthttp.OAuthHandlerProvider
 	if tokenService != nil {
-		// mmmcp uses this client for its internal component connections. Pair
-		// refreshable connection auth with per-message caller credentials.
 		componentAuth = compositeComponentAuth{ctx: ctx, tokens: tokenService}
-		componentHTTPClient = newCompositeHTTPClient()
 	}
 
 	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{
@@ -215,7 +209,6 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		OAuth:                 componentAuth,
 		AuthorizationURLs:     compositeAuthorizationURLs(authorizationURLs),
 		AuthorizationResponse: compositeAuthorizationResponse(mcpSessionManager),
-		HTTPClient: componentHTTPClient,
 		ClientInfo: &gomcp.Implementation{
 			Name:    "Obot MCP Gateway",
 			Version: version.Get().String(),
@@ -270,8 +263,12 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
-	// Authentication is complete; none of the inbound attribution headers are trusted.
-	attribution.Strip(req.Request.Header)
+	// Authorization has already checked component membership. Only signed,
+	// scoped composite callers may supply attribution generated at the outer gateway.
+	internalComposite := authz.IsCompositeMCPRequest(req.User, req.PathValue("mcp_id"))
+	if !internalComposite {
+		attribution.Strip(req.Request.Header)
+	}
 
 	serverConfig, err := h.ensureServerIsDeployed(req)
 	if err != nil {
@@ -360,9 +357,20 @@ func (h *Handler) Proxy(req api.Context) error {
 			serverConfig.Headers = append(serverConfig.Headers, "Authorization=Bearer "+token)
 		}
 
-		obotHeaders, err := attribution.ForCaller(req.Context(), req.GatewayClient, serverConfig.Runtime, serverConfig.InjectObotHeaders, req.User)
-		if err != nil {
-			return err
+		// At the outer vMCP gateway, derive attribution for this frontend request.
+		// At a component gateway, select the trusted values forwarded by mmmcp;
+		// re-deriving them from its pooled JWT would restore the opening caller.
+		var obotHeaders http.Header
+		if internalComposite && serverConfig.Runtime != types.RuntimeVMCP {
+			// The connection's JWT can belong to an earlier request. Use only the
+			// trusted forwarded values selected by this component, including omissions.
+			obotHeaders = attribution.Selected(req.Request.Header, serverConfig.Runtime, serverConfig.InjectObotHeaders)
+			attribution.Strip(req.Request.Header)
+		} else if types.SupportsObotHeaders(serverConfig.Runtime) || serverConfig.Runtime == types.RuntimeVMCP {
+			obotHeaders, err = attribution.ForCaller(req.Context(), req.GatewayClient, serverConfig.InjectObotHeaders, req.User)
+			if err != nil {
+				return err
+			}
 		}
 
 		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
@@ -640,18 +648,18 @@ func mcpAuthRequiredResponse(req api.Context, requiresConfig bool) *mcpResponse 
 // that reached the composite server.
 func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName string, authorizedMCPIDs []string, connectionID string, now time.Time) persistent.TokenContext {
 	tokenContext := persistent.TokenContext{
-		Audience:          audience,
-		IssuedAt:          persistent.NewTime(now),
-		ExpiresAt:         persistent.NewTime(now.Add(10 * time.Minute)),
-		UserID:            caller.GetUID(),
-		UserName:          caller.GetName(),
-		UserEmail:         cmp.Or(caller.GetExtra()["email"]...),
-		UserGroups:        []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
-		MCPID:             mcpServerName,
-		OAuthClientID:     cmp.Or(caller.GetExtra()["oauth_client_id"]...),
-		OAuthConnectionID: connectionID,
-		AuthorizedMCPIDs:  authorizedMCPIDs,
-		AuthProviderName: firstExtra(caller.GetExtra(), "auth_provider_name"),
+		Audience:              audience,
+		IssuedAt:              persistent.NewTime(now),
+		ExpiresAt:             persistent.NewTime(now.Add(10 * time.Minute)),
+		UserID:                caller.GetUID(),
+		UserName:              caller.GetName(),
+		UserEmail:             cmp.Or(caller.GetExtra()["email"]...),
+		UserGroups:            []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
+		MCPID:                 mcpServerName,
+		OAuthClientID:         cmp.Or(caller.GetExtra()["oauth_client_id"]...),
+		OAuthConnectionID:     connectionID,
+		AuthorizedMCPIDs:      authorizedMCPIDs,
+		AuthProviderName:      firstExtra(caller.GetExtra(), "auth_provider_name"),
 		AuthProviderNamespace: firstExtra(caller.GetExtra(), "auth_provider_namespace"),
 	}
 	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {

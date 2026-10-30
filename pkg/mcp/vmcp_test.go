@@ -227,8 +227,9 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 						ForceSingleUser: true,
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
-								Name:    "Cached Search",
-								Runtime: types.RuntimeRemote,
+								Name:              "Cached Search",
+								Runtime:           types.RuntimeRemote,
+								InjectObotHeaders: []types.ObotHeader{types.ObotHeaderAPIKeyName},
 							},
 						},
 						ToolPrefix: "search",
@@ -247,8 +248,9 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 						Name: "files",
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
-								Name:    "Cached Files",
-								Runtime: types.RuntimeRemote,
+								Name:              "Cached Files",
+								Runtime:           types.RuntimeRemote,
+								InjectObotHeaders: []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID},
 							},
 						},
 						ToolPrefix: "files",
@@ -301,6 +303,8 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		"Files service",
 		"https://files.example.test/mcp",
 	)
+	searchServer.Spec.Manifest.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName}
+	filesServer.Spec.Manifest.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}
 	filesServer.Spec.VMCPID = vmcpID
 	filesConnection := syncedVMCPConnection(t, &v1.MCPServerInstance{
 		Name: "msi1files", Namespace: system.DefaultNamespace,
@@ -326,6 +330,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
+	require.Equal(t, []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}, serverConfig.InjectObotHeaders, "derive only the union of component selections, with canonical names and no duplicates")
 	// API clients mint a loopback token for the vMCP, which requires an audience.
 	wantAudiences := []string{"https://obot.example.test/mcp-connect/" + instanceID, "https://obot.example.test/mcp-connect/" + vmcpID}
 	if !slices.Equal(serverConfig.Audiences, wantAudiences) {

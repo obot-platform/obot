@@ -2,6 +2,8 @@ package mcpgateway
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"sync/atomic"
 	"testing"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/obot-platform/mmmcp/component"
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -28,6 +31,7 @@ func (d *attributionDiscoverer) Discover(context.Context, mmmcpconfig.Server) (*
 }
 
 func TestCompositeDiscoveryCacheIgnoresCallerAttribution(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
 	discoverer := &attributionDiscoverer{}
 	registry := catalog.NewRegistry(discoverer)
 	defer registry.Close()
@@ -50,13 +54,25 @@ func TestCompositeDiscoveryCacheIgnoresCallerAttribution(t *testing.T) {
 		headerTestCaller("", ""),
 		headerTestCaller("42", "first-writer"),
 	} {
-		_, _, err := registry.Get(t.Context(), compositeConfig(config, caller))
+		cfg, err := compositeConfig(api.Context{
+			Request:       httptest.NewRequest(http.MethodPost, "/mcp", nil),
+			GatewayClient: gatewayClient,
+			User:          caller,
+		}, config)
+		require.NoError(t, err)
+		_, _, err = registry.Get(t.Context(), cfg)
 		require.NoError(t, err)
 	}
 	require.Equal(t, int32(1), discoverer.calls.Load(), "credentials and account metadata must not create discovery catalogs")
 
 	config.ConfigHash = "updated-component-configuration"
-	_, _, err := registry.Get(t.Context(), compositeConfig(config, profileChanged))
+	cfg, err := compositeConfig(api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/mcp", nil),
+		GatewayClient: gatewayClient,
+		User:          profileChanged,
+	}, config)
+	require.NoError(t, err)
+	_, _, err = registry.Get(t.Context(), cfg)
 	require.NoError(t, err)
 	require.Equal(t, int32(2), discoverer.calls.Load(), "actual component changes must still invalidate discovery")
 }

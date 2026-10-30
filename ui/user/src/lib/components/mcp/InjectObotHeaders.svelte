@@ -31,11 +31,7 @@
 	function setSelected(header: ObotHeader, checked: boolean) {
 		selected = options
 			.map(({ header }) => header)
-			.filter((name) =>
-				name === header
-					? checked
-					: selected.some((value) => value.toLowerCase() === name.toLowerCase())
-			);
+			.filter((name) => (name === header ? checked : selected.includes(name)));
 	}
 </script>
 
@@ -87,7 +83,7 @@
 					<div class="flex self-start">
 						<Toggle
 							label={option.header}
-							checked={selected.some((name) => name.toLowerCase() === option.header.toLowerCase())}
+							checked={selected.includes(option.header)}
 							disabled={readonly}
 							onChange={(checked) => setSelected(option.header, checked)}
 						/>

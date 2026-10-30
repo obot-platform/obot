@@ -30,6 +30,14 @@ func resolveMCPConnection(ctx context.Context, client kclient.Client, id, userID
 	return &mcpConnection{id: id, vmcp: vmcp, instance: instance}, nil
 }
 
+// IsCompositeMCPRequest reports whether an authenticated principal is an internal
+// composite caller explicitly scoped to mcpID. It does not replace resource access
+// or component membership checks.
+func IsCompositeMCPRequest(caller kuser.Info, mcpID string) bool {
+	return caller != nil && slices.Contains(caller.GetGroups(), types.GroupCompositeMCP) &&
+		slices.Contains(caller.GetExtra()["authorized_mcp_ids"], mcpID)
+}
+
 func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user User) (bool, error) {
 	if resources.MCPID == "" || user.GetName() == "anonymous" && strings.HasPrefix(req.URL.Path, "/mcp-connect") {
 		// If this is an MCP connect URL and the user is anonymous, then allow access.
@@ -48,8 +56,7 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 				return false, nil
 			}
 			// Only signed, explicitly scoped aggregate tokens may reach components.
-			if !slices.Contains(user.GetGroups(), types.GroupCompositeMCP) ||
-				!slices.Contains(user.GetExtra()["authorized_mcp_ids"], id) {
+			if !IsCompositeMCPRequest(user.Info, id) {
 				return false, nil
 			}
 			// Reject standalone resources here. checkMCPIDAccess below validates
@@ -147,7 +154,7 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 		if mcpServerInstance.Spec.VMCPInstanceID != "" {
-			if !slices.Contains(user.GetGroups(), types.GroupCompositeMCP) || !slices.Contains(user.GetExtra()["authorized_mcp_ids"], mcpID) {
+			if !IsCompositeMCPRequest(user, mcpID) {
 				return false, nil
 			}
 			if _, err := vmcpaccess.ServerInstanceComponent(ctx, client, mcpServerInstance, server); err != nil {
@@ -175,8 +182,7 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		if vmcpID != "" || mcpServer.Spec.VMCPInstanceID != "" {
 			// Only the signed aggregate loopback token may reach component servers.
 			// External clients must pass through the aggregate's tool filtering.
-			if !slices.Contains(user.GetGroups(), types.GroupCompositeMCP) ||
-				!slices.Contains(user.GetExtra()["authorized_mcp_ids"], mcpID) {
+			if !IsCompositeMCPRequest(user, mcpID) {
 				return false, nil
 			}
 		}

@@ -56,11 +56,11 @@ func TestCallerObotHeaders(t *testing.T) {
 		"X-Obot-User-Email":   {"alice@example.com"},
 	}
 	t.Run("remote", func(t *testing.T) {
-		got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, allObotHeaders(), caller)
+		got, err := ForCaller(t.Context(), &headerIdentityReader{}, allObotHeaders(), caller)
 		require.NoError(t, err)
 		require.Equal(t, want, got)
 		for _, selected := range allObotHeaders() {
-			got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{selected}, caller)
+			got, err := ForCaller(t.Context(), &headerIdentityReader{}, []types.ObotHeader{selected}, caller)
 			require.NoError(t, err)
 			if value := want.Get(string(selected)); value != "" {
 				require.Equal(t, http.Header{string(selected): {value}}, got)
@@ -69,42 +69,39 @@ func TestCallerObotHeaders(t *testing.T) {
 			}
 		}
 	})
-	got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, nil, caller)
+	got, err := ForCaller(t.Context(), &headerIdentityReader{}, nil, caller)
 	require.NoError(t, err)
 	require.Empty(t, got)
-	got, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, allObotHeaders(), nil)
+	got, err = ForCaller(t.Context(), &headerIdentityReader{}, allObotHeaders(), nil)
 	require.NoError(t, err)
 	require.Empty(t, got)
-	got, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeVMCP, allObotHeaders(), caller)
+	reader := &headerIdentityReader{err: fmt.Errorf("must not look up unselected attribution")}
+	got, err = ForCaller(t.Context(), reader, nil, caller)
 	require.NoError(t, err)
-	require.Empty(t, got, "a parent vMCP cannot opt its components in")
-	reader := &headerIdentityReader{err: fmt.Errorf("must not look up unsupported attribution")}
-	got, err = ForCaller(t.Context(), reader, types.RuntimeContainerized, allObotHeaders(), caller)
-	require.NoError(t, err)
-	require.Empty(t, got, "containerized servers must not inject caller headers")
+	require.Empty(t, got)
 	require.Zero(t, reader.calls)
 }
 
 func TestCallerObotHeadersOmitUnavailableValues(t *testing.T) {
 	caller := headerTestCaller("42", "")
 	caller.Extra[principal.APIKeyNameExtra] = []string{"ok1-7-42-*****"}
-	got, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, allObotHeaders(), caller)
+	got, err := ForCaller(t.Context(), &headerIdentityReader{}, allObotHeaders(), caller)
 	require.NoError(t, err)
 	require.Empty(t, got.Get(string(types.ObotHeaderAPIKeyName)), "audit fallback must not become a key name")
 	require.Equal(t, "42", got.Get(string(types.ObotHeaderAPIKeyID)))
 	delete(caller.Extra, principal.APIKeyIDExtra)
 	delete(caller.Extra, "email")
-	got, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, allObotHeaders(), caller)
+	got, err = ForCaller(t.Context(), &headerIdentityReader{}, allObotHeaders(), caller)
 	require.NoError(t, err)
 	require.Equal(t, http.Header{"X-Obot-User-Id": {"7"}, "X-Obot-User-Name": {"alice"}}, got)
 }
 
 func TestCallerObotHeadersOmitInvalidSelectedValues(t *testing.T) {
 	caller := headerTestCaller("42", "invalid\r\nX-Injected: true")
-	headers, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderAPIKeyName}, caller)
+	headers, err := ForCaller(t.Context(), &headerIdentityReader{}, []types.ObotHeader{types.ObotHeaderAPIKeyName}, caller)
 	require.NoError(t, err)
 	require.Empty(t, headers)
-	_, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderUserID}, caller)
+	_, err = ForCaller(t.Context(), &headerIdentityReader{}, []types.ObotHeader{types.ObotHeaderUserID}, caller)
 	require.NoError(t, err, "unselected values do not affect forwarding")
 }
 
@@ -145,7 +142,7 @@ func TestSelectedIDPUserID(t *testing.T) {
 			caller := headerTestCaller("42", "writer")
 			caller.Extra["auth_provider_name"] = []string{tt.provider}
 			reader := &headerIdentityReader{identities: tt.identities}
-			got, err := ForCaller(t.Context(), reader, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderIDPUserID}, caller)
+			got, err := ForCaller(t.Context(), reader, []types.ObotHeader{types.ObotHeaderIDPUserID}, caller)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, got.Get(string(types.ObotHeaderIDPUserID)))
 			require.Equal(t, 1, reader.calls)
@@ -154,10 +151,10 @@ func TestSelectedIDPUserID(t *testing.T) {
 	}
 	reader := &headerIdentityReader{err: fmt.Errorf("database unavailable")}
 	caller := headerTestCaller("42", "writer")
-	_, err := ForCaller(t.Context(), reader, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderIDPGroups}, caller)
+	_, err := ForCaller(t.Context(), reader, []types.ObotHeader{types.ObotHeaderIDPGroups}, caller)
 	require.NoError(t, err)
 	require.Zero(t, reader.calls, "unselected IdP ID must not cause identity lookups")
-	_, err = ForCaller(t.Context(), reader, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderIDPUserID}, caller)
+	_, err = ForCaller(t.Context(), reader, []types.ObotHeader{types.ObotHeaderIDPUserID}, caller)
 	require.ErrorContains(t, err, "resolve IdP user ID")
 }
 
@@ -167,19 +164,19 @@ func TestCallerIDPHeaders(t *testing.T) {
 	groups := []string{"okta:z", "okta:a,comma", "okta:z", "", "okta:quote\""}
 	caller.Extra["auth_provider_groups"] = groups
 	selected := []types.ObotHeader{types.ObotHeaderIDPUserID, types.ObotHeaderIDPGroups}
-	headers, err := ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: "00u-alice"}}}, types.RuntimeRemote, selected, caller)
+	headers, err := ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: "00u-alice"}}}, selected, caller)
 	require.NoError(t, err)
 	require.Equal(t, "00u-alice", headers.Get(string(types.ObotHeaderIDPUserID)))
 	decoded, err := csv.NewReader(strings.NewReader(headers.Get(string(types.ObotHeaderIDPGroups)))).Read()
 	require.NoError(t, err)
 	require.Equal(t, []string{"okta:a,comma", "okta:quote\"", "okta:z"}, decoded)
 	require.Equal(t, groups, caller.Extra["auth_provider_groups"], "must not mutate the authenticated principal")
-	headers, err = ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: "id\r\nX-Spoof: true"}}}, types.RuntimeRemote, selected, caller)
+	headers, err = ForCaller(t.Context(), &headerIdentityReader{identities: []gatewaytypes.Identity{{ProviderUserID: "id\r\nX-Spoof: true"}}}, selected, caller)
 	require.NoError(t, err)
 	require.Empty(t, headers.Get(string(types.ObotHeaderIDPUserID)))
 	require.NotEmpty(t, headers.Get(string(types.ObotHeaderIDPGroups)))
 	delete(caller.Extra, "auth_provider_groups")
-	headers, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, selected, caller)
+	headers, err = ForCaller(t.Context(), &headerIdentityReader{}, selected, caller)
 	require.NoError(t, err)
 	require.Empty(t, headers, "Obot role groups must never become IdP groups")
 }
@@ -217,7 +214,7 @@ func TestCallerIDPGroupsCommaSeparated(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			caller := headerTestCaller("42", "writer")
 			caller.Extra["auth_provider_groups"] = tt.groups
-			headers, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{types.ObotHeaderIDPGroups}, caller)
+			headers, err := ForCaller(t.Context(), &headerIdentityReader{}, []types.ObotHeader{types.ObotHeaderIDPGroups}, caller)
 			require.NoError(t, err)
 			require.Equal(t, tt.want, headers.Get(string(types.ObotHeaderIDPGroups)))
 		})
@@ -228,7 +225,7 @@ func TestCallerObotHeaderSizeLimits(t *testing.T) {
 	caller := headerTestCaller("42", "writer")
 	caller.Name = strings.Repeat("界", maxObotHeaderValueCharacters)
 	caller.Extra["email"] = []string{strings.Repeat("b", maxObotHeaderValueCharacters)}
-	headers, err := ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{
+	headers, err := ForCaller(t.Context(), &headerIdentityReader{}, []types.ObotHeader{
 		types.ObotHeaderUserName,
 		types.ObotHeaderUserEmail,
 		types.ObotHeaderUserID,
@@ -240,7 +237,7 @@ func TestCallerObotHeaderSizeLimits(t *testing.T) {
 
 	caller.Name += "a"
 	caller.Extra["auth_provider_groups"] = []string{"okta:small", strings.Repeat("g", maxObotHeaderValueCharacters)}
-	headers, err = ForCaller(t.Context(), &headerIdentityReader{}, types.RuntimeRemote, []types.ObotHeader{
+	headers, err = ForCaller(t.Context(), &headerIdentityReader{}, []types.ObotHeader{
 		types.ObotHeaderUserName,
 		types.ObotHeaderIDPGroups,
 		types.ObotHeaderUserID,
@@ -249,6 +246,20 @@ func TestCallerObotHeaderSizeLimits(t *testing.T) {
 	require.Empty(t, headers.Get(string(types.ObotHeaderUserName)))
 	require.Empty(t, headers.Get(string(types.ObotHeaderIDPGroups)), "omit the entire group list instead of forwarding partial memberships")
 	require.Equal(t, "7", headers.Get(string(types.ObotHeaderUserID)))
+}
+
+func TestSelected(t *testing.T) {
+	headers := http.Header{
+		"X-Obot-Api-Key-Name": {"current-writer"},
+		"X-Obot-User-Id":      {"7"},
+		"X-Tenant":            {"tenant"},
+	}
+	selected := Selected(headers, types.RuntimeRemote, []types.ObotHeader{"x-obot-api-key-name", types.ObotHeaderUserEmail})
+	require.Equal(t, http.Header{"X-Obot-Api-Key-Name": {"current-writer"}}, selected)
+	selected.Set("X-Obot-Api-Key-Name", "changed")
+	require.Equal(t, "current-writer", headers.Get("X-Obot-Api-Key-Name"), "do not mutate incoming headers")
+	require.Empty(t, Selected(headers, types.RuntimeRemote, nil), "disabled injection discloses nothing")
+	require.Empty(t, Selected(headers, types.RuntimeContainerized, types.ObotHeaders()), "hosted components do not inject attribution")
 }
 
 func TestStrip(t *testing.T) {

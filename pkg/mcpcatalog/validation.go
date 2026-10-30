@@ -67,6 +67,7 @@ func SanitizeName(name string) string {
 // Obot imports a catalog source.
 func NormalizeManifest(entry *types.MCPServerCatalogEntryManifest) {
 	normalizeConfig(entry.Config)
+	entry.InjectObotHeaders = types.NormalizeObotHeaders(entry.InjectObotHeaders)
 }
 
 // NormalizeSystemManifest applies the same compatibility normalization used
