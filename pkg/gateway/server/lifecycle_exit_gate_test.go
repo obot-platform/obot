@@ -234,11 +234,20 @@ func TestLifecycleExitGate(t *testing.T) {
 	if err := client.DeleteUser(ctx, fmt.Sprint(oktaUser.ID)); err != nil {
 		t.Fatalf("failed to delete the Okta user: %v", err)
 	}
-	assertDenied(oktaCredentials[1:], types2.UserStatusDeleted)
+	assertDenied(oktaCredentials, types2.UserStatusDeleted)
 	if err := setActiveThroughSCIM(t, client, provisioned.ID, true); err == nil {
 		t.Fatal("reactivated a deleted user")
 	}
-	// Signing in again creates a new, empty account, as it does today.
+	// Once the user's cleanup has removed their identities, signing in again creates a new, empty account.
+	identities, err := client.FindIdentitiesForUser(ctx, oktaUser.ID)
+	if err != nil {
+		t.Fatalf("failed to find the identities of the deleted user: %v", err)
+	}
+	for _, identity := range identities {
+		if err := client.RemoveIdentity(ctx, &identity); err != nil {
+			t.Fatalf("failed to remove an identity of the deleted user: %v", err)
+		}
+	}
 	if again := signIn(provider, "00u-okta"); again.ID == oktaUser.ID {
 		t.Fatalf("signing in after deletion reused user %d", oktaUser.ID)
 	}
