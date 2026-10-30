@@ -134,7 +134,9 @@
 		}
 		// Any filter change goes back to the first page.
 		if (!('page' in values)) url.searchParams.delete('page');
-		goto(url, { replace: true, reset: false, shallow: true });
+		// A real (non-shallow) navigation, so page.url updates and the filters reload. A shallow
+		// one changes the address bar but leaves page.url, and so the list, as it was.
+		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	let rows = $derived(

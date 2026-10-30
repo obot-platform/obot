@@ -81,6 +81,21 @@ describe('Sessions list', () => {
 		await expect.element(page.getByText('No sessions match these filters.')).toBeInTheDocument();
 	});
 
+	it('changes the time range with a real navigation so the list reloads', async () => {
+		mockSessions();
+		await renderPage();
+
+		await page.getByRole('combobox', { name: 'Time range' }).click();
+		await page.getByRole('button', { name: 'Last 30 days', exact: true }).click();
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		const [url, options] = vi.mocked(goto).mock.calls.at(-1)!;
+		expect(new URL(url.toString()).searchParams.get('range')).toBe('30d');
+		// A shallow navigation changes the address bar but not page.url, so the list never reloads.
+		expect(options).not.toHaveProperty('shallow');
+		expect(options).toMatchObject({ replaceState: true });
+	});
+
 	it('opens a session when its row is clicked', async () => {
 		mockSessions();
 		await renderPage();

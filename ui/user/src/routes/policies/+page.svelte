@@ -24,7 +24,7 @@
 	} from '$lib/services/provenance';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { goto, replaceState, resolve } from '$lib/url';
+	import { goto, resolve } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Plus, ShieldCheck, Sparkles, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -96,7 +96,8 @@
 		const url = new URL(page.url.toString());
 		if (value) url.searchParams.set('query', value);
 		else url.searchParams.delete('query');
-		replaceState(url, { query: value });
+		// Not a shallow replaceState: the list filters on page.url, which only a real navigation updates.
+		goto(url, { replaceState: true, noScroll: true, keepFocus: true });
 	}
 
 	async function patch(p: Policy, changes: Partial<Policy>, toast: string) {
