@@ -150,7 +150,7 @@ REST API handlers are in `/pkg/api/handlers/`. Each handler file corresponds to 
 
 ## Go Linting Configuration
 
-Uses golangci-lint (version pinned by `GOLANGCI_LINT_VERSION` in the Makefile) with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
+Uses golangci-lint (version pinned by `GOLANGCI_LINT_VERSION` in the Makefile) with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: goimports.
 
 ## Module Structure
 

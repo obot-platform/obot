@@ -35,5 +35,15 @@ jobs:
       - name: Build
         run: make build
 
+      # golangci-lint caches per package by content hash, so restoring an older cache is safe.
+      - name: Cache golangci-lint
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/golangci-lint
+          key: golangci-lint-${{ runner.os }}-${{ hashFiles('go.sum', '.golangci.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            golangci-lint-${{ runner.os }}-${{ hashFiles('go.sum', '.golangci.yaml') }}-
+            golangci-lint-${{ runner.os }}-
+
       - name: Validate Go Code
         run: make validate-go-code
