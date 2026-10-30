@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"uuid"
 
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
@@ -46,6 +45,7 @@ type proxyMessageKind int
 // persistence layer correlates same-exchange entries by proxyExchangeID and
 // uses protocol session metadata only for legacy cross-request responses.
 type proxyAudit struct {
+	virtualSession  bool
 	collector       proxyAuditCollector
 	storage         kclient.Client
 	ctx             context.Context
@@ -139,14 +139,9 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	if kind == proxyMessageRequest {
 		audit.proxyExchangeID = rand.Text()
 	}
-	virtualSession, err := saveMCPClientSession(audit.ctx, audit.storage, &audit.entry, false)
+	_, err := saveMCPClientSession(audit.ctx, audit.storage, &audit.entry, false)
 	if err != nil {
 		slog.ErrorContext(req.Context(), "failed to load MCP client session for audit logging", "error", err)
-	}
-
-	// If this is a virtual session, then remove the session ID header from the request because the upstream server isn't expecting it.
-	if virtualSession {
-		req.Header.Del(mcpSessionHeader)
 	}
 
 	return audit, nil
@@ -337,16 +332,11 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 		clearMCPHookResponseHeaders(resp.Header)
 	}
 
-	var virtual bool
 	if sessionID := resp.Header.Get(mcpSessionHeader); sessionID != "" {
 		a.entry.SessionID = sessionID
-	} else if a.entry.CallType == "initialize" && resp.StatusCode == http.StatusOK {
-		a.entry.SessionID = uuid.New().String()
-		resp.Header.Set(mcpSessionHeader, a.entry.SessionID)
-		virtual = true
 	}
 
-	if _, err := saveMCPClientSession(a.ctx, a.storage, &a.entry, virtual); err != nil {
+	if _, err := saveMCPClientSession(a.ctx, a.storage, &a.entry, a.virtualSession); err != nil {
 		slog.Error("failed to save MCP client session for audit logging", "error", err)
 	}
 	responseHeaders, _ := json.Marshal(sanitizedMCPHeaders(resp.Header))
