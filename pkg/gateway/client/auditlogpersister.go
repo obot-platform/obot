@@ -23,7 +23,14 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	mcp.ResponseMutated = len(mcp.OriginalResponseBody) > 0
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
-		slog.Error("Failed to encrypt MCP audit log", "error", err)
+		slog.Error("Failed to encrypt MCP audit log", "error", err,
+			"mcpID", mcp.MCPID,
+			"requestID", mcp.RequestID,
+			"proxyExchangeID", mcp.ProxyExchangeID,
+			"callType", mcp.CallType,
+		)
+		// Drop the entry so failed or partially encrypted payloads cannot be persisted.
+		return
 	}
 
 	c.auditLock.Lock()

@@ -1155,43 +1155,57 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		return nil
 	}
 
-	var (
-		errs []error
-
-		dataCtx = mcpAuditLogDataCtx(log)
-	)
+	dataCtx := mcpAuditLogDataCtx(log)
 
 	if mcp := log.MCP(); mcp != nil {
-		errs = append(errs,
-			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestBody),
-			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.MutatedRequestBody),
-			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseBody),
-			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.OriginalResponseBody),
-			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestHeaders),
-			encryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseHeaders),
-		)
+		for _, field := range []*json.RawMessage{
+			&mcp.RequestBody,
+			&mcp.MutatedRequestBody,
+			&mcp.ResponseBody,
+			&mcp.OriginalResponseBody,
+			&mcp.RequestHeaders,
+			&mcp.ResponseHeaders,
+		} {
+			if err := encryptRawMessageField(ctx, transformer, dataCtx, field); err != nil {
+				return err
+			}
+		}
 	}
 
 	if local := log.LocalAgentToolCallFields; local != nil {
-		errs = append(errs,
-			encryptStringField(ctx, transformer, dataCtx, &local.OutcomeError),
-			encryptStringField(ctx, transformer, dataCtx, &local.Hostname),
-			encryptStringField(ctx, transformer, dataCtx, &local.LocalUsername),
-			encryptStringField(ctx, transformer, dataCtx, &local.ReportedUserEmail),
-			encryptStringField(ctx, transformer, dataCtx, &local.CWD),
-			encryptStringField(ctx, transformer, dataCtx, &local.GitRoot),
-			encryptStringSliceField(ctx, transformer, dataCtx, []string(local.GitRemotes)),
-			encryptStringField(ctx, transformer, dataCtx, &local.GitBranch),
-			encryptStringField(ctx, transformer, dataCtx, &local.TranscriptPath),
-			encryptRawMessageField(ctx, transformer, dataCtx, &local.RequestBody),
-			encryptRawMessageField(ctx, transformer, dataCtx, &local.ResponseBody),
-			encryptRawMessageField(ctx, transformer, dataCtx, &local.RawEvent),
-		)
+		for _, field := range []*string{
+			&local.OutcomeError,
+			&local.Hostname,
+			&local.LocalUsername,
+			&local.ReportedUserEmail,
+			&local.CWD,
+			&local.GitRoot,
+			&local.GitBranch,
+			&local.TranscriptPath,
+		} {
+			if err := encryptStringField(ctx, transformer, dataCtx, field); err != nil {
+				return err
+			}
+		}
+
+		if err := encryptStringSliceField(ctx, transformer, dataCtx, []string(local.GitRemotes)); err != nil {
+			return err
+		}
+
+		for _, field := range []*json.RawMessage{
+			&local.RequestBody,
+			&local.ResponseBody,
+			&local.RawEvent,
+		} {
+			if err := encryptRawMessageField(ctx, transformer, dataCtx, field); err != nil {
+				return err
+			}
+		}
 	}
 
 	log.Encrypted = true
 
-	return errors.Join(errs...)
+	return nil
 }
 
 func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
