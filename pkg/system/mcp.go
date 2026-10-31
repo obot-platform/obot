@@ -12,6 +12,9 @@ const (
 	// in the context returned by MCPOAuthCredentialName.
 	StaticOAuthCredentialName = "oauth"
 	OAuthClientIDMetadataPath = "/oauth/client-metadata.json"
+
+	// CatalogItemSchemaPath is where Obot serves the JSON Schema of catalog source files.
+	CatalogItemSchemaPath = "/schemas/catalog-item.json"
 )
 
 // MCPOAuthCredentialName returns the credential name for an MCP server's OAuth credentials

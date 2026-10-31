@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
+	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -298,6 +299,8 @@ var (
 			"POST /oauth/token",
 			"GET  /oauth/jwks.json",
 			"GET  /oauth/client-metadata.json",
+			// The catalog file schema, so editors and CI can fetch it without credentials.
+			"GET " + system.CatalogItemSchemaPath,
 			// Pending UI login state is a short-lived, opaque capability.
 			"GET  /oauth/mcp/login/{state}",
 

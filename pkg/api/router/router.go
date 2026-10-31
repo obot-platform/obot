@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/obot-platform/obot/pkg/adminmcp"
+
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
@@ -14,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/scim"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -722,6 +725,16 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, mux)
 	// Obot OAuth
 	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, services.MCPOAuthClientNativeExceptions, mux)
+
+	// The catalog file schema, for editors, CI, and coding agents
+	mux.HandleFunc("GET "+system.CatalogItemSchemaPath, adminmcp.ServeSchema)
+
+	// The Obot Admin server for catalog authoring, which admins add to a vMCP through its built-in
+	// catalog entry. The vMCP's profiles decide who can reach it; the server flag turns it off.
+	if services.AdminMCPAllowed {
+		adminMCP := adminmcp.NewHandler(services.ServerURL, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel, services.MCPSessionManager, services.ProviderDispatcher)
+		mcpGateway.RegisterBuiltin(adminmcp.BuiltinName, adminMCP.Builtin)
+	}
 
 	mux.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
 

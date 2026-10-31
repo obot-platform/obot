@@ -18,30 +18,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// catalogVMCPItem is the catalog source form of a vMCP. Field order is the
-// order in the generated YAML.
-type catalogVMCPItem struct {
-	Type        string                 `json:"type"`
-	EntryKey    string                 `json:"entryKey"`
-	DisplayName string                 `json:"displayName"`
-	Description string                 `json:"description,omitempty"`
-	Icon        string                 `json:"icon,omitempty"`
-	ToolSearch  bool                   `json:"toolSearch,omitempty"`
-	Components  []catalogVMCPComponent `json:"components"`
-	// Profiles is never omitted: sync replaces a missing list with an admin-only default.
-	Profiles []types.VMCPProfile `json:"profiles"`
-}
-
-type catalogVMCPComponent struct {
-	// ID is always set so sync keeps the configuration and credentials scoped to it.
-	ID                       string                          `json:"id"`
-	Name                     string                          `json:"name"`
-	MCPServerCatalogEntryKey string                          `json:"mcpServerCatalogEntryKey"`
-	Configuration            []types.VMCPConfigurationPolicy `json:"configuration,omitempty"`
-	ToolPrefix               string                          `json:"toolPrefix,omitempty"`
-	ToolOverrides            []types.ToolOverride            `json:"toolOverrides,omitempty"`
-}
-
 // orphanedVMCPError explains why a vMCP cannot be expressed as catalog YAML.
 type orphanedVMCPError struct {
 	msg string
@@ -117,14 +93,14 @@ func (e orphanedVMCPError) Error() string {
 
 func orphanedVMCPCatalogYAML(req api.Context, catalog *v1.MCPCatalog, vmcp *v1.VMCP) ([]byte, error) {
 	sourceID := mcp.SourceIDForURL(vmcp.Spec.AdoptionSourceURL)
-	item := catalogVMCPItem{
+	item := mcpcatalog.CatalogVMCPItem{
 		Type:        "vmcp",
 		EntryKey:    vmcp.Spec.AdoptionEntryKey,
 		DisplayName: vmcp.Spec.Manifest.DisplayName,
 		Description: vmcp.Spec.Manifest.Description,
 		Icon:        vmcp.Spec.Manifest.Icon,
 		ToolSearch:  vmcp.Spec.Manifest.ToolSearch,
-		Components:  make([]catalogVMCPComponent, 0, len(vmcp.Spec.Manifest.Components)),
+		Components:  make([]mcpcatalog.CatalogVMCPComponent, 0, len(vmcp.Spec.Manifest.Components)),
 		Profiles:    vmcp.Spec.Manifest.Profiles,
 	}
 	if item.Profiles == nil {
@@ -142,7 +118,7 @@ func orphanedVMCPCatalogYAML(req api.Context, catalog *v1.MCPCatalog, vmcp *v1.V
 			// Sync keeps fixed values already stored for this component ID.
 			configuration = append(configuration, types.VMCPConfigurationPolicy{Key: policy.Key, Policy: policy.Policy})
 		}
-		item.Components = append(item.Components, catalogVMCPComponent{
+		item.Components = append(item.Components, mcpcatalog.CatalogVMCPComponent{
 			ID:                       component.ID,
 			Name:                     component.Name,
 			MCPServerCatalogEntryKey: reference,
@@ -187,7 +163,7 @@ func catalogEntryReference(req api.Context, catalog *v1.MCPCatalog, sourceID str
 		return "", orphanedVMCPError{fmt.Sprintf("component %q uses catalog entry %q from %s, which is no longer a source of catalog %q; sync the catalog and generate the YAML again", component.Name, entry.Spec.Manifest.Name, entry.Spec.SourceURL, catalog.Name)}
 	}
 	if entrySourceID != sourceID {
-		return entrySourceID + "::" + entry.Spec.Manifest.EntryKey, nil
+		return mcpcatalog.SourceRef(entrySourceID, entry.Spec.Manifest.EntryKey), nil
 	}
 	return entry.Spec.Manifest.EntryKey, nil
 }
