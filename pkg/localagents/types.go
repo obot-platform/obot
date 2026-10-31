@@ -34,5 +34,6 @@ type Agent interface {
 type SetupTarget interface {
 	ID() string
 	DisplayName() string
-	InstallBootstrap(ctx context.Context, home string) (InstallResult, error)
+	// InstallBootstrap installs the Obot bootstrap skills, and the admin skills too when admin is set.
+	InstallBootstrap(ctx context.Context, home string, admin bool) (InstallResult, error)
 }

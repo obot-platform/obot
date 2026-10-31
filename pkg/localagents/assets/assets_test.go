@@ -7,10 +7,10 @@ import (
 )
 
 func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
-	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
+	rendered := renderAgentSkillsForTest(t, adminTemplateData(ClaudeCodeTemplateData()))
 
-	if len(rendered) != 4 {
-		t.Fatalf("expected 4 rendered assets, got %d", len(rendered))
+	if len(rendered) != 5 {
+		t.Fatalf("expected 5 rendered assets, got %d", len(rendered))
 	}
 
 	install := renderedByName(t, rendered, "obot-install-skill")
@@ -27,8 +27,13 @@ func TestRenderAgentSkillsForClaudeCode(t *testing.T) {
 	assertContains(t, string(mcpSearch.Content), "obot mcp search --non-interactive\n")
 	assertContains(t, string(mcpSearch.Content), "configuration required")
 
+	authorVMCPs := renderedByName(t, rendered, "obot-author-vmcps")
+	assertContains(t, string(authorVMCPs.Content), "name: obot-author-vmcps")
+	assertContains(t, string(authorVMCPs.Content), "obot mcp list-tools <entry-id> --non-interactive")
+
 	bootstrap := renderedByName(t, rendered, "obot")
 	assertContains(t, string(bootstrap.Content), "rendered for `claude-code`")
+	assertContains(t, string(bootstrap.Content), "load the `obot-author-vmcps` skill")
 	assertContains(t, string(bootstrap.Content), "obot mcp search")
 }
 
@@ -44,7 +49,7 @@ func TestRenderAgentSkillsForSharedAgents(t *testing.T) {
 }
 
 func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
-	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
+	rendered := renderAgentSkillsForTest(t, adminTemplateData(ClaudeCodeTemplateData()))
 
 	got := make([]string, 0, len(rendered))
 	for _, asset := range rendered {
@@ -55,6 +60,7 @@ func TestRenderedAssetsHaveDeterministicRelativePaths(t *testing.T) {
 	}
 
 	want := []string{
+		"obot-author-vmcps/SKILL.md",
 		"obot-install-skill/SKILL.md",
 		"obot-search-mcp-servers/SKILL.md",
 		"obot-search-skills/SKILL.md",
@@ -89,6 +95,25 @@ func TestRenderedTemplatesDoNotContainUnexpandedActions(t *testing.T) {
 		assertNotContains(t, content, "{{")
 		assertNotContains(t, content, "}}")
 	}
+}
+
+// Admins and owners get the admin skills too.
+func TestRenderAgentSkillsLeavesOutAdminSkillsForOthers(t *testing.T) {
+	rendered := renderAgentSkillsForTest(t, ClaudeCodeTemplateData())
+	if len(rendered) != 4 {
+		t.Fatalf("expected 4 rendered assets, got %d", len(rendered))
+	}
+	for _, asset := range rendered {
+		if asset.SkillName == "obot-author-vmcps" {
+			t.Fatal("obot-author-vmcps rendered for a non-admin")
+		}
+	}
+	assertNotContains(t, string(renderedByName(t, rendered, "obot").Content), "obot-author-vmcps")
+}
+
+func adminTemplateData(data TemplateData) TemplateData {
+	data.Admin = true
+	return data
 }
 
 func renderAgentSkillsForTest(t *testing.T, data TemplateData) []SkillAsset {

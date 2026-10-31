@@ -65,7 +65,7 @@ func (c ClaudeCode) Detect(ctx context.Context) DetectionResult {
 	return result
 }
 
-func (c ClaudeCode) InstallBootstrap(ctx context.Context, home string) (InstallResult, error) {
+func (c ClaudeCode) InstallBootstrap(ctx context.Context, home string, admin bool) (InstallResult, error) {
 	if err := ctx.Err(); err != nil {
 		return InstallResult{}, err
 	}
@@ -74,7 +74,9 @@ func (c ClaudeCode) InstallBootstrap(ctx context.Context, home string) (InstallR
 		return InstallResult{}, err
 	}
 
-	rendered, err := assets.RenderAgentSkills(assets.ClaudeCodeTemplateData())
+	data := assets.ClaudeCodeTemplateData()
+	data.Admin = admin
+	rendered, err := assets.RenderAgentSkills(data)
 	if err != nil {
 		return InstallResult{}, err
 	}
