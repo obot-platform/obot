@@ -32,6 +32,7 @@ export function onOAuthCompletion(
 	let trailing: ReturnType<typeof setTimeout> | undefined;
 
 	const run = () => {
+		clearTimeout(trailing);
 		trailing = undefined;
 		lastRun = performance.now();
 		callback();

@@ -5,7 +5,11 @@ const CHANNEL_NAME = 'obot-mcp-oauth-completion';
 
 describe('OAuth completion signal', () => {
 	const cleanups: Array<() => void> = [];
-	afterEach(() => cleanups.splice(0).forEach((cleanup) => cleanup()));
+	afterEach(() => {
+		cleanups.splice(0).forEach((cleanup) => cleanup());
+		vi.restoreAllMocks();
+		vi.useRealTimers();
+	});
 
 	function listen(minIntervalMs: number) {
 		const callback = vi.fn();
@@ -69,4 +73,32 @@ describe('OAuth completion signal', () => {
 		await new Promise((resolve) => setTimeout(resolve, 350));
 		expect(callback).toHaveBeenCalledOnce();
 	});
+
+	it.each([false, true])(
+		'cancels an overdue trailing check when a new message runs immediately (stop listener: %s)',
+		async (stopBeforeTimer) => {
+			vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+			const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+			const callback = vi.fn();
+			const stop = onOAuthCompletion(callback);
+			cleanups.push(stop);
+
+			announceOAuthCompletion();
+			await vi.waitFor(() => expect(callback).toHaveBeenCalledOnce());
+
+			clock.mockReturnValue(100);
+			announceOAuthCompletion();
+			await vi.waitFor(() => expect(vi.getTimerCount()).toBe(1));
+
+			// A background tab can deliver a new message before an overdue timer.
+			// Advance the monotonic clock without executing the pending timer.
+			clock.mockReturnValue(2100);
+			announceOAuthCompletion();
+			await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(2));
+
+			if (stopBeforeTimer) stop();
+			vi.runAllTimers();
+			expect(callback).toHaveBeenCalledTimes(2);
+		}
+	);
 });
