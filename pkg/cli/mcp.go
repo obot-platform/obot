@@ -72,6 +72,7 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.AddCommand(cmd.Command(&MCPValidateCatalog{}))
 	c.AddCommand(cmd.Command(&MCPConvertCatalog{}))
 	c.AddCommand(cmd.Command(&MCPGenerateVMCPCatalog{root: m.root}))
+	c.AddCommand(cmd.Command(&MCPListTools{root: m.root}))
 	c.AddCommand(cmd.Command(&MCPValidateSystemCatalog{}))
 }
 

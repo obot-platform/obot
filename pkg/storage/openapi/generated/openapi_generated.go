@@ -358,6 +358,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageStatsModel":                      schema_obot_platform_obot_apiclient_types_TokenUsageStatsModel(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageStatsProvider":                   schema_obot_platform_obot_apiclient_types_TokenUsageStatsProvider(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageStatsTotals":                     schema_obot_platform_obot_apiclient_types_TokenUsageStatsTotals(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolListRequest":                           schema_obot_platform_obot_apiclient_types_ToolListRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.ToolListRequestManifest":                   schema_obot_platform_obot_apiclient_types_ToolListRequestManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolOverride":                              schema_obot_platform_obot_apiclient_types_ToolOverride(ref),
 		"github.com/obot-platform/obot/apiclient/types.TunnelConnection":                          schema_obot_platform_obot_apiclient_types_TunnelConnection(ref),
 		"github.com/obot-platform/obot/apiclient/types.TunnelConnectionList":                      schema_obot_platform_obot_apiclient_types_TunnelConnectionList(ref),
@@ -18017,6 +18019,115 @@ func schema_obot_platform_obot_apiclient_types_TokenUsageStatsTotals(ref common.
 					},
 				},
 				Required: []string{"requests", "successes", "fallbacks", "avgDurationMs", "inputTokens", "outputTokens", "totalTokens", "totalSpend"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ToolListRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ToolListRequest is a request to list a catalog entry's tools. Listing launches the entry's server, so the user who made the request confirms it in the Obot UI at URL; the obot CLI waits for the result.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"entryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EntryID is the catalog entry whose tools to list.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"entryName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"entryIcon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"catalogID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is pending, completed, or failed.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPServerTool"),
+									},
+								},
+							},
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URL is the page in the Obot UI where the user confirms the request.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "entryID", "status", "url"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ToolListRequestManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ToolListRequestManifest names the catalog entry whose tools to list.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"entryID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"entryID"},
 			},
 		},
 	}

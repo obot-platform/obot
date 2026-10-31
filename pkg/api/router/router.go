@@ -223,6 +223,11 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/reveal", vmcps.Reveal)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/deconfigure", vmcps.Deconfigure)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
+	// Tool list requests: the obot CLI starts one and waits while the user confirms it in the UI.
+	mux.HandleFunc("POST /api/tool-list-requests", mcpCatalogs.CreateToolListRequest)
+	mux.HandleFunc("GET /api/tool-list-requests/{request_id}", mcpCatalogs.GetToolListRequest)
+	mux.HandleFunc("POST /api/tool-list-requests/{request_id}/complete", mcpCatalogs.CompleteToolListRequest)
+	mux.HandleFunc("POST /api/tool-list-requests/{request_id}/cancel", mcpCatalogs.CancelToolListRequest)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
 

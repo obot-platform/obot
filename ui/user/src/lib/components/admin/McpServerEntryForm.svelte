@@ -15,7 +15,8 @@
 		type MCPCatalogEntry,
 		type MCPServerInstance,
 		type OrgUser,
-		type MCPCatalogEntryServerManifest
+		type MCPCatalogEntryServerManifest,
+		type ToolListRequest
 	} from '$lib/services';
 	import type { OpenAPIImportDraft } from '$lib/services/openapi';
 	import {
@@ -88,6 +89,9 @@
 		allowMultiUserServerConfigurationEdit?: boolean;
 		connectOnly?: boolean;
 		hideTitleBarAction?: boolean;
+		/** A request, usually from the obot CLI, for the user to list this entry's tools for their agent. */
+		toolListRequestID?: string;
+		toolListRequest?: ToolListRequest;
 	}
 
 	let {
@@ -110,7 +114,9 @@
 		configuredServers,
 		allowMultiUserServerConfigurationEdit,
 		connectOnly,
-		hideTitleBarAction = false
+		hideTitleBarAction = false,
+		toolListRequestID,
+		toolListRequest
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
@@ -235,6 +241,38 @@
 			)
 	);
 	let previewToolsOverride = $state<MCPCatalogEntryServerManifest['toolPreview']>();
+
+	// The answer to a tool list request: listing the tools here returns them to the waiting CLI.
+	// A request is answered only on its own entry's page, so tools can't be recorded for another entry.
+	let toolListAnswer = $state<'listed' | 'declined' | 'failed'>();
+	let toolListError = $state<string>();
+	let toolListRequestForOtherEntry = $derived(
+		!!toolListRequest && !!entry && toolListRequest.entryID !== entry.id
+	);
+	let answeringToolListRequest = $derived(
+		!!toolListRequestID &&
+			toolListRequest?.status === 'pending' &&
+			!toolListRequestForOtherEntry &&
+			!toolListAnswer
+	);
+
+	// failToolListRequest tells the waiting CLI that the tools couldn't be listed.
+	async function failToolListRequest(message: string) {
+		if (!toolListRequest) return;
+		toolListError = message;
+		toolListAnswer = 'failed';
+		await AdminService.completeToolListRequest(toolListRequest.id, [], message).catch(() => {});
+	}
+
+	async function declineToolListRequest() {
+		if (!toolListRequest) return;
+		try {
+			await AdminService.cancelToolListRequest(toolListRequest.id);
+			toolListAnswer = 'declined';
+		} catch (err) {
+			error = err instanceof Error ? err.message : m.mcps_unknown_error();
+		}
+	}
 
 	const tabs = $derived.by(() => {
 		const availableTabs =
@@ -473,8 +511,10 @@
 		if (!entry || !id) return;
 
 		// For MCPServers (multi-user deployments), use the catalogEntryID for tool preview generation
-		// and dryRun mode since the underlying catalog entry is not editable.
+		// and dryRun mode since the underlying catalog entry is not editable. Answering a tool list
+		// request also lists the tools without saving them on the entry.
 		const isMCPServer = entry.type === 'mcpserver';
+		const dryRun = isMCPServer || answeringToolListRequest;
 		const entryID = isMCPServer ? (entry as MCPCatalogServer).catalogEntryID : entry.id;
 		if (!entryID) return;
 
@@ -489,17 +529,24 @@
 							id,
 							entryID,
 							body as unknown as { config?: Record<string, string>; url?: string },
-							{ dryRun: isMCPServer }
+							{ dryRun }
 						)
 					: await AdminService.generateMcpCatalogEntryToolPreviews(
 							id,
 							entryID,
 							body as unknown as { config?: Record<string, string>; url?: string },
-							{ dryRun: isMCPServer }
+							{ dryRun }
 						);
 
 			if (result && entry) {
 				previewToolsOverride = result.manifest?.toolPreview;
+				if (answeringToolListRequest && toolListRequest) {
+					await AdminService.completeToolListRequest(
+						toolListRequest.id,
+						result.manifest?.toolPreview
+					);
+					toolListAnswer = 'listed';
+				}
 				oauthURL = undefined;
 				oauthDialog?.close();
 				configDialog?.close();
@@ -507,25 +554,38 @@
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : m.mcps_unknown_error();
 			if (errMessage.includes('MCP server requires OAuth authentication')) {
-				const oauthResponse =
-					entity === 'workspace'
-						? await UserService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
-								id,
-								entryID,
-								body as unknown as { config?: Record<string, string>; url?: string }
-							)
-						: await AdminService.getMcpCatalogToolPreviewsOauth(
-								id,
-								entryID,
-								body as unknown as { config?: Record<string, string>; url?: string }
-							);
-				if (typeof oauthResponse === 'string') {
-					configDialog?.close();
-					handleTemporaryInstanceOauth(oauthResponse);
+				try {
+					const oauthResponse =
+						entity === 'workspace'
+							? await UserService.getWorkspaceMCPCatalogEntryToolPreviewsOauth(
+									id,
+									entryID,
+									body as unknown as { config?: Record<string, string>; url?: string }
+								)
+							: await AdminService.getMcpCatalogToolPreviewsOauth(
+									id,
+									entryID,
+									body as unknown as { config?: Record<string, string>; url?: string },
+									{ dryRun }
+								);
+					if (typeof oauthResponse === 'string' && oauthResponse) {
+						configDialog?.close();
+						handleTemporaryInstanceOauth(oauthResponse);
+					} else if (typeof oauthResponse === 'string') {
+						// Obot couldn't start the server's sign-in.
+						error = errMessage;
+						showButtonInlineError = showInlineError;
+						if (answeringToolListRequest) await failToolListRequest(errMessage);
+					}
+				} catch (oauthErr) {
+					error = oauthErr instanceof Error ? oauthErr.message : m.mcps_unknown_error();
+					showButtonInlineError = showInlineError;
+					if (answeringToolListRequest) await failToolListRequest(error);
 				}
 			} else {
-				error = err instanceof Error ? err.message : m.mcps_unknown_error();
+				error = errMessage;
 				showButtonInlineError = showInlineError;
+				if (answeringToolListRequest) await failToolListRequest(errMessage);
 			}
 		} finally {
 			saving = false;
@@ -865,6 +925,41 @@
 	</div>
 </div>
 
+{#snippet toolListRequestNotice()}
+	<div class="notification-info mb-4 flex flex-col gap-3 p-4">
+		{#if toolListAnswer === 'listed'}
+			<p class="text-sm">
+				{m.mcps_list_tools_done({ count: previewToolsOverride?.length ?? 0 })}
+			</p>
+		{:else if toolListAnswer === 'declined'}
+			<p class="text-sm">{m.mcps_list_tools_declined()}</p>
+		{:else if toolListAnswer === 'failed'}
+			<p class="text-sm">{m.mcps_list_tools_failed({ error: toolListError ?? '' })}</p>
+		{:else if toolListRequestForOtherEntry}
+			<p class="text-sm">{m.mcps_list_tools_other_entry()}</p>
+		{:else if answeringToolListRequest}
+			<p class="text-sm">
+				{m.mcps_list_tools_request({ name: entry?.manifest?.name ?? '' })}
+			</p>
+			<p class="text-muted-content text-sm">{m.mcps_list_tools_explanation()}</p>
+			<div class="flex justify-end gap-2">
+				<button class="btn btn-secondary" onclick={declineToolListRequest} disabled={saving}>
+					{m.mcps_list_tools_decline()}
+				</button>
+				<button class="btn btn-primary" onclick={handleInitTemporaryInstance} disabled={saving}>
+					{#if saving}
+						<Loading class="size-4" />
+					{:else}
+						{m.mcps_list_tools_confirm()}
+					{/if}
+				</button>
+			</div>
+		{:else}
+			<p class="text-sm">{m.mcps_list_tools_unavailable()}</p>
+		{/if}
+	</div>
+{/snippet}
+
 {#snippet configurationView()}
 	<div class="flex flex-col gap-8">
 		<CatalogServerForm
@@ -1134,6 +1229,9 @@
 					displayCount={selectedDeploymentsToView.length > 0}
 				/>
 			</div>
+		{/if}
+		{#if toolListRequestID}
+			{@render toolListRequestNotice()}
 		{/if}
 		{#if showRegenerateToolsButton}
 			<button class="btn btn-primary mb-4 text-sm" onclick={handleInitTemporaryInstance}>

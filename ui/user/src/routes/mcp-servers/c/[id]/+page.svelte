@@ -94,6 +94,8 @@
 			id={serverScopeID}
 			entity={serverScopeEntity}
 			limitViews={preview ? ['overview', 'tools'] : undefined}
+			toolListRequestID={data.toolListRequestID ?? undefined}
+			toolListRequest={data.toolListRequest}
 		/>
 	</div>
 </Layout>

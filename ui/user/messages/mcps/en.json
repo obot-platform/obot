@@ -1207,5 +1207,14 @@
 	"mcps_inject_headers_user_name": "The authenticated account’s username, not its display name. May change over time.",
 	"mcps_inject_headers_user_email": "Email carried by the authenticated principal. Omitted when unavailable; does not guarantee the address is verified.",
 	"mcps_inject_headers_idp_user_id": "User identifier assigned by the authentication provider. For API keys, identifies the key owner. Omitted when unavailable or ambiguous across linked identities.",
-	"mcps_inject_headers_idp_groups": "Comma-separated list of the caller’s IdP group IDs stored by Obot, including provider prefixes. For API keys, uses the owner’s memberships. Excludes Obot roles and group display names; omitted when empty."
+	"mcps_inject_headers_idp_groups": "Comma-separated list of the caller’s IdP group IDs stored by Obot, including provider prefixes. For API keys, uses the owner’s memberships. Excludes Obot roles and group display names; omitted when empty.",
+	"mcps_list_tools_request": "Your coding agent asked Obot to list the tools of {name}.",
+	"mcps_list_tools_explanation": "Listing them launches the server briefly with its catalog configuration, the same as listing tools elsewhere in Obot. Continue only if you started this request.",
+	"mcps_list_tools_confirm": "Launch and list tools",
+	"mcps_list_tools_decline": "Decline",
+	"mcps_list_tools_done": "Listed {count} tools. Return to your terminal; the obot command has them.",
+	"mcps_list_tools_declined": "You declined. Nothing was launched.",
+	"mcps_list_tools_unavailable": "This request expired or was already answered. Run the obot command again.",
+	"mcps_list_tools_failed": "The tools couldn't be listed: {error}. The obot command was told, so your agent can see it.",
+	"mcps_list_tools_other_entry": "This request is for a different MCP server, so it can't be answered here. Run the obot command again."
 }
