@@ -85,8 +85,8 @@ func (r *Context) Body(opts ...BodyOptions) (_ []byte, err error) {
 		if _, isMaxBytes := errors.AsType[*http.MaxBytesError](err); isMaxBytes {
 			err = types.NewErrHTTP(http.StatusRequestEntityTooLarge, "request body too large")
 		}
-		_, _ = io.Copy(io.Discard, r.Request.Body)
 	}()
+
 	var opt BodyOptions
 	for _, o := range opts {
 		if o.MaxBytes > 0 {
