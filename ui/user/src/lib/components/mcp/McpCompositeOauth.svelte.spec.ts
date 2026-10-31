@@ -1,4 +1,5 @@
 import { worker } from '../../../tests/mocks/worker';
+import { announceOAuthCompletion } from '../../services/mcp/oauth-completion';
 import McpCompositeOauth from './McpCompositeOauth.svelte';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -441,4 +442,67 @@ it('automatically retries a failed component check after local login is consumed
 	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
 	expect(checks).toBe(2);
 	await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
+});
+
+it('resumes the client login when the callback tab reports completion', async () => {
+	const checked = vi.fn();
+	const { oauthPendingGet } = mockConsentApis([
+		{ mcpServerID: 'github', name: 'GitHub', authURL: 'https://example.com/github' },
+		{ mcpServerID: 'slack', name: 'Slack', authURL: 'https://example.com/slack' }
+	]);
+	worker.use(
+		http.get('/api/oauth/vmcp/:id/components/:componentID', ({ params }) => {
+			checked(params.componentID);
+			return HttpResponse.json({});
+		})
+	);
+	const onComplete = vi.fn();
+	render(McpCompositeOauth, { compositeMcpId: 'vmcp1-callback-tab', onComplete });
+	await page
+		.getByRole('group', { name: 'GitHub', exact: true })
+		.getByRole('link', { name: 'Authenticate' })
+		.click();
+
+	// The callback tab announces completion while this page is still hidden behind it.
+	announceOAuthCompletion();
+
+	await vi.waitFor(() => expect(checked).toHaveBeenCalledWith('github'));
+	await expect.element(page.getByText('GitHub', { exact: true })).not.toBeInTheDocument();
+	await expect.element(page.getByText('Slack', { exact: true })).toBeVisible();
+	expect(checked).not.toHaveBeenCalledWith('slack');
+	expect(onComplete).not.toHaveBeenCalled();
+	expect(oauthPendingGet).toHaveBeenCalledTimes(1);
+});
+
+it('checks again when a completion arrives during an in-flight check', async () => {
+	const checked = vi.fn();
+	let finishFirst: () => void;
+	mockConsentApis([
+		{ mcpServerID: 'github', name: 'GitHub', authURL: 'https://example.com/github' }
+	]);
+	worker.use(
+		http.get('/api/oauth/vmcp/:id/components/:componentID', async () => {
+			checked();
+			if (checked.mock.calls.length === 1) {
+				// This check started before the upstream token was stored.
+				await new Promise<void>((resolve) => (finishFirst = resolve));
+				return HttpResponse.json({ authURL: 'https://example.com/github-retry' });
+			}
+			return HttpResponse.json({});
+		})
+	);
+	const onComplete = vi.fn();
+	render(McpCompositeOauth, { compositeMcpId: 'vmcp1-inflight', onComplete });
+	await page.getByRole('link', { name: 'Authenticate' }).click();
+
+	document.dispatchEvent(new Event('visibilitychange'));
+	await vi.waitFor(() => expect(checked).toHaveBeenCalledOnce());
+	// The callback tab finishes while the first check is still running.
+	announceOAuthCompletion();
+	await new Promise((resolve) => setTimeout(resolve, 20));
+	expect(checked).toHaveBeenCalledOnce();
+
+	finishFirst!();
+	await vi.waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+	expect(checked).toHaveBeenCalledTimes(2);
 });

@@ -3,6 +3,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type PendingCompositeAuth, type VMCP } from '$lib/services';
+	import { onOAuthCompletion } from '$lib/services/mcp/oauth-completion';
 	import { isMcpLoginURL } from '$lib/services/user/mcp';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
@@ -41,6 +42,8 @@
 	let error = $state<string>('');
 	const attempted = new SvelteSet<string>();
 	const checking = new SvelteSet<string>();
+	// A check already in flight may have started before the newer completion it is asked about.
+	const recheckRequested = new SvelteSet<string>();
 	let rowErrors = $state<Record<string, string>>({});
 	let completed = false;
 	let abortController: AbortController | undefined;
@@ -118,7 +121,10 @@
 
 	async function checkComponent(item: PendingCompositeAuth, propagateError = false) {
 		const id = item.mcpServerID;
-		if (checking.has(id)) return;
+		if (checking.has(id)) {
+			recheckRequested.add(id);
+			return;
+		}
 		checking.add(id);
 		delete rowErrors[id];
 		rowErrors = { ...rowErrors };
@@ -143,6 +149,10 @@
 			if (propagateError) throw err;
 		} finally {
 			checking.delete(id);
+			if (recheckRequested.delete(id) && !abortController?.signal.aborted) {
+				const current = pending.find((candidate) => candidate.mcpServerID === id);
+				if (current) void checkComponent(current);
+			}
 		}
 	}
 
@@ -164,15 +174,19 @@
 		return item.name || item.mcpServerID;
 	}
 
+	function checkAttempted() {
+		for (const item of pending) {
+			if (attempted.has(item.mcpServerID)) void checkComponent(item);
+		}
+	}
+
 	function handleVisibilityChange() {
 		if (document.visibilityState === 'visible') {
 			if (error) {
 				void fetchPending(abortController?.signal);
 				return;
 			}
-			for (const item of pending) {
-				if (attempted.has(item.mcpServerID)) void checkComponent(item);
-			}
+			checkAttempted();
 		}
 	}
 
@@ -181,7 +195,10 @@
 		void fetchParentAndMeta(abortController.signal);
 		void fetchPending(abortController.signal);
 		document.addEventListener('visibilitychange', handleVisibilityChange);
+		// The callback tab may stay open, so resume as soon as it reports completion.
+		const stopCompletionListener = onOAuthCompletion(checkAttempted);
 		return () => {
+			stopCompletionListener();
 			abortController?.abort();
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
