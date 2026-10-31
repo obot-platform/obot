@@ -10,6 +10,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -35,7 +36,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 		if entry, ok := obj.(*v1.MCPServerCatalogEntry); ok {
 			entries = append(entries, entry)
 			if entry.Spec.Manifest.EntryKey != "" {
-				ref := sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
+				ref := catalogvalidation.SourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
 				entriesByRef[ref] = entry
 			}
 		} else if vmcp, ok := obj.(*v1.VMCP); ok {
@@ -69,7 +70,7 @@ func (h *Handler) prepareCatalogVMCPs(ctx context.Context, c kclient.Client, cat
 				return nil, nil, nil, fmt.Errorf("failed to recover vMCP component catalog reference: %w", err)
 			}
 			if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
-				existing.Spec.ComponentCatalogReferences[component.ID] = sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
+				existing.Spec.ComponentCatalogReferences[component.ID] = catalogvalidation.SourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)
 			}
 		}
 
@@ -178,11 +179,11 @@ func resolveCatalogVMCPComponents(vmcp *v1.VMCP, existing *v1.VMCP, sourceURL st
 	vmcp.Spec.ComponentCatalogReferences = make(map[string]string)
 	for index := range vmcp.Spec.Manifest.Components {
 		component := &vmcp.Spec.Manifest.Components[index]
-		refSourceID, entryKey, _, valid := parseSourceRef(sourceID, component.MCPServerCatalogEntryID)
+		refSourceID, entryKey, _, valid := catalogvalidation.ParseSourceRef(sourceID, component.MCPServerCatalogEntryID)
 		if !valid {
 			return fmt.Errorf("invalid component catalog entry reference %q", component.MCPServerCatalogEntryID)
 		}
-		reference := sourceRef(refSourceID, entryKey)
+		reference := catalogvalidation.SourceRef(refSourceID, entryKey)
 		entry := entriesByRef[reference]
 		if _, skipped := versionSkippedRefs[reference]; entry == nil && skipped {
 			return fmt.Errorf("component %q: %w", component.MCPServerCatalogEntryID, errComponentVersionSkipped)

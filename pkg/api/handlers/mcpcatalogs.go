@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -265,7 +266,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 			return err
 		}
 
-		if hasAccess {
+		if hasAccess && !hiddenBuiltinEntry(req, entry) {
 			// Hide catalog entries that require OAuth credentials that haven't been configured (non-admins only).
 			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {
 				continue
@@ -1079,6 +1080,17 @@ func (h *MCPCatalogHandler) GenerateVMCPComponentToolPreviews(req api.Context) e
 	vmcp, component, server, serverConfig, err := h.vmcpComponentToolPreviewConfig(req)
 	if err != nil {
 		return err
+	}
+
+	if serverConfig.Runtime == types.RuntimeBuiltin {
+		// Built-in servers have no URL to launch. Obot keeps their tools on their entry.
+		var entry v1.MCPServerCatalogEntry
+		if err := req.Get(&entry, component.MCPServerCatalogEntryID); apierrors.IsNotFound(err) {
+			return types.NewErrNotFound("built-in MCP server %q is not available", component.Name)
+		} else if err != nil {
+			return fmt.Errorf("failed to get catalog entry: %w", err)
+		}
+		return h.writeVMCPComponentToolPreview(req, vmcp, component, entry.Spec.Manifest.ToolPreview)
 	}
 
 	if serverConfig.Runtime == types.RuntimeRemote {

@@ -247,3 +247,41 @@ it('does not offer search if saving the selected tools failed', async () => {
 	await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
 	await expect.element(page.getByText('Enable tool search?', { exact: true })).not.toBeVisible();
 });
+
+it('points built-in servers to profiles instead of offering tool edits', async () => {
+	await preparePageData();
+	const entry = createMCPCatalogEntry({
+		id: 'default-obot-admin',
+		name: 'Obot Admin',
+		runtime: 'builtin',
+		manifest: { toolPreview: [{ id: 'list_catalogs', name: 'list_catalogs' }] }
+	});
+	const component = createVMCPComponent(entry);
+	const other = createVMCPComponent(createMCPCatalogEntry({ id: 'entry-other', name: 'Other' }));
+	const vmcp = createVMCP({ id: 'vmcp-admin', components: [component, other] });
+	const preview = vi.fn();
+	worker.use(
+		http.post(`/api/vmcps/${vmcp.id}/components/${component.id}/generate-tool-previews`, () => {
+			preview();
+			return HttpResponse.json(entry);
+		})
+	);
+	const flow = createVMcpToolFlow();
+	render(VMcpToolDialogs, { flow });
+
+	// Adding the server doesn't offer to choose its tools.
+	flow.offerToolSelection(component, vmcp);
+	expect(flow.dialog).toBeUndefined();
+
+	// Asking to edit its tools explains that profiles choose them.
+	flow.editComponent(component, vmcp);
+	await expect
+		.element(page.getByText(/Obot Admin's tools are built into Obot and can't be changed/))
+		.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: 'Modify Tools', exact: true }))
+		.not.toBeInTheDocument();
+	flow.modifyToolsFromActions();
+	expect(flow.dialog).toBe('actions');
+	expect(preview).not.toHaveBeenCalled();
+});

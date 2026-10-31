@@ -61,6 +61,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.BannerNotification":                        schema_obot_platform_obot_apiclient_types_BannerNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig":                schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.BillingSession":                            schema_obot_platform_obot_apiclient_types_BillingSession(ref),
+		"github.com/obot-platform/obot/apiclient/types.BuiltinRuntimeConfig":                      schema_obot_platform_obot_apiclient_types_BuiltinRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                    schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                      schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.ComponentServer":                           schema_obot_platform_obot_apiclient_types_ComponentServer(ref),
@@ -2877,6 +2878,28 @@ func schema_obot_platform_obot_apiclient_types_BillingSession(ref common.Referen
 					},
 				},
 				Required: []string{"url"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_BuiltinRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "BuiltinRuntimeConfig names an MCP server built into Obot.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name identifies the built-in server, for example obot-admin.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name"},
 			},
 		},
 	}
@@ -9291,6 +9314,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig"),
 						},
 					},
+					"builtinConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.BuiltinRuntimeConfig"),
+						},
+					},
 					"config": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -9334,7 +9362,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.BuiltinRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -9753,6 +9781,11 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig"),
 						},
 					},
+					"builtinConfig": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.BuiltinRuntimeConfig"),
+						},
+					},
 					"multiUserConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Deprecated: migrate per-user headers to Config with UserAllowed set.",
@@ -9862,7 +9895,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.BuiltinRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.OpenAPIRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 

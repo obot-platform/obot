@@ -429,3 +429,69 @@ func vmcpToolPreviewTestObject(name string) *v1.VMCP {
 		},
 	}
 }
+
+func TestGenerateVMCPComponentToolPreviewsListsBuiltinTools(t *testing.T) {
+	entryTools := []types.MCPServerTool{{ID: "list_catalogs", Name: "list_catalogs"}, {ID: "find_user", Name: "find_user"}}
+	builtinVMCP := func() *v1.VMCP {
+		return &v1.VMCP{
+			Name: "vmcp1builtin", Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+				DisplayName: "Admin",
+				Components: []types.VMCPComponent{{
+					ID:                      "admin",
+					Name:                    "Obot Admin",
+					MCPCatalogID:            system.DefaultCatalog,
+					MCPServerCatalogEntryID: "default-obot-admin",
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+						Name:          "Obot Admin",
+						Runtime:       types.RuntimeBuiltin,
+						BuiltinConfig: &types.BuiltinRuntimeConfig{Name: "obot-admin"},
+					}},
+				}},
+			}},
+		}
+	}
+	entry := &v1.MCPServerCatalogEntry{
+		Name: "default-obot-admin", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: system.DefaultCatalog,
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:          "Obot Admin",
+				Runtime:       types.RuntimeBuiltin,
+				BuiltinConfig: &types.BuiltinRuntimeConfig{Name: "obot-admin"},
+				ToolPreview:   entryTools,
+			},
+		},
+	}
+
+	gateway := newHandlerTestGateway(t)
+	request := func(storage kclient.WithWatch) (api.Context, *httptest.ResponseRecorder) {
+		req := httptest.NewRequest(http.MethodPost, "/api/vmcps/vmcp1builtin/components/admin/generate-tool-previews", nil)
+		req.SetPathValue("vmcp_id", "vmcp1builtin")
+		req.SetPathValue("component_id", "admin")
+		recorder := httptest.NewRecorder()
+		return api.Context{
+			ResponseWriter: recorder,
+			Request:        req,
+			Storage:        storage,
+			GatewayClient:  gateway,
+			User:           testUser("admin"),
+		}, recorder
+	}
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, nil, gateway, nil, "")
+
+	// Built-in servers have no URL to launch, so the preview is the tools Obot stored on the entry.
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(builtinVMCP(), entry).Build()
+	req, recorder := request(storage)
+	require.NoError(t, handler.GenerateVMCPComponentToolPreviews(req))
+	var preview types.MCPServerCatalogEntry
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &preview))
+	assert.Equal(t, entryTools, preview.Manifest.ToolPreview)
+
+	// The entry is gone when the admin MCP server is turned off.
+	req, _ = request(clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(builtinVMCP()).Build())
+	err := handler.GenerateVMCPComponentToolPreviews(req)
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusNotFound, httpErr.Code)
+}

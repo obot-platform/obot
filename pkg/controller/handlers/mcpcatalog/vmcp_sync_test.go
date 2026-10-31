@@ -649,7 +649,7 @@ components:
   - name: Future
     id: future
     mcpServerCatalogEntryKey: %s
-`, sourceRef(mcp.SourceIDForURL(entriesDir), "future"))
+`, catalogvalidation.SourceRef(mcp.SourceIDForURL(entriesDir), "future"))
 	require.NoError(t, os.WriteFile(filepath.Join(vmcpsDir, "vmcp.yaml"), []byte(vmcp), 0o600))
 
 	catalog := testCatalog()

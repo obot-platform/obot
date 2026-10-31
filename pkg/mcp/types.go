@@ -41,6 +41,9 @@ type ServerConfig struct {
 	Env     []string `json:"env"`
 	Files   []File   `json:"files"`
 
+	// Built-in configuration: the name of the server Obot runs in-process.
+	BuiltinName string `json:"builtinName,omitempty"`
+
 	// Remote configuration.
 	LocalhostCallbackEnabled bool               `json:"localhostCallbackEnabled,omitempty"`
 	LocalhostCallbackPath    string             `json:"localhostCallbackPath,omitempty"`
@@ -753,6 +756,11 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, runtimeCredEnv, fileEnvVars, true); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
+	case types.RuntimeBuiltin:
+		if mcpServer.Spec.Manifest.BuiltinConfig == nil || mcpServer.Spec.Manifest.BuiltinConfig.Name == "" {
+			return serverConfig, missingRequiredNames, fmt.Errorf("built-in MCP server %s has no built-in configuration", mcpServer.Name)
+		}
+		serverConfig.BuiltinName = mcpServer.Spec.Manifest.BuiltinConfig.Name
 	case types.RuntimeRemote:
 		var err error
 		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, mcpServer.Spec.Manifest.RemoteConfig, mcpServer.Spec.Manifest.Config, runtimeCredEnv)

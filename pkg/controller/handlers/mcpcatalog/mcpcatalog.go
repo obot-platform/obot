@@ -46,8 +46,6 @@ const (
 	// token is stored as a key in the credential's Env map.
 	CatalogCredentialToolName = "catalog-source-tokens"
 
-	catalogReferenceSeparator = "::"
-
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
 	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
@@ -478,24 +476,6 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 	})
 }
 
-// sourceRef builds an explicit source::entryKey reference.
-func sourceRef(sourceID, entryKey string) string {
-	return sourceID + catalogReferenceSeparator + entryKey
-}
-
-// parseSourceRef returns the source/key pair for either an explicit
-// source::entryKey reference or a same-source shorthand entryKey.
-func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey string, hasSep, valid bool) {
-	refSourceID, entryKey, hasSep = strings.Cut(catalogEntryID, catalogReferenceSeparator)
-	if !hasSep {
-		return sourceID, catalogEntryID, false, true
-	}
-	if strings.Contains(entryKey, catalogReferenceSeparator) {
-		return refSourceID, entryKey, true, false
-	}
-	return refSourceID, entryKey, true, refSourceID != "" && entryKey != ""
-}
-
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog := req.Object.(*v1.SystemMCPCatalog)
 
@@ -706,7 +686,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			continue
 		} else if !inRange {
 			if header.EntryKey != "" {
-				versionSkippedRefs[sourceRef(mcp.SourceIDForURL(sourceURL), header.EntryKey)] = struct{}{}
+				versionSkippedRefs[catalogvalidation.SourceRef(mcp.SourceIDForURL(sourceURL), header.EntryKey)] = struct{}{}
 			}
 			continue
 		}

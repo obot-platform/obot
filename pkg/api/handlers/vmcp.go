@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/groupref"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -543,6 +544,12 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 					component.Name = entry.Name
 				}
 			}
+		}
+		if previous == nil && component.CatalogEntry.Manifest.Runtime == types.RuntimeBuiltin && !subjectgroups.IsAdmin(req.User) {
+			return types.NewErrForbidden("only admins and owners can add built-in MCP server %q to a vMCP", component.Name)
+		}
+		if component.CatalogEntry.Manifest.Runtime == types.RuntimeBuiltin && len(component.ToolOverrides) > 0 {
+			return types.NewErrBadRequest("the tools of built-in MCP server %q can't be changed; use the vMCP's profiles to choose who gets which of its tools", component.Name)
 		}
 		static := map[string]bool{}
 		for _, field := range component.CatalogEntry.Manifest.Config {

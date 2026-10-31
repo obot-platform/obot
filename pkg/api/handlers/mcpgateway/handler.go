@@ -65,6 +65,8 @@ type Handler struct {
 	tunnelManager             *tunnel.Manager
 	secretBindingAllowedLabel string
 	serverURL                 string
+	// builtins serves the MCP servers built into Obot, by name.
+	builtins map[string]BuiltinServer
 }
 
 // mcpResponse keeps the client response and its audit representation together.
@@ -341,7 +343,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			if err != nil {
 				return err
 			}
-		} else {
+		} else if serverConfig.Runtime != types.RuntimeBuiltin {
 			// Token refreshes go to the server-supplied token endpoint, so they use a client
 			// with the admin's egress policy and the server's network path, and none of the
 			// server's configured headers.
@@ -376,11 +378,16 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 		}
 
-		client, err := h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
+		var client *http.Client
+		if serverConfig.Runtime == types.RuntimeBuiltin {
+			// Built-in servers run in this process, behind the same audit, filters, and guardrails.
+			if client, serverConfig.URL, err = h.builtinClient(req, serverConfig); err != nil {
+				return err
+			}
+		} else if client, err = h.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{
 			TokenSource:   tokenSource,
 			DirectConnect: true,
-		})
-		if err != nil {
+		}); err != nil {
 			return fmt.Errorf("failed to get HTTP client for server: %w", err)
 		}
 

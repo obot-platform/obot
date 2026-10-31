@@ -2015,3 +2015,22 @@ func TestValidateObotVersionRange(t *testing.T) {
 		})
 	}
 }
+
+// Only Obot provides built-in servers, so users can't create entries or servers that use one.
+func TestValidateManifestsRejectBuiltinRuntime(t *testing.T) {
+	builtin := &types.BuiltinRuntimeConfig{Name: "obot-admin"}
+	for _, gitManaged := range []bool{false, true} {
+		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
+			Runtime:       types.RuntimeBuiltin,
+			BuiltinConfig: builtin,
+		}, gitManaged, ValidationOptions{})
+		require.ErrorContains(t, err, "unsupported runtime", "gitManaged=%v", gitManaged)
+	}
+	for _, multiUser := range []bool{false, true} {
+		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
+			Runtime:       types.RuntimeBuiltin,
+			BuiltinConfig: builtin,
+		}, multiUser, ValidationOptions{})
+		require.ErrorContains(t, err, "unsupported runtime", "multiUser=%v", multiUser)
+	}
+}

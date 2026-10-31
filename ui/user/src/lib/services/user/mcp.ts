@@ -510,6 +510,7 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 
 	const runtime = server.manifest.runtime;
 	if (runtime === 'remote') return 'Remote';
+	if (runtime === 'builtin') return 'Built-in';
 
 	return 'Hosted';
 }

@@ -1581,3 +1581,69 @@ func TestValidateURLTemplateHostErrorOmitsValues(t *testing.T) {
 		})
 	}
 }
+func TestServerToServerConfig_Builtin(t *testing.T) {
+	tests := []struct {
+		name            string
+		config          *types.BuiltinRuntimeConfig
+		wantBuiltinName string
+		wantErr         bool
+	}{
+		{
+			name:            "names the built-in server",
+			config:          &types.BuiltinRuntimeConfig{Name: "obot-admin"},
+			wantBuiltinName: "obot-admin",
+		},
+		{
+			name:    "requires a built-in configuration",
+			wantErr: true,
+		},
+		{
+			name:    "requires a built-in server name",
+			config:  &types.BuiltinRuntimeConfig{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, _, err := ServerToServerConfig(v1.MCPServer{
+				Name: "test-server",
+				Spec: v1.MCPServerSpec{
+					Manifest: types.MCPServerManifest{
+						Runtime:       types.RuntimeBuiltin,
+						BuiltinConfig: tt.config,
+					},
+				},
+			}, nil, "test-user-id", "test-scope", "test-catalog", nil, false)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if config.BuiltinName != tt.wantBuiltinName {
+				t.Fatalf("BuiltinName = %q, want %q", config.BuiltinName, tt.wantBuiltinName)
+			}
+			if config.URL != "" || config.Command != "" {
+				t.Fatalf("built-in server has a URL %q or command %q", config.URL, config.Command)
+			}
+		})
+	}
+}
+
+func TestDeploysNothing(t *testing.T) {
+	for runtime, want := range map[types.Runtime]bool{
+		types.RuntimeRemote:        true,
+		types.RuntimeVMCP:          true,
+		types.RuntimeBuiltin:       true,
+		types.RuntimeNPX:           false,
+		types.RuntimeUVX:           false,
+		types.RuntimeContainerized: false,
+	} {
+		if got := deploysNothing(runtime); got != want {
+			t.Errorf("deploysNothing(%q) = %v, want %v", runtime, got, want)
+		}
+	}
+}

@@ -20,6 +20,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	"gorm.io/gorm"
@@ -135,6 +136,12 @@ func (m *MCPHandler) currentK8sSettingsHashWithImagePullSecrets(settings v1.K8sS
 	), nil
 }
 
+// hiddenBuiltinEntry reports whether entry is a built-in server's entry, which only admins and owners
+// see: only they can use built-in servers, so for anyone else the entry would only lead to a refusal.
+func hiddenBuiltinEntry(req api.Context, entry v1.MCPServerCatalogEntry) bool {
+	return entry.Spec.Manifest.Runtime == types.RuntimeBuiltin && !subjectgroups.IsAdmin(req.User)
+}
+
 func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	var (
 		entry v1.MCPServerCatalogEntry
@@ -146,7 +153,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 	}
 
 	// Check if entry is from default catalog or workspace
-	if entry.Spec.MCPCatalogName != system.DefaultCatalog && entry.Spec.PowerUserWorkspaceID == "" {
+	if entry.Spec.MCPCatalogName != system.DefaultCatalog && entry.Spec.PowerUserWorkspaceID == "" || hiddenBuiltinEntry(req, entry) {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
 
@@ -190,7 +197,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 			return err
 		}
 
-		if hasAccess {
+		if hasAccess && !hiddenBuiltinEntry(req, entry) {
 			// Hide entries that require OAuth credentials that haven't been configured (non-admins only).
 			// Workspace owners can always see their own entries (they need to configure the OAuth credentials).
 			if !req.UserIsAdmin() && entryRequiresStaticOAuthCreds(entry) {

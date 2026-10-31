@@ -233,6 +233,7 @@
 	"vmcps_mcp_servers_in_named": "{name}의 MCP 서버",
 	"vmcps_mcp_servers_settings": "MCP 서버 설정",
 	"vmcps_modify_tools": "도구 수정",
+	"vmcps_builtin_tools_use_profiles": "{name}의 도구는 Obot에 내장되어 있어 변경할 수 없습니다. 누가 어떤 도구를 사용할지는 이 vMCP의 프로필에서 선택하세요.",
 	"vmcps_n_more": "+{count}개 더",
 	"vmcps_n_more_servers": "서버 {count}개 더",
 	"vmcps_name_required": "이름은 필수입니다",
