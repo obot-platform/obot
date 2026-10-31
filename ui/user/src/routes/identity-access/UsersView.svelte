@@ -97,11 +97,11 @@
 				? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
 				: undefined,
 			assignedRole: user.role,
+			effectiveRoleId: user.effectiveRole,
 			name: getUserDisplayName(user),
 			role: getUserRoleLabel(user.role).split(','),
 			effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
-			// Admin Read-Only can be stored with the power user role it was added to; the dialog shows it as Admin Read-Only.
-			roleId: user.role & Role.ADMIN_READONLY ? Role.ADMIN_READONLY : user.role & ~Role.AUDITOR,
+			roleId: user.role & ~Role.AUDITOR,
 			auditor: Boolean(user.role & Role.AUDITOR),
 			// Only an Owner can enable a user with any of these roles, from their own role or a group.
 			privileged: (user.effectiveRole & PRIVILEGED_ROLES) !== 0,
@@ -128,6 +128,7 @@
 			status: m.identity_access_users_status_created(),
 			disabledReasonLabel: undefined as string | undefined,
 			assignedRole: 0,
+			effectiveRoleId: 0,
 			name: '',
 			role: [] as string[],
 			effectiveRole: [] as string[],
@@ -740,6 +741,12 @@
 					</span>
 				</label>
 			{/each}
+
+			{#if (updatingRole.effectiveRoleId & (Role.POWERUSER | Role.POWERUSER_PLUS | Role.ADMIN | Role.OWNER)) !== 0 && (updatingRole.roleId === Role.BASIC || updatingRole.roleId === Role.ADMIN_READONLY)}
+				<p role="alert" class="notification-warning text-sm">
+					{m.identity_access_users_workspace_downgrade_warning()}
+				</p>
+			{/if}
 
 			{#if profile.current.groups.includes(Group.OWNER)}
 				<label class="mt-4 flex gap-4">

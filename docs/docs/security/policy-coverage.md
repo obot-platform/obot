@@ -31,9 +31,9 @@ Full platform management, including server and model configuration, users, and p
 
 ### Admin Read-Only {#user-roles-admin-read-only}
 
-Can view everything an Admin can view, including server and model configuration, users, groups, auth providers, audit logs, usage, and platform settings, but cannot change anything. Secret values stay hidden: an Admin Read-Only user cannot reveal stored credentials or configuration secrets, and sees audit logs without request/response bodies, as an Admin does.
+Can view everything an Admin can view, including server and model configuration, users, groups, auth providers, audit logs, usage, and platform settings, but cannot change administrative configuration. Secret values stay hidden: an Admin Read-Only user cannot reveal administrative credentials or configuration secrets belonging to other users, and sees audit logs without request/response bodies, as an Admin does.
 
-Admin Read-Only users can still use Obot as a Standard User, such as connecting to the vMCPs they have access to. A Power User or Power User+ granted Admin Read-Only keeps their power user role and workspace (see [Roles from Groups](./policy-coverage.md#user-roles-roles-from-groups)). Admins can assign Admin Read-Only; it cannot be the [default role for new users](./policy-coverage.md#user-roles-default-role-for-new-users). Combine it with Auditor to also see sensitive audit data.
+Admin Read-Only users retain Standard User capabilities: they can create personal vMCPs, configure their own connections and credentials, complete OAuth, use permitted MCP servers, and manage their own agent identities. Admin Read-Only does not include Power User or Power User+ publishing permissions. Changing a Power User or Power User+ to Admin Read-Only follows the same workspace cleanup process as changing them to Standard User. Admins can assign Admin Read-Only; it cannot be the [default role for new users](./policy-coverage.md#user-roles-default-role-for-new-users). Combine it with Auditor to also see sensitive audit data.
 
 ### Power User+ {#user-roles-power-user}
 
@@ -101,7 +101,7 @@ Configure the default role for new users on the **Identity & Access > Roles** pa
 
 Assign a role to an auth provider group on the **Identity & Access > Groups** page. A user gets the highest of their own role and the roles of their groups (Owner, then Admin, Admin Read-Only, Power User+, Power User, Standard User), plus Auditor if any of them includes it.
 
-Admin Read-Only is the exception: it adds to a Power User or Power User+ rather than replacing their role, whether it comes from a group or is assigned to the user directly. They keep their power user role, their workspace, and the MCP servers they published, and gain read-only access to the admin area. To remove the power user role, change the user to a role without Admin Read-Only, such as Standard User; that removes their workspace, as any change away from Power User does.
+Only the highest base role is retained. Admin Read-Only replaces Power User and Power User+ permissions, including when granted through a group. If the resulting effective role loses Power User access, Obot deletes the power-user workspace and cleans up its associated resources, as it does when downgrading to Standard User. An Admin or Owner grant takes precedence over Admin Read-Only.
 
 ### Pre-Assigning Roles {#user-roles-pre-assigning-roles}
 

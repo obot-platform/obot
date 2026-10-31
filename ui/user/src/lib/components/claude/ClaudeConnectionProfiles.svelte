@@ -15,11 +15,13 @@
 	import { untrack } from 'svelte';
 
 	let {
+		readonly = false,
 		environment,
 		onUpdated,
 		onCreate,
 		onEdit
 	}: {
+		readonly?: boolean;
 		environment: ClaudeEnvironment;
 		onUpdated: (profiles: EnvironmentProfile[]) => void;
 		onCreate: () => void;
@@ -115,7 +117,7 @@
 	}
 
 	async function deleteProfile(name: string) {
-		if (saving) return;
+		if (readonly || saving) return;
 		const next = profiles.filter((profile) => profile.name !== name);
 		if (!(await persist(next))) return;
 		success.add(m.hosted_agents_profile_deleted({ name }));
@@ -155,7 +157,7 @@
 							<IconButton
 								variant="danger"
 								class="pointer-events-auto"
-								disabled={saving}
+								disabled={saving || readonly}
 								tooltip={{ text: m.hosted_agents_profile_remove(), placement: 'bottom' }}
 								onclick={() => (confirmDelete = profile.name)}
 							>
@@ -175,7 +177,12 @@
 			</div>
 			<h2 class="font-semibold">{m.hosted_agents_profile_empty()}</h2>
 			<p class="text-muted-content mt-1 max-w-sm text-xs">{m.hosted_agents_profiles_help()}</p>
-			<button class="btn btn-primary btn-sm mt-5" type="button" onclick={onCreate}>
+			<button
+				class="btn btn-primary btn-sm mt-5"
+				type="button"
+				disabled={readonly}
+				onclick={onCreate}
+			>
 				<Plus class="size-4" />
 				{m.hosted_agents_profile_create()}
 			</button>

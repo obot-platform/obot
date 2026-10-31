@@ -490,7 +490,7 @@ describe('Identity & Access Page', () => {
 			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		});
 
-		it('hides create for readonly admins', async () => {
+		it('allows readonly admins to create personal agent identities', async () => {
 			await renderIdentityAccessPage({
 				view: 'agents',
 				groups: [Group.AUDITOR],
@@ -499,7 +499,7 @@ describe('Identity & Access Page', () => {
 
 			await expect
 				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
-				.not.toBeInTheDocument();
+				.toBeVisible();
 		});
 	});
 

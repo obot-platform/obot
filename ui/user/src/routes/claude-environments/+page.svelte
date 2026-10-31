@@ -8,14 +8,20 @@
 	import ClaudeSessions from '$lib/components/claude/ClaudeSessions.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { m } from '$lib/i18n';
-	import type { ClaudeEnvironment } from '$lib/services';
+	import { Group, type ClaudeEnvironment } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Plus } from '@lucide/svelte';
 
+	const canReadAsAdmin = $derived(
+		!!profile.current.isAdmin?.() || profile.current.groups.includes(Group.ADMIN_READONLY)
+	);
 	const environmentId = $derived(page.url.searchParams.get('environment'));
 	const showingForm = $derived(
-		!!environmentId && version.current.engine !== 'docker' && !!profile.current.isAdmin?.()
+		!!environmentId &&
+			version.current.engine !== 'docker' &&
+			canReadAsAdmin &&
+			(environmentId !== 'new' || !!profile.current.isAdmin?.())
 	);
 	const layoutTitle = $derived(
 		!showingForm
@@ -59,7 +65,7 @@
 				? []
 				: [
 						{ label: m.hosted_agents_sessions(), value: 'sessions', content: sessions },
-						...(profile.current.isAdmin?.()
+						...(canReadAsAdmin
 							? [
 									{
 										label: m.hosted_agents_account_management(),
@@ -113,7 +119,7 @@
 {/snippet}
 
 {#snippet sessions()}
-	<ClaudeSessions all={!!profile.current.isAdmin?.()} />
+	<ClaudeSessions all={canReadAsAdmin} />
 {/snippet}
 
 {#snippet accounts()}

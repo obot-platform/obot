@@ -3,8 +3,15 @@
 	import { UserService, type ClaudeEnvironment } from '$lib/services';
 	import { resolve } from '$lib/url';
 
-	let { environment, onsaved }: { environment: ClaudeEnvironment; onsaved: () => Promise<void> } =
-		$props();
+	let {
+		environment,
+		onsaved,
+		readonly = false
+	}: {
+		environment: ClaudeEnvironment;
+		onsaved: () => Promise<void>;
+		readonly?: boolean;
+	} = $props();
 	let enabled = $state(false);
 	let busy = $state(false);
 	let error = $state('');
@@ -15,6 +22,7 @@
 
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
+		if (readonly) return;
 		busy = true;
 		error = '';
 		saved = false;
@@ -62,7 +70,7 @@
 				type="checkbox"
 				aria-describedby={`claude-tag-access-${environment.id}`}
 				bind:checked={enabled}
-				disabled={busy}
+				disabled={busy || readonly}
 			/>{m.hosted_agents_tag_enable()}</label
 		>
 		<p class="text-sm text-muted-content">
@@ -73,7 +81,7 @@
 	{#if saved}<p role="status" class="text-success">
 			{m.hosted_agents_tag_saved()}
 		</p>{/if}
-	<button class="btn btn-primary btn-sm" type="submit" disabled={busy}
+	<button class="btn btn-primary btn-sm" type="submit" disabled={busy || readonly}
 		>{busy
 			? m.hosted_agents_map_saving()
 			: environment.claudeTagUserID

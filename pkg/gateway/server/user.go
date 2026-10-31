@@ -205,11 +205,6 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get original user: %v", err))
 	}
 
-	// Admin Read-Only adds to a power user's role rather than replacing it, so they keep their workspace.
-	if user.Role != types2.RoleUnknown {
-		user.Role = user.Role.KeepPowerUserFrom(originalUser.Role)
-	}
-
 	// Only a change of role is checked, so that a user whose stored role predates this check can still update other
 	// fields.
 	if user.Role != types2.RoleUnknown && user.Role != originalUser.Role && !user.Role.IsValid() {

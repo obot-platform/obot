@@ -123,7 +123,7 @@ func TestGroups(t *testing.T) {
 			expectMissing:  []string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser},
 		},
 		{
-			name:           "Admin read-only combined with PowerUserPlus keeps the power user groups",
+			name:           "Unnormalized source bitmap exposes both groups",
 			role:           RoleAdminReadonly | RolePowerUserPlus,
 			expectContains: []string{GroupAdminReadonly, GroupPowerUserPlus, GroupPowerUser, GroupBasic},
 			expectMissing:  []string{GroupOwner, GroupAdmin, GroupAuditor},
@@ -272,12 +272,12 @@ func TestIsValid(t *testing.T) {
 		{
 			name: "admin read-only with power user plus",
 			role: RoleAdminReadonly | RolePowerUserPlus,
-			want: true,
+			want: false,
 		},
 		{
 			name: "admin read-only with power user and auditor",
 			role: RoleAdminReadonly | RolePowerUser | RoleAuditor,
-			want: true,
+			want: false,
 		},
 		{
 			name: "admin read-only with both power user roles",
@@ -310,66 +310,6 @@ func TestIsValid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.role.IsValid(); got != tt.want {
 				t.Errorf("Role(%d).IsValid() = %v, want %v", tt.role, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestKeepPowerUserFrom(t *testing.T) {
-	tests := []struct {
-		name     string
-		role     Role
-		existing Role
-		want     Role
-	}{
-		{
-			name:     "admin read-only granted to a power user plus",
-			role:     RoleAdminReadonly,
-			existing: RolePowerUserPlus,
-			want:     RoleAdminReadonly | RolePowerUserPlus,
-		},
-		{
-			name:     "admin read-only with auditor granted to a power user",
-			role:     RoleAdminReadonly | RoleAuditor,
-			existing: RolePowerUser | RoleAuditor,
-			want:     RoleAdminReadonly | RolePowerUser | RoleAuditor,
-		},
-		{
-			name:     "admin read-only granted again to a user who already combines it",
-			role:     RoleAdminReadonly,
-			existing: RoleAdminReadonly | RolePowerUserPlus,
-			want:     RoleAdminReadonly | RolePowerUserPlus,
-		},
-		{
-			name:     "admin read-only granted to a basic user",
-			role:     RoleAdminReadonly,
-			existing: RoleBasic,
-			want:     RoleAdminReadonly,
-		},
-		{
-			name:     "admin read-only granted to an admin",
-			role:     RoleAdminReadonly,
-			existing: RoleAdmin,
-			want:     RoleAdminReadonly | RolePowerUserPlus,
-		},
-		{
-			name:     "a combined user changed to standard user",
-			role:     RoleBasic,
-			existing: RoleAdminReadonly | RolePowerUserPlus,
-			want:     RoleBasic,
-		},
-		{
-			name:     "a combined user changed to power user",
-			role:     RolePowerUser,
-			existing: RoleAdminReadonly | RolePowerUserPlus,
-			want:     RolePowerUser,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.role.KeepPowerUserFrom(tt.existing); got != tt.want {
-				t.Errorf("Role(%d).KeepPowerUserFrom(%d) = %d, want %d", tt.role, tt.existing, got, tt.want)
 			}
 		})
 	}

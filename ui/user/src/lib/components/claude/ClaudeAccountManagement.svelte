@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import { UserService, type ClaudeConfig } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import ClaudeAccountMappings from './ClaudeAccountMappings.svelte';
 	import { onMount } from 'svelte';
 
@@ -36,6 +37,7 @@
 	<div class="w-full max-w-4xl space-y-4">
 		{#each organizations as organization (organization)}
 			<ClaudeAccountMappings
+				readonly={!profile.current.isAdmin?.()}
 				{organization}
 				environments={(config.environments ?? []).filter(
 					(environment) => environment.organizationID === organization

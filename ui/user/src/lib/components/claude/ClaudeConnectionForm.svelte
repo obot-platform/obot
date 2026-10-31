@@ -101,7 +101,7 @@
 
 	onMount(() => {
 		const id = environment;
-		const isAdmin = admin;
+		const isAdmin = admin || profile.current.groups.includes(Group.ADMIN_READONLY);
 		let active = true;
 
 		void (async () => {
@@ -144,7 +144,7 @@
 
 	async function save(event: SubmitEvent) {
 		event.preventDefault();
-		if (!draft) return;
+		if (!admin || !draft) return;
 		busy = true;
 		error = '';
 		draft.runtime.egressHosts = draft.runtime.egressHosts
@@ -241,7 +241,7 @@
 	}
 
 	function saveProfiles(next: EnvironmentProfile[]) {
-		if (!draft) return;
+		if (!admin || !draft) return;
 		draft.profiles = next;
 		const nextView = pendingView;
 		pendingView = undefined;
@@ -251,7 +251,7 @@
 	}
 
 	async function remove() {
-		if (!draft?.id || busy) return;
+		if (!admin || !draft?.id || busy) return;
 		busy = true;
 		error = '';
 		try {
@@ -308,12 +308,12 @@
 				</div>
 			</div>
 
-			{#if viewType === 'profiles' && !profileDraft && draft.profiles.length > 0}
+			{#if admin && viewType === 'profiles' && !profileDraft && draft.profiles.length > 0}
 				<button class="btn btn-primary" type="button" onclick={openCreateProfile}>
 					<Plus class="size-4" />
 					{m.hosted_agents_profile_create()}
 				</button>
-			{:else if viewType !== 'profiles' && draft.id}
+			{:else if admin && viewType !== 'profiles' && draft.id}
 				<IconButton
 					disabled={busy}
 					onclick={() => (confirmDelete = true)}
@@ -331,12 +331,14 @@
 				profiles={draft.profiles}
 				profile={profileDraft}
 				editingName={editingProfileName}
+				readonly={!admin}
 				{servers}
 				onClose={closeProfileForm}
 				onSaved={saveProfiles}
 			/>
 		{:else if viewType === 'profiles'}
 			<ClaudeConnectionProfiles
+				readonly={!admin}
 				environment={draft}
 				onCreate={openCreateProfile}
 				onEdit={openEditProfile}
@@ -347,10 +349,10 @@
 				}}
 			/>
 		{:else if viewType === 'tag' && draft.id}
-			<ClaudeTagSettings environment={draft} onsaved={refreshTag} />
+			<ClaudeTagSettings readonly={!admin} environment={draft} onsaved={refreshTag} />
 		{:else}
 			<form id="claude-environment-form" class="space-y-5" onsubmit={save}>
-				<fieldset disabled={busy} class="space-y-4">
+				<fieldset disabled={busy || !admin} class="space-y-4">
 					<div class="space-y-3 block paper">
 						<label class="flex flex-col gap-1 text-sm">
 							{m.hosted_agents_env_name()}<input
@@ -474,7 +476,7 @@
 								type="checkbox"
 								checked={draft.runtime.llmProxy ?? false}
 								onchange={(event) => {
-									if (!draft) return;
+									if (!admin || !draft) return;
 									if (event.currentTarget.checked) {
 										// Enable only once the admin acknowledges what it needs.
 										event.currentTarget.checked = false;
@@ -509,7 +511,8 @@
 						class="btn btn-primary"
 						type="submit"
 						form="claude-environment-form"
-						disabled={busy}
+						hidden={!admin}
+						disabled={busy || !admin}
 					>
 						{m.core_save()}
 					</button>

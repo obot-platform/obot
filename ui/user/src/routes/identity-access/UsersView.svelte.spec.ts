@@ -196,29 +196,30 @@ describe('UsersView', () => {
 		await vi.waitFor(() => expect(setRole).toHaveBeenCalledWith('1', Role.ADMIN_READONLY));
 	}, 5000);
 
-	it('shows a power user granted Admin Read-Only as Admin Read-Only in the role dialog', async () => {
-		const combined = orgUser({
-			id: '50',
-			email: 'combined@example.com',
-			role: Role.ADMIN_READONLY | Role.POWERUSER_PLUS,
-			effectiveRole: Role.ADMIN_READONLY | Role.POWERUSER_PLUS,
-			groups: [Group.ADMIN_READONLY, Group.POWERUSER_PLUS]
-		});
-		await renderUsersView([combined]);
-
-		await expect
-			.element(
-				userRow(combined.email)
-					.getByText(/Power User Plus/)
-					.first()
-			)
-			.toBeVisible();
-		await openRowActions(combined.email);
-		await page.getByRole('button', { name: 'Update Role' }).click();
-		await expect
-			.element(page.getByRole('dialog').getByRole('radio', { name: /^Admin Read-Only/ }))
-			.toBeChecked();
-	}, 5000);
+	it.each([Role.POWERUSER, Role.POWERUSER_PLUS, Role.ADMIN])(
+		'warns about workspace cleanup when role %s changes to readonly',
+		async (role) => {
+			const user = orgUser({
+				id: '50',
+				email: 'power@example.com',
+				role,
+				effectiveRole: role,
+				groups: [Group.POWERUSER]
+			});
+			await renderUsersView([user]);
+			await openRowActions(user.email);
+			await page.getByRole('button', { name: 'Update Role' }).click();
+			const dialog = page.getByRole('dialog');
+			// The dialog can extend beyond the test viewport; activate the radio directly.
+			(
+				dialog.getByRole('radio', { name: /^Admin Read-Only/ }).element() as HTMLInputElement
+			).click();
+			await expect
+				.element(dialog.getByText(/If the resulting effective role has no power-user access/))
+				.toBeVisible();
+		},
+		5000
+	);
 
 	it('keeps the Auditor flag when an Owner assigns Admin Read-Only', async () => {
 		const setRole = vi.spyOn(AdminService, 'updateUserRole').mockResolvedValue();

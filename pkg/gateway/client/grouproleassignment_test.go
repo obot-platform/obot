@@ -34,19 +34,19 @@ func TestNormalizeToHighestRole(t *testing.T) {
 			expected: types2.RoleAdmin,
 		},
 		{
-			name:     "AdminReadonly and PowerUserPlus combined keeps both",
+			name:     "AdminReadonly replaces PowerUserPlus",
 			combined: types2.RoleAdminReadonly | types2.RolePowerUserPlus | types2.RoleBasic,
-			expected: types2.RoleAdminReadonly | types2.RolePowerUserPlus,
+			expected: types2.RoleAdminReadonly,
 		},
 		{
-			name:     "AdminReadonly, PowerUserPlus and PowerUser combined keeps PowerUserPlus",
+			name:     "AdminReadonly replaces both power roles",
 			combined: types2.RoleAdminReadonly | types2.RolePowerUserPlus | types2.RolePowerUser,
-			expected: types2.RoleAdminReadonly | types2.RolePowerUserPlus,
+			expected: types2.RoleAdminReadonly,
 		},
 		{
-			name:     "AdminReadonly and PowerUser with Auditor keeps all three",
+			name:     "AdminReadonly replaces PowerUser and keeps Auditor",
 			combined: types2.RoleAdminReadonly | types2.RolePowerUser | types2.RoleAuditor,
-			expected: types2.RoleAdminReadonly | types2.RolePowerUser | types2.RoleAuditor,
+			expected: types2.RoleAdminReadonly | types2.RoleAuditor,
 		},
 		{
 			name:     "AdminReadonly and Basic keeps only AdminReadonly",
@@ -115,9 +115,8 @@ func TestNormalizeToHighestRole(t *testing.T) {
 	}
 }
 
-// TestResolveEffectiveRoleKeepsPowerUserWithAdminReadonly checks, against a database, that a power user whose group is
-// assigned Admin Read-Only keeps their power user role beside it, on both the single and the bulk path.
-func TestResolveEffectiveRoleKeepsPowerUserWithAdminReadonly(t *testing.T) {
+// TestResolveEffectiveRoleAdminReadonlyReplacesPowerUser checks single and bulk resolution against a database.
+func TestResolveEffectiveRoleAdminReadonlyReplacesPowerUser(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
 	if err := c.db.WithContext(ctx).Create(&types.GroupRoleAssignment{GroupName: "test:readers", Role: types2.RoleAdminReadonly}).Error; err != nil {
@@ -134,13 +133,13 @@ func TestResolveEffectiveRoleKeepsPowerUserWithAdminReadonly(t *testing.T) {
 			name:   "power user plus in the group",
 			user:   types.User{ID: 1, Role: types2.RolePowerUserPlus},
 			groups: []string{"test:readers"},
-			want:   types2.RoleAdminReadonly | types2.RolePowerUserPlus,
+			want:   types2.RoleAdminReadonly,
 		},
 		{
 			name:   "power user in the group",
 			user:   types.User{ID: 2, Role: types2.RolePowerUser},
 			groups: []string{"test:readers"},
-			want:   types2.RoleAdminReadonly | types2.RolePowerUser,
+			want:   types2.RoleAdminReadonly,
 		},
 		{
 			name:   "basic user in the group",

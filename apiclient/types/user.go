@@ -138,32 +138,13 @@ func (u Role) SwitchBaseRole(role Role) Role {
 	return role | (u & RoleAuditor)
 }
 
-// IsValid reports whether the role is exactly one base role, optionally combined with the Auditor flag. Admin
-// Read-Only may also be combined with one of Power User Plus and Power User; see KeepPowerUserFrom.
+// IsValid reports whether the role is exactly one base role, optionally combined with the Auditor flag.
 func (u Role) IsValid() bool {
 	switch u.ExtractBaseRole() {
-	case RoleOwner, RoleAdmin, RoleAdminReadonly, RolePowerUserPlus, RolePowerUser, RoleBasic,
-		RoleAdminReadonly | RolePowerUserPlus, RoleAdminReadonly | RolePowerUser:
+	case RoleOwner, RoleAdmin, RoleAdminReadonly, RolePowerUserPlus, RolePowerUser, RoleBasic:
 		return true
 	}
 	return false
-}
-
-// KeepPowerUserFrom returns the role with the power user role of existing kept beside it when the role is Admin
-// Read-Only alone. Granting a power user read-only admin access then adds to their role rather than replacing it, so
-// they keep their workspace and what they published in it. Only the one power user bit is kept, not Basic as well:
-// HasRole looks up each base role's implied roles by its own bit.
-func (u Role) KeepPowerUserFrom(existing Role) Role {
-	if u.ExtractBaseRole() != RoleAdminReadonly {
-		return u
-	}
-	if existing.HasRole(RolePowerUserPlus) {
-		return u | RolePowerUserPlus
-	}
-	if existing.HasRole(RolePowerUser) {
-		return u | RolePowerUser
-	}
-	return u
 }
 
 // ExtractBaseRole removes orthogonal role flags to get the base role

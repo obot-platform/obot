@@ -272,16 +272,7 @@ export const getUserRoleLabel = (role: number) => {
 	const withAuditor = role & Role.AUDITOR ? `, ${m.core_role_auditor()}` : '';
 	if (role & Role.OWNER) return m.core_role_owner() + withAuditor;
 	if (role & Role.ADMIN) return m.core_role_admin() + withAuditor;
-	if (role & Role.ADMIN_READONLY) {
-		// A power user granted Admin Read-Only through a group keeps their power user role beside it.
-		const withPowerUser =
-			role & Role.POWERUSER_PLUS
-				? `, ${m.core_role_power_user_plus()}`
-				: role & Role.POWERUSER
-					? `, ${m.core_role_power_user()}`
-					: '';
-		return m.core_role_admin_readonly() + withPowerUser + withAuditor;
-	}
+	if (role & Role.ADMIN_READONLY) return m.core_role_admin_readonly() + withAuditor;
 	if (role & Role.POWERUSER) return m.core_role_power_user() + withAuditor;
 	if (role & Role.POWERUSER_PLUS) return m.core_role_power_user_plus() + withAuditor;
 	if (role & Role.BASIC) return m.core_role_standard_user() + withAuditor;

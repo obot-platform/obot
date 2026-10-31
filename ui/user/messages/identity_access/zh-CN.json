@@ -493,5 +493,6 @@
 	"identity_access_users_update_role_title": "更新 {name} 的角色",
 	"identity_access_users_user_count_tooltip": "创建本地用户账户在登录之前不计入用户上限。",
 	"identity_access_users_user_limits": "用户上限：",
-	"identity_access_view_access_policies": "查看访问策略"
+	"identity_access_view_access_policies": "查看访问策略",
+	"identity_access_users_workspace_downgrade_warning": "如果更改后的有效角色不具有高级用户权限，此更改将删除该用户的高级用户工作区及其已发布的资源。个人连接仍受其访问策略约束。"
 }

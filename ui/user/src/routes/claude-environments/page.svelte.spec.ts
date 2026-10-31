@@ -406,3 +406,39 @@ it('opens the environment form when the environment query is set', async () => {
 		.not.toBeInTheDocument();
 	await expect.element(page.getByRole('button', { name: 'Profiles', exact: true })).toBeVisible();
 });
+
+it.each([
+	{ groups: ['admin-readonly', 'basic'], privilegedReads: true },
+	{ groups: ['admin-readonly', 'basic', 'auditor'], privilegedReads: true },
+	{ groups: ['basic', 'auditor'], privilegedReads: false },
+	{ groups: ['basic'], privilegedReads: false }
+])(
+	'keeps Claude read scopes separate from write permissions for $groups',
+	async ({ groups, privilegedReads }) => {
+		await preparePageData({
+			profile: createMockProfile(groups),
+			version: { engine: 'kubernetes', claudeEnvironmentsEnabled: true }
+		});
+		(appPage.url as URL).searchParams.set('view', 'sessions');
+		const requested = vi.fn();
+		worker.use(
+			http.get('*/api/claude-sessions', ({ request }) => {
+				requested(new URL(request.url).searchParams.get('all'));
+				return HttpResponse.json({ items: [] });
+			})
+		);
+		render(Sessions);
+		await vi.waitFor(() => expect(requested).toHaveBeenCalledWith(privilegedReads ? 'true' : null));
+		if (privilegedReads)
+			await expect
+				.element(page.getByRole('button', { name: 'Account Management', exact: true }))
+				.toBeVisible();
+		else
+			await expect
+				.element(page.getByRole('button', { name: 'Account Management', exact: true }))
+				.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Environment', exact: true }))
+			.not.toBeInTheDocument();
+	}
+);

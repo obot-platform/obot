@@ -493,5 +493,6 @@
 	"identity_access_users_update_role_title": "{name}의 역할 업데이트",
 	"identity_access_users_user_count_tooltip": "로컬 사용자 계정을 생성해도 로그인하기 전까지는 사용자 한도에 포함되지 않습니다.",
 	"identity_access_users_user_limits": "사용자 한도:",
-	"identity_access_view_access_policies": "액세스 정책 보기"
+	"identity_access_view_access_policies": "액세스 정책 보기",
+	"identity_access_users_workspace_downgrade_warning": "변경 후 유효 역할에 파워 유저 권한이 없으면 이 변경으로 사용자의 파워 유저 워크스페이스와 게시된 리소스가 삭제됩니다. 개인 연결에는 계속 액세스 정책이 적용됩니다."
 }
