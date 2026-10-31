@@ -231,11 +231,8 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		provider = param
 	}
 
-	// Save the redirect target for later.
-	rdParam := r.URL.Query().Get("rd")
-	if rdParam == "" {
-		rdParam = "/"
-	}
+	// Keep fallback sign-out redirects within Obot when no provider can handle the request.
+	rdParam := auth.SafeRedirectPath(r.URL.Query().Get("rd"))
 
 	// If no provider is set, just use the alphabetically first provider.
 	if provider == "" {

@@ -4,11 +4,105 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestServeHTTPSignOutFallbackRedirect(t *testing.T) {
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.AuthProvider{}, "status.configured", func(o kclient.Object) []string {
+			return []string{o.(*v1.AuthProvider).Get("status.configured")}
+		}).
+		Build()
+	pm := NewProxyManager(dispatcher.New(nil, storageClient, nil, nil, "", "", ""))
+
+	for _, scenario := range []struct {
+		name    string
+		manager *Manager
+		user    user.DefaultInfo
+	}{
+		{
+			name: "auth disabled",
+		},
+		{
+			name:    "no configured provider",
+			manager: pm,
+		},
+		{
+			name:    "proxy creation fails",
+			manager: pm,
+			// The session names a deleted provider, so URLForAuthProvider fails its lookup.
+			user: user.DefaultInfo{
+				Extra: map[string][]string{
+					"auth_provider_namespace": {system.DefaultNamespace},
+					"auth_provider_name":      {"deleted-provider"},
+				},
+			},
+		},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			for _, tt := range []struct {
+				name string
+				rd   string
+				want string
+			}{
+				{
+					name: "empty",
+					want: "/",
+				},
+				{
+					name: "local path",
+					rd:   "/admin?tab=users#details",
+					want: "/admin?tab=users#details",
+				},
+				{
+					name: "absolute URL",
+					rd:   "https://evil.example.com",
+					want: "/",
+				},
+				{
+					name: "protocol relative URL",
+					rd:   "//evil.example.com",
+					want: "/",
+				},
+				{
+					name: "backslash",
+					rd:   `/\evil.example.com`,
+					want: "/",
+				},
+				{
+					name: "tab",
+					rd:   "/\t/evil.example.com",
+					want: "/",
+				},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					req := httptest.NewRequest(http.MethodGet, "/oauth2/sign_out?rd="+url.QueryEscape(tt.rd), nil)
+					rec := httptest.NewRecorder()
+
+					scenario.manager.ServeHTTP(&scenario.user, rec, req)
+
+					if rec.Code != http.StatusFound {
+						t.Fatalf("status = %d, want %d", rec.Code, http.StatusFound)
+					}
+					if got := rec.Header().Get("Location"); got != tt.want {
+						t.Errorf("Location = %q, want %q", got, tt.want)
+					}
+				})
+			}
+		})
+	}
+}
 
 // The staged provider is allowed to beat the session's provider only for a browser carrying an
 // open verification. This covers the gate that decides that, before any provider lookup happens:
