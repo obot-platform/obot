@@ -446,8 +446,13 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
 
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -480,8 +485,13 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}

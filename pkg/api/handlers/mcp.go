@@ -1442,8 +1442,13 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 	// Use the user ID from the server rather than from the request.
 	serverConfig.UserID = server.Spec.UserID
 
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()),
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -1848,8 +1853,13 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	// Use the user ID from the server rather than from the request.
 	serverConfig.UserID = server.Spec.UserID
 
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()),
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}

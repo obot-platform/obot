@@ -281,8 +281,13 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
 
-	logs, err := h.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
+	logs, err := h.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -369,8 +374,13 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	}
 
 	// Get server details from the session manager
-	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
