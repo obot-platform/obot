@@ -818,36 +818,43 @@
 						{#each myVMcps as vmcp (vmcp.id)}
 							<li
 								data-testid={`market-my-vmcp-${vmcp.id}`}
-								class="flex flex-col gap-2 py-3 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+								class="py-3 last:pb-0"
 							>
-								<div class="min-w-0">
-									<p class="truncate text-sm font-medium">{vmcp.displayName}</p>
-									<p class="text-muted-content text-xs">
-										<span data-testid={`market-my-vmcp-components-${vmcp.id}`}>
-											{m.market_components_count({ count: vmcp.components?.length ?? 0 })}
+								<button
+									type="button"
+									aria-label={`${m.market_my_connections()} ${vmcp.displayName}`}
+									class="hover:bg-base-200/60 flex w-full cursor-pointer flex-col gap-2 rounded-lg px-2 text-left transition-colors sm:flex-row sm:items-center sm:justify-between"
+									onclick={() => goto(`/market?view=my-links&connect=${vmcp.id}`)}
+								>
+									<div class="min-w-0">
+										<p class="truncate text-sm font-medium">{vmcp.displayName}</p>
+										<p class="text-muted-content text-xs">
+											<span data-testid={`market-my-vmcp-components-${vmcp.id}`}>
+												{m.market_components_count({ count: vmcp.components?.length ?? 0 })}
+											</span>
+											<span aria-hidden="true"> · </span>
+											<span data-testid={`market-my-vmcp-instances-${vmcp.id}`}>
+												{m.market_instances_count({ count: vmcpInstanceCount(vmcp.id) })}
+											</span>
+										</p>
+									</div>
+									<div class="flex shrink-0 items-center gap-2">
+										<span
+											class="badge badge-sm {vmcp.status?.ready ? 'badge-success' : 'badge-warning'}"
+										>
+											{vmcp.status?.ready ? m.core_status_ready() : m.market_not_ready()}
 										</span>
-										<span aria-hidden="true"> · </span>
-										<span data-testid={`market-my-vmcp-instances-${vmcp.id}`}>
-											{m.market_instances_count({ count: vmcpInstanceCount(vmcp.id) })}
+										<span
+											class="badge badge-sm {vmcpConfigured(vmcp.id)
+												? 'badge-success'
+												: 'badge-neutral'}"
+										>
+											{vmcpConfigured(vmcp.id)
+												? m.core_status_configured()
+												: m.market_not_configured()}
 										</span>
-									</p>
-								</div>
-								<div class="flex shrink-0 items-center gap-2">
-									<span
-										class="badge badge-sm {vmcp.status?.ready ? 'badge-success' : 'badge-warning'}"
-									>
-										{vmcp.status?.ready ? m.core_status_ready() : m.market_not_ready()}
-									</span>
-									<span
-										class="badge badge-sm {vmcpConfigured(vmcp.id)
-											? 'badge-success'
-											: 'badge-neutral'}"
-									>
-										{vmcpConfigured(vmcp.id)
-											? m.core_status_configured()
-											: m.market_not_configured()}
-									</span>
-								</div>
+									</div>
+								</button>
 							</li>
 						{/each}
 					</ul>

@@ -529,6 +529,9 @@ describe('market page', () => {
 			.element(page.getByTestId('market-my-vmcp-components-vmcp2-personal'))
 			.toHaveTextContent(m.market_components_count({ count: 1 }));
 		await expect.element(page.getByTestId('market-my-vmcp-vmcp3-other')).not.toBeInTheDocument();
+
+		await connection.getByRole('button').click();
+		expect(gotoMock).toHaveBeenCalledWith('/market?view=my-links&connect=vmcp2-personal');
 	});
 
 	it('shows operational status for my vMCPs under Mine', async () => {
