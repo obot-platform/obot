@@ -15,6 +15,7 @@ type MCPClientSession struct {
 }
 
 type MCPClientSessionSpec struct {
+	ConnectionID  string `json:"connectionID,omitempty"`
 	MCPServerID   string `json:"mcpServerID"`
 	UserID        string `json:"userID"`
 	ClientName    string `json:"clientName"`

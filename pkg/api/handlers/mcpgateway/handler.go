@@ -366,9 +366,51 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		hookConfig, hookServers := mcp.ServerHookConfig(serverConfig)
 
-		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector, req.Storage)
+		connectionID := serverConfig.MCPServerInstanceID
+		if connectionID == "" {
+			connectionID = serverConfig.MCPServerName
+		}
+		sessionSpec := v1.MCPClientSessionSpec{
+			ConnectionID: connectionID,
+			UserID:       req.User.GetUID(),
+			MCPServerID:  cmp.Or(serverConfig.AuditLogMetadata["mcpID"], serverConfig.MCPServerName),
+		}
+		audit, err := newProxyAudit(req.Request, serverConfig.AuditLogMetadata, h.auditLogCollector)
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
+		}
+
+		// Initialization starts a new session, even if the client retained a stale ID.
+		if audit != nil && audit.initialize {
+			req.Request.Header.Del(mcpSessionHeader)
+			audit.entry.SessionID = ""
+		}
+
+		sessionID, err := suppliedSessionID(req.Request)
+		if err != nil {
+			http.Error(req.ResponseWriter, err.Error(), http.StatusBadRequest)
+			return nil
+		}
+
+		session, err := loadMCPClientSession(req.Context(), req.Storage, sessionSpec, sessionID)
+		if errors.Is(err, errMCPSessionNotFound) && audit == nil && isMCPInitializeRequest(req.Request) {
+			req.Request.Header.Del(mcpSessionHeader)
+			sessionID = ""
+			err = nil
+		}
+		if err != nil {
+			status := http.StatusServiceUnavailable
+			if errors.Is(err, errMCPSessionNotFound) {
+				status = http.StatusNotFound
+			}
+			http.Error(req.ResponseWriter, err.Error(), status)
+			return nil
+		}
+
+		audit.setClientSession(session)
+
+		if session != nil && session.Spec.Virtual {
+			req.Request.Header.Del(mcpSessionHeader)
 		}
 
 		var resolvedCall *resolvedToolCall
@@ -444,6 +486,21 @@ func (h *Handler) Proxy(req api.Context) error {
 				rewriteProxyRequest(r, u)
 			},
 			ModifyResponse: func(resp *http.Response) error {
+				responseSessionID := mcpSessionID(resp.Header, nil)
+				if session == nil || (audit != nil && audit.initialize) || (responseSessionID != "" && responseSessionID != sessionID) {
+					spec := sessionSpec
+					if audit != nil {
+						spec.ClientName = audit.entry.ClientName
+						spec.ClientVersion = audit.entry.ClientVersion
+					} else if session != nil {
+						spec.ClientName = session.Spec.ClientName
+						spec.ClientVersion = session.Spec.ClientVersion
+					}
+					if err := saveMCPClientSession(req.Context(), req.Storage, resp, spec, audit != nil && audit.initialize); err != nil {
+						slog.ErrorContext(req.Context(), "failed to save MCP client session", "error", err)
+					}
+				}
+
 				if err := rewriteUpstreamOAuthResponse(req, resp); err != nil {
 					return err
 				}
