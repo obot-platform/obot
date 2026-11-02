@@ -8,6 +8,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +22,21 @@ func backfillIdentityFirstSignIn(tx *gorm.DB) error {
 	return tx.Model(&types.Identity{}).
 		Where("first_sign_in_at IS NULL").
 		UpdateColumn("first_sign_in_at", time.Now()).Error
+}
+
+// backfillInitialOwnerGrants records the Owner grant of provisioned initial owners who signed in before grants were
+// recorded. Their user was made an Owner at that sign-in, so a user created again for the account must not be, even
+// while its setup token is still usable. It runs once, when the column is added. A provisioned owner who has not
+// signed in has no Local identity yet, and still gets the grant at their first sign-in.
+func backfillInitialOwnerGrants(tx *gorm.DB) error {
+	signedIn := tx.Session(&gorm.Session{NewDB: true}).Model(&types.Identity{}).
+		Select("1").
+		Where("identities.auth_provider_namespace = ? AND identities.auth_provider_name = ?", system.DefaultNamespace, system.LocalAuthProvider).
+		Where("identities.hashed_provider_user_id = local_auth_users.hashed_email")
+	return tx.Model(&types.LocalAuthUser{}).
+		Where("setup_token_hash != '' AND owner_granted_at IS NULL").
+		Where("EXISTS (?)", signedIn).
+		UpdateColumn("owner_granted_at", time.Now()).Error
 }
 
 // Retire sandbox credentials before removing their binding, so they cannot

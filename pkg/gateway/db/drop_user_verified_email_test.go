@@ -1,14 +1,9 @@
 package db
 
 import (
-	"net/url"
-	"os"
-	"strings"
 	"testing"
-	"uuid"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"gorm.io/gorm"
 )
 
@@ -22,68 +17,13 @@ func (legacyVerifiedEmailUser) TableName() string {
 }
 
 func TestUserVerifiedEmailMigrationOfAnExistingSQLiteDatabase(t *testing.T) {
-	services, err := sservices.New(sservices.Config{
-		DSN: "sqlite://:memory:",
-	})
-	if err != nil {
-		t.Fatalf("failed to open database: %v", err)
-	}
-	t.Cleanup(func() { _ = services.DB.SQLDB.Close() })
-
-	database, err := New(services.DB.DB, services.DB.SQLDB, true)
-	if err != nil {
-		t.Fatalf("failed to create gateway database: %v", err)
-	}
-
-	testUserVerifiedEmailMigration(t, database, services.DB.DB)
+	database, gormDB := newSQLiteTestDatabase(t)
+	testUserVerifiedEmailMigration(t, database, gormDB)
 }
 
 func TestUserVerifiedEmailMigrationOfAnExistingPostgresDatabase(t *testing.T) {
-	dsn := os.Getenv(postgresTestDSNEnv)
-	if dsn == "" {
-		t.Skipf("set %s to a PostgreSQL URL whose user can create schemas", postgresTestDSNEnv)
-	}
-
-	admin, err := sservices.New(sservices.Config{
-		DSN: dsn,
-	})
-	if err != nil {
-		t.Fatalf("failed to open PostgreSQL admin connection: %v", err)
-	}
-	schema := "obot_verified_email_" + strings.ReplaceAll(uuid.New().String(), "-", "")
-	if err := admin.DB.DB.Exec("CREATE SCHEMA " + schema).Error; err != nil {
-		_ = admin.DB.SQLDB.Close()
-		t.Fatalf("failed to create schema: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := admin.DB.DB.Exec("DROP SCHEMA " + schema + " CASCADE").Error; err != nil {
-			t.Errorf("failed to drop schema: %v", err)
-		}
-		_ = admin.DB.SQLDB.Close()
-	})
-
-	u, err := url.Parse(dsn)
-	if err != nil {
-		t.Fatalf("failed to parse %s: %v", postgresTestDSNEnv, err)
-	}
-	query := u.Query()
-	query.Set("search_path", schema)
-	u.RawQuery = query.Encode()
-
-	scoped, err := sservices.New(sservices.Config{
-		DSN: u.String(),
-	})
-	if err != nil {
-		t.Fatalf("failed to open scoped PostgreSQL connection: %v", err)
-	}
-	t.Cleanup(func() { _ = scoped.DB.SQLDB.Close() })
-
-	database, err := New(scoped.DB.DB, scoped.DB.SQLDB, true)
-	if err != nil {
-		t.Fatalf("failed to create gateway database: %v", err)
-	}
-
-	testUserVerifiedEmailMigration(t, database, scoped.DB.DB)
+	database, gormDB := newPostgresTestDatabase(t, "obot_verified_email_")
+	testUserVerifiedEmailMigration(t, database, gormDB)
 }
 
 // testUserVerifiedEmailMigration migrates a database whose users still have the verified_email column, and checks

@@ -212,6 +212,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to backfill identity sign-in times: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "initial_owner_grant_backfill", backfillInitialOwnerGrants); err != nil {
+		return fmt.Errorf("failed to backfill initial owner grants: %w", err)
+	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "mcp_audit_log_source_type_backfill", migrateMCPAuditLogSourceType); err != nil {
 		return fmt.Errorf("failed to migrate mcp_audit_log source type: %w", err)
 	}

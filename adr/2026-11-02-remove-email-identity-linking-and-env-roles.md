@@ -51,12 +51,13 @@ provider is weak grounds for merging accounts or granting privileged roles.
   setup session, ensures the identity, so the user always exists before the
   token is cleared. The grant is recorded on the Local account
   (`owner_granted_at`) in the same transaction, because the setup token stays
-  usable until the password is set. After that it is an ordinary Owner that can
-  be demoted: later sign-ins don't raise it again, and neither does a user
-  created again for the account after the first one was deleted, even while the
-  setup token is still usable. A Local account that an admin creates never
-  qualifies. Until the grant is used, non-Owners cannot reset the account's
-  password or delete it.
+  usable until the password is set. A one-time migration records it for
+  provisioned owners who signed in before grants were recorded. After that it is
+  an ordinary Owner that can be demoted: later sign-ins don't raise it again,
+  and neither does a user created again for the account after the first one was
+  deleted, even while the setup token is still usable. A Local account that an
+  admin creates never qualifies. Until the grant is used, non-Owners cannot
+  reset the account's password or delete it.
 
 ## Rationale
 
