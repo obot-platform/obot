@@ -67,6 +67,7 @@
 	let connecting = $state(false);
 	let connectDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let users = $state<OrgUser[]>([]);
+	let selectedMineTab = $state<'requests' | 'connections'>('requests');
 
 	onMount(() => {
 		if (!mcpServersAndEntries.current.isInitialized) {
@@ -709,101 +710,150 @@
 			<h2 class="text-xl font-semibold tracking-tight">{m.market_tab_mine()}</h2>
 		</div>
 
-		<section
-			data-testid="market-my-requests"
-			aria-label={m.market_my_requests()}
-			class="bg-base-100 border-base-300 dark:bg-base-200 rounded-xl border p-4 shadow-sm"
+		<div
+			role="tablist"
+			aria-label={m.market_tab_mine()}
+			class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300 w-fit"
 		>
-			<h2 class="text-sm font-semibold">{m.market_my_requests()}</h2>
-			{#if myRequests.length === 0}
-				<p class="text-muted-content mt-2 text-sm">
-					{m.market_my_requests_empty()}
-				</p>
-			{:else}
-				<ul class="mt-3 flex flex-col divide-y divide-base-200">
-					{#each myRequests as request (request.id)}
-						<li
-							data-testid={`market-request-${request.id}`}
-							class="flex flex-col gap-2 py-3 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{requestConnectorName(request)}</p>
-								<p class="text-muted-content truncate text-xs">
-									{request.manifest.reason || m.market_request_no_reason()}
-								</p>
-							</div>
-							<div class="flex shrink-0 flex-col items-start gap-1 sm:items-end">
-								<div class="flex items-center gap-3">
-									<time
-										class="text-muted-content text-xs"
-										title={request.created ? formatTimeAgo(request.created).fullDate : undefined}
+			<button
+				id="market-my-requests-tab"
+				type="button"
+				role="tab"
+				aria-selected={selectedMineTab === 'requests'}
+				aria-controls="market-my-requests-panel"
+				class={twMerge(
+					'tab text-xs min-w-24',
+					selectedMineTab === 'requests' && 'tab-active bg-base-300 dark:bg-base-100'
+				)}
+				onclick={() => (selectedMineTab = 'requests')}
+			>
+				{m.market_my_requests()}
+			</button>
+			<button
+				id="market-my-connections-tab"
+				type="button"
+				role="tab"
+				aria-selected={selectedMineTab === 'connections'}
+				aria-controls="market-my-connections-panel"
+				class={twMerge(
+					'tab text-xs min-w-24',
+					selectedMineTab === 'connections' && 'tab-active bg-base-300 dark:bg-base-100'
+				)}
+				onclick={() => (selectedMineTab = 'connections')}
+			>
+				{m.market_my_connections()}
+			</button>
+		</div>
+
+		{#if selectedMineTab === 'requests'}
+			<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+			<section
+				id="market-my-requests-panel"
+				data-testid="market-my-requests"
+				role="tabpanel"
+				aria-labelledby="market-my-requests-tab"
+				aria-label={m.market_my_requests()}
+				class="bg-base-100 border-base-300 dark:bg-base-200 max-h-[60vh] overflow-y-auto rounded-xl border p-4 shadow-sm"
+			>
+				<h2 class="text-sm font-semibold">{m.market_my_requests()}</h2>
+				{#if myRequests.length === 0}
+					<p class="text-muted-content mt-2 text-sm">
+						{m.market_my_requests_empty()}
+					</p>
+				{:else}
+					<ul class="mt-3 flex flex-col divide-y divide-base-200">
+						{#each myRequests as request (request.id)}
+							<li
+								data-testid={`market-request-${request.id}`}
+								class="flex flex-col gap-2 py-3 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+							>
+								<div class="min-w-0">
+									<p class="truncate text-sm font-medium">{requestConnectorName(request)}</p>
+									<p class="text-muted-content truncate text-xs">
+										{request.manifest.reason || m.market_request_no_reason()}
+									</p>
+								</div>
+								<div class="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+									<div class="flex items-center gap-3">
+										<time
+											class="text-muted-content text-xs"
+											title={request.created ? formatTimeAgo(request.created).fullDate : undefined}
+										>
+											{#if request.created}
+												{formatTimeAgo(request.created).relativeTime}
+											{/if}
+										</time>
+										<span class="badge badge-sm {requestStatusClass(request.manifest.status)}">
+											{requestStatusLabel(request.manifest.status)}
+										</span>
+									</div>
+									{#if request.manifest.status === 'approved' && request.connectorPublished === false}
+										<p class="text-warning text-xs">
+											{m.market_request_approved_unpublished_hint()}
+										</p>
+									{/if}
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
+
+		{#if selectedMineTab === 'connections'}
+			<!-- svelte-ignore a11y_no_noninteractive_element_to_interactive_role -->
+			<section
+				id="market-my-connections-panel"
+				data-testid="market-my-connections"
+				role="tabpanel"
+				aria-labelledby="market-my-connections-tab"
+				aria-label={m.market_my_connections()}
+				class="bg-base-100 border-base-300 dark:bg-base-200 max-h-[60vh] overflow-y-auto rounded-xl border p-4 shadow-sm"
+			>
+				<h2 class="text-sm font-semibold">{m.market_my_connections()}</h2>
+				{#if myVMcps.length === 0}
+					<p class="text-muted-content mt-2 text-sm">{m.market_my_connections_empty()}</p>
+				{:else}
+					<ul class="mt-3 flex flex-col divide-y divide-base-200">
+						{#each myVMcps as vmcp (vmcp.id)}
+							<li
+								data-testid={`market-my-vmcp-${vmcp.id}`}
+								class="flex flex-col gap-2 py-3 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+							>
+								<div class="min-w-0">
+									<p class="truncate text-sm font-medium">{vmcp.displayName}</p>
+									<p class="text-muted-content text-xs">
+										<span data-testid={`market-my-vmcp-components-${vmcp.id}`}>
+											{m.market_components_count({ count: vmcp.components?.length ?? 0 })}
+										</span>
+										<span aria-hidden="true"> · </span>
+										<span data-testid={`market-my-vmcp-instances-${vmcp.id}`}>
+											{m.market_instances_count({ count: vmcpInstanceCount(vmcp.id) })}
+										</span>
+									</p>
+								</div>
+								<div class="flex shrink-0 items-center gap-2">
+									<span
+										class="badge badge-sm {vmcp.status?.ready ? 'badge-success' : 'badge-warning'}"
 									>
-										{#if request.created}
-											{formatTimeAgo(request.created).relativeTime}
-										{/if}
-									</time>
-									<span class="badge badge-sm {requestStatusClass(request.manifest.status)}">
-										{requestStatusLabel(request.manifest.status)}
+										{vmcp.status?.ready ? m.core_status_ready() : m.market_not_ready()}
+									</span>
+									<span
+										class="badge badge-sm {vmcpConfigured(vmcp.id)
+											? 'badge-success'
+											: 'badge-neutral'}"
+									>
+										{vmcpConfigured(vmcp.id)
+											? m.core_status_configured()
+											: m.market_not_configured()}
 									</span>
 								</div>
-								{#if request.manifest.status === 'approved' && request.connectorPublished === false}
-									<p class="text-warning text-xs">
-										{m.market_request_approved_unpublished_hint()}
-									</p>
-								{/if}
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
-
-		<section
-			data-testid="market-my-connections"
-			aria-label={m.market_my_connections()}
-			class="bg-base-100 border-base-300 dark:bg-base-200 rounded-xl border p-4 shadow-sm"
-		>
-			<h2 class="text-sm font-semibold">{m.market_my_connections()}</h2>
-			{#if myVMcps.length === 0}
-				<p class="text-muted-content mt-2 text-sm">{m.market_my_connections_empty()}</p>
-			{:else}
-				<ul class="mt-3 flex flex-col divide-y divide-base-200">
-					{#each myVMcps as vmcp (vmcp.id)}
-						<li
-							data-testid={`market-my-vmcp-${vmcp.id}`}
-							class="flex flex-col gap-2 py-3 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
-						>
-							<div class="min-w-0">
-								<p class="truncate text-sm font-medium">{vmcp.displayName}</p>
-								<p class="text-muted-content text-xs">
-									<span data-testid={`market-my-vmcp-components-${vmcp.id}`}>
-										{m.market_components_count({ count: vmcp.components?.length ?? 0 })}
-									</span>
-									<span aria-hidden="true"> · </span>
-									<span data-testid={`market-my-vmcp-instances-${vmcp.id}`}>
-										{m.market_instances_count({ count: vmcpInstanceCount(vmcp.id) })}
-									</span>
-								</p>
-							</div>
-							<div class="flex shrink-0 items-center gap-2">
-								<span
-									class="badge badge-sm {vmcp.status?.ready ? 'badge-success' : 'badge-warning'}"
-								>
-									{vmcp.status?.ready ? m.core_status_ready() : m.market_not_ready()}
-								</span>
-								<span
-									class="badge badge-sm {vmcpConfigured(vmcp.id)
-										? 'badge-success'
-										: 'badge-neutral'}"
-								>
-									{vmcpConfigured(vmcp.id) ? m.core_status_configured() : m.market_not_configured()}
-								</span>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		</section>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</section>
+		{/if}
 	</div>
 {/snippet}
 

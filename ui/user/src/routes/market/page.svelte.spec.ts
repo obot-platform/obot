@@ -149,6 +149,11 @@ async function openMineTab() {
 	await page.getByRole('tab', { name: m.market_tab_mine() }).click();
 }
 
+async function openMyConnectionsTab() {
+	await openMineTab();
+	await page.getByRole('tab', { name: m.market_my_connections() }).click();
+}
+
 async function openMyLinksTab() {
 	await page.getByRole('tab', { name: m.market_tab_my_links() }).click();
 }
@@ -246,6 +251,31 @@ describe('market page', () => {
 
 		await expect.element(page.getByTestId('market-my-requests')).toBeVisible();
 		await expect.element(page.getByText(m.market_my_requests_empty())).toBeVisible();
+	});
+
+	it('switches between My requests and My connections panels', async () => {
+		await renderMarketPage();
+		await openMineTab();
+
+		await expect
+			.element(page.getByRole('tab', { name: m.market_my_requests() }))
+			.toHaveAttribute('aria-selected', 'true');
+		await expect
+			.element(page.getByRole('tab', { name: m.market_my_connections() }))
+			.toHaveAttribute('aria-selected', 'false');
+		await expect.element(page.getByTestId('market-my-requests')).toBeVisible();
+		await expect.element(page.getByTestId('market-my-connections')).not.toBeInTheDocument();
+
+		await page.getByRole('tab', { name: m.market_my_connections() }).click();
+
+		await expect
+			.element(page.getByRole('tab', { name: m.market_my_requests() }))
+			.toHaveAttribute('aria-selected', 'false');
+		await expect
+			.element(page.getByRole('tab', { name: m.market_my_connections() }))
+			.toHaveAttribute('aria-selected', 'true');
+		await expect.element(page.getByTestId('market-my-requests')).not.toBeInTheDocument();
+		await expect.element(page.getByTestId('market-my-connections')).toBeVisible();
 	});
 
 	it('groups approved and connected connectors under Available', async () => {
@@ -489,7 +519,7 @@ describe('market page', () => {
 			[connectorEntry]
 		);
 		await renderMarketPage({ profile, vmcps: [personal, anotherUsers] });
-		await openMineTab();
+		await openMyConnectionsTab();
 
 		const connection = page.getByTestId('market-my-vmcp-vmcp2-personal');
 		await expect.element(page.getByTestId('market-my-connections')).toBeVisible();
@@ -530,7 +560,7 @@ describe('market page', () => {
 			],
 			loading: false
 		};
-		await openMineTab();
+		await openMyConnectionsTab();
 
 		const readyRow = page.getByTestId('market-my-vmcp-vmcp2-ready');
 		await expect.element(readyRow).toBeVisible();
