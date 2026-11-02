@@ -230,6 +230,9 @@ func (e *Engine) adminRead(_ context.Context, cfg llmcoretypes.Config, path stri
 				continue
 			}
 			for _, model := range e.prices.GetUnfilteredModelsForProvider(provider) {
+				if e.modelIsUnavailable(string(provider) + "/" + model) {
+					continue
+				}
 				if q := r.URL.Query().Get("query"); q != "" && !strings.Contains(strings.ToLower(model), strings.ToLower(q)) {
 					continue
 				}

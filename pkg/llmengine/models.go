@@ -106,6 +106,11 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 	// Added after the last known models are recorded: they aren't a listing of the provider,
 	// so they mustn't stand in for one once subscriptions are turned off or keys are added.
 	resp.Data = append(resp.Data, e.claudeSubscriptionModels(ctx)...)
+	// A failed or empty listing may reuse cached entries. Recheck lifecycle
+	// metadata so that fallback cannot resurrect a now-unavailable model.
+	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool {
+		return e.modelIsUnavailable(model.ID)
+	})
 
 	result := &openai.ModelsList{Models: make([]openai.Model, 0, len(resp.Data))}
 	seen := make(map[string]struct{}, len(resp.Data))

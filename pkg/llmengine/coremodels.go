@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -16,6 +17,9 @@ func (e *Engine) gatewayModels(ctx context.Context, provider schemas.ModelProvid
 func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelProvider, unfiltered bool) ([]schemas.Model, error) {
 	bctx, cancel := schemas.NewBifrostContextWithCancel(ctx)
 	defer cancel()
+	// Preserve provider lifecycle fields through the per-provider post-hook.
+	bctx.SetValue(schemas.BifrostContextKeyAllowPerRequestRawOverride, true)
+	bctx.SetValue(schemas.BifrostContextKeySendBackRawResponse, true)
 	req := &schemas.BifrostListModelsRequest{Provider: provider, PageSize: 10000, Unfiltered: unfiltered}
 	var out *schemas.BifrostListModelsResponse
 	var engineErr *schemas.BifrostError
@@ -27,6 +31,9 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	if engineErr != nil {
 		return nil, fmt.Errorf("model listing failed: %v", engineErr.Error)
 	}
+	out.Data = slices.DeleteFunc(out.Data, func(model schemas.Model) bool {
+		return model.IsDeprecated || e.modelIsUnavailable(model.ID)
+	})
 	live := map[schemas.ModelProvider][]string{}
 	if provider != "" {
 		// A successful empty response must also replace the previous live listing.

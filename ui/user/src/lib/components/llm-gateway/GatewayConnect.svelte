@@ -466,6 +466,17 @@
 						].join('\n')
 					},
 					{
+						tabTitle: m.models_connect_tab_responses(),
+						title: m.models_connect_responses_any_model(),
+						language: 'bash' as const,
+						code: [
+							`curl ${baseURL}/v1/responses \\`,
+							`  -H "Authorization: Bearer ${token}" \\`,
+							'  -H "content-type: application/json" \\',
+							`  -d '{"model": "${model}", "input": "hello"}'`
+						].join('\n')
+					},
+					{
 						tabTitle: m.models_connect_tab_messages(),
 						title: m.models_connect_messages_any_model(),
 						language: 'bash' as const,

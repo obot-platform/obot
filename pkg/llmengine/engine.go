@@ -42,6 +42,7 @@ type syncFailure struct{ err error }
 type Engine struct {
 	syncFailure      atomic.Pointer[syncFailure]
 	metrics          *gatewayMetrics
+	availability     *modelAvailability
 	core             atomic.Pointer[llmcore.Engine]
 	store            *llmcoreclient.Client
 	prices           *modelcatalog.ModelCatalog
@@ -66,7 +67,7 @@ type APIError struct {
 }
 
 func New() *Engine {
-	e := &Engine{pricingRevision: -1, metrics: newGatewayMetrics(), ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
+	e := &Engine{pricingRevision: -1, metrics: newGatewayMetrics(), availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil
@@ -111,7 +112,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.FirstPlugin != nil {
 			plugins = append(plugins, opts.FirstPlugin)
 		}
-		plugins = append(plugins, e.metrics)
+		plugins = append(plugins, e.metrics, e.availability)
 		if opts.LastPlugin != nil {
 			plugins = append(plugins, opts.LastPlugin)
 		}
