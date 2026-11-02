@@ -19,7 +19,7 @@
     "test:obot": "playwright test --config playwright.obot.config.ts",
     "test:exports": "node --test tests/agent-docs/*.test.mjs",
     "test:exports:release": "node tests/scripts/release-exports.mjs",
-    "test:exports:content": "node tests/scripts/check-export-content.mjs"
+    "test:exports:content": "node tests/scripts/check-export-content.mjs && node tests/scripts/check-export-links.mjs"
   },
   "dependencies": {
     "@docusaurus/core": "3.10.2",

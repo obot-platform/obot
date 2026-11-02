@@ -198,6 +198,7 @@ export async function generate({
   }
   const report = [];
   let headers = await fs.readFile(path.join(outDir, "_headers"), "utf8");
+  let rootFullBytes;
   for (const version of versions) {
     const name =
       version.versionName === "current" ? "next" : version.versionName;
@@ -215,6 +216,11 @@ export async function generate({
         .join("\n");
     put(`${prefix}/llms-full.txt`, full);
     const bytes = Buffer.byteLength(full);
+    // Some clients only try the conventional root path, so alias the latest release there.
+    if (version.isLast && version.versionName !== "current") {
+      put(`${base}llms-full.txt`, full);
+      rootFullBytes = bytes;
+    }
     let index = `# Obot ${name}${name === "next" ? " (unreleased)" : ""}\n\n> ${PRODUCT}\n\nUse examples and configuration from this version together. ${name === "next" ? "This documentation describes unreleased development against main." : `This documentation describes release ${name}.`}\n\nPrefer individual pages below. Each has version metadata and its HTML source URL.\n\n## Complete version (optional)\n\n- [Full documentation](${new URL(`${prefix}/llms-full.txt`, origin).href}): ${bytes} bytes; approximately ${Math.ceil(bytes / 4)} tokens (bytes / 4 estimate; tokenizer-dependent).\n`;
     let group;
     for (const doc of docs) {
@@ -239,7 +245,7 @@ export async function generate({
     latest.versionName === "current" ? "next" : latest.versionName;
   put(
     `${base}llms.txt`,
-    `# Obot documentation\n\n> ${PRODUCT}\n\nUse ${latestName} unless the user specifies an installed version. Keep examples and configuration within the selected version. Use /next/ only for unreleased development. If the requested version is not listed, explain that its documentation is unavailable here; do not silently substitute another release.\n\n## Default documentation\n\n- [Obot ${latestName}](${new URL(`${base}${latestName}/llms.txt`, origin).href}): ${latestName === "next" ? "Unreleased; no release snapshots are available." : "Latest released documentation."}\n\n## Other versions\n\n${versions
+    `# Obot documentation\n\n> ${PRODUCT}\n\nUse ${latestName} unless the user specifies an installed version. Keep examples and configuration within the selected version. Use /next/ only for unreleased development. If the requested version is not listed, explain that its documentation is unavailable here; do not silently substitute another release.\n\n## Default documentation\n\n- [Obot ${latestName}](${new URL(`${base}${latestName}/llms.txt`, origin).href}): ${latestName === "next" ? "Unreleased; no release snapshots are available." : "Latest released documentation."}\n${rootFullBytes === undefined ? "" : `- [Full documentation for ${latestName}](${new URL(`${base}llms-full.txt`, origin).href}): every ${latestName} page in one file; ${rootFullBytes} bytes; same as ${latestName}/llms-full.txt.\n`}\n## Other versions\n\n${versions
       .filter((v) => !v.isLast)
       .map((v) => {
         const n = v.versionName === "current" ? "next" : v.versionName;

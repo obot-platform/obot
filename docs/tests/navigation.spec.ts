@@ -140,6 +140,11 @@ test('Markdown links follow in-app navigation and documentation versions', async
   expect(full.status()).toBe(200);
   expect(full.headers()['content-type']).toContain('text/plain');
   expect(full.headers()['x-robots-tag']).toBe('noindex');
+  const rootFull = await request.get('/llms-full.txt');
+  expect(rootFull.status()).toBe(200);
+  expect(rootFull.headers()['content-type']).toContain('text/plain');
+  expect(rootFull.headers()['x-robots-tag']).toBe('noindex');
+  expect(await rootFull.text()).toBe(await full.text());
   const root = await request.get('/llms.txt');
   expect(root.status()).toBe(200);
   expect(root.headers()['x-robots-tag']).toBeUndefined();
@@ -147,6 +152,8 @@ test('Markdown links follow in-app navigation and documentation versions', async
   expect(old.headers()['x-robots-tag']).toBe('noindex');
   const missing = await request.get('/no-such-agent-doc.md');
   expect(missing.status()).toBe(404);
+  // The 404 body is the HTML not-found page, so it must not be labeled as Markdown.
+  expect(missing.headers()['content-type']).toContain('text/html');
 });
 
 test('Markdown discovery is present in raw server-rendered HTML', async ({ page, request }) => {
