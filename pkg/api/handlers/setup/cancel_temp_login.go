@@ -46,10 +46,8 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 		})
 	}
 
-	// Check if the user has an explicit role from environment variables
-	// If they do, don't demote them
-	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
-	if !explicitRole.HasRole(types.RoleAdmin) {
+	// An Owner, such as the configured initial local auth owner, is not demoted.
+	if !user.Role.HasRole(types.RoleOwner) {
 		// Demote user to Basic role (don't delete, as they may have logged in legitimately)
 		if user.Role != types.RoleBasic {
 			user.Role = types.RoleBasic

@@ -355,11 +355,6 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 				removingAdmin := existingUser.Role.HasRole(types2.RoleAdmin) && !updatedUser.Role.HasRole(types2.RoleAdmin)
 
 				if removingOwner || removingAdmin {
-					// If this user has been explicitly marked as an admin or owner, then don't allow changing the role.
-					if c.HasExplicitRole(existingUser.Email) != types2.RoleUnknown {
-						return &ExplicitRoleError{email: existingUser.Email}
-					}
-
 					// We filter out empty email users here, because that is the bootstrap user.
 					// Also exclude soft-deleted users and the current user from the count.
 					if removingOwner {

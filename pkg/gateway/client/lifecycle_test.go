@@ -813,46 +813,82 @@ func TestSignInOfADisabledUserReturnsTheirStatus(t *testing.T) {
 	}
 }
 
-func TestSignInCreatesAUserWithTheExplicitRoleOfTheAssertedEmail(t *testing.T) {
+func TestSignInCreatesTheInitialOwnerAsAnOwnerOnce(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	c.emailsWithExplicitRoles = map[string]apitypes.Role{
-		"owner@example.com": apitypes.RoleOwner,
+	c.initialOwnerEmail = "owner@example.com"
+	ctx := t.Context()
+
+	signIn := func(provider, providerUserID, email string) *types.User {
+		t.Helper()
+		user, err := c.EnsureIdentity(ctx, &types.Identity{
+			AuthProviderName:      provider,
+			AuthProviderNamespace: system.DefaultNamespace,
+			ProviderUsername:      providerUserID,
+			ProviderUserID:        providerUserID,
+			Email:                 email,
+		}, "", UserLimit{
+			Unlimited: true,
+		})
+		if err != nil {
+			t.Fatalf("failed to sign in: %v", err)
+		}
+		return user
 	}
 
-	user, err := c.EnsureIdentity(t.Context(), &types.Identity{
-		AuthProviderName:      lifecycleTestProvider.Name,
-		AuthProviderNamespace: lifecycleTestProvider.Namespace,
-		ProviderUsername:      "owner",
-		ProviderUserID:        "00u-owner",
-		Email:                 "owner@example.com",
-	}, "", UserLimit{
-		Unlimited: true,
-	})
-	if err != nil {
-		t.Fatalf("failed to sign in: %v", err)
+	owner := signIn(system.LocalAuthProvider, "OWNER@example.com", "OWNER@example.com")
+	if stored := storedLifecycleUser(t, c, owner.ID); !stored.Role.HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the initial owner that sign-in created = %d, want Owner", stored.Role)
 	}
-	if stored := storedLifecycleUser(t, c, user.ID); !stored.Role.HasRole(apitypes.RoleOwner) {
-		t.Fatalf("role of the user that sign-in created = %d, want Owner", stored.Role)
+
+	// The grant is one-time: an initial owner who was demoted stays demoted.
+	if err := c.db.WithContext(ctx).Model(new(types.User)).Where("id = ?", owner.ID).UpdateColumn("role", apitypes.RoleBasic).Error; err != nil {
+		t.Fatal(err)
+	}
+	if again := signIn(system.LocalAuthProvider, "OWNER@example.com", "OWNER@example.com"); again.ID != owner.ID {
+		t.Fatalf("second sign-in of the initial owner returned user %d, want %d", again.ID, owner.ID)
+	}
+	if stored := storedLifecycleUser(t, c, owner.ID); stored.Role.HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the demoted initial owner after sign-in = %d, want it not to be raised", stored.Role)
+	}
+
+	// Only the local account of the initial owner is granted the role.
+	for _, other := range []struct {
+		provider string
+		email    string
+	}{
+		{
+			provider: system.LocalAuthProvider,
+			email:    "other@example.com",
+		},
+		{
+			provider: "google-auth-provider",
+			email:    "owner@example.com",
+		},
+	} {
+		user := signIn(other.provider, other.provider+"/"+other.email, other.email)
+		if user.ID == owner.ID {
+			t.Fatalf("sign-in of %s through %s matched the initial owner", other.email, other.provider)
+		}
+		if stored := storedLifecycleUser(t, c, user.ID); stored.Role.HasRole(apitypes.RoleOwner) {
+			t.Fatalf("role of %s signed in through %s = %d, want it not to be Owner", other.email, other.provider, stored.Role)
+		}
 	}
 }
 
 func TestSignInThatRaisesARoleRecordsAReconcileEvent(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	c.emailsWithExplicitRoles = map[string]apitypes.Role{
-		"tara@example.com": apitypes.RoleAdmin,
-	}
 	ctx := t.Context()
 	user := createLifecycleTestUser(t, c, "tara", lifecycleTestProvider)
 
 	signIn := func() {
 		t.Helper()
-		if _, err := c.EnsureIdentity(ctx, &types.Identity{
+		if _, err := c.EnsureIdentityWithRole(ctx, &types.Identity{
 			AuthProviderName:      lifecycleTestProvider.Name,
 			AuthProviderNamespace: lifecycleTestProvider.Namespace,
 			ProviderUsername:      "tara",
 			ProviderUserID:        "00u-tara",
 			Email:                 "tara@example.com",
-		}, "", UserLimit{Unlimited: true}); err != nil {
+		}, "", apitypes.RoleAdmin, UserLimit{Unlimited: true}); err != nil {
 			t.Fatalf("failed to sign in: %v", err)
 		}
 	}

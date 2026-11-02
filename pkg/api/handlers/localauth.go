@@ -288,9 +288,12 @@ func (h *LocalAuthHandler) userForMutation(req api.Context, id uint) (*gatewayty
 		return nil, fmt.Errorf("failed to get user from provider user ID: %w", err)
 	}
 
-	role := req.GatewayClient.HasExplicitRole(localUser.Email)
+	var role types.Role
 	if gatewayUser != nil {
-		role |= gatewayUser.Role
+		role = gatewayUser.Role
+	} else if req.GatewayClient.IsInitialOwnerEmail(localUser.Email) {
+		// The initial owner becomes Owner on first sign-in, so the pending account is protected as one.
+		role = types.RoleOwner
 	}
 	privileged := role.HasRole(types.RoleOwner) || role.HasRole(types.RoleAuditor)
 	if !req.UserIsOwner() && privileged {

@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"strings"
 	"sync"
 	"time"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/sync/singleflight"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,7 +45,7 @@ type Client struct {
 
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
-	emailsWithExplicitRoles   map[string]types2.Role
+	initialOwnerEmail         string
 	auditLock                 sync.Mutex
 	auditBuffer               []types.MCPAuditLog
 	kickAuditPersist          chan struct{}
@@ -78,15 +76,7 @@ type Client struct {
 	claudeProvisionGateSlot chan struct{}
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
-	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
-	for _, email := range adminEmails {
-		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
-	}
-	// If a user is explicitly both an admin and owner, they are an owner.
-	for _, email := range ownerEmails {
-		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
-	}
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, initialOwnerEmail string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	egressCtx, egressCancel := context.WithCancel(ctx)
 	c := &Client{
 		egressAuditBuffer:         make([]types.EgressAuditLog, 0, min(2*auditLogBatchSize, egressAuditMaxEntries)),
@@ -95,7 +85,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		egressAuditDone:           make(chan struct{}),
 		db:                        db,
 		encryptionConfig:          encryptionConfig,
-		emailsWithExplicitRoles:   explicitRoleEmailsSet,
+		initialOwnerEmail:         NormalizeEmail(initialOwnerEmail),
 		auditBuffer:               make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:          make(chan struct{}),
 		enforcementBuffer:         make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
@@ -152,13 +142,13 @@ func (c *Client) Close() error {
 	return errors.Join(append(errs, c.db.Close())...)
 }
 
-func (c *Client) HasExplicitRole(email string) types2.Role {
-	return c.emailsWithExplicitRoles[strings.ToLower(email)]
+// IsInitialOwnerEmail reports whether email is the configured initial local auth owner.
+func (c *Client) IsInitialOwnerEmail(email string) bool {
+	return c.initialOwnerEmail != "" && NormalizeEmail(email) == c.initialOwnerEmail
 }
 
-// GetExplicitRoleEmails returns a copy of all emails with explicit roles.
-// Used by setup endpoints to list Owner and Admin emails.
-func (c *Client) GetExplicitRoleEmails() map[string]types2.Role {
-	// No lock needed - map is immutable after construction
-	return maps.Clone(c.emailsWithExplicitRoles)
+// isInitialOwner reports whether id is the local auth identity of the configured initial owner, whose user is
+// created as an Owner on first sign-in.
+func (c *Client) isInitialOwner(id *types.Identity) bool {
+	return id.AuthProviderNamespace == system.DefaultNamespace && id.AuthProviderName == system.LocalAuthProvider && c.IsInitialOwnerEmail(id.Email)
 }

@@ -75,6 +75,17 @@ func dropRunTokenActivityPersonalToken(tx *gorm.DB) error {
 	return nil
 }
 
+// dropUserVerifiedEmail removes the obsolete verified_email column.
+func dropUserVerifiedEmail(tx *gorm.DB) error {
+	migrator := tx.Migrator()
+	if migrator.HasTable(&types.User{}) && migrator.HasColumn(&types.User{}, "verified_email") {
+		if err := migrator.DropColumn(&types.User{}, "verified_email"); err != nil {
+			return fmt.Errorf("failed to drop verified_email column from users: %w", err)
+		}
+	}
+	return nil
+}
+
 // migrateUserDailyTokenLimits renames legacy per-user token limit columns.
 func migrateUserDailyTokenLimits(tx *gorm.DB) error {
 	migrator := tx.Migrator()

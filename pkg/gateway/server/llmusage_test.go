@@ -32,7 +32,7 @@ func newUsageTestClient(t *testing.T) *client.Client {
 		t.Fatal(err)
 	}
 	// The LLM audit log is off: token usage is recorded without it.
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, "", time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	return gatewayClient
 }
@@ -176,7 +176,7 @@ func TestTokenCountRequestsAreNotLLMAudited(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	audited := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, true)
+	audited := client.New(t.Context(), db, nil, nil, nil, "", time.Hour, 10, 0, 0, 0, true)
 	t.Cleanup(func() { _ = audited.Close() })
 	notAudited := newUsageTestClient(t)
 

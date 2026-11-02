@@ -12,7 +12,6 @@ import {
 	getProfileResponse,
 	initiateTempLoginResponse,
 	listAuthProvidersResponse,
-	listExplicitRoleEmailsResponse,
 	listUsersResponse
 } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
@@ -219,9 +218,6 @@ function mockConfigureFlow(configuredProviders: AuthProvider[]) {
 		http.post(`/api/auth-providers/${googleProvider.id}/configure`, configureAuthProvider),
 		http.get('/api/auth-providers', () => HttpResponse.json({ items: configuredProviders })),
 		http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
-		http.get('/api/setup/explicit-role-emails', () =>
-			HttpResponse.json(listExplicitRoleEmailsResponse)
-		),
 		http.post('/api/setup/initiate-temp-login', () => HttpResponse.json(initiateTempLoginResponse))
 	);
 
@@ -247,10 +243,7 @@ const localConfigured: AuthProvider = {
 	configured: true
 };
 
-function mockLocalOnboarding({
-	owners = null as string[] | null,
-	redirectUrl = initiateTempLoginResponse.redirectUrl
-} = {}) {
+function mockLocalOnboarding({ redirectUrl = initiateTempLoginResponse.redirectUrl } = {}) {
 	const initiateTempLogin = vi.fn(() =>
 		HttpResponse.json({ ...initiateTempLoginResponse, redirectUrl })
 	);
@@ -278,7 +271,6 @@ function mockLocalOnboarding({
 			return HttpResponse.json(user);
 		}),
 		http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
-		http.get('/api/setup/explicit-role-emails', () => HttpResponse.json({ owners, admins: null })),
 		http.post('/api/setup/initiate-temp-login', initiateTempLogin)
 	);
 
@@ -407,10 +399,7 @@ describe('Identity & Access Page', () => {
 				}),
 				http.post('/api/local-auth/users/:id/password', setPassword),
 				http.post('/api/setup/initiate-temp-login', initiate),
-				http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
-				http.get('/api/setup/explicit-role-emails', () =>
-					HttpResponse.json(listExplicitRoleEmailsResponse)
-				)
+				http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 }))
 			);
 
 			return { initiate, setPassword };
@@ -1190,7 +1179,7 @@ describe('Identity & Access Page', () => {
 					.toBeVisible();
 			});
 
-			it('bootstrap local setup with no explicit owners shows owner setup dialog', async () => {
+			it('bootstrap local setup shows owner setup dialog', async () => {
 				const { initiateTempLogin } = mockLocalOnboarding();
 				await renderIdentityAccessPage({
 					authProviders: [localProvider],
@@ -1205,32 +1194,6 @@ describe('Identity & Access Page', () => {
 				});
 				await expect
 					.element(page.getByRole('dialog').getByText('Next Step: Owner Setup', { exact: true }))
-					.toBeVisible();
-				await expect
-					.element(
-						page.getByRole('dialog').getByRole('link', { name: /Sign in as ada@example.com/ })
-					)
-					.toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
-			});
-
-			it('bootstrap local setup still prompts when explicit owners are preconfigured', async () => {
-				const { initiateTempLogin } = mockLocalOnboarding({ owners: ['owner@example.com'] });
-				await renderIdentityAccessPage({
-					authProviders: [localProvider],
-					bootstrap: true,
-					provider: CommonAuthProviderIds.LOCAL
-				});
-
-				await createInitialLocalUser();
-
-				await vi.waitFor(() => {
-					expect(initiateTempLogin).toHaveBeenCalledOnce();
-				});
-				await expect
-					.element(page.getByRole('dialog').getByText('Next Step: Owner Setup', { exact: true }))
-					.toBeVisible();
-				await expect
-					.element(page.getByRole('dialog').getByText('ada@example.com', { exact: true }))
 					.toBeVisible();
 				await expect
 					.element(

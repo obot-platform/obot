@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -72,11 +71,6 @@ func (p *Provider) CreateUser(ctx context.Context, email, password string, requi
 		return nil, err
 	} else if !allowed {
 		return nil, InvalidUserError{message: fmt.Sprintf("email %q is not in the provider's allowed email domains", email), key: "local_email_domain_disallowed", args: map[string]string{"email": fmt.Sprintf("%q", email)}}
-	}
-
-	explicitRole := p.gatewayClient.HasExplicitRole(email)
-	if bootstrap && explicitRole.HasRole(apitypes.RoleAdmin) && !explicitRole.HasRole(apitypes.RoleOwner) {
-		return nil, InvalidUserError{message: "the initial local account must become Owner; choose an email that is not configured as an Admin through the environment", key: "local_initial_owner_role"}
 	}
 
 	passwordHash, err := hashUserPassword(password)

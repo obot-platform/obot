@@ -33,8 +33,6 @@ func TestClaudeTagServiceUser(t *testing.T) {
 	require.True(t, user.Internal)
 	require.Equal(t, api.RoleBasic, user.Role)
 	require.Empty(t, user.Email)
-	require.NotNil(t, user.VerifiedEmail)
-	require.False(t, *user.VerifiedEmail)
 	credential, err := c.EnsureClaudeCredential(ctx, user.ID, "tag-session", []string{"vmcp_test"}, time.Now().Add(time.Hour))
 	require.NoError(t, err)
 	key, err := c.ValidateAPIKey(ctx, credential.Secrets["key"])

@@ -107,10 +107,6 @@ config:
   # Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: true
 
-  # Optionally Preseed admin and owner users
-  OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
-  OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
-
 ```
 
 With the default configuration on EKS, this will set up ingress to expose Obot through an Application Load Balancer using the AWS Load Balancer Controller. Make sure you have the AWS Load Balancer Controller installed in your cluster. You should also consider adding TLS termination to your ALB for secure HTTPS access.

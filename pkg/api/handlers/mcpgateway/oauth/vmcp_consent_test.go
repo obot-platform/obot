@@ -243,7 +243,7 @@ func vmcpConsentGateway(t *testing.T, tokenTriggers ...func(context.Context, str
 		trigger = tokenTriggers[0]
 	}
 
-	client := gatewayclient.New(t.Context(), db, nil, nil, trigger, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	client := gatewayclient.New(t.Context(), db, nil, nil, trigger, "", time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 	return client
 }

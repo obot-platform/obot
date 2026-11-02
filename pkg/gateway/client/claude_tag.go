@@ -24,14 +24,12 @@ func (c *Client) EnsureClaudeTagUser(ctx context.Context, environment *types.Cla
 		}
 		return nil
 	}
-	verified := false
 	user := types.User{
 		Username:       "claude-tag:" + environment.ID,
 		HashedUsername: hash.String("claude-tag:" + environment.ID),
 		DisplayName:    "Claude Tag — " + environment.DisplayName,
 		Role:           api.RoleBasic,
 		Internal:       true,
-		VerifiedEmail:  &verified,
 	}
 	if err := c.encryptUser(ctx, &user); err != nil {
 		return err

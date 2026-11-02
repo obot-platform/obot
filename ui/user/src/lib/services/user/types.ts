@@ -1035,7 +1035,6 @@ export interface OrgUser {
 	created: string;
 	username: string;
 	email: string;
-	explicitRole: boolean;
 	role: number;
 	effectiveRole: number;
 	groups: string[];

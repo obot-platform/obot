@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"slices"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -29,11 +28,6 @@ const (
 )
 
 var (
-	verifiedAuthProviders = []string{
-		"default/google-auth-provider",
-		"default/github-auth-provider",
-	}
-
 	identityGroupResource = schema.GroupResource{
 		Group:    "obot.obot.ai",
 		Resource: "identities",
@@ -220,8 +214,6 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 // ever created here. Before that, users are still created just in time. Either way, sign-in never overwrites the
 // profile of a user that SCIM has provisioned.
 func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (ensuredIdentity, error) {
-	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
-
 	email := id.Email
 	providerUserID := id.ProviderUserID
 	providerUsername := id.ProviderUsername
@@ -240,7 +232,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		namespace: id.AuthProviderNamespace,
 		name:      id.AuthProviderName,
 	}
-	user, created, roleRaised, err := c.ensureIdentityUser(ctx, tx, mode, id, timezone, role, userLimit, verified, email, providerUserID, providerUsername)
+	user, created, roleRaised, err := c.ensureIdentityUser(ctx, tx, mode, id, timezone, role, userLimit, email, providerUserID, providerUsername)
 	if err != nil {
 		return ensuredIdentity{}, err
 	}
@@ -316,7 +308,7 @@ func scimUnprovisionedSignInError(userID uint) error {
 
 // ensureIdentityUser does the work of ensureIdentity. When SCIM is enforced for the identity's auth provider, sign-in
 // requires an identity whose live user the connection provisioned, and it never creates an identity or a user.
-func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, verified bool, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
+func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
 	// See if the identity already exists.
 	if found, err := identityWithSCIMModeTx(tx, id, mode); err != nil {
 		return nil, false, false, fmt.Errorf("failed to look up identity: %w", err)
@@ -392,11 +384,11 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		updateIdentity = true
 	}
 
-	// A user that sign-in creates has the email the identity provider asserts, so its explicit role applies. An
-	// existing user replaces this one, and gets the explicit role of its own email below.
+	// The configured initial local auth owner is created as an Owner. This is a one-time grant: an existing user
+	// replaces this one, and keeps their stored role.
 	newUserRole := role
-	if r := c.HasExplicitRole(email); !newUserRole.HasRole(r) {
-		newUserRole = newUserRole.SwitchBaseRole(r)
+	if c.isInitialOwner(id) && !newUserRole.HasRole(types2.RoleOwner) {
+		newUserRole = newUserRole.SwitchBaseRole(types2.RoleOwner)
 	}
 	user := &types.User{
 		ID:             id.UserID,
@@ -404,7 +396,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		HashedUsername: hash.String(id.ProviderUsername),
 		Email:          id.Email,
 		HashedEmail:    id.HashedEmail,
-		VerifiedEmail:  &verified,
 		Role:           newUserRole,
 	}
 
@@ -420,11 +411,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 	if user.ID != 0 {
 		// Check for an existing user with this exact ID.
 		userQuery = userQuery.Where("users.id = ?", user.ID)
-		checkForExistingUser = true
-	} else if verified {
-		// Check for an existing user with this exact verified email address.
-		// We check for both true and null values, because the email might have been verified before we started tracking verified emails.
-		userQuery = userQuery.Where("users.hashed_email = ? and (users.verified_email = true or users.verified_email is null)", user.HashedEmail)
 		checkForExistingUser = true
 	}
 
@@ -494,19 +480,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 				roleRaised = true
 			}
 
-			// Explicit roles follow the user's email. SCIM writes the email of the users it has provisioned, and every
-			// other check of explicit roles reads the stored email, so for those users it is the one that counts, not
-			// the one the identity provider asserts at sign-in.
-			explicitRoleEmail := email
-			if rows[0].SCIMBound {
-				explicitRoleEmail = user.Email
-			}
-			if r := c.HasExplicitRole(explicitRoleEmail); !user.Role.HasRole(r) {
-				user.Role = user.Role.SwitchBaseRole(r)
-				userChanged = true
-				roleRaised = true
-			}
-
 			if user.Timezone == "" && timezone != "" {
 				user.Timezone = timezone
 				userChanged = true
@@ -541,17 +514,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 				userChanged = true
 			}
 
-			// Update the verified email status if needed.
-			// This can happen in two cases:
-			// 1. The user was created before we started tracking verified emails (user.VerifiedEmail is nil)
-			// 2. The user was created before we started tracking verified emails, and associated with both a verified
-			//    and unverified auth provider. They logged in with the unverified provider and we marked the email as unverified,
-			//    but now they've logged in with the verified provider and we can mark the email as verified. (verified is true, but user.VerifiedEmail is false)
-			if user.VerifiedEmail == nil || (verified && !*user.VerifiedEmail) {
-				user.VerifiedEmail = &verified
-				userChanged = true
-			}
-
 			if profileChanged {
 				// Copy user so we don't have to decrypt
 				u = *user
@@ -570,7 +532,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 					"role":            user.Role,
 					"timezone":        user.Timezone,
 					"last_active_day": user.LastActiveDay,
-					"verified_email":  user.VerifiedEmail,
 				}).Error; err != nil {
 					return nil, false, false, err
 				}

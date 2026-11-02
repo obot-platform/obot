@@ -465,7 +465,6 @@
 	"identity_access_users_enable": "启用用户",
 	"identity_access_users_enable_msg": "启用用户 {email}？",
 	"identity_access_users_enable_note": "他们将重新使用该账户访问 Obot，包括其 API 密钥和代理。",
-	"identity_access_users_explicit_role": "该用户的角色已在系统级别显式设置，无法更改。",
 	"identity_access_users_grant_auditor_msg": "要授予 {user} 审计员角色吗？",
 	"identity_access_users_grant_confirm_prefix": "确定要授予",
 	"identity_access_users_grant_confirm_this_role": "此角色吗？",

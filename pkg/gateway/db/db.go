@@ -89,6 +89,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop run_token_activities personal_token column: %w", err)
 	}
 
+	if err = dropUserVerifiedEmail(tx); err != nil {
+		return fmt.Errorf("failed to drop users verified_email column: %w", err)
+	}
+
 	if err = migrateUserDailyTokenLimits(tx); err != nil {
 		return fmt.Errorf("failed to rename users daily token limit columns: %w", err)
 	}

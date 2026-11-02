@@ -465,7 +465,6 @@
 	"identity_access_users_enable": "ユーザーを有効にする",
 	"identity_access_users_enable_msg": "ユーザー {email} を有効にしますか？",
 	"identity_access_users_enable_note": "アカウントへのアクセスが戻り、API キーとエージェントも再び使えます。",
-	"identity_access_users_explicit_role": "このユーザーのロールはシステムレベルで明示的に設定されているため、変更できません。",
 	"identity_access_users_grant_auditor_msg": "{user} に監査担当者ロールを付与しますか？",
 	"identity_access_users_grant_confirm_prefix": "",
 	"identity_access_users_grant_confirm_this_role": "にこのロールを付与してもよろしいですか？",

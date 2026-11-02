@@ -535,10 +535,7 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		}
 	}
 
-	// Roles are never set from SCIM, so an explicit role for the SCIM email is not granted here. Sign-in grants it for
-	// that email.
 	email := input.Profile.PrimaryEmail()
-	verified := slices.Contains(verifiedAuthProviders, conn.AuthProviderNamespace+"/"+conn.AuthProviderName)
 
 	// A new identity is inserted before the user, in the order a sign-in inserts them, so that a concurrent first
 	// sign-in of the same person and this create wait for each other instead of deadlocking. Whichever inserts the
@@ -577,7 +574,6 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		Email:          email,
 		HashedEmail:    hashOptional(email),
 		DisplayName:    input.Profile.ObotDisplayName(),
-		VerifiedEmail:  &verified,
 		Role:           opts.DefaultRole,
 	}
 	if err := c.encryptUser(ctx, user); err != nil {

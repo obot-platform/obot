@@ -600,7 +600,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/bootstrap/logout", services.Bootstrapper.Logout)
 
 	// Setup endpoints for bootstrap configuration flow
-	mux.HandleFunc("GET /api/setup/explicit-role-emails", setupHandler.ListExplicitRoleEmails)
 	mux.HandleFunc("POST /api/setup/initiate-temp-login", setupHandler.InitiateTempLogin)
 	mux.HandleFunc("GET /api/setup/oauth-complete", setupHandler.OAuthComplete)
 	mux.HandleFunc("GET /api/setup/temp-user", setupHandler.GetTempUser)

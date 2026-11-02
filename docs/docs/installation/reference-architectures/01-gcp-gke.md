@@ -117,10 +117,6 @@ config:
   # Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: true
 
-  # Optionally Preseed admin and owner users
-  OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
-  OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
-
 ```
 
 With the default configuration on GKE, this will set up ingress to expose Obot through a load balancer. You should also consider adding TLS termination to your load balancer for secure HTTPS access.

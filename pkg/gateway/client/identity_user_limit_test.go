@@ -148,7 +148,7 @@ func TestEnsureIdentityWithRoleAllowsExistingUserWhenOverLimit(t *testing.T) {
 	}
 }
 
-func TestEnsureIdentityWithRoleAllowsVerifiedIdentityForExistingUserAtLimit(t *testing.T) {
+func TestEnsureIdentityWithRoleCreatesAUserPerProviderForTheSameEmail(t *testing.T) {
 	limit := UserLimit{Unlimited: true}
 	c := newIdentityUserLimitTestClient(t)
 
@@ -159,12 +159,12 @@ func TestEnsureIdentityWithRoleAllowsVerifiedIdentityForExistingUserAtLimit(t *t
 		ProviderUserID:        "google-user",
 		Email:                 "same-user@example.com",
 	}
-	first, err := c.EnsureIdentityWithRole(t.Context(), googleIdentity, "", apitypes.RoleBasic, limit)
-	if err != nil {
-		t.Fatalf("creating user through first verified provider: %v", err)
+	if _, err := c.EnsureIdentityWithRole(t.Context(), googleIdentity, "", apitypes.RoleBasic, limit); err != nil {
+		t.Fatalf("creating user through the first provider: %v", err)
 	}
 
-	limit = UserLimit{Maximum: 1}
+	// An identity of another provider is not linked to the existing user by email, so it needs a user of its own,
+	// which the limit refuses.
 	githubIdentity := &gatewaytypes.Identity{
 		AuthProviderNamespace: "default",
 		AuthProviderName:      "github-auth-provider",
@@ -172,15 +172,24 @@ func TestEnsureIdentityWithRoleAllowsVerifiedIdentityForExistingUserAtLimit(t *t
 		ProviderUserID:        "github-user",
 		Email:                 "same-user@example.com",
 	}
-	existing, err := c.EnsureIdentityWithRole(t.Context(), githubIdentity, "", apitypes.RoleBasic, limit)
-	if err != nil {
-		t.Fatalf("linking a verified identity at the user limit: %v", err)
-	}
-	if existing.ID != first.ID {
-		t.Fatalf("linked user ID = %d, want existing user ID %d", existing.ID, first.ID)
-	}
+	_, err := c.EnsureIdentityWithRole(t.Context(), githubIdentity, "", apitypes.RoleBasic, UserLimit{Maximum: 1})
+	requireIdentityUserLimitForbiddenError(t, err)
 	if got := countIdentityUserLimitTestUsers(t, c, true); got != 1 {
 		t.Fatalf("users counted toward limit = %d, want 1", got)
+	}
+
+	githubIdentity = &gatewaytypes.Identity{
+		AuthProviderNamespace: "default",
+		AuthProviderName:      "github-auth-provider",
+		ProviderUsername:      "github-user",
+		ProviderUserID:        "github-user",
+		Email:                 "same-user@example.com",
+	}
+	if _, err := c.EnsureIdentityWithRole(t.Context(), githubIdentity, "", apitypes.RoleBasic, limit); err != nil {
+		t.Fatalf("creating user through the second provider: %v", err)
+	}
+	if got := countIdentityUserLimitTestUsers(t, c, true); got != 2 {
+		t.Fatalf("users counted toward limit = %d, want 2", got)
 	}
 	if got := countIdentityUserLimitTestIdentities(t, c); got != 2 {
 		t.Fatalf("identities = %d, want 2", got)

@@ -71,7 +71,6 @@ type User struct {
 	EffectiveRole          Role     `json:"effectiveRole,omitempty"`
 	Groups                 []string `json:"groups,omitempty"`
 	AuthProviderGroups     []string `json:"authProviderGroups,omitempty"`
-	ExplicitRole           bool     `json:"explicitRole,omitempty"`
 	Email                  string   `json:"email,omitempty"`
 	IconURL                string   `json:"iconURL,omitempty"`
 	Timezone               string   `json:"timezone,omitempty"`
