@@ -2,12 +2,14 @@ package mcpcatalog
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +25,11 @@ func (h *Handler) HandleUserGroupChange(req router.Request, _ router.Response) e
 	// Get the user and their current groups
 	user, err := h.getUserInfoForAccessControl(req.Ctx, userIDStr)
 	if err != nil {
-		// If user doesn't exist anymore, just delete the event
+		// Only a missing user makes the event obsolete; lookup failures need a retry.
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("failed to get access control information for user %s: %w", userIDStr, err)
+		}
+
 		slog.Info("User not found, deleting UserGroupChange event", "userID", userIDStr)
 		return req.Delete(userGroupChange)
 	}

@@ -1,6 +1,7 @@
 package vmcpinstance
 
 import (
+	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -9,24 +10,53 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestSharedComponentConnectionLifecycle(t *testing.T) {
-	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-		Components: []types.VMCPComponent{{ID: "one", CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-			Name: "one", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-		}}}},
-	}}}
-	first := &v1.VMCPInstance{Name: "vmcpi1first", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1shared",
+		Namespace: "default",
+		Spec: v1.VMCPSpec{
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{{
+					ID: "one",
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+						Manifest: types.MCPServerCatalogEntryManifest{
+							Name:    "one",
+							Runtime: types.RuntimeRemote,
+							RemoteConfig: &types.RemoteCatalogConfig{
+								FixedURL: "https://example.com/mcp",
+							},
+						},
+					},
+				}},
+				Profiles: allowAllProfiles(),
+			},
+		},
+	}
+	first := &v1.VMCPInstance{
+		Name:      "vmcpi1first",
+		Namespace: "default",
+		Spec: v1.VMCPInstanceSpec{
+			UserID: "7",
+			Manifest: types.VMCPInstanceManifest{
+				VMCPID: vmcp.Name,
+			},
+		},
+	}
 	second := first.DeepCopy()
 	second.Name = "vmcpi1second"
-	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, first, second).
+	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, first, second).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).
-		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).Build()
-	handler := New(nil)
+		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }), first.Spec.UserID).Build()
+	handler := &Handler{userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
+		require.Equal(t, uint(7), id)
+		return &kuser.DefaultInfo{UID: "7"}, nil
+	}}
 	reconcile := func() {
 		t.Helper()
 		require.NoError(t, vmcphandler.EnsureMCPServers(router.Request{Ctx: t.Context(), Client: client, Object: vmcp}, nil))
@@ -65,6 +95,23 @@ func TestSharedComponentConnectionLifecycle(t *testing.T) {
 			}
 		}
 	}
+
+	// Profile loss affects dedicated servers, while shared backing servers and connections remain.
+	var serversBefore v1.MCPServerList
+	var connectionsBefore v1.MCPServerInstanceList
+	require.NoError(t, client.List(t.Context(), &serversBefore))
+	require.NoError(t, client.List(t.Context(), &connectionsBefore))
+	vmcp.Spec.Manifest.Profiles[0].Permissions.AllowAllComponents = false
+	require.NoError(t, client.Update(t.Context(), vmcp))
+	reconcile()
+	reconcile()
+	var serversAfter v1.MCPServerList
+	var connectionsAfter v1.MCPServerInstanceList
+	require.NoError(t, client.List(t.Context(), &serversAfter))
+	require.NoError(t, client.List(t.Context(), &connectionsAfter))
+	require.Equal(t, serversBefore.Items, serversAfter.Items)
+	require.Equal(t, connectionsBefore.Items, connectionsAfter.Items)
+
 	vmcp.Spec.Manifest.Components = nil
 	require.NoError(t, client.Update(t.Context(), vmcp))
 	reconcile()

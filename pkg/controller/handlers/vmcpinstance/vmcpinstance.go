@@ -217,9 +217,9 @@ func userAllowedConfiguration(manifest types.VMCPManifest, credential map[string
 	return configuration
 }
 
-// EnsureMCPServers creates one MCPServer from each catalog-entry snapshot on
-// the VMCP. Configuration credentials are intentionally not applied here.
-func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
+// EnsureMCPServers reconciles dedicated MCPServers for profile-enabled components.
+// Configuration credentials are intentionally not applied here.
+func (h *Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
 
 	var vmcp v1.VMCP
@@ -230,8 +230,16 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
 	}
 
-	servers := make([]v1.MCPServer, 0, len(vmcp.Spec.Manifest.Components))
-	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
+	u, err := h.instanceUser(req, vmcp, *instance)
+	if err != nil {
+		return err
+	}
+
+	// Exclude profile-disabled components so revoked dedicated servers are deleted
+	// and not recreated while access remains revoked. Restored access allows recreation.
+	components := vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.ComponentsForInstance(vmcp, *instance))
+	servers := make([]v1.MCPServer, 0, len(components))
+	for _, component := range components {
 		if vmcpconfig.IsMultiUser(component) {
 			continue
 		}
@@ -250,6 +258,10 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 		return err
 	}
 	for i := range existingServers.Items {
+		if !existingServers.Items[i].DeletionTimestamp.IsZero() {
+			continue
+		}
+
 		if _, ok := desired[existingServers.Items[i].Spec.VMCPComponentID]; ok {
 			continue
 		}
