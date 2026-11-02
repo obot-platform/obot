@@ -34,16 +34,13 @@ const (
 )
 
 type Client struct {
-	egressAuditLock           sync.Mutex
-	egressAuditPersistLock    sync.Mutex
-	egressAuditBuffer         []types.EgressAuditLog
-	egressAuditPending        int
-	egressAuditBytes          int
-	egressAuditDropped        uint64
-	egressAuditOverflowLogged time.Time
-	kickEgressAuditPersist    chan struct{}
-	egressAuditCancel         context.CancelFunc
-	egressAuditDone           chan struct{}
+	egressAuditLock        sync.Mutex
+	egressAuditPersistLock sync.Mutex
+	egressAuditBuffer      []types.EgressAuditLog
+	egressAuditBatchSize   int
+	kickEgressAuditPersist chan struct{}
+	egressAuditCancel      context.CancelFunc
+	egressAuditDone        chan struct{}
 
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
@@ -89,7 +86,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	}
 	egressCtx, egressCancel := context.WithCancel(ctx)
 	c := &Client{
-		egressAuditBuffer:         make([]types.EgressAuditLog, 0, min(2*auditLogBatchSize, egressAuditMaxEntries)),
+		egressAuditBatchSize:      auditLogBatchSize,
 		kickEgressAuditPersist:    make(chan struct{}, 1),
 		egressAuditCancel:         egressCancel,
 		egressAuditDone:           make(chan struct{}),

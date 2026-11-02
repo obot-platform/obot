@@ -88,7 +88,7 @@ func TestEgressAuditStream(t *testing.T) {
 	first := &ext.ProcessingRequest{Attributes: map[string]*structpb.Struct{"audit": attrs}, Request: &ext.ProcessingRequest_RequestHeaders{RequestHeaders: auditHeaders(map[string]string{":method": "POST", ":authority": "example.com", ":scheme": "https", ":path": "/api?key=secret", "authorization": "Bearer secret"})}}
 	messages := []*ext.ProcessingRequest{
 		first,
-		{Request: &ext.ProcessingRequest_RequestBody{RequestBody: &ext.HttpBody{Body: []byte("request"), EndOfStream: true}}},
+		{Request: &ext.ProcessingRequest_RequestBody{RequestBody: &ext.HttpBody{Body: []byte(strings.Repeat("b", egressBodyLimit+1)), EndOfStream: true}}},
 		{Request: &ext.ProcessingRequest_ResponseHeaders{ResponseHeaders: auditHeaders(map[string]string{":status": "200", "set-cookie": "private"})}},
 		{Request: &ext.ProcessingRequest_ResponseBody{ResponseBody: &ext.HttpBody{Body: []byte(strings.Repeat("a", egressBodyLimit+1)), EndOfStream: true}}},
 	}
@@ -107,6 +107,8 @@ func TestEgressAuditStream(t *testing.T) {
 	entry, err := gateway.GetEgressAuditLog(t.Context(), entries[0].ID, true)
 	require.NoError(t, err)
 	require.Equal(t, "complete", entry.Outcome)
+	require.True(t, entry.RequestTruncated)
+	require.EqualValues(t, egressBodyLimit+1, entry.RequestBytes)
 	require.True(t, entry.ResponseTruncated)
 	require.EqualValues(t, egressBodyLimit+1, entry.ResponseBytes)
 	require.NotContains(t, string(entry.RequestHeaders), "secret")
@@ -114,6 +116,9 @@ func TestEgressAuditStream(t *testing.T) {
 	require.NotContains(t, entry.Path, "secret")
 	var body []byte
 	require.NoError(t, json.Unmarshal(entry.ResponseBody, &body))
+	require.Len(t, body, egressBodyLimit)
+
+	require.NoError(t, json.Unmarshal(entry.RequestBody, &body))
 	require.Len(t, body, egressBodyLimit)
 
 	// Direct actor calls and forged identities cannot write audit records.

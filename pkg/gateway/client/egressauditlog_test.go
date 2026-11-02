@@ -153,7 +153,7 @@ func TestEgressAuditPersistenceTriggers(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			c.egressAuditDone = make(chan struct{})
 			c.kickEgressAuditPersist = make(chan struct{}, 1)
-			c.egressAuditBuffer = make([]types.EgressAuditLog, 0, 4)
+			c.egressAuditBatchSize = 2
 			interval := time.Hour
 			if trigger == "timer" {
 				interval = time.Millisecond
@@ -175,53 +175,89 @@ func TestEgressAuditPersistenceTriggers(t *testing.T) {
 	}
 }
 
-func TestEgressAuditQueueBounds(t *testing.T) {
+func TestEgressAuditQueueRetainsBeyondFormerLimits(t *testing.T) {
 	for _, bodies := range []bool{false, true} {
-		t.Run(fmt.Sprint(bodies), func(t *testing.T) {
-			c := newTestClient(t)
-			entry := types.EgressAuditLog{ID: "queued", UserID: "7"}
+		t.Run(map[bool]string{false: "count", true: "payload"}[bodies], func(t *testing.T) {
+			c := &Client{}
+			entry := types.EgressAuditLog{
+				ID:     "queued",
+				UserID: "7",
+			}
 			if bodies {
+				// Share an immutable payload to exceed the old byte budget without large allocations.
 				entry.RequestBody = make([]byte, 1<<20)
 			}
-			size := egressAuditEntryBytes(entry)
-			limit := min(egressAuditMaxEntries, egressAuditMaxBytes/size)
-			for range limit + 10 {
+
+			// Both fixtures exceed 256 records; the payload fixture also exceeds 64 MiB.
+			const count = 266
+			for range count {
 				c.LogEgressAuditEntry(entry)
 			}
-			require.Len(t, c.egressAuditBuffer, limit)
-			require.Equal(t, limit, c.egressAuditPending)
-			require.Equal(t, limit*size, c.egressAuditBytes)
-			require.EqualValues(t, 10, c.egressAuditDropped)
+
+			require.Len(t, c.egressAuditBuffer, count)
+			for _, queued := range c.egressAuditBuffer {
+				require.Equal(t, entry, queued)
+			}
 		})
 	}
 }
 
-func TestEgressAuditFailedFlushPreservesBoundDuringEnqueue(t *testing.T) {
+func TestEgressAuditFailedFlushRetainsConcurrentArrivals(t *testing.T) {
 	c := newTestClient(t)
-	c.LogEgressAuditEntry(types.EgressAuditLog{ID: "original", UserID: "7"})
+	c.LogEgressAuditEntry(types.EgressAuditLog{
+		ID:     "record-000",
+		UserID: "7",
+	})
+
+	wantIDs := []string{"record-000"}
 	outage := errors.New("database unavailable")
 	require.NoError(t, c.db.WithContext(t.Context()).Callback().Create().Before("gorm:create").Register("test_outage", func(tx *gorm.DB) {
 		// Producers continue submitting while the detached batch is in flight.
-		for i := range egressAuditMaxEntries {
-			c.LogEgressAuditEntry(types.EgressAuditLog{ID: fmt.Sprint(i), UserID: "7"})
-		}
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+
+			for range 100 {
+				id := fmt.Sprintf("record-%03d", len(wantIDs))
+				c.LogEgressAuditEntry(types.EgressAuditLog{
+					ID:     id,
+					UserID: "7",
+				})
+				wantIDs = append(wantIDs, id)
+			}
+		}()
+		<-done
+
 		_ = tx.AddError(outage)
 	}))
+
 	for range 3 {
 		require.ErrorIs(t, c.FlushEgressAuditLogs(), outage)
-		require.Len(t, c.egressAuditBuffer, egressAuditMaxEntries)
-		require.Equal(t, egressAuditMaxEntries, c.egressAuditPending)
-		require.LessOrEqual(t, c.egressAuditBytes, egressAuditMaxBytes)
-		require.Equal(t, "original", c.egressAuditBuffer[0].ID)
+		require.Len(t, c.egressAuditBuffer, len(wantIDs))
+		for i, entry := range c.egressAuditBuffer {
+			require.Equal(t, wantIDs[i], entry.ID)
+		}
 	}
-	require.Positive(t, c.egressAuditDropped)
+
 	require.NoError(t, c.db.WithContext(t.Context()).Callback().Create().Remove("test_outage"))
 	require.NoError(t, c.FlushEgressAuditLogs())
 	require.Empty(t, c.egressAuditBuffer)
-	require.Zero(t, c.egressAuditPending)
-	require.Zero(t, c.egressAuditBytes)
-	_, err := c.GetEgressAuditLog(t.Context(), "original", false)
+
+	var persisted []types.EgressAuditLog
+	require.NoError(t, c.db.WithContext(t.Context()).Order("id").Find(&persisted).Error)
+	require.Len(t, persisted, len(wantIDs))
+	for i, entry := range persisted {
+		require.Equal(t, wantIDs[i], entry.ID)
+	}
+
+	c.LogEgressAuditEntry(types.EgressAuditLog{
+		ID:     "recovered",
+		UserID: "7",
+	})
+	require.Len(t, c.egressAuditBuffer, 1)
+	require.NoError(t, c.FlushEgressAuditLogs())
+	require.Empty(t, c.egressAuditBuffer)
+
+	_, err := c.GetEgressAuditLog(t.Context(), "recovered", false)
 	require.NoError(t, err)
-	c.LogEgressAuditEntry(types.EgressAuditLog{ID: "recovered", UserID: "7"})
-	require.Equal(t, 1, c.egressAuditPending)
 }
