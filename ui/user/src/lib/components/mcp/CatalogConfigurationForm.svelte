@@ -92,10 +92,16 @@
 							selected={item.usage}
 							disabled={readonly}
 							onSelect={(option) => {
+								const wasCACertificate = item.usage === 'caCertificate';
 								item.usage = option.id as MCPConfigUsage;
 								if (option.id === 'caCertificate') {
 									item.key = CA_CERTIFICATE_CONFIG_KEY;
 									item.name = '';
+									item.installCATrustStore ??= false;
+								} else if (wasCACertificate && item.key === CA_CERTIFICATE_CONFIG_KEY) {
+									// Don't carry the reserved key into an unrelated usage.
+									item.key = '';
+									item.installCATrustStore = false;
 								}
 							}}
 						/>
@@ -106,10 +112,10 @@
 							id={`${CATALOG_SERVER_FIELD_IDS.caCertificate}-${i}`}
 							errorId={`${CATALOG_SERVER_FIELD_IDS.caCertificateError}-${i}`}
 							bind:value={config![i].value}
+							bind:installCATrustStore={config![i].installCATrustStore}
 							{runtime}
 							{hasCommand}
 							{readonly}
-							{showInvalid}
 						/>
 					{:else}
 						<CustomConfigurationFieldset
@@ -167,7 +173,8 @@
 							name: '',
 							value: '',
 							required: headersOnly,
-							sensitive: headersOnly
+							sensitive: headersOnly,
+							installCATrustStore: false
 						});
 					}}
 				>

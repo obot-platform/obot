@@ -1,11 +1,13 @@
 package types
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -282,6 +284,11 @@ type MCPConfig struct {
 	// Usage controls where the value is applied. All usages remain available
 	// for interpolation; Interpolated must not be injected into the environment.
 	Usage Usage `json:"usage"`
+
+	// InstallCATrustStore requests a best-effort install of a Usage: CACertificate
+	// entry's value into the container's OS trust store. It has no effect for any
+	// other usage, or unless the server's runtime and configuration support it.
+	InstallCATrustStore bool `json:"installCATrustStore,omitempty"`
 }
 
 type Usage string
@@ -297,6 +304,15 @@ const (
 	// bundle injected into the server's container so it can trust a private CA.
 	CACertificate Usage = "caCertificate"
 )
+
+// CACertificateEnvKeys are the env vars a Usage: CACertificate config entry is
+// mounted under, one per mainstream HTTP/TLS client convention: Node
+// (NODE_EXTRA_CA_CERTS, additive), OpenSSL/Python/Go (SSL_CERT_FILE), Python
+// Requests (REQUESTS_CA_BUNDLE), curl (CURL_CA_BUNDLE), and git (GIT_SSL_CAINFO).
+// All but NODE_EXTRA_CA_CERTS replace rather than extend a client's default trust,
+// so a config entry may not reuse one of these keys for its own Env/File/DynamicFile
+// value - see ValidateConfig.
+var CACertificateEnvKeys = []string{"SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "GIT_SSL_CAINFO"}
 
 // ValidateConfig rejects ambiguous keys and missing or unknown usages.
 func (m MCPServerCatalogEntryManifest) ValidateConfig() error {
@@ -323,7 +339,15 @@ func (m MCPServerManifest) ValidateConfig() error {
 			if err := ValidateCACertificate(config.Value); err != nil {
 				return err
 			}
-		case Env, Header, File, DynamicFile, Interpolated:
+		case Env, File, DynamicFile:
+			// These usages set an env var (or, for File/DynamicFile, an env var
+			// pointing at a mounted file) by the entry's own key. A key reserved
+			// for CA certificate injection would silently collide with, or be
+			// overwritten by, that mechanism depending on the deployment backend.
+			if slices.Contains(CACertificateEnvKeys, config.Key) {
+				return fmt.Errorf("config key %q is reserved for CA certificate injection", config.Key)
+			}
+		case Header, Interpolated:
 		default:
 			return fmt.Errorf("invalid usage %q for config key %q", config.Usage, config.Key)
 		}
@@ -332,8 +356,9 @@ func (m MCPServerManifest) ValidateConfig() error {
 }
 
 // ValidateCACertificate rejects anything that isn't one or more PEM-encoded
-// certificates: no private keys, no garbage, and a bounded size. An empty
-// string is valid - it means no certificate was supplied.
+// certificates: no private keys, no garbage before, between, or after the
+// blocks, and a bounded size. An empty string is valid - it means no
+// certificate was supplied.
 func ValidateCACertificate(certPEM string) error {
 	if certPEM == "" {
 		return nil
@@ -345,10 +370,20 @@ func ValidateCACertificate(certPEM string) error {
 	rest := []byte(certPEM)
 	blockCount := 0
 	for {
-		var block *pem.Block
-		block, rest = pem.Decode(rest)
-		if block == nil {
+		trimmed := bytes.TrimLeft(rest, " \t\r\n")
+		if len(trimmed) == 0 {
 			break
+		}
+		// pem.Decode silently skips anything before the next "-----BEGIN" marker
+		// it finds, which would let garbage between or before blocks through -
+		// require the next non-blank content to actually be a PEM block.
+		if !bytes.HasPrefix(trimmed, []byte("-----BEGIN ")) {
+			return fmt.Errorf("CA certificate must be one or more PEM-encoded certificates")
+		}
+		var block *pem.Block
+		block, rest = pem.Decode(trimmed)
+		if block == nil {
+			return fmt.Errorf("CA certificate contains a malformed PEM block")
 		}
 		if block.Type != "CERTIFICATE" {
 			return fmt.Errorf("CA certificate contains a %q block; only CERTIFICATE blocks are allowed", block.Type)
@@ -360,9 +395,6 @@ func ValidateCACertificate(certPEM string) error {
 	}
 	if blockCount == 0 {
 		return fmt.Errorf("CA certificate must be one or more PEM-encoded certificates")
-	}
-	if len(strings.TrimSpace(string(rest))) > 0 {
-		return fmt.Errorf("CA certificate contains trailing data that is not a valid PEM block")
 	}
 	return nil
 }

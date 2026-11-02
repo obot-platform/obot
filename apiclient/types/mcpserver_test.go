@@ -107,6 +107,20 @@ func TestCatalogConfigValidation(t *testing.T) {
 			},
 			err: "duplicate config key",
 		},
+		{
+			name:   "env key reserved for CA certificate injection",
+			config: []MCPConfig{{Key: "SSL_CERT_FILE", Usage: Env, Value: "value"}},
+			err:    "is reserved for CA certificate injection",
+		},
+		{
+			name:   "file key reserved for CA certificate injection",
+			config: []MCPConfig{{Key: "NODE_EXTRA_CA_CERTS", Usage: File, Value: "value"}},
+			err:    "is reserved for CA certificate injection",
+		},
+		{
+			name:   "header usage may reuse a reserved name",
+			config: []MCPConfig{{Key: "SSL_CERT_FILE", Usage: Header, Value: "value"}},
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			manifest := MCPServerCatalogEntryManifest{Config: test.config}
@@ -137,7 +151,9 @@ func TestValidateCACertificate(t *testing.T) {
 		{name: "valid chain of two certificates", cert: validCert + validCert},
 		{name: "garbage", cert: "not a certificate", err: "must be one or more PEM-encoded certificates"},
 		{name: "private key block", cert: privateKeyBlock, err: `"PRIVATE KEY" block`},
-		{name: "trailing garbage after a valid block", cert: validCert + "trailing-data", err: "trailing data"},
+		{name: "trailing garbage after a valid block", cert: validCert + "trailing-data", err: "must be one or more PEM-encoded certificates"},
+		{name: "leading garbage before a valid block", cert: "leading-data" + validCert, err: "must be one or more PEM-encoded certificates"},
+		{name: "garbage between two valid blocks", cert: validCert + "junk" + validCert, err: "must be one or more PEM-encoded certificates"},
 		{name: "oversized", cert: strings.Repeat("a", MaxCACertificateBytes+1), err: "exceeds the maximum size"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

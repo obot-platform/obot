@@ -333,7 +333,12 @@
 				icon: manifest.icon ?? '',
 				shortDescription: manifest.shortDescription ?? '',
 				env: [],
-				config: manifest.config?.map((config) => ({ ...config, value: config.value ?? '' })) ?? [],
+				config:
+					manifest.config?.map((config) => ({
+						...config,
+						value: config.value ?? '',
+						installCATrustStore: config.installCATrustStore ?? false
+					})) ?? [],
 				openAPIConfig: manifest.openAPIConfig
 					? structuredClone($state.snapshot(manifest.openAPIConfig))
 					: undefined,

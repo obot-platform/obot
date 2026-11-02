@@ -784,6 +784,8 @@ export interface MCPCatalogEntryFieldManifest {
 	interpolated?: boolean;
 	prefix?: string;
 	secretBinding?: MCPSecretBinding;
+	/** Only meaningful for a 'caCertificate' usage MCPConfig entry. */
+	installCATrustStore?: boolean;
 }
 export interface RemoteRuntimeConfigAdmin {
 	localhostCallbackEnabled?: boolean;

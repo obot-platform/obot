@@ -415,15 +415,45 @@ describe('CatalogServerForm.svelte', () => {
 				.toHaveAttribute('aria-invalid', 'true');
 		});
 
-		it('shows the OS trust-store note only for containerized runtime without a command', async () => {
+		it('only offers the OS trust-store toggle for containerized runtime', async () => {
 			await renderHostedForm();
 			await addCACertificateRow();
 			await expect
-				.element(page.getByText('Set a container command above', { exact: false }))
+				.element(page.getByRole('switch', { name: /OS trust store/ }))
 				.not.toBeInTheDocument();
 
 			await page.getByCSS('#runtime-selector').click();
 			await page.getByRole('button', { name: 'Containerized', exact: true }).click();
+			await expect.element(page.getByRole('switch', { name: /OS trust store/ })).toBeVisible();
+		});
+
+		it('warns when the trust-store toggle is on without a container command, and submits the flag', async () => {
+			let submitted: Record<string, unknown> | undefined;
+			worker.use(
+				http.post(`/api/mcp-catalogs/${catalogID}/entries`, async ({ request }) => {
+					submitted = (await request.json()) as Record<string, unknown>;
+					return HttpResponse.json(createMCPCatalogEntryResponse);
+				})
+			);
+			await renderHostedForm();
+			await fillRequiredServerFields();
+			await addCACertificateRow();
+			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.caCertificate}-0`).fill(validCert);
+
+			await page.getByCSS('#runtime-selector').click();
+			await page.getByRole('button', { name: 'Containerized', exact: true }).click();
+			await page.getByCSS('#containerized-image').fill('test-image');
+			await page.getByCSS('#containerized-port').fill('8080');
+			await page.getByCSS('#containerized-path').fill('/mcp');
+
+			// Native DOM click: the toggle sits below the fold here, which fails
+			// Playwright's viewport actionability check even with force: true.
+			const toggle = page.getByRole('switch', { name: /OS trust store/ });
+			const toggleEl = await toggle.element();
+			if (!(toggleEl instanceof HTMLElement)) {
+				throw new Error('Expected the OS trust store toggle to be an HTMLElement');
+			}
+			toggleEl.click();
 			await expect
 				.element(page.getByText('Set a container command above', { exact: false }))
 				.toBeVisible();
@@ -432,6 +462,31 @@ describe('CatalogServerForm.svelte', () => {
 			await expect
 				.element(page.getByText('Set a container command above', { exact: false }))
 				.not.toBeInTheDocument();
+
+			await submitForm();
+
+			await vi.waitFor(() => expect(submitted).toBeDefined());
+			expect(submitted?.config).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						usage: 'caCertificate',
+						value: validCert,
+						installCATrustStore: true
+					})
+				])
+			);
+		});
+
+		it('clears the reserved key when switching away from Embed CA Certificate', async () => {
+			await renderHostedForm();
+			await addCACertificateRow();
+
+			await page.getByCSS('#catalog-config-usage-0').click();
+			await page.getByRole('button', { name: 'Environment Variable', exact: true }).click();
+
+			await expect
+				.element(page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.toHaveValue('');
 		});
 
 		it('does not offer Embed CA Certificate for remote catalog entries', async () => {
