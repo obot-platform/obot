@@ -7,7 +7,15 @@ import path from "node:path";
 import assert from "node:assert/strict";
 
 const build = path.resolve("build");
-const origin = "https://docs.obot.ai";
+// Match docusaurus.config.ts so local-origin preview builds verify too.
+const origin = new URL(process.env.DOCS_SITE_URL || "https://docs.obot.ai")
+  .origin;
+const originPattern = origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const publishedUrl = new RegExp(`${originPattern}[^\\s)"'<>\\]]*`, "g");
+const versionIndexUrl = new RegExp(
+  `${originPattern}/([^/\\s)]+)/llms\\.txt`,
+  "g",
+);
 const released = JSON.parse(await fs.readFile("versions.json", "utf8"));
 const versions = [...released, "next"];
 const latest = released[0] ?? "next";
@@ -53,7 +61,7 @@ for (const file of published) {
   const owner =
     relative === "/llms.txt" ? null : (versionOf(relative) ?? latest);
   const text = await fs.readFile(file, "utf8");
-  for (const [raw] of text.matchAll(/https:\/\/docs\.obot\.ai[^\s)"'<>\]]*/g)) {
+  for (const [raw] of text.matchAll(publishedUrl)) {
     checked++;
     const { pathname } = new URL(raw, origin);
     const problem = (reason) => failures.push(`${relative}: ${reason}: ${raw}`);
@@ -87,10 +95,7 @@ assert.equal(
 // The root index must offer exactly the retained versions.
 const root = await fs.readFile(path.join(build, "llms.txt"), "utf8");
 assert.deepEqual(
-  Array.from(
-    root.matchAll(/https:\/\/docs\.obot\.ai\/([^/\s)]+)\/llms\.txt/g),
-    (m) => m[1],
-  ).sort(),
+  Array.from(root.matchAll(versionIndexUrl), (m) => m[1]).sort(),
   [...versions].sort(),
   "Root llms.txt must link every retained version's llms.txt",
 );
