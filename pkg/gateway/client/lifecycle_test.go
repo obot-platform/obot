@@ -815,16 +815,15 @@ func TestSignInOfADisabledUserReturnsTheirStatus(t *testing.T) {
 
 func TestSignInCreatesTheInitialOwnerAsAnOwnerOnce(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	c.initialOwnerEmail = "owner@example.com"
 	ctx := t.Context()
 
-	signIn := func(provider, providerUserID, email string) *types.User {
+	signIn := func(provider, email string) *types.User {
 		t.Helper()
 		user, err := c.EnsureIdentity(ctx, &types.Identity{
 			AuthProviderName:      provider,
 			AuthProviderNamespace: system.DefaultNamespace,
-			ProviderUsername:      providerUserID,
-			ProviderUserID:        providerUserID,
+			ProviderUsername:      provider + "/" + email,
+			ProviderUserID:        email,
 			Email:                 email,
 		}, "", UserLimit{
 			Unlimited: true,
@@ -834,24 +833,56 @@ func TestSignInCreatesTheInitialOwnerAsAnOwnerOnce(t *testing.T) {
 		}
 		return user
 	}
-
-	owner := signIn(system.LocalAuthProvider, "OWNER@example.com", "OWNER@example.com")
-	if stored := storedLifecycleUser(t, c, owner.ID); !stored.Role.HasRole(apitypes.RoleOwner) {
-		t.Fatalf("role of the initial owner that sign-in created = %d, want Owner", stored.Role)
+	role := func(userID uint) apitypes.Role {
+		t.Helper()
+		return storedLifecycleUser(t, c, userID).Role
 	}
 
-	// The grant is one-time: an initial owner who was demoted stays demoted.
+	// The provisioned initial owner is the Local account with a setup token, and an admin created another.
+	initialOwner, err := c.CreateInitialLocalAuthUser(ctx, "owner@example.com", "password-hash", hash.String("setup-token"), time.Now().Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.CreateLocalAuthUser(ctx, "other@example.com", "password-hash", false); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := signIn(system.LocalAuthProvider, "owner@example.com")
+	if !role(owner.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the initial owner that sign-in created = %d, want Owner", role(owner.ID))
+	}
+
+	// A demoted initial owner stays demoted.
 	if err := c.db.WithContext(ctx).Model(new(types.User)).Where("id = ?", owner.ID).UpdateColumn("role", apitypes.RoleBasic).Error; err != nil {
 		t.Fatal(err)
 	}
-	if again := signIn(system.LocalAuthProvider, "OWNER@example.com", "OWNER@example.com"); again.ID != owner.ID {
+	if again := signIn(system.LocalAuthProvider, "owner@example.com"); again.ID != owner.ID {
 		t.Fatalf("second sign-in of the initial owner returned user %d, want %d", again.ID, owner.ID)
 	}
-	if stored := storedLifecycleUser(t, c, owner.ID); stored.Role.HasRole(apitypes.RoleOwner) {
-		t.Fatalf("role of the demoted initial owner after sign-in = %d, want it not to be raised", stored.Role)
+	if role(owner.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the demoted initial owner after sign-in = %d, want it not to be raised", role(owner.ID))
 	}
 
-	// Only the local account of the initial owner is granted the role.
+	// Setting the password consumes the setup token. A user that sign-in creates again for the account, after the
+	// first one and its identity are gone, is not an Owner.
+	if err := c.SetLocalAuthUserPassword(ctx, initialOwner.ID, "new-password-hash", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(ctx).Where("user_id = ?", owner.ID).Delete(new(types.Identity)).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := c.db.WithContext(ctx).Delete(new(types.User), owner.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	recreated := signIn(system.LocalAuthProvider, "owner@example.com")
+	if recreated.ID == owner.ID {
+		t.Fatal("sign-in after the user was deleted returned the deleted user")
+	}
+	if role(recreated.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the user created again for the initial owner = %d, want it not to be Owner", role(recreated.ID))
+	}
+
+	// Neither a Local account without a setup token nor another provider asserting the same email is an Owner.
 	for _, other := range []struct {
 		provider string
 		email    string
@@ -865,12 +896,9 @@ func TestSignInCreatesTheInitialOwnerAsAnOwnerOnce(t *testing.T) {
 			email:    "owner@example.com",
 		},
 	} {
-		user := signIn(other.provider, other.provider+"/"+other.email, other.email)
-		if user.ID == owner.ID {
-			t.Fatalf("sign-in of %s through %s matched the initial owner", other.email, other.provider)
-		}
-		if stored := storedLifecycleUser(t, c, user.ID); stored.Role.HasRole(apitypes.RoleOwner) {
-			t.Fatalf("role of %s signed in through %s = %d, want it not to be Owner", other.email, other.provider, stored.Role)
+		user := signIn(other.provider, other.email)
+		if role(user.ID).HasRole(apitypes.RoleOwner) {
+			t.Fatalf("role of %s signed in through %s = %d, want it not to be Owner", other.email, other.provider, role(user.ID))
 		}
 	}
 }

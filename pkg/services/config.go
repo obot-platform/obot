@@ -590,7 +590,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		func(ctx context.Context, mcpID string) error {
 			return r.Backend().Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), mcpID, 0)
 		},
-		config.LocalAuthInitialOwnerEmail,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,

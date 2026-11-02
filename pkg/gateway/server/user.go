@@ -299,7 +299,7 @@ func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool)
 // POST /api/users/{user_id}/enable
 // Enables a disabled user, restoring their access with the same account and data. It is refused with 409 while SCIM
 // manages the user, whose identity provider decides that, and only an Owner can enable a user who has, through their
-// own role, a group, or an explicit role of their email, the Owner, auditor, or user impersonation role.
+// own role or a group, the Owner, auditor, or user impersonation role.
 func (s *Server) enableUser(apiContext api.Context) error {
 	userID := apiContext.PathValue("user_id")
 	existingUser, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)

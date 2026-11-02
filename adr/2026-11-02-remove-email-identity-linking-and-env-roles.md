@@ -43,21 +43,29 @@ provider is weak grounds for merging accounts or granting privileged roles.
   demotion, the `explicitRole` user field, the
   `GET /api/setup/explicit-role-emails` endpoint, and the setup UI that used
   them.
-- The initial Local-auth owner gets Owner once, when its first sign-in through
-  the Local provider creates its user. After that it is an ordinary Owner that
-  can be demoted, and later sign-ins don't raise it again. Before that first
-  sign-in, its pending local account is protected like an Owner's from mutation
-  by non-Owners. Canceling a bootstrap temporary login no longer demotes a user
-  who is already an Owner.
+- The initial Local-auth owner gets Owner once, when its first sign-in creates
+  its user. Sign-in grants Owner only to a user it creates for the Local account
+  that holds a setup token. Only the account provisioned from
+  `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` has one, and setting its password
+  clears it. Every authenticated request, including those of the restricted
+  setup session, ensures the identity, so the user always exists before the
+  token is cleared. After that it is an ordinary Owner that can be demoted:
+  later sign-ins don't raise it again, and neither does a user created again
+  for the account after the first one was deleted. A Local account that an
+  admin creates never qualifies. While the account still holds its setup token,
+  non-Owners cannot reset its password or delete it.
 
 ## Rationale
 
 Granting the initial owner a role once, at creation, keeps the provisioning flow
 working. It avoids keeping a general email-to-role mechanism for a single
-account. Roles that follow an email are hard to reason about: they apply through
-any provider that asserts the address, and they override decisions made in the
-UI. Without email matching, a user's role comes only from what is stored on the
-user and from group role assignments.
+account. Tying the grant to the setup token rather than to the configured email
+makes it one-time without a new column: the token already marks the provisioned
+account, and password completion already consumes it. Roles that follow an email
+are hard to reason about: they apply through any provider that asserts the
+address, and they override decisions made in the UI. Without email matching, a
+user's role comes only from what is stored on the user and from group role
+assignments.
 
 ## Consequences
 
@@ -71,6 +79,5 @@ user and from group role assignments.
 ## References
 
 - `pkg/gateway/client/identity.go`
-- `pkg/gateway/client/client.go`
 - `pkg/gateway/db/migrations.go`
 - [Auth Providers](../docs/docs/configuration/auth-providers.md)

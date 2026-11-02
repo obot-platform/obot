@@ -178,13 +178,6 @@ func TestEnsureIdentityWithRoleCreatesAUserPerProviderForTheSameEmail(t *testing
 		t.Fatalf("users counted toward limit = %d, want 1", got)
 	}
 
-	githubIdentity = &gatewaytypes.Identity{
-		AuthProviderNamespace: "default",
-		AuthProviderName:      "github-auth-provider",
-		ProviderUsername:      "github-user",
-		ProviderUserID:        "github-user",
-		Email:                 "same-user@example.com",
-	}
 	if _, err := c.EnsureIdentityWithRole(t.Context(), githubIdentity, "", apitypes.RoleBasic, limit); err != nil {
 		t.Fatalf("creating user through the second provider: %v", err)
 	}

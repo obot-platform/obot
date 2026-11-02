@@ -85,7 +85,7 @@ Once you have configured an authentication provider:
 1. Users can login using the configured authentication provider
 2. Each identity from an auth provider is its own user. Obot does not combine identities from different auth providers into one user, even when they share an email address.
 
-Owners can assign the owner or admin role to additional users through the User pages.
+Owners and admins can assign the admin role to additional users through the User pages. Only owners can assign the owner role.
 
 ### Troubleshooting {#enabling-authentication-troubleshooting}
 

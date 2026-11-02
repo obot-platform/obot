@@ -164,7 +164,7 @@ func TestAnthropicProxyRequestsAreNotLLMAudited(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
 	// The LLM audit log is on, with a short persistence interval so the test can wait for it.
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, "", 10*time.Millisecond, 10, 0, 0, 0, true)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, 10*time.Millisecond, 10, 0, 0, 0, true)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

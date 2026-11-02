@@ -16,7 +16,7 @@ User management controls are under **Identity & Access**. Administrative control
 
 ### How do I assign roles to users before they log in?
 
-Users must log in at least once before their own role can be changed. To give users a role before they log in, assign the role to a group they belong to in your identity provider. See [Pre-Assigning Roles](./security/policy-coverage.md#user-roles-pre-assigning-roles).
+Users must log in at least once before their own role can be changed. To give users a role before they log in, assign the role in Obot to a group that your identity provider supplies, on the **Identity & Access > Groups** page. See [Pre-Assigning Roles](./security/policy-coverage.md#user-roles-pre-assigning-roles).
 
 ### What are the differences between the open source and enterprise versions of Obot?
 

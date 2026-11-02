@@ -9,7 +9,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/sync/singleflight"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,7 +44,6 @@ type Client struct {
 
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
-	initialOwnerEmail         string
 	auditLock                 sync.Mutex
 	auditBuffer               []types.MCPAuditLog
 	kickAuditPersist          chan struct{}
@@ -76,7 +74,7 @@ type Client struct {
 	claudeProvisionGateSlot chan struct{}
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, initialOwnerEmail string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	egressCtx, egressCancel := context.WithCancel(ctx)
 	c := &Client{
 		egressAuditBuffer:         make([]types.EgressAuditLog, 0, min(2*auditLogBatchSize, egressAuditMaxEntries)),
@@ -85,7 +83,6 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		egressAuditDone:           make(chan struct{}),
 		db:                        db,
 		encryptionConfig:          encryptionConfig,
-		initialOwnerEmail:         NormalizeEmail(initialOwnerEmail),
 		auditBuffer:               make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:          make(chan struct{}),
 		enforcementBuffer:         make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
@@ -140,15 +137,4 @@ func (c *Client) Close() error {
 	}
 
 	return errors.Join(append(errs, c.db.Close())...)
-}
-
-// IsInitialOwnerEmail reports whether email is the configured initial local auth owner.
-func (c *Client) IsInitialOwnerEmail(email string) bool {
-	return c.initialOwnerEmail != "" && NormalizeEmail(email) == c.initialOwnerEmail
-}
-
-// isInitialOwner reports whether id is the local auth identity of the configured initial owner, whose user is
-// created as an Owner on first sign-in.
-func (c *Client) isInitialOwner(id *types.Identity) bool {
-	return id.AuthProviderNamespace == system.DefaultNamespace && id.AuthProviderName == system.LocalAuthProvider && c.IsInitialOwnerEmail(id.Email)
 }

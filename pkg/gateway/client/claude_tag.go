@@ -12,7 +12,7 @@ import (
 )
 
 // EnsureClaudeTagUser runs under the provisioning lock. Service users have no
-// login identity or verified email, so provider login cannot adopt the account.
+// login identity, so provider login cannot adopt the account.
 func (c *Client) EnsureClaudeTagUser(ctx context.Context, environment *types.ClaudeEnvironment) error {
 	if environment.ClaudeTagUserID != "" {
 		user, err := c.UserByID(ctx, environment.ClaudeTagUserID)

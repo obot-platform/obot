@@ -108,7 +108,6 @@ func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) 
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-// The user gets the explicit role of their email, which ensureIdentityUser applies.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string, userLimit UserLimit) (*types.User, error) {
 	return c.EnsureIdentityWithRole(ctx, id, timezone, types2.RoleUnknown, userLimit)
 }
@@ -384,19 +383,13 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		updateIdentity = true
 	}
 
-	// The configured initial local auth owner is created as an Owner. This is a one-time grant: an existing user
-	// replaces this one, and keeps their stored role.
-	newUserRole := role
-	if c.isInitialOwner(id) && !newUserRole.HasRole(types2.RoleOwner) {
-		newUserRole = newUserRole.SwitchBaseRole(types2.RoleOwner)
-	}
 	user := &types.User{
 		ID:             id.UserID,
 		Username:       id.ProviderUsername,
 		HashedUsername: hash.String(id.ProviderUsername),
 		Email:          id.Email,
 		HashedEmail:    id.HashedEmail,
-		Role:           newUserRole,
+		Role:           role,
 	}
 
 	var created, roleRaised, checkForExistingUser bool
@@ -448,6 +441,9 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 			// Clear user ID so that it can be auto-generated.
 			u.ID = 0
 			created = true
+			if err := grantInitialOwnerRole(tx, id, &u); err != nil {
+				return nil, false, false, err
+			}
 			if err = c.encryptUser(ctx, &u); err != nil {
 				return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 			}
@@ -558,6 +554,9 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 
 		// Copy the user so we don't have to decrypt
 		u := *user
+		if err := grantInitialOwnerRole(tx, id, &u); err != nil {
+			return nil, false, false, err
+		}
 		if err := c.encryptUser(ctx, &u); err != nil {
 			return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 		}
@@ -568,6 +567,7 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		// Copy the values that were created instead of decrypting the whole object.
 		user.ID = u.ID
 		user.CreatedAt = u.CreatedAt
+		user.Role = u.Role
 	}
 
 	// Update the user ID saved on the identity if needed.
@@ -592,6 +592,28 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 	}
 
 	return user, created, roleRaised, nil
+}
+
+// grantInitialOwnerRole makes user, which sign-in is about to create for id, an Owner when id is the Local identity of
+// the provisioned initial owner. That account is the only one with a setup token, which it keeps until its password is
+// set. Every authenticated request ensures the identity, including those of the restricted setup session, so the user
+// is created while the token is still there. Once the token is gone, a user created again for the account, such as
+// after the first one was deleted, is not an Owner. Neither is a user of a Local account that an admin created.
+func grantInitialOwnerRole(tx *gorm.DB, id *types.Identity, user *types.User) error {
+	if user.Role.HasRole(types2.RoleOwner) || id.AuthProviderNamespace != system.DefaultNamespace || id.AuthProviderName != system.LocalAuthProvider || id.Email == "" {
+		return nil
+	}
+
+	var count int64
+	if err := tx.Model(new(types.LocalAuthUser)).
+		Where("hashed_email = ? AND setup_token_hash != ''", hash.String(NormalizeEmail(id.Email))).
+		Count(&count).Error; err != nil {
+		return fmt.Errorf("failed to look up the initial owner local account: %w", err)
+	}
+	if count > 0 {
+		user.Role = user.Role.SwitchBaseRole(types2.RoleOwner)
+	}
+	return nil
 }
 
 func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) error {
