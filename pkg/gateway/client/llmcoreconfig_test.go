@@ -2,6 +2,7 @@ package client
 
 import (
 	"crypto/aes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -26,6 +27,11 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 	store := llmcoreclient.New(c.db.WithContext(t.Context()), c)
 	require.NoError(t, store.PutProvider(t.Context(), "openai", schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{"X-Secret": "header-secret"}}}))
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key-1", Name: "test", Value: *schemas.NewSecretVar("provider-secret")}))
+	settingValue := json.RawMessage(`{"token":"setting-secret"}`)
+	require.NoError(t, store.Mutate(t.Context(), func(cfg *llmcoretypes.Config) error {
+		cfg.Settings["sensitive"] = settingValue
+		return nil
+	}))
 
 	var provider llmcoretypes.Provider
 	require.NoError(t, c.db.WithContext(t.Context()).First(&provider).Error)
@@ -35,10 +41,15 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 	require.NoError(t, c.db.WithContext(t.Context()).First(&key).Error)
 	require.NotContains(t, key.Key, "provider-secret")
 
+	var setting llmcoretypes.Setting
+	require.NoError(t, c.db.WithContext(t.Context()).First(&setting, "name = ?", "sensitive").Error)
+	require.NotContains(t, setting.Value, "setting-secret")
+
 	cfg, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, "provider-secret", cfg.Keys[schemas.OpenAI][0].Value.GetValue())
 	require.Equal(t, "header-secret", cfg.Providers[schemas.OpenAI].NetworkConfig.ExtraHeaders["X-Secret"])
+	require.JSONEq(t, string(settingValue), string(cfg.Settings["sensitive"]))
 
 	_, err = c.OpenGatewayConfig(t.Context(), "key/wrong", []byte(key.Key))
 	require.ErrorContains(t, err, "identity")
