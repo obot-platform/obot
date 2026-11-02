@@ -83,7 +83,7 @@
 	const variant = $derived<VMcpListVariant>(variantState.current === 'table' ? 'table' : 'grid');
 
 	let listedVMcps = $state<VMCP[]>([]);
-	let isLoading = $state(false);
+	let isLoading = $state(true);
 	let filters = $state(getInitialFilters());
 	let vmcpList = $state<ReturnType<typeof VMcpList>>();
 	let users = $state<OrgUser[]>([]);
@@ -320,7 +320,7 @@
 		{/snippet}
 	</VMcpListSettings>
 	{#if isLoading}
-		{#if filters.variant === 'table'}
+		{#if variant === 'table'}
 			<Skeleton type="table" count={12} />
 		{:else}
 			<div class="@container">

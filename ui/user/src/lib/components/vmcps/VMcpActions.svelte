@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import type { LocalizedString } from '$lib/paraglide/messages';
 	import {
@@ -47,6 +48,7 @@
 	let pendingUpdate = $state<() => Promise<void>>();
 	let pendingUpdateVMcp = $state<VMCP>();
 	let continueUpdateAfterClose = false;
+	let fullVmcpController: AbortController | undefined;
 	let pendingConfigUpdate:
 		| {
 				vmcp: VMCP;
@@ -72,11 +74,22 @@
 
 	async function fetchFullVmcp(vmcp: VMCP): Promise<VMCP | undefined> {
 		if (!fetchVMcpOnAction) return vmcp;
+		fullVmcpController?.abort();
+		const controller = new AbortController();
+		fullVmcpController = controller;
 		try {
-			return await UserService.getVMCP(vmcp.id, { dontLogErrors: true });
-		} catch {
+			const full = await UserService.getVMCP(vmcp.id, {
+				dontLogErrors: true,
+				signal: controller.signal
+			});
+			if (controller.signal.aborted) return undefined;
+			return full;
+		} catch (err) {
+			if (controller.signal.aborted || isAbortError(err)) return undefined;
 			errors.append(m.vmcps_failed_to_load_vmcp());
 			return undefined;
+		} finally {
+			if (fullVmcpController === controller) fullVmcpController = undefined;
 		}
 	}
 
@@ -144,6 +157,7 @@
 		instance: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
+		fullVmcpController?.abort();
 		const target = fetchVMcpOnAction ? vmcp.id : vmcp;
 		connectVMcpDialog?.openEditConfiguration(target, instance, options).catch((err) => {
 			if (!fetchVMcpOnAction) throw err;

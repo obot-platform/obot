@@ -323,7 +323,6 @@ describe('vMCPs Page', () => {
 		});
 
 		it('shows an error toast when vMCPs fail to load', async () => {
-			// A throwing resolver makes MSW answer with a 500.
 			await renderPageWithEntries([componentEntry], false, [], [Group.ADMIN], () => {
 				throw new Error('fail');
 			});
@@ -453,7 +452,9 @@ describe('vMCPs Page', () => {
 				)
 			);
 			await renderPageWithEntries([componentEntry, slack], true, []);
-			await expect.element(page.getByCSS('[aria-busy="true"]')).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('status', { name: 'Loading Designer...' }))
+				.not.toBeInTheDocument();
 
 			const canvas = await page.getByCSS('[data-vmcp-canvas]').element();
 			const rect = canvas.getBoundingClientRect();

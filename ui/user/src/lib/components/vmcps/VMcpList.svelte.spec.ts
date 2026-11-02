@@ -60,6 +60,59 @@ describe('VMcpList.svelte', () => {
 		await expect.element(page.getByText('Alerts vMCP')).not.toBeInTheDocument();
 		await expect.element(page.getByText('GitHub', { exact: true }).first()).toBeVisible();
 	});
+
+	it('cancels an in-flight connect lookup when connecting to another vMCP', async () => {
+		let releaseAlpha!: () => void;
+		const alphaPending = new Promise<void>((resolve) => {
+			releaseAlpha = resolve;
+		});
+		const alpha = createVMCP({ id: 'vmcp-alpha', displayName: 'Alpha vMCP' }, [github]);
+		const beta = createVMCP({ id: 'vmcp-beta', displayName: 'Beta vMCP' }, [slack]);
+		worker.use(
+			http.get('/api/vmcps/vmcp-alpha', async () => {
+				await alphaPending;
+				return HttpResponse.json(alpha);
+			}),
+			http.get('/api/vmcps/vmcp-beta', () => HttpResponse.json(beta))
+		);
+		const getVMCP = vi.spyOn(UserService, 'getVMCP');
+		errors.items = [];
+		try {
+			await preparePageData();
+			vmcpInstances.current = { items: [], loading: false };
+			render(VMcpList, {
+				items: [alpha, beta],
+				components: resolveVMcpComponents,
+				usersMap: new Map(),
+				variant: 'table'
+			});
+
+			const connect = page.getByRole('button', { name: 'Connect', exact: true });
+			await connect.nth(0).click();
+			await vi.waitFor(() =>
+				expect(getVMCP).toHaveBeenCalledWith(
+					'vmcp-alpha',
+					expect.objectContaining({ dontLogErrors: true, signal: expect.any(AbortSignal) })
+				)
+			);
+			const alphaCall = getVMCP.mock.results[0]?.value;
+			const alphaSignal = getVMCP.mock.calls[0]?.[1]?.signal;
+			expect(alphaSignal?.aborted).toBe(false);
+
+			await connect.nth(1).click();
+			expect(alphaSignal?.aborted).toBe(true);
+			await expect(alphaCall).rejects.toBeDefined();
+
+			const dialog = page.getByCSS('#connect-to-vmcp-dialog');
+			await expect.element(dialog.getByText('Beta vMCP', { exact: true })).toBeVisible();
+			releaseAlpha();
+			await expect.element(dialog.getByText('Alpha vMCP', { exact: true })).not.toBeInTheDocument();
+			expect(errors.items.map((item) => item.message)).not.toContain('Failed to load vMCP.');
+		} finally {
+			releaseAlpha();
+			getVMCP.mockRestore();
+		}
+	});
 });
 
 describe.each(['grid', 'table'] as const)('VMcpList %s reauthentication', (variant) => {
@@ -181,7 +234,10 @@ describe.each(['grid', 'table'] as const)('VMcpList %s reauthentication', (varia
 		await page.getByRole('button', { name: 'Actions for Mail vMCP', exact: true }).click();
 		await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
 		await vi.waitFor(() =>
-			expect(getVMCP).toHaveBeenCalledExactlyOnceWith('vmcp-mail', { dontLogErrors: true })
+			expect(getVMCP).toHaveBeenCalledExactlyOnceWith('vmcp-mail', {
+				dontLogErrors: true,
+				signal: expect.any(AbortSignal)
+			})
 		);
 	});
 
