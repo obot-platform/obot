@@ -26,6 +26,11 @@ import (
 // token service, rejects tokens that have expired.
 type fakeCompositeTokens struct{}
 
+type compositeAuthResponseBody struct {
+	read   bool
+	closed bool
+}
+
 func (fakeCompositeTokens) NewToken(_ context.Context, tokenContext persistent.TokenContext) (*jwt.Token, string, error) {
 	data, err := json.Marshal(tokenContext)
 	return nil, string(data), err
@@ -40,6 +45,37 @@ func (fakeCompositeTokens) DecodeToken(_ context.Context, token string) (*persis
 		return nil, errors.New("token is expired")
 	}
 	return &tokenContext, nil
+}
+
+func (b *compositeAuthResponseBody) Read([]byte) (int, error) {
+	b.read = true
+	return 0, errors.New("unexpected response body read")
+}
+
+func (b *compositeAuthResponseBody) Close() error {
+	b.closed = true
+	return nil
+}
+
+func TestCompositeComponentAuthorizeClosesWithoutReading(t *testing.T) {
+	body := &compositeAuthResponseBody{}
+	resp := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Status:     "401 Unauthorized",
+		Body:       body,
+	}
+
+	err := (compositeComponentOAuthHandler{}).Authorize(t.Context(), nil, resp)
+
+	if err == nil || err.Error() != "component requires authorization: 401 Unauthorized" {
+		t.Fatalf("Authorize() error = %v, want component authorization error", err)
+	}
+	if body.read {
+		t.Error("Authorize() read the response body")
+	}
+	if !body.closed {
+		t.Error("Authorize() did not close the response body")
+	}
 }
 
 func compositeTestTokenContext() persistent.TokenContext {
