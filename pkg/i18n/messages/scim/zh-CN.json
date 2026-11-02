@@ -53,7 +53,6 @@
   "scim_ref_model_access_policy": "模型访问策略",
   "scim_ref_skill_access_rule": "技能访问规则",
   "scim_ref_message_policy": "消息策略",
-  "scim_ref_published_artifact": "已发布构件",
   "scim_ref_group_role_assignment": "组角色分配",
   "scim_ref_vmcp_profile": "虚拟 MCP 服务器",
   "scim_cleanup_blocks_connection": "身份验证提供商清理 {cleanup} 正在进行中，因此在完成前无法为 {provider} 创建 SCIM 连接",

@@ -53,7 +53,6 @@
   "scim_ref_model_access_policy": "モデルアクセスポリシー",
   "scim_ref_skill_access_rule": "スキルアクセスルール",
   "scim_ref_message_policy": "メッセージポリシー",
-  "scim_ref_published_artifact": "公開済みアーティファクト",
   "scim_ref_group_role_assignment": "グループのロール割り当て",
   "scim_ref_vmcp_profile": "仮想 MCP サーバー",
   "scim_cleanup_blocks_connection": "認証プロバイダーのクリーンアップ {cleanup} が進行中のため、完了するまで {provider} に SCIM 接続を作成できません",

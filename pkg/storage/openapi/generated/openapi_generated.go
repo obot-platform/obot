@@ -6080,7 +6080,7 @@ func schema_obot_platform_obot_apiclient_types_GroupReference(ref common.Referen
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Kind is accessControlRule, modelAccessPolicy, skillAccessRule, messagePolicy, hostedAgentAccessRule, groupRoleAssignment, or vmcpProfile.",
+							Description: "Kind is accessControlRule, modelAccessPolicy, skillAccessRule, messagePolicy, groupRoleAssignment, vmcpProfile, or mcpGuardrailFilter.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -6102,7 +6102,7 @@ func schema_obot_platform_obot_apiclient_types_GroupReference(ref common.Referen
 					},
 					"detail": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Detail says where in the object the reference is, such as a published artifact's version, a virtual MCP server's profile, or the role a group role assignment grants.",
+							Description: "Detail says where in the object the reference is, such as a virtual MCP server's profile or the role a group role assignment grants.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

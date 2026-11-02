@@ -53,7 +53,6 @@
   "scim_ref_model_access_policy": "모델 액세스 정책",
   "scim_ref_skill_access_rule": "스킬 액세스 규칙",
   "scim_ref_message_policy": "메시지 정책",
-  "scim_ref_published_artifact": "게시된 아티팩트",
   "scim_ref_group_role_assignment": "그룹 역할 할당",
   "scim_ref_vmcp_profile": "가상 MCP 서버",
   "scim_cleanup_blocks_connection": "인증 공급자 정리 {cleanup}이(가) 진행 중이므로 완료될 때까지 {provider}에 SCIM 연결을 만들 수 없습니다",
