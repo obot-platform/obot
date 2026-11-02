@@ -1,9 +1,9 @@
 # 2026-09-26: Embed an LLM gateway engine in Obot
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-09-26
 - **Supersedes:** None
-- **Superseded by:** None
+- **Superseded by:** [Core LLM gateway](2026-11-02-core-llm-gateway.md)
 
 ## Related issues
 

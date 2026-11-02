@@ -11,7 +11,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -71,9 +70,9 @@ func TestFreshReplicasStartTogether(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			gatewayDB := cluster.DB + "_llm_gateway"
+			gatewayDB := cluster.DB
 			check := func() error {
-				out, err := cluster.PG.Exec(ctx, gatewayDB, "select p.name || '/' || k.name from config_keys k join config_providers p on p.id = k.provider_id order by 1")
+				out, err := cluster.PG.Exec(ctx, gatewayDB, "select p.name || '/' || ((k.key::jsonb->'secrets'->>'config')::jsonb->>'name') from llm_core_provider_keys k join llm_core_providers p on p.name = k.provider order by 1")
 				if err != nil {
 					return err
 				}
@@ -115,14 +114,7 @@ func startTogether(ctx context.Context, t *testing.T, cluster *harness.Cluster, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if waitForLog(t, second, "loading configuration from", time.Minute) && !strings.Contains(first.Log(), "schema migrations complete") {
-		_ = syscall.Kill(-second.PID(), syscall.SIGSTOP)
-		waitForLog(t, first, "schema migrations complete", 2*time.Minute)
-		time.Sleep(delay)
-		_ = syscall.Kill(-second.PID(), syscall.SIGCONT)
-	} else {
-		t.Logf("the first gateway created its tables before the second began to start")
-	}
+
 	if err := second.WaitHealthy(ctx, 3*time.Minute); err != nil {
 		t.Fatal(err)
 	}

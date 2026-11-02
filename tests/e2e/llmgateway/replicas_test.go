@@ -235,15 +235,15 @@ func TestMultiReplicaConfigReload(t *testing.T) {
 		}
 	})
 
-	t.Run("encryption key is shared", func(t *testing.T) {
+	t.Run("configuration uses Obot database without a gateway encryption key", func(t *testing.T) {
 		// Keys saved through A were encrypted with the generated key, and B decrypted them to
 		// call the provider above. The key is stored once, in Obot's database.
 		out, err := env.cluster.PG.Exec(t.Context(), env.cluster.DB, "select count(*) from credentials where context = 'llm-gateway' and name = 'encryption-key'")
 		if err != nil {
 			t.Fatalf("inspect the stored gateway key: %v", err)
 		}
-		if out != "1" {
-			t.Fatalf("want one stored gateway encryption key, got %s", out)
+		if strings.TrimSpace(out) != "0" {
+			t.Fatalf("core should not store a separate gateway encryption key, got %s", out)
 		}
 		for _, r := range []*harness.Replica{env.A, env.B} {
 			if strings.Contains(r.Log(), "encryption key differs from the shared one") {

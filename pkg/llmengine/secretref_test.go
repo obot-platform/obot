@@ -14,7 +14,7 @@ func TestAnthropicIsDirect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
 	if e.AnthropicIsDirect(ctx) {

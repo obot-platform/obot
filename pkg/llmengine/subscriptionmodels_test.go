@@ -100,12 +100,12 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	e := New()
 	catalog := testCatalog(t)
 	e.catalog = func() modelCatalog { return catalog }
-	if err := e.Start(ctx, Options{
+	if err := e.Start(ctx, testOptions(t, Options{
 		DataDir: t.TempDir(),
 		ClaudeSubscriptions: func(context.Context) (bool, error) {
 			return subscriptions.Load(), nil
 		},
-	}); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
 	defer e.Shutdown()

@@ -17,12 +17,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	"github.com/obot-platform/obot/pkg/llmcore"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -294,6 +296,10 @@ func (g *gatewayRouting) recordBody(body []byte) {
 }
 
 func (t sanitizingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req = req.WithContext(llmcore.WithResponseObserver(req.Context(), func(extra schemas.BifrostResponseExtraFields) {
+		info := extra.RoutingInfo
+		gatewayRoutingFrom(req.Context()).set(llmRoute{Provider: string(info.Provider), Model: info.Model, Key: info.Key, Fallback: info.IsFallback})
+	}))
 	resp, err := t.next.RoundTrip(req)
 	if err != nil {
 		return nil, err

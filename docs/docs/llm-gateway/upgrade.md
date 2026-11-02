@@ -8,8 +8,10 @@ Earlier versions of Obot reached models through per-provider model providers (Op
 The upgrade can't be undone. Once aliases and policies name gateway models and the old providers are deleted, an earlier version of Obot can't serve them. Back up Obot's database before upgrading, and restore it to roll back.
 :::
 
-:::note Postgres
-When Obot uses Postgres, the gateway keeps its configuration in a separate `<database>_llm_gateway` database on the same server, which Obot creates on first start. If Obot's database user can't create databases (common with managed Postgres), create it before upgrading, owned by that user (`CREATE DATABASE obot_llm_gateway OWNER obot;` for a database and user named `obot`), or set `OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN` to a database for the gateway. If Obot can't create the database, the gateway doesn't start, and model requests fail with an error that says how to create it. Create the database, owned by Obot's database user, or set `OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN`, then restart Obot.
+:::note Gateway storage
+The gateway stores configuration in Obot's existing database and uses Obot's credential encryption configuration. No separate database, database-creation privilege or gateway encryption key is required.
+
+Development installations that used the earlier embedded gateway must re-enter that gateway's provider configuration, keys, routing rules and settings. Its old stores are left untouched. The legacy model-provider import described below remains supported.
 :::
 
 ## What happens on upgrade {#what-happens-on-upgrade}

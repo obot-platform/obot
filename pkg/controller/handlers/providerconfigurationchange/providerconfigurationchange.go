@@ -723,12 +723,6 @@ func AdvanceDaemonRevision(ctx context.Context, client kclient.Client, providerT
 	return err
 }
 
-// AdvanceLLMGatewayRevision bumps the LLM gateway's configuration revision so every other
-// replica reloads its gateway, and returns the new revision.
-func AdvanceLLMGatewayRevision(ctx context.Context, client kclient.Client) (int64, error) {
-	return advanceRevision(ctx, client, v1.ProviderTypeLLMGateway, system.DefaultNamespace, system.LLMGatewayModelProvider)
-}
-
 func advanceRevision(ctx context.Context, client kclient.Client, providerType v1.ProviderType, namespace, providerName string) (int64, error) {
 	if err := EnsureDaemonSync(ctx, client); err != nil {
 		return 0, err
@@ -760,18 +754,6 @@ func advanceRevision(ctx context.Context, client kclient.Client, providerType v1
 		return 0, fmt.Errorf("advance provider daemon sync: %w", err)
 	}
 	return advanced, nil
-}
-
-// CurrentLLMGatewayRevision returns the latest LLM gateway configuration revision announced
-// to the replicas.
-func CurrentLLMGatewayRevision(ctx context.Context, client kclient.Client) (int64, error) {
-	var daemonSync v1.ProviderSync
-	if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}, &daemonSync); apierrors.IsNotFound(err) {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-	return daemonSync.Spec.Revisions[providerDaemonRevisionKey(v1.ProviderTypeLLMGateway, system.DefaultNamespace, system.LLMGatewayModelProvider)].Revision, nil
 }
 
 func providerDaemonRevisionKey(providerType v1.ProviderType, namespace, providerName string) string {

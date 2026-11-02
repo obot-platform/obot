@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -23,7 +22,6 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -60,16 +58,7 @@ var (
 // credentials.
 type LLMGatewayHandler struct {
 	engine    *llmengine.Engine
-	revisions LLMGatewayRevisions
 	mapHelper *modelaccesspolicy.Helper
-}
-
-// LLMGatewayRevisions reads and advances the gateway configuration revision that tells the
-// replicas to reload their gateways. The controller owns the revision, and the handler gets
-// these from it rather than importing the controller.
-type LLMGatewayRevisions struct {
-	Current func(context.Context, kclient.Client) (int64, error)
-	Advance func(context.Context, kclient.Client) (int64, error)
 }
 
 // LLMGatewayStatus describes the embedded gateway.
@@ -82,10 +71,9 @@ type LLMGatewayStatus struct {
 	ProxyPath         string `json:"proxyPath"`
 }
 
-func NewLLMGatewayHandler(engine *llmengine.Engine, revisions LLMGatewayRevisions, mapHelper *modelaccesspolicy.Helper) *LLMGatewayHandler {
+func NewLLMGatewayHandler(engine *llmengine.Engine, mapHelper *modelaccesspolicy.Helper) *LLMGatewayHandler {
 	return &LLMGatewayHandler{
 		engine:    engine,
-		revisions: revisions,
 		mapHelper: mapHelper,
 	}
 }
@@ -195,10 +183,8 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 	}
 
 	// removeKeys confirms that changing a provider's base URL removes its keys (see
-	// llmengine.GuardProviderChange). It is Obot's, so it isn't passed on.
+	// llmengine.GuardProviderChange). The core admin handler applies it atomically.
 	query := req.URL.Query()
-	removeKeys := query.Get("removeKeys") == "true"
-	query.Del("removeKeys")
 
 	ctx := req.Context()
 	if req.Method != http.MethodGet {
@@ -220,59 +206,12 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		return rec, nil
 	}
 
-	var (
-		rec      *httptest.ResponseRecorder
-		guardErr error
-	)
-	if req.Method == http.MethodGet {
-		if rec, err = serve(req.Method, path, body); err != nil {
-			return err
-		}
-	} else if err := h.change(ctx, req, func() (bool, bool) {
-		// Checked here, under the lock every replica shares, so the check sees the
-		// configuration the change is made to.
-		change, err := h.engine.GuardProviderChange(ctx, req.Method, path, body, removeKeys)
-		if err != nil {
-			guardErr = err
-			return false, false
-		}
-		for i, id := range change.RemoveKeys {
-			keyPath := strings.TrimSuffix(path, "/") + "/keys/" + url.PathEscape(id)
-			if rec, err = serveRetryingBusyStore(ctx, func() (*httptest.ResponseRecorder, error) {
-				return serve(http.MethodDelete, keyPath, nil)
-			}); err != nil {
-				guardErr = err
-				return i > 0, false
-			} else if rec.Code >= 300 {
-				// Keys removed so far are gone; reload to be safe.
-				return i > 0 || rec.Code >= 500, false
-			}
-		}
-		rec, err = serveRetryingBusyStore(ctx, func() (*httptest.ResponseRecorder, error) {
-			return serve(req.Method, path, change.Body)
-		})
-		if err != nil {
-			guardErr = err
-			return len(change.RemoveKeys) > 0, false
-		}
-		switch {
-		case rec.Code < 300:
-			h.afterMutation(ctx, req, path)
-			// Some settings, such as the request size limit, only take effect when the
-			// engine starts, so this replica reloads a config change too.
-			return true, path != "config" && len(change.RemoveKeys) == 0
-		case rec.Code < 500 && len(change.RemoveKeys) == 0:
-			// Rejected; nothing changed.
-			return false, false
-		default:
-			// The change may have been saved before the failure, in the stores, in memory or
-			// both, so every replica, this one included, reloads to be safe.
-			return true, false
-		}
-	}); err != nil {
-		return types.NewErrHTTP(http.StatusInternalServerError, llmengine.ScrubEngineName(err.Error()))
-	} else if guardErr != nil {
-		return guardErr
+	rec, err := serve(req.Method, path, body)
+	if err != nil {
+		return err
+	}
+	if req.Method != http.MethodGet && rec.Code < 300 {
+		h.afterMutation(ctx, req, path)
 	}
 
 	if req.Method == http.MethodGet && path == "config" && rec.Code < 300 {
@@ -588,31 +527,6 @@ func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
 	settings.SubscriptionPassthrough = false
 	if err := req.GatewayClient.SetLLMGatewaySettings(ctx, settings); err != nil {
 		slog.Warn("failed to turn off Claude subscriptions after removing the Anthropic provider", "error", err)
-	}
-}
-
-// change makes a change to the gateway's configuration and announces it to the other
-// replicas. It holds a lock every replica shares, and first reloads what other replicas
-// announced, so the change is never made to a stale copy of the configuration and doesn't
-// overwrite theirs.
-func (h *LLMGatewayHandler) change(ctx context.Context, req api.Context, fn func() (changed, applied bool)) error {
-	return req.GatewayClient.WithLLMGatewayLock(ctx, func() error {
-		revision, err := h.revisions.Current(ctx, req.Storage)
-		if err != nil {
-			return fmt.Errorf("failed to read the LLM gateway configuration revision: %w", err)
-		}
-		if _, err := h.engine.Reload(revision); err != nil {
-			return fmt.Errorf("failed to reload the LLM gateway configuration: %w", err)
-		}
-		return h.engine.Change(ctx, fn, h.announceChange(req.Storage))
-	})
-}
-
-// announceChange advances the gateway's configuration revision, so the other replicas reload
-// their gateways from the shared stores.
-func (h *LLMGatewayHandler) announceChange(storage kclient.Client) func(context.Context) (int64, error) {
-	return func(ctx context.Context) (int64, error) {
-		return h.revisions.Advance(ctx, storage)
 	}
 }
 

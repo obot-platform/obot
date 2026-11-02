@@ -35,12 +35,12 @@ func TestEngineBootsWithoutNetwork(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
 	defer e.Shutdown()
 
-	catalog := e.inst.Load().server.Config.ModelCatalog
+	catalog := e.prices
 	usage := &schemas.BifrostLLMUsage{PromptTokens: 1_000_000, CompletionTokens: 1_000_000, TotalTokens: 2_000_000}
 	if cost := catalog.CalculateCostForUsage(usage, schemas.OpenAI, "gpt-4o", schemas.ChatCompletionRequest, nil); cost <= 0 {
 		t.Errorf("gpt-4o costs %v for a million tokens each way, want a price from the model data", cost)
@@ -65,11 +65,11 @@ func TestEnginePicksUpChangedModelData(t *testing.T) {
 		}
 	}
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(e.Shutdown)
-	catalog := e.inst.Load().server.Config.ModelCatalog
+	catalog := e.prices
 	gpt4o := func() float64 {
 		t.Helper()
 		usage := &schemas.BifrostLLMUsage{PromptTokens: 1_000_000, TotalTokens: 1_000_000}
@@ -146,7 +146,7 @@ func TestEngineForwardsRequestParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
 	defer e.Shutdown()

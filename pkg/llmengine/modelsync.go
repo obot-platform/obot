@@ -5,16 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"slices"
-	"strings"
 	"time"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	llmcoretypes "github.com/obot-platform/obot/pkg/llmcore/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/client-go/util/retry"
@@ -34,12 +34,6 @@ var (
 		{envVar: system.AnthropicAPIKeyEnvVar, provider: "anthropic"},
 	}
 )
-
-// providerKey is a gateway provider key as listed by the engine.
-type providerKey struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
 
 // envConfigured returns the environment variable the upstream provider is configured from at
 // startup, when it is set.
@@ -76,7 +70,7 @@ func TriggerModelSync(ctx context.Context, c kclient.Client) error {
 // importEnvProviders adds the providers whose API key is set in the environment
 // (OPENAI_API_KEY, ANTHROPIC_API_KEY), and updates their key when the variable changes. An
 // annotation on the gateway's ModelProvider records a hash of each imported key, so an
-// unchanged key isn't written, and announced to other replicas, on every start.
+// unchanged key is not written on every start.
 func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) bool {
 	changed := false
 	for _, p := range envProviders {
@@ -94,21 +88,26 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		key := map[string]any{"name": keyName, "value": value, "models": []string{"*"}, "weight": 1}
 		plainTextSecrets(key)
 
-		var keys struct {
-			Keys []providerKey `json:"keys"`
-		}
-		var err error
-		if err = e.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(p.provider)+"/keys", nil, &keys); err != nil {
-			provider := map[string]any{"provider": p.provider}
-			ApplyProviderDefaults(provider)
-			if err = e.Do(ctx, http.MethodPost, "/api/providers", provider, nil); err == nil {
-				err = e.Do(ctx, http.MethodPost, "/api/providers/"+url.PathEscape(p.provider)+"/keys", key, nil)
+		// Provider and key creation share the store's revision lock. Concurrent
+		// replicas therefore upsert the same named key instead of racing GET/POST.
+		err := e.store.Mutate(ctx, func(cfg *llmcoretypes.Config) error {
+			provider := schemas.ModelProvider(p.provider)
+			if _, exists := cfg.Providers[provider]; !exists {
+				body, _ := json.Marshal(map[string]any{"provider": p.provider})
+				if _, err := e.adminWrite(ctx, cfg, "providers", http.MethodPost, body); err != nil {
+					return err
+				}
 			}
-		} else if i := slices.IndexFunc(keys.Keys, func(k providerKey) bool { return k.Name == keyName }); i >= 0 {
-			err = e.Do(ctx, http.MethodPut, "/api/providers/"+url.PathEscape(p.provider)+"/keys/"+url.PathEscape(keys.Keys[i].ID), key, nil)
-		} else {
-			err = e.Do(ctx, http.MethodPost, "/api/providers/"+url.PathEscape(p.provider)+"/keys", key, nil)
-		}
+			path := "providers/" + p.provider + "/keys"
+			method := http.MethodPost
+			if i := slices.IndexFunc(cfg.Keys[provider], func(k schemas.Key) bool { return k.Name == keyName }); i >= 0 {
+				path += "/" + cfg.Keys[provider][i].ID
+				method = http.MethodPut
+			}
+			body, _ := json.Marshal(key)
+			_, err := e.adminWrite(ctx, cfg, path, method, body)
+			return err
+		})
 		if err != nil {
 			slog.Warn("failed to configure an LLM gateway provider from the environment", "provider", p.provider, "envVar", p.envVar, "error", err)
 			continue
@@ -131,59 +130,6 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 	return changed
 }
 
-// removeAutoDetectedKeys removes the keys the engine creates on its own, when it starts with no
-// providers, from API key environment variables such as OPENAI_API_KEY. Obot configures
-// providers from the environment itself (see importEnvProviders), with keys that hold the
-// value rather than refer to the variable, which the admin API can then update. The
-// engine's keys would be a second key for the same variable, which can't be changed through
-// the admin API, and would bring back providers an administrator removed. A provider left
-// with no keys is removed too.
-//
-// It must run while holding the lock every replica takes to change the gateway's
-// configuration, right after this engine booted from the stores: it acts on the engine's copy
-// of the configuration, and removing a provider removes it from the shared stores by name, so
-// with a stale copy it would remove a provider another replica has just configured.
-func (e *Engine) removeAutoDetectedKeys(ctx context.Context) {
-	var resp struct {
-		Providers []struct {
-			Name string `json:"name"`
-		} `json:"providers"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
-		slog.Warn("failed to list LLM gateway providers", "error", err)
-		return
-	}
-	for _, p := range resp.Providers {
-		keys, err := e.providerKeys(ctx, p.Name)
-		if err != nil {
-			continue
-		}
-		var detected []string
-		for _, key := range keys {
-			name, _ := key["name"].(string)
-			id, _ := key["id"].(string)
-			value, _ := json.Marshal(key["value"])
-			if id != "" && strings.HasSuffix(name, "_auto_detected") && IsSecretReference(value) {
-				detected = append(detected, id)
-			}
-		}
-		if len(detected) == 0 {
-			continue
-		}
-		if len(detected) == len(keys) {
-			if err := e.Do(ctx, http.MethodDelete, "/api/providers/"+url.PathEscape(p.Name), nil, nil); err != nil {
-				slog.Warn("failed to remove an LLM gateway provider the engine configured from the environment", "provider", p.Name, "error", err)
-			}
-			continue
-		}
-		for _, id := range detected {
-			if err := e.Do(ctx, http.MethodDelete, "/api/providers/"+url.PathEscape(p.Name)+"/keys/"+url.PathEscape(id), nil, nil); err != nil {
-				slog.Warn("failed to remove an LLM gateway key the engine configured from the environment", "provider", p.Name, "error", err)
-			}
-		}
-	}
-}
-
 // providerKeys lists a provider's keys, as the engine lists them (with secrets redacted).
 func (e *Engine) providerKeys(ctx context.Context, provider string) ([]map[string]any, error) {
 	var resp struct {
@@ -201,14 +147,9 @@ func LegacyImportDone(mp *v1.ModelProvider) bool {
 	return mp.Annotations[legacyImportAnnotation] != ""
 }
 
-// RunStartupTasks waits for the engine to start, imports legacy model provider credentials
-// once, and then keeps Obot's model list in step with Bifrost's. announce tells the other
-// replicas when it changed the gateway's configuration, so they reload it.
-//
-// Replicas that start together take turns: each holds a lock every replica shares while it
-// makes its changes, and first reloads the configuration the others announced
-// (currentRevision returns the latest), so it never writes back a stale copy of it.
-func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client, currentRevision, announce func(context.Context) (int64, error)) {
+// RunStartupTasks imports legacy credentials, configures environment keys, and periodically
+// asks Obot to refresh models. Each configuration write is serialized by the store revision.
+func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) {
 	if err := e.Wait(ctx); err != nil {
 		return
 	}
@@ -226,19 +167,11 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 		}
 	}
 
-	if err := gatewayClient.WithLLMGatewayLock(ctx, func() error {
-		if revision, err := currentRevision(ctx); err != nil {
-			return fmt.Errorf("failed to read the LLM gateway configuration revision: %w", err)
-		} else if _, err := e.Reload(revision); err != nil {
-			return fmt.Errorf("failed to reload the LLM gateway configuration: %w", err)
+	changed, _ := e.startupChanges(ctx, c, gatewayClient, &mp)()
+	if changed {
+		if _, err := e.Sync(ctx); err != nil {
+			slog.Warn("LLM gateway startup sync failed", "error", err)
 		}
-		// Another replica may have imported legacy providers while this one waited.
-		if err := c.Get(ctx, kclient.ObjectKeyFromObject(&mp), &mp); err != nil {
-			return err
-		}
-		return e.Change(ctx, e.startupChanges(ctx, c, gatewayClient, &mp), announce)
-	}); err != nil {
-		slog.Warn("LLM gateway startup changes failed or were not announced to other replicas", "error", err)
 	}
 
 	// Bifrost refreshes provider model lists on its own schedule, so resync periodically.

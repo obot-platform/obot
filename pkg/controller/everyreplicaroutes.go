@@ -1,9 +1,9 @@
 package controller
 
 import (
-	"context"
-	"log/slog"
+	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providersync"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -15,38 +15,39 @@ func (c *Controller) setupEveryReplicaRoutes() {
 		return
 	}
 
-	engine := c.services.BifrostEngine
-	reload := lockedGatewayReload(c.services.GatewayClient.WithLLMGatewayLock, engine.Reload)
-	reloadGateway := func(ctx context.Context, revision int64) (bool, error) {
-		reloaded, err := reload(ctx, revision)
-		if reloaded {
-			// The leader lists the gateway's models; have it list them again now that its
-			// gateway has the new configuration.
-			if err := llmengine.TriggerModelSync(ctx, c.services.StorageClient); err != nil {
-				slog.Warn("failed to trigger LLM gateway model sync after a reload", "error", err)
-			}
-		}
-		return reloaded, err
-	}
-	providerSync := providersync.New(c.services.ProviderDispatcher, c.services.LicenseProvider, reloadGateway)
+	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayProvider{}).
+		Namespace(system.DefaultNamespace).
+		IncludeRemoved().
+		HandlerFunc(c.reconcileLLMGatewayConfig)
+	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayRoutingRule{}).
+		Namespace(system.DefaultNamespace).
+		IncludeRemoved().
+		HandlerFunc(c.reconcileLLMGatewayConfig)
+	// Global settings are a singleton: Load and GetSettings read only "default".
+	// Providers and routing rules can have multiple names, so their watches are unfiltered.
+	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayConfig{}).
+		Namespace(system.DefaultNamespace).
+		Name("default").
+		IncludeRemoved().
+		HandlerFunc(c.reconcileLLMGatewayConfig)
+
+	providerSync := providersync.New(c.services.ProviderDispatcher, c.services.LicenseProvider, nil)
 	c.services.EveryReplicaRouter.Type(&v1.ProviderSync{}).
 		Namespace(system.DefaultNamespace).
 		Name(system.ProviderSyncName).
 		HandlerFunc(providerSync.Reconcile)
 }
 
-// lockedGatewayReload reloads this replica's LLM gateway while holding the lock every replica
-// takes to change the gateway's configuration. A reload rewrites every provider in the shared
-// store from what it read when it started, so without the lock, a reload on one replica could
-// undo a change another replica made in the meantime.
-func lockedGatewayReload(withLock func(context.Context, func() error) error, reload func(int64) (bool, error)) func(context.Context, int64) (bool, error) {
-	return func(ctx context.Context, revision int64) (bool, error) {
-		var reloaded bool
-		err := withLock(ctx, func() error {
-			var err error
-			reloaded, err = reload(revision)
-			return err
-		})
-		return reloaded, err
+// Reload current desired resources rather than applying a possibly stale event payload.
+func (c *Controller) reconcileLLMGatewayConfig(req router.Request, resp router.Response) error {
+	if !c.services.BifrostEngine.Ready() {
+		resp.RetryAfter(time.Second)
+		return nil
 	}
+	if _, err := c.services.BifrostEngine.Sync(req.Ctx); err != nil {
+		return err
+	}
+	// A prior attempt may have applied the configuration but failed to trigger discovery.
+	// Retry discovery even when Sync reports no runtime changes.
+	return llmengine.TriggerModelSync(req.Ctx, c.services.StorageClient)
 }

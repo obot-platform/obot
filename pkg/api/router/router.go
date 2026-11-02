@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
-	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/scim"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
@@ -515,10 +514,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	}))
 
 	// LLM gateway (embedded Bifrost)
-	llmGateway := handlers.NewLLMGatewayHandler(services.BifrostEngine, handlers.LLMGatewayRevisions{
-		Current: providerconfigurationchange.CurrentLLMGatewayRevision,
-		Advance: providerconfigurationchange.AdvanceLLMGatewayRevision,
-	}, services.ModelAccessPolicyHelper)
+	llmGateway := handlers.NewLLMGatewayHandler(services.BifrostEngine, services.ModelAccessPolicyHelper)
 	mux.HandleFunc("GET /api/llm-gateway/status", llmGateway.Status)
 	mux.HandleFunc("GET /api/llm-gateway/metrics", llmGateway.Metrics)
 	mux.HandleFunc("POST /api/llm-gateway/sync-models", llmGateway.SyncModels)

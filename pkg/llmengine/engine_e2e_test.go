@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 )
 
 func mockOpenAI(t *testing.T) *httptest.Server {
@@ -58,7 +56,7 @@ func TestEngineE2E(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
 	defer e.Shutdown()
@@ -188,7 +186,7 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 	}
 	// The engine starts with a 1 MB limit, then it is raised to 2 MB.
 	setLimit(1)
-	if _, err := e.Reload(1); err != nil {
+	if _, err := e.Sync(ctx); err != nil {
 		t.Fatal(err)
 	}
 	setLimit(2)
@@ -199,21 +197,5 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 	body := `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"` + strings.Repeat("a", 3<<19) + `"}]}`
 	if code, resp := do(t, e, http.MethodPost, "/v1/chat/completions", body); code != http.StatusOK || !strings.Contains(resp, "Hello from mock") {
 		t.Fatalf("a 1.5 MB request under the raised limit got %d: %.200s", code, resp)
-	}
-}
-
-// Warp, the engine's dashboard agent, is on by default; Obot turns it off, and it stays off
-// even if the engine's API is asked to turn it on.
-func TestWarpIsOff(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	warpEnabled := func() bool {
-		return e.inst.Load().server.Config.FeatureFlags.IsEnabled(lib.FeatureFlagWarp)
-	}
-	if warpEnabled() {
-		t.Fatal("warp is on")
-	}
-	_ = e.Do(ctx, http.MethodPut, "/api/feature-flags/"+lib.FeatureFlagWarp, map[string]any{"enabled": true}, nil)
-	if warpEnabled() {
-		t.Fatal("the engine's API turned warp on")
 	}
 }

@@ -16,7 +16,7 @@ func TestApplyEgressProxy(t *testing.T) {
 	defer cancel()
 
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
 	// The engine gives new providers the proxy the process started with, if any; otherwise
