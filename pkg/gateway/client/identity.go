@@ -597,20 +597,21 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 // grantInitialOwnerRole makes user, which sign-in is about to create for id, an Owner when id is the Local identity of
 // the provisioned initial owner. That account is the only one with a setup token, which it keeps until its password is
 // set. Every authenticated request ensures the identity, including those of the restricted setup session, so the user
-// is created while the token is still there. Once the token is gone, a user created again for the account, such as
-// after the first one was deleted, is not an Owner. Neither is a user of a Local account that an admin created.
+// is created while the token is still there. The grant is recorded on the account in tx, so it happens once: a user
+// created again for the account, such as after the first one was deleted, is not an Owner, even while the token is
+// still usable. Neither is a user of a Local account that an admin created.
 func grantInitialOwnerRole(tx *gorm.DB, id *types.Identity, user *types.User) error {
 	if user.Role.HasRole(types2.RoleOwner) || id.AuthProviderNamespace != system.DefaultNamespace || id.AuthProviderName != system.LocalAuthProvider || id.Email == "" {
 		return nil
 	}
 
-	var count int64
-	if err := tx.Model(new(types.LocalAuthUser)).
-		Where("hashed_email = ? AND setup_token_hash != ''", hash.String(NormalizeEmail(id.Email))).
-		Count(&count).Error; err != nil {
-		return fmt.Errorf("failed to look up the initial owner local account: %w", err)
+	result := tx.Model(new(types.LocalAuthUser)).
+		Where("hashed_email = ? AND setup_token_hash != '' AND owner_granted_at IS NULL", hash.String(NormalizeEmail(id.Email))).
+		UpdateColumn("owner_granted_at", time.Now())
+	if result.Error != nil {
+		return fmt.Errorf("failed to record the initial owner grant: %w", result.Error)
 	}
-	if count > 0 {
+	if result.RowsAffected > 0 {
 		user.Role = user.Role.SwitchBaseRole(types2.RoleOwner)
 	}
 	return nil

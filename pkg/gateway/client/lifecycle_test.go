@@ -863,23 +863,32 @@ func TestSignInCreatesTheInitialOwnerAsAnOwnerOnce(t *testing.T) {
 		t.Fatalf("role of the demoted initial owner after sign-in = %d, want it not to be raised", role(owner.ID))
 	}
 
-	// Setting the password consumes the setup token. A user that sign-in creates again for the account, after the
-	// first one and its identity are gone, is not an Owner.
-	if err := c.SetLocalAuthUserPassword(ctx, initialOwner.ID, "new-password-hash", false); err != nil {
-		t.Fatal(err)
+	// The grant happens once. A user that sign-in creates again for the account, after the first one and its identity
+	// are gone, is not an Owner, whether the setup token is still usable or setting the password has consumed it.
+	deleteUser := func(userID uint) {
+		t.Helper()
+		if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Delete(new(types.Identity)).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := c.db.WithContext(ctx).Delete(new(types.User), userID).Error; err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := c.db.WithContext(ctx).Where("user_id = ?", owner.ID).Delete(new(types.Identity)).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := c.db.WithContext(ctx).Delete(new(types.User), owner.ID).Error; err != nil {
-		t.Fatal(err)
-	}
+	deleteUser(owner.ID)
 	recreated := signIn(system.LocalAuthProvider, "owner@example.com")
 	if recreated.ID == owner.ID {
 		t.Fatal("sign-in after the user was deleted returned the deleted user")
 	}
 	if role(recreated.ID).HasRole(apitypes.RoleOwner) {
-		t.Fatalf("role of the user created again for the initial owner = %d, want it not to be Owner", role(recreated.ID))
+		t.Fatalf("role of the user created again before the password was set = %d, want it not to be Owner", role(recreated.ID))
+	}
+
+	if err := c.SetLocalAuthUserPassword(ctx, initialOwner.ID, "new-password-hash", false); err != nil {
+		t.Fatal(err)
+	}
+	deleteUser(recreated.ID)
+	if again := signIn(system.LocalAuthProvider, "owner@example.com"); role(again.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the user created again after the password was set = %d, want it not to be Owner", role(again.ID))
 	}
 
 	// Neither a Local account without a setup token nor another provider asserting the same email is an Owner.

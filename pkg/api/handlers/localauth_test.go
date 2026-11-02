@@ -188,6 +188,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 				role                apitypes.Role
 				provider            string
 				pendingInitialOwner bool
+				ownerGranted        bool
 			}{
 				{
 					name:     "owner",
@@ -222,6 +223,11 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					pendingInitialOwner: true,
 				},
 				{
+					name:                "pending initial owner whose user was granted Owner and deleted",
+					pendingInitialOwner: true,
+					ownerGranted:        true,
+				},
+				{
 					name:     "owner under another provider with same email",
 					role:     apitypes.RoleOwner,
 					provider: "google-auth-provider",
@@ -238,6 +244,14 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 						localUser, err = f.gateway.CreateLocalAuthUser(t.Context(), "target@example.com", passwordHash, false)
 					}
 					require.NoError(t, err)
+					if target.ownerGranted {
+						// The first sign-in grants Owner. Deleting that user leaves the account without one, and the
+						// grant is not given again.
+						userID, err := strconv.ParseUint(f.identity(t, localUser.Email, system.LocalAuthProvider, apitypes.RoleBasic).User.GetUID(), 10, 64)
+						require.NoError(t, err)
+						_, err = f.gateway.RemoveIdentityAndUser(t.Context(), &gwtypes.Identity{UserID: uint(userID)})
+						require.NoError(t, err)
+					}
 					var orgUserID string
 					if target.provider != "" {
 						orgUserID = f.identity(t, localUser.Email, target.provider, target.role).User.GetUID()
@@ -261,7 +275,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					}
 
 					privileged := target.role.HasRole(apitypes.RoleOwner) || target.role.HasRole(apitypes.RoleAuditor)
-					denied := callerRole != apitypes.RoleOwner && (target.pendingInitialOwner || target.provider == system.LocalAuthProvider && privileged)
+					denied := callerRole != apitypes.RoleOwner && (target.pendingInitialOwner && !target.ownerGranted || target.provider == system.LocalAuthProvider && privileged)
 					if denied {
 						var httpErr *apitypes.ErrHTTP
 						require.ErrorAs(t, err, &httpErr)

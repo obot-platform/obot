@@ -49,23 +49,26 @@ provider is weak grounds for merging accounts or granting privileged roles.
   `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` has one, and setting its password
   clears it. Every authenticated request, including those of the restricted
   setup session, ensures the identity, so the user always exists before the
-  token is cleared. After that it is an ordinary Owner that can be demoted:
-  later sign-ins don't raise it again, and neither does a user created again
-  for the account after the first one was deleted. A Local account that an
-  admin creates never qualifies. While the account still holds its setup token,
-  non-Owners cannot reset its password or delete it.
+  token is cleared. The grant is recorded on the Local account
+  (`owner_granted_at`) in the same transaction, because the setup token stays
+  usable until the password is set. After that it is an ordinary Owner that can
+  be demoted: later sign-ins don't raise it again, and neither does a user
+  created again for the account after the first one was deleted, even while the
+  setup token is still usable. A Local account that an admin creates never
+  qualifies. Until the grant is used, non-Owners cannot reset the account's
+  password or delete it.
 
 ## Rationale
 
 Granting the initial owner a role once, at creation, keeps the provisioning flow
 working. It avoids keeping a general email-to-role mechanism for a single
-account. Tying the grant to the setup token rather than to the configured email
-makes it one-time without a new column: the token already marks the provisioned
-account, and password completion already consumes it. Roles that follow an email
-are hard to reason about: they apply through any provider that asserts the
-address, and they override decisions made in the UI. Without email matching, a
-user's role comes only from what is stored on the user and from group role
-assignments.
+account. The grant is tied to the setup token rather than to the configured
+email, because the token already marks the provisioned account. It is recorded
+separately from the token, because the token must stay usable so that an
+interrupted setup can resume. Roles that follow an email are hard to reason
+about: they apply through any provider that asserts the address, and they
+override decisions made in the UI. Without email matching, a user's role comes
+only from what is stored on the user and from group role assignments.
 
 ## Consequences
 
