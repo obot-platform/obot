@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -81,9 +82,11 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 			if getErr := client.Get(ctx, kclient.ObjectKey{
 				Namespace: namespace,
 				Name:      server.Spec.MCPServerCatalogEntryName,
-			}, &entry); getErr != nil {
-				slog.Warn("Failed to get catalog entry", "entry", server.Spec.MCPServerCatalogEntryName, "error", getErr)
+			}, &entry); apierrors.IsNotFound(getErr) {
 				continue
+			} else if getErr != nil {
+				// Keep the group-change event pending until access can be checked.
+				return fmt.Errorf("failed to get catalog entry %s: %w", server.Spec.MCPServerCatalogEntryName, getErr)
 			}
 
 			// Check access based on whether the catalog entry is in a workspace or regular catalog
@@ -108,7 +111,7 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 
 		if !hasAccess {
 			slog.Info("Deleting MCP server because user lost group access", "server", server.Name, "userID", userID)
-			if err := client.Delete(ctx, &server); err != nil {
+			if err := client.Delete(ctx, &server); kclient.IgnoreNotFound(err) != nil {
 				return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
 			}
 		}
@@ -129,8 +132,8 @@ func (h *Handler) deleteUnauthorizedInstancesForUser(ctx context.Context, client
 	}
 
 	for _, instance := range mcpInstances.Items {
-		if !instance.DeletionTimestamp.IsZero() || instance.Spec.CompositeName != "" {
-			// Skip instances being deleted or composite instances
+		// Component connections are owned by their composite or vMCP instance, not legacy catalog access.
+		if !instance.DeletionTimestamp.IsZero() || instance.Spec.CompositeName != "" || instance.Spec.VMCPComponentID != "" {
 			continue
 		}
 
@@ -139,9 +142,11 @@ func (h *Handler) deleteUnauthorizedInstancesForUser(ctx context.Context, client
 		if err := client.Get(ctx, kclient.ObjectKey{
 			Namespace: namespace,
 			Name:      instance.Spec.MCPServerName,
-		}, &server); err != nil {
-			slog.Warn("Failed to get MCP server for instance", "server", instance.Spec.MCPServerName, "instance", instance.Name, "error", err)
+		}, &server); apierrors.IsNotFound(err) {
 			continue
+		} else if err != nil {
+			// Keep the group-change event pending until access can be checked.
+			return fmt.Errorf("failed to get MCP server %s for instance %s: %w", instance.Spec.MCPServerName, instance.Name, err)
 		}
 
 		// Check authorization based on server location
@@ -166,7 +171,7 @@ func (h *Handler) deleteUnauthorizedInstancesForUser(ctx context.Context, client
 
 		if !hasAccess {
 			slog.Info("Deleting MCPServerInstance because user lost group access", "instance", instance.Name, "userID", userID)
-			if err := client.Delete(ctx, &instance); err != nil {
+			if err := client.Delete(ctx, &instance); kclient.IgnoreNotFound(err) != nil {
 				return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
 			}
 		}
