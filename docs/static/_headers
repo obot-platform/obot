@@ -1,7 +1,8 @@
 /*.md
-  Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: noindex
+
+/llms-full.txt
   X-Robots-Tag: noindex
 
 /*/llms-full.txt
-  Content-Type: text/plain; charset=utf-8
   X-Robots-Tag: noindex

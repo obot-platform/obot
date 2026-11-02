@@ -161,6 +161,11 @@ test("v0.28 release rollover keeps versioned links stable and rolls latest alias
     const latest = names[1];
     const root = await fs.readFile(path.join(f.outDir, "llms.txt"), "utf8");
     assert.ok(root.includes(`Use ${latest}`));
+    assert.ok(root.includes("https://docs.example.com/llms-full.txt"));
+    assert.equal(
+      await fs.readFile(path.join(f.outDir, "llms-full.txt"), "utf8"),
+      await fs.readFile(path.join(f.outDir, latest, "llms-full.txt"), "utf8"),
+    );
     const pinned = await fs.readFile(
       path.join(f.outDir, latest, "index.md"),
       "utf8",
