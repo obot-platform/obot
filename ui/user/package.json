@@ -51,7 +51,7 @@
 		"@types/node": "^24.13.3",
 		"@uiw/codemirror-theme-github": "^4.25.9",
 		"@vitest/browser-playwright": "^5.0.5",
-		"dompurify": "3.4.16",
+		"dompurify": "3.4.17",
 		"eslint": "^10.5.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.23.0",

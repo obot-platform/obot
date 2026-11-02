@@ -214,12 +214,14 @@ it.each([
 			stripPreviews: true
 		});
 		await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+		await vi.waitFor(() => {
+			expect(update).toHaveBeenCalledOnce();
+			expect(changed).toHaveBeenCalledOnce();
+		});
 		await expect
 			.element(page.getByRole('button', { name: 'Confirm', exact: true }))
 			.not.toBeInTheDocument();
 		expect(preview).not.toHaveBeenCalled();
-		expect(update).toHaveBeenCalledOnce();
-		expect(changed).toHaveBeenCalledOnce();
 		expect(changed.mock.calls[0][0].components[0].toolOverrides).toHaveLength(count);
 		expect(
 			changed.mock.calls[0][0].components[1].catalogEntry.manifest.toolPreview
