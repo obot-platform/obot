@@ -495,6 +495,7 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 		Name:      "vmcp1test",
 		Namespace: "default",
 		Spec: v1.VMCPSpec{
+			UserID: "user-1",
 			Manifest: types.VMCPManifest{
 				DisplayName: "Test VMCP",
 				Components: []types.VMCPComponent{
@@ -735,9 +736,12 @@ func TestDedicatedComponentHeadersUseCredentials(t *testing.T) {
 			parent := &v1.VMCP{
 				Name:      instance.Spec.Manifest.VMCPID,
 				Namespace: instance.Namespace,
-				Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-					Components: []types.VMCPComponent{component},
-				}},
+				Spec: v1.VMCPSpec{
+					UserID: instance.Spec.UserID,
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{component},
+					},
+				},
 			}
 			scheme := runtime.NewScheme()
 			require.NoError(t, v1.AddToScheme(scheme))
@@ -753,6 +757,561 @@ func TestDedicatedComponentHeadersUseCredentials(t *testing.T) {
 			require.NoError(t, New(nil).EnsureMCPServers(req, nil))
 			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&server), &server))
 			require.Equal(t, version, server.ResourceVersion, "unchanged configuration must not trigger another update")
+		})
+	}
+}
+
+func dedicatedTestComponent(id string) types.VMCPComponent {
+	return types.VMCPComponent{
+		ID:              id,
+		ForceSingleUser: true,
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:    id,
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					FixedURL: "https://example.com/mcp",
+				},
+			},
+		},
+	}
+}
+
+func TestEnsureMCPServersProfileAccessLifecycle(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		subjectType types.SubjectType
+		subjectID   string
+		extraKey    string
+	}{
+		{
+			name:        "provider group membership",
+			subjectType: types.SubjectTypeGroup,
+			subjectID:   "team",
+			extraKey:    "auth_provider_groups",
+		},
+		{
+			name:        "effective role membership",
+			subjectType: types.SubjectTypeObotGroup,
+			subjectID:   types.RoleAdmin.Groups()[0],
+			extraKey:    "obot_groups",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1.AddToScheme(scheme))
+
+			retained := dedicatedTestComponent("retained")
+			// User environment configuration also requires a dedicated server without ForceSingleUser.
+			retained.ForceSingleUser = false
+			retained.Configuration = []types.VMCPConfigurationPolicy{{
+				Key:    "TOKEN",
+				Policy: types.VMCPConfigurationPolicyUserAllowed,
+			}}
+			retained.CatalogEntry.Manifest.Config = []types.MCPConfig{{
+				Key:   "TOKEN",
+				Usage: types.Env,
+			}}
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1shared",
+				Namespace: "default",
+				Spec: v1.VMCPSpec{
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{dedicatedTestComponent("revoked"), retained},
+						Profiles: []types.VMCPProfile{
+							{
+								Subjects: []types.Subject{{
+									Type: types.SubjectTypeUser,
+									ID:   "1",
+								}},
+								Permissions: types.VMCPProfilePermissions{
+									AllowedComponents: map[string]types.VMCPComponentSet{"retained": {}},
+								},
+							},
+							{
+								Subjects: []types.Subject{{
+									Type: tc.subjectType,
+									ID:   tc.subjectID,
+								}},
+								Permissions: types.VMCPProfilePermissions{
+									AllowedComponents: map[string]types.VMCPComponentSet{"revoked": {AllowedTools: []string{"*"}}},
+								},
+							},
+							{
+								Subjects: []types.Subject{{
+									Type: types.SubjectTypeUser,
+									ID:   "2",
+								}},
+								Permissions: types.VMCPProfilePermissions{
+									AllowAllComponents: true,
+								},
+							},
+						},
+					},
+				},
+			}
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1first",
+				Namespace: "default",
+				Spec: v1.VMCPInstanceSpec{
+					UserID: "1",
+					Manifest: types.VMCPInstanceManifest{
+						VMCPID: vmcp.Name,
+						// Selecting the revoked component must not preserve it, nor exclude the retained one.
+						ComponentSet: map[string]types.VMCPComponentSet{"revoked": {AllowedTools: []string{"*"}}},
+					},
+				},
+			}
+			legacy := *retained.DeepCopy()
+			legacy.SourceDigest = utils.Digest([]any{retained, ""})
+			legacy.CatalogEntry.Manifest.Name = "legacy-retained"
+			instance.Spec.LegacyComponents = []types.VMCPComponent{legacy}
+			other := instance.DeepCopy()
+			other.Name = "vmcpi1other"
+			other.Spec.UserID = "2"
+			otherServer, err := mcpServerForComponent(other, vmcp.Spec.Manifest.Components[0])
+			require.NoError(t, err)
+
+			client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(vmcp, instance, other, &otherServer).
+				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
+				}), instance.Spec.UserID).Build()
+			u := &kuser.DefaultInfo{
+				UID:   "1",
+				Extra: map[string][]string{tc.extraKey: {tc.subjectID}},
+			}
+			lookups := 0
+			handler := &Handler{userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
+				require.Equal(t, uint(1), id)
+				lookups++
+				return u, nil
+			}}
+			req := router.Request{
+				Ctx:    t.Context(),
+				Client: client,
+				Object: instance,
+			}
+			reconciliations := 0
+			// Once deletion starts, reconciliation must leave the server to its finalizer.
+			req.Client = interceptor.NewClient(client, interceptor.Funcs{
+				Delete: func(ctx context.Context, client kclient.WithWatch, obj kclient.Object, opts ...kclient.DeleteOption) error {
+					require.True(t, obj.GetDeletionTimestamp().IsZero(), "must not delete a terminating server again")
+					return client.Delete(ctx, obj, opts...)
+				},
+			})
+
+			reconcile := func() {
+				t.Helper()
+				require.NoError(t, handler.EnsureMCPServers(req, nil))
+				reconciliations++
+			}
+			reconcile()
+			var servers v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &servers, kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name}))
+			require.Len(t, servers.Items, 2)
+			var revokedServer, retainedServer v1.MCPServer
+			for _, server := range servers.Items {
+				if server.Spec.VMCPComponentID == "revoked" {
+					revokedServer = server
+				} else {
+					retainedServer = server
+				}
+			}
+			require.Equal(t, "legacy-retained", retainedServer.Spec.Manifest.Name)
+			retainedServer.UID = "retained-server"
+			require.NoError(t, client.Update(t.Context(), &retainedServer))
+			revokedServer.Finalizers = []string{v1.MCPServerFinalizer}
+			require.NoError(t, client.Update(t.Context(), &revokedServer))
+			parentBefore := vmcp.DeepCopy()
+			instanceBefore := instance.DeepCopy()
+			otherBefore := other.DeepCopy()
+			otherServerBefore := otherServer.DeepCopy()
+
+			u.Extra = nil
+			for range 2 {
+				reconcile()
+				require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&revokedServer), &revokedServer))
+				require.False(t, revokedServer.DeletionTimestamp.IsZero(), "revoked dedicated server must be finalized")
+			}
+
+			// Simulate the existing server finalizer; the instance configuration stays intact.
+			revokedServer.Finalizers = nil
+			require.NoError(t, client.Update(t.Context(), &revokedServer))
+			reconcile()
+			require.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(&revokedServer), &v1.MCPServer{})))
+
+			u.Extra = map[string][]string{tc.extraKey: {tc.subjectID}}
+			reconcile()
+			var restored v1.MCPServer
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&revokedServer), &restored))
+			require.True(t, restored.DeletionTimestamp.IsZero())
+			require.Equal(t, revokedServer.Name, restored.Name)
+			require.Equal(t, revokedServer.Spec, restored.Spec)
+			reconcile()
+
+			var retainedAfter v1.MCPServer
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&retainedServer), &retainedAfter))
+			require.Equal(t, retainedServer, retainedAfter)
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), vmcp))
+			require.Equal(t, parentBefore, vmcp)
+			require.Equal(t, instanceBefore, instance, "must not mutate instance or legacy snapshots")
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance))
+			require.Equal(t, instanceBefore, instance)
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(other), other))
+			require.Equal(t, otherBefore, other)
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&otherServer), &otherServer))
+			require.Equal(t, otherServerBefore, &otherServer)
+			require.Equal(t, reconciliations, lookups, "each reconciliation needs fresh user info")
+		})
+	}
+}
+
+func TestEnsureMCPServersComponentGrants(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		grants     []types.VMCPProfilePermissions
+		selection  map[string]types.VMCPComponentSet
+		personal   bool
+		wantServer bool
+	}{
+		{
+			name: "remaining matching profile",
+			grants: []types.VMCPProfilePermissions{
+				{
+					AllowedComponents: map[string]types.VMCPComponentSet{"other": {}},
+				},
+				{
+					AllowedComponents: map[string]types.VMCPComponentSet{"one": {}},
+				},
+			},
+			wantServer: true,
+		},
+		{
+			name: "allow all components",
+			grants: []types.VMCPProfilePermissions{{
+				AllowAllComponents: true,
+			}},
+			wantServer: true,
+		},
+		{
+			name: "narrowed tool permissions",
+			grants: []types.VMCPProfilePermissions{{
+				AllowedComponents: map[string]types.VMCPComponentSet{"one": {AllowedTools: []string{"echo"}}},
+			}},
+			wantServer: true,
+		},
+		{
+			name: "empty tool grant and selection",
+			grants: []types.VMCPProfilePermissions{{
+				AllowedComponents: map[string]types.VMCPComponentSet{"one": {AllowedTools: []string{}}},
+			}},
+			selection:  map[string]types.VMCPComponentSet{},
+			wantServer: true,
+		},
+		{
+			name:      "selection cannot enable a revoked component",
+			grants:    []types.VMCPProfilePermissions{{}},
+			selection: map[string]types.VMCPComponentSet{"one": {AllowedTools: []string{"*"}}},
+		},
+		{
+			name:       "personal parent without profiles or numeric owner",
+			personal:   true,
+			wantServer: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1.AddToScheme(scheme))
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1test",
+				Namespace: "default",
+				Spec: v1.VMCPSpec{
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{dedicatedTestComponent("one")},
+						Profiles:   allowAllProfiles(),
+					},
+				},
+			}
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1test",
+				Namespace: "default",
+				Spec: v1.VMCPInstanceSpec{
+					UserID: "1",
+					Manifest: types.VMCPInstanceManifest{
+						VMCPID:       vmcp.Name,
+						ComponentSet: tc.selection,
+					},
+				},
+			}
+			if tc.personal {
+				vmcp.Spec.UserID = "personal-owner"
+				instance.Spec.UserID = vmcp.Spec.UserID
+			}
+
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp).
+				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
+				})
+			if !tc.personal {
+				withUserChangeWatches(t, builder, instance.Spec.UserID)
+			}
+			client := builder.Build()
+			handler := &Handler{userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
+				require.False(t, tc.personal, "personal parents must not look up user info")
+				require.Equal(t, uint(1), id)
+				return &kuser.DefaultInfo{UID: "1"}, nil
+			}}
+			req := router.Request{
+				Ctx:    t.Context(),
+				Client: client,
+				Object: instance,
+			}
+			require.NoError(t, handler.EnsureMCPServers(req, nil))
+			var before v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &before))
+			require.Len(t, before.Items, 1)
+
+			// A nonmatching AllowAll profile must not affect the matching profiles' union.
+			vmcp.Spec.Manifest.Profiles = []types.VMCPProfile{{
+				Subjects: []types.Subject{{
+					Type: types.SubjectTypeUser,
+					ID:   "2",
+				}},
+				Permissions: types.VMCPProfilePermissions{
+					AllowAllComponents: true,
+				},
+			}}
+			for _, grant := range tc.grants {
+				vmcp.Spec.Manifest.Profiles = append(vmcp.Spec.Manifest.Profiles, types.VMCPProfile{
+					Subjects: []types.Subject{{
+						Type: types.SubjectTypeUser,
+						ID:   "1",
+					}},
+					Permissions: grant,
+				})
+			}
+			if tc.personal {
+				vmcp.Spec.Manifest.Profiles = nil
+			}
+			require.NoError(t, client.Update(t.Context(), vmcp))
+			for range 2 {
+				require.NoError(t, handler.EnsureMCPServers(req, nil))
+			}
+
+			var after v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &after))
+			if tc.wantServer {
+				require.Equal(t, before.Items, after.Items)
+			} else {
+				require.Empty(t, after.Items)
+			}
+		})
+	}
+}
+
+func TestEnsureMCPServersIdentityFailuresPreserveServers(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		invalidID bool
+		watch     string
+	}{
+		{
+			name: "user lookup failure",
+		},
+		{
+			name:      "invalid user ID",
+			invalidID: true,
+		},
+		{
+			name:  "group watch failure",
+			watch: "group",
+		},
+		{
+			name:  "role watch failure",
+			watch: "role",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1.AddToScheme(scheme))
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1test",
+				Namespace: "default",
+				Spec: v1.VMCPSpec{
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{dedicatedTestComponent("update"), dedicatedTestComponent("create")},
+						Profiles:   allowAllProfiles(),
+					},
+				},
+			}
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1test",
+				Namespace: "default",
+				Spec: v1.VMCPInstanceSpec{
+					UserID: "1",
+					Manifest: types.VMCPInstanceManifest{
+						VMCPID: vmcp.Name,
+					},
+				},
+			}
+			if tc.invalidID {
+				instance.Spec.UserID = "invalid"
+			}
+			updateServer, err := mcpServerForComponent(instance, dedicatedTestComponent("update"))
+			require.NoError(t, err)
+			updateServer.Annotations = nil
+			deleteServer, err := mcpServerForComponent(instance, dedicatedTestComponent("delete"))
+			require.NoError(t, err)
+			failure := errors.New("identity unavailable")
+			builder := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).
+				WithObjects(vmcp, &updateServer, &deleteServer).
+				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
+				}), instance.Spec.UserID)
+			client := builder.Build()
+			var watched []string
+			if tc.watch != "" {
+				// Run the indexed list through withUserChangeWatches before injecting its failure.
+				client = interceptor.NewClient(client, interceptor.Funcs{
+					List: func(ctx context.Context, client kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+						if err := client.List(ctx, list, opts...); err != nil {
+							return err
+						}
+
+						var watch string
+						switch list.(type) {
+						case *v1.UserGroupChangeList:
+							watch = "group"
+						case *v1.UserRoleChangeList:
+							watch = "role"
+						}
+						if watch != "" {
+							watched = append(watched, watch)
+							if watch == tc.watch {
+								return failure
+							}
+						}
+						return nil
+					},
+				})
+			}
+			handler := &Handler{userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
+				require.False(t, tc.invalidID || tc.watch != "")
+				require.Equal(t, uint(1), id)
+				return nil, failure
+			}}
+			var before v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &before))
+
+			err = handler.EnsureMCPServers(router.Request{
+				Ctx:    t.Context(),
+				Client: client,
+				Object: instance,
+			}, nil)
+			if tc.invalidID {
+				require.ErrorContains(t, err, "invalid VMCP instance user ID")
+			} else {
+				require.ErrorIs(t, err, failure)
+			}
+
+			switch tc.watch {
+			case "group":
+				require.Equal(t, []string{"group"}, watched)
+			case "role":
+				require.Equal(t, []string{"group", "role"}, watched)
+			}
+
+			var after v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &after))
+			require.Equal(t, before.Items, after.Items, "identity failure must precede server deletion, update, and creation")
+		})
+	}
+}
+
+func TestEnsureMCPServersValidationAndOwnership(t *testing.T) {
+	malformed := dedicatedTestComponent("one")
+	malformed.CatalogEntry.Manifest.RemoteConfig = nil
+
+	for _, tc := range []struct {
+		name               string
+		component          types.VMCPComponent
+		foreignInstanceID  string
+		foreignComponentID string
+		wantError          string
+	}{
+		{
+			name:      "enabled component requires an ID",
+			component: dedicatedTestComponent(""),
+			wantError: "component ID is required",
+		},
+		{
+			name:      "enabled component requires valid runtime configuration",
+			component: malformed,
+			wantError: "remote configuration is required",
+		},
+		{
+			name:              "different instance ownership",
+			component:         dedicatedTestComponent("one"),
+			foreignInstanceID: "vmcpi1other",
+			wantError:         "different VMCP ownership",
+		},
+		{
+			name:               "different component ownership",
+			component:          dedicatedTestComponent("one"),
+			foreignComponentID: "other",
+			wantError:          "different VMCP ownership",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1.AddToScheme(scheme))
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1test",
+				Namespace: "default",
+				Spec: v1.VMCPSpec{
+					Manifest: types.VMCPManifest{
+						Components: []types.VMCPComponent{tc.component, dedicatedTestComponent("new")},
+						Profiles:   allowAllProfiles(),
+					},
+				},
+			}
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1test",
+				Namespace: "default",
+				Spec: v1.VMCPInstanceSpec{
+					UserID: "1",
+					Manifest: types.VMCPInstanceManifest{
+						VMCPID: vmcp.Name,
+					},
+				},
+			}
+			server, err := mcpServerForComponent(instance, dedicatedTestComponent("one"))
+			require.NoError(t, err)
+			if tc.foreignInstanceID != "" {
+				server.Spec.VMCPInstanceID = tc.foreignInstanceID
+			}
+			if tc.foreignComponentID != "" {
+				// Keep the other component desired so deletion does not remove the name collision first.
+				vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, dedicatedTestComponent(tc.foreignComponentID))
+				server.Spec.VMCPComponentID = tc.foreignComponentID
+			}
+			client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, &server).
+				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
+				}), instance.Spec.UserID).Build()
+			handler := &Handler{userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"})}
+			before := server.DeepCopy()
+
+			err = handler.EnsureMCPServers(router.Request{
+				Ctx:    t.Context(),
+				Client: client,
+				Object: instance,
+			}, nil)
+			require.ErrorContains(t, err, tc.wantError)
+			var after v1.MCPServerList
+			require.NoError(t, client.List(t.Context(), &after))
+			require.Equal(t, []v1.MCPServer{*before}, after.Items)
 		})
 	}
 }

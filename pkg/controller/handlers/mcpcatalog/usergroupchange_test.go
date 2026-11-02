@@ -4,12 +4,19 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -18,6 +25,98 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
+
+func TestHandleUserGroupChangeLookupErrors(t *testing.T) {
+	storage, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storage.DB.DB, storage.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gateway := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() { require.NoError(t, gateway.Close()) })
+
+	user := &gatewaytypes.User{}
+	require.NoError(t, storage.DB.DB.Create(user).Error)
+	require.NoError(t, storage.DB.DB.Create(&gatewaytypes.GroupMemberships{
+		UserID:  user.ID,
+		GroupID: "team",
+	}).Error)
+	failure := errors.New("database temporarily unavailable")
+
+	for _, tc := range []struct {
+		name      string
+		failTable string
+		missing   bool
+	}{
+		{
+			name:    "missing user discards event",
+			missing: true,
+		},
+		{
+			name:      "user lookup failure preserves event",
+			failTable: "users",
+		},
+		{
+			name:      "group lookup failure preserves event",
+			failTable: "group_memberships",
+		},
+		{
+			name:      "role lookup failure preserves event",
+			failTable: "group_role_assignments",
+		},
+		{
+			name: "successful cleanup removes event",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			injected := false
+			if tc.failTable != "" {
+				require.NoError(t, storage.DB.DB.Callback().Query().Before("gorm:query").Register("test:lookup-failure", func(tx *gorm.DB) {
+					if tx.Statement.Table == tc.failTable {
+						injected = true
+						_ = tx.AddError(failure)
+					}
+				}))
+				t.Cleanup(func() { require.NoError(t, storage.DB.DB.Callback().Query().Remove("test:lookup-failure")) })
+			}
+
+			event := &v1.UserGroupChange{
+				Name:      "group-change",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.UserGroupChangeSpec{
+					UserID: user.ID,
+				},
+			}
+			if tc.missing {
+				event.Spec.UserID = user.ID + 1
+			}
+			client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(event).
+				WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.UserID}
+				}).
+				WithIndex(&v1.MCPServerInstance{}, "spec.userID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServerInstance).Spec.UserID}
+				}).Build()
+			handler := &Handler{gatewayClient: gateway}
+
+			err := handler.HandleUserGroupChange(router.Request{
+				Ctx:       t.Context(),
+				Client:    client,
+				Namespace: event.Namespace,
+				Object:    event,
+			}, nil)
+
+			if tc.failTable != "" {
+				require.True(t, injected)
+				require.ErrorIs(t, err, failure)
+				require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(event), &v1.UserGroupChange{}))
+			} else {
+				require.NoError(t, err)
+				require.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(event), &v1.UserGroupChange{})))
+			}
+		})
+	}
+}
 
 func TestDeleteUnauthorizedServersForUserPreservesVMCPComponents(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
