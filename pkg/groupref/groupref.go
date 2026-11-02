@@ -55,8 +55,8 @@ type Reference struct {
 	// Name identifies the object: its name, or the group ID for a group role assignment.
 	Name        string
 	DisplayName string
-	// Detail says where in the object the reference is, such as the version of a published artifact, the profile
-	// of a virtual MCP server, or the role a group role assignment grants.
+	// Detail says where in the object the reference is, such as the profile of a virtual MCP server or the role a
+	// group role assignment grants.
 	Detail string
 }
 
