@@ -43,6 +43,8 @@ require (
 	github.com/klauspost/compress v1.20.0
 	github.com/maximhq/bifrost/core v1.12.0
 	github.com/maximhq/bifrost/framework v1.9.0
+	github.com/maximhq/bifrost/plugins/governance v1.9.0
+	github.com/maximhq/bifrost/plugins/routing v1.2.0
 	github.com/maximhq/bifrost/transports v1.6.12-0.20261014071331-39595d8c49c4
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
@@ -289,14 +291,12 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/maximhq/bifrost/plugins/compat v0.4.0 // indirect
-	github.com/maximhq/bifrost/plugins/governance v1.9.0 // indirect
 	github.com/maximhq/bifrost/plugins/logging v1.9.0 // indirect
 	github.com/maximhq/bifrost/plugins/maxim v1.7.10 // indirect
 	github.com/maximhq/bifrost/plugins/mocker v1.6.10 // indirect
 	github.com/maximhq/bifrost/plugins/modelcatalogresolver v1.1.10 // indirect
 	github.com/maximhq/bifrost/plugins/otel v1.6.0 // indirect
 	github.com/maximhq/bifrost/plugins/prompts v1.1.10 // indirect
-	github.com/maximhq/bifrost/plugins/routing v1.2.0 // indirect
 	github.com/maximhq/bifrost/plugins/semanticcache v1.7.0 // indirect
 	github.com/maximhq/bifrost/plugins/telemetry v1.9.0 // indirect
 	github.com/maximhq/maxim-go v0.2.1 // indirect

@@ -1,0 +1,40 @@
+package llmcore
+
+import (
+	"context"
+	"net/http"
+	"strings"
+
+	"github.com/maximhq/bifrost/core/schemas"
+)
+
+// requestContext translates only headers already admitted by Obot's authenticated proxy.
+func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
+	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
+	if e.catalog != nil {
+		ctx.SetValue(schemas.BifrostContextKeyModelCatalog, e.catalog)
+	}
+
+	headers := make(map[string]string, len(r.Header))
+	extra := map[string]string{}
+	for name := range r.Header {
+		lower := strings.ToLower(name)
+		value := r.Header.Get(name)
+		headers[lower] = value
+		switch lower {
+		case "anthropic-beta", "anthropic-version", "authorization", "user-agent", "x-api-key", "x-stainless-lang", "x-stainless-package-version", "x-stainless-os", "x-stainless-arch", "x-stainless-runtime", "x-stainless-runtime-version", "x-stainless-retry-count", "x-stainless-timeout":
+			extra[lower] = value
+		}
+	}
+
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, headers)
+	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
+	ctx.SetValue(schemas.BifrostContextKeyUserAgent, r.UserAgent())
+	if schemas.ClaudeCLI.Matches(r.UserAgent()) && r.Header.Get("Authorization") != "" {
+		ctx.SetValue(schemas.BifrostContextKeySkipKeySelection, true)
+	}
+	if id, ok := schemas.NormalizeSessionID(r.Header.Get("x-bf-session-id")); ok && id != "" {
+		ctx.SetValue(schemas.BifrostContextKeySessionID, id)
+	}
+	return ctx, cancel
+}
