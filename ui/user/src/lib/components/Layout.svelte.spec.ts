@@ -180,13 +180,19 @@ describe('Layout.svelte', () => {
 		});
 
 		describe('when the user is a basic user', () => {
-			it('shows the standard navigation with the marketplace', async () => {
+			it('shows only the marketplace', async () => {
 				await renderLayout([Group.USER]);
-				await expectSharedNavigation();
 				await expectLink('/market');
-				await expectLink('/dashboard');
-				await expectLink('/mcp-servers');
-				await expectNoAdminOnlyNavigation();
+				for (const href of [
+					'/dashboard',
+					'/vmcps',
+					'/mcp-servers',
+					'/skills',
+					'/audit-logs',
+					'/identity-access'
+				]) {
+					await expectNoLink(href);
+				}
 			});
 		});
 

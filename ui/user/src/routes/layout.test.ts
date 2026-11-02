@@ -35,7 +35,7 @@ function createFetch(groups: string[]) {
 	});
 }
 
-async function loadWith(fetch: ReturnType<typeof createFetch>, url = new URL('http://localhost/')) {
+async function loadWith(fetch: ReturnType<typeof createFetch>, url = new URL('http://localhost/market')) {
 	return (await load({ fetch, url } as unknown as Parameters<
 		NonNullable<typeof load>
 	>[0])) as Exclude<Awaited<ReturnType<NonNullable<typeof load>>>, void>;
@@ -52,6 +52,35 @@ describe('root layout', () => {
 
 		expect(data.version).toEqual({});
 		expect(data.appNotification).toEqual({});
+	});
+
+	describe('basic user route guard', () => {
+		it.each(['/vmcps', '/dashboard'])('redirects %s to the marketplace', async (pathname) => {
+			await expect(
+				loadWith(createFetch([Group.USER]), new URL(`http://localhost${pathname}`))
+			).rejects.toMatchObject({
+				status: 302,
+				location: '/market'
+			});
+		});
+
+		it.each(['/market', '/agent-auth-scopes'])('allows %s', async (pathname) => {
+			const data = await loadWith(
+				createFetch([Group.USER]),
+				new URL(`http://localhost${pathname}`)
+			);
+
+			expect(data.profile.groups).toEqual([Group.USER]);
+		});
+
+		it('allows an administrator to visit the dashboard', async () => {
+			const data = await loadWith(
+				createFetch([Group.ADMIN]),
+				new URL('http://localhost/dashboard')
+			);
+
+			expect(data.profile.groups).toEqual([Group.ADMIN]);
+		});
 	});
 });
 
@@ -141,7 +170,7 @@ describe('root layout account status', () => {
 		cookies.set('obot_account_inactive', 'true');
 		const data = await loadWith(
 			createFetch([Group.USER]),
-			new URL('http://localhost/?inactive=true')
+			new URL('http://localhost/market?inactive=true')
 		);
 
 		expect(data.profile.accountInactive).toBeUndefined();

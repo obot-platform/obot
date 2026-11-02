@@ -1,5 +1,6 @@
 import { CommonAuthProviderIds } from '$lib/constants';
 import { UserService, type AuthProvider } from '$lib/services';
+import { isBasicUser } from '$lib/utils';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -24,7 +25,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		throw redirect(302, '/dashboard');
+		throw redirect(302, isBasicUser(profile?.groups ?? []) ? '/market' : '/dashboard');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {

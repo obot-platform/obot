@@ -36,9 +36,9 @@ describe('local login redirect', () => {
 
 describe('signed-in landing page', () => {
 	it.each([
-		['basic user', [Group.USER]],
-		['administrator', [Group.ADMIN]]
-	])('sends a %s to the standard dashboard', async (_name, groups) => {
+		['basic user', [Group.USER], '/market'],
+		['administrator', [Group.ADMIN], '/dashboard']
+	])('sends a %s to their landing page', async (_name, groups, location) => {
 		vi.spyOn(UserService, 'getBootstrapStatus').mockResolvedValue({
 			enabled: false,
 			setupEnabled: false
@@ -52,7 +52,7 @@ describe('signed-in landing page', () => {
 			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({
 			status: 302,
-			location: '/dashboard'
+			location
 		});
 	});
 });

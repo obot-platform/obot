@@ -67,6 +67,7 @@
 		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import { isBasicUser } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import DotDotDot from './DotDotDot.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
@@ -211,7 +212,15 @@
 
 	let isAtLeastPoweruser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
-	let routes = $derived([
+	const marketRoute: NavLink = {
+		id: 'market',
+		icon: Store,
+		label: m.market_title(),
+		href: '/market',
+		collapsible: false
+	};
+
+	let standardRoutes = $derived([
 		{
 			id: 'mcp-dashboard',
 			icon: LayoutDashboard,
@@ -219,13 +228,7 @@
 			href: '/dashboard',
 			collapsible: false
 		},
-		{
-			id: 'market',
-			icon: Store,
-			label: m.market_title(),
-			href: '/market',
-			collapsible: false
-		},
+		marketRoute,
 		{
 			id: 'ai-resources',
 			icon: Bot,
@@ -313,6 +316,8 @@
 				]
 			: [])
 	]);
+
+	let routes = $derived(isBasicUser(profile.current.groups) ? [marketRoute] : standardRoutes);
 
 	function collectBetaHrefs(links: NavLink[]): string[] {
 		return links.flatMap((link) => [

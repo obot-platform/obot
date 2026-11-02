@@ -1,3 +1,4 @@
+import { page as appPage } from '$app/state';
 import { saveBlob } from '$lib/download';
 import { m } from '$lib/i18n';
 import { Group } from '$lib/services';
@@ -148,7 +149,7 @@ async function openMyLinksTab() {
 
 describe('market page', () => {
 	it('defaults to Skills and renders Skills, Connectors, Mine, and My links tabs', async () => {
-		await renderMarketPage();
+		await renderMarketPage({ profile: createMockProfile([Group.POWERUSER]) });
 
 		for (const href of ['/dashboard', '/market', '/vmcps', '/mcp-servers']) {
 			await expect.element(page.getByCSS(`a.sidebar-link[href="${href}"]`)).toBeInTheDocument();
@@ -452,6 +453,23 @@ describe('market page', () => {
 		const card = page.getByTestId(`market-connector-${connectorEntry.id}`);
 		await expect.element(card).toBeVisible();
 		await expect.element(card.getByText(m.market_connected())).toBeVisible();
+	});
+
+	it('opens the existing connection in place for a basic user', async () => {
+		const profile = createMockProfile([Group.USER]);
+		const personal = createVMCP(
+			{ id: 'vmcp1connected', displayName: 'Connected Connector', userID: profile.id },
+			[connectorEntry]
+		);
+
+		await renderMarketPage({ profile, vmcps: [personal] });
+		await openConnectorsTab();
+		await page.getByTestId(`market-connector-${connectorEntry.id}`).click();
+		await page.getByRole('button', { name: m.market_connect() }).click();
+
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+		await expect.element(page.getByText(m.vmcps_connection_url())).toBeVisible();
+		expect(appPage.url.pathname).toBe('/market');
 	});
 
 	it('lists the current user personal vMCPs under Mine', async () => {

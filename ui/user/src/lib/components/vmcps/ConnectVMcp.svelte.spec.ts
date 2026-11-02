@@ -1,13 +1,19 @@
 import { page as appPage } from '$app/state';
 import { m } from '$lib/i18n';
 import { overwriteGetLocale } from '$lib/paraglide/runtime';
-import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+import {
+	Group,
+	UserService,
+	type VMCP,
+	type VMCPConfiguration,
+	type VMCPInstance
+} from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
 import { vmcpInstances } from '$lib/stores';
 import { goto, replaceState } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
-import { preparePageData } from '../../../tests/helpers/pageData';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import ConnectVMcp from './ConnectVMcp.svelte';
@@ -51,8 +57,13 @@ function configurableVMcp(): VMCP {
 	return vmcp;
 }
 
-async function renderDialog(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpConnectOptions) {
-	await preparePageData();
+async function renderDialog(
+	vmcp: VMCP,
+	instance?: VMCPInstance,
+	options?: VMcpConnectOptions,
+	groups: string[] = [Group.ADMIN]
+) {
+	await preparePageData({ profile: createMockProfile(groups) });
 	await vmcpInstances.refresh();
 	const result = await render(ConnectVMcp, { reconciliationRetryMs: 100 });
 	result.component.open(vmcp, instance, options);
@@ -98,6 +109,21 @@ describe('ConnectVMcp.svelte', () => {
 		expect(vi.mocked(goto)).toHaveBeenCalledWith(`/vmcps/${vmcp.id}?view=inspector`);
 		await expect.element(introSetupText()).not.toBeVisible();
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+	});
+
+	it('hides Test for a basic user and shows it for a power user', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1roles', displayName: 'Role Test vMCP' });
+
+		const basic = await renderDialog(vmcp, undefined, undefined, [Group.USER]);
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: m.vmcps_test_vmcp() }))
+			.not.toBeInTheDocument();
+		await basic.unmount();
+
+		await renderDialog(vmcp, undefined, undefined, [Group.POWERUSER]);
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+		await expect.element(page.getByRole('button', { name: m.vmcps_test_vmcp() })).toBeVisible();
 	});
 
 	function createdInstance(vmcp: VMCP, status?: VMCPInstance['status']): VMCPInstance {

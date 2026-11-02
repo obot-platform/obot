@@ -35,6 +35,7 @@
 	import { mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { goto } from '$lib/url';
+	import { isBasicUser } from '$lib/utils';
 	import { Bot, CircleAlert, Download, Lightbulb, SearchX } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
@@ -347,16 +348,7 @@
 		submitError = '';
 		try {
 			const vmcps = await UserService.listVMCPs();
-			const existing = vmcps.find(
-				(vmcp) =>
-					(vmcp.userID === profile.current.id || vmcp.creatorUserID === profile.current.id) &&
-					vmcp.components?.some((component) => {
-						const catalogEntryID =
-							component.mcpServerCatalogEntryID ||
-							(component.catalogEntry as { id?: string } | undefined)?.id;
-						return catalogEntryID === entry.id;
-					})
-			);
+			const existing = vmcps.find((vmcp) => isPersonalVMcpForEntry(vmcp, entry.id));
 			const source =
 				existing ??
 				(await UserService.createVMCP(
@@ -389,16 +381,31 @@
 		goto('/vmcps');
 	}
 
+	function isPersonalVMcpForEntry(vmcp: VMCP, entryID: string) {
+		return (
+			(vmcp.userID === profile.current.id || vmcp.creatorUserID === profile.current.id) &&
+			vmcp.components?.some((component) => {
+				const catalogEntryID =
+					component.mcpServerCatalogEntryID ||
+					(component.catalogEntry as { id?: string } | undefined)?.id;
+				return catalogEntryID === entryID;
+			})
+		);
+	}
+
+	function openConnectedConnector(entryID: string) {
+		if (!isBasicUser(profile.current.groups)) {
+			openVmcps();
+			return;
+		}
+
+		const target = data.vmcps.find((vmcp) => isPersonalVMcpForEntry(vmcp, entryID));
+		if (target) openEnterpriseSolution(target);
+	}
+
 	function openEnterpriseSolution(vmcp: VMCP) {
 		closeDetail();
 		connectDialog?.open(vmcp);
-	}
-
-	function openSkillDetail() {
-		if (!selected) return;
-		const id = selected.id;
-		closeDetail();
-		goto(`/skills/${encodeURIComponent(id)}`);
 	}
 
 	/** "试试这样用" examples: explicit metadata first, then quoted prompt lines
@@ -889,8 +896,14 @@
 					{#if state === 'connected'}
 						<div class="flex items-center justify-between gap-2">
 							<span class="text-primary text-sm font-medium">{m.market_connected()}</span>
-							<button type="button" class="btn btn-primary btn-sm rounded-lg" onclick={openVmcps}>
-								{m.vmcps()}
+							<button
+								type="button"
+								class="btn btn-primary btn-sm rounded-lg"
+								onclick={() => {
+									if (entry) openConnectedConnector(entry.id);
+								}}
+							>
+								{isBasicUser(profile.current.groups) ? m.market_connect() : m.vmcps()}
 							</button>
 						</div>
 					{:else if state === 'pending'}

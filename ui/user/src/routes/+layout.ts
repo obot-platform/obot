@@ -8,6 +8,7 @@ import {
 	type Version
 } from '$lib/services';
 import { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
+import { isBasicUser } from '$lib/utils';
 import type { LayoutLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -19,6 +20,18 @@ const ACCOUNT_INACTIVE_KEY = 'obot-account-inactive';
 // login page (accountInactiveCookie in pkg/api/server/server.go). A link can add a parameter to the login page's URL,
 // but cannot set a cookie, so only the cookie is trusted.
 const ACCOUNT_INACTIVE_COOKIE = 'obot_account_inactive';
+const BASIC_USER_ALLOWED_ROUTE_PREFIXES = [
+	'/market',
+	'/login',
+	'/auth',
+	'/logout',
+	'/change-password',
+	'/activate',
+	'/agent-auth-scopes',
+	'/install-cli',
+	'/oauth-debugger',
+	'/privacy-policy'
+];
 
 // takeAccountInactiveCookie reports whether the server set ACCOUNT_INACTIVE_COOKIE, and clears it, so that it is read
 // once.
@@ -93,6 +106,14 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 		url.pathname !== '/activate'
 	) {
 		throw redirect(303, `/change-password?rd=${encodeURIComponent(url.pathname + url.search)}`);
+	}
+
+	if (
+		profile.loaded &&
+		isBasicUser(profile.groups) &&
+		!BASIC_USER_ALLOWED_ROUTE_PREFIXES.some((prefix) => url.pathname.startsWith(prefix))
+	) {
+		throw redirect(302, '/market');
 	}
 
 	let appNotification: AppNotification | undefined;
