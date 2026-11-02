@@ -73,16 +73,7 @@ async function renderPageWithEntries(
 }
 
 afterEach(() => {
-	for (const key of [
-		'new',
-		'query',
-		'variant',
-		'status',
-		'components',
-		'creator',
-		'sort',
-		'sortDirection'
-	]) {
+	for (const key of ['new', 'query', 'status', 'components', 'creator', 'sort', 'sortDirection']) {
 		(appPage.url as URL).searchParams.delete(key);
 	}
 	vmcpInstances.current = { items: [], loading: false };
@@ -95,7 +86,7 @@ describe('vMCPs Page', () => {
 		it.each(['name', 'componentServers'])(
 			'preserves search relevance with %s sorting',
 			async (sortBy) => {
-				(appPage.url as URL).searchParams.set('variant', 'table');
+				localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 				(appPage.url as URL).searchParams.set('query', 'GitHub');
 				(appPage.url as URL).searchParams.set('sort', sortBy);
 				await renderPageWithEntries([componentEntry, slack], false, [
@@ -126,7 +117,7 @@ describe('vMCPs Page', () => {
 		])(
 			'keeps all %s options available for OR selection',
 			async (header, first, second, param, selected) => {
-				(appPage.url as URL).searchParams.set('variant', 'table');
+				localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 				worker.use(
 					http.get('/api/users', () =>
 						HttpResponse.json({
@@ -166,7 +157,7 @@ describe('vMCPs Page', () => {
 		);
 
 		it('keeps header options available when combined filters match no rows', async () => {
-			(appPage.url as URL).searchParams.set('variant', 'table');
+			localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 			(appPage.url as URL).searchParams.set('components', 'entry-github');
 			(appPage.url as URL).searchParams.set('creator', 'bob');
 			await renderPageWithEntries([componentEntry, slack], false, [
@@ -183,7 +174,7 @@ describe('vMCPs Page', () => {
 		});
 
 		it('shares server header filters with settings, grid view, and reloads', async () => {
-			(appPage.url as URL).searchParams.set('variant', 'table');
+			localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 			const vmcps = [
 				createIssueTrackerVMcp(),
 				createVMCP({ id: 'vmcp-slack', displayName: 'Alerts vMCP' }, [slack])
@@ -218,7 +209,7 @@ describe('vMCPs Page', () => {
 		});
 
 		it('shares creator header filters with settings and grid view', async () => {
-			(appPage.url as URL).searchParams.set('variant', 'table');
+			localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 			worker.use(
 				http.get('/api/users', () =>
 					HttpResponse.json({
@@ -257,7 +248,7 @@ describe('vMCPs Page', () => {
 			['connected', 'Connected'],
 			['not-connected', 'Not Connected']
 		])('persists %s status and restores it after reload', async (id, label) => {
-			(appPage.url as URL).searchParams.set('variant', 'table');
+			localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 			const screen = await renderPageWithEntries([componentEntry]);
 			vmcpInstances.current = {
 				items:
@@ -288,7 +279,7 @@ describe('vMCPs Page', () => {
 		});
 
 		it('keeps server count sorting consistent across settings, views, and reloads', async () => {
-			(appPage.url as URL).searchParams.set('variant', 'table');
+			localStorage.setItem('@obot/vmcps/variant', JSON.stringify('table'));
 			const vmcps = [
 				createVMCP({ id: 'many', displayName: 'Many Servers' }, [componentEntry, slack]),
 				createVMCP({ id: 'one', displayName: 'One Server' }, [slack])
