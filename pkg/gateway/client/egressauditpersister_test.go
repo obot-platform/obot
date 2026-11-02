@@ -92,8 +92,9 @@ func TestEgressAuditBufferReleaseAndStableThreshold(t *testing.T) {
 	c.egressAuditBatchSize = 2
 	c.kickEgressAuditPersist = make(chan struct{}, 1)
 
+	// Check the empty buffer path independently of shutdown context tracking.
 	require.Zero(t, testing.AllocsPerRun(10, func() {
-		require.NoError(t, c.FlushEgressAuditLogs())
+		require.NoError(t, c.flushEgressAuditLogs(t.Context()))
 	}))
 	require.Nil(t, c.egressAuditBuffer)
 
@@ -129,11 +130,11 @@ func TestEgressAuditFailureCooldown(t *testing.T) {
 	c := newTestClient(t)
 	c.egressAuditBatchSize = 2
 	c.kickEgressAuditPersist = make(chan struct{}, 1)
-	c.egressAuditDone = make(chan struct{})
+	done := make(chan struct{})
 	ctx, cancel := context.WithCancel(t.Context())
 	defer func() {
 		cancel()
-		<-c.egressAuditDone
+		<-done
 	}()
 
 	var failing atomic.Bool
@@ -164,7 +165,10 @@ func TestEgressAuditFailureCooldown(t *testing.T) {
 	}))
 
 	const interval = time.Second
-	go c.runEgressAuditPersistenceLoop(ctx, interval)
+	go func() {
+		defer close(done)
+		c.runEgressAuditPersistenceLoop(ctx, interval)
+	}()
 	c.LogEgressAuditEntry(types.EgressAuditLog{ID: "first", UserID: "7"})
 	c.LogEgressAuditEntry(types.EgressAuditLog{ID: "second", UserID: "7"})
 	select {
@@ -245,7 +249,7 @@ func TestEgressAuditFailureCooldown(t *testing.T) {
 	}
 	cancel()
 	select {
-	case <-c.egressAuditDone:
+	case <-done:
 	case <-time.After(interval / 2):
 		t.Fatal("cancellation did not interrupt cooldown")
 	}

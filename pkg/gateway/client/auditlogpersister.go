@@ -36,8 +36,9 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	c.auditLock.Lock()
 	defer c.auditLock.Unlock()
 
+	batchSize, _ := auditBatchCapacity(c.auditLogBatchSize)
 	c.auditBuffer = append(c.auditBuffer, entry)
-	if len(c.auditBuffer) >= cap(c.auditBuffer)/2 {
+	if len(c.auditBuffer) >= batchSize {
 		select {
 		case c.kickAuditPersist <- struct{}{}:
 		default:
@@ -58,7 +59,7 @@ func (c *Client) runMCPAuditLogPersistenceLoop(ctx context.Context, flushInterva
 		case <-timer.C:
 		}
 
-		if err := c.persistMCPAuditLogs(); err != nil {
+		if err := c.writeAuditLogs(ctx, c.persistMCPAuditLogsContext); err != nil {
 			slog.Error("Failed to persist audit log", "error", err)
 		}
 
@@ -87,8 +88,16 @@ func (c *Client) deleteOldMCPAuditLogs(ctx context.Context, now time.Time, reten
 	}
 }
 
-func (c *Client) persistMCPAuditLogs() error {
+func (c *Client) persistMCPAuditLogsContext(ctx context.Context) error {
+	// The buffer lock is released during DB work; serialize flushes to preserve batch order.
+	c.auditPersistLock.Lock()
+	defer c.auditPersistLock.Unlock()
+
 	c.auditLock.Lock()
+	if err := ctx.Err(); err != nil {
+		c.auditLock.Unlock()
+		return err
+	}
 	if len(c.auditBuffer) == 0 {
 		c.auditLock.Unlock()
 		return nil
@@ -98,10 +107,11 @@ func (c *Client) persistMCPAuditLogs() error {
 	c.auditBuffer = make([]types.MCPAuditLog, 0, cap(c.auditBuffer))
 	c.auditLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	if err := c.insertMCPAuditLogs(ctx, buf); err != nil {
+		// Keep original ordering while producers continue adding entries.
 		c.auditLock.Lock()
 		c.auditBuffer = append(buf, c.auditBuffer...)
 		c.auditLock.Unlock()

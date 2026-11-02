@@ -23,7 +23,6 @@ func (c *Client) LogEgressAuditEntry(entry types.EgressAuditLog) {
 }
 
 func (c *Client) runEgressAuditPersistenceLoop(ctx context.Context, interval time.Duration) {
-	defer close(c.egressAuditDone)
 	timer := time.NewTimer(interval)
 	defer timer.Stop()
 
@@ -38,7 +37,7 @@ func (c *Client) runEgressAuditPersistenceLoop(ctx context.Context, interval tim
 		case <-timer.C:
 		}
 
-		if err := c.FlushEgressAuditLogs(); err != nil {
+		if err := c.writeAuditLogs(ctx, c.flushEgressAuditLogs); err != nil {
 			slog.Error("Failed to persist egress audit logs", "error", err)
 			// Pending kicks and new arrivals must not bypass the retry interval.
 			kick = nil
@@ -52,10 +51,19 @@ func (c *Client) runEgressAuditPersistenceLoop(ctx context.Context, interval tim
 
 // FlushEgressAuditLogs drains queued captures using an independent write context.
 func (c *Client) FlushEgressAuditLogs() error {
+	return c.writeAuditLogs(context.Background(), c.flushEgressAuditLogs)
+}
+
+func (c *Client) flushEgressAuditLogs(ctx context.Context) error {
 	c.egressAuditPersistLock.Lock()
 	defer c.egressAuditPersistLock.Unlock()
 
 	c.egressAuditLock.Lock()
+	if err := ctx.Err(); err != nil {
+		c.egressAuditLock.Unlock()
+		return err
+	}
+
 	if len(c.egressAuditBuffer) == 0 {
 		c.egressAuditLock.Unlock()
 		return nil
@@ -66,7 +74,7 @@ func (c *Client) FlushEgressAuditLogs() error {
 	c.egressAuditBuffer = nil
 	c.egressAuditLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	for len(buf) > 0 {

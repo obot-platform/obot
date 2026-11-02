@@ -214,25 +214,21 @@ func (c *Client) runLLMAuditPersistenceLoop(ctx context.Context, batchSize int, 
 	defer ticker.Stop()
 
 	batch := make([]llmAuditEntry, 0, batchSize)
+	// Hand the local partial batch to CloseContext after this loop has been joined.
+	defer func() { c.llmAuditPartial = batch }()
+
 	for {
 		select {
 		case <-ctx.Done():
-			for {
-				batch = c.drainQueuedLLMAuditEntries(batch, batchSize)
-				if len(batch) < batchSize {
-					c.flushLLMAuditBatch(batch)
-					return
-				}
-				batch = c.flushLLMAuditBatch(batch)
-			}
+			return
 		case entry := <-c.llmAuditEntries:
 			batch = append(batch, entry)
 			batch = c.drainQueuedLLMAuditEntries(batch, batchSize)
 			if len(batch) >= batchSize {
-				batch = c.flushLLMAuditBatch(batch)
+				batch = c.flushLLMAuditBatch(ctx, batch)
 			}
 		case <-ticker.C:
-			batch = c.flushLLMAuditBatch(batch)
+			batch = c.flushLLMAuditBatch(ctx, batch)
 		}
 	}
 }
@@ -312,17 +308,23 @@ func (c *Client) drainQueuedLLMAuditEntries(batch []llmAuditEntry, batchSize int
 	return batch
 }
 
-func (c *Client) flushLLMAuditBatch(batch []llmAuditEntry) []llmAuditEntry {
+func (c *Client) flushLLMAuditBatch(ctx context.Context, batch []llmAuditEntry) []llmAuditEntry {
 	if len(batch) == 0 {
 		return batch
 	}
-	if err := c.persistLLMAuditLogs(batch); err != nil {
+	if err := c.writeAuditLogs(ctx, func(ctx context.Context) error {
+		return c.persistLLMAuditLogs(ctx, batch)
+	}); err != nil {
 		slog.Error("Failed to persist LLM audit logs", "error", err)
+		if ctx.Err() != nil {
+			// Shutdown cancellation leaves the batch available for the final shared-budget drain.
+			return batch
+		}
 	}
 	return batch[:0]
 }
 
-func (c *Client) persistQueuedLLMAuditLogs() error {
+func (c *Client) persistQueuedLLMAuditLogs(ctx context.Context) error {
 	if c.llmAuditEntries == nil {
 		return nil
 	}
@@ -331,29 +333,34 @@ func (c *Client) persistQueuedLLMAuditLogs() error {
 	if batchSize <= 0 {
 		batchSize = defaultLLMAuditLogBatchSize
 	}
-	batch := make([]llmAuditEntry, 0, batchSize)
+	batch := c.llmAuditPartial
+	defer func() { c.llmAuditPartial = batch }()
+
 	for {
-		select {
-		case entry := <-c.llmAuditEntries:
-			batch = append(batch, entry)
-			if len(batch) >= batchSize {
-				if err := c.persistLLMAuditLogs(batch); err != nil {
-					return err
-				}
-				batch = batch[:0]
-			}
-		default:
-			return c.persistLLMAuditLogs(batch)
+		if err := ctx.Err(); err != nil {
+			return err
 		}
+
+		batch = c.drainQueuedLLMAuditEntries(batch, batchSize)
+		if len(batch) == 0 {
+			return nil
+		}
+		if err := c.persistLLMAuditLogs(ctx, batch); err != nil {
+			return err
+		}
+		batch = nil
 	}
 }
 
-func (c *Client) persistLLMAuditLogs(entries []llmAuditEntry) error {
+func (c *Client) persistLLMAuditLogs(ctx context.Context, entries []llmAuditEntry) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if len(entries) == 0 {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	logs := make([]types.LLMAuditLog, len(entries))
 	for i, entry := range entries {

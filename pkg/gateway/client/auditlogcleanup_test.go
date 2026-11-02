@@ -16,8 +16,14 @@ import (
 func newTestClient(t *testing.T) *Client {
 	t.Helper()
 
+	return newTestClientWithDSN(t, "sqlite://:memory:")
+}
+
+func newTestClientWithDSN(t *testing.T, dsn string) *Client {
+	t.Helper()
+
 	services, err := sservices.New(sservices.Config{
-		DSN: "sqlite://:memory:",
+		DSN: dsn,
 	})
 	if err != nil {
 		t.Fatalf("failed to create storage services: %v", err)
@@ -31,7 +37,13 @@ func newTestClient(t *testing.T) *Client {
 		t.Fatalf("failed to auto-migrate: %v", err)
 	}
 
+	// Unit tests flush directly without starting background persistence loops.
+	writeCtx, writeCancel := context.WithCancel(context.Background())
+	t.Cleanup(writeCancel)
+
 	return &Client{
+		auditWriteCtx:             writeCtx,
+		auditWriteCancel:          writeCancel,
 		db:                        db,
 		llmAuditEntries:           make(chan llmAuditEntry, 6),
 		llmAuditBatchSize:         3,

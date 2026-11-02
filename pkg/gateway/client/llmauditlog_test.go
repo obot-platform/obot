@@ -580,6 +580,10 @@ func TestRunLLMAuditPersistenceLoopDrainsOnShutdown(t *testing.T) {
 	cancel()
 	<-done
 
+	if err := c.persistQueuedLLMAuditLogs(t.Context()); err != nil {
+		t.Fatalf("drain LLM audit logs after joining the loop: %v", err)
+	}
+
 	waitForLLMAuditLogCount(t, c, 2)
 }
 

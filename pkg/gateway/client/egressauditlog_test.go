@@ -125,9 +125,7 @@ func TestBufferedEgressAuditFinalStatusOrdering(t *testing.T) {
 func TestEgressAuditCloseDrainsAfterCancellation(t *testing.T) {
 	c := newTestClient(t)
 	ctx, cancel := context.WithCancel(context.Background())
-	c.egressAuditCancel = cancel
-	c.egressAuditDone = make(chan struct{})
-	go c.runEgressAuditPersistenceLoop(ctx, time.Hour)
+	c.startAuditLoops(ctx, time.Hour)
 	c.LogEgressAuditEntry(types.EgressAuditLog{
 		ID:      "shutdown",
 		UserID:  "7",
@@ -151,15 +149,18 @@ func TestEgressAuditPersistenceTriggers(t *testing.T) {
 		t.Run(trigger, func(t *testing.T) {
 			c := newTestClient(t)
 			ctx, cancel := context.WithCancel(t.Context())
-			c.egressAuditDone = make(chan struct{})
+			done := make(chan struct{})
 			c.kickEgressAuditPersist = make(chan struct{}, 1)
 			c.egressAuditBatchSize = 2
 			interval := time.Hour
 			if trigger == "timer" {
 				interval = time.Millisecond
 			}
-			go c.runEgressAuditPersistenceLoop(ctx, interval)
-			defer func() { cancel(); <-c.egressAuditDone }()
+			go func() {
+				defer close(done)
+				c.runEgressAuditPersistenceLoop(ctx, interval)
+			}()
+			defer func() { cancel(); <-done }()
 
 			c.LogEgressAuditEntry(types.EgressAuditLog{ID: "first", UserID: "7", Outcome: "complete"})
 			want := int64(1)
