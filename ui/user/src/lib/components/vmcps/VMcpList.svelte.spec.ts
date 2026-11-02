@@ -1,6 +1,6 @@
 import { UserService } from '$lib/services';
 import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
-import { vmcpInstances } from '$lib/stores';
+import { errors, vmcpInstances } from '$lib/stores';
 import { setUrlParamAndUpdateUrl } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -63,10 +63,15 @@ describe('VMcpList.svelte', () => {
 });
 
 describe.each(['grid', 'table'] as const)('VMcpList %s reauthentication', (variant) => {
-	afterEach(() => vi.restoreAllMocks());
+	afterEach(() => {
+		vi.restoreAllMocks();
+		errors.items = [];
+	});
 	async function renderConnectedList(connected = true) {
 		await preparePageData();
 		const vmcp = createVMCP({ id: 'vmcp-mail', displayName: 'Mail vMCP' }, [github, slack]);
+		// Dialogs refetch the full vMCP because list items are minimal.
+		worker.use(http.get(`/api/vmcps/${vmcp.id}`, () => HttpResponse.json(vmcp)));
 		vmcpInstances.current = {
 			items: connected
 				? [
@@ -161,6 +166,40 @@ describe.each(['grid', 'table'] as const)('VMcpList %s reauthentication', (varia
 		await vi.waitFor(() =>
 			expect(clearOAuth).toHaveBeenCalledExactlyOnceWith('vmcp-mail', 'component-entry-github')
 		);
+	});
+
+	it('fetches the full vMCP before opening a dialog from a minimal list item', async () => {
+		worker.use(
+			http.get('/api/vmcps/vmcp-mail/oauth-status', () =>
+				HttpResponse.json({ authenticatedComponents: ['component-entry-github'] })
+			)
+		);
+		vi.spyOn(UserService, 'clearVMCPComponentOAuth').mockResolvedValue(undefined);
+		vi.spyOn(UserService, 'getMcpServerOauthURL').mockResolvedValue('');
+		const getVMCP = vi.spyOn(UserService, 'getVMCP');
+		await renderConnectedList();
+		await page.getByRole('button', { name: 'Actions for Mail vMCP', exact: true }).click();
+		await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
+		await vi.waitFor(() =>
+			expect(getVMCP).toHaveBeenCalledExactlyOnceWith('vmcp-mail', { dontLogErrors: true })
+		);
+	});
+
+	it('shows an error and opens nothing when the full vMCP fails to load', async () => {
+		worker.use(
+			http.get('/api/vmcps/vmcp-mail/oauth-status', () =>
+				HttpResponse.json({ authenticatedComponents: ['component-entry-github'] })
+			)
+		);
+		await renderConnectedList();
+		worker.use(http.get('/api/vmcps/vmcp-mail', () => new HttpResponse(null, { status: 500 })));
+		const clearOAuth = vi.spyOn(UserService, 'clearVMCPComponentOAuth');
+		await page.getByRole('button', { name: 'Actions for Mail vMCP', exact: true }).click();
+		await page.getByRole('button', { name: 'Reauthenticate', exact: true }).click();
+		await vi.waitFor(() =>
+			expect(errors.items.map((item) => item.message)).toContain('Failed to load vMCP.')
+		);
+		expect(clearOAuth).not.toHaveBeenCalled();
 	});
 
 	it('cancels a pending lookup when the menu closes and ignores its late result', async () => {

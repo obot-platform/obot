@@ -30,7 +30,6 @@ import type {
 	MCPAllowedSecretBindingTarget,
 	MCPSubField,
 	Skill,
-	VMCP,
 	VMCPInstance
 } from '../user/types';
 import type {
@@ -2486,11 +2485,6 @@ export async function downloadMDMConfig(
 }
 
 // vMCPs
-
-export async function listAllVMCPs(opts?: { fetch?: Fetcher }): Promise<VMCP[]> {
-	const response = (await doGet('/vmcps?all=true', opts)) as ItemsResponse<VMCP>;
-	return response.items ?? [];
-}
 
 export async function listAllVMCPInstances(opts?: {
 	fetch?: Fetcher;

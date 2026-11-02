@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import ConnectAllVMcps from '$lib/components/vmcps/ConnectAllVMcps.svelte';
@@ -9,7 +10,6 @@
 	import VMcpList from '$lib/components/vmcps/VMcpList.svelte';
 	import VMcpListSettings from '$lib/components/vmcps/VMcpListSettings.svelte';
 	import { m } from '$lib/i18n';
-	import Loading from '$lib/icons/Loading.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { Group, UserService, type OrgUser, type VMCP } from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
@@ -25,10 +25,10 @@
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
-	import { mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
 	import { goto, setFilterUrlParams, setSortUrlParams } from '$lib/url';
 	import { Layers, Pencil, Plus } from '@lucide/svelte';
-	import { onMount, untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
@@ -82,7 +82,7 @@
 	});
 	const variant = $derived<VMcpListVariant>(variantState.current === 'table' ? 'table' : 'grid');
 
-	let listedVMcps = $state<VMCP[]>(untrack(() => data?.vmcps ?? []));
+	let listedVMcps = $state<VMCP[]>([]);
 	let isLoading = $state(false);
 	let filters = $state(getInitialFilters());
 	let vmcpList = $state<ReturnType<typeof VMcpList>>();
@@ -145,14 +145,33 @@
 		)
 	);
 
-	$effect(() => {
-		listedVMcps = data?.vmcps ?? [];
-	});
-
 	onMount(() => {
+		let active = true;
+
 		UserService.listUsersIncludeDeleted().then((response) => {
-			users = response;
+			if (active) users = response;
 		});
+
+		UserService.listVMCPs({
+			all: profile.current.hasAdminAccess?.(),
+			minimal: true,
+			dontLogErrors: true
+		})
+			.then((response) => {
+				if (active) listedVMcps = response;
+			})
+			.catch(() => {
+				if (!active) return;
+				listedVMcps = [];
+				errors.append(m.vmcps_failed_to_load_vmcps());
+			})
+			.finally(() => {
+				if (active) isLoading = false;
+			});
+
+		return () => {
+			active = false;
+		};
 	});
 
 	function vmcpComponents(vmcp: VMCP) {
@@ -227,9 +246,11 @@
 
 {#if creating}
 	<VMcpDesigner
+		loading={isLoading}
 		onBack={hideCreate}
 		{usersMap}
-		isFirstVMcp={!listedVMcps.some((vmcp) => vmcp.creatorUserID === profile.current.id)}
+		isFirstVMcp={!isLoading &&
+			!listedVMcps.some((vmcp) => vmcp.creatorUserID === profile.current.id)}
 		workspaceId={data.workspaceId}
 	/>
 {:else}
@@ -252,6 +273,7 @@
 				<IconButton
 					class="btn-sm bg-base-200 hover:bg-base-400 dark:hover:bg-base-300"
 					tooltip={{ text: option.alt, placement: 'bottom' }}
+					disabled={isLoading}
 					onclick={() => openConnectAllDialog(option)}
 				>
 					<img src={option.icon} alt={option.alt} class="size-4 block dark:hidden" />
@@ -273,33 +295,43 @@
 {/snippet}
 
 {#snippet vmcpsView()}
-	{#if isLoading}
-		<Loading class="text-primary" />
-	{:else}
-		<VMcpListSettings
-			{filters}
-			{variant}
-			onChange={handleChange}
-			onVariantChange={handleVariantChange}
-			{componentFilterOptions}
-			{creatorFilterOptions}
-		>
-			{#snippet actions()}
-				{#if sortedVMcps.length > 0 && variant === 'grid' && !vmcpList?.isInSelectMode()}
-					<div in:fade>
-						<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectMode()}>
-							<Pencil class="size-4" />
-							{m.vmcps_edit_mode()}
-						</button>
-					</div>
-				{/if}
-				{#if sortedVMcps.length > 0 && variant === 'grid' && vmcpList?.isInSelectMode()}
-					<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectAll()}>
-						{vmcpList?.isAllSelected() ? m.vmcps_deselect_all() : m.vmcps_select_all()}
+	<VMcpListSettings
+		{filters}
+		{variant}
+		onChange={handleChange}
+		onVariantChange={handleVariantChange}
+		{componentFilterOptions}
+		{creatorFilterOptions}
+	>
+		{#snippet actions()}
+			{#if sortedVMcps.length > 0 && variant === 'grid' && !vmcpList?.isInSelectMode()}
+				<div in:fade>
+					<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectMode()}>
+						<Pencil class="size-4" />
+						{m.vmcps_edit_mode()}
 					</button>
-				{/if}
-			{/snippet}
-		</VMcpListSettings>
+				</div>
+			{/if}
+			{#if sortedVMcps.length > 0 && variant === 'grid' && vmcpList?.isInSelectMode()}
+				<button class="btn btn-secondary" onclick={() => vmcpList?.toggleSelectAll()}>
+					{vmcpList?.isAllSelected() ? m.vmcps_deselect_all() : m.vmcps_select_all()}
+				</button>
+			{/if}
+		{/snippet}
+	</VMcpListSettings>
+	{#if isLoading}
+		{#if filters.variant === 'table'}
+			<Skeleton type="table" count={12} />
+		{:else}
+			<div class="@container">
+				<div class="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
+					{#each Array.from({ length: 12 }) as _, i (i)}
+						<Skeleton type="card" class="h-44 w-full" />
+					{/each}
+				</div>
+			</div>
+		{/if}
+	{:else}
 		<VMcpList
 			bind:this={vmcpList}
 			items={sortedVMcps}
@@ -354,7 +386,7 @@
 {/snippet}
 
 {#snippet deploymentsView()}
-	<VMcpDeploymentsView vmcps={listedVMcps} {usersMap} />
+	<VMcpDeploymentsView vmcps={listedVMcps} {usersMap} vmcpsLoading={isLoading} />
 {/snippet}
 
 <ConnectAllVMcps bind:this={connectAllVMcpsDialog} {vmcps} />

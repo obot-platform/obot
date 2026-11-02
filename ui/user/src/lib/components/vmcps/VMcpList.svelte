@@ -424,7 +424,7 @@
 	</div>
 {/if}
 
-<VMcpActions bind:this={vmcpActions} />
+<VMcpActions bind:this={vmcpActions} fetchVMcpOnAction />
 
 <Confirm
 	show={Boolean(pendingBulkDelete?.length)}

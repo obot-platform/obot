@@ -1,6 +1,6 @@
 import { page as appPage } from '$app/state';
-import { Group, type MCPCatalogEntry, type VMCPInstance } from '$lib/services';
-import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
+import { Group, type MCPCatalogEntry, type VMCP, type VMCPInstance } from '$lib/services';
+import { errors, mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { getProfileResponse } from '../../tests/mocks/data';
@@ -48,14 +48,21 @@ function createIssueTrackerVMcp() {
 async function renderPageWithEntries(
 	entries: MCPCatalogEntry[],
 	creating = false,
-	vmcps = [createIssueTrackerVMcp()],
-	groups: string[] = [Group.ADMIN]
+	vmcps: VMCP[] = [createIssueTrackerVMcp()],
+	groups: string[] = [Group.ADMIN],
+	beforeVMcps: () => Promise<void> | void = () => undefined
 ) {
 	if (creating) {
 		(appPage.url as URL).searchParams.set('new', 'true');
 	} else {
 		(appPage.url as URL).searchParams.delete('new');
 	}
+	worker.use(
+		http.get('/api/vmcps', async () => {
+			await beforeVMcps();
+			return HttpResponse.json({ items: vmcps });
+		})
+	);
 	mcpServersAndEntries.current = {
 		entries,
 		servers: [],
@@ -66,7 +73,6 @@ async function renderPageWithEntries(
 		isInitialized: true
 	};
 	const data = await preparePageData<PageData>({
-		vmcps,
 		profile: createMockProfile(groups)
 	});
 	return render(VMcpsPage, { data });
@@ -77,6 +83,7 @@ afterEach(() => {
 		(appPage.url as URL).searchParams.delete(key);
 	}
 	vmcpInstances.current = { items: [], loading: false };
+	errors.items = [];
 });
 
 describe('vMCPs Page', () => {
@@ -307,11 +314,37 @@ describe('vMCPs Page', () => {
 				.toHaveTextContent('Descending');
 			await screen.unmount();
 			await renderPageWithEntries([componentEntry, slack], false, vmcps);
+			await expect.element(page.getByText('Many Servers', { exact: true })).toBeVisible();
 			expect(tableNames()[0]).toContain('Many Servers');
 			await page.getByRole('button', { name: 'Grid View' }).click();
 			await expect
 				.element(page.getByRole('button', { name: /^Open / }).first())
 				.toHaveAccessibleName('Open Many Servers');
+		});
+
+		it('shows an error toast when vMCPs fail to load', async () => {
+			// A throwing resolver makes MSW answer with a 500.
+			await renderPageWithEntries([componentEntry], false, [], [Group.ADMIN], () => {
+				throw new Error('fail');
+			});
+
+			await expect
+				.poll(() => errors.items.map((e) => e.message))
+				.toEqual(['Failed to load vMCPs.']);
+		});
+
+		it('keeps the designer busy until vMCPs load', async () => {
+			let release = () => {};
+			const pending = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			await renderPageWithEntries([componentEntry], true, [], [Group.ADMIN], () => pending);
+
+			const busy = page.getByRole('status', { name: 'Loading Designer...' });
+			await expect.element(busy).toBeVisible();
+			release();
+			await expect.element(busy).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
 		});
 
 		it('shows the vMCP list and create action', async () => {
@@ -420,6 +453,7 @@ describe('vMCPs Page', () => {
 				)
 			);
 			await renderPageWithEntries([componentEntry, slack], true, []);
+			await expect.element(page.getByCSS('[aria-busy="true"]')).not.toBeInTheDocument();
 
 			const canvas = await page.getByCSS('[data-vmcp-canvas]').element();
 			const rect = canvas.getBoundingClientRect();

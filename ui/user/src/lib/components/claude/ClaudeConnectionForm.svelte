@@ -109,7 +109,7 @@
 			ready = false;
 			try {
 				const nextConfig = await UserService.getClaudeConfig();
-				const nextServers = (await UserService.listVMCPs(isAdmin ? { all: true } : {})).filter(
+				const nextServers = (await UserService.listVMCPs({ all: isAdmin, minimal: true })).filter(
 					(server) => !isAdmin || !server.userID
 				);
 				const match =

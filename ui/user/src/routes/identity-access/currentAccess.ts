@@ -1,6 +1,7 @@
 import { m } from '$lib/i18n';
 import {
 	AdminService,
+	UserService,
 	type AccessControlRule,
 	type AccessControlRuleSubject,
 	type VMCP
@@ -376,7 +377,7 @@ export async function loadCurrentAccess(
 			);
 		}
 		case 'vmcps': {
-			const vmcps = await AdminService.listAllVMCPs();
+			const vmcps = await UserService.listVMCPs({ all: true, minimal: true });
 			return matchVmcpProfiles(vmcps, target);
 		}
 	}

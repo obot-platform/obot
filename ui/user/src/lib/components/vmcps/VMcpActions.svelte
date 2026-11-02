@@ -30,9 +30,10 @@
 			forceSingleUser: boolean
 		) => void | Promise<void>;
 		onConfigurationDismiss?: () => void;
+		fetchVMcpOnAction?: boolean;
 	}
 
-	let { onConfigurationNext, onConfigurationDismiss }: Props = $props();
+	let { onConfigurationNext, onConfigurationDismiss, fetchVMcpOnAction = false }: Props = $props();
 
 	let selectInstanceDialog = $state<ReturnType<typeof VMcpSelectInstance>>();
 	let diffDialog = $state<ReturnType<typeof VMcpDiffDialog>>();
@@ -69,11 +70,28 @@
 		selectInstanceDialog?.open(instances, title);
 	}
 
-	export function openDiff(vmcp: VMCP) {
-		diffDialog?.open(vmcp);
+	async function fetchFullVmcp(vmcp: VMCP): Promise<VMCP | undefined> {
+		if (!fetchVMcpOnAction) return vmcp;
+		try {
+			return await UserService.getVMCP(vmcp.id, { dontLogErrors: true });
+		} catch {
+			errors.append(m.vmcps_failed_to_load_vmcp());
+			return undefined;
+		}
 	}
 
-	export function openConnect(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpConnectOptions) {
+	export async function openDiff(listed: VMCP) {
+		const vmcp = await fetchFullVmcp(listed);
+		if (vmcp) diffDialog?.open(vmcp);
+	}
+
+	export async function openConnect(
+		listed: VMCP,
+		instance?: VMCPInstance,
+		options?: VMcpConnectOptions
+	) {
+		const vmcp = await fetchFullVmcp(listed);
+		if (!vmcp) return;
 		const targetInstance =
 			instance ??
 			vmcpInstances.current.items.find(
@@ -85,7 +103,9 @@
 		connectVMcpDialog?.open(vmcp, targetInstance, options);
 	}
 
-	export function openReauthenticate(vmcp: VMCP, componentIDs: string[]) {
+	export async function openReauthenticate(listed: VMCP, componentIDs: string[]) {
+		const vmcp = await fetchFullVmcp(listed);
+		if (!vmcp) return;
 		const instance = vmcpInstances.current.items.find(
 			(candidate) =>
 				candidate.vmcpID === vmcp.id &&
@@ -96,7 +116,9 @@
 	}
 
 	// Resolves once the user finishes or dismisses the component's OAuth prompt.
-	export async function reauthenticateComponent(vmcp: VMCP, componentID: string) {
+	export async function reauthenticateComponent(listed: VMCP, componentID: string) {
+		const vmcp = await fetchFullVmcp(listed);
+		if (!vmcp) return;
 		const instance = vmcpInstances.current.items.find(
 			(candidate) =>
 				candidate.vmcpID === vmcp.id &&
@@ -122,7 +144,11 @@
 		instance: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
-		void connectVMcpDialog?.openEditConfiguration(vmcp, instance, options);
+		const target = fetchVMcpOnAction ? vmcp.id : vmcp;
+		connectVMcpDialog?.openEditConfiguration(target, instance, options).catch((err) => {
+			if (!fetchVMcpOnAction) throw err;
+			errors.append(m.vmcps_failed_to_load_vmcp());
+		});
 	}
 
 	export function openConfiguration(
@@ -140,7 +166,9 @@
 		configurationDialog?.open(entry, options);
 	}
 
-	export function openUpdateConfirm(vmcp: VMCP, onConfirm: () => Promise<void>) {
+	export async function openUpdateConfirm(listed: VMCP, onConfirm: () => Promise<void>) {
+		const vmcp = await fetchFullVmcp(listed);
+		if (!vmcp) return;
 		updateName = vmcp.displayName || m.vmcps_untitled_vmcp();
 		pendingUpdateVMcp = vmcp;
 		pendingUpdate = onConfirm;

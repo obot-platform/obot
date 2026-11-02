@@ -1,5 +1,5 @@
 import { CommonAuthProviderIds } from '$lib/constants';
-import { AdminService, UserService, type AuthProvider, type Profile } from '$lib/services';
+import { UserService, type AuthProvider, type Profile } from '$lib/services';
 import { Group } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -37,7 +37,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	const hasAccess =
 		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
 	if (hasAccess && !showSetupHandoff) {
-		const vmcps = await AdminService.listAllVMCPs({ fetch });
+		const vmcps = await UserService.listVMCPs({ all: true, minimal: true, fetch });
 		throw redirect(
 			307,
 			getAdminRedirectPath(profile, vmcps.length > 0, bootstrapStatus?.setupEnabled)
