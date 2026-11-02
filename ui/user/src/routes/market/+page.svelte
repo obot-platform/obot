@@ -9,7 +9,7 @@
 	import ConnectVMcp from '$lib/components/vmcps/ConnectVMcp.svelte';
 	import McpServerIcon from '$lib/components/vmcps/McpServerIcon.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
-	import VMcpList from '$lib/components/vmcps/VMcpList.svelte';
+	import VmcpsPageContent from '$lib/components/vmcps/VmcpsPageContent.svelte';
 	import { sanitizeFilenameSegment, saveBlob } from '$lib/download';
 	import { m } from '$lib/i18n';
 	import { stripMarkdownToText, toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
@@ -18,6 +18,7 @@
 		UserService,
 		type ConnectorAccessRequest,
 		type MCPCatalogEntry,
+		type OrgUser,
 		type Skill,
 		type VMCP
 	} from '$lib/services';
@@ -65,11 +66,15 @@
 	let submitError = $state('');
 	let connecting = $state(false);
 	let connectDialog = $state<ReturnType<typeof ConnectVMcp>>();
+	let users = $state<OrgUser[]>([]);
 
 	onMount(() => {
 		if (!mcpServersAndEntries.current.isInitialized) {
 			mcpServersAndEntries.initialize({ scope: 'user' });
 		}
+		UserService.listUsersIncludeDeleted().then((response) => {
+			users = response;
+		});
 	});
 
 	// Keep the fetched request list in sync when returning from the connect flow.
@@ -124,6 +129,8 @@
 			userID: vmcp.userID || vmcp.creatorUserID
 		}))
 	);
+
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	// Shared vMCPs provisioned by an administrator are available to their
 	// authorized users. Keep personal and shared links out of this list.
@@ -805,16 +812,11 @@
 		<div>
 			<h2 class="text-xl font-semibold tracking-tight">{m.market_tab_my_links()}</h2>
 		</div>
-		<VMcpList
-			items={myLinkVMcps}
-			components={resolveVMcpComponents}
-			usersMap={new Map()}
-			variant="grid"
-		>
+		<VmcpsPageContent vmcps={myLinkVMcps} scope="mine" {usersMap}>
 			{#snippet noDataContent()}
 				<p class="text-muted-content text-sm font-light">{m.market_my_links_empty()}</p>
 			{/snippet}
-		</VMcpList>
+		</VmcpsPageContent>
 	</div>
 {/snippet}
 

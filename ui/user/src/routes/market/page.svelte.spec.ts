@@ -2,7 +2,7 @@ import { page as appPage } from '$app/state';
 import { saveBlob } from '$lib/download';
 import { m } from '$lib/i18n';
 import { Group } from '$lib/services';
-import type { ConnectorAccessRequest, MCPCatalogEntry, Skill } from '$lib/services';
+import type { ConnectorAccessRequest, MCPCatalogEntry, Skill, VMCPInstance } from '$lib/services';
 import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { formatTimeAgo } from '$lib/time';
 import { createMCPCatalogEntry, createVMCP } from '../../tests/helpers/mcp';
@@ -15,6 +15,8 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+const gotoMock = vi.hoisted(() => vi.fn());
 
 vi.mock('$app/state', async (importOriginal) => {
 	const actual = await importOriginal<typeof import('$app/state')>();
@@ -41,7 +43,10 @@ vi.mock('$lib/url', async (importOriginal) => {
 	const { applyTestGoto } = await import('../../tests/helpers/navigation.svelte');
 	return {
 		...actual,
-		goto: (url: string | URL) => applyTestGoto(url),
+		goto: (url: string | URL) => {
+			gotoMock(url);
+			return applyTestGoto(url);
+		},
 		clearUrlParams: () => undefined
 	};
 });
@@ -122,6 +127,7 @@ async function renderMarketPage({
 	catalogEntries?: MCPCatalogEntry[];
 	profile?: ReturnType<typeof createMockProfile>;
 } = {}) {
+	gotoMock.mockClear();
 	await applyTestGoto('/market');
 	resetStore();
 	vmcpInstances.current = { items: [], loading: false };
@@ -579,6 +585,34 @@ describe('market page', () => {
 		await expect
 			.element(page.getByRole('button', { name: m.vmcps_test_vmcp() }).first())
 			.toBeVisible();
+	});
+
+	it('renders the full vMCP page features under My links', async () => {
+		const profile = createMockProfile([Group.USER]);
+		const owned = createVMCP(
+			{ id: 'vmcp-full-page', displayName: '完整 vMCP 链接', userID: profile.id },
+			[connectorEntry]
+		);
+
+		await renderMarketPage({ profile, vmcps: [owned] });
+		vmcpInstances.current = {
+			items: [
+				{
+					id: 'vmcpi-full-page',
+					vmcpID: owned.id,
+					userID: profile.id
+				} as VMCPInstance
+			],
+			loading: false
+		};
+		await openMyLinksTab();
+
+		await expect.element(page.getByRole('button', { name: m.core_grid_view() })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: m.core_table_view() })).toBeVisible();
+		await page.getByRole('button', { name: m.vmcps_test_vmcp() }).click();
+
+		expect(gotoMock).toHaveBeenCalledWith(`/vmcps/${owned.id}?view=inspector`);
+		expect(appPage.url.pathname).toBe(`/vmcps/${owned.id}`);
 	});
 
 	it('creates an approved connector as a personal vMCP and opens the harness dialog in place', async () => {

@@ -22,6 +22,7 @@ const ACCOUNT_INACTIVE_KEY = 'obot-account-inactive';
 const ACCOUNT_INACTIVE_COOKIE = 'obot_account_inactive';
 const BASIC_USER_ALLOWED_ROUTE_PREFIXES = [
 	'/market',
+	'/vmcps',
 	'/login',
 	'/auth',
 	'/logout',

@@ -35,7 +35,10 @@ function createFetch(groups: string[]) {
 	});
 }
 
-async function loadWith(fetch: ReturnType<typeof createFetch>, url = new URL('http://localhost/market')) {
+async function loadWith(
+	fetch: ReturnType<typeof createFetch>,
+	url = new URL('http://localhost/market')
+) {
 	return (await load({ fetch, url } as unknown as Parameters<
 		NonNullable<typeof load>
 	>[0])) as Exclude<Awaited<ReturnType<NonNullable<typeof load>>>, void>;
@@ -55,7 +58,7 @@ describe('root layout', () => {
 	});
 
 	describe('basic user route guard', () => {
-		it.each(['/vmcps', '/dashboard'])('redirects %s to the marketplace', async (pathname) => {
+		it.each(['/dashboard'])('redirects %s to the marketplace', async (pathname) => {
 			await expect(
 				loadWith(createFetch([Group.USER]), new URL(`http://localhost${pathname}`))
 			).rejects.toMatchObject({
@@ -64,7 +67,7 @@ describe('root layout', () => {
 			});
 		});
 
-		it.each(['/market', '/agent-auth-scopes'])('allows %s', async (pathname) => {
+		it.each(['/market', '/vmcps', '/agent-auth-scopes'])('allows %s', async (pathname) => {
 			const data = await loadWith(
 				createFetch([Group.USER]),
 				new URL(`http://localhost${pathname}`)

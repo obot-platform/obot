@@ -120,8 +120,11 @@
 	});
 
 	$effect(() => {
-		const onVmcps = page.url.pathname === '/vmcps' || page.url.pathname.startsWith('/vmcps/');
-		if (profile.current.loaded && onVmcps) {
+		const usesVmcpsInstances =
+			page.url.pathname === '/vmcps' ||
+			page.url.pathname.startsWith('/vmcps/') ||
+			page.url.pathname === '/market';
+		if (profile.current.loaded && usesVmcpsInstances) {
 			return vmcpInstances.startWatching();
 		}
 	});

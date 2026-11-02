@@ -28,7 +28,6 @@
 	} from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { isBasicUser } from '$lib/utils';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, MessageCircle } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -84,7 +83,6 @@
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
 	let componentViews = $derived(vmcp ? resolveVMcpComponents(vmcp) : []);
 	let authenticatedComponents = $state<string[]>([]);
-	let isBasic = $derived(isBasicUser(profile.current.groups));
 
 	let statusRequest = 0;
 	let connectionFlow = 0;
@@ -821,17 +819,15 @@
 					label={m.vmcps_connection_url()}
 				/>
 			</div>
-			{#if !isBasic}
-				<button
-					type="button"
-					aria-label={m.vmcps_test_vmcp()}
-					class="btn btn-primary"
-					onclick={handleTest}
-				>
-					<MessageCircle class="size-4" />
-					{m.vmcps_test_vmcp()}
-				</button>
-			{/if}
+			<button
+				type="button"
+				aria-label={m.vmcps_test_vmcp()}
+				class="btn btn-primary"
+				onclick={handleTest}
+			>
+				<MessageCircle class="size-4" />
+				{m.vmcps_test_vmcp()}
+			</button>
 		</div>
 
 		<HowToConnect

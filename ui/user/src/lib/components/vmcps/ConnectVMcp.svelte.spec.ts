@@ -111,14 +111,12 @@ describe('ConnectVMcp.svelte', () => {
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
 	});
 
-	it('hides Test for a basic user and shows it for a power user', async () => {
+	it('shows Test for a basic user and a power user', async () => {
 		const vmcp = createVMCP({ id: 'vmcp1roles', displayName: 'Role Test vMCP' });
 
 		const basic = await renderDialog(vmcp, undefined, undefined, [Group.USER]);
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
-		await expect
-			.element(page.getByRole('button', { name: m.vmcps_test_vmcp() }))
-			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: m.vmcps_test_vmcp() })).toBeVisible();
 		await basic.unmount();
 
 		await renderDialog(vmcp, undefined, undefined, [Group.POWERUSER]);
