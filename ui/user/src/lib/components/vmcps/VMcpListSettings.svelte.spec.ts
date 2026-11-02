@@ -12,18 +12,21 @@ const defaultFilters = {
 	query: '',
 	componentFilterBy: '',
 	statusFilterBy: '',
-	creatorFilterBy: '',
-	variant: 'grid' as const
+	creatorFilterBy: ''
+};
+
+const settingsProps = {
+	filters: defaultFilters,
+	variant: 'grid' as const,
+	onChange: () => {},
+	onVariantChange: () => {}
 };
 
 async function renderSettings(groups: string[] = [Group.ADMIN]) {
 	await preparePageData({
 		profile: createMockProfile(groups)
 	});
-	return render(VMcpListSettings, {
-		filters: defaultFilters,
-		onChange: () => {}
-	});
+	return render(VMcpListSettings, settingsProps);
 }
 
 async function openFilters() {
@@ -67,7 +70,7 @@ describe('VMcpListSettings.svelte', () => {
 			profile: createMockProfile([Group.USER])
 		});
 		await render(VMcpListSettings, {
-			filters: defaultFilters,
+			...settingsProps,
 			onChange
 		});
 		await openFilters();
@@ -82,8 +85,8 @@ describe('VMcpListSettings.svelte', () => {
 			profile: createMockProfile([Group.USER])
 		});
 		await render(VMcpListSettings, {
-			filters: { ...defaultFilters, showMyVMcpsOnly: true },
-			onChange: () => {}
+			...settingsProps,
+			filters: { ...defaultFilters, showMyVMcpsOnly: true }
 		});
 
 		await expect.element(page.getByText('Show Only My vMCPs').first()).toBeVisible();

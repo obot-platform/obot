@@ -8,7 +8,11 @@
 		VMCP_SORT_FIELD_OPTIONS,
 		VMCP_STATUS_FILTER_OPTIONS
 	} from '$lib/services/vmcps/constants';
-	import type { VMcpFilterOption, VMcpListSettings } from '$lib/services/vmcps/types';
+	import type {
+		VMcpFilterOption,
+		VMcpListSettings,
+		VMcpListVariant
+	} from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { Funnel, LayoutGrid, X, Table } from '@lucide/svelte';
@@ -24,7 +28,9 @@
 
 	interface Props {
 		filters: VMcpListSettings;
+		variant: VMcpListVariant;
 		onChange: (property: keyof VMcpListSettings, values: string[]) => void;
+		onVariantChange: (variant: VMcpListVariant) => void;
 		componentFilterOptions?: VMcpFilterOption[];
 		creatorFilterOptions?: VMcpFilterOption[];
 		actions?: Snippet;
@@ -32,7 +38,9 @@
 
 	let {
 		filters,
+		variant,
 		onChange,
+		onVariantChange,
 		componentFilterOptions = [],
 		creatorFilterOptions = [],
 		actions
@@ -148,15 +156,15 @@
 	</div>
 	<div class="flex items-center gap-2">
 		<button
-			class={twMerge('btn', filters.variant === 'grid' ? 'btn-active' : undefined)}
-			onclick={() => onChange('variant', ['grid'])}
+			class={twMerge('btn', variant === 'grid' ? 'btn-active' : undefined)}
+			onclick={() => onVariantChange('grid')}
 		>
 			<LayoutGrid class="size-4" />
 			{m.core_grid_view()}
 		</button>
 		<button
-			class={twMerge('btn', filters.variant === 'table' ? 'btn-active' : undefined)}
-			onclick={() => onChange('variant', ['table'])}
+			class={twMerge('btn', variant === 'table' ? 'btn-active' : undefined)}
+			onclick={() => onVariantChange('table')}
 		>
 			<Table class="size-4" />
 			{m.core_table_view()}
