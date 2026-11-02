@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { m } from '$lib/i18n';
+	import { navigateTo } from '$lib/navigation';
 	import { announceOAuthCompletion } from '$lib/services/mcp/oauth-completion';
 	import { CircleCheckBig } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -19,7 +20,7 @@
 		if (!redirectURL) return;
 
 		redirecting = true;
-		window.location.href = redirectURL;
+		navigateTo(redirectURL);
 	}
 
 	onMount(() => {
