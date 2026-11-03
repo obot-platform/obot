@@ -16,6 +16,8 @@ describe('provider authentication', () => {
 	for (const provider of ['bedrock', 'azure']) {
 		const aws = provider === 'bedrock';
 		const method = aws ? 'AWS credentials' : 'Microsoft Entra ID';
+		// The required marker distinguishes Azure’s credential field from its API Key radio.
+		const apiKeyLabel = aws ? /^Bedrock API Key/ : /^API Key\s*\*/;
 		const shared = aws ? 'Region' : 'Endpoint';
 		const sharedValue = aws ? 'us-east-1' : 'https://example.openai.azure.com';
 		const credentials = aws
@@ -52,23 +54,17 @@ describe('provider authentication', () => {
 				await expect
 					.element(dialog.getByRole('radio', { name: 'API Key', exact: true }))
 					.toBeChecked();
-				await dialog
-					.getByLabelText(new RegExp(aws ? '^Bedrock API Key' : '^API Key'))
-					.fill('api-secret');
+				await dialog.getByLabelText(apiKeyLabel).fill('api-secret');
 				await dialog.getByLabelText(new RegExp('^' + shared)).fill(sharedValue);
 				await expect.element(submit).toBeEnabled();
 				await dialog.getByRole('radio', { name: method, exact: true }).click();
 				await expect.element(submit).toBeDisabled();
-				await expect
-					.element(dialog.getByLabelText(new RegExp(aws ? '^Bedrock API Key' : '^API Key')))
-					.not.toBeInTheDocument();
+				await expect.element(dialog.getByLabelText(apiKeyLabel)).not.toBeInTheDocument();
 				for (const [label, value] of Object.entries(credentials)) {
 					await dialog.getByLabelText(new RegExp('^' + label)).fill(value);
 				}
 				await dialog.getByRole('radio', { name: 'API Key', exact: true }).click();
-				await expect
-					.element(dialog.getByLabelText(new RegExp(aws ? '^Bedrock API Key' : '^API Key')))
-					.toHaveValue('api-secret');
+				await expect.element(dialog.getByLabelText(apiKeyLabel)).toHaveValue('api-secret');
 				await dialog.getByRole('radio', { name: method, exact: true }).click();
 				await submit.click();
 				await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
@@ -125,9 +121,7 @@ describe('provider authentication', () => {
 			component.open(key);
 			await dialog.getByRole('radio', { name: 'API Key', exact: true }).click();
 			await expect.element(submit).toBeDisabled();
-			await dialog
-				.getByLabelText(new RegExp(aws ? '^Bedrock API Key' : '^API Key'))
-				.fill('replacement');
+			await dialog.getByLabelText(apiKeyLabel).fill('replacement');
 			await submit.click();
 			await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
 			expect(saved.mock.calls[1][0]).toMatchObject({
@@ -143,9 +137,7 @@ describe('provider authentication', () => {
 			await expect
 				.element(dialog.getByRole('radio', { name: 'API Key', exact: true }))
 				.toBeChecked();
-			await expect
-				.element(dialog.getByLabelText(new RegExp(aws ? '^Bedrock API Key' : '^API Key')))
-				.toHaveValue('');
+			await expect.element(dialog.getByLabelText(apiKeyLabel)).toHaveValue('');
 		});
 
 		it(`${provider}: selects saved credentials and excludes inactive fields`, () => {
