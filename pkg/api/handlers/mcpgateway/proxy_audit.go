@@ -117,39 +117,6 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	return audit, nil
 }
 
-// readMCPProxyRequest preserves the wire body for forwarding and returns decoded
-// bytes for inspection. Recovery reuses this only after a failed session lookup.
-func readMCPProxyRequest(req *http.Request) ([]byte, error) {
-	body, err := io.ReadAll(io.LimitReader(req.Body, maxMCPProxyHookBodySize+1))
-	if err != nil {
-		_ = req.Body.Close()
-		return nil, err
-	}
-	if err := req.Body.Close(); err != nil {
-		return nil, err
-	}
-
-	if len(body) > maxMCPProxyHookBodySize {
-		return nil, fmt.Errorf("request body too large")
-	}
-
-	req.Body = io.NopCloser(bytes.NewReader(body))
-	// Decode for inspection without changing the body or encoding sent upstream.
-	auditBody := body
-	if strings.EqualFold(strings.TrimSpace(req.Header.Get("Content-Encoding")), "gzip") {
-		decoded, _, decodeErr := decodeMCPHookBody(io.NopCloser(bytes.NewReader(body)), "gzip")
-		if decodeErr == nil {
-			decodedBody, readErr := readMCPHookBody(decoded)
-			closeErr := decoded.Close()
-			if readErr == nil && closeErr == nil {
-				auditBody = decodedBody
-			}
-		}
-	}
-
-	return auditBody, nil
-}
-
 func (a *proxyAudit) setClientSession(session *v1.MCPClientSession) {
 	if a == nil || session == nil {
 		return
@@ -709,4 +676,37 @@ func jsonBody(body []byte) json.RawMessage {
 		return json.RawMessage(fmt.Sprintf("%q", string(body)))
 	}
 	return encoded
+}
+
+// readMCPProxyRequest preserves the wire body for forwarding and returns decoded
+// bytes for inspection. Recovery reuses this only after a failed session lookup.
+func readMCPProxyRequest(req *http.Request) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(req.Body, maxMCPProxyHookBodySize+1))
+	if err != nil {
+		_ = req.Body.Close()
+		return nil, err
+	}
+	if err := req.Body.Close(); err != nil {
+		return nil, err
+	}
+
+	if len(body) > maxMCPProxyHookBodySize {
+		return nil, fmt.Errorf("request body too large")
+	}
+
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	// Decode for inspection without changing the body or encoding sent upstream.
+	auditBody := body
+	if strings.EqualFold(strings.TrimSpace(req.Header.Get("Content-Encoding")), "gzip") {
+		decoded, _, decodeErr := decodeMCPHookBody(io.NopCloser(bytes.NewReader(body)), "gzip")
+		if decodeErr == nil {
+			decodedBody, readErr := readMCPHookBody(decoded)
+			closeErr := decoded.Close()
+			if readErr == nil && closeErr == nil {
+				auditBody = decodedBody
+			}
+		}
+	}
+
+	return auditBody, nil
 }
