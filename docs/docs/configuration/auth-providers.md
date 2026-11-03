@@ -392,7 +392,7 @@ By default, users must have a verified email address in Keycloak to sign in to O
 If your organization does not verify email addresses, enable **Allow Unverified Emails** in Obot.
 
 :::important
-When allowing unverified emails, avoid granting owner or administrator access automatically by email address through [deployment settings](#preconfiguring-owner--admin-users). Email-domain restrictions also depend on users having trustworthy email addresses.
+When allowing unverified emails, remember that email-domain restrictions depend on users having trustworthy email addresses.
 :::
 
 In **Identity & Access > Auth Providers**, configure **Keycloak**:
