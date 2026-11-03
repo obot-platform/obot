@@ -38,7 +38,6 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 	if cfg.HTTPSProxy == "" && cfg.HTTPProxy == "" {
 		return false
 	}
-	proxyFor := cfg.ProxyFunc()
 
 	providers, err := e.ListProviders(ctx)
 	if err != nil {
@@ -57,36 +56,7 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 			// The listing supplies names only. Recompute from the latest aggregate
 			// and edit only its proxy so intervening admin changes are preserved.
 			return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
-				target := current.Config.NetworkConfig.BaseURL
-				if target == "" {
-					target = defaultProviderURLs[name]
-				}
-				if target == "" {
-					target = "https://" + name + ".invalid"
-				}
-				u, err := url.Parse(target)
-				if err != nil {
-					return nil
-				}
-				proxyURL, err := proxyFor(u)
-				pc := current.Config.ProxyConfig
-				if pc != nil && pc.Type != schemas.NoProxy {
-					// Remove only our environment proxy when the current endpoint
-					// no longer needs it; an administrator's proxy is left alone.
-					if (err != nil || proxyURL == nil) && isEgressProxy(pc, cfg) {
-						current.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.NoProxy}
-						updated = true
-					}
-					return nil
-				}
-				if err != nil || proxyURL == nil {
-					return nil
-				}
-				current.Config.ProxyConfig = &schemas.ProxyConfig{
-					Type: proxyType(proxyURL),
-					URL:  schemas.NewSecretVar(proxyURL.String()),
-				}
-				updated = true
+				updated = applyProviderEgressProxy(name, current, cfg)
 				return nil
 			})
 		})
@@ -100,6 +70,58 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 		}
 	}
 	return changed
+}
+
+// applyProviderEgressProxy also runs before a migration aggregate is first stored:
+// resource watches on another replica must never observe an unproxied import.
+func applyProviderEgressProxy(name string, p *llmcoreclient.Provider, cfg *httpproxy.Config) bool {
+	if cfg.HTTPSProxy == "" && cfg.HTTPProxy == "" {
+		return false
+	}
+	u, err := url.Parse(providerEgressTarget(name, p))
+	if err != nil {
+		return false
+	}
+	proxyURL, err := cfg.ProxyFunc()(u)
+	pc := p.Config.ProxyConfig
+	if pc != nil && pc.Type != schemas.NoProxy {
+		// Only remove a proxy inherited from the environment when the endpoint is
+		// excluded (localhost or NO_PROXY). An administrator's proxy takes precedence.
+		if (err != nil || proxyURL == nil) && isEgressProxy(pc, cfg) {
+			p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.NoProxy}
+			return true
+		}
+		return false
+	}
+	if err != nil || proxyURL == nil {
+		return false
+	}
+	p.Config.ProxyConfig = &schemas.ProxyConfig{
+		Type: proxyType(proxyURL),
+		URL:  &schemas.SecretVar{Val: proxyURL.String(), SecretType: schemas.SecretTypePlainText},
+	}
+	return true
+}
+
+func providerEgressTarget(name string, p *llmcoreclient.Provider) string {
+	if target := p.Config.NetworkConfig.BaseURL; target != "" {
+		return target
+	}
+	// Imported cloud providers have one key. Their hosts live in key settings,
+	// rather than network_config, and must be used when evaluating NO_PROXY.
+	if len(p.Keys) == 1 {
+		key := p.Keys[0]
+		if name == "azure" && key.AzureKeyConfig != nil {
+			return key.AzureKeyConfig.Endpoint.GetValue()
+		}
+		if name == "bedrock_mantle" && key.BedrockMantleKeyConfig != nil {
+			return "https://bedrock-mantle." + key.BedrockMantleKeyConfig.Region.GetValue() + ".api.aws"
+		}
+	}
+	if target := defaultProviderURLs[name]; target != "" {
+		return target
+	}
+	return "https://" + name + ".invalid"
 }
 
 // isEgressProxy compares the stored credential value, not a redacted listing,

@@ -15,6 +15,7 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"golang.org/x/net/http/httpproxy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -403,6 +404,7 @@ func legacySourceName(name string) string {
 // A missing outcome, however, can be recovered from the aggregate's provenance.
 func (e *Engine) importLegacySource(ctx context.Context, name string, secrets map[string]string, completed bool) (string, string, error) {
 	plan := legacyImportPlans[name]
+	proxy := httpproxy.FromEnvironment()
 	p, err := e.store.GetProvider(ctx, plan.provider)
 	if apierrors.IsNotFound(err) {
 		if completed {
@@ -410,6 +412,7 @@ func (e *Engine) importLegacySource(ctx context.Context, name string, secrets ma
 		}
 		p, err = legacyAggregate(name, secrets)
 		if err == nil {
+			applyProviderEgressProxy(plan.provider, &p, proxy)
 			err = e.store.CreateProvider(ctx, plan.provider, p)
 		}
 		if apierrors.IsAlreadyExists(err) {
@@ -421,6 +424,18 @@ func (e *Engine) importLegacySource(ctx context.Context, name string, secrets ma
 	}
 	if p.Migration == nil || p.Migration.Source != name || p.Migration.Decision != name {
 		return "blocked", "a gateway provider already exists; existing configuration was preserved", nil
+	}
+	// Repair aggregates imported before proxy inheritance was applied atomically.
+	// Re-evaluate on the latest version so concurrent administrator edits survive.
+	if applyProviderEgressProxy(plan.provider, &p, proxy) {
+		if err := e.store.MutateProvider(ctx, plan.provider, func(current *llmcoreclient.Provider) error {
+			if current.Migration != nil && current.Migration.Source == name && current.Migration.Decision == name {
+				applyProviderEgressProxy(plan.provider, current, proxy)
+			}
+			return nil
+		}); err != nil {
+			return "error", "provider import failed; check server logs; reconciliation will retry", err
+		}
 	}
 	return "imported", "", nil
 }
