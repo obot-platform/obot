@@ -494,14 +494,6 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
-	case "entra-auth-provider":
-		if iconURL, ok := profile["icon_url"].(string); ok {
-			user.IconURL = iconURL
-			identity.IconURL = iconURL
-		}
-		if displayName, ok := profile["name"].(string); ok {
-			user.DisplayName = displayName
-		}
 	case "okta-auth-provider", "onelogin-auth-provider":
 		// Neither Okta nor OneLogin supports profile pictures
 		if displayName, ok := profile["name"].(string); ok {
@@ -512,12 +504,12 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 		if displayName, ok := profile["name"].(string); ok {
 			user.DisplayName = displayName
 		}
-	case "auth0-auth-provider":
+	case "entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider":
 		if iconURL, ok := profile["icon_url"].(string); ok {
 			user.IconURL = iconURL
 			identity.IconURL = iconURL
 		}
-		if displayName, ok := profile["name"].(string); ok {
+		if displayName, ok := profile["name"].(string); ok && displayName != "" {
 			user.DisplayName = displayName
 		}
 	case "jumpcloud-auth-provider":

@@ -138,7 +138,7 @@ These connections only happen when you configure the feature, and go to the dest
 
 | Feature | Destination |
 |---|---|
-| [Auth providers](../configuration/auth-providers.md) | Your identity provider: GitHub, Google, Entra, Okta, JumpCloud, or Auth0 |
+| [Auth providers](../configuration/auth-providers.md) | Your identity provider: GitHub, Google, Entra, Okta, JumpCloud, Keycloak, or Auth0 |
 | [LLM gateway providers](../configuration/model-providers.md) | The configured model API, for example `api.openai.com`, `api.anthropic.com`, Azure OpenAI and Azure AI Foundry endpoints, or `bedrock-mantle.<region>.api.aws` |
 | [Guardrails](../functionality/guardrails.md) | The guardrail service you configure, such as Lakera, Azure AI Content Safety, Google Model Armor, or a self-hosted Presidio. LLM judge guardrails use the LLM gateway's providers. |
 | Remote MCP servers | The server's URL, plus its OAuth authorization server for discovery, dynamic client registration, and token exchange |
