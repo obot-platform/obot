@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"reflect"
 	"slices"
 	"strings"
@@ -29,7 +30,6 @@ import (
 
 // Options configure an Engine.
 type Options struct {
-	Store *llmcoreclient.Client
 	// Plugins run around every attempt the engine makes, after routing rules have picked the
 	// model: Obot's access, budget and guardrail plugins.
 	Plugins []schemas.LLMPlugin
@@ -46,6 +46,7 @@ type Engine struct {
 	catalog    schemas.ModelInfoProvider
 	store      *llmcoreclient.Client
 	client     *bifrost.Bifrost
+	mux        *http.ServeMux
 	account    *account
 	rules      *rules.LocalStore
 
@@ -86,15 +87,20 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 	if proxy.Type == "" {
 		proxy.Type = "http"
 	}
-	if proxy.Enabled && proxy.EnableForInference && strings.TrimSpace(proxy.URL) != "" && (proxy.Type == "http" || proxy.Type == "socks5") && (pc.ProxyConfig == nil || pc.ProxyConfig.Type == schemas.NoProxy) {
+	// Use the global inference proxy only when it is usable and the provider
+	// has no proxy of its own. An explicit provider proxy takes precedence.
+	globalProxyEnabled := proxy.Enabled && proxy.EnableForInference && strings.TrimSpace(proxy.URL) != ""
+	supportedProxyType := proxy.Type == "http" || proxy.Type == "socks5"
+	providerHasNoProxy := pc.ProxyConfig == nil || pc.ProxyConfig.Type == schemas.NoProxy
+	if globalProxyEnabled && supportedProxyType && providerHasNoProxy {
 		pc.ProxyConfig = &schemas.ProxyConfig{Type: schemas.ProxyType(proxy.Type), URL: &schemas.SecretVar{Val: proxy.URL}, Username: &schemas.SecretVar{Val: proxy.Username}, Password: &schemas.SecretVar{Val: proxy.Password}, NoProxy: proxy.NoProxy, SkipTLSVerify: proxy.SkipTLSVerify}
 	}
 	return &pc, nil
 }
 
 // New starts an engine with the configuration in the store.
-func New(ctx context.Context, opts Options) (*Engine, error) {
-	if opts.Store == nil {
+func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engine, error) {
+	if store == nil {
 		return nil, errors.New("a store is required")
 	}
 	logger := opts.Logger
@@ -102,7 +108,7 @@ func New(ctx context.Context, opts Options) (*Engine, error) {
 		logger = bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 	}
 
-	cfg, err := opts.Store.Load(ctx)
+	cfg, err := store.Load(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load the gateway configuration: %w", err)
 	}
@@ -119,7 +125,7 @@ func New(ctx context.Context, opts Options) (*Engine, error) {
 	}
 
 	e := &Engine{
-		store:        opts.Store,
+		store:        store,
 		catalog:      opts.Catalog,
 		account:      &account{},
 		rules:        ruleStore,
@@ -132,6 +138,11 @@ func New(ctx context.Context, opts Options) (*Engine, error) {
 		}
 	}
 
+	e.mux = e.newMux()
+
+	// The tracer also owns stream pause/resume and buffered chunks. Output
+	// guardrails need it to hold and rewrite a stream before releasing content;
+	// Bifrost's default no-op tracer cannot provide that behavior.
 	e.traceStore = tracing.NewTraceStore(5*time.Minute, logger)
 	e.tracer = tracing.NewTracer(e.traceStore, nil, logger)
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
@@ -177,6 +188,9 @@ func (e *Engine) Apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	return e.apply(ctx, cfg)
 }
 
+// apply updates the live Bifrost providers and routing rules after desired resources
+// change; controller writes alone do not update Bifrost's in-memory state.
+// The caller must hold syncLock to serialize reconciliation and applied-state updates.
 func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, error) {
 	changed := !reflect.DeepEqual(e.applied, cfg)
 	e.applySettings(cfg)
@@ -260,6 +274,7 @@ func (e *Engine) applySettings(cfg llmcoreclient.Config) {
 		catalog.ReplaceKeyConfig(cfg.Keys)
 	}
 }
+
 func (e *Engine) MaxRequestBodyBytes() int64 {
 	var settings struct {
 		Max int64 `json:"max_request_body_size_mb"`

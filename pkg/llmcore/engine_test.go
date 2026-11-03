@@ -142,7 +142,7 @@ func (env *testEnv) newReplica(t *testing.T) *replica {
 	t.Helper()
 	// Obot's own plugins, unchanged: they run in the core engine as they do in the transport.
 	input, output := guardrails.New(noPolicies{}, nil).Plugins()
-	e, err := llmcore.New(context.Background(), llmcore.Options{Store: env.store, Plugins: []schemas.LLMPlugin{input, output}})
+	e, err := llmcore.New(context.Background(), env.store, llmcore.Options{Plugins: []schemas.LLMPlugin{input, output}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +512,7 @@ func TestFallbacksAndRetries(t *testing.T) {
 		for _, api := range allAPIs {
 			for _, stream := range []bool{false, true} {
 				res := env.A.call(t, api, "openai/gpt-e2e-broken", "hi "+nonce("nofallback"), stream, nil)
-				if res.Status < 500 || res.ErrorMsg == "" {
+				if res.Status < http.StatusInternalServerError || res.ErrorMsg == "" {
 					t.Fatalf("%s stream=%t: want a 5xx error, got %d: %s", api, stream, res.Status, res.Body)
 				}
 				if anthropic := gjson.Get(res.Body, "type").String() == "error"; anthropic != (api == apiMessages) {
@@ -528,7 +528,7 @@ func TestFallbacksAndRetries(t *testing.T) {
 	t.Run("an unknown provider is an error in the request's format", func(t *testing.T) {
 		for _, api := range allAPIs {
 			res := env.A.call(t, api, "nosuch/model", "hi", false, nil)
-			if res.Status < 400 || res.Status >= 500 || res.ErrorMsg == "" {
+			if res.Status < http.StatusBadRequest || res.Status >= http.StatusInternalServerError || res.ErrorMsg == "" {
 				t.Fatalf("%s: want a 4xx error, got %d: %s", api, res.Status, res.Body)
 			}
 		}
@@ -788,7 +788,7 @@ func TestRouteSurvivesMissingProvider(t *testing.T) {
 		}
 		n := nonce("missing-provider")
 		result := replica.call(t, apiResponses, "openai/gpt-e2e-a", "hi "+n, false, nil)
-		if result.Status < 400 {
+		if result.Status < http.StatusBadRequest {
 			t.Fatalf("missing routing target unexpectedly succeeded: %s", result.Body)
 		}
 		if requests := env.mock.InferenceRequests(n); len(requests) != 0 {

@@ -16,7 +16,7 @@ func (e *Engine) Client() *bifrost.Bifrost { return e.client }
 func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, e.MaxRequestBodyBytes()))
 	if err != nil {
-		writeError(w, d, 413, "invalid_request_error", "request body too large")
+		writeError(w, d, http.StatusRequestEntityTooLarge, "invalid_request_error", "request body too large")
 		return
 	}
 
@@ -37,7 +37,7 @@ func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 		}
 	}
 	if err != nil || req == nil || req.Provider == "" {
-		writeError(w, d, 400, "invalid_request_error", "invalid token counting request")
+		writeError(w, d, http.StatusBadRequest, "invalid_request_error", "invalid token counting request")
 		return
 	}
 
@@ -49,40 +49,8 @@ func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 	}
 
 	if d == dialectMessages {
-		writeJSON(w, 200, map[string]any{"input_tokens": out.InputTokens})
+		writeJSON(w, http.StatusOK, map[string]any{"input_tokens": out.InputTokens})
 	} else {
-		writeJSON(w, 200, out)
+		writeJSON(w, http.StatusOK, out)
 	}
-}
-
-func (e *Engine) serveEmbedding(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, e.MaxRequestBodyBytes()))
-	if err != nil {
-		writeError(w, dialectResponses, 413, "invalid_request_error", "request body too large")
-		return
-	}
-
-	ctx, cancel := e.requestContext(r)
-	defer cancel()
-	var in openai.OpenAIEmbeddingRequest
-	if err := json.Unmarshal(body, &in); err != nil {
-		writeError(w, dialectResponses, 400, "invalid_request_error", "invalid embedding request")
-		return
-	}
-
-	req := in.ToBifrostEmbeddingRequest(ctx)
-	if req.Provider == "" {
-		writeError(w, dialectResponses, 400, "invalid_request_error", "model must be named as provider/model")
-		return
-	}
-
-	out, engineErr := e.client.EmbeddingRequest(ctx, req)
-	if engineErr != nil {
-		observeError(ctx, engineErr)
-		writeEngineError(w, dialectResponses, engineErr)
-		return
-	}
-	observeResponse(ctx, out.ExtraFields)
-	setServed(w.Header(), out.ExtraFields)
-	writeJSON(w, 200, out)
 }

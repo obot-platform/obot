@@ -44,7 +44,7 @@ func TestPartialSyncDoesNotRestartUpdatedProviders(t *testing.T) {
 	store := newTestStore(t)
 	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{}}))
 	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
-	e, err := llmcore.New(t.Context(), llmcore.Options{Store: store, Logger: log})
+	e, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: log})
 	require.NoError(t, err)
 	t.Cleanup(e.Shutdown)
 	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {

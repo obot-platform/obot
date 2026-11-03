@@ -44,6 +44,9 @@ func (p *routingPlugin) GetName() string { return routingPluginName }
 
 func (p *routingPlugin) Cleanup() error { return nil }
 
+// PreRequestHook runs once before Bifrost selects keys or starts retries and
+// fallbacks. Resolve the primary route and fallback chain here so later attempts
+// use that decision instead of evaluating routing rules again.
 func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) error {
 	if !p.rules.HasRules(ctx) {
 		return nil

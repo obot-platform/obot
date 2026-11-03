@@ -38,26 +38,35 @@ type responseObserverKey struct{}
 // /v1/messages (and /anthropic/v1/messages, the path Obot's proxy uses for the engine today).
 // Either API can reach any provider's models: the engine translates.
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	switch r.URL.Path {
-	case "/v1/embeddings":
-		e.serveEmbedding(w, r)
-	case "/v1/messages/count_tokens", "/anthropic/v1/messages/count_tokens":
+	e.mux.ServeHTTP(w, r)
+}
+
+func (e *Engine) newMux() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/messages/count_tokens", func(w http.ResponseWriter, r *http.Request) {
 		e.serveCount(w, r, dialectMessages)
-	case "/v1/responses/input_tokens":
+	})
+	mux.HandleFunc("POST /anthropic/v1/messages/count_tokens", func(w http.ResponseWriter, r *http.Request) {
+		e.serveCount(w, r, dialectMessages)
+	})
+	mux.HandleFunc("POST /v1/responses/input_tokens", func(w http.ResponseWriter, r *http.Request) {
 		e.serveCount(w, r, dialectResponses)
-	case "/v1/chat/completions":
-		e.serveChat(w, r)
-	case "/v1/responses":
+	})
+	mux.HandleFunc("POST /v1/chat/completions", e.serveChat)
+	mux.HandleFunc("POST /v1/responses", func(w http.ResponseWriter, r *http.Request) {
 		e.serve(w, r, dialectResponses)
-	case "/v1/messages", "/anthropic/v1/messages":
+	})
+	mux.HandleFunc("POST /v1/messages", func(w http.ResponseWriter, r *http.Request) {
 		e.serve(w, r, dialectMessages)
-	default:
+	})
+	mux.HandleFunc("POST /anthropic/v1/messages", func(w http.ResponseWriter, r *http.Request) {
+		e.serve(w, r, dialectMessages)
+	})
+	// Restrict the fallback to POST so other methods receive the mux's 405 response.
+	mux.HandleFunc("POST /", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, dialectResponses, http.StatusNotFound, "invalid_request_error", fmt.Sprintf("unsupported endpoint %s", r.URL.Path))
-	}
+	})
+	return mux
 }
 
 func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
@@ -233,7 +242,7 @@ func writeEvent(w http.ResponseWriter, name string, v any) error {
 // errorParts returns an engine error's status, type and message, without the engine's name.
 func errorParts(err *schemas.BifrostError) (int, string, string) {
 	status := http.StatusInternalServerError
-	if err.StatusCode != nil && *err.StatusCode >= 400 {
+	if err.StatusCode != nil && *err.StatusCode >= http.StatusBadRequest {
 		status = *err.StatusCode
 	}
 
