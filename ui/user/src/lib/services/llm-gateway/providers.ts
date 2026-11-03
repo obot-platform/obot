@@ -116,6 +116,12 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 					'bedrock_key_config.session_token',
 					'bedrock_key_config.role_arn'
 				]
+			},
+			{
+				id: 'server-identity',
+				label: m.models_providers_auth_server_identity(),
+				description: m.models_providers_auth_server_aws_help(),
+				paths: ['bedrock_key_config.role_arn']
 			}
 		],
 		keyFields: [
@@ -175,6 +181,12 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 					'azure_key_config.client_secret',
 					'azure_key_config.tenant_id'
 				]
+			},
+			{
+				id: 'server-identity',
+				label: m.models_providers_auth_server_identity(),
+				description: m.models_providers_auth_server_azure_help(),
+				paths: []
 			}
 		],
 		keyFields: [
@@ -433,7 +445,7 @@ export function setPath(obj: Record<string, unknown>, path: string, value: unkno
 	cur[parts[parts.length - 1]] = value;
 }
 
-// Fields outside either method are shared (region or endpoint).
+// Fields outside every method are shared (region or endpoint).
 export function authenticationFields(entry: ProviderCatalogEntry, method: string): KeyField[] {
 	const methods = entry.authenticationMethods ?? [];
 	const active = methods.find((m) => m.id === method) ?? methods[0];
@@ -446,9 +458,17 @@ export function savedAuthenticationMethod(
 	entry: ProviderCatalogEntry,
 	values: Record<string, string>
 ): string {
+	// A role ARN can use the server's identity or explicit credentials, so it does not
+	// identify the credential source. Missing explicit credentials mean server identity.
 	return (
-		entry.authenticationMethods?.find((method) => method.paths.some((path) => values[path]?.trim()))
-			?.id ??
+		entry.authenticationMethods?.find((method) =>
+			method.paths.some(
+				(path) =>
+					entry.keyFields.some((field) => field.path === path && field.required) &&
+					values[path]?.trim()
+			)
+		)?.id ??
+		entry.authenticationMethods?.find((method) => method.id === 'server-identity')?.id ??
 		entry.authenticationMethods?.[0]?.id ??
 		''
 	);

@@ -82,7 +82,11 @@
 			weight = 1;
 			enabled = true;
 		}
-		authenticationMethod = entry ? savedAuthenticationMethod(entry, values) : '';
+		authenticationMethod = entry
+			? key
+				? savedAuthenticationMethod(entry, values)
+				: (entry.authenticationMethods?.[0]?.id ?? '')
+			: '';
 		dialog?.open();
 	}
 

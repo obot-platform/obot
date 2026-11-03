@@ -488,5 +488,8 @@
 	"models_providers_auth_entra": "Microsoft Entra ID",
 	"models_providers_auth_api_key_help": "Authenticate using an API key.",
 	"models_providers_auth_aws_help": "Authenticate using an AWS access key pair, with an optional session token and IAM role.",
-	"models_providers_auth_entra_help": "Authenticate using a Microsoft Entra application’s client ID, client secret, and tenant ID."
+	"models_providers_auth_entra_help": "Authenticate using a Microsoft Entra application’s client ID, client secret, and tenant ID.",
+	"models_providers_auth_server_identity": "Server identity",
+	"models_providers_auth_server_aws_help": "Use the Obot server’s AWS credentials, such as its IAM role. Optionally assume another IAM role.",
+	"models_providers_auth_server_azure_help": "Use the Obot server’s Azure managed or workload identity."
 }

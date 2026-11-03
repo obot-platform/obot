@@ -9,7 +9,7 @@
 
 <fieldset class="flex flex-col gap-2">
 	<legend class="mb-2 text-sm font-medium">{m.models_providers_authentication_method()}</legend>
-	<div class="tabs tabs-box w-fit">
+	<div class="tabs tabs-box w-fit max-w-full flex-wrap">
 		{#each methods as method (method.id)}
 			<label
 				class="tab relative has-focus-visible:outline-primary has-focus-visible:outline-2"
