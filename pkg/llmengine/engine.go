@@ -118,7 +118,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.LastPlugin != nil {
 			plugins = append(plugins, opts.LastPlugin)
 		}
-		engine, err := llmcore.New(ctx, llmcore.Options{Store: opts.Store, Plugins: plugins, Logger: logger, Catalog: e.prices})
+		engine, err := llmcore.New(ctx, opts.Store, llmcore.Options{Plugins: plugins, Logger: logger, Catalog: e.prices})
 		if err != nil {
 			_ = e.prices.Cleanup()
 			e.startErr = err
