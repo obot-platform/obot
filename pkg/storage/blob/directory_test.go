@@ -70,11 +70,11 @@ func TestDirectoryStore_UploadNestedKey(t *testing.T) {
 	ctx := t.Context()
 	content := []byte("nested content")
 
-	if err := store.Upload(ctx, "bucket", "published-artifacts/my-artifact/v1.zip", bytes.NewReader(content)); err != nil {
+	if err := store.Upload(ctx, "bucket", "exports/my-object/v1.zip", bytes.NewReader(content)); err != nil {
 		t.Fatalf("upload failed: %v", err)
 	}
 
-	rc, err := store.Download(ctx, "bucket", "published-artifacts/my-artifact/v1.zip")
+	rc, err := store.Download(ctx, "bucket", "exports/my-object/v1.zip")
 	if err != nil {
 		t.Fatalf("download failed: %v", err)
 	}

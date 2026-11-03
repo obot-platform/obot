@@ -3,7 +3,6 @@ package mcpgateway
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -88,8 +87,9 @@ func (h compositeComponentOAuthHandler) TokenSource(context.Context) (oauth2.Tok
 // Authorize fails so the component's challenge reaches the frontend client,
 // which is the only party able to complete the component's authorization.
 func (compositeComponentOAuthHandler) Authorize(_ context.Context, _ *http.Request, resp *http.Response) error {
-	_, _ = io.Copy(io.Discard, resp.Body)
+	// A component can stall its error body indefinitely; fail authorization without draining it.
 	_ = resp.Body.Close()
+
 	return fmt.Errorf("component requires authorization: %s", resp.Status)
 }
 

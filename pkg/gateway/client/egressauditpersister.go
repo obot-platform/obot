@@ -8,40 +8,13 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
-const (
-	egressAuditMaxEntries = 256
-	egressAuditMaxBytes   = 64 << 20
-)
-
-// Include payload capacities and metadata so small entries cannot bypass the bound.
-func egressAuditEntryBytes(entry types.EgressAuditLog) int {
-	size := 1024 + cap(entry.RequestBody) + cap(entry.ResponseBody) + cap(entry.RequestHeaders) + cap(entry.ResponseHeaders)
-	for _, value := range []string{entry.ID, entry.UserID, entry.ClaudeAccount, entry.EnvironmentID, entry.ClaudeSession, entry.Actor, entry.Method, entry.Scheme, entry.Host, entry.Path, entry.Outcome} {
-		size += len(value)
-	}
-	return size
-}
-
 // LogEgressAuditEntry queues a completed capture or final transport status.
 func (c *Client) LogEgressAuditEntry(entry types.EgressAuditLog) {
 	c.egressAuditLock.Lock()
 	defer c.egressAuditLock.Unlock()
 
-	size := egressAuditEntryBytes(entry)
-	// Reservations include the in-flight batch, so a failed flush can always requeue.
-	if c.egressAuditPending >= egressAuditMaxEntries || size > egressAuditMaxBytes-c.egressAuditBytes {
-		c.egressAuditDropped++
-		if time.Since(c.egressAuditOverflowLogged) >= 30*time.Second {
-			slog.Error("Egress audit queue full; dropping new entries", "dropped_total", c.egressAuditDropped)
-			c.egressAuditOverflowLogged = time.Now()
-		}
-		return
-	}
-
-	c.egressAuditPending++
-	c.egressAuditBytes += size
 	c.egressAuditBuffer = append(c.egressAuditBuffer, entry)
-	if len(c.egressAuditBuffer) >= cap(c.egressAuditBuffer)/2 {
+	if len(c.egressAuditBuffer) >= max(1, c.egressAuditBatchSize) {
 		select {
 		case c.kickEgressAuditPersist <- struct{}{}:
 		default:
@@ -54,18 +27,25 @@ func (c *Client) runEgressAuditPersistenceLoop(ctx context.Context, interval tim
 	timer := time.NewTimer(interval)
 	defer timer.Stop()
 
+	kick := c.kickEgressAuditPersist
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-c.kickEgressAuditPersist:
+		case <-kick:
 			timer.Stop()
 		case <-timer.C:
 		}
 
 		if err := c.FlushEgressAuditLogs(); err != nil {
 			slog.Error("Failed to persist egress audit logs", "error", err)
+			// Pending kicks and new arrivals must not bypass the retry interval.
+			kick = nil
+		} else {
+			kick = c.kickEgressAuditPersist
 		}
+
 		timer.Reset(interval)
 	}
 }
@@ -76,26 +56,34 @@ func (c *Client) FlushEgressAuditLogs() error {
 	defer c.egressAuditPersistLock.Unlock()
 
 	c.egressAuditLock.Lock()
-	buf := c.egressAuditBuffer
-	bytes := c.egressAuditBytes
-	c.egressAuditBuffer = make([]types.EgressAuditLog, 0, cap(buf))
-	c.egressAuditLock.Unlock()
-	if len(buf) == 0 {
+	if len(c.egressAuditBuffer) == 0 {
+		c.egressAuditLock.Unlock()
 		return nil
 	}
+
+	// Detach only this snapshot so producers can enqueue during database writes.
+	buf := c.egressAuditBuffer
+	c.egressAuditBuffer = nil
+	c.egressAuditLock.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := c.insertEgressAuditLogs(ctx, buf); err != nil {
-		c.egressAuditLock.Lock()
-		c.egressAuditBuffer = append(buf, c.egressAuditBuffer...)
-		c.egressAuditLock.Unlock()
-		return err
+	for len(buf) > 0 {
+		batchSize := min(len(buf), max(1, c.egressAuditBatchSize))
+		if err := c.insertEgressAuditLogs(ctx, buf[:batchSize]); err != nil {
+			c.egressAuditLock.Lock()
+			// Committed chunks stay durable; retry only the remainder before new arrivals.
+			c.egressAuditBuffer = append(buf, c.egressAuditBuffer...)
+			c.egressAuditLock.Unlock()
+
+			return err
+		}
+
+		// Release committed payloads even while later chunks are blocked or requeued.
+		clear(buf[:batchSize])
+		buf = buf[batchSize:]
 	}
-	c.egressAuditLock.Lock()
-	c.egressAuditPending -= len(buf)
-	c.egressAuditBytes -= bytes
-	c.egressAuditLock.Unlock()
+
 	return nil
 }

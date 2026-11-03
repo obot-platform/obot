@@ -363,7 +363,10 @@
 		'OBOT_AZURE_OPENAI_MODEL_PROVIDER_DEPLOYMENTS'
 	]);
 
-	const booleanInputs = new Set(['OBOT_AUTH_PROVIDER_ENABLE_LOGGING']);
+	const booleanInputs = new Set([
+		'OBOT_AUTH_PROVIDER_ENABLE_LOGGING',
+		'OBOT_KEYCLOAK_AUTH_PROVIDER_INSECURE_ALLOW_UNVERIFIED_EMAIL'
+	]);
 </script>
 
 {#snippet noticeFor(parameter: ProviderParameter)}

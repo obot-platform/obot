@@ -31,16 +31,13 @@ const (
 )
 
 type Client struct {
-	egressAuditLock           sync.Mutex
-	egressAuditPersistLock    sync.Mutex
-	egressAuditBuffer         []types.EgressAuditLog
-	egressAuditPending        int
-	egressAuditBytes          int
-	egressAuditDropped        uint64
-	egressAuditOverflowLogged time.Time
-	kickEgressAuditPersist    chan struct{}
-	egressAuditCancel         context.CancelFunc
-	egressAuditDone           chan struct{}
+	egressAuditLock        sync.Mutex
+	egressAuditPersistLock sync.Mutex
+	egressAuditBuffer      []types.EgressAuditLog
+	egressAuditBatchSize   int
+	kickEgressAuditPersist chan struct{}
+	egressAuditCancel      context.CancelFunc
+	egressAuditDone        chan struct{}
 
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
@@ -77,7 +74,7 @@ type Client struct {
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	egressCtx, egressCancel := context.WithCancel(ctx)
 	c := &Client{
-		egressAuditBuffer:         make([]types.EgressAuditLog, 0, min(2*auditLogBatchSize, egressAuditMaxEntries)),
+		egressAuditBatchSize:      auditLogBatchSize,
 		kickEgressAuditPersist:    make(chan struct{}, 1),
 		egressAuditCancel:         egressCancel,
 		egressAuditDone:           make(chan struct{}),

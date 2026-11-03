@@ -155,8 +155,6 @@ type Config struct {
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
 
-	// Published artifact storage
-
 	GatewayConfig
 	EncryptionConfig
 	AuditConfig
@@ -268,8 +266,6 @@ type Services struct {
 	MCPNetworkPolicyProviderValues       string
 	SingleUserIdleServerShutdownInterval time.Duration
 	MultiUserIdleServerShutdownInterval  time.Duration
-
-	// Published artifact blob storage
 
 	// License provider
 	LicenseProvider *license.Provider

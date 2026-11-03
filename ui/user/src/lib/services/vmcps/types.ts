@@ -47,6 +47,8 @@ export type VMcpFilters = {
 	creators?: string;
 };
 
+export type VMcpListVariant = 'grid' | 'table';
+
 export type VMcpListSettings = {
 	showMyVMcpsOnly: boolean;
 	sortBy: VMcpSortBy;
@@ -55,7 +57,6 @@ export type VMcpListSettings = {
 	componentFilterBy: string;
 	statusFilterBy: string;
 	creatorFilterBy: string;
-	variant: 'grid' | 'table';
 };
 
 export type VMcpFilterContext = {

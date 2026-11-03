@@ -585,6 +585,11 @@ func (e *Engine) bootServer(ctx context.Context, opts Options) (*instance, error
 		// Bootstrap may have started work before failing; release it.
 		return &instance{server: server, listener: ln}, fmt.Errorf("failed to start the LLM gateway: %w", err)
 	}
+
+	// Obot doesn't expose Bifrost's A2A gateway. Stop its push relay, which otherwise
+	// leaks a cancellation watcher on every idle poll.
+	server.CloseAgentGateway()
+
 	inst := &instance{server: server, listener: ln}
 	// Obot enforces the request size limit itself, from the live setting (see
 	// MaxRequestBodyBytes), before a request reaches the engine. The engine's HTTP server

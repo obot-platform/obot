@@ -53,7 +53,6 @@
   "scim_ref_model_access_policy": "model access policy",
   "scim_ref_skill_access_rule": "skill access rule",
   "scim_ref_message_policy": "message policy",
-  "scim_ref_published_artifact": "published artifact",
   "scim_ref_group_role_assignment": "group role assignment",
   "scim_ref_vmcp_profile": "virtual MCP server",
   "scim_cleanup_blocks_connection": "auth provider cleanup {cleanup} is pending, so auth provider {provider} cannot have a SCIM connection until it finishes",
