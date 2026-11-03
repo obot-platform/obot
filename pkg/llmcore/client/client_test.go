@@ -23,7 +23,7 @@ import (
 
 func TestProviderAggregate(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store := client.New(storage)
+	store := newStore(t, storage)
 	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{}))
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key"}))
 	var rows v1.LLMGatewayProviderList
@@ -51,7 +51,7 @@ func TestProviderAggregate(t *testing.T) {
 	require.Empty(t, after.Keys)
 }
 func TestProviderEditPreservesRoutingTargets(t *testing.T) {
-	store := client.New(fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
+	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
 	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{}))
 	require.NoError(t, store.PutRule(t.Context(), tables.TableRoutingRule{ID: "route", Scope: "global", Targets: []tables.TableRoutingTarget{{RuleID: "route", Provider: new("openai")}}}))
 	before, err := store.Load(t.Context())
@@ -85,7 +85,7 @@ func TestWritesTouchOnlyOwningResource(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-			base := client.New(storage)
+			base := newStore(t, storage)
 			require.NoError(t, base.PutProvider(t.Context(), "openai", client.Provider{Keys: []schemas.Key{{ID: "key"}}}))
 			require.NoError(t, base.PutProvider(t.Context(), "other", client.Provider{}))
 			other := func(obj kclient.Object) bool { return reflect.TypeOf(obj) != reflect.TypeOf(tc.kind) }
@@ -109,14 +109,14 @@ func TestWritesTouchOnlyOwningResource(t *testing.T) {
 					return c.Get(ctx, key, obj, opts...)
 				},
 			})
-			require.NoError(t, tc.write(client.New(isolated)))
+			require.NoError(t, tc.write(newStore(t, isolated)))
 		})
 	}
 }
 
 func TestProviderConflictRetriesLatestAggregate(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	base := client.New(storage)
+	base := newStore(t, storage)
 	require.NoError(t, base.PutProvider(t.Context(), "openai", client.Provider{}))
 	conflict := true
 	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
@@ -130,7 +130,7 @@ func TestProviderConflictRetriesLatestAggregate(t *testing.T) {
 		},
 	})
 	calls := 0
-	require.NoError(t, client.New(wrapped).MutateProvider(t.Context(), "openai", func(provider *client.Provider) error {
+	require.NoError(t, newStore(t, wrapped).MutateProvider(t.Context(), "openai", func(provider *client.Provider) error {
 		calls++
 		provider.Config.NetworkConfig.BaseURL = "https://example.com"
 		return nil
@@ -144,7 +144,7 @@ func TestProviderConflictRetriesLatestAggregate(t *testing.T) {
 }
 
 func TestProviderMutationValidationRollsBack(t *testing.T) {
-	store := client.New(fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
+	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
 	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{Keys: []schemas.Key{{ID: "one"}}}))
 	before, err := store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
@@ -160,7 +160,7 @@ func TestProviderMutationValidationRollsBack(t *testing.T) {
 
 func TestUnrelatedInvalidProviderDoesNotBlockWrites(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store := client.New(storage)
+	store := newStore(t, storage)
 	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{}))
 	require.NoError(t, store.PutProvider(t.Context(), "broken", client.Provider{}))
 	var providers v1.LLMGatewayProviderList
@@ -186,7 +186,7 @@ func TestUnrelatedInvalidProviderDoesNotBlockWrites(t *testing.T) {
 
 func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	base := client.New(storage)
+	base := newStore(t, storage)
 	require.NoError(t, base.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
 		settings["initial"] = json.RawMessage(`true`)
 		return nil
@@ -205,7 +205,7 @@ func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
 			return c.Update(ctx, obj, opts...)
 		},
 	})
-	require.NoError(t, client.New(wrapped).MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
+	require.NoError(t, newStore(t, wrapped).MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
 		settings["edited"] = json.RawMessage(`true`)
 		return nil
 	}))

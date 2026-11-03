@@ -34,7 +34,7 @@ func testResourceAPI(t *testing.T, dsn string) {
 	api, _, db, _, err := storage.Start(ctx, sservices.Config{DSN: dsn, StorageToken: "test"})
 	require.NoError(t, err)
 	defer db.SQLDB.Close()
-	store := client.New(api)
+	store := newStore(t, api)
 	watch, err := api.Watch(ctx, &v1.LLMGatewayProviderList{}, kclient.InNamespace(system.DefaultNamespace))
 	require.NoError(t, err)
 	defer watch.Stop()

@@ -28,7 +28,8 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 
 	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{Transformers: map[schema.GroupResource]value.Transformer{credentialGroupResource: transformer}}
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store := llmcoreclient.New(storage, c)
+	store, err := llmcoreclient.New(storage, c)
+	require.NoError(t, err)
 	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{"X-Secret": "header-secret"}}}}))
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key-1", Name: "test", Value: *schemas.NewSecretVar("provider-secret")}))
 	settingValue := json.RawMessage(`{"token":"setting-secret"}`)
@@ -65,4 +66,23 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 	c.encryptionConfig = nil
 	_, err = store.Load(t.Context())
 	require.ErrorContains(t, err, "encryption provider")
+}
+
+func TestCoreConfigurationWithoutEncryption(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = nil
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, c)
+	require.NoError(t, err)
+	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{Keys: []schemas.Key{{ID: "one", Value: *schemas.NewSecretVar("unencrypted-value")}}}))
+	var providers v1.LLMGatewayProviderList
+	require.NoError(t, storage.List(t.Context(), &providers))
+	require.Len(t, providers.Items, 1)
+	var envelope gatewayConfigEnvelope
+	require.NoError(t, json.Unmarshal([]byte(providers.Items[0].Spec.Payload), &envelope))
+	require.False(t, envelope.Encrypted)
+	require.Equal(t, "llm-core", envelope.Context)
+	provider, err := store.GetProvider(t.Context(), "openai")
+	require.NoError(t, err)
+	require.Equal(t, "unencrypted-value", provider.Keys[0].Value.GetValue())
 }

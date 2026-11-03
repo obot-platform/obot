@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -20,7 +19,7 @@ func TestLoadOnlyDefaultSettings(t *testing.T) {
 	for _, hasDefault := range []bool{false, true} {
 		t.Run(fmt.Sprintf("default=%t", hasDefault), func(t *testing.T) {
 			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-			store := client.New(storage)
+			store := newStore(t, storage)
 			if hasDefault {
 				require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
 					settings["client"] = json.RawMessage(`{"max_request_body_size_mb":1}`)
@@ -68,7 +67,7 @@ func TestSettingsReadFailures(t *testing.T) {
 			return c.Get(ctx, key, obj, opts...)
 		},
 	})
-	store := client.New(wrapped)
+	store := newStore(t, wrapped)
 	_, err := store.Load(t.Context())
 	require.ErrorIs(t, err, failure)
 	_, err = store.GetSettings(t.Context())
@@ -77,7 +76,7 @@ func TestSettingsReadFailures(t *testing.T) {
 
 func TestDefaultSettingsDecodeFailure(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&v1.LLMGatewayConfig{Name: "default", Namespace: system.DefaultNamespace, Spec: v1.LLMGatewayResourceSpec{ID: "default", Payload: "invalid JSON"}}).Build()
-	store := client.New(storage)
+	store := newStore(t, storage)
 	_, err := store.Load(t.Context())
 	require.Error(t, err)
 	_, err = store.GetSettings(t.Context())
