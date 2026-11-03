@@ -6,6 +6,7 @@ import (
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 // DevicePrincipalPrefix namespaces the principal identity (Name/UID) of an
@@ -50,6 +51,19 @@ type DeviceLatestScan struct {
 // (device submissions leave SubmittedBy empty).
 func DevicePrincipalName(deviceID string) string {
 	return fmt.Sprintf("%s:%s", DevicePrincipalPrefix, deviceID)
+}
+
+// PrincipalDeviceID returns the device ID of an authenticated enrolled-device
+// principal, or "" when u is not one. Both the device_id extra and a matching
+// device:<id> UID are required: human UIDs are numeric, so a human principal
+// can never pass even if some authenticator surfaced a device_id extra. Only
+// authenticated principal data is consulted, never the request.
+func PrincipalDeviceID(u user.Info) string {
+	extra := u.GetExtra()["device_id"]
+	if len(extra) == 0 || extra[0] == "" || u.GetUID() != DevicePrincipalName(extra[0]) {
+		return ""
+	}
+	return extra[0]
 }
 
 // ConvertDevice maps a gateway device record to its API representation,

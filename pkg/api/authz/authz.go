@@ -402,8 +402,12 @@ var (
 
 		types.GroupDeviceScans: {
 			// Device scans: any authenticated user can submit a scan via
-			// `obot scan` and read the scans they themselves submitted.
-			// Clamp list results to SubmittedBy == req.User.GetUID()
+			// `obot scan`. Non-admin, non-auditor reads are owner-only: a human
+			// or API key reads only the scans it submitted (SubmittedBy == UID),
+			// and an enrolled device reads only its own device uploads from its
+			// current enrollment. These rules only admit the route; the
+			// ownership clamp lives in DeviceScansHandler.List for lists and in
+			// checkDeviceScan for GET /api/devices/scans/{scan_id}.
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
 

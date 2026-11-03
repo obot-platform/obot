@@ -14,12 +14,17 @@ import (
 
 // DeviceScanListOptions filters the scan-envelope list endpoint.
 // SubmittedBy and DeviceID are multi-value; either narrows the result.
+// DeviceSubmittedOnly keeps only enrolled-device uploads, which are the only
+// rows stored with an empty SubmittedBy. A non-zero CreatedAtOrAfter keeps
+// only scans received at or after that time.
 type DeviceScanListOptions struct {
-	SubmittedBy   []string
-	DeviceID      []string
-	Limit         int
-	Offset        int
-	GroupByDevice bool
+	SubmittedBy         []string
+	DeviceID            []string
+	DeviceSubmittedOnly bool
+	CreatedAtOrAfter    time.Time
+	Limit               int
+	Offset              int
+	GroupByDevice       bool
 }
 
 // DeviceScanStatsOptions bounds the dashboard rollup. Zero-valued
@@ -160,12 +165,21 @@ func (c *Client) ListDeviceScans(ctx context.Context, opts DeviceScanListOptions
 	return scans, total, nil
 }
 
+// applyDeviceScanListFilters is shared by the outer list query and the
+// GroupByDevice latest-per-device subquery, so every filter here also decides
+// which scan counts as a device's latest.
 func applyDeviceScanListFilters(db *gorm.DB, opts DeviceScanListOptions) *gorm.DB {
 	if len(opts.SubmittedBy) > 0 {
 		db = db.Where("submitted_by IN (?)", opts.SubmittedBy)
 	}
+	if opts.DeviceSubmittedOnly {
+		db = db.Where("submitted_by = ''")
+	}
 	if len(opts.DeviceID) > 0 {
 		db = db.Where("device_id IN (?)", opts.DeviceID)
+	}
+	if !opts.CreatedAtOrAfter.IsZero() {
+		db = db.Where("created_at >= ?", opts.CreatedAtOrAfter)
 	}
 	return db
 }

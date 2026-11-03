@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"cmp"
 	"errors"
 	"net/url"
 	"strconv"
@@ -27,10 +26,11 @@ func NewDeviceScansHandler() *DeviceScansHandler {
 	return nil
 }
 
-// userIsDeviceScanReader reports whether the caller is
-// allowed to read device scans without being clamped to their own
-// SubmittedBy. Admin, owner, and auditor see all scans; everyone
-// else sees only scans they submitted.
+// userIsDeviceScanReader reports whether the caller is allowed to read
+// device scans without being clamped to their own scans. Admin, owner, and
+// auditor see all scans; a human sees only scans they submitted, and an
+// enrolled device sees only scans it uploaded as itself during its current
+// enrollment.
 func userIsDeviceScanReader(req api.Context) bool {
 	return req.UserIsAdmin() || req.UserIsAuditor()
 }
@@ -48,7 +48,7 @@ func (*DeviceScansHandler) Submit(req api.Context) error {
 	}
 
 	scan := gtypes.DeviceScanFromManifest(manifest)
-	if deviceID := cmp.Or(req.User.GetExtra()["device_id"]...); deviceID != "" {
+	if deviceID := gtypes.PrincipalDeviceID(req.User); deviceID != "" {
 		// Device submission: no user submitter, so SubmittedBy stays empty.
 		scan.DeviceID = deviceID
 	} else {
@@ -63,13 +63,44 @@ func (*DeviceScansHandler) Submit(req api.Context) error {
 }
 
 // List handles GET /api/devices/scans. Optional submitted_by / device_id
-// filters narrow the result. Non-privileged callers always see only
-// their own scans -- any client-supplied submitted_by filter is
-// overridden so a caller cannot widen the result set to other users.
+// filters narrow the result. Non-privileged callers always see only their
+// own scans: a human is clamped to SubmittedBy == their UID, and an enrolled
+// device to its own device uploads from its current enrollment. The
+// client-supplied filters that could widen that set are overridden.
 func (*DeviceScansHandler) List(req api.Context) error {
 	opts := parseDeviceScanListOpts(req.URL.Query())
 	if !userIsDeviceScanReader(req) {
-		opts.SubmittedBy = []string{req.User.GetUID()}
+		if deviceID := gtypes.PrincipalDeviceID(req.User); deviceID != "" {
+			device, err := req.GatewayClient.GetDeviceByDeviceID(req.Context(), deviceID)
+			switch {
+			case errors.Is(err, gorm.ErrRecordNotFound):
+				// The device was deleted after it authenticated, so it owns no scans.
+				return req.Write(types.DeviceScanResponse{Items: []types.DeviceScan{}})
+			case err != nil:
+				return err
+			}
+
+			// Device uploads have an empty SubmittedBy. Requiring that excludes
+			// human scans whose user-controlled manifest DeviceID matches this
+			// device, so a device never sees scans it did not upload itself.
+			opts.SubmittedBy = nil
+			opts.DeviceID = []string{deviceID}
+			opts.DeviceSubmittedOnly = true
+
+			// A deleted device's kept scans stay under its DeviceID, and anyone
+			// with an enrollment token can enroll that ID again with a new key.
+			// Re-enrolling an existing device row keeps EnrolledAt, but after the
+			// device is deleted any re-enroll, with the same key or not, starts a
+			// new enrollment, so this bound hides every scan from before it.
+			// shortcut: EnrolledAt and scan CreatedAt come from possibly
+			// different replicas' clocks, so skew can hide a device's first scans
+			// (this mostly fails closed; only scans uploaded within the skew of a
+			// delete-then-re-enroll could stay visible); stamp scans with the
+			// enrolling devices.id if devices report missing first scans.
+			opts.CreatedAtOrAfter = device.EnrolledAt
+		} else {
+			opts.SubmittedBy = []string{req.User.GetUID()}
+		}
 	}
 	if opts.Limit == 0 {
 		opts.Limit = 100
@@ -94,8 +125,9 @@ func (*DeviceScansHandler) List(req api.Context) error {
 
 // Get handles GET /api/devices/scans/{scan_id}. Returns the scan
 // envelope plus all child rows (MCP servers, skills, plugins, files).
-// For non-privileged callers, scans submitted by another user return
-// NotFound.
+// Ownership is enforced by authz (checkDeviceScan) before this runs: a
+// non-privileged human may read only scans they submitted, and an enrolled
+// device only scans it uploaded as itself during its current enrollment.
 func (*DeviceScansHandler) Get(req api.Context) error {
 	id, err := parseDeviceScanID(req.PathValue("scan_id"))
 	if err != nil {
