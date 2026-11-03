@@ -175,11 +175,12 @@ func TestSensitiveInlineConfigIsRedactedForReaders(t *testing.T) {
 				body := recorder.Body.String()
 				require.True(t, json.Valid([]byte(body)), body)
 				require.Contains(t, body, plainConfigValue, "non-sensitive values are not redacted")
-				want := endpoint.sensitive
+				shown, masked := endpoint.sensitive, 0
 				if role.redacted {
-					want = 0
+					shown, masked = 0, endpoint.sensitive
 				}
-				require.Equal(t, want, strings.Count(body, sensitiveConfigValue), body)
+				require.Equal(t, shown, strings.Count(body, sensitiveConfigValue), body)
+				require.Equal(t, masked, strings.Count(body, `"`+redactedValue+`"`), body)
 			})
 		}
 	}
@@ -190,14 +191,32 @@ func TestSensitiveInlineConfigIsRedactedForReaders(t *testing.T) {
 	require.Equal(t, sensitiveConfigValue, stored.Spec.Manifest.Config[0].Value)
 }
 
+func TestRedactSensitiveConfigLeavesUnsetValuesEmpty(t *testing.T) {
+	config := []types.MCPConfig{
+		{
+			Key:       "UNSET_TOKEN",
+			Sensitive: true,
+		},
+		{
+			Key:       "API_TOKEN",
+			Value:     sensitiveConfigValue,
+			Sensitive: true,
+		},
+	}
+	redacted := redactSensitiveConfig(config)
+
+	require.Empty(t, redacted[0].Value, "an unset value is not shown as hidden")
+	require.Equal(t, redactedValue, redacted[1].Value)
+}
+
 func TestRedactSystemMCPServerManifestLeavesInputUnchanged(t *testing.T) {
 	manifest := sensitiveSystemServerManifestForTest()
 	redacted := redactSystemMCPServerManifest(manifest)
 
-	require.Empty(t, redacted.Config[0].Value)
+	require.Equal(t, redactedValue, redacted.Config[0].Value)
 	require.Equal(t, plainConfigValue, redacted.Config[1].Value)
-	require.Empty(t, redacted.DeprecatedEnv[0].Value)
-	require.Empty(t, redacted.RemoteConfig.DeprecatedHeaders[0].Value)
+	require.Equal(t, redactedValue, redacted.DeprecatedEnv[0].Value)
+	require.Equal(t, redactedValue, redacted.RemoteConfig.DeprecatedHeaders[0].Value)
 
 	require.Equal(t, sensitiveConfigValue, manifest.Config[0].Value)
 	require.Equal(t, sensitiveConfigValue, manifest.DeprecatedEnv[0].Value)

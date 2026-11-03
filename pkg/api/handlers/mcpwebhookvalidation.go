@@ -437,17 +437,13 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support log retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
+	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
+	if err != nil {
 		return err
 	}
 
-	serverConfig, err := systemServerToServerConfig(req, systemServer)
-	if err != nil {
-		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
-	}
-
 	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: inspectsAsReader(req),
+		ReadOnly: readOnly,
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
@@ -476,17 +472,13 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
+	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
+	if err != nil {
 		return err
 	}
 
-	serverConfig, err := systemServerToServerConfig(req, systemServer)
-	if err != nil {
-		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
-	}
-
 	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: inspectsAsReader(req),
+		ReadOnly: readOnly,
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {

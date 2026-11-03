@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -43,6 +44,13 @@ func TestAdminReadonlyInspectionDoesNotDeployStoppedServers(t *testing.T) {
 					Manifest: types.SystemMCPServerManifest{
 						Runtime:             types.RuntimeContainerized,
 						ContainerizedConfig: &types.ContainerizedRuntimeConfig{Image: "example.com/validator:test", Port: 8080},
+						// A required value with no credential stored for it. Checking whether the server is configured
+						// reveals its credentials and would fail the request, so read-only inspection must skip it.
+						Config: []types.MCPConfig{{
+							Key:       "VALIDATOR_TOKEN",
+							Required:  true,
+							Sensitive: true,
+						}},
 					},
 				},
 			}
@@ -166,6 +174,103 @@ func TestAdminReadonlyInspectionDoesNotConnectToVMCPs(t *testing.T) {
 				require.NoError(t, storage.List(t.Context(), &instances))
 				require.Empty(t, instances.Items)
 			})
+		}
+	}
+}
+
+// TestAdminReadonlyInspectionResolvesConnections checks that the server details and logs routes accept a connection
+// to a multi-user server and inspect it read-only through the server it connects to. The caller's own connection to a
+// shared server they don't own does not let them start it.
+func TestAdminReadonlyInspectionResolvesConnections(t *testing.T) {
+	require.NoError(t, appsv1.AddToScheme(storagescheme.Scheme))
+	const (
+		readerID       = "readonly-user"
+		otherInstance  = system.MCPServerInstancePrefix + "other"
+		readerInstance = system.MCPServerInstancePrefix + "reader"
+	)
+	server := &v1.MCPServer{
+		Name:      system.MCPServerPrefix + "shared",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: system.DefaultCatalog,
+			Manifest: types.MCPServerManifest{
+				Runtime:             types.RuntimeContainerized,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{Image: "example.com/mcp:test", Port: 8080},
+			},
+		},
+	}
+	instances := []*v1.MCPServerInstance{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: otherInstance, Namespace: system.DefaultNamespace},
+			Spec: v1.MCPServerInstanceSpec{
+				UserID:        "another-user",
+				MCPServerName: server.Name,
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: readerInstance, Namespace: system.DefaultNamespace},
+			Spec: v1.MCPServerInstanceSpec{
+				UserID:        readerID,
+				MCPServerName: server.Name,
+			},
+		},
+	}
+	manager, storage, gateway := newVMCPActionSessionManager(t, server, instances[0], instances[1])
+	handler := &MCPHandler{mcpSessionManager: manager}
+
+	for _, role := range []types.Role{types.RoleAdminReadonly, types.RoleBasic | types.RoleAuditor} {
+		for _, endpoint := range []struct {
+			name    string
+			handler func(api.Context) error
+		}{
+			{
+				name:    "details",
+				handler: handler.GetServerDetails,
+			},
+			{
+				name:    "logs",
+				handler: handler.StreamServerLogs,
+			},
+		} {
+			call := func(id string) error {
+				request := httptest.NewRequest(http.MethodGet, "/", nil)
+				request.SetPathValue("mcp_server_id", id)
+				return endpoint.handler(api.Context{
+					Request:        request,
+					ResponseWriter: httptest.NewRecorder(),
+					Storage:        storage,
+					GatewayClient:  gateway,
+					User: &kuser.DefaultInfo{
+						UID:    readerID,
+						Groups: role.Groups(),
+					},
+				})
+			}
+
+			for _, connection := range []struct {
+				name string
+				id   string
+			}{
+				{
+					name: "another user's connection",
+					id:   otherInstance,
+				},
+				{
+					name: "own connection",
+					id:   readerInstance,
+				},
+			} {
+				t.Run(strconv.Itoa(int(role))+"/"+endpoint.name+"/"+connection.name, func(t *testing.T) {
+					err := call(connection.id)
+					httpErr, ok := errors.AsType[*types.ErrHTTP](err)
+					require.True(t, ok, "expected HTTP stopped-server error, got %v", err)
+					require.Equal(t, http.StatusConflict, httpErr.Code)
+
+					var deployments appsv1.DeploymentList
+					require.NoError(t, storage.List(t.Context(), &deployments))
+					require.Empty(t, deployments.Items)
+				})
+			}
 		}
 	}
 }

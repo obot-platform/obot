@@ -758,14 +758,25 @@ func inspectsAsReader(req api.Context) bool {
 
 // serverForInspection resolves the MCP server whose details or logs are requested, and reports whether the inspection
 // must be read-only. Admins, and users inspecting their own server, resolve it as an action, which may deploy it.
-// Admin read-only users and auditors inspecting another user's server read it as stored instead: resolving it as an
+// Admin read-only users and auditors inspecting a server they don't own read it as stored instead: resolving it as an
 // action refreshes its last request time, which keeps it from idling, and resolves a vMCP ID to the caller's
-// connection to that vMCP, creating the connection if there is none.
+// connection to that vMCP, creating the connection if there is none. A connection to a multi-user server is inspected
+// through the server it connects to, so whose connection it is doesn't matter: a reader's own connection to a shared
+// server does not let them start it.
 func (m *MCPHandler) serverForInspection(req api.Context) (v1.MCPServer, mcp.ServerConfig, bool, error) {
 	id := req.PathValue("mcp_server_id")
 	if inspectsAsReader(req) {
+		serverName := id
+		if system.IsMCPServerInstanceID(id) {
+			var instance v1.MCPServerInstance
+			if err := req.Get(&instance, id); err != nil {
+				return v1.MCPServer{}, mcp.ServerConfig{}, false, err
+			}
+			serverName = instance.Spec.MCPServerName
+		}
+
 		var server v1.MCPServer
-		if err := req.Get(&server, id); err != nil {
+		if err := req.Get(&server, serverName); err != nil {
 			return v1.MCPServer{}, mcp.ServerConfig{}, false, err
 		}
 		if !server.Spec.IsOwnedBy(req.User.GetUID()) {
@@ -776,6 +787,8 @@ func (m *MCPHandler) serverForInspection(req api.Context) (v1.MCPServer, mcp.Ser
 				UserID:        server.Spec.UserID,
 			}, true, nil
 		}
+		// The caller's own server, possibly reached through a connection to it.
+		id = server.Name
 	}
 
 	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), id, req.User)

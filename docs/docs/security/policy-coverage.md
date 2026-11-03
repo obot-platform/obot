@@ -31,7 +31,7 @@ Full platform management, including server and model configuration, users, and p
 
 ### Admin Read-Only {#user-roles-admin-read-only}
 
-Can view everything an Admin can view, including server and model configuration, users, groups, auth providers, audit logs, usage, and platform settings, but cannot change administrative configuration. Secret values that an Admin must explicitly reveal stay hidden: an Admin Read-Only user cannot reveal administrative credentials or other users' connection credentials, and sensitive configuration values are omitted. Configuration an Admin sees without revealing it, such as files captured by device scans, is visible as it is to an Admin. Audit logs appear without request/response bodies, as they do for an Admin. Viewing the details or logs of another user's server never starts it.
+Can view everything an Admin can view, including server and model configuration, users, groups, auth providers, audit logs, usage, and platform settings, but cannot change administrative configuration. Secret values that an Admin must explicitly reveal stay hidden: an Admin Read-Only user cannot reveal administrative credentials or other users' connection credentials, and sensitive configuration values are masked. Configuration an Admin sees without revealing it, such as files captured by device scans, is visible as it is to an Admin. Audit logs appear without request/response bodies, as they do for an Admin. Viewing the details or logs of a server they don't own, including system servers and webhook validations, never starts it.
 
 Admin Read-Only users retain Standard User capabilities: they can create personal vMCPs, configure their own connections and credentials, complete OAuth, use permitted MCP servers, and manage their own agent identities. Admin Read-Only does not include Power User or Power User+ publishing permissions. Changing a Power User or Power User+ to Admin Read-Only follows the same workspace cleanup process as changing them to Standard User. Admins can assign Admin Read-Only; it cannot be the [default role for new users](./policy-coverage.md#user-roles-default-role-for-new-users). Combine it with Auditor to also see sensitive audit data and sensitive configuration values.
 
@@ -51,7 +51,7 @@ Connect to approved MCP servers and use models granted through access policies.
 
 Add-on permission that grants read-only access to sensitive data across the platform. Sensitive data (MCP request/response bodies) can only be viewed by users with this role. All other roles, including Owner, see only metadata for these resources. Can be combined with any other role.
 
-On a Standard User, Power User, or Power User+, Auditor also grants read-only access to the admin area. To let someone view configuration without seeing sensitive data, assign [Admin Read-Only](./policy-coverage.md#user-roles-admin-read-only) instead.
+On a Standard User, Power User, or Power User+, Auditor also grants read-only access to the admin area. Viewing the details or logs of a server they don't own, including system servers and webhook validations, never starts it. To let someone view configuration without seeing sensitive data, assign [Admin Read-Only](./policy-coverage.md#user-roles-admin-read-only) instead.
 
 ## Role Comparison {#user-roles-role-comparison}
 
