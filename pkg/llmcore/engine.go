@@ -180,14 +180,6 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	return e.apply(ctx, cfg)
 }
 
-// Apply reconciles independently versioned desired resources. Failed updates remain
-// retryable with unchanged desired state; successful providers are not restarted again.
-func (e *Engine) Apply(ctx context.Context, cfg llmcoreclient.Config) (bool, error) {
-	e.syncLock.Lock()
-	defer e.syncLock.Unlock()
-	return e.apply(ctx, cfg)
-}
-
 // apply updates the live Bifrost providers and routing rules after desired resources
 // change; controller writes alone do not update Bifrost's in-memory state.
 // The caller must hold syncLock to serialize reconciliation and applied-state updates.
