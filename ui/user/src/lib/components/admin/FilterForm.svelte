@@ -106,6 +106,17 @@
 		)
 	);
 
+	let authorizationEnabled = $state(untrack(() => initialFilter?.authorization?.enabled ?? false));
+	let authorizationURL = $state(untrack(() => initialFilter?.authorization?.url ?? ''));
+	let authorizationSecret = $state('');
+	let authorizationInvalid = $derived(
+		authorizationEnabled &&
+			(!authorizationURL.startsWith('https://') ||
+				(!authorizationSecret.trim() &&
+					(initialFilter?.authorization?.signingEnabled || initialFilter?.hasAuthorizationSecret) &&
+					authorizationURL !== initialFilter?.authorization?.url))
+	);
+
 	type FilterRuntimeFormData = Omit<RuntimeFormData, 'serverUserType'>;
 	let runtimeFormData = $state<FilterRuntimeFormData | undefined>(
 		untrack(() => convertToRuntimeFormData(initialFilter))
@@ -480,6 +491,7 @@
 			return;
 		// Show validation errors if required fields are missing
 		if (
+			authorizationInvalid ||
 			!filter.name.trim() ||
 			(!runtimeFormData && !filter.url.trim()) ||
 			(runtimeFormData && !filter.toolName?.trim())
@@ -541,6 +553,14 @@
 				resources: filter.resources,
 				url: filter.url,
 				secret: filter.secret || undefined,
+				authorization:
+					authorizationEnabled || initialFilter?.authorization
+						? {
+								enabled: authorizationEnabled,
+								url: authorizationURL,
+								secret: authorizationSecret || undefined
+							}
+						: undefined,
 				selectors,
 				toolName: filter.toolName,
 				allowedToMutate:
@@ -633,7 +653,7 @@
 								options={runtimeOptions}
 								bind:selected={runtimeTypeSelect}
 								onSelect={handleRuntimeChange}
-								disabled={readonly || isPrebuiltEntry}
+								disabled={readonly || isPrebuiltEntry || authorizationEnabled}
 							/>
 						</div>
 					</div>
@@ -724,6 +744,53 @@
 						</p>
 					{/if}
 				</div>
+			</div>
+			<div class="flex flex-col gap-3 rounded-lg border border-base-300 p-4">
+				<label class="flex items-center gap-2 text-sm" for="authorization-enabled">
+					<input
+						id="authorization-enabled"
+						type="checkbox"
+						class="toggle toggle-sm"
+						bind:checked={authorizationEnabled}
+						disabled={readonly}
+					/>
+					{m.mcps_filters_authorization_enable()}
+				</label>
+				<p class="text-muted-content text-xs">{m.mcps_filters_authorization_hint()}</p>
+				{#if authorizationEnabled}
+					<div>
+						<label for="authorization-url" class="text-sm font-light"
+							>{m.mcps_filters_authorization_url()}</label
+						>
+						<input
+							id="authorization-url"
+							type="url"
+							class="text-input-filled mt-0.5 w-full"
+							bind:value={authorizationURL}
+							disabled={readonly}
+							placeholder="https://policy.example.com/access/v1/evaluation"
+						/>
+					</div>
+					<div>
+						<label for="authorization-secret" class="text-sm font-light"
+							>{m.mcps_filters_authorization_secret()}</label
+						>
+						<input
+							id="authorization-secret"
+							type="password"
+							class="text-input-filled mt-0.5 w-full"
+							bind:value={authorizationSecret}
+							disabled={readonly}
+							autocomplete="new-password"
+							placeholder={initialFilter?.hasAuthorizationSecret
+								? m.mcps_filters_authorization_secret_saved()
+								: ''}
+						/>
+					</div>
+					{#if showValidation && authorizationInvalid}
+						<p class="text-xs text-error">{m.mcps_filters_authorization_required()}</p>
+					{/if}
+				{/if}
 			</div>
 		{:else if runtimeFormData}
 			<div class="flex flex-col gap-4" id={MCP_FILTERS_FIELD_IDS.runtimeFormDetails}>

@@ -145,6 +145,10 @@ export type AuditLogPayloadDetails = {
 };
 
 export type WebhookStatus = {
+	filterID?: string;
+	evaluationID?: string;
+	mapping?: string;
+	durationMs?: number;
 	type?: string;
 	method?: string;
 	url?: string;

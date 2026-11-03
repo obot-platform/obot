@@ -210,6 +210,9 @@ func (h *Handler) getWebhookCredential(req router.Request, name string) (map[str
 		return nil, err
 	}
 
+	// Authorization credentials must never be passed to the content runtime.
+	delete(cred.Secrets, types.MCPFilterAuthorizationSecretKey)
+	delete(cred.Secrets, types.MCPFilterAuthorizationURLKey)
 	if s := cred.Secrets["secret"]; s != "" {
 		delete(cred.Secrets, "secret")
 		cred.Secrets["WEBHOOK_SECRET"] = s

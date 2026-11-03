@@ -24,7 +24,9 @@ type Webhook struct {
 	MutateAllowed     bool
 	// Guardrail is set for a guardrail filter, which runs in-process: it has no URL,
 	// audience or tool.
-	Guardrail *types.MCPGuardrailFilterConfig `json:",omitempty"`
+	Guardrail       *types.MCPGuardrailFilterConfig `json:",omitempty"`
+	Authorization   *types.MCPFilterAuthorization
+	ContentDisabled bool
 }
 
 func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
@@ -76,7 +78,7 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 		res, ok := mwv.(*v1.MCPWebhookValidation)
 		// A guardrail filter is used even when its status isn't configured, e.g. because a
 		// guardrail was deleted: it then fails at runtime, and blocks if it fails closed.
-		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled && (res.Status.Configured || res.Spec.Manifest.Guardrail != nil) {
+		if ok && res.Namespace == namespace && !res.Spec.Manifest.Disabled && (res.Status.Configured || res.Spec.Manifest.Guardrail != nil || (res.Spec.Manifest.Authorization != nil && res.Spec.Manifest.Authorization.Enabled)) {
 			url := system.MCPConnectURL(wh.baseURL, system.SystemMCPServerPrefix+res.Name)
 			if _, seen := seen[url]; seen {
 				continue
@@ -105,13 +107,15 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 			}
 
 			result = append(result, Webhook{
-				Name:          res.Name,
-				DisplayName:   displayName,
-				URL:           transformHostname(url),
-				Audience:      url,
-				ToolName:      toolName,
-				Definitions:   res.Spec.Manifest.Selectors,
-				MutateAllowed: res.Spec.Manifest.AllowedToMutate,
+				Name:            res.Name,
+				Authorization:   res.Spec.Manifest.Authorization,
+				ContentDisabled: !res.Status.Configured,
+				DisplayName:     displayName,
+				URL:             transformHostname(url),
+				Audience:        url,
+				ToolName:        toolName,
+				Definitions:     res.Spec.Manifest.Selectors,
+				MutateAllowed:   res.Spec.Manifest.AllowedToMutate,
 			})
 		}
 	}

@@ -59,6 +59,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rancher/remotedialer v0.6.2-0.20260812153830-1c09457bfdb3
 	github.com/rs/cors v1.11.1
+	github.com/segmentio/encoding v0.5.4
 	github.com/sethvargo/go-limiter v1.0.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/spf13/cobra v1.10.2
@@ -361,7 +362,6 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/savsgio/gotils v0.0.0-20250408102913-196191ec6287 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
-	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect

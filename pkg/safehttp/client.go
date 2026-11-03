@@ -129,6 +129,13 @@ func newSafeDialer(options Options) *safeDialer {
 	}
 }
 
+// CloseIdleConnections lets owners of a safe client release its connection pool.
+func (t checkingTransport) CloseIdleConnections() {
+	if closer, ok := t.base.(interface{ CloseIdleConnections() }); ok {
+		closer.CloseIdleConnections()
+	}
+}
+
 func (t checkingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if host := req.URL.Hostname(); host != "" {
 		if _, err := t.dialer.checkHost(req.Context(), host, portForURL(req.URL)); err != nil {

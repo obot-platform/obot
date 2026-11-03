@@ -599,11 +599,11 @@ func mcpOutcomeStatusPredicate(status string) string {
 	case types2.AuditLogOutcomeStatusSuccess:
 		return "response_status BETWEEN 1 AND 399"
 	case types2.AuditLogOutcomeStatusDenied:
-		return "response_status IN (401, 403)"
+		return "response_status IN (401, 403, 429)"
 	case types2.AuditLogOutcomeStatusTimeout:
 		return "response_status IN (408, 504)"
 	case types2.AuditLogOutcomeStatusFailure:
-		return "((error <> '' OR response_status >= 400) AND response_status NOT IN (401, 403, 408, 504))"
+		return "((error <> '' OR response_status >= 400) AND response_status NOT IN (401, 403, 408, 429, 504))"
 	case types2.AuditLogOutcomeStatusUnknown:
 		return "(response_status <= 0 AND (error IS NULL OR error = ''))"
 	default:

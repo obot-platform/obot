@@ -160,6 +160,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPConfig":                                 schema_obot_platform_obot_apiclient_types_MCPConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption":                    schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                    schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPFilterAuthorization":                    schema_obot_platform_obot_apiclient_types_MCPFilterAuthorization(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterConfig":                  schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterSubject":                 schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterSubject(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                 schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
@@ -8230,6 +8231,46 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPFilterAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPFilterAuthorization configures the optional pre-content AuthZEN evaluation. Secret is write-only and is stored in the filter's encrypted credential.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"signingEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SigningEnabled is maintained by Obot, not writable by API clients. It preserves the requirement to sign if the encrypted credential is lost.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"secret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"enabled"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10590,6 +10631,11 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Format: "",
 						},
 					},
+					"authorization": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPFilterAuthorization"),
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -10667,6 +10713,12 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterConfig"),
 						},
 					},
+					"hasAuthorizationSecret": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"hasSecret": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -10698,7 +10750,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.MCPFilterAuthorization", "github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -10735,6 +10787,11 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"authorization": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPFilterAuthorization"),
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -10816,7 +10873,7 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"},
+			"github.com/obot-platform/obot/apiclient/types.MCPFilterAuthorization", "github.com/obot-platform/obot/apiclient/types.MCPGuardrailFilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPSelector", "github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.SystemMCPServerManifest"},
 	}
 }
 
@@ -18968,6 +19025,30 @@ func schema_obot_platform_obot_apiclient_types_WebhookStatus(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"filterID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"evaluationID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mapping": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"durationMs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 					"type": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

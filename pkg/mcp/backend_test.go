@@ -176,8 +176,8 @@ func TestServerHookConfigRunsGuardrailFiltersInProcess(t *testing.T) {
 	if !hooks[1].Matches("tools/call", map[string]string{"name": "echo"}) || hooks[1].Matches("tools/call", map[string]string{"name": "search"}) {
 		t.Fatal("guardrail filter selectors did not scope by tool name")
 	}
-	if only := hooks.GuardrailsOnly(); len(only) != 1 || only[0].Targets[0].Guardrail == nil {
-		t.Fatalf("GuardrailsOnly = %#v", only)
+	if only := hooks.WithoutServerTargets(); len(only) != 1 || only[0].Targets[0].Guardrail == nil {
+		t.Fatalf("WithoutServerTargets = %#v", only)
 	}
 }
 

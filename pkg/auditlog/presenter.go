@@ -48,7 +48,7 @@ func Present(log gatewaytypes.MCPAuditLog, opts PresentOptions) api.AuditLogEven
 // generic errors. A row with no recorded status and no error is classified as unknown.
 func ClassifyMCPOutcome(status int, responseError string) api.AuditLogOutcomeStatus {
 	switch {
-	case status == 401 || status == 403:
+	case status == 401 || status == 403 || status == 429:
 		return api.AuditLogOutcomeStatusDenied
 	case status == 408 || status == 504:
 		return api.AuditLogOutcomeStatusTimeout
@@ -91,13 +91,17 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 	webhooks := make([]api.WebhookStatus, len(mcp.WebhookStatuses))
 	for i, webhook := range mcp.WebhookStatuses {
 		webhooks[i] = api.WebhookStatus{
-			Type:    webhook.Type,
-			Method:  webhook.Method,
-			URL:     webhook.URL,
-			Name:    webhook.Name,
-			Tool:    webhook.Tool,
-			Status:  webhook.Status,
-			Message: webhook.Message,
+			Type:         webhook.Type,
+			FilterID:     webhook.FilterID,
+			EvaluationID: webhook.EvaluationID,
+			Mapping:      webhook.Mapping,
+			DurationMS:   webhook.DurationMS,
+			Method:       webhook.Method,
+			URL:          webhook.URL,
+			Name:         webhook.Name,
+			Tool:         webhook.Tool,
+			Status:       webhook.Status,
+			Message:      webhook.Message,
 		}
 	}
 

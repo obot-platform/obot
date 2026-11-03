@@ -7,12 +7,14 @@ import (
 type MCPWebhookValidation struct {
 	Metadata                     `json:",inline"`
 	MCPWebhookValidationManifest `json:",inline"`
+	HasAuthorizationSecret       bool     `json:"hasAuthorizationSecret,omitempty"`
 	HasSecret                    bool     `json:"hasSecret,omitempty"`
 	Configured                   bool     `json:"configured"`
 	MissingRequiredEnvVars       []string `json:"missingRequiredEnvVars,omitempty"`
 }
 
 type MCPWebhookValidationManifest struct {
+	Authorization                 *MCPFilterAuthorization  `json:"authorization,omitempty"`
 	Name                          string                   `json:"name,omitempty"`
 	Resources                     []Resource               `json:"resources,omitempty"`
 	URL                           string                   `json:"url,omitempty"`
@@ -136,3 +138,20 @@ func (f MCPSelector) Strings() []string {
 
 	return result
 }
+
+// MCPFilterAuthorization configures the optional pre-content AuthZEN evaluation.
+// Secret is write-only and is stored in the filter's encrypted credential.
+type MCPFilterAuthorization struct {
+	// SigningEnabled is maintained by Obot, not writable by API clients.
+	// It preserves the requirement to sign if the encrypted credential is lost.
+	SigningEnabled bool   `json:"signingEnabled,omitempty"`
+	Enabled        bool   `json:"enabled"`
+	URL            string `json:"url,omitempty"`
+	Secret         string `json:"secret,omitempty"`
+}
+
+const (
+	MCPFilterAuthorizationSecretKey = "authorizationSecret"
+	// Bind the secret to its destination even if a manifest update fails.
+	MCPFilterAuthorizationURLKey = "authorizationURL"
+)

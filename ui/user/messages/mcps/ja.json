@@ -1195,5 +1195,11 @@
 	"mcps_filters_kind_builtin": "組み込み",
 	"mcps_filters_kind_mcp_server": "MCP サーバー",
 	"mcps_filters_create_guardrail_filter": "ガードレールフィルターを作成",
-	"mcps_filters_create_guardrail": "ガードレールから作成"
+	"mcps_filters_create_guardrail": "ガードレールから作成",
+	"mcps_filters_authorization_enable": "AuthZEN でリクエストを認可",
+	"mcps_filters_authorization_hint": "このフィルターのサーバー、メソッド、識別子のセレクターを使用します。Obot はコンテンツフィルタリングの前に認証済みの ID とリクエスト対象を送信します。拒否または判定不能の場合はリクエストをブロックし、結果を監査ログに記録します。",
+	"mcps_filters_authorization_url": "認可エンドポイント",
+	"mcps_filters_authorization_required": "HTTPS エンドポイントを入力してください。署名が設定されている場合、エンドポイントの変更時にシークレットを再入力してください。",
+	"mcps_filters_authorization_secret": "認可署名シークレット（任意）",
+	"mcps_filters_authorization_secret_saved": "シークレットは保存済みです。保持するには空欄にしてください。"
 }

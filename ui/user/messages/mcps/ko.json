@@ -1195,5 +1195,11 @@
 	"mcps_filters_kind_builtin": "기본 제공",
 	"mcps_filters_kind_mcp_server": "MCP 서버",
 	"mcps_filters_create_guardrail_filter": "가드레일 필터 만들기",
-	"mcps_filters_create_guardrail": "가드레일로 만들기"
+	"mcps_filters_create_guardrail": "가드레일로 만들기",
+	"mcps_filters_authorization_enable": "AuthZEN으로 요청 인가",
+	"mcps_filters_authorization_hint": "이 필터의 서버, 메서드 및 식별자 선택기를 사용합니다. Obot은 콘텐츠 필터링 전에 인증된 ID와 요청 대상을 전송합니다. 거부되거나 결정을 받을 수 없으면 요청을 차단하며 결과는 감사 로그에 기록됩니다.",
+	"mcps_filters_authorization_url": "인가 엔드포인트",
+	"mcps_filters_authorization_required": "HTTPS 엔드포인트를 입력하세요. 서명이 설정된 경우 엔드포인트를 변경할 때 시크릿을 다시 입력하세요.",
+	"mcps_filters_authorization_secret": "인가 서명 시크릿 (선택 사항)",
+	"mcps_filters_authorization_secret_saved": "시크릿이 저장되었습니다. 유지하려면 비워 두세요."
 }

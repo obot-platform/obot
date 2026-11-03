@@ -1295,3 +1295,44 @@ func TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns(t *testi
 		})
 	}
 }
+
+func TestMCPRateLimitsAreDeniedInOutcomeFilters(t *testing.T) {
+	c := newTestClient(t)
+	for _, responseError := range []string{"", "Rate limit exceeded"} {
+		if err := c.insertMCPAuditLogs(t.Context(), []types.MCPAuditLog{{
+			CreatedAt:  time.Now().UTC(),
+			SourceType: types2.AuditLogSourceTypeMCP,
+			UserID:     "rate-limited-user",
+			MCPFields: &types.MCPAuditLogFields{
+				MCPID:            "rate-limited-server",
+				CallType:         "tools/call",
+				ResponseReceived: true,
+				ResponseStatus:   429,
+				Error:            responseError,
+			},
+		}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		outcome string
+		want    int
+	}{
+		{
+			outcome: "denied",
+			want:    2,
+		},
+		{
+			outcome: "failure",
+			want:    0,
+		},
+	} {
+		_, total, err := c.GetMCPAuditLogs(t.Context(), MCPAuditLogOptions{
+			SourceTypes: []types2.AuditLogSourceType{types2.AuditLogSourceTypeMCP},
+			Outcome:     []string{tc.outcome},
+		})
+		if err != nil || int(total) != tc.want {
+			t.Fatalf("outcome %s: total=%d err=%v", tc.outcome, total, err)
+		}
+	}
+}

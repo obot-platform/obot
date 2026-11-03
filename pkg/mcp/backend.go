@@ -163,17 +163,14 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 
 			// Start looking for an event with "endpoint".
 			scanner := bufio.NewScanner(resp.Body)
-		scannerLoop:
 			for scanner.Scan() {
-				select {
-				case <-readCtx.Done():
-					break scannerLoop
-				default:
-					if strings.Contains(scanner.Text(), "endpoint") {
-						resp.Body.Close()
-						cancel()
-						return nil
-					}
+				if readCtx.Err() != nil {
+					break
+				}
+				if strings.Contains(scanner.Text(), "endpoint") {
+					resp.Body.Close()
+					cancel()
+					return nil
 				}
 			}
 			if err := scanner.Err(); err != nil {
@@ -424,10 +421,19 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 			}
 		}
 
+		var authorization *AuthorizationHook
+		if webhook.Authorization != nil && webhook.Authorization.Enabled {
+			authorization = &AuthorizationHook{FilterID: webhook.Name, URL: webhook.Authorization.URL, SigningEnabled: webhook.Authorization.SigningEnabled}
+		}
+		targets := []HookTarget{target}
+		if webhook.ContentDisabled {
+			targets = nil
+		}
 		if len(webhook.Definitions) == 0 {
 			definitions = append(definitions, HookMapping{
-				Name:    "*",
-				Targets: []HookTarget{target},
+				Name:          "*",
+				Targets:       targets,
+				Authorization: authorization,
 			})
 			continue
 		}
@@ -439,8 +445,9 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 			}
 			if len(def.Identifiers) == 0 {
 				definitions = append(definitions, HookMapping{
-					Name:    method,
-					Targets: []HookTarget{target},
+					Name:          method,
+					Targets:       targets,
+					Authorization: authorization,
 				})
 			}
 			for _, id := range def.Identifiers {
@@ -449,9 +456,10 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 					params = map[string]string{"name": id}
 				}
 				definitions = append(definitions, HookMapping{
-					Name:    method,
-					Params:  params,
-					Targets: []HookTarget{target},
+					Name:          method,
+					Params:        params,
+					Targets:       targets,
+					Authorization: authorization,
 				})
 			}
 		}

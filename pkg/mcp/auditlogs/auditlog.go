@@ -37,12 +37,16 @@ type MCPAuditLog struct {
 
 // MCPWebhookStatus describes the result of running an MCP webhook.
 type MCPWebhookStatus struct {
-	Type    string `json:"type,omitempty"`
-	Method  string `json:"method,omitempty"`
-	Name    string `json:"name"`
-	Tool    string `json:"tool"`
-	Status  string `json:"status"`
-	Message string `json:"message,omitempty"`
+	FilterID     string `json:"filterID,omitempty"`
+	EvaluationID string `json:"evaluationID,omitempty"`
+	Mapping      string `json:"mapping,omitempty"`
+	DurationMS   int64  `json:"durationMs,omitempty"`
+	Type         string `json:"type,omitempty"`
+	Method       string `json:"method,omitempty"`
+	Name         string `json:"name"`
+	Tool         string `json:"tool"`
+	Status       string `json:"status"`
+	Message      string `json:"message,omitempty"`
 }
 
 // SetProcessingTime records elapsed processing time in whole milliseconds.

@@ -51,6 +51,7 @@ var (
 )
 
 type Handler struct {
+	authorizationClient       *http.Client
 	ctx                       context.Context
 	cancel                    func()
 	mcpSessionManager         *mcp.SessionManager
@@ -221,7 +222,21 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		return nil, fmt.Errorf("failed to create composite MCP server: %w", err)
 	}
 
+	// The network policy is fixed for this session manager. Share only transport
+	// connections; identity, signing credentials, and decisions remain per request.
+	var authorizationClient *http.Client
+	if mcpSessionManager != nil {
+		authorizationClient, err = mcpSessionManager.HTTPClientForServer(mcp.ServerConfig{}, mcp.HTTPClientOptions{Timeout: authorizationTimeout, DirectConnect: true})
+		if err != nil {
+			cancel()
+			_ = composite.Close()
+			return nil, fmt.Errorf("failed to create authorization client: %w", err)
+		}
+		authorizationClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	}
+
 	return &Handler{
+		authorizationClient:       authorizationClient,
 		ctx:                       ctx,
 		cancel:                    cancel,
 		mcpSessionManager:         mcpSessionManager,
@@ -243,6 +258,9 @@ func (h *Handler) Close() error {
 		return nil
 	}
 
+	if h.authorizationClient != nil {
+		h.authorizationClient.CloseIdleConnections()
+	}
 	if h.cancel != nil {
 		h.cancel()
 	}
@@ -373,8 +391,8 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		var resolvedCall *resolvedToolCall
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
-			// Guardrail filters run in-process, without the hook runner.
-			inspect := audit != nil || (len(hookConfig) > 0 && (h.hookRunner != nil || (h.guardrails != nil && hookConfig.HasGuardrails())))
+			// Authorization and in-process guardrails also need the resolved tool without a hook runner.
+			inspect := audit != nil || (len(hookConfig) > 0 && (h.hookRunner != nil || hookConfig.HasAuthorization() || (h.guardrails != nil && hookConfig.HasGuardrails())))
 			cfg, configErr := compositeConfig(req, serverConfig)
 			if configErr != nil {
 				return configErr
@@ -418,7 +436,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			filterGuardrails = newMCPGuardrails(h.guardrails, identity, serverConfig, req.Request.Header)
 		}
 
-		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall, filterGuardrails)
+		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall, filterGuardrails, h.authorizer(req, serverConfig))
 		if err != nil {
 			if errors.Is(err, errMCPCaseVariantFieldNames) && handleGenericToolCallError(req, audit, err) {
 				return nil
@@ -432,7 +450,8 @@ func (h *Handler) Proxy(req api.Context) error {
 		if body, blocked, hookErr := hooks.blockedRequest(); blocked {
 			audit.recordBlockedRequest(body, hookErr)
 			req.ResponseWriter.Header().Set("Content-Type", "application/json")
-			req.WriteHeader(http.StatusOK)
+			setAuthorizationResponseHeaders(req.ResponseWriter.Header(), hookErr)
+			req.WriteHeader(hookHTTPStatus(hookErr))
 			_, _ = req.ResponseWriter.Write(body)
 
 			return nil

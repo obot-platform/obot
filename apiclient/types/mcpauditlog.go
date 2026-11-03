@@ -115,13 +115,17 @@ type LocalAgentToolCallAuditLogSubmitRequest struct {
 }
 
 type WebhookStatus struct {
-	Type    string `json:"type,omitempty"`
-	Method  string `json:"method,omitempty"`
-	URL     string `json:"url,omitempty"`
-	Name    string `json:"name,omitempty"`
-	Tool    string `json:"tool,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Message string `json:"message"`
+	FilterID     string `json:"filterID,omitempty"`
+	EvaluationID string `json:"evaluationID,omitempty"`
+	Mapping      string `json:"mapping,omitempty"`
+	DurationMS   int64  `json:"durationMs,omitempty"`
+	Type         string `json:"type,omitempty"`
+	Method       string `json:"method,omitempty"`
+	URL          string `json:"url,omitempty"`
+	Name         string `json:"name,omitempty"`
+	Tool         string `json:"tool,omitempty"`
+	Status       string `json:"status,omitempty"`
+	Message      string `json:"message"`
 }
 
 // MCPUsageStatItem represents usage statistics for MCP servers

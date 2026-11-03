@@ -949,6 +949,7 @@ export interface MCPFilterServerManifest {
 	config?: MCPConfig[];
 }
 export interface MCPFilterManifest {
+	authorization?: { enabled: boolean; url?: string; secret?: string; signingEnabled?: boolean };
 	name?: string;
 	resources?: MCPFilterResource[];
 	url?: string;
@@ -1011,6 +1012,7 @@ export interface MCPFilter extends MCPFilterManifest {
 	metadata?: Record<string, string>;
 	type: string;
 	hasSecret: boolean;
+	hasAuthorizationSecret?: boolean;
 	configured: boolean;
 	missingRequiredEnvVars?: string[];
 }

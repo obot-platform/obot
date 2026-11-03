@@ -1195,5 +1195,11 @@
 	"mcps_filters_kind_builtin": "内置",
 	"mcps_filters_kind_mcp_server": "MCP 服务器",
 	"mcps_filters_create_guardrail_filter": "创建护栏过滤器",
-	"mcps_filters_create_guardrail": "从护栏创建"
+	"mcps_filters_create_guardrail": "从护栏创建",
+	"mcps_filters_authorization_enable": "使用 AuthZEN 授权请求",
+	"mcps_filters_authorization_hint": "使用此过滤器的服务器、方法和标识符选择器。Obot 在内容过滤前发送已验证的身份和请求目标。拒绝或无法获取决策时会阻止请求，结果记录在审计日志中。",
+	"mcps_filters_authorization_url": "授权端点",
+	"mcps_filters_authorization_required": "请输入 HTTPS 端点。如果已配置签名，更改端点时需要重新输入密钥。",
+	"mcps_filters_authorization_secret": "授权签名密钥（可选）",
+	"mcps_filters_authorization_secret_saved": "密钥已保存。留空以保留。"
 }
