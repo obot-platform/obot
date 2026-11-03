@@ -34,6 +34,9 @@ func (c *Client) OpenGatewayConfig(ctx context.Context, id string, data []byte) 
 	if credential.Context != "llm-core" || credential.Name != id {
 		return nil, fmt.Errorf("gateway configuration identity mismatch")
 	}
+	if credential.Encrypted && (len(credential.Secrets) != 1 || credential.Secrets[credentialEncryptedSecretsKey] == "") {
+		return nil, fmt.Errorf("malformed encrypted gateway configuration")
+	}
 	if credential.Encrypted && (c.encryptionConfig == nil || c.encryptionConfig.Transformers[credentialGroupResource] == nil) {
 		return nil, fmt.Errorf("gateway configuration encryption provider unavailable")
 	}

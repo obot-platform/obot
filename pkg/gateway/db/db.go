@@ -6,9 +6,7 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	llmcoretypes "github.com/obot-platform/obot/pkg/llmcore/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 const (
@@ -150,11 +148,6 @@ func (db *DB) AutoMigrate() (err error) {
 	}
 
 	if err := tx.AutoMigrate(
-		llmcoretypes.Provider{},
-		llmcoretypes.ProviderKey{},
-		llmcoretypes.RoutingRule{},
-		llmcoretypes.Revision{},
-		llmcoretypes.Setting{},
 		types.AuthToken{},
 		types.TokenRequest{},
 		types.LLMAuditLog{},
@@ -209,10 +202,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.SCIMRequestFailure{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
-	}
-
-	if err = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&llmcoretypes.Revision{ID: 1}).Error; err != nil {
-		return fmt.Errorf("failed to initialize LLM gateway revision: %w", err)
 	}
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "identity_first_sign_in_backfill", backfillIdentityFirstSignIn); err != nil {
