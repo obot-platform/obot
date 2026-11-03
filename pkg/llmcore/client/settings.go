@@ -28,6 +28,7 @@ func (s *Client) loadSettings(ctx context.Context) (map[string]json.RawMessage, 
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if err := s.decode(ctx, "settings", obj.Spec.Payload, &settings); err != nil {
 		return nil, nil, err
 	}
@@ -46,6 +47,7 @@ func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
+
 		exists := err == nil
 		settings := map[string]json.RawMessage{}
 		if exists {
@@ -53,16 +55,20 @@ func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json
 				return err
 			}
 		}
+
 		if settings == nil {
 			settings = map[string]json.RawMessage{}
 		}
+
 		before, err := json.Marshal(settings)
 		if err != nil {
 			return err
 		}
+
 		if err := change(settings); err != nil {
 			return err
 		}
+
 		after, err := json.Marshal(settings)
 		if err != nil {
 			return err
@@ -70,10 +76,12 @@ func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json
 		if bytes.Equal(before, after) {
 			return nil
 		}
+
 		payload, err := s.encode(ctx, "settings", settings)
 		if err != nil {
 			return err
 		}
+
 		obj.Name = "default"
 		obj.Namespace = system.DefaultNamespace
 		obj.Spec = v1.LLMGatewayResourceSpec{ID: "default", Payload: payload}

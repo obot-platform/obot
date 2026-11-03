@@ -26,6 +26,7 @@ func (s *Client) GetProvider(ctx context.Context, name string) (Provider, error)
 	if err := s.storage.Get(ctx, resourceKey(name), &obj); err != nil {
 		return Provider{}, err
 	}
+
 	var provider Provider
 	err := s.decode(ctx, "provider/"+name, obj.Spec.Payload, &provider)
 	return provider, err
@@ -53,12 +54,14 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 		if err != nil && (!apierrors.IsNotFound(err) || !create) {
 			return err
 		}
+
 		var provider Provider
 		if exists {
 			if err := s.decode(ctx, "provider/"+name, obj.Spec.Payload, &provider); err != nil {
 				return err
 			}
 		}
+
 		before, err := json.Marshal(provider)
 		if err != nil {
 			return err
@@ -66,6 +69,7 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 		if err := change(&provider); err != nil {
 			return err
 		}
+
 		ids := map[string]bool{}
 		for _, key := range provider.Keys {
 			if key.ID == "" {
@@ -76,6 +80,7 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 			}
 			ids[key.ID] = true
 		}
+
 		after, err := json.Marshal(provider)
 		if err != nil {
 			return err
@@ -83,10 +88,12 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 		if exists && bytes.Equal(before, after) {
 			return nil
 		}
+
 		payload, err := s.encode(ctx, "provider/"+name, provider)
 		if err != nil {
 			return err
 		}
+
 		obj.Name = resourceName(name)
 		obj.Namespace = system.DefaultNamespace
 		obj.Spec = v1.LLMGatewayResourceSpec{ID: name, Payload: payload}
@@ -124,6 +131,7 @@ func (s *Client) DeleteKey(ctx context.Context, name, id string) error {
 func resourceKey(name string) kclient.ObjectKey {
 	return kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: resourceName(name)}
 }
+
 func isWriteConflict(err error) bool {
 	return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
 }

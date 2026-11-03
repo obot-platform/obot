@@ -25,20 +25,24 @@ func (s *Client) PutRule(ctx context.Context, rule tables.TableRoutingRule) erro
 	if rule.ID == "" {
 		return fmt.Errorf("a routing rule needs an ID")
 	}
+
 	payload, err := json.Marshal(rule)
 	if err != nil {
 		return err
 	}
+
 	return retry.OnError(retry.DefaultRetry, isWriteConflict, func() error {
 		var obj v1.LLMGatewayRoutingRule
 		err := s.storage.Get(ctx, resourceKey(rule.ID), &obj)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
+
 		exists := err == nil
 		if exists && obj.Spec.Payload == string(payload) {
 			return nil
 		}
+
 		obj.Name = resourceName(rule.ID)
 		obj.Namespace = system.DefaultNamespace
 		obj.Spec = v1.LLMGatewayResourceSpec{ID: rule.ID, Payload: string(payload)}
@@ -58,10 +62,12 @@ func decodeRule(spec v1.LLMGatewayResourceSpec) (tables.TableRoutingRule, error)
 	if err := json.Unmarshal([]byte(spec.Payload), &rule); err != nil {
 		return rule, err
 	}
+
 	rule.ID = spec.ID
 	for i := range rule.Targets {
 		rule.Targets[i].RuleID = rule.ID
 	}
+
 	if rule.Scope == "" {
 		rule.Scope = "global"
 	}

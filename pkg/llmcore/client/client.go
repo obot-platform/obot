@@ -27,6 +27,7 @@ func New(storage kclient.Client, codec ConfigCodec) (*Client, error) {
 	}
 	return &Client{storage: storage, codec: codec}, nil
 }
+
 func (s *Client) encode(ctx context.Context, id string, v any) (string, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
