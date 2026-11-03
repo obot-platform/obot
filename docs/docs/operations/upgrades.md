@@ -4,6 +4,8 @@ title: Upgrades and rollback
 
 Use explicit image and chart versions for production upgrades. Review the target release's changes before replacing the running application.
 
+**Breaking change for embedded databases:** the bundled PostgreSQL moves from 17 to 18. Docker installations without an external DSN and Helm installations with `dev.useEmbeddedDb: true` must follow the [manual dump and restore procedure](./embedded-postgresql-upgrade.md). External PostgreSQL installations require no database migration for this change.
+
 ## Prepare
 
 1. Record the current image digest/tag, chart version, values, and external dependencies.

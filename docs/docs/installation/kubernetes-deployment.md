@@ -39,6 +39,8 @@ Obot provides a Helm chart for easy deployment [here](https://charts.obot.ai).
 
 The chart has sane defaults for a test cluster.
 
+Evaluation installations using `dev.useEmbeddedDb: true` must [migrate existing PostgreSQL 17 data to PostgreSQL 18](../operations/embedded-postgresql-upgrade.md) before upgrading to an image that includes PostgreSQL 18. External PostgreSQL installations are unaffected.
+
 ### Production Installation
 
 Create a `values.yaml` file with your production configuration:

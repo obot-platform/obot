@@ -15,6 +15,8 @@ Back up the stores that hold your installation's state, together with the config
 
 Use [persistent storage configuration](../installation/kubernetes-persistent-storage.md) to identify the Obot data volume and its StorageClass.
 
+For the embedded PostgreSQL 17 to 18 upgrade, use the [Docker or Helm dump and restore procedure](./embedded-postgresql-upgrade.md), which keeps Obot stopped and preserves both databases.
+
 Use your database and storage providers' backup mechanisms. Define an acceptable recovery point and recovery time for your installation, and keep a version record with each backup. Coordinate database and file/object backups so restored metadata does not refer to missing artifacts.
 
 ## Recovery exercise

@@ -35,7 +35,7 @@ ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 WORKDIR /home/postgres
 
-RUN apk add --no-cache postgresql-17 postgresql-17-oci-entrypoint postgresql-17-client postgresql-17-contrib gosu ecpg-17 glibc-locale-en glibc-locale-posix posix-libc-utils
+RUN apk add --no-cache postgresql-18 postgresql-18-oci-entrypoint postgresql-18-client postgresql-18-contrib gosu glibc-locale-en glibc-locale-posix posix-libc-utils
 
 ENTRYPOINT [ "/usr/bin/docker-entrypoint.sh", "postgres" ]
 

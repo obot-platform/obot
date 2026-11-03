@@ -376,6 +376,11 @@ const sidebars = {
 					"type": "doc",
 					"id": "operations/upgrades",
 					"label": "Upgrades and rollback"
+				},
+				{
+					"type": "doc",
+					"id": "operations/embedded-postgresql-upgrade",
+					"label": "Upgrade embedded PostgreSQL"
 				}
 			]
 		},
