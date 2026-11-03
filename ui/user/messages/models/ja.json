@@ -483,5 +483,10 @@
 	"models_profiles_card_budgets_one": "予算 {count} 件",
 	"models_profiles_card_budgets_other": "予算 {count} 件",
 	"models_profiles_card_guardrails_one": "適用ガードレール {count} 件",
-	"models_profiles_card_guardrails_other": "適用ガードレール {count} 件"
+	"models_profiles_card_guardrails_other": "適用ガードレール {count} 件",
+	"models_providers_auth_aws": "AWS 認証情報",
+	"models_providers_auth_entra": "Microsoft Entra ID",
+	"models_providers_auth_api_key_help": "API キーで認証します。",
+	"models_providers_auth_aws_help": "AWS アクセスキーのペアで認証します。セッショントークンと IAM ロールは任意です。",
+	"models_providers_auth_entra_help": "Microsoft Entra アプリのクライアント ID、クライアントシークレット、テナント ID で認証します。"
 }
