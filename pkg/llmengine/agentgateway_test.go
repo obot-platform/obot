@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 )
 
 func TestEngineStopsUnusedAgentGateway(t *testing.T) {
@@ -35,7 +35,7 @@ func TestEngineStopsUnusedAgentGateway(t *testing.T) {
 		t.Fatalf("startup left an unused A2A push relay running: %d before, %d after", before, after)
 	}
 
-	if err := e.store.PutProvider(ctx, "openai", schemas.ProviderConfig{}); err != nil {
+	if err := e.store.PutProvider(ctx, "openai", llmcoreclient.Provider{}); err != nil {
 		t.Fatal(err)
 	}
 	if changed, err := e.Sync(ctx); err != nil || !changed {

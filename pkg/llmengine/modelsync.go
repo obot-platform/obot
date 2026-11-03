@@ -14,9 +14,10 @@ import (
 
 	"github.com/maximhq/bifrost/core/schemas"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	llmcoretypes "github.com/obot-platform/obot/pkg/llmcore/types"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -88,26 +89,40 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		key := map[string]any{"name": keyName, "value": value, "models": []string{"*"}, "weight": 1}
 		plainTextSecrets(key)
 
-		// Provider and key creation share the store's revision lock. Concurrent
-		// replicas therefore upsert the same named key instead of racing GET/POST.
-		err := e.store.Mutate(ctx, func(cfg *llmcoretypes.Config) error {
-			provider := schemas.ModelProvider(p.provider)
-			if _, exists := cfg.Providers[provider]; !exists {
-				body, _ := json.Marshal(map[string]any{"provider": p.provider})
-				if _, err := e.adminWrite(ctx, cfg, "providers", http.MethodPost, body); err != nil {
-					return err
-				}
-			}
-			path := "providers/" + p.provider + "/keys"
-			method := http.MethodPost
-			if i := slices.IndexFunc(cfg.Keys[provider], func(k schemas.Key) bool { return k.Name == keyName }); i >= 0 {
-				path += "/" + cfg.Keys[provider][i].ID
+		// Retry edits against the latest aggregate. A concurrent creator wins intact;
+		// reload it and upsert only the named environment key rather than replacing it.
+		update := func(provider *llmcoreclient.Provider) error {
+			cfg := llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.ModelProvider(p.provider): provider.Config}, Keys: map[schemas.ModelProvider][]schemas.Key{schemas.ModelProvider(p.provider): provider.Keys}}
+			path, method := "providers/"+p.provider+"/keys", http.MethodPost
+			if i := slices.IndexFunc(provider.Keys, func(k schemas.Key) bool { return k.Name == keyName }); i >= 0 {
+				path += "/" + provider.Keys[i].ID
 				method = http.MethodPut
 			}
 			body, _ := json.Marshal(key)
-			_, err := e.adminWrite(ctx, cfg, path, method, body)
-			return err
-		})
+			if _, err := e.adminWrite(ctx, &cfg, path, method, body); err != nil {
+				return err
+			}
+			provider.Keys = cfg.Keys[schemas.ModelProvider(p.provider)]
+			return nil
+		}
+		err := e.store.MutateProvider(ctx, p.provider, update)
+		if apierrors.IsNotFound(err) {
+			var provider llmcoreclient.Provider
+			defaults := map[string]any{}
+			ApplyProviderDefaults(defaults)
+			raw, _ := json.Marshal(defaults)
+			err = json.Unmarshal(raw, &provider.Config)
+			if err == nil {
+				provider.Config.CheckAndSetDefaults()
+				err = update(&provider)
+			}
+			if err == nil {
+				err = e.store.CreateProvider(ctx, p.provider, provider)
+			}
+			if apierrors.IsAlreadyExists(err) {
+				err = e.store.MutateProvider(ctx, p.provider, update)
+			}
+		}
 		if err != nil {
 			slog.Warn("failed to configure an LLM gateway provider from the environment", "provider", p.provider, "envVar", p.envVar, "error", err)
 			continue
@@ -148,7 +163,7 @@ func LegacyImportDone(mp *v1.ModelProvider) bool {
 }
 
 // RunStartupTasks imports legacy credentials, configures environment keys, and periodically
-// asks Obot to refresh models. Each configuration write is serialized by the store revision.
+// asks Obot to refresh models. Each provider import is independently idempotent and uses resource-version conflict retries.
 func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) {
 	if err := e.Wait(ctx); err != nil {
 		return

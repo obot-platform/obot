@@ -2,6 +2,7 @@
 package llmengine
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -53,7 +54,8 @@ type Engine struct {
 	startOnce        sync.Once
 	stopOnce         sync.Once
 	syncMu           sync.Mutex
-	pricingRevision  int64
+	appliedPricing   json.RawMessage
+	pricingApplied   bool
 	opts             Options
 	modelsLock       sync.Mutex
 	lastModels       map[string][]listedModel
@@ -67,7 +69,7 @@ type APIError struct {
 }
 
 func New() *Engine {
-	e := &Engine{pricingRevision: -1, metrics: newGatewayMetrics(), availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
+	e := &Engine{metrics: newGatewayMetrics(), availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil
@@ -124,32 +126,15 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		}
 		e.core.Store(engine)
 		if err = e.syncPricing(ctx); err != nil {
-			engine.Shutdown()
-			_ = e.prices.Cleanup()
-			e.startErr = err
-			return
+			e.syncFailure.Store(&syncFailure{err: err})
+			slog.Warn("LLM gateway pricing application will retry", "error", err)
 		}
 		if opts.ModelDataURL != "" {
 			go modeldata.Refresh(ctx, dir, opts.ModelDataURL, modeldata.RefreshInterval)
 		}
-		go e.poll(ctx)
+		go func() { <-ctx.Done(); e.Shutdown() }()
 	})
 	return e.startErr
-}
-func (e *Engine) poll(ctx context.Context) {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			e.Shutdown()
-			return
-		case <-ticker.C:
-			if _, err := e.Sync(ctx); err != nil {
-				slog.Error("failed to synchronize LLM gateway configuration", "error", err)
-			}
-		}
-	}
 }
 func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	e.syncMu.Lock()
@@ -159,9 +144,7 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	changed, err := engine.Sync(ctx)
-	if err == nil {
-		err = e.syncPricing(ctx)
-	}
+	err = errors.Join(err, e.syncPricing(ctx))
 	if err != nil {
 		e.syncFailure.Store(&syncFailure{err: err})
 	} else {
@@ -171,12 +154,12 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 }
 func (e *Engine) syncPricing(_ context.Context) error {
 	engine := e.core.Load()
-	revision := engine.Revision()
-	if revision == e.pricingRevision {
+	raw := engine.Setting("pricing-overrides")
+	if e.pricingApplied && bytes.Equal(raw, e.appliedPricing) {
 		return nil
 	}
 	var rows []configPricingOverride
-	if raw := engine.Setting("pricing-overrides"); len(raw) > 0 {
+	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &rows); err != nil {
 			return err
 		}
@@ -184,7 +167,8 @@ func (e *Engine) syncPricing(_ context.Context) error {
 	if err := e.prices.SetPricingOverrides(rows); err != nil {
 		return err
 	}
-	e.pricingRevision = revision
+	e.appliedPricing = bytes.Clone(raw)
+	e.pricingApplied = true
 	return nil
 }
 func (e *Engine) Shutdown() {
@@ -287,6 +271,14 @@ func (e *Engine) Do(ctx context.Context, method, path string, body any, out any)
 	deadline := time.Now().Add(30 * time.Second)
 	for delay := 100 * time.Millisecond; ; delay = min(delay*2, 2*time.Second) {
 		err := e.do(ctx, method, path, body, out)
+		// Internal import/configuration callers may use a provider immediately after a write.
+		// Public HTTP writes acknowledge persistence; every-replica controllers apply them.
+		if err == nil && method != http.MethodGet && strings.HasPrefix(path, "/api/") && ctx.Value(configContextKey{}) == nil {
+			if _, syncErr := e.Sync(ctx); syncErr != nil {
+				slog.Warn("gateway configuration saved; reconciliation will retry", "error", syncErr)
+			}
+		}
+
 		var apiErr *APIError
 		if !errors.As(err, &apiErr) || !IsStoreBusy(apiErr.StatusCode, []byte(apiErr.Message)) || time.Now().Add(delay).After(deadline) {
 			return err

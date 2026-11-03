@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"net/http"
 	"slices"
@@ -21,15 +20,16 @@ import (
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/modelcatalog"
 	"github.com/maximhq/bifrost/plugins/routing/rules"
-	llmcoretypes "github.com/obot-platform/obot/pkg/llmcore/types"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/modeldata"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type configPricingOverride = tables.TablePricingOverride
 type configContextKey struct{}
 
-func (e *Engine) config(ctx context.Context) (llmcoretypes.Config, error) {
-	if cfg, ok := ctx.Value(configContextKey{}).(*llmcoretypes.Config); ok {
+func (e *Engine) config(ctx context.Context) (llmcoreclient.Config, error) {
+	if cfg, ok := ctx.Value(configContextKey{}).(*llmcoreclient.Config); ok {
 		return *cfg, nil
 	}
 	return e.store.Load(ctx)
@@ -108,11 +108,12 @@ func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	var out any
 	var rejected error
-	// Once accepted, finish the durable write and local sync even if the caller disconnects.
+	// Once accepted, finish the durable write even if the caller disconnects.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
 	defer cancel()
-	err = e.store.Mutate(ctx, func(cfg *llmcoretypes.Config) error {
-		// GuardProviderChange's internal GETs read this transaction's snapshot.
+	err = e.mutateAdmin(ctx, path, r.Method, func(cfg *llmcoreclient.Config) error {
+		rejected = nil
+		// Guard reads and masked-secret merges use the latest owning resource on every retry.
 		ctx := context.WithValue(ctx, configContextKey{}, cfg)
 		change, err := e.GuardProviderChange(ctx, r.Method, path, body, r.URL.Query().Get("removeKeys") == "true")
 		if err != nil {
@@ -120,8 +121,7 @@ func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		if len(change.RemoveKeys) > 0 {
-			provider := schemas.ModelProvider(strings.TrimPrefix(path, "providers/"))
-			cfg.Keys[provider] = nil
+			cfg.Keys[schemas.ModelProvider(parts[1])] = nil
 		}
 		out, err = e.adminWrite(ctx, cfg, path, r.Method, change.Body)
 		rejected = err
@@ -129,18 +129,91 @@ func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if rejected == nil {
-			err = &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()}
+			status := http.StatusServiceUnavailable
+			if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
+				status = http.StatusConflict
+			}
+			if apierrors.IsNotFound(err) {
+				status = http.StatusNotFound
+			}
+			err = &APIError{StatusCode: status, Message: err.Error()}
 		}
 		adminError(w, err)
 		return
 	}
-	if _, err := e.Sync(ctx); err != nil {
-		// The write committed. Polling retries synchronization; reporting failure here
-		// would encourage a duplicate create on retry.
-		slog.Warn("gateway configuration saved; synchronization will retry", "error", err)
-	}
 	adminJSON(w, 200, out)
 }
+
+// mutateAdmin dispatches a write to its owning resource. The decoded view is local
+// to that resource; provider guards can use it without reading unrelated secrets.
+func (e *Engine) mutateAdmin(ctx context.Context, path, method string, change func(*llmcoreclient.Config) error) error {
+	parts := strings.Split(path, "/")
+	cfg := llmcoreclient.Config{
+		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{},
+		Keys:      map[schemas.ModelProvider][]schemas.Key{},
+		Rules:     map[string]tables.TableRoutingRule{},
+		Settings:  map[string]json.RawMessage{},
+	}
+	switch parts[0] {
+	case "providers":
+		if len(parts) == 1 {
+			if err := change(&cfg); err != nil {
+				return err
+			}
+			for name, pc := range cfg.Providers {
+				return e.store.CreateProvider(ctx, string(name), llmcoreclient.Provider{Config: pc, Keys: cfg.Keys[name]})
+			}
+			return fmt.Errorf("provider name required")
+		}
+		name := schemas.ModelProvider(parts[1])
+		if len(parts) == 2 && method == http.MethodDelete {
+			return e.store.DeleteProvider(ctx, string(name))
+		}
+		return e.store.MutateProvider(ctx, string(name), func(provider *llmcoreclient.Provider) error {
+			cfg.Providers[name], cfg.Keys[name] = provider.Config, provider.Keys
+			if err := change(&cfg); err != nil {
+				return err
+			}
+			provider.Config, provider.Keys = cfg.Providers[name], cfg.Keys[name]
+			return nil
+		})
+	case "config", "proxy-config":
+		return e.store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+			cfg.Settings = settings
+			return change(&cfg)
+		})
+	case "governance":
+		if len(parts) > 1 && parts[1] == "pricing-overrides" {
+			return e.store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+				cfg.Settings = settings
+				return change(&cfg)
+			})
+		}
+		if len(parts) > 1 && parts[1] == "routing-rules" {
+			if len(parts) == 3 {
+				if method == http.MethodDelete {
+					return e.store.DeleteRule(ctx, parts[2])
+				}
+				return e.store.MutateRule(ctx, parts[2], func(rule *tables.TableRoutingRule) error {
+					cfg.Rules[rule.ID] = *rule
+					if err := change(&cfg); err != nil {
+						return err
+					}
+					*rule = cfg.Rules[rule.ID]
+					return nil
+				})
+			}
+			if err := change(&cfg); err != nil {
+				return err
+			}
+			for _, rule := range cfg.Rules {
+				return e.store.PutRule(ctx, rule)
+			}
+		}
+	}
+	return missing("gateway API")
+}
+
 func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key) map[string]any {
 	pc.CheckAndSetDefaults()
 	raw, _ := json.Marshal(pc)
@@ -162,7 +235,7 @@ func object(v any) map[string]any {
 	}
 	return out
 }
-func (e *Engine) adminRead(_ context.Context, cfg llmcoretypes.Config, path string, r *http.Request) (any, error) {
+func (e *Engine) adminRead(_ context.Context, cfg llmcoreclient.Config, path string, r *http.Request) (any, error) {
 	parts := strings.Split(path, "/")
 	switch parts[0] {
 	case "keys":
@@ -304,7 +377,7 @@ func restoreMasked(dst, prior map[string]any) {
 	}
 }
 
-func (e *Engine) adminWrite(_ context.Context, cfg *llmcoretypes.Config, path, method string, body []byte) (any, error) {
+func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, method string, body []byte) (any, error) {
 	parts := strings.Split(path, "/")
 	switch parts[0] {
 	case "providers":

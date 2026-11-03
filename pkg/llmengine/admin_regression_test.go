@@ -12,34 +12,15 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
-
-type importBarrierTransport struct {
-	next    http.RoundTripper
-	arrived *atomic.Int32
-	ready   chan struct{}
-}
-
-func (t importBarrierTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	resp, err := t.next.RoundTrip(req)
-	if err == nil && req.Method == http.MethodGet && req.URL.Path == "/api/providers/openai/keys" && resp.StatusCode == http.StatusNotFound {
-		if t.arrived.Add(1) == 2 {
-			close(t.ready)
-		}
-		select {
-		case <-t.ready:
-		case <-req.Context().Done():
-			_ = resp.Body.Close()
-			return nil, req.Context().Err()
-		}
-	}
-	return resp, err
-}
 
 func TestProviderQueueDefaults(t *testing.T) {
 	e, ctx := startTestEngine(t)
@@ -73,16 +54,38 @@ func TestConcurrentEnvImport(t *testing.T) {
 	t.Setenv(system.AnthropicAPIKeyEnvVar, "")
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-	opts := testOptions(t, Options{DataDir: t.TempDir()})
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	base, err := llmcoreclient.New(storage, plaintextConfigCodec{})
+	require.NoError(t, err)
+	var arrivals atomic.Int32
+	ready := make(chan struct{})
+	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
+		Create: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.CreateOption) error {
+			if _, ok := obj.(*v1.LLMGatewayProvider); ok {
+				if arrivals.Add(1) == 2 {
+					close(ready)
+				}
+				select {
+				case <-ready:
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+				err := c.Create(ctx, obj, opts...)
+				if err == nil {
+					return base.PutKey(ctx, "openai", schemas.Key{ID: "manual", Name: "manual", Value: *schemas.NewSecretVar("manual-secret")})
+				}
+				return err
+			}
+			return c.Create(ctx, obj, opts...)
+		},
+	})
+	store, err := llmcoreclient.New(wrapped, plaintextConfigCodec{})
+	require.NoError(t, err)
+	opts := Options{Store: store, DataDir: t.TempDir()}
 	a, b := New(), New()
 	for _, e := range []*Engine{a, b} {
 		require.NoError(t, e.Start(ctx, opts))
 		t.Cleanup(e.Shutdown)
-	}
-	var arrivals atomic.Int32
-	ready := make(chan struct{})
-	for _, e := range []*Engine{a, b} {
-		e.client.Transport = importBarrierTransport{next: e.client.Transport, arrived: &arrivals, ready: ready}
 	}
 	mp := ModelProviderResource()
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
@@ -99,8 +102,13 @@ func TestConcurrentEnvImport(t *testing.T) {
 	}
 	cfg, err := a.store.Load(ctx)
 	require.NoError(t, err)
-	require.Len(t, cfg.Keys[schemas.OpenAI], 1)
-	require.Equal(t, "env-openai-secret", cfg.Keys[schemas.OpenAI][0].Value.GetValue())
+	require.Len(t, cfg.Keys[schemas.OpenAI], 2)
+	values := map[string]string{}
+	for _, key := range cfg.Keys[schemas.OpenAI] {
+		values[key.Name] = key.Value.GetValue()
+	}
+	require.Equal(t, "env-openai-secret", values["env-"+system.OpenAIAPIKeyEnvVar])
+	require.Equal(t, "manual-secret", values["manual"], "concurrent imports must preserve an independently added key")
 	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(mp), mp))
 	require.NotEmpty(t, mp.Annotations["obot.ai/llm-gateway-env-key-openai"])
 }
@@ -128,7 +136,7 @@ func TestRefreshModelsFetchesUpstream(t *testing.T) {
 	t.Cleanup(up.Close)
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}, nil))
-	before, err := e.store.Revision(ctx)
+	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/refresh-models", map[string]any{}, nil))
 	require.Contains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-old")
@@ -136,7 +144,7 @@ func TestRefreshModelsFetchesUpstream(t *testing.T) {
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/refresh-models", map[string]any{}, nil))
 	require.Contains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-new")
 	require.NotContains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-old")
-	after, err := e.store.Revision(ctx)
+	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after, "model refresh is not a configuration write")
 	require.EqualValues(t, 2, calls.Load())
@@ -159,7 +167,11 @@ func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
 	defer unlock()
 	done := make(chan struct{})
 	go func() { defer close(done); e.ServeHTTP(rec, req) }()
-	require.Eventually(t, func() bool { rev, err := e.store.Revision(t.Context()); return err == nil && rev > 0 }, 3*time.Second, time.Millisecond)
+	require.Eventually(t, func() bool {
+		cfg, err := e.store.Load(t.Context())
+		_, ok := cfg.Providers[schemas.OpenAI]
+		return err == nil && ok
+	}, 3*time.Second, time.Millisecond)
 	cancel()
 	unlock()
 	select {
@@ -193,10 +205,10 @@ func TestKeyRenamePreservesUniqueNames(t *testing.T) {
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "second", "value": "secret-two"}, &second))
 	path := "/api/providers/openai/keys/" + first.ID
 	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": "first"}, nil), "keeping the same name is allowed")
-	before, err := e.store.Revision(ctx)
+	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Error(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": second.Name}, nil))
-	after, err := e.store.Revision(ctx)
+	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after, "rejected rename must not commit")
 	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": "renamed"}, nil))
@@ -208,4 +220,30 @@ func TestKeyRenamePreservesUniqueNames(t *testing.T) {
 	}
 	require.Equal(t, "renamed", names[first.ID])
 	require.Equal(t, "second", names[second.ID])
+}
+
+func TestPublicWriteDoesNotWaitForRuntime(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	e.syncMu.Lock()
+	unlock := sync.OnceFunc(e.syncMu.Unlock)
+	defer unlock()
+	request := httptest.NewRequest(http.MethodPost, "/api/providers", strings.NewReader(`{"provider":"openai"}`)).WithContext(ctx)
+	response := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() { defer close(done); e.ServeHTTP(response, request) }()
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("persisted write waited for runtime synchronization")
+	}
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	providers, err := e.Client().GetConfiguredProviders()
+	require.NoError(t, err)
+	require.Empty(t, providers, "public write must leave application to reconciliation")
+	unlock()
+	_, err = e.Sync(ctx)
+	require.NoError(t, err)
+	providers, err = e.Client().GetConfiguredProviders()
+	require.NoError(t, err)
+	require.Contains(t, providers, schemas.OpenAI)
 }

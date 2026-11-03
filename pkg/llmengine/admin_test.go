@@ -25,17 +25,16 @@ func TestAdminKeyUpdateAndConfirmedDestinationChange(t *testing.T) {
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "sk-private-long-secret", cfg.Keys[schemas.OpenAI][0].Value.GetValue())
-	before := cfg.Revision
+	before := cfg
 	change := map[string]any{"network_config": map[string]any{"base_url": upstream.URL, "allow_private_network": true}}
 	require.Error(t, e.Do(ctx, http.MethodPut, "/api/providers/openai", change, nil))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Equal(t, before, cfg.Revision)
+	require.Equal(t, before, cfg)
 	require.Len(t, cfg.Keys[schemas.OpenAI], 1)
 	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai?removeKeys=true", change, nil))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Equal(t, before+1, cfg.Revision)
 	require.Empty(t, cfg.Keys[schemas.OpenAI])
 	require.Equal(t, upstream.URL, cfg.Providers[schemas.OpenAI].NetworkConfig.BaseURL)
 }
@@ -47,7 +46,7 @@ func TestPricingAndRoutingValidationBeforeCommit(t *testing.T) {
 	require.Error(t, e.Do(ctx, http.MethodPost, "/api/governance/pricing-overrides", map[string]any{"name": "invalid", "scope_kind": "unknown", "match_type": "exact", "pattern": "gpt-4o", "patch": map[string]any{}}, nil))
 	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Equal(t, before.Revision, after.Revision)
+	require.Equal(t, before, after)
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/governance/pricing-overrides", map[string]any{"name": "global", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o", "request_types": []string{"chat_completion"}, "patch": map[string]any{}}, nil))
 	require.False(t, usesUnsupportedBudgetVariable(`headers["request"] == "budget_used"`))
 	require.True(t, usesUnsupportedBudgetVariable(`budget_used > 0.5`))

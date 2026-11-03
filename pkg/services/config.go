@@ -964,7 +964,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Bootstrapping contacts configured providers to list their models, so it runs in
 		// the background; requests made before it finishes get a 503.
 		go func() {
-			coreStore := llmcoreclient.New(gatewayDB.WithContext(ctx), gatewayClient)
+			coreStore, err := llmcoreclient.New(storageClient, gatewayClient)
+			if err != nil {
+				bifrostEngine.Fail(err)
+				return
+			}
 
 			modelDataURL, err := modeldata.RefreshURL(config.LLMGatewayModelDataURL)
 			if err != nil {

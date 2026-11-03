@@ -89,10 +89,10 @@ func ModelProviderResource() *v1.ModelProvider {
 // ListModels returns every model Bifrost can currently route to, in the shape the
 // provider back-population controller expects.
 func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
-	// A model-sync trigger can follow a write on another replica before our poll.
+	// A model-sync trigger can follow a write on another replica before our resource watch reconciles it.
 	if _, err := e.Sync(ctx); err != nil {
 		// Successful provider updates remain usable after a partial failure.
-		// Keep listing them while polling retries the failed configuration.
+		// Keep listing them while the controller retries the failed configuration.
 		slog.Warn("failed to synchronize LLM gateway before listing models; listing available models", "error", err)
 	}
 	var resp struct {
