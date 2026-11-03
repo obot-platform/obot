@@ -494,5 +494,19 @@
 	"models_providers_azure_resource_help": "Optional: enter all three Azure account fields to discover deployments using Entra credentials. Requires permission to read deployments. Leave Allowed Models empty or use * to list all discovered deployments.",
 	"models_providers_azure_subscription_id": "Subscription ID",
 	"models_providers_azure_resource_group": "Resource Group",
-	"models_providers_azure_account_name": "Account Name"
+	"models_providers_azure_account_name": "Account Name",
+	"models_migration_title": "Choose a model provider to migrate",
+	"models_migration_description": "These legacy providers share one gateway provider. Choose the configuration to migrate. The other configuration and its credentials will be kept for manual setup; its models will remain unavailable until you configure it.",
+	"models_migration_later": "Decide later",
+	"models_migration_apply": "Migrate selected provider",
+	"models_migration_saving": "Saving…",
+	"models_migration_no_pending": "No provider choices are pending. Other migration issues require manual provider setup.",
+	"models_migration_attention": "Some legacy model providers need attention.",
+	"models_migration_review": "Review migration",
+	"models_migration_failed": "Could not save the migration choice. Try again.",
+	"models_migration_blocked": "An existing gateway provider or a removed import needs manual setup. Existing configuration was preserved.",
+	"models_migration_error": "The import failed. Reconciliation will retry; check the server logs if it continues.",
+	"models_migration_not_selected": "Another configuration was selected. This source and its credentials were kept for manual setup.",
+	"models_migration_unsupported": "This legacy provider requires manual gateway setup. Its configuration and model records were kept.",
+	"models_migration_models": "Models ({count})"
 }

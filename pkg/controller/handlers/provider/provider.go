@@ -466,7 +466,14 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	slog.Info("Back-populated models for model provider", "provider", modelProvider.Name, "models", len(models))
 
 	if modelProvider.Name == system.LLMGatewayModelProvider {
-		// Legacy migration and cleanup stay disabled until upgrades from v0.27 are supported.
+		// Move what refers to legacy providers' models over to the models just synced.
+		if migrator, ok := builtin.(interface {
+			MigrateLegacyModels(context.Context, kclient.Client) error
+		}); ok {
+			if err := migrator.MigrateLegacyModels(ctx, client); err != nil {
+				return fmt.Errorf("failed to migrate legacy models to the LLM gateway: %w", err)
+			}
+		}
 		if err := llmengine.FillDefaultModelAliases(ctx, client); err != nil {
 			slog.Warn("failed to set default model aliases", "error", err)
 		}

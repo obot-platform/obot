@@ -424,3 +424,54 @@ export function secretDisplay(value: SecretValue | string | undefined): string {
 	if (typeof value === 'string') return value;
 	return value.env_var ? `env.${value.env_var}` : value.value;
 }
+
+export interface MigrationSource {
+	name?: string;
+	provider: string;
+	status:
+		| 'pending'
+		| 'imported'
+		| 'environment'
+		| 'not-selected'
+		| 'blocked'
+		| 'error'
+		| 'unsupported';
+	message?: string;
+	endpoint?: string;
+	region?: string;
+	models: string[];
+}
+export interface MigrationStatus {
+	version: number;
+	choices: Record<string, string>;
+	sources: Record<string, MigrationSource>;
+	mappings: Record<string, string>;
+}
+// Only unresolved cloud conflicts need a choice. Unselected sources are a
+// completed administrator decision, not a reason to reopen migration.
+export function pendingMigrationFamily(status?: MigrationStatus): string | undefined {
+	return Object.values(status?.sources ?? {}).find(
+		(source) =>
+			source.status === 'pending' &&
+			['azure', 'bedrock_mantle'].includes(source.provider) &&
+			!status?.choices[source.provider] &&
+			Object.values(status?.sources ?? {}).filter(
+				(candidate) => candidate.provider === source.provider
+			).length > 1
+	)?.provider;
+}
+
+export async function getMigration(opts?: Opts): Promise<MigrationStatus> {
+	return (await doGet('/llm-gateway/migration', opts)) as MigrationStatus;
+}
+export async function resolveMigration(
+	family: string,
+	source: string,
+	version: number
+): Promise<MigrationStatus> {
+	return (await doPost('/llm-gateway/migration/resolve', {
+		family,
+		source,
+		version
+	})) as MigrationStatus;
+}

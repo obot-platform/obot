@@ -399,8 +399,23 @@ export const CHAT_COMPLETIONS_ONLY_REQUESTS: Record<string, boolean> = {
 	embedding: true
 };
 
+// Mantle and Converse share the AWS Bedrock card, while requests and stored
+// credentials retain their actual provider identity and protocol.
+export function providerCatalogID(id: string): string {
+	return id === 'bedrock_mantle' ? 'bedrock' : id;
+}
+
 export function catalogEntry(id: string): ProviderCatalogEntry | undefined {
-	return PROVIDER_CATALOG.find((p) => p.id === id);
+	const entry = PROVIDER_CATALOG.find((p) => p.id === providerCatalogID(id));
+	if (!entry || id !== 'bedrock_mantle') return entry;
+	return {
+		...entry,
+		id,
+		keyFields: entry.keyFields.map((field) => ({
+			...field,
+			path: field.path.replace('bedrock_key_config.', 'bedrock_mantle_key_config.')
+		}))
+	};
 }
 
 export function providerLabel(id: string): string {

@@ -101,13 +101,19 @@ func TestStartupLeavesLegacyImportPending(t *testing.T) {
 	mp := ModelProviderResource()
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
 
-	e.startupChanges(ctx, c, mp)()
+	g := migrationCredentials(t)
+	putLegacy(t, g, system.AmazonBedrockModelProvider, map[string]string{
+		"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID":     "access",
+		"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret",
+	})
+	putLegacy(t, g, system.AmazonBedrockAPIKeyModelProvider, map[string]string{"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "api-key"})
+	e.startupChanges(ctx, c, g, mp)()
 
 	var got v1.ModelProvider
 	if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), &got); err != nil {
 		t.Fatal(err)
 	}
 	if LegacyImportDone(&got) {
-		t.Fatal("startup must not mark unsupported legacy migration complete")
+		t.Fatal("startup must not mark a pending cloud migration complete")
 	}
 }

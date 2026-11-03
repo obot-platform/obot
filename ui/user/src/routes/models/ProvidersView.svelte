@@ -9,6 +9,9 @@
 	import {
 		deleteProvider,
 		getSettings,
+		getMigration,
+		type MigrationStatus,
+		pendingMigrationFamily,
 		getStatus,
 		listProviderKeys,
 		listProviders,
@@ -20,6 +23,7 @@
 		PROVIDER_CATALOG,
 		providerIcon,
 		providerIconClass,
+		providerCatalogID,
 		providerLabel
 	} from '$lib/services/llm-gateway/providers';
 	import { profile } from '$lib/stores';
@@ -29,6 +33,11 @@
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
+	const migrationMessages = {
+		blocked: m.models_migration_blocked,
+		error: m.models_migration_error,
+		unsupported: m.models_migration_unsupported
+	};
 	const FALLBACK_ICON = '/admin/assets/llm_gateway_icon.svg';
 
 	interface Props {
@@ -42,6 +51,13 @@
 	let providers = $state<Provider[]>([]);
 	let keys = $state<Record<string, ProviderKey[]>>({});
 	let loading = $state(true);
+	let migration = $state<MigrationStatus>();
+	let migrationIssues = $derived(
+		Object.entries(migration?.sources ?? {}).filter(([, source]) =>
+			['pending', 'blocked', 'error', 'unsupported'].includes(source.status)
+		)
+	);
+	let pendingFamily = $derived(pendingMigrationFamily(migration));
 	let addDialog = $state<ReturnType<typeof AddProviderDialog>>();
 	let removing = $state<string>();
 	// With Claude subscriptions allowed, Anthropic works without keys of its own.
@@ -50,10 +66,11 @@
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let allKeyNames = $derived(Object.values(keys).flatMap((ks) => ks.map((k) => k.name)));
 
-	async function load() {
-		loading = true;
+	async function load(showLoading = true) {
+		if (showLoading) loading = true;
 		try {
 			status = await getStatus();
+			if (!readonly) migration = await getMigration().catch(() => undefined);
 			onReadyChange?.(!!status.ready);
 			if (!status.ready) return;
 			providers = (await listProviders()).sort((a, b) => a.name.localeCompare(b.name));
@@ -83,7 +100,7 @@
 		const configured = providers
 			.map((p) => ({ card: toCard(p), provider: p as Provider | undefined }))
 			.sort((a, b) => a.card.name.localeCompare(b.card.name));
-		const names = new Set(providers.map((p) => p.name));
+		const names = new Set(providers.map((p) => providerCatalogID(p.name)));
 		const available = PROVIDER_CATALOG.filter((entry) => !names.has(entry.id)).map((entry) => ({
 			card: {
 				id: entry.id,
@@ -116,11 +133,53 @@
 		goto(`/models/providers/${encodeURIComponent(name)}`);
 	}
 
-	onMount(load);
+	onMount(() => {
+		void load();
+		const refresh = () => void load(false);
+		// The choice commits before resource reconciliation finishes. Refresh while
+		// that work is pending so the banner and configured cards settle together.
+		let refreshing = false;
+		const timer = window.setInterval(async () => {
+			const applying = Object.values(migration?.sources ?? {}).some(
+				(source) => source.status === 'pending' && migration?.choices[source.provider]
+			);
+			if (!applying || refreshing) return;
+			refreshing = true;
+			try {
+				await load(false);
+			} finally {
+				refreshing = false;
+			}
+		}, 2000);
+		window.addEventListener('llm-migration-updated', refresh);
+		return () => {
+			clearInterval(timer);
+			window.removeEventListener('llm-migration-updated', refresh);
+		};
+	});
 </script>
 
 <div class="flex flex-col gap-8">
 	<GatewayStatusBanner {status} showNoProviders={false} />
+	{#if migrationIssues.length}
+		<div class="notification-info space-y-2 rounded-md p-3 text-sm">
+			<p>{m.models_migration_attention()}</p>
+			{#each migrationIssues.filter(([, source]) => source.status !== 'pending') as [id, source] (id)}
+				<p>
+					{source.name ?? id}: {migrationMessages[
+						source.status as keyof typeof migrationMessages
+					]()}
+				</p>
+			{/each}
+			{#if pendingFamily}
+				<button
+					class="btn btn-sm"
+					onclick={() => window.dispatchEvent(new Event('open-llm-migration'))}
+					>{m.models_migration_review()}</button
+				>
+			{/if}
+		</div>
+	{/if}
 
 	{#if loading}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

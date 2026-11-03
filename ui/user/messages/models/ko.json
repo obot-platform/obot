@@ -494,5 +494,19 @@
 	"models_providers_azure_resource_help": "선택 사항: Entra 자격 증명으로 배포를 검색하려면 Azure 계정 필드 세 개를 모두 입력하세요. 배포 읽기 권한이 필요합니다. 허용 모델을 비우거나 *를 사용하면 검색된 모든 배포가 표시됩니다.",
 	"models_providers_azure_subscription_id": "구독 ID",
 	"models_providers_azure_resource_group": "리소스 그룹",
-	"models_providers_azure_account_name": "계정 이름"
+	"models_providers_azure_account_name": "계정 이름",
+	"models_migration_title": "마이그레이션할 모델 공급자 선택",
+	"models_migration_description": "이 기존 공급자들은 하나의 게이트웨이 공급자를 공유합니다. 마이그레이션할 구성을 선택하세요. 다른 구성과 자격 증명은 수동 설정을 위해 보관되며, 해당 모델은 설정할 때까지 사용할 수 없습니다.",
+	"models_migration_later": "나중에 결정",
+	"models_migration_apply": "선택한 공급자 마이그레이션",
+	"models_migration_saving": "저장 중…",
+	"models_migration_no_pending": "선택 대기 중인 공급자가 없습니다. 다른 마이그레이션 문제는 수동으로 설정해야 합니다.",
+	"models_migration_attention": "일부 기존 모델 공급자에 조치가 필요합니다.",
+	"models_migration_review": "마이그레이션 검토",
+	"models_migration_failed": "마이그레이션 선택을 저장하지 못했습니다. 다시 시도하세요.",
+	"models_migration_blocked": "기존 게이트웨이 공급자 또는 삭제된 가져오기에 수동 설정이 필요합니다. 기존 구성은 보존되었습니다.",
+	"models_migration_error": "가져오기에 실패했습니다. 자동으로 다시 시도합니다. 문제가 계속되면 서버 로그를 확인하세요.",
+	"models_migration_not_selected": "다른 구성이 선택되었습니다. 이 구성과 자격 증명은 수동 설정을 위해 보관되었습니다.",
+	"models_migration_unsupported": "이 기존 공급자는 수동 게이트웨이 설정이 필요합니다. 구성과 모델 기록은 보관되었습니다.",
+	"models_migration_models": "모델 ({count})"
 }

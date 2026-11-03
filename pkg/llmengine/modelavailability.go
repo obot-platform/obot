@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ type modelAvailability struct {
 	mu          sync.RWMutex
 	unavailable map[string]bool
 	engine      *Engine
+	discovered  map[string]bool
 }
 
 type modelAvailabilityProviderKey struct{}
@@ -78,6 +80,22 @@ func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schem
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	// Core may answer a failed live poll from its bundled catalog. Such a
+	// response has no raw provider response and cannot authorize legacy cleanup.
+	if provider != "" && marshalErr == nil && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		if m.discovered == nil {
+			m.discovered = map[string]bool{}
+		}
+		for id := range m.discovered {
+			if strings.HasPrefix(id, string(provider)+"/") {
+				delete(m.discovered, id)
+			}
+		}
+		for _, model := range resp.ListModelsResponse.Data {
+			m.discovered[model.ID] = true
+		}
+	}
+
 	for id, unavailable := range statuses {
 		m.unavailable[string(provider)+"/"+id] = unavailable
 	}
@@ -96,6 +114,14 @@ func (m *modelAvailability) isUnavailable(id string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.unavailable[id]
+}
+
+func (m *modelAvailability) discoveredModels() map[string]bool {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	result := map[string]bool{}
+	maps.Copy(result, m.discovered)
+	return result
 }
 
 // Bifrost's multi-key listing aggregates raw responses in nested arrays.

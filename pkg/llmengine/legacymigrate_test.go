@@ -2,6 +2,7 @@ package llmengine
 
 import (
 	"context"
+	"maps"
 	"slices"
 	"testing"
 
@@ -94,8 +95,21 @@ func TestMigrateLegacyModels(t *testing.T) {
 		return err == nil
 	}
 
-	// Before credentials are imported, references move but nothing is deleted.
-	if err := MigrateLegacyModels(ctx, c, false); err != nil {
+	// Without verified source imports, references and records remain intact.
+	if err := migrateLegacyModels(ctx, c, nil, nil, func(map[string]string) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if got := modelOf("llm"); got != "legacy-gpt5" {
+		t.Fatalf("unimported source was repointed: %s", got)
+	}
+	sources := map[string]string{system.OpenAIModelProvider: "openai", system.AnthropicModelProvider: "anthropic"}
+	saved := map[string]string{}
+	save := func(m map[string]string) error {
+		maps.Copy(saved, m)
+		return nil
+	}
+	// Verified imports move references and persist mappings before source deletion.
+	if err := migrateLegacyModels(ctx, c, sources, nil, save); err != nil {
 		t.Fatal(err)
 	}
 	if got := modelOf("llm"); got != "gw-gpt5" {
@@ -135,23 +149,23 @@ func TestMigrateLegacyModels(t *testing.T) {
 		t.Error("legacy models must be kept until credentials are imported")
 	}
 
-	// Once imported, migrated and unreferenced legacy models go, and then their providers.
-	if err := MigrateLegacyModels(ctx, c, true); err != nil {
+	// Repeated reconciliation is idempotent; unmatched and unsupported records survive.
+	if err := migrateLegacyModels(ctx, c, sources, nil, save); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"legacy-gpt5", "legacy-mini", "legacy-haiku", "legacy-unused", "legacy-llama"} {
+	for _, name := range []string{"legacy-gpt5", "legacy-mini", "legacy-haiku"} {
 		if exists(&v1.Model{}, name) {
 			t.Errorf("legacy model %s should be deleted", name)
 		}
 	}
-	for _, name := range []string{"legacy-sonnet", "legacy-disabled", "proxy-model", "gw-gpt5"} {
+	for _, name := range []string{"legacy-sonnet", "legacy-disabled", "legacy-unused", "legacy-llama", "proxy-model", "gw-gpt5"} {
 		if !exists(&v1.Model{}, name) {
 			t.Errorf("model %s should be kept", name)
 		}
 	}
 	for _, name := range []string{"ollama-model-provider"} {
-		if exists(&v1.ModelProvider{}, name) {
-			t.Errorf("legacy model provider %s should be deleted", name)
+		if !exists(&v1.ModelProvider{}, name) {
+			t.Errorf("unsupported legacy model provider %s should be preserved", name)
 		}
 	}
 	// OpenAI keeps the deactivated model the gateway doesn't list yet.

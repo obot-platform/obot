@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -80,10 +81,17 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		sum := sha256.Sum256([]byte(value))
 		hash := hex.EncodeToString(sum[:])
 		annotation := "obot.ai/llm-gateway-env-key-" + p.provider
-		if mp.Annotations[annotation] == hash {
-			continue
-		}
 		keyName := "env-" + p.envVar
+		if mp.Annotations[annotation] == hash {
+			// The marker can outlive a provider resource (for example after a
+			// storage cutover). Verify the actual named key before trusting it.
+			provider, err := e.store.GetProvider(ctx, p.provider)
+			if err == nil && slices.ContainsFunc(provider.Keys, func(k schemas.Key) bool {
+				return k.Name == keyName && k.Value.GetValue() == value
+			}) {
+				continue
+			}
+		}
 		key := map[string]any{"name": keyName, "value": value, "models": []string{"*"}, "weight": 1}
 		plainTextSecrets(key)
 
@@ -164,14 +172,14 @@ func (e *Engine) providerKeys(ctx context.Context, provider string) ([]map[strin
 	return out, nil
 }
 
-// LegacyImportDone reports whether the credentials of legacy model providers have been
-// imported into the gateway, whose ModelProvider is mp.
+// LegacyImportDone reads the historical completion marker. Source provenance, not
+// this marker, now determines whether models may migrate.
 func LegacyImportDone(mp *v1.ModelProvider) bool {
 	return mp.Annotations[legacyImportAnnotation] != ""
 }
 
-// RunStartupTasks configures environment keys and periodically asks Obot to refresh models.
-func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client) {
+// RunStartupTasks imports legacy credentials, configures environment keys and periodically refreshes models.
+func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) {
 	if err := e.Wait(ctx); err != nil {
 		return
 	}
@@ -189,7 +197,7 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client) {
 		}
 	}
 
-	changed, _ := e.startupChanges(ctx, c, &mp)()
+	changed, _ := e.startupChanges(ctx, c, gatewayClient, &mp)()
 	if changed {
 		if _, err := e.Sync(ctx); err != nil {
 			slog.Warn("LLM gateway startup sync failed", "error", err)
@@ -211,11 +219,33 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client) {
 	}
 }
 
-// startupChanges configures providers from the environment and applies the egress proxy.
-// Legacy credential migration is disabled until upgrades from v0.27 are supported.
-func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) func() (bool, bool) {
+// startupChanges reconciles legacy provider credentials, configures providers from the
+// environment and applies the egress proxy. mp is the gateway's ModelProvider.
+func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client, mp *v1.ModelProvider) func() (bool, bool) {
 	return func() (bool, bool) {
-		changed := e.importEnvProviders(ctx, c, mp)
+		changed := false
+		{
+			results, err := e.ImportLegacyModelProviders(ctx, c, gatewayClient)
+			changed = slices.ContainsFunc(results, func(r LegacyImportResult) bool { return r.Status == "imported" })
+			failed := err != nil
+			if err != nil {
+				slog.Warn("failed to import legacy model providers into the LLM gateway", "error", err)
+			}
+			for _, r := range results {
+				slog.Info("LLM gateway legacy provider import", "modelProvider", r.ModelProvider, "gatewayProvider", r.GatewayProvider, "status", r.Status, "message", r.Message)
+				failed = failed || (r.Status != "imported" && r.Status != "environment")
+			}
+			// Only record the import once it fully succeeded, so a failure is retried next start.
+			if !failed {
+				if err := recordLegacyImport(ctx, c, mp); err != nil {
+					slog.Warn("failed to record LLM gateway legacy import", "error", err)
+				}
+			}
+		}
+
+		if e.importEnvProviders(ctx, c, mp) {
+			changed = true
+		}
 		if e.ApplyEgressProxy(ctx) {
 			changed = true
 		}

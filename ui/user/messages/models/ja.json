@@ -494,5 +494,19 @@
 	"models_providers_azure_resource_help": "省略可能：Entra 資格情報でデプロイを検出するには Azure アカウントの3項目をすべて入力します。デプロイの読み取り権限が必要です。許可モデルを空にするか * を指定すると、検出されたすべてのデプロイを表示します。",
 	"models_providers_azure_subscription_id": "サブスクリプション ID",
 	"models_providers_azure_resource_group": "リソース グループ",
-	"models_providers_azure_account_name": "アカウント名"
+	"models_providers_azure_account_name": "アカウント名",
+	"models_migration_title": "移行するモデルプロバイダーを選択",
+	"models_migration_description": "これらの旧プロバイダーは同じゲートウェイプロバイダーを使用します。移行する設定を選択してください。選択しなかった設定と認証情報は手動設定用に保持されます。そのモデルは設定するまで利用できません。",
+	"models_migration_later": "後で決める",
+	"models_migration_apply": "選択したプロバイダーを移行",
+	"models_migration_saving": "保存中…",
+	"models_migration_no_pending": "選択待ちのプロバイダーはありません。他の移行問題は手動で設定してください。",
+	"models_migration_attention": "対応が必要な旧モデルプロバイダーがあります。",
+	"models_migration_review": "移行を確認",
+	"models_migration_failed": "移行の選択を保存できませんでした。再試行してください。",
+	"models_migration_blocked": "既存のゲートウェイプロバイダーまたは削除された移行には手動設定が必要です。既存の設定は保持されています。",
+	"models_migration_error": "移行に失敗しました。自動的に再試行します。問題が続く場合はサーバーログを確認してください。",
+	"models_migration_not_selected": "別の設定が選択されました。この設定と認証情報は手動設定用に保持されています。",
+	"models_migration_unsupported": "この旧プロバイダーは手動設定が必要です。設定とモデルの記録は保持されています。",
+	"models_migration_models": "モデル（{count}）"
 }

@@ -206,7 +206,13 @@ func (r *Replica) Log() string {
 
 // Stop terminates the replica (SIGTERM, then SIGKILL after a grace period) and every
 // process it started. It only signals the process group this harness created.
-func (r *Replica) Stop() error {
+func (r *Replica) Stop() error { return r.stop(syscall.SIGTERM) }
+
+// Crash stops the process group immediately, preserving database state for
+// upgrade and crash-recovery tests without invoking release-specific shutdown code.
+func (r *Replica) Crash() error { return r.stop(syscall.SIGKILL) }
+
+func (r *Replica) stop(signal syscall.Signal) error {
 	var err error
 	r.once.Do(func() {
 		if r.Exited() {
@@ -214,7 +220,7 @@ func (r *Replica) Stop() error {
 			return
 		}
 		pgid := r.cmd.Process.Pid
-		_ = syscall.Kill(-pgid, syscall.SIGTERM)
+		_ = syscall.Kill(-pgid, signal)
 		select {
 		case <-r.done:
 		case <-time.After(20 * time.Second):

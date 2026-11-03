@@ -39,6 +39,13 @@ type Provider struct {
 	AzureDiscoveries map[string]AzureDiscoverySnapshot `json:",omitempty"`
 	Config           schemas.ProviderConfig
 	Keys             []schemas.Key
+	Migration        *ProviderMigration `json:"migration,omitempty"`
+}
+
+// ProviderMigration identifies the legacy source committed with an imported aggregate.
+type ProviderMigration struct {
+	Source   string `json:"source"`
+	Decision string `json:"decision"`
 }
 
 func (a AzureAccount) ResourceID() string {

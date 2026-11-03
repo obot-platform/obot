@@ -503,3 +503,31 @@ func (h *LLMGatewayHandler) BudgetUsage(req api.Context) error {
 	}
 	return req.Write(map[string]any{"items": entries})
 }
+
+// Migration returns only sanitized legacy migration metadata.
+func (h *LLMGatewayHandler) Migration(req api.Context) error {
+	status, err := h.engine.MigrationStatus(req.Context())
+	if err != nil {
+		return err
+	}
+	return req.Write(status)
+}
+func (h *LLMGatewayHandler) ResolveMigration(req api.Context) error {
+	var body struct {
+		Family  string `json:"family"`
+		Source  string `json:"source"`
+		Version int    `json:"version"`
+	}
+	if err := req.Read(&body); err != nil {
+		return err
+	}
+	if err := h.engine.ResolveMigration(req.Context(), body.Family, body.Source, body.Version); err != nil {
+		if apiErr, ok := errors.AsType[*llmengine.APIError](err); ok {
+			return types.NewErrHTTP(apiErr.StatusCode, apiErr.Message)
+		}
+		return err
+	}
+	// Saving the choice triggers every-replica reconciliation. Do not acknowledge
+	// an import here: provider application and model discovery are asynchronous.
+	return h.Migration(req)
+}

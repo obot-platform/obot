@@ -78,7 +78,17 @@ func (c *Client) InsertTokenUsage(ctx context.Context, activity *types.RunTokenA
 
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if activity.ID == 0 {
+			// SQLite compares stored timestamps as text; keep writes in the same
+			// UTC representation used by reporting ranges, regardless of server TZ.
+			if activity.CreatedAt.IsZero() {
+				activity.CreatedAt = time.Now().UTC()
+			} else {
+				activity.CreatedAt = activity.CreatedAt.UTC()
+			}
 			return tx.Create(activity).Error
+		}
+		if !activity.CreatedAt.IsZero() {
+			activity.CreatedAt = activity.CreatedAt.UTC()
 		}
 		return tx.Updates(activity).Error
 	})
@@ -190,7 +200,7 @@ func (c *Client) TokenUsageStats(ctx context.Context, opts TokenUsageStatsOption
 
 	query := func() *gorm.DB {
 		db := c.db.WithContext(ctx).Model(new(types.RunTokenActivity)).
-			Where("created_at >= ? AND created_at <= ?", start, end).
+			Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).
 			Where("user_id IS NOT NULL")
 		if len(opts.UserIDs) > 0 {
 			db = db.Where("user_id IN ?", opts.UserIDs)

@@ -212,6 +212,10 @@ func (r *llmResponseWriter) prepareUnary(resp *http.Response) error {
 			// The gateway's Anthropic-format model list uses bare model IDs, which the
 			// gateway also accepts in requests, so allow the bare form of each target too.
 			for target := range maps.Clone(allowedTargetModels) {
+				if scope := llmengine.LegacyProviderScope(resp.Request.Context()); scope != "" && !strings.HasPrefix(target, scope+"/") {
+					delete(allowedTargetModels, target)
+					continue
+				}
 				if _, bare, ok := strings.Cut(target, "/"); ok {
 					allowedTargetModels[bare] = true
 				}
@@ -488,8 +492,11 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		audit.setModel(modelProvider.Name, "", targetModel)
 
 		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
+		if b, ok := l.backend.(*bifrostProviderBackend); ok {
+			model, err = b.resolveRequestModel(l, req, targetModel)
+		}
 		if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-			if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
+			if fallback, fallbackErr := resolver.resolveModel(l, req.User, scopedLegacyReference(req.Context(), targetModel)); fallbackErr == nil && fallback != nil {
 				model, err = fallback, nil
 			}
 		}

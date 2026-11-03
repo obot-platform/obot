@@ -2,6 +2,7 @@ package llmengine
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -15,17 +16,10 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// MigrateLegacyModels moves what refers to legacy model providers' models over to the
-// gateway's models: default model aliases and model access policies that name a legacy
-// model are re-pointed to the gateway model with the same upstream model, and edits made to
-// the legacy model (deactivating it, an alias, a cost override) carry over. It runs after
-// every gateway model sync, so references move as soon as the gateway lists the models.
-//
-// Once legacy provider credentials have been imported (importDone), legacy models that were
-// migrated or that nothing refers to are deleted, and then legacy model providers left
-// without models. A legacy model that is still referred to but that the gateway doesn't
-// serve is kept, so the reference doesn't break, until the gateway lists its model.
-func MigrateLegacyModels(ctx context.Context, c kclient.Client, importDone bool) error {
+// migrateLegacyModels moves only verified source models with discovered gateway
+// equivalents. Compatibility mappings commit before reference updates and cleanup;
+// unmatched source records remain available for recovery and manual setup.
+func migrateLegacyModels(ctx context.Context, c kclient.Client, sources map[string]string, discovered map[string]bool, saveMappings func(map[string]string) error) error {
 	var models v1.ModelList
 	if err := c.List(ctx, &models, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
@@ -36,7 +30,9 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, importDone bool)
 		m := &models.Items[i]
 		switch m.Spec.Manifest.ModelProvider {
 		case system.LLMGatewayModelProvider:
-			gatewayByTarget[m.Spec.Manifest.TargetModel] = m
+			if discovered == nil || discovered[m.Spec.Manifest.TargetModel] {
+				gatewayByTarget[m.Spec.Manifest.TargetModel] = m
+			}
 		case system.ModelProxyModelProvider:
 			// The MCP tester's hosted model service, not a legacy provider.
 		default:
@@ -44,51 +40,56 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, importDone bool)
 		}
 	}
 	if len(legacy) == 0 {
-		return deleteEmptyLegacyProviders(ctx, c, importDone)
+		return deleteEmptyLegacyProviders(ctx, c, sources)
 	}
 
 	// legacy model name -> gateway model name
 	migrated := map[string]string{}
 	for _, m := range legacy {
-		plan, ok := legacyImportPlans[m.Spec.Manifest.ModelProvider]
+		provider, ok := sources[m.Spec.Manifest.ModelProvider]
 		if !ok {
 			continue
 		}
-		target, ok := gatewayModelFor(gatewayByTarget, plan.provider, m.Spec.Manifest.TargetModel)
+		target, ok := gatewayModelFor(gatewayByTarget, provider, m.Spec.Manifest.TargetModel)
 		if !ok {
 			continue
 		}
 		migrated[m.Name] = target.Name
-		if err := carryModelEdits(ctx, c, m, target); err != nil {
-			return err
+	}
+
+	for _, m := range legacy {
+		if targetName, ok := migrated[m.Name]; ok {
+			var target *v1.Model
+			for _, candidate := range gatewayByTarget {
+				if candidate.Name == targetName {
+					target = candidate
+					break
+				}
+			}
+			if err := carryModelEdits(ctx, c, m, target); err != nil {
+				return err
+			}
 		}
 	}
 
-	referenced, err := repointModelReferences(ctx, c, migrated, legacy)
+	// Persist compatibility mappings before changing references or deleting source records.
+	if err := saveMappings(migrated); err != nil {
+		return err
+	}
+	_, err := repointModelReferences(ctx, c, migrated, legacy, sources)
 	if err != nil {
 		return err
 	}
 
-	if !importDone {
-		return nil
-	}
 	for _, m := range legacy {
 		if _, ok := migrated[m.Name]; !ok {
-			if referenced[m.Name] {
-				slog.Warn("keeping a legacy model that is still referred to but that the LLM gateway doesn't serve", "model", m.Name, "modelProvider", m.Spec.Manifest.ModelProvider, "targetModel", m.Spec.Manifest.TargetModel)
-				continue
-			}
-			if hasModelEdits(m) {
-				// Its edits carry over once the gateway lists the model; deleting it now would
-				// re-enable a model an administrator deactivated, or drop a cost override.
-				continue
-			}
+			continue
 		}
 		if err := c.Delete(ctx, m); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete legacy model %s: %w", m.Name, err)
 		}
 	}
-	return deleteEmptyLegacyProviders(ctx, c, importDone)
+	return deleteEmptyLegacyProviders(ctx, c, sources)
 }
 
 // gatewayModelFor returns the gateway model that serves a legacy model's upstream model ID
@@ -116,30 +117,37 @@ func gatewayModelFor(gatewayByTarget map[string]*v1.Model, provider, id string) 
 	return latest, latest != nil
 }
 
-// hasModelEdits reports whether administrators changed a model in a way carryModelEdits keeps.
-func hasModelEdits(m *v1.Model) bool {
-	return !m.Spec.Manifest.Active || m.Spec.Manifest.Alias != "" || m.Spec.Manifest.OverrideCost != nil
-}
-
 // carryModelEdits copies administrators' edits of a legacy model to its gateway model, once:
 // the legacy model is deleted after migration.
 func carryModelEdits(ctx context.Context, c kclient.Client, legacy, target *v1.Model) error {
-	changed := false
+	const annotation = "obot.ai/legacy-model-edits"
+	var applied []string
+	if raw := target.Annotations[annotation]; raw != "" {
+		if err := json.Unmarshal([]byte(raw), &applied); err != nil {
+			return err
+		}
+	}
+	if slices.Contains(applied, legacy.Name) {
+		return nil
+	}
 	if !legacy.Spec.Manifest.Active && target.Spec.Manifest.Active {
 		target.Spec.Manifest.Active = false
-		changed = true
 	}
 	if legacy.Spec.Manifest.Alias != "" && target.Spec.Manifest.Alias == "" {
 		target.Spec.Manifest.Alias = legacy.Spec.Manifest.Alias
-		changed = true
 	}
 	if legacy.Spec.Manifest.OverrideCost != nil && target.Spec.Manifest.OverrideCost == nil {
 		target.Spec.Manifest.OverrideCost = legacy.Spec.Manifest.OverrideCost
-		changed = true
 	}
-	if !changed {
-		return nil
+	applied = append(applied, legacy.Name)
+	raw, err := json.Marshal(applied)
+	if err != nil {
+		return err
 	}
+	if target.Annotations == nil {
+		target.Annotations = map[string]string{}
+	}
+	target.Annotations[annotation] = string(raw)
 	if err := c.Update(ctx, target); err != nil {
 		return fmt.Errorf("failed to carry edits of legacy model %s over to %s: %w", legacy.Name, target.Name, err)
 	}
@@ -151,7 +159,7 @@ func carryModelEdits(ctx context.Context, c kclient.Client, legacy, target *v1.M
 // models' provider-native names, such as "claude-haiku-4-5*", get the gateway's provider
 // prefix, such as "anthropic/claude-haiku-4-5*", for each provider whose legacy models they
 // matched. It returns the models still referred to.
-func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[string]string, legacy []*v1.Model) (map[string]bool, error) {
+func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[string]string, legacy []*v1.Model, sources map[string]string) (map[string]bool, error) {
 	referenced := map[string]bool{}
 
 	var aliases v1.DefaultModelAliasList
@@ -193,7 +201,14 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 				add(m)
 				continue
 			}
-			if qualified := qualifyLegacyPattern(m, legacy); len(qualified) > 0 {
+			if qualified := qualifyLegacyPattern(m, legacy, sources); len(qualified) > 0 {
+				// Keep the original grant for source models not yet migrated.
+				for _, old := range legacy {
+					if m.MatchesTargetModel(old.Spec.Manifest.TargetModel) && migrated[old.Name] == "" {
+						add(m)
+						break
+					}
+				}
 				for _, q := range qualified {
 					add(q)
 				}
@@ -219,18 +234,18 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 // legacy models' provider-native names: the pattern with the gateway provider's prefix, for
 // each provider whose legacy models it matches. It returns nothing for other model resources,
 // and for patterns that match no legacy model.
-func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model) []types.ModelResource {
+func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model, sources map[string]string) []types.ModelResource {
 	prefix, ok := m.IsWildcardSuffix()
 	if !ok || strings.Contains(prefix, "/") {
 		return nil
 	}
 	var qualified []types.ModelResource
 	for _, l := range legacy {
-		plan, ok := legacyImportPlans[l.Spec.Manifest.ModelProvider]
+		provider, ok := sources[l.Spec.Manifest.ModelProvider]
 		if !ok || !m.MatchesTargetModel(l.Spec.Manifest.TargetModel) {
 			continue
 		}
-		q := types.ModelResource{ID: plan.provider + "/" + prefix + "*"}
+		q := types.ModelResource{ID: provider + "/" + prefix + "*"}
 		if !slices.Contains(qualified, q) {
 			qualified = append(qualified, q)
 		}
@@ -240,17 +255,14 @@ func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model) []types.Mod
 
 // deleteEmptyLegacyProviders deletes legacy model providers that have no models left, once
 // their credentials have been imported.
-func deleteEmptyLegacyProviders(ctx context.Context, c kclient.Client, importDone bool) error {
-	if !importDone {
-		return nil
-	}
+func deleteEmptyLegacyProviders(ctx context.Context, c kclient.Client, sources map[string]string) error {
 	var providers v1.ModelProviderList
 	if err := c.List(ctx, &providers, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
 	}
 	for i := range providers.Items {
 		mp := &providers.Items[i]
-		if mp.Name == system.LLMGatewayModelProvider || mp.Name == system.ModelProxyModelProvider || !mp.DeletionTimestamp.IsZero() {
+		if sources[mp.Name] == "" || !mp.DeletionTimestamp.IsZero() {
 			continue
 		}
 		var owned v1.ModelList

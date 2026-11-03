@@ -1,10 +1,10 @@
 //go:build e2e
 
-// Package llmgatewayupgrade checks an upgrade from the main branch to this branch's LLM
-// gateway: an installation with message policies and daily token limits is run on main,
+// Package llmgatewayupgrade checks an upgrade from v0.27.0 to this branch's LLM
+// gateway: an installation with message policies and daily token limits is run on v0.27.0,
 // then two replicas of the new binary start on the same database at once.
 //
-// Run it with `make test-e2e-llm-gateway-upgrade`. It builds main in a temporary git
+// Run it with `make test-e2e-llm-gateway-upgrade`. It builds v0.27.0 in a temporary git
 // worktree unless OBOT_E2E_MAIN_BINARY points at a main build.
 package llmgatewayupgrade
 
@@ -95,7 +95,7 @@ func buildMain(t *testing.T, dir string) string {
 	root := repoRoot()
 	ref := os.Getenv("OBOT_E2E_MAIN_REF")
 	if ref == "" {
-		ref = "main"
+		ref = "v0.27.0"
 	}
 	src := filepath.Join(dir, "main-src")
 	run := func(cwd string, name string, args ...string) {
@@ -278,7 +278,10 @@ func TestUpgradeFromMain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := old.Stop(); err != nil {
+	// v0.27 can panic restarting a provider daemon during graceful shutdown.
+	// Exercise an abrupt upgrade instead: the fixture is committed in PostgreSQL,
+	// and the baseline's shutdown implementation is outside migration coverage.
+	if err := old.Crash(); err != nil {
 		t.Fatal(err)
 	}
 	if lines := harness.PanicLines(old.Log()); len(lines) > 0 {
