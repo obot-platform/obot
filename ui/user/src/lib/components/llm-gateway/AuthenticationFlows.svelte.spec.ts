@@ -132,7 +132,7 @@ describe('provider authentication', () => {
 			});
 			expect(
 				saved.mock.calls[1][0][aws ? 'bedrock_key_config' : 'azure_key_config']
-			).not.toHaveProperty(aws ? 'access_key' : 'client_id');
+			).toHaveProperty(aws ? 'access_key' : 'client_id', '');
 			component.open();
 			await expect
 				.element(dialog.getByRole('radio', { name: 'API Key', exact: true }))

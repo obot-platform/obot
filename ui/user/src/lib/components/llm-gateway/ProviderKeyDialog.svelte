@@ -121,6 +121,11 @@
 				enabled
 			};
 			if (!fields.some((f) => f.path === 'value')) body.value = '';
+			// Replace authentication as a whole. Explicit blanks remove inactive credentials
+			// even when the API merges nested configuration instead of replacing it.
+			if (entry?.authenticationMethods) {
+				for (const field of allFields) setPath(body, field.path, '');
+			}
 			for (const f of fields) {
 				const v = values[f.path]?.trim() ?? '';
 				if (!v && !f.required && f.path !== 'value') continue;

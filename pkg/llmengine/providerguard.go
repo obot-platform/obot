@@ -189,9 +189,12 @@ func (e *Engine) guardKey(ctx context.Context, provider string, fields map[strin
 		return nil
 	}
 
-	// The key now connects somewhere else: its stored secrets must be entered again, so they
-	// can't be redirected to another host.
+	// The key now connects somewhere else: retained secrets must be entered again, so they
+	// can't be redirected to another host. Explicitly cleared credentials are never sent.
 	for p, raw := range redactedValues(stored, nil) {
+		if explicitlyClearsCredential(fields, p) {
+			continue
+		}
 		entered, ok := valueAt(body, strings.Split(p, "."))
 		var v schemas.SecretVar
 		if !ok || v.UnmarshalJSON(entered) != nil || v.GetValue() == "" || v.IsRedacted() || bytes.Equal(bytes.TrimSpace(entered), bytes.TrimSpace(raw)) {
@@ -199,6 +202,39 @@ func (e *Engine) guardKey(ctx context.Context, provider string, fields map[strin
 		}
 	}
 	return nil
+}
+
+// Only an explicit empty string clears these credentials. Omission, masked values and
+// secret references may retain stored credentials and still require re-entry.
+func explicitlyClearsCredential(fields map[string]json.RawMessage, path string) bool {
+	switch path {
+	case "value", "azure_key_config.client_id", "azure_key_config.client_secret", "azure_key_config.tenant_id":
+	default:
+		return false
+	}
+	parts := strings.Split(path, ".")
+	for i, part := range parts {
+		// The engine uses canonical names to detect omitted fields; alternate spellings
+		// must not make a retained credential look like an explicit removal.
+		for name := range fields {
+			if strings.EqualFold(name, part) && name != part {
+				return false
+			}
+		}
+		raw, ok := fields[part]
+		if !ok {
+			return false
+		}
+		if i == len(parts)-1 {
+			return bytes.Equal(bytes.TrimSpace(raw), []byte(`""`))
+		}
+		var child map[string]json.RawMessage
+		if json.Unmarshal(raw, &child) != nil {
+			return false
+		}
+		fields = child
+	}
+	return false
 }
 
 // checkProviderAddresses checks a provider's base URL, and its keys' server URLs, against the

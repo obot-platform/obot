@@ -15,6 +15,9 @@ describe('server identity authentication', () => {
 		const sharedLabel = aws ? /^Region/ : /^Endpoint/;
 		const sharedValue = aws ? 'us-east-1' : 'https://resource.openai.azure.com';
 		const sharedConfig = aws ? { region: sharedValue } : { endpoint: sharedValue };
+		const emptyCredentials = aws
+			? { access_key: '', secret_key: '', session_token: '', role_arn: '' }
+			: { client_id: '', client_secret: '', tenant_id: '' };
 		const roleARN = 'arn:aws:iam::123456789012:role/bedrock';
 
 		for (const addingProvider of [true, false]) {
@@ -53,6 +56,7 @@ describe('server identity authentication', () => {
 					expect(saved.mock.calls[0][0]).toMatchObject({ value: '' });
 					expect(saved.mock.calls[0][0][configName]).toEqual({
 						...sharedConfig,
+						...(addingProvider ? {} : emptyCredentials),
 						...(role ? { role_arn: role } : {})
 					});
 				});
@@ -93,7 +97,7 @@ describe('server identity authentication', () => {
 					weight: 2,
 					enabled: false
 				});
-				expect(saved.mock.calls[0][0][configName]).toEqual(config);
+				expect(saved.mock.calls[0][0][configName]).toEqual({ ...emptyCredentials, ...config });
 			});
 		}
 
@@ -127,7 +131,10 @@ describe('server identity authentication', () => {
 				await dialog.getByRole('button', { name: 'Save', exact: true }).click();
 				await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
 				expect(saved.mock.calls[0][0]).toMatchObject({ value: '' });
-				expect(saved.mock.calls[0][0][configName]).toEqual(sharedConfig);
+				expect(saved.mock.calls[0][0][configName]).toEqual({
+					...emptyCredentials,
+					...sharedConfig
+				});
 				component.open({
 					id: 'key',
 					name: 'existing',
