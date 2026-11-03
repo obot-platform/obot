@@ -21,31 +21,49 @@ func (s *Client) GetRule(ctx context.Context, id string) (tables.TableRoutingRul
 	return decodeRule(obj.Spec)
 }
 
+// PutRule replaces or creates a complete routing rule.
 func (s *Client) PutRule(ctx context.Context, rule tables.TableRoutingRule) error {
-	if rule.ID == "" {
+	return s.editRule(ctx, rule.ID, true, func(current *tables.TableRoutingRule) error { *current = rule; return nil })
+}
+
+// MutateRule reruns a partial edit against the latest rule after a conflict.
+// The callback must have no external side effects.
+func (s *Client) MutateRule(ctx context.Context, id string, change func(*tables.TableRoutingRule) error) error {
+	return s.editRule(ctx, id, false, change)
+}
+
+func (s *Client) editRule(ctx context.Context, id string, create bool, change func(*tables.TableRoutingRule) error) error {
+	if id == "" {
 		return fmt.Errorf("a routing rule needs an ID")
 	}
-
-	payload, err := json.Marshal(rule)
-	if err != nil {
-		return err
-	}
-
 	return retry.OnError(retry.DefaultRetry, isWriteConflict, func() error {
 		var obj v1.LLMGatewayRoutingRule
-		err := s.storage.Get(ctx, resourceKey(rule.ID), &obj)
-		if err != nil && !apierrors.IsNotFound(err) {
+		err := s.storage.Get(ctx, resourceKey(id), &obj)
+		exists := err == nil
+		if err != nil && (!apierrors.IsNotFound(err) || !create) {
 			return err
 		}
-
-		exists := err == nil
+		var rule tables.TableRoutingRule
+		if exists {
+			rule, err = decodeRule(obj.Spec)
+			if err != nil {
+				return err
+			}
+		}
+		if err := change(&rule); err != nil {
+			return err
+		}
+		rule.ID = id
+		payload, err := json.Marshal(rule)
+		if err != nil {
+			return err
+		}
 		if exists && obj.Spec.Payload == string(payload) {
 			return nil
 		}
-
-		obj.Name = resourceName(rule.ID)
+		obj.Name = resourceName(id)
 		obj.Namespace = system.DefaultNamespace
-		obj.Spec = v1.LLMGatewayResourceSpec{ID: rule.ID, Payload: string(payload)}
+		obj.Spec = v1.LLMGatewayResourceSpec{ID: id, Payload: string(payload)}
 		if !exists {
 			return s.storage.Create(ctx, &obj)
 		}

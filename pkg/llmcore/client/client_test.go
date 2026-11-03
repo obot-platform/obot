@@ -70,18 +70,46 @@ func TestWritesTouchOnlyOwningResource(t *testing.T) {
 		kind  kclient.Object
 		write func(*client.Client) error
 	}{
-		{name: "provider", kind: &v1.LLMGatewayProvider{}, write: func(s *client.Client) error { return s.PutProvider(t.Context(), "openai", client.Provider{}) }},
-		{name: "key", kind: &v1.LLMGatewayProvider{}, write: func(s *client.Client) error { return s.PutKey(t.Context(), "openai", schemas.Key{ID: "key"}) }},
-		{name: "delete key", kind: &v1.LLMGatewayProvider{}, write: func(s *client.Client) error { return s.DeleteKey(t.Context(), "openai", "key") }},
-		{name: "delete provider", kind: &v1.LLMGatewayProvider{}, write: func(s *client.Client) error { return s.DeleteProvider(t.Context(), "openai") }},
-		{name: "rule", kind: &v1.LLMGatewayRoutingRule{}, write: func(s *client.Client) error { return s.PutRule(t.Context(), tables.TableRoutingRule{ID: "route"}) }},
-		{name: "delete rule", kind: &v1.LLMGatewayRoutingRule{}, write: func(s *client.Client) error { return s.DeleteRule(t.Context(), "route") }},
-		{name: "settings", kind: &v1.LLMGatewayConfig{}, write: func(s *client.Client) error {
-			return s.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
-				settings["client"] = json.RawMessage(`{}`)
-				return nil
-			})
-		}},
+		{
+			name:  "provider",
+			kind:  &v1.LLMGatewayProvider{},
+			write: func(s *client.Client) error { return s.PutProvider(t.Context(), "openai", client.Provider{}) },
+		},
+		{
+			name:  "key",
+			kind:  &v1.LLMGatewayProvider{},
+			write: func(s *client.Client) error { return s.PutKey(t.Context(), "openai", schemas.Key{ID: "key"}) },
+		},
+		{
+			name:  "delete key",
+			kind:  &v1.LLMGatewayProvider{},
+			write: func(s *client.Client) error { return s.DeleteKey(t.Context(), "openai", "key") },
+		},
+		{
+			name:  "delete provider",
+			kind:  &v1.LLMGatewayProvider{},
+			write: func(s *client.Client) error { return s.DeleteProvider(t.Context(), "openai") },
+		},
+		{
+			name:  "rule",
+			kind:  &v1.LLMGatewayRoutingRule{},
+			write: func(s *client.Client) error { return s.PutRule(t.Context(), tables.TableRoutingRule{ID: "route"}) },
+		},
+		{
+			name:  "delete rule",
+			kind:  &v1.LLMGatewayRoutingRule{},
+			write: func(s *client.Client) error { return s.DeleteRule(t.Context(), "route") },
+		},
+		{
+			name: "settings",
+			kind: &v1.LLMGatewayConfig{},
+			write: func(s *client.Client) error {
+				return s.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
+					settings["client"] = json.RawMessage(`{}`)
+					return nil
+				})
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
@@ -212,4 +240,40 @@ func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
 	settings, err := base.GetSettings(t.Context())
 	require.NoError(t, err)
 	require.Len(t, settings, 3)
+}
+
+func TestCreateProviderPreservesExistingAggregate(t *testing.T) {
+	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
+	original := client.Provider{Keys: []schemas.Key{{ID: "existing", Value: *schemas.NewSecretVar("existing-secret")}}}
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", original))
+	require.True(t, apierrors.IsAlreadyExists(store.CreateProvider(t.Context(), "openai", client.Provider{})))
+	got, err := store.GetProvider(t.Context(), "openai")
+	require.NoError(t, err)
+	require.Equal(t, original, got)
+	require.Error(t, store.CreateProvider(t.Context(), "invalid", client.Provider{Keys: []schemas.Key{{}}}))
+	require.Error(t, store.CreateProvider(t.Context(), "duplicate", client.Provider{Keys: []schemas.Key{{ID: "same"}, {ID: "same"}}}))
+}
+
+func TestRuleConflictRetriesLatestFields(t *testing.T) {
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	base := newStore(t, storage)
+	require.NoError(t, base.PutRule(t.Context(), tables.TableRoutingRule{ID: "route", Name: "original", Priority: 1}))
+	conflict := true
+	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
+		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+			if conflict {
+				conflict = false
+				require.NoError(t, base.MutateRule(ctx, "route", func(rule *tables.TableRoutingRule) error { rule.Priority = 7; return nil }))
+				return apierrors.NewConflict(schema.GroupResource{Resource: "llmgatewayroutingrules"}, obj.GetName(), fmt.Errorf("concurrent edit"))
+			}
+			return c.Update(ctx, obj, opts...)
+		},
+	})
+	calls := 0
+	require.NoError(t, newStore(t, wrapped).MutateRule(t.Context(), "route", func(rule *tables.TableRoutingRule) error { calls++; rule.Name = "renamed"; return nil }))
+	rule, err := base.GetRule(t.Context(), "route")
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.Equal(t, "renamed", rule.Name)
+	require.Equal(t, 7, rule.Priority)
 }

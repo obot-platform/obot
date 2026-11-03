@@ -32,6 +32,26 @@ func (s *Client) GetProvider(ctx context.Context, name string) (Provider, error)
 	return provider, err
 }
 
+// CreateProvider creates an aggregate without replacing an existing provider or its keys.
+// Callers handling concurrent creation must reload and mutate the winning aggregate.
+func (s *Client) CreateProvider(ctx context.Context, name string, provider Provider) error {
+	if name == "" {
+		return fmt.Errorf("a provider needs a name")
+	}
+	if err := validateKeys(provider.Keys); err != nil {
+		return err
+	}
+	payload, err := s.encode(ctx, providerConfigID(name), provider)
+	if err != nil {
+		return err
+	}
+	return s.storage.Create(ctx, &v1.LLMGatewayProvider{
+		Name:      resourceName(name),
+		Namespace: system.DefaultNamespace,
+		Spec:      v1.LLMGatewayResourceSpec{ID: name, Payload: payload},
+	})
+}
+
 // PutProvider replaces a provider and its keys, or creates the aggregate if absent.
 func (s *Client) PutProvider(ctx context.Context, name string, provider Provider) error {
 	if name == "" {
@@ -70,15 +90,8 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 			return err
 		}
 
-		ids := map[string]bool{}
-		for _, key := range provider.Keys {
-			if key.ID == "" {
-				return fmt.Errorf("a key needs an ID")
-			}
-			if ids[key.ID] {
-				return fmt.Errorf("duplicate key ID %q", key.ID)
-			}
-			ids[key.ID] = true
+		if err := validateKeys(provider.Keys); err != nil {
+			return err
 		}
 
 		after, err := json.Marshal(provider)
@@ -139,4 +152,18 @@ func isWriteConflict(err error) bool {
 // providerConfigID is the stable codec identity used to seal and open a provider.
 func providerConfigID(name string) string {
 	return "provider/" + name
+}
+
+func validateKeys(keys []schemas.Key) error {
+	ids := map[string]bool{}
+	for _, key := range keys {
+		if key.ID == "" {
+			return fmt.Errorf("a key needs an ID")
+		}
+		if ids[key.ID] {
+			return fmt.Errorf("duplicate key ID %q", key.ID)
+		}
+		ids[key.ID] = true
+	}
+	return nil
 }
