@@ -28,7 +28,7 @@ func (s *Client) GetProvider(ctx context.Context, name string) (Provider, error)
 	}
 
 	var provider Provider
-	err := s.decode(ctx, "provider/"+name, obj.Spec.Payload, &provider)
+	err := s.decode(ctx, providerConfigID(name), obj.Spec.Payload, &provider)
 	return provider, err
 }
 
@@ -57,7 +57,7 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 
 		var provider Provider
 		if exists {
-			if err := s.decode(ctx, "provider/"+name, obj.Spec.Payload, &provider); err != nil {
+			if err := s.decode(ctx, providerConfigID(name), obj.Spec.Payload, &provider); err != nil {
 				return err
 			}
 		}
@@ -89,7 +89,7 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 			return nil
 		}
 
-		payload, err := s.encode(ctx, "provider/"+name, provider)
+		payload, err := s.encode(ctx, providerConfigID(name), provider)
 		if err != nil {
 			return err
 		}
@@ -134,4 +134,9 @@ func resourceKey(name string) kclient.ObjectKey {
 
 func isWriteConflict(err error) bool {
 	return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
+}
+
+// providerConfigID is the stable codec identity used to seal and open a provider.
+func providerConfigID(name string) string {
+	return "provider/" + name
 }

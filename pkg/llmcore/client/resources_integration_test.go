@@ -58,13 +58,11 @@ func testResourceAPI(t *testing.T, dsn string) {
 	cfg, err := store.Load(ctx)
 	require.NoError(t, err)
 	require.Len(t, cfg.Keys["openai"], 2)
-	token := cfg.Revision
 	require.NoError(t, store.DeleteProvider(ctx, "openai"))
 	require.NoError(t, store.PutProvider(ctx, "openai", client.Provider{}))
 	cfg, err = store.Load(ctx)
 	require.NoError(t, err)
 	require.Empty(t, cfg.Keys["openai"])
-	require.NotEqual(t, token, cfg.Revision)
 }
 
 func TestResourceAPIPostgres(t *testing.T) {

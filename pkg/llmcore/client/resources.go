@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
@@ -32,19 +31,17 @@ func (s *Client) loadResources(ctx context.Context) (Config, error) {
 		}
 	}
 
-	var objects []kclient.Object
 	for i := range providers.Items {
 		p := &providers.Items[i]
 
 		var data Provider
-		if err := s.decode(ctx, "provider/"+p.Spec.ID, p.Spec.Payload, &data); err != nil {
+		if err := s.decode(ctx, providerConfigID(p.Spec.ID), p.Spec.Payload, &data); err != nil {
 			return cfg, err
 		}
 
 		name := schemas.ModelProvider(p.Spec.ID)
 		cfg.Providers[name] = data.Config
 		cfg.Keys[name] = data.Keys
-		objects = append(objects, p)
 	}
 
 	for i := range rules.Items {
@@ -56,33 +53,12 @@ func (s *Client) loadResources(ctx context.Context) (Config, error) {
 		}
 
 		cfg.Rules[rule.ID] = rule
-		objects = append(objects, r)
 	}
 
-	settings, settingsObject, err := s.loadSettings(ctx)
+	settings, err := s.GetSettings(ctx)
 	if err != nil {
 		return cfg, err
 	}
 	cfg.Settings = settings
-	if settingsObject != nil {
-		objects = append(objects, settingsObject)
-	}
-
-	// Revision is process-local content identity, never a parsed resourceVersion.
-	identities := make([]string, 0, len(objects))
-	for _, o := range objects {
-		identities = append(identities, fmt.Sprintf("%T/%s/%s/%s", o, o.GetName(), o.GetUID(), o.GetResourceVersion()))
-	}
-	sort.Strings(identities)
-
-	raw, _ := json.Marshal(struct {
-		Config     Config
-		Identities []string
-	}{cfg, identities})
-
-	hash := sha256.Sum256(raw)
-	for _, b := range hash[:7] {
-		cfg.Revision = cfg.Revision<<8 | int64(b)
-	}
 	return cfg, nil
 }

@@ -39,19 +39,18 @@ func TestLoadOnlyDefaultSettings(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, before.Settings, cfg.Settings)
 				require.Equal(t, settings, cfg.Settings)
-				require.Equal(t, before.Revision, cfg.Revision, "extra resource must not change the token")
 			}
 			require.NoError(t, storage.Delete(t.Context(), &extra))
 			cfg, err := store.Load(t.Context())
 			require.NoError(t, err)
-			require.Equal(t, before.Revision, cfg.Revision)
+			require.Equal(t, before.Settings, cfg.Settings)
 			require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
 				settings["proxy"] = json.RawMessage(`{"enabled":false}`)
 				return nil
 			}))
 			cfg, err = store.Load(t.Context())
 			require.NoError(t, err)
-			require.NotEqual(t, before.Revision, cfg.Revision)
+			require.NotEqual(t, before.Settings, cfg.Settings)
 		})
 	}
 }
