@@ -277,3 +277,76 @@ func TestTokenUsageStatsModelProvider(t *testing.T) {
 		t.Errorf("model providers = %v, want claude-haiku-4-5 from anthropic and gpt-4o from azure", providers)
 	}
 }
+
+// TestTokenUsageRangesIgnoreTimeZone checks that a record made "now" is found by every range reader whatever zone
+// the process and the caller use. SQLite compares created_at as text, so a record stamped in the process's local
+// zone was missed by a range given in UTC (and the reverse), but only when the process ran outside UTC.
+func TestTokenUsageRangesIgnoreTimeZone(t *testing.T) {
+	// time.Local is process-wide, so this test must stay sequential: Go runs top-level parallel tests only after
+	// the sequential ones finish, so none of them can observe the swapped zone.
+	local := time.Local
+	time.Local = time.FixedZone("UTC-5", -5*60*60)
+	t.Cleanup(func() { time.Local = local })
+
+	c := newTestClient(t)
+	ctx := t.Context()
+
+	if err := c.InsertTokenUsage(ctx, &types.RunTokenActivity{
+		UserID:  "u1",
+		Model:   "anthropic/claude-sonnet-4-5",
+		Outcome: types.LLMAuditOutcomeSuccess,
+		Usage:   types.TokenUsage{TotalTokens: 15},
+	}); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	for _, tt := range []struct {
+		name string
+		zone *time.Location
+	}{
+		{
+			name: "local bounds",
+			zone: time.Local,
+		},
+		{
+			name: "UTC bounds",
+			zone: time.UTC,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end := time.Now().Add(-time.Hour).In(tt.zone), time.Now().Add(time.Hour).In(tt.zone)
+
+			stats, err := c.TokenUsageStats(ctx, TokenUsageStatsOptions{Start: start, End: end})
+			if err != nil {
+				t.Fatalf("TokenUsageStats: %v", err)
+			}
+			if stats.Totals.Requests != 1 {
+				t.Errorf("TokenUsageStats requests = %d, want 1", stats.Totals.Requests)
+			}
+
+			forUser, err := c.TokenUsageForUser(ctx, "u1", start, end)
+			if err != nil {
+				t.Fatalf("TokenUsageForUser: %v", err)
+			}
+			if len(forUser) != 1 {
+				t.Errorf("TokenUsageForUser records = %d, want 1", len(forUser))
+			}
+
+			series, err := c.TokenUsageSeriesInRange(ctx, start, end)
+			if err != nil {
+				t.Fatalf("TokenUsageSeriesInRange: %v", err)
+			}
+			if len(series) != 1 {
+				t.Errorf("TokenUsageSeriesInRange records = %d, want 1", len(series))
+			}
+
+			total, err := c.TotalTokenUsageForUser(ctx, "u1", start, end)
+			if err != nil {
+				t.Fatalf("TotalTokenUsageForUser: %v", err)
+			}
+			if total.Usage.TotalTokens != 15 {
+				t.Errorf("TotalTokenUsageForUser tokens = %d, want 15", total.Usage.TotalTokens)
+			}
+		})
+	}
+}

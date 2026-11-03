@@ -67,6 +67,15 @@ type tokenUsageStatsRow struct {
 }
 
 func (c *Client) InsertTokenUsage(ctx context.Context, activity *types.RunTokenActivity) error {
+	// SQLite stores a time as text in the zone it was given and compares created_at as text, so
+	// records and range bounds must share a zone. Records are kept in UTC, and every reader below
+	// converts its bounds to UTC. Left zero, gorm would stamp the process's local time instead.
+	if activity.CreatedAt.IsZero() {
+		activity.CreatedAt = time.Now().UTC()
+	} else {
+		activity.CreatedAt = activity.CreatedAt.UTC()
+	}
+
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if activity.ID == 0 {
 			return tx.Create(activity).Error
@@ -77,7 +86,7 @@ func (c *Client) InsertTokenUsage(ctx context.Context, activity *types.RunTokenA
 
 func (c *Client) TokenUsageForUser(ctx context.Context, userID string, start, end time.Time) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
-	return activities, withUsage(c.db.WithContext(ctx)).Where("user_id = ?", userID).Where("created_at >= ? AND created_at <= ?", start, end).Order("created_at DESC").Find(&activities).Error
+	return activities, withUsage(c.db.WithContext(ctx)).Where("user_id = ?", userID).Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).Order("created_at DESC").Find(&activities).Error
 }
 
 func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, start, end time.Time) (types.RunTokenActivity, error) {
@@ -100,7 +109,7 @@ func (c *Client) TokenUsageByUser(ctx context.Context, start, end time.Time) ([]
 // The range is [start, end] inclusive so that the requested end time is the last moment included.
 func (c *Client) TokenUsageSeriesInRange(ctx context.Context, start, end time.Time) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
-	err := withUsage(c.db.WithContext(ctx)).Where("created_at >= ? AND created_at <= ?", start, end).
+	err := withUsage(c.db.WithContext(ctx)).Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).
 		Where("user_id IS NOT NULL").
 		Order("created_at DESC").
 		Find(&activities).Error
@@ -128,7 +137,7 @@ func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end
 			"SUM(cache_write_spend) as cache_write_spend, "+
 			"SUM(output_spend) as output_spend, "+
 			"SUM(total_spend) as total_spend").
-		Where("created_at >= ? AND created_at <= ?", start, end)
+		Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC())
 	if userID != "" {
 		db = db.Where("user_id = ?", userID)
 	} else {
