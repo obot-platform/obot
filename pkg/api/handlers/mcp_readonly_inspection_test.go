@@ -14,12 +14,13 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestAdminReadonlyInspectionDoesNotDeployStoppedServers(t *testing.T) {
 	require.NoError(t, appsv1.AddToScheme(storagescheme.Scheme))
-	for _, role := range []types.Role{types.RoleAdminReadonly, types.RoleAdminReadonly | types.RoleAuditor} {
+	for _, role := range []types.Role{types.RoleAdminReadonly, types.RoleAdminReadonly | types.RoleAuditor, types.RoleBasic | types.RoleAuditor} {
 		t.Run(strconv.Itoa(int(role)), func(t *testing.T) {
 			const webhookID = "mwhv1inspection"
 			server := &v1.MCPServer{
@@ -108,5 +109,63 @@ func TestAdminReadonlyInspectionDoesNotDeployStoppedServers(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+// TestAdminReadonlyInspectionDoesNotConnectToVMCPs checks that a vMCP ID given to the server details and logs routes
+// does not create the caller's connection to that vMCP. It also shows that read-only inspection does not resolve the
+// server as an action, which is what would refresh another user's server's last request time.
+func TestAdminReadonlyInspectionDoesNotConnectToVMCPs(t *testing.T) {
+	const vmcpID = "vmcp1inspection"
+	vmcp := &v1.VMCP{
+		ObjectMeta: objectMetaForVMCPActionTest(vmcpID),
+		Spec: v1.VMCPSpec{
+			UserID: "another-user",
+			Manifest: types.VMCPManifest{
+				DisplayName: "Another user's vMCP",
+				Profiles: []types.VMCPProfile{{
+					Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+				}},
+			},
+		},
+	}
+	manager, storage, gateway := newVMCPActionSessionManager(t, vmcp)
+	handler := &MCPHandler{mcpSessionManager: manager}
+
+	for _, role := range []types.Role{types.RoleAdminReadonly, types.RoleBasic | types.RoleAuditor} {
+		for _, endpoint := range []struct {
+			name    string
+			handler func(api.Context) error
+		}{
+			{
+				name:    "details",
+				handler: handler.GetServerDetails,
+			},
+			{
+				name:    "logs",
+				handler: handler.StreamServerLogs,
+			},
+		} {
+			t.Run(strconv.Itoa(int(role))+"/"+endpoint.name, func(t *testing.T) {
+				request := httptest.NewRequest(http.MethodGet, "/", nil)
+				request.SetPathValue("mcp_server_id", vmcpID)
+				err := endpoint.handler(api.Context{
+					Request:        request,
+					ResponseWriter: httptest.NewRecorder(),
+					Storage:        storage,
+					GatewayClient:  gateway,
+					User: &kuser.DefaultInfo{
+						UID:    "readonly-user",
+						Groups: role.Groups(),
+					},
+				})
+				require.True(t, apierrors.IsNotFound(err), "expected not found, got %v", err)
+
+				var instances v1.VMCPInstanceList
+				require.NoError(t, storage.List(t.Context(), &instances))
+				require.Empty(t, instances.Items)
+			})
+		}
 	}
 }

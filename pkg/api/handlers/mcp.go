@@ -750,6 +750,38 @@ func validateServerScope(req api.Context, server v1.MCPServer) error {
 	return nil
 }
 
+// inspectsAsReader reports whether the caller may inspect servers in the admin area without managing them: admin
+// read-only users and auditors. Their inspection must not change anything, such as deploying a stopped server.
+func inspectsAsReader(req api.Context) bool {
+	return req.UserCanViewAdmin() && !req.UserIsAdmin()
+}
+
+// serverForInspection resolves the MCP server whose details or logs are requested, and reports whether the inspection
+// must be read-only. Admins, and users inspecting their own server, resolve it as an action, which may deploy it.
+// Admin read-only users and auditors inspecting another user's server read it as stored instead: resolving it as an
+// action refreshes its last request time, which keeps it from idling, and resolves a vMCP ID to the caller's
+// connection to that vMCP, creating the connection if there is none.
+func (m *MCPHandler) serverForInspection(req api.Context) (v1.MCPServer, mcp.ServerConfig, bool, error) {
+	id := req.PathValue("mcp_server_id")
+	if inspectsAsReader(req) {
+		var server v1.MCPServer
+		if err := req.Get(&server, id); err != nil {
+			return v1.MCPServer{}, mcp.ServerConfig{}, false, err
+		}
+		if !server.Spec.IsOwnedBy(req.User.GetUID()) {
+			// Read-only inspection uses only the server's name; the runtime is checked by the caller.
+			return server, mcp.ServerConfig{
+				MCPServerName: server.Name,
+				Runtime:       server.Spec.Manifest.Runtime,
+				UserID:        server.Spec.UserID,
+			}, true, nil
+		}
+	}
+
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), id, req.User)
+	return server, serverConfig, false, err
+}
+
 // mcpActionID lets MCPServer and vMCP routes share action handlers without sharing authorization.
 func mcpActionID(req api.Context) string {
 	return cmp.Or(req.PathValue("vmcp_id"), req.PathValue("mcp_server_id"))
@@ -1399,7 +1431,7 @@ func (m *MCPHandler) vmcpComponentOAuthTargets(req api.Context, vmcpID, catalogI
 }
 
 func (m *MCPHandler) GetServerDetails(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
+	server, serverConfig, readOnly, err := m.serverForInspection(req)
 	if err != nil {
 		return err
 	}
@@ -1443,7 +1475,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 	serverConfig.UserID = server.Spec.UserID
 
 	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()),
+		ReadOnly: readOnly,
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
@@ -1810,7 +1842,7 @@ func (m *MCPHandler) ListServersNeedingK8sUpdateAcrossWorkspaces(req api.Context
 }
 
 func (m *MCPHandler) StreamServerLogs(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User)
+	server, serverConfig, readOnly, err := m.serverForInspection(req)
 	if err != nil {
 		return err
 	}
@@ -1854,7 +1886,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 	serverConfig.UserID = server.Spec.UserID
 
 	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin() && !server.Spec.IsOwnedBy(req.User.GetUID()),
+		ReadOnly: readOnly,
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {

@@ -44,7 +44,7 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		servers = append(servers, convertSystemMCPServer(server, credEnv))
+		servers = append(servers, systemMCPServerForCaller(req, convertSystemMCPServer(server, credEnv)))
 	}
 
 	return req.Write(types.SystemMCPServerList{Items: servers})
@@ -62,7 +62,7 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertSystemMCPServer(systemServer, credEnv))
+	return req.Write(systemMCPServerForCaller(req, convertSystemMCPServer(systemServer, credEnv)))
 }
 
 // Create creates a new system MCP server
@@ -282,7 +282,7 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	}
 
 	logs, err := h.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+		ReadOnly: inspectsAsReader(req),
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
@@ -375,7 +375,7 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 
 	// Get server details from the session manager
 	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+		ReadOnly: inspectsAsReader(req),
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {

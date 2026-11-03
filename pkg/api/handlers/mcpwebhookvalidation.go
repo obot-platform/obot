@@ -47,7 +47,7 @@ func (m *MCPWebhookValidationHandler) List(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		items = append(items, convertMCPWebhookValidation(item, credEnv))
+		items = append(items, mcpWebhookValidationForCaller(req, convertMCPWebhookValidation(item, credEnv)))
 	}
 
 	return req.Write(types.MCPWebhookValidationList{Items: items})
@@ -64,7 +64,7 @@ func (m *MCPWebhookValidationHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, credEnv))
+	return req.Write(mcpWebhookValidationForCaller(req, convertMCPWebhookValidation(webhookValidation, credEnv)))
 }
 
 func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
@@ -447,7 +447,7 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 	}
 
 	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+		ReadOnly: inspectsAsReader(req),
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {
@@ -486,7 +486,7 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 	}
 
 	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
-		ReadOnly: req.UserCanReadAsAdmin() && !req.UserIsAdmin(),
+		ReadOnly: inspectsAsReader(req),
 	})
 	if err != nil {
 		if errors.Is(err, mcp.ErrServerNotRunning) {

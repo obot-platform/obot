@@ -178,7 +178,7 @@ func (*SystemMCPCatalogHandler) ListEntries(req api.Context) error {
 
 	entries := make([]types.SystemMCPServerCatalogEntry, 0, len(list.Items))
 	for _, entry := range list.Items {
-		entries = append(entries, ConvertSystemMCPServerCatalogEntry(entry))
+		entries = append(entries, systemMCPServerCatalogEntryForCaller(req, ConvertSystemMCPServerCatalogEntry(entry)))
 	}
 	return req.Write(types.SystemMCPServerCatalogEntryList{Items: entries})
 }
@@ -188,7 +188,7 @@ func (*SystemMCPCatalogHandler) GetEntry(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.Write(ConvertSystemMCPServerCatalogEntry(*entry))
+	return req.Write(systemMCPServerCatalogEntryForCaller(req, ConvertSystemMCPServerCatalogEntry(*entry)))
 }
 
 func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {

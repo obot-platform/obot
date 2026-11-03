@@ -25,13 +25,14 @@ Add **Admin Read-Only** (`RoleAdminReadonly`, group `admin-readonly`) as a new b
 - **Access.** Admin Read-Only can read admin configuration but cannot change administrative configuration. Its static authorization rules (`adminReadonlyRules` in `pkg/api/authz/authz.go`) are GET routes only. It is excluded from:
   - administrative credential-reveal endpoints (personal connection credentials remain accessible to their owner);
   - action routes that are reads in name only (tool previews, the MCP tester, guardrail and storage credential tests);
+  - GETs that resolve a connection to a server: tool, resource and prompt discovery, and OAuth URL and status lookups. These can launch a stopped server or create the caller's connection to another user's vMCP. A static grant skips the resource checks, so prefixes holding such GETs are granted route by route rather than as a subtree. Without the grant, these routes fall back to the access the user has as a Standard User;
   - MDM installer downloads, which can enroll devices;
   - setup and debug endpoints;
   - the unmasked license key;
   - a pending auth provider switch, which is shown only to admins, who can act on it.
 
-  Audit logs appear as they do for an admin: without request and response payloads.
-- **Auditor is unchanged.** Its rules and meaning stay the same, and it can be combined with Admin Read-Only (`RoleAdminReadonly | RoleAuditor`) to add payloads and exports.
+  Audit logs appear as they do for an admin: without request and response payloads. Sensitive values stored inline in system MCP server, webhook validation and system catalog entry manifests are removed from list and get responses for Admin Read-Only users who are not also Auditors, since the reveal endpoints that would show them are excluded. Server details and logs report a stopped server instead of deploying it, for Admin Read-Only and Auditor alike, and look up another user's server as stored rather than resolving it as a connection: that would refresh its last request time, and a vMCP ID would create the caller's connection to the vMCP.
+- **Auditor is unchanged but for one thing.** Its rules and meaning stay the same, and it can be combined with Admin Read-Only (`RoleAdminReadonly | RoleAuditor`) to add payloads and exports. The one change: a role that only views, such as Auditor, Admin Read-Only or the two combined, no longer starts a server by viewing its details or logs. Admins and Owners, with or without Auditor, still do, as they can deploy servers anyway.
 - **Two "can view" checks.** `Role.groups()` adds the `admin-readonly` group for Owner, Admin and Admin Read-Only, but not for Auditor, whose access stays exactly as it was.
   - Handlers and authorizers that granted privileged reads to "admin or auditor" now use one check that also admits Admin Read-Only: `UserCanViewAdmin()` on the request and `User.CanViewAdmin()` in the authorizer.
   - Handlers that showed everything only to admins, such as the list of all workspaces or all Claude sessions, now use `UserCanReadAsAdmin()`. It admits owners, admins and Admin Read-Only but not auditors.
@@ -59,7 +60,7 @@ Add **Admin Read-Only** (`RoleAdminReadonly`, group `admin-readonly`) as a new b
 - `TestAdminReadonlyRulesCoverAdminReads` covers only static authorization rules. A GET handler that filters what a non-admin sees by `UserIsAdmin()` must be checked by hand when widening what Admin Read-Only reads.
 - A new or reranked base role must be checked against the workspace reconcile, since normalization drops lower base roles.
 - Role bit 256 is now used. Owner and Admin users get an extra group, `admin-readonly`, in their identity.
-- A read-only admin can still start an OAuth flow for their own connection to a server through the `oauth-url` reads, as any user with access to it can. That changes only their own credentials, not configuration.
+- A read-only admin can still start an OAuth flow for their own connection to a server through the `oauth-url` reads when they have access to that server as a user. The admin read-only grant does not cover these reads, so they cannot do this for servers or vMCPs they can only inspect.
 
 ## References
 

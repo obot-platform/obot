@@ -9,15 +9,32 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 var (
 	// adminReadonlyExcludedReads are the admin GET routes that the admin read-only group may not use, and why.
 	adminReadonlyExcludedReads = map[string]string{
-		"GET /api/mdm/configurations/{id}/download/{slug}": "installers can enroll devices",
-		"GET /api/setup/explicit-role-emails":              "setup is for owners",
-		"GET /api/setup/temp-user":                         "setup is for owners",
+		"GET /api/mdm/configurations/{id}/download/{slug}":                     "installers can enroll devices",
+		"GET /api/setup/explicit-role-emails":                                  "setup is for owners",
+		"GET /api/setup/temp-user":                                             "setup is for owners",
+		"GET /api/all-mcps/servers/{mcp_server_id}/tools":                      "resolves a connection, which can launch the server",
+		"GET /api/all-mcps/servers/{mcp_server_id}/resources":                  "resolves a connection, which can launch the server",
+		"GET /api/all-mcps/servers/{mcp_server_id}/resources/{resource_uri}":   "resolves a connection, which can launch the server",
+		"GET /api/all-mcps/servers/{mcp_server_id}/prompts":                    "resolves a connection, which can launch the server",
+		"GET /api/all-mcps/servers/{mcp_server_id}/prompts/{prompt_name}":      "resolves a connection, which can launch the server",
+		"GET /api/mcp-servers/{mcp_server_id}/oauth-url":                       "resolves the caller's connection to start OAuth",
+		"GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/oauth-url": "resolves the caller's connection to start OAuth",
+		"GET /api/workspaces/{workspace_id}/servers/{mcp_server_id}/oauth-url": "resolves the caller's connection to start OAuth",
+		"GET /api/vmcps/{vmcp_id}/oauth-url":                                   "resolves the caller's connection to the vMCP",
+		"GET /api/vmcps/{vmcp_id}/oauth-status":                                "resolves the caller's connection to the vMCP",
+		"GET /api/vmcps/{vmcp_id}/tools":                                       "resolves the caller's connection to the vMCP",
+		"GET /api/vmcps/{vmcp_id}/resources":                                   "resolves the caller's connection to the vMCP",
+		"GET /api/vmcps/{vmcp_id}/resources/{resource_uri}":                    "resolves the caller's connection to the vMCP",
+		"GET /api/vmcps/{vmcp_id}/prompts":                                     "resolves the caller's connection to the vMCP",
+		"GET /api/vmcps/{vmcp_id}/prompts/{prompt_name}":                       "resolves the caller's connection to the vMCP",
+		"GET /api/system-mcp-servers/{id}/tools":                               "tool discovery launches the system server",
 	}
 
 	// routerFiles are the files that register the API's routes: the API's own router and the gateway's.
@@ -198,6 +215,77 @@ func TestAdminReadonlyGroups(t *testing.T) {
 						t.Errorf("admin read-only has group %q", group)
 					}
 				}
+			}
+		})
+	}
+}
+
+// TestAdminReadonlyConnectionReadsFollowUserAccess checks that GETs which resolve a connection are not granted to the
+// admin read-only group: they fall back to the access the user has as a user.
+func TestAdminReadonlyConnectionReadsFollowUserAccess(t *testing.T) {
+	sharedWith := func(name, userID string) *v1.VMCP {
+		return &v1.VMCP{
+			ObjectMeta: objectMetaForAuthzTest(name),
+			Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
+				Name:     "team",
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
+			}}}},
+		}
+	}
+	personal := &v1.VMCP{
+		ObjectMeta: objectMetaForAuthzTest("vmcp-personal"),
+		Spec:       v1.VMCPSpec{UserID: "owner"},
+	}
+	authorizer := newVMCPTestAuthorizer(sharedWith("vmcp-shared-mine", "1"), sharedWith("vmcp-shared-other", "2"), personal)
+	readonly := &user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: types.RoleAdminReadonly.Groups()}
+
+	tests := []struct {
+		name    string
+		path    string
+		allowed bool
+	}{
+		{
+			name:    "reads another user's personal vMCP",
+			path:    "/api/vmcps/vmcp-personal",
+			allowed: true,
+		},
+		{
+			name: "cannot list tools of another user's personal vMCP",
+			path: "/api/vmcps/vmcp-personal/tools",
+		},
+		{
+			name: "cannot get an OAuth URL for another user's personal vMCP",
+			path: "/api/vmcps/vmcp-personal/oauth-url",
+		},
+		{
+			name: "cannot get OAuth status for another user's personal vMCP",
+			path: "/api/vmcps/vmcp-personal/oauth-status",
+		},
+		{
+			name: "cannot list tools of a shared vMCP without a matching profile",
+			path: "/api/vmcps/vmcp-shared-other/tools",
+		},
+		{
+			name:    "lists tools of a shared vMCP with a matching profile",
+			path:    "/api/vmcps/vmcp-shared-mine/tools",
+			allowed: true,
+		},
+		{
+			name:    "reads system server details",
+			path:    "/api/system-mcp-servers/x/details",
+			allowed: true,
+		},
+		{
+			name: "cannot list system server tools",
+			path: "/api/system-mcp-servers/x/tools",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			if got := authorizer.Authorize(req, readonly); got != tt.allowed {
+				t.Errorf("Authorize(GET %s) = %v, want %v", tt.path, got, tt.allowed)
 			}
 		})
 	}
