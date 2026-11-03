@@ -23,6 +23,15 @@ source /obot-providers/.envrc.providers
 mkdir -p /data/cache
 
 if [ -z "$OBOT_SERVER_DSN" ]; then
+  if [ -f "$PGDATA/PG_VERSION" ]; then
+    postgres_version=$(cat "$PGDATA/PG_VERSION")
+    if [ "$postgres_version" != "18" ]; then
+      echo "The embedded database at $PGDATA was created by PostgreSQL ${postgres_version:-unknown}, but this version of Obot uses PostgreSQL 18." >&2
+      echo "See https://docs.obot.ai/next/operations/embedded-postgresql-upgrade to migrate your data." >&2
+      exit 1
+    fi
+  fi
+
   echo "OBOT_SERVER_DSN is not set. Starting PostgreSQL process..."
 
   # Start PostgreSQL in the background
