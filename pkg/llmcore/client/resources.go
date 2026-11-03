@@ -20,8 +20,7 @@ func (s *Client) loadResources(ctx context.Context) (Config, error) {
 	cfg := Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{}, Keys: map[schemas.ModelProvider][]schemas.Key{}, Rules: map[string]tables.TableRoutingRule{}, Settings: map[string]json.RawMessage{}}
 	var providers v1.LLMGatewayProviderList
 	var rules v1.LLMGatewayRoutingRuleList
-	var settings v1.LLMGatewayConfigList
-	for _, list := range []kclient.ObjectList{&providers, &rules, &settings} {
+	for _, list := range []kclient.ObjectList{&providers, &rules} {
 		if err := s.storage.List(ctx, list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 			return cfg, err
 		}
@@ -47,12 +46,13 @@ func (s *Client) loadResources(ctx context.Context) (Config, error) {
 		cfg.Rules[rule.ID] = rule
 		objects = append(objects, r)
 	}
-	for i := range settings.Items {
-		r := &settings.Items[i]
-		if err := s.decode(ctx, "settings", r.Spec.Payload, &cfg.Settings); err != nil {
-			return cfg, err
-		}
-		objects = append(objects, r)
+	settings, settingsObject, err := s.loadSettings(ctx)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.Settings = settings
+	if settingsObject != nil {
+		objects = append(objects, settingsObject)
 	}
 	// Revision is process-local content identity, never a parsed resourceVersion.
 	identities := make([]string, 0, len(objects))

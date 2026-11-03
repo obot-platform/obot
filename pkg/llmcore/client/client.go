@@ -48,11 +48,10 @@ func (s *Client) decode(ctx context.Context, id, raw string, v any) error {
 	return json.Unmarshal(data, v)
 }
 
+// Load assembles independently versioned resources. It does not provide a
+// transactional snapshot; runtime reconciliation must tolerate temporary
+// missing dependencies and retry until the desired configuration converges.
 func (s *Client) Load(ctx context.Context) (Config, error) {
 	cfg, err := s.loadResources(ctx)
 	return cfg, err
-}
-func (s *Client) Revision(ctx context.Context) (int64, error) {
-	cfg, err := s.Load(ctx)
-	return cfg.Revision, err
 }

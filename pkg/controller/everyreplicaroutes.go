@@ -4,16 +4,30 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providersync"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (c *Controller) setupEveryReplicaRoutes() {
 	if c.services.EveryReplicaRouter == nil {
 		return
 	}
+
+	for _, obj := range []kclient.Object{&v1.LLMGatewayProvider{}, &v1.LLMGatewayRoutingRule{}} {
+		c.services.EveryReplicaRouter.Type(obj).
+			Namespace(system.DefaultNamespace).
+			IncludeRemoved().
+			HandlerFunc(reconcileLLMGatewayConfig)
+	}
+	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayConfig{}).
+		Namespace(system.DefaultNamespace).
+		Name("default").
+		IncludeRemoved().
+		HandlerFunc(reconcileLLMGatewayConfig)
 
 	engine := c.services.BifrostEngine
 	reload := lockedGatewayReload(c.services.GatewayClient.WithLLMGatewayLock, engine.Reload)
@@ -49,4 +63,11 @@ func lockedGatewayReload(withLock func(context.Context, func() error) error, rel
 		})
 		return reloaded, err
 	}
+}
+
+func reconcileLLMGatewayConfig(_ router.Request, _ router.Response) error {
+	// TODO: Connect resource changes to core-engine synchronization when the
+	// engine/cutover follow-ups land. These watches currently do not refresh
+	// the running gateway, which still uses the legacy transport store.
+	return nil
 }

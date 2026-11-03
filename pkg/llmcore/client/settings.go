@@ -13,20 +13,28 @@ import (
 )
 
 func (s *Client) GetSettings(ctx context.Context) (map[string]json.RawMessage, error) {
+	settings, _, err := s.loadSettings(ctx)
+	return settings, err
+}
+
+// loadSettings returns settings and their metadata from the same singleton read.
+func (s *Client) loadSettings(ctx context.Context) (map[string]json.RawMessage, *v1.LLMGatewayConfig, error) {
 	var obj v1.LLMGatewayConfig
-	err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "default"}, &obj)
 	settings := map[string]json.RawMessage{}
+	err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "default"}, &obj)
 	if apierrors.IsNotFound(err) {
-		return settings, nil
+		return settings, nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	err = s.decode(ctx, "settings", obj.Spec.Payload, &settings)
-	if err == nil && settings == nil {
+	if err := s.decode(ctx, "settings", obj.Spec.Payload, &settings); err != nil {
+		return nil, nil, err
+	}
+	if settings == nil {
 		settings = map[string]json.RawMessage{}
 	}
-	return settings, err
+	return settings, &obj, nil
 }
 
 // MutateSettings changes only the global settings singleton. The callback may
