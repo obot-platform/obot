@@ -29,8 +29,6 @@ For production deployments, see [Kubernetes Deployment](./kubernetes-deployment.
 
 Run Obot with the built-in PostgreSQL instance (suitable for development and testing):
 
-Existing installations with PostgreSQL 17 must [migrate the embedded database to PostgreSQL 18](../operations/embedded-postgresql-upgrade.md) before upgrading to an image that includes PostgreSQL 18.
-
 ```bash
 docker run -d \
   --name obot \
