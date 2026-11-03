@@ -89,6 +89,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop run_token_activities personal_token column: %w", err)
 	}
 
+	if err = dropUserVerifiedEmail(tx); err != nil {
+		return fmt.Errorf("failed to drop users verified_email column: %w", err)
+	}
+
 	if err = migrateUserDailyTokenLimits(tx); err != nil {
 		return fmt.Errorf("failed to rename users daily token limit columns: %w", err)
 	}
@@ -206,6 +210,10 @@ func (db *DB) AutoMigrate() (err error) {
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "identity_first_sign_in_backfill", backfillIdentityFirstSignIn); err != nil {
 		return fmt.Errorf("failed to backfill identity sign-in times: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "initial_owner_grant_backfill", backfillInitialOwnerGrants); err != nil {
+		return fmt.Errorf("failed to backfill initial owner grants: %w", err)
 	}
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "mcp_audit_log_source_type_backfill", migrateMCPAuditLogSourceType); err != nil {

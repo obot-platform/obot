@@ -32,7 +32,6 @@ function orgUser(overrides: Partial<OrgUser> & Pick<OrgUser, 'id' | 'email'>): O
 	return {
 		created: '2026-01-01T00:00:00.000Z',
 		username: overrides.email,
-		explicitRole: false,
 		role: Role.BASIC,
 		effectiveRole: Role.BASIC,
 		groups: [Group.USER],

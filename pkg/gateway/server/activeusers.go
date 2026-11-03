@@ -38,7 +38,7 @@ func (s *Server) activeUsers(apiContext api.Context) error {
 
 	items := make([]types2.User, 0, len(activeUsers))
 	for _, user := range visibleUsers {
-		result := types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "")
+		result := types.ConvertUser(&user, "")
 		result.AuthProviderGroups = userGroupMemberships[user.ID]
 		items = append(items, *result)
 	}

@@ -465,7 +465,6 @@
 	"identity_access_users_enable": "Enable User",
 	"identity_access_users_enable_msg": "Enable user {email}?",
 	"identity_access_users_enable_note": "They regain access to Obot with their account, including their API keys and agents.",
-	"identity_access_users_explicit_role": "This user's role is explicitly set at the system level and cannot be changed.",
 	"identity_access_users_grant_auditor_msg": "Grant {user} the Auditor role?",
 	"identity_access_users_grant_confirm_prefix": "Are you sure you want to grant",
 	"identity_access_users_grant_confirm_this_role": "this role?",

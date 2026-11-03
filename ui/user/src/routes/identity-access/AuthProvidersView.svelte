@@ -184,7 +184,6 @@
 
 	let setupLoading = $state(false);
 	let setupSignInDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let explicitOwners = $state<string[]>([]);
 	let setupTempLoginUrl = $state('');
 	let setupLocalUserEmail = $state<string>();
 	let isLocalSetup = $derived(configuringAuthProvider?.id === CommonAuthProviderIds.LOCAL);
@@ -314,8 +313,6 @@
 		}
 
 		try {
-			explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
-
 			setupTempLoginUrl = (
 				await AdminService.initiateTempLogin(
 					configuringAuthProvider.id,
@@ -1073,7 +1070,6 @@
 	<OwnerSetupPrompt
 		{isLocalSetup}
 		localUserEmail={setupLocalUserEmail}
-		{explicitOwners}
 		provider={configuringAuthProvider}
 		tempLoginUrl={setupTempLoginUrl}
 		showTitle={false}

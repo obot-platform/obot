@@ -47,9 +47,6 @@ async function renderSetupHandoff(authProvider: AuthProvider) {
 	const confirmOwner = vi.fn();
 	worker.use(
 		http.get('/api/setup/temp-user', () => HttpResponse.json(tempUser)),
-		http.get('/api/setup/explicit-role-emails', () =>
-			HttpResponse.json({ owners: null, admins: null })
-		),
 		http.get('/api/auth-providers', () => HttpResponse.json({ items: [authProvider] })),
 		http.post('/api/setup/confirm-owner', () => {
 			confirmOwner();

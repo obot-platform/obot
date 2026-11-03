@@ -38,7 +38,6 @@ type User struct {
 	HashedUsername string      `json:"-" gorm:"unique"`
 	Email          string      `json:"email"`
 	HashedEmail    string      `json:"-"`
-	VerifiedEmail  *bool       `json:"verifiedEmail,omitempty"`
 	Role           types2.Role `json:"role"`
 	IconURL        string      `json:"iconURL"`
 	Timezone       string      `json:"timezone"`
@@ -100,11 +99,11 @@ func (u User) ManagementSource() types2.UserManagementSource {
 	return types2.UserManagementSourceObot
 }
 
-func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
-	return ConvertUserWithEffectiveRole(u, roleFixed, authProviderName, u.Role)
+func ConvertUser(u *User, authProviderName string) *types2.User {
+	return ConvertUserWithEffectiveRole(u, authProviderName, u.Role)
 }
 
-func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName string, effectiveRole types2.Role) *types2.User {
+func ConvertUserWithEffectiveRole(u *User, authProviderName string, effectiveRole types2.Role) *types2.User {
 	if u == nil {
 		return nil
 	}
@@ -123,7 +122,6 @@ func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName stri
 		Role:                   u.Role,
 		EffectiveRole:          effectiveRole,
 		Groups:                 groups,
-		ExplicitRole:           roleFixed,
 		IconURL:                u.IconURL,
 		Timezone:               u.Timezone,
 		CurrentAuthProvider:    authProviderName,

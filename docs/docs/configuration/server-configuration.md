@@ -41,8 +41,6 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` | Provisions this email as the initial owner with the built-in Local provider. Must be set with `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN`. This disables bootstrap-token login. | - |
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` | Randomly generated, high-entropy secret (at least 32 characters; for example, `openssl rand -hex 32`) bound to the initial owner setup link. Obot stores only its hash and revokes it when password setup completes. | - |
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | Number of hours the initial owner setup link remains valid. | `168` |
-| `OBOT_SERVER_AUTH_OWNER_EMAILS` | A comma separated list of email addresses that will have the Owner role in Obot. Email matching is case-insensitive. | - |
-| `OBOT_SERVER_AUTH_ADMIN_EMAILS` | A comma separated list of email addresses that will have the Admin role in Obot. Email matching is case-insensitive. | - |
 | `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS` | The number of days to retain MCP audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. Use the [audit log export](./audit-log-export.md) functionality to preserve logs beyond this period. | `90` |
 | `OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS` | The interval in seconds at which buffered MCP audit logs are flushed to the database. | `5` |
 | `OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE` | The number of MCP audit log entries written to the database in a single batch. | `1000` |

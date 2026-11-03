@@ -53,7 +53,7 @@ func (g *localSetupProviderGetter) GetConfiguredAuthProvider(context.Context) (s
 	return g.name, nil
 }
 
-func newLocalSetupFixture(t *testing.T, owners, admins []string) *localSetupFixture {
+func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 	t.Helper()
 
 	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
@@ -69,7 +69,7 @@ func newLocalSetupFixture(t *testing.T, owners, admins []string) *localSetupFixt
 			Role: apitypes.RoleBasic,
 		},
 	})
-	c := gateway.New(t.Context(), db, storageClient, nil, nil, owners, admins, time.Hour, 10, 0, 0, 0, false)
+	c := gateway.New(t.Context(), db, storageClient, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = c.Close() })
 
 	require.NoError(t, c.UpsertCredential(t.Context(), gwtypes.Credential{
@@ -146,13 +146,10 @@ func (f *localSetupFixture) identity(t *testing.T, email, provider string, role 
 }
 
 func TestLocalAuthBootstrapCreation(t *testing.T) {
-	f := newLocalSetupFixture(t, []string{"owner@example.com"}, []string{"admin@example.com"})
-
-	err := f.create(t, system.BootstrapName, "Admin <ADMIN@example.com>", false)
-	require.ErrorContains(t, err, "configured as an Admin")
+	f := newLocalSetupFixture(t)
 
 	require.NoError(t, f.create(t, system.BootstrapName, "owner@example.com", false))
-	err = f.create(t, system.BootstrapName, "other@example.com", false)
+	err := f.create(t, system.BootstrapName, "other@example.com", false)
 	var httpErr *apitypes.ErrHTTP
 	require.ErrorAs(t, err, &httpErr)
 	require.Equal(t, http.StatusConflict, httpErr.Code)
@@ -164,7 +161,7 @@ func TestLocalAuthBootstrapCreation(t *testing.T) {
 }
 
 func TestLocalAuthValidationUsesRequestLocale(t *testing.T) {
-	f := newLocalSetupFixture(t, nil, nil)
+	f := newLocalSetupFixture(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/local-auth/users", strings.NewReader(`{"email":"invalid","password":"long-enough-password"}`))
 	req = req.WithContext(i18n.WithLocale(req.Context(), "ko"))
 	recorder := httptest.NewRecorder()
@@ -187,10 +184,11 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 	for _, operation := range []string{"reset password", "delete"} {
 		for _, callerRole := range []apitypes.Role{apitypes.RoleAdmin, apitypes.RoleOwner} {
 			for _, target := range []struct {
-				name            string
-				role            apitypes.Role
-				provider        string
-				configuredOwner bool
+				name                string
+				role                apitypes.Role
+				provider            string
+				pendingInitialOwner bool
+				ownerGranted        bool
 			}{
 				{
 					name:     "owner",
@@ -221,8 +219,13 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					name: "no org user",
 				},
 				{
-					name:            "explicit owner role set with no org user",
-					configuredOwner: true,
+					name:                "pending initial owner with no org user",
+					pendingInitialOwner: true,
+				},
+				{
+					name:                "pending initial owner whose user was granted Owner and deleted",
+					pendingInitialOwner: true,
+					ownerGranted:        true,
 				},
 				{
 					name:     "owner under another provider with same email",
@@ -231,15 +234,24 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 				},
 			} {
 				t.Run(operation+"/"+strconv.Itoa(int(callerRole))+"/"+target.name, func(t *testing.T) {
-					var owners []string
-					if target.configuredOwner {
-						owners = []string{"target@example.com"}
-					}
-					f := newLocalSetupFixture(t, owners, nil)
+					f := newLocalSetupFixture(t)
 					// Keep a separate owner so last-owner/admin checks do not mask authorization.
 					f.identity(t, "existing-owner@example.com", system.LocalAuthProvider, apitypes.RoleOwner)
-					localUser, err := f.gateway.CreateLocalAuthUser(t.Context(), "target@example.com", passwordHash, false)
+					var localUser *gwtypes.LocalAuthUser
+					if target.pendingInitialOwner {
+						localUser, err = f.gateway.CreateInitialLocalAuthUser(t.Context(), "target@example.com", passwordHash, hash.String("setup-token"), time.Now().Add(time.Hour))
+					} else {
+						localUser, err = f.gateway.CreateLocalAuthUser(t.Context(), "target@example.com", passwordHash, false)
+					}
 					require.NoError(t, err)
+					if target.ownerGranted {
+						// The first sign-in grants Owner. Deleting that user leaves the account without one, and the
+						// grant is not given again.
+						userID, err := strconv.ParseUint(f.identity(t, localUser.Email, system.LocalAuthProvider, apitypes.RoleBasic).User.GetUID(), 10, 64)
+						require.NoError(t, err)
+						_, err = f.gateway.RemoveIdentityAndUser(t.Context(), &gwtypes.Identity{UserID: uint(userID)})
+						require.NoError(t, err)
+					}
 					var orgUserID string
 					if target.provider != "" {
 						orgUserID = f.identity(t, localUser.Email, target.provider, target.role).User.GetUID()
@@ -263,7 +275,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 					}
 
 					privileged := target.role.HasRole(apitypes.RoleOwner) || target.role.HasRole(apitypes.RoleAuditor)
-					denied := callerRole != apitypes.RoleOwner && (target.configuredOwner || target.provider == system.LocalAuthProvider && privileged)
+					denied := callerRole != apitypes.RoleOwner && (target.pendingInitialOwner && !target.ownerGranted || target.provider == system.LocalAuthProvider && privileged)
 					if denied {
 						var httpErr *apitypes.ErrHTTP
 						require.ErrorAs(t, err, &httpErr)
@@ -271,7 +283,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 						stored, err := f.gateway.LocalAuthUserByID(t.Context(), localUser.ID)
 						require.NoError(t, err)
 						require.Equal(t, passwordHash, stored.PasswordHash)
-						require.False(t, stored.RequirePasswordChange)
+						require.Equal(t, localUser.RequirePasswordChange, stored.RequirePasswordChange)
 						_, _, err = f.gateway.LocalAuthSession(t.Context(), sessionID)
 						require.NoError(t, err)
 						if orgUserID != "" {
@@ -311,7 +323,7 @@ func TestLocalAuthUserRoleProtections(t *testing.T) {
 func TestLocalAuthBootstrapLoginCompletesInOneSession(t *testing.T) {
 	for _, passwordChange := range []bool{false, true} {
 		t.Run(strconv.FormatBool(passwordChange), func(t *testing.T) {
-			f := newLocalSetupFixture(t, nil, nil)
+			f := newLocalSetupFixture(t)
 			require.NoError(t, f.create(t, system.BootstrapName, "owner@example.com", passwordChange))
 			providerURL, err := f.provider.Start(t.Context())
 			require.NoError(t, err)
@@ -391,7 +403,6 @@ func TestLocalAuthSetupPromotionGuards(t *testing.T) {
 		configured string
 		localUsers int
 		email      string
-		admins     []string
 		owner      bool
 		wantError  string
 	}{
@@ -433,15 +444,6 @@ func TestLocalAuthSetupPromotionGuards(t *testing.T) {
 			wantError:  "no local account",
 		},
 		{
-			name:       "explicit admin remains admin",
-			provider:   system.LocalAuthProvider,
-			configured: system.LocalAuthProvider,
-			localUsers: 1,
-			email:      "owner@example.com",
-			admins:     []string{"owner@example.com"},
-			wantError:  "configured as an Admin",
-		},
-		{
 			name:       "setup already completed",
 			provider:   system.LocalAuthProvider,
 			configured: system.LocalAuthProvider,
@@ -452,7 +454,7 @@ func TestLocalAuthSetupPromotionGuards(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			f := newLocalSetupFixture(t, nil, test.admins)
+			f := newLocalSetupFixture(t)
 			f.getter.name = test.configured
 
 			for i := range test.localUsers {

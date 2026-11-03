@@ -105,8 +105,6 @@ type Config struct {
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
 	ProviderRegistries                             []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
 	EnableAuthentication                           bool     `usage:"Enable authentication" default:"false"`
-	AuthAdminEmails                                []string `usage:"Emails of admin users"`
-	AuthOwnerEmails                                []string `usage:"Emails of owner users"`
 	LocalAuthInitialOwnerEmail                     string   `usage:"Email address for the initial local-auth owner" env:"OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL"`
 	LocalAuthInitialOwnerSetupToken                string   `usage:"High-entropy setup token for the initial local-auth owner" env:"OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN"`
 	LocalAuthInitialOwnerSetupTokenExpirationHours int      `usage:"Hours the initial local-auth owner setup link remains valid" default:"168" env:"OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS"`
@@ -448,7 +446,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		if config.LocalAuthInitialOwnerSetupTokenExpirationHours <= 0 {
 			return nil, errors.New("initial local auth owner setup token expiration must be greater than zero")
 		}
-		config.AuthOwnerEmails = append(config.AuthOwnerEmails, config.LocalAuthInitialOwnerEmail)
 	}
 
 	// Setup Otel first so other services can use it.
@@ -589,8 +586,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		func(ctx context.Context, mcpID string) error {
 			return r.Backend().Trigger(ctx, v1.SchemeGroupVersion.WithKind("MCPServer"), mcpID, 0)
 		},
-		config.AuthOwnerEmails,
-		config.AuthAdminEmails,
 		time.Duration(config.MCPAuditLogPersistIntervalSeconds)*time.Second,
 		config.MCPAuditLogsPersistBatchSize,
 		config.MCPAuditLogRetentionDays,

@@ -20,7 +20,10 @@ type LocalAuthUser struct {
 	RequirePasswordChange bool       `json:"requirePasswordChange" gorm:"not null;default:false"`
 	SetupTokenHash        string     `json:"-" gorm:"index;not null;default:''"`
 	SetupTokenExpiresAt   *time.Time `json:"-"`
-	Encrypted             bool       `json:"-"`
+	// OwnerGrantedAt records when sign-in made the provisioned initial owner an Owner. The grant happens once, even
+	// though the setup token stays usable until the password is set.
+	OwnerGrantedAt *time.Time `json:"-"`
+	Encrypted      bool       `json:"-"`
 }
 
 // LocalAuthSession is a login session created by the local auth provider.

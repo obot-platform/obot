@@ -55,7 +55,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		effectiveRole = user.Role
 	}
 
-	result := types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole)
+	result := types.ConvertUserWithEffectiveRole(user, name, effectiveRole)
 	result.AuthProviderGroups = authGroupStrs
 	result.RequirePasswordChange = cmp.Or(apiContext.User.GetExtra()["password_change_required"]...) == "true"
 	return apiContext.Write(result)
@@ -112,7 +112,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 			effectiveRole = role
 		}
 
-		result := types.ConvertUserWithEffectiveRole(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole)
+		result := types.ConvertUserWithEffectiveRole(&user, "", effectiveRole)
 		result.AuthProviderGroups = userGroupMemberships[user.ID]
 		setSCIMManagement(result, user.ID, managed)
 		items = append(items, *result)
@@ -173,7 +173,7 @@ func (s *Server) getUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
 	}
 
-	result := types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, "", effectiveRole)
+	result := types.ConvertUserWithEffectiveRole(user, "", effectiveRole)
 	result.AuthProviderGroups = groupIDs
 	setSCIMManagement(result, user.ID, managed)
 	return apiContext.Write(result)
@@ -228,8 +228,6 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			status = http.StatusBadRequest
 		} else if loe := (*client.LastOwnerError)(nil); errors.As(err, &loe) {
 			status = http.StatusBadRequest
-		} else if ea := (*client.ExplicitRoleError)(nil); errors.As(err, &ea) {
-			status = http.StatusBadRequest
 		} else if ae := (*client.AlreadyExistsError)(nil); errors.As(err, &ae) {
 			status = http.StatusConflict
 		} else if _, ok := errors.AsType[*client.SCIMManagedUserError](err); ok {
@@ -259,7 +257,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
 	}
 
-	converted := types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, "")
+	converted := types.ConvertUser(existingUser, "")
 	setSCIMManagement(converted, existingUser.ID, managed)
 	return apiContext.Write(converted)
 }
@@ -301,7 +299,7 @@ func (s *Server) changeUserInternalStatus(apiContext api.Context, internal bool)
 // POST /api/users/{user_id}/enable
 // Enables a disabled user, restoring their access with the same account and data. It is refused with 409 while SCIM
 // manages the user, whose identity provider decides that, and only an Owner can enable a user who has, through their
-// own role, a group, or an explicit role of their email, the Owner, auditor, or user impersonation role.
+// own role or a group, the Owner, auditor, or user impersonation role.
 func (s *Server) enableUser(apiContext api.Context) error {
 	userID := apiContext.PathValue("user_id")
 	existingUser, err := apiContext.GatewayClient.UserByID(apiContext.Context(), userID)
@@ -313,8 +311,7 @@ func (s *Server) enableUser(apiContext api.Context) error {
 	}
 
 	if !apiContext.UserIsOwner() {
-		// Enabling restores every role the user gets: their own, those of their groups, and an explicit role of their
-		// email.
+		// Enabling restores every role the user gets: their own and those of their groups.
 		groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), existingUser.ID)
 		if err != nil {
 			return fmt.Errorf("failed to list the groups of user: %v", err)
@@ -323,7 +320,6 @@ func (s *Server) enableUser(apiContext api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to resolve the role of user: %v", err)
 		}
-		role |= apiContext.GatewayClient.HasExplicitRole(existingUser.Email)
 		if role.HasRole(types2.RoleOwner) || role.HasRole(types2.RoleAuditor) {
 			slog.Info("Denied enabling user", "targetUserID", userID, "reason", "privileged_user_enable_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can enable an owner or an auditor")
@@ -347,7 +343,7 @@ func (s *Server) enableUser(apiContext api.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to check the SCIM binding of user: %v", err)
 	}
-	converted := types.ConvertUser(enabled, apiContext.GatewayClient.HasExplicitRole(enabled.Email) != types2.RoleUnknown, "")
+	converted := types.ConvertUser(enabled, "")
 	setSCIMManagement(converted, enabled.ID, managed)
 	return apiContext.Write(converted)
 }
@@ -433,7 +429,7 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		})
 	}
 
-	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
+	return apiContext.Write(types.ConvertUser(existingUser, ""))
 }
 
 // GET /api/groups?name=&limit=&cursor=&ids=

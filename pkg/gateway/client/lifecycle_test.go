@@ -813,46 +813,119 @@ func TestSignInOfADisabledUserReturnsTheirStatus(t *testing.T) {
 	}
 }
 
-func TestSignInCreatesAUserWithTheExplicitRoleOfTheAssertedEmail(t *testing.T) {
+func TestSignInCreatesTheInitialOwnerAsAnOwnerOnce(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	c.emailsWithExplicitRoles = map[string]apitypes.Role{
-		"owner@example.com": apitypes.RoleOwner,
+	ctx := t.Context()
+
+	signIn := func(provider, email string) *types.User {
+		t.Helper()
+		user, err := c.EnsureIdentity(ctx, &types.Identity{
+			AuthProviderName:      provider,
+			AuthProviderNamespace: system.DefaultNamespace,
+			ProviderUsername:      provider + "/" + email,
+			ProviderUserID:        email,
+			Email:                 email,
+		}, "", UserLimit{
+			Unlimited: true,
+		})
+		if err != nil {
+			t.Fatalf("failed to sign in: %v", err)
+		}
+		return user
+	}
+	role := func(userID uint) apitypes.Role {
+		t.Helper()
+		return storedLifecycleUser(t, c, userID).Role
 	}
 
-	user, err := c.EnsureIdentity(t.Context(), &types.Identity{
-		AuthProviderName:      lifecycleTestProvider.Name,
-		AuthProviderNamespace: lifecycleTestProvider.Namespace,
-		ProviderUsername:      "owner",
-		ProviderUserID:        "00u-owner",
-		Email:                 "owner@example.com",
-	}, "", UserLimit{
-		Unlimited: true,
-	})
+	// The provisioned initial owner is the Local account with a setup token, and an admin created another.
+	initialOwner, err := c.CreateInitialLocalAuthUser(ctx, "owner@example.com", "password-hash", hash.String("setup-token"), time.Now().Add(time.Hour))
 	if err != nil {
-		t.Fatalf("failed to sign in: %v", err)
+		t.Fatal(err)
 	}
-	if stored := storedLifecycleUser(t, c, user.ID); !stored.Role.HasRole(apitypes.RoleOwner) {
-		t.Fatalf("role of the user that sign-in created = %d, want Owner", stored.Role)
+	if _, err := c.CreateLocalAuthUser(ctx, "other@example.com", "password-hash", false); err != nil {
+		t.Fatal(err)
+	}
+
+	owner := signIn(system.LocalAuthProvider, "owner@example.com")
+	if !role(owner.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the initial owner that sign-in created = %d, want Owner", role(owner.ID))
+	}
+
+	// A demoted initial owner stays demoted.
+	if err := c.db.WithContext(ctx).Model(new(types.User)).Where("id = ?", owner.ID).UpdateColumn("role", apitypes.RoleBasic).Error; err != nil {
+		t.Fatal(err)
+	}
+	if again := signIn(system.LocalAuthProvider, "owner@example.com"); again.ID != owner.ID {
+		t.Fatalf("second sign-in of the initial owner returned user %d, want %d", again.ID, owner.ID)
+	}
+	if role(owner.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the demoted initial owner after sign-in = %d, want it not to be raised", role(owner.ID))
+	}
+
+	// The grant happens once. A user that sign-in creates again for the account, after the first one and its identity
+	// are gone, is not an Owner, whether the setup token is still usable or setting the password has consumed it.
+	deleteUser := func(userID uint) {
+		t.Helper()
+		if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Delete(new(types.Identity)).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := c.db.WithContext(ctx).Delete(new(types.User), userID).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	deleteUser(owner.ID)
+	recreated := signIn(system.LocalAuthProvider, "owner@example.com")
+	if recreated.ID == owner.ID {
+		t.Fatal("sign-in after the user was deleted returned the deleted user")
+	}
+	if role(recreated.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the user created again before the password was set = %d, want it not to be Owner", role(recreated.ID))
+	}
+
+	if err := c.SetLocalAuthUserPassword(ctx, initialOwner.ID, "new-password-hash", false); err != nil {
+		t.Fatal(err)
+	}
+	deleteUser(recreated.ID)
+	if again := signIn(system.LocalAuthProvider, "owner@example.com"); role(again.ID).HasRole(apitypes.RoleOwner) {
+		t.Fatalf("role of the user created again after the password was set = %d, want it not to be Owner", role(again.ID))
+	}
+
+	// Neither a Local account without a setup token nor another provider asserting the same email is an Owner.
+	for _, other := range []struct {
+		provider string
+		email    string
+	}{
+		{
+			provider: system.LocalAuthProvider,
+			email:    "other@example.com",
+		},
+		{
+			provider: "google-auth-provider",
+			email:    "owner@example.com",
+		},
+	} {
+		user := signIn(other.provider, other.email)
+		if role(user.ID).HasRole(apitypes.RoleOwner) {
+			t.Fatalf("role of %s signed in through %s = %d, want it not to be Owner", other.email, other.provider, role(user.ID))
+		}
 	}
 }
 
 func TestSignInThatRaisesARoleRecordsAReconcileEvent(t *testing.T) {
 	c := newLifecycleTestClient(t)
-	c.emailsWithExplicitRoles = map[string]apitypes.Role{
-		"tara@example.com": apitypes.RoleAdmin,
-	}
 	ctx := t.Context()
 	user := createLifecycleTestUser(t, c, "tara", lifecycleTestProvider)
 
 	signIn := func() {
 		t.Helper()
-		if _, err := c.EnsureIdentity(ctx, &types.Identity{
+		if _, err := c.EnsureIdentityWithRole(ctx, &types.Identity{
 			AuthProviderName:      lifecycleTestProvider.Name,
 			AuthProviderNamespace: lifecycleTestProvider.Namespace,
 			ProviderUsername:      "tara",
 			ProviderUserID:        "00u-tara",
 			Email:                 "tara@example.com",
-		}, "", UserLimit{Unlimited: true}); err != nil {
+		}, "", apitypes.RoleAdmin, UserLimit{Unlimited: true}); err != nil {
 			t.Fatalf("failed to sign in: %v", err)
 		}
 	}

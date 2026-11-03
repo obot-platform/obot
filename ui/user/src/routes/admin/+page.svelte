@@ -15,7 +15,7 @@
 	} from '$lib/services';
 	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { goto, resolve } from '$lib/url';
-	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
+	import { CircleAlert, Handshake } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 
@@ -25,8 +25,7 @@
 	let bootstrapToken = $state('');
 	let error = $state('');
 	let showBootstrapLogin = $derived(authProviders.length === 0);
-	let tempDataPromises =
-		$state<Promise<[TempUser, Awaited<ReturnType<typeof AdminService.listExplicitRoleEmails>>]>>();
+	let tempUserPromise = $state<Promise<TempUser>>();
 	let loadingCancelTempUser = $state(false);
 	let loadingConfirmTempUser = $state(false);
 	let showSuccessOwnerConfirmation = $state(false);
@@ -43,10 +42,7 @@
 	onMount(() => {
 		fetchBootstrapStatus = UserService.getBootstrapStatus();
 		if (showSetupHandoff) {
-			tempDataPromises = Promise.all([
-				AdminService.getTempUser(),
-				AdminService.listExplicitRoleEmails()
-			]);
+			tempUserPromise = AdminService.getTempUser();
 			AdminService.listAuthProviders()
 				.then((providers) => {
 					scimProvider = providers.find(
@@ -91,13 +87,11 @@
 </div>
 
 {#snippet setupView()}
-	{#await tempDataPromises}
+	{#await tempUserPromise}
 		<div class="size-10">
 			<Loading class="size-8" />
 		</div>
-	{:then response}
-		{@const [tempUser, explicitRoles] = response ?? []}
-		{@const isExplicitAdmin = explicitRoles?.admins?.includes(tempUser?.email ?? '') ?? false}
+	{:then tempUser}
 		{#if tempUser}
 			<div
 				class="dark:bg-base-300 dark:border-base-400 bg-base-100 flex w-md max-w-full flex-col rounded-lg border border-transparent px-4 py-8 shadow-sm"
@@ -133,13 +127,8 @@
 				{:else}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
 						<div class="flex items-center justify-center gap-2">
-							{#if isExplicitAdmin}
-								<ShieldAlert class="size-6" />
-								<h3 class="text-xl font-semibold">{m.auth_bootstrap_explicit_admin_set()}</h3>
-							{:else}
-								<Handshake class="size-6" />
-								<h3 class="text-xl font-semibold">{m.auth_bootstrap_confirm_new_owner()}</h3>
-							{/if}
+							<Handshake class="size-6" />
+							<h3 class="text-xl font-semibold">{m.auth_bootstrap_confirm_new_owner()}</h3>
 						</div>
 
 						<p class="text-md text-center font-light">
@@ -148,41 +137,27 @@
 							>{m.auth_bootstrap_logged_in_as_suffix()}
 						</p>
 
-						<p class="text-md text-center font-light" class:text-left={isExplicitAdmin}>
-							{#if isExplicitAdmin}
-								{m.auth_bootstrap_explicit_admin_note_prefix()}
-								<a
-									class="text-link"
-									target="_blank"
-									rel="external noopener noreferrer"
-									href="https://docs.obot.ai/configuration/auth-providers#preconfiguring-owner--admin-users"
-									>{m.auth_bootstrap_explicit_admin_note_link()}</a
-								>
-								{m.auth_bootstrap_explicit_admin_note_suffix()}
-							{:else}
-								{m.auth_bootstrap_make_owner_confirm()}
-							{/if}
+						<p class="text-md text-center font-light">
+							{m.auth_bootstrap_make_owner_confirm()}
 						</p>
 					</div>
 					<div class="flex flex-col gap-2">
-						{#if !isExplicitAdmin}
-							<button
-								class="btn btn-primary place-items-center"
-								onclick={async () => {
-									loadingConfirmTempUser = true;
-									await AdminService.confirmTempUserAsOwner(tempUser.email);
-									loadingConfirmTempUser = false;
-									showSuccessOwnerConfirmation = true;
-								}}
-								disabled={loadingCancelTempUser || loadingConfirmTempUser}
-							>
-								{#if loadingConfirmTempUser}
-									<Loading class="size-4" />
-								{:else}
-									{m.auth_bootstrap_make_owner_yes()}
-								{/if}
-							</button>
-						{/if}
+						<button
+							class="btn btn-primary place-items-center"
+							onclick={async () => {
+								loadingConfirmTempUser = true;
+								await AdminService.confirmTempUserAsOwner(tempUser.email);
+								loadingConfirmTempUser = false;
+								showSuccessOwnerConfirmation = true;
+							}}
+							disabled={loadingCancelTempUser || loadingConfirmTempUser}
+						>
+							{#if loadingConfirmTempUser}
+								<Loading class="size-4" />
+							{:else}
+								{m.auth_bootstrap_make_owner_yes()}
+							{/if}
+						</button>
 						<button
 							class="btn btn-secondary place-items-center"
 							onclick={async () => {
@@ -195,7 +170,7 @@
 							{#if loadingCancelTempUser}
 								<Loading class="size-4" />
 							{:else}
-								{isExplicitAdmin ? m.auth_bootstrap_go_back() : m.auth_bootstrap_cancel_go_back()}
+								{m.auth_bootstrap_cancel_go_back()}
 							{/if}
 						</button>
 					</div>

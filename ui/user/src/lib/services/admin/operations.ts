@@ -1793,14 +1793,6 @@ export async function cancelTempLogin() {
 	);
 }
 
-export async function listExplicitRoleEmails(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/setup/explicit-role-emails', opts)) as {
-		owners: string[] | null;
-		admins: string[] | null;
-	};
-	return response;
-}
-
 // Skills
 
 export async function listAllSkills(opts?: {

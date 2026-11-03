@@ -90,9 +90,12 @@ Configure the default role for new users on the **Identity & Access > Roles** pa
 
 ### Pre-Assigning Roles {#user-roles-pre-assigning-roles}
 
-To grant admin or owner access to users before they log in, set these environment variables during deployment. See [Enabling Authentication](./authentication.md) for details.
+Obot does not assign roles based on email addresses. To give users a role before they log in, assign the role in Obot to a group that your identity provider supplies, such as a group pushed through [Okta SCIM](../configuration/okta-scim.md):
 
-```bash
-OBOT_SERVER_AUTH_ADMIN_EMAILS=admin@example.com,admin2@example.com
-OBOT_SERVER_AUTH_OWNER_EMAILS=owner@example.com
-```
+1. Navigate to **Identity & Access > Groups**
+2. Click **Add Assignment**
+3. Select the group and the role
+
+Members of the group get the role while they belong to it. The role is added to the role stored on each user, so it doesn't appear as a change to their own role. To change a user's own role instead, [update the user's role](#user-roles-updating-a-users-role) after they log in for the first time.
+
+To provision the first Owner of a deployment that uses the built-in Local provider, set `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL`. See [Server Configuration](../configuration/server-configuration.md).

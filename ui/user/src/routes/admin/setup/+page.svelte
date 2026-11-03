@@ -29,7 +29,6 @@
 	let step = $state<SetupStep>(untrack(() => initialStep(data)));
 	let localProvider = $state<AuthProvider | undefined>(untrack(() => data.localProvider));
 	let localUsers = $state<LocalAuthUser[]>(untrack(() => data.localUsers));
-	let explicitOwners = $state<string[]>([]);
 	let setupTempLoginUrl = $state('');
 	let reduceMotion = $state(false);
 	let localAuthConfigure = $state<ReturnType<typeof LocalAuthConfigure>>();
@@ -70,21 +69,14 @@
 			// Best-effort. 404 means nothing to cancel; other failures should not block setup.
 		}
 
-		const explicit = await AdminService.listExplicitRoleEmails();
 		const { redirectUrl } = await AdminService.initiateTempLogin(provider.id, provider.namespace);
-
-		return {
-			explicitOwners: explicit?.owners ?? [],
-			redirectUrl
-		};
+		return redirectUrl;
 	}
 
 	async function prepareSignIn() {
 		if (!localProvider) return;
 		try {
-			const result = await startOwnerTempLogin(localProvider);
-			explicitOwners = result.explicitOwners;
-			setupTempLoginUrl = result.redirectUrl;
+			setupTempLoginUrl = await startOwnerTempLogin(localProvider);
 		} catch (err) {
 			errors.append(err);
 		}
@@ -175,7 +167,6 @@
 						<OwnerSetupPrompt
 							isLocalSetup
 							localUserEmail={setupLocalUserEmail}
-							{explicitOwners}
 							provider={localProvider}
 							tempLoginUrl={setupTempLoginUrl}
 							onManageLocalUsers={handleManageLocalUsers}

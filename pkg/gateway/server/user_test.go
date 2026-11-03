@@ -35,7 +35,7 @@ func TestUserChangesThatSCIMManagesAreConflicts(t *testing.T) {
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	conn, _, err := gatewayClient.CreateSCIMConnection(t.Context(), client.CreateSCIMConnectionOptions{
 		AuthProviderNamespace: system.DefaultNamespace,
@@ -123,7 +123,7 @@ func TestEnableUser(t *testing.T) {
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, []string{"00u-explicit@example.com"}, nil, time.Hour, 10, 0, 0, 0, false)
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	okta := client.AuthProviderRef{
 		Namespace: system.DefaultNamespace,
@@ -170,7 +170,6 @@ func TestEnableUser(t *testing.T) {
 		"owner":         deactivate("00u-owner", types2.RoleOwner),
 		"auditor":       deactivate("00u-auditor", types2.RoleBasic|types2.RoleAuditor),
 		"group owner":   deactivate("00u-group", types2.RoleBasic),
-		"explicit":      deactivate("00u-explicit", types2.RoleBasic),
 		"owner by role": deactivate("00u-owner2", types2.RoleOwner),
 	}
 	// A group of another provider, which outlives Okta's deconfiguration, grants the Owner role.
@@ -244,12 +243,6 @@ func TestEnableUser(t *testing.T) {
 		{
 			name:       "an Admin enabling a user whose group grants the Owner role",
 			user:       "group owner",
-			requester:  types2.RoleAdmin,
-			wantStatus: http.StatusForbidden,
-		},
-		{
-			name:       "an Admin enabling a user whose email is an explicit Owner",
-			user:       "explicit",
 			requester:  types2.RoleAdmin,
 			wantStatus: http.StatusForbidden,
 		},

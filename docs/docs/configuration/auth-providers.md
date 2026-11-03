@@ -38,7 +38,6 @@ Add these settings to the environment file used by your [Docker deployment](../i
 ```dotenv
 OBOT_SERVER_ENABLE_AUTHENTICATION=true
 OBOT_BOOTSTRAP_TOKEN=<random-bootstrap-secret>
-OBOT_SERVER_AUTH_OWNER_EMAILS=owner@company.com
 ```
 
 Generate the bootstrap secret with `openssl rand -hex 32`. Keep the environment file private.
@@ -50,12 +49,6 @@ Generate the bootstrap secret with `openssl rand -hex 32`. Keep the environment 
 config:
   # Required: Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: "true"
-
-  # Required: Set the owner email (can also be configured in the UI later)
-  OBOT_SERVER_AUTH_OWNER_EMAILS: "owner@company.com"
-
-  # Optional: Set additional admin emails
-  OBOT_SERVER_AUTH_ADMIN_EMAILS: "admin1@company.com,admin2@company.com"
 
 secret:
   # Optional: generated automatically when omitted from the chart-managed Secret
@@ -69,8 +62,6 @@ secret:
 |----------|----------|-------------|
 | `OBOT_SERVER_ENABLE_AUTHENTICATION` | Yes | Enables authentication |
 | `OBOT_BOOTSTRAP_TOKEN` | No | Token used for bootstrap login while no auth provider is configured or no non-bootstrap owner user exists. If not set, a token will be generated and printed to the logs. |
-| `OBOT_SERVER_AUTH_OWNER_EMAILS` | No | Email address that will have owner access after logging in via the auth provider. If not set, the bootstrap user will be prompted to log in via the auth provider and set themselves as the owner. |
-| `OBOT_SERVER_AUTH_ADMIN_EMAILS` | No | Additional email addresses that will have admin access |
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` | No | Initial local-auth owner's email. Must be set with the setup token. |
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` | No | At least 32 characters of high-entropy, randomly generated secret material used to activate the initial owner. Store as a secret; `openssl rand -hex 32` is the recommended generator. |
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | No | Setup-link validity in hours. Defaults to `168`. |
@@ -106,10 +97,9 @@ For detailed provider configuration, see the [Auth Providers](./auth-providers.m
 Once you have configured an authentication provider:
 
 1. Users can login using the configured authentication provider
-2. Users with emails matching `OBOT_SERVER_AUTH_OWNER_EMAILS` will have owner access
-3. Users with emails matching `OBOT_SERVER_AUTH_ADMIN_EMAILS` will have admin access
+2. Each identity from an auth provider is its own user. Obot does not combine identities from different auth providers into one user, even when they share an email address.
 
-Note that you can always assign the owner or admin role to additional users through the User pages.
+Owners and admins can assign the admin role to additional users through the User pages. Only owners can assign the owner role.
 
 ### Troubleshooting {#enabling-authentication-troubleshooting}
 
@@ -164,20 +154,6 @@ Obot will persist the value of the bootstrap token on its first launch (whether 
 supplied by `OBOT_BOOTSTRAP_TOKEN`), and all future server launches will use that same value.
 `OBOT_BOOTSTRAP_TOKEN` can always be used to override the stored value.
 :::
-
-### Preconfiguring Owner & Admin Users {#preconfiguring-owner--admin-users}
-
-If you want to preconfigure owner or admin users, you can set the `OBOT_SERVER_AUTH_OWNER_EMAILS` or `OBOT_SERVER_AUTH_ADMIN_EMAILS` environment variable, respectively.
-This is a comma-separated list of email addresses that will be granted owner or admin access when they log in,
-regardless of which auth provider they used. Email matching is case-insensitive.
-
-Users can be given the administrator role by other owners or admins in the Users section of the UI.
-Users whose email addresses are in configured list will automatically have the administrator role,
-and the role cannot be revoked from them.
-
-Similarly, users can be given the owner role by other owners in the Users section of the UI.
-Users whose email addresses are in configured list will automatically have the owner role,
-and the role cannot be revoked from them.
 
 ## Access Control
 
@@ -416,7 +392,7 @@ By default, users must have a verified email address in Keycloak to sign in to O
 If your organization does not verify email addresses, enable **Allow Unverified Emails** in Obot.
 
 :::important
-When allowing unverified emails, avoid granting owner or administrator access automatically by email address through [deployment settings](#preconfiguring-owner--admin-users). Email-domain restrictions also depend on users having trustworthy email addresses.
+When allowing unverified emails, remember that email-domain restrictions depend on users having trustworthy email addresses.
 :::
 
 In **Identity & Access > Auth Providers**, configure **Keycloak**:

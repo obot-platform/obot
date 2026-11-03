@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"slices"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -29,11 +28,6 @@ const (
 )
 
 var (
-	verifiedAuthProviders = []string{
-		"default/google-auth-provider",
-		"default/github-auth-provider",
-	}
-
 	identityGroupResource = schema.GroupResource{
 		Group:    "obot.obot.ai",
 		Resource: "identities",
@@ -114,7 +108,6 @@ func (c *Client) HasSignedInOwner(ctx context.Context, authProviderName string) 
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-// The user gets the explicit role of their email, which ensureIdentityUser applies.
 func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string, userLimit UserLimit) (*types.User, error) {
 	return c.EnsureIdentityWithRole(ctx, id, timezone, types2.RoleUnknown, userLimit)
 }
@@ -220,8 +213,6 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 // ever created here. Before that, users are still created just in time. Either way, sign-in never overwrites the
 // profile of a user that SCIM has provisioned.
 func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (ensuredIdentity, error) {
-	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
-
 	email := id.Email
 	providerUserID := id.ProviderUserID
 	providerUsername := id.ProviderUsername
@@ -240,7 +231,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		namespace: id.AuthProviderNamespace,
 		name:      id.AuthProviderName,
 	}
-	user, created, roleRaised, err := c.ensureIdentityUser(ctx, tx, mode, id, timezone, role, userLimit, verified, email, providerUserID, providerUsername)
+	user, created, roleRaised, err := c.ensureIdentityUser(ctx, tx, mode, id, timezone, role, userLimit, email, providerUserID, providerUsername)
 	if err != nil {
 		return ensuredIdentity{}, err
 	}
@@ -316,7 +307,7 @@ func scimUnprovisionedSignInError(userID uint) error {
 
 // ensureIdentityUser does the work of ensureIdentity. When SCIM is enforced for the identity's auth provider, sign-in
 // requires an identity whose live user the connection provisioned, and it never creates an identity or a user.
-func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, verified bool, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
+func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scimSignInMode, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit, email, providerUserID, providerUsername string) (*types.User, bool, bool, error) {
 	// See if the identity already exists.
 	if found, err := identityWithSCIMModeTx(tx, id, mode); err != nil {
 		return nil, false, false, fmt.Errorf("failed to look up identity: %w", err)
@@ -392,20 +383,13 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		updateIdentity = true
 	}
 
-	// A user that sign-in creates has the email the identity provider asserts, so its explicit role applies. An
-	// existing user replaces this one, and gets the explicit role of its own email below.
-	newUserRole := role
-	if r := c.HasExplicitRole(email); !newUserRole.HasRole(r) {
-		newUserRole = newUserRole.SwitchBaseRole(r)
-	}
 	user := &types.User{
 		ID:             id.UserID,
 		Username:       id.ProviderUsername,
 		HashedUsername: hash.String(id.ProviderUsername),
 		Email:          id.Email,
 		HashedEmail:    id.HashedEmail,
-		VerifiedEmail:  &verified,
-		Role:           newUserRole,
+		Role:           role,
 	}
 
 	var created, roleRaised, checkForExistingUser bool
@@ -420,11 +404,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 	if user.ID != 0 {
 		// Check for an existing user with this exact ID.
 		userQuery = userQuery.Where("users.id = ?", user.ID)
-		checkForExistingUser = true
-	} else if verified {
-		// Check for an existing user with this exact verified email address.
-		// We check for both true and null values, because the email might have been verified before we started tracking verified emails.
-		userQuery = userQuery.Where("users.hashed_email = ? and (users.verified_email = true or users.verified_email is null)", user.HashedEmail)
 		checkForExistingUser = true
 	}
 
@@ -462,6 +441,9 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 			// Clear user ID so that it can be auto-generated.
 			u.ID = 0
 			created = true
+			if err := grantInitialOwnerRole(tx, id, &u); err != nil {
+				return nil, false, false, err
+			}
 			if err = c.encryptUser(ctx, &u); err != nil {
 				return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 			}
@@ -490,19 +472,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 			var userChanged bool
 			if !user.Role.HasRole(role) {
 				user.Role = user.Role.SwitchBaseRole(role)
-				userChanged = true
-				roleRaised = true
-			}
-
-			// Explicit roles follow the user's email. SCIM writes the email of the users it has provisioned, and every
-			// other check of explicit roles reads the stored email, so for those users it is the one that counts, not
-			// the one the identity provider asserts at sign-in.
-			explicitRoleEmail := email
-			if rows[0].SCIMBound {
-				explicitRoleEmail = user.Email
-			}
-			if r := c.HasExplicitRole(explicitRoleEmail); !user.Role.HasRole(r) {
-				user.Role = user.Role.SwitchBaseRole(r)
 				userChanged = true
 				roleRaised = true
 			}
@@ -541,17 +510,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 				userChanged = true
 			}
 
-			// Update the verified email status if needed.
-			// This can happen in two cases:
-			// 1. The user was created before we started tracking verified emails (user.VerifiedEmail is nil)
-			// 2. The user was created before we started tracking verified emails, and associated with both a verified
-			//    and unverified auth provider. They logged in with the unverified provider and we marked the email as unverified,
-			//    but now they've logged in with the verified provider and we can mark the email as verified. (verified is true, but user.VerifiedEmail is false)
-			if user.VerifiedEmail == nil || (verified && !*user.VerifiedEmail) {
-				user.VerifiedEmail = &verified
-				userChanged = true
-			}
-
 			if profileChanged {
 				// Copy user so we don't have to decrypt
 				u = *user
@@ -570,7 +528,6 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 					"role":            user.Role,
 					"timezone":        user.Timezone,
 					"last_active_day": user.LastActiveDay,
-					"verified_email":  user.VerifiedEmail,
 				}).Error; err != nil {
 					return nil, false, false, err
 				}
@@ -597,6 +554,9 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 
 		// Copy the user so we don't have to decrypt
 		u := *user
+		if err := grantInitialOwnerRole(tx, id, &u); err != nil {
+			return nil, false, false, err
+		}
 		if err := c.encryptUser(ctx, &u); err != nil {
 			return nil, false, false, fmt.Errorf("failed to encrypt user: %w", err)
 		}
@@ -607,6 +567,7 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 		// Copy the values that were created instead of decrypting the whole object.
 		user.ID = u.ID
 		user.CreatedAt = u.CreatedAt
+		user.Role = u.Role
 	}
 
 	// Update the user ID saved on the identity if needed.
@@ -631,6 +592,29 @@ func (c *Client) ensureIdentityUser(ctx context.Context, tx *gorm.DB, mode *scim
 	}
 
 	return user, created, roleRaised, nil
+}
+
+// grantInitialOwnerRole makes user, which sign-in is about to create for id, an Owner when id is the Local identity of
+// the provisioned initial owner. That account is the only one with a setup token, which it keeps until its password is
+// set. Every authenticated request ensures the identity, including those of the restricted setup session, so the user
+// is created while the token is still there. The grant is recorded on the account in tx, so it happens once: a user
+// created again for the account, such as after the first one was deleted, is not an Owner, even while the token is
+// still usable. Neither is a user of a Local account that an admin created.
+func grantInitialOwnerRole(tx *gorm.DB, id *types.Identity, user *types.User) error {
+	if user.Role.HasRole(types2.RoleOwner) || id.AuthProviderNamespace != system.DefaultNamespace || id.AuthProviderName != system.LocalAuthProvider || id.Email == "" {
+		return nil
+	}
+
+	result := tx.Model(new(types.LocalAuthUser)).
+		Where("hashed_email = ? AND setup_token_hash != '' AND owner_granted_at IS NULL", hash.String(NormalizeEmail(id.Email))).
+		UpdateColumn("owner_granted_at", time.Now())
+	if result.Error != nil {
+		return fmt.Errorf("failed to record the initial owner grant: %w", result.Error)
+	}
+	if result.RowsAffected > 0 {
+		user.Role = user.Role.SwitchBaseRole(types2.RoleOwner)
+	}
+	return nil
 }
 
 func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) error {

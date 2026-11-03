@@ -4,12 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"strings"
 	"sync"
 	"time"
 
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"golang.org/x/sync/singleflight"
@@ -44,7 +41,6 @@ type Client struct {
 
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
-	emailsWithExplicitRoles   map[string]types2.Role
 	auditLock                 sync.Mutex
 	auditBuffer               []types.MCPAuditLog
 	kickAuditPersist          chan struct{}
@@ -75,15 +71,7 @@ type Client struct {
 	claudeProvisionGateSlot chan struct{}
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
-	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
-	for _, email := range adminEmails {
-		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
-	}
-	// If a user is explicitly both an admin and owner, they are an owner.
-	for _, email := range ownerEmails {
-		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
-	}
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	egressCtx, egressCancel := context.WithCancel(ctx)
 	c := &Client{
 		egressAuditBatchSize:      auditLogBatchSize,
@@ -92,7 +80,6 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		egressAuditDone:           make(chan struct{}),
 		db:                        db,
 		encryptionConfig:          encryptionConfig,
-		emailsWithExplicitRoles:   explicitRoleEmailsSet,
 		auditBuffer:               make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:          make(chan struct{}),
 		enforcementBuffer:         make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
@@ -147,15 +134,4 @@ func (c *Client) Close() error {
 	}
 
 	return errors.Join(append(errs, c.db.Close())...)
-}
-
-func (c *Client) HasExplicitRole(email string) types2.Role {
-	return c.emailsWithExplicitRoles[strings.ToLower(email)]
-}
-
-// GetExplicitRoleEmails returns a copy of all emails with explicit roles.
-// Used by setup endpoints to list Owner and Admin emails.
-func (c *Client) GetExplicitRoleEmails() map[string]types2.Role {
-	// No lock needed - map is immutable after construction
-	return maps.Clone(c.emailsWithExplicitRoles)
 }

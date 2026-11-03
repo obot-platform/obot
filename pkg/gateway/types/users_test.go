@@ -53,7 +53,7 @@ func TestConvertUserReportsLifecycle(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ConvertUser(&tt.user, false, "")
+			got := ConvertUser(&tt.user, "")
 			if got.Status != tt.wantStatus {
 				t.Errorf("status = %q, want %q", got.Status, tt.wantStatus)
 			}

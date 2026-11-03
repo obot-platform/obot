@@ -46,18 +46,14 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 		})
 	}
 
-	// Check if the user has an explicit role from environment variables
-	// If they do, don't demote them
-	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
-	if !explicitRole.HasRole(types.RoleAdmin) {
-		// Demote user to Basic role (don't delete, as they may have logged in legitimately)
-		if user.Role != types.RoleBasic {
-			user.Role = types.RoleBasic
-			if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
-				return fmt.Errorf("failed to demote user: %w", err)
-			}
-			slog.Info("Demoted temporary setup user to basic role during cancel flow", "userID", user.ID)
+	// Demote user to Basic role (don't delete, as they may have logged in legitimately). An Owner is never cached,
+	// because their sign-in completes setup instead.
+	if user.Role != types.RoleBasic {
+		user.Role = types.RoleBasic
+		if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
+			return fmt.Errorf("failed to demote user: %w", err)
 		}
+		slog.Info("Demoted temporary setup user to basic role during cancel flow", "userID", user.ID)
 	}
 
 	// Clear the temporary cache

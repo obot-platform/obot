@@ -6,7 +6,6 @@
 	interface Props {
 		isLocalSetup: boolean;
 		localUserEmail?: string;
-		explicitOwners?: string[];
 		provider?: AuthProvider;
 		tempLoginUrl: string;
 		onManageLocalUsers?: () => void;
@@ -16,7 +15,6 @@
 	const {
 		isLocalSetup,
 		localUserEmail,
-		explicitOwners = [],
 		provider,
 		tempLoginUrl,
 		onManageLocalUsers,
@@ -42,20 +40,6 @@
 			{m.auth_setup_account_becomes_owner_prefix()}
 			<b>{m.auth_setup_account_becomes_owner_word()}</b>
 			{m.auth_setup_account_becomes_owner_suffix()}
-		</p>
-	{:else if explicitOwners.length > 0}
-		<p>{m.auth_setup_continue_with_owner_account()}</p>
-		<p>{m.auth_setup_explicit_owners_listed()}</p>
-		<ul class="list-disc px-8">
-			{#each explicitOwners as owner (owner)}
-				<li>{owner}</li>
-			{/each}
-		</ul>
-		<p>
-			{m.auth_setup_login_as_explicit_owner()}
-		</p>
-		<p>
-			{m.auth_setup_login_different_account()}
 		</p>
 	{:else}
 		<p>

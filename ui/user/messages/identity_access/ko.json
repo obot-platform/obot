@@ -465,7 +465,6 @@
 	"identity_access_users_enable": "사용자 활성화",
 	"identity_access_users_enable_msg": "사용자 {email}을(를) 활성화할까요?",
 	"identity_access_users_enable_note": "계정으로 Obot에 다시 접근할 수 있으며 API 키와 에이전트도 포함됩니다.",
-	"identity_access_users_explicit_role": "이 사용자의 역할은 시스템 수준에서 명시적으로 설정되어 있어 변경할 수 없습니다.",
 	"identity_access_users_grant_auditor_msg": "{user}에게 감사자 역할을 부여하시겠습니까?",
 	"identity_access_users_grant_confirm_prefix": "",
 	"identity_access_users_grant_confirm_this_role": "에게 이 역할을 부여하시겠습니까?",

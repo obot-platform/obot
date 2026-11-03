@@ -24,8 +24,7 @@ type UserInfoResponse struct {
 	UpdatedAt         int64  `json:"updated_at,omitempty"`
 
 	// Email scope claims
-	Email         string `json:"email,omitempty"`
-	EmailVerified *bool  `json:"email_verified,omitempty"`
+	Email string `json:"email,omitempty"`
 }
 
 func (h *handler) userInfo(req api.Context) error {
@@ -50,7 +49,6 @@ func (h *handler) userInfo(req api.Context) error {
 		Picture:           user.IconURL,
 		Zoneinfo:          user.Timezone,
 		Email:             user.Email,
-		EmailVerified:     user.VerifiedEmail,
 	}
 
 	// Use DisplayName as name, fallback to Username if DisplayName is empty

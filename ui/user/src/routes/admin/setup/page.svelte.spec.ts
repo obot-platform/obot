@@ -66,10 +66,7 @@ function mockSetupApis({
 			return HttpResponse.json(user);
 		}),
 		http.post('/api/setup/initiate-temp-login', initiateTempLogin),
-		http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
-		http.get('/api/setup/explicit-role-emails', () =>
-			HttpResponse.json({ owners: null, admins: null })
-		)
+		http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 }))
 	);
 
 	return { createUser, initiateTempLogin };

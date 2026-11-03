@@ -265,11 +265,6 @@ export const getBootstrapStatusResponse = {
 	setupEnabled: true
 } satisfies Awaited<ReturnType<typeof UserService.getBootstrapStatus>>;
 
-export const listExplicitRoleEmailsResponse = {
-	owners: null,
-	admins: null
-} satisfies Awaited<ReturnType<typeof AdminService.listExplicitRoleEmails>>;
-
 export const initiateTempLoginResponse = {
 	redirectUrl: 'https://example.com/temp-login',
 	tokenId: 'temp-login-token'
@@ -393,7 +388,6 @@ export const listUsersResponse = [
 		created: faker.date.past().toISOString(),
 		effectiveRole: getProfileResponse.effectiveRole,
 		email: getProfileResponse.email,
-		explicitRole: true,
 		groups: getProfileResponse.groups,
 		iconURL: getProfileResponse.iconURL,
 		id: userID,

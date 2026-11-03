@@ -40,9 +40,6 @@ export const handlers = [
 	http.delete('/api/license', () => HttpResponse.json(data.getLicenseResponse)),
 	http.get('/api/mcp-capacity', () => HttpResponse.json(data.getMCPCapacityResponse)),
 	http.get('/api/token-usage-stats', () => HttpResponse.json(data.getTokenUsageStatsResponse)),
-	http.get('/api/setup/explicit-role-emails', () =>
-		HttpResponse.json(data.listExplicitRoleEmailsResponse)
-	),
 	http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 204 })),
 	http.post('/api/setup/initiate-temp-login', () =>
 		HttpResponse.json(data.initiateTempLoginResponse)

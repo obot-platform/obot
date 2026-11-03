@@ -37,7 +37,7 @@
 	import CreateLocalUserDialog from './CreateLocalUserDialog.svelte';
 	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 	import ResetPasswordDialog from './ResetPasswordDialog.svelte';
-	import { Handshake, Info, KeyRound, ShieldAlert } from '@lucide/svelte';
+	import { Handshake, KeyRound } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -115,7 +115,6 @@
 			username: local.email,
 			created: local.created,
 			iconURL: '',
-			explicitRole: false,
 			internal: false,
 			groups: [] as string[],
 			authProviderGroups: undefined as string[] | undefined,
@@ -514,11 +513,6 @@
 						{:else}
 							<div class="flex items-center gap-1">
 								{d.role}
-								{#if d.explicitRole}
-									<div use:tooltip={m.identity_access_users_explicit_role()}>
-										<ShieldAlert class="size-5" />
-									</div>
-								{/if}
 							</div>
 						{/if}
 					{:else if property === 'effectiveRole'}
@@ -558,8 +552,7 @@
 								class="menu-button"
 								disabled={!d.hasOrgUser ||
 									d.claudeTag ||
-									(!profile.current.groups.includes(Group.OWNER) &&
-										(d.groups.includes(Group.OWNER) || d.explicitRole))}
+									(!profile.current.groups.includes(Group.OWNER) && d.groups.includes(Group.OWNER))}
 								use:tooltip={{
 									text: d.claudeTag ? CLAUDE_TAG_MESSAGE : undefined,
 									placement: 'left',
@@ -596,11 +589,7 @@
 							<button
 								class="menu-button text-error"
 								disabled={!deletionReady ||
-									(d.hasOrgUser &&
-										(d.claudeTag ||
-											stillProvisioned ||
-											d.explicitRole ||
-											isOwnerActionRestricted(d)))}
+									(d.hasOrgUser && (d.claudeTag || stillProvisioned || isOwnerActionRestricted(d)))}
 								use:tooltip={{
 									text: d.claudeTag
 										? CLAUDE_TAG_MESSAGE
@@ -706,23 +695,10 @@
 			{#if roleUpdateError}
 				<div class="notification-error mb-2 p-3 text-sm font-light">{roleUpdateError}</div>
 			{/if}
-			{#if updatingRole.explicitRole}
-				<div class="notification-info mb-2 p-3 text-sm font-light">
-					<div class="flex items-center gap-3">
-						<Info class="size-6" />
-						<div>{m.identity_access_users_explicit_role()}</div>
-					</div>
-				</div>
-			{/if}
 			{#each roleOptions as role (role.id)}
 				<label class="flex gap-4">
-					<input
-						type="radio"
-						value={role.id}
-						bind:group={updatingRole.roleId}
-						disabled={updatingRole.explicitRole}
-					/>
-					<span class="flex flex-col" class:opacity-50={updatingRole.explicitRole}>
+					<input type="radio" value={role.id} bind:group={updatingRole.roleId} />
+					<span class="flex flex-col">
 						<p class="w-28 shrink-0 font-semibold">{role.label}</p>
 						<p class="text-muted-content">
 							{#if role.id === Role.OWNER}

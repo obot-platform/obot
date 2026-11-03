@@ -13,19 +13,10 @@ import (
 
 // PromoteToOwner grants the Owner role to an identity that has proven it can sign in through the
 // provider Obot is about to depend on. Bootstrap owner confirmation and the staged auth provider
-// switch share it rather than each deciding for themselves. An address configured as an Admin
-// through the environment is refused, since that configuration must win over a runtime decision.
+// switch share it rather than each deciding for themselves.
 func PromoteToOwner(req api.Context, user *gatewaytypes.User) error {
 	if user.Role.HasRole(types.RoleOwner) {
 		return nil
-	}
-
-	if req.GatewayClient.HasExplicitRole(user.Email).HasRole(types.RoleAdmin) {
-		slog.Info("Rejecting owner promotion for explicitly configured admin", "userID", user.ID)
-		return types.NewErrBadRequest(
-			"%s",
-			localized(req, "setup_cannot_promote_admin", "email", user.Email),
-		)
 	}
 
 	user.Role = user.Role.SwitchBaseRole(types.RoleOwner)
