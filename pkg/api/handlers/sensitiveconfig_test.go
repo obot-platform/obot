@@ -12,7 +12,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,18 +40,18 @@ func sensitiveSystemServerManifestForTest() types.SystemMCPServerManifest {
 		Runtime: types.RuntimeRemote,
 		RemoteConfig: &types.RemoteRuntimeConfig{
 			URL: "https://example.com/mcp",
-			DeprecatedHeaders: []types.MCPHeader{{
+			DeprecatedHeaders: []types.MCPHeader{{ //nolint:staticcheck // Legacy values are still returned when stored.
 				Key:       "Authorization",
 				Value:     sensitiveConfigValue,
 				Sensitive: true,
 			}},
 		},
 		Config: sensitiveConfigForTest(),
-		DeprecatedEnv: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+		DeprecatedEnv: []types.MCPEnv{{ //nolint:staticcheck // Legacy values are still returned when stored.
 			Key:       "LEGACY_TOKEN",
 			Value:     sensitiveConfigValue,
 			Sensitive: true,
-		}}},
+		}},
 	}
 }
 
@@ -79,10 +78,12 @@ func TestSensitiveInlineConfigIsRedactedForReaders(t *testing.T) {
 		}},
 	}
 	catalog := &v1.SystemMCPCatalog{
-		ObjectMeta: metav1.ObjectMeta{Name: catalogName, Namespace: system.DefaultNamespace},
+		Name:      catalogName,
+		Namespace: system.DefaultNamespace,
 	}
 	entry := &v1.SystemMCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: entryName, Namespace: system.DefaultNamespace},
+		Name:      entryName,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SystemMCPServerCatalogEntrySpec{
 			SystemMCPCatalogName: catalogName,
 			Manifest: types.SystemMCPServerCatalogEntryManifest{
@@ -215,10 +216,10 @@ func TestRedactSystemMCPServerManifestLeavesInputUnchanged(t *testing.T) {
 
 	require.Equal(t, redactedValue, redacted.Config[0].Value)
 	require.Equal(t, plainConfigValue, redacted.Config[1].Value)
-	require.Equal(t, redactedValue, redacted.DeprecatedEnv[0].Value)
-	require.Equal(t, redactedValue, redacted.RemoteConfig.DeprecatedHeaders[0].Value)
+	require.Equal(t, redactedValue, redacted.DeprecatedEnv[0].Value)                  //nolint:staticcheck // Legacy values are still returned when stored.
+	require.Equal(t, redactedValue, redacted.RemoteConfig.DeprecatedHeaders[0].Value) //nolint:staticcheck // Legacy values are still returned when stored.
 
 	require.Equal(t, sensitiveConfigValue, manifest.Config[0].Value)
-	require.Equal(t, sensitiveConfigValue, manifest.DeprecatedEnv[0].Value)
-	require.Equal(t, sensitiveConfigValue, manifest.RemoteConfig.DeprecatedHeaders[0].Value)
+	require.Equal(t, sensitiveConfigValue, manifest.DeprecatedEnv[0].Value)                  //nolint:staticcheck // Legacy values are still returned when stored.
+	require.Equal(t, sensitiveConfigValue, manifest.RemoteConfig.DeprecatedHeaders[0].Value) //nolint:staticcheck // Legacy values are still returned when stored.
 }

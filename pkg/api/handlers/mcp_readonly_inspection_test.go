@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -201,14 +200,16 @@ func TestAdminReadonlyInspectionResolvesConnections(t *testing.T) {
 	}
 	instances := []*v1.MCPServerInstance{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: otherInstance, Namespace: system.DefaultNamespace},
+			Name:      otherInstance,
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
 				UserID:        "another-user",
 				MCPServerName: server.Name,
 			},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: readerInstance, Namespace: system.DefaultNamespace},
+			Name:      readerInstance,
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
 				UserID:        readerID,
 				MCPServerName: server.Name,

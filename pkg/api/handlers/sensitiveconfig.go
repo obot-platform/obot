@@ -7,9 +7,11 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 )
 
-// redactedValue replaces a sensitive value that is set but hidden from the caller, as convertVMCP does, so a hidden
-// value is not mistaken for one that was never set.
-const redactedValue = "******"
+const (
+	// redactedValue replaces a sensitive value that is set but hidden from the caller, as convertVMCP does, so a
+	// hidden value is not mistaken for one that was never set.
+	redactedValue = "******"
+)
 
 // canSeeSensitiveConfig reports whether the caller may see the sensitive values stored inline in admin-managed
 // manifests. Admin read-only users can read those manifests but not reveal their secrets, so the values are masked
@@ -64,10 +66,12 @@ func redactSensitiveHeaders(headers []types.MCPHeader) []types.MCPHeader {
 // given is left as it was.
 func redactSystemMCPServerManifest(manifest types.SystemMCPServerManifest) types.SystemMCPServerManifest {
 	manifest.Config = redactSensitiveConfig(manifest.Config)
-	manifest.DeprecatedEnv = redactSensitiveEnv(manifest.DeprecatedEnv)
+	// Legacy env and headers are still returned when stored. Startup migration moves them into Config for system
+	// servers, but not for webhook validations, which embed the same manifest.
+	manifest.DeprecatedEnv = redactSensitiveEnv(manifest.DeprecatedEnv) //nolint:staticcheck // Legacy values are still returned when stored.
 	if manifest.RemoteConfig != nil {
 		remote := *manifest.RemoteConfig
-		remote.DeprecatedHeaders = redactSensitiveHeaders(remote.DeprecatedHeaders)
+		remote.DeprecatedHeaders = redactSensitiveHeaders(remote.DeprecatedHeaders) //nolint:staticcheck // Legacy values are still returned when stored.
 		manifest.RemoteConfig = &remote
 	}
 	return manifest
