@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (c *Controller) setupEveryReplicaRoutes() {
@@ -17,12 +16,16 @@ func (c *Controller) setupEveryReplicaRoutes() {
 		return
 	}
 
-	for _, obj := range []kclient.Object{&v1.LLMGatewayProvider{}, &v1.LLMGatewayRoutingRule{}} {
-		c.services.EveryReplicaRouter.Type(obj).
-			Namespace(system.DefaultNamespace).
-			IncludeRemoved().
-			HandlerFunc(reconcileLLMGatewayConfig)
-	}
+	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayProvider{}).
+		Namespace(system.DefaultNamespace).
+		IncludeRemoved().
+		HandlerFunc(reconcileLLMGatewayConfig)
+	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayRoutingRule{}).
+		Namespace(system.DefaultNamespace).
+		IncludeRemoved().
+		HandlerFunc(reconcileLLMGatewayConfig)
+	// Global settings are a singleton: Load and GetSettings read only "default".
+	// Providers and routing rules can have multiple names, so their watches are unfiltered.
 	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayConfig{}).
 		Namespace(system.DefaultNamespace).
 		Name("default").
