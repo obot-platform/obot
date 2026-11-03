@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/obot-platform/nah/pkg/name"
@@ -16,12 +15,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	// Match the cleanup controller's seven-day idle retention. Check it on requests
-	// too, since cleanup may not have deleted an expired record yet.
-	mcpSessionMaxIdleTime = 7 * 24 * time.Hour
 )
 
 var (
@@ -97,17 +90,10 @@ func loadMCPClientSession(ctx context.Context, storage kclient.Client, spec v1.M
 		return nil, err
 	}
 
-	// Match cleanup when the first activity update did not persist.
-	lastUsed := session.Status.LastUsed
-	if lastUsed.IsZero() {
-		lastUsed = session.CreationTimestamp
-	}
-
 	// Legacy records have no ConnectionID. Keep their existing user/server association;
 	// newly created records additionally bind the exact resolved connection.
 	if session.Spec.MCPServerID != spec.MCPServerID || session.Spec.UserID != spec.UserID ||
-		(session.Spec.ConnectionID != "" && session.Spec.ConnectionID != spec.ConnectionID) ||
-		time.Since(lastUsed.Time) > mcpSessionMaxIdleTime {
+		(session.Spec.ConnectionID != "" && session.Spec.ConnectionID != spec.ConnectionID) {
 		return nil, errMCPSessionNotFound
 	}
 

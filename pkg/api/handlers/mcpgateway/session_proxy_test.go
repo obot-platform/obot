@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -21,7 +20,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -154,24 +152,14 @@ func TestSessionProxyInitializeDiscardsStaleID(t *testing.T) {
 				handler.auditLogCollector = nil
 			}
 
-			spec := v1.MCPClientSessionSpec{MCPServerID: "sms1sessiontest", ConnectionID: "sms1sessiontest", UserID: "42"}
-			require.NoError(t, saveMCPClientSession(t.Context(), client, &http.Response{StatusCode: http.StatusOK, Header: http.Header{mcpSessionHeader: {"expired-session"}}}, spec, false))
-			var expired v1.MCPClientSession
-			require.NoError(t, client.Get(t.Context(), mcpClientSessionKey(spec, "expired-session"), &expired))
-			expired.Status.LastUsed = metav1.NewTime(time.Now().Add(-8 * 24 * time.Hour))
-			require.NoError(t, client.Status().Update(t.Context(), &expired))
+			response := proxySessionTestRequest(t, handler, client, "42", "initialize", "unknown-session")
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.Equal(t, "fresh-session", response.Header().Get(mcpSessionHeader))
+			require.Equal(t, int32(1), calls.Load())
 
-			for _, staleID := range []string{"unknown-session", "expired-session"} {
-				before := calls.Load()
-				response := proxySessionTestRequest(t, handler, client, "42", "initialize", staleID)
-				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-				require.Equal(t, "fresh-session", response.Header().Get(mcpSessionHeader))
-				require.Equal(t, before+1, calls.Load())
-
-				response = proxySessionTestRequest(t, handler, client, "42", "tools/call", staleID)
-				require.Equal(t, http.StatusNotFound, response.Code)
-				require.Equal(t, before+1, calls.Load(), "stale tool calls must not reach upstream")
-			}
+			response = proxySessionTestRequest(t, handler, client, "42", "tools/call", "unknown-session")
+			require.Equal(t, http.StatusNotFound, response.Code)
+			require.Equal(t, int32(1), calls.Load(), "stale tool calls must not reach upstream")
 
 			if test.auditEnabled {
 				collector := handler.auditLogCollector.(*recordingProxyAuditCollector)

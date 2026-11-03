@@ -170,8 +170,8 @@ func TestMCPClientSessionAndAuditShareOneRecord(t *testing.T) {
 	}
 }
 
-func TestLoadMCPClientSessionRejectsInconsistentAndExpired(t *testing.T) {
-	for _, field := range []string{"user", "connection", "expired"} {
+func TestLoadMCPClientSessionRejectsInconsistentOwnership(t *testing.T) {
+	for _, field := range []string{"user", "connection"} {
 		storage := newMCPProxyTestStorage()
 		spec := v1.MCPClientSessionSpec{ConnectionID: "connection", UserID: "alice"}
 		resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{mcpSessionHeader: {"session"}}}
@@ -188,10 +188,6 @@ func TestLoadMCPClientSessionRejectsInconsistentAndExpired(t *testing.T) {
 		case "connection":
 			record.Spec.ConnectionID = "other"
 			require.NoError(t, storage.Update(t.Context(), &record))
-
-		case "expired":
-			record.Status.LastUsed = metav1.NewTime(time.Now().Add(-8 * 24 * time.Hour))
-			require.NoError(t, storage.Status().Update(t.Context(), &record))
 		}
 
 		session, err := loadMCPClientSession(t.Context(), storage, spec, "session")
@@ -330,42 +326,25 @@ func TestInitializeInspectionPreservesWireBody(t *testing.T) {
 	}
 }
 
-func TestLoadMCPClientSessionUsesCreationTimeWhenLastUsedIsMissing(t *testing.T) {
-	for _, test := range []struct {
-		name    string
-		age     time.Duration
-		expired bool
-	}{
-		{
-			name: "new record whose first activity update failed",
-			age:  time.Hour,
-		},
-		{
-			name:    "expired record with no activity updates",
-			age:     8 * 24 * time.Hour,
-			expired: true,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			storage := newMCPProxyTestStorage()
-			spec := v1.MCPClientSessionSpec{MCPServerID: "server", ConnectionID: "connection", UserID: "alice"}
-			key := mcpClientSessionKey(spec, "session")
-			record := v1.MCPClientSession{
-				Name:              key.Name,
-				Namespace:         key.Namespace,
-				CreationTimestamp: metav1.NewTime(time.Now().Add(-test.age)),
-				Spec:              spec,
-			}
-			require.NoError(t, storage.Create(t.Context(), &record))
+func TestLoadMCPClientSessionRefreshesIdleRecords(t *testing.T) {
+	for _, missingActivity := range []bool{false, true} {
+		storage := newMCPProxyTestStorage()
+		spec := v1.MCPClientSessionSpec{MCPServerID: "server", ConnectionID: "connection", UserID: "alice"}
+		key := mcpClientSessionKey(spec, "session")
+		record := v1.MCPClientSession{
+			Name:              key.Name,
+			Namespace:         key.Namespace,
+			CreationTimestamp: metav1.NewTime(time.Now().Add(-8 * 24 * time.Hour)),
+			Spec:              spec,
+		}
+		if !missingActivity {
+			record.Status.LastUsed = record.CreationTimestamp
+		}
+		require.NoError(t, storage.Create(t.Context(), &record))
 
-			session, err := loadMCPClientSession(t.Context(), storage, spec, "session")
-			if test.expired {
-				require.ErrorIs(t, err, errMCPSessionNotFound)
-				require.Nil(t, session)
-			} else {
-				require.NoError(t, err)
-				require.False(t, session.Status.LastUsed.IsZero())
-			}
-		})
+		// Existing records remain usable until the cleanup controller deletes them.
+		session, err := loadMCPClientSession(t.Context(), storage, spec, "session")
+		require.NoError(t, err)
+		require.True(t, session.Status.LastUsed.After(record.CreationTimestamp.Time))
 	}
 }
