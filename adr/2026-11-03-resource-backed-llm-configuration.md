@@ -83,6 +83,29 @@ lands. The child PR that connects runtime application must update the placeholde
 description above to reflect the behavior it implements. No migration from the
 unmerged configuration-table draft is provided.
 
+### Bifrost upgrade compatibility
+
+Provider/key payloads and routing rules use Bifrost JSON types, and global settings
+are interpreted by the engine using Bifrost configuration types. Dependency updates
+therefore require a stored-configuration compatibility review, including updates
+opened by Dependabot. Compilation alone cannot detect fields silently ignored by
+JSON decoding or changes to defaults and runtime semantics.
+
+For each Bifrost dependency upgrade:
+
+- Review changes to JSON field names and types, custom serialization, defaults,
+  and configuration semantics across the affected Bifrost modules.
+- Exercise representative configuration saved by the previous version through
+  load, edit, and save. Check providers, keys, rules, and global settings for
+  silently dropped fields, changed values, and changed effective behavior.
+- If compatibility changes, choose a migration, compatibility decoder, or adapter
+  based on the actual change. Document that decision and add regression fixtures
+  for the affected previous-version payloads.
+
+Not every dependency update requires a migration. Preserve the current storage
+model unless a concrete upstream change justifies a different approach, and record
+the compatibility assessment in the dependency-update PR before merging.
+
 ## References
 
 - `pkg/llmcore/client`

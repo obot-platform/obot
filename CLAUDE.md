@@ -18,6 +18,15 @@ Obot is an open source AI governance platform with the following features:
 - **Frontend**: SvelteKit 5 with Vite, Tailwind CSS 4, TypeScript, CodeMirror 6, Milkdown (markdown editor)
 - **Documentation**: Docusaurus 3 (in `/docs`)
 
+## Bifrost Dependency Updates
+
+Gateway configuration persists Bifrost-shaped JSON. When updating or reviewing any
+`github.com/maximhq/bifrost/*` dependency, including Dependabot PRs, follow the
+[storage compatibility guidance](adr/2026-11-03-resource-backed-llm-configuration.md#bifrost-upgrade-compatibility).
+Record the compatibility assessment and any required migration in the PR;
+passing compilation and existing tests alone does not establish compatibility
+with previously stored configuration.
+
 ## Common Commands
 
 ### Development
