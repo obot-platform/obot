@@ -30,7 +30,7 @@ func TestProviderQueueDefaults(t *testing.T) {
 	require.Positive(t, created.ConcurrencyAndBufferSize.BufferSize)
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Equal(t, created.ConcurrencyAndBufferSize, cfg.Providers[schemas.OpenAI].ConcurrencyAndBufferSize)
+	require.Equal(t, created.ConcurrencyAndBufferSize, cfg.Config.Providers[schemas.OpenAI].ConcurrencyAndBufferSize)
 	var updated schemas.ProviderConfig
 	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai", map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 0}}, &updated))
 	require.Positive(t, updated.ConcurrencyAndBufferSize.Concurrency)
@@ -102,9 +102,9 @@ func TestConcurrentEnvImport(t *testing.T) {
 	}
 	cfg, err := a.store.Load(ctx)
 	require.NoError(t, err)
-	require.Len(t, cfg.Keys[schemas.OpenAI], 2)
+	require.Len(t, cfg.Config.Keys[schemas.OpenAI], 2)
 	values := map[string]string{}
-	for _, key := range cfg.Keys[schemas.OpenAI] {
+	for _, key := range cfg.Config.Keys[schemas.OpenAI] {
 		values[key.Name] = key.Value.GetValue()
 	}
 	require.Equal(t, "env-openai-secret", values["env-"+system.OpenAIAPIKeyEnvVar])
@@ -169,7 +169,7 @@ func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
 	go func() { defer close(done); e.ServeHTTP(rec, req) }()
 	require.Eventually(t, func() bool {
 		cfg, err := e.store.Load(t.Context())
-		_, ok := cfg.Providers[schemas.OpenAI]
+		_, ok := cfg.Config.Providers[schemas.OpenAI]
 		return err == nil && ok
 	}, 3*time.Second, time.Millisecond)
 	cancel()
@@ -182,7 +182,7 @@ func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	cfg, err := e.store.Load(t.Context())
 	require.NoError(t, err)
-	require.Contains(t, cfg.Providers, schemas.OpenAI)
+	require.Contains(t, cfg.Config.Providers, schemas.OpenAI)
 }
 
 func TestSyncFailureAfterCommitStillReturnsSuccess(t *testing.T) {
@@ -193,7 +193,7 @@ func TestSyncFailureAfterCommitStillReturnsSuccess(t *testing.T) {
 	require.Equal(t, "openai", out["name"])
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Contains(t, cfg.Providers, schemas.OpenAI)
+	require.Contains(t, cfg.Config.Providers, schemas.OpenAI)
 	require.Error(t, e.Err(), "synchronization failure remains observable through status")
 }
 
@@ -215,7 +215,7 @@ func TestKeyRenamePreservesUniqueNames(t *testing.T) {
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	names := map[string]string{}
-	for _, key := range cfg.Keys[schemas.OpenAI] {
+	for _, key := range cfg.Config.Keys[schemas.OpenAI] {
 		names[key.ID] = key.Name
 	}
 	require.Equal(t, "renamed", names[first.ID])

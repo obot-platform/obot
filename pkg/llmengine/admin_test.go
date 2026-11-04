@@ -24,19 +24,19 @@ func TestAdminKeyUpdateAndConfirmedDestinationChange(t *testing.T) {
 	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai/keys/"+key["id"].(string), key, nil))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Equal(t, "sk-private-long-secret", cfg.Keys[schemas.OpenAI][0].Value.GetValue())
+	require.Equal(t, "sk-private-long-secret", cfg.Config.Keys[schemas.OpenAI][0].Value.GetValue())
 	before := cfg
 	change := map[string]any{"network_config": map[string]any{"base_url": upstream.URL, "allow_private_network": true}}
 	require.Error(t, e.Do(ctx, http.MethodPut, "/api/providers/openai", change, nil))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, cfg)
-	require.Len(t, cfg.Keys[schemas.OpenAI], 1)
+	require.Len(t, cfg.Config.Keys[schemas.OpenAI], 1)
 	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai?removeKeys=true", change, nil))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Empty(t, cfg.Keys[schemas.OpenAI])
-	require.Equal(t, upstream.URL, cfg.Providers[schemas.OpenAI].NetworkConfig.BaseURL)
+	require.Empty(t, cfg.Config.Keys[schemas.OpenAI])
+	require.Equal(t, upstream.URL, cfg.Config.Providers[schemas.OpenAI].NetworkConfig.BaseURL)
 }
 
 func TestPricingAndRoutingValidationBeforeCommit(t *testing.T) {
@@ -63,5 +63,5 @@ func TestGlobalProxyPasswordRoundTrip(t *testing.T) {
 	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/proxy-config", proxy, nil))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Contains(t, string(cfg.Settings["proxy"]), "private-proxy-password")
+	require.Contains(t, string(cfg.Config.Settings["proxy"]), "private-proxy-password")
 }

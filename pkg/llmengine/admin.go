@@ -32,7 +32,9 @@ func (e *Engine) config(ctx context.Context) (llmcoreclient.Config, error) {
 	if cfg, ok := ctx.Value(configContextKey{}).(*llmcoreclient.Config); ok {
 		return *cfg, nil
 	}
-	return e.store.Load(ctx)
+	// Keep healthy aggregates readable; provider diagnostics are exposed by engine status.
+	loaded, err := e.store.Load(ctx)
+	return loaded.Config, err
 }
 func adminJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -106,6 +108,14 @@ func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
+	// Guards distinguish creation from updates by method and path. Reject other
+	// combinations before entering storage so they cannot bypass those checks.
+	if parts[0] == "providers" {
+		if err := validateProviderOperation(path, r.Method); err != nil {
+			adminError(w, err)
+			return
+		}
+	}
 	var out any
 	var rejected error
 	// Once accepted, finish the durable write even if the caller disconnects.
@@ -141,7 +151,32 @@ func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
 		adminError(w, err)
 		return
 	}
+	// Provider and rule deletion write directly to storage without the change callback.
+	if r.Method == http.MethodDelete && out == nil {
+		out = map[string]any{"status": "deleted"}
+	}
 	adminJSON(w, 200, out)
+}
+
+func validateProviderOperation(path, method string) error {
+	parts := strings.Split(path, "/")
+	var allowed []string
+	switch {
+	case len(parts) == 1:
+		allowed = []string{http.MethodPost}
+	case len(parts) == 2 && parts[1] != "":
+		allowed = []string{http.MethodPut, http.MethodDelete}
+	case len(parts) == 3 && parts[1] != "" && parts[2] == "keys":
+		allowed = []string{http.MethodPost}
+	case len(parts) == 4 && parts[1] != "" && parts[2] == "keys" && parts[3] != "":
+		allowed = []string{http.MethodPut, http.MethodDelete}
+	default:
+		return missing("gateway API")
+	}
+	if !slices.Contains(allowed, method) {
+		return &APIError{StatusCode: http.StatusMethodNotAllowed, Message: "unsupported provider operation"}
+	}
+	return nil
 }
 
 // mutateAdmin dispatches a write to its owning resource. The decoded view is local
@@ -156,6 +191,9 @@ func (e *Engine) mutateAdmin(ctx context.Context, path, method string, change fu
 	}
 	switch parts[0] {
 	case "providers":
+		if err := validateProviderOperation(path, method); err != nil {
+			return err
+		}
 		if len(parts) == 1 {
 			if err := change(&cfg); err != nil {
 				return err
@@ -630,6 +668,10 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 					return nil, err
 				}
 				patch := fields["patch"]
+				// An omitted patch preserves custom prices; an explicit patch replaces them.
+				if len(patch) == 0 && index >= 0 {
+					patch = []byte(rows[index].PricingPatchJSON)
+				}
 				if len(patch) == 0 {
 					patch = []byte(`{}`)
 				}

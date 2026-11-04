@@ -124,11 +124,16 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 			e.startErr = err
 			return
 		}
+		// Startup may serve healthy providers while others need reconciliation. Keep
+		// those diagnostics visible before the first controller event, and serialize
+		// pricing initialization with any concurrent model-discovery synchronization.
+		e.syncMu.Lock()
 		e.core.Store(engine)
-		if err = e.syncPricing(ctx); err != nil {
+		if err = errors.Join(engine.Err(), e.syncPricing(ctx)); err != nil {
 			e.syncFailure.Store(&syncFailure{err: err})
-			slog.Warn("LLM gateway pricing application will retry", "error", err)
+			slog.Warn("LLM gateway configuration application will retry", "error", err)
 		}
+		e.syncMu.Unlock()
 		if opts.ModelDataURL != "" {
 			go modeldata.Refresh(ctx, dir, opts.ModelDataURL, modeldata.RefreshInterval)
 		}
@@ -205,6 +210,9 @@ func (e *Engine) Err() error {
 		}
 		if failure := e.syncFailure.Load(); failure != nil {
 			return failure.err
+		}
+		if core := e.core.Load(); core != nil {
+			return core.Err()
 		}
 		return nil
 	default:

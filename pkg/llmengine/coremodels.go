@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/modelcatalog"
 )
 
 func (e *Engine) gatewayModels(ctx context.Context, provider schemas.ModelProvider) ([]schemas.Model, error) {
@@ -30,6 +31,16 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	}
 	if engineErr != nil {
 		return nil, fmt.Errorf("model listing failed: %v", engineErr.Error)
+	}
+	for i := range out.Data {
+		model := &out.Data[i]
+		provider, id := schemas.ParseModelString(model.ID, "")
+		entry := e.prices.GetPricingEntryForModel(id, provider)
+		if entry == nil && model.Alias != nil {
+			entry = e.prices.GetPricingEntryForModel(*model.Alias, provider)
+		}
+		// Core lists provider data; the catalog fills details formerly added by the transport.
+		modelcatalog.ApplyModelInfo(model, entry)
 	}
 	out.Data = slices.DeleteFunc(out.Data, func(model schemas.Model) bool {
 		return model.IsDeprecated || e.modelIsUnavailable(model.ID)

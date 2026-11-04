@@ -6,7 +6,10 @@ import (
 
 	"github.com/maximhq/bifrost/core/schemas"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCoreSyncPicksUpAnotherReplicasChanges(t *testing.T) {
@@ -65,7 +68,7 @@ func TestListModelsSurvivesPartialSyncFailure(t *testing.T) {
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
 	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}, nil))
 	// Simulate a persisted configuration this replica cannot fully apply.
-	require.NoError(t, e.store.PutProvider(ctx, "broken", llmcoreclient.Provider{}))
+	require.NoError(t, e.store.CreateProvider(ctx, "broken", llmcoreclient.Provider{}))
 	for range 2 {
 		models, err := e.ListModels(ctx)
 		require.NoError(t, err, "a failed provider update must not hide healthy models")
@@ -77,4 +80,41 @@ func TestListModelsSurvivesPartialSyncFailure(t *testing.T) {
 		require.Contains(t, ids, "openai/gpt-4o-mini")
 		require.Error(t, e.Err(), "the synchronization failure remains visible in status")
 	}
+}
+
+func TestDegradedStartupExposesProviderDiagnostics(t *testing.T) {
+	ctx := t.Context()
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, plaintextConfigCodec{})
+	require.NoError(t, err)
+	for _, name := range []string{"openai", "anthropic"} {
+		require.NoError(t, store.CreateProvider(ctx, name, llmcoreclient.Provider{}))
+	}
+	var providers v1.LLMGatewayProviderList
+	require.NoError(t, storage.List(ctx, &providers))
+	var corrupt *v1.LLMGatewayProvider
+	for i := range providers.Items {
+		if providers.Items[i].Spec.ID == "anthropic" {
+			corrupt = &providers.Items[i]
+		}
+	}
+	require.NotNil(t, corrupt)
+	original := corrupt.Spec.Payload
+	corrupt.Spec.Payload = "invalid JSON"
+	require.NoError(t, storage.Update(ctx, corrupt))
+	engine := New()
+	require.NoError(t, engine.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(engine.Shutdown)
+	require.True(t, engine.Ready(), "healthy providers must remain usable")
+	require.ErrorContains(t, engine.Err(), "anthropic", "startup must expose core diagnostics before a watch event")
+	var configured map[string]any
+	require.NoError(t, engine.Do(ctx, http.MethodGet, "/api/providers/openai", nil, &configured))
+	require.Equal(t, "openai", configured["name"])
+	_, err = engine.Sync(ctx)
+	require.ErrorContains(t, err, "anthropic")
+	corrupt.Spec.Payload = original
+	require.NoError(t, storage.Update(ctx, corrupt))
+	_, err = engine.Sync(ctx)
+	require.NoError(t, err)
+	require.NoError(t, engine.Err(), "repair must clear the replica-local error")
 }

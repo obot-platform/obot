@@ -35,7 +35,7 @@ func TestEngineStopsUnusedAgentGateway(t *testing.T) {
 		t.Fatalf("startup left an unused A2A push relay running: %d before, %d after", before, after)
 	}
 
-	if err := e.store.PutProvider(ctx, "openai", llmcoreclient.Provider{}); err != nil {
+	if err := e.store.CreateProvider(ctx, "openai", llmcoreclient.Provider{}); err != nil {
 		t.Fatal(err)
 	}
 	if changed, err := e.Sync(ctx); err != nil || !changed {
