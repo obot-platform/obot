@@ -80,10 +80,10 @@ func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json
 		return err
 	}
 
-	obj.Name = system.LLMGatewayConfigName
-	obj.Namespace = system.DefaultNamespace
 	obj.Spec = v1.LLMGatewayResourceSpec{ID: system.LLMGatewayConfigName, Payload: payload}
 	if !exists {
+		obj.Name = system.LLMGatewayConfigName
+		obj.Namespace = system.DefaultNamespace
 		return s.storage.Create(ctx, &obj)
 	}
 	return s.storage.Update(ctx, &obj)

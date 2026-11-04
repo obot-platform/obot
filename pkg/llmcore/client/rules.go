@@ -63,10 +63,10 @@ func (s *Client) editRule(ctx context.Context, id string, create bool, change fu
 	if exists && obj.Spec.Payload == string(payload) {
 		return nil
 	}
-	obj.Name = resourceName(id)
-	obj.Namespace = system.DefaultNamespace
 	obj.Spec = v1.LLMGatewayResourceSpec{ID: id, Payload: string(payload)}
 	if !exists {
+		obj.Name = resourceName(id)
+		obj.Namespace = system.DefaultNamespace
 		return s.storage.Create(ctx, &obj)
 	}
 	return s.storage.Update(ctx, &obj)
