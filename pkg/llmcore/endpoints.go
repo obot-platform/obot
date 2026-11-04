@@ -47,6 +47,8 @@ func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 		writeEngineError(w, d, engineErr)
 		return
 	}
+	observeResponse(ctx, out.ExtraFields)
+	setServed(w.Header(), out.ExtraFields)
 
 	if d == dialectMessages {
 		writeJSON(w, d, http.StatusOK, map[string]any{"input_tokens": out.InputTokens})
