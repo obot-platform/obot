@@ -1,11 +1,14 @@
 package llmcore_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
@@ -107,4 +110,63 @@ func TestBlockingLoadFailurePreservesRuntime(t *testing.T) {
 	_, err = engine.Sync(ctx)
 	require.NoError(t, err)
 	require.NoError(t, engine.Err())
+}
+
+func TestStartupProviderFailuresRemainPending(t *testing.T) {
+	ctx := t.Context()
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"test","object":"chat.completion","model":"test","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`))
+	}))
+	t.Cleanup(upstream.Close)
+	store := newTestStore(t)
+	require.NoError(t, store.CreateProvider(ctx, "healthy", transitionProvider(upstream.URL, "secret")))
+	require.NoError(t, store.CreateProvider(ctx, "broken", llmcoreclient.Provider{}))
+	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
+	engine, err := llmcore.New(ctx, store, llmcore.Options{Logger: log})
+	require.NoError(t, err, "one failed runtime must not block healthy startup")
+	t.Cleanup(engine.Shutdown)
+	require.ErrorContains(t, engine.Err(), "broken", "startup failures must be observable before Sync")
+	healthy := engine.Client().GetProviderByKey("healthy")
+	require.NotNil(t, healthy)
+	require.Nil(t, engine.Client().GetProviderByKey("broken"))
+	requestCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	_, attemptErr := engine.Client().ChatCompletionRequest(schemas.NewBifrostContext(requestCtx, schemas.NoDeadline), &schemas.BifrostChatRequest{
+		Provider: "broken",
+		Model:    "test",
+		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("hello")}}},
+	})
+	require.NotNil(t, attemptErr)
+	require.Contains(t, attemptErr.Error.Message, "being reconfigured", "startup failure must fail closed rather than wait on a workerless queue")
+
+	for range 2 {
+		changed, err := engine.Sync(ctx)
+		require.True(t, changed)
+		require.ErrorContains(t, err, "broken")
+		require.ErrorContains(t, engine.Err(), "broken")
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"healthy/test","messages":[{"role":"user","content":"hello"}]}`)))
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+	require.Equal(t, 2, log.count("broken"), "unchanged desired state must retry the failed runtime")
+	require.Zero(t, log.count("healthy"), "healthy startup must not be restarted on retry")
+	require.Same(t, healthy, engine.Client().GetProviderByKey("healthy"))
+
+	require.NoError(t, store.MutateProvider(ctx, "broken", func(provider *llmcoreclient.Provider) error {
+		*provider = transitionProvider(upstream.URL, "secret")
+		return nil
+	}))
+	changed, err := engine.Sync(ctx)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.NoError(t, engine.Err())
+	require.NotNil(t, engine.Client().GetProviderByKey("broken"))
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"broken/test","messages":[{"role":"user","content":"hello"}]}`)))
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	changed, err = engine.Sync(ctx)
+	require.NoError(t, err)
+	require.False(t, changed, "successful repair must converge")
+	require.Same(t, healthy, engine.Client().GetProviderByKey("healthy"))
 }

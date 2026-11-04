@@ -94,6 +94,13 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 		return nil, fmt.Errorf("provider %s is not configured", provider)
 	}
 
+	// Bifrost stamps CustomProviderKey during construction. Keep that runtime
+	// mutation out of the immutable account/applied snapshot, or every retry
+	// treats a healthy custom provider as changed and restarts it.
+	if pc.CustomProviderConfig != nil {
+		custom := *pc.CustomProviderConfig
+		pc.CustomProviderConfig = &custom
+	}
 	pc.CheckAndSetDefaults()
 
 	pc.ProxyConfig = providerProxy(pc, cfg.Settings["proxy"])
@@ -128,7 +135,8 @@ func providerProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.Prox
 	}
 }
 
-// New starts an engine with the configuration in the store.
+// New starts an engine with the configuration in the store. Individual provider
+// failures leave a degraded engine available; Err reports them until Sync recovers.
 func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engine, error) {
 	if store == nil {
 		return nil, errors.New("a store is required")
@@ -191,10 +199,26 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	}
 	e.applySettings(cfg)
 	e.applied = cfg
-	e.syncErr = providerLoadErrors(loaded.ProviderErrors)
+	// Init logs individual constructor failures but still returns a client. Its
+	// provider instances, not the desired configuration, tell us what started.
+	// Clone before filtering: the account must retain the complete desired view.
+	e.applied.Providers = maps.Clone(cfg.Providers)
+	startupErrors := []error{providerLoadErrors(loaded.ProviderErrors)}
 	for name := range cfg.Providers {
+		if e.client.GetProviderByKey(name) == nil {
+			delete(e.applied.Providers, name)
+			e.account.transitioning.Store(name, false)
+			startupErrors = append(startupErrors, fmt.Errorf("provider %s failed to initialize; reconciliation will retry", name))
+			// prepareProvider publishes its queue before constructing the runtime.
+			// Clean up the workerless queue and prohibit lazy recreation until Sync.
+			if err := e.client.RemoveProvider(name); err != nil {
+				startupErrors = append(startupErrors, err)
+			}
+			continue
+		}
 		e.appliedProxy[name] = providerProxy(cfg.Providers[name], cfg.Settings["proxy"])
 	}
+	e.syncErr = errors.Join(startupErrors...)
 	return e, nil
 }
 

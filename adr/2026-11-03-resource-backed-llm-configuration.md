@@ -75,8 +75,11 @@ resources observed missing. Collection-read failures and unreadable routing rule
 or global settings return a blocking error and no usable result.
 
 The core engine allows degraded startup with healthy providers and exposes
-provider diagnostics through its replica-local Err method. Refresh disables prior
-runtime configuration for a quarantined provider without deleting its stored
+provider diagnostics through its replica-local Err method. Provider constructors
+that fail during startup remain gated and pending reconciliation; only runtime
+instances that actually started are recorded as applied. Workerless startup queues
+are removed, and unchanged desired state retries initialization. Refresh disables
+prior runtime configuration for a quarantined provider without deleting its stored
 resource. Sync applies healthy changes before returning diagnostic errors for
 backoff retries, including when desired contents have not changed. Repairing the
 resource makes it eligible for application again. Blocking load errors fail
