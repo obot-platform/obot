@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -341,11 +342,19 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/oauth2/sign_out":
 	case "/oauth2/callback":
 	default:
-		http.Error(w, "not found", http.StatusNotFound)
-		return
+		if !isOAuth2StaticAsset(r.URL.Path) {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
 	}
 
 	p.proxy.ServeHTTP(w, r)
+}
+
+func isOAuth2StaticAsset(urlPath string) bool {
+	return strings.HasPrefix(urlPath, "/oauth2/static/") &&
+		!strings.HasSuffix(urlPath, "/") &&
+		path.Clean(urlPath) == urlPath
 }
 
 func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {

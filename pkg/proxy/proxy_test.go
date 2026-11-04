@@ -306,3 +306,91 @@ func TestCheckStateResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestProxyServeHTTPPathAllowlist(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(upstream.Close)
+
+	p, err := newProxy(system.DefaultNamespace, "test-auth-provider", upstream.URL, "")
+	if err != nil {
+		t.Fatalf("newProxy() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{
+			name:       "start",
+			path:       "/oauth2/start",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "callback",
+			path:       "/oauth2/callback",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "error page stylesheet",
+			path:       "/oauth2/static/css/obot-error.min.css",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "error page logo",
+			path:       "/oauth2/static/images/obot-icon-grumpy-blue.svg",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "other static file",
+			path:       "/oauth2/static/css/bulma.min.css",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "static directory listing",
+			path:       "/oauth2/static/css/",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "static root directory listing",
+			path:       "/oauth2/static/",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "static prefix without trailing slash",
+			path:       "/oauth2/static",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "path traversal out of static",
+			path:       "/oauth2/static/../userinfo",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "unclean static path",
+			path:       "/oauth2/static//css/obot-error.min.css",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "unlisted path",
+			path:       "/oauth2/userinfo",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			// Set the path directly, so that unclean paths reach serveHTTP as a client could send them.
+			req.URL.Path = tt.path
+			rec := httptest.NewRecorder()
+			p.serveHTTP(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}
