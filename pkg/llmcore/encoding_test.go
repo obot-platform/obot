@@ -43,3 +43,34 @@ func TestErrorMessagePreservesProviderText(t *testing.T) {
 		})
 	}
 }
+
+func TestUnspecifiedErrorStatusesUseCoreClassification(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		coreFailure bool
+		status      int
+		errType     string
+	}{
+		{
+			name:        "caller error",
+			coreFailure: false,
+			status:      http.StatusBadRequest,
+			errType:     "invalid_request_error",
+		},
+		{
+			name:        "internal failure",
+			coreFailure: true,
+			status:      http.StatusInternalServerError,
+			errType:     "api_error",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			status, errType, _ := errorParts(&schemas.BifrostError{
+				IsBifrostError: tt.coreFailure,
+				Error:          &schemas.ErrorField{Message: "failure without an explicit HTTP status"},
+			})
+			require.Equal(t, tt.status, status)
+			require.Equal(t, tt.errType, errType)
+		})
+	}
+}

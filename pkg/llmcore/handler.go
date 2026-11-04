@@ -234,12 +234,14 @@ func writeEvent(w http.ResponseWriter, name string, v any) error {
 
 // errorParts returns an engine error's status, type and message, without the engine's name.
 func errorParts(err *schemas.BifrostError) (int, string, string) {
-	status := http.StatusInternalServerError
-	if err.StatusCode != nil && *err.StatusCode >= http.StatusBadRequest {
-		status = *err.StatusCode
-	}
+	// Core validation failures can omit StatusCode. Use Bifrost's classification
+	// so those stay caller errors and explicit provider statuses take precedence.
+	status := err.EffectiveHTTPStatus()
 
 	errType, message := "api_error", "the LLM gateway failed to serve the request"
+	if status == http.StatusBadRequest {
+		errType = "invalid_request_error"
+	}
 	if err.Error != nil {
 		if err.Error.Type != nil && *err.Error.Type != "" {
 			errType = *err.Error.Type
