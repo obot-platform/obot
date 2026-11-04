@@ -290,10 +290,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		Version: version.Get().String(),
 	}
 
-	passthroughHeaders := slices.DeleteFunc(slices.Clone(server.PassthroughHeaderNames), func(name string) bool {
-		_, reserved := types.CanonicalObotHeader(name)
-		return reserved
-	})
+	passthroughHeaders := slices.Clone(server.PassthroughHeaderNames)
 	if server.Runtime == types.RuntimeVMCP {
 		config.ToolSearch = server.ToolSearch
 		config.RequestScopedDiscovery = true

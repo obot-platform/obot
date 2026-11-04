@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -40,10 +41,13 @@ func allObotHeaders() []types.ObotHeader {
 	return types.ObotHeaders()
 }
 
-func (r *headerIdentityReader) FindIdentitiesForUser(_ context.Context, userID uint) ([]gatewaytypes.Identity, error) {
+func (r *headerIdentityReader) FindIdentitiesForUserAndProvider(_ context.Context, userID uint, providerName, providerNamespace string) ([]gatewaytypes.Identity, error) {
 	r.calls++
 	r.userID = userID
-	return r.identities, r.err
+	return slices.DeleteFunc(slices.Clone(r.identities), func(identity gatewaytypes.Identity) bool {
+		return providerName != "" && identity.AuthProviderName != providerName ||
+			providerNamespace != "" && identity.AuthProviderNamespace != providerNamespace
+	}), r.err
 }
 
 func TestCallerObotHeaders(t *testing.T) {

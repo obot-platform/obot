@@ -167,7 +167,7 @@ func testVMCPAttributionPassthrough(t *testing.T, selected []types.ObotHeader) {
 	}
 }
 
-func (r *headerIdentityReader) FindIdentitiesForUser(_ context.Context, _ uint) ([]gatewaytypes.Identity, error) {
+func (r *headerIdentityReader) FindIdentitiesForUserAndProvider(_ context.Context, _ uint, _, _ string) ([]gatewaytypes.Identity, error) {
 	return r.identities, nil
 }
 

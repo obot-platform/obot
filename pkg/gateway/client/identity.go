@@ -66,8 +66,21 @@ type signInUserRow struct {
 
 // FindIdentitiesForUser finds all identities for the given user.
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
+	return c.FindIdentitiesForUserAndProvider(ctx, userID, "", "")
+}
+
+// FindIdentitiesForUserAndProvider finds a user's identities, filtering by each
+// nonempty provider field. API-key callers can omit both fields.
+func (c *Client) FindIdentitiesForUserAndProvider(ctx context.Context, userID uint, providerName, providerNamespace string) ([]types.Identity, error) {
+	query := c.db.WithContext(ctx).Where("user_id = ?", userID)
+	if providerName != "" {
+		query = query.Where("auth_provider_name = ?", providerName)
+	}
+	if providerNamespace != "" {
+		query = query.Where("auth_provider_namespace = ?", providerNamespace)
+	}
 	var identities []types.Identity
-	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Find(&identities).Error; err != nil {
+	if err := query.Find(&identities).Error; err != nil {
 		return nil, err
 	}
 

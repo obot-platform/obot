@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -662,7 +663,7 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 		ToolPreview:       m.ToolPreview,
 		Resources:         m.Resources,
 		Config:            m.DeepCopy().Config,
-		InjectObotHeaders: append([]ObotHeader(nil), m.InjectObotHeaders...),
+		InjectObotHeaders: slices.Clone(m.InjectObotHeaders),
 
 		StaticConfigurationRevision: m.StaticConfigurationRevision,
 	}

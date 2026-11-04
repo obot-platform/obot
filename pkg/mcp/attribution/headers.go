@@ -2,6 +2,7 @@
 package attribution
 
 import (
+	"cmp"
 	"context"
 	"encoding/csv"
 	"fmt"
@@ -27,7 +28,7 @@ const (
 // IdentityReader supplies stored identities for the authenticated caller.
 // It is only consulted when the destination selects the IdP user ID.
 type IdentityReader interface {
-	FindIdentitiesForUser(context.Context, uint) ([]gatewaytypes.Identity, error)
+	FindIdentitiesForUserAndProvider(context.Context, uint, string, string) ([]gatewaytypes.Identity, error)
 }
 
 // ForCaller derives only the attribution fields selected by the destination,
@@ -57,12 +58,12 @@ func callerHeaders(selected []types.ObotHeader, caller user.Info, idpUserID stri
 		types.ObotHeaderIDPUserID: idpUserID,
 		types.ObotHeaderUserID:    caller.GetUID(),
 		types.ObotHeaderUserName:  caller.GetName(),
-		types.ObotHeaderUserEmail: firstExtra(caller.GetExtra(), "email"),
+		types.ObotHeaderUserEmail: cmp.Or(caller.GetExtra()["email"]...),
 	}
 	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
 		values[types.ObotHeaderAPIKeyID] = strconv.FormatUint(uint64(key.ID), 10)
 		// The audit name may be a masked identifier. Never disclose it as a raw key name.
-		values[types.ObotHeaderAPIKeyName] = firstExtra(caller.GetExtra(), principal.APIKeyRawNameExtra)
+		values[types.ObotHeaderAPIKeyName] = cmp.Or(caller.GetExtra()[principal.APIKeyRawNameExtra]...)
 	}
 	for _, name := range selected {
 		header, ok := types.CanonicalObotHeader(string(name))
@@ -128,27 +129,17 @@ func selectedIDPUserID(ctx context.Context, reader IdentityReader, selected []ty
 	if err != nil {
 		return "", nil
 	}
-	identities, err := reader.FindIdentitiesForUser(ctx, uint(userID))
+	providerName := cmp.Or(caller.GetExtra()["auth_provider_name"]...)
+	providerNamespace := cmp.Or(caller.GetExtra()["auth_provider_namespace"]...)
+	identities, err := reader.FindIdentitiesForUserAndProvider(ctx, uint(userID), providerName, providerNamespace)
 	if err != nil {
 		return "", fmt.Errorf("resolve IdP user ID: %w", err)
 	}
-	providerName := firstExtra(caller.GetExtra(), "auth_provider_name")
-	providerNamespace := firstExtra(caller.GetExtra(), "auth_provider_namespace")
-	var matches []gatewaytypes.Identity
-	for _, identity := range identities {
-		if providerName != "" && identity.AuthProviderName != providerName {
-			continue
-		}
-		if providerNamespace != "" && identity.AuthProviderNamespace != providerNamespace {
-			continue
-		}
-		matches = append(matches, identity)
-	}
 	// API keys identify an account, not a provider identity. Never pick an arbitrary identity.
-	if len(matches) != 1 {
+	if len(identities) != 1 {
 		return "", nil
 	}
-	return matches[0].ProviderUserID, nil
+	return identities[0].ProviderUserID, nil
 }
 
 // Selected copies only the destination's selected attribution from trusted internal
@@ -201,11 +192,4 @@ func Configured(static, keys, values []string) http.Header {
 		}
 	}
 	return headers
-}
-
-func firstExtra(extra map[string][]string, key string) string {
-	if values := extra[key]; len(values) > 0 {
-		return values[0]
-	}
-	return ""
 }

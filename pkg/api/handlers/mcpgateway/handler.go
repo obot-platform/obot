@@ -662,13 +662,13 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		OAuthClientID:         cmp.Or(caller.GetExtra()["oauth_client_id"]...),
 		OAuthConnectionID:     connectionID,
 		AuthorizedMCPIDs:      authorizedMCPIDs,
-		AuthProviderName:      firstExtra(caller.GetExtra(), "auth_provider_name"),
-		AuthProviderNamespace: firstExtra(caller.GetExtra(), "auth_provider_namespace"),
+		AuthProviderName:      cmp.Or(caller.GetExtra()["auth_provider_name"]...),
+		AuthProviderNamespace: cmp.Or(caller.GetExtra()["auth_provider_namespace"]...),
 	}
 	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
 		tokenContext.APIKeyID = fmt.Sprint(key.ID)
 		tokenContext.APIKeyName = key.Name
-		tokenContext.APIKeyRawName = firstExtra(caller.GetExtra(), principal.APIKeyRawNameExtra)
+		tokenContext.APIKeyRawName = cmp.Or(caller.GetExtra()[principal.APIKeyRawNameExtra]...)
 	}
 	if authz.IsClaudeEnvironment(caller) {
 		tokenContext.UserGroups = append(tokenContext.UserGroups, types.GroupClaudeEnvironment)

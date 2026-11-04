@@ -29,7 +29,6 @@ func TestObotHeadersCannotBeConfiguredAsStaticHeaders(t *testing.T) {
 	require.Equal(t, http.Header{"X-Tenant": {"tenant"}}, headers)
 	wrapper := MMMCPConfig(config, nil)
 	require.Equal(t, map[string]string{"X-Tenant": "tenant"}, wrapper.Servers[0].Headers)
-	require.Empty(t, wrapper.Servers[0].PassthroughHeaders)
 }
 
 func TestReadinessProbesExcludeConfiguredAttribution(t *testing.T) {

@@ -56,16 +56,16 @@ func ValidateObotHeaders(runtime Runtime, headers []ObotHeader) error {
 	if len(headers) > 0 && !SupportsObotHeaders(runtime) {
 		return fmt.Errorf("injectObotHeaders is only supported for remote MCP servers")
 	}
-	seen := make(map[ObotHeader]bool, len(headers))
+	seen := make(map[ObotHeader]struct{}, len(headers))
 	for _, name := range headers {
 		header, ok := CanonicalObotHeader(string(name))
 		if !ok {
 			return fmt.Errorf("unsupported injectObotHeaders header %q", name)
 		}
-		if seen[header] {
+		if _, exists := seen[header]; exists {
 			return fmt.Errorf("duplicate injectObotHeaders header %q", name)
 		}
-		seen[header] = true
+		seen[header] = struct{}{}
 	}
 	return nil
 }
