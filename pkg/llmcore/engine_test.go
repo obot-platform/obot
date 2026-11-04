@@ -793,10 +793,13 @@ func TestRouteSurvivesMissingProvider(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, replica := range []*replica{env.A, env.B} {
-		for range 2 {
+		for attempt := range 2 {
 			changed, err := replica.engine.Sync(ctx)
-			if !changed || err == nil {
-				t.Fatalf("incomplete route must retry: changed=%t err=%v", changed, err)
+			if changed != (attempt == 0) || err != nil {
+				t.Fatalf("applied route must converge despite its missing target: changed=%t err=%v", changed, err)
+			}
+			if diagnostic := replica.engine.Err(); diagnostic == nil || !strings.Contains(diagnostic.Error(), "anthropic is not configured") {
+				t.Fatalf("missing target must remain visible: %v", diagnostic)
 			}
 		}
 		n := nonce("missing-provider")

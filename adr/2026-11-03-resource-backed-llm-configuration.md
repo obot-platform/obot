@@ -98,7 +98,10 @@ bound shutdown.
 Cross-resource reads are eventually consistent and do not form a transactional
 snapshot. Deleting a provider retains routing rules that target it. Runtime
 integration must tolerate these dangling references, keep healthy providers
-serving, and report missing dependencies with bounded/backoff retries. Affected
+serving, and report missing dependencies through Err, including at startup.
+An applied rule with a missing target does not fail Sync or force repeated model
+discovery. A provider or rule resource event reconciles the repair and clears the
+diagnostic. Actual application and discovery failures remain retryable. Affected
 requests fail or use their configured fallbacks; missing targets must not silently
 disable or bypass routing policy.
 

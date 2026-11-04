@@ -125,18 +125,28 @@ func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
 	// An unrelated provider must still apply and become discoverable.
 	require.NoError(t, store.CreateProvider(ctx, "gemini", llmcoreclient.Provider{}))
 	discoveries := 0
+	discoveryErr := errors.New("discovery unavailable")
 	handler := New(&testEngine{ready: true, core: core}, func(context.Context) error {
 		discoveries++
 		providers, err := core.Client().GetConfiguredProviders()
 		require.NoError(t, err)
 		require.Contains(t, providers, schemas.Gemini)
 		require.NotContains(t, providers, schemas.Anthropic)
+		if discoveries == 1 {
+			return discoveryErr
+		}
 		return nil
 	})
-	for range 2 {
-		require.ErrorContains(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}), "anthropic is not configured")
-	}
-	require.Equal(t, 2, discoveries)
+	require.ErrorIs(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}), discoveryErr)
+	require.ErrorContains(t, core.Err(), "anthropic is not configured")
+	response := &retryResponse{}
+	require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, response), "the dangling reference must not force another retry")
+	require.Zero(t, response.delay)
+	require.Equal(t, 2, discoveries, "failed discovery still retries with an unchanged dangling rule")
+	changed, err := core.Sync(ctx)
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.ErrorContains(t, core.Err(), "anthropic is not configured")
 	loaded, err := store.Load(ctx)
 	require.NoError(t, err)
 	require.Contains(t, loaded.Config.Rules, "keep-policy")

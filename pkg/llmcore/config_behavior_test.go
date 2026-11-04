@@ -189,16 +189,55 @@ func TestRoutingTargetProviderInheritanceConverges(t *testing.T) {
 			}
 
 			// A named dependency still has to exist, and its policy stays live
-			// while reconciliation reports the missing provider for retry.
+			// while Err reports the missing provider without forcing retries.
 			rule.Targets[0].Provider = schemas.Ptr("missing-provider")
 			require.NoError(t, store.PutRule(t.Context(), rule))
-			for range 2 {
-				_, err = engine.Sync(t.Context())
-				require.ErrorContains(t, err, "missing-provider")
+			for attempt := range 2 {
+				changed, err = engine.Sync(t.Context())
+				require.NoError(t, err, "a missing dependency is diagnostic, not an application failure")
+				require.Equal(t, attempt == 0, changed)
 				require.ErrorContains(t, engine.Err(), "missing-provider")
 			}
 			response := configTestChat(engine, "")
 			require.GreaterOrEqual(t, response.Code, http.StatusBadRequest, "a missing named target must not silently bypass the rule")
+		})
+	}
+}
+
+func TestMissingRoutingProviderDiagnosticsAtStartupAndRecovery(t *testing.T) {
+	for _, repair := range []string{"create provider", "edit rule", "delete rule"} {
+		t.Run(repair, func(t *testing.T) {
+			rule := configRoutingRule("true", "routed")
+			rule.Targets[0].Provider = schemas.Ptr("missing-provider")
+			engine, store := newRoutingConfigEngine(t, rule)
+			require.ErrorContains(t, engine.Err(), "missing-provider", "startup must expose the dangling reference")
+			changed, err := engine.Sync(t.Context())
+			require.NoError(t, err)
+			require.False(t, changed)
+			require.ErrorContains(t, engine.Err(), "missing-provider")
+			response := configTestChat(engine, "")
+			require.GreaterOrEqual(t, response.Code, http.StatusBadRequest, "the rule must stay active")
+			switch repair {
+			case "create provider":
+				provider, err := store.GetProvider(t.Context(), "openai")
+				require.NoError(t, err)
+				require.NoError(t, store.CreateProvider(t.Context(), "missing-provider", provider))
+			case "edit rule":
+				rule.Targets[0].Provider = schemas.Ptr("openai")
+				require.NoError(t, store.PutRule(t.Context(), rule))
+			case "delete rule":
+				require.NoError(t, store.DeleteRule(t.Context(), rule.ID))
+			}
+			changed, err = engine.Sync(t.Context())
+			require.NoError(t, err)
+			require.True(t, changed)
+			require.NoError(t, engine.Err(), "repair clears the diagnostic")
+			response = configTestChat(engine, "")
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			changed, err = engine.Sync(t.Context())
+			require.NoError(t, err)
+			require.False(t, changed)
+			require.NoError(t, engine.Err())
 		})
 	}
 }

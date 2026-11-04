@@ -36,8 +36,8 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 	}
 	// Reload desired resources through Sync rather than applying a stale event payload.
 	_, syncErr := h.engine.Sync(req.Ctx)
-	// Sync can apply healthy providers while preserving a rule whose target is
-	// missing. Discover those successes even while incomplete application retries.
+	// Sync can apply healthy providers despite other application failures.
+	// Discover those successes even while incomplete application retries.
 	// Always retry discovery too: a previous trigger may have failed after Sync
 	// finished, leaving no runtime change on the next attempt.
 	return errors.Join(syncErr, h.triggerModelSync(req.Ctx))

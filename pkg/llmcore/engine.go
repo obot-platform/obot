@@ -58,7 +58,8 @@ type Engine struct {
 	// are protected by syncLock; Shutdown joins removals before stopping core.
 	retirements map[schemas.ModelProvider]*providerRetirement
 	stopped     bool
-	// syncErr includes provider load diagnostics even when startup can serve healthy providers.
+	// syncErr includes load/application failures and non-retryable routing diagnostics,
+	// even when healthy providers can serve requests.
 	syncErr error
 	// applied is the configuration last applied.
 	applied llmcoreclient.Config
@@ -209,7 +210,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	// provider instances, not the desired configuration, tell us what started.
 	// Clone before filtering: the account must retain the complete desired view.
 	e.applied.Providers = maps.Clone(cfg.Providers)
-	startupErrors := []error{providerLoadErrors(loaded.ProviderErrors)}
+	startupErrors := []error{providerLoadErrors(loaded.ProviderErrors), routingDependencyWarnings(cfg)}
 	for name := range cfg.Providers {
 		if e.client.GetProviderByKey(name) == nil {
 			delete(e.applied.Providers, name)
@@ -249,11 +250,15 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	// Unreadable aggregates are omitted from Config. Applying that view removes
 	// their runtime providers and keys while still advancing healthy changes.
 	changed, applyErr := e.apply(ctx, loaded.Config)
-	e.syncErr = errors.Join(providerLoadErrors(loaded.ProviderErrors), applyErr)
-	return changed, e.syncErr
+	retryErr := errors.Join(providerLoadErrors(loaded.ProviderErrors), applyErr)
+	// Dangling references are already applied policy. Retrying cannot repair
+	// them; a provider/rule resource event will reconcile the eventual repair.
+	e.syncErr = errors.Join(retryErr, routingDependencyWarnings(loaded.Config))
+	return changed, retryErr
 }
 
-// Err reports replica-local load and application failures, including degraded startup.
+// Err reports replica-local load/application failures and routing diagnostics,
+// including degraded startup. A missing routing dependency alone does not fail Sync.
 func (e *Engine) Err() error {
 	e.syncLock.Lock()
 	defer e.syncLock.Unlock()
@@ -264,6 +269,24 @@ func providerLoadErrors(diagnostics []llmcoreclient.ProviderLoadError) error {
 	errs := make([]error, 0, len(diagnostics))
 	for _, diagnostic := range diagnostics {
 		errs = append(errs, diagnostic)
+	}
+	return errors.Join(errs...)
+}
+
+func routingDependencyWarnings(cfg llmcoreclient.Config) error {
+	// Keep rules live even when their primary provider is absent: dropping them
+	// would bypass routing policy. Missing optional fallbacks remain in the
+	// chain for request-time handling and do not invalidate a healthy primary.
+	var errs []error
+	for id, rule := range cfg.Rules {
+		for _, target := range rule.Targets {
+			// Both omitted and empty providers inherit the request's provider.
+			if target.Provider != nil && *target.Provider != "" {
+				if _, ok := cfg.Providers[schemas.ModelProvider(*target.Provider)]; !ok {
+					errs = append(errs, fmt.Errorf("routing rule %s: provider %s is not configured", id, *target.Provider))
+				}
+			}
+		}
 	}
 	return errors.Join(errs...)
 }
@@ -371,19 +394,6 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 				errs = append(errs, err)
 			} else {
 				delete(old.Rules, id)
-			}
-		}
-	}
-	// Keep rules live even when their primary provider is absent: dropping them
-	// would bypass routing policy. Missing optional fallbacks are left in the
-	// chain for request-time handling; they do not invalidate a healthy primary.
-	for id, rule := range cfg.Rules {
-		for _, target := range rule.Targets {
-			// Both omitted and empty providers inherit the request's provider.
-			if target.Provider != nil && *target.Provider != "" {
-				if _, ok := cfg.Providers[schemas.ModelProvider(*target.Provider)]; !ok {
-					errs = append(errs, fmt.Errorf("routing rule %s: provider %s is not configured", id, *target.Provider))
-				}
 			}
 		}
 	}
