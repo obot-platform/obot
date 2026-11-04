@@ -353,7 +353,13 @@
 		<button
 			type="button"
 			class="btn btn-text self-start pl-0"
-			onclick={() => (showAdvanced = !showAdvanced)}
+			onclick={() => {
+				showAdvanced = !showAdvanced;
+				// Hidden attribution settings must not keep sharing caller identity.
+				if (!showAdvanced && !readonly) {
+					injectObotHeaders = [];
+				}
+			}}
 		>
 			{showAdvanced
 				? m.mcps_catalog_remote_hide_advanced()

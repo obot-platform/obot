@@ -10,6 +10,45 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('catalog attribution headers', () => {
+	it.each([false, true])(
+		'handles collapsing containerized attribution with readonly=%s',
+		async (readonly) => {
+			const entry = createMCPCatalogEntry({
+				id: 'jira',
+				name: 'Jira',
+				runtime: 'containerized',
+				manifest: {
+					containerizedConfig: { image: 'example/jira:latest', port: 8080, path: '/mcp' },
+					injectObotHeaders: ['X-Obot-User-Id']
+				}
+			});
+			let submitted: MCPCatalogEntryServerManifest | undefined;
+			worker.use(
+				http.put('/api/mcp-catalogs/test/entries/jira', async ({ request }) => {
+					submitted = (await request.json()) as MCPCatalogEntryServerManifest;
+					return HttpResponse.json(createMCPCatalogEntryResponse);
+				})
+			);
+			await render(CatalogServerForm, { id: 'test', entity: 'catalog', entry, readonly });
+			await expect
+				.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
+				.toBeChecked();
+			await page.getByRole('button', { name: 'Hide Advanced Configuration', exact: true }).click();
+			await expect
+				.element(page.getByText('Inject Obot headers', { exact: true }))
+				.not.toBeInTheDocument();
+			if (readonly) {
+				await page.getByRole('button', { name: 'Advanced Configuration', exact: true }).click();
+				await expect
+					.element(page.getByRole('switch', { name: 'X-Obot-User-Id', exact: true }))
+					.toBeChecked();
+				return;
+			}
+			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
+			await vi.waitFor(() => expect(submitted?.injectObotHeaders).toEqual([]));
+		}
+	);
+
 	it('clears saved headers when the master toggle is disabled', async () => {
 		const entry = createMCPCatalogEntry({
 			id: 'jira',
