@@ -85,4 +85,27 @@ func TestCoreConfigurationWithoutEncryption(t *testing.T) {
 	provider, err := store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	require.Equal(t, "unencrypted-value", provider.Keys[0].Value.GetValue())
+
+	// Enabling encryption keeps existing plaintext readable without rewriting it.
+	plaintextPayload := providers.Items[0].Spec.Payload
+	block, err := aes.NewCipher([]byte(strings.Repeat("k", 32)))
+	require.NoError(t, err)
+	transformer, err := aesstorage.NewGCMTransformer(block)
+	require.NoError(t, err)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{Transformers: map[schema.GroupResource]value.Transformer{credentialGroupResource: transformer}}
+	provider, err = store.GetProvider(t.Context(), "openai")
+	require.NoError(t, err)
+	require.Equal(t, "unencrypted-value", provider.Keys[0].Value.GetValue())
+	require.NoError(t, storage.List(t.Context(), &providers))
+	require.Equal(t, plaintextPayload, providers.Items[0].Spec.Payload)
+
+	// A persisted change uses the newly enabled encryption policy.
+	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "one", Value: *schemas.NewSecretVar("rotated-value")}))
+	require.NoError(t, storage.List(t.Context(), &providers))
+	require.NoError(t, json.Unmarshal([]byte(providers.Items[0].Spec.Payload), &envelope))
+	require.True(t, envelope.Encrypted)
+	require.NotContains(t, providers.Items[0].Spec.Payload, "rotated-value")
+	provider, err = store.GetProvider(t.Context(), "openai")
+	require.NoError(t, err)
+	require.Equal(t, "rotated-value", provider.Keys[0].Value.GetValue())
 }

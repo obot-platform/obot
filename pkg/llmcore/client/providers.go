@@ -117,6 +117,8 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 	})
 }
 
+// DeleteProvider removes the provider and its keys but retains referencing rules.
+// Reconcilers must tolerate missing targets without silently bypassing routing policy.
 func (s *Client) DeleteProvider(ctx context.Context, name string) error {
 	return kclient.IgnoreNotFound(s.storage.Delete(ctx, &v1.LLMGatewayProvider{Name: resourceName(name), Namespace: system.DefaultNamespace}))
 }
@@ -145,6 +147,8 @@ func resourceKey(name string) kclient.ObjectKey {
 	return kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: resourceName(name)}
 }
 
+// A create can race with another writer and return AlreadyExists. Retrying reloads
+// the winning resource so partial edits can be applied to its latest contents.
 func isWriteConflict(err error) bool {
 	return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
 }
@@ -154,6 +158,10 @@ func providerConfigID(name string) string {
 	return "provider/" + name
 }
 
+// validateKeys enforces storage identity, not provider-specific authentication.
+// Providers may have no keys, and key values may be empty when credentials come
+// from provider-specific fields or ambient authentication. Callers and the runtime
+// are responsible for validating authentication for the selected provider.
 func validateKeys(keys []schemas.Key) error {
 	ids := map[string]bool{}
 	for _, key := range keys {

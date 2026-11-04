@@ -28,7 +28,7 @@ func (c *Controller) setupEveryReplicaRoutes() {
 	// Providers and routing rules can have multiple names, so their watches are unfiltered.
 	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayConfig{}).
 		Namespace(system.DefaultNamespace).
-		Name("default").
+		Name(system.LLMGatewayConfigName).
 		IncludeRemoved().
 		HandlerFunc(reconcileLLMGatewayConfig)
 

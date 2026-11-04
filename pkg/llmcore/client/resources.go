@@ -13,9 +13,16 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Hash arbitrary logical IDs into resource names. The 56-character result
+// (prefix plus 48 hex digits) stays below the 63-character DNS-label limit.
 func resourceName(id string) string { return fmt.Sprintf("gateway-%x", sha256.Sum256([]byte(id)))[:56] }
 
-func (s *Client) loadResources(ctx context.Context) (Config, error) {
+// Load assembles independently versioned resources. It does not provide a
+// transactional snapshot; runtime reconciliation must tolerate temporary
+// missing dependencies and retry until the desired configuration converges.
+// Resource watches drive reconciliation; the engine compares desired state
+// against what it has successfully applied.
+func (s *Client) Load(ctx context.Context) (Config, error) {
 	cfg := Config{
 		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{},
 		Keys:      map[schemas.ModelProvider][]schemas.Key{},

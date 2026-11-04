@@ -12,10 +12,15 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// settingsCodecID binds the global settings payload to its credential envelope.
+const (
+	settingsCodecID = "settings"
+)
+
 func (s *Client) GetSettings(ctx context.Context) (map[string]json.RawMessage, error) {
 	var obj v1.LLMGatewayConfig
 	settings := map[string]json.RawMessage{}
-	err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "default"}, &obj)
+	err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.LLMGatewayConfigName}, &obj)
 	if apierrors.IsNotFound(err) {
 		return settings, nil
 	}
@@ -23,7 +28,7 @@ func (s *Client) GetSettings(ctx context.Context) (map[string]json.RawMessage, e
 		return nil, err
 	}
 
-	if err := s.decode(ctx, "settings", obj.Spec.Payload, &settings); err != nil {
+	if err := s.decode(ctx, settingsCodecID, obj.Spec.Payload, &settings); err != nil {
 		return nil, err
 	}
 	if settings == nil {
@@ -37,7 +42,7 @@ func (s *Client) GetSettings(ctx context.Context) (map[string]json.RawMessage, e
 func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json.RawMessage) error) error {
 	return retry.OnError(retry.DefaultRetry, isWriteConflict, func() error {
 		var obj v1.LLMGatewayConfig
-		err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "default"}, &obj)
+		err := s.storage.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.LLMGatewayConfigName}, &obj)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
@@ -45,7 +50,7 @@ func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json
 		exists := err == nil
 		settings := map[string]json.RawMessage{}
 		if exists {
-			if err := s.decode(ctx, "settings", obj.Spec.Payload, &settings); err != nil {
+			if err := s.decode(ctx, settingsCodecID, obj.Spec.Payload, &settings); err != nil {
 				return err
 			}
 		}
@@ -71,14 +76,14 @@ func (s *Client) MutateSettings(ctx context.Context, change func(map[string]json
 			return nil
 		}
 
-		payload, err := s.encode(ctx, "settings", settings)
+		payload, err := s.encode(ctx, settingsCodecID, settings)
 		if err != nil {
 			return err
 		}
 
-		obj.Name = "default"
+		obj.Name = system.LLMGatewayConfigName
 		obj.Namespace = system.DefaultNamespace
-		obj.Spec = v1.LLMGatewayResourceSpec{ID: "default", Payload: payload}
+		obj.Spec = v1.LLMGatewayResourceSpec{ID: system.LLMGatewayConfigName, Payload: payload}
 		if !exists {
 			return s.storage.Create(ctx, &obj)
 		}

@@ -54,6 +54,9 @@ func (s *Client) editRule(ctx context.Context, id string, create bool, change fu
 			return err
 		}
 		rule.ID = id
+		// Rules are non-secret configuration stored as plaintext JSON, without
+		// credential-envelope identity binding. Callers must keep credentials
+		// out of CEL expressions and header-match literals.
 		payload, err := json.Marshal(rule)
 		if err != nil {
 			return err
@@ -81,6 +84,8 @@ func decodeRule(spec v1.LLMGatewayResourceSpec) (tables.TableRoutingRule, error)
 		return rule, err
 	}
 
+	// The resource spec owns rule identity; any ID in the payload is ignored.
+	// Target RuleIDs are omitted from JSON and must be restored for the engine.
 	rule.ID = spec.ID
 	for i := range rule.Targets {
 		rule.Targets[i].RuleID = rule.ID
