@@ -22,7 +22,10 @@ func resourceName(id string) string { return fmt.Sprintf("gateway-%x", sha256.Su
 // missing dependencies and retry until the desired configuration converges.
 // Resource watches drive reconciliation; the engine compares desired state
 // against what it has successfully applied.
-func (s *Client) Load(ctx context.Context) (Config, error) {
+// Unreadable providers are omitted together with all their keys and reported in
+// ProviderErrors. Collection, routing-rule, and settings errors are blocking:
+// callers must discard the result when the returned error is non-nil.
+func (s *Client) Load(ctx context.Context) (LoadResult, error) {
 	cfg := Config{
 		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{},
 		Keys:      map[schemas.ModelProvider][]schemas.Key{},
@@ -30,11 +33,12 @@ func (s *Client) Load(ctx context.Context) (Config, error) {
 		Settings:  map[string]json.RawMessage{},
 	}
 
+	result := LoadResult{}
 	var providers v1.LLMGatewayProviderList
 	var rules v1.LLMGatewayRoutingRuleList
 	for _, list := range []kclient.ObjectList{&providers, &rules} {
 		if err := s.storage.List(ctx, list, kclient.InNamespace(system.DefaultNamespace)); err != nil {
-			return cfg, err
+			return LoadResult{}, err
 		}
 	}
 
@@ -43,7 +47,8 @@ func (s *Client) Load(ctx context.Context) (Config, error) {
 
 		var data Provider
 		if err := s.decode(ctx, providerConfigID(p.Spec.ID), p.Spec.Payload, &data); err != nil {
-			return cfg, err
+			result.ProviderErrors = append(result.ProviderErrors, ProviderLoadError{Provider: schemas.ModelProvider(p.Spec.ID), Namespace: p.Namespace, ResourceName: p.Name, Err: err})
+			continue
 		}
 
 		name := schemas.ModelProvider(p.Spec.ID)
@@ -56,7 +61,7 @@ func (s *Client) Load(ctx context.Context) (Config, error) {
 
 		rule, err := decodeRule(r.Spec)
 		if err != nil {
-			return cfg, err
+			return LoadResult{}, fmt.Errorf("routing rule %q (%s/%s): %w", r.Spec.ID, r.Namespace, r.Name, err)
 		}
 
 		cfg.Rules[rule.ID] = rule
@@ -64,8 +69,9 @@ func (s *Client) Load(ctx context.Context) (Config, error) {
 
 	settings, err := s.GetSettings(ctx)
 	if err != nil {
-		return cfg, err
+		return LoadResult{}, fmt.Errorf("global settings %s/%s: %w", system.DefaultNamespace, system.LLMGatewayConfigName, err)
 	}
 	cfg.Settings = settings
-	return cfg, nil
+	result.Config = cfg
+	return result, nil
 }

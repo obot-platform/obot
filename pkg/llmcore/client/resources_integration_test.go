@@ -38,7 +38,7 @@ func testResourceAPI(t *testing.T, dsn string) {
 	watch, err := api.Watch(ctx, &v1.LLMGatewayProviderList{}, kclient.InNamespace(system.DefaultNamespace))
 	require.NoError(t, err)
 	defer watch.Stop()
-	require.NoError(t, store.PutProvider(ctx, "openai", client.Provider{}))
+	require.NoError(t, store.CreateProvider(ctx, "openai", client.Provider{}))
 	select {
 	case event := <-watch.ResultChan():
 		require.NotNil(t, event.Object)
@@ -57,12 +57,12 @@ func testResourceAPI(t *testing.T, dsn string) {
 	}
 	cfg, err := store.Load(ctx)
 	require.NoError(t, err)
-	require.Len(t, cfg.Keys["openai"], 2)
+	require.Len(t, cfg.Config.Keys["openai"], 2)
 	require.NoError(t, store.DeleteProvider(ctx, "openai"))
-	require.NoError(t, store.PutProvider(ctx, "openai", client.Provider{}))
+	require.NoError(t, store.CreateProvider(ctx, "openai", client.Provider{}))
 	cfg, err = store.Load(ctx)
 	require.NoError(t, err)
-	require.Empty(t, cfg.Keys["openai"])
+	require.Empty(t, cfg.Config.Keys["openai"])
 }
 
 func TestResourceAPIPostgres(t *testing.T) {

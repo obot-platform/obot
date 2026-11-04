@@ -52,34 +52,19 @@ func (s *Client) CreateProvider(ctx context.Context, name string, provider Provi
 	})
 }
 
-// PutProvider replaces a provider and its keys, or creates the aggregate if absent.
-func (s *Client) PutProvider(ctx context.Context, name string, provider Provider) error {
-	if name == "" {
-		return fmt.Errorf("a provider needs a name")
-	}
-	return s.editProvider(ctx, name, true, func(p *Provider) error { *p = provider; return nil })
-}
-
 // MutateProvider changes an existing provider atomically. On conflict, change is
 // called again with the latest settings and keys; it must not have side effects.
 func (s *Client) MutateProvider(ctx context.Context, name string, change func(*Provider) error) error {
-	return s.editProvider(ctx, name, false, change)
-}
-
-func (s *Client) editProvider(ctx context.Context, name string, create bool, change func(*Provider) error) error {
 	return retry.OnError(retry.DefaultRetry, isWriteConflict, func() error {
 		obj := v1.LLMGatewayProvider{}
 		err := s.storage.Get(ctx, resourceKey(name), &obj)
-		exists := err == nil
-		if err != nil && (!apierrors.IsNotFound(err) || !create) {
+		if err != nil {
 			return err
 		}
 
 		var provider Provider
-		if exists {
-			if err := s.decode(ctx, providerConfigID(name), obj.Spec.Payload, &provider); err != nil {
-				return err
-			}
+		if err := s.decode(ctx, providerConfigID(name), obj.Spec.Payload, &provider); err != nil {
+			return err
 		}
 
 		before, err := json.Marshal(provider)
@@ -98,7 +83,7 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 		if err != nil {
 			return err
 		}
-		if exists && bytes.Equal(before, after) {
+		if bytes.Equal(before, after) {
 			return nil
 		}
 
@@ -110,9 +95,6 @@ func (s *Client) editProvider(ctx context.Context, name string, create bool, cha
 		obj.Name = resourceName(name)
 		obj.Namespace = system.DefaultNamespace
 		obj.Spec = v1.LLMGatewayResourceSpec{ID: name, Payload: payload}
-		if !exists {
-			return s.storage.Create(ctx, &obj)
-		}
 		return s.storage.Update(ctx, &obj)
 	})
 }

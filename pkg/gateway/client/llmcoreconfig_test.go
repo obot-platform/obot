@@ -30,7 +30,7 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, c)
 	require.NoError(t, err)
-	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{"X-Secret": "header-secret"}}}}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{"X-Secret": "header-secret"}}}}))
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key-1", Name: "test", Value: *schemas.NewSecretVar("provider-secret")}))
 	settingValue := json.RawMessage(`{"token":"setting-secret"}`)
 	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
@@ -50,9 +50,9 @@ func TestCoreConfigurationUsesCredentialEncryption(t *testing.T) {
 
 	cfg, err := store.Load(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, "provider-secret", cfg.Keys[schemas.OpenAI][0].Value.GetValue())
-	require.Equal(t, "header-secret", cfg.Providers[schemas.OpenAI].NetworkConfig.ExtraHeaders["X-Secret"])
-	require.JSONEq(t, string(settingValue), string(cfg.Settings["sensitive"]))
+	require.Equal(t, "provider-secret", cfg.Config.Keys[schemas.OpenAI][0].Value.GetValue())
+	require.Equal(t, "header-secret", cfg.Config.Providers[schemas.OpenAI].NetworkConfig.ExtraHeaders["X-Secret"])
+	require.JSONEq(t, string(settingValue), string(cfg.Config.Settings["sensitive"]))
 
 	_, err = c.OpenGatewayConfig(t.Context(), "key/wrong", []byte(provider.Spec.Payload))
 	require.ErrorContains(t, err, "identity")
@@ -74,7 +74,7 @@ func TestCoreConfigurationWithoutEncryption(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, c)
 	require.NoError(t, err)
-	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{Keys: []schemas.Key{{ID: "one", Value: *schemas.NewSecretVar("unencrypted-value")}}}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{Keys: []schemas.Key{{ID: "one", Value: *schemas.NewSecretVar("unencrypted-value")}}}))
 	var providers v1.LLMGatewayProviderList
 	require.NoError(t, storage.List(t.Context(), &providers))
 	require.Len(t, providers.Items, 1)
@@ -108,4 +108,45 @@ func TestCoreConfigurationWithoutEncryption(t *testing.T) {
 	provider, err = store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	require.Equal(t, "rotated-value", provider.Keys[0].Value.GetValue())
+}
+
+func TestLoadReportsProviderCodecFailures(t *testing.T) {
+	c := newTestClient(t)
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, c)
+	require.NoError(t, err)
+	for _, name := range []string{"healthy", "swapped", "source"} {
+		require.NoError(t, store.CreateProvider(t.Context(), name, llmcoreclient.Provider{Keys: []schemas.Key{{ID: "key"}}}))
+	}
+	var rows v1.LLMGatewayProviderList
+	require.NoError(t, storage.List(t.Context(), &rows))
+	payload := ""
+	for _, row := range rows.Items {
+		if row.Spec.ID == "source" {
+			payload = row.Spec.Payload
+		}
+	}
+	for i := range rows.Items {
+		row := &rows.Items[i]
+		if row.Spec.ID == "swapped" {
+			row.Spec.Payload = payload
+			require.NoError(t, storage.Update(t.Context(), row))
+		}
+	}
+	loaded, err := store.Load(t.Context())
+	require.NoError(t, err)
+	require.Len(t, loaded.Config.Providers, 2)
+	require.Len(t, loaded.ProviderErrors, 1)
+	require.ErrorContains(t, loaded.ProviderErrors[0], "identity")
+	block, err := aes.NewCipher([]byte(strings.Repeat("k", 32)))
+	require.NoError(t, err)
+	transformer, err := aesstorage.NewGCMTransformer(block)
+	require.NoError(t, err)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{Transformers: map[schema.GroupResource]value.Transformer{credentialGroupResource: transformer}}
+	require.NoError(t, store.CreateProvider(t.Context(), "encrypted", llmcoreclient.Provider{}))
+	c.encryptionConfig = nil
+	loaded, err = store.Load(t.Context())
+	require.NoError(t, err)
+	require.Len(t, loaded.Config.Providers, 2)
+	require.Len(t, loaded.ProviderErrors, 2)
 }

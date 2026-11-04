@@ -37,20 +37,20 @@ func TestLoadOnlyDefaultSettings(t *testing.T) {
 				require.NoError(t, err)
 				settings, err := store.GetSettings(t.Context())
 				require.NoError(t, err)
-				require.Equal(t, before.Settings, cfg.Settings)
-				require.Equal(t, settings, cfg.Settings)
+				require.Equal(t, before.Config.Settings, cfg.Config.Settings)
+				require.Equal(t, settings, cfg.Config.Settings)
 			}
 			require.NoError(t, storage.Delete(t.Context(), &extra))
 			cfg, err := store.Load(t.Context())
 			require.NoError(t, err)
-			require.Equal(t, before.Settings, cfg.Settings)
+			require.Equal(t, before.Config.Settings, cfg.Config.Settings)
 			require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
 				settings["proxy"] = json.RawMessage(`{"enabled":false}`)
 				return nil
 			}))
 			cfg, err = store.Load(t.Context())
 			require.NoError(t, err)
-			require.NotEqual(t, before.Settings, cfg.Settings)
+			require.NotEqual(t, before.Config.Settings, cfg.Config.Settings)
 		})
 	}
 }

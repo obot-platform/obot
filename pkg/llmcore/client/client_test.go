@@ -24,7 +24,7 @@ import (
 func TestProviderAggregate(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store := newStore(t, storage)
-	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", client.Provider{}))
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key"}))
 	var rows v1.LLMGatewayProviderList
 	require.NoError(t, storage.List(t.Context(), &rows))
@@ -43,23 +43,23 @@ func TestProviderAggregate(t *testing.T) {
 	}))
 	after, err = store.Load(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, after.Keys["openai"])
+	require.Empty(t, after.Config.Keys["openai"])
 	require.NoError(t, store.DeleteProvider(t.Context(), "openai"))
 	after, err = store.Load(t.Context())
 	require.NoError(t, err)
-	require.Empty(t, after.Providers)
-	require.Empty(t, after.Keys)
+	require.Empty(t, after.Config.Providers)
+	require.Empty(t, after.Config.Keys)
 }
 func TestProviderEditPreservesRoutingTargets(t *testing.T) {
 	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
-	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", client.Provider{}))
 	require.NoError(t, store.PutRule(t.Context(), tables.TableRoutingRule{ID: "route", Scope: "global", Targets: []tables.TableRoutingTarget{{RuleID: "route", Provider: new("openai")}}}))
 	before, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, store.PutKey(t.Context(), "openai", schemas.Key{ID: "key"}))
 	after, err := store.Load(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, before.Rules, after.Rules)
+	require.Equal(t, before.Config.Rules, after.Config.Rules)
 }
 
 // Reject reads of any other resource, as well as collection reads. This catches
@@ -71,9 +71,11 @@ func TestWritesTouchOnlyOwningResource(t *testing.T) {
 		write func(*client.Client) error
 	}{
 		{
-			name:  "provider",
-			kind:  &v1.LLMGatewayProvider{},
-			write: func(s *client.Client) error { return s.PutProvider(t.Context(), "openai", client.Provider{}) },
+			name: "provider",
+			kind: &v1.LLMGatewayProvider{},
+			write: func(s *client.Client) error {
+				return s.MutateProvider(t.Context(), "openai", func(p *client.Provider) error { p.Config.NetworkConfig.BaseURL = "https://example.com"; return nil })
+			},
 		},
 		{
 			name:  "key",
@@ -114,8 +116,8 @@ func TestWritesTouchOnlyOwningResource(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 			base := newStore(t, storage)
-			require.NoError(t, base.PutProvider(t.Context(), "openai", client.Provider{Keys: []schemas.Key{{ID: "key"}}}))
-			require.NoError(t, base.PutProvider(t.Context(), "other", client.Provider{}))
+			require.NoError(t, base.CreateProvider(t.Context(), "openai", client.Provider{Keys: []schemas.Key{{ID: "key"}}}))
+			require.NoError(t, base.CreateProvider(t.Context(), "other", client.Provider{}))
 			other := func(obj kclient.Object) bool { return reflect.TypeOf(obj) != reflect.TypeOf(tc.kind) }
 			isolated := interceptor.NewClient(storage, interceptor.Funcs{
 				List: func(context.Context, kclient.WithWatch, kclient.ObjectList, ...kclient.ListOption) error {
@@ -145,7 +147,7 @@ func TestWritesTouchOnlyOwningResource(t *testing.T) {
 func TestProviderConflictRetriesLatestAggregate(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	base := newStore(t, storage)
-	require.NoError(t, base.PutProvider(t.Context(), "openai", client.Provider{}))
+	require.NoError(t, base.CreateProvider(t.Context(), "openai", client.Provider{}))
 	conflict := true
 	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
 		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
@@ -173,7 +175,7 @@ func TestProviderConflictRetriesLatestAggregate(t *testing.T) {
 
 func TestProviderMutationValidationRollsBack(t *testing.T) {
 	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
-	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{Keys: []schemas.Key{{ID: "one"}}}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", client.Provider{Keys: []schemas.Key{{ID: "one"}}}))
 	before, err := store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	require.ErrorContains(t, store.MutateProvider(t.Context(), "openai", func(provider *client.Provider) error {
@@ -189,8 +191,8 @@ func TestProviderMutationValidationRollsBack(t *testing.T) {
 func TestUnrelatedInvalidProviderDoesNotBlockWrites(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store := newStore(t, storage)
-	require.NoError(t, store.PutProvider(t.Context(), "openai", client.Provider{}))
-	require.NoError(t, store.PutProvider(t.Context(), "broken", client.Provider{}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", client.Provider{}))
+	require.NoError(t, store.CreateProvider(t.Context(), "broken", client.Provider{}))
 	var providers v1.LLMGatewayProviderList
 	require.NoError(t, storage.List(t.Context(), &providers))
 	for _, provider := range providers.Items {
@@ -208,8 +210,9 @@ func TestUnrelatedInvalidProviderDoesNotBlockWrites(t *testing.T) {
 	provider, err := store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	require.Len(t, provider.Keys, 1)
-	_, err = store.Load(t.Context())
-	require.Error(t, err, "runtime assembly still reports the unreadable provider")
+	result, err := store.Load(t.Context())
+	require.NoError(t, err)
+	require.Len(t, result.ProviderErrors, 1, "runtime assembly reports the unreadable provider")
 }
 
 func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
