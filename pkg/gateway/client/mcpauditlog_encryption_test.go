@@ -155,6 +155,7 @@ func TestLogMCPAuditEntryEncryptionFailure(t *testing.T) {
 			c := newTestClient(t)
 			c.encryptionConfig = testEncryptionConfig()
 			c.auditBuffer = make([]types.MCPAuditLog, 0, 2)
+			c.auditLogBatchSize = 1
 			c.kickAuditPersist = make(chan struct{}, 1)
 			entry := types.MCPAuditLog{
 				CreatedAt:  time.Now().UTC(),

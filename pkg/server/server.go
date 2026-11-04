@@ -18,6 +18,10 @@ import (
 )
 
 func Run(ctx context.Context, c services.Config) error {
+	// A Serve failure must stop the same producers as cancellation of the caller.
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	servicesCtx, servicesCancel := context.WithCancel(context.Background())
 	defer servicesCancel()
 	svcs, err := services.New(servicesCtx, c)
@@ -85,20 +89,15 @@ func Run(ctx context.Context, c services.Config) error {
 		if err != nil {
 			return fmt.Errorf("start Claude egress credentials: %w", err)
 		}
-		defer func() {
-			stopCredentials()
-			if err := svcs.GatewayClient.FlushEgressAuditLogs(); err != nil {
-				slog.Error("Failed to flush egress audit logs", "error", err)
-			}
-		}()
+		defer stopCredentials()
 
 		stopOrchestrator = clauderunner.ManageOrchestrators(ctx, svcs.GatewayClient, fmt.Sprintf("http://127.0.0.1:%d", c.HTTPListenPort))
 		defer stopOrchestrator()
 	}
 
-	shutdown := make(chan struct{})
-	context.AfterFunc(ctx, func() {
-		defer close(shutdown)
+	return serveAndShutdown(ctx, cancel, func() error {
+		return s.Serve(listener)
+	}, func() {
 		// Shutdown services after controller and web server are done.
 		defer servicesCancel()
 
@@ -135,17 +134,31 @@ func Run(ctx context.Context, c services.Config) error {
 		// Shutdown all MCP servers
 		svcs.MCPSessionManager.Close()
 
+		// Audit writes get their own budget after request producers have stopped.
 		if err := svcs.GatewayClient.Close(); err != nil {
 			slog.Error("Failed to close gateway client", "error", err)
 		}
 		svcs.ProviderDispatcher.Close()
 	})
+}
 
-	if err = s.Serve(listener); !errors.Is(err, http.ErrServerClosed) {
+func serveAndShutdown(ctx context.Context, cancel context.CancelFunc, serve func() error, shutdown func()) error {
+	done := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(done)
+		shutdown()
+	})
+	defer stop()
+
+	err := serve()
+
+	// AfterFunc owns shutdown exactly once, including its budget. Join it on every return.
+	cancel()
+	<-done
+
+	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-
-	<-shutdown
 
 	return nil
 }

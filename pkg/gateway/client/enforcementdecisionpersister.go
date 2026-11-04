@@ -21,8 +21,9 @@ func (c *Client) LogEnforcementDecision(entry types.EnforcementDecisionLog) {
 	c.enforcementLock.Lock()
 	defer c.enforcementLock.Unlock()
 
+	batchSize, _ := auditBatchCapacity(c.auditLogBatchSize)
 	c.enforcementBuffer = append(c.enforcementBuffer, entry)
-	if len(c.enforcementBuffer) >= cap(c.enforcementBuffer)/2 {
+	if len(c.enforcementBuffer) >= batchSize {
 		select {
 		case c.kickEnforcementPersist <- struct{}{}:
 		default:
@@ -43,7 +44,7 @@ func (c *Client) runEnforcementDecisionPersistenceLoop(ctx context.Context, flus
 		case <-timer.C:
 		}
 
-		if err := c.persistEnforcementDecisions(); err != nil {
+		if err := c.writeAuditLogs(ctx, c.persistEnforcementDecisionsContext); err != nil {
 			slog.Error("Failed to persist enforcement decision log", "error", err)
 		}
 
@@ -51,8 +52,16 @@ func (c *Client) runEnforcementDecisionPersistenceLoop(ctx context.Context, flus
 	}
 }
 
-func (c *Client) persistEnforcementDecisions() error {
+func (c *Client) persistEnforcementDecisionsContext(ctx context.Context) error {
+	// Serialize Close and background writes without holding the admission lock during DB work.
+	c.enforcementPersistLock.Lock()
+	defer c.enforcementPersistLock.Unlock()
+
 	c.enforcementLock.Lock()
+	if err := ctx.Err(); err != nil {
+		c.enforcementLock.Unlock()
+		return err
+	}
 	if len(c.enforcementBuffer) == 0 {
 		c.enforcementLock.Unlock()
 		return nil
@@ -62,11 +71,11 @@ func (c *Client) persistEnforcementDecisions() error {
 	c.enforcementBuffer = make([]types.EnforcementDecisionLog, 0, cap(c.enforcementBuffer))
 	c.enforcementLock.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	if err := c.insertEnforcementDecisions(ctx, buf); err != nil {
-		// On failure, prepend the batch back so nothing is lost.
+		// Prepend the batch ahead of arrivals during the write.
 		c.enforcementLock.Lock()
 		c.enforcementBuffer = append(buf, c.enforcementBuffer...)
 		c.enforcementLock.Unlock()
