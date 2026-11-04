@@ -8,7 +8,7 @@ type AuthProvider struct {
 
 type AuthProviderManifest struct {
 	CommonProviderMetadata `json:",inline" yaml:",inline"`
-	PostgresTablePrefix    string `json:"postgresTablePrefix,omitempty"`
+	PostgresTablePrefix    string `json:"postgresTablePrefix,omitempty" yaml:"postgresTablePrefix,omitempty"`
 	GroupIDPrefix          string `json:"groupIDPrefix,omitempty" yaml:"groupIDPrefix,omitempty"`
 }
 
