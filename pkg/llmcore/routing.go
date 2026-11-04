@@ -26,7 +26,7 @@ type routingPlugin struct {
 	// so requests never see a missing rule or mix rules with another program version.
 	mu        sync.RWMutex
 	rules     rules.Store
-	validator *rules.LocalStore
+	validator *ruleValidator
 	engine    *rules.Engine
 	logger    schemas.Logger
 }
@@ -46,7 +46,7 @@ func newRoutingPlugin(store rules.Store, logger schemas.Logger) (*routingPlugin,
 	if err != nil {
 		return nil, err
 	}
-	validator, err := rules.NewLocalStore(context.Background(), logger, nil)
+	validator, err := newRuleValidator()
 	if err != nil {
 		return nil, err
 	}
@@ -61,12 +61,9 @@ func (p *routingPlugin) UpsertRule(ctx context.Context, rule *tables.TableRoutin
 		return fmt.Errorf("routing rule cannot be nil")
 	}
 	// LocalStore replaces the active rule even when compilation fails and only
-	// logs the error. Compile in isolation first: the live program cache is keyed
-	// by ID and could otherwise return the old program for this replacement.
-	_, err := p.validator.GetProgram(ctx, rule)
-	// Discard the validation cache so every edit of this ID is compiled afresh.
-	_ = p.validator.DeleteRule(ctx, rule.ID)
-	if err != nil {
+	// logs the error. Validate a fresh, boolean-typed expression before publishing;
+	// the live program cache is keyed by ID and may still contain the old program.
+	if err := p.validator.validate(rule.CelExpression); err != nil {
 		return fmt.Errorf("routing rule %s: %w", rule.ID, err)
 	}
 	return p.rules.UpsertRule(ctx, rule)

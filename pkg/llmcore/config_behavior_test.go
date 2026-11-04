@@ -87,7 +87,16 @@ func configRoutingRule(expression, model string) tables.TableRoutingRule {
 
 func TestInvalidCELPreservesAppliedRoutingRule(t *testing.T) {
 	engine, store := newRoutingConfigEngine(t, configRoutingRule("true", "old-route"))
-	for _, expression := range []string{"params.tier ==", "unknown_variable == true"} {
+	for _, expression := range []string{
+		"params.tier ==",
+		"unknown_variable == true",
+		"(1)",
+		"('text')",
+		"[true]",
+		"({'tier': true})",
+		"headers['x-route']",
+		"params.tier == 'premium' ? true : 1",
+	} {
 		require.NoError(t, store.PutRule(t.Context(), configRoutingRule(expression, "new-route")))
 		for range 2 {
 			changed, err := engine.Sync(t.Context())

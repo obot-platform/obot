@@ -158,3 +158,34 @@ func TestRuleMutationWaitsForFullEvaluation(t *testing.T) {
 		})
 	}
 }
+
+func TestRoutingValidationAcceptsBooleanExpressions(t *testing.T) {
+	logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
+	store, err := rules.NewLocalStore(t.Context(), logger, nil)
+	require.NoError(t, err)
+	plugin, err := newRoutingPlugin(store, logger)
+	require.NoError(t, err)
+	for _, expression := range []string{
+		"",
+		"true",
+		"false",
+		"[true, false][0]",
+		`params.tier == 'premium' ? true : false`,
+		`headers['X-Route'] == 'yes' && params['Tier'] == 'premium'`,
+		`model != '' && provider != '' && request_type != ''`,
+		`virtual_key_id == '' && virtual_key_name == '' && user_id == ''`,
+		`team_id == '' && team_name == '' && customer_id == '' && customer_name == ''`,
+		`tokens_used < 1.0 && request < 1.0 && budget_used < 1.0`,
+		`complexity_tier == 'high'`,
+	} {
+		t.Run(expression, func(t *testing.T) {
+			rule := policyRule("selected")
+			rule.CelExpression = expression
+			require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
+			// Validate with the real Bifrost store too: declarations and key
+			// normalization must agree with the runtime compiler.
+			_, err := store.GetProgram(t.Context(), &rule)
+			require.NoError(t, err)
+		})
+	}
+}
