@@ -26,6 +26,7 @@ const (
 	maxRequestBodyBytes         = 100 << 20
 	dialectResponses    dialect = 0
 	dialectMessages     dialect = 1
+	dialectChat         dialect = 2
 )
 
 // engineName matches a library error prefix, preserving provider text that merely mentions it.
@@ -262,8 +263,28 @@ func writeError(w http.ResponseWriter, d dialect, status int, errType, message s
 	writeJSON(w, d, status, errorBody(d, errType, message))
 }
 
-func writeStreamError(w http.ResponseWriter, d dialect, err *schemas.BifrostError) error {
+func writeStreamError(w http.ResponseWriter, d dialect, err *schemas.BifrostError, sequence int) error {
 	_, errType, message := errorParts(err)
+	if d == dialectResponses {
+		// Responses uses an event union with top-level error fields, whereas
+		// Chat Completions and Messages retain their nested error envelopes.
+		code := errType
+		if err.Error != nil && err.Error.Code != nil && *err.Error.Code != "" {
+			code = *err.Error.Code
+		}
+		event := &schemas.BifrostResponsesStreamResponse{
+			Type:           schemas.ResponsesStreamResponseTypeError,
+			SequenceNumber: sequence,
+			Code:           &code,
+			Message:        &message,
+		}
+		if err.Error != nil {
+			if param, ok := err.Error.Param.(string); ok {
+				event.Param = &param
+			}
+		}
+		return writeEvent(w, "error", event)
+	}
 	return writeEvent(w, "error", errorBody(d, errType, message))
 }
 
@@ -289,7 +310,7 @@ func observeResponse(ctx context.Context, extra schemas.BifrostResponseExtraFiel
 func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, e.MaxRequestBodyBytes()))
 	if err != nil {
-		writeBodyReadError(w, dialectResponses, err)
+		writeBodyReadError(w, dialectChat, err)
 		return
 	}
 
@@ -297,32 +318,32 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	var in openai.OpenAIChatRequest
 	if err := json.Unmarshal(body, &in); err != nil {
-		writeError(w, dialectResponses, http.StatusBadRequest, "invalid_request_error", "invalid request body: "+err.Error())
+		writeError(w, dialectChat, http.StatusBadRequest, "invalid_request_error", "invalid request body: "+err.Error())
 		return
 	}
 
 	req := in.ToBifrostChatRequest(ctx)
 	if req.Provider == "" {
-		writeError(w, dialectResponses, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("model %q must be named as provider/model", req.Model))
+		writeError(w, dialectChat, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("model %q must be named as provider/model", req.Model))
 		return
 	}
 	if in.Stream == nil || !*in.Stream {
 		resp, engineErr := e.client.ChatCompletionRequest(ctx, req)
 		if engineErr != nil {
 			observeError(ctx, engineErr)
-			writeEngineError(w, dialectResponses, engineErr)
+			writeEngineError(w, dialectChat, engineErr)
 			return
 		}
 		observeResponse(ctx, resp.ExtraFields)
 		setServed(w.Header(), resp.ExtraFields)
-		writeJSON(w, dialectResponses, http.StatusOK, resp)
+		writeJSON(w, dialectChat, http.StatusOK, resp)
 		return
 	}
 
 	chunks, engineErr := e.client.ChatCompletionStreamRequest(ctx, req)
 	if engineErr != nil {
 		observeError(ctx, engineErr)
-		writeEngineError(w, dialectResponses, engineErr)
+		writeEngineError(w, dialectChat, engineErr)
 		return
 	}
 	defer func() {
@@ -331,7 +352,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	output := streamWriter{w: w, dialect: dialectResponses}
+	output := streamWriter{w: w, dialect: dialectChat}
 	for chunk := range chunks {
 		if chunk == nil {
 			continue

@@ -17,6 +17,8 @@ type streamWriter struct {
 	w       http.ResponseWriter
 	dialect dialect
 	started bool
+	// Generated Responses errors must follow the provider's last event number.
+	nextSequenceNumber int
 }
 
 func (s *streamWriter) write(name string, value any, extra schemas.BifrostResponseExtraFields) error {
@@ -40,6 +42,11 @@ func (s *streamWriter) write(name string, value any, extra schemas.BifrostRespon
 	if err := writeEncodedEvent(s.w, name, data); err != nil {
 		return err
 	}
+	if s.dialect == dialectResponses {
+		if event, ok := value.(*schemas.BifrostResponsesStreamResponse); ok {
+			s.nextSequenceNumber = max(s.nextSequenceNumber, event.SequenceNumber+1)
+		}
+	}
 	return http.NewResponseController(s.w).Flush()
 }
 
@@ -48,7 +55,7 @@ func (s *streamWriter) fail(err *schemas.BifrostError) {
 		writeEngineError(s.w, s.dialect, err)
 		return
 	}
-	if err := writeStreamError(s.w, s.dialect, err); err != nil {
+	if err := writeStreamError(s.w, s.dialect, err, s.nextSequenceNumber); err != nil {
 		return
 	}
 	_ = http.NewResponseController(s.w).Flush()

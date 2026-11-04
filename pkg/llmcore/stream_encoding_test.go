@@ -112,7 +112,17 @@ func TestHTTPEncodingFailures(t *testing.T) {
 						require.Equal(t, "application/json", response.Header().Get("Content-Type"))
 						require.NotContains(t, response.Body.String(), "data:")
 					}
-					require.Contains(t, response.Body.String(), `"type":"api_error"`)
+					if later && api.path == "/v1/responses" {
+						var event schemas.BifrostResponsesStreamResponse
+						require.NoError(t, json.Unmarshal(errorEventData(t, response.Body.String()), &event))
+						require.Equal(t, schemas.ResponsesStreamResponseTypeError, event.Type)
+						require.Equal(t, schemas.Ptr("api_error"), event.Code, "encoding failures use a stable fallback code")
+						require.Equal(t, schemas.Ptr("failed to encode gateway response"), event.Message)
+						require.Equal(t, 1, event.SequenceNumber)
+						require.Nil(t, event.Error)
+					} else {
+						require.Contains(t, response.Body.String(), `"type":"api_error"`)
+					}
 					if api.path == "/v1/messages" {
 						require.Contains(t, response.Body.String(), `"type":"error"`, "Messages failures must use the Anthropic error envelope")
 					}
