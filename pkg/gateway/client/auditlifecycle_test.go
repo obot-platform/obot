@@ -175,14 +175,14 @@ func TestAuditClosePreservesPartialAndQueuedLLM(t *testing.T) {
 		}
 	}))
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "partial"}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "partial"})
 	require.Eventually(t, func() bool { return len(c.llmAuditEntries) == 0 }, time.Second, time.Millisecond)
 	// Parent/loop cancellation must preserve the local batch for CloseContext, not write on a new deadline.
 	c.auditLoopsCancel()
 	c.auditLoops.Wait()
 	require.Len(t, c.llmAuditPartial, 1)
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "queued-1"}, nil)
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "queued-2"}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "queued-1"})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "queued-2"})
 	c.LogMCPAuditEntry(types.MCPAuditLog{UserID: "mcp"})
 	c.LogEnforcementDecision(types.EnforcementDecisionLog{DeviceID: "device"})
 	c.LogEgressAuditEntry(types.EgressAuditLog{ID: "egress"})
@@ -252,7 +252,7 @@ func TestAuditCloseWaitsForActiveLoopWrites(t *testing.T) {
 			case "llm":
 				want = int64(c.llmAuditBatchSize)
 				for i := range c.llmAuditBatchSize {
-					c.LogLLMAuditEntry(types.LLMAuditLog{ID: fmt.Sprint(i)}, nil)
+					c.LogLLMAuditEntry(types.LLMAuditLog{ID: fmt.Sprint(i)})
 				}
 			}
 			writeCtx := awaitAuditQueue(t, entered)
@@ -312,7 +312,7 @@ func TestAuditCloseContextBudget(t *testing.T) {
 				q.log("pending", 0)
 				flush = q.persist
 			case "llm":
-				c.LogLLMAuditEntry(types.LLMAuditLog{ID: "llm"}, nil)
+				c.LogLLMAuditEntry(types.LLMAuditLog{ID: "llm"})
 				// Restart only the owned LLM loop to exercise cancellation of a local in-flight batch.
 				loopCtx, cancel := context.WithCancel(t.Context())
 				c.auditLoopsCancel = cancel
@@ -323,7 +323,7 @@ func TestAuditCloseContextBudget(t *testing.T) {
 				c.LogEgressAuditEntry(types.EgressAuditLog{ID: "egress"})
 				c.LogMCPAuditEntry(types.MCPAuditLog{UserID: "mcp"})
 				c.LogEnforcementDecision(types.EnforcementDecisionLog{DeviceID: "device"})
-				c.LogLLMAuditEntry(types.LLMAuditLog{ID: "llm"}, nil)
+				c.LogLLMAuditEntry(types.LLMAuditLog{ID: "llm"})
 			}
 
 			var flushed chan error

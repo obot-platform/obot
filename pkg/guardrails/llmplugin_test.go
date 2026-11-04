@@ -13,9 +13,15 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/llmcore"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -30,6 +36,16 @@ type upstream struct {
 	*httptest.Server
 	lock    sync.Mutex
 	prompts []string
+}
+
+type plaintextGatewayCodec struct{}
+
+func (plaintextGatewayCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (plaintextGatewayCodec) OpenGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
 }
 
 func newUpstream(t *testing.T) *upstream {
@@ -108,9 +124,14 @@ func startGateway(t *testing.T, store *fakeStore) (*llmengine.Engine, *upstream)
 	// Model prices for the tests that check what the gateway charges.
 	dataDir := t.TempDir()
 	modeldatatest.Write(t, dataDir)
-	if err := gw.Start(ctx, llmengine.Options{DataDir: dataDir, FirstPlugin: input, LastPlugin: output}); err != nil {
+	configStore, err := llmcoreclient.New(fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(), plaintextGatewayCodec{})
+	if err != nil {
 		t.Fatal(err)
 	}
+	if err := gw.Start(ctx, llmengine.Options{Store: configStore, DataDir: dataDir, FirstPlugin: input, LastPlugin: output}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(gw.Shutdown)
 	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
@@ -475,5 +496,39 @@ func TestGatewayPluginsReportDetections(t *testing.T) {
 				t.Errorf("detections = %+v, want %+v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCoreStreamObserverSeesGuardrailReplay(t *testing.T) {
+	store := &fakeStore{
+		guardrails: []types.Guardrail{guardrail("secrets", "secrets", nil)},
+		policies:   []types.GuardrailPolicy{policy("redact-secrets", types.GuardrailActionRedact, "secrets")},
+	}
+	gw, _ := startGateway(t, store)
+	var lock sync.Mutex
+	var observed strings.Builder
+	token, release := BindRequest(Identity{UserID: "alice", ProfileIDs: []string{testProfile}}, RequestHooks{})
+	defer release()
+	ctx := llmcore.WithStreamObserver(t.Context(), func(_ *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, _ *streaming.Accumulator) {
+		data, err := json.Marshal(chunk)
+		if err != nil {
+			return
+		}
+		lock.Lock()
+		defer lock.Unlock()
+		observed.Write(data)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"openai/gpt-4o-mini","stream":true,"messages":[{"role":"user","content":"hello"}]}`)).WithContext(ctx)
+	req.Header.Set(HeaderRequestToken, token)
+	rec := httptest.NewRecorder()
+	gw.ServeHTTP(rec, req)
+	code, body := rec.Code, rec.Body.String()
+	if code != http.StatusOK {
+		t.Fatalf("%d %s", code, body)
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	if strings.Contains(observed.String(), leakedKey[:10]) || !strings.Contains(observed.String(), "REDACTED:AWS_ACCESS_KEY_ID") {
+		t.Fatalf("observer saw %s", observed.String())
 	}
 }

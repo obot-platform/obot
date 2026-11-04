@@ -215,7 +215,7 @@ func TestResponseModifier_NonStreamingPrettyPrintedResponseTracksUsage(t *testin
 		t.Fatal(err)
 	}
 
-	if got := recorder.responseStream.String(); got != body {
+	if got := recorder.responseJSON.String(); got != body {
 		t.Fatalf("audit response = %q, want %q", got, body)
 	}
 	usage := tracker.getTokenUsage()
@@ -272,7 +272,7 @@ func TestResponseModifierCapturesAuditResponseBody(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := recorder.responseStream.String(); got != body {
+	if got := recorder.responseJSON.String(); got != body {
 		t.Fatalf("captured response body = %q, want %q", got, body)
 	}
 }
@@ -298,7 +298,7 @@ func TestResponseModifierPreservesUpstreamErrorBody(t *testing.T) {
 	if string(got) != body {
 		t.Fatalf("response body = %q, want %q", got, body)
 	}
-	if got := recorder.responseStream.String(); got != body {
+	if got := recorder.responseJSON.String(); got != body {
 		t.Fatalf("captured response body = %q, want %q", got, body)
 	}
 	if got := recorder.log.ResponseStatus; got != http.StatusBadRequest {

@@ -14,6 +14,7 @@ import (
 	"github.com/maximhq/bifrost/core/providers/anthropic"
 	"github.com/maximhq/bifrost/core/providers/openai"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -38,6 +39,7 @@ var (
 
 type dialect int
 type responseObserverKey struct{}
+type streamObserverKey struct{}
 
 // ServeHTTP serves the OpenAI Responses API at /v1/responses and the Anthropic Messages API at
 // /v1/messages (and /anthropic/v1/messages, the path Obot's proxy uses for the engine today).
@@ -217,6 +219,7 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 				}
 			}
 		}
+		e.observeStream(ctx, chunk)
 	}
 }
 
@@ -346,6 +349,18 @@ func WithResponseObserver(ctx context.Context, observe func(schemas.BifrostRespo
 	return context.WithValue(ctx, responseObserverKey{}, observe)
 }
 
+// WithStreamObserver observes chunks after guardrail replay and successful client encoding.
+// The accumulator belongs to the engine; observers must clean up their per-request state.
+func WithStreamObserver(ctx context.Context, observe func(*schemas.BifrostContext, *schemas.BifrostStreamChunk, *streaming.Accumulator)) context.Context {
+	return context.WithValue(ctx, streamObserverKey{}, observe)
+}
+
+func (e *Engine) observeStream(ctx *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk) {
+	if observe, ok := ctx.Value(streamObserverKey{}).(func(*schemas.BifrostContext, *schemas.BifrostStreamChunk, *streaming.Accumulator)); ok && observe != nil {
+		observe(ctx, chunk, e.accumulator)
+	}
+}
+
 func observeResponse(ctx context.Context, extra schemas.BifrostResponseExtraFields) {
 	if observe, ok := ctx.Value(responseObserverKey{}).(func(schemas.BifrostResponseExtraFields)); ok && observe != nil {
 		observe(extra)
@@ -435,6 +450,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		if err := output.write("", event, event.ExtraFields); err != nil {
 			return
 		}
+		e.observeStream(ctx, chunk)
 	}
 }
 

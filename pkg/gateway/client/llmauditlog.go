@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,8 +28,7 @@ var (
 )
 
 type llmAuditEntry struct {
-	log            types.LLMAuditLog
-	responseStream []byte
+	log types.LLMAuditLog
 }
 
 type LLMAuditLogOptions struct {
@@ -62,7 +60,7 @@ func (c *Client) LLMAuditLogEnabled() bool {
 	return c != nil && c.llmAuditEnabled
 }
 
-func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []byte) {
+func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog) {
 	if !c.LLMAuditLogEnabled() {
 		return
 	}
@@ -74,7 +72,7 @@ func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []b
 	// Never let audit logging block an LLM request. A full channel means the
 	// writer is behind for long enough that keeping request latency matters more.
 	select {
-	case c.llmAuditEntries <- llmAuditEntry{log: auditLog, responseStream: responseStream}:
+	case c.llmAuditEntries <- llmAuditEntry{log: auditLog}:
 	default:
 		slog.Warn("dropping LLM audit log: buffer is full")
 	}
@@ -366,21 +364,8 @@ func (c *Client) persistLLMAuditLogs(ctx context.Context, entries []llmAuditEntr
 	for i, entry := range entries {
 		logs[i] = entry.log
 		logs[i].CreatedAt = logs[i].CreatedAt.UTC()
-		aggregateLLMAuditResponse(&logs[i], entry.responseStream)
 	}
 	return c.insertLLMAuditLogs(ctx, logs)
-}
-
-func aggregateLLMAuditResponse(log *types.LLMAuditLog, responseStream []byte) {
-	if log == nil || len(responseStream) == 0 {
-		return
-	}
-	accumulator := gatewayllmaudit.NewResponseAccumulator(log.ModelProvider, log.RequestPath)
-	accumulator.Write(responseStream)
-	log.ResponseBody = accumulator.JSON()
-	if log.ResponseID == "" {
-		log.ResponseID = accumulator.ResponseID()
-	}
 }
 
 func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLog) error {

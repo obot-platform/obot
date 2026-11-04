@@ -111,6 +111,14 @@ func (r *testerAuditReader) recordUsage(line []byte) {
 		return
 	}
 
+	if body := gjson.GetBytes(data, "response"); body.IsObject() {
+		r.recorder.mu.Lock()
+		if !r.recorder.responseCaptureFilled {
+			r.recorder.log.ResponseBody = bytes.Clone([]byte(body.Raw))
+			r.recorder.log.ResponseID = body.Get("id").String()
+		}
+		r.recorder.mu.Unlock()
+	}
 	usage := gjson.GetBytes(data, "response.usage")
 	if usage.IsObject() {
 		r.recorder.setTokenUsage(types.TokenUsage{

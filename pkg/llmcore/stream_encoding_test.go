@@ -15,6 +15,7 @@ import (
 
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/stretchr/testify/require"
@@ -169,7 +170,16 @@ func TestHTTPEncodingFailures(t *testing.T) {
 					later := phase == "later event"
 					engine := newEncodingEngine(t, later)
 					response := httptest.NewRecorder()
-					engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, api.path, strings.NewReader(fmt.Sprintf(api.body, phase != "unary"))))
+					observed := 0
+					ctx := llmcore.WithStreamObserver(t.Context(), func(_ *schemas.BifrostContext, _ *schemas.BifrostStreamChunk, _ *streaming.Accumulator) {
+						observed++
+					})
+					engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, api.path, strings.NewReader(fmt.Sprintf(api.body, phase != "unary"))).WithContext(ctx))
+					if later {
+						require.Equal(t, 1, observed, "only the successfully encoded chunk reaches audit capture")
+					} else {
+						require.Zero(t, observed, "unary responses and unencodable chunks do not reach stream capture")
+					}
 					if later {
 						require.Equal(t, http.StatusOK, response.Code)
 						require.Equal(t, "text/event-stream", response.Header().Get("Content-Type"))
@@ -220,7 +230,12 @@ func TestStreamWriteFailureDoesNotAttemptErrorResponse(t *testing.T) {
 			t.Run(api.path+"/"+failure, func(t *testing.T) {
 				engine := newEncodingEngine(t, true)
 				w := &failedStreamTransport{header: make(http.Header), failWrite: failure == "write"}
-				engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, api.path, strings.NewReader(fmt.Sprintf(api.body, true))))
+				observed := 0
+				ctx := llmcore.WithStreamObserver(t.Context(), func(_ *schemas.BifrostContext, _ *schemas.BifrostStreamChunk, _ *streaming.Accumulator) {
+					observed++
+				})
+				engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, api.path, strings.NewReader(fmt.Sprintf(api.body, true))).WithContext(ctx))
+				require.Zero(t, observed, "failed writes must not enter audit accumulation")
 				require.Equal(t, 1, w.writes, "do not attempt SSE errors or further chunks after the transport fails")
 				if failure == "write" {
 					require.Zero(t, w.flushes, "do not flush a failed write")

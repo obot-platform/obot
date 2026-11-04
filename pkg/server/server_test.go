@@ -60,7 +60,7 @@ func newServerAuditClient(t *testing.T) (*gateway.Client, *gorm.DB, *gorm.DB, co
 		_ = observer.DB.SQLDB.Close()
 	})
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "partial-llm"}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: "partial-llm"})
 	// Observe consumption into the real loop's partial batch without adding a production test hook.
 	require.Eventually(t, func() bool {
 		return reflect.ValueOf(c).Elem().FieldByName("llmAuditEntries").Len() == 0

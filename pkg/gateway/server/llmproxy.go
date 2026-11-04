@@ -699,14 +699,13 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 				return err
 			}
 		}
-		audit.setRequestBody(prepared.body)
 	}
 
 	req.Request.Body = io.NopCloser(bytes.NewReader(prepared.body))
 	req.ContentLength = int64(len(prepared.body))
 
 	// The transport fills in how the gateway routed the request as the response arrives.
-	routing := &gatewayRouting{}
+	routing := &gatewayRouting{audit: audit}
 	req.Request = req.WithContext(withGatewayRouting(req.Context(), routing))
 	var gateway gatewayRequest
 	route := func() llmRoute {
@@ -848,6 +847,7 @@ func writeRequestTooLarge(req api.Context, audit *llmAuditRecorder, limit int64)
 	}
 	data, _ := json.Marshal(body)
 	audit.recordResponseStatus(http.StatusRequestEntityTooLarge)
+	audit.captureResponseChunk(data)
 	req.ResponseWriter.Header().Set("Content-Type", "application/json")
 	req.ResponseWriter.Header().Set("X-Should-Retry", "false")
 	req.WriteHeader(http.StatusRequestEntityTooLarge)

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -93,6 +94,7 @@ type sseSanitizer struct {
 	c       io.Closer
 	pending []byte
 	routing *gatewayRouting
+	audit   *llmAuditRecorder
 }
 
 // gatewayRouting is how the gateway routed one request, as the engine reported it: the
@@ -103,6 +105,7 @@ type sseSanitizer struct {
 type gatewayRouting struct {
 	lock  sync.Mutex
 	route llmRoute
+	audit *llmAuditRecorder
 }
 
 type gatewayRoutingContextKey struct{}
@@ -300,6 +303,11 @@ func (t sanitizingTransport) RoundTrip(req *http.Request) (*http.Response, error
 		info := extra.RoutingInfo
 		gatewayRoutingFrom(req.Context()).set(llmRoute{Provider: string(info.Provider), Model: info.Model, Key: info.Key, Fallback: info.IsFallback})
 	}))
+	req = req.WithContext(llmcore.WithStreamObserver(req.Context(), func(ctx *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
+		if routing := gatewayRoutingFrom(req.Context()); routing != nil {
+			routing.audit.observeResponseChunk(ctx, chunk, a)
+		}
+	}))
 	resp, err := t.next.RoundTrip(req)
 	if err != nil {
 		return nil, err
@@ -326,7 +334,7 @@ func (t sanitizingTransport) RoundTrip(req *http.Request) (*http.Response, error
 	contentType := resp.Header.Get("Content-Type")
 	switch {
 	case strings.Contains(contentType, "text/event-stream"):
-		resp.Body = &sseSanitizer{r: bufio.NewReader(resp.Body), c: resp.Body, routing: routing}
+		resp.Body = &sseSanitizer{r: bufio.NewReader(resp.Body), c: resp.Body, routing: routing, audit: routingAudit(routing)}
 	case strings.Contains(contentType, "application/json"):
 		body, err := io.ReadAll(resp.Body)
 		_ = resp.Body.Close()
@@ -374,6 +382,7 @@ func (s *sseSanitizer) Read(p []byte) (int, error) {
 				event := stripEngineFields(trimmed)
 				if gjson.GetBytes(event, "error").Exists() {
 					event = llmengine.ScrubEngineNameBytes(event)
+					s.audit.captureStreamError(event)
 				}
 				line = append(append([]byte("data: "), event...), data[len(trimmed):]...)
 			}
@@ -780,4 +789,11 @@ func (l *llmProviderProxy) gatewayIdentity(user kuser.Info) (guardrails.Identity
 		return guardrails.Identity{}, false, fmt.Errorf("failed to resolve gateway profiles: %w", err)
 	}
 	return identity, isAdmin, nil
+}
+
+func routingAudit(r *gatewayRouting) *llmAuditRecorder {
+	if r == nil {
+		return nil
+	}
+	return r.audit
 }
