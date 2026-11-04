@@ -8,14 +8,17 @@ import (
 
 	"github.com/maximhq/bifrost/core/schemas"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/obot-platform/nah/pkg/name"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// Hash arbitrary logical IDs into resource names. The 56-character result
-// (prefix plus 48 hex digits) stays below the 63-character DNS-label limit.
-func resourceName(id string) string { return fmt.Sprintf("gateway-%x", sha256.Sum256([]byte(id)))[:56] }
+// Hash logical IDs so punctuation and case cannot produce invalid resource names;
+// SafeConcatName applies the shared naming length and suffix conventions.
+func resourceName(id string) string {
+	return name.SafeConcatName("gateway", fmt.Sprintf("%x", sha256.Sum256([]byte(id))))
+}
 
 // Load assembles independently versioned resources. It does not provide a
 // transactional snapshot; runtime reconciliation must tolerate temporary
