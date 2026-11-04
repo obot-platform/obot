@@ -2,15 +2,18 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import { MultiValueInput } from '$lib/components/ui/multi-value-input';
 	import { m } from '$lib/i18n';
+	import type { ObotHeader } from '$lib/services/admin/types';
 	import type { ContainerizedRuntimeConfig } from '$lib/services/user/types';
 	import IconButton from '../primitives/IconButton.svelte';
+	import InjectObotHeaders from './InjectObotHeaders.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		config: ContainerizedRuntimeConfig;
 		startupTimeoutSeconds?: number;
+		injectObotHeaders?: ObotHeader[];
 		readonly?: boolean;
 		showEgressDomains?: boolean;
 		defaultDenyAllEgress?: boolean;
@@ -21,6 +24,7 @@
 	let {
 		config = $bindable(),
 		startupTimeoutSeconds = $bindable(),
+		injectObotHeaders = $bindable(),
 		readonly,
 		showEgressDomains = false,
 		defaultDenyAllEgress = false,
@@ -28,6 +32,9 @@
 		onFieldChange,
 		children
 	}: Props = $props();
+
+	// Keep saved selections visible when editing an existing server.
+	let showAdvanced = $state(untrack(() => Boolean(injectObotHeaders?.length)));
 
 	// Initialize args array if it doesn't exist
 	if (!config.args) {
@@ -338,4 +345,25 @@
 	</div>
 
 	{@render children?.()}
+
+	{#if injectObotHeaders !== undefined}
+		{#if showAdvanced}
+			<InjectObotHeaders bind:selected={injectObotHeaders} {readonly} />
+		{/if}
+		<button
+			type="button"
+			class="btn btn-text self-start pl-0"
+			onclick={() => {
+				showAdvanced = !showAdvanced;
+				// Hidden attribution settings must not keep sharing caller identity.
+				if (!showAdvanced && !readonly) {
+					injectObotHeaders = [];
+				}
+			}}
+		>
+			{showAdvanced
+				? m.mcps_catalog_remote_hide_advanced()
+				: m.mcps_catalog_remote_remote_advanced()}
+		</button>
+	{/if}
 </div>

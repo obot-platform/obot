@@ -42,6 +42,9 @@ func TestAPIKeyAuthenticatorCarriesAuditAttribution(t *testing.T) {
 	if !slices.Equal(response.User.GetExtra()["obot_groups"], wantObotGroups) {
 		t.Fatalf("Obot groups extra = %v, want role groups %v", response.User.GetExtra()["obot_groups"], wantObotGroups)
 	}
+	if got := response.User.GetExtra()[principal.APIKeyRawNameExtra]; len(got) != 1 || got[0] != "CLI token" {
+		t.Fatalf("raw key name = %v, want CLI token", got)
+	}
 	attribution, ok := principal.APIKeyAttributionFromUser(response.User)
 	if !ok || attribution.ID != created.ID || attribution.Name != "CLI token" {
 		t.Fatalf("attribution = %#v, %v; want key %d named CLI token", attribution, ok, created.ID)
@@ -74,6 +77,9 @@ func TestAPIKeyAuthenticatorCarriesMaskedAttributionForUnnamedKey(t *testing.T) 
 	}
 	attribution, ok := principal.APIKeyAttributionFromUser(response.User)
 	wantName := fmt.Sprintf("ok1-%d-%d-*****", keyOwner.ID, created.ID)
+	if got := response.User.GetExtra()[principal.APIKeyRawNameExtra]; len(got) != 1 || got[0] != "" {
+		t.Fatalf("raw name for unnamed key = %v, want empty", got)
+	}
 	if !ok || attribution.ID != created.ID || attribution.Name != wantName {
 		t.Fatalf("attribution = %#v, %v; want key %d named %q", attribution, ok, created.ID, wantName)
 	}

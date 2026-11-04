@@ -361,6 +361,21 @@ env:
         value: eu
 ```
 
+### Caller attribution headers
+
+Set `injectObotHeaders` on a `remote` or `containerized` catalog entry to select caller information sent to its backend. Omit the field or use an empty list to disable injection. Other runtimes do not support this setting. See [caller attribution headers](../mcp-gateway/register-remote.md#caller-attribution-headers) for the available fields and their limits.
+
+```yaml
+name: Internal API
+runtime: remote
+remoteConfig:
+  fixedURL: https://api.example.com/mcp
+injectObotHeaders:
+  - X-Obot-User-Id
+  - X-Obot-Api-Key-Id
+  - X-Obot-IDP-Groups
+```
+
 ### Server User Type
 
 ```yaml

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/obot-platform/obot/pkg/mcp/attribution"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"golang.org/x/oauth2"
@@ -20,7 +21,7 @@ type HTTPClientOptions struct {
 // HTTPClientForServer returns an HTTP client that follows the server's
 // configured network path, including its tunnel when present.
 func (sm *SessionManager) HTTPClientForServer(server ServerConfig, opts HTTPClientOptions) (*http.Client, error) {
-	headers := serverConfigHeaders(server)
+	headers := attribution.Configured(server.Headers, server.PassthroughHeaderNames, server.PassthroughHeaderValues)
 	if (opts.DirectConnect || server.UserID == "system") && server.TunnelName != "" {
 		if sm.tunnelManager == nil {
 			return nil, fmt.Errorf("tunnel manager is not configured")

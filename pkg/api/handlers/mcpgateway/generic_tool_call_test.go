@@ -15,10 +15,13 @@ import (
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
+	"github.com/obot-platform/mmmcp/component"
 	"github.com/obot-platform/mmmcp/toolsearch"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/attribution"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
@@ -91,7 +94,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resolved, err := handler.resolveGenericToolCall(req, cfg, "", true)
+	resolved, err := handler.resolveGenericToolCall(req, cfg, "", nil, true)
 	if err != nil || resolved == nil || resolved.name != "delete_file" {
 		t.Fatalf("resolved call = %#v, error = %v", resolved, err)
 	}
@@ -137,7 +140,7 @@ func TestGenericToolCallUsesUnderlyingPolicyAndAuditIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resolved, err = handler.resolveGenericToolCall(stale, cfg, "", true)
+	resolved, err = handler.resolveGenericToolCall(stale, cfg, "", nil, true)
 	if resolved != nil {
 		t.Fatalf("stale generic call was allowed to forward: %#v", resolved)
 	}
@@ -188,7 +191,7 @@ func TestGenericToolCallSkipsInspectionWithoutHooksOrAudit(t *testing.T) {
 				strings.Repeat("x", maxMCPProxyHookBodySize) + `"}}}`
 			req := httptest.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(body))
 			originalBody := req.Body
-			resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", false)
+			resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", nil, false)
 			if err != nil || resolved != nil || req.Body != originalBody {
 				t.Fatalf("unrelated request changed: resolved=%#v error=%v", resolved, err)
 			}
@@ -208,7 +211,7 @@ func TestGenericToolCallRejectsLegacyBatchBeforeHooks(t *testing.T) {
 	req := mustMCPHookRequest(t, body)
 	req.Header.Set("Mcp-Protocol-Version", "2025-03-26")
 	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{Runtime: types.RuntimeVMCP, ToolSearch: true}, nil)
-	resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", true)
+	resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", nil, true)
 	if resolved != nil || !errors.Is(err, errMCPBatchUnsupported) {
 		t.Fatalf("batch was allowed to bypass generic call inspection: resolved=%#v error=%v", resolved, err)
 	}
@@ -258,7 +261,7 @@ func TestGenericToolCallRejectsCaseVariantFieldNames(t *testing.T) {
 	for _, tt := range caseVariantMCPRequests() {
 		t.Run(tt.name, func(t *testing.T) {
 			req := mustMCPHookRequest(t, tt.body)
-			resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", true)
+			resolved, err := (&Handler{}).resolveGenericToolCall(req, cfg, "", nil, true)
 			if resolved != nil || !errors.Is(err, errMCPCaseVariantFieldNames) {
 				t.Fatalf("case variant field was not rejected: resolved=%#v error=%v", resolved, err)
 			}
@@ -373,7 +376,7 @@ func TestGenericToolCallInvalidArgumentsAreAudited(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resolved, err := handler.resolveGenericToolCall(req, cfg, "", true)
+	resolved, err := handler.resolveGenericToolCall(req, cfg, "", nil, true)
 	if resolved != nil {
 		t.Fatalf("invalid generic call was allowed to forward: %#v", resolved)
 	}
@@ -451,7 +454,7 @@ func TestGenericToolCallGzipDiscoveryFailureKeepsRequestIDAndAudit(t *testing.T)
 		t.Fatal(err)
 	}
 
-	_, err = handler.resolveGenericToolCall(req, cfg, "", true)
+	_, err = handler.resolveGenericToolCall(req, cfg, "", nil, true)
 	if err == nil {
 		t.Fatal("discovery failure was not returned")
 	}
@@ -647,7 +650,7 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 		t.Fatal(err)
 	}
 
-	_, err = handler.resolveGenericToolCall(req, cfg, "", true)
+	_, err = handler.resolveGenericToolCall(req, cfg, "", nil, true)
 	if authErr, ok := errors.AsType[*mmmcp.AuthorizationError](err); !ok || authErr.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("discovery error = %v, want authorization error", err)
 	}
@@ -692,4 +695,96 @@ func TestGenericToolCallDiscoveryAuthorizationReturnsObotChallenge(t *testing.T)
 		collector.proxyExchangeIDs[0] != collector.proxyExchangeIDs[1] {
 		t.Fatalf("discovery error audit count=%d body=%q", len(collector.entries), auditedBody)
 	}
+}
+
+// Tool search may run on another replica, so inspection must support cold discovery
+// even when the frontend request's incoming attribution has already been stripped.
+func TestGenericToolCallColdDiscoveryReceivesAttribution(t *testing.T) {
+	selected := []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}
+	derived, err := attribution.ForCaller(t.Context(), &headerIdentityReader{}, selected, headerTestCaller("42", "writer"))
+	require.NoError(t, err)
+	var listCalls atomic.Int32
+	var toolCalled atomic.Bool
+	server := gomcp.NewServer(&gomcp.Implementation{Name: "component", Version: "test"}, nil)
+	server.AddTool(&gomcp.Tool{Name: "echo", InputSchema: map[string]any{"type": "object"}}, func(context.Context, *gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
+		toolCalled.Store(true)
+		return &gomcp.CallToolResult{}, nil
+	})
+	mcpHandler := gomcp.NewStreamableHTTPHandler(func(*http.Request) *gomcp.Server { return server }, nil)
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for name := range derived {
+			if r.Header.Get(name) != derived.Get(name) {
+				http.Error(w, "attribution required", http.StatusForbidden)
+				return
+			}
+		}
+		if r.Method == http.MethodPost {
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			var message struct {
+				Method string `json:"method"`
+			}
+			if json.Unmarshal(body, &message) == nil && message.Method == "tools/list" {
+				listCalls.Add(1)
+			}
+		}
+		mcpHandler.ServeHTTP(w, r)
+	}))
+	defer upstream.Close()
+	cfg := obotmcp.MMMCPConfig(obotmcp.ServerConfig{
+		Runtime:    types.RuntimeVMCP,
+		ToolSearch: true,
+		Components: []obotmcp.ComponentServer{{
+			DisplayName: "component",
+			URL:         upstream.URL,
+		}},
+	}, nil)
+	newHandler := func() *Handler {
+		t.Helper()
+		handler, err := NewHandler(t.Context(), nil, nil, nil, nil, "", "", "", nil, nil, nil)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, handler.Close()) })
+		return handler
+	}
+	// Obtain a real tool reference from one replica, then resolve it on a fresh one.
+	seed := newHandler()
+	ctx := component.ContextWithRequestHeaders(t.Context(), derived)
+	search, ok, err := seed.composite.ResolveToolCall(ctx, cfg, toolsearch.SearchToolName, json.RawMessage(`{"query":"echo"}`))
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NotNil(t, search.Result)
+	require.False(t, search.Result.IsError)
+	var found toolsearch.Results
+	require.NoError(t, json.Unmarshal([]byte(search.Result.Content[0].(*gomcp.TextContent).Text), &found))
+	require.Len(t, found.Tools, 1)
+	body, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+		"params": map[string]any{
+			"name": toolsearch.CallToolName,
+			"arguments": map[string]any{
+				"name": found.Tools[0].Reference.Name, "revision": found.Tools[0].Revision,
+				"arguments": map[string]any{},
+			},
+		},
+	})
+	require.NoError(t, err)
+	req := mustMCPHookRequest(t, string(body))
+	req.Header.Set(string(types.ObotHeaderAPIKeyName), "client-spoof")
+	attribution.Strip(req.Header)
+	headersBefore := req.Header.Clone()
+	fresh := newHandler()
+	resolved, err := fresh.resolveGenericToolCall(req, cfg, "", derived, true)
+	require.NoError(t, err)
+	require.NotNil(t, resolved)
+	require.Equal(t, "echo", resolved.name)
+	require.Equal(t, int32(2), listCalls.Load(), "both replicas must perform discovery with attribution")
+	require.False(t, toolCalled.Load(), "inspection must not invoke the tool")
+	require.Equal(t, headersBefore, req.Header, "discovery must not change incoming headers used by auditing and hooks")
+	remaining, err := io.ReadAll(req.Body)
+	require.NoError(t, err)
+	require.Equal(t, string(body), string(remaining), "the original request must remain available for forwarding")
 }

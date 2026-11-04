@@ -1195,5 +1195,16 @@
 	"mcps_filters_kind_builtin": "内置",
 	"mcps_filters_kind_mcp_server": "MCP 服务器",
 	"mcps_filters_create_guardrail_filter": "创建护栏过滤器",
-	"mcps_filters_create_guardrail": "从护栏创建"
+	"mcps_filters_create_guardrail": "从护栏创建",
+	"mcps_inject_headers_title": "注入 Obot 标头",
+	"mcps_inject_headers_enable": "启用 Obot 请求头注入",
+	"mcps_inject_headers_disable": "禁用 Obot 请求头注入",
+	"mcps_inject_headers_description": "选择与此 MCP 服务器共享的调用方信息。所有标头均为可选，默认禁用。Obot 会移除传入的同名标头，仅设置所选值。名称和电子邮件地址可能泄露内部信息。 不可用、无效或超出大小限制的值会被省略。",
+	"mcps_inject_headers_api_key_name": "已验证的 Obot API 密钥的名称。未命名的密钥或未使用 API 密钥的调用方将省略此标头。名称由用户控制，可以更改，且不一定唯一。",
+	"mcps_inject_headers_api_key_id": "已验证的 Obot API 密钥的 ID，在此 Obot 安装中唯一。未使用 API 密钥的调用方将省略此标头。",
+	"mcps_inject_headers_user_id": "已认证调用方的 Obot 账户 ID。对于 API 密钥，此值标识密钥所属的账户，而非自主代理。",
+	"mcps_inject_headers_user_name": "已认证账户的用户名，而非显示名称。此值可能更改。",
+	"mcps_inject_headers_user_email": "已认证主体携带的电子邮件地址。不可用时省略；不保证该地址已经验证。",
+	"mcps_inject_headers_idp_user_id": "认证提供商分配的用户标识符。对于 API 密钥，标识密钥所有者。不可用或无法从多个关联身份中确定时省略。",
+	"mcps_inject_headers_idp_groups": "Obot 存储的调用者 IdP 群组 ID 的逗号分隔列表，包含提供商前缀。API 密钥使用所有者的群组成员关系。不包含 Obot 角色或群组显示名称；为空时省略。"
 }

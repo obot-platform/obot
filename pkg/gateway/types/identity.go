@@ -14,7 +14,7 @@ type Identity struct {
 	ProviderGroupLookupID string    `json:"providerGroupLookupID"`
 	Email                 string    `json:"email"`
 	HashedEmail           string    `json:"hashedEmail"`
-	UserID                uint      `json:"userID" gorm:"index:idx_user_auth_id"`
+	UserID                uint      `json:"userID" gorm:"index:idx_user_auth_id;index:idx_identities_user_id"`
 	IconURL               string    `json:"iconURL"`
 	IconLastChecked       time.Time `json:"iconLastChecked"`
 	Encrypted             bool      `json:"encrypted"`

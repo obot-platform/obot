@@ -56,18 +56,6 @@ func TestRequiresStaticOAuth(t *testing.T) {
 	require.False(t, RequiresStaticOAuth(server))
 }
 
-func TestServerConfigHeadersCanonicalizesNames(t *testing.T) {
-	headers := serverConfigHeaders(ServerConfig{
-		PassthroughHeaderNames:  []string{"x-request-id"},
-		PassthroughHeaderValues: []string{"request-1"},
-		Headers:                 []string{"AUTHORIZATION=Bearer token"},
-	})
-
-	require.Equal(t, []string{"Bearer token"}, headers["Authorization"])
-	require.Equal(t, []string{"request-1"}, headers["X-Request-Id"])
-	require.NotContains(t, headers, "AUTHORIZATION")
-}
-
 func TestGetOAuthMetadataSkipsDiscoveryAfterInitializeWithRequiredHeaders(t *testing.T) {
 	var initializeRequests, metadataRequests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
