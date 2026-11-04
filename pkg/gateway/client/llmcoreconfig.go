@@ -14,6 +14,8 @@ const (
 
 type gatewayConfigEnvelope struct {
 	types.Credential
+	// Credential.Encrypted is stored by GORM but excluded from JSON.
+	// Resource payloads must serialize the flag for the credential decryption helpers.
 	Encrypted bool `json:"encrypted"`
 }
 
