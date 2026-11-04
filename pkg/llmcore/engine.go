@@ -63,10 +63,14 @@ type Engine struct {
 	appliedProxy map[schemas.ModelProvider]*schemas.ProxyConfig
 }
 
-// account serves the engine the configuration last loaded. Bifrost reads keys on every
-// request, so a key change applies to the next request without touching the engine.
+// account publishes credentials only after affected runtimes have drained. Bifrost
+// reads keys per request, so key-only rotation does not require a runtime restart.
 type account struct {
 	config atomic.Pointer[llmcoreclient.Config]
+	// transitioning gates requests while a provider is drained/replaced. The bool
+	// permits config reads only while reconciliation constructs the new runtime;
+	// credentials and attempts remain blocked until construction succeeds.
+	transitioning sync.Map // schemas.ModelProvider -> bool
 }
 
 func (a *account) GetConfiguredProviders() ([]schemas.ModelProvider, error) {
@@ -74,10 +78,16 @@ func (a *account) GetConfiguredProviders() ([]schemas.ModelProvider, error) {
 }
 
 func (a *account) GetKeysForProvider(_ context.Context, provider schemas.ModelProvider) ([]schemas.Key, error) {
+	if _, blocked := a.transitioning.Load(provider); blocked {
+		return nil, fmt.Errorf("provider %s is being reconfigured", provider)
+	}
 	return a.config.Load().Keys[provider], nil
 }
 
 func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas.ProviderConfig, error) {
+	if allowConfig, blocked := a.transitioning.Load(provider); blocked && !allowConfig.(bool) {
+		return nil, fmt.Errorf("provider %s is being reconfigured", provider)
+	}
 	cfg := a.config.Load()
 	pc, ok := cfg.Providers[provider]
 	if !ok {
@@ -169,7 +179,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	e.tracer = tracing.NewTracer(e.traceStore, nil, logger)
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:      e.account,
-		LLMPlugins:   orderedPlugins(routing, opts.Plugins),
+		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &providerTransitionPlugin{account: e.account}),
 		Logger:       logger,
 		ModelCatalog: opts.Catalog,
 		Tracer:       e.tracer,
@@ -189,8 +199,8 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 }
 
 // Sync brings the engine up to the store's configuration, if it changed. Only what changed is
-// touched: a changed or added provider is restarted by Bifrost with its new settings while its
-// in-flight requests finish, keys take effect on the next request, and rules are replaced one
+// touched: a changed provider is gated and drained before its replacement starts;
+// key-only changes take effect on the next request, and rules are replaced one
 // by one. Nothing else is rebuilt.
 func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	e.syncLock.Lock()
@@ -229,7 +239,6 @@ func providerLoadErrors(diagnostics []llmcoreclient.ProviderLoadError) error {
 // The caller must hold syncLock to serialize reconciliation and applied-state updates.
 func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, error) {
 	changed := !reflect.DeepEqual(e.applied, cfg)
-	e.applySettings(cfg)
 	// Start from the last known applied state. Only successful items advance;
 	// failed providers and rules retain their previous values for the next retry.
 	old := e.applied
@@ -237,30 +246,67 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	old.Rules = maps.Clone(old.Rules)
 	old.Keys = cfg.Keys
 	old.Settings = cfg.Settings
-	e.account.config.Store(&cfg)
-
-	var errs []error
+	// Keep the old account view until every affected runtime (including retired
+	// workers) has drained. Workers read keys separately from their captured
+	// provider instance, so publishing desired keys earlier leaks them to the old
+	// destination. A config-read gate also prevents lazy runtime recreation.
+	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
+	retiring := make(map[schemas.ModelProvider]bool)
 	for name, pc := range cfg.Providers {
 		proxy := providerProxy(pc, cfg.Settings["proxy"])
-		if prev, ok := old.Providers[name]; !ok || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
-			if err := e.client.UpdateProvider(name); err != nil {
-				errs = append(errs, err)
-			} else {
-				old.Providers[name] = pc
-				e.appliedProxy[name] = proxy
-			}
+		_, pending := e.account.transitioning.Load(name)
+		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
+			updates[name] = proxy
+			retiring[name] = true
 		}
 	}
 	for name := range old.Providers {
-		if _, ok := cfg.Providers[name]; !ok {
+		if _, exists := cfg.Providers[name]; !exists {
+			retiring[name] = true
+		}
+	}
+	for name := range retiring {
+		e.account.transitioning.Store(name, false)
+	}
+	for name := range retiring {
+		if e.client.GetProviderByKey(name) != nil {
 			if err := e.client.RemoveProvider(name); err != nil {
-				errs = append(errs, err)
-			} else {
-				delete(old.Providers, name)
-				delete(e.appliedProxy, name)
+				// Leave the old account and all affected gates intact for retry.
+				return true, err
 			}
 		}
 	}
+
+	e.account.config.Store(&cfg)
+	e.applySettings(cfg)
+	var errs []error
+	for name, proxy := range updates {
+		// Bifrost's constructor reads provider config through the same Account as
+		// lazy creation. Both may now see only the new destination, while request
+		// hooks and key reads remain gated until successful construction.
+		e.account.transitioning.Store(name, true)
+		if err := e.client.UpdateProvider(name); err != nil {
+			e.account.transitioning.Store(name, false)
+			errs = append(errs, err)
+			// prepareProvider can leave a queue with no workers on failure. Remove
+			// it so late callers are failed rather than left waiting on that queue.
+			if cleanupErr := e.client.RemoveProvider(name); cleanupErr != nil {
+				errs = append(errs, cleanupErr)
+			}
+		} else {
+			old.Providers[name] = cfg.Providers[name]
+			e.appliedProxy[name] = proxy
+			e.account.transitioning.Delete(name)
+		}
+	}
+	for name := range old.Providers {
+		if _, exists := cfg.Providers[name]; !exists {
+			delete(old.Providers, name)
+			delete(e.appliedProxy, name)
+			e.account.transitioning.Delete(name)
+		}
+	}
+
 	for id, rule := range cfg.Rules {
 		if prev, ok := old.Rules[id]; !ok || !reflect.DeepEqual(prev, rule) {
 			if err := e.rules.UpsertRule(ctx, &rule); err != nil {

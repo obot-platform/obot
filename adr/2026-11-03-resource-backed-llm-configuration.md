@@ -51,8 +51,11 @@ Provide resource watches for every replica. The reconciliation handler reloads
 desired resources, applies them to the core engine, and triggers model discovery,
 including after partial application. The engine tracks successfully applied
 providers, effective proxy settings, and rules so failed items remain retryable
-without restarting successful providers. The handler returns application and
-discovery errors to the router for retry.
+without restarting successful providers. Provider configuration or effective proxy
+changes gate affected core requests and drain active and retired workers before
+publishing new credentials. Failed replacements remain gated until a successful
+retry; key-only rotations do not require a runtime replacement. The handler returns
+application and discovery errors to the router for retry.
 
 Server cutover will activate these watches with the core runtime adapter. The
 existing transport engine retains its current configuration mechanism.
