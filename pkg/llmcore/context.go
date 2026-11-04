@@ -9,8 +9,10 @@ import (
 )
 
 // requestContext translates only headers already admitted by Obot's authenticated proxy.
-// stripCallerCredentials removes Obot credentials and API keys; only admin-approved
-// Anthropic subscription tokens for a verified Anthropic destination survive.
+// The engine relies on stripCallerCredentials in pkg/gateway/server/llmproxy_engine.go
+// to remove Obot credentials and API keys, admitting only admin-approved subscription
+// tokens for a verified Anthropic destination. credentialPlugin enforces the
+// Anthropic boundary again after routing and on each fallback attempt.
 // The User-Agent check below selects Bifrost compatibility behavior, not authorization.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
 	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
