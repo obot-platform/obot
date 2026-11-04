@@ -47,10 +47,5 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 		// key pool so Bifrost forwards that credential instead of selecting an Obot key.
 		ctx.SetValue(schemas.BifrostContextKeySkipKeySelection, true)
 	}
-	if id, ok := schemas.NormalizeSessionID(r.Header.Get("x-bf-session-id")); ok && id != "" {
-		// Bifrost uses this ID for session affinity, keeping subsequent requests
-		// on the provider and key that previously served the session when possible.
-		ctx.SetValue(schemas.BifrostContextKeySessionID, id)
-	}
 	return ctx, cancel
 }
