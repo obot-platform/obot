@@ -154,3 +154,51 @@ func TestRoutingUsesRequestQueryParameters(t *testing.T) {
 		})
 	}
 }
+
+func TestRoutingTargetProviderInheritanceConverges(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		provider *string
+	}{
+		{
+			name:     "omitted provider",
+			provider: nil,
+		},
+		{
+			name:     "empty provider",
+			provider: schemas.Ptr(""),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			engine, store := newRoutingConfigEngine(t, configRoutingRule("true", "initial-route"))
+			rule := configRoutingRule("true", "inherited-route")
+			rule.Targets[0].Provider = tt.provider
+			require.NoError(t, store.PutRule(t.Context(), rule))
+			changed, err := engine.Sync(t.Context())
+			require.NoError(t, err, "inheriting the incoming provider is not a missing dependency")
+			require.True(t, changed)
+			for range 2 {
+				changed, err = engine.Sync(t.Context())
+				require.NoError(t, err)
+				require.False(t, changed, "inherited-provider rules must converge")
+				require.NoError(t, engine.Err())
+				response := configTestChat(engine, "")
+				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+				require.Equal(t, "openai", response.Header().Get("X-Obot-LLM-Provider"))
+				require.Equal(t, "inherited-route", response.Header().Get("X-Obot-LLM-Model"))
+			}
+
+			// A named dependency still has to exist, and its policy stays live
+			// while reconciliation reports the missing provider for retry.
+			rule.Targets[0].Provider = schemas.Ptr("missing-provider")
+			require.NoError(t, store.PutRule(t.Context(), rule))
+			for range 2 {
+				_, err = engine.Sync(t.Context())
+				require.ErrorContains(t, err, "missing-provider")
+				require.ErrorContains(t, engine.Err(), "missing-provider")
+			}
+			response := configTestChat(engine, "")
+			require.GreaterOrEqual(t, response.Code, http.StatusBadRequest, "a missing named target must not silently bypass the rule")
+		})
+	}
+}

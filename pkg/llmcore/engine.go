@@ -356,7 +356,8 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	// chain for request-time handling; they do not invalidate a healthy primary.
 	for id, rule := range cfg.Rules {
 		for _, target := range rule.Targets {
-			if target.Provider != nil {
+			// Both omitted and empty providers inherit the request's provider.
+			if target.Provider != nil && *target.Provider != "" {
 				if _, ok := cfg.Providers[schemas.ModelProvider(*target.Provider)]; !ok {
 					errs = append(errs, fmt.Errorf("routing rule %s: provider %s is not configured", id, *target.Provider))
 				}
