@@ -40,9 +40,15 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 			query[strings.ToLower(name)] = values[len(values)-1]
 		}
 	}
+	// Routing exposes URL query parameters through CEL's params variable.
 	ctx.SetValue(schemas.BifrostContextKeyRequestQuery, query)
+	// Routing exposes normalized incoming headers through CEL's headers variable.
 	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, headers)
+	// Provider adapters forward this allowlist as upstream HTTP headers, preserving
+	// repeated values. credentialPlugin restricts caller credentials per attempt.
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
+	// Bifrost uses the client identity to select compatibility behavior, including
+	// Anthropic's Claude Code subscription handling.
 	ctx.SetValue(schemas.BifrostContextKeyUserAgent, r.UserAgent())
 	if schemas.ClaudeCLI.Matches(r.UserAgent()) && r.Header.Get("Authorization") != "" {
 		// Claude Code supplies its own Authorization credential. Skip the configured
