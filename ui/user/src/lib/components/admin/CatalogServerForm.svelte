@@ -1041,6 +1041,7 @@
 		{:else if formData.runtime === 'containerized' && formData.containerizedConfig}
 			<ContainerizedRuntimeForm
 				bind:config={formData.containerizedConfig}
+				bind:injectObotHeaders={formData.injectObotHeaders}
 				{showEgressDomains}
 				{defaultDenyAllEgress}
 				bind:startupTimeoutSeconds={formData.startupTimeoutSeconds}

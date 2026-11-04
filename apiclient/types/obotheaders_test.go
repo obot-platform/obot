@@ -30,10 +30,9 @@ func TestInjectObotHeadersValidation(t *testing.T) {
 			headers: []ObotHeader{"x-obot-api-key-name", "x-obot-idp-user-id", "x-obot-idp-groups"},
 		},
 		{
-			name:    "containerized unsupported",
+			name:    "containerized",
 			runtime: RuntimeContainerized,
 			headers: []ObotHeader{ObotHeaderUserID},
-			wantErr: true,
 		},
 		{
 			name:    "containerized without selections remains valid",

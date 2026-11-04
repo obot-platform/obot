@@ -115,6 +115,15 @@ func (s ServerConfig) hostedConnectionHeaders() []string {
 	return nil
 }
 
+func (s ServerConfig) hostedConnectionObotHeaders() []types.ObotHeader {
+	// Hosted connections become remote configs, so check the original runtime
+	// before carrying selections into the HTTP gateway.
+	if !types.SupportsObotHeaders(s.Runtime) {
+		return nil
+	}
+	return slices.Clone(s.InjectObotHeaders)
+}
+
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
 	if resources == nil {
 		return nil, nil

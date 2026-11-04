@@ -304,6 +304,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		"https://files.example.test/mcp",
 	)
 	searchServer.Spec.Manifest.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName}
+	filesServer.Spec.Manifest.Runtime = types.RuntimeContainerized
 	filesServer.Spec.Manifest.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}
 	filesServer.Spec.VMCPID = vmcpID
 	filesConnection := syncedVMCPConnection(t, &v1.MCPServerInstance{
@@ -330,7 +331,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ServerConfigForVMCP() error = %v", err)
 	}
-	require.ElementsMatch(t, []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}, serverConfig.InjectObotHeaders, "collect unique remote component selections")
+	require.ElementsMatch(t, []types.ObotHeader{types.ObotHeaderAPIKeyName, types.ObotHeaderUserID}, serverConfig.InjectObotHeaders, "collect unique remote and containerized component selections")
 	// API clients mint a loopback token for the vMCP, which requires an audience.
 	wantAudiences := []string{"https://obot.example.test/mcp-connect/" + instanceID, "https://obot.example.test/mcp-connect/" + vmcpID}
 	if !slices.Equal(serverConfig.Audiences, wantAudiences) {

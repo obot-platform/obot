@@ -110,6 +110,12 @@ Select the container runtime and provide:
 
 Declare environment variables and other required configuration fields, then choose how unresolved values are supplied when adding the entry to a vMCP.
 
+#### Caller attribution headers
+
+Containerized MCP servers can receive selected caller information through HTTP headers. Edit the catalog entry or deployed server, open **Advanced Configuration**, enable **Inject Obot headers**, and select the headers to share. Injection is disabled by default and works on both Docker and Kubernetes.
+
+See [caller attribution headers](../mcp-gateway/register-remote.md#caller-attribution-headers) for the available fields, privacy considerations, and value limits. Git-managed entries use [`injectObotHeaders`](../configuration/mcp-server-gitops.md#caller-attribution-headers). NPX, UVX, and OpenAPI runtimes do not support this setting.
+
 ### OpenAPI: Import an HTTP API
 
 Use **OpenAPI** when you have an HTTP API and an OpenAPI schema, without writing a separate MCP server. Obot runs a hosted wrapper on Docker or Kubernetes that generates tools from the schema's API operations under `paths`.

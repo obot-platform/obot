@@ -143,62 +143,70 @@ func TestHTTPClientsCannotRestoreConfiguredObotHeaders(t *testing.T) {
 	require.Empty(t, headers.Get("X-Tenant"))
 }
 
-func TestHostedConnectionsDiscardObotHeaderSelections(t *testing.T) {
-	server := ServerConfig{
-		Runtime:        types.RuntimeContainerized,
-		MCPServerName:  "jira",
-		ContainerPort:  8080,
-		StartupTimeout: time.Second,
-	}
-	server.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName}
-	t.Run("docker", func(t *testing.T) {
-		connection, err := (&dockerBackend{}).buildServerConfig(server, &container.Summary{
-			ID: "container",
-			Ports: []container.Port{
-				{
-					PrivatePort: 8080,
-					PublicPort:  18080,
-				},
-			},
-		}, 8080, false)
-		require.NoError(t, err)
-		require.Empty(t, connection.InjectObotHeaders, "hosted connections must not inherit legacy attribution selections")
-	})
-	t.Run("kubernetes cached deployment", func(t *testing.T) {
-		scheme := runtime.NewScheme()
-		require.NoError(t, appsv1.AddToScheme(scheme))
-		require.NoError(t, corev1.AddToScheme(scheme))
-		client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-			&appsv1.Deployment{
-				Name:      server.MCPServerName,
-				Namespace: "mcp",
-				Status: appsv1.DeploymentStatus{
-					Replicas:          1,
-					UpdatedReplicas:   1,
-					ReadyReplicas:     1,
-					AvailableReplicas: 1,
-				},
-			},
-			&corev1.Pod{
-				Name:              "running-pod",
-				Namespace:         "mcp",
-				CreationTimestamp: metav1.Now(),
-				Labels:            map[string]string{"app": server.MCPServerName},
-				Status:            corev1.PodStatus{Phase: corev1.PodRunning},
-			},
-		).Build()
-		backend := &kubernetesBackend{
-			client:          client,
-			cachedClient:    client,
-			mcpNamespace:    "mcp",
-			deploymentCache: map[string]*kubernetesDeploymentCacheEntry{},
-		}
-		backend.setDeploymentCache(server.MCPServerName, kubernetesDeploymentCacheEntry{
-			hash:    serverID(server) + utils.Digest(server.Files),
-			podName: "running-pod",
+func TestHostedConnectionObotHeaders(t *testing.T) {
+	for _, runtimeKind := range []types.Runtime{types.RuntimeContainerized, types.RuntimeNPX, types.RuntimeUVX, types.RuntimeOpenAPI} {
+		t.Run(string(runtimeKind), func(t *testing.T) {
+			server := ServerConfig{
+				Runtime:        runtimeKind,
+				MCPServerName:  "jira",
+				ContainerPort:  8080,
+				StartupTimeout: time.Second,
+			}
+			server.InjectObotHeaders = []types.ObotHeader{types.ObotHeaderAPIKeyName}
+			var want []types.ObotHeader
+			if runtimeKind == types.RuntimeContainerized {
+				want = server.InjectObotHeaders
+			}
+			t.Run("docker", func(t *testing.T) {
+				connection, err := (&dockerBackend{}).buildServerConfig(server, &container.Summary{
+					ID: "container",
+					Ports: []container.Port{
+						{
+							PrivatePort: 8080,
+							PublicPort:  18080,
+						},
+					},
+				}, 8080, false)
+				require.NoError(t, err)
+				require.Equal(t, want, connection.InjectObotHeaders)
+			})
+			t.Run("kubernetes cached deployment", func(t *testing.T) {
+				scheme := runtime.NewScheme()
+				require.NoError(t, appsv1.AddToScheme(scheme))
+				require.NoError(t, corev1.AddToScheme(scheme))
+				client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+					&appsv1.Deployment{
+						Name:      server.MCPServerName,
+						Namespace: "mcp",
+						Status: appsv1.DeploymentStatus{
+							Replicas:          1,
+							UpdatedReplicas:   1,
+							ReadyReplicas:     1,
+							AvailableReplicas: 1,
+						},
+					},
+					&corev1.Pod{
+						Name:              "running-pod",
+						Namespace:         "mcp",
+						CreationTimestamp: metav1.Now(),
+						Labels:            map[string]string{"app": server.MCPServerName},
+						Status:            corev1.PodStatus{Phase: corev1.PodRunning},
+					},
+				).Build()
+				backend := &kubernetesBackend{
+					client:          client,
+					cachedClient:    client,
+					mcpNamespace:    "mcp",
+					deploymentCache: map[string]*kubernetesDeploymentCacheEntry{},
+				}
+				backend.setDeploymentCache(server.MCPServerName, kubernetesDeploymentCacheEntry{
+					hash:    serverID(server) + utils.Digest(server.Files),
+					podName: "running-pod",
+				})
+				connection, err := backend.ensureServerDeployment(t.Context(), server)
+				require.NoError(t, err)
+				require.Equal(t, want, connection.InjectObotHeaders)
+			})
 		})
-		connection, err := backend.ensureServerDeployment(t.Context(), server)
-		require.NoError(t, err)
-		require.Empty(t, connection.InjectObotHeaders, "hosted connections must not inherit legacy attribution selections")
-	})
+	}
 }

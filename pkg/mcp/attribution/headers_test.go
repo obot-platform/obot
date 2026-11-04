@@ -263,7 +263,8 @@ func TestSelected(t *testing.T) {
 	selected.Set("X-Obot-Api-Key-Name", "changed")
 	require.Equal(t, "current-writer", headers.Get("X-Obot-Api-Key-Name"), "do not mutate incoming headers")
 	require.Empty(t, Selected(headers, types.RuntimeRemote, nil), "disabled injection discloses nothing")
-	require.Empty(t, Selected(headers, types.RuntimeContainerized, types.ObotHeaders()), "hosted components do not inject attribution")
+	require.Equal(t, http.Header{"X-Obot-Api-Key-Name": {"current-writer"}, "X-Obot-User-Id": {"7"}}, Selected(headers, types.RuntimeContainerized, types.ObotHeaders()))
+	require.Empty(t, Selected(headers, types.RuntimeNPX, types.ObotHeaders()), "STDIO components do not inject attribution")
 }
 
 func TestStrip(t *testing.T) {

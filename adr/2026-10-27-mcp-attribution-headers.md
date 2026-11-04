@@ -16,13 +16,13 @@ None.
 
 ## Context
 
-Remote MCP servers using shared credentials may need to attribute actions to the
+Remote and containerized MCP servers using shared credentials may need to attribute actions to the
 caller authenticated by Obot. Sending caller metadata by default would disclose
 account information to existing backends.
 
 ## Decision
 
-Remote servers and catalog entries can opt into individual API-key, Obot-user,
+Remote and containerized servers and catalog entries can opt into individual API-key, Obot-user,
 and IdP attribution headers through `injectObotHeaders`. Each component controls
 what its backend receives. Header definitions are documented in the
 [remote server guide](../docs/docs/mcp-gateway/register-remote.md).
@@ -31,7 +31,7 @@ Obot strips client-supplied attribution and rejects reserved names in configured
 headers. It derives selected values from the authenticated caller and stored
 identities. Static and per-user configuration cannot override those values.
 
-For vMCP requests, Obot derives the union of its remote components' selected
+For vMCP requests, Obot derives the union of its remote and containerized components' selected
 headers before the internal loopback. mmmcp forwards them using its existing
 passthrough mechanism. Component gateways accept them only from authenticated,
 scoped composite callers after authorization, and forward only their own selected
