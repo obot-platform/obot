@@ -113,11 +113,13 @@ func (s *Client) PutKey(ctx context.Context, name string, key schemas.Key) error
 	})
 }
 
+// DeleteKey requires an existing provider. An already-absent key is a successful
+// no-op, but a missing provider or one removed during the update returns NotFound.
 func (s *Client) DeleteKey(ctx context.Context, name, id string) error {
-	return kclient.IgnoreNotFound(s.MutateProvider(ctx, name, func(provider *Provider) error {
+	return s.MutateProvider(ctx, name, func(provider *Provider) error {
 		provider.Keys = slices.DeleteFunc(provider.Keys, func(key schemas.Key) bool { return key.ID == id })
 		return nil
-	}))
+	})
 }
 
 func resourceKey(name string) kclient.ObjectKey {
