@@ -125,7 +125,7 @@ func newTestEnv(t *testing.T) *testEnv {
 		{name: "anthropic",
 			key: anthropicKey},
 	} {
-		if err := store.PutProvider(ctx, p.name, llmcoreclient.Provider{Config: providerConfig(mock.URL)}); err != nil {
+		if err := store.CreateProvider(ctx, p.name, llmcoreclient.Provider{Config: providerConfig(mock.URL)}); err != nil {
 			t.Fatal(err)
 		}
 		if err := store.PutKey(ctx, p.name, apiKey(p.name+"-1", p.key)); err != nil {
@@ -542,7 +542,7 @@ func TestFallbacksAndRetries(t *testing.T) {
 		pc.NetworkConfig.RetryBackoffInitial = 100 * time.Millisecond
 		pc.NetworkConfig.RetryBackoffMax = 200 * time.Millisecond
 		pc.CustomProviderConfig = &schemas.CustomProviderConfig{BaseProviderType: schemas.OpenAI}
-		if err := env.store.PutProvider(ctx, provider, llmcoreclient.Provider{Config: pc}); err != nil {
+		if err := env.store.CreateProvider(ctx, provider, llmcoreclient.Provider{Config: pc}); err != nil {
 			t.Fatal(err)
 		}
 		if err := env.store.PutKey(ctx, provider, apiKey(provider+"-1", key)); err != nil {
@@ -575,7 +575,7 @@ func TestChatCompletionsOnlyProvider(t *testing.T) {
 	pc := providerConfig(env.mock.URL)
 	pc.CustomProviderConfig = &schemas.CustomProviderConfig{BaseProviderType: schemas.OpenAI, AllowedRequests: &allowed}
 	ctx := context.Background()
-	if err := env.store.PutProvider(ctx, provider, llmcoreclient.Provider{Config: pc}); err != nil {
+	if err := env.store.CreateProvider(ctx, provider, llmcoreclient.Provider{Config: pc}); err != nil {
 		t.Fatal(err)
 	}
 	if err := env.store.PutKey(ctx, provider, apiKey(provider+"-1", key)); err != nil {
@@ -717,7 +717,7 @@ func TestReplicaSync(t *testing.T) {
 func TestSyncRetriesFailedConfiguration(t *testing.T) {
 	env := newTestEnv(t)
 	ctx := context.Background()
-	if err := env.store.PutProvider(ctx, "unsupported-test-provider", llmcoreclient.Provider{Config: providerConfig(env.mock.URL)}); err != nil {
+	if err := env.store.CreateProvider(ctx, "unsupported-test-provider", llmcoreclient.Provider{Config: providerConfig(env.mock.URL)}); err != nil {
 		t.Fatal(err)
 	}
 	for attempt := range 2 {
@@ -808,14 +808,14 @@ func TestRouteSurvivesMissingProvider(t *testing.T) {
 			t.Fatalf("missing target silently bypassed routing: %+v", requests)
 		}
 	}
-	cfg, err := env.store.Load(ctx)
+	loaded, err := env.store.Load(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := cfg.Rules[rule.ID]; !ok {
+	if _, ok := loaded.Config.Rules[rule.ID]; !ok {
 		t.Fatal("provider deletion removed its routing rule")
 	}
-	if err := env.store.PutProvider(ctx, provider, llmcoreclient.Provider{Config: providerConfig(env.mock.URL)}); err != nil {
+	if err := env.store.CreateProvider(ctx, provider, llmcoreclient.Provider{Config: providerConfig(env.mock.URL)}); err != nil {
 		t.Fatal(err)
 	}
 	if err := env.store.PutKey(ctx, provider, apiKey("recreated", anthropicKey)); err != nil {

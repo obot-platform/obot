@@ -54,6 +54,8 @@ type Engine struct {
 
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex
+	// syncErr includes provider load diagnostics even when startup can serve healthy providers.
+	syncErr error
 	// applied is the configuration last applied.
 	applied llmcoreclient.Config
 	// A proxy change may apply to only some providers before Sync fails. Track
@@ -126,10 +128,12 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 		logger = bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 	}
 
-	cfg, err := store.Load(ctx)
+	loaded, err := store.Load(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load the gateway configuration: %w", err)
 	}
+
+	cfg := loaded.Config
 
 	// A nil config store gives an empty rule set, which Sync fills from Obot's tables.
 	ruleStore, err := rules.NewLocalStore(ctx, logger, nil)
@@ -177,6 +181,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	}
 	e.applySettings(cfg)
 	e.applied = cfg
+	e.syncErr = providerLoadErrors(loaded.ProviderErrors)
 	for name := range cfg.Providers {
 		e.appliedProxy[name] = providerProxy(cfg.Providers[name], cfg.Settings["proxy"])
 	}
@@ -191,11 +196,32 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	e.syncLock.Lock()
 	defer e.syncLock.Unlock()
 
-	cfg, err := e.store.Load(ctx)
+	loaded, err := e.store.Load(ctx)
 	if err != nil {
+		// A blocking read cannot safely replace any part of the running configuration.
+		e.syncErr = err
 		return false, err
 	}
-	return e.apply(ctx, cfg)
+	// Unreadable aggregates are omitted from Config. Applying that view removes
+	// their runtime providers and keys while still advancing healthy changes.
+	changed, applyErr := e.apply(ctx, loaded.Config)
+	e.syncErr = errors.Join(providerLoadErrors(loaded.ProviderErrors), applyErr)
+	return changed, e.syncErr
+}
+
+// Err reports replica-local load and application failures, including degraded startup.
+func (e *Engine) Err() error {
+	e.syncLock.Lock()
+	defer e.syncLock.Unlock()
+	return e.syncErr
+}
+
+func providerLoadErrors(diagnostics []llmcoreclient.ProviderLoadError) error {
+	errs := make([]error, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		errs = append(errs, diagnostic)
+	}
+	return errors.Join(errs...)
 }
 
 // apply updates the live Bifrost providers and routing rules after desired resources

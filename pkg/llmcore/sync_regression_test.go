@@ -42,7 +42,7 @@ func (l *providerUpdateLogger) count(provider string) int {
 
 func TestPartialSyncDoesNotRestartUpdatedProviders(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{}}))
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{Config: schemas.ProviderConfig{}}))
 	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
 	e, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: log})
 	require.NoError(t, err)
@@ -51,7 +51,7 @@ func TestPartialSyncDoesNotRestartUpdatedProviders(t *testing.T) {
 		settings["proxy"] = json.RawMessage(`{"enabled":true,"enable_for_inference":true,"url":"http://proxy.example"}`)
 		return nil
 	}))
-	require.NoError(t, store.PutProvider(t.Context(), "broken", llmcoreclient.Provider{}))
+	require.NoError(t, store.CreateProvider(t.Context(), "broken", llmcoreclient.Provider{}))
 	for range 3 {
 		changed, err := e.Sync(t.Context())
 		require.True(t, changed)
@@ -85,8 +85,8 @@ func newTestStore(t *testing.T) *llmcoreclient.Client {
 
 func TestSyncOnlyRestartsProvidersWhoseProxyChanges(t *testing.T) {
 	store := newTestStore(t)
-	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{}))
-	require.NoError(t, store.PutProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
+	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
+	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
 		ProxyConfig: &schemas.ProxyConfig{
 			Type: schemas.HTTPProxy,
 			URL:  schemas.NewSecretVar("http://provider-proxy.example"),

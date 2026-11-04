@@ -32,7 +32,7 @@ func TestProviderHeaders(t *testing.T) {
 			}))
 			defer upstream.Close()
 			store := newTestStore(t)
-			require.NoError(t, store.PutProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
+			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
 				NetworkConfig: schemas.NetworkConfig{BaseURL: upstream.URL, AllowPrivateNetwork: true},
 			}}))
 			require.NoError(t, store.PutKey(t.Context(), "anthropic", schemas.Key{

@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type interruptedBody struct{}
+
 func TestEndpointRegistration(t *testing.T) {
 	e, err := llmcore.New(t.Context(), newTestStore(t), llmcore.Options{})
 	require.NoError(t, err)
@@ -68,8 +70,6 @@ func TestEndpointRegistration(t *testing.T) {
 		})
 	}
 }
-
-type interruptedBody struct{}
 
 func (interruptedBody) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
 func (interruptedBody) Close() error             { return nil }

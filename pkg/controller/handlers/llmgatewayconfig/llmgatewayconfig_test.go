@@ -111,7 +111,7 @@ func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
 	store, err := llmcoreclient.New(storage, plaintextCodec{})
 	require.NoError(t, err)
 	for _, name := range []string{"openai", "anthropic"} {
-		require.NoError(t, store.PutProvider(ctx, name, llmcoreclient.Provider{}))
+		require.NoError(t, store.CreateProvider(ctx, name, llmcoreclient.Provider{}))
 	}
 	provider := "anthropic"
 	require.NoError(t, store.PutRule(ctx, tables.TableRoutingRule{
@@ -123,7 +123,7 @@ func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
 	t.Cleanup(core.Shutdown)
 	require.NoError(t, store.DeleteProvider(ctx, "anthropic"))
 	// An unrelated provider must still apply and become discoverable.
-	require.NoError(t, store.PutProvider(ctx, "gemini", llmcoreclient.Provider{}))
+	require.NoError(t, store.CreateProvider(ctx, "gemini", llmcoreclient.Provider{}))
 	discoveries := 0
 	handler := New(&testEngine{ready: true, core: core}, func(context.Context) error {
 		discoveries++
@@ -137,7 +137,7 @@ func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
 		require.ErrorContains(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}), "anthropic is not configured")
 	}
 	require.Equal(t, 2, discoveries)
-	cfg, err := store.Load(ctx)
+	loaded, err := store.Load(ctx)
 	require.NoError(t, err)
-	require.Contains(t, cfg.Rules, "keep-policy")
+	require.Contains(t, loaded.Config.Rules, "keep-policy")
 }

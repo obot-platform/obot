@@ -403,8 +403,7 @@ func observeError(ctx context.Context, err *schemas.BifrostError) {
 // Only MaxBytesReader limit violations are size errors; other failures mean the
 // request body could not be read (for example, an interrupted upload).
 func writeBodyReadError(w http.ResponseWriter, d dialect, err error) {
-	var maxBytesErr *http.MaxBytesError
-	if errors.As(err, &maxBytesErr) {
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
 		writeError(w, d, http.StatusRequestEntityTooLarge, "invalid_request_error", "request body too large")
 		return
 	}

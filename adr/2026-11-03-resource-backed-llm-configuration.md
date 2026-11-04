@@ -71,13 +71,13 @@ providers remain usable. Diagnostics distinguish unavailable resources from
 resources observed missing. Collection-read failures and unreadable routing rules
 or global settings return a blocking error and no usable result.
 
-Engine integration must allow degraded startup with healthy providers and expose
-provider diagnostics through replica-local status. Refresh must disable any prior
-runtime configuration for a quarantined provider, without deleting its stored
-resource. Apply healthy changes before returning diagnostic errors for backoff
-retries, including when desired contents have not changed. Repairing the resource
-makes it eligible for application again. Blocking load errors fail startup or
-preserve the running configuration during refresh.
+The core engine allows degraded startup with healthy providers and exposes
+provider diagnostics through its replica-local Err method. Refresh disables prior
+runtime configuration for a quarantined provider without deleting its stored
+resource. Sync applies healthy changes before returning diagnostic errors for
+backoff retries, including when desired contents have not changed. Repairing the
+resource makes it eligible for application again. Blocking load errors fail
+startup or preserve the running configuration during refresh.
 
 Cross-resource reads are eventually consistent and do not form a transactional
 snapshot. Deleting a provider retains routing rules that target it. Runtime

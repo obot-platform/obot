@@ -33,7 +33,7 @@ func (c *Controller) setupLLMGatewayConfigRoutes(engine llmgatewayconfig.Engine)
 	// independent names, so their watches remain unfiltered.
 	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayConfig{}).
 		Namespace(system.DefaultNamespace).
-		Name("default").
+		Name(system.LLMGatewayConfigName).
 		IncludeRemoved().
 		HandlerFunc(configSync.Reconcile)
 }
