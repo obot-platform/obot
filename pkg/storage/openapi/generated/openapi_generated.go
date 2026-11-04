@@ -21619,6 +21619,12 @@ func schema_storage_apis_obotobotai_v1_MCPClientSessionSpec(ref common.Reference
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"connectionID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"mcpServerID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",

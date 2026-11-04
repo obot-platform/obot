@@ -2,12 +2,12 @@ package mcpgateway
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"maps"
 	"mime"
 	"net/http"
@@ -16,11 +16,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"uuid"
 
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
 const (
@@ -47,7 +46,6 @@ type proxyMessageKind int
 // uses protocol session metadata only for legacy cross-request responses.
 type proxyAudit struct {
 	collector       proxyAuditCollector
-	storage         kclient.Client
 	ctx             context.Context
 	entry           auditlogs.MCPAuditLog
 	method          string
@@ -83,7 +81,7 @@ type auditSSEBody struct {
 	once       sync.Once
 }
 
-func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector, storageClient kclient.Client) (*proxyAudit, error) {
+func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector) (*proxyAudit, error) {
 	if collector == nil || metadata[obotmcp.AuditLogIgnore] == "true" {
 		return nil, nil
 	}
@@ -94,40 +92,16 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 		entry.RequestBody = json.RawMessage(mcpSessionDeleteRequest)
 		kind = proxyMessageNotification
 	} else if req.Body != nil {
-		body, err := io.ReadAll(io.LimitReader(req.Body, maxMCPProxyHookBodySize+1))
+		body, err := readMCPProxyRequest(req)
 		if err != nil {
-			_ = req.Body.Close()
 			return nil, err
 		}
-		if err := req.Body.Close(); err != nil {
-			return nil, err
-		}
-
-		if len(body) > maxMCPProxyHookBodySize {
-			return nil, fmt.Errorf("request body too large")
-		}
-
-		req.Body = io.NopCloser(bytes.NewReader(body))
-		// Generic tool discovery can fail before hooks decode the request. Decode
-		// audit metadata here so those local errors retain request/response correlation.
-		auditBody := body
-		if strings.EqualFold(strings.TrimSpace(req.Header.Get("Content-Encoding")), "gzip") {
-			decoded, _, decodeErr := decodeMCPHookBody(io.NopCloser(bytes.NewReader(body)), "gzip")
-			if decodeErr == nil {
-				decodedBody, readErr := readMCPHookBody(decoded)
-				closeErr := decoded.Close()
-				if readErr == nil && closeErr == nil {
-					auditBody = decodedBody
-				}
-			}
-		}
-		entry.RequestBody = jsonBody(auditBody)
-		kind = populateMCPMessageFields(&entry, auditBody)
+		entry.RequestBody = jsonBody(body)
+		kind = populateMCPMessageFields(&entry, body)
 	}
 
 	audit := &proxyAudit{
 		collector:              collector,
-		storage:                storageClient,
 		ctx:                    req.Context(),
 		entry:                  entry,
 		method:                 req.Method,
@@ -139,17 +113,17 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	if kind == proxyMessageRequest {
 		audit.proxyExchangeID = rand.Text()
 	}
-	virtualSession, err := saveMCPClientSession(audit.ctx, audit.storage, &audit.entry, false)
-	if err != nil {
-		slog.ErrorContext(req.Context(), "failed to load MCP client session for audit logging", "error", err)
-	}
-
-	// If this is a virtual session, then remove the session ID header from the request because the upstream server isn't expecting it.
-	if virtualSession {
-		req.Header.Del(mcpSessionHeader)
-	}
 
 	return audit, nil
+}
+
+func (a *proxyAudit) setClientSession(session *v1.MCPClientSession) {
+	if a == nil || session == nil {
+		return
+	}
+
+	a.entry.ClientName = cmp.Or(session.Spec.ClientName, a.entry.ClientName)
+	a.entry.ClientVersion = cmp.Or(session.Spec.ClientVersion, a.entry.ClientVersion)
 }
 
 func (a *proxyAudit) recordRequestHooks(result hookResult) {
@@ -337,18 +311,10 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 		clearMCPHookResponseHeaders(resp.Header)
 	}
 
-	var virtual bool
 	if sessionID := resp.Header.Get(mcpSessionHeader); sessionID != "" {
 		a.entry.SessionID = sessionID
-	} else if a.entry.CallType == "initialize" && resp.StatusCode == http.StatusOK {
-		a.entry.SessionID = uuid.New().String()
-		resp.Header.Set(mcpSessionHeader, a.entry.SessionID)
-		virtual = true
 	}
 
-	if _, err := saveMCPClientSession(a.ctx, a.storage, &a.entry, virtual); err != nil {
-		slog.Error("failed to save MCP client session for audit logging", "error", err)
-	}
 	responseHeaders, _ := json.Marshal(sanitizedMCPHeaders(resp.Header))
 	a.entry.ResponseHeaders = responseHeaders
 	a.recordNotification(resp.StatusCode, nil)
@@ -710,4 +676,37 @@ func jsonBody(body []byte) json.RawMessage {
 		return json.RawMessage(fmt.Sprintf("%q", string(body)))
 	}
 	return encoded
+}
+
+// readMCPProxyRequest preserves the wire body for forwarding and returns decoded
+// bytes for inspection. Recovery reuses this only after a failed session lookup.
+func readMCPProxyRequest(req *http.Request) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(req.Body, maxMCPProxyHookBodySize+1))
+	if err != nil {
+		_ = req.Body.Close()
+		return nil, err
+	}
+	if err := req.Body.Close(); err != nil {
+		return nil, err
+	}
+
+	if len(body) > maxMCPProxyHookBodySize {
+		return nil, fmt.Errorf("request body too large")
+	}
+
+	req.Body = io.NopCloser(bytes.NewReader(body))
+	// Decode for inspection without changing the body or encoding sent upstream.
+	auditBody := body
+	if strings.EqualFold(strings.TrimSpace(req.Header.Get("Content-Encoding")), "gzip") {
+		decoded, _, decodeErr := decodeMCPHookBody(io.NopCloser(bytes.NewReader(body)), "gzip")
+		if decodeErr == nil {
+			decodedBody, readErr := readMCPHookBody(decoded)
+			closeErr := decoded.Close()
+			if readErr == nil && closeErr == nil {
+				auditBody = decodedBody
+			}
+		}
+	}
+
+	return auditBody, nil
 }

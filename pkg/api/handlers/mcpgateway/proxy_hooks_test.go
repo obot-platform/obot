@@ -172,7 +172,7 @@ func TestMCPProxyHooksMutateRequestAndResponseWithAudit(t *testing.T) {
 	collector := new(recordingProxyAuditCollector)
 	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"echo","arguments":{"value":"secret request"}}}`)
 	request.Header.Set(mcpSessionHeader, "session-1")
-	auditor, err := newProxyAudit(request, metadata, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(request, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestMCPProxyHookAuditSavesEachMutationCombination(t *testing.T) {
 			collector := new(recordingProxyAuditCollector)
 			request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"echo","arguments":{"value":"original request"}}}`)
 			request.Header.Set(mcpSessionHeader, "session-1")
-			auditor, err := newProxyAudit(request, metadata, collector, newMCPProxyTestStorage())
+			auditor, err := newProxyAudit(request, metadata, collector)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -332,7 +332,7 @@ func TestMCPProxyHookAuditKeepsRequestMutationOnTransportError(t *testing.T) {
 	metadata := map[string]string{"mcpID": "mcp-1", "userID": "user-1"}
 	collector := new(recordingProxyAuditCollector)
 	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"echo","arguments":{"value":"original request"}}}`)
-	auditor, err := newProxyAudit(request, metadata, collector, newMCPProxyTestStorage())
+	auditor, err := newProxyAudit(request, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -467,7 +467,7 @@ func TestMCPProxyHooksFilterLegacySSEAcrossProcessors(t *testing.T) {
 
 	post := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":"request-1","method":"resources/read","params":{"uri":"file:///readme"}}`)
 	post.URL.RawQuery = "sessionid=legacy-session"
-	postAuditor, err := newProxyAudit(post, metadata, collector, storageClient)
+	postAuditor, err := newProxyAudit(post, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,7 +495,7 @@ func TestMCPProxyHooksFilterLegacySSEAcrossProcessors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	getAuditor, err := newProxyAudit(get, metadata, collector, storageClient)
+	getAuditor, err := newProxyAudit(get, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,7 +568,7 @@ func TestMCPProxyHooksFilterServerRequestResponseAcrossProcessors(t *testing.T) 
 		t.Fatal(err)
 	}
 	get.Header.Set(mcpSessionHeader, "session-1")
-	getAuditor, err := newProxyAudit(get, metadata, collector, storageClient)
+	getAuditor, err := newProxyAudit(get, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -596,7 +596,7 @@ func TestMCPProxyHooksFilterServerRequestResponseAcrossProcessors(t *testing.T) 
 
 	post := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":9,"result":{"roots":[{"uri":"file:///secret"}]}}`)
 	post.Header.Set(mcpSessionHeader, "session-1")
-	postAuditor, err := newProxyAudit(post, metadata, collector, storageClient)
+	postAuditor, err := newProxyAudit(post, metadata, collector)
 	if err != nil {
 		t.Fatal(err)
 	}
