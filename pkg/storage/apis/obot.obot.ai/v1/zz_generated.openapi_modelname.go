@@ -271,6 +271,41 @@ func (in K8sSettingsStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayConfig) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayConfig"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayConfigList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayConfigList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayProvider) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayProvider"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayProviderList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayProviderList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayResourceSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayResourceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayRoutingRule) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayRoutingRule"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in LLMGatewayRoutingRuleList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.LLMGatewayRoutingRuleList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPCatalog) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPCatalog"
 }
