@@ -112,7 +112,9 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 // do not restart providers whose network behavior has not changed.
 func providerProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
 	pc.CheckAndSetDefaults()
-	if pc.ProxyConfig != nil && pc.ProxyConfig.Type != schemas.NoProxy {
+	// An empty proxy object, like NoProxy, is unconfigured and must inherit
+	// an enabled global inference proxy.
+	if pc.ProxyConfig != nil && pc.ProxyConfig.Type != "" && pc.ProxyConfig.Type != schemas.NoProxy {
 		return pc.ProxyConfig
 	}
 	var proxy tables.GlobalProxyConfig

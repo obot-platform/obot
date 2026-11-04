@@ -2,6 +2,7 @@ package llmcore
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -23,10 +24,11 @@ type routingPlugin struct {
 	// Bifrost replaces scope entries and compiled programs in separate steps.
 	// Hold a read lock for the whole evaluation and a write lock for mutations
 	// so requests never see a missing rule or mix rules with another program version.
-	mu     sync.RWMutex
-	rules  rules.Store
-	engine *rules.Engine
-	logger schemas.Logger
+	mu        sync.RWMutex
+	rules     rules.Store
+	validator *rules.LocalStore
+	engine    *rules.Engine
+	logger    schemas.Logger
 }
 
 // noBudgets answers the budget variables routing rules can read (budget_used, tokens_used,
@@ -44,13 +46,29 @@ func newRoutingPlugin(store rules.Store, logger schemas.Logger) (*routingPlugin,
 	if err != nil {
 		return nil, err
 	}
-	return &routingPlugin{rules: store, engine: engine, logger: logger}, nil
+	validator, err := rules.NewLocalStore(context.Background(), logger, nil)
+	if err != nil {
+		return nil, err
+	}
+	return &routingPlugin{rules: store, validator: validator, engine: engine, logger: logger}, nil
 }
 
 // UpsertRule owns all live edits to the store; callers must not mutate it directly.
 func (p *routingPlugin) UpsertRule(ctx context.Context, rule *tables.TableRoutingRule) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if rule == nil {
+		return fmt.Errorf("routing rule cannot be nil")
+	}
+	// LocalStore replaces the active rule even when compilation fails and only
+	// logs the error. Compile in isolation first: the live program cache is keyed
+	// by ID and could otherwise return the old program for this replacement.
+	_, err := p.validator.GetProgram(ctx, rule)
+	// Discard the validation cache so every edit of this ID is compiled afresh.
+	_ = p.validator.DeleteRule(ctx, rule.ID)
+	if err != nil {
+		return fmt.Errorf("routing rule %s: %w", rule.ID, err)
+	}
 	return p.rules.UpsertRule(ctx, rule)
 }
 
@@ -79,11 +97,13 @@ func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas
 	}
 
 	headers, _ := ctx.Value(schemas.BifrostContextKeyRequestHeaders).(map[string]string)
+	query, _ := ctx.Value(schemas.BifrostContextKeyRequestQuery).(map[string]string)
 	decision, err := p.engine.EvaluateRoutingRules(ctx, &rules.EvaluationContext{
 		Provider:    provider,
 		Model:       model,
 		RequestType: string(req.RequestType),
 		Headers:     headers,
+		QueryParams: query,
 	})
 	if err != nil {
 		// A rule that fails to evaluate leaves the request as it was, as the engine's plugin does.

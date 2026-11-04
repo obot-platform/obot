@@ -30,6 +30,15 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 		}
 	}
 
+	// Match the transport's params map: lowercase names, with the last value
+	// of a repeated parameter available to CEL routing expressions.
+	query := make(map[string]string)
+	for name, values := range r.URL.Query() {
+		if len(values) > 0 {
+			query[strings.ToLower(name)] = values[len(values)-1]
+		}
+	}
+	ctx.SetValue(schemas.BifrostContextKeyRequestQuery, query)
 	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, headers)
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
 	ctx.SetValue(schemas.BifrostContextKeyUserAgent, r.UserAgent())
