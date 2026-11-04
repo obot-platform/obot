@@ -50,7 +50,7 @@ type Engine struct {
 	client     *bifrost.Bifrost
 	mux        *http.ServeMux
 	account    *account
-	rules      *rules.LocalStore
+	routing    *routingPlugin
 
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex
@@ -160,12 +160,12 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 		store:        store,
 		catalog:      opts.Catalog,
 		account:      &account{},
-		rules:        ruleStore,
+		routing:      routing,
 		appliedProxy: make(map[schemas.ModelProvider]*schemas.ProxyConfig),
 	}
 	e.account.config.Store(&cfg)
 	for _, rule := range cfg.Rules {
-		if err := ruleStore.UpsertRule(ctx, &rule); err != nil {
+		if err := routing.UpsertRule(ctx, &rule); err != nil {
 			return nil, fmt.Errorf("routing rule %s: %w", rule.ID, err)
 		}
 	}
@@ -309,7 +309,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 
 	for id, rule := range cfg.Rules {
 		if prev, ok := old.Rules[id]; !ok || !reflect.DeepEqual(prev, rule) {
-			if err := e.rules.UpsertRule(ctx, &rule); err != nil {
+			if err := e.routing.UpsertRule(ctx, &rule); err != nil {
 				errs = append(errs, err)
 			} else {
 				old.Rules[id] = rule
@@ -318,7 +318,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	}
 	for id := range old.Rules {
 		if _, ok := cfg.Rules[id]; !ok {
-			if err := e.rules.DeleteRule(ctx, id); err != nil {
+			if err := e.routing.DeleteRule(ctx, id); err != nil {
 				errs = append(errs, err)
 			} else {
 				delete(old.Rules, id)

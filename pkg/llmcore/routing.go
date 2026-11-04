@@ -1,10 +1,13 @@
 package llmcore
 
 import (
+	"context"
 	"strings"
+	"sync"
 
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/plugins/governance"
 	"github.com/maximhq/bifrost/plugins/routing/rules"
 )
@@ -17,6 +20,10 @@ const (
 // own rule evaluator. Bifrost's routing plugin can't be used as is: it loads rules from
 // Bifrost's config store and needs Bifrost's governance plugin for virtual keys.
 type routingPlugin struct {
+	// Bifrost replaces scope entries and compiled programs in separate steps.
+	// Hold a read lock for the whole evaluation and a write lock for mutations
+	// so requests never see a missing rule or mix rules with another program version.
+	mu     sync.RWMutex
 	rules  rules.Store
 	engine *rules.Engine
 	logger schemas.Logger
@@ -40,6 +47,19 @@ func newRoutingPlugin(store rules.Store, logger schemas.Logger) (*routingPlugin,
 	return &routingPlugin{rules: store, engine: engine, logger: logger}, nil
 }
 
+// UpsertRule owns all live edits to the store; callers must not mutate it directly.
+func (p *routingPlugin) UpsertRule(ctx context.Context, rule *tables.TableRoutingRule) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.rules.UpsertRule(ctx, rule)
+}
+
+func (p *routingPlugin) DeleteRule(ctx context.Context, id string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.rules.DeleteRule(ctx, id)
+}
+
 func (p *routingPlugin) GetName() string { return routingPluginName }
 
 func (p *routingPlugin) Cleanup() error { return nil }
@@ -48,6 +68,8 @@ func (p *routingPlugin) Cleanup() error { return nil }
 // fallbacks. Resolve the primary route and fallback chain here so later attempts
 // use that decision instead of evaluating routing rules again.
 func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	if !p.rules.HasRules(ctx) {
 		return nil
 	}
