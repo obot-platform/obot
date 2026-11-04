@@ -121,7 +121,7 @@ func (s ServerConfig) hostedConnectionObotHeaders() []types.ObotHeader {
 	if !types.SupportsObotHeaders(s.Runtime) {
 		return nil
 	}
-	return slices.Clone(s.InjectObotHeaders)
+	return s.InjectObotHeaders
 }
 
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
