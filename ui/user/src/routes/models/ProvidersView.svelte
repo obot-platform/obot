@@ -19,6 +19,7 @@
 	import {
 		PROVIDER_CATALOG,
 		providerIcon,
+		providerIconClass,
 		providerLabel
 	} from '$lib/services/llm-gateway/providers';
 	import { profile } from '$lib/stores';
@@ -148,6 +149,7 @@
 					{@const enabled = ks.filter((k) => k.enabled !== false).length}
 					<ProviderCard
 						provider={card}
+						iconClass={providerIconClass(p.custom_provider_config?.base_provider_type ?? p.name)}
 						{readonly}
 						onConfigure={() => openProvider(p.name)}
 						onDeconfigure={() => (removing = p.name)}
@@ -180,6 +182,7 @@
 				{:else}
 					<ProviderCard
 						provider={card}
+						iconClass={providerIconClass(card.id)}
 						{readonly}
 						disableConfigure={readonly}
 						onConfigure={() => addDialog?.open(card.id)}

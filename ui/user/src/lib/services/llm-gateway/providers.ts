@@ -16,7 +16,7 @@ export interface KeyField {
 export interface ProviderCatalogEntry {
 	id: string;
 	label: string;
-	icon?: string;
+	icon: string;
 	// A black logo, inverted in dark mode so it stays visible.
 	monochromeIcon?: boolean;
 	description: string;
@@ -152,6 +152,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 	{
 		id: 'mistral',
 		label: 'Mistral AI',
+		icon: '/admin/assets/mistral-logo.svg',
 		description: m.models_providers_desc_mistral(),
 		keyFields: [apiKey('')]
 	},
@@ -181,54 +182,66 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 	{
 		id: 'openrouter',
 		label: 'OpenRouter',
+		icon: '/admin/assets/openrouter-logo.svg',
+		monochromeIcon: true,
 		description: m.models_providers_desc_openrouter(),
 		keyFields: [apiKey('sk-or-...')]
 	},
 	{
 		id: 'cohere',
 		label: 'Cohere',
+		icon: '/admin/assets/cohere-logo.svg',
 		description: m.models_providers_desc_cohere(),
 		keyFields: [apiKey('')]
 	},
 	{
 		id: 'perplexity',
 		label: 'Perplexity',
+		icon: '/admin/assets/perplexity-logo.svg',
 		description: m.models_providers_desc_perplexity(),
 		keyFields: [apiKey('pplx-...')]
 	},
 	{
 		id: 'cerebras',
 		label: 'Cerebras',
+		icon: '/admin/assets/cerebras-logo.svg',
 		description: m.models_providers_desc_cerebras(),
 		keyFields: [apiKey('csk-...')]
 	},
 	{
 		id: 'fireworks',
 		label: 'Fireworks AI',
+		icon: '/admin/assets/fireworks-logo.svg',
 		description: m.models_providers_desc_fireworks(),
 		keyFields: [apiKey('fw_...')]
 	},
 	{
 		id: 'huggingface',
 		label: 'Hugging Face',
+		icon: '/admin/assets/huggingface-logo.svg',
 		description: m.models_providers_desc_huggingface(),
 		keyFields: [apiKey('hf_...')]
 	},
 	{
 		id: 'nebius',
 		label: 'Nebius Token Factory',
+		icon: '/admin/assets/nebius-logo.svg',
+		monochromeIcon: true,
 		description: m.models_providers_desc_nebius(),
 		keyFields: [apiKey('')]
 	},
 	{
 		id: 'parasail',
 		label: 'Parasail',
+		icon: '/admin/assets/parasail-logo.svg',
+		monochromeIcon: true,
 		description: m.models_providers_desc_parasail(),
 		keyFields: [apiKey('')]
 	},
 	{
 		id: 'databricks',
 		label: 'Databricks',
+		icon: '/admin/assets/databricks-logo.svg',
 		description: m.models_providers_desc_databricks(),
 		keyFields: [
 			{
@@ -243,6 +256,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 	{
 		id: 'ollama',
 		label: 'Ollama',
+		icon: '/admin/assets/ollama-logo.svg',
+		monochromeIcon: true,
 		description: m.models_providers_desc_ollama(),
 		keyFields: [
 			{
@@ -276,6 +291,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 	{
 		id: 'sgl',
 		label: 'SGLang',
+		icon: '/admin/assets/sglang-logo.svg',
 		description: m.models_providers_desc_sglang(),
 		keyFields: [
 			{
@@ -288,12 +304,16 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 	{
 		id: 'replicate',
 		label: 'Replicate',
+		icon: '/admin/assets/replicate-logo.svg',
+		monochromeIcon: true,
 		description: m.models_providers_desc_replicate(),
 		keyFields: [apiKey('r8_...')]
 	},
 	{
 		id: 'elevenlabs',
 		label: 'ElevenLabs',
+		icon: '/admin/assets/elevenlabs-logo.svg',
+		monochromeIcon: true,
 		description: m.models_providers_desc_elevenlabs(),
 		keyFields: [apiKey('')]
 	}
