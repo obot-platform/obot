@@ -136,15 +136,15 @@ func providerConfigID(name string) string {
 // from provider-specific fields or ambient authentication. Callers and the runtime
 // are responsible for validating authentication for the selected provider.
 func validateKeys(keys []schemas.Key) error {
-	ids := map[string]bool{}
+	ids := map[string]struct{}{}
 	for _, key := range keys {
 		if key.ID == "" {
 			return fmt.Errorf("a key needs an ID")
 		}
-		if ids[key.ID] {
+		if _, exists := ids[key.ID]; exists {
 			return fmt.Errorf("duplicate key ID %q", key.ID)
 		}
-		ids[key.ID] = true
+		ids[key.ID] = struct{}{}
 	}
 	return nil
 }
