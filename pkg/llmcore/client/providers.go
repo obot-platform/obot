@@ -90,8 +90,6 @@ func (s *Client) MutateProvider(ctx context.Context, name string, change func(*P
 		return err
 	}
 
-	obj.Name = resourceName(name)
-	obj.Namespace = system.DefaultNamespace
 	obj.Spec = v1.LLMGatewayResourceSpec{ID: name, Payload: payload}
 	return s.storage.Update(ctx, &obj)
 }
