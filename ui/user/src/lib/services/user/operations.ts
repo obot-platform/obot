@@ -840,11 +840,17 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	obj.isAdmin = () => {
 		return obj.groups.includes(Group.ADMIN);
 	};
+	// Owners, admins and Admin Read-Only users are in the admin-readonly group. Auditors can also view
+	// the admin area without being in it.
 	obj.hasAdminAccess = () => {
-		return obj.groups.includes(Group.ADMIN) || obj.groups.includes(Group.AUDITOR);
+		return (
+			obj.groups.includes(Group.ADMIN_READONLY) ||
+			obj.groups.includes(Group.ADMIN) ||
+			obj.groups.includes(Group.AUDITOR)
+		);
 	};
 	obj.isAdminReadonly = () => {
-		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
+		return !obj.groups.includes(Group.ADMIN) && !!obj.hasAdminAccess?.();
 	};
 	obj.isOwner = () => {
 		return obj.groups.includes(Group.OWNER);

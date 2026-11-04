@@ -113,14 +113,17 @@ describe('Platform registry settings loader', () => {
 		vi.spyOn(AdminService, 'getModelProxyUsage').mockRejectedValue(new Error('usage unavailable'));
 		vi.spyOn(AdminService, 'listGitCredentials').mockResolvedValue([]);
 	}
-	it.each([Group.ADMIN, Group.OWNER])('loads saved registry settings for %s', async (group) => {
-		mockOtherSettingsApis();
-		vi.spyOn(AdminService, 'getRegistrySettings').mockResolvedValue({
-			anonymousAccessEnabled: true
-		});
-		const result = await loadPlatform('settings', { groups: [group], available: false });
-		expect(result).toMatchObject({ registrySettings: { anonymousAccessEnabled: true } });
-	});
+	it.each([Group.ADMIN, Group.OWNER, Group.ADMIN_READONLY])(
+		'loads saved registry settings for %s',
+		async (group) => {
+			mockOtherSettingsApis();
+			vi.spyOn(AdminService, 'getRegistrySettings').mockResolvedValue({
+				anonymousAccessEnabled: true
+			});
+			const result = await loadPlatform('settings', { groups: [group], available: false });
+			expect(result).toMatchObject({ registrySettings: { anonymousAccessEnabled: true } });
+		}
+	);
 	it('does not request registry settings for auditors', async () => {
 		mockOtherSettingsApis();
 		const getSettings = vi.spyOn(AdminService, 'getRegistrySettings');

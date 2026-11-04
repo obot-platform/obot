@@ -110,7 +110,7 @@ func ConvertUserWithEffectiveRole(u *User, authProviderName string, effectiveRol
 
 	groups := effectiveRole.Groups()
 	if authProviderName == system.BootstrapName {
-		groups = []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupBasic, types2.GroupAuthenticated}
+		groups = []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupAdminReadonly, types2.GroupBasic, types2.GroupAuthenticated}
 	}
 
 	user := &types2.User{

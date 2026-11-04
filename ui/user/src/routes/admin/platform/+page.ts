@@ -59,7 +59,11 @@ export const load: PageLoad = async ({ depends, fetch, parent, url }) => {
 			depends('registry:settings');
 			await Promise.all([
 				(async () => {
-					if (!profile.groups.includes(Group.ADMIN) && !profile.groups.includes(Group.OWNER))
+					if (
+						!profile.groups.includes(Group.ADMIN_READONLY) &&
+						!profile.groups.includes(Group.ADMIN) &&
+						!profile.groups.includes(Group.OWNER)
+					)
 						return;
 					try {
 						registrySettings = await AdminService.getRegistrySettings({

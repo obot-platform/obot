@@ -41,7 +41,7 @@ func (*VMCPHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list VMCPs: %w", err)
 	}
 
-	all := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
+	all := req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true"
 
 	instances, err := vmcpconfig.FindInstances(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
 	if err != nil {
@@ -71,9 +71,9 @@ func (*VMCPHandler) Get(req api.Context) error {
 
 // vmcpForUser limits a shared VMCP to the components, tools, and profiles that
 // apply to the requesting user. Administrators and personal owners manage the definition,
-// and auditors review it, so they see all of it.
+// and admin read-only users and auditors review it, so they see all of it.
 func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
-	if req.UserIsAuditor() || authz.UserCanManageVMCP(req.User, &vmcp) {
+	if req.UserCanViewAdmin() || authz.UserCanManageVMCP(req.User, &vmcp) {
 		return vmcp
 	}
 

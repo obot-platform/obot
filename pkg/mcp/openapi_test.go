@@ -653,10 +653,10 @@ func TestOpenAPILifecyclePreservesRuntime(t *testing.T) {
 			case "restart":
 				err = manager.RestartServerDeployment(t.Context(), config)
 			case "details":
-				_, err = manager.GetServerDetails(t.Context(), config)
+				_, err = manager.GetServerDetails(t.Context(), config, ServerInspectionOptions{})
 			case "logs":
 				var logs io.ReadCloser
-				logs, err = manager.StreamServerLogs(t.Context(), config)
+				logs, err = manager.StreamServerLogs(t.Context(), config, ServerInspectionOptions{})
 				if logs != nil {
 					require.NoError(t, logs.Close())
 				}
@@ -726,10 +726,10 @@ func TestOpenAPIDestinationPolicyAtDeployment(t *testing.T) {
 					case "restart":
 						err = manager.RestartServerDeployment(t.Context(), config)
 					case "details":
-						_, err = manager.GetServerDetails(t.Context(), config)
+						_, err = manager.GetServerDetails(t.Context(), config, ServerInspectionOptions{})
 					case "logs":
 						var logs io.ReadCloser
-						logs, err = manager.StreamServerLogs(t.Context(), config)
+						logs, err = manager.StreamServerLogs(t.Context(), config, ServerInspectionOptions{})
 						if logs != nil {
 							require.NoError(t, logs.Close())
 						}

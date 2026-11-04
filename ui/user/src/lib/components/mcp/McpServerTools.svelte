@@ -33,6 +33,9 @@
 		// name for names that may be problematic for MCP clients / inference
 		// APIs (length, disallowed chars, or duplicates in this list).
 		showToolNameIssues?: boolean;
+		// When true, show the tool preview instead of the server's live tools. Listing live tools connects to the
+		// server, which can launch it, so it is not offered to viewers who may inspect the server but not use it.
+		previewOnly?: boolean;
 	}
 
 	let {
@@ -42,7 +45,8 @@
 		noToolsContent,
 		classes,
 		previewOverride,
-		showToolNameIssues = false
+		showToolNameIssues = false,
+		previewOnly = false
 	}: Props = $props();
 	let search = $state('');
 	let tools = $state<MCPServerTool[]>([]);
@@ -58,7 +62,7 @@
 
 	// Determine if we have "real" tools or should show previews
 	let showRealTools = $derived(
-		!('isCatalogEntry' in entry) || ('isCatalogEntry' in entry && server)
+		!previewOnly && (!('isCatalogEntry' in entry) || ('isCatalogEntry' in entry && server))
 	);
 	let showPreviewTools = $derived(previewTools.length > 0 && !showRealTools);
 	let displayTools = $derived(

@@ -122,7 +122,7 @@ func servedAuthProviderParameters(req api.Context, authProvider v1.AuthProvider,
 
 // seesSCIM reports whether the requester may learn how an auth provider is set up for SCIM.
 func seesSCIM(req api.Context) bool {
-	return req.UserIsAdmin() || req.UserIsAuditor()
+	return req.UserCanViewAdmin()
 }
 
 // setSCIMStatus reports how the provider supports SCIM and the state of its SCIM connection. Auth providers are

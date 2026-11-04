@@ -47,7 +47,7 @@ func (m *MCPWebhookValidationHandler) List(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		items = append(items, convertMCPWebhookValidation(item, credEnv))
+		items = append(items, mcpWebhookValidationForCaller(req, convertMCPWebhookValidation(item, credEnv)))
 	}
 
 	return req.Write(types.MCPWebhookValidationList{Items: items})
@@ -64,7 +64,7 @@ func (m *MCPWebhookValidationHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, credEnv))
+	return req.Write(mcpWebhookValidationForCaller(req, convertMCPWebhookValidation(webhookValidation, credEnv)))
 }
 
 func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
@@ -437,17 +437,18 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support log retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
+	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
+	if err != nil {
 		return err
 	}
 
-	serverConfig, err := systemServerToServerConfig(req, systemServer)
+	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: readOnly,
+	})
 	if err != nil {
-		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
-	}
-
-	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
-	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -471,17 +472,18 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
+	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
+	if err != nil {
 		return err
 	}
 
-	serverConfig, err := systemServerToServerConfig(req, systemServer)
+	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: readOnly,
+	})
 	if err != nil {
-		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
-	}
-
-	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
-	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}

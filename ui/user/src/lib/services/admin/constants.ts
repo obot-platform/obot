@@ -18,17 +18,30 @@ export const userRoleOptions = [
 		description: m.core_role_power_user_plus_description()
 	},
 	{
+		id: Role.ADMIN_READONLY,
+		label: m.core_role_admin_readonly(),
+		description: m.core_role_admin_readonly_description()
+	},
+	{
 		id: Role.ADMIN,
 		label: m.core_role_admin(),
 		description: m.core_role_admin_description()
 	}
 ];
 
+// Roles that can be the default role for new users. Admin Read-Only can only be assigned explicitly.
+export const defaultRoleOptions = userRoleOptions.filter((role) => role.id !== Role.ADMIN_READONLY);
+
 export const groupRoleOptions = [
 	{
 		id: Role.ADMIN,
 		label: m.core_role_admin(),
 		description: m.core_group_role_admin_description()
+	},
+	{
+		id: Role.ADMIN_READONLY,
+		label: m.core_role_admin_readonly(),
+		description: m.core_group_role_admin_readonly_description()
 	},
 	{
 		id: Role.POWERUSER_PLUS,

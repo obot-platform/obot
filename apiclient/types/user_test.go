@@ -105,6 +105,36 @@ func TestGroups(t *testing.T) {
 			nil,
 		},
 		{
+			name:           "Admin gets admin read-only group",
+			role:           RoleAdmin,
+			expectContains: []string{GroupAdmin, GroupAdminReadonly, GroupBasic},
+			expectMissing:  []string{GroupOwner, GroupAuditor},
+		},
+		{
+			name:           "Admin read-only gets only basic privileges besides its own group",
+			role:           RoleAdminReadonly,
+			expectContains: []string{GroupAdminReadonly, GroupBasic, GroupAuthenticated, GroupAPI},
+			expectMissing:  []string{GroupOwner, GroupAdmin, GroupAuditor, GroupPowerUserPlus, GroupPowerUser},
+		},
+		{
+			name:           "Admin read-only with Auditor",
+			role:           RoleAdminReadonly | RoleAuditor,
+			expectContains: []string{GroupAdminReadonly, GroupAuditor, GroupBasic},
+			expectMissing:  []string{GroupOwner, GroupAdmin, GroupPowerUserPlus, GroupPowerUser},
+		},
+		{
+			name:           "Unnormalized source bitmap exposes both groups",
+			role:           RoleAdminReadonly | RolePowerUserPlus,
+			expectContains: []string{GroupAdminReadonly, GroupPowerUserPlus, GroupPowerUser, GroupBasic},
+			expectMissing:  []string{GroupOwner, GroupAdmin, GroupAuditor},
+		},
+		{
+			name:           "Basic with Auditor does not get admin read-only group",
+			role:           RoleBasic | RoleAuditor,
+			expectContains: []string{GroupAuditor, GroupBasic},
+			expectMissing:  []string{GroupAdminReadonly, GroupAdmin},
+		},
+		{
 			"Unknown role gets no groups",
 			RoleUnknown,
 			nil,
@@ -142,6 +172,11 @@ func TestRoleValues(t *testing.T) {
 		{"RoleAuditor", RoleAuditor, 32},
 		{"RolePowerUserPlus", RolePowerUserPlus, 64},
 		{"RolePowerUser", RolePowerUser, 128},
+		{
+			name:  "RoleAdminReadonly",
+			role:  RoleAdminReadonly,
+			value: 256,
+		},
 	}
 
 	for _, r := range roles {
@@ -172,6 +207,30 @@ func TestHasRole(t *testing.T) {
 		{"Owner has Admin", RoleOwner, RoleAdmin, true},
 		{"Owner has Basic", RoleOwner, RoleBasic, true},
 		{"Admin does not have Owner", RoleAdmin, RoleOwner, false},
+		{
+			name:     "Admin read-only has Basic",
+			role:     RoleAdminReadonly,
+			check:    RoleBasic,
+			expected: true,
+		},
+		{
+			name:     "Admin read-only does not have Admin",
+			role:     RoleAdminReadonly,
+			check:    RoleAdmin,
+			expected: false,
+		},
+		{
+			name:     "Admin read-only does not have PowerUser",
+			role:     RoleAdminReadonly,
+			check:    RolePowerUser,
+			expected: false,
+		},
+		{
+			name:     "Admin does not have Admin read-only",
+			role:     RoleAdmin,
+			check:    RoleAdminReadonly,
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -179,6 +238,78 @@ func TestHasRole(t *testing.T) {
 			result := tt.role.HasRole(tt.check)
 			if result != tt.expected {
 				t.Errorf("Role(%d).HasRole(%d) = %v, want %v", tt.role, tt.check, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsValid(t *testing.T) {
+	tests := []struct {
+		name string
+		role Role
+		want bool
+	}{
+		{
+			name: "basic",
+			role: RoleBasic,
+			want: true,
+		},
+		{
+			name: "admin read-only",
+			role: RoleAdminReadonly,
+			want: true,
+		},
+		{
+			name: "admin read-only with auditor",
+			role: RoleAdminReadonly | RoleAuditor,
+			want: true,
+		},
+		{
+			name: "owner with auditor",
+			role: RoleOwner | RoleAuditor,
+			want: true,
+		},
+		{
+			name: "admin read-only with power user plus",
+			role: RoleAdminReadonly | RolePowerUserPlus,
+			want: false,
+		},
+		{
+			name: "admin read-only with power user and auditor",
+			role: RoleAdminReadonly | RolePowerUser | RoleAuditor,
+			want: false,
+		},
+		{
+			name: "admin read-only with both power user roles",
+			role: RoleAdminReadonly | RolePowerUserPlus | RolePowerUser,
+			want: false,
+		},
+		{
+			name: "admin with power user plus",
+			role: RoleAdmin | RolePowerUserPlus,
+			want: false,
+		},
+		{
+			name: "auditor only",
+			role: RoleAuditor,
+			want: false,
+		},
+		{
+			name: "two base roles",
+			role: RoleAdmin | RoleAdminReadonly,
+			want: false,
+		},
+		{
+			name: "unknown bit",
+			role: 1 << 20,
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.role.IsValid(); got != tt.want {
+				t.Errorf("Role(%d).IsValid() = %v, want %v", tt.role, got, tt.want)
 			}
 		})
 	}

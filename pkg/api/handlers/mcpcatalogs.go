@@ -239,7 +239,7 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	}
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
-	if (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true" {
+	if req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true" {
 		entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 		for _, entry := range list.Items {
 			entries = append(entries, convertMCPServerCatalogEntryForList(entry, workspaceID, powerUserID, minimal))

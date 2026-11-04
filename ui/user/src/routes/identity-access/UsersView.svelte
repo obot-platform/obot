@@ -97,6 +97,7 @@
 				? (disabledReasonLabels[user.disabledReason] ?? user.disabledReason)
 				: undefined,
 			assignedRole: user.role,
+			effectiveRoleId: user.effectiveRole,
 			name: getUserDisplayName(user),
 			role: getUserRoleLabel(user.role).split(','),
 			effectiveRole: getUserRoleLabel(user.effectiveRole).split(','),
@@ -126,6 +127,7 @@
 			status: m.identity_access_users_status_created(),
 			disabledReasonLabel: undefined as string | undefined,
 			assignedRole: 0,
+			effectiveRoleId: 0,
 			name: '',
 			role: [] as string[],
 			effectiveRole: [] as string[],
@@ -187,6 +189,7 @@
 			? [{ label: m.core_role_owner(), id: Role.OWNER }]
 			: []),
 		{ label: m.core_role_admin(), id: Role.ADMIN },
+		{ label: m.core_role_admin_readonly(), id: Role.ADMIN_READONLY },
 		{ label: m.identity_access_roles_power_user_plus_short(), id: Role.POWERUSER_PLUS },
 		{ label: m.core_role_power_user(), id: Role.POWERUSER },
 		{ label: m.core_role_standard_user(), id: Role.BASIC }
@@ -388,6 +391,8 @@
 	}, 100);
 
 	const duration = PAGE_TRANSITION_DURATION;
+	// Auditor on these roles also grants read-only access to the admin area. On Admin Read-Only and
+	// higher roles, which can already view it, Auditor only adds audit log details.
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 
 	const hasValidLicense = $derived(Boolean(version.current.enterprise));
@@ -712,6 +717,12 @@
 					</span>
 				</label>
 			{/each}
+
+			{#if (updatingRole.effectiveRoleId & (Role.POWERUSER | Role.POWERUSER_PLUS | Role.ADMIN | Role.OWNER)) !== 0 && (updatingRole.roleId === Role.BASIC || updatingRole.roleId === Role.ADMIN_READONLY)}
+				<p role="alert" class="notification-warning text-sm">
+					{m.identity_access_users_workspace_downgrade_warning()}
+				</p>
+			{/if}
 
 			{#if profile.current.groups.includes(Group.OWNER)}
 				<label class="mt-4 flex gap-4">

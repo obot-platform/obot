@@ -44,7 +44,7 @@ func (h *SystemMCPServerHandler) List(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		servers = append(servers, convertSystemMCPServer(server, credEnv))
+		servers = append(servers, systemMCPServerForCaller(req, convertSystemMCPServer(server, credEnv)))
 	}
 
 	return req.Write(types.SystemMCPServerList{Items: servers})
@@ -62,7 +62,7 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 		return err
 	}
 
-	return req.Write(convertSystemMCPServer(systemServer, credEnv))
+	return req.Write(systemMCPServerForCaller(req, convertSystemMCPServer(systemServer, credEnv)))
 }
 
 // Create creates a new system MCP server
@@ -270,19 +270,18 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support logs retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
+	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
+	if err != nil {
 		return err
 	}
 
-	// Transform to ServerConfig
-	serverConfig, err := systemServerToServerConfig(req, systemServer)
+	logs, err := h.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: readOnly,
+	})
 	if err != nil {
-		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
-	}
-
-	logs, err := h.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
-	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -357,20 +356,19 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
-	// Check if server is both enabled and configured
-	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
+	serverConfig, readOnly, err := systemServerConfigForInspection(req, systemServer)
+	if err != nil {
 		return err
 	}
 
-	// Transform to ServerConfig
-	serverConfig, err := systemServerToServerConfig(req, systemServer)
-	if err != nil {
-		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
-	}
-
 	// Get server details from the session manager
-	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
+	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig, mcp.ServerInspectionOptions{
+		ReadOnly: readOnly,
+	})
 	if err != nil {
+		if errors.Is(err, mcp.ErrServerNotRunning) {
+			return types.NewErrHTTP(http.StatusConflict, "MCP server is not running")
+		}
 		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
@@ -406,6 +404,32 @@ func (h *SystemMCPServerHandler) Reveal(req api.Context) error {
 }
 
 // Helper functions
+
+// systemServerConfigForInspection builds the configuration that details and logs need for a system server, and
+// reports whether the inspection is read-only. Read-only inspection never deploys the server and uses only its name,
+// so it skips the configured check and the full configuration: both reveal the server's credentials.
+func systemServerConfigForInspection(req api.Context, server v1.SystemMCPServer) (mcp.ServerConfig, bool, error) {
+	if inspectsAsReader(req) {
+		if server.Spec.Manifest.Enabled != nil && !*server.Spec.Manifest.Enabled {
+			return mcp.ServerConfig{}, false, types.NewErrBadRequest("system MCP server is not enabled")
+		}
+		return mcp.ServerConfig{
+			MCPServerNamespace: server.Namespace,
+			MCPServerName:      server.Name,
+			Runtime:            server.Spec.Manifest.Runtime,
+		}, true, nil
+	}
+
+	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, server); err != nil {
+		return mcp.ServerConfig{}, false, err
+	}
+
+	serverConfig, err := systemServerToServerConfig(req, server)
+	if err != nil {
+		return mcp.ServerConfig{}, false, types.NewErrBadRequest("failed to transform system server to config: %v", err)
+	}
+	return serverConfig, false, nil
+}
 
 // checkEnabledAndConfigured verifies that a system MCP server is both enabled and configured
 func checkEnabledAndConfigured(ctx context.Context, gatewayClient *gateway.Client, server v1.SystemMCPServer) error {

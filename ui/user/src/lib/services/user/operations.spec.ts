@@ -1,3 +1,4 @@
+import { Group } from '../admin/types';
 import {
 	configureVMCPInstance,
 	createVMCP,
@@ -5,6 +6,7 @@ import {
 	deleteVMCP,
 	deleteVMCPInstance,
 	getMCPTesterServer,
+	getProfile,
 	getVMCP,
 	getVMCPInstance,
 	listMCPs,
@@ -279,5 +281,67 @@ describe('getMCPTesterServer', () => {
 		await expect(getMCPTesterServer('template-server', { fetch: fetcher })).rejects.toMatchObject({
 			statusCode: 404
 		});
+	});
+});
+
+describe('getProfile role helpers', () => {
+	async function profileWithGroups(groups: string[]) {
+		const fetcher = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ id: '1', username: 'user', groups }), {
+				status: 200,
+				headers: { 'content-type': 'application/json' }
+			})
+		);
+		return getProfile({ fetch: fetcher });
+	}
+
+	it.each([
+		{
+			name: 'an owner',
+			groups: [Group.OWNER, Group.ADMIN, Group.ADMIN_READONLY],
+			adminAccess: true,
+			readonly: false
+		},
+		{
+			name: 'an admin',
+			groups: [Group.ADMIN, Group.ADMIN_READONLY],
+			adminAccess: true,
+			readonly: false
+		},
+		{
+			name: 'an Admin Read-Only user',
+			groups: [Group.ADMIN_READONLY],
+			adminAccess: true,
+			readonly: true
+		},
+		{
+			name: 'an Admin Read-Only auditor',
+			groups: [Group.ADMIN_READONLY, Group.AUDITOR],
+			adminAccess: true,
+			readonly: true
+		},
+		{
+			name: 'an auditor',
+			groups: [Group.USER, Group.AUDITOR],
+			adminAccess: true,
+			readonly: true
+		},
+		{
+			name: 'an admin from an older server',
+			groups: [Group.ADMIN],
+			adminAccess: true,
+			readonly: false
+		},
+		{
+			name: 'a power user plus',
+			groups: [Group.POWERUSER_PLUS],
+			adminAccess: false,
+			readonly: false
+		}
+	])('reports admin access for $name', async ({ groups, adminAccess, readonly }) => {
+		const profile = await profileWithGroups(groups);
+
+		expect(profile.hasAdminAccess?.()).toBe(adminAccess);
+		expect(profile.isAdminReadonly?.()).toBe(readonly);
 	});
 });

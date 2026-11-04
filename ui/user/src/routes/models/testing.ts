@@ -22,7 +22,10 @@ export async function renderModelsTab(view: string, groups: string[] = [Group.AD
 	const data = await preparePageData<PageData>({
 		profile: createMockProfile(groups),
 		models: [],
-		hasAdminAccess: groups.includes(Group.ADMIN) || groups.includes(Group.AUDITOR)
+		hasAdminAccess:
+			groups.includes(Group.ADMIN_READONLY) ||
+			groups.includes(Group.ADMIN) ||
+			groups.includes(Group.AUDITOR)
 	});
 	return render(ModelsPage, { data });
 }

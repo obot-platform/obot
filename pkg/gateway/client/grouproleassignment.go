@@ -136,7 +136,7 @@ func (c *Client) ResolveUserEffectiveRole(ctx context.Context, user *types.User,
 }
 
 // normalizeToHighestRole takes a combined role bitmap and returns only the highest
-// base role (Owner > Admin > PowerUserPlus > PowerUser > Basic) plus add-on bits if present.
+// base role (Owner > Admin > AdminReadonly > PowerUserPlus > PowerUser > Basic) plus add-on bits if present.
 func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
 	// Check if add-on bits are set
 	hasAuditor := combinedRole.HasAuditorRole()
@@ -147,6 +147,8 @@ func normalizeToHighestRole(combinedRole types2.Role) types2.Role {
 		highestRole = types2.RoleOwner
 	} else if combinedRole.HasRole(types2.RoleAdmin) {
 		highestRole = types2.RoleAdmin
+	} else if combinedRole.HasRole(types2.RoleAdminReadonly) {
+		highestRole = types2.RoleAdminReadonly
 	} else if combinedRole.HasRole(types2.RolePowerUserPlus) {
 		highestRole = types2.RolePowerUserPlus
 	} else if combinedRole.HasRole(types2.RolePowerUser) {

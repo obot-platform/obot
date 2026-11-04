@@ -3,7 +3,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService } from '$lib/services';
-	import { userRoleOptions } from '$lib/services/admin/constants';
+	import { defaultRoleOptions } from '$lib/services/admin/constants';
 	import { Role } from '$lib/services/admin/types';
 	import { profile } from '$lib/stores/index.js';
 	import { untrack } from 'svelte';
@@ -47,7 +47,7 @@
 					</p>
 
 					<div class="mt-4 flex flex-col gap-4">
-						{#each userRoleOptions as role (role.id)}
+						{#each defaultRoleOptions as role (role.id)}
 							<label class="flex items-center gap-4" for={`role-${role.id}`}>
 								<input
 									type="radio"

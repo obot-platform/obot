@@ -28,6 +28,15 @@ func (*UserDefaultRoleSettingHandler) Set(req api.Context) error {
 		return err
 	}
 
+	// The default role is granted to everyone who signs in, so it may only be one of the roles the UI offers. In
+	// particular it may not be Owner, Admin Read-Only or include Auditor.
+	switch input.Role {
+	case types.RoleBasic, types.RolePowerUser, types.RolePowerUserPlus, types.RoleAdmin:
+	default:
+		return types.NewErrBadRequest("default role must be one of: Basic (%d), PowerUser (%d), PowerUserPlus (%d), or Admin (%d)",
+			types.RoleBasic, types.RolePowerUser, types.RolePowerUserPlus, types.RoleAdmin)
+	}
+
 	var setting v1.UserDefaultRoleSetting
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: req.Namespace(), Name: system.DefaultRoleSettingName}, &setting); err != nil {
 		return err

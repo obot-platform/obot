@@ -26,10 +26,10 @@ func NewPowerUserWorkspaceHandler(acrHelper *accesscontrolrule.Helper, secretBin
 	}
 }
 
-// List returns power user workspaces. Admins see all, non-admins see only their own.
+// List returns power user workspaces. Admins and admin read-only users see all, others see only their own.
 func (*PowerUserWorkspaceHandler) List(req api.Context) error {
 	var list v1.PowerUserWorkspaceList
-	if req.UserIsAdmin() {
+	if req.UserCanReadAsAdmin() {
 		// Admins can see all PowerUserWorkspaces
 		if err := req.List(&list); err != nil {
 			return fmt.Errorf("failed to list power user workspaces: %w", err)

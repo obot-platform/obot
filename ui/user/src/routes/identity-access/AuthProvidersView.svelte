@@ -18,7 +18,7 @@
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
-	import { AdminService, UserService } from '$lib/services';
+	import { AdminService, Group, UserService } from '$lib/services';
 	import type {
 		AuthProvider,
 		ProviderParameter,
@@ -163,6 +163,9 @@
 	// first provider on a fresh install stays the plain form.
 	let isOwner = $derived(!!profile.current.isOwner?.());
 	let isReadonly = $derived(!!profile.current.isAdminReadonly?.());
+	let canRevealCredentials = $derived(
+		!isReadonly || profile.current.groups.includes(Group.AUDITOR)
+	);
 	// Replacing the provider everyone signs in with is an owner operation, so an administrator is
 	// not offered the switch at all rather than being stopped partway through it.
 	function switchNeedsOwner(provider: AuthProvider) {
@@ -620,17 +623,23 @@
 		configureError = undefined;
 		clearResidualGroupData();
 		configuringAuthProvider = authProvider;
-		try {
-			configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
-		} catch (err) {
-			// if 404, ignore, it means no credentials are set
-			if (!(err instanceof HttpError) || err.statusCode !== 404) {
-				console.error('An error occurred while revealing auth provider credentials', err);
-			} else {
-				// no credentials set, set initial default value for allowed domains
-				configuringAuthProviderValues = {
-					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
-				};
+		// Revealing credentials is limited to admins and auditors, so Admin Read-Only users see the
+		// configuration without its values.
+		if (!canRevealCredentials) {
+			configuringAuthProviderValues = {};
+		} else {
+			try {
+				configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
+			} catch (err) {
+				// if 404, ignore, it means no credentials are set
+				if (!(err instanceof HttpError) || err.statusCode !== 404) {
+					console.error('An error occurred while revealing auth provider credentials', err);
+				} else {
+					// no credentials set, set initial default value for allowed domains
+					configuringAuthProviderValues = {
+						OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+					};
+				}
 			}
 		}
 

@@ -8,6 +8,7 @@ package types
 //   - RoleAdmin (16): Administrative user
 //   - RolePowerUserPlus (64): Enhanced power user with ACL and MCP server management
 //   - RolePowerUser (128): Standard power user with workspace
+//   - RoleAdminReadonly (256): Can view all admin configuration but cannot change anything
 //
 // Orthogonal roles:
 //   - RoleAuditor (32): Can view audit logs and sensitive data (can be combined with any base role)
@@ -25,11 +26,13 @@ const (
 	RoleAuditor
 	RolePowerUserPlus
 	RolePowerUser
+	RoleAdminReadonly
 
 	RoleUnknown Role = 0
 
 	GroupOwner         = "owner"
 	GroupAdmin         = "admin"
+	GroupAdminReadonly = "admin-readonly"
 	GroupAuditor       = "auditor"
 	GroupPowerUserPlus = "power-user-plus"
 	GroupPowerUser     = "power-user"
@@ -56,6 +59,7 @@ var (
 	roleMap = map[Role]Role{
 		RoleOwner:         RoleOwner | RoleAdmin | RolePowerUserPlus | RolePowerUser | RoleBasic,
 		RoleAdmin:         RoleAdmin | RolePowerUserPlus | RolePowerUser | RoleBasic,
+		RoleAdminReadonly: RoleAdminReadonly | RoleBasic,
 		RolePowerUserPlus: RolePowerUserPlus | RolePowerUser | RoleBasic,
 		RolePowerUser:     RolePowerUser | RoleBasic,
 		RoleBasic:         RoleBasic,
@@ -133,6 +137,15 @@ func (u Role) SwitchBaseRole(role Role) Role {
 	return role | (u & RoleAuditor)
 }
 
+// IsValid reports whether the role is exactly one base role, optionally combined with the Auditor flag.
+func (u Role) IsValid() bool {
+	switch u.ExtractBaseRole() {
+	case RoleOwner, RoleAdmin, RoleAdminReadonly, RolePowerUserPlus, RolePowerUser, RoleBasic:
+		return true
+	}
+	return false
+}
+
 // ExtractBaseRole removes orthogonal role flags to get the base role
 func (u Role) ExtractBaseRole() Role {
 	return u &^ RoleAuditor
@@ -158,6 +171,11 @@ func (u Role) groups(onlyRoleGroups bool) []string {
 	}
 	if u.HasRole(RoleAdmin) {
 		groups = append(groups, GroupAdmin)
+	}
+	// Owners and admins may do everything admin read-only users may, so they hold its group too. Auditors don't: their
+	// access is their own group's.
+	if u.HasRole(RoleAdmin) || u.HasRole(RoleAdminReadonly) {
+		groups = append(groups, GroupAdminReadonly)
 	}
 	if u.HasRole(RolePowerUserPlus) {
 		groups = append(groups, GroupPowerUserPlus)

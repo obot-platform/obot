@@ -8,10 +8,12 @@
 	import { onMount } from 'svelte';
 
 	let {
+		readonly = false,
 		organization,
 		environments,
 		onsaved
 	}: {
+		readonly?: boolean;
 		organization: string;
 		environments: Pick<
 			ClaudeEnvironment,
@@ -129,6 +131,7 @@
 	}
 
 	async function submit() {
+		if (readonly) return;
 		busy = true;
 		error = '';
 		notice = '';
@@ -170,31 +173,35 @@
 			</div>
 		</div>
 		{#if notice}<p role="status" class="text-success">{notice}</p>{/if}
-		<ol class="list-decimal space-y-2 pl-5 text-sm">
-			<li>{m.hosted_agents_map_signin()}</li>
-			<li>
-				{m.hosted_agents_map_copy_json()}
-				<a
-					class="link break-all"
-					href={`https://claude.ai/api/organizations/${encodeURIComponent(organization)}/members`}
-					target="_blank"
-					rel="noreferrer">{url}</a
-				>
-			</li>
-			<li>
-				{m.hosted_agents_map_instructions()}
-			</li>
-		</ol>
-		<label class="block text-sm font-light"
-			>{m.hosted_agents_map_json()}<textarea
-				class="text-input-filled mt-1 min-h-32 w-full font-mono"
-				bind:value={json}
-				disabled={busy}
-				placeholder={m.hosted_agents_map_json_placeholder()}></textarea></label
-		>
-		<button class="btn btn-ghost btn-sm" disabled={busy || !json.trim()} onclick={preview}
-			>{m.hosted_agents_map_preview()}</button
-		>
+		{#if !readonly}
+			<ol class="list-decimal space-y-2 pl-5 text-sm">
+				<li>{m.hosted_agents_map_signin()}</li>
+				<li>
+					{m.hosted_agents_map_copy_json()}
+					<a
+						class="link break-all"
+						href={`https://claude.ai/api/organizations/${encodeURIComponent(organization)}/members`}
+						target="_blank"
+						rel="noreferrer">{url}</a
+					>
+				</li>
+				<li>
+					{m.hosted_agents_map_instructions()}
+				</li>
+			</ol>
+			<label class="block text-sm font-light"
+				>{m.hosted_agents_map_json()}<textarea
+					class="text-input-filled mt-1 min-h-32 w-full font-mono"
+					bind:value={json}
+					disabled={busy || readonly}
+					placeholder={m.hosted_agents_map_json_placeholder()}></textarea></label
+			>
+			<button
+				class="btn btn-ghost btn-sm"
+				disabled={readonly || busy || !json.trim()}
+				onclick={preview}>{m.hosted_agents_map_preview()}</button
+			>
+		{/if}
 		<p class="text-sm text-muted-content">
 			{m.hosted_agents_mapping_help()}
 		</p>
@@ -227,7 +234,7 @@
 										selected={row.userID}
 										placeholder={m.hosted_agents_map_unmapped()}
 										searchInDropdown
-										disabled={busy}
+										disabled={busy || readonly}
 										onSelect={(option) => {
 											row.userID = String(option.id);
 											row.source = m.hosted_agents_map_manual();
@@ -250,7 +257,8 @@
 				</p>{/if}
 			<button
 				class="btn btn-primary btn-sm"
-				disabled={busy ||
+				disabled={readonly ||
+					busy ||
 					json !== reviewedJSON ||
 					duplicates ||
 					rows.some((row) => row.userID && !users.some((user) => user.id === row.userID))}

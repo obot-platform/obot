@@ -29,6 +29,12 @@ Full platform management plus the ability to assign the Owner and Auditor roles 
 
 Full platform management, including server and model configuration, users, and platform settings. Cannot assign the Owner or Auditor roles.
 
+### Admin Read-Only {#user-roles-admin-read-only}
+
+Can view everything an Admin can view, including server and model configuration, users, groups, auth providers, audit logs, usage, and platform settings, but cannot change administrative configuration. Secret values that an Admin must explicitly reveal stay hidden: an Admin Read-Only user cannot reveal administrative credentials or other users' connection credentials, and sensitive configuration values are masked. Configuration an Admin sees without revealing it, such as files captured by device scans, is visible as it is to an Admin. Audit logs appear without request/response bodies, as they do for an Admin. Viewing the details or logs of a server they don't own, including system servers and webhook validations, never starts it.
+
+Admin Read-Only users retain Standard User capabilities: they can create personal vMCPs, configure their own connections and credentials, complete OAuth, use permitted MCP servers, and manage their own agent identities. Admin Read-Only does not include Power User or Power User+ publishing permissions. Changing a Power User or Power User+ to Admin Read-Only follows the same workspace cleanup process as changing them to Standard User. Admins can assign Admin Read-Only; it cannot be the [default role for new users](./policy-coverage.md#user-roles-default-role-for-new-users). Combine it with Auditor to also see sensitive audit data and sensitive configuration values.
+
 ### Power User+ {#user-roles-power-user}
 
 All Power User permissions plus the ability to create MCP Registries and share MCP servers with other users.
@@ -45,20 +51,23 @@ Connect to approved MCP servers and use models granted through access policies.
 
 Add-on permission that grants read-only access to sensitive data across the platform. Sensitive data (MCP request/response bodies) can only be viewed by users with this role. All other roles, including Owner, see only metadata for these resources. Can be combined with any other role.
 
+On a Standard User, Power User, or Power User+, Auditor also grants read-only access to the admin area. Viewing the details or logs of a server they don't own, including system servers and webhook validations, never starts it. To let someone view configuration without seeing sensitive data, assign [Admin Read-Only](./policy-coverage.md#user-roles-admin-read-only) instead.
+
 ## Role Comparison {#user-roles-role-comparison}
 
-| Capability | Standard | Power | Power+ | Admin | Owner |
-|------------|-------|-------|--------|-------|-------|
-| Connect to MCP servers | Yes | Yes | Yes | Yes | Yes   |
-| View Audit Logs | | Yes* | Yes* | Yes** | Yes** |
-| View Usage | | Yes* | Yes* | Yes | Yes   |
-| Publish personal MCP servers | | Yes | Yes | Yes | Yes   |
-| Share MCP servers through registries | | | Yes | Yes | Yes   |
-| Manage Filters | | | | Yes | Yes   |
-| Server Scheduling | | | | Yes | Yes   |
-| User Management | | | | Yes | Yes   |
-| App Preferences | | | | Yes | Yes   |
-| Assign Owner/Auditor roles | | | | | Yes   |
+| Capability | Standard | Power | Power+ | Admin Read-Only | Admin | Owner |
+|------------|-------|-------|--------|-----------------|-------|-------|
+| Connect to MCP servers | Yes | Yes | Yes | Yes | Yes | Yes   |
+| View Audit Logs | | Yes* | Yes* | Yes** | Yes** | Yes** |
+| View Usage | | Yes* | Yes* | Yes | Yes | Yes   |
+| View admin configuration (servers, models, users, settings) | | | | Yes | Yes | Yes   |
+| Publish personal MCP servers | | Yes | Yes | | Yes | Yes   |
+| Share MCP servers through registries | | | Yes | | Yes | Yes   |
+| Manage Filters | | | | | Yes | Yes   |
+| Server Scheduling | | | | | Yes | Yes   |
+| User Management | | | | | Yes | Yes   |
+| App Preferences | | | | | Yes | Yes   |
+| Assign Owner/Auditor roles | | | | | | Yes   |
 
 \* Only for servers they deployed
 
@@ -86,7 +95,13 @@ The [default role for new users](./policy-coverage.md#user-roles-default-role-fo
 
 ### Default Role for New Users {#user-roles-default-role-for-new-users}
 
-Configure the default role for new users on the **Identity & Access > Roles** page.
+Configure the default role for new users on the **Identity & Access > Roles** page. The default role can be Standard User, Power User, Power User+, or Admin. Owner, Admin Read-Only, and Auditor must be assigned explicitly.
+
+### Roles from Groups {#user-roles-roles-from-groups}
+
+Assign a role to an auth provider group on the **Identity & Access > Groups** page. A user gets the highest of their own role and the roles of their groups (Owner, then Admin, Admin Read-Only, Power User+, Power User, Standard User), plus Auditor if any of them includes it.
+
+Only the highest base role is retained. Admin Read-Only replaces Power User and Power User+ permissions, including when granted through a group. If the resulting effective role loses Power User access, Obot deletes the power-user workspace and cleans up its associated resources, as it does when downgrading to Standard User. An Admin or Owner grant takes precedence over Admin Read-Only.
 
 ### Pre-Assigning Roles {#user-roles-pre-assigning-roles}
 

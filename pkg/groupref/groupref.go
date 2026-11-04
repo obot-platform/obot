@@ -271,6 +271,8 @@ func roleDetail(role types.Role) string {
 		names = append(names, "Owner")
 	case types.RoleAdmin:
 		names = append(names, "Admin")
+	case types.RoleAdminReadonly:
+		names = append(names, "Admin Read-Only")
 	case types.RolePowerUserPlus:
 		names = append(names, "Power User Plus")
 	case types.RolePowerUser:

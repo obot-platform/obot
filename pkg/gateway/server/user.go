@@ -205,6 +205,12 @@ func (s *Server) updateUser(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get original user: %v", err))
 	}
 
+	// Only a change of role is checked, so that a user whose stored role predates this check can still update other
+	// fields.
+	if user.Role != types2.RoleUnknown && user.Role != originalUser.Role && !user.Role.IsValid() {
+		return types2.NewErrHTTP(http.StatusBadRequest, "role must be one base role, optionally combined with the auditor role")
+	}
+
 	if !apiContext.UserIsOwner() {
 		if originalUser.Role.HasRole(types2.RoleOwner) != user.Role.HasRole(types2.RoleOwner) {
 			slog.Info("Denied user role update", "targetUserID", userID, "reason", "owner_role_change_requires_owner")
@@ -566,7 +572,7 @@ func trimUser(u types.User) types2.User {
 func userIsBasicOrPower(u user.Info) bool {
 	for _, group := range u.GetGroups() {
 		switch group {
-		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdmin, types2.GroupOwner:
+		case types2.GroupPowerUserPlus, types2.GroupAuditor, types2.GroupAdminReadonly, types2.GroupAdmin, types2.GroupOwner:
 			return false
 		}
 	}

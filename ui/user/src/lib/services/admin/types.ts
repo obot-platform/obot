@@ -496,6 +496,7 @@ export type GroupRoleAssignmentList = {
 export const Group = {
 	OWNER: 'owner',
 	ADMIN: 'admin',
+	ADMIN_READONLY: 'admin-readonly',
 	POWERUSER_PLUS: 'power-user-plus',
 	POWERUSER: 'power-user',
 	USER: 'user',
@@ -507,7 +508,8 @@ export const Role = {
 	ADMIN: 16,
 	AUDITOR: 32,
 	POWERUSER_PLUS: 64,
-	POWERUSER: 128
+	POWERUSER: 128,
+	ADMIN_READONLY: 256
 };
 
 // Image pull secrets

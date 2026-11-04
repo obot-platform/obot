@@ -210,6 +210,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 		validBaseRoles := []types2.Role{
 			types2.RoleOwner,
 			types2.RoleAdmin,
+			types2.RoleAdminReadonly,
 			types2.RolePowerUserPlus,
 			types2.RolePowerUser,
 		}
@@ -219,8 +220,8 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 		if !isValid {
 			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "invalid_base_role")
 			return types2.NewErrBadRequest(
-				"base role must be one of: Owner (%d), Admin (%d), PowerUserPlus (%d), or PowerUser (%d)",
-				types2.RoleOwner, types2.RoleAdmin, types2.RolePowerUserPlus, types2.RolePowerUser,
+				"base role must be one of: Owner (%d), Admin (%d), AdminReadonly (%d), PowerUserPlus (%d), or PowerUser (%d)",
+				types2.RoleOwner, types2.RoleAdmin, types2.RoleAdminReadonly, types2.RolePowerUserPlus, types2.RolePowerUser,
 			)
 		}
 	}

@@ -512,9 +512,12 @@
 	}
 
 	onMount(() => {
-		if (entry?.type === 'mcpserver' && id) {
+		// Read-only admin users view the configuration without its secret values. This covers auditors too, who
+		// may not reveal catalog values either.
+		const canReveal = !(readonly && profile.current.isAdminReadonly?.());
+		if (canReveal && entry?.type === 'mcpserver' && id) {
 			revealCatalogServer(id, entry.id, entity);
-		} else if (entry && id) {
+		} else if (canReveal && entry && id) {
 			revealCatalogEntry(id, entry.id, entity);
 		}
 		if (version.current.engine === 'kubernetes') {

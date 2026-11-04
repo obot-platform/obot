@@ -479,7 +479,7 @@ describe('Identity & Access Page', () => {
 			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		});
 
-		it('hides create for readonly admins', async () => {
+		it('allows readonly admins to create personal agent identities', async () => {
 			await renderIdentityAccessPage({
 				view: 'agents',
 				groups: [Group.AUDITOR],
@@ -488,7 +488,46 @@ describe('Identity & Access Page', () => {
 
 			await expect
 				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
-				.not.toBeInTheDocument();
+				.toBeVisible();
+		});
+	});
+
+	describe('auth provider credentials', () => {
+		it.each([
+			{ name: 'an admin', groups: [Group.ADMIN_READONLY, Group.ADMIN], reveals: true },
+			{
+				name: 'a read-only admin with auditor',
+				groups: [Group.ADMIN_READONLY, Group.AUDITOR],
+				reveals: true
+			},
+			{ name: 'an auditor', groups: [Group.USER, Group.AUDITOR], reveals: true },
+			{ name: 'a read-only admin', groups: [Group.ADMIN_READONLY], reveals: false }
+		])('are revealed when $name opens a provider: $reveals', async ({ name, groups, reveals }) => {
+			// A provider of its own, so that a reveal still in flight from another case is not counted.
+			const provider: AuthProvider = {
+				...googleConfigured,
+				id: `${googleConfigured.id}-${name.replaceAll(' ', '-')}`
+			};
+			let revealed = 0;
+			worker.use(
+				http.post(`/api/auth-providers/${provider.id}/reveal`, () => {
+					revealed++;
+					return HttpResponse.json({});
+				})
+			);
+			await renderIdentityAccessPage({ authProviders: [provider], groups });
+
+			await providerCard('Google')
+				.getByRole('button', { name: /^(View|Modify)$/ })
+				.click();
+			await expect.element(page.getByRole('dialog')).toBeVisible();
+			if (reveals) {
+				await expect.poll(() => revealed).toBe(1);
+			} else {
+				// The reveal starts as the dialog opens, so give it time to have been sent.
+				await new Promise((resolve) => setTimeout(resolve, 500));
+				expect(revealed).toBe(0);
+			}
 		});
 	});
 

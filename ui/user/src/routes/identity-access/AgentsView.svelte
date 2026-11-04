@@ -62,9 +62,9 @@
 		if (!keyToDelete) return;
 		loading = true;
 		try {
-			await (isAdmin ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
-				keyToDelete.id.toString()
-			);
+			await (
+				profile.current.isAdmin?.() ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey
+			)(keyToDelete.id.toString());
 			apiKeys = apiKeys.filter((k) => k.id !== keyToDelete.id);
 		} finally {
 			loading = false;

@@ -32,7 +32,7 @@ func NewDeviceScansHandler() *DeviceScansHandler {
 // SubmittedBy. Admin, owner, and auditor see all scans; everyone
 // else sees only scans they submitted.
 func userIsDeviceScanReader(req api.Context) bool {
-	return req.UserIsAdmin() || req.UserIsAuditor()
+	return req.UserCanViewAdmin()
 }
 
 // Submit handles POST /api/devices/scans. ID and ReceivedAt are

@@ -675,3 +675,57 @@ it('asks for confirmation before deleting an environment', async () => {
 	await vi.waitFor(() => expect(deleted).toHaveBeenCalled());
 	await vi.waitFor(() => expect(submitted).toHaveBeenCalled());
 });
+
+it('lets readonly admins inspect an environment without saving or deleting it', async () => {
+	profile.initialize(createMockProfile([Group.ADMIN_READONLY, Group.USER]));
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({ enabled: true, environments: [environment] })
+		)
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: vi.fn(), onSubmit: vi.fn() });
+	await expect
+		.element(page.getByLabelText('Display name', { exact: true }))
+		.toHaveValue('Development');
+	await expect.element(page.getByLabelText('Display name', { exact: true })).toBeDisabled();
+	await expect
+		.element(page.getByRole('button', { name: 'Save', exact: true }))
+		.not.toBeInTheDocument();
+	await expect
+		.element(page.getByRole('button', { name: 'Delete environment', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await expect
+		.element(page.getByRole('button', { name: 'Create profile', exact: true }))
+		.toBeDisabled();
+});
+
+it('opens an existing profile for readonly inspection and keeps its controls disabled', async () => {
+	profile.initialize(createMockProfile([Group.ADMIN_READONLY, Group.USER]));
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
+	worker.use(
+		http.get('*/api/claude-environments', () =>
+			HttpResponse.json({
+				enabled: true,
+				environments: [
+					{
+						...environment,
+						profiles: [{ name: 'team', subjects: [], mcpServerIDs: [], resources: {} }]
+					}
+				]
+			})
+		)
+	);
+	render(ClaudeConnectionForm, { environment: 'one', onCancel: vi.fn(), onSubmit: vi.fn() });
+	await page.getByRole('button', { name: 'Profiles', exact: true }).click();
+	await page.getByRole('button', { name: 'Edit team', exact: true }).click();
+	await expect
+		.element(page.getByRole('textbox', { name: 'Profile name', exact: true }))
+		.toBeDisabled();
+	await expect
+		.element(page.getByRole('button', { name: 'Save', exact: true }))
+		.not.toBeInTheDocument();
+	await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+	await expect.element(page.getByRole('button', { name: 'Edit team', exact: true })).toBeVisible();
+});

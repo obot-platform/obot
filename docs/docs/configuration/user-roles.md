@@ -17,6 +17,10 @@ Continue to [Owner](../security/policy-coverage.md#user-roles-owner).
 
 Continue to [Admin](../security/policy-coverage.md#user-roles-admin).
 
+### Admin Read-Only {#admin-read-only}
+
+Continue to [Admin Read-Only](../security/policy-coverage.md#user-roles-admin-read-only).
+
 ### Power User+ {#power-user}
 
 Continue to [Power User+](../security/policy-coverage.md#user-roles-power-user).
@@ -52,6 +56,10 @@ Continue to [Updating a User's Role](../security/policy-coverage.md#user-roles-u
 ### Default Role for New Users {#default-role-for-new-users}
 
 Continue to [Default Role for New Users](../security/policy-coverage.md#user-roles-default-role-for-new-users).
+
+### Roles from Groups {#roles-from-groups}
+
+Continue to [Roles from Groups](../security/policy-coverage.md#user-roles-roles-from-groups).
 
 ### Pre-Assigning Roles {#pre-assigning-roles}
 

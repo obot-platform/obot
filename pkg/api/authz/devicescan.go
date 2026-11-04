@@ -6,7 +6,7 @@ import (
 )
 
 func (a *Authorizer) checkDeviceScan(req *http.Request, resources *Resources, u User) (bool, error) {
-	if resources.DeviceScanID == "" || u.IsAdmin || u.IsAuditor {
+	if resources.DeviceScanID == "" || u.CanViewAdmin() {
 		return true, nil
 	}
 
