@@ -1195,5 +1195,11 @@
 	"mcps_filters_kind_builtin": "Built-in",
 	"mcps_filters_kind_mcp_server": "MCP server",
 	"mcps_filters_create_guardrail_filter": "Create Guardrail Filter",
-	"mcps_filters_create_guardrail": "Create From Guardrail"
+	"mcps_filters_create_guardrail": "Create From Guardrail",
+	"mcps_filters_authorization_enable": "Authorize requests with AuthZEN",
+	"mcps_filters_authorization_hint": "Uses this filter’s server, method, and identifier selectors. Obot sends the authenticated identity and request target before content filtering. Denials or unavailable decisions block the request; results appear in Audit Logs.",
+	"mcps_filters_authorization_url": "Authorization endpoint",
+	"mcps_filters_authorization_required": "Enter an HTTPS endpoint. If signing is configured, re-enter the secret when changing the endpoint.",
+	"mcps_filters_authorization_secret": "Authorization signing secret (optional)",
+	"mcps_filters_authorization_secret_saved": "Secret saved. Leave blank to keep it."
 }

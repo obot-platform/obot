@@ -24,6 +24,17 @@ func TestClassifyMCPOutcome(t *testing.T) {
 			want:   api.AuditLogOutcomeStatusDenied,
 		},
 		{
+			name:   "rate limit is denied",
+			status: 429,
+			want:   api.AuditLogOutcomeStatusDenied,
+		},
+		{
+			name:   "rate limit takes precedence over error",
+			status: 429,
+			err:    "Rate limit exceeded",
+			want:   api.AuditLogOutcomeStatusDenied,
+		},
+		{
 			name:   "timeout",
 			status: 504,
 			err:    "",

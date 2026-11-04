@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strings"
@@ -84,15 +86,10 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
-	var secretCred map[string]string
-	if manifest.Secret != "" {
-		secretCred = map[string]string{
-			"secret": manifest.Secret,
-		}
-
-		// Don't save the secrets in the database.
-		manifest.Secret = ""
+	if manifest.Authorization != nil {
+		manifest.Authorization.SigningEnabled = false
 	}
+	secretCred := extractFilterSecrets(&manifest, nil)
 
 	webhookValidation := v1.MCPWebhookValidation{
 		GenerateName: system.MCPWebhookValidationPrefix,
@@ -120,7 +117,7 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, nil))
+	return req.Write(convertMCPWebhookValidation(webhookValidation, secretCred))
 }
 
 func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
@@ -134,6 +131,18 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
 	}
 
+	// Older clients do not know this field. Disabling requires an explicit object.
+	if manifest.Authorization == nil {
+		manifest.Authorization = webhookValidation.Spec.Manifest.Authorization
+	} else if !manifest.Authorization.Enabled && manifest.Authorization.URL == "" && webhookValidation.Spec.Manifest.Authorization != nil {
+		manifest.Authorization.URL = webhookValidation.Spec.Manifest.Authorization.URL
+	}
+	if manifest.Authorization != nil {
+		authorization := *manifest.Authorization
+		old := webhookValidation.Spec.Manifest.Authorization
+		authorization.SigningEnabled = old != nil && old.SigningEnabled
+		manifest.Authorization = &authorization
+	}
 	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
 		return err
 	}
@@ -145,33 +154,24 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
 	}
 
-	var secretCred map[string]string
-	if manifest.Secret != "" {
-		secretCred = map[string]string{
-			"secret": manifest.Secret,
-		}
-		// Don't save the secrets in the database.
-		manifest.Secret = ""
+	secretCred, err := getCredentialsForWebhookValidation(req.Context(), req.GatewayClient, webhookValidation)
+	if err != nil {
+		return err
 	}
 
 	previousGroups := guardrailFilterGroups(webhookValidation.Spec.Manifest)
+	if old := webhookValidation.Spec.Manifest.Authorization; old != nil && manifest.Authorization != nil &&
+		old.URL != manifest.Authorization.URL && manifest.Authorization.Secret == "" && (old.SigningEnabled || secretCred[types.MCPFilterAuthorizationSecretKey] != "") {
+		return types.NewErrBadRequest("provide a new authorization signing secret when changing its URL")
+	}
+	secretCred = extractFilterSecrets(&manifest, secretCred)
 	webhookValidation.Spec.Manifest = manifest
-
-	if secretCred != nil {
-		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-			Context: system.MCPWebhookValidationCredentialContext,
-			Name:    webhookValidation.Name,
-			Secrets: secretCred,
-		}); err != nil {
-			return fmt.Errorf("failed to create credential: %w", err)
-		}
-	} else {
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return fmt.Errorf("failed to reveal credential: %w", err)
-		}
-
-		secretCred = cred.Secrets
+	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+		Context: system.MCPWebhookValidationCredentialContext,
+		Name:    webhookValidation.Name,
+		Secrets: secretCred,
+	}); err != nil {
+		return fmt.Errorf("failed to save filter credential: %w", err)
 	}
 
 	if err := writeNewGroupIDs(req, guardrailFilterGroups(manifest), previousGroups, func() error {
@@ -229,6 +229,20 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 		}
 	}
 
+	existingSecrets, err := getCredentialsForWebhookValidation(req.Context(), req.GatewayClient, webhookValidation)
+	if err != nil {
+		return err
+	}
+	// This endpoint configures the content callback, not authorization.
+	delete(envVars, types.MCPFilterAuthorizationSecretKey)
+	delete(envVars, types.MCPFilterAuthorizationURLKey)
+	if signingSecret := existingSecrets[types.MCPFilterAuthorizationSecretKey]; signingSecret != "" {
+		if envVars == nil {
+			envVars = map[string]string{}
+		}
+		envVars[types.MCPFilterAuthorizationSecretKey] = signingSecret
+		envVars[types.MCPFilterAuthorizationURLKey] = existingSecrets[types.MCPFilterAuthorizationURLKey]
+	}
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: system.MCPWebhookValidationCredentialContext,
 		Name:    webhookValidation.Name,
@@ -259,7 +273,20 @@ func (m *MCPWebhookValidationHandler) Deconfigure(req api.Context) error {
 		return err
 	}
 
-	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name); err != nil {
+	secrets, err := getCredentialsForWebhookValidation(req.Context(), req.GatewayClient, webhookValidation)
+	if err != nil {
+		return err
+	}
+	if signingSecret := secrets[types.MCPFilterAuthorizationSecretKey]; signingSecret != "" {
+		secrets = map[string]string{types.MCPFilterAuthorizationSecretKey: signingSecret, types.MCPFilterAuthorizationURLKey: secrets[types.MCPFilterAuthorizationURLKey]}
+		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+			Context: system.MCPWebhookValidationCredentialContext,
+			Name:    webhookValidation.Name,
+			Secrets: secrets,
+		}); err != nil {
+			return err
+		}
+	} else if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{system.MCPWebhookValidationCredentialContext}, webhookValidation.Name); err != nil {
 		return err
 	}
 
@@ -271,7 +298,7 @@ func (m *MCPWebhookValidationHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to update mcp webhook validation: %w", err)
 	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, nil))
+	return req.Write(convertMCPWebhookValidation(webhookValidation, map[string]string{types.MCPFilterAuthorizationSecretKey: secrets[types.MCPFilterAuthorizationSecretKey]}))
 }
 
 func (m *MCPWebhookValidationHandler) Reveal(req api.Context) error {
@@ -287,7 +314,10 @@ func (m *MCPWebhookValidationHandler) Reveal(req api.Context) error {
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	} else if err == nil {
-		return req.Write(cred.Secrets)
+		secrets := maps.Clone(cred.Secrets)
+		delete(secrets, types.MCPFilterAuthorizationSecretKey)
+		delete(secrets, types.MCPFilterAuthorizationURLKey)
+		return req.Write(secrets)
 	}
 
 	return types.NewErrNotFound("no credential found for %q", webhookValidation.Name)
@@ -297,10 +327,16 @@ func convertMCPWebhookValidation(validation v1.MCPWebhookValidation, credEnv map
 	result := types.MCPWebhookValidation{
 		Metadata:                     MetadataFrom(&validation),
 		MCPWebhookValidationManifest: validation.Spec.Manifest,
+		HasAuthorizationSecret:       credEnv[types.MCPFilterAuthorizationSecretKey] != "",
 		HasSecret:                    credEnv["secret"] != "" || credEnv["WEBHOOK_SECRET"] != "",
 		Configured:                   validation.Status.Configured,
 	}
 
+	if result.Authorization != nil {
+		authorization := *result.Authorization
+		authorization.Secret = ""
+		result.Authorization = &authorization
+	}
 	if manifest := validation.Spec.Manifest.SystemMCPServerManifest; manifest != nil {
 		result.Configured = true
 		for _, env := range manifest.Config {
@@ -586,6 +622,19 @@ func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValid
 }
 
 func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest, options mcp.ValidationOptions) error {
+	if a := m.Authorization; a != nil && a.Enabled {
+		if m.URL == "" || m.SystemMCPServerManifest != nil || m.SystemMCPServerCatalogEntryID != "" {
+			return fmt.Errorf("authorization is currently supported only for custom webhook URL filters")
+		}
+		u, err := url.Parse(a.URL)
+		if err != nil || u.Scheme != "https" || u.Host == "" || u.User != nil || u.Fragment != "" {
+			return fmt.Errorf("authorization URL must be an absolute HTTPS URL without user information or fragment")
+		}
+		if err := mcp.ValidateRemoteMCPURL(ctx, a.URL, options.RemoteMCPURLValidationConfig); err != nil {
+			return fmt.Errorf("invalid authorization URL: %w", err)
+		}
+	}
+
 	var sources int
 	if m.URL != "" {
 		sources++
@@ -705,4 +754,27 @@ func validateGuardrailFilter(ctx context.Context, store guardrailGetter, m *type
 		}
 	}
 	return nil
+}
+
+// extractFilterSecrets preserves independently managed content and authorization credentials.
+func extractFilterSecrets(manifest *types.MCPWebhookValidationManifest, saved map[string]string) map[string]string {
+	secrets := maps.Clone(saved)
+	if secrets == nil {
+		secrets = map[string]string{}
+	}
+	if manifest.Secret != "" {
+		secrets["secret"] = manifest.Secret
+		manifest.Secret = ""
+	}
+	if manifest.Authorization != nil {
+		authorization := *manifest.Authorization
+		if authorization.Secret != "" {
+			secrets[types.MCPFilterAuthorizationSecretKey] = authorization.Secret
+			secrets[types.MCPFilterAuthorizationURLKey] = authorization.URL
+		}
+		authorization.SigningEnabled = authorization.SigningEnabled || secrets[types.MCPFilterAuthorizationSecretKey] != ""
+		authorization.Secret = ""
+		manifest.Authorization = &authorization
+	}
+	return secrets
 }

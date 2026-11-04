@@ -71,7 +71,9 @@ export default defineConfig(({ mode }) => {
 					? undefined
 					: {
 							'/api': proxyConfig,
-							'/oauth2': proxyConfig
+							// Local login compares Origin with Host to prevent login CSRF.
+							// Preserve the browser's host while proxying the dev UI request.
+							'/oauth2': { ...proxyConfig, changeOrigin: false }
 						}
 		},
 		plugins: [

@@ -26,9 +26,17 @@ type HookRunner interface {
 type Hooks []HookMapping
 
 type HookMapping struct {
-	Name    string
-	Params  map[string]string
-	Targets []HookTarget
+	Authorization *AuthorizationHook
+	Name          string
+	Params        map[string]string
+	Targets       []HookTarget
+}
+
+// AuthorizationHook identifies an evaluation without carrying its credentials.
+type AuthorizationHook struct {
+	SigningEnabled bool
+	FilterID       string
+	URL            string
 }
 
 type HookTarget struct {
@@ -90,9 +98,8 @@ func (h Hooks) HasGuardrails() bool {
 	return false
 }
 
-// GuardrailsOnly returns the hooks with only their guardrail filter targets, which need no
-// hook runner.
-func (h Hooks) GuardrailsOnly() Hooks {
+// WithoutServerTargets retains authorization callbacks and in-process guardrails, which need no hook runner.
+func (h Hooks) WithoutServerTargets() Hooks {
 	var result Hooks
 	for _, hook := range h {
 		var targets []HookTarget
@@ -101,7 +108,7 @@ func (h Hooks) GuardrailsOnly() Hooks {
 				targets = append(targets, target)
 			}
 		}
-		if len(targets) > 0 {
+		if len(targets) > 0 || hook.Authorization != nil {
 			hook.Targets = targets
 			result = append(result, hook)
 		}
@@ -144,4 +151,14 @@ func MessageIDString(id any) string {
 	default:
 		return fmt.Sprint(id)
 	}
+}
+
+// HasAuthorization reports whether a hook has an authorization callback.
+func (h Hooks) HasAuthorization() bool {
+	for _, hook := range h {
+		if hook.Authorization != nil {
+			return true
+		}
+	}
+	return false
 }

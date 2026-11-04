@@ -5,6 +5,8 @@ title: "Filter MCP traffic"
 
 Filters inspect MCP requests and responses. Configure a filter to accept, reject, or modify matching traffic; use [private-network tunnels](./mcp-tunnels.md) when the problem is reaching a remote server.
 
+Custom HTTP webhook filters can also use [AuthZEN authorization](#authzen-authorization) to decide whether an authenticated caller may make a request. See the [request pipeline](#request-pipeline) for how authorization and content filtering fit together.
+
 ## Overview {#overview}
 
 
@@ -38,6 +40,49 @@ Filters don't apply to Obot's own system MCP servers, such as filter servers the
 
 Each filter that runs on a message is recorded with the message in the MCP audit log, under the filter's name, with its outcome (`ok`, `mutated` or `rejected`) and reason. For a filter server, the audit log also names the filter tool that was called. For a guardrail filter, it says `guardrail`.
 
+
+## Request pipeline {#request-pipeline}
+
+For a client tool call, Obot runs matching authorization callbacks before the
+content filter chain. Obot enforces each decision; the policy service supplies
+the authorization decision.
+
+```mermaid
+flowchart TD
+    Client["User or agent's MCP client"] --> Gateway["Obot: authenticate caller and check access"]
+    Gateway --> Envelope["Build AuthZEN envelope from verified identity and request target"]
+    Envelope --> Auth["Call matching AuthZEN endpoints, if configured"]
+    Auth -->|"All allow, or none configured"| RequestFilters["Request content filters: inspect, redact, or reject"]
+    Auth -->|"Deny or evaluation failure"| Blocked["Obot returns an error; no tool execution"]
+    RequestFilters -->|"Accepted"| Tool["MCP server executes tool call"]
+    RequestFilters -->|"Rejected"| Blocked
+    Tool --> ResponseFilters["Response content filters: inspect, redact, or reject"]
+    ResponseFilters -->|"Accepted"| Response["Obot returns filtered response to client"]
+    ResponseFilters -->|"Rejected"| Withheld["Obot returns an error; tool has already executed"]
+```
+
+- **Identity and target:** Obot supplies the authenticated user ID, deployed
+  server ID, method, and operation selectors. An agent acting through a user's
+  credentials is identified as that user; this version does not establish a
+  separate agent identity or on-behalf-of delegation. For vMCP tool search, Obot
+  resolves the underlying tool before authorization.
+- **Authorization payload:** The policy callback receives identity and target
+  metadata, not tool arguments or response content. For example, an SSN in tool
+  arguments is not sent to the authorization endpoint before redaction. Existing
+  content-filter payloads do not gain an identity block.
+- **Content filtering:** Matching content filters receive the MCP payload and
+  can redact argument values before execution. They cannot change the authorized
+  method or operation selectors. Response filtering happens after execution, so
+  rejecting a response does not undo a tool's side effects.
+- **Optional enforcement:** There is no default authorization policy. Without
+  an enabled matching callback, requests follow the existing content-filter path.
+  An authorization denial returns HTTP 403, a rate-limit denial returns 429,
+  and an evaluation failure returns 503. Decisions appear in MCP audit logs.
+
+The same authorization stage applies to other matching client JSON-RPC requests,
+including prompts and resources. Notifications, server-originated messages, and
+responses are not evaluated by AuthZEN. See [Optional AuthZEN authorization](#authzen-authorization)
+for configuration, payloads, signatures, and decision examples.
 
 ## Gateway Configuration {#gateway-configuration}
 
@@ -441,3 +486,224 @@ Detection is pattern-based, without live credential validation or confidence
 thresholds. It can produce false positives and does not recognize every secret.
 Allow passes credentials unchanged; it does not create findings history. Policy
 is deployment configuration and cannot be overridden by tool arguments.
+
+## Optional AuthZEN authorization {#authzen-authorization}
+
+A custom **Webhook URL** filter can also authorize requests before content
+filtering. In its existing editor, enable **Authorize requests with AuthZEN**,
+enter the policy service's HTTPS evaluation URL and, optionally, a separate signing secret,
+then save. The content webhook URL remains required. Both callbacks use the
+filter's existing MCP server attachments and method/identifier selectors.
+
+For example, select the CRM server, method `tools/call`, and identifier
+`get_customer`. The policy service receives the authenticated principal,
+CRM server ID, and tool name. It can keep a counter keyed by those values to
+implement a per-user limit. Obot does not install a default policy or maintain
+rate-limit counters.
+
+Obot evaluates all matching authorization callbacks before any content request
+callbacks. Only an HTTP 200 response containing `{"decision":true}` permits the
+request to continue. An explicit `{"decision":false}` produces HTTP 403 (or HTTP 429 for the rate-limit extension below);
+timeouts, missing credentials, invalid responses, and other policy-service
+failures produce HTTP 503. The JSON-RPC error retains the request ID without
+exposing the policy service's response body. Evaluation is limited to five
+seconds per callback and fifteen seconds for the authorization stage, with no
+automatic retries, redirect following, or decision caching. Network access uses
+the gateway's existing remote-MCP address restrictions.
+
+Authorization covers client JSON-RPC requests, including tools, resources,
+prompts, discovery and initialization, according to the configured selectors.
+It does not evaluate notifications, server-originated messages, or responses.
+Content response filtering stays unchanged. When the target has an enabled authorization callback, content filters may
+change argument values but cannot change the method or mapped operation selectors
+(tool/prompt name, resource URI, or completion reference and argument name),
+including changing an unmatched request into one covered by an authorization selector.
+
+### One filter, two endpoints
+
+A single filter can use `/authorize` and `/filter` on the same deployed service.
+Both endpoints share Obot's existing attachments and selectors, so the customer
+can package authorization and content inspection into one deployment. They may
+also point to different services. Each endpoint has its own signing secret;
+Obot does not copy the content secret into authorization configuration.
+
+### Authenticating authorization requests
+
+Authorization callbacks use the same HMAC-SHA256 convention as content webhooks.
+Optionally configure an **Authorization signing secret** in Obot and the same value in the
+authorization receiver. When a secret is configured, Obot sends:
+
+```text
+X-Obot-Signature-256: sha256=<lowercase hex HMAC-SHA256 of the raw request body>
+```
+
+Without a configured secret, Obot sends the request over HTTPS without a signature
+header. The policy service decides whether to accept unsigned requests; it may
+rely on deployment-level access controls. An explicit authorization decision is
+still required. Obot records whether signing has been configured separately from
+the credential, so a missing or unreadable configured secret blocks the request
+with HTTP 503 rather than silently sending it unsigned. Leaving a saved secret
+blank on an edit preserves signing.
+
+The key is the UTF-8 bytes of the configured secret. The receiver must verify
+the signature against the exact received body bytes using a constant-time
+comparison, before parsing or evaluating the request. The existing
+[signature verification example](#http-based-filters) works for this envelope
+too. The shared secret itself is not sent. No bearer authentication is provided
+for authorization callbacks in this slice. HTTPS remains required.
+
+When configured, the signature authenticates Obot and protects the body; it does
+not authenticate the end user independently. Obot supplies authenticated user or
+agent identity in the AuthZEN envelope. This body-only signing convention does not establish request freshness
+or prevent replay by itself. Stateful receivers should account for duplicate
+`context.obot.evaluation_id` values; timestamp-based freshness is not part of
+this contract. Existing content signature semantics remain unchanged.
+
+### Evaluation payload
+
+Obot POSTs the following envelope to the exact configured endpoint:
+
+```json
+{
+  "subject": {
+    "type": "user",
+    "id": "42"
+  },
+  "action": {
+    "name": "tools/call",
+    "properties": {"tool": "get_customer"}
+  },
+  "resource": {
+    "type": "mcp-server",
+    "id": "ms1bxcmj"
+  },
+  "context": {
+    "obot": {
+      "version": 1,
+      "mapping": "obot-mcp-requests-v2",
+      "authority": "https://obot.example.com",
+      "evaluation_id": "24d04ccf-7825-4a26-ae7b-169b309b1643",
+      "catalog_id": "default",
+      "catalog_entry_id": "<CRM-catalog-entry-id>"
+    }
+  }
+}
+```
+
+`action.name` is always the exact MCP method; `resource.type` is always
+`mcp-server`. For ordinary MCP servers, `resource.id` is the deployed `MCPServer`
+ID, not its catalog entry or per-user `MCPServerInstanceID`. For vMCPs, the current
+experimental mapping instead uses the selected `VMCPInstance` connection ID
+(`vmcpi...`); see the vMCP distinction below.
+
+| MCP method | `action.properties` |
+| --- | --- |
+| `tools/call` | `{"tool":"echo"}` |
+| `prompts/get` | `{"prompt":"summarize"}` |
+| `resources/read`, `resources/subscribe`, `resources/unsubscribe` | `{"uri":"crm://customers/123"}` |
+| `completion/complete` for a prompt | `{"ref":{"type":"ref/prompt","name":"summarize"},"argument":"style"}` |
+| `completion/complete` for a resource template | `{"ref":{"type":"ref/resource","uri":"crm://customers/{id}"},"argument":"id"}` |
+| Discovery (`tools/list`, `prompts/list`, `resources/list`, `resources/templates/list`), `initialize`, `ping`, other methods | Omitted |
+
+Only named selectors are extracted. Tool/prompt arguments, completion argument
+values and context, cursors, and arbitrary metadata are not disclosed. Missing
+or invalid required operation selectors fail closed with HTTP 503 before the
+policy callback. Unrelated parameters do not suppress valid selectors. Other
+MCP validation remains the responsibility of the downstream handler. Discovery authorization permits or rejects the whole request, not
+individual entries; allowing discovery does not imply invocation permission.
+
+`context.obot.catalog_id` and `catalog_entry_id` come from Obot's resolved server
+configuration, are omitted when absent, and are not caller assertions. Policies
+can match a catalog entry across deployments or match `resource.id` for one
+specific deployment. The catalog entry ID is scoped by the Obot authority.
+
+For a vMCP target, the envelope contains its selected connection ID and exposed
+tool name. Filter attachments and the central audit log's `mcpID` use the parent
+`vmcp...` ID, so those IDs are not interchangeable with `resource.id`. The current
+vMCP server configuration supplies no catalog association, and the envelope does
+not include the parent vMCP ID. A policy keyed to a parent vMCP cannot directly
+match that ID in this experimental payload. Parent/instance identity enrichment
+remains a design follow-up. No component identity or component catalog association
+is inferred before routing.
+
+The mapping is `obot-mcp-requests-v2`. The envelope vocabulary remains `version: 1`;
+this mapping revision replaces the experimental v1 tool-as-action shape and
+removes duplicated `context.obot.request.method/identifier`. Receivers using the
+experimental mapping must update with the gateway. Existing content filters and
+the optional rate-limit decision response are unchanged.
+
+Subject IDs come from Obot authentication with type `user`. Hosted-agent authentication was removed upstream; agent identities and verified on-behalf-of assertions remain future work. Arguments, groups, source IP, User-Agent and caller-provided delegation
+claims are not included in this first version. COAZ and client changes are not
+required.
+
+The authorization signing secret is stored with encrypted filter credentials, bound to
+its endpoint, and excluded from content-runtime configuration and reveal
+responses. Leave the signing secret blank when editing to keep it; changing a signed endpoint
+requires re-entering the signing secret. Removing the content signing secret preserves the
+authorization credential.
+
+Evaluations appear under the protected request's existing **Audit Logs**
+webhook statuses with type `authorization`, stable `filterID`, `allow`,
+`deny` or `error`, evaluation ID, mapping version and duration. An allow
+decision records admission, not successful upstream execution. External rate
+limits therefore count admission attempts, including requests later rejected
+by content filters or failed upstream.
+
+Existing filters are unchanged until authorization is enabled. API updates
+that omit `authorization` preserve it; use `{"authorization":{"enabled":false}}`
+to explicitly disable it. This version does not support an authorization tool
+on MCP-backed filters, authorization-only filters, configurable payload
+disclosure, or a new filter-scoped audit query. Disable authorization explicitly
+before downgrading to an Obot version that does not understand it.
+
+### Rate-limit decisions
+
+A receiver may identify a quota denial using this optional Obot-owned response
+extension in AuthZEN's context. This is not a standard AuthZEN or MCP field:
+
+```json
+{
+  "decision": false,
+  "context": {
+    "obot": {
+      "reason": "rate_limited",
+      "retry_after_seconds": 30
+    }
+  }
+}
+```
+
+Obot responds to the MCP client with HTTP **429**, `Cache-Control: no-store`, and
+`Retry-After: 30`. The JSON-RPC response preserves the request ID and existing
+error code `-32001`, with a clean message and machine-readable data:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "error": {
+    "code": -32001,
+    "message": "Rate limit exceeded. Try again in 30 seconds.",
+    "data": {"reason": "rate_limited", "retry_after_seconds": 30}
+  }
+}
+```
+
+`retry_after_seconds` is optional; when present it must be an integer from 1 to
+86400. Invalid values on a rate-limit denial fail closed with HTTP 503. When it
+is absent, Obot omits `Retry-After` and says “Rate limit exceeded. Try again later.”
+The receiver still returns HTTP **200** to Obot with its decision; a callback
+HTTP 429 is a receiver failure, not a policy decision.
+
+Boolean-only denials and unrecognized reasons remain HTTP 403. Obot generates
+client messages from the recognized reason; it does not forward arbitrary policy
+messages or response context. Authorization errors omit the generic internal hook
+error prefix. Content-filter error behavior is unchanged. Quota accounting stays
+in the receiver, and no automatic retries are introduced. The existing audit
+record carries the actual response status/body and the authorization `deny` event.
+
+MCP audit outcomes classify HTTP 429 as **denied**, alongside 401 and 403,
+including 429 responses from upstream servers. The Denied and Failure audit
+filters use the same classification. Existing recorded 429 rows are classified
+on read; no data migration is needed. HTTP status, response body, and any
+authorization-filter details remain available to distinguish the source.

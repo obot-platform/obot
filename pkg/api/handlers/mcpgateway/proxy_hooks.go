@@ -13,11 +13,13 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/mcp"
+	casejson "github.com/segmentio/encoding/json"
 )
 
 const (
@@ -39,6 +41,7 @@ type pendingRequest struct {
 
 // hookProcessor filters MCP messages for one proxied HTTP exchange.
 type hookProcessor struct {
+	authorizer *hookAuthorizer
 	ctx        context.Context
 	runner     mcp.HookRunner
 	hooks      mcp.Hooks
@@ -86,6 +89,8 @@ type hookResult struct {
 
 type hookStatus struct {
 	typeName, method, name, tool, status, message string
+	filterID, evaluationID, mapping               string
+	durationMS                                    int64
 }
 
 type hookBlockedError struct {
@@ -109,9 +114,9 @@ type hookSSELine struct {
 // hooks run on runner; guardrail filters run in-process with guardrails, which may be nil
 // when no hook is a guardrail filter. resolved is the tool a vMCP's generic tool call
 // resolved to, if any.
-func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore, resolved *resolvedToolCall, guardrails *mcpGuardrails) (*hookProcessor, error) {
+func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore, resolved *resolvedToolCall, guardrails *mcpGuardrails, authorizers ...*hookAuthorizer) (*hookProcessor, error) {
 	if runner == nil {
-		hooks = hooks.GuardrailsOnly()
+		hooks = hooks.WithoutServerTargets()
 	}
 	processor := &hookProcessor{
 		ctx:        req.Context(),
@@ -126,6 +131,9 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 		resolved:   resolved,
 	}
 
+	if len(authorizers) > 0 {
+		processor.authorizer = authorizers[0]
+	}
 	if req.Method != http.MethodPost || req.Body == nil || (processor.disabled && processor.audit == nil) {
 		return processor, nil
 	}
@@ -220,9 +228,16 @@ func readMCPHookBody(reader io.Reader) ([]byte, error) {
 }
 
 func decodeMCPHookMessage(body []byte, message *mcp.Message) error {
-	decoder := json.NewDecoder(bytes.NewReader(body))
+	return decodeMCPHookJSON(body, message)
+}
+
+// Match the MCP SDK's exact field names while retaining lossless request IDs
+// and the existing rejection of trailing JSON values.
+func decodeMCPHookJSON(body []byte, value any) error {
+	decoder := casejson.NewDecoder(bytes.NewReader(body))
+	decoder.DontMatchCaseInsensitiveStructFields()
 	decoder.UseNumber()
-	if err := decoder.Decode(message); err != nil {
+	if err := decoder.Decode(value); err != nil {
 		return err
 	}
 	var trailing any
@@ -236,9 +251,9 @@ func decodeMCPHookMessage(body []byte, message *mcp.Message) error {
 }
 
 // checkMCPMessageFieldNames rejects keys that differ from a protocol field only
-// by case. The gateway decodes with encoding/json, which matches such keys and
-// keeps the last one, while go-sdk servers match exactly. Accepting them would
-// let hooks and audit inspect a different method or tool than the server runs.
+// by case. Reject ambiguous protocol keys before hooks and audit, even though
+// the hook decoder also matches exact field names. This preserves the gateway
+// contract across consumers that may decode with encoding/json.
 func checkMCPMessageFieldNames(body []byte) error {
 	var message map[string]json.RawMessage
 	if json.Unmarshal(body, &message) != nil {
@@ -475,7 +490,16 @@ func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, orig
 		}
 		name = h.resolved.name
 	}
+	authorization := h.authorize(hookMessage, origin)
+	if authorization.err != nil {
+		return filteredRequest{body: mcpHookErrorResponse(wireMessage, "request", authorization.err), hooks: authorization}, nil
+	}
 	result := h.run(hookMessage, wireMessage.Method, name, "request", nil, genericCall, nil)
+	result.statuses = append(authorization.statuses, result.statuses...)
+	// Content filters may redact arguments but cannot change an authorized action.
+	if result.err == nil && origin == hookOriginClient && hookMessage.ID != nil && h.hasAuthorization() && (result.message.Method != hookMessage.Method || !sameAuthorizationAction(hookMessage, result.message)) {
+		result.err = &authorizationError{}
+	}
 	if result.err != nil {
 		return filteredRequest{body: mcpHookErrorResponse(wireMessage, "request", result.err), hooks: result}, nil
 	}
@@ -688,21 +712,87 @@ func mcpHookMessageID(id any) (string, bool) {
 }
 
 func mcpHookMessageName(message mcp.Message) string {
-	var params struct {
-		Name string `json:"name"`
-		URI  string `json:"uri"`
-	}
-	if json.Unmarshal(message.Params, &params) != nil {
-		return ""
-	}
+	var key string
 	switch message.Method {
-	case "tools/call", "prompts/get":
-		return params.Name
+	case "tools/call":
+		key = "tool"
+	case "prompts/get":
+		key = "prompt"
 	case "resources/read", "resources/subscribe", "resources/unsubscribe":
-		return params.URI
+		key = "uri"
 	default:
 		return ""
 	}
+	properties, err := mcpHookActionProperties(message)
+	if err != nil {
+		return ""
+	}
+	name, _ := properties[key].(string)
+	return name
+}
+
+// Only operation selectors are disclosed, never arguments or arbitrary request metadata.
+func mcpHookActionProperties(message mcp.Message) (map[string]any, error) {
+	invalid := errors.New("invalid MCP operation selector")
+	switch message.Method {
+	case "tools/call", "prompts/get":
+		var params struct {
+			Name string `json:"name"`
+		}
+		if decodeMCPHookJSON(message.Params, &params) != nil || params.Name == "" {
+			return nil, invalid
+		}
+		key := "tool"
+		if message.Method == "prompts/get" {
+			key = "prompt"
+		}
+		return map[string]any{key: params.Name}, nil
+	case "resources/read", "resources/subscribe", "resources/unsubscribe":
+		var params struct {
+			URI string `json:"uri"`
+		}
+		if decodeMCPHookJSON(message.Params, &params) != nil || params.URI == "" {
+			return nil, invalid
+		}
+		return map[string]any{"uri": params.URI}, nil
+	case "completion/complete":
+		var params struct {
+			Ref struct {
+				Type string          `json:"type"`
+				Name json.RawMessage `json:"name"`
+				URI  json.RawMessage `json:"uri"`
+			} `json:"ref"`
+			Argument struct {
+				Name string `json:"name"`
+			} `json:"argument"`
+		}
+		if decodeMCPHookJSON(message.Params, &params) != nil || params.Argument.Name == "" {
+			return nil, invalid
+		}
+		var key string
+		var raw json.RawMessage
+		switch params.Ref.Type {
+		case "ref/prompt":
+			key, raw = "name", params.Ref.Name
+		case "ref/resource":
+			key, raw = "uri", params.Ref.URI
+		default:
+			return nil, invalid
+		}
+		var identifier string
+		if decodeMCPHookJSON(raw, &identifier) != nil || identifier == "" {
+			return nil, invalid
+		}
+		return map[string]any{"ref": map[string]string{"type": params.Ref.Type, key: identifier}, "argument": params.Argument.Name}, nil
+	default:
+		return nil, nil
+	}
+}
+
+func sameAuthorizationAction(before, after mcp.Message) bool {
+	original, originalErr := mcpHookActionProperties(before)
+	filtered, filteredErr := mcpHookActionProperties(after)
+	return originalErr == nil && filteredErr == nil && reflect.DeepEqual(original, filtered)
 }
 
 func addMCPHookMutationsMeta(message *mcp.Message) error {
@@ -737,6 +827,16 @@ func mcpHookErrorResponse(request mcp.Message, direction string, hookErr error) 
 	rpcError := mcp.ErrRPCUnknown.WithMessage("failed to call %q hooks: %v", direction, hookErr)
 	if blockedErr, ok := errors.AsType[*hookBlockedError](hookErr); ok {
 		rpcError = mcp.NewRPCError(mcp.ErrRPCUnknown.Code, blockedErr.Error())
+	}
+	if authErr, ok := errors.AsType[*authorizationError](hookErr); ok {
+		rpcError = mcp.NewRPCError(mcp.ErrRPCUnknown.Code, authErr.Error())
+		if authErr.rateLimited {
+			details := struct {
+				Reason            string `json:"reason"`
+				RetryAfterSeconds int    `json:"retry_after_seconds,omitempty"`
+			}{Reason: "rate_limited", RetryAfterSeconds: authErr.retryAfter}
+			rpcError.Data, _ = json.Marshal(details)
+		}
 	}
 	data, err := json.Marshal(mcp.Message{
 		JSONRPC: jsonRPC,

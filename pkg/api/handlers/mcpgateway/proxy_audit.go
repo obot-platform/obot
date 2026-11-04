@@ -220,6 +220,7 @@ func auditHookStatuses(statuses []hookStatus) []auditlogs.MCPWebhookStatus {
 	result := make([]auditlogs.MCPWebhookStatus, 0, len(statuses))
 	for _, status := range statuses {
 		result = append(result, auditlogs.MCPWebhookStatus{
+			FilterID: status.filterID, EvaluationID: status.evaluationID, Mapping: status.mapping, DurationMS: status.durationMS,
 			Type: status.typeName, Method: status.method, Name: status.name, Tool: status.tool, Status: status.status, Message: status.message,
 		})
 	}
@@ -234,7 +235,7 @@ func (a *proxyAudit) recordBlockedRequest(body []byte, err error) {
 		a.recordNotification(http.StatusOK, err)
 		return
 	}
-	a.recordResponse(body, http.StatusOK, err, a.entry.RequestID)
+	a.recordResponse(body, hookHTTPStatus(err), err, a.entry.RequestID)
 }
 
 func buildMCPProxyAuditEntry(req *http.Request, metadata map[string]string) auditlogs.MCPAuditLog {
