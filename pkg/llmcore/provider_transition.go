@@ -28,8 +28,10 @@ func (p *providerTransitionPlugin) unavailable(req *schemas.BifrostRequest) erro
 	return nil
 }
 
-func (p *providerTransitionPlugin) PreRequestHook(_ *schemas.BifrostContext, req *schemas.BifrostRequest) error {
-	return p.unavailable(req)
+func (*providerTransitionPlugin) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostRequest) error {
+	// Bifrost only logs errors from this phase. PreLLMHook enforces admission
+	// with a short-circuit response for each attempt, including fallbacks.
+	return nil
 }
 
 func (p *providerTransitionPlugin) PreLLMHook(_ *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
