@@ -204,7 +204,11 @@ func TestMigrationRepairsEgressProxyAndPreservesExplicitSettings(t *testing.T) {
 			require.NoError(t, err)
 			before.Config.ProxyConfig = tc.proxy
 			before.Config.NetworkConfig.DefaultRequestTimeoutInSeconds = 123
-			require.NoError(t, e.store.PutProvider(ctx, "azure", before))
+			require.NoError(t, e.store.MutateProvider(ctx, "azure", func(provider *llmcoreclient.Provider) error {
+				provider.Config.ProxyConfig = before.Config.ProxyConfig
+				provider.Config.NetworkConfig.DefaultRequestTimeoutInSeconds = before.Config.NetworkConfig.DefaultRequestTimeoutInSeconds
+				return nil
+			}))
 			t.Setenv("HTTP_PROXY", "")
 			t.Setenv("HTTPS_PROXY", "http://egress.invalid:3128")
 			t.Setenv("NO_PROXY", tc.noProxy)
