@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"net/http"
 	"reflect"
 	"slices"
@@ -30,8 +31,9 @@ import (
 
 // Options configure an Engine.
 type Options struct {
-	// Plugins run around every attempt the engine makes, after routing rules have picked the
-	// model: Obot's access, budget and guardrail plugins.
+	// Plugins are registered in order, with routing inserted after Plugins[0]. The first
+	// plugin sees the original request in PreRequestHook; the remaining plugins
+	// see the routed request. All PreLLMHook calls run per attempt after routing.
 	Plugins []schemas.LLMPlugin
 	Logger  schemas.Logger
 	// Catalog supplies request pricing and model metadata to Obot plugins.
@@ -56,7 +58,7 @@ type Engine struct {
 	applied llmcoreclient.Config
 	// A proxy change may apply to only some providers before Sync fails. Track
 	// each success so retrying reconciliation only restarts providers still behind.
-	appliedProxy map[schemas.ModelProvider]json.RawMessage
+	appliedProxy map[schemas.ModelProvider]*schemas.ProxyConfig
 }
 
 // account serves the engine the configuration last loaded. Bifrost reads keys on every
@@ -82,20 +84,36 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 
 	pc.CheckAndSetDefaults()
 
+	pc.ProxyConfig = providerProxy(pc, cfg.Settings["proxy"])
+	return &pc, nil
+}
+
+// providerProxy returns the effective inference proxy, including provider overrides.
+// Compare this value during reconciliation so unrelated or cosmetic global edits
+// do not restart providers whose network behavior has not changed.
+func providerProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
+	pc.CheckAndSetDefaults()
+	if pc.ProxyConfig != nil && pc.ProxyConfig.Type != schemas.NoProxy {
+		return pc.ProxyConfig
+	}
 	var proxy tables.GlobalProxyConfig
-	_ = json.Unmarshal(cfg.Settings["proxy"], &proxy)
+	_ = json.Unmarshal(raw, &proxy)
 	if proxy.Type == "" {
 		proxy.Type = "http"
 	}
-	// Use the global inference proxy only when it is usable and the provider
-	// has no proxy of its own. An explicit provider proxy takes precedence.
 	globalProxyEnabled := proxy.Enabled && proxy.EnableForInference && strings.TrimSpace(proxy.URL) != ""
 	supportedProxyType := proxy.Type == "http" || proxy.Type == "socks5"
-	providerHasNoProxy := pc.ProxyConfig == nil || pc.ProxyConfig.Type == schemas.NoProxy
-	if globalProxyEnabled && supportedProxyType && providerHasNoProxy {
-		pc.ProxyConfig = &schemas.ProxyConfig{Type: schemas.ProxyType(proxy.Type), URL: &schemas.SecretVar{Val: proxy.URL}, Username: &schemas.SecretVar{Val: proxy.Username}, Password: &schemas.SecretVar{Val: proxy.Password}, NoProxy: proxy.NoProxy, SkipTLSVerify: proxy.SkipTLSVerify}
+	if !globalProxyEnabled || !supportedProxyType {
+		return pc.ProxyConfig
 	}
-	return &pc, nil
+	return &schemas.ProxyConfig{
+		Type:          schemas.ProxyType(proxy.Type),
+		URL:           &schemas.SecretVar{Val: proxy.URL},
+		Username:      &schemas.SecretVar{Val: proxy.Username},
+		Password:      &schemas.SecretVar{Val: proxy.Password},
+		NoProxy:       proxy.NoProxy,
+		SkipTLSVerify: proxy.SkipTLSVerify,
+	}
 }
 
 // New starts an engine with the configuration in the store.
@@ -129,7 +147,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 		catalog:      opts.Catalog,
 		account:      &account{},
 		rules:        ruleStore,
-		appliedProxy: make(map[schemas.ModelProvider]json.RawMessage),
+		appliedProxy: make(map[schemas.ModelProvider]*schemas.ProxyConfig),
 	}
 	e.account.config.Store(&cfg)
 	for _, rule := range cfg.Rules {
@@ -160,7 +178,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	e.applySettings(cfg)
 	e.applied = cfg
 	for name := range cfg.Providers {
-		e.appliedProxy[name] = cfg.Settings["proxy"]
+		e.appliedProxy[name] = providerProxy(cfg.Providers[name], cfg.Settings["proxy"])
 	}
 	return e, nil
 }
@@ -186,6 +204,8 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, error) {
 	changed := !reflect.DeepEqual(e.applied, cfg)
 	e.applySettings(cfg)
+	// Start from the last known applied state. Only successful items advance;
+	// failed providers and rules retain their previous values for the next retry.
 	old := e.applied
 	old.Providers = maps.Clone(old.Providers)
 	old.Rules = maps.Clone(old.Rules)
@@ -195,12 +215,13 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 
 	var errs []error
 	for name, pc := range cfg.Providers {
-		if prev, ok := old.Providers[name]; !ok || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], cfg.Settings["proxy"]) {
+		proxy := providerProxy(pc, cfg.Settings["proxy"])
+		if prev, ok := old.Providers[name]; !ok || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			if err := e.client.UpdateProvider(name); err != nil {
 				errs = append(errs, err)
 			} else {
 				old.Providers[name] = pc
-				e.appliedProxy[name] = cfg.Settings["proxy"]
+				e.appliedProxy[name] = proxy
 			}
 		}
 	}
@@ -232,6 +253,9 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 			}
 		}
 	}
+	// Keep rules live even when their primary provider is absent: dropping them
+	// would bypass routing policy. Missing optional fallbacks are left in the
+	// chain for request-time handling; they do not invalidate a healthy primary.
 	for id, rule := range cfg.Rules {
 		for _, target := range rule.Targets {
 			if target.Provider != nil {
@@ -274,6 +298,11 @@ func (e *Engine) MaxRequestBodyBytes() int64 {
 	_ = json.Unmarshal(e.account.config.Load().Settings["client"], &settings)
 	if settings.Max <= 0 {
 		return maxRequestBodyBytes
+	}
+	// Saturate before shifting so an oversized admin value cannot wrap to a
+	// negative or unexpectedly small request limit.
+	if settings.Max > math.MaxInt64>>20 {
+		return math.MaxInt64
 	}
 	return settings.Max << 20
 }

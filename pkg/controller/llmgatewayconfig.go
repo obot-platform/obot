@@ -13,7 +13,7 @@ import (
 // The legacy transport uses its reload mechanism; cutover calls this helper when
 // the service engine implements the core lifecycle interface.
 //
-//nolint:unused // Activated by core-runtime cutover; the legacy transport does not register these watches.
+//nolint:unused // Activated by core-runtime cutover (https://github.com/obot-platform/obot/issues/8248); the legacy transport does not register these watches.
 func (c *Controller) setupLLMGatewayConfigRoutes(engine llmgatewayconfig.Engine) {
 	if c.services.EveryReplicaRouter == nil {
 		return

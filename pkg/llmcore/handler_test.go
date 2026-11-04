@@ -1,6 +1,9 @@
 package llmcore_test
 
 import (
+	"encoding/json"
+	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -64,4 +67,47 @@ func TestEndpointRegistration(t *testing.T) {
 			require.Equal(t, tt.status, w.Code)
 		})
 	}
+}
+
+type interruptedBody struct{}
+
+func (interruptedBody) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
+func (interruptedBody) Close() error             { return nil }
+
+func TestBodyReadErrors(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
+		settings["client"] = json.RawMessage(`{"max_request_body_size_mb":1}`)
+		return nil
+	}))
+	e, err := llmcore.New(t.Context(), store, llmcore.Options{})
+	require.NoError(t, err)
+	t.Cleanup(e.Shutdown)
+	for _, path := range []string{"/v1/responses", "/v1/chat/completions", "/v1/messages", "/v1/messages/count_tokens", "/v1/responses/input_tokens"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, path, nil)
+			req.Body = interruptedBody{}
+			w := httptest.NewRecorder()
+			e.ServeHTTP(w, req)
+			require.Equal(t, http.StatusBadRequest, w.Code)
+			require.Contains(t, w.Body.String(), "could not read request body")
+
+			req = httptest.NewRequest(http.MethodPost, path, strings.NewReader(strings.Repeat(" ", (1<<20)+1)))
+			w = httptest.NewRecorder()
+			e.ServeHTTP(w, req)
+			require.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+		})
+	}
+}
+
+func TestRequestLimitDoesNotOverflow(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
+		settings["client"] = json.RawMessage(`{"max_request_body_size_mb":9223372036854775807}`)
+		return nil
+	}))
+	e, err := llmcore.New(t.Context(), store, llmcore.Options{})
+	require.NoError(t, err)
+	t.Cleanup(e.Shutdown)
+	require.Equal(t, int64(math.MaxInt64), e.MaxRequestBodyBytes())
 }

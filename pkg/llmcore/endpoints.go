@@ -16,7 +16,7 @@ func (e *Engine) Client() *bifrost.Bifrost { return e.client }
 func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, e.MaxRequestBodyBytes()))
 	if err != nil {
-		writeError(w, d, http.StatusRequestEntityTooLarge, "invalid_request_error", "request body too large")
+		writeBodyReadError(w, d, err)
 		return
 	}
 

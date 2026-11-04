@@ -3,6 +3,7 @@ package llmgatewayconfig
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -34,10 +35,10 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 		return nil
 	}
 	// Reload desired resources through Sync rather than applying a stale event payload.
-	if _, err := h.engine.Sync(req.Ctx); err != nil {
-		return err
-	}
-	// Application may have succeeded on a previous attempt whose discovery trigger
-	// failed. Trigger discovery again even when Sync reports no runtime changes.
-	return h.triggerModelSync(req.Ctx)
+	_, syncErr := h.engine.Sync(req.Ctx)
+	// Sync can apply healthy providers while preserving a rule whose target is
+	// missing. Discover those successes even while incomplete application retries.
+	// Always retry discovery too: a previous trigger may have failed after Sync
+	// finished, leaving no runtime change on the next attempt.
+	return errors.Join(syncErr, h.triggerModelSync(req.Ctx))
 }

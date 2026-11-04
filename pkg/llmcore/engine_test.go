@@ -740,24 +740,37 @@ func TestSyncRetriesFailedConfiguration(t *testing.T) {
 
 func TestResponseObserver(t *testing.T) {
 	env := newTestEnv(t)
-	for _, stream := range []bool{false, true} {
-		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
-			var observed []schemas.BifrostResponseExtraFields
-			ctx := llmcore.WithResponseObserver(context.Background(), func(extra schemas.BifrostResponseExtraFields) { observed = append(observed, extra) })
-			body := fmt.Sprintf(`{"model":"openai/gpt-e2e-a","input":"hello","stream":%t}`, stream)
-			req := httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body)).WithContext(ctx)
-			rec := httptest.NewRecorder()
-			env.A.engine.ServeHTTP(rec, req)
-			if rec.Code != http.StatusOK {
-				t.Fatalf("HTTP %d: %s", rec.Code, rec.Body.String())
-			}
-			if len(observed) == 0 || observed[0].RoutingInfo.Provider != schemas.OpenAI {
-				t.Fatalf("missing internal routing metadata: %+v", observed)
-			}
-			if strings.Contains(rec.Body.String(), "extra_fields") {
-				t.Fatal("internal metadata leaked to client")
-			}
-		})
+	for _, api := range allAPIs {
+		for _, stream := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/stream=%t", api, stream), func(t *testing.T) {
+				var observed []schemas.BifrostResponseExtraFields
+				ctx := llmcore.WithResponseObserver(context.Background(), func(extra schemas.BifrostResponseExtraFields) { observed = append(observed, extra) })
+				path := "/v1/responses"
+				body := fmt.Sprintf(`{"model":"openai/gpt-e2e-a","input":"hello","stream":%t}`, stream)
+				if api == apiMessages {
+					path = "/v1/messages"
+					body = fmt.Sprintf(`{"model":"openai/gpt-e2e-a","max_tokens":64,"messages":[{"role":"user","content":"hello"}],"stream":%t}`, stream)
+				} else if api == apiChat {
+					path = "/v1/chat/completions"
+					body = fmt.Sprintf(`{"model":"openai/gpt-e2e-a","messages":[{"role":"user","content":"hello"}],"stream":%t}`, stream)
+				}
+				req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body)).WithContext(ctx)
+				rec := httptest.NewRecorder()
+				env.A.engine.ServeHTTP(rec, req)
+				if rec.Code != http.StatusOK {
+					t.Fatalf("HTTP %d: %s", rec.Code, rec.Body.String())
+				}
+				if len(observed) == 0 || observed[0].RoutingInfo.Provider != schemas.OpenAI {
+					t.Fatalf("missing internal routing metadata: %+v", observed)
+				}
+				if stream && len(observed) < 2 {
+					t.Fatalf("observer missed later stream chunks: %+v", observed)
+				}
+				if strings.Contains(rec.Body.String(), "extra_fields") {
+					t.Fatal("internal metadata leaked to client")
+				}
+			})
+		}
 	}
 }
 
@@ -811,5 +824,26 @@ func TestRouteSurvivesMissingProvider(t *testing.T) {
 	for _, replica := range []*replica{env.A, env.B} {
 		replica.sync(t)
 		replica.call(t, apiResponses, "openai/gpt-e2e-a", "hi "+nonce("restored-provider"), false, nil).requireOK(t)
+	}
+}
+
+func TestMissingFallbackPreservesHealthyPrimary(t *testing.T) {
+	env := newTestEnv(t)
+	ctx := t.Context()
+	provider, model := "openai", "gpt-e2e-a"
+	rule := configstoreTables.TableRoutingRule{
+		ID: "optional-fallback", Name: "optional-fallback", CelExpression: "true", Scope: "global",
+		Targets:         []configstoreTables.TableRoutingTarget{{Provider: &provider, Model: &model, Weight: 1}},
+		ParsedFallbacks: []configstoreTables.RoutingFallback{{Fallback: schemas.Fallback{Provider: schemas.Anthropic, Model: "claude-e2e-a"}}},
+	}
+	if err := env.store.PutRule(ctx, rule); err != nil {
+		t.Fatal(err)
+	}
+	if err := env.store.DeleteProvider(ctx, "anthropic"); err != nil {
+		t.Fatal(err)
+	}
+	env.A.sync(t)
+	for _, api := range allAPIs {
+		env.A.call(t, api, "openai/gpt-e2e-a", "hi "+nonce("missing-fallback"), false, nil).requireOK(t)
 	}
 }

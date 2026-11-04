@@ -3,8 +3,10 @@ package llmcore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 
@@ -26,9 +28,9 @@ const (
 	dialectMessages     dialect = 1
 )
 
-// engineName matches the implementation's name in error messages.
+// engineName matches a library error prefix, preserving provider text that merely mentions it.
 var (
-	engineName = regexp.MustCompile(`(?i)bifrost`)
+	engineName = regexp.MustCompile(`(?i)^bifrost\b`)
 )
 
 type dialect int
@@ -72,7 +74,7 @@ func (e *Engine) newMux() *http.ServeMux {
 func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, e.MaxRequestBodyBytes()))
 	if err != nil {
-		writeError(w, d, http.StatusRequestEntityTooLarge, "invalid_request_error", "request body too large")
+		writeBodyReadError(w, d, err)
 		return
 	}
 
@@ -142,7 +144,6 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 		}
 	}()
 
-	flusher, _ := w.(http.Flusher)
 	started := false
 	for chunk := range chunks {
 		if chunk == nil {
@@ -163,8 +164,8 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 		if event == nil {
 			continue
 		}
+		observeResponse(ctx, event.ExtraFields)
 		if !started {
-			observeResponse(ctx, event.ExtraFields)
 			setServed(w.Header(), event.ExtraFields)
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.Header().Set("Cache-Control", "no-cache")
@@ -186,8 +187,8 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 				}
 			}
 		}
-		if flusher != nil {
-			flusher.Flush()
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			return
 		}
 	}
 }
@@ -207,35 +208,48 @@ func setServed(h http.Header, extra schemas.BifrostResponseExtraFields) {
 }
 
 // marshal encodes a response without the engine's own fields.
-func marshal(v any) []byte {
+func marshal(v any) ([]byte, error) {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return []byte(`{}`)
+		slog.Error("failed to encode LLM gateway response", "error", err)
+		return nil, err
 	}
 
 	for _, path := range []string{"extra_fields", "response.extra_fields"} {
 		if gjson.GetBytes(data, path).Exists() {
-			if stripped, err := sjson.DeleteBytes(data, path); err == nil {
-				data = stripped
+			stripped, err := sjson.DeleteBytes(data, path)
+			if err != nil {
+				return nil, err
 			}
+			data = stripped
 		}
 	}
-	return data
+	return data, nil
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
+	// Encode before committing headers so failures cannot become empty successes.
+	data, err := marshal(v)
+	if err != nil {
+		status = http.StatusInternalServerError
+		data = []byte(`{"error":{"type":"api_error","message":"failed to encode gateway response"}}`)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_, _ = w.Write(marshal(v))
+	_, _ = w.Write(data)
 }
 
 func writeEvent(w http.ResponseWriter, name string, v any) error {
+	data, err := marshal(v)
+	if err != nil {
+		return err
+	}
 	if name != "" {
 		if _, err := fmt.Fprintf(w, "event: %s\n", name); err != nil {
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(w, "data: %s\n\n", marshal(v))
+	_, err = fmt.Fprintf(w, "data: %s\n\n", data)
 	return err
 }
 
@@ -279,7 +293,8 @@ func errorBody(d dialect, errType, message string) map[string]any {
 	return map[string]any{"error": map[string]any{"type": errType, "message": message}}
 }
 
-// WithResponseObserver reports the serving attempt without exposing engine metadata to clients.
+// WithResponseObserver reports metadata for unary responses and every stream chunk,
+// including final latency metadata. Cost and usage reporting belong to plugin hooks.
 func WithResponseObserver(ctx context.Context, observe func(schemas.BifrostResponseExtraFields)) context.Context {
 	return context.WithValue(ctx, responseObserverKey{}, observe)
 }
@@ -293,7 +308,7 @@ func observeResponse(ctx context.Context, extra schemas.BifrostResponseExtraFiel
 func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, e.MaxRequestBodyBytes()))
 	if err != nil {
-		writeError(w, dialectResponses, http.StatusRequestEntityTooLarge, "invalid_request_error", "request body too large")
+		writeBodyReadError(w, dialectResponses, err)
 		return
 	}
 
@@ -366,7 +381,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 			started = true
 		}
 
-		if _, err := fmt.Fprintf(w, "data: %s\n\n", marshal(event)); err != nil {
+		if err := writeEvent(w, "", event); err != nil {
 			return
 		}
 		if err := http.NewResponseController(w).Flush(); err != nil {
@@ -383,4 +398,15 @@ func observeError(ctx context.Context, err *schemas.BifrostError) {
 	if err != nil {
 		observeResponse(ctx, err.ExtraFields.RoutingInfo.ToExtraFields(err.ExtraFields.RequestType))
 	}
+}
+
+// Only MaxBytesReader limit violations are size errors; other failures mean the
+// request body could not be read (for example, an interrupted upload).
+func writeBodyReadError(w http.ResponseWriter, d dialect, err error) {
+	var maxBytesErr *http.MaxBytesError
+	if errors.As(err, &maxBytesErr) {
+		writeError(w, d, http.StatusRequestEntityTooLarge, "invalid_request_error", "request body too large")
+		return
+	}
+	writeError(w, d, http.StatusBadRequest, "invalid_request_error", "could not read request body")
 }

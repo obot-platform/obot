@@ -9,6 +9,9 @@ import (
 )
 
 // requestContext translates only headers already admitted by Obot's authenticated proxy.
+// stripCallerCredentials removes Obot credentials and API keys; only admin-approved
+// Anthropic subscription tokens for a verified Anthropic destination survive.
+// The User-Agent check below selects Bifrost compatibility behavior, not authorization.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
 	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
 	if e.catalog != nil {
@@ -16,14 +19,14 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 	}
 
 	headers := make(map[string]string, len(r.Header))
-	extra := map[string]string{}
+	extra := map[string][]string{}
 	for name := range r.Header {
 		lower := strings.ToLower(name)
 		value := r.Header.Get(name)
 		headers[lower] = value
 		switch lower {
 		case "anthropic-beta", "anthropic-version", "authorization", "user-agent", "x-api-key", "x-stainless-lang", "x-stainless-package-version", "x-stainless-os", "x-stainless-arch", "x-stainless-runtime", "x-stainless-runtime-version", "x-stainless-retry-count", "x-stainless-timeout":
-			extra[lower] = value
+			extra[lower] = append([]string(nil), r.Header.Values(name)...)
 		}
 	}
 

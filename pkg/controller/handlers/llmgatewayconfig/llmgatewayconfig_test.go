@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
@@ -81,7 +82,7 @@ func TestReconcileRetriesStartupAndDiscovery(t *testing.T) {
 	require.Equal(t, 2, attempts, "discovery must retry even when application is unchanged")
 }
 
-func TestReconcileRetriesApplicationBeforeDiscovery(t *testing.T) {
+func TestReconcileRetriesApplicationWithoutStarvingDiscovery(t *testing.T) {
 	ctx := t.Context()
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, plaintextCodec{})
@@ -98,8 +99,45 @@ func TestReconcileRetriesApplicationBeforeDiscovery(t *testing.T) {
 		require.ErrorIs(t, handler.Reconcile(request, &retryResponse{}), applicationErr)
 	}
 	require.Equal(t, 2, engine.syncCalls, "failed application remains retryable without another write")
-	require.Zero(t, discoveries, "discovery must wait for successful application")
+	require.Equal(t, 2, discoveries, "application errors must not starve discovery")
 	engine.syncErr = nil
 	require.NoError(t, handler.Reconcile(request, &retryResponse{}))
-	require.Equal(t, 1, discoveries)
+	require.Equal(t, 3, discoveries)
+}
+
+func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
+	ctx := t.Context()
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, plaintextCodec{})
+	require.NoError(t, err)
+	for _, name := range []string{"openai", "anthropic"} {
+		require.NoError(t, store.PutProvider(ctx, name, llmcoreclient.Provider{}))
+	}
+	provider := "anthropic"
+	require.NoError(t, store.PutRule(ctx, tables.TableRoutingRule{
+		ID: "keep-policy", Name: "keep-policy", CelExpression: "true", Scope: "global",
+		Targets: []tables.TableRoutingTarget{{Provider: &provider, Weight: 1}},
+	}))
+	core, err := llmcore.New(ctx, store, llmcore.Options{})
+	require.NoError(t, err)
+	t.Cleanup(core.Shutdown)
+	require.NoError(t, store.DeleteProvider(ctx, "anthropic"))
+	// An unrelated provider must still apply and become discoverable.
+	require.NoError(t, store.PutProvider(ctx, "gemini", llmcoreclient.Provider{}))
+	discoveries := 0
+	handler := New(&testEngine{ready: true, core: core}, func(context.Context) error {
+		discoveries++
+		providers, err := core.Client().GetConfiguredProviders()
+		require.NoError(t, err)
+		require.Contains(t, providers, schemas.Gemini)
+		require.NotContains(t, providers, schemas.Anthropic)
+		return nil
+	})
+	for range 2 {
+		require.ErrorContains(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}), "anthropic is not configured")
+	}
+	require.Equal(t, 2, discoveries)
+	cfg, err := store.Load(ctx)
+	require.NoError(t, err)
+	require.Contains(t, cfg.Rules, "keep-policy")
 }

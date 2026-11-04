@@ -48,7 +48,7 @@ func TestPartialSyncDoesNotRestartUpdatedProviders(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(e.Shutdown)
 	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
-		settings["proxy"] = json.RawMessage(`{"enabled":false,"url":"http://proxy.example"}`)
+		settings["proxy"] = json.RawMessage(`{"enabled":true,"enable_for_inference":true,"url":"http://proxy.example"}`)
 		return nil
 	}))
 	require.NoError(t, store.PutProvider(t.Context(), "broken", llmcoreclient.Provider{}))
@@ -81,4 +81,32 @@ func newTestStore(t *testing.T) *llmcoreclient.Client {
 	store, err := llmcoreclient.New(fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(), plaintextCodec{})
 	require.NoError(t, err)
 	return store
+}
+
+func TestSyncOnlyRestartsProvidersWhoseProxyChanges(t *testing.T) {
+	store := newTestStore(t)
+	require.NoError(t, store.PutProvider(t.Context(), "openai", llmcoreclient.Provider{}))
+	require.NoError(t, store.PutProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
+		ProxyConfig: &schemas.ProxyConfig{
+			Type: schemas.HTTPProxy,
+			URL:  schemas.NewSecretVar("http://provider-proxy.example"),
+		},
+	}}))
+	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
+	e, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: log})
+	require.NoError(t, err)
+	t.Cleanup(e.Shutdown)
+	for _, raw := range []string{
+		`{"enabled":true,"enable_for_inference":true,"url":"http://global-proxy.example"}`,
+		`{ "url": "http://global-proxy.example", "type":"http", "enable_for_inference": true, "enabled": true }`,
+	} {
+		require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
+			settings["proxy"] = json.RawMessage(raw)
+			return nil
+		}))
+		_, err := e.Sync(t.Context())
+		require.NoError(t, err)
+	}
+	require.Equal(t, 1, log.count("openai"), "equivalent global settings must not restart the provider")
+	require.Zero(t, log.count("anthropic"), "the explicit provider proxy overrides global changes")
 }
