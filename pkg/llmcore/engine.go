@@ -54,6 +54,10 @@ type Engine struct {
 
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex
+	// retirements retain unfinished removals across Sync retries. Both fields
+	// are protected by syncLock; Shutdown joins removals before stopping core.
+	retirements map[schemas.ModelProvider]*providerRetirement
+	stopped     bool
 	// syncErr includes provider load diagnostics even when startup can serve healthy providers.
 	syncErr error
 	// applied is the configuration last applied.
@@ -227,10 +231,14 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 // Sync brings the engine up to the store's configuration, if it changed. Only what changed is
 // touched: a changed provider is gated and drained before its replacement starts;
 // key-only changes take effect on the next request, and rules are replaced one
-// by one. Nothing else is rebuilt.
+// by one. Waiting for drains has a shared one-second budget; unfinished removals
+// stay gated for retry while unrelated configuration advances.
 func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	e.syncLock.Lock()
 	defer e.syncLock.Unlock()
+	if e.stopped {
+		return false, errors.New("gateway engine is shut down")
+	}
 
 	loaded, err := e.store.Load(ctx)
 	if err != nil {
@@ -270,12 +278,10 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	old := e.applied
 	old.Providers = maps.Clone(old.Providers)
 	old.Rules = maps.Clone(old.Rules)
-	old.Keys = cfg.Keys
 	old.Settings = cfg.Settings
-	// Keep the old account view until every affected runtime (including retired
-	// workers) has drained. Workers read keys separately from their captured
-	// provider instance, so publishing desired keys earlier leaks them to the old
-	// destination. A config-read gate also prevents lazy runtime recreation.
+	// Workers read keys separately from their captured provider. Pending drains
+	// must retain their old account values while unrelated providers advance.
+	previous := e.account.config.Load()
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
 	retiring := make(map[schemas.ModelProvider]bool)
 	for name, pc := range cfg.Providers {
@@ -286,7 +292,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 			retiring[name] = true
 		}
 	}
-	for name := range old.Providers {
+	for name := range previous.Providers {
 		if _, exists := cfg.Providers[name]; !exists {
 			retiring[name] = true
 		}
@@ -294,19 +300,36 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	for name := range retiring {
 		e.account.transitioning.Store(name, false)
 	}
+	toDrain := make(map[schemas.ModelProvider]bool)
 	for name := range retiring {
-		if e.client.GetProviderByKey(name) != nil {
-			if err := e.client.RemoveProvider(name); err != nil {
-				// Leave the old account and all affected gates intact for retry.
-				return true, err
-			}
+		if e.client.GetProviderByKey(name) != nil || e.retirements[name] != nil {
+			toDrain[name] = true
 		}
 	}
+	blocked, errs := e.retireProviders(ctx, toDrain, e.client.RemoveProvider)
 
-	e.account.config.Store(&cfg)
-	e.applySettings(cfg)
-	var errs []error
+	live := cfg
+	live.Providers = maps.Clone(cfg.Providers)
+	live.Keys = maps.Clone(cfg.Keys)
+	for name := range blocked {
+		if pc, exists := previous.Providers[name]; exists {
+			live.Providers[name] = pc
+		} else {
+			delete(live.Providers, name)
+		}
+		if keys, exists := previous.Keys[name]; exists {
+			live.Keys[name] = keys
+		} else {
+			delete(live.Keys, name)
+		}
+	}
+	e.account.config.Store(&live)
+	e.applySettings(live)
+	old.Keys = live.Keys
 	for name, proxy := range updates {
+		if blocked[name] {
+			continue
+		}
 		// Bifrost's constructor reads provider config through the same Account as
 		// lazy creation. Both may now see only the new destination, while request
 		// hooks and key reads remain gated until successful construction.
@@ -325,8 +348,8 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 			e.account.transitioning.Delete(name)
 		}
 	}
-	for name := range old.Providers {
-		if _, exists := cfg.Providers[name]; !exists {
+	for name := range retiring {
+		if _, exists := cfg.Providers[name]; !exists && !blocked[name] {
 			delete(old.Providers, name)
 			delete(e.appliedProxy, name)
 			e.account.transitioning.Delete(name)
@@ -374,7 +397,19 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 
 // Shutdown stops the engine, letting in-flight requests finish.
 func (e *Engine) Shutdown() {
-	e.stopOnce.Do(func() { e.client.Shutdown(); e.tracer.Stop(); e.traceStore.Stop() })
+	e.stopOnce.Do(func() {
+		e.syncLock.Lock()
+		defer e.syncLock.Unlock()
+		e.stopped = true
+		// Bifrost removal is not cancellable. Finish the tracked operations before
+		// Shutdown touches the same queues and worker wait groups.
+		for _, drain := range e.retirements {
+			<-drain.done
+		}
+		e.client.Shutdown()
+		e.tracer.Stop()
+		e.traceStore.Stop()
+	})
 }
 
 func (e *Engine) applySettings(cfg llmcoreclient.Config) {

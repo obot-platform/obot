@@ -85,6 +85,16 @@ backoff retries, including when desired contents have not changed. Repairing the
 resource makes it eligible for application again. Blocking load errors fail
 startup or preserve the running configuration during refresh.
 
+Provider retirement has a shared one-second wait budget per reconciliation.
+Unfinished removals continue in the background and are reused by later retries;
+removal failures and pending drains preserve that provider's prior account values
+and gate while healthy providers, rules, and settings advance. Reconciliation
+reports incomplete retirement for retry instead of holding its lock indefinitely.
+Bifrost holds the retiring provider's queue lock during removal, so calls to that
+provider can wait before reaching the attempt gate. Shutdown joins outstanding
+removals before stopping core; the wait budget does not cancel upstream work or
+bound shutdown.
+
 Cross-resource reads are eventually consistent and do not form a transactional
 snapshot. Deleting a provider retains routing rules that target it. Runtime
 integration must tolerate these dangling references, keep healthy providers
