@@ -51,7 +51,7 @@ func migrationCredentials(t *testing.T) *gatewayclient.Client {
 	db, err := gatewaydb.New(storage.DB.DB, storage.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
-	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = c.Close() })
 	return c
 }
@@ -258,6 +258,9 @@ func TestMigrationRetriesResourceFailure(t *testing.T) {
 }
 
 func TestMigrationSettingsConflictPreservesOtherSettings(t *testing.T) {
+	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
+	g := migrationCredentials(t)
+	putLegacy(t, g, system.OpenAIModelProvider, map[string]string{"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "key"})
 	conflict := true
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithInterceptorFuncs(interceptor.Funcs{Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
 		if _, ok := obj.(*v1.LLMGatewayConfig); ok && conflict {
@@ -271,13 +274,15 @@ func TestMigrationSettingsConflictPreservesOtherSettings(t *testing.T) {
 	e := New()
 	e.store = store
 	require.NoError(t, store.MutateSettings(t.Context(), func(s map[string]json.RawMessage) error { s["unrelated"] = json.RawMessage(`true`); return nil }))
-	require.NoError(t, e.mutateMigration(t.Context(), func(s *MigrationStatus) error { s.Mappings["old"] = "new"; return nil }))
+	_, err = e.ImportLegacyModelProviders(t.Context(), nil, g)
+	require.NoError(t, err)
+	require.False(t, conflict)
 	settings, err := store.GetSettings(t.Context())
 	require.NoError(t, err)
 	require.JSONEq(t, `true`, string(settings["unrelated"]))
 	state, err := e.MigrationStatus(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, "new", state.Mappings["old"])
+	require.Equal(t, "imported", state.Sources[system.OpenAIModelProvider].Status)
 }
 
 func TestMigrationReferenceRecoveryPreservesLaterEdits(t *testing.T) {

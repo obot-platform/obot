@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/net/http/httpproxy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -90,7 +91,7 @@ func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStat
 // ResolveMigration records a first-writer-wins decision. Import runs separately:
 // a crash after accepting the decision is recovered by resource reconciliation.
 func (e *Engine) ResolveMigration(ctx context.Context, family, source string, version int) error {
-	return e.mutateMigration(ctx, func(s *MigrationStatus) error {
+	err := e.mutateMigration(ctx, func(s *MigrationStatus) error {
 		entry, ok := s.Sources[source]
 		if !ok || entry.Provider != family || (family != "azure" && family != "bedrock_mantle") {
 			return &APIError{StatusCode: 400, Message: "invalid legacy provider selection"}
@@ -111,11 +112,32 @@ func (e *Engine) ResolveMigration(ctx context.Context, family, source string, ve
 		s.Version++
 		return nil
 	})
+	if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
+		return &APIError{StatusCode: 409, Message: "the migration decision changed; refresh and try again"}
+	}
+	return err
 }
 
 // ImportLegacyModelProviders reconciles independent provider aggregates. No write
 // callback performs I/O, and no cross-resource transaction is assumed.
 func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Client, g *gateway.Client) ([]LegacyImportResult, error) {
+	var results []LegacyImportResult
+	// Each attempt reloads decisions and provider provenance. Partial imports are
+	// idempotent, so concurrent replicas can resume without overwriting manual edits.
+	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
+		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
+	}, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		var err error
+		results, err = e.importLegacyModelProviders(ctx, c, g)
+		return err
+	})
+	return results, err
+}
+
+func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Client, g *gateway.Client) ([]LegacyImportResult, error) {
 	secrets := map[string]map[string]string{}
 	entries := map[string]MigrationSource{}
 	for _, name := range slices.Sorted(maps.Keys(legacyImportPlans)) {
