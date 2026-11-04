@@ -14,7 +14,7 @@ func TestEncodingFailure(t *testing.T) {
 	// A non-finite provider/plugin value must never become a successful {} response.
 	value := map[string]any{"score": math.NaN()}
 	w := httptest.NewRecorder()
-	writeJSON(w, http.StatusOK, value)
+	writeJSON(w, dialectResponses, http.StatusOK, value)
 	require.Equal(t, http.StatusInternalServerError, w.Code)
 	require.Contains(t, w.Body.String(), `"type":"api_error"`)
 

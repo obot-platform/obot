@@ -121,15 +121,15 @@ func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
 	setServed(w.Header(), resp.ExtraFields)
 	switch d {
 	case dialectResponses:
-		writeJSON(w, http.StatusOK, resp.WithDefaults())
+		writeJSON(w, d, http.StatusOK, resp.WithDefaults())
 	case dialectMessages:
-		writeJSON(w, http.StatusOK, anthropic.ToAnthropicResponsesResponse(ctx, resp))
+		writeJSON(w, d, http.StatusOK, anthropic.ToAnthropicResponsesResponse(ctx, resp))
 	}
 }
 
 // serveStream relays the engine's stream as server-sent events in the request's format. Headers
-// are written with the first chunk, by which point retries and fallbacks are over, so an error
-// before the first chunk is an ordinary JSON error, and the served model is known.
+// are written with the first encoded event, by which point retries and fallbacks are over.
+// An error before that event is an ordinary JSON error, and the served model is known.
 func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext, req *schemas.BifrostResponsesRequest, d dialect) {
 	chunks, bifrostErr := e.client.ResponsesStreamRequest(ctx, req)
 	if bifrostErr != nil {
@@ -144,19 +144,14 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 		}
 	}()
 
-	started := false
+	output := streamWriter{w: w, dialect: d}
 	for chunk := range chunks {
 		if chunk == nil {
 			continue
 		}
 		if chunk.BifrostError != nil {
-			if !started {
-				observeError(ctx, chunk.BifrostError)
-				writeEngineError(w, d, chunk.BifrostError)
-				return
-			}
 			observeError(ctx, chunk.BifrostError)
-			writeStreamError(w, d, chunk.BifrostError)
+			output.fail(chunk.BifrostError)
 			return
 		}
 
@@ -165,30 +160,19 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 			continue
 		}
 		observeResponse(ctx, event.ExtraFields)
-		if !started {
-			setServed(w.Header(), event.ExtraFields)
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.Header().Set("Cache-Control", "no-cache")
-			w.WriteHeader(http.StatusOK)
-			started = true
-		}
-
 		switch d {
 		case dialectResponses:
 			if out := event.WithDefaults(); out != nil {
-				if err := writeEvent(w, string(out.Type), out); err != nil {
+				if err := output.write(string(out.Type), out, event.ExtraFields); err != nil {
 					return
 				}
 			}
 		case dialectMessages:
 			for _, out := range anthropic.ToAnthropicResponsesStreamResponse(ctx, event) {
-				if err := writeEvent(w, string(out.Type), out); err != nil {
+				if err := output.write(string(out.Type), out, event.ExtraFields); err != nil {
 					return
 				}
 			}
-		}
-		if err := http.NewResponseController(w).Flush(); err != nil {
-			return
 		}
 	}
 }
@@ -227,12 +211,13 @@ func marshal(v any) ([]byte, error) {
 	return data, nil
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
+func writeJSON(w http.ResponseWriter, d dialect, status int, v any) {
 	// Encode before committing headers so failures cannot become empty successes.
 	data, err := marshal(v)
 	if err != nil {
 		status = http.StatusInternalServerError
-		data = []byte(`{"error":{"type":"api_error","message":"failed to encode gateway response"}}`)
+		// The fallback body contains only fixed strings and is always encodable.
+		data, _ = json.Marshal(errorBody(d, "api_error", responseEncodingMessage))
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -244,13 +229,7 @@ func writeEvent(w http.ResponseWriter, name string, v any) error {
 	if err != nil {
 		return err
 	}
-	if name != "" {
-		if _, err := fmt.Fprintf(w, "event: %s\n", name); err != nil {
-			return err
-		}
-	}
-	_, err = fmt.Fprintf(w, "data: %s\n\n", data)
-	return err
+	return writeEncodedEvent(w, name, data)
 }
 
 // errorParts returns an engine error's status, type and message, without the engine's name.
@@ -278,12 +257,12 @@ func writeEngineError(w http.ResponseWriter, d dialect, err *schemas.BifrostErro
 }
 
 func writeError(w http.ResponseWriter, d dialect, status int, errType, message string) {
-	writeJSON(w, status, errorBody(d, errType, message))
+	writeJSON(w, d, status, errorBody(d, errType, message))
 }
 
-func writeStreamError(w http.ResponseWriter, d dialect, err *schemas.BifrostError) {
+func writeStreamError(w http.ResponseWriter, d dialect, err *schemas.BifrostError) error {
 	_, errType, message := errorParts(err)
-	_ = writeEvent(w, "error", errorBody(d, errType, message))
+	return writeEvent(w, "error", errorBody(d, errType, message))
 }
 
 func errorBody(d dialect, errType, message string) map[string]any {
@@ -334,7 +313,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		}
 		observeResponse(ctx, resp.ExtraFields)
 		setServed(w.Header(), resp.ExtraFields)
-		writeJSON(w, http.StatusOK, resp)
+		writeJSON(w, dialectResponses, http.StatusOK, resp)
 		return
 	}
 
@@ -350,48 +329,26 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	started := false
+	output := streamWriter{w: w, dialect: dialectResponses}
 	for chunk := range chunks {
 		if chunk == nil {
 			continue
 		}
-
 		if chunk.BifrostError != nil {
-			if !started {
-				observeError(ctx, chunk.BifrostError)
-				writeEngineError(w, dialectResponses, chunk.BifrostError)
-			} else {
-				observeError(ctx, chunk.BifrostError)
-				writeStreamError(w, dialectResponses, chunk.BifrostError)
-			}
+			observeError(ctx, chunk.BifrostError)
+			output.fail(chunk.BifrostError)
 			return
 		}
-
 		event := chunk.BifrostChatResponse
 		if event == nil {
 			continue
 		}
-
 		observeResponse(ctx, event.ExtraFields)
-		if !started {
-			setServed(w.Header(), event.ExtraFields)
-			w.Header().Set("Content-Type", "text/event-stream")
-			w.Header().Set("Cache-Control", "no-cache")
-			w.WriteHeader(http.StatusOK)
-			started = true
-		}
-
-		if err := writeEvent(w, "", event); err != nil {
-			return
-		}
-		if err := http.NewResponseController(w).Flush(); err != nil {
+		if err := output.write("", event, event.ExtraFields); err != nil {
 			return
 		}
 	}
-	if started {
-		_, _ = io.WriteString(w, "data: [DONE]\n\n")
-		_ = http.NewResponseController(w).Flush()
-	}
+	_ = output.finishChat()
 }
 
 func observeError(ctx context.Context, err *schemas.BifrostError) {

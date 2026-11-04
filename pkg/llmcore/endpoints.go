@@ -49,8 +49,8 @@ func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 	}
 
 	if d == dialectMessages {
-		writeJSON(w, http.StatusOK, map[string]any{"input_tokens": out.InputTokens})
+		writeJSON(w, d, http.StatusOK, map[string]any{"input_tokens": out.InputTokens})
 	} else {
-		writeJSON(w, http.StatusOK, out)
+		writeJSON(w, d, http.StatusOK, out)
 	}
 }
