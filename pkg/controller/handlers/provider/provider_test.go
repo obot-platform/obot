@@ -44,6 +44,7 @@ requiredConfigurationParameters:
 	if err := os.WriteFile(filepath.Join(authProvidersDir, "github-auth-provider.yaml"), []byte(`name: "${github_auth_provider_name}"
 command: bin/github-auth-provider
 groupIDPrefix: github/
+postgresTablePrefix: github_
 `), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -75,6 +76,9 @@ groupIDPrefix: github/
 			}
 			if provider.Spec.GroupIDPrefix != "github/" {
 				t.Fatalf("expected auth provider group ID prefix github/, got %q", provider.Spec.GroupIDPrefix)
+			}
+			if provider.Spec.PostgresTablePrefix != "github_" {
+				t.Fatalf("expected auth provider Postgres table prefix github_, got %q", provider.Spec.PostgresTablePrefix)
 			}
 
 		default:
