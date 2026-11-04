@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -43,7 +42,7 @@ func (*VMCPHandler) List(req api.Context) error {
 	}
 
 	all := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
-	minimal, _ := strconv.ParseBool(req.URL.Query().Get("minimal"))
+	minimal := req.URL.Query().Get("minimal") == "true"
 
 	instances, err := vmcpconfig.FindInstances(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
 	if err != nil {

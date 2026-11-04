@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"regexp"
 	"slices"
-	"strconv"
 	"strings"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -159,7 +158,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	if err := req.List(&list); err != nil {
 		return err
 	}
-	minimal, _ := strconv.ParseBool(req.URL.Query().Get("minimal"))
+	minimal := req.URL.Query().Get("minimal") == "true"
 
 	convertEntry := func(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
 		return convertMCPServerCatalogEntryForList(entry, entry.Spec.PowerUserWorkspaceID, "", minimal)

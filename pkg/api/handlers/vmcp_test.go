@@ -2141,18 +2141,16 @@ func TestVMCPHandlerListMinimal(t *testing.T) {
 			want:    []*v1.VMCP{hidden, vmcp}, // storage lists by name
 		},
 		{
-			name:    "uppercase flag returns minimal response",
-			query:   "?minimal=TRUE",
-			user:    owner,
-			minimal: true,
-			want:    []*v1.VMCP{vmcp},
+			name:  "uppercase flag defaults to full response",
+			query: "?minimal=TRUE",
+			user:  owner,
+			want:  []*v1.VMCP{vmcp},
 		},
 		{
-			name:    "numeric flag returns minimal response",
-			query:   "?minimal=1",
-			user:    owner,
-			minimal: true,
-			want:    []*v1.VMCP{vmcp},
+			name:  "numeric flag defaults to full response",
+			query: "?minimal=1",
+			user:  owner,
+			want:  []*v1.VMCP{vmcp},
 		},
 		{
 			name:  "explicit full response",

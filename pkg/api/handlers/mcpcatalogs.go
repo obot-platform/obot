@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"slices"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -206,7 +205,7 @@ func (h *MCPCatalogHandler) Update(req api.Context) error {
 func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
-	minimal, _ := strconv.ParseBool(req.URL.Query().Get("minimal"))
+	minimal := req.URL.Query().Get("minimal") == "true"
 	var powerUserID string
 
 	// Verify the scope exists
