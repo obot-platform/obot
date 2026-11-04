@@ -17,6 +17,8 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -246,4 +248,43 @@ func TestPublicWriteDoesNotWaitForRuntime(t *testing.T) {
 	providers, err = e.Client().GetConfiguredProviders()
 	require.NoError(t, err)
 	require.Contains(t, providers, schemas.OpenAI)
+}
+
+func TestEnvImportRetriesResourceConflict(t *testing.T) {
+	t.Setenv(system.OpenAIAPIKeyEnvVar, "env-secret")
+	t.Setenv(system.AnthropicAPIKeyEnvVar, "")
+	ctx := t.Context()
+	mp := ModelProviderResource()
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
+	base, err := llmcoreclient.New(storage, plaintextConfigCodec{})
+	require.NoError(t, err)
+	require.NoError(t, base.CreateProvider(ctx, "openai", llmcoreclient.Provider{}))
+	injected := false
+	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
+		Update: func(ctx context.Context, client kclient.WithWatch, obj kclient.Object, options ...kclient.UpdateOption) error {
+			if _, provider := obj.(*v1.LLMGatewayProvider); provider && !injected {
+				injected = true
+				require.NoError(t, base.PutKey(ctx, "openai", schemas.Key{ID: "manual", Name: "manual", Value: *schemas.NewSecretVar("manual-secret")}))
+				return apierrors.NewConflict(schema.GroupResource{Resource: "llmgatewayproviders"}, obj.GetName(), nil)
+			}
+			return client.Update(ctx, obj, options...)
+		},
+	})
+	store, err := llmcoreclient.New(wrapped, plaintextConfigCodec{})
+	require.NoError(t, err)
+	engine := New()
+	require.NoError(t, engine.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(engine.Shutdown)
+	require.True(t, engine.importEnvProviders(ctx, storage, mp))
+	require.True(t, injected)
+	provider, err := base.GetProvider(ctx, "openai")
+	require.NoError(t, err)
+	values := map[string]string{}
+	for _, key := range provider.Keys {
+		values[key.Name] = key.Value.GetValue()
+	}
+	require.Equal(t, "manual-secret", values["manual"])
+	require.Equal(t, "env-secret", values["env-"+system.OpenAIAPIKeyEnvVar])
+	require.NoError(t, storage.Get(ctx, kclient.ObjectKeyFromObject(mp), mp))
+	require.NotEmpty(t, mp.Annotations["obot.ai/llm-gateway-env-key-openai"])
 }

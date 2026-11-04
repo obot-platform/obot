@@ -105,24 +105,32 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 			provider.Keys = cfg.Keys[schemas.ModelProvider(p.provider)]
 			return nil
 		}
-		err := e.store.MutateProvider(ctx, p.provider, update)
-		if apierrors.IsNotFound(err) {
-			var provider llmcoreclient.Provider
-			defaults := map[string]any{}
-			ApplyProviderDefaults(defaults)
-			raw, _ := json.Marshal(defaults)
-			err = json.Unmarshal(raw, &provider.Config)
-			if err == nil {
-				provider.Config.CheckAndSetDefaults()
-				err = update(&provider)
+		// Storage attempts one write. This automatic import owns bounded conflict
+		// retries, rerunning the provider lookup and key merge against fresh state.
+		err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := ctx.Err(); err != nil {
+				return err
 			}
-			if err == nil {
-				err = e.store.CreateProvider(ctx, p.provider, provider)
+			err := e.store.MutateProvider(ctx, p.provider, update)
+			if apierrors.IsNotFound(err) {
+				var provider llmcoreclient.Provider
+				defaults := map[string]any{}
+				ApplyProviderDefaults(defaults)
+				raw, _ := json.Marshal(defaults)
+				err = json.Unmarshal(raw, &provider.Config)
+				if err == nil {
+					provider.Config.CheckAndSetDefaults()
+					err = update(&provider)
+				}
+				if err == nil {
+					err = e.store.CreateProvider(ctx, p.provider, provider)
+				}
+				if apierrors.IsAlreadyExists(err) {
+					err = e.store.MutateProvider(ctx, p.provider, update)
+				}
 			}
-			if apierrors.IsAlreadyExists(err) {
-				err = e.store.MutateProvider(ctx, p.provider, update)
-			}
-		}
+			return err
+		})
 		if err != nil {
 			slog.Warn("failed to configure an LLM gateway provider from the environment", "provider", p.provider, "envVar", p.envVar, "error", err)
 			continue
