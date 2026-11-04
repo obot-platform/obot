@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/client-go/util/retry"
+
 	"github.com/google/uuid"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -48,7 +50,9 @@ func testResourceAPI(t *testing.T, dsn string) {
 	var wg sync.WaitGroup
 	errs := make(chan error, 2)
 	for _, id := range []string{"one", "two"} {
-		wg.Go(func() { errs <- store.PutKey(ctx, "openai", schemas.Key{ID: id}) })
+		wg.Go(func() {
+			errs <- retry.RetryOnConflict(retry.DefaultRetry, func() error { return store.PutKey(ctx, "openai", schemas.Key{ID: id}) })
+		})
 	}
 	wg.Wait()
 	close(errs)

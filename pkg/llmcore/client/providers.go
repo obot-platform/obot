@@ -10,8 +10,6 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -52,51 +50,50 @@ func (s *Client) CreateProvider(ctx context.Context, name string, provider Provi
 	})
 }
 
-// MutateProvider changes an existing provider atomically. On conflict, change is
-// called again with the latest settings and keys; it must not have side effects.
+// MutateProvider attempts one atomic edit of the latest provider and its keys.
+// Conflicts are returned to the caller, which can explicitly retry the operation.
+// The callback must not have side effects because its write may fail.
 func (s *Client) MutateProvider(ctx context.Context, name string, change func(*Provider) error) error {
-	return retry.OnError(retry.DefaultRetry, isWriteConflict, func() error {
-		obj := v1.LLMGatewayProvider{}
-		err := s.storage.Get(ctx, resourceKey(name), &obj)
-		if err != nil {
-			return err
-		}
+	obj := v1.LLMGatewayProvider{}
+	err := s.storage.Get(ctx, resourceKey(name), &obj)
+	if err != nil {
+		return err
+	}
 
-		var provider Provider
-		if err := s.decode(ctx, providerConfigID(name), obj.Spec.Payload, &provider); err != nil {
-			return err
-		}
+	var provider Provider
+	if err := s.decode(ctx, providerConfigID(name), obj.Spec.Payload, &provider); err != nil {
+		return err
+	}
 
-		before, err := json.Marshal(provider)
-		if err != nil {
-			return err
-		}
-		if err := change(&provider); err != nil {
-			return err
-		}
+	before, err := json.Marshal(provider)
+	if err != nil {
+		return err
+	}
+	if err := change(&provider); err != nil {
+		return err
+	}
 
-		if err := validateKeys(provider.Keys); err != nil {
-			return err
-		}
+	if err := validateKeys(provider.Keys); err != nil {
+		return err
+	}
 
-		after, err := json.Marshal(provider)
-		if err != nil {
-			return err
-		}
-		if bytes.Equal(before, after) {
-			return nil
-		}
+	after, err := json.Marshal(provider)
+	if err != nil {
+		return err
+	}
+	if bytes.Equal(before, after) {
+		return nil
+	}
 
-		payload, err := s.encode(ctx, providerConfigID(name), provider)
-		if err != nil {
-			return err
-		}
+	payload, err := s.encode(ctx, providerConfigID(name), provider)
+	if err != nil {
+		return err
+	}
 
-		obj.Name = resourceName(name)
-		obj.Namespace = system.DefaultNamespace
-		obj.Spec = v1.LLMGatewayResourceSpec{ID: name, Payload: payload}
-		return s.storage.Update(ctx, &obj)
-	})
+	obj.Name = resourceName(name)
+	obj.Namespace = system.DefaultNamespace
+	obj.Spec = v1.LLMGatewayResourceSpec{ID: name, Payload: payload}
+	return s.storage.Update(ctx, &obj)
 }
 
 // DeleteProvider removes the provider and its keys but retains referencing rules.
@@ -127,12 +124,6 @@ func (s *Client) DeleteKey(ctx context.Context, name, id string) error {
 
 func resourceKey(name string) kclient.ObjectKey {
 	return kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: resourceName(name)}
-}
-
-// A create can race with another writer and return AlreadyExists. Retrying reloads
-// the winning resource so partial edits can be applied to its latest contents.
-func isWriteConflict(err error) bool {
-	return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
 }
 
 // providerConfigID is the stable codec identity used to seal and open a provider.

@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/client-go/util/retry"
+
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -160,10 +162,12 @@ func TestProviderConflictRetriesLatestAggregate(t *testing.T) {
 		},
 	})
 	calls := 0
-	require.NoError(t, newStore(t, wrapped).MutateProvider(t.Context(), "openai", func(provider *client.Provider) error {
-		calls++
-		provider.Config.NetworkConfig.BaseURL = "https://example.com"
-		return nil
+	require.NoError(t, retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return newStore(t, wrapped).MutateProvider(t.Context(), "openai", func(provider *client.Provider) error {
+			calls++
+			provider.Config.NetworkConfig.BaseURL = "https://example.com"
+			return nil
+		})
 	}))
 	require.Equal(t, 2, calls)
 	provider, err := base.GetProvider(t.Context(), "openai")
@@ -236,9 +240,11 @@ func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
 			return c.Update(ctx, obj, opts...)
 		},
 	})
-	require.NoError(t, newStore(t, wrapped).MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
-		settings["edited"] = json.RawMessage(`true`)
-		return nil
+	require.NoError(t, retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return newStore(t, wrapped).MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
+			settings["edited"] = json.RawMessage(`true`)
+			return nil
+		})
 	}))
 	settings, err := base.GetSettings(t.Context())
 	require.NoError(t, err)
@@ -273,7 +279,9 @@ func TestRuleConflictRetriesLatestFields(t *testing.T) {
 		},
 	})
 	calls := 0
-	require.NoError(t, newStore(t, wrapped).MutateRule(t.Context(), "route", func(rule *tables.TableRoutingRule) error { calls++; rule.Name = "renamed"; return nil }))
+	require.NoError(t, retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return newStore(t, wrapped).MutateRule(t.Context(), "route", func(rule *tables.TableRoutingRule) error { calls++; rule.Name = "renamed"; return nil })
+	}))
 	rule, err := base.GetRule(t.Context(), "route")
 	require.NoError(t, err)
 	require.Equal(t, 2, calls)

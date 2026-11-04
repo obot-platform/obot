@@ -26,8 +26,10 @@ Store provider/key aggregates, individual routing rules, and singleton global
 settings as Obot resources. Use resource versions for optimistic concurrency and
 scope each write to its owning resource. Provider creation uses CreateProvider and
 returns AlreadyExists rather than replacing a concurrent winner. Existing
-aggregates are edited with MutateProvider, whose callback reruns against fresh
-state after a conflict. There is no whole-provider replacement API.
+aggregates are edited with MutateProvider. Each mutation attempts one
+read/change/write cycle and returns conflicts to the caller. Callers can explicitly
+retry the whole operation to re-read the state used for their decisions. There is
+no whole-provider replacement API.
 
 Require the gateway credential codec so provider payloads and global settings follow Obot's configured encryption policy,
 including operation when encryption is disabled. Reads accept plaintext credential
