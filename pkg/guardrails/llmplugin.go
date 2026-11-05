@@ -16,6 +16,7 @@ import (
 	"github.com/maximhq/bifrost/core/providers/openai"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/llm"
 )
 
 const (
@@ -68,7 +69,7 @@ type AttemptCheck func(ctx context.Context, attempt Attempt) error
 type Attempt struct {
 	// Model is the attempted model, named "provider/model".
 	Model string
-	// Subscription is true when the gateway sends the attempt with the caller's own Claude
+	// Subscription is true when the gateway sends the attempt with the caller's own
 	// subscription token rather than a configured provider key, so the caller's subscription
 	// pays for it.
 	Subscription bool
@@ -269,11 +270,13 @@ func checkAttempt(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) *sch
 		return nil
 	}
 	model, provider := requestFields(req)
+	subscription := provider == string(schemas.Anthropic) && anthropic.IsClaudeCodeMaxMode(ctx)
+	if admitted, ok := llm.SubscriptionAttempt(ctx); ok {
+		subscription = admitted
+	}
 	attempt := Attempt{
-		Model: model,
-		// The engine skips key selection and forwards the caller's OAuth token for Claude Code
-		// requests to Anthropic; any other provider uses a configured key.
-		Subscription: provider == string(schemas.Anthropic) && anthropic.IsClaudeCodeMaxMode(ctx),
+		Model:        model,
+		Subscription: subscription,
 	}
 	if err := binding.AttemptCheck(ctx, attempt); err != nil {
 		return &schemas.LLMPluginShortCircuit{Error: attemptError(err)}

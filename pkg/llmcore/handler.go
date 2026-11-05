@@ -45,28 +45,40 @@ type streamObserverKey struct{}
 // /v1/messages (and /anthropic/v1/messages, the path Obot's proxy uses for the engine today).
 // Either API can reach any provider's models: the engine translates.
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if hasCallerCredentials(r.Header) {
-		d := dialectResponses
-		if strings.Contains(r.URL.Path, "/messages") {
-			d = dialectMessages
-		}
-		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials are not supported by the inference engine; use an Obot API key")
+	d := dialectResponses
+	if strings.Contains(r.URL.Path, "/messages") {
+		d = dialectMessages
+	}
+
+	credential, valid := subscriptionCredential(r.Header)
+	if !valid {
+		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials require a single supported subscription bearer and matching CLI User-Agent; use the authenticated Obot proxy")
 		return
 	}
-	e.mux.ServeHTTP(w, r)
-}
 
-func hasCallerCredentials(headers http.Header) bool {
-	for _, name := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"} {
-		if strings.Join(headers.Values(name), "") != "" {
-			return true
+	if credential.token != "" {
+		codexEndpoint := r.Method == http.MethodPost && r.URL.Path == "/v1/responses" || r.Method == http.MethodGet && r.URL.Path == "/v1/models"
+		if credential.provider == schemas.OpenAI && !codexEndpoint {
+			writeError(w, d, http.StatusNotFound, "invalid_request_error", "unsupported Codex subscription endpoint")
+			return
 		}
+		lifetime := e.subscriptionLock(credential.provider)
+		// TryRLock refuses new readers once retirement is waiting. Hold through
+		// stream drain and handler return, beyond core's pre-hook/enqueue window.
+		if !lifetime.TryRLock() {
+			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Subscription provider is being reconfigured; retry the request")
+			return
+		}
+		defer lifetime.RUnlock()
+		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, credential))
 	}
-	return false
+
+	e.mux.ServeHTTP(w, r)
 }
 
 func (e *Engine) newMux() *http.ServeMux {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/models", e.serveCodexModels)
 	mux.HandleFunc("POST /v1/messages/count_tokens", func(w http.ResponseWriter, r *http.Request) {
 		e.serveCount(w, r, dialectMessages)
 	})
