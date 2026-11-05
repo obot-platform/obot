@@ -458,6 +458,15 @@ export function savedAuthenticationMethod(
 	entry: ProviderCatalogEntry,
 	values: Record<string, string>
 ): string {
+	// Bifrost prefers a complete Azure service principal over an API key.
+	if (
+		entry.id === 'azure' &&
+		['client_id', 'client_secret', 'tenant_id'].every((field) =>
+			values[`azure_key_config.${field}`]?.trim()
+		)
+	) {
+		return 'credentials';
+	}
 	// A role ARN can use the server's identity or explicit credentials, so it does not
 	// identify the credential source. Missing explicit credentials mean server identity.
 	return (

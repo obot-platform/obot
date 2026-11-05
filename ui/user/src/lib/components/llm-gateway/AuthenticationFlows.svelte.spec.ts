@@ -13,6 +13,20 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('provider authentication', () => {
+	it('Azure uses an API key when any Entra field is missing', () => {
+		const paths = ['client_id', 'client_secret', 'tenant_id'];
+		for (const missing of paths) {
+			const values = Object.fromEntries(
+				paths
+					.filter((path) => path !== missing)
+					.map((path) => [`azure_key_config.${path}`, 'stored'])
+			);
+			expect(
+				savedAuthenticationMethod(catalogEntry('azure')!, { ...values, value: 'api-key' })
+			).toBe('api-key');
+		}
+	});
+
 	for (const provider of ['bedrock', 'azure']) {
 		const aws = provider === 'bedrock';
 		const method = aws ? 'AWS credentials' : 'Microsoft Entra ID';
@@ -138,6 +152,54 @@ describe('provider authentication', () => {
 				.element(dialog.getByRole('radio', { name: 'API Key', exact: true }))
 				.toBeChecked();
 			await expect.element(dialog.getByLabelText(apiKeyLabel)).toHaveValue('');
+		});
+
+		it(`${provider}: metadata edits keep the active authentication when both methods are saved`, async () => {
+			const saved = vi.fn();
+			worker.use(
+				http.put('/api/llm-gateway/admin/providers/:provider/keys/:id', async ({ request }) => {
+					saved(await request.json());
+					return HttpResponse.json({ id: 'key' });
+				})
+			);
+			const masked = 'abcd************************wxyz';
+			const { component } = await render(ProviderKeyDialog, { provider });
+			component.open({
+				id: 'key',
+				name: 'existing',
+				value: { value: masked },
+				models: ['*'],
+				weight: 1,
+				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+					? { region: sharedValue, access_key: 'access', secret_key: { value: masked } }
+					: {
+							endpoint: sharedValue,
+							client_id: { value: 'client' },
+							client_secret: { value: masked },
+							tenant_id: { value: 'tenant' }
+						}
+			});
+			const dialog = page.getByRole('dialog');
+			await expect
+				.element(dialog.getByRole('radio', { name: aws ? 'API Key' : method, exact: true }))
+				.toBeChecked();
+			await dialog.getByLabelText('Name', { exact: true }).fill('renamed');
+			await dialog.getByLabelText('Load-balancing weight').fill('2');
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+			await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+			expect(saved.mock.calls[0][0]).toMatchObject({
+				name: 'renamed',
+				weight: 2,
+				value: aws ? masked : '',
+				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+					? { region: sharedValue, access_key: '', secret_key: '', session_token: '', role_arn: '' }
+					: {
+							endpoint: sharedValue,
+							client_id: 'client',
+							client_secret: masked,
+							tenant_id: 'tenant'
+						}
+			});
 		});
 
 		it(`${provider}: selects saved credentials and excludes inactive fields`, () => {
