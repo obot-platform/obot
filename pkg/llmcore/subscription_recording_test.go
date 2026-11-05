@@ -388,7 +388,7 @@ func TestNativeJudgeDoesNotInheritSubscriptionCredentials(t *testing.T) {
 
 	parent := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
 	defer parent.Cancel()
-	parent.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{token: subscriptionFixture})
+	parent.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{provider: schemas.Anthropic, token: subscriptionFixture})
 	parent.SetValue(schemas.BifrostContextKeySkipKeySelection, true)
 	parent.SetValue(schemas.BifrostContextKeyDirectKey, schemas.Key{})
 	parent.SetValue(schemas.BifrostContextKeyUserAgent, "claude-cli/2")

@@ -57,8 +57,9 @@ type Engine struct {
 
 	shutdownDone chan struct{}
 
-	// Anthropic drains after its admitted subscription requests finish.
-	subscriptionLifetime sync.RWMutex
+	// Each subscription provider drains after its admitted HTTP requests return.
+	claudeSubscriptionLifetime sync.RWMutex
+	codexSubscriptionLifetime  sync.RWMutex
 
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex
