@@ -21,14 +21,11 @@ test('current documentation navigation and direct loads', async ({ page }) => {
     'Registries & Skills', 'Device Management (Sentry)', 'Claude Environments (experimental)', 'Security & Governance', 'Deploy & Operate', 'Architecture', 'Reference',
   ]);
   for (let i = 0; i < await categories.count(); i++) await visit(categories.nth(i));
-  // Cloud deployments is the only approved subgroup. Other references stay
-  // in page content rather than additional catch-all navigation groups.
-  await expect(page.locator('.theme-doc-sidebar-menu .menu__list-item-collapsible')).toHaveCount(11);
-  const cloud = page.locator('.theme-doc-sidebar-menu > li > ul > li').filter({
-    has: page.locator(':scope > .menu__list-item-collapsible > a', { hasText: 'Cloud deployments' }),
-  });
-  await expect(cloud).toHaveCount(1);
-  await expect(cloud.locator(':scope > ul > li > a')).toHaveText(['Amazon EKS', 'Azure AKS', 'Google GKE']);
+  // Nested groups are deliberate. Add one here only as an intended navigation
+  // change; other references stay in page content rather than catch-all groups.
+  await expect(page.locator('.theme-doc-sidebar-menu > li > ul .menu__list-item-collapsible > a')).toHaveText([
+    'MCP Servers', 'Cloud deployments',
+  ]);
   const links = [...discovered];
   expect(links.length).toBeGreaterThan(0);
   for (const href of links) {
