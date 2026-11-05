@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 	"uuid"
@@ -66,8 +67,9 @@ type SCIMGroupReference struct {
 
 // SCIMUserFilter selects SCIM users. Empty fields match everything.
 type SCIMUserFilter struct {
-	ID       string
-	UserName string
+	ID         string
+	UserName   string
+	ExternalID string
 }
 
 // SCIMPage selects a page of results. Offset is zero-based. A zero Limit returns only the total.
@@ -93,6 +95,9 @@ type SCIMNotFoundError struct {
 // SCIMConflictError reports a SCIM write that conflicts with an existing resource.
 type SCIMConflictError struct {
 	Message string
+	// Uniqueness is set for a conflict with attribute values that are already in use, which is what RFC 7644's
+	// uniqueness error means. Without it, such as for a conflict with the state of Obot, the response has no scimType.
+	Uniqueness bool
 }
 
 // SCIMInvalidValueError reports a SCIM write whose values cannot be applied.
@@ -102,7 +107,9 @@ type SCIMInvalidValueError struct {
 
 // SCIMMutabilityError reports a SCIM write that changes an attribute that cannot change.
 type SCIMMutabilityError struct {
-	// Attribute names the SCIM attribute that cannot change, so that the SCIM endpoint can explain the change.
+	// Resource and Attribute name the SCIM attribute that cannot change, so that the SCIM endpoint can explain the
+	// change.
+	Resource  types.SCIMResourceType
 	Attribute string
 	Message   string
 }
@@ -149,11 +156,13 @@ func (e *scimCreateRaceError) Unwrap() error {
 
 // ListSCIMUsers returns the connection's bound users that match filter, oldest first, and the total number of matches.
 // Users that SCIM has not provisioned are never returned.
-func (c *Client) ListSCIMUsers(ctx context.Context, connectionID string, filter SCIMUserFilter, page SCIMPage) ([]SCIMUser, int64, error) {
+func (c *Client) ListSCIMUsers(ctx context.Context, conn *types.SCIMConnection, filter SCIMUserFilter, page SCIMPage) ([]SCIMUser, int64, error) {
 	var (
-		total          int64
-		users          []SCIMUser
-		hashedUserName string
+		total              int64
+		users              []SCIMUser
+		hashedUserName     string
+		hashedNativeUserID string
+		connectionID       = conn.ID
 	)
 	if filter.UserName != "" {
 		var err error
@@ -161,6 +170,19 @@ func (c *Client) ListSCIMUsers(ctx context.Context, connectionID string, filter 
 			// No user has a userName that cannot be prepared.
 			return nil, 0, nil
 		}
+	}
+	if filter.ExternalID != "" {
+		a, err := connectionAdapter(conn)
+		if err != nil {
+			return nil, 0, err
+		}
+		// A bound user's native ID is the one the adapter derives from their externalId.
+		nativeUserID, err := a.NativeUserIDFromExternalID(filter.ExternalID)
+		if err != nil {
+			// No user has an externalId that the adapter refuses.
+			return nil, 0, nil
+		}
+		hashedNativeUserID = hash.String(nativeUserID)
 	}
 
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -171,9 +193,27 @@ func (c *Client) ListSCIMUsers(ctx context.Context, connectionID string, filter 
 		if hashedUserName != "" {
 			query = query.Where("hashed_user_name = ?", hashedUserName)
 		}
+		if hashedNativeUserID != "" {
+			query = query.Where("hashed_native_user_id = ?", hashedNativeUserID)
+		}
 
 		if err := query.Count(&total).Error; err != nil {
 			return fmt.Errorf("failed to count SCIM users: %w", err)
+		}
+		if hashedNativeUserID != "" && total > 0 {
+			// The native user ID identifies at most one user. The adapter can derive it from externalIds other than
+			// the user's, such as one with surrounding space, but externalId is case exact, so the user matches only
+			// when theirs is the one filtered for.
+			var binding types.SCIMUserBinding
+			if err := query.Take(&binding).Error; err != nil {
+				return fmt.Errorf("failed to get SCIM user: %w", err)
+			}
+			if err := c.decryptSCIMUserBinding(ctx, &binding); err != nil {
+				return err
+			}
+			if binding.ExternalID != filter.ExternalID {
+				total = 0
+			}
 		}
 		if page.Limit <= 0 || int64(page.Offset) >= total {
 			return nil
@@ -289,7 +329,8 @@ func (c *Client) createSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 			return fmt.Errorf("failed to check SCIM userName: %w", err)
 		} else if conflicts > 0 {
 			return &SCIMConflictError{
-				Message: fmt.Sprintf("a user with userName %q already exists", input.UserName),
+				Message:    fmt.Sprintf("a user with userName %q already exists", input.UserName),
+				Uniqueness: true,
 			}
 		}
 		if err := tx.Model(new(types.SCIMUserBinding)).
@@ -298,7 +339,8 @@ func (c *Client) createSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 			return fmt.Errorf("failed to check SCIM externalId: %w", err)
 		} else if conflicts > 0 {
 			return &SCIMConflictError{
-				Message: "a user with this externalId already exists",
+				Message:    "a user with this externalId already exists",
+				Uniqueness: true,
 			}
 		}
 
@@ -413,6 +455,7 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 		}
 		if hash.String(nativeUserID) != binding.HashedNativeUserID {
 			return &SCIMMutabilityError{
+				Resource:  types.SCIMResourceTypeUser,
 				Attribute: "externalId",
 				Message:   "externalId identifies the user and cannot change",
 			}
@@ -437,7 +480,8 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 					return fmt.Errorf("failed to check SCIM userName: %w", err)
 				} else if conflicts > 0 {
 					return &SCIMConflictError{
-						Message: fmt.Sprintf("a user with userName %q already exists", input.UserName),
+						Message:    fmt.Sprintf("a user with userName %q already exists", input.UserName),
+						Uniqueness: true,
 					}
 				}
 			}
@@ -489,46 +533,159 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 	return user, nil
 }
 
+// DeleteSCIMUser deletes a bound user, as DELETE /Users/{id} asks of an identity provider whose adapter's Rules
+// delete users, and returns the user's ID. In one transaction, the user is disabled, which ends their access when it
+// commits, the binding is retired, and the user is deleted as an administrator deletes them. The identity provider is
+// the one deleting the user, so unlike the deletion by an administrator, an active binding does not refuse it.
+//
+// A retired or unknown SCIM ID is a *SCIMNotFoundError. Deleting Obot's last Owner, or its last Admin when there is no
+// other Owner, is refused with a *SCIMConflictError, which the identity provider retries.
+func (c *Client) DeleteSCIMUser(ctx context.Context, conn *types.SCIMConnection, id string) (uint, error) {
+	var userID uint
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		if conn, err = lockSCIMConnectionWrites(tx, conn.ID); err != nil {
+			return err
+		}
+
+		binding, err := activeSCIMUserBindingTx(tx, conn.ID, id, true)
+		if err != nil {
+			return err
+		}
+		userID = binding.UserID
+		if err := refuseClaudeTagUserMutation(tx, strconv.FormatUint(uint64(userID), 10)); err != nil {
+			return err
+		}
+
+		// Disabling deletes the user's gateway tokens in this transaction, and records the removal of their MCP OAuth
+		// tokens, so that their access ends at commit rather than when the cleanup runs. A user who is already
+		// disabled stays disabled.
+		user, _, err := disableUserTx(tx, AuthProviderRef{
+			Namespace: conn.AuthProviderNamespace,
+			Name:      conn.AuthProviderName,
+		}, userID, types.UserDisabledReasonSCIMDeleted)
+		if err != nil {
+			return err
+		}
+
+		now := time.Now()
+		if err := tx.Model(binding).UpdateColumns(map[string]any{
+			"retired_at": now,
+			"updated_at": now,
+		}).Error; err != nil {
+			return fmt.Errorf("failed to retire the SCIM binding of user %d: %w", userID, err)
+		}
+
+		err = refuseLastOwnerOrAdminTx(tx, user)
+		if err == nil {
+			err = c.deleteUserTx(ctx, tx, user)
+		}
+		if _, ok := errors.AsType[*LastOwnerError](err); ok {
+			return &SCIMConflictError{
+				Message: "this user is Obot's last owner; make another user an owner in Obot before deleting them in the identity provider",
+			}
+		}
+		if _, ok := errors.AsType[*LastAdminError](err); ok {
+			return &SCIMConflictError{
+				Message: "this user is Obot's last admin; make another user an admin in Obot before deleting them in the identity provider",
+			}
+		}
+		return err
+	}); err != nil {
+		return 0, err
+	}
+
+	c.kickUserLifecycleDelivery()
+	return userID, nil
+}
+
 // bindOrCreateSCIMUserTx returns the Obot user that a new SCIM user binds to, creating it when no live user has an
-// identity of the connection's auth provider for the native user ID, and reports whether it was created.
+// identity of the connection's auth provider for the native user ID, and reports whether it was created. The
+// adapter's UserKey selects which identity column the native ID matches.
+//
+// Matching by group lookup ID can find more than one identity, such as a duplicate that sign-in created before SCIM
+// knew the person. The live user that SCIM has not bound is preferred. More than one such user is refused rather than
+// guessed between.
 func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *types.SCIMConnection, a adapter.Adapter, nativeUserID, hashedNativeUserID string, input SCIMUserInput, opts SCIMUserCreateOptions) (uint, bool, error) {
+	query := tx.Where("auth_provider_namespace = ? AND auth_provider_name = ?", conn.AuthProviderNamespace, conn.AuthProviderName)
+	if a.UserKey() == adapter.UserKeyGroupLookupID {
+		// A first sign-in of the same person takes the same lock before it creates or claims an identity, so that
+		// either this finds the identity it created, or it claims the identity this creates.
+		if err := lockSCIMPersonTx(tx, conn.AuthProviderNamespace, conn.AuthProviderName, nativeUserID); err != nil {
+			return 0, false, err
+		}
+		query = query.Where("hashed_provider_group_lookup_id = ?", hashedNativeUserID).Order("hashed_provider_user_id")
+	} else {
+		query = query.Where("hashed_provider_user_id = ?", hashedNativeUserID).Limit(1)
+	}
 	var identities []types.Identity
-	if err := tx.Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", conn.AuthProviderNamespace, conn.AuthProviderName, hashedNativeUserID).
-		Limit(1).
-		Find(&identities).Error; err != nil {
+	if err := query.Find(&identities).Error; err != nil {
 		return 0, false, fmt.Errorf("failed to look up identity: %w", err)
 	}
 
-	var identity *types.Identity
-	if len(identities) > 0 {
-		identity = &identities[0]
-
-		var users []types.User
-		if err := tx.Select("id").Where("id = ? AND deleted_at IS NULL", identity.UserID).Limit(1).Find(&users).Error; err != nil {
-			return 0, false, fmt.Errorf("failed to get user %d: %w", identity.UserID, err)
+	userIDs := make([]uint, 0, len(identities))
+	for _, identity := range identities {
+		if identity.UserID != 0 && !slices.Contains(userIDs, identity.UserID) {
+			userIDs = append(userIDs, identity.UserID)
 		}
-		if len(users) > 0 {
-			userID := users[0].ID
+	}
+	var liveUserIDs []uint
+	if len(userIDs) > 0 {
+		if err := tx.Model(new(types.User)).Where("id IN ? AND deleted_at IS NULL", userIDs).Order("id").Pluck("id", &liveUserIDs).Error; err != nil {
+			return 0, false, fmt.Errorf("failed to get the users of the identities: %w", err)
+		}
+	}
 
+	if len(liveUserIDs) > 0 {
+		unbound := make([]uint, 0, len(liveUserIDs))
+		for _, userID := range liveUserIDs {
 			// The native ID is unbound, but the user it belongs to may be bound under another one, which only an
 			// identity provider that reassigned IDs could cause.
 			if bound, err := activeSCIMUserBindingForUserTx(tx, userID, false); err != nil {
 				return 0, false, err
-			} else if bound != nil {
-				return 0, false, &SCIMConflictError{
-					Message: "the user with this externalId is already provisioned",
-				}
+			} else if bound == nil {
+				unbound = append(unbound, userID)
 			}
-
-			if err := c.projectSCIMProfileTx(ctx, tx, userID, input.Profile); err != nil {
+		}
+		switch len(unbound) {
+		case 0:
+			return 0, false, &SCIMConflictError{
+				Message:    "the user with this externalId is already provisioned",
+				Uniqueness: true,
+			}
+		case 1:
+			if err := c.projectSCIMProfileTx(ctx, tx, unbound[0], input.Profile); err != nil {
 				return 0, false, err
 			}
-			return userID, false, nil
+			return unbound[0], false, nil
+		default:
+			return 0, false, &SCIMConflictError{
+				Message:    fmt.Sprintf("%d Obot users have the identity provider ID in this externalId; delete the duplicates in Obot", len(unbound)),
+				Uniqueness: true,
+			}
 		}
-		// The identity's user was deleted, so provisioning starts a new account. Nothing is inherited.
 	}
+	// No live user has an identity for the native ID, so provisioning starts a new account. The identities of deleted
+	// users, if any, move to it, and nothing else is inherited.
 
 	names := a.NewUserIdentity(nativeUserID)
+	if a.UserKey() == adapter.UserKeyGroupLookupID {
+		// An identity that a sign-in created keeps the subject it was signed in with, so the new account gets the
+		// username that sign-in gives, as it would if the person signed in first. With several such identities, the
+		// first by key sets it. A username that another user has fails the create below as a conflict.
+		pendingKey := hash.String(adapter.PendingProviderUserID(nativeUserID))
+		for i := range identities {
+			if identities[i].HashedProviderUserID == pendingKey {
+				continue
+			}
+			identity := identities[i]
+			if err := c.decryptStoredIdentity(ctx, &identity); err != nil {
+				return 0, false, err
+			}
+			names.Username = identity.ProviderUsername
+			break
+		}
+	}
 	if names.Username == system.BootstrapName {
 		return 0, false, &SCIMInvalidValueError{
 			Message: fmt.Sprintf("%q is reserved and cannot identify a user", names.Username),
@@ -540,14 +697,13 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 	// A new identity is inserted before the user, in the order a sign-in inserts them, so that a concurrent first
 	// sign-in of the same person and this create wait for each other instead of deadlocking. Whichever inserts the
 	// identity first wins; the other finds it, and a create that lost is retried to bind to the signed-in user.
-	var newIdentity *types.Identity
-	if identity == nil {
-		newIdentity = &types.Identity{
+	if len(identities) == 0 {
+		newIdentity := &types.Identity{
 			AuthProviderNamespace: conn.AuthProviderNamespace,
 			AuthProviderName:      conn.AuthProviderName,
 			ProviderUsername:      names.ProviderUsername,
 			ProviderUserID:        names.ProviderUserID,
-			HashedProviderUserID:  hashedNativeUserID,
+			HashedProviderUserID:  hash.String(names.ProviderUserID),
 			ProviderGroupLookupID: names.ProviderGroupLookupID,
 			Email:                 email,
 			HashedEmail:           hashOptional(email),
@@ -562,10 +718,12 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		if result.RowsAffected == 0 {
 			return 0, false, &scimCreateRaceError{
 				err: &SCIMConflictError{
-					Message: "the user signed in while they were being provisioned; retry the request",
+					Message:    "the user signed in while they were being provisioned; retry the request",
+					Uniqueness: true,
 				},
 			}
 		}
+		identities = append(identities, *newIdentity)
 	}
 
 	user := &types.User{
@@ -584,26 +742,25 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 			// A concurrent sign-in may have just created the user, which the retry binds to.
 			return 0, false, &scimCreateRaceError{
 				err: &SCIMConflictError{
-					Message: "an Obot user with this user's username already exists",
+					Message:    "an Obot user with this user's username already exists",
+					Uniqueness: true,
 				},
 			}
 		}
 		return 0, false, err
 	}
 
-	// A new identity is linked to the user, and an identity whose user was deleted moves to the new account, which
-	// has not signed in yet.
-	key := identity
-	if key == nil {
-		key = newIdentity
-	}
-	if err := tx.Model(new(types.Identity)).
-		Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", key.AuthProviderNamespace, key.AuthProviderName, key.HashedProviderUserID).
-		UpdateColumns(map[string]any{
-			"user_id":          user.ID,
-			"first_sign_in_at": nil,
-		}).Error; err != nil {
-		return 0, false, fmt.Errorf("failed to link identity to user %d: %w", user.ID, err)
+	// A new identity is linked to the user, and identities whose user was deleted move to the new account, which has
+	// not signed in yet.
+	for _, key := range identities {
+		if err := tx.Model(new(types.Identity)).
+			Where("auth_provider_namespace = ? AND auth_provider_name = ? AND hashed_provider_user_id = ?", key.AuthProviderNamespace, key.AuthProviderName, key.HashedProviderUserID).
+			UpdateColumns(map[string]any{
+				"user_id":          user.ID,
+				"first_sign_in_at": nil,
+			}).Error; err != nil {
+			return 0, false, fmt.Errorf("failed to link identity to user %d: %w", user.ID, err)
+		}
 	}
 
 	return user.ID, true, nil
@@ -668,7 +825,7 @@ func (c *Client) projectSCIMProfileTx(ctx context.Context, tx *gorm.DB, userID u
 	}
 	// Every encrypted column is written, so that the row stays consistent with its encrypted flag.
 	if err := tx.Model(user).
-		Select("email", "hashed_email", "display_name", "username", "icon_url", "original_email", "original_username", "encrypted").
+		Select(slices.Concat(userEncryptedColumns, []string{"hashed_email"})).
 		Updates(user).Error; err != nil {
 		return fmt.Errorf("failed to update the profile of user %d: %w", userID, err)
 	}
@@ -874,7 +1031,8 @@ func validateSCIMUserInput(input SCIMUserInput) error {
 	return err
 }
 
-// normalizeSCIMUserProfile makes equal profiles compare equal: an empty name is absent, and empty lists are nil.
+// normalizeSCIMUserProfile makes equal profiles compare equal: an empty name, enterprise extension, or manager is
+// absent, and empty lists are nil.
 func normalizeSCIMUserProfile(profile types.SCIMUserProfile) types.SCIMUserProfile {
 	if profile.Name != nil && *profile.Name == (types.SCIMName{}) {
 		profile.Name = nil
@@ -884,6 +1042,20 @@ func normalizeSCIMUserProfile(profile types.SCIMUserProfile) types.SCIMUserProfi
 	}
 	if len(profile.PhoneNumbers) == 0 {
 		profile.PhoneNumbers = nil
+	}
+	if len(profile.Addresses) == 0 {
+		profile.Addresses = nil
+	}
+	if profile.EnterpriseUser != nil {
+		enterprise := *profile.EnterpriseUser
+		if enterprise.Manager != nil && *enterprise.Manager == (types.SCIMManager{}) {
+			enterprise.Manager = nil
+		}
+		if enterprise == (types.SCIMEnterpriseUser{}) {
+			profile.EnterpriseUser = nil
+		} else {
+			profile.EnterpriseUser = &enterprise
+		}
 	}
 	return profile
 }
@@ -899,6 +1071,11 @@ func connectionAdapter(conn *types.SCIMConnection) (adapter.Adapter, error) {
 
 func scimAdapterError(err error) error {
 	if invalid, ok := errors.AsType[*adapter.InvalidUserError](err); ok {
+		return &SCIMInvalidValueError{
+			Message: invalid.Message,
+		}
+	}
+	if invalid, ok := errors.AsType[*adapter.InvalidGroupError](err); ok {
 		return &SCIMInvalidValueError{
 			Message: invalid.Message,
 		}

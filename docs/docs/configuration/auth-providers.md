@@ -214,6 +214,21 @@ You can view the source code for Google provider in this [repo](https://github.c
 
 ### Entra
 
+Obot can get users and groups from Entra in one of two ways:
+
+- **SCIM:** Entra's provisioning service sends Obot only the users and groups you assign to the app. Skip the **application** permissions below, and follow [Provision users and groups from Microsoft Entra ID with SCIM](./entra-scim.md).
+- **Microsoft Graph:** Obot reads each user's groups from Microsoft Graph when they sign in. Follow all the steps below, and when you configure Entra in Obot, set **Directory integration** to **Microsoft Graph**. The **application** permissions are only needed for this option.
+
+:::tip Create the app as an enterprise app if you may use SCIM
+Only an app created under **Enterprise applications** can provision users with SCIM. An app created under **App registrations**, as described below, can't, so you would need a second app for provisioning. To use one app for both sign-in and provisioning:
+
+1. Go to **Entra ID > Enterprise apps > New application > Create your own application**, select **Integrate any other application you don't find in the gallery (Non-gallery)**, and select **Create**. Don't set up **Single sign-on** on the new app; see the troubleshooting note below.
+2. Go to **App registrations**, and open the registration with the same name, which Entra created with the app. If you don't see it under **Owned applications**, look under **All applications**.
+3. Under **Authentication**, select **Add Redirect URI** (**Add a platform** in the older view), select **Web**, enter the redirect URI provided in Obot's Auth Provider configuration dialog, and select **Configure**.
+4. On the registration's **Overview** page, check that **Supported account types** allows accounts in this organizational directory only.
+5. Continue below from the **API permissions** step, skipping the new registration form.
+:::
+
 Within the [Microsoft Entra admin center](https://entra.microsoft.com), go to App registrations and click New registration.
 
 Under Supported account types, ensure `Accounts in this organizational directory only` is selected. In the Redirect URI section, set the platform to `Web` and enter the redirect URI provided in Obot's Auth Provider configuration dialog.
@@ -227,7 +242,7 @@ Next, go to the API permissions tab and add the following **delegated** permissi
 - `User.Read`
 - `ProfilePhoto.Read.All` *requires admin approval*
 
-Then add the following **application** permissions:
+If Obot will read groups from Microsoft Graph, rather than use SCIM, then add the following **application** permissions:
 
 - `GroupMember.Read.All` *requires admin approval*
 - `User.Read.All` *requires admin approval*

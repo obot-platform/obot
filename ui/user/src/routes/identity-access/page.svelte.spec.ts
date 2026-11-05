@@ -146,6 +146,28 @@ const oneLoginProvider: AuthProvider = {
 	}
 };
 
+// Microsoft Entra, set up for SCIM: it has no directory parameters, and a hidden choice parameter
+// that chooses SCIM-first setup, which the server lists only while the provider is not configured.
+const entraSCIMProvider: AuthProvider = {
+	...entraProvider,
+	configured: false,
+	missingConfigurationParameters: [],
+	missingEntitlements: [],
+	optionalConfigurationParameters: [
+		...(entraProvider.optionalConfigurationParameters ?? []),
+		{
+			name: 'OBOT_ENTRA_AUTH_PROVIDER_SCIM',
+			description: 'Set to true to provision users and groups through SCIM.',
+			hidden: true
+		}
+	],
+	scim: {
+		directoryParameters: [],
+		choiceParameter: 'OBOT_ENTRA_AUTH_PROVIDER_SCIM',
+		issuerParameter: 'OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID'
+	}
+};
+
 function providerCard(name: string) {
 	return page.getByRole('heading', { name, exact: true }).locator('..');
 }
@@ -1216,6 +1238,256 @@ describe('Identity & Access Page', () => {
 				await expect
 					.element(page.getByLabelText('API Client Secret', { exact: true }))
 					.toBeVisible();
+			});
+		});
+
+		describe('SCIM setup of the Microsoft Entra provider', () => {
+			let configure = vi.fn<(body: Record<string, string>) => void>();
+
+			beforeEach(() => {
+				configure = vi.fn<(body: Record<string, string>) => void>();
+				worker.use(
+					http.post(
+						`/api/auth-providers/${entraSCIMProvider.id}/configure`,
+						async ({ request }) => {
+							configure((await request.json()) as Record<string, string>);
+							return HttpResponse.json(entraSCIMProvider);
+						}
+					)
+				);
+			});
+
+			async function openEntraForm(provider: AuthProvider, values?: Record<string, string>) {
+				worker.use(
+					http.post(`/api/auth-providers/${provider.id}/reveal`, () =>
+						values ? HttpResponse.json(values) : HttpResponse.json(null, { status: 404 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [provider],
+					groups: [Group.OWNER, Group.ADMIN]
+				});
+				const buttonName = provider.configured ? 'Modify' : 'Configure';
+				await providerCard('Microsoft Entra')
+					.getByRole('button', { name: buttonName, exact: true })
+					.click();
+				await expect.element(page.getByLabelText('Tenant ID', { exact: true })).toBeVisible();
+			}
+
+			function choiceButton(name: 'SCIM' | 'Microsoft Graph') {
+				return page.getByRole('radio', { name, exact: true });
+			}
+
+			function directoryIntegration() {
+				return page.getByRole('dialog').getByText('Directory integration:').locator('..');
+			}
+
+			async function fillRequiredFields() {
+				const dialog = page.getByRole('dialog');
+				await dialog.getByLabelText('Client ID', { exact: true }).fill('entra-client');
+				await dialog.getByLabelText('Client Secret', { exact: true }).fill('entra-secret');
+				await dialog.getByLabelText('Tenant ID', { exact: true }).fill('tenant');
+			}
+
+			async function confirm() {
+				await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+			}
+
+			it('chooses SCIM by default, which it submits as its choice parameter', async () => {
+				await openEntraForm(entraSCIMProvider);
+
+				await expect.element(choiceButton('SCIM')).toBeChecked();
+				await expect.element(choiceButton('Microsoft Graph')).not.toBeChecked();
+				await expect
+					.element(page.getByText(/Microsoft Entra provisions users and groups through SCIM/))
+					.toBeVisible();
+
+				await fillRequiredFields();
+				await confirm();
+
+				await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+				expect(configure.mock.calls[0][0]).toMatchObject({
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID: 'entra-client',
+					OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID: 'tenant',
+					OBOT_ENTRA_AUTH_PROVIDER_SCIM: 'true'
+				});
+			});
+
+			it('omits the choice parameter for Microsoft Graph, whose permissions it names', async () => {
+				await openEntraForm(entraSCIMProvider);
+
+				await choiceButton('Microsoft Graph').click();
+				await expect.element(choiceButton('Microsoft Graph')).toBeChecked();
+				await expect
+					.element(page.getByText(/GroupMember\.Read\.All and User\.Read\.All/))
+					.toBeVisible();
+
+				await fillRequiredFields();
+				await confirm();
+
+				await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+				const body = configure.mock.calls[0][0];
+				expect(body).toMatchObject({
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID: 'entra-client'
+				});
+				expect(body).not.toHaveProperty('OBOT_ENTRA_AUTH_PROVIDER_SCIM');
+			});
+
+			it('submits the choice parameter again once SCIM is chosen after Microsoft Graph', async () => {
+				await openEntraForm(entraSCIMProvider);
+
+				await choiceButton('Microsoft Graph').click();
+				await choiceButton('SCIM').click();
+				await expect.element(choiceButton('SCIM')).toBeChecked();
+
+				await fillRequiredFields();
+				await confirm();
+
+				await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+				expect(configure.mock.calls[0][0]).toMatchObject({
+					OBOT_ENTRA_AUTH_PROVIDER_SCIM: 'true'
+				});
+			});
+
+			// The stored configuration never holds the choice, so it chose Microsoft Graph.
+			it('chooses Microsoft Graph for a stored configuration that is not active', async () => {
+				await openEntraForm(entraSCIMProvider, {
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID: 'entra-client',
+					OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID: 'tenant',
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				});
+
+				await expect.element(choiceButton('Microsoft Graph')).toBeChecked();
+				await expect.element(choiceButton('SCIM')).not.toBeChecked();
+				await expect
+					.element(page.getByText(/GroupMember\.Read\.All and User\.Read\.All/))
+					.toBeVisible();
+
+				await page
+					.getByRole('dialog')
+					.getByLabelText('Client Secret', { exact: true })
+					.fill('entra-secret');
+				await confirm();
+
+				await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+				expect(configure.mock.calls[0][0]).not.toHaveProperty('OBOT_ENTRA_AUTH_PROVIDER_SCIM');
+			});
+
+			// Without the stored configuration, the form would offer SCIM to a provider that chose
+			// Microsoft Graph, and the server would take a confirmation as choosing SCIM.
+			it('does not open the form when its stored configuration cannot be read', async () => {
+				errors.items = [];
+				worker.use(
+					http.post(`/api/auth-providers/${entraSCIMProvider.id}/reveal`, () =>
+						HttpResponse.json({ error: 'unavailable' }, { status: 500 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [entraSCIMProvider],
+					groups: [Group.OWNER, Group.ADMIN]
+				});
+				await providerCard('Microsoft Entra')
+					.getByRole('button', { name: 'Configure', exact: true })
+					.click();
+
+				await vi.waitFor(() => expect(errors.items).toHaveLength(1));
+				await expect
+					.element(page.getByLabelText('Tenant ID', { exact: true }))
+					.not.toBeInTheDocument();
+				await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
+				// The error is not for any other test.
+				errors.items = [];
+			});
+
+			it('shows Microsoft Graph as made once Microsoft Entra is configured', async () => {
+				const configured: AuthProvider = {
+					...entraSCIMProvider,
+					configured: true,
+					// The server lists the choice parameter only for a provider being set up.
+					optionalConfigurationParameters: entraProvider.optionalConfigurationParameters
+				};
+				await openEntraForm(configured, {
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID: 'entra-client',
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET: 'entra-secret',
+					OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID: 'tenant',
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				});
+
+				await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
+				await expect.element(choiceButton('Microsoft Graph')).not.toBeInTheDocument();
+				await expect
+					.element(directoryIntegration().getByText('Microsoft Graph', { exact: true }))
+					.toBeVisible();
+				await expect
+					.element(page.getByText(/An Owner can move Microsoft Entra to SCIM/))
+					.toBeVisible();
+
+				await confirm();
+				await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+				expect(configure.mock.calls[0][0]).not.toHaveProperty('OBOT_ENTRA_AUTH_PROVIDER_SCIM');
+			});
+
+			// SCIM is chosen, so the form never sends the choice parameter, which the server would drop.
+			it('shows SCIM as made once Microsoft Entra has a SCIM connection', async () => {
+				const connected: AuthProvider = {
+					...entraSCIMProvider,
+					configured: true,
+					scimState: 'connected',
+					optionalConfigurationParameters: entraProvider.optionalConfigurationParameters,
+					scim: {
+						...entraSCIMProvider.scim!,
+						connectionIssuer: 'tenant'
+					}
+				};
+				await openEntraForm(connected, {
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID: 'entra-client',
+					OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET: 'entra-secret',
+					OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID: 'tenant',
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				});
+
+				await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
+				await expect
+					.element(directoryIntegration().getByText('SCIM', { exact: true }))
+					.toBeVisible();
+				await expect
+					.element(page.getByText(/Its SCIM token, provisioning status, and enforcement/))
+					.toBeVisible();
+
+				await confirm();
+				await vi.waitFor(() => expect(configure).toHaveBeenCalledOnce());
+				expect(configure.mock.calls[0][0]).not.toHaveProperty('OBOT_ENTRA_AUTH_PROVIDER_SCIM');
+			});
+
+			it('warns about another tenant when the tenant ID of a SCIM connection changes', async () => {
+				await openEntraForm(
+					{
+						...entraSCIMProvider,
+						configured: true,
+						scimState: 'connected',
+						optionalConfigurationParameters: entraProvider.optionalConfigurationParameters,
+						scim: {
+							...entraSCIMProvider.scim!,
+							connectionIssuer: 'tenant'
+						}
+					},
+					{
+						OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID: 'entra-client',
+						OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID: 'tenant'
+					}
+				);
+
+				await expect
+					.element(page.getByText(/belong to the Microsoft Entra tenant/))
+					.not.toBeInTheDocument();
+				await page.getByLabelText('Tenant ID', { exact: true }).fill('other-tenant');
+				await expect
+					.element(
+						page.getByText(/belong to the Microsoft Entra tenant they were provisioned from/)
+					)
+					.toBeVisible();
+				await expect.element(page.getByText(/Don't change the tenant ID/)).toBeVisible();
+				await expect.element(page.getByText(/custom domain/)).not.toBeInTheDocument();
 			});
 		});
 

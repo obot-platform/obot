@@ -17,7 +17,9 @@ export const UNAUTHORIZED_PATHS = new Set([
 	// The login page of an identity provider's SCIM provisioning app, which explains to anyone who
 	// opens the app that it does not sign them in. Okta and OneLogin require a separate app just to
 	// act as a SCIM provisioning container, and it needs a login URL (Okta) or SAML URLs (OneLogin),
-	// even though it will never be used for login. So we point it to this page.
+	// even though it will never be used for login. So we point it to this page. Microsoft Entra
+	// needs none: it provisions through the enterprise app that Obot signs in with, and a separate
+	// provisioning app has no login URL to set.
 	'/scim-provisioning',
 	// The same page's first address, which existing Okta SCIM apps still use.
 	'/okta-scim'

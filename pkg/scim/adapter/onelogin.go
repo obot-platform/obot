@@ -59,6 +59,11 @@ func (oneLogin) DirectoryParameters() []DirectoryParameter {
 	return oneLoginDirectoryParameters
 }
 
+// SCIMChoiceParameter returns none: omitting the directory parameters chooses SCIM.
+func (oneLogin) SCIMChoiceParameter() SCIMChoiceParameter {
+	return SCIMChoiceParameter{}
+}
+
 func (oneLogin) IssuerConfigurationParameter() string {
 	return "OBOT_ONELOGIN_AUTH_PROVIDER_ISSUER_URL"
 }
@@ -105,6 +110,23 @@ func (oneLogin) NativeUserID(user User) (string, error) {
 	return id, nil
 }
 
+// UserKey returns UserKeyProviderUserID: the OneLogin user ID is the identity's provider user ID.
+func (oneLogin) UserKey() UserKey {
+	return UserKeyProviderUserID
+}
+
+// NativeUserIDFromExternalID requires the numeric OneLogin user ID. The userName that NativeUserID also requires
+// cannot change the ID it returns.
+func (oneLogin) NativeUserIDFromExternalID(externalID string) (string, error) {
+	id := strings.TrimSpace(externalID)
+	if !isOneLoginID(id) {
+		return "", &InvalidUserError{
+			Message: "externalId must be the numeric OneLogin user ID",
+		}
+	}
+	return id, nil
+}
+
 func (oneLogin) NewUserIdentity(nativeUserID string) Identity {
 	return Identity{
 		Username:              nativeUserID,
@@ -114,7 +136,19 @@ func (oneLogin) NewUserIdentity(nativeUserID string) Identity {
 	}
 }
 
-func (oneLogin) NewGroupID(groupIDPrefix, scimID string) string {
+// GroupKey returns GroupKeyDisplayName. The connector's default group template sends no externalId.
+func (oneLogin) GroupKey() GroupKey {
+	return GroupKeyDisplayName
+}
+
+// NativeGroupIDFromExternalID refuses every externalId, because OneLogin roles bind by name.
+func (oneLogin) NativeGroupIDFromExternalID(string) (string, error) {
+	return "", &InvalidGroupError{
+		Message: "OneLogin roles are matched by displayName, not externalId",
+	}
+}
+
+func (oneLogin) NewGroupID(groupIDPrefix, scimID, _ string) string {
 	return groupIDPrefix + scimID
 }
 
@@ -155,6 +189,12 @@ func (oneLogin) GroupConsoleURL(issuer, nativeGroupID string) string {
 // value list on members.
 func (oneLogin) PatchRules() PatchRules {
 	return PatchRules{}
+}
+
+// Rules returns the shared behavior. OneLogin's Delete action also runs when a user's app access is removed, so a
+// user DELETE does not delete the user.
+func (oneLogin) Rules() Rules {
+	return Rules{}
 }
 
 // ErrorHints returns what a OneLogin admin must do after each failure. OneLogin shows a failure's detail in its event

@@ -112,8 +112,8 @@ type SCIMUserBinding struct {
 	ConnectionID string `gorm:"not null;index:idx_scim_user_bindings_native,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_user,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_user_name,unique,priority:1,where:retired_at IS NULL;index:idx_scim_user_bindings_list,priority:1"`
 	UserID       uint   `gorm:"not null;index:idx_scim_user_bindings_user,unique,priority:2;index"`
 
-	// HashedNativeUserID is the hash of the identity provider's immutable user ID, which is also the hashed provider
-	// user ID of the user's identity.
+	// HashedNativeUserID is the hash of the identity provider's immutable user ID, which the adapter derives from the
+	// externalId. Which identity column it matches depends on the adapter's UserKey.
 	HashedNativeUserID string `gorm:"not null;index:idx_scim_user_bindings_native,unique,priority:2"`
 	// HashedUserName is the hash of the SCIM userName's comparison key, which SCIMUserNameKey returns.
 	HashedUserName string `gorm:"not null;index:idx_scim_user_bindings_user_name,unique,priority:2"`
@@ -142,12 +142,14 @@ type SCIMUserBinding struct {
 type SCIMGroupBinding struct {
 	// ID is the server-issued SCIM group ID.
 	ID           string `gorm:"primaryKey"`
-	ConnectionID string `gorm:"not null;index:idx_scim_group_bindings_name,unique,priority:1,where:retired_at IS NULL;index"`
+	ConnectionID string `gorm:"not null;index:idx_scim_group_bindings_name,unique,priority:1,where:retired_at IS NULL;index;index:idx_scim_group_bindings_external_id,priority:1,where:retired_at IS NULL"`
 	// GroupID is the ID of the Obot group, which never changes.
 	GroupID string `gorm:"not null;index:idx_scim_group_bindings_group,unique,where:retired_at IS NULL;index"`
 	// NormalizedDisplayName is the trimmed, case-folded display name.
 	NormalizedDisplayName string                 `gorm:"not null;index:idx_scim_group_bindings_name,unique,priority:2"`
 	Origin                SCIMGroupBindingOrigin `gorm:"not null"`
+	// ExternalID is the group's externalId as the identity provider last sent it, which is empty when it sent none.
+	ExternalID string `gorm:"not null;default:'';index:idx_scim_group_bindings_external_id,priority:2"`
 
 	// Revision counts the changes to the group and its memberships made through SCIM.
 	Revision  int64 `gorm:"not null;default:0"`
@@ -223,6 +225,9 @@ type SCIMUserProfile struct {
 	Timezone          string           `json:"timezone,omitempty"`
 	Emails            []SCIMMultiValue `json:"emails,omitempty"`
 	PhoneNumbers      []SCIMMultiValue `json:"phoneNumbers,omitempty"`
+	Addresses         []SCIMAddress    `json:"addresses,omitempty"`
+	// EnterpriseUser holds the attributes of the enterprise User extension.
+	EnterpriseUser *SCIMEnterpriseUser `json:"enterpriseUser,omitempty"`
 }
 
 // SCIMName is the SCIM user's structured name.
@@ -241,6 +246,34 @@ type SCIMMultiValue struct {
 	Display string `json:"display,omitempty"`
 	Type    string `json:"type,omitempty"`
 	Primary bool   `json:"primary,omitempty"`
+}
+
+// SCIMAddress is one of a SCIM user's addresses.
+type SCIMAddress struct {
+	Formatted     string `json:"formatted,omitempty"`
+	StreetAddress string `json:"streetAddress,omitempty"`
+	Locality      string `json:"locality,omitempty"`
+	Region        string `json:"region,omitempty"`
+	PostalCode    string `json:"postalCode,omitempty"`
+	Country       string `json:"country,omitempty"`
+	Type          string `json:"type,omitempty"`
+	Primary       bool   `json:"primary,omitempty"`
+}
+
+// SCIMEnterpriseUser holds the attributes of the enterprise User extension of RFC 7643 section 4.3.
+type SCIMEnterpriseUser struct {
+	EmployeeNumber string       `json:"employeeNumber,omitempty"`
+	CostCenter     string       `json:"costCenter,omitempty"`
+	Organization   string       `json:"organization,omitempty"`
+	Division       string       `json:"division,omitempty"`
+	Department     string       `json:"department,omitempty"`
+	Manager        *SCIMManager `json:"manager,omitempty"`
+}
+
+// SCIMManager is a SCIM user's manager, as the identity provider identifies them. It is never resolved to a user.
+type SCIMManager struct {
+	Value string `json:"value,omitempty"`
+	Ref   string `json:"$ref,omitempty"`
 }
 
 // HasToken reports whether the connection has a current bearer token. A connection without one answers every request

@@ -63,12 +63,21 @@ func (okta) DirectoryParameters() []DirectoryParameter {
 	return oktaDirectoryParameters
 }
 
+// SCIMChoiceParameter returns none: omitting the directory parameters chooses SCIM.
+func (okta) SCIMChoiceParameter() SCIMChoiceParameter {
+	return SCIMChoiceParameter{}
+}
+
 func (okta) IssuerConfigurationParameter() string {
 	return "OBOT_OKTA_AUTH_PROVIDER_ISSUER_URL"
 }
 
-func (okta) NativeUserID(user User) (string, error) {
-	id := strings.TrimSpace(user.ExternalID)
+func (o okta) NativeUserID(user User) (string, error) {
+	return o.NativeUserIDFromExternalID(user.ExternalID)
+}
+
+func (okta) NativeUserIDFromExternalID(externalID string) (string, error) {
+	id := strings.TrimSpace(externalID)
 	switch {
 	case id == "":
 		return "", &InvalidUserError{
@@ -82,6 +91,11 @@ func (okta) NativeUserID(user User) (string, error) {
 	return id, nil
 }
 
+// UserKey returns UserKeyProviderUserID: the native Okta user ID is the identity's provider user ID.
+func (okta) UserKey() UserKey {
+	return UserKeyProviderUserID
+}
+
 func (okta) NewUserIdentity(nativeUserID string) Identity {
 	return Identity{
 		Username:              nativeUserID,
@@ -91,7 +105,19 @@ func (okta) NewUserIdentity(nativeUserID string) Identity {
 	}
 }
 
-func (okta) NewGroupID(groupIDPrefix, scimID string) string {
+// GroupKey returns GroupKeyDisplayName. Okta sends no externalId for a group.
+func (okta) GroupKey() GroupKey {
+	return GroupKeyDisplayName
+}
+
+// NativeGroupIDFromExternalID refuses every externalId, because Okta groups bind by name.
+func (okta) NativeGroupIDFromExternalID(string) (string, error) {
+	return "", &InvalidGroupError{
+		Message: "Okta groups are matched by displayName, not externalId",
+	}
+}
+
+func (okta) NewGroupID(groupIDPrefix, scimID, _ string) string {
 	return groupIDPrefix + scimID
 }
 
@@ -134,6 +160,11 @@ func (okta) GroupConsoleURL(issuer, nativeGroupID string) string {
 // PatchRules returns the rules of Okta's PATCH requests, which follow RFC 7644.
 func (okta) PatchRules() PatchRules {
 	return PatchRules{}
+}
+
+// Rules returns the shared behavior: Okta deactivates users instead of deleting them.
+func (okta) Rules() Rules {
+	return Rules{}
 }
 
 // ErrorHints returns no hints, so that Okta's admins see the shared details. Okta deprovisions a user by setting active

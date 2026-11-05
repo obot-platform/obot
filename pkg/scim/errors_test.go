@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/scim/adapter"
 )
 
@@ -38,6 +39,8 @@ func TestErrorHints(t *testing.T) {
 			write: func(_ *testing.T, w http.ResponseWriter) {
 				(&Handler{}).route(w, &request{
 					Request: httptest.NewRequest(http.MethodDelete, PathPrefix+"Users/u1", nil),
+					// The connection's adapter does not delete users.
+					conn:    &connection{},
 					segment: []string{"Users", "u1"},
 				})
 			},
@@ -103,6 +106,7 @@ func TestErrorHints(t *testing.T) {
 			name: "a changed externalId",
 			write: func(_ *testing.T, w http.ResponseWriter) {
 				writeError(w, toError(fmt.Errorf("failed to update SCIM user: %w", &gclient.SCIMMutabilityError{
+					Resource:  types.SCIMResourceTypeUser,
 					Attribute: "externalId",
 					Message:   "externalId identifies the user and cannot change",
 				})))
@@ -110,6 +114,19 @@ func TestErrorHints(t *testing.T) {
 			wantStatus:       http.StatusBadRequest,
 			wantDetail:       "externalId identifies the user and cannot change",
 			wantHintedDetail: "externalId identifies the user and cannot change. Check the username setting.",
+		},
+		{
+			name: "a changed group externalId, which the user hint is not about",
+			write: func(_ *testing.T, w http.ResponseWriter) {
+				writeError(w, toError(&gclient.SCIMMutabilityError{
+					Resource:  types.SCIMResourceTypeGroup,
+					Attribute: "externalId",
+					Message:   "externalId identifies the group and cannot change",
+				}))
+			},
+			wantStatus:       http.StatusBadRequest,
+			wantDetail:       "externalId identifies the group and cannot change",
+			wantHintedDetail: "externalId identifies the group and cannot change",
 		},
 		{
 			name: "a change to another immutable attribute",
@@ -251,5 +268,36 @@ func TestOktaErrorDetails(t *testing.T) {
 	if got, want := detail(s.do(http.MethodGet, "Users", nil).expect(t, http.StatusServiceUnavailable)),
 		"the auth provider of this SCIM connection is not configured"; got != want {
 		t.Errorf("unconfigured auth provider detail = %q, want %q", got, want)
+	}
+}
+
+func TestConflictScimType(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          *gclient.SCIMConflictError
+		wantScimType string
+	}{
+		{
+			name: "values that are already in use",
+			err: &gclient.SCIMConflictError{
+				Message:    "a group named \"team\" already exists",
+				Uniqueness: true,
+			},
+			wantScimType: scimTypeUniqueness,
+		},
+		{
+			name: "a conflict with Obot's state, such as the refused deletion of its last owner",
+			err: &gclient.SCIMConflictError{
+				Message: "this user is Obot's last owner",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toError(tt.err)
+			if got.Status != http.StatusConflict || got.ScimType != tt.wantScimType {
+				t.Fatalf("toError() = %d %q, want %d %q", got.Status, got.ScimType, http.StatusConflict, tt.wantScimType)
+			}
+		})
 	}
 }

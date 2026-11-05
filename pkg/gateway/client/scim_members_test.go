@@ -57,7 +57,7 @@ func TestSCIMGroupMembersDecryptTheirUserNames(t *testing.T) {
 			UserName: "bob@example.com",
 		},
 	}
-	got, err := c.GetSCIMGroup(t.Context(), conn.ID, group.ID, true)
+	got, err := c.GetSCIMGroup(t.Context(), conn, group.ID, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestSCIMGroupMembersDecryptTheirUserNames(t *testing.T) {
 		t.Fatalf("members = %+v, want %+v", got.Members, want)
 	}
 
-	listed, _, err := c.ListSCIMGroups(t.Context(), conn.ID, SCIMGroupFilter{}, SCIMPage{
+	listed, _, err := c.ListSCIMGroups(t.Context(), conn, SCIMGroupFilter{}, SCIMPage{
 		Limit: 10,
 	}, true)
 	if err != nil {

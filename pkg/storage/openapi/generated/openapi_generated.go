@@ -2630,6 +2630,13 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderSCIM(ref common.Refer
 							},
 						},
 					},
+					"choiceParameter": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ChoiceParameter names the configuration parameter that chooses SCIM-first setup when it is \"true\", for a provider without directory parameters. Obot drops it from the configuration, so it is never stored. Empty when omitting the directory parameters chooses SCIM.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"issuerParameter": {
 						SchemaProps: spec.SchemaProps{
 							Description: "IssuerParameter names the configuration parameter that holds the identity provider's issuer URL.",

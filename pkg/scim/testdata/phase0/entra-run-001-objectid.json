@@ -1,0 +1,4622 @@
+[
+  {
+    "sequence": 1,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-1%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 2,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-2%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 3,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-3%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 4,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "meta": {
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    },
+    "status": 201,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T18:08:52.996805Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 5,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T18:08:52.996805Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 6,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-17%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 7,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "excludedAttributes=members&filter=displayName+eq+%22Grant+SCIM+Test+1%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 8,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "POST",
+    "path": "/scim/v2/Groups",
+    "query": "",
+    "requestBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "members": [],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    },
+    "status": 201,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "members": [],
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-20T18:16:07.682771Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 9,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T18:08:52.996805Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 10,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-20T18:16:07.682771Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 11,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "6cd5de02-fa58-424a-a3b2-6b4cce17f772"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 12,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-19%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 13,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T18:08:52.996805Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 14,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-20%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 15,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-21%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 16,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "meta": {
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    },
+    "status": 201,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T18:18:14.83313Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 17,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "POST",
+    "path": "/scim/v2/Users",
+    "query": "",
+    "requestBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "meta": {
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    },
+    "status": 201,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-20T18:18:15.412617Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 18,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-20T18:16:09.413347Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 19,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "excludedAttributes=members&filter=displayName+eq+%22Grant+SCIM+Test+2%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 20,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "POST",
+    "path": "/scim/v2/Groups",
+    "query": "",
+    "requestBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "members": [],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    },
+    "status": 201,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+      "members": [],
+      "meta": {
+        "created": "2026-10-20T18:18:17.698628Z",
+        "lastModified": "2026-10-20T18:18:17.698628Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 21,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-20T18:16:09.413347Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 22,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 23,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "6cd5de02-fa58-424a-a3b2-6b4cce17f772"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 24,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T18:08:52.996805Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 25,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-27%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 26,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-28%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 27,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-29%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 28,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-30%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 29,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-31%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 30,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T18:08:52.996805Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 31,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "name.familyName",
+          "value": "familyname-32"
+        },
+        {
+          "op": "Replace",
+          "path": "name.formatted",
+          "value": "name-formatted-33"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T19:57:52.054657Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-32",
+        "formatted": "name-formatted-33",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 32,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-34%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 33,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T19:57:52.054657Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-32",
+        "formatted": "name-formatted-33",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 34,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-35%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 35,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T19:57:52.054657Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-32",
+        "formatted": "name-formatted-33",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 36,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "name.familyName",
+          "value": "familyname-13"
+        },
+        {
+          "op": "Replace",
+          "path": "name.formatted",
+          "value": "name-formatted-12"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 37,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-36%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 38,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 39,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-37%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 40,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T18:18:14.83313Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 41,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "False"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T20:09:46.865722Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 42,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-38%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 43,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T20:09:46.865722Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 44,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "True"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T20:10:24.398402Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 45,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-39%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 46,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 47,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-47%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 48,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-20T18:18:15.412617Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 49,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 50,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T20:10:24.398402Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 51,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+      "meta": {
+        "created": "2026-10-20T18:18:17.698628Z",
+        "lastModified": "2026-10-20T18:18:17.698628Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 52,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-20T18:18:19.880498Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 53,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-20T18:18:19.880498Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 54,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 55,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "6cd5de02-fa58-424a-a3b2-6b4cce17f772"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 56,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 57,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-48%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 58,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-49%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 59,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-50%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 60,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-51%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 61,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-52%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 62,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-53%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 63,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-54%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 64,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-55%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 65,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-56%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 66,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-57%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 67,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T14:46:50.983672Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 68,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-58%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 69,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T14:46:50.983672Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 70,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-20T18:18:15.412617Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 71,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T14:46:50.983672Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 72,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Remove",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 73,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-59%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 74,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+      "meta": {
+        "created": "2026-10-20T18:18:17.698628Z",
+        "lastModified": "2026-10-20T18:18:17.698628Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 75,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-20T18:18:15.412617Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 76,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+      "meta": {
+        "created": "2026-10-20T18:18:17.698628Z",
+        "lastModified": "2026-10-20T18:18:17.698628Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 77,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 78,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-60%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 79,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T17:59:16.654222Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 80,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "excludedAttributes=members&filter=displayName+eq+%22Grant+SCIM+Test+1+Renamed%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 81,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "displayName",
+          "value": "Grant SCIM Test 1 Renamed"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 82,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1 Renamed",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 83,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1 Renamed",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T18:01:29.27005Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 84,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "6cd5de02-fa58-424a-a3b2-6b4cce17f772"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 85,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-61%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 86,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1 Renamed",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T18:01:30.918516Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 87,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "excludedAttributes=members&filter=displayName+eq+%22Grant+SCIM+Test+1%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 88,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "displayName",
+          "value": "Grant SCIM Test 1"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 89,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "addresses": [
+        {
+          "country": "US",
+          "formatted": "addresses-formatted-6",
+          "locality": "locality-4",
+          "postalCode": null,
+          "primary": false,
+          "region": "region-5",
+          "streetAddress": null,
+          "type": "work"
+        }
+      ],
+      "displayName": "person-name-11",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-3@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000010",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+          "display": "Grant SCIM Test 1",
+          "type": "direct",
+          "value": "1efc49a9-3adc-4998-b53b-704fef5e0205"
+        }
+      ],
+      "id": "6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+      "meta": {
+        "created": "2026-10-20T18:08:52.996805Z",
+        "lastModified": "2026-10-20T20:01:54.028496Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/6cd5de02-fa58-424a-a3b2-6b4cce17f772",
+        "resourceType": "User"
+      },
+      "name": {
+        "familyName": "familyname-13",
+        "formatted": "name-formatted-12",
+        "givenName": "givenname-14"
+      },
+      "phoneNumbers": [
+        {
+          "primary": false,
+          "type": "mobile",
+          "value": "phonenumbers-15"
+        },
+        {
+          "primary": true,
+          "type": "work",
+          "value": "phonenumbers-16"
+        }
+      ],
+      "preferredLanguage": "en-US",
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
+      ],
+      "title": "title-7",
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        "department": "department-8",
+        "employeeNumber": "employeenumber-9"
+      },
+      "userName": "user-3@example.invalid"
+    }
+  },
+  {
+    "sequence": 90,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T18:02:24.0821Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 91,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "6cd5de02-fa58-424a-a3b2-6b4cce17f772"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 92,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-62%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 93,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+      "meta": {
+        "created": "2026-10-20T18:18:17.698628Z",
+        "lastModified": "2026-10-26T17:59:54.82024Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 94,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "DELETE",
+    "path": "/scim/v2/Groups/48841468-44a9-4b4c-bb03-917c2fbc6dd3",
+    "query": "",
+    "requestBody": null,
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 95,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-63%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 96,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups",
+    "query": "excludedAttributes=members&filter=displayName+eq+%22Grant+SCIM+Test+2%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 97,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "POST",
+    "path": "/scim/v2/Groups",
+    "query": "",
+    "requestBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "members": [],
+      "meta": {
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    },
+    "status": 201,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+      "members": [],
+      "meta": {
+        "created": "2026-10-26T18:05:53.273518Z",
+        "lastModified": "2026-10-26T18:05:53.273518Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 98,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-20T18:18:15.412617Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 99,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+      "meta": {
+        "created": "2026-10-26T18:05:53.273518Z",
+        "lastModified": "2026-10-26T18:05:53.273518Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 100,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 101,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-64%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 102,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 1",
+      "externalId": "00000000-0000-4000-8000-000000000018",
+      "id": "1efc49a9-3adc-4998-b53b-704fef5e0205",
+      "meta": {
+        "created": "2026-10-20T18:16:07.682771Z",
+        "lastModified": "2026-10-26T18:02:25.818832Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 103,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+      "meta": {
+        "created": "2026-10-26T18:05:53.273518Z",
+        "lastModified": "2026-10-26T18:05:54.46932Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 104,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/1efc49a9-3adc-4998-b53b-704fef5e0205",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Remove",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 105,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 106,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+      "meta": {
+        "created": "2026-10-26T18:05:53.273518Z",
+        "lastModified": "2026-10-26T18:06:52.107112Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 107,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 108,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-65%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 109,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-66%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 110,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+          "display": "Grant SCIM Test 2",
+          "type": "direct",
+          "value": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-20T18:18:15.412617Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 111,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "False"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+          "display": "Grant SCIM Test 2",
+          "type": "direct",
+          "value": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T18:16:23.333577Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 112,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-67%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 113,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+          "display": "Grant SCIM Test 2",
+          "type": "direct",
+          "value": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T18:16:23.333577Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 114,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "True"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+          "display": "Grant SCIM Test 2",
+          "type": "direct",
+          "value": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T18:28:56.3224Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 115,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-68%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 116,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+          "display": "Grant SCIM Test 2",
+          "type": "direct",
+          "value": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T18:28:56.3224Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 117,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-69%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 118,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-70%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 119,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-71%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 120,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-72%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 121,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-73%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 122,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-74%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 123,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-20T20:10:24.398402Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 124,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-75%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 125,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "False"
+        },
+        {
+          "op": "Replace",
+          "path": "userName",
+          "value": "user-75@example.invalid"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T20:46:53.827844Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-75@example.invalid"
+    }
+  },
+  {
+    "sequence": 126,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-76%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 127,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-77%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 128,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T20:46:53.827844Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-75@example.invalid"
+    }
+  },
+  {
+    "sequence": 129,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-21%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 130,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "True"
+        },
+        {
+          "op": "Replace",
+          "path": "userName",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T22:00:29.435115Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 131,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-78%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 132,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [
+        {
+          "$ref": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+          "display": "Grant SCIM Test 2",
+          "type": "direct",
+          "value": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126"
+        }
+      ],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T18:28:56.3224Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 133,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-79%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 134,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+      "meta": {
+        "created": "2026-10-26T18:05:53.273518Z",
+        "lastModified": "2026-10-26T18:06:52.659472Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 135,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Remove",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 136,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T22:00:29.435115Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 137,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "False"
+        },
+        {
+          "op": "Replace",
+          "path": "userName",
+          "value": "user-79@example.invalid"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T22:06:56.235361Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-79@example.invalid"
+    }
+  },
+  {
+    "sequence": 138,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-80%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 139,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-81%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 140,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T22:00:29.435115Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-21@example.invalid"
+    }
+  },
+  {
+    "sequence": 141,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-75%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 142,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T22:06:56.235361Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-79@example.invalid"
+    }
+  },
+  {
+    "sequence": 143,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-20%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 144,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "True"
+        },
+        {
+          "op": "Replace",
+          "path": "userName",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": true,
+      "displayName": "person-name-24",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-20@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000025",
+      "groups": [],
+      "id": "a1df8984-d822-4ed9-860b-facd04f1a360",
+      "meta": {
+        "created": "2026-10-20T18:18:15.412617Z",
+        "lastModified": "2026-10-26T22:46:55.914039Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/a1df8984-d822-4ed9-860b-facd04f1a360",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-20@example.invalid"
+    }
+  },
+  {
+    "sequence": 145,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "excludedAttributes=members",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "displayName": "Grant SCIM Test 2",
+      "externalId": "00000000-0000-4000-8000-000000000026",
+      "id": "cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+      "meta": {
+        "created": "2026-10-26T18:05:53.273518Z",
+        "lastModified": "2026-10-26T22:06:55.452607Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+        "resourceType": "Group"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:Group"
+      ]
+    }
+  },
+  {
+    "sequence": 146,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Groups/cf4dbdfb-2ef7-40db-b0a6-41b7eb8f1126",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Add",
+          "path": "members",
+          "value": [
+            {
+              "value": "a1df8984-d822-4ed9-860b-facd04f1a360"
+            }
+          ]
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 147,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "PATCH",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": {
+      "Operations": [
+        {
+          "op": "Replace",
+          "path": "active",
+          "value": "False"
+        },
+        {
+          "op": "Replace",
+          "path": "userName",
+          "value": "user-75@example.invalid"
+        }
+      ],
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:PatchOp"
+      ]
+    },
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T22:46:56.926339Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-75@example.invalid"
+    }
+  },
+  {
+    "sequence": 148,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-82%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 149,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-83%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  },
+  {
+    "sequence": 150,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "active": false,
+      "displayName": "person-name-23",
+      "emails": [
+        {
+          "primary": true,
+          "type": "work",
+          "value": "user-21@example.invalid"
+        }
+      ],
+      "externalId": "00000000-0000-4000-8001-000000000022",
+      "groups": [],
+      "id": "920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+      "meta": {
+        "created": "2026-10-20T18:18:14.83313Z",
+        "lastModified": "2026-10-26T22:46:56.926339Z",
+        "location": "https://scim-capture.example.invalid/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+        "resourceType": "User"
+      },
+      "schemas": [
+        "urn:ietf:params:scim:schemas:core:2.0:User"
+      ],
+      "userName": "user-75@example.invalid"
+    }
+  },
+  {
+    "sequence": 151,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "DELETE",
+    "path": "/scim/v2/Users/920f02ed-afc4-4ff6-9f63-65818e42a4b1",
+    "query": "",
+    "requestBody": null,
+    "status": 204,
+    "responseBody": null
+  },
+  {
+    "sequence": 152,
+    "userAgent": "Microsoft Entra (Phase 0)",
+    "method": "GET",
+    "path": "/scim/v2/Users",
+    "query": "filter=userName+eq+%22user-84%40example.invalid%22",
+    "requestBody": null,
+    "status": 200,
+    "responseBody": {
+      "Resources": [],
+      "itemsPerPage": 0,
+      "schemas": [
+        "urn:ietf:params:scim:api:messages:2.0:ListResponse"
+      ],
+      "startIndex": 1,
+      "totalResults": 0
+    }
+  }
+]

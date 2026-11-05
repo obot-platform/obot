@@ -7,6 +7,7 @@ import (
 
 const (
 	userSchema                  = "urn:ietf:params:scim:schemas:core:2.0:User"
+	enterpriseUserSchema        = "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User"
 	groupSchema                 = "urn:ietf:params:scim:schemas:core:2.0:Group"
 	listResponseSchema          = "urn:ietf:params:scim:api:messages:2.0:ListResponse"
 	patchOpSchema               = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
@@ -79,6 +80,25 @@ var (
 			multiValuedAttribute("emails", "Email addresses for the user."),
 			multiValuedAttribute("phoneNumbers", "Phone numbers for the User."),
 			{
+				Name:        "addresses",
+				Type:        typeComplex,
+				MultiValued: true,
+				Description: "A physical mailing address for this User.",
+				Mutability:  mutabilityReadWrite,
+				Returned:    returnedDefault,
+				Uniqueness:  uniquenessNone,
+				SubAttributes: []*attribute{
+					stringAttribute("formatted", "The full mailing address, formatted for display or use with a mailing label."),
+					stringAttribute("streetAddress", "The full street address component."),
+					stringAttribute("locality", "The city or locality component."),
+					stringAttribute("region", "The state or region component."),
+					stringAttribute("postalCode", "The zip code or postal code component."),
+					stringAttribute("country", "The country name component."),
+					stringAttribute("type", "A label indicating the attribute's function, such as \"work\" or \"home\"."),
+					primaryAttribute(),
+				},
+			},
+			{
 				Name:        "groups",
 				Type:        typeComplex,
 				MultiValued: true,
@@ -98,7 +118,41 @@ var (
 		},
 		// Users sign in through the identity provider, so Obot never stores a password, such as the placeholder that
 		// Okta sends.
-		ignored: []string{"password"},
+		ignored:    []string{"password"},
+		extensions: []*resourceSchema{enterpriseUserResourceSchema},
+	}
+
+	// enterpriseUserResourceSchema is the enterprise User extension of RFC 7643 section 4.3. Obot stores and returns
+	// its attributes, and uses them for nothing else.
+	enterpriseUserResourceSchema = &resourceSchema{
+		ID:          enterpriseUserSchema,
+		Name:        "EnterpriseUser",
+		Description: "Enterprise User",
+		Attributes: []*attribute{
+			stringAttribute("employeeNumber", "Numeric or alphanumeric identifier assigned to a person, typically based on order of hire or association with an organization."),
+			stringAttribute("costCenter", "Identifies the name of a cost center."),
+			stringAttribute("organization", "Identifies the name of an organization."),
+			stringAttribute("division", "Identifies the name of a division."),
+			stringAttribute("department", "Identifies the name of a department."),
+			{
+				Name:        "manager",
+				Type:        typeComplex,
+				Description: "The User's manager. Obot stores the manager's ID as the identity provider sends it, and does not resolve it to a User.",
+				Mutability:  mutabilityReadWrite,
+				Returned:    returnedDefault,
+				Uniqueness:  uniquenessNone,
+				SubAttributes: []*attribute{
+					stringAttribute("value", "The id of the SCIM resource representing the User's manager."),
+					referenceAttribute("$ref", "The URI of the SCIM resource representing the User's manager.", "User"),
+					stringAttribute("displayName", "The displayName of the User's manager.", readOnly),
+				},
+				// Microsoft Entra ID sends the manager's ID alone, as a string. Microsoft's SCIM documentation also
+				// shows it sending the manager as a list of one object, although it is single-valued.
+				stringIsValue: true,
+				listOfOne:     true,
+			},
+		},
+		extension: true,
 	}
 
 	groupResourceSchema = &resourceSchema{
@@ -192,6 +246,11 @@ type resourceSchema struct {
 	// ignored names attributes that clients send but the server does not support. Requests may set them, and they
 	// are dropped. They are not advertised.
 	ignored []string
+	// extensions are the schema extensions of the resource. A resource holds an extension's attributes in an object
+	// under the extension's URN.
+	extensions []*resourceSchema
+	// extension is set for a schema extension, which has none of the common attributes.
+	extension bool
 }
 
 // attribute describes one SCIM attribute, as RFC 7643 section 7 defines it.
@@ -210,6 +269,12 @@ type attribute struct {
 	SubAttributes   []*attribute `json:"subAttributes,omitempty"`
 	// unremovable is set for an attribute that a PATCH cannot remove although it is not required.
 	unremovable bool
+	// stringIsValue is set for a complex attribute that also accepts a string, which stands for an object with that
+	// value sub-attribute.
+	stringIsValue bool
+	// listOfOne is set for a single-valued complex attribute that also accepts a list of one value, which stands for
+	// that value.
+	listOfOne bool
 }
 
 func stringAttribute(name, description string, opts ...func(*attribute)) *attribute {
@@ -251,15 +316,20 @@ func multiValuedAttribute(name, description string) *attribute {
 			stringAttribute("value", "The attribute's value."),
 			stringAttribute("display", "A human-readable name, primarily used for display purposes."),
 			stringAttribute("type", "A label indicating the attribute's function, such as \"work\" or \"home\"."),
-			{
-				Name:        "primary",
-				Type:        typeBoolean,
-				Description: "A Boolean value indicating the 'primary' or preferred attribute value for this attribute.",
-				Mutability:  mutabilityReadWrite,
-				Returned:    returnedDefault,
-				Uniqueness:  uniquenessNone,
-			},
+			primaryAttribute(),
 		},
+	}
+}
+
+// primaryAttribute returns the primary sub-attribute of a multi-valued attribute.
+func primaryAttribute() *attribute {
+	return &attribute{
+		Name:        "primary",
+		Type:        typeBoolean,
+		Description: "A Boolean value indicating the 'primary' or preferred attribute value for this attribute.",
+		Mutability:  mutabilityReadWrite,
+		Returned:    returnedDefault,
+		Uniqueness:  uniquenessNone,
 	}
 }
 
@@ -274,6 +344,9 @@ func (s *resourceSchema) attribute(name string) *attribute {
 			return a
 		}
 	}
+	if s.extension {
+		return nil
+	}
 	for _, a := range commonAttributes {
 		if strings.EqualFold(a.Name, name) {
 			return a
@@ -285,6 +358,16 @@ func (s *resourceSchema) attribute(name string) *attribute {
 // ignores reports whether the attribute with the given name is one that the schema accepts and drops.
 func (s *resourceSchema) ignores(name string) bool {
 	return slices.ContainsFunc(s.ignored, func(ignored string) bool { return strings.EqualFold(ignored, name) })
+}
+
+// extensionSchema returns the resource's schema extension with the given URN, compared case-insensitively.
+func (s *resourceSchema) extensionSchema(urn string) *resourceSchema {
+	for _, ext := range s.extensions {
+		if strings.EqualFold(ext.ID, urn) {
+			return ext
+		}
+	}
+	return nil
 }
 
 // subAttribute returns the sub-attribute with the given name, compared case-insensitively.

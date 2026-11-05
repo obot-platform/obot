@@ -6,18 +6,22 @@ import (
 )
 
 type Identity struct {
-	AuthProviderName      string    `json:"authProviderName" gorm:"primaryKey;index:idx_user_auth_id"`
-	AuthProviderNamespace string    `json:"authProviderNamespace" gorm:"primaryKey;index:idx_user_auth_id"`
-	ProviderUsername      string    `json:"providerUsername"`
-	ProviderUserID        string    `json:"providerUserID"`
-	HashedProviderUserID  string    `json:"hashedProviderUserID" gorm:"primaryKey"`
-	ProviderGroupLookupID string    `json:"providerGroupLookupID"`
-	Email                 string    `json:"email"`
-	HashedEmail           string    `json:"hashedEmail"`
-	UserID                uint      `json:"userID" gorm:"index:idx_user_auth_id;index:idx_identities_user_id"`
-	IconURL               string    `json:"iconURL"`
-	IconLastChecked       time.Time `json:"iconLastChecked"`
-	Encrypted             bool      `json:"encrypted"`
+	AuthProviderName      string `json:"authProviderName" gorm:"primaryKey;index:idx_user_auth_id;index:idx_identities_group_lookup,priority:2"`
+	AuthProviderNamespace string `json:"authProviderNamespace" gorm:"primaryKey;index:idx_user_auth_id;index:idx_identities_group_lookup,priority:1"`
+	ProviderUsername      string `json:"providerUsername"`
+	ProviderUserID        string `json:"providerUserID"`
+	HashedProviderUserID  string `json:"hashedProviderUserID" gorm:"primaryKey"`
+	ProviderGroupLookupID string `json:"providerGroupLookupID"`
+	// HashedProviderGroupLookupID is the hash of ProviderGroupLookupID, which supports equality lookups without
+	// decrypting. It is empty when ProviderGroupLookupID is. The index is not unique: lookup IDs may repeat in legacy
+	// data.
+	HashedProviderGroupLookupID string    `json:"hashedProviderGroupLookupID" gorm:"index:idx_identities_group_lookup,priority:3"`
+	Email                       string    `json:"email"`
+	HashedEmail                 string    `json:"hashedEmail"`
+	UserID                      uint      `json:"userID" gorm:"index:idx_user_auth_id;index:idx_identities_user_id"`
+	IconURL                     string    `json:"iconURL"`
+	IconLastChecked             time.Time `json:"iconLastChecked"`
+	Encrypted                   bool      `json:"encrypted"`
 
 	// AuthProviderGroupsLastChecked is the last time the identity's auth provider groups were checked.
 	AuthProviderGroupsLastChecked time.Time `json:"authProviderGroupsLastChecked"`

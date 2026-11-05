@@ -1055,7 +1055,7 @@ export interface OrgUser {
 	managementSource?: OrgUserManagementSource;
 }
 export type OrgUserStatus = 'active' | 'disabled' | 'deleted';
-export type OrgUserDisabledReason = 'scim_inactive' | 'scim_unprovisioned';
+export type OrgUserDisabledReason = 'scim_inactive' | 'scim_unprovisioned' | 'scim_deleted';
 export type OrgUserManagementSource = 'obot' | 'scim';
 export interface OrgGroup {
 	id: string;

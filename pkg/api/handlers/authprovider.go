@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -146,6 +147,7 @@ func setSCIMStatus(req api.Context, authProvider v1.AuthProvider, conn *gatewayt
 	status.SCIM = &types.AuthProviderSCIM{
 		IssuerParameter:     a.IssuerConfigurationParameter(),
 		DirectoryParameters: make([]string, 0, len(directory)),
+		ChoiceParameter:     a.SCIMChoiceParameter().Name,
 	}
 	for _, d := range directory {
 		status.SCIM.DirectoryParameters = append(status.SCIM.DirectoryParameters, d.Name)
@@ -309,18 +311,28 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 // configured auth provider. It first drops the parameters the provider no longer uses, so that a provider whose
 // directory is managed through SCIM is configured again without them.
 //
+// It keeps the adapter's SCIM choice parameter, which is never stored, in envVars. The provider configuration change
+// applies the rules again to what is staged, so it makes the same choice only if the parameter is still there, and it
+// drops the parameter before it stores the provider's configuration.
+//
 // For a provider that the configuration would set up for SCIM, it also refuses residual group data here, so that the
 // administrator sees what remains. The provider configuration change checks it again under its serialization.
 func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, configured bool, envVars map[string]string) error {
+	checked := maps.Clone(envVars)
 	params, setup, err := scimsetup.CheckConfiguration(req.Context(), req.GatewayClient, authProvider, func() (bool, error) {
 		return configured, nil
 	}, func() (map[string]string, error) {
 		return scimsetup.StoredConfiguration(req.Context(), req.GatewayClient, authProvider)
-	}, envVars)
+	}, checked)
 	if refused, ok := errors.AsType[*scimsetup.ConfigurationError](err); ok {
 		return types.NewErrBadRequest("%s", refused.Message)
 	} else if err != nil {
 		return err
+	}
+	for _, name := range params.Dropped {
+		if name != params.SCIMChoice {
+			delete(envVars, name)
+		}
 	}
 
 	missingEntitlements, err := ap.license.MissingEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements)
@@ -334,7 +346,7 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 
 	var missing []string
 	for _, param := range params.Required {
-		if _, ok := envVars[param.Name]; !ok {
+		if _, ok := checked[param.Name]; !ok {
 			missing = append(missing, param.Name)
 		}
 	}

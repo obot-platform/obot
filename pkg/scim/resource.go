@@ -57,6 +57,13 @@ func userResource(u *gclient.SCIMUser, baseURL string) map[string]any {
 	if phoneNumbers := multiValues(p.PhoneNumbers); len(phoneNumbers) > 0 {
 		m["phoneNumbers"] = phoneNumbers
 	}
+	if addresses := addressValues(p.Addresses); len(addresses) > 0 {
+		m["addresses"] = addresses
+	}
+	if enterprise := enterpriseUserValue(p.EnterpriseUser); len(enterprise) > 0 {
+		m[enterpriseUserSchema] = enterprise
+		m["schemas"] = []any{userSchema, enterpriseUserSchema}
+	}
 
 	return m
 }
@@ -70,6 +77,7 @@ func groupResource(g *gclient.SCIMGroup, baseURL string) map[string]any {
 		"displayName": g.DisplayName,
 		"meta":        meta("Group", g.CreatedAt, g.UpdatedAt, baseURL+"/Groups/"+g.ID),
 	}
+	setString(m, "externalId", g.ExternalID)
 
 	if g.Members != nil {
 		members := make([]any, 0, len(g.Members))
@@ -110,6 +118,8 @@ func userInputFromResource(body map[string]any) (gclient.SCIMUserInput, error) {
 			Timezone:          stringValue(m, "timezone"),
 			Emails:            multiValuesFrom(m["emails"]),
 			PhoneNumbers:      multiValuesFrom(m["phoneNumbers"]),
+			Addresses:         addressesFrom(m["addresses"]),
+			EnterpriseUser:    enterpriseUserFrom(m[enterpriseUserSchema]),
 		},
 	}
 	if active, ok := m["active"].(bool); ok {
@@ -130,7 +140,7 @@ func userInputFromResource(body map[string]any) (gclient.SCIMUserInput, error) {
 		return gclient.SCIMUserInput{}, badRequest(scimTypeInvalidValue, "userName is required")
 	}
 	// RFC 7643 section 2.4 allows one primary value at most.
-	for _, attr := range []string{"emails", "phoneNumbers"} {
+	for _, attr := range []string{"emails", "phoneNumbers", "addresses"} {
 		if primaryValues(m[attr]) > 1 {
 			return gclient.SCIMUserInput{}, badRequest(scimTypeInvalidValue, "%s can have at most one primary value", attr)
 		}
@@ -163,6 +173,7 @@ func groupInputFromResource(body map[string]any) (gclient.SCIMGroupInput, error)
 	}
 	input := gclient.SCIMGroupInput{
 		DisplayName: stringValue(m, "displayName"),
+		ExternalID:  stringValue(m, "externalId"),
 		MemberIDs:   memberIDs,
 	}
 
@@ -173,10 +184,29 @@ func groupInputFromResource(body map[string]any) (gclient.SCIMGroupInput, error)
 }
 
 // canonicalResource returns the resource's writable attributes under their canonical names, checking their
-// types. Attribute names are case-insensitive. Unknown, extension, and read-only attributes are dropped.
+// types. Attribute names are case-insensitive. The attributes of a schema extension are held in an object under the
+// extension's URN. Unknown and read-only attributes are dropped, and so are null values, which are the same as none.
 func canonicalResource(schema *resourceSchema, body map[string]any) (map[string]any, error) {
 	m := make(map[string]any, len(body))
 	for key, value := range body {
+		if ext := schema.extensionSchema(key); ext != nil {
+			if value == nil {
+				continue
+			}
+			obj, ok := value.(map[string]any)
+			if !ok {
+				return nil, badRequest(scimTypeInvalidValue, "%q must be an object", key)
+			}
+			v, err := canonicalResource(ext, obj)
+			if err != nil {
+				return nil, err
+			}
+			if len(v) > 0 {
+				m[ext.ID] = v
+			}
+			continue
+		}
+
 		attr := schema.attribute(key)
 		if attr == nil || attr.Mutability == mutabilityReadOnly || value == nil {
 			continue
@@ -223,7 +253,13 @@ func canonicalList(attr *attribute, value any) ([]any, error) {
 func canonicalSingle(attr *attribute, value any) (any, error) {
 	switch attr.Type {
 	case typeComplex:
+		if items, isList := value.([]any); isList && len(items) == 1 && attr.listOfOne {
+			value = items[0]
+		}
 		m, ok := value.(map[string]any)
+		if s, isString := value.(string); isString && attr.stringIsValue {
+			m, ok = map[string]any{"value": s}, true
+		}
 		if !ok {
 			return nil, badRequest(scimTypeInvalidValue, "%q must be an object", attr.Name)
 		}
@@ -302,6 +338,93 @@ func multiValuesFrom(value any) []types.SCIMMultiValue {
 		}
 	}
 	return out
+}
+
+func addressValues(addresses []types.SCIMAddress) []any {
+	out := make([]any, 0, len(addresses))
+	for _, a := range addresses {
+		m := map[string]any{}
+		setString(m, "formatted", a.Formatted)
+		setString(m, "streetAddress", a.StreetAddress)
+		setString(m, "locality", a.Locality)
+		setString(m, "region", a.Region)
+		setString(m, "postalCode", a.PostalCode)
+		setString(m, "country", a.Country)
+		setString(m, "type", a.Type)
+		if a.Primary {
+			m["primary"] = true
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+func addressesFrom(value any) []types.SCIMAddress {
+	items := listValue(value)
+	out := make([]types.SCIMAddress, 0, len(items))
+	for _, item := range items {
+		m, _ := item.(map[string]any)
+		a := types.SCIMAddress{
+			Formatted:     stringValue(m, "formatted"),
+			StreetAddress: stringValue(m, "streetAddress"),
+			Locality:      stringValue(m, "locality"),
+			Region:        stringValue(m, "region"),
+			PostalCode:    stringValue(m, "postalCode"),
+			Country:       stringValue(m, "country"),
+			Type:          stringValue(m, "type"),
+		}
+		a.Primary, _ = m["primary"].(bool)
+		if a != (types.SCIMAddress{}) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// enterpriseUserValue returns the object of the enterprise User extension, which is empty when the user has none of
+// its attributes.
+func enterpriseUserValue(e *types.SCIMEnterpriseUser) map[string]any {
+	m := map[string]any{}
+	if e == nil {
+		return m
+	}
+	setString(m, "employeeNumber", e.EmployeeNumber)
+	setString(m, "costCenter", e.CostCenter)
+	setString(m, "organization", e.Organization)
+	setString(m, "division", e.Division)
+	setString(m, "department", e.Department)
+	if e.Manager != nil {
+		manager := map[string]any{}
+		setString(manager, "value", e.Manager.Value)
+		setString(manager, "$ref", e.Manager.Ref)
+		if len(manager) > 0 {
+			m["manager"] = manager
+		}
+	}
+	return m
+}
+
+// enterpriseUserFrom reads the canonical object of the enterprise User extension. The manager's displayName is
+// read-only, so it is not kept.
+func enterpriseUserFrom(value any) *types.SCIMEnterpriseUser {
+	m, ok := value.(map[string]any)
+	if !ok {
+		return nil
+	}
+	e := &types.SCIMEnterpriseUser{
+		EmployeeNumber: stringValue(m, "employeeNumber"),
+		CostCenter:     stringValue(m, "costCenter"),
+		Organization:   stringValue(m, "organization"),
+		Division:       stringValue(m, "division"),
+		Department:     stringValue(m, "department"),
+	}
+	if manager, ok := m["manager"].(map[string]any); ok {
+		e.Manager = &types.SCIMManager{
+			Value: stringValue(manager, "value"),
+			Ref:   stringValue(manager, "$ref"),
+		}
+	}
+	return e
 }
 
 func setString(m map[string]any, key, value string) {

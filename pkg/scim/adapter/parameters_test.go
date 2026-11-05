@@ -18,7 +18,7 @@ func TestRegistry(t *testing.T) {
 
 	// Only the registry decides which providers support SCIM. A name or a prefix that merely looks like Okta's does
 	// not.
-	for _, name := range []string{"okta", "okta-auth-provider-2", "entra-auth-provider", ""} {
+	for _, name := range []string{"okta", "okta-auth-provider-2", "google-auth-provider", ""} {
 		if _, ok := ForAuthProvider(name); ok {
 			t.Errorf("ForAuthProvider(%q) found an adapter", name)
 		}

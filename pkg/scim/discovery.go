@@ -49,7 +49,7 @@ func serviceProviderConfig(baseURL string) map[string]any {
 func resourceTypes(baseURL string) []map[string]any {
 	types := make([]map[string]any, 0, 2)
 	for _, s := range []*resourceSchema{userResourceSchema, groupResourceSchema} {
-		types = append(types, map[string]any{
+		t := map[string]any{
 			"schemas":     []string{resourceTypeSchema},
 			"id":          s.Name,
 			"name":        s.Name,
@@ -60,14 +60,25 @@ func resourceTypes(baseURL string) []map[string]any {
 				"resourceType": "ResourceType",
 				"location":     baseURL + "/ResourceTypes/" + s.Name,
 			},
-		})
+		}
+		if len(s.extensions) > 0 {
+			extensions := make([]map[string]any, 0, len(s.extensions))
+			for _, ext := range s.extensions {
+				extensions = append(extensions, map[string]any{
+					"schema":   ext.ID,
+					"required": false,
+				})
+			}
+			t["schemaExtensions"] = extensions
+		}
+		types = append(types, t)
 	}
 	return types
 }
 
 func schemas(baseURL string) []map[string]any {
-	schemas := make([]map[string]any, 0, 2)
-	for _, s := range []*resourceSchema{userResourceSchema, groupResourceSchema} {
+	schemas := make([]map[string]any, 0, 3)
+	for _, s := range []*resourceSchema{userResourceSchema, enterpriseUserResourceSchema, groupResourceSchema} {
 		schemas = append(schemas, map[string]any{
 			"schemas":     []string{schemaSchema},
 			"id":          s.ID,

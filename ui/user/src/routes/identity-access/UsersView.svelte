@@ -74,7 +74,8 @@
 	};
 	const disabledReasonLabels: Record<string, string> = {
 		scim_inactive: m.identity_access_users_status_scim_inactive(),
-		scim_unprovisioned: m.identity_access_users_status_scim_unprovisioned()
+		scim_unprovisioned: m.identity_access_users_status_scim_unprovisioned(),
+		scim_deleted: m.identity_access_users_status_scim_deleted()
 	};
 	// Why a user cannot be deleted in Obot, as the server refuses it: their identity provider still
 	// provisions them through SCIM. Once it deactivates them, they can be deleted.

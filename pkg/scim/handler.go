@@ -80,6 +80,8 @@ type connection struct {
 	baseURL string
 	// patchRules are how the connection's identity provider departs from RFC 7644 in PATCH requests.
 	patchRules adapter.PatchRules
+	// rules are the connection's identity provider's choices among shared behaviors.
+	rules adapter.Rules
 }
 
 type statusRecorder struct {
@@ -204,6 +206,7 @@ func (h *Handler) connection(ctx context.Context, id string) (*connection, adapt
 		SCIMConnection: conn,
 		baseURL:        BaseURL(h.serverURL),
 		patchRules:     a.PatchRules(),
+		rules:          a.Rules(),
 	}, hints, nil
 }
 
@@ -266,14 +269,23 @@ func (h *Handler) route(w http.ResponseWriter, r *request) {
 		case http.MethodPatch:
 			h.patchUser(w, r, rest[0])
 		case http.MethodDelete:
-			// Identity providers deprovision users by setting active to false. Deleting a user is an Obot action. The
-			// adapter's hint replaces the detail for an identity provider that must be set up not to send a DELETE.
+			if r.conn.rules.DeletesUsers {
+				h.deleteUser(w, r, rest[0])
+				return
+			}
+			// Unless the adapter's rules delete users, identity providers deprovision users by setting active to false,
+			// and deleting a user is an Obot action. The adapter's hint replaces the detail for an identity provider
+			// that must be set up not to send a DELETE.
 			writeError(w, &Error{
 				Status: http.StatusNotImplemented,
 				Detail: "deleting users is not supported; deprovision a user by setting active to false",
 				hint:   hintUserDelete,
 			})
 		default:
+			if r.conn.rules.DeletesUsers {
+				methodNotAllowed(w, http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodDelete)
+				return
+			}
 			methodNotAllowed(w, http.MethodGet, http.MethodPut, http.MethodPatch)
 		}
 	case strings.EqualFold(resource, "Groups") && len(rest) == 0:
@@ -309,10 +321,10 @@ func (h *Handler) route(w http.ResponseWriter, r *request) {
 }
 
 // GET /scim/v2/Users
-// Lists the users that SCIM has provisioned, optionally filtered by userName or id.
+// Lists the users that SCIM has provisioned, optionally filtered by userName, id, or externalId.
 func (h *Handler) listUsers(w http.ResponseWriter, r *request) {
 	q := r.URL.Query()
-	f, err := parseListFilter(userResourceSchema, q.Get("filter"), "userName", "id")
+	f, err := parseListFilter(userResourceSchema, q.Get("filter"), "userName", "id", "externalId")
 	if err != nil {
 		writeError(w, toError(err))
 		return
@@ -329,7 +341,7 @@ func (h *Handler) listUsers(w http.ResponseWriter, r *request) {
 	}
 
 	if f != nil && f.Value == "" {
-		// No user has an empty userName or id.
+		// No user has an empty userName, id, or externalId.
 		writeList(w, []any{}, 0, startIndex)
 		return
 	}
@@ -341,10 +353,12 @@ func (h *Handler) listUsers(w http.ResponseWriter, r *request) {
 			filter.UserName = f.Value
 		case "id":
 			filter.ID = f.Value
+		case "externalId":
+			filter.ExternalID = f.Value
 		}
 	}
 
-	users, total, err := h.gateway.ListSCIMUsers(r.Context(), r.conn.ID, filter, gclient.SCIMPage{
+	users, total, err := h.gateway.ListSCIMUsers(r.Context(), r.conn.SCIMConnection, filter, gclient.SCIMPage{
 		Offset: startIndex - 1,
 		Limit:  count,
 	})
@@ -493,10 +507,10 @@ func (h *Handler) patchUser(w http.ResponseWriter, r *request, id string) {
 }
 
 // GET /scim/v2/Groups
-// Lists the groups that SCIM has bound or created, optionally filtered by displayName or id.
+// Lists the groups that SCIM has bound or created, optionally filtered by displayName, id, or externalId.
 func (h *Handler) listGroups(w http.ResponseWriter, r *request) {
 	q := r.URL.Query()
-	f, err := parseListFilter(groupResourceSchema, q.Get("filter"), "displayName", "id")
+	f, err := parseListFilter(groupResourceSchema, q.Get("filter"), "displayName", "id", "externalId")
 	if err != nil {
 		writeError(w, toError(err))
 		return
@@ -513,7 +527,7 @@ func (h *Handler) listGroups(w http.ResponseWriter, r *request) {
 	}
 
 	if f != nil && f.Value == "" {
-		// No group has an empty displayName or id.
+		// No group has an empty displayName, id, or externalId.
 		writeList(w, []any{}, 0, startIndex)
 		return
 	}
@@ -525,10 +539,12 @@ func (h *Handler) listGroups(w http.ResponseWriter, r *request) {
 			filter.DisplayName = f.Value
 		case "id":
 			filter.ID = f.Value
+		case "externalId":
+			filter.ExternalID = f.Value
 		}
 	}
 
-	groups, total, err := h.gateway.ListSCIMGroups(r.Context(), r.conn.ID, filter, gclient.SCIMPage{
+	groups, total, err := h.gateway.ListSCIMGroups(r.Context(), r.conn.SCIMConnection, filter, gclient.SCIMPage{
 		Offset: startIndex - 1,
 		Limit:  count,
 	}, proj.includes("members"))
@@ -586,7 +602,7 @@ func (h *Handler) getGroup(w http.ResponseWriter, r *request, id string) {
 		return
 	}
 
-	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.ID, id, proj.includes("members"))
+	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.SCIMConnection, id, proj.includes("members"))
 	if err != nil {
 		writeError(w, toError(err))
 		return
@@ -618,16 +634,18 @@ func (h *Handler) replaceGroup(w http.ResponseWriter, r *request, id string) {
 	}
 
 	// The replacement does not depend on the current members, so it is applied without reading them, and the response
-	// reads them once the write is committed, only if it includes them.
+	// reads them once the write is committed, only if it includes them. Like a user's, a group's externalId is kept
+	// when the replacement omits it, as RFC 7644 section 3.5.1 allows.
 	if err := h.gateway.PatchSCIMGroup(r.Context(), r.conn.SCIMConnection, id, gclient.SCIMGroupPatch{
 		DisplayName:    input.DisplayName,
+		ExternalID:     input.ExternalID,
 		ReplaceMembers: true,
 		MemberIDs:      input.MemberIDs,
 	}); err != nil {
 		writeError(w, toError(err))
 		return
 	}
-	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.ID, id, proj.includes("members"))
+	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.SCIMConnection, id, proj.includes("members"))
 	if err != nil {
 		writeError(w, toError(err))
 		return
@@ -688,7 +706,7 @@ func (h *Handler) patchGroup(w http.ResponseWriter, r *request, id string) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
-	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.ID, id, proj.includes("members"))
+	group, err := h.gateway.GetSCIMGroup(r.Context(), r.conn.SCIMConnection, id, proj.includes("members"))
 	if err != nil {
 		writeError(w, toError(err))
 		return
@@ -704,6 +722,18 @@ func (h *Handler) deleteGroup(w http.ResponseWriter, r *request, id string) {
 		writeError(w, toError(err))
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DELETE /scim/v2/Users/{id}
+// Deletes a provisioned user and what they own, for an identity provider whose adapter's rules delete users.
+func (h *Handler) deleteUser(w http.ResponseWriter, r *request, id string) {
+	userID, err := h.gateway.DeleteSCIMUser(r.Context(), r.conn.SCIMConnection, id)
+	if err != nil {
+		writeError(w, toError(err))
+		return
+	}
+	slog.Info("Deleted user through SCIM", "connection", r.conn.ID, "scimID", id, "userID", userID)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -724,14 +754,20 @@ func toError(err error) *Error {
 		}
 	}
 	if e, ok := errors.AsType[*gclient.SCIMConflictError](err); ok {
-		return conflict(e.Message)
+		if e.Uniqueness {
+			return conflict(e.Message)
+		}
+		return &Error{
+			Status: http.StatusConflict,
+			Detail: e.Message,
+		}
 	}
 	if e, ok := errors.AsType[*gclient.SCIMInvalidValueError](err); ok {
 		return badRequest(scimTypeInvalidValue, "%s", e.Message)
 	}
 	if e, ok := errors.AsType[*gclient.SCIMMutabilityError](err); ok {
 		mutability := badRequest(scimTypeMutability, "%s", e.Message)
-		if e.Attribute == "externalId" {
+		if e.Resource == types.SCIMResourceTypeUser && e.Attribute == "externalId" {
 			mutability.hint = hintExternalIDChanged
 		}
 		return mutability
@@ -918,7 +954,13 @@ func writeList(w http.ResponseWriter, resources []any, total int64, startIndex i
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
-	data, err := json.Marshal(v)
+	// SCIM responses are never HTML, and identity providers show error details as sent, so characters such as the ">"
+	// in an adapter's hint are written as they are rather than escaped.
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(v)
+	data := bytes.TrimSuffix(buf.Bytes(), []byte("\n"))
 	if err != nil {
 		slog.Error("Failed to encode SCIM response", "error", err)
 		status = http.StatusInternalServerError

@@ -405,16 +405,8 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 		return types2.NewErrHTTP(status, fmt.Sprintf("failed to delete user: %v", err))
 	}
 
-	if err = apiContext.Create(&v1.UserDelete{
-		GenerateName: system.UserDeletePrefix,
-		Namespace:    apiContext.Namespace(),
-		Spec: v1.UserDeleteSpec{
-			UserID: existingUser.ID,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
-	}
-	slog.Info("Scheduled user cleanup after deletion", "targetUserID", existingUser.ID, "deleteMe", isDeleteMe)
+	// The deletion recorded the event whose delivery removes what the user owns.
+	slog.Info("Deleted user", "targetUserID", existingUser.ID, "deleteMe", isDeleteMe)
 
 	// Only clear the cookie if this is a "delete me" operation
 	if isDeleteMe {

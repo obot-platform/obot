@@ -36,7 +36,7 @@ func TestDeconfigureDeletesSCIMData(t *testing.T) {
 	identities := s.count(new(types.Identity), "")
 
 	// Deconfiguring: the credential goes, then the connection with its data.
-	s.env.name = "entra-auth-provider"
+	s.env.name = "google-auth-provider"
 	deleted, err := s.gateway.DeleteAuthProviderSCIMConnection(t.Context(), gclient.AuthProviderRef{
 		Namespace: system.DefaultNamespace,
 		Name:      testOktaProviderName,

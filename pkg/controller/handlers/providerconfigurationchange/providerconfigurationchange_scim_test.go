@@ -1169,3 +1169,59 @@ func TestProviderChangesNeverDecryptCredentialsTheyDoNotNeed(t *testing.T) {
 	assert.Empty(t, s.apply(v1.ProviderDesiredStateConfigured, oidcSettings()))
 	assert.Equal(t, "oidc-client", s.credential(oktaProviderName)[oktaClientIDParam])
 }
+
+// TestPrepareSCIMSetupHonorsTheEntraSCIMChoice checks that the Entra SCIM choice parameter that the API stages sets up
+// SCIM, and is dropped before the provider's configuration is stored. Without it, Entra synchronizes its directory.
+func TestPrepareSCIMSetupHonorsTheEntraSCIMChoice(t *testing.T) {
+	const (
+		tenantParam = "OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID"
+		choiceParam = "OBOT_ENTRA_AUTH_PROVIDER_SCIM"
+		tenantID    = "00000000-0000-4000-8000-000000000001"
+	)
+	s := newSCIMChangeTest(t)
+	entra := v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: clienttypes.AuthProviderManifest{
+				CommonProviderMetadata: clienttypes.CommonProviderMetadata{
+					Name: "Microsoft Entra",
+					RequiredConfigurationParameters: []clienttypes.ProviderConfigurationParameter{
+						{
+							Name: tenantParam,
+						},
+					},
+				},
+				GroupIDPrefix: "entra/",
+			},
+		},
+	}
+	entraConnection := func() *gatewaytypes.SCIMConnection {
+		conn, err := s.gateway.SCIMConnectionForAuthProvider(t.Context(), entra.Namespace, entra.Name)
+		require.NoError(t, err)
+		return conn
+	}
+
+	// Without the choice, nothing sets up SCIM.
+	secrets := map[string]string{
+		tenantParam: tenantID,
+	}
+	require.NoError(t, s.handler.prepareSCIMSetup(t.Context(), entra, notConfigured, secrets))
+	assert.Nil(t, entraConnection())
+
+	// With it, the connection is created before the provider is configured, and the choice is not stored. Entra's
+	// connection matches users by group lookup ID, so it waits for the backfill of their hashes, which the server runs
+	// at startup.
+	require.NoError(t, s.gateway.BackfillIdentityGroupLookupIDHashes(t.Context()))
+	secrets = map[string]string{
+		tenantParam: tenantID,
+		choiceParam: "true",
+	}
+	require.NoError(t, s.handler.prepareSCIMSetup(t.Context(), entra, notConfigured, secrets))
+	conn := entraConnection()
+	require.NotNil(t, conn)
+	assert.Equal(t, gatewaytypes.SCIMConnectionOriginSCIMFirst, conn.Origin)
+	assert.Equal(t, map[string]string{
+		tenantParam: tenantID,
+	}, secrets)
+}
