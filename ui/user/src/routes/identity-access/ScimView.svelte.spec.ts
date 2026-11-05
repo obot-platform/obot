@@ -837,8 +837,7 @@ describe('ScimView', () => {
 			} = {}
 		) {
 			vi.useFakeTimers({
-				toFake: ['setInterval', 'clearInterval', 'Date'],
-				shouldAdvanceTime: true
+				toFake: ['setInterval', 'clearInterval', 'Date']
 			});
 			onTestFinished(() => {
 				vi.useRealTimers();
@@ -875,11 +874,17 @@ describe('ScimView', () => {
 		}
 
 		it('loads the activity again before warning on a page left open', async () => {
+			const reload = vi.spyOn(AdminService, 'getSCIMConnectionReview');
+			onTestFinished(() => reload.mockRestore());
 			await renderEntraLeftOpen(() => minutesAgo(5));
 
+			await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+			expect(reload).not.toHaveBeenCalled();
+
 			// Entra kept sending requests while the page was open, so it is not silent.
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(60 * 1000);
 			await expect.element(page.getByText('5 minutes ago', { exact: true })).toBeVisible();
+			expect(reload).toHaveBeenCalledOnce();
 			await expect
 				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
 				.not.toBeInTheDocument();
@@ -889,7 +894,7 @@ describe('ScimView', () => {
 			let lastRequestAt = '';
 			lastRequestAt = await renderEntraLeftOpen(() => lastRequestAt);
 
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 			await expect
 				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
 				.toBeVisible();
@@ -898,7 +903,7 @@ describe('ScimView', () => {
 		it('clears the warning on a page left open once Entra sends a request again', async () => {
 			let lastRequestAt = '';
 			lastRequestAt = await renderEntraLeftOpen(() => lastRequestAt);
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 			await expect
 				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
 				.toBeVisible();
@@ -926,7 +931,7 @@ describe('ScimView', () => {
 			failed = true;
 
 			// Entra's requests since the page was opened include a failure.
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 			await expect.element(page.getByText('PATCH /Users/u-1')).toBeVisible();
 			await expect
 				.element(page.getByText('externalId identifies the user and cannot change'))
@@ -949,7 +954,7 @@ describe('ScimView', () => {
 
 			// The third failure ages out, so the second page is empty.
 			agedOut = true;
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 			await expect.element(page.getByText('PATCH /Users/u-1')).toBeVisible();
 			await expect.element(page.getByText('PATCH /Users/u-3')).not.toBeInTheDocument();
 		});
@@ -987,7 +992,7 @@ describe('ScimView', () => {
 
 			// The admin asks for the second page, and the activity is loaded again before it arrives.
 			await page.getByRole('button', { name: 'Next page of recent failures' }).click();
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 			releasePage();
 			await expect.element(page.getByText('PATCH /Users/u-3')).toBeVisible();
 
@@ -1008,7 +1013,7 @@ describe('ScimView', () => {
 				)
 			);
 
-			await vi.advanceTimersByTimeAsync(15 * 60 * 1000);
+			await vi.advanceTimersByTimeAsync(11 * 60 * 1000);
 			await expect
 				.element(page.getByText(/a running provisioning job sends one every 20 to 40 minutes/))
 				.toBeVisible();

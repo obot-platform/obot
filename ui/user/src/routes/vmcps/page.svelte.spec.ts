@@ -107,13 +107,17 @@ describe('vMCPs Page', () => {
 					])
 				]);
 				await expect.element(page.getByText('Z GitHub', { exact: true })).toBeVisible();
-				expect(document.querySelector('tbody tr')?.textContent).toContain('Z GitHub');
+				await expect
+					.poll(() => document.querySelector('tbody tr')?.textContent)
+					.toContain('Z GitHub');
 				await page.getByRole('button', { name: 'Grid View' }).click();
 				await expect
 					.element(page.getByRole('button', { name: /^Open / }).first())
 					.toHaveAccessibleName('Open Z GitHub');
 				await page.getByRole('button', { name: 'Table View' }).click();
-				expect(document.querySelector('tbody tr')?.textContent).toContain('Z GitHub');
+				await expect
+					.poll(() => document.querySelector('tbody tr')?.textContent)
+					.toContain('Z GitHub');
 			}
 		);
 
@@ -157,7 +161,7 @@ describe('vMCPs Page', () => {
 				await expect.element(page.getByText('Slack vMCP', { exact: true })).not.toBeInTheDocument();
 				await page.getByRole('combobox', { name: `Filter by ${header}...` }).click();
 				await page.getByRole('button', { name: second, exact: true }).click();
-				expect((appPage.url as URL).searchParams.get(param)).toBe(selected);
+				await expect.poll(() => (appPage.url as URL).searchParams.get(param)).toBe(selected);
 				await expect.element(page.getByText('GitHub vMCP', { exact: true })).toBeVisible();
 				await expect.element(page.getByText('Slack vMCP', { exact: true })).toBeVisible();
 			}
@@ -192,7 +196,9 @@ describe('vMCPs Page', () => {
 			await page.getByRole('button', { name: 'GitHub', exact: true }).click();
 			await page.getByCSS('#click-catch').click({ position: { x: 1, y: 1 } });
 
-			expect((appPage.url as URL).searchParams.get('components')).toBe('entry-github');
+			await expect
+				.poll(() => (appPage.url as URL).searchParams.get('components'))
+				.toBe('entry-github');
 			await expect.element(page.getByRole('button', { name: 'Remove GitHub' })).toBeVisible();
 			await page.getByRole('button', { name: 'Grid View' }).click();
 			await expect
@@ -239,7 +245,7 @@ describe('vMCPs Page', () => {
 			await page.getByRole('combobox', { name: 'Filter by Created By...' }).click();
 			await page.getByRole('button', { name: 'Alice', exact: true }).click();
 			await page.getByCSS('#click-catch').click({ position: { x: 1, y: 1 } });
-			expect((appPage.url as URL).searchParams.get('creator')).toBe('alice');
+			await expect.poll(() => (appPage.url as URL).searchParams.get('creator')).toBe('alice');
 			await expect.element(page.getByRole('button', { name: 'Remove Alice' })).toBeVisible();
 			await page.getByRole('button', { name: 'Grid View' }).click();
 			await expect.element(page.getByRole('button', { name: 'Open Alice vMCP' })).toBeVisible();
@@ -274,7 +280,7 @@ describe('vMCPs Page', () => {
 			await page.getByRole('combobox', { name: 'Filter by Status...' }).click();
 			await page.getByRole('button', { name: label, exact: true }).click();
 
-			expect((appPage.url as URL).searchParams.get('status')).toBe(id);
+			await expect.poll(() => (appPage.url as URL).searchParams.get('status')).toBe(id);
 			await expect.element(page.getByRole('button', { name: `Remove ${label}` })).toBeVisible();
 			await screen.unmount();
 			await renderPageWithEntries([componentEntry]);
@@ -300,11 +306,13 @@ describe('vMCPs Page', () => {
 			const tableNames = () =>
 				[...document.querySelectorAll('tbody tr')].map((row) => row.textContent);
 			await serverSort.click();
-			expect((appPage.url as URL).searchParams.get('sort')).toBe('componentServers');
-			expect(tableNames()[0]).toContain('One Server');
+			await expect
+				.poll(() => (appPage.url as URL).searchParams.get('sort'))
+				.toBe('componentServers');
+			await expect.poll(() => tableNames()[0]).toContain('One Server');
 			await serverSort.click();
-			expect((appPage.url as URL).searchParams.get('sortDirection')).toBe('desc');
-			expect(tableNames()[0]).toContain('Many Servers');
+			await expect.poll(() => (appPage.url as URL).searchParams.get('sortDirection')).toBe('desc');
+			await expect.poll(() => tableNames()[0]).toContain('Many Servers');
 			await page.getByRole('button', { name: 'Filters', exact: true }).click();
 			await expect
 				.element(page.getByRole('combobox', { name: 'Sort By', exact: true }))
@@ -314,8 +322,7 @@ describe('vMCPs Page', () => {
 				.toHaveTextContent('Descending');
 			await screen.unmount();
 			await renderPageWithEntries([componentEntry, slack], false, vmcps);
-			await expect.element(page.getByText('Many Servers', { exact: true })).toBeVisible();
-			expect(tableNames()[0]).toContain('Many Servers');
+			await expect.poll(() => tableNames()[0]).toContain('Many Servers');
 			await page.getByRole('button', { name: 'Grid View' }).click();
 			await expect
 				.element(page.getByRole('button', { name: /^Open / }).first())
