@@ -177,9 +177,24 @@ const sidebars = {
 					"label": "Overview"
 				},
 				{
-					"type": "doc",
-					"id": "concepts/mcp-registry",
-					"label": "MCP Servers"
+					"type": "category",
+					"label": "MCP Servers",
+					"link": {
+						"type": "doc",
+						"id": "concepts/mcp-registry"
+					},
+					"items": [
+						{
+							"type": "doc",
+							"id": "configuration/tutorials/slack-mcp-server",
+							"label": "Slack MCP Server"
+						},
+						{
+							"type": "doc",
+							"id": "configuration/tutorials/vercel-mcp-server",
+							"label": "Vercel MCP Server"
+						}
+					]
 				},
 				{
 					"type": "doc",
