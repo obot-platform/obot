@@ -37,12 +37,13 @@ const (
 )
 
 type listedModel struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	NormalizedName string `json:"normalized_name"`
-	ContextLength  int    `json:"context_length"`
-	MaxOutput      int    `json:"max_output_tokens"`
-	OwnedBy        string `json:"owned_by"`
+	ID             string  `json:"id"`
+	Alias          *string `json:"alias,omitempty"`
+	Name           string  `json:"name"`
+	NormalizedName string  `json:"normalized_name"`
+	ContextLength  int     `json:"context_length"`
+	MaxOutput      int     `json:"max_output_tokens"`
+	OwnedBy        string  `json:"owned_by"`
 	Architecture   *struct {
 		Modality         string   `json:"modality"`
 		InputModalities  []string `json:"input_modalities"`
@@ -114,7 +115,12 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 	// A failed or empty listing may reuse cached entries. Recheck lifecycle
 	// metadata so that fallback cannot resurrect a now-unavailable model.
 	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool {
-		return e.modelIsUnavailable(model.ID)
+		if e.modelIsUnavailable(model.ID) {
+			return true
+		}
+		// Alias targets use the same provider namespace as the listed ID.
+		provider, _, qualified := strings.Cut(model.ID, "/")
+		return qualified && model.Alias != nil && e.modelIsUnavailable(provider+"/"+*model.Alias)
 	})
 
 	result := &openai.ModelsList{Models: make([]openai.Model, 0, len(resp.Data))}

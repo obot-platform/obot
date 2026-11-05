@@ -112,3 +112,45 @@ func TestBedrockDiscoveryOmitsUnavailableModels(t *testing.T) {
 		})
 	}
 }
+
+func TestCachedAliasesOmitDeprecatedTargets(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	path, _ := modeldata.Paths(e.opts.DataDir)
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"old-chat":{"provider":"openai","mode":"chat"},
+		"current":{"provider":"openai","mode":"chat"}
+	}`), 0600))
+	require.NoError(t, e.prices.ForceReloadPricing(ctx))
+	var empty atomic.Bool
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		models := []map[string]string{}
+		if !empty.Load() {
+			models = append(models, map[string]string{"id": "old-chat"}, map[string]string{"id": "current"})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": models})
+	}))
+	t.Cleanup(up.Close)
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+		"provider":       "openai",
+		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
+	}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+		"name": "test", "value": "secret",
+		"aliases": map[string]any{"friendly": map[string]any{"model_id": "old-chat"}},
+	}))))
+	models, err := e.ListModels(ctx)
+	require.NoError(t, err)
+	require.Len(t, models.Models, 3)
+
+	// An empty live listing reuses cached models after the target's pricing metadata changes.
+	empty.Store(true)
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"old-chat":{"provider":"openai","mode":"chat","is_deprecated":true},
+		"current":{"provider":"openai","mode":"chat"}
+	}`), 0600))
+	require.NoError(t, e.prices.ForceReloadPricing(ctx))
+	models, err = e.ListModels(ctx)
+	require.NoError(t, err)
+	require.Len(t, models.Models, 1, "neither the deprecated target nor its cached alias may return")
+	require.Equal(t, "openai/current", models.Models[0].ID, "available cached models remain discoverable")
+}
