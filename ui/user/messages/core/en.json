@@ -176,6 +176,7 @@
 	"core_select_date": "Select date",
 	"core_select_date_range": "Select date range",
 	"core_select_export_time_range": "Select Export Time Range",
+	"core_select_more_options": "{count} more — type to narrow the results",
 	"core_select_summary_more": "{first}, {second}, and {count} more",
 	"core_select_time": "Select time",
 	"core_show_all_items": "Show All Items",

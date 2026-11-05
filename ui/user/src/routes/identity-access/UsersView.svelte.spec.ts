@@ -195,6 +195,47 @@ describe('UsersView', () => {
 		await expect.element(userRow(activeUser.email)).not.toBeInTheDocument();
 	});
 
+	describe('pagination', () => {
+		// Users are listed newest first, so user N, created N minutes in, is on the first page.
+		function manyUsers(count: number) {
+			return Array.from({ length: count }, (_, i) =>
+				orgUser({
+					id: `${i + 1}`,
+					email: `user${i + 1}@example.com`,
+					created: new Date(Date.UTC(2026, 0, 1, 0, i + 1)).toISOString()
+				})
+			);
+		}
+
+		it('lists users a page at a time, with the number of users', async () => {
+			await renderUsersView(manyUsers(120));
+
+			await expect.element(page.getByText('1 of 3 · 120 users')).toBeVisible();
+			await expect.element(userRow('user120@example.com')).toBeVisible();
+			await expect.element(userRow('user70@example.com')).not.toBeInTheDocument();
+
+			await page.getByRole('button', { name: /Next/ }).click();
+
+			await expect.element(page.getByText('2 of 3 · 120 users')).toBeVisible();
+			await expect.element(userRow('user70@example.com')).toBeVisible();
+			await expect.element(userRow('user120@example.com')).not.toBeInTheDocument();
+		});
+
+		it('returns to the first page when the search changes', async () => {
+			await renderUsersView(manyUsers(200));
+
+			await page.getByRole('button', { name: /Next/ }).click();
+			await page.getByRole('button', { name: /Next/ }).click();
+			await expect.element(page.getByText('3 of 4 · 200 users')).toBeVisible();
+
+			// user1, user10-19, and user100-199 match.
+			await page.getByPlaceholder('Search by name or email...').fill('user1');
+
+			await expect.element(page.getByText('1 of 3 · 111 users')).toBeVisible();
+			await expect.element(userRow('user199@example.com')).toBeVisible();
+		});
+	});
+
 	it('does not offer to delete a user whom the identity provider still provisions', async () => {
 		await renderUsersView([provisionedUser, deactivatedUser, activeUser]);
 

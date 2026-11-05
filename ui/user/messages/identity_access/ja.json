@@ -477,6 +477,8 @@
 	"identity_access_users_confirm_auditor_title": "監査担当者ロールの確認",
 	"identity_access_users_confirm_enable": "有効化の確認",
 	"identity_access_users_confirm_handoff": "引き継ぎの確認",
+	"identity_access_users_count_one": "{count} 人のユーザー",
+	"identity_access_users_count_other": "{count} 人のユーザー",
 	"identity_access_users_delete_user": "ユーザーを削除",
 	"identity_access_users_delete_user_confirm": "ユーザー {email} を削除しますか？",
 	"identity_access_users_enable": "ユーザーを有効にする",

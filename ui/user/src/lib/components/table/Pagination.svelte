@@ -36,8 +36,10 @@
 		{m.core_previous()}
 	</button>
 	<p class="text-muted-content text-xs">
-		{m.core_page_of({ page: pageIndex + 1, total: lastPageIndex + 1 })}{#if itemCountLabel}
-			· {itemCountLabel(total)}{/if}
+		{m.core_page_of({
+			page: pageIndex + 1,
+			total: lastPageIndex + 1
+		})}{#if itemCountLabel}&nbsp;· {itemCountLabel(total)}{/if}
 	</p>
 	<button
 		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"

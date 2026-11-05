@@ -41,6 +41,9 @@
 		disablePortal
 	}: Props = $props();
 
+	// A column can have a distinct value for every row, e.g. thousands of user emails.
+	const MAX_FILTER_OPTIONS = 100;
+
 	let query = $state('');
 	let selectedFilterValues = $derived<string[]>(
 		presetFilters?.map((d) => d.toString()).filter(Boolean) ?? []
@@ -164,6 +167,7 @@
 				multiple
 				selected={selectedFilterValues.join(',')}
 				searchInDropdown
+				maxRenderedOptions={MAX_FILTER_OPTIONS}
 				placeholder={m.core_filter_by_placeholder({ name: headerTitle ?? property })}
 			/>
 		</div>

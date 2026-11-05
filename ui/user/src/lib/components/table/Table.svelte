@@ -4,17 +4,11 @@
 	import { m } from '$lib/i18n';
 	import DotDotDot from '../DotDotDot.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
+	import Pagination from './Pagination.svelte';
 	import TableColumnFilter from './TableColumnFilter.svelte';
 	import TableHeader from './TableHeader.svelte';
-	import { calculateStickyTop } from './stickyOffset';
-	import {
-		ChevronDown,
-		ChevronsLeft,
-		ChevronsRight,
-		Square,
-		SquareCheck,
-		SquareMinus
-	} from '@lucide/svelte';
+	import { calculateStickyTop, findScrollContainer } from './stickyOffset';
+	import { ChevronDown, Square, SquareCheck, SquareMinus } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
@@ -23,6 +17,9 @@
 	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
 
 	const ACTIONS_MIN_WIDTH = 80;
+	// Orders like String.prototype.localeCompare, which builds a collator on every call and is
+	// slow when sorting thousands of rows.
+	const collator = new Intl.Collator();
 
 	interface Props<T> {
 		actions?: Snippet<[T]>;
@@ -51,6 +48,8 @@
 		setRowClasses?: (row: T) => string;
 		noDataMessage?: string;
 		pageSize?: number;
+		/** Formats the row count shown in the pager, e.g. `(n) => m.devices_count({ count: n })`. */
+		pageItemCountLabel?: (count: number) => string;
 		sortable?: string[];
 		filterable?: string[];
 		filters?: Record<string, (string | number)[]>;
@@ -88,6 +87,7 @@
 		onRenderSubrowContent,
 		onSort,
 		pageSize,
+		pageItemCountLabel,
 		noDataMessage = m.core_no_data(),
 		setRowClasses,
 		sortable,
@@ -107,17 +107,6 @@
 	}: Props<T> = $props();
 
 	let page = $state(0);
-	let total = $derived(data.length);
-
-	// Keep page within bounds when total shrinks.
-	$effect(() => {
-		if (pageSize && total > 0) {
-			const maxPage = Math.max(0, Math.ceil(total / pageSize) - 1);
-			if (page > maxPage) page = maxPage;
-		} else if (page !== 0) {
-			page = 0;
-		}
-	});
 
 	let sortableFields = $derived(new Set(sortable));
 	let filterableFields = $derived(new Set(filterable));
@@ -194,6 +183,10 @@
 		let updatedTableData = data;
 
 		if (sortedBy && (!manualSorting || sortedBy.property === 'selectable')) {
+			// A sort compares each row many times, so parse each timestamp once.
+			const times: Record<string, number> = {};
+			const time = (value: unknown) =>
+				(times[String(value)] ??= new Date(value as string).getTime());
 			updatedTableData = [...data].sort((a, b) => {
 				if (tableSelectActions && validateSelect && sortedBy?.property === 'selectable') {
 					const aSelectable = validateSelect(a);
@@ -215,11 +208,9 @@
 				if (bValue == null) return sortedBy!.order === 'asc' ? -1 : 1;
 
 				if (sortedBy?.property === 'created') {
-					const aDate = new Date(aValue as string);
-					const bDate = new Date(bValue as string);
 					return sortedBy!.order === 'asc'
-						? aDate.getTime() - bDate.getTime()
-						: bDate.getTime() - aDate.getTime();
+						? time(aValue) - time(bValue)
+						: time(bValue) - time(aValue);
 				}
 
 				if (Array.isArray(aValue) && Array.isArray(bValue)) {
@@ -234,8 +225,8 @@
 
 				if (typeof aValue === 'string' && typeof bValue === 'string') {
 					return sortedBy!.order === 'asc'
-						? aValue.localeCompare(bValue)
-						: bValue.localeCompare(aValue);
+						? collator.compare(aValue, bValue)
+						: collator.compare(bValue, aValue);
 				}
 
 				if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
@@ -244,7 +235,7 @@
 						const firstFieldA = a[fields[0] as keyof T];
 						const firstFieldB = b[fields[0] as keyof T];
 						if (typeof firstFieldA === 'string' && typeof firstFieldB === 'string') {
-							return firstFieldA.localeCompare(firstFieldB);
+							return collator.compare(firstFieldA, firstFieldB);
 						}
 					}
 					return sortedBy!.order === 'asc' ? (aValue ? 1 : -1) : bValue ? 1 : -1;
@@ -275,6 +266,32 @@
 		return updatedTableData;
 	});
 
+	// The pager counts the rows left after the column filters, which are the rows it pages through.
+	let total = $derived(tableData.length);
+	let lastPageIndex = $derived(pageSize ? Math.max(0, Math.ceil(total / pageSize) - 1) : 0);
+
+	// Keep page within bounds when total shrinks.
+	$effect(() => {
+		if (page > lastPageIndex) page = lastPageIndex;
+	});
+
+	/** Returns to the first page, e.g. when a search outside the table changes its rows. */
+	export function firstPage() {
+		page = 0;
+	}
+
+	function changePage(index: number) {
+		page = index;
+		// The pager sits below the rows, so bring the top of the new page into view: below the
+		// sticky chrome (e.g. the Layout navbar) that covers the top stickyTop pixels of the scroll
+		// container. The wrapper's scroll-margin-top keeps scrollIntoView from putting it under that.
+		if (!wrapperRef) return;
+		const containerTop = findScrollContainer(wrapperRef)?.getBoundingClientRect().top ?? 0;
+		if (wrapperRef.getBoundingClientRect().top - containerTop < stickyTop) {
+			wrapperRef.scrollIntoView({ block: 'start' });
+		}
+	}
+
 	function handleSort(property: string) {
 		if (!sortable?.includes(property)) return;
 		if (!sortedBy || sortedBy.property !== property) {
@@ -284,6 +301,7 @@
 		}
 
 		sortedBy = { ...sortedBy };
+		page = 0;
 
 		onSort?.(property, sortedBy.order);
 	}
@@ -299,6 +317,7 @@
 				[property]: values
 			};
 		}
+		page = 0;
 
 		onFilter?.(property, values);
 	}
@@ -580,7 +599,7 @@
 	});
 </script>
 
-<div bind:this={wrapperRef} data-table-root>
+<div bind:this={wrapperRef} data-table-root style="scroll-margin-top: {stickyTop}px;">
 	<div
 		class={twMerge('dark:bg-base-200 bg-base-300 sticky left-0 z-40 w-full', classes?.thead)}
 		style="top: {stickyTop}px;"
@@ -736,30 +755,14 @@
 	</div>
 {/if}
 
-{#if pageSize && tableData.length > pageSize}
-	<div class="flex items-center justify-center gap-4">
-		<button
-			class="btn btn-text flex items-center gap-1 text-xs"
-			disabled={page === 0}
-			onclick={() => page--}
-		>
-			<ChevronsLeft class="size-4" />
-			{m.core_previous()}
-		</button>
-
-		<p class="text-muted-content text-xs">
-			{m.core_page_of({ page: page + 1, total: Math.ceil(total / pageSize) })}
-		</p>
-
-		<button
-			class="btn btn-text flex items-center gap-1 text-xs"
-			disabled={page === Math.floor(total / pageSize)}
-			onclick={() => page++}
-		>
-			{m.core_next()}
-			<ChevronsRight class="size-4" />
-		</button>
-	</div>
+{#if pageSize && total > pageSize}
+	<Pagination
+		pageIndex={page}
+		{lastPageIndex}
+		{total}
+		itemCountLabel={pageItemCountLabel}
+		onPageChange={changePage}
+	/>
 {/if}
 
 {#snippet selectAll()}
@@ -803,6 +806,7 @@
 							property: 'selectable',
 							order: 'asc'
 						};
+						page = 0;
 						onSort?.('selectable', 'asc');
 					}}
 				>
@@ -820,6 +824,7 @@
 								selectable: ['true']
 							};
 						}
+						page = 0;
 						onFilter?.('selectable', ['true']);
 					}}
 				>
