@@ -259,8 +259,7 @@
 				{
 					id: 'models',
 					label: m.nav_llm_gateway(),
-					href: '/models',
-					beta: true
+					href: '/models'
 				},
 				...(version.current.engine === 'docker' ||
 				(version.current.engine === 'kubernetes' && version.current.claudeEnvironmentsEnabled)
