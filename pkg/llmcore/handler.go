@@ -24,10 +24,13 @@ const (
 	headerServedProvider = "X-Obot-LLM-Provider"
 	headerServedModel    = "X-Obot-LLM-Model"
 
-	maxRequestBodyBytes         = 100 << 20
-	dialectResponses    dialect = 0
-	dialectMessages     dialect = 1
-	dialectChat         dialect = 2
+	maxRequestBodyBytes = 100 << 20
+)
+
+const (
+	dialectResponses dialect = iota
+	dialectMessages
+	dialectChat
 )
 
 // engineName matches a library error prefix, preserving provider text that merely mentions it.
