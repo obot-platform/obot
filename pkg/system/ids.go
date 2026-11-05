@@ -43,7 +43,6 @@ const (
 
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"
 	ProviderSyncName       = "provider-sync"
-	LLMGatewayConfigName   = "default"
 )
 
 func IsMCPServerID(id string) bool {

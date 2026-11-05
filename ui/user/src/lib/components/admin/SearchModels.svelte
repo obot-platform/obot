@@ -5,8 +5,7 @@
 		type Model,
 		type ModelProvider,
 		ModelAlias,
-		type DefaultModelAlias,
-		matchesModelPattern
+		type DefaultModelAlias
 	} from '$lib/services';
 	import { ModelUsage, ModelUsageLabels, ModelAliasLabels } from '$lib/services/admin/types';
 	import { sortModelProviders } from '$lib/sort';
@@ -71,7 +70,7 @@
 	let patternMatchCount = $derived.by(() => {
 		const opt = patternOption;
 		if (!opt) return 0;
-		return models.filter((candidate) => matchesModelPattern(opt.prefix, candidate.targetModel))
+		return models.filter((candidate) => (candidate.targetModel || '').startsWith(opt.prefix))
 			.length;
 	});
 
@@ -83,11 +82,12 @@
 			if (patternPrefix !== null) {
 				// Preview exactly what the pattern grants: a case-sensitive prefix
 				// match on the provider-native target model, like the backend.
-				return matchesModelPattern(patternPrefix, model.targetModel);
+				return (model.targetModel || '').startsWith(patternPrefix);
 			}
 			const lowerSearch = search.toLowerCase();
-			return [model.displayName, model.name, model.targetModel, model.modelProviderName].some(
-				(text) => (text || '').toLowerCase().includes(lowerSearch)
+			return (
+				(model.displayName || model.name).toLowerCase().includes(lowerSearch) ||
+				(model.modelProviderName || '').toLowerCase().includes(lowerSearch)
 			);
 		})
 	);

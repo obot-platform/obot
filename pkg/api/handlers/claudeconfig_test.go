@@ -7,21 +7,18 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/clauderunner"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -136,44 +133,6 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 			require.NotNil(t, refreshed.RevokedAt, "losing environment access revokes the LLM key")
 		})
 	}
-}
-
-func TestEnvironmentRefreshKeepsLLMKeyWithoutMCPGrants(t *testing.T) {
-	gateway, _ := newHandlerTestGatewayWithDB(t)
-	ctx := t.Context()
-	environment := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
-	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, environment, nil))
-	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, environment))
-	environment.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: environment.ClaudeTagUserID}}}}
-	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, environment, nil))
-	userID, err := strconv.ParseUint(environment.ClaudeTagUserID, 10, 64)
-	require.NoError(t, err)
-	mcp, err := gateway.EnsureClaudeCredential(ctx, uint(userID), "acr-test", []string{"vmcp_removed"}, time.Now().Add(24*time.Hour))
-	require.NoError(t, err)
-	llm, err := gateway.EnsureClaudeLLMCredential(ctx, uint(userID), "acr-test", time.Now().Add(24*time.Hour))
-	require.NoError(t, err)
-
-	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.AgentInstance{
-		Name:      "acr-test",
-		Namespace: "default",
-		Spec: v1.AgentInstanceSpec{
-			ClaudeEnvironment: environment.ID,
-			ClaudeAccount:     clauderunner.ClaudeTagAccount,
-			UserID:            environment.ClaudeTagUserID,
-		},
-	}).Build()
-	require.NoError(t, refreshEnvironmentCredentials(api.Context{
-		Request:       httptest.NewRequest(http.MethodPut, "/", nil),
-		GatewayClient: gateway,
-		Storage:       storage,
-	}, environment))
-
-	_, err = gateway.ValidateAPIKey(ctx, mcp.Secrets["key"])
-	require.ErrorIs(t, err, gclient.ErrInvalidAPIKey)
-	_, err = gateway.RevealCredential(ctx, []string{"substrate-agent"}, "acr-test")
-	require.ErrorIs(t, err, gorm.ErrRecordNotFound, "a future MCP grant can issue a new key")
-	_, err = gateway.ValidateAPIKey(ctx, llm.Secrets["key"])
-	require.NoError(t, err, "MCP grant changes must not revoke LLM access")
 }
 
 func TestEnvironmentIgnoresWorkerSchedulingOverrides(t *testing.T) {

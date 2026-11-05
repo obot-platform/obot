@@ -350,8 +350,8 @@ func mcpTesterStorage(t *testing.T, server *v1.MCPServer, active bool) kclient.C
 		Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{
 			Manifest: types.ModelManifest{
-				TargetModel:   "openai/provider-model",
-				ModelProvider: system.LLMGatewayModelProvider,
+				TargetModel:   "provider-model",
+				ModelProvider: system.OpenAIModelProvider,
 				Active:        active,
 				Usage:         types.ModelUsageLLM,
 				Dialect:       string(llmtypes.DialectOpenAIResponses),

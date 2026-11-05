@@ -655,7 +655,7 @@ func sanitizedMCPHeaders(headers http.Header) http.Header {
 	result := make(http.Header, len(headers))
 	for key, values := range headers {
 		switch http.CanonicalHeaderKey(key) {
-		case "Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "X-Auth-Token", "Proxy-Authorization", "X-Obot-Api-Key":
+		case "Authorization", "Cookie", "Set-Cookie", "X-Api-Key", "X-Auth-Token", "Proxy-Authorization":
 			result[key] = []string{"[REDACTED]"}
 		default:
 			result[key] = slices.Clone(values)

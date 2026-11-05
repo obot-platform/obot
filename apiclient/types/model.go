@@ -5,8 +5,6 @@ const (
 
 	ModelUsageLLM       ModelUsage = "llm"
 	ModelUsageEmbedding ModelUsage = "text-embedding"
-	ModelUsageImage     ModelUsage = "image-generation"
-	ModelUsageOther     ModelUsage = "other"
 )
 
 type Model struct {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -50,8 +49,6 @@ type CredentialProvider struct {
 	pb.UnimplementedCredentialProviderServer
 	Storage kclient.Reader
 	Gateway *client.Client
-	// ObotURL is the Obot URL actors reach Obot at.
-	ObotURL string
 }
 
 func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSecretRequest) (*pb.FetchSecretResponse, error) {
@@ -86,8 +83,7 @@ func (p *CredentialProvider) FetchSecret(ctx context.Context, input *pb.FetchSec
 func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSecretRequest, issue bool) (*pb.FetchSecretResponse, error) {
 	name, ok := strings.CutPrefix(input.GetUri(), "ate-secret://obot/claude/")
 	name, secretID, hasSecret := strings.Cut(name, "/")
-	llm := hasSecret && secretID == "llm"
-	if !ok || (hasSecret && !llm && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
+	if !ok || (hasSecret && (!strings.HasPrefix(secretID, "ces-") || strings.ContainsAny(secretID, "/%?#"))) || !strings.HasPrefix(name, "acr-") || strings.ContainsAny(name, "/%?#") {
 		return nil, status.Error(codes.PermissionDenied, "Invalid credential reference")
 	}
 
@@ -104,14 +100,6 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 		return nil, status.Error(codes.PermissionDenied, "Claude session is not active for this actor")
 	}
 
-	if llm {
-		// The session's runtime records whether its environment enabled the LLM proxy.
-		var runtime gt.ClaudeRuntime
-		if err := json.Unmarshal([]byte(inst.Spec.ClaudeRuntime), &runtime); err != nil || !runtime.LLMProxy {
-			return nil, status.Error(codes.PermissionDenied, "The LLM proxy is not enabled for this Claude session")
-		}
-	}
-
 	environment, err := clauderunner.AuthorizedEnvironment(ctx, p.Gateway, inst.Spec.ClaudeEnvironment, inst.Spec.ClaudeAccount, inst.Spec.UserID)
 	if clauderunner.AccessDenied(err) {
 		return nil, status.Error(codes.PermissionDenied, "Claude environment access has been removed")
@@ -124,13 +112,6 @@ func (p *CredentialProvider) fetchSecret(ctx context.Context, input *pb.FetchSec
 		return nil, err
 	}
 	expires := time.Now().Add(5 * time.Minute)
-	if llm {
-		return sessionKey(issue, func() (gt.Credential, bool, error) {
-			return p.Gateway.CurrentClaudeLLMCredential(ctx, uint(userID), inst.Name, expires)
-		}, func() (gt.Credential, error) {
-			return p.Gateway.EnsureClaudeLLMCredential(ctx, uint(userID), inst.Name, expires)
-		})
-	}
 	if hasSecret {
 		for _, secret := range environment.EgressSecrets {
 			if secret.ID == secretID && clauderunner.EgressHostAllowed(environment.Runtime, secret.Hostname) {

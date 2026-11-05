@@ -1,8 +1,19 @@
-import { profileUrl } from '$lib/services/llm-gateway/profiles';
+import { handleRouteError } from '$lib/errors';
+import { AdminService } from '$lib/services';
+import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 
-// Model access policies are LLM gateway profiles now.
-export const load: PageLoad = ({ params }) => {
-	throw redirect(307, profileUrl(params.id));
+export const load: PageLoad = async ({ params, fetch }) => {
+	const { id } = params;
+
+	let modelAccessPolicy;
+	try {
+		modelAccessPolicy = await AdminService.getModelAccessPolicy(id, { fetch });
+	} catch (err) {
+		handleRouteError(err, `/models/access-policies/${id}`, profile.current);
+	}
+
+	return {
+		modelAccessPolicy
+	};
 };

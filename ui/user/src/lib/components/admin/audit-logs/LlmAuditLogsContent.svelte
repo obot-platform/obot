@@ -50,11 +50,11 @@
 		'user_id',
 		'client_session_id',
 		'hide_models_requests',
+		'message_policy_triggered',
 		'model_provider',
 		'outcome',
 		'request_path',
 		'response_status',
-		'served_provider',
 		'target_model',
 		'user_agent'
 	];
@@ -279,7 +279,6 @@
 		if (_key === 'outcome') return m.audit_usage_audit_logs_outcome();
 		if (_key === 'api_key_id') return m.audit_usage_audit_logs_filter_api_key();
 		if (_key === 'request_path') return m.audit_usage_audit_logs_model_filter_path();
-		if (_key === 'served_provider') return m.audit_usage_audit_logs_model_filter_served_provider();
 		if (_key === 'response_status') return m.core_status();
 		if (_key === 'user_id') return m.core_col_user();
 		if (_key === 'user_agent') return m.audit_usage_audit_logs_user_agent();
@@ -287,6 +286,8 @@
 			return m.audit_usage_audit_logs_model_filter_client_session_id();
 		if (_key === 'hide_models_requests')
 			return m.audit_usage_audit_logs_model_filter_model_discovery();
+		if (_key === 'message_policy_triggered')
+			return m.audit_usage_exports_filter_title_message_policy_action();
 
 		return key.replace(/_(\w)/g, ' $1');
 	}
@@ -300,6 +301,11 @@
 		}
 		if (label === 'user_id') {
 			return withDisabledMarker(getUserDisplayName(usersMap, value + ''), usersMap.get(value + ''));
+		}
+		if (label === 'message_policy_triggered') {
+			return value === 'true'
+				? m.audit_usage_exports_triggered()
+				: m.audit_usage_exports_not_triggered();
 		}
 		if (label === 'hide_models_requests')
 			return value === 'true'
@@ -497,7 +503,11 @@
 					? value === 'true'
 						? m.audit_usage_audit_logs_model_hidden()
 						: m.audit_usage_audit_logs_model_shown()
-					: value}
+					: key === 'message_policy_triggered'
+						? value === 'true'
+							? m.audit_usage_exports_triggered()
+							: m.audit_usage_exports_not_triggered()
+						: value}
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,

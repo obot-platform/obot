@@ -378,7 +378,7 @@
 									<p class="max-w-md text-sm font-light">
 										{m.mcps_tester_own_provider_prefix()}<a
 											class="text-link"
-											href={resolve('/models?view=providers')}
+											href={resolve('/models?view=model-providers')}
 											>{m.mcps_tester_own_provider_link()}</a
 										>{m.mcps_tester_own_provider_suffix()}
 									</p>

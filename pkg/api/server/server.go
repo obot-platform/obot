@@ -26,7 +26,6 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/license"
-	"github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/scim"
@@ -198,14 +197,6 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 		// SCIM clients understand only SCIM responses, so every failure on a SCIM route is written as one.
 		isSCIM := scim.IsSCIMPath(req.URL.Path)
-		// LLM API clients and SDKs understand errors in their API's format, so every failure on the
-		// LLM proxy is written in the format of the request.
-		httpError := http.Error
-		if llm.IsProxyPath(req.URL.Path) {
-			httpError = func(w http.ResponseWriter, message string, code int) {
-				llm.WriteError(w, req, message, code)
-			}
-		}
 
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
@@ -230,7 +221,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
 			if fetchGroupsErr, ok := authenticationError[*gclient.FetchUserGroupsError](err); ok {
-				httpError(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", fetchGroupsErr.Message), http.StatusInternalServerError)
+				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", fetchGroupsErr.Message), http.StatusInternalServerError)
 			} else if denied, ok := authenticationError[*gclient.UserAccessDeniedError](err); ok {
 				// End the browser session, so that the login page is reachable and can say why.
 				http.SetCookie(rw, &http.Cookie{
@@ -253,12 +244,12 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					return
 				}
 				httpErr := denied.HTTPError()
-				httpError(rw, httpErr.Message, httpErr.Code)
+				http.Error(rw, httpErr.Message, httpErr.Code)
 			} else if lookupErr, ok := authenticationError[*gclient.UserAccessLookupError](err); ok {
 				slog.Error("Denied request because the user's status could not be checked", "userID", lookupErr.UserID, "error", lookupErr.Err)
-				httpError(rw, "Unable to verify account status. Please try again.", http.StatusServiceUnavailable)
+				http.Error(rw, "Unable to verify account status. Please try again.", http.StatusServiceUnavailable)
 			} else {
-				httpError(rw, err.Error(), http.StatusUnauthorized)
+				http.Error(rw, err.Error(), http.StatusUnauthorized)
 			}
 
 			return
@@ -275,7 +266,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					if isSCIM {
 						scim.WriteError(rw, http.StatusTooManyRequests, err.Error())
 					} else {
-						httpError(rw, err.Error(), http.StatusTooManyRequests)
+						http.Error(rw, err.Error(), http.StatusTooManyRequests)
 					}
 					return
 				}
@@ -325,7 +316,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		// rejected probes stay auditable and a cookie refresh is not lost to a blocked operation.
 		if cmp.Or(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req, s.devUI) {
 			if req.Pattern != "/" {
-				httpError(rw, "password change required", http.StatusForbidden)
+				http.Error(rw, "password change required", http.StatusForbidden)
 			} else {
 				rd := req.URL.RequestURI()
 				http.Redirect(rw, req, "/change-password?rd="+url.QueryEscape(rd), http.StatusSeeOther)
@@ -359,9 +350,9 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				case isSCIM:
 					scim.WriteUnauthorized(rw)
 				case authenticated:
-					httpError(rw, "forbidden", http.StatusForbidden)
+					http.Error(rw, "forbidden", http.StatusForbidden)
 				default:
-					httpError(rw, "unauthorized", http.StatusUnauthorized)
+					http.Error(rw, "unauthorized", http.StatusUnauthorized)
 				}
 
 				return
@@ -384,7 +375,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				ObotNamespace:  s.obotNamespace,
 			})
 		}
-		writeError := httpError
+		writeError := http.Error
 		if isSCIM {
 			writeError = func(w http.ResponseWriter, message string, code int) {
 				scim.WriteError(w, code, message)

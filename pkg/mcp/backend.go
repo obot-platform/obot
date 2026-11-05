@@ -261,10 +261,6 @@ func ServerHookConfig(server ServerConfig) (Hooks, HookServerConfigs) {
 	hooks := hookDefinitions(server.Webhooks, replacer)
 	servers := make(HookServerConfigs, len(server.Webhooks))
 	for _, webhook := range server.Webhooks {
-		if webhook.Guardrail != nil {
-			// Guardrail filters run in-process and have no server.
-			continue
-		}
 		servers[webhookServerName(webhook, replacer)] = ServerConfig{
 			Runtime:              types.RuntimeRemote,
 			URL:                  webhook.URL,
@@ -423,25 +419,12 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 	definitions := make(Hooks, 0, len(webhooks))
 	for _, webhook := range webhooks {
 		webhookName := webhookServerName(webhook, replacer)
-		target := HookTarget{
-			Target:           webhookName + "/" + webhook.ToolName,
-			MutateDisallowed: !webhook.MutateAllowed,
-			Name:             webhook.DisplayName,
-		}
-		if webhook.Guardrail != nil {
-			// A guardrail filter's action, not allowedToMutate, decides whether it may
-			// change messages: redaction is its mutation.
-			target = HookTarget{
-				Target:    webhookName,
-				Name:      webhook.DisplayName,
-				Guardrail: &GuardrailTarget{FilterName: webhook.Name, Config: *webhook.Guardrail.DeepCopy()},
-			}
-		}
+		targetName := webhookName + "/" + webhook.ToolName
 
 		if len(webhook.Definitions) == 0 {
 			definitions = append(definitions, HookMapping{
 				Name:    "*",
-				Targets: []HookTarget{target},
+				Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
 			})
 			continue
 		}
@@ -454,7 +437,7 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 			if len(def.Identifiers) == 0 {
 				definitions = append(definitions, HookMapping{
 					Name:    method,
-					Targets: []HookTarget{target},
+					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
 				})
 			}
 			for _, id := range def.Identifiers {
@@ -465,7 +448,7 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 				definitions = append(definitions, HookMapping{
 					Name:    method,
 					Params:  params,
-					Targets: []HookTarget{target},
+					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
 				})
 			}
 		}

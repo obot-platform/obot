@@ -8,8 +8,7 @@ const referenceLabels: Record<GroupReference['kind'], () => string> = {
 	messagePolicy: m.identity_access_scim_ref_message_policy,
 	hostedAgentAccessRule: m.identity_access_scim_ref_hosted_agent_access_rule,
 	groupRoleAssignment: m.identity_access_scim_ref_group_role,
-	vmcpProfile: m.identity_access_scim_ref_vmcp,
-	mcpGuardrailFilter: m.identity_access_scim_ref_mcp_guardrail_filter
+	vmcpProfile: m.identity_access_scim_ref_vmcp
 };
 
 // describeGroupReference names what references a group, such as a policy that grants the group access.

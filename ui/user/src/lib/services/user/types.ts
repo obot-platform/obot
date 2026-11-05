@@ -401,7 +401,6 @@ export type ClaudeRuntime = {
 	image: string;
 	workerImage: string;
 	allowAllEgress?: boolean;
-	llmProxy?: boolean;
 	egressHosts: string[];
 	worker: {
 		workerReplicas: number;
@@ -1000,6 +999,9 @@ export interface ModelProvider {
 	dialect?: string;
 	type: 'modelprovider';
 }
+export interface ModelProviderList {
+	items: ModelProvider[];
+}
 export interface Model {
 	id: string;
 	active: boolean;
@@ -1182,6 +1184,7 @@ export interface Version {
 	engine?: 'docker' | 'kubernetes' | 'local';
 	mcpNetworkPolicyEnabled?: boolean;
 	mcpDefaultDenyAllEgress?: boolean;
+	messagePoliciesEnabled?: boolean;
 	claudeEnvironmentsEnabled?: boolean;
 	hideK8sDetails?: boolean;
 	disableLegacyChat?: boolean;

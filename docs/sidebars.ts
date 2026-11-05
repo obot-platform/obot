@@ -153,8 +153,8 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
-					"id": "functionality/guardrails",
-					"label": "Guardrails"
+					"id": "functionality/ai-judge-policies",
+					"label": "AI Judge Policies"
 				},
 				{
 					"type": "doc",
@@ -165,11 +165,6 @@ const sidebars = {
 					"type": "doc",
 					"id": "llm-gateway/compatibility",
 					"label": "API compatibility"
-				},
-				{
-					"type": "doc",
-					"id": "llm-gateway/upgrade",
-					"label": "Upgrading from model providers"
 				},
 				{
 					"type": "doc",

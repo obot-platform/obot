@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -31,17 +32,17 @@ const (
 )
 
 type llmAuditRecorder struct {
-	once sync.Once
-	log  types.LLMAuditLog
-	// guardrailFindings, when set, returns what the LLM gateway's guardrails did to the
-	// request. It is read when the entry is written, once the response has been delivered.
-	guardrailFindings func() []apitypes.LLMAuditGuardrailFinding
-	// route, when set, returns how the LLM gateway served the request. It is read when the
-	// entry is written.
-	route                 func() llmRoute
+	once                  sync.Once
+	log                   types.LLMAuditLog
 	responseStream        bytes.Buffer
 	responseCaptureLimit  int
 	responseCaptureFilled bool
+}
+
+type llmAuditResponseBody struct {
+	body   io.ReadCloser
+	audit  *llmAuditRecorder
+	client *client.Client
 }
 
 func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit int) *llmAuditRecorder {
@@ -95,6 +96,14 @@ func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	r.log.RequestBody = body
 }
 
+func (r *llmAuditRecorder) setPolicyModifiedRequestBody(body []byte) {
+	if r == nil {
+		return
+	}
+	r.log.PolicyModifiedRequestBody = body
+	r.log.MessagePolicyTriggered = len(body) > 0
+}
+
 func (r *llmAuditRecorder) setClientSessionID(dialect llmtypes.Dialect, headers http.Header, body []byte) {
 	if r == nil {
 		return
@@ -107,20 +116,6 @@ func (r *llmAuditRecorder) setReasoningEffort(modelProvider string, body []byte)
 		return
 	}
 	r.log.ReasoningEffort = extractLLMReasoningEffort(modelProvider, body)
-}
-
-func (r *llmAuditRecorder) setGuardrailFindings(findings func() []apitypes.LLMAuditGuardrailFinding) {
-	if r == nil {
-		return
-	}
-	r.guardrailFindings = findings
-}
-
-func (r *llmAuditRecorder) setRoute(route func() llmRoute) {
-	if r == nil {
-		return
-	}
-	r.route = route
 }
 
 func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
@@ -163,10 +158,6 @@ func (r *llmAuditRecorder) setTokenUsage(usage types.TokenUsage) {
 	}
 	r.log.InputTokens = usage.InputTokens
 	r.log.OutputTokens = usage.OutputTokens
-	r.log.CacheReadTokens = usage.CacheReadTokens
-	r.log.CacheWriteTokens = usage.CacheWriteTokens
-	r.log.ReasoningTokens = usage.ThinkingTokens
-	r.log.Spend = usage.TotalSpend
 }
 
 func (r *llmAuditRecorder) finish(c *client.Client, err error) {
@@ -176,17 +167,6 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 	r.once.Do(func() {
 		r.log.Duration = time.Since(r.log.CreatedAt).Milliseconds()
 		r.setOutcomeAndResponseStatus(err)
-		if r.guardrailFindings != nil {
-			r.log.GuardrailFindings = r.guardrailFindings()
-		}
-		if r.route != nil {
-			route := r.route()
-			r.log.ServedProvider = route.Provider
-			r.log.ServedModel = route.Model
-			r.log.ProviderKey = route.Key
-			r.log.Fallback = route.Fallback
-			r.log.ClaudeSubscription = route.Subscription
-		}
 		c.LogLLMAuditEntry(r.log, r.responseStream.Bytes())
 	})
 }
@@ -195,34 +175,49 @@ func (r *llmAuditRecorder) setOutcomeAndResponseStatus(err error) {
 	if r == nil {
 		return
 	}
-	r.log.Outcome, r.log.Error, r.log.ResponseStatus = llmOutcome(r.log.ResponseStatus, err)
-}
+	r.log.Outcome = types.LLMAuditOutcomeSuccess
+	r.log.Error = ""
 
-// llmOutcome is the outcome of an LLM request (success, error or canceled), given the status
-// of its response, if it got one, and why it failed, if it did. It also returns the error
-// message and the response status, which comes from the error when there was no response.
-func llmOutcome(status int, err error) (outcome, message string, responseStatus int) {
-	outcome, responseStatus = types.LLMAuditOutcomeSuccess, status
-	if status >= http.StatusBadRequest {
-		outcome = types.LLMAuditOutcomeError
+	if r.log.ResponseStatus >= http.StatusBadRequest {
+		r.log.Outcome = types.LLMAuditOutcomeError
 	}
+
 	if err == nil {
-		return outcome, "", responseStatus
+		return
 	}
-	message, outcome = err.Error(), types.LLMAuditOutcomeError
+	r.log.Error = err.Error()
+	r.log.Outcome = types.LLMAuditOutcomeError
 	if errors.Is(err, context.Canceled) {
-		outcome = types.LLMAuditOutcomeCanceled
+		r.log.Outcome = types.LLMAuditOutcomeCanceled
 	}
-	if responseStatus == 0 {
+
+	if r.log.ResponseStatus == 0 {
 		if errHTTP := (*apitypes.ErrHTTP)(nil); errors.As(err, &errHTTP) {
-			responseStatus = errHTTP.Code
+			r.log.ResponseStatus = errHTTP.Code
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
-			responseStatus = int(errStatus.ErrStatus.Code)
+			r.log.ResponseStatus = int(errStatus.ErrStatus.Code)
 		} else {
-			responseStatus = http.StatusInternalServerError
+			r.log.ResponseStatus = http.StatusInternalServerError
+		}
+
+		if r.log.ResponseStatus >= http.StatusBadRequest && r.log.Outcome != types.LLMAuditOutcomeCanceled {
+			r.log.Outcome = types.LLMAuditOutcomeError
 		}
 	}
-	return outcome, message, responseStatus
+}
+
+func (r *llmAuditResponseBody) Read(p []byte) (int, error) {
+	n, err := r.body.Read(p)
+	if n > 0 {
+		r.audit.captureResponseChunk(p[:n])
+	}
+	return n, err
+}
+
+func (r *llmAuditResponseBody) Close() error {
+	err := r.body.Close()
+	r.audit.finish(r.client, err)
+	return err
 }
 
 func redactedHeaders(headers http.Header) json.RawMessage {
@@ -285,13 +280,9 @@ func extractLLMClientSessionID(dialect llmtypes.Dialect, headers http.Header, bo
 
 func extractLLMReasoningEffort(modelProvider string, body []byte) string {
 	switch modelProvider {
-	case system.LLMGatewayModelProvider:
-		if effort := gjson.GetBytes(body, "reasoning.effort").String(); effort != "" {
-			return effort
-		}
-		if effort := gjson.GetBytes(body, "reasoning_effort").String(); effort != "" {
-			return effort
-		}
+	case system.OpenAIModelProvider:
+		return gjson.GetBytes(body, "reasoning.effort").String()
+	case system.AnthropicModelProvider:
 		return gjson.GetBytes(body, "output_config.effort").String()
 	default:
 		return ""

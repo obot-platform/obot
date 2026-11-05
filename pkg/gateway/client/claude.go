@@ -82,11 +82,6 @@ func (c *Client) EnsureClaudeCredential(ctx context.Context, userID uint, name s
 	return c.ensureClaudeCredential(ctx, "substrate-agent", userID, name, "Claude session "+name, types.APIKeyScopes{MCPServerIDs: servers}, expires)
 }
 
-// EnsureClaudeLLMCredential is EnsureClaudeCredential for the session's LLM proxy key.
-func (c *Client) EnsureClaudeLLMCredential(ctx context.Context, userID uint, name string, expires time.Time) (types.Credential, error) {
-	return c.ensureClaudeCredential(ctx, ClaudeLLMCredentialContext, userID, name, "Claude session LLM "+name, types.APIKeyScopes{CanAccessLLMProxy: true}, expires)
-}
-
 func (c *Client) ensureClaudeCredential(ctx context.Context, credentialContext string, userID uint, name, keyName string, scopes types.APIKeyScopes, expires time.Time) (types.Credential, error) {
 	var credential types.Credential
 	var oldID uint
@@ -174,11 +169,6 @@ func claudeKeyReusable(key types.APIKey, scopes types.APIKeyScopes, expires, now
 // when the key must be issued or rotated, which needs EnsureClaudeCredential and the lock.
 func (c *Client) CurrentClaudeCredential(ctx context.Context, userID uint, name string, servers []string, expires time.Time) (types.Credential, bool, error) {
 	return c.currentClaudeCredential(ctx, "substrate-agent", userID, name, types.APIKeyScopes{MCPServerIDs: servers}, expires)
-}
-
-// CurrentClaudeLLMCredential is CurrentClaudeCredential for the session's LLM proxy key.
-func (c *Client) CurrentClaudeLLMCredential(ctx context.Context, userID uint, name string, expires time.Time) (types.Credential, bool, error) {
-	return c.currentClaudeCredential(ctx, ClaudeLLMCredentialContext, userID, name, types.APIKeyScopes{CanAccessLLMProxy: true}, expires)
 }
 
 func (c *Client) currentClaudeCredential(ctx context.Context, credentialContext string, userID uint, name string, scopes types.APIKeyScopes, expires time.Time) (types.Credential, bool, error) {
