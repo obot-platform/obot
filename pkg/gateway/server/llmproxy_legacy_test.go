@@ -112,7 +112,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	t.Cleanup(up.Close)
 	for name, secrets := range map[string]map[string]string{
 		system.OpenAIModelProvider:           {"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "openai-key"},
-		system.GenericResponsesModelProvider: {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_API_KEY": "generic-key", "OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": up.URL + "/v1"},
+		system.GenericResponsesModelProvider: {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_API_KEY": "generic-key", "OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": "https://93.184.216.34/v1"},
 	} {
 		require.NoError(t, g.UpsertCredential(ctx, gatewaytypes.Credential{Context: name, Name: name, Secrets: secrets}))
 	}

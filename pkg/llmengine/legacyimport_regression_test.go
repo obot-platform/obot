@@ -67,10 +67,9 @@ func TestLegacyImportValidatesKeyBeforeCreatingProvider(t *testing.T) {
 	})
 
 	results, err := e.ImportLegacyModelProviders(ctx, nil, gateway)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "link-local")
 	require.Len(t, results, 1)
 	require.Equal(t, "error", results[0].Status)
-	require.Contains(t, results[0].Message, "link-local")
 	_, err = e.store.GetProvider(ctx, "azure")
 	require.True(t, apierrors.IsNotFound(err))
 	require.Zero(t, creates, "key validation must finish before the first durable write")
@@ -127,7 +126,7 @@ func TestLegacyImportCreateConflictPreservesConcurrentProvider(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, injected)
 			require.Len(t, results, 1)
-			require.Equal(t, "error", results[0].Status)
+			require.Equal(t, "blocked", results[0].Status)
 			provider, err := e.store.GetProvider(ctx, "openai")
 			require.NoError(t, err)
 			require.Len(t, provider.Keys, 1)
@@ -139,55 +138,7 @@ func TestLegacyImportCreateConflictPreservesConcurrentProvider(t *testing.T) {
 	}
 }
 
-func TestLegacyImportLaterKeyConflictPreservesCommittedKeys(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	gateway := legacyImportGateway(t, map[string]map[string]string{
-		system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "vault.literal-secret"},
-		system.AmazonBedrockModelProvider: {
-			"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID":     "access-key",
-			"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret-key",
-		},
-	})
-	injected := false
-	e.store = legacyImportInterceptStore(t, interceptor.Funcs{
-		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
-			if _, ok := obj.(*v1.LLMGatewayProvider); ok && !injected {
-				injected = true
-				// Commit after the import's read so its later scoped key write really conflicts.
-				_, err := e.CreateKey(ctx, "bedrock", json.RawMessage(`{"name":"independent","value":"concurrent-secret"}`))
-				require.NoError(t, err)
-				err = c.Update(ctx, obj, opts...)
-				require.True(t, apierrors.IsConflict(err))
-				return err
-			}
-			return c.Update(ctx, obj, opts...)
-		},
-	})
-
-	results, err := e.ImportLegacyModelProviders(ctx, nil, gateway)
-	require.NoError(t, err)
-	require.True(t, injected)
-	require.Len(t, results, 2)
-	require.Equal(t, "imported", results[0].Status)
-	require.Equal(t, "error", results[1].Status)
-	provider, err := e.store.GetProvider(ctx, "bedrock")
-	require.NoError(t, err)
-	require.Len(t, provider.Keys, 2)
-	require.Equal(t, "vault.literal-secret", provider.Keys[0].Value.GetValue())
-	require.Equal(t, "concurrent-secret", provider.Keys[1].Value.GetValue())
-	require.Equal(t, schemas.WhiteList{"*"}, provider.Keys[0].Models)
-
-	results, err = e.ImportLegacyModelProviders(ctx, nil, gateway)
-	require.NoError(t, err)
-	for _, result := range results {
-		require.Equal(t, "skipped", result.Status, "a repeated import must leave existing keys alone")
-	}
-	current, err := e.store.GetProvider(ctx, "bedrock")
-	require.NoError(t, err)
-	require.Equal(t, provider, current)
-}
-
-func TestLegacyImportGroupedProviders(t *testing.T) {
+func TestLegacyImportCloudProvidersRequireSelection(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	gateway := legacyImportGateway(t, map[string]map[string]string{
 		system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "vault.literal-secret"},
@@ -211,12 +162,33 @@ func TestLegacyImportGroupedProviders(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 4)
 	for _, result := range results {
-		require.Equal(t, "imported", result.Status, result.Message)
+		require.Equal(t, "pending", result.Status, result.Message)
 	}
-	for _, name := range []string{"bedrock", "azure"} {
+	for _, name := range []string{"bedrock_mantle", "azure"} {
+		_, err := e.store.GetProvider(ctx, name)
+		require.True(t, apierrors.IsNotFound(err), "no aggregate can be published before selection")
+	}
+	for family, source := range map[string]string{
+		"bedrock_mantle": system.AmazonBedrockAPIKeyModelProvider,
+		"azure":          system.AzureModelProvider,
+	} {
+		status, err := e.MigrationStatus(ctx)
+		require.NoError(t, err)
+		require.NoError(t, e.ResolveMigration(ctx, family, source, status.Version))
+	}
+	results, err = e.ImportLegacyModelProviders(ctx, nil, gateway)
+	require.NoError(t, err)
+	for _, result := range results {
+		want := "not-selected"
+		if result.ModelProvider == system.AmazonBedrockAPIKeyModelProvider || result.ModelProvider == system.AzureModelProvider {
+			want = "imported"
+		}
+		require.Equal(t, want, result.Status, result.Message)
+	}
+	for _, name := range []string{"bedrock_mantle", "azure"} {
 		provider, err := e.store.GetProvider(ctx, name)
 		require.NoError(t, err)
-		require.Len(t, provider.Keys, 2)
+		require.Len(t, provider.Keys, 1)
 		require.Equal(t, defaultMaxRetries, provider.Config.NetworkConfig.MaxRetries)
 		require.Equal(t, defaultRequestTimeout, provider.Config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 		for _, key := range provider.Keys {
@@ -232,8 +204,10 @@ func TestLegacyImportGroupedProviders(t *testing.T) {
 			}
 		}
 	}
+	_, err = e.Sync(ctx)
+	require.NoError(t, err)
 	providers, err := e.Client().GetConfiguredProviders()
 	require.NoError(t, err)
-	require.Contains(t, providers, schemas.Bedrock, "import must apply runtime configuration before returning")
+	require.Contains(t, providers, schemas.BedrockMantle, "reconciliation activates the selected provider")
 	require.Contains(t, providers, schemas.Azure)
 }

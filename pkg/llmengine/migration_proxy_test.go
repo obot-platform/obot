@@ -153,7 +153,7 @@ func TestMigratedAzureUsesEgressProxyWithoutRestart(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, models)
 	var response map[string]any
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "azure/gpt-4o", "messages": []any{map[string]any{"role": "user", "content": "hello"}}}, &response))
+	require.NoError(t, testInference(t, e, ctx, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "azure/gpt-4o", "messages": []any{map[string]any{"role": "user", "content": "hello"}}}, &response))
 	mu.Lock()
 	defer mu.Unlock()
 	require.Contains(t, paths, "/openai/v1/models")

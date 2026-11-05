@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"maps"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -46,6 +47,7 @@ func (c *failingMigrationCodec) SealGatewayConfig(ctx context.Context, id string
 
 func migrationCredentials(t *testing.T) *gatewayclient.Client {
 	t.Helper()
+	migrationDNS(t)
 	storage, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
 	require.NoError(t, err)
 	db, err := gatewaydb.New(storage.DB.DB, storage.DB.SQLDB, true)
@@ -54,6 +56,13 @@ func migrationCredentials(t *testing.T) *gatewayclient.Client {
 	c := gatewayclient.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = c.Close() })
 	return c
+}
+
+func migrationDNS(t *testing.T) {
+	t.Helper()
+	previous := net.DefaultResolver
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: testKeyDNS}
+	t.Cleanup(func() { net.DefaultResolver = previous })
 }
 func putLegacy(t *testing.T, c *gatewayclient.Client, name string, secrets map[string]string) {
 	t.Helper()
@@ -64,6 +73,7 @@ func azureSecrets(endpoint string) map[string]string {
 }
 
 func TestLegacyAggregateAllProviders(t *testing.T) {
+	migrationDNS(t)
 	for _, tc := range []struct {
 		name     string
 		secrets  map[string]string
@@ -106,7 +116,7 @@ func TestLegacyAggregateAllProviders(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := legacyAggregate(tc.name, tc.secrets)
+			p, err := legacyAggregate(t.Context(), tc.name, tc.secrets)
 			require.NoError(t, err)
 			require.Len(t, p.Keys, 1)
 			require.Equal(t, tc.name, p.Migration.Source)
@@ -133,7 +143,7 @@ func TestLegacyAggregateAllProviders(t *testing.T) {
 			if tc.name == system.GenericResponsesModelProvider {
 				require.Equal(t, "https://example.com/prefix", p.Config.NetworkConfig.BaseURL)
 			}
-			_, err = legacyAggregate(tc.name, map[string]string{})
+			_, err = legacyAggregate(t.Context(), tc.name, map[string]string{})
 			require.Error(t, err)
 		})
 	}
@@ -498,8 +508,8 @@ func TestMigrationDiscoveryRejectsCoreCatalogFallback(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":{"message":"unavailable"}}`))
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "anthropic", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "max_retries": 0}}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/anthropic/keys", map[string]any{"name": "test", "value": "key"}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "anthropic", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "max_retries": 0}}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "test", "value": "key"}))))
 	_, err := e.ListModels(ctx)
 	require.NoError(t, err)
 	require.Empty(t, e.availability.discoveredModels(), "catalog fallback must not count as a successful provider listing")

@@ -38,6 +38,7 @@ const (
 	// providers' keys.
 	legacyAnthropicKey = "e2e-legacy-anthropic-key"
 	legacyGenericKey   = "e2e-legacy-generic-key"
+	legacyGenericURL   = "https://93.184.216.34"
 
 	// fakeProviderDaemon is a provider daemon that serves one model: claude-haiku-4-5, an
 	// undated alias, for the Anthropic provider, gpt-generic for the Generic Responses
@@ -236,7 +237,7 @@ func TestUpgradeFromMain(t *testing.T) {
 	})
 	// The Generic Responses provider's base URL included the API version.
 	legacyGenericID := configureLegacyProvider(t, admin, system.GenericResponsesModelProvider, "gpt-generic", map[string]string{
-		"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": mock.URL + "/v1",
+		"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": legacyGenericURL + "/v1",
 		"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_API_KEY":  legacyGenericKey,
 	})
 
@@ -468,8 +469,8 @@ func TestUpgradeFromMain(t *testing.T) {
 		// The gateway adds the API version to a provider's base URL itself, so the version the
 		// legacy provider's base URL included is left out.
 		resp := admin.Do(t, http.MethodGet, "/api/llm-gateway/admin/providers/generic-responses", nil)
-		if got := gjson.GetBytes(resp.Body, "network_config.base_url").String(); got != mock.URL {
-			t.Errorf("imported Generic Responses base URL %q, want %q: %s", got, mock.URL, resp)
+		if got := gjson.GetBytes(resp.Body, "network_config.base_url").String(); got != legacyGenericURL {
+			t.Errorf("imported Generic Responses base URL %q, want %q: %s", got, legacyGenericURL, resp)
 		}
 	})
 
@@ -542,11 +543,11 @@ func TestUpgradeFromMain(t *testing.T) {
 
 	t.Run("undated Anthropic aliases and Generic Responses models moved to the gateway", func(t *testing.T) {
 		// Point the imported providers at the mock, which lists Anthropic's models only in
-		// their dated form, as Anthropic does. The Generic Responses provider keeps its base URL.
+		// their dated form, as Anthropic does. Explicitly allow the local test endpoint.
 		mock.SetModels(legacyAnthropicKey, "claude-haiku-4-5-20251001", "claude-upgrade")
 		mock.SetModels(legacyGenericKey, "gpt-generic")
 		updateProvider(t, admin, "anthropic", map[string]any{"base_url": mock.URL, "allow_private_network": true}, legacyAnthropicKey)
-		updateProvider(t, admin, "generic-responses", map[string]any{"allow_private_network": true}, "")
+		updateProvider(t, admin, "generic-responses", map[string]any{"base_url": mock.URL, "allow_private_network": true}, legacyGenericKey)
 		admin.Post(t, "/api/llm-gateway/sync-models", map[string]any{}, nil)
 
 		gatewayModels := map[string]string{}

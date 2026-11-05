@@ -270,7 +270,7 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 	return results, errors.Join(importErrors...)
 }
 
-func legacyAggregate(name string, secrets map[string]string) (llmcoreclient.Provider, error) {
+func legacyAggregate(ctx context.Context, name string, secrets map[string]string) (llmcoreclient.Provider, error) {
 	plan := legacyImportPlans[name]
 	body, key := plan.build(secrets)
 	// Validate required legacy fields rather than accidentally falling back to
@@ -297,6 +297,14 @@ func legacyAggregate(name string, secrets map[string]string) (llmcoreclient.Prov
 	var pc schemas.ProviderConfig
 	raw, err := json.Marshal(body)
 	if err != nil {
+		return llmcoreclient.Provider{}, err
+	}
+	var fields map[string]json.RawMessage
+	if err = json.Unmarshal(raw, &fields); err != nil {
+		return llmcoreclient.Provider{}, err
+	}
+	// Imports must pass the same destination checks as administrative provider/key writes.
+	if err = checkProviderAddresses(ctx, fields, []map[string]any{key}); err != nil {
 		return llmcoreclient.Provider{}, err
 	}
 	if err = json.Unmarshal(raw, &pc); err != nil {
@@ -432,7 +440,7 @@ func (e *Engine) importLegacySource(ctx context.Context, name string, secrets ma
 		if completed {
 			return "blocked", "the imported gateway provider was removed; configure it manually to resume", nil
 		}
-		p, err = legacyAggregate(name, secrets)
+		p, err = legacyAggregate(ctx, name, secrets)
 		if err == nil {
 			applyProviderEgressProxy(plan.provider, &p, proxy)
 			err = e.store.CreateProvider(ctx, plan.provider, p)
