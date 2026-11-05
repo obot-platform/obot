@@ -5,7 +5,7 @@ type CommonProviderMetadata struct {
 	Command                         string                           `json:"command,omitempty"`
 	Args                            []string                         `json:"args,omitempty" yaml:"args,omitempty"`
 	Icon                            string                           `json:"icon,omitempty"`
-	IconDark                        string                           `json:"iconDark,omitempty"`
+	IconDark                        string                           `json:"iconDark,omitempty" yaml:"iconDark,omitempty"`
 	Description                     string                           `json:"description,omitempty"`
 	Link                            string                           `json:"link,omitempty"`
 	RequiredEntitlements            []string                         `json:"requiredEntitlements,omitempty" yaml:"requiredEntitlements,omitempty"`
