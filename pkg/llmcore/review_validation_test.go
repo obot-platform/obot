@@ -1,7 +1,6 @@
 package llmcore
 
 import (
-	"context"
 	"math"
 	"net/http"
 	"testing"
@@ -14,11 +13,6 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/stretchr/testify/require"
 )
-
-type sharedScopedStore struct {
-	rules.Store
-	scoped []*tables.TableRoutingRule
-}
 
 func TestAccountRejectsNegativeQueues(t *testing.T) {
 	for _, tt := range []struct {
@@ -105,87 +99,36 @@ func TestInvalidTargetsPreserveRuleAndProgram(t *testing.T) {
 	}
 }
 
-func TestScopedRoutingOrderIsStable(t *testing.T) {
-	now := time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC)
-	for _, tt := range []struct {
-		name           string
-		firstCreated   time.Time
-		secondCreated  time.Time
-		firstPriority  int
-		secondPriority int
-		winner         string
-	}{
-		{
-			name:          "newest first",
-			firstCreated:  now,
-			secondCreated: now.Add(time.Second),
-			winner:        "b",
-		},
-		{
-			name:          "equal timestamps",
-			firstCreated:  now,
-			secondCreated: now,
-			winner:        "a",
-		},
-		{
-			name:   "zero timestamps",
-			winner: "a",
-		},
-		{
-			name:           "priority before timestamp",
-			firstCreated:   now,
-			secondCreated:  now.Add(time.Second),
-			secondPriority: 1,
-			winner:         "a",
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			a, b := policyRule("a"), policyRule("b")
-			a.ID, b.ID = "a", "b"
-			a.CreatedAt, b.CreatedAt = tt.firstCreated, tt.secondCreated
-			a.Priority, b.Priority = tt.firstPriority, tt.secondPriority
-
-			for _, order := range [][]tables.TableRoutingRule{{a, b}, {b, a}} {
-				logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
-				store, err := rules.NewLocalStore(t.Context(), logger, nil)
-				require.NoError(t, err)
-				plugin, err := newRoutingPlugin(store, logger, nil)
-				require.NoError(t, err)
-				for _, rule := range order {
-					require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
-				}
-
-				assertWinner := func() {
-					t.Helper()
-					req := policyRequest()
-					require.NoError(t, plugin.PreRequestHook(schemas.NewBifrostContext(t.Context(), schemas.NoDeadline), req))
-					require.Equal(t, tt.winner, req.ChatRequest.Model)
-				}
-				assertWinner()
-
-				// Metadata edits and delete/reinsert must not turn insertion order into policy.
-				for _, rule := range order {
-					rule.Name = "renamed"
-					require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
-					assertWinner()
-					require.NoError(t, plugin.DeleteRule(t.Context(), rule.ID))
-					require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
-					assertWinner()
-				}
-
-				seed := policyRule("intermediate")
-				seed.ID = "seed"
-				seed.Priority = -1
-				seed.CelExpression = `model == 'unrouted'`
-				seed.ChainRule = true
-				require.NoError(t, plugin.UpsertRule(t.Context(), &seed))
-				for _, rule := range order {
-					rule.CelExpression = `model == 'intermediate'`
-					require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
-				}
-				assertWinner()
-			}
-		})
+func TestRoutingUsesBifrostPriorityOrder(t *testing.T) {
+	a, b := policyRule("a"), policyRule("b")
+	a.ID, b.ID = "a", "b"
+	a.CreatedAt = time.Date(2026, 11, 4, 0, 0, 0, 0, time.UTC)
+	b.CreatedAt = a.CreatedAt.Add(time.Second)
+	b.Priority = 1
+	for _, order := range [][]tables.TableRoutingRule{{a, b}, {b, a}} {
+		logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
+		store, err := rules.NewLocalStore(t.Context(), logger, nil)
+		require.NoError(t, err)
+		plugin, err := newRoutingPlugin(store, logger, nil)
+		require.NoError(t, err)
+		for _, rule := range order {
+			require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
+		}
+		assertWinner := func(model string) {
+			t.Helper()
+			req := policyRequest()
+			require.NoError(t, plugin.PreRequestHook(schemas.NewBifrostContext(t.Context(), schemas.NoDeadline), req))
+			require.Equal(t, model, req.ChatRequest.Model)
+		}
+		assertWinner("a")
+		replacement := b
+		replacement.Priority = -1
+		require.NoError(t, plugin.UpsertRule(t.Context(), &replacement))
+		assertWinner("b")
+		require.NoError(t, plugin.DeleteRule(t.Context(), "b"))
+		assertWinner("a")
+		require.NoError(t, plugin.DeleteRule(t.Context(), "a"))
+		assertWinner("unrouted")
 	}
 }
 
@@ -256,21 +199,6 @@ func TestTargetWeightsAndInheritanceRemainUsable(t *testing.T) {
 			}
 		})
 	}
-}
-
-func (s sharedScopedStore) GetScopedRules(context.Context, string, string) []*tables.TableRoutingRule {
-	return s.scoped
-}
-
-func TestScopedOrderDoesNotMutateStoreSlice(t *testing.T) {
-	a, b := policyRule("a"), policyRule("b")
-	a.ID, b.ID = "a", "b"
-	shared := []*tables.TableRoutingRule{&b, &a}
-	store := orderedRuleStore{Store: sharedScopedStore{scoped: shared}}
-
-	ordered := store.GetScopedRules(t.Context(), "global", "")
-	require.Equal(t, []*tables.TableRoutingRule{&a, &b}, ordered)
-	require.Equal(t, []*tables.TableRoutingRule{&b, &a}, shared)
 }
 
 func TestConfigurationGateHTTPClassificationIsNarrow(t *testing.T) {

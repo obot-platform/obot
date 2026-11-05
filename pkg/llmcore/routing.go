@@ -1,11 +1,9 @@
 package llmcore
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"math"
-	"slices"
 	"strings"
 	"sync"
 
@@ -40,36 +38,13 @@ type routingPlugin struct {
 // replicas, unlike the engine's.
 type noBudgets struct{}
 
-// orderedRuleStore keeps LocalStore's program cache while making first-match
-// evaluation deterministic: priority ascending, newest first, then ID ascending.
-type orderedRuleStore struct {
-	rules.Store
-}
-
 func (noBudgets) GetBudgetAndRateLimitStatus(*schemas.BifrostContext, schemas.ModelProvider, string, map[string]float64, map[string]int64, map[string]int64) *governance.BudgetAndRateLimitStatus {
 	return nil
 }
 
-func (s orderedRuleStore) GetScopedRules(ctx context.Context, scope, scopeID string) []*tables.TableRoutingRule {
-	scoped := slices.Clone(s.Store.GetScopedRules(ctx, scope, scopeID))
-	slices.SortFunc(scoped, func(a, b *tables.TableRoutingRule) int {
-		if priority := cmp.Compare(a.Priority, b.Priority); priority != 0 {
-			return priority
-		}
-
-		if created := b.CreatedAt.Compare(a.CreatedAt); created != 0 {
-			return created
-		}
-
-		return cmp.Compare(a.ID, b.ID)
-	})
-
-	return scoped
-}
-
 func newRoutingPlugin(store rules.Store, logger schemas.Logger, account *account) (*routingPlugin, error) {
 	depth := rules.DefaultChainMaxDepth
-	engine, err := rules.NewEngine(orderedRuleStore{Store: store}, noBudgets{}, logger, &depth)
+	engine, err := rules.NewEngine(store, noBudgets{}, logger, &depth)
 	if err != nil {
 		return nil, err
 	}
