@@ -88,6 +88,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "mcp-gateway/server-configuration",
+					"label": "MCP server configuration"
+				},
+				{
+					"type": "doc",
 					"id": "functionality/filters",
 					"label": "Filter MCP traffic"
 				},
