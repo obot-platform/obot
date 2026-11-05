@@ -57,7 +57,12 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if credential.token != "" {
-		lifetime := &e.subscriptionLifetime
+		codexEndpoint := r.Method == http.MethodPost && r.URL.Path == "/v1/responses" || r.Method == http.MethodGet && r.URL.Path == "/v1/models"
+		if credential.provider == schemas.OpenAI && !codexEndpoint {
+			writeError(w, d, http.StatusNotFound, "invalid_request_error", "unsupported Codex subscription endpoint")
+			return
+		}
+		lifetime := e.subscriptionLock(credential.provider)
 		// TryRLock refuses new readers once retirement is waiting. Hold through
 		// stream drain and handler return, beyond core's pre-hook/enqueue window.
 		if !lifetime.TryRLock() {
@@ -73,6 +78,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (e *Engine) newMux() *http.ServeMux {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/models", e.serveCodexModels)
 	mux.HandleFunc("POST /v1/messages/count_tokens", func(w http.ResponseWriter, r *http.Request) {
 		e.serveCount(w, r, dialectMessages)
 	})

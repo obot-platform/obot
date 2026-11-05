@@ -12,9 +12,15 @@ import (
 // requestContext forwards compatibility headers and privately retains an admitted
 // subscription credential. Only per-attempt admission can add it to outgoing headers.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
-	ctx, cancel := e.inferenceContext(r.Context())
+	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
 	if credential, _ := r.Context().Value(subscriptionTokenKey{}).(subscriptionCredentialValue); credential.token != "" {
 		ctx.SetValue(subscriptionTokenKey{}, credential)
+	}
+
+	// Parsing uses one replica-local view for primary, caller and rule fallbacks.
+	ctx.SetValue(modelConfigKey{}, e.account.config.Load())
+	if e.catalog != nil {
+		ctx.SetValue(schemas.BifrostContextKeyModelCatalog, e.catalog)
 	}
 
 	headers := make(map[string]string, len(r.Header))
@@ -27,6 +33,10 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 		value := r.Header.Get(name)
 		headers[lower] = value
 		switch lower {
+		case "openai-beta", "originator", "session_id", "conversation_id":
+			if credential, _ := ctx.Value(subscriptionTokenKey{}).(subscriptionCredentialValue); credential.provider == schemas.OpenAI {
+				extra[lower] = append(extra[lower], r.Header[name]...)
+			}
 		case "anthropic-beta", "anthropic-version", "user-agent", "x-stainless-lang", "x-stainless-package-version", "x-stainless-os", "x-stainless-arch", "x-stainless-runtime", "x-stainless-runtime-version", "x-stainless-retry-count", "x-stainless-timeout":
 			extra[lower] = append(extra[lower], r.Header[name]...)
 		}
