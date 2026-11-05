@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -40,7 +41,11 @@ var (
 
 // Encoding failures originate in provider/plugin output. Inject through a real
 // core plugin so tests cover conversion and header commitment in each HTTP API.
-type encodingFixture struct{ later bool }
+type encodingFixture struct {
+	later    bool
+	release  <-chan struct{}
+	canceled chan<- struct{}
+}
 
 type failedStreamTransport struct {
 	header    http.Header
@@ -61,7 +66,7 @@ func (*encodingFixture) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.Bif
 	return resp, err, nil
 }
 
-func (p *encodingFixture) PreLLMHook(_ *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+func (p *encodingFixture) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
 	if !bifrost.IsStreamRequestType(req.RequestType) {
 		return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
 			ResponsesResponse: &schemas.BifrostResponsesResponse{
@@ -92,7 +97,17 @@ func (p *encodingFixture) PreLLMHook(_ *schemas.BifrostContext, req *schemas.Bif
 		}
 		chunks <- chunk
 	}
-	close(chunks)
+	if p.release == nil {
+		close(chunks)
+	} else {
+		// Hold producer cleanup after cancellation to expose synchronous HTTP drains.
+		go func() {
+			<-ctx.Done()
+			close(p.canceled)
+			<-p.release
+			close(chunks)
+		}()
+	}
 	return req, &schemas.LLMPluginShortCircuit{Stream: chunks}, nil
 }
 
@@ -104,6 +119,38 @@ func newEncodingEngine(t *testing.T, later bool) *llmcore.Engine {
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	return engine
+}
+
+func TestStreamCancellationDoesNotWaitForProducerCleanup(t *testing.T) {
+	for _, api := range encodingAPIs {
+		t.Run(api.path, func(t *testing.T) {
+			release, canceled := make(chan struct{}), make(chan struct{})
+			defer close(release)
+			store := newTestStore(t)
+			require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
+			plugin := &encodingFixture{release: release, canceled: canceled}
+			engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{plugin}})
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+			response := httptest.NewRecorder()
+			returned := make(chan struct{})
+			go func() {
+				defer close(returned)
+				engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, api.path, strings.NewReader(fmt.Sprintf(api.body, true))))
+			}()
+			select {
+			case <-canceled:
+			case <-time.After(3 * time.Second):
+				t.Fatal("handler did not cancel the failed stream")
+			}
+			select {
+			case <-returned:
+			case <-time.After(3 * time.Second):
+				t.Fatal("handler waited for producer cleanup")
+			}
+			require.Equal(t, http.StatusInternalServerError, response.Code, response.Body.String())
+		})
+	}
 }
 
 func TestHTTPEncodingFailures(t *testing.T) {
