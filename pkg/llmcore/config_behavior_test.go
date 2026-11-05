@@ -3,6 +3,7 @@ package llmcore_test
 import (
 	"encoding/json"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -238,6 +239,59 @@ func TestMissingRoutingProviderDiagnosticsAtStartupAndRecovery(t *testing.T) {
 			require.NoError(t, err)
 			require.False(t, changed)
 			require.NoError(t, engine.Err())
+		})
+	}
+}
+
+func TestInvalidTargetsFailStartupAndPreserveSyncPolicy(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		targets []tables.TableRoutingTarget
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name:    "negative",
+			targets: []tables.TableRoutingTarget{{Weight: -1}},
+		},
+		{
+			name:    "overflow",
+			targets: []tables.TableRoutingTarget{{Weight: math.MaxFloat64}, {Weight: math.MaxFloat64}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			engine, store := newRoutingConfigEngine(t, configRoutingRule("true", "old-route"))
+			invalid := configRoutingRule("false", "new-route")
+			invalid.Targets = tt.targets
+			require.NoError(t, store.PutRule(t.Context(), invalid))
+
+			failed, err := llmcore.New(t.Context(), store, llmcore.Options{})
+			require.ErrorContains(t, err, "policy")
+			require.Nil(t, failed)
+			for range 2 {
+				changed, err := engine.Sync(t.Context())
+				require.True(t, changed)
+				require.ErrorContains(t, err, "policy")
+				require.ErrorContains(t, engine.Err(), "policy")
+				response := configTestChat(engine, "")
+				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+				require.Equal(t, "old-route", response.Header().Get("X-Obot-LLM-Model"))
+			}
+
+			repaired := configRoutingRule("true", "repaired-route")
+			repaired.Targets[0].Weight = 0
+			require.NoError(t, store.PutRule(t.Context(), repaired))
+			changed, err := engine.Sync(t.Context())
+			require.NoError(t, err)
+			require.True(t, changed)
+			require.NoError(t, engine.Err())
+			response := configTestChat(engine, "")
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.Equal(t, "repaired-route", response.Header().Get("X-Obot-LLM-Model"))
+			changed, err = engine.Sync(t.Context())
+			require.NoError(t, err)
+			require.False(t, changed)
 		})
 	}
 }

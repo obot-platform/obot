@@ -99,6 +99,10 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 		return nil, fmt.Errorf("provider %s is not configured", provider)
 	}
 
+	if err := validateProviderQueue(provider, pc); err != nil {
+		return nil, err
+	}
+
 	// Bifrost stamps CustomProviderKey during construction. Keep that runtime
 	// mutation out of the immutable account/applied snapshot, or every retry
 	// treats a healthy custom provider as changed and restarts it.
@@ -110,6 +114,19 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 
 	pc.ProxyConfig = providerProxy(pc, cfg.Settings["proxy"])
 	return &pc, nil
+}
+
+// Bifrost defaults only zero values; negative sizes can panic or start no workers.
+func validateProviderQueue(provider schemas.ModelProvider, pc schemas.ProviderConfig) error {
+	if pc.ConcurrencyAndBufferSize.Concurrency < 0 {
+		return fmt.Errorf("provider %s: concurrency must not be negative", provider)
+	}
+
+	if pc.ConcurrencyAndBufferSize.BufferSize < 0 {
+		return fmt.Errorf("provider %s: buffer_size must not be negative", provider)
+	}
+
+	return nil
 }
 
 // providerProxy returns the effective inference proxy, including provider overrides.
@@ -212,10 +229,18 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	e.applied.Providers = maps.Clone(cfg.Providers)
 	startupErrors := []error{providerLoadErrors(loaded.ProviderErrors), routingDependencyWarnings(cfg)}
 	for name := range cfg.Providers {
-		if e.client.GetProviderByKey(name) == nil {
+		// GetProviderByKey can lazily start standard providers with defaults on
+		// account errors. Do not let that probe hide a rejected queue config.
+		queueErr := validateProviderQueue(name, cfg.Providers[name])
+		if queueErr != nil || e.client.GetProviderByKey(name) == nil {
 			delete(e.applied.Providers, name)
 			e.account.transitioning.Store(name, false)
-			startupErrors = append(startupErrors, fmt.Errorf("provider %s failed to initialize; reconciliation will retry", name))
+			// Init only logs account errors. Retain queue diagnostics in Err as well.
+			if queueErr != nil {
+				startupErrors = append(startupErrors, queueErr)
+			} else {
+				startupErrors = append(startupErrors, fmt.Errorf("provider %s failed to initialize; reconciliation will retry", name))
+			}
 			// prepareProvider publishes its queue before constructing the runtime.
 			// Clean up the workerless queue and prohibit lazy recreation until Sync.
 			if err := e.client.RemoveProvider(name); err != nil {

@@ -28,12 +28,14 @@ func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 		err = json.Unmarshal(body, &in)
 		if err == nil {
 			req = in.ToBifrostResponsesRequest(ctx)
+			req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(in.Model, anthropicFallbackModels(&in))
 		}
 	} else {
 		var in openai.OpenAIResponsesRequest
 		err = json.Unmarshal(body, &in)
 		if err == nil {
 			req = in.ToBifrostResponsesRequest(ctx)
+			req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(in.Model, in.Fallbacks)
 		}
 	}
 	if err != nil || req == nil || req.Provider == "" {

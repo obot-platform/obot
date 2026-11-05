@@ -47,3 +47,21 @@ func (p *providerTransitionPlugin) PreLLMHook(_ *schemas.BifrostContext, req *sc
 func (*providerTransitionPlugin) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
 	return resp, err, nil
 }
+
+// Core creates the queue before PreLLMHook. A blocked account read fails there
+// with no status, and core classifies it as caller input. Its %v wrapping erases
+// the cause, so match only this local gate's complete message and provider stamp.
+// Classify after attempts finish so routing and fallbacks still get to recover;
+// explicit upstream statuses (including 400) always retain their meaning.
+func isProviderConfigGateError(err *schemas.BifrostError) bool {
+	if err.StatusCode != nil || err.Error == nil {
+		return false
+	}
+
+	provider := err.ExtraFields.Provider
+	if provider == "" {
+		return false
+	}
+
+	return err.Error.Message == fmt.Sprintf("failed to get config for provider %s: provider %s is being reconfigured", provider, provider)
+}

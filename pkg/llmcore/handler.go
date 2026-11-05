@@ -93,6 +93,7 @@ func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
 			return
 		}
 		req, stream = in.ToBifrostResponsesRequest(ctx), in.Stream != nil && *in.Stream
+		req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(in.Model, in.Fallbacks)
 	case dialectMessages:
 		var in anthropic.AnthropicMessageRequest
 		if err := json.Unmarshal(body, &in); err != nil {
@@ -100,6 +101,7 @@ func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
 			return
 		}
 		req, stream = in.ToBifrostResponsesRequest(ctx), in.Stream != nil && *in.Stream
+		req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(in.Model, anthropicFallbackModels(&in))
 	}
 	if req.Provider == "" {
 		// Obot's proxy resolves bare model IDs to provider/model before the engine sees them.
@@ -238,6 +240,9 @@ func errorParts(err *schemas.BifrostError) (int, string, string) {
 	// Core validation failures can omit StatusCode. Use Bifrost's classification
 	// so those stay caller errors and explicit provider statuses take precedence.
 	status := err.EffectiveHTTPStatus()
+	if isProviderConfigGateError(err) {
+		status = http.StatusServiceUnavailable
+	}
 
 	errType, message := "api_error", "the LLM gateway failed to serve the request"
 	if status == http.StatusBadRequest {
@@ -323,6 +328,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := in.ToBifrostChatRequest(ctx)
+	req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(in.Model, in.Fallbacks)
 	if req.Provider == "" {
 		writeError(w, dialectChat, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("model %q must be named as provider/model", req.Model))
 		return

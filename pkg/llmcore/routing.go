@@ -1,8 +1,11 @@
 package llmcore
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 	"sync"
 
@@ -40,9 +43,32 @@ func (noBudgets) GetBudgetAndRateLimitStatus(*schemas.BifrostContext, schemas.Mo
 	return nil
 }
 
+// orderedRuleStore keeps LocalStore's program cache while making first-match
+// evaluation deterministic: priority ascending, newest first, then ID ascending.
+type orderedRuleStore struct {
+	rules.Store
+}
+
+func (s orderedRuleStore) GetScopedRules(ctx context.Context, scope, scopeID string) []*tables.TableRoutingRule {
+	scoped := slices.Clone(s.Store.GetScopedRules(ctx, scope, scopeID))
+	slices.SortFunc(scoped, func(a, b *tables.TableRoutingRule) int {
+		if priority := cmp.Compare(a.Priority, b.Priority); priority != 0 {
+			return priority
+		}
+
+		if created := b.CreatedAt.Compare(a.CreatedAt); created != 0 {
+			return created
+		}
+
+		return cmp.Compare(a.ID, b.ID)
+	})
+
+	return scoped
+}
+
 func newRoutingPlugin(store rules.Store, logger schemas.Logger) (*routingPlugin, error) {
 	depth := rules.DefaultChainMaxDepth
-	engine, err := rules.NewEngine(store, noBudgets{}, logger, &depth)
+	engine, err := rules.NewEngine(orderedRuleStore{Store: store}, noBudgets{}, logger, &depth)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +86,25 @@ func (p *routingPlugin) UpsertRule(ctx context.Context, rule *tables.TableRoutin
 	if rule == nil {
 		return fmt.Errorf("routing rule cannot be nil")
 	}
+
+	// A matching rule with unusable targets is skipped by the evaluator, which
+	// would silently bypass policy if it replaced a working rule.
+	if len(rule.Targets) == 0 {
+		return fmt.Errorf("routing rule %s: at least one target is required", rule.ID)
+	}
+
+	var total float64
+	for i, target := range rule.Targets {
+		if target.Weight < 0 || math.IsNaN(target.Weight) || math.IsInf(target.Weight, 0) {
+			return fmt.Errorf("routing rule %s: target %d weight must be finite and nonnegative", rule.ID, i)
+		}
+		total += target.Weight
+	}
+
+	if math.IsInf(total, 0) {
+		return fmt.Errorf("routing rule %s: total target weight must be finite", rule.ID)
+	}
+
 	// LocalStore replaces the active rule even when compilation fails and only
 	// logs the error. Validate a fresh, boolean-typed expression before publishing;
 	// the live program cache is keyed by ID and may still contain the old program.

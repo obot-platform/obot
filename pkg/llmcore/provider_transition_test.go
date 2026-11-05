@@ -81,6 +81,11 @@ func TestFailedProviderReplacementBlocksNewCredentials(t *testing.T) {
 		_, err = engine.Sync(t.Context())
 		require.Error(t, err, "failed replacements retry without another resource write")
 	}
+	response := httptest.NewRecorder()
+	engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"paired/test","messages":[{"role":"user","content":"hello"}]}`)))
+	require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
+	require.Contains(t, response.Body.String(), "being reconfigured")
+
 	attemptErr := callTransitionProvider(t.Context(), engine)
 	require.Equal(t, []string{"Bearer old-secret"}, oldRecorder.snapshot(), "failed replacement must not send a new credential to the old destination")
 	require.Empty(t, newRecorder.snapshot())
@@ -160,14 +165,17 @@ func TestProviderReplacementGatesHTTPAndDirectCalls(t *testing.T) {
 	synced := make(chan error, 1)
 	go func() { _, err := engine.Sync(t.Context()); synced <- err }()
 	waitTransition(t, logger.updateStarted)
-	attemptErr := callTransitionProvider(t.Context(), engine)
-	require.NotNil(t, attemptErr, "direct core admission must be gated")
-	require.Equal(t, http.StatusServiceUnavailable, attemptErr.EffectiveHTTPStatus())
-	require.Contains(t, attemptErr.Error.Message, "being reconfigured")
+
+	// HTTP must run before a direct call can recreate global provider registration.
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"paired/test","messages":[{"role":"user","content":"hello"}]}`)))
 	require.Equal(t, http.StatusServiceUnavailable, response.Code)
 	require.Contains(t, response.Body.String(), "being reconfigured")
+
+	attemptErr := callTransitionProvider(t.Context(), engine)
+	require.NotNil(t, attemptErr, "direct core admission must be gated")
+	require.Equal(t, http.StatusServiceUnavailable, attemptErr.EffectiveHTTPStatus())
+	require.Contains(t, attemptErr.Error.Message, "being reconfigured")
 	require.Equal(t, []string{"Bearer old-secret"}, oldRecorder.snapshot())
 	require.Empty(t, newRecorder.snapshot())
 	release.Do(func() { close(logger.releaseUpdate) })
