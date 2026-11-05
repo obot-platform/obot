@@ -109,6 +109,29 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: true,
 		},
 		{
+			// ChatGPT Desktop's browser and computer use run on cua_repl, from a
+			// bundled plugin the device reports by name alone.
+			name:      "builtin agent mcp allows codex cua_repl",
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "cua_repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: true,
+		},
+		{
+			name:      "codex cua_repl is denied without the builtin mcp toggle",
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "cua_repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},
+			wantAllow: false,
+		},
+		{
+			name: "builtin agent mcp denies a codex cua_repl with a package",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "cua_repl",
+				Server: ServerIdentity{Package: &PackageIdentity{Source: types.AllowlistServerPackageSourceNPM, Name: "some-cua-repl"}, Command: "npx"},
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
 			name:      "codex node_repl is denied without the builtin mcp toggle",
 			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl"},
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},

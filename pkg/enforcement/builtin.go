@@ -13,14 +13,15 @@ import (
 // list and will not let a configured server take one of those names, so a
 // built-in name can never also be a configuration key on the device side.
 //
-// Codex has one: node_repl, the JavaScript REPL that Codex Desktop's built-in
-// browser control runs on. Unlike Claude Code's, it is an ordinary
-// [mcp_servers.node_repl] entry that Codex Desktop writes into
-// ~/.codex/config.toml, so a user could define a server of the same name. The
-// device only reports it as built-in — by name, with no server identity — when
-// the entry's command is the executable shipped inside the Codex app, and
-// isBuiltinAgentMCPCall requires exactly that shape. Codex's computer-use is not
-// a built-in: it is installed by the ChatGPT app, not shipped with Codex.
+// Codex has two, node_repl and cua_repl: the JavaScript REPLs that Codex Desktop
+// (now part of the ChatGPT app) runs its built-in browser and computer use on.
+// node_repl is an entry Codex Desktop writes into ~/.codex/config.toml, and
+// cua_repl comes from the app's bundled unified-computer-use plugin. Codex has
+// no collision guarantee, so a user could configure a server under either name;
+// the device reports both by name alone regardless. Enforcement is a guardrail
+// against calling something by mistake, not a boundary against a determined
+// user, and that is accepted. Codex's computer-use is not a built-in: it is
+// installed by the ChatGPT app, not shipped with Codex.
 //
 // This table must agree with the copy in obot-sentry's pkg/enforce, which decides
 // which calls are reported as built-in servers at all. Membership is intentionally
@@ -37,6 +38,7 @@ var (
 		},
 		AgentCodex: {
 			"node_repl": {},
+			"cua_repl":  {},
 		},
 	}
 
@@ -79,8 +81,8 @@ func isBuiltinAgentMCPCall(call NormalizedCall) bool {
 // names contain spaces and capitals, and no tool namespace preserves either, so
 // "Claude Preview" reaches a device-side hook as something like "Claude_Preview"
 // and an exact-only comparison would miss it every time. The device applies the
-// same ladder. Codex's node_repl needs no such rung — the device reports the
-// exact config key — and fuzzy matching would only widen what the name admits
+// same ladder. Codex's built-ins need no such rung — the device reports their
+// exact names — and fuzzy matching would only widen what a name admits
 // (node-repl, NodeRepl, node.repl), so every other agent matches exactly.
 func isBuiltinAgentMCP(agent, serverName string) bool {
 	if serverName == "" {

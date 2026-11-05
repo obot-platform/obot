@@ -56,7 +56,7 @@ The broad allow rules are:
 |------|----------------|
 | All Obot-hosted MCP servers | Any MCP server hosted by this Obot instance. |
 | All built-in agent tools | The client's own tools, such as reading and writing files, running shell commands, and starting tasks. |
-| All built-in agent MCP servers | MCP servers that ship as part of a supported AI client: Claude Code's built-in servers, and the Node REPL that the Codex app's built-in browser runs on. |
+| All built-in agent MCP servers | MCP servers that ship as part of a supported AI client: Claude Code's built-in servers, and the JavaScript REPLs that the Codex app's built-in browser and computer use run on, including in the ChatGPT desktop app. |
 | Everything | Every call that Obot Sentry can identify. All other allow rules are ignored while this is selected. |
 
 You can also allow an individual MCP server by:
