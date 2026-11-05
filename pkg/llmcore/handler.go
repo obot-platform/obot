@@ -48,21 +48,27 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		d = dialectMessages
 	}
 
-	token, valid := subscriptionCredential(r.Header)
+	credential, valid := subscriptionCredential(r.Header)
 	if !valid {
-		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials require a single Claude subscription bearer and ClaudeCLI User-Agent; use the authenticated Obot proxy")
+		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials require a single supported subscription bearer and matching CLI User-Agent; use the authenticated Obot proxy")
 		return
 	}
 
-	if token != "" {
-		// TryRLock refuses new readers once retirement is waiting. Hold through
-		// stream drain and handler return, beyond core's pre-hook/enqueue window.
-		if !e.subscriptionLifetime.TryRLock() {
-			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Anthropic is being reconfigured; retry the request")
+	if credential.token != "" {
+		codexEndpoint := r.Method == http.MethodPost && r.URL.Path == "/v1/responses" || r.Method == http.MethodGet && r.URL.Path == "/v1/models"
+		if credential.provider == schemas.OpenAI && !codexEndpoint {
+			writeError(w, d, http.StatusNotFound, "invalid_request_error", "unsupported Codex subscription endpoint")
 			return
 		}
-		defer e.subscriptionLifetime.RUnlock()
-		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, token))
+		lifetime := e.subscriptionLock(credential.provider)
+		// TryRLock refuses new readers once retirement is waiting. Hold through
+		// stream drain and handler return, beyond core's pre-hook/enqueue window.
+		if !lifetime.TryRLock() {
+			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Subscription provider is being reconfigured; retry the request")
+			return
+		}
+		defer lifetime.RUnlock()
+		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, credential))
 	}
 
 	e.mux.ServeHTTP(w, r)
@@ -70,6 +76,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (e *Engine) newMux() *http.ServeMux {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/models", e.serveCodexModels)
 	mux.HandleFunc("POST /v1/messages/count_tokens", func(w http.ResponseWriter, r *http.Request) {
 		e.serveCount(w, r, dialectMessages)
 	})

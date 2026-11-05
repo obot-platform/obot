@@ -51,8 +51,9 @@ type Engine struct {
 	mux        *http.ServeMux
 	account    *account
 	routing    *routingPlugin
-	// subscriptionLifetime prevents a validated HTTP token from reaching a replacement worker.
-	subscriptionLifetime sync.RWMutex
+	// Each subscription provider drains after its admitted HTTP requests return.
+	claudeSubscriptionLifetime sync.RWMutex
+	codexSubscriptionLifetime  sync.RWMutex
 
 	shutdownDone chan struct{}
 

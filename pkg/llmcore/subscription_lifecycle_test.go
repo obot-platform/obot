@@ -3,8 +3,10 @@ package llmcore
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -37,6 +39,33 @@ func (p *subscriptionPauseTracer) EndSpan(handle schemas.SpanHandle, status sche
 }
 
 func TestSubscriptionReplacementAfterHooks(t *testing.T) {
+	for _, provider := range []schemas.ModelProvider{schemas.Anthropic, schemas.OpenAI} {
+		t.Run(string(provider), func(t *testing.T) { testSubscriptionReplacementAfterHooks(t, provider) })
+	}
+}
+
+func testSubscriptionReplacementAfterHooks(t *testing.T, provider schemas.ModelProvider) {
+	t.Helper()
+	reply := subscriptionReply
+	transport := subscriptionTransport
+	credential := subscriptionFixture
+	other := schemas.OpenAI
+	if provider == schemas.OpenAI {
+		reply = codexReply
+		transport = codexTransport
+		credential = codexFixture
+		other = schemas.Anthropic
+	}
+	call := func(ctx context.Context, e *Engine, path string, stream bool) *httptest.ResponseRecorder {
+		if provider == schemas.Anthropic {
+			return subscriptionCall(ctx, e, path, "anthropic/test", stream, true, nil, nil)
+		}
+		codexPath := "/v1/responses"
+		if strings.Contains(path, "count_tokens") {
+			codexPath = "/v1/models?client_version=0.162.1"
+		}
+		return codexCall(ctx, e, codexPath, fmt.Sprintf(`{"model":"gpt-5.4","input":"hi","stream":%t}`, stream), true, nil)
+	}
 	for _, tc := range []struct {
 		name   string
 		path   string
@@ -72,20 +101,21 @@ func TestSubscriptionReplacementAfterHooks(t *testing.T) {
 			oldHeaders := make(chan http.Header, 10)
 			oldServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				oldHeaders <- r.Header.Clone()
-				subscriptionReply(w, r)
+				reply(w, r)
 			}))
 			defer oldServer.Close()
 			var replacementCalls atomic.Int32
 			replacement := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				replacementCalls.Add(1)
-				subscriptionReply(w, r)
+				reply(w, r)
 			}))
 			defer replacement.Close()
 			store := subscriptionStore(t)
-			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("old-key")))
+			require.NoError(t, store.CreateProvider(t.Context(), string(provider), subscriptionProvider("old-key")))
+			require.NoError(t, store.CreateProvider(t.Context(), string(other), subscriptionProvider("other-old-key")))
 			e, err := New(t.Context(), store, Options{})
 			require.NoError(t, err)
-			subscriptionTransport(t, e, oldServer)
+			transport(t, e, oldServer)
 			tracer := &subscriptionPauseTracer{Tracer: e.tracer, entered: make(chan struct{}), release: make(chan struct{})}
 			e.client.SetTracer(tracer)
 			var release sync.Once
@@ -96,17 +126,23 @@ func TestSubscriptionReplacementAfterHooks(t *testing.T) {
 			traceID := e.tracer.CreateTrace("")
 			traced := context.WithValue(ctx, schemas.BifrostContextKeyTraceID, traceID)
 			response := make(chan *httptest.ResponseRecorder, 1)
-			go func() { response <- subscriptionCall(traced, e, tc.path, "anthropic/test", tc.stream, true, nil, nil) }()
+			go func() { response <- call(traced, e, tc.path, tc.stream) }()
 			select {
 			case <-tracer.entered:
 			case <-time.After(5 * time.Second):
 				t.Fatal("request did not reach the post-hook/pre-enqueue boundary")
 			}
-			original := e.client.GetProviderByKey(schemas.Anthropic)
+			original := e.client.GetProviderByKey(provider)
+			otherOriginal := e.client.GetProviderByKey(other)
+			require.NoError(t, store.MutateProvider(t.Context(), string(other), func(p *llmcoreclient.Provider) error {
+				p.Config.NetworkConfig.DefaultRequestTimeoutInSeconds = 20
+				p.Keys[0].Value = *schemas.NewSecretVar("other-new-key")
+				return nil
+			}))
 			if tc.remove {
-				require.NoError(t, store.DeleteProvider(t.Context(), "anthropic"))
+				require.NoError(t, store.DeleteProvider(t.Context(), string(provider)))
 			} else {
-				require.NoError(t, store.MutateProvider(t.Context(), "anthropic", func(p *llmcoreclient.Provider) error {
+				require.NoError(t, store.MutateProvider(t.Context(), string(provider), func(p *llmcoreclient.Provider) error {
 					p.Config.NetworkConfig.BaseURL = replacement.URL
 					p.Config.NetworkConfig.AllowPrivateNetwork = true
 					p.Keys[0].Value = *schemas.NewSecretVar("new-key")
@@ -122,24 +158,26 @@ func TestSubscriptionReplacementAfterHooks(t *testing.T) {
 			}))
 			start := time.Now()
 			_, err = e.Sync(t.Context())
-			require.ErrorContains(t, err, "anthropic is still draining")
+			require.ErrorContains(t, err, string(provider)+" is still draining")
 			require.Less(t, time.Since(start), 3*time.Second)
-			require.Same(t, original, e.client.GetProviderByKey(schemas.Anthropic))
+			require.Same(t, original, e.client.GetProviderByKey(provider))
 			require.NotNil(t, e.client.GetProviderByKey("healthy"))
+			require.NotSame(t, otherOriginal, e.client.GetProviderByKey(other))
+			require.Equal(t, "other-new-key", e.account.config.Load().Keys[other][0].Value.GetValue())
 			require.Equal(t, int64(7<<20), e.MaxRequestBodyBytes())
-			require.Equal(t, "old-key", e.account.config.Load().Keys[schemas.Anthropic][0].Value.GetValue())
+			require.Equal(t, "old-key", e.account.config.Load().Keys[provider][0].Value.GetValue())
 			require.Empty(t, oldHeaders, "the held request has not been enqueued")
 			require.Zero(t, replacementCalls.Load())
-			blocked := subscriptionCall(t.Context(), e, tc.path, "anthropic/test", tc.stream, true, nil, nil)
+			blocked := call(t.Context(), e, tc.path, tc.stream)
 			require.Equal(t, http.StatusServiceUnavailable, blocked.Code, blocked.Body.String())
 
 			// Canceled reconciliation retains the same writer job; it never duplicates removals.
-			pending := e.retirements[schemas.Anthropic]
+			pending := e.retirements[provider]
 			canceled, stop := context.WithCancel(t.Context())
 			stop()
 			_, err = e.Sync(canceled)
 			require.Error(t, err)
-			require.Same(t, pending, e.retirements[schemas.Anthropic])
+			require.Same(t, pending, e.retirements[provider])
 			if tc.cancel {
 				cancel()
 			}
@@ -164,10 +202,10 @@ func TestSubscriptionReplacementAfterHooks(t *testing.T) {
 			require.Zero(t, replacementCalls.Load(), "a validated token must never reach the replacement")
 			if !tc.cancel {
 				h := <-oldHeaders
-				require.Equal(t, subscriptionFixture, h.Get("Authorization"))
+				require.Equal(t, credential, h.Get("Authorization"))
 				require.Empty(t, h.Get("X-Api-Key"))
 			}
-			refused := subscriptionCall(t.Context(), e, tc.path, "anthropic/test", tc.stream, true, nil, nil)
+			refused := call(t.Context(), e, tc.path, tc.stream)
 			require.GreaterOrEqual(t, refused.Code, http.StatusBadRequest)
 			require.Zero(t, replacementCalls.Load())
 			changed, err := e.Sync(t.Context())
@@ -178,26 +216,44 @@ func TestSubscriptionReplacementAfterHooks(t *testing.T) {
 }
 
 func TestSubscriptionKeyOnlyRotationDoesNotRetire(t *testing.T) {
-	server := httptest.NewTLSServer(http.HandlerFunc(subscriptionReply))
+	for _, provider := range []schemas.ModelProvider{schemas.Anthropic, schemas.OpenAI} {
+		t.Run(string(provider), func(t *testing.T) { testSubscriptionKeyOnlyRotation(t, provider) })
+	}
+}
+
+func testSubscriptionKeyOnlyRotation(t *testing.T, provider schemas.ModelProvider) {
+	t.Helper()
+	reply := subscriptionReply
+	transport := subscriptionTransport
+	if provider == schemas.OpenAI {
+		reply = codexReply
+		transport = codexTransport
+	}
+	server := httptest.NewTLSServer(http.HandlerFunc(reply))
 	defer server.Close()
 	store := subscriptionStore(t)
-	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("old-key")))
+	require.NoError(t, store.CreateProvider(t.Context(), string(provider), subscriptionProvider("old-key")))
 	e, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
 	defer e.Shutdown()
-	subscriptionTransport(t, e, server)
-	original := e.client.GetProviderByKey(schemas.Anthropic)
-	e.subscriptionLifetime.RLock()
-	require.NoError(t, store.MutateProvider(t.Context(), "anthropic", func(p *llmcoreclient.Provider) error {
+	transport(t, e, server)
+	original := e.client.GetProviderByKey(provider)
+	e.subscriptionLock(provider).RLock()
+	require.NoError(t, store.MutateProvider(t.Context(), string(provider), func(p *llmcoreclient.Provider) error {
 		p.Keys[0].Value = *schemas.NewSecretVar("new-key")
 		return nil
 	}))
 	_, err = e.Sync(t.Context())
-	e.subscriptionLifetime.RUnlock()
+	e.subscriptionLock(provider).RUnlock()
 	require.NoError(t, err)
 	require.Empty(t, e.retirements)
-	require.Same(t, original, e.client.GetProviderByKey(schemas.Anthropic))
-	require.Equal(t, "new-key", e.account.config.Load().Keys[schemas.Anthropic][0].Value.GetValue())
-	result := subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", false, true, nil, nil)
+	require.Same(t, original, e.client.GetProviderByKey(provider))
+	require.Equal(t, "new-key", e.account.config.Load().Keys[provider][0].Value.GetValue())
+	var result *httptest.ResponseRecorder
+	if provider == schemas.OpenAI {
+		result = codexCall(t.Context(), e, "/v1/responses", `{"model":"gpt-5.4","input":"hi"}`, true, nil)
+	} else {
+		result = subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", false, true, nil, nil)
+	}
 	require.Equal(t, http.StatusOK, result.Code, result.Body.String())
 }
