@@ -13,7 +13,7 @@ func (c *Controller) setupEveryReplicaRoutes() {
 
 	c.setupLLMGatewayConfigRoutes(c.services.BifrostEngine)
 
-	providerSync := providersync.New(c.services.ProviderDispatcher, c.services.LicenseProvider, nil)
+	providerSync := providersync.New(c.services.ProviderDispatcher, c.services.LicenseProvider)
 	c.services.EveryReplicaRouter.Type(&v1.ProviderSync{}).
 		Namespace(system.DefaultNamespace).
 		Name(system.ProviderSyncName).

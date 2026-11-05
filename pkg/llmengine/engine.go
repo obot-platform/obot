@@ -1,4 +1,7 @@
-// Package llmengine integrates the Bifrost core gateway with Obot's lifecycle and models.
+// Package llmengine adapts llmcore to Obot's services and administrative API.
+// It owns model catalog refresh, legacy imports, and admin writes.
+// Inference, routing, and runtime configuration reconciliation belong to llmcore;
+// the catalog and plugins are injected so llmcore does not depend on Obot's service lifecycle.
 package llmengine
 
 import (
@@ -42,7 +45,7 @@ type syncFailure struct{ err error }
 
 type Engine struct {
 	syncFailure      atomic.Pointer[syncFailure]
-	metrics          *gatewayMetrics
+	admin            *http.ServeMux
 	availability     *modelAvailability
 	core             atomic.Pointer[llmcore.Engine]
 	store            *llmcoreclient.Client
@@ -69,17 +72,20 @@ type APIError struct {
 }
 
 func New() *Engine {
-	e := &Engine{metrics: newGatewayMetrics(), availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
+	e := &Engine{availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil
 		}
 		return e.prices
 	}
+	e.admin = e.adminRoutes()
 	e.client = &http.Client{Transport: handlerTransport{handler: e}}
 	return e
 }
+
 func (e *Engine) Fail(err error) { e.startOnce.Do(func() { e.startErr = err; close(e.ready) }) }
+
 func (e *Engine) Start(ctx context.Context, opts Options) error {
 	e.startOnce.Do(func() {
 		defer close(e.ready)
@@ -114,7 +120,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.FirstPlugin != nil {
 			plugins = append(plugins, opts.FirstPlugin)
 		}
-		plugins = append(plugins, e.metrics, e.availability)
+		plugins = append(plugins, e.availability)
 		if opts.LastPlugin != nil {
 			plugins = append(plugins, opts.LastPlugin)
 		}
@@ -141,6 +147,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 	})
 	return e.startErr
 }
+
 func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	e.syncMu.Lock()
 	defer e.syncMu.Unlock()
@@ -157,6 +164,7 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	}
 	return changed, err
 }
+
 func (e *Engine) syncPricing(_ context.Context) error {
 	engine := e.core.Load()
 	raw := engine.Setting("pricing-overrides")
@@ -176,6 +184,7 @@ func (e *Engine) syncPricing(_ context.Context) error {
 	e.pricingApplied = true
 	return nil
 }
+
 func (e *Engine) Shutdown() {
 	e.stopOnce.Do(func() {
 		if engine := e.core.Load(); engine != nil {
@@ -186,6 +195,7 @@ func (e *Engine) Shutdown() {
 		}
 	})
 }
+
 func (e *Engine) Wait(ctx context.Context) error {
 	select {
 	case <-e.ready:
@@ -194,6 +204,7 @@ func (e *Engine) Wait(ctx context.Context) error {
 		return ctx.Err()
 	}
 }
+
 func (e *Engine) Ready() bool {
 	select {
 	case <-e.ready:
@@ -202,6 +213,7 @@ func (e *Engine) Ready() bool {
 		return false
 	}
 }
+
 func (e *Engine) Err() error {
 	select {
 	case <-e.ready:
@@ -219,17 +231,14 @@ func (e *Engine) Err() error {
 		return nil
 	}
 }
+
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !e.Ready() {
 		http.Error(w, "LLM gateway unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/") {
-		e.serveAdmin(w, r)
-		return
-	}
-	if r.URL.Path == "/metrics" {
-		e.serveMetrics(w, r)
+		e.admin.ServeHTTP(w, r)
 		return
 	}
 	if r.Method == http.MethodGet && (r.URL.Path == "/v1/models" || r.URL.Path == "/anthropic/v1/models") {
@@ -238,6 +247,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	e.core.Load().ServeHTTP(w, r)
 }
+
 func (e *Engine) MaxRequestBodyBytes() int64 {
 	if engine := e.core.Load(); engine != nil {
 		return engine.MaxRequestBodyBytes()
@@ -246,13 +256,16 @@ func (e *Engine) MaxRequestBodyBytes() int64 {
 }
 
 func (e *Engine) Transport() http.RoundTripper { return e.client.Transport }
-func (e *Engine) BaseURL() url.URL             { return *e.baseURL }
+
+func (e *Engine) BaseURL() url.URL { return *e.baseURL }
+
 func (e *Engine) Client() *bifrostcore.Bifrost {
 	if !e.Ready() {
 		return nil
 	}
 	return e.core.Load().Client()
 }
+
 func (e *Engine) LLMPluginOrder() []string {
 	if !e.Ready() {
 		return nil
@@ -261,11 +274,7 @@ func (e *Engine) LLMPluginOrder() []string {
 	if e.opts.FirstPlugin != nil {
 		names = append(names, e.opts.FirstPlugin.GetName())
 	}
-	if e.opts.FirstPlugin != nil {
-		names = append(names, "obot-routing", "obot-metrics")
-	} else {
-		names = append(names, "obot-metrics", "obot-routing")
-	}
+	names = append(names, "obot-routing")
 	if e.opts.LastPlugin != nil {
 		names = append(names, e.opts.LastPlugin.GetName())
 	}

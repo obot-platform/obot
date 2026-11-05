@@ -65,3 +65,55 @@ func TestGlobalProxyPasswordRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(cfg.Config.Settings["proxy"]), "private-proxy-password")
 }
+
+func TestAdminRoutesRejectUnsupportedOperations(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil))
+	before, err := e.store.Load(ctx)
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		method string
+		path   string
+		status int
+	}{
+		{
+			method: http.MethodGet,
+			path:   "/api/providers/openai/keys/extra/segment",
+			status: http.StatusNotFound,
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/config/extra",
+			status: http.StatusNotFound,
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/config",
+			status: http.StatusMethodNotAllowed,
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/proxy-config",
+			status: http.StatusMethodNotAllowed,
+		},
+		{
+			method: http.MethodPut,
+			path:   "/api/governance/routing-rules",
+			status: http.StatusMethodNotAllowed,
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/governance/pricing-overrides",
+			status: http.StatusMethodNotAllowed,
+		},
+	} {
+		t.Run(tc.method+tc.path, func(t *testing.T) {
+			status, body := do(t, e, tc.method, tc.path, `{}`)
+			require.Equal(t, tc.status, status, body)
+			after, err := e.store.Load(ctx)
+			require.NoError(t, err)
+			require.Equal(t, before, after, "unsupported operations must not write configuration")
+		})
+	}
+}

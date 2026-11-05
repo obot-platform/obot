@@ -36,6 +36,7 @@ func (e *Engine) config(ctx context.Context) (llmcoreclient.Config, error) {
 	loaded, err := e.store.Load(ctx)
 	return loaded.Config, err
 }
+
 func adminJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
@@ -43,6 +44,7 @@ func adminJSON(w http.ResponseWriter, code int, v any) {
 		_ = json.NewEncoder(w).Encode(v)
 	}
 }
+
 func adminError(w http.ResponseWriter, err error) {
 	code := http.StatusBadRequest
 	if apiErr, ok := errors.AsType[*APIError](err); ok {
@@ -50,77 +52,96 @@ func adminError(w http.ResponseWriter, err error) {
 	}
 	adminJSON(w, code, map[string]any{"error": map[string]any{"message": ScrubEngineName(err.Error())}})
 }
+
 func missing(what string) error { return &APIError{StatusCode: 404, Message: what + " not found"} }
 
-func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
+// adminRoutes limits each operation to its supported method before storage or guards run.
+func (e *Engine) adminRoutes() *http.ServeMux {
+	mux := http.NewServeMux()
+	for _, path := range []string{
+		"keys", "providers", "providers/{provider}", "providers/{provider}/keys",
+		"providers/{provider}/keys/{key}", "config", "proxy-config", "version", "models",
+		"governance/routing-rules", "governance/routing-rules/{rule}",
+		"governance/pricing-overrides",
+	} {
+		mux.HandleFunc("GET /api/"+path, e.serveAdminRead)
+	}
+	for _, route := range []string{
+		"POST /api/providers", "PUT /api/providers/{provider}", "DELETE /api/providers/{provider}",
+		"POST /api/providers/{provider}/keys", "PUT /api/providers/{provider}/keys/{key}",
+		"DELETE /api/providers/{provider}/keys/{key}", "PUT /api/config", "PUT /api/proxy-config",
+		"POST /api/governance/routing-rules", "PUT /api/governance/routing-rules/{rule}",
+		"DELETE /api/governance/routing-rules/{rule}", "POST /api/governance/pricing-overrides",
+		"PUT /api/governance/pricing-overrides/{override}", "DELETE /api/governance/pricing-overrides/{override}",
+	} {
+		mux.HandleFunc(route, e.serveAdminWrite)
+	}
+	mux.HandleFunc("POST /api/pricing/force-sync", e.servePricingSync)
+	mux.HandleFunc("POST /api/providers/{provider}/refresh-models", e.serveModelRefresh)
+	return mux
+}
+
+func (e *Engine) servePricingSync(w http.ResponseWriter, r *http.Request) {
+	if err := e.prices.ForceReloadPricing(r.Context()); err != nil {
+		adminError(w, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()})
+		return
+	}
+	adminJSON(w, http.StatusOK, map[string]any{"status": "success", "message": "pricing synced successfully"})
+}
+
+func (e *Engine) serveModelRefresh(w http.ResponseWriter, r *http.Request) {
+	if _, err := e.Sync(r.Context()); err != nil {
+		adminError(w, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()})
+		return
+	}
+
+	cfg, err := e.config(r.Context())
+	if err != nil {
+		adminError(w, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()})
+		return
+	}
+	provider := schemas.ModelProvider(r.PathValue("provider"))
+	if _, ok := cfg.Providers[provider]; !ok {
+		adminError(w, missing("provider"))
+		return
+	}
+	if _, err := e.listGatewayModels(r.Context(), provider, true); err != nil {
+		adminError(w, &APIError{StatusCode: http.StatusBadGateway, Message: err.Error()})
+		return
+	}
+	adminJSON(w, http.StatusOK, map[string]any{"status": "refreshed"})
+}
+
+func (e *Engine) serveAdminRead(w http.ResponseWriter, r *http.Request) {
+	cfg, err := e.config(r.Context())
+	if err != nil {
+		adminError(w, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()})
+		return
+	}
+	out, err := e.adminRead(cfg, strings.TrimPrefix(r.URL.Path, "/api/"), r)
+	if err != nil {
+		adminError(w, err)
+		return
+	}
+	adminJSON(w, http.StatusOK, out)
+}
+
+func (e *Engine) serveAdminWrite(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 32<<20))
 	if err != nil {
 		adminError(w, err)
 		return
 	}
 	path := strings.TrimPrefix(r.URL.Path, "/api/")
-	if path == "pricing/force-sync" && r.Method == http.MethodPost {
-		if err := e.prices.ForceReloadPricing(r.Context()); err != nil {
-			adminError(w, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()})
-			return
-		}
-		adminJSON(w, http.StatusOK, map[string]any{"status": "success", "message": "pricing synced successfully"})
-		return
-	}
 	parts := strings.Split(path, "/")
-	if r.Method == http.MethodPost && len(parts) == 3 && parts[0] == "providers" && parts[2] == "refresh-models" {
-		if _, err := e.Sync(r.Context()); err != nil {
-			adminError(w, &APIError{StatusCode: 503, Message: err.Error()})
-			return
-		}
-		cfg, err := e.config(r.Context())
-		if err != nil {
-			adminError(w, &APIError{StatusCode: 503, Message: err.Error()})
-			return
-		}
-		provider := schemas.ModelProvider(parts[1])
-		if _, ok := cfg.Providers[provider]; !ok {
-			adminError(w, missing("provider"))
-			return
-		}
-		if _, err := e.listGatewayModels(r.Context(), provider, true); err != nil {
-			adminError(w, &APIError{StatusCode: 502, Message: err.Error()})
-			return
-		}
-		adminJSON(w, http.StatusOK, map[string]any{"status": "refreshed"})
-		return
-	}
-	if r.Method == http.MethodGet {
-		cfg, err := e.config(r.Context())
-		if err != nil {
-			adminError(w, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()})
-			return
-		}
-		out, err := e.adminRead(r.Context(), cfg, path, r)
-		if err != nil {
-			adminError(w, err)
-			return
-		}
-		adminJSON(w, 200, out)
-		return
-	}
-	if r.Method != http.MethodPost && r.Method != http.MethodPut && r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	// Guards distinguish creation from updates by method and path. Reject other
-	// combinations before entering storage so they cannot bypass those checks.
-	if parts[0] == "providers" {
-		if err := validateProviderOperation(path, r.Method); err != nil {
-			adminError(w, err)
-			return
-		}
-	}
+
 	var out any
 	var rejected error
+
 	// Once accepted, finish the durable write even if the caller disconnects.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 30*time.Second)
 	defer cancel()
+
 	err = e.mutateAdmin(ctx, path, r.Method, func(cfg *llmcoreclient.Config) error {
 		rejected = nil
 		// Guard reads and masked-secret merges use the latest owning resource on every retry.
@@ -133,7 +154,7 @@ func (e *Engine) serveAdmin(w http.ResponseWriter, r *http.Request) {
 		if len(change.RemoveKeys) > 0 {
 			cfg.Keys[schemas.ModelProvider(parts[1])] = nil
 		}
-		out, err = e.adminWrite(ctx, cfg, path, r.Method, change.Body)
+		out, err = e.adminWrite(cfg, path, r.Method, change.Body)
 		rejected = err
 		return err
 	})
@@ -215,11 +236,13 @@ func (e *Engine) mutateAdmin(ctx context.Context, path, method string, change fu
 			provider.Config, provider.Keys = cfg.Providers[name], cfg.Keys[name]
 			return nil
 		})
+
 	case "config", "proxy-config":
 		return e.store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
 			cfg.Settings = settings
 			return change(&cfg)
 		})
+
 	case "governance":
 		if len(parts) > 1 && parts[1] == "pricing-overrides" {
 			return e.store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
@@ -252,18 +275,38 @@ func (e *Engine) mutateAdmin(ctx context.Context, path, method string, change fu
 	return missing("gateway API")
 }
 
-func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key) map[string]any {
-	pc.CheckAndSetDefaults()
-	raw, _ := json.Marshal(pc)
-	var provider configstore.ProviderConfig
-	_ = json.Unmarshal(raw, &provider)
-	provider.Keys = keys
-	out := object(provider.Redacted())
-	out["name"] = name
-	out["provider"] = name
-	out["provider_status"] = "active"
-	return out
+// providerResponse adds Obot's admin identifiers to Bifrost's redacted configuration.
+type providerResponse struct {
+	*configstore.ProviderConfig
+	Name           schemas.ModelProvider `json:"name"`
+	Provider       schemas.ModelProvider `json:"provider"`
+	ProviderStatus string                `json:"provider_status"`
 }
+
+func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key) providerResponse {
+	pc.CheckAndSetDefaults()
+	provider := configstore.ProviderConfig{
+		Keys:                     keys,
+		NetworkConfig:            &pc.NetworkConfig,
+		ConcurrencyAndBufferSize: &pc.ConcurrencyAndBufferSize,
+		ProxyConfig:              pc.ProxyConfig,
+		SendBackRawRequest:       pc.SendBackRawRequest,
+		SendBackRawResponse:      pc.SendBackRawResponse,
+		StoreRawRequestResponse:  pc.StoreRawRequestResponse,
+		IgnoreProviderCost:       pc.IgnoreProviderCost,
+		CustomProviderConfig:     pc.CustomProviderConfig,
+		OpenAIConfig:             pc.OpenAIConfig,
+		PromptCache:              pc.PromptCache,
+		InjectedTools:            pc.InjectedTools,
+	}
+	return providerResponse{
+		ProviderConfig: provider.Redacted(),
+		Name:           name,
+		Provider:       name,
+		ProviderStatus: "active",
+	}
+}
+
 func object(v any) map[string]any {
 	raw, _ := json.Marshal(v)
 	out := map[string]any{}
@@ -273,19 +316,22 @@ func object(v any) map[string]any {
 	}
 	return out
 }
-func (e *Engine) adminRead(_ context.Context, cfg llmcoreclient.Config, path string, r *http.Request) (any, error) {
+
+func (e *Engine) adminRead(cfg llmcoreclient.Config, path string, r *http.Request) (any, error) {
 	parts := strings.Split(path, "/")
+
 	switch parts[0] {
 	case "keys":
-		out := []any{}
+		out := []schemas.Key{}
 		for provider, keys := range cfg.Keys {
 			view := providerView(provider, cfg.Providers[provider], keys)
-			out = append(out, view["keys"].([]any)...)
+			out = append(out, view.Keys...)
 		}
 		return map[string]any{"keys": out}, nil
+
 	case "providers":
 		if len(parts) == 1 {
-			out := []any{}
+			out := []providerResponse{}
 			for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
 				out = append(out, providerView(name, cfg.Providers[name], cfg.Keys[name]))
 			}
@@ -301,19 +347,19 @@ func (e *Engine) adminRead(_ context.Context, cfg llmcoreclient.Config, path str
 			return view, nil
 		}
 		if parts[2] == "keys" {
-			keys := view["keys"]
+			keys := view.Keys
 			if len(parts) == 3 {
 				return map[string]any{"keys": keys}, nil
 			}
-			for _, key := range keys.([]any) {
-				if object(key)["id"] == parts[3] {
+			for _, key := range keys {
+				if key.ID == parts[3] {
 					return key, nil
 				}
 			}
 			return nil, missing("key")
 		}
 	case "config":
-		client := map[string]any{"drop_excess_requests": false, "max_request_body_size_mb": 100, "prometheus_labels": []string{}}
+		client := map[string]any{"drop_excess_requests": false, "max_request_body_size_mb": 100}
 		if raw := cfg.Settings["client"]; len(raw) > 0 {
 			_ = json.Unmarshal(raw, &client)
 		}
@@ -334,6 +380,7 @@ func (e *Engine) adminRead(_ context.Context, cfg llmcoreclient.Config, path str
 
 	case "version":
 		return map[string]any{"version": Version}, nil
+
 	case "models":
 		out := []any{}
 		for provider := range cfg.Providers {
@@ -351,6 +398,7 @@ func (e *Engine) adminRead(_ context.Context, cfg llmcoreclient.Config, path str
 			}
 		}
 		return map[string]any{"models": out}, nil
+
 	case "governance":
 		if len(parts) > 1 && parts[1] == "routing-rules" {
 			if len(parts) == 3 {
@@ -375,6 +423,9 @@ func (e *Engine) adminRead(_ context.Context, cfg llmcoreclient.Config, path str
 	}
 	return nil, missing("gateway API")
 }
+
+// mergeJSON preserves omitted fields and masked secrets in partial admin updates.
+// Maps retain field presence and explicit nulls, which decoding into Bifrost structs loses.
 func mergeJSON(current any, body []byte) ([]byte, error) {
 	base := object(current)
 	var patch map[string]any
@@ -393,11 +444,14 @@ func mergeJSON(current any, body []byte) ([]byte, error) {
 			dst[k] = v
 		}
 	}
+
 	merge(base, patch)
+
 	// Restore only masked values which exactly match the redaction of the current value.
 	restoreMasked(base, object(current))
 	return json.Marshal(base)
 }
+
 func restoreMasked(dst, prior map[string]any) {
 	for k, v := range dst {
 		if child, ok := v.(map[string]any); ok {
@@ -415,8 +469,9 @@ func restoreMasked(dst, prior map[string]any) {
 	}
 }
 
-func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, method string, body []byte) (any, error) {
+func (e *Engine) adminWrite(cfg *llmcoreclient.Config, path, method string, body []byte) (any, error) {
 	parts := strings.Split(path, "/")
+
 	switch parts[0] {
 	case "providers":
 		if len(parts) == 1 {
@@ -436,6 +491,7 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 			if _, ok := cfg.Providers[name]; ok {
 				return nil, fmt.Errorf("provider already exists")
 			}
+
 			var pc schemas.ProviderConfig
 			defaults := object(json.RawMessage(body))
 			ApplyProviderDefaults(defaults)
@@ -446,10 +502,12 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 			if err := validateProvider(name, pc); err != nil {
 				return nil, err
 			}
+
 			pc.CheckAndSetDefaults()
 			if err := validateProvider(name, pc); err != nil {
 				return nil, err
 			}
+
 			cfg.Providers[name] = pc
 			return providerView(name, pc, nil), nil
 		}
@@ -491,6 +549,7 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 			if err := validateProvider(name, next); err != nil {
 				return nil, err
 			}
+
 			cfg.Providers[name] = next
 			return providerView(name, next, cfg.Keys[name]), nil
 		}
@@ -510,6 +569,7 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 				cfg.Keys[name] = slices.Delete(keys, index, index+1)
 				return map[string]any{"status": "deleted"}, nil
 			}
+
 			key := schemas.Key{ID: uuid.NewString(), Weight: 1, Models: schemas.WhiteList{"*"}}
 			if index >= 0 {
 				key = keys[index]
@@ -529,6 +589,7 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 			if slices.ContainsFunc(keys, func(existing schemas.Key) bool { return existing.ID != key.ID && existing.Name == key.Name }) {
 				return nil, fmt.Errorf("key name already exists")
 			}
+
 			if key.Name == "" || key.Weight < 0 {
 				return nil, fmt.Errorf("key name and nonnegative weight required")
 			}
@@ -546,9 +607,10 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 			} else {
 				keys = append(keys, key)
 			}
+
 			cfg.Keys[name] = keys
 			redacted := providerView(name, pc, []schemas.Key{key})
-			return redacted["keys"].([]any)[0], nil
+			return redacted.Keys[0], nil
 		}
 	case "config":
 		var in struct {
@@ -635,6 +697,7 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 					return nil, fmt.Errorf("invalid first-token timeout")
 				}
 			}
+
 			cfg.Rules[in.ID] = in
 			return map[string]any{"rule": in}, nil
 		}
@@ -703,6 +766,7 @@ func (e *Engine) adminWrite(_ context.Context, cfg *llmcoreclient.Config, path, 
 	}
 	return nil, missing("gateway API")
 }
+
 func validateProvider(name schemas.ModelProvider, pc schemas.ProviderConfig) error {
 	base := name
 	if pc.CustomProviderConfig != nil {

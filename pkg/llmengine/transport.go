@@ -6,8 +6,12 @@ import (
 	"sync"
 )
 
-// handlerTransport streams an in-process handler through a pipe. Closing the response
-// body cancels the request and unblocks a writer after client disconnects.
+// handlerTransport lets the gateway reverse proxy and internal admin client call
+// Engine.ServeHTTP without a listening socket. The proxy still uses RoundTripper
+// to sanitize headers and bodies, including streaming responses.
+//
+// The pipe streams responses without buffering the whole body. Closing the response
+// body unblocks the handler if it is waiting to write after a client disconnect.
 type handlerTransport struct{ handler http.Handler }
 
 type pipeResponse struct {
@@ -42,11 +46,14 @@ func (t handlerTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 func (w *pipeResponse) Header() http.Header { return w.header }
+
 func (w *pipeResponse) WriteHeader(status int) {
 	w.once.Do(func() { w.status = status; w.sent = w.header.Clone(); close(w.ready) })
 }
+
 func (w *pipeResponse) Write(data []byte) (int, error) {
 	w.WriteHeader(http.StatusOK)
 	return w.writer.Write(data)
 }
+
 func (w *pipeResponse) Flush() { w.WriteHeader(http.StatusOK) }

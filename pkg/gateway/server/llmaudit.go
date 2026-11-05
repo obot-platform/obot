@@ -317,7 +317,7 @@ func extractLLMReasoningEffort(modelProvider string, body []byte) string {
 }
 
 // observeResponseChunk assembles client-bound core chunks after guardrail replay.
-func (r *llmAuditRecorder) observeResponseChunk(_ *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
+func (r *llmAuditRecorder) observeResponseChunk(chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
 	if r == nil || chunk == nil {
 		return
 	}

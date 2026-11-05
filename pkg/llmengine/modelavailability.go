@@ -21,13 +21,16 @@ type modelAvailability struct {
 type modelAvailabilityProviderKey struct{}
 
 func (*modelAvailability) GetName() string { return "obot-model-availability" }
-func (*modelAvailability) Cleanup() error  { return nil }
+
+func (*modelAvailability) Cleanup() error { return nil }
+
 func (*modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
 	if req.ListModelsRequest != nil {
 		ctx.SetValue(modelAvailabilityProviderKey{}, req.ListModelsRequest.Provider)
 	}
 	return req, nil, nil
 }
+
 func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
 	if resp == nil || resp.ListModelsResponse == nil || err != nil {
 		return resp, err, nil
@@ -57,6 +60,7 @@ func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schem
 	}
 	return resp, err, nil
 }
+
 func (m *modelAvailability) isUnavailable(id string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

@@ -299,13 +299,16 @@ func (g *gatewayRouting) recordBody(body []byte) {
 }
 
 func (t sanitizingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Capture the resolved attempt before sanitization removes internal routing metadata.
 	req = req.WithContext(llmcore.WithResponseObserver(req.Context(), func(extra schemas.BifrostResponseExtraFields) {
 		info := extra.RoutingInfo
 		gatewayRoutingFrom(req.Context()).set(llmRoute{Provider: string(info.Provider), Model: info.Model, Key: info.Key, Fallback: info.IsFallback})
 	}))
-	req = req.WithContext(llmcore.WithStreamObserver(req.Context(), func(ctx *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
+	// Audit only chunks delivered after guardrail replay, using the core accumulator
+	// to preserve each dialect's usage and response shape.
+	req = req.WithContext(llmcore.WithStreamObserver(req.Context(), func(_ *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
 		if routing := gatewayRoutingFrom(req.Context()); routing != nil {
-			routing.audit.observeResponseChunk(ctx, chunk, a)
+			routing.audit.observeResponseChunk(chunk, a)
 		}
 	}))
 	resp, err := t.next.RoundTrip(req)

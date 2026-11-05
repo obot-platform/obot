@@ -61,6 +61,7 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	}
 	return out.Data, nil
 }
+
 func (e *Engine) serveModels(w http.ResponseWriter, r *http.Request) {
 	provider := schemas.ModelProvider(r.URL.Query().Get("provider"))
 	anthropic := strings.HasPrefix(r.URL.Path, "/anthropic/")

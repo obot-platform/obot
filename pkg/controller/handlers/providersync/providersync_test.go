@@ -44,7 +44,7 @@ func (r *recordingStopper) StopModelProvider(namespace, modelProviderName string
 
 func TestReconcileStopsOnlyProvidersWithNewRevisions(t *testing.T) {
 	stopper := newRecordingStopper()
-	handler := New(stopper, &recordingLicenseRefresher{}, nil)
+	handler := New(stopper, &recordingLicenseRefresher{})
 	daemonSync := &v1.ProviderSync{
 		UID: types.UID("sync-1"),
 		Spec: v1.ProviderSyncSpec{
@@ -95,7 +95,7 @@ func TestReconcileStopsOnlyProvidersWithNewRevisions(t *testing.T) {
 
 func TestReconcileTreatsRecreatedSyncAsNew(t *testing.T) {
 	stopper := newRecordingStopper()
-	handler := New(stopper, &recordingLicenseRefresher{}, nil)
+	handler := New(stopper, &recordingLicenseRefresher{})
 	revision := v1.ProviderRevision{
 		ProviderType:      v1.ProviderTypeAuth,
 		ProviderNamespace: "default",
@@ -130,7 +130,7 @@ func TestReconcileTreatsRecreatedSyncAsNew(t *testing.T) {
 
 func TestReconcileRejectsInvalidProviderType(t *testing.T) {
 	stopper := newRecordingStopper()
-	handler := New(stopper, &recordingLicenseRefresher{}, nil)
+	handler := New(stopper, &recordingLicenseRefresher{})
 
 	err := handler.Reconcile(router.Request{
 		Object: &v1.ProviderSync{
@@ -154,8 +154,8 @@ func TestReconcileRejectsInvalidProviderType(t *testing.T) {
 func TestReconcileRefreshesLicenseForEachNewRevision(t *testing.T) {
 	refresherOne := &recordingLicenseRefresher{}
 	refresherTwo := &recordingLicenseRefresher{}
-	handlerOne := New(newRecordingStopper(), refresherOne, nil)
-	handlerTwo := New(newRecordingStopper(), refresherTwo, nil)
+	handlerOne := New(newRecordingStopper(), refresherOne)
+	handlerTwo := New(newRecordingStopper(), refresherTwo)
 	daemonSync := &v1.ProviderSync{
 		UID: types.UID("sync-1"),
 		Spec: v1.ProviderSyncSpec{
@@ -197,7 +197,7 @@ func TestReconcileRefreshesLicenseForEachNewRevision(t *testing.T) {
 
 func TestReconcileRetriesFailedLicenseRefresh(t *testing.T) {
 	refresher := &recordingLicenseRefresher{err: errors.New("refresh failed")}
-	handler := New(newRecordingStopper(), refresher, nil)
+	handler := New(newRecordingStopper(), refresher)
 	req := router.Request{
 		Object: &v1.ProviderSync{
 			UID: types.UID("sync-1"),
@@ -219,40 +219,21 @@ func TestReconcileRetriesFailedLicenseRefresh(t *testing.T) {
 	assert.Equal(t, 2, refresher.refreshes)
 }
 
-func TestReconcileReloadsLLMGatewayForNewRevisions(t *testing.T) {
-	var reloads []int64
-	handler := New(newRecordingStopper(), &recordingLicenseRefresher{}, func(_ context.Context, revision int64) (bool, error) {
-		reloads = append(reloads, revision)
-		return true, nil
-	})
-	sync := func(revision int64) router.Request {
-		return router.Request{
-			Object: &v1.ProviderSync{
-				UID: types.UID("sync-1"),
-				Spec: v1.ProviderSyncSpec{
-					Revisions: map[string]v1.ProviderRevision{
-						"llm-gateway/default/llm-gateway-model-provider": {
-							ProviderType: v1.ProviderTypeLLMGateway,
-							Revision:     revision,
-						},
+func TestReconcileAcknowledgesLegacyLLMGatewayRevision(t *testing.T) {
+	handler := New(newRecordingStopper(), &recordingLicenseRefresher{})
+	req := router.Request{
+		Object: &v1.ProviderSync{
+			UID: types.UID("sync-1"),
+			Spec: v1.ProviderSyncSpec{
+				Revisions: map[string]v1.ProviderRevision{
+					"llm-gateway/default/llm-gateway-model-provider": {
+						ProviderType: v1.ProviderTypeLLMGateway,
+						Revision:     1,
 					},
 				},
 			},
-			Ctx: t.Context(),
-		}
+		},
 	}
-	require.NoError(t, handler.Reconcile(sync(1), nil))
-	require.NoError(t, handler.Reconcile(sync(1), nil))
-	require.NoError(t, handler.Reconcile(sync(2), nil))
-	assert.Equal(t, []int64{1, 2}, reloads)
-
-	// A failed reload is retried.
-	failing := New(newRecordingStopper(), &recordingLicenseRefresher{}, func(context.Context, int64) (bool, error) {
-		return false, errors.New("boom")
-	})
-	require.Error(t, failing.Reconcile(sync(1), nil))
-
-	// With the gateway disabled, revisions are acknowledged without reloading.
-	disabled := New(newRecordingStopper(), &recordingLicenseRefresher{}, nil)
-	require.NoError(t, disabled.Reconcile(sync(1), nil))
+	require.NoError(t, handler.Reconcile(req, nil))
+	require.Equal(t, int64(1), handler.lastRevisions["sync-1/llm-gateway/default/llm-gateway-model-provider"])
 }

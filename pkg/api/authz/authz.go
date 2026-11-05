@@ -422,7 +422,6 @@ var (
 
 		MetricsGroup: {
 			"/debug/metrics",
-			"GET /api/llm-gateway/metrics",
 		},
 	}
 

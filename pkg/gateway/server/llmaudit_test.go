@@ -342,7 +342,7 @@ func TestAuditBifrostChatCapture(t *testing.T) {
 		}
 		resp.ExtraFields.RequestType = schemas.ChatCompletionStreamRequest
 		resp.ExtraFields.ChunkIndex = i
-		r.observeResponseChunk(nil, &schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+		r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
 	}
 	r.finishBody()
 	if got := gjson.GetBytes(r.log.ResponseBody, "choices.0.message.content").String(); got != "hello world" {
@@ -357,7 +357,7 @@ func TestAuditBifrostChatCapture(t *testing.T) {
 	if a.GetAccumulatedResponse(r.log.ID) != nil {
 		t.Fatal("capture was not cleaned up")
 	}
-	r.observeResponseChunk(nil, &schemas.BifrostStreamChunk{BifrostChatResponse: &schemas.BifrostChatResponse{}}, a)
+	r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &schemas.BifrostChatResponse{}}, a)
 	if a.GetAccumulatedResponse(r.log.ID) != nil {
 		t.Fatal("late callback recreated capture")
 	}
@@ -376,7 +376,7 @@ func TestAuditBifrostResponsesDialects(t *testing.T) {
 				t.Fatal(err)
 			}
 			resp.ExtraFields.RequestType = schemas.ResponsesStreamRequest
-			r.observeResponseChunk(nil, &schemas.BifrostStreamChunk{BifrostResponsesStreamResponse: &resp}, a)
+			r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostResponsesStreamResponse: &resp}, a)
 			r.finishBody()
 			if !strings.Contains(string(r.log.ResponseBody), "approved") {
 				t.Fatalf("body = %s", r.log.ResponseBody)
@@ -400,7 +400,7 @@ func TestAuditCaptureConcurrentCloseAndOverflow(t *testing.T) {
 	var wg sync.WaitGroup
 	for range 8 {
 		wg.Go(func() {
-			r.observeResponseChunk(nil, &schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+			r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
 			r.captureResponseChunk([]byte("too large"))
 		})
 	}

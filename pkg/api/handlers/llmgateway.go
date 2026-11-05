@@ -530,26 +530,6 @@ func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
 	}
 }
 
-// Metrics serves the gateway's Prometheus metrics: request counts, latencies, tokens and cost
-// by provider, model and key.
-func (h *LLMGatewayHandler) Metrics(req api.Context) error {
-	if err := h.requireEngine(); err != nil {
-		return err
-	}
-	out, err := http.NewRequestWithContext(req.Context(), http.MethodGet, "/metrics", nil)
-	if err != nil {
-		return err
-	}
-	rec := httptest.NewRecorder()
-	h.engine.ServeHTTP(rec, out)
-	// Publish the metrics under Obot's own name.
-	metrics := strings.ReplaceAll(rec.Body.String(), "bifrost_", "obot_llm_gateway_")
-	req.ResponseWriter.Header().Set("Content-Type", rec.Header().Get("Content-Type"))
-	req.WriteHeader(rec.Code)
-	_, err = req.ResponseWriter.Write([]byte(metrics))
-	return err
-}
-
 func (h *LLMGatewayHandler) SyncModels(req api.Context) error {
 	if err := h.requireEngine(); err != nil {
 		return err

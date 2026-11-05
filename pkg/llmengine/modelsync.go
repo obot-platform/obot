@@ -99,7 +99,7 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 				method = http.MethodPut
 			}
 			body, _ := json.Marshal(key)
-			if _, err := e.adminWrite(ctx, &cfg, path, method, body); err != nil {
+			if _, err := e.adminWrite(&cfg, path, method, body); err != nil {
 				return err
 			}
 			provider.Keys = cfg.Keys[schemas.ModelProvider(p.provider)]

@@ -50,8 +50,6 @@ Administrators manage the gateway from these pages:
 | **Audit Logs** → **LLM** | Every request with its user, the model it asked for and the provider, model and key that served it, whether a fallback did, its guardrail findings, tokens, duration and content. See [Audit usage and costs](./audit.md). |
 | **LLM Gateway** → **Settings** | Queueing behavior and request size limits. |
 
-Prometheus metrics for the gateway (requests, latency, tokens and cost by provider, model and provider key) are served at `GET /api/llm-gateway/metrics` to administrators, auditors and credentials allowed to read `/debug/metrics`. The gateway's own metric names start with `obot_llm_gateway_`.
-
 ## Default models {#default-models}
 
 Obot features such as LLM judge guardrails use default model aliases instead of specific models:

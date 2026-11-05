@@ -378,7 +378,6 @@ export function parseFallback(f: RoutingFallback | string): RoutingFallback {
 export interface ClientConfig {
 	drop_excess_requests: boolean;
 	max_request_body_size_mb: number;
-	prometheus_labels: string[] | null;
 	[key: string]: unknown;
 }
 
