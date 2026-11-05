@@ -321,11 +321,16 @@
 		resetPasswordDialog?.open({ id: user.localAuthUserId, email: user.email });
 	}
 
-	function isPasswordResetRestricted(user: TableItem) {
+	// The server only lets an Owner modify or delete an Owner or Auditor user.
+	function isPrivilegedActionRestricted(user: TableItem) {
 		return (
 			isOwnerActionRestricted(user) ||
 			(user.hasOrgUser && user.auditor && !profile.current.groups.includes(Group.OWNER))
 		);
+	}
+
+	function isPasswordResetRestricted(user: TableItem) {
+		return isPrivilegedActionRestricted(user);
 	}
 
 	async function updateUserRole(
@@ -590,7 +595,7 @@
 							<button
 								class="menu-button text-error"
 								disabled={!deletionReady ||
-									(d.hasOrgUser && (d.claudeTag || stillProvisioned || isOwnerActionRestricted(d)))}
+									(d.hasOrgUser && (d.claudeTag || stillProvisioned || isPrivilegedActionRestricted(d)))}
 								use:tooltip={{
 									text: d.claudeTag
 										? CLAUDE_TAG_MESSAGE
@@ -601,7 +606,7 @@
 									classes: ['z-50']
 								}}
 								onclick={() => {
-									if (isOwnerActionRestricted(d)) return;
+									if (isPrivilegedActionRestricted(d)) return;
 									deletingUser = d;
 								}}
 							>
@@ -623,7 +628,7 @@
 	{loading}
 	onsuccess={async () => {
 		if (!deletingUser || !deletionReady || loading) return;
-		if (isOwnerActionRestricted(deletingUser)) {
+		if (isPrivilegedActionRestricted(deletingUser)) {
 			deletingUser = undefined;
 			return;
 		}
