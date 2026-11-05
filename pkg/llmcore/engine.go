@@ -495,7 +495,7 @@ func (e *Engine) MaxRequestBodyBytes() int64 {
 
 // Setting returns an immutable copy of a setting from the loaded configuration.
 func (e *Engine) Setting(name string) json.RawMessage {
-	return append(json.RawMessage{}, e.account.config.Load().Settings[name]...)
+	return slices.Clone(e.account.config.Load().Settings[name])
 }
 
 // Input hooks see the original request before routing; output hooks run last in the list.
