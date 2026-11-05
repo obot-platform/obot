@@ -6,9 +6,9 @@ import (
 	"sync"
 )
 
-// handlerTransport lets the inference reverse proxy call
-// Engine.ServeHTTP without a listening socket. The proxy still uses RoundTripper
-// to sanitize headers and bodies, including streaming responses.
+// handlerTransport lets the inference reverse proxy and message-policy client call
+// Engine.ServeHTTP without a listening socket. Inference still uses RoundTripper
+// for HTTP dialect encoding, response sanitization, and streaming.
 //
 // The pipe streams responses without buffering the whole body. Closing the response
 // body unblocks the handler if it is waiting to write after a client disconnect.

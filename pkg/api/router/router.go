@@ -525,7 +525,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("PUT /api/llm-gateway/budgets/{budget_id}", llmGateway.UpdateBudget)
 	mux.HandleFunc("DELETE /api/llm-gateway/budgets/{budget_id}", llmGateway.DeleteBudget)
 	mux.HandleFunc("GET /api/llm-gateway/budgets/{budget_id}/usage", llmGateway.BudgetUsage)
-	mux.HandleFunc("/api/llm-gateway/admin/{path...}", llmGateway.Proxy)
+	llmGateway.RegisterAdminRoutes(mux.HandleFunc)
 
 	// Guardrails, for LLM gateway traffic and MCP tool calls
 	guardrailsHandler := handlers.NewGuardrailsHandler(services.GuardrailEngine)

@@ -122,77 +122,76 @@ func (h *LLMGatewayHandler) requireEngine() error {
 	return nil
 }
 
-// Proxy serves the existing /api/llm-gateway/admin/{path...} contract through direct Engine calls.
-func (h *LLMGatewayHandler) Proxy(req api.Context) error {
-	if err := h.requireEngine(); err != nil {
-		return err
-	}
-
-	path, ok := allowedBifrostAPIPath(req.PathValue("path"), req.URL.EscapedPath())
-	if !ok {
-		return types.NewErrNotFound("LLM gateway API %q is not available", req.PathValue("path"))
-	}
-
-	if err := validateAdminOperation(req.Method, path); err != nil {
-		return err
-	}
-
-	body, err := req.Body(api.BodyOptions{MaxBytes: 32 * 1024 * 1024})
-	if err != nil {
-		return err
-	}
-	if len(body) > 0 {
-		if err := rejectUnsafeConfig(body); err != nil {
+// admin applies the shared HTTP boundary around a direct Engine operation.
+func (h *LLMGatewayHandler) admin(operation func(api.Context, []byte) (any, error)) api.HandlerFunc {
+	return func(req api.Context) error {
+		if err := h.requireEngine(); err != nil {
 			return err
 		}
-		if err := rejectEngineAuthConfig(path, body); err != nil {
+
+		path, ok := allowedBifrostAPIPath(strings.TrimPrefix(req.URL.Path, gatewayAdminPrefix), req.URL.EscapedPath())
+		if !ok {
+			return types.NewErrNotFound("LLM gateway API %q is not available", req.URL.Path)
+		}
+
+		body, err := req.Body(api.BodyOptions{MaxBytes: 32 * 1024 * 1024})
+		if err != nil {
 			return err
 		}
-		if err := rejectGlobalProxySkipVerify(path, body); err != nil {
-			return err
-		}
-		if path == "config" && req.Method != http.MethodGet {
-			if body, err = clientConfigOnly(body); err != nil {
+		if len(body) > 0 {
+			if err := rejectUnsafeConfig(body); err != nil {
 				return err
 			}
-		}
-		providerType := h.providerType(req.Context(), path, body)
-		if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
-			return err
-		}
-		if isAnthropicProvider(path, body) {
-			settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
-			if err != nil {
+			if err := rejectEngineAuthConfig(path, body); err != nil {
 				return err
 			}
-			if settings.SubscriptionPassthrough {
-				if err := rejectSubscriptionRedirects(body); err != nil {
+			if err := rejectGlobalProxySkipVerify(path, body); err != nil {
+				return err
+			}
+			if path == "config" && req.Method != http.MethodGet {
+				if body, err = clientConfigOnly(body); err != nil {
+					return err
+				}
+			}
+			providerType := h.providerType(req.Context(), path, body)
+			if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
+				return err
+			}
+			if isAnthropicProvider(path, body) {
+				settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
+				if err != nil {
+					return err
+				}
+				if settings.SubscriptionPassthrough {
+					if err := rejectSubscriptionRedirects(body); err != nil {
+						return err
+					}
+				}
+			}
+			if isProviderWrite(req.Method, path) {
+				if body, err = withProviderDefaults(body, req.Method == http.MethodPost, providerType); err != nil {
 					return err
 				}
 			}
 		}
-		if isProviderWrite(req.Method, path) {
-			if body, err = withProviderDefaults(body, req.Method == http.MethodPost, providerType); err != nil {
-				return err
-			}
-		}
-	}
 
-	ctx := req.Context()
-	if req.Method != http.MethodGet && req.Method != http.MethodHead {
-		// Successful durable writes must announce model/subscription changes even
-		// after a disconnect. Runtime reconciliation is independent of this response.
-		ctx = context.WithoutCancel(ctx)
+		ctx := req.Context()
+		if req.Method != http.MethodGet && req.Method != http.MethodHead {
+			// Successful durable writes must announce model/subscription changes even
+			// after a disconnect. Runtime reconciliation is independent of this response.
+			ctx = context.WithoutCancel(ctx)
+		}
+		req.Request = req.Request.WithContext(ctx)
+		out, err := operation(req, body)
+		if err != nil {
+			return gatewayAdminError(err)
+		}
+		if req.Method != http.MethodGet && req.Method != http.MethodHead {
+			h.afterMutation(ctx, req, path)
+		}
+		req.ResponseWriter.Header().Set("Content-Type", "application/json")
+		return json.NewEncoder(req.ResponseWriter).Encode(out)
 	}
-	out, err := h.adminOperation(ctx, req.Method, path, req.URL.Query(), body)
-	if err != nil {
-		return gatewayAdminError(err)
-	}
-	if req.Method != http.MethodGet && req.Method != http.MethodHead {
-		h.afterMutation(ctx, req, path)
-	}
-	req.ResponseWriter.Header().Set("Content-Type", "application/json")
-	return json.NewEncoder(req.ResponseWriter).Encode(out)
 }
 
 // allowedBifrostAPIPath validates the requested Bifrost API path against the allowlist. The

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
@@ -48,12 +49,27 @@ func newAdminTestHandler(t *testing.T, storage kclient.WithWatch) (*LLMGatewayHa
 
 func callAdmin(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWatch, method, path, body string) (*httptest.ResponseRecorder, error) {
 	t.Helper()
-	const prefix = "/api/llm-gateway/admin/"
-	request := httptest.NewRequest(method, prefix+path, strings.NewReader(body))
-	request.SetPathValue("path", strings.TrimPrefix(request.URL.Path, prefix))
+	request := httptest.NewRequest(method, gatewayAdminPrefix+path, strings.NewReader(body))
+	return callAdminRequest(handler, storage, request)
+}
+
+func callAdminRequest(handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
+	mux := http.NewServeMux()
+	var handlerErr error
+	handler.RegisterAdminRoutes(func(pattern string, handle api.HandlerFunc) {
+		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+			handlerErr = handle(api.Context{Request: r, ResponseWriter: w, Storage: storage})
+		})
+	})
+	// Include the same API fallback as the production router.
+	mux.Handle("/api/", http.NotFoundHandler())
 	response := httptest.NewRecorder()
-	err := handler.Proxy(api.Context{Request: request, ResponseWriter: response, Storage: storage})
-	return response, err
+	mux.ServeHTTP(response, request)
+	if handlerErr == nil && response.Code >= http.StatusBadRequest {
+		// The mux itself handles unknown paths and unsupported methods before an API handler runs.
+		handlerErr = types.NewErrHTTP(response.Code, response.Body.String())
+	}
+	return response, handlerErr
 }
 
 func TestGatewayAdminUnsupportedOperationsCannotMutate(t *testing.T) {
@@ -265,14 +281,46 @@ func TestGatewayAdminCanceledWriteStillAnnounces(t *testing.T) {
 	})
 	h, store := newAdminTestHandler(t, wrapped)
 	request := httptest.NewRequest(http.MethodPost, "/api/llm-gateway/admin/providers", strings.NewReader(`{"provider":"openai"}`)).WithContext(ctx)
-	request.SetPathValue("path", "providers")
-	response := httptest.NewRecorder()
-	require.NoError(t, h.Proxy(api.Context{Request: request, ResponseWriter: response, Storage: storage}))
+	response, err := callAdminRequest(h, storage, request)
+	require.NoError(t, err)
 	require.ErrorIs(t, ctx.Err(), context.Canceled)
 	require.Equal(t, http.StatusOK, response.Code)
-	_, err := store.GetProvider(t.Context(), "openai")
+	_, err = store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	var mp v1.ModelProvider
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(llmengine.ModelProviderResource()), &mp))
 	require.NotEmpty(t, mp.Annotations[v1.ModelProviderSyncAnnotation], "disconnects must not suppress post-commit model discovery")
+}
+
+func TestGatewayAdminMuxKeyRoutes(t *testing.T) {
+	storage := newFakeStorage(t, llmengine.ModelProviderResource())
+	h, store := newAdminTestHandler(t, storage)
+	_, err := h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"openai"}`))
+	require.NoError(t, err)
+
+	response, err := callAdmin(t, h, storage, http.MethodPost, "providers/openai/keys/", `{"name":"primary","value":"secret"}`)
+	require.NoError(t, err)
+	var key schemas.Key
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &key))
+	require.NotEmpty(t, key.ID)
+
+	path := "providers/openai/keys/" + key.ID
+	response, err = callAdmin(t, h, storage, http.MethodPut, path, `{"name":"renamed"}`)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &key))
+	require.Equal(t, "renamed", key.Name)
+
+	before, err := store.Load(t.Context())
+	require.NoError(t, err)
+	_, err = callAdmin(t, h, storage, http.MethodHead, path, "")
+	require.NoError(t, err)
+	after, err := store.Load(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, before, after, "HEAD must remain a read")
+
+	_, err = callAdmin(t, h, storage, http.MethodDelete, path, "")
+	require.NoError(t, err)
+	provider, err := store.GetProvider(t.Context(), "openai")
+	require.NoError(t, err)
+	require.Empty(t, provider.Keys)
 }
