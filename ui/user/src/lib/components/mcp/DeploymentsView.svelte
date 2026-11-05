@@ -275,13 +275,21 @@
 
 	onMount(async () => {
 		loadingVMcps = true;
-		const getVMcps = profile.current.hasAdminAccess?.()
-			? AdminService.listAllVMCPs
-			: UserService.listVMCPs;
-		getVMcps().then((response) => {
-			vmcps = response;
-			loadingVMcps = false;
-		});
+		UserService.listVMCPs({
+			all: profile.current.hasAdminAccess?.(),
+			minimal: true,
+			dontLogErrors: true
+		})
+			.then((response) => {
+				vmcps = response;
+			})
+			.catch(() => {
+				vmcps = [];
+				errors.append(m.vmcps_failed_to_load_vmcps());
+			})
+			.finally(() => {
+				loadingVMcps = false;
+			});
 
 		if (!skipLoadMcpsOnMount) {
 			await reload(true);

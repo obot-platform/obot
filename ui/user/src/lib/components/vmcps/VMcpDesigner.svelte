@@ -71,6 +71,7 @@
 		isFirstVMcp?: boolean;
 		showBackButton?: boolean;
 		workspaceId?: string;
+		loading?: boolean;
 	}
 
 	let {
@@ -79,7 +80,8 @@
 		usersMap,
 		isFirstVMcp = false,
 		showBackButton = true,
-		workspaceId
+		workspaceId,
+		loading = false
 	}: Props = $props();
 
 	let view = $derived(
@@ -151,7 +153,7 @@
 	);
 	let componentDropPending = $state(false);
 	let showDesignerLoading = $derived(
-		(isVMcpCreateHandoffPending() || componentDropPending) && !toolFlow.dialog
+		(isVMcpCreateHandoffPending() || componentDropPending || loading) && !toolFlow.dialog
 	);
 
 	$effect(() => {
@@ -666,7 +668,7 @@
 			<div
 				class="bg-base-200/70 dark:bg-black/60 absolute inset-0 z-60 flex items-center justify-center"
 				role="status"
-				aria-label={m.vmcps_setting_up_tools()}
+				aria-label={loading ? m.vmcps_loading_designer() : m.vmcps_setting_up_tools()}
 			>
 				<Loading class="size-8" />
 			</div>

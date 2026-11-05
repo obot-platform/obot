@@ -1,4 +1,4 @@
-import { AdminService, type Model, type ModelAccessPolicy } from '$lib/services';
+import { AdminService, UserService, type Model, type ModelAccessPolicy } from '$lib/services';
 import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -13,13 +13,13 @@ function mockAccessPolicyLists() {
 	vi.spyOn(AdminService, 'listAllUserWorkspaceAccessControlRules').mockResolvedValue([]);
 	vi.spyOn(AdminService, 'listModelAccessPolicies').mockResolvedValue([]);
 	vi.spyOn(AdminService, 'listSkillAccessPolicies').mockResolvedValue([]);
-	vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([]);
+	vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 }
 
 describe('CurrentAccessDialog.svelte', () => {
 	it('shows an error when the current view fails to load', async () => {
 		mockAccessPolicyLists();
-		vi.spyOn(AdminService, 'listAllVMCPs').mockRejectedValue(new Error('vmcps unavailable'));
+		vi.spyOn(UserService, 'listVMCPs').mockRejectedValue(new Error('vmcps unavailable'));
 
 		const result = await render(CurrentAccessDialog);
 		result.component.open({ kind: 'user', id: 'user-1', name: 'Ada' });

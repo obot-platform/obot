@@ -42,6 +42,7 @@ func (*VMCPHandler) List(req api.Context) error {
 	}
 
 	all := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
+	minimal := req.URL.Query().Get("minimal") == "true"
 
 	instances, err := vmcpconfig.FindInstances(req.Context(), req.Storage, req.Namespace(), req.User.GetUID())
 	if err != nil {
@@ -51,10 +52,57 @@ func (*VMCPHandler) List(req api.Context) error {
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {
 		if all || authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
-			items = append(items, convertVMCPForInstance(req, list.Items[itemIndex], instances[list.Items[itemIndex].Name]))
+			item := convertVMCPForInstance(req, list.Items[itemIndex], instances[list.Items[itemIndex].Name])
+			if minimal {
+				minimizeVMCP(&item)
+			}
+			items = append(items, item)
 		}
 	}
 	return req.Write(types.VMCPList{Items: items})
+}
+
+func minimizeVMCP(vmcp *types.VMCP) {
+	for i := range vmcp.Components {
+		component := &vmcp.Components[i]
+		component.CatalogEntry.Manifest = minimalVMCPComponentManifest(component.CatalogEntry.Manifest)
+		component.ToolOverrides = minimalToolOverrides(component.ToolOverrides)
+	}
+	for i := range vmcp.Status.Components {
+		status := &vmcp.Status.Components[i]
+		if status.ConnectionSnapshot != nil {
+			snapshot := *status.ConnectionSnapshot
+			snapshot.Manifest = minimalVMCPComponentManifest(snapshot.Manifest)
+			status.ConnectionSnapshot = &snapshot
+		}
+	}
+}
+
+func minimalVMCPComponentManifest(manifest types.MCPServerCatalogEntryManifest) types.MCPServerCatalogEntryManifest {
+	return types.MCPServerCatalogEntryManifest{
+		Metadata:         manifest.Metadata,
+		EntryKey:         manifest.EntryKey,
+		Name:             manifest.Name,
+		ShortDescription: manifest.ShortDescription,
+		Icon:             manifest.Icon,
+		Runtime:          manifest.Runtime,
+		RemoteConfig:     manifest.RemoteConfig,
+	}
+}
+
+func minimalToolOverrides(overrides []types.ToolOverride) []types.ToolOverride {
+	if overrides == nil {
+		return nil
+	}
+	result := make([]types.ToolOverride, len(overrides))
+	for i, override := range overrides {
+		result[i] = types.ToolOverride{
+			Name:         override.Name,
+			OverrideName: override.OverrideName,
+			Enabled:      override.Enabled,
+		}
+	}
+	return result
 }
 
 func (*VMCPHandler) Get(req api.Context) error {

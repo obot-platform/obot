@@ -32,7 +32,7 @@
 	let saving = $state(false);
 	let vmcps = $state<VMCP[]>([]);
 	onMount(() => {
-		UserService.listVMCPs()
+		UserService.listVMCPs({ minimal: true })
 			.then((items) => (vmcps = items))
 			.catch(() => errors.append(m.identity_access_agents_failed_to_load_vmcps()));
 	});

@@ -40,9 +40,10 @@
 	interface Props {
 		vmcps: VMCP[];
 		usersMap: Map<string, OrgUser>;
+		vmcpsLoading?: boolean;
 	}
 
-	let { vmcps, usersMap }: Props = $props();
+	let { vmcps, usersMap, vmcpsLoading = false }: Props = $props();
 
 	type VMcpDeploymentURLFilters = {
 		id: string;
@@ -192,7 +193,7 @@
 		</div>
 	{/if}
 	<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
-		{#if loading}
+		{#if loading || vmcpsLoading}
 			<div class="my-2 flex h-72 items-center justify-center">
 				<Loading class="size-6" />
 			</div>
@@ -313,7 +314,7 @@
 	</div>
 </div>
 
-<VMcpActions bind:this={vmcpActions} />
+<VMcpActions bind:this={vmcpActions} fetchVMcpOnAction />
 
 <Confirm
 	show={Boolean(showDeleteConfirm)}

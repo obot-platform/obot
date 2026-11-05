@@ -1,4 +1,4 @@
-import { AdminService, Group, UserService } from '$lib/services';
+import { Group, UserService } from '$lib/services';
 import { createMockProfile } from '../../tests/helpers/pageData';
 import { load } from './+page';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -31,7 +31,7 @@ describe('admin page load', () => {
 		const getBootstrapStatus = vi
 			.spyOn(UserService, 'getBootstrapStatus')
 			.mockResolvedValue({ enabled: true, setupEnabled: true });
-		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([]);
+		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 
 		await expect(loadAdmin()).rejects.toMatchObject({
 			status: 307,
@@ -46,7 +46,7 @@ describe('admin page load', () => {
 			enabled: true,
 			setupEnabled: false
 		});
-		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([]);
+		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 
 		await expect(loadAdmin()).rejects.toMatchObject({
 			status: 307,
@@ -60,7 +60,7 @@ describe('admin page load', () => {
 			enabled: false,
 			setupEnabled: false
 		});
-		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([]);
+		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([]);
 
 		await expect(loadAdmin()).rejects.toMatchObject({
 			status: 307,

@@ -33,7 +33,7 @@
 
 	onMount(async () => {
 		try {
-			vmcps = await UserService.listVMCPs({ all: true });
+			vmcps = await UserService.listVMCPs({ all: true, minimal: true });
 		} catch {
 			errors.append(m.mcps_filters_failed_load_vmcps());
 		}

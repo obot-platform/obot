@@ -2047,3 +2047,259 @@ func TestVMCPCallbackPathsUseRequestingUsersEffectiveSnapshots(t *testing.T) {
 		})
 	}
 }
+
+func TestVMCPHandlerListMinimal(t *testing.T) {
+	entry := minimalResponseTestEntry()
+	entry.Spec.Manifest.Description = strings.Repeat("Long catalog description. ", 100)
+	entry.Spec.Manifest.Config = []types.MCPConfig{{
+		Key:   "TOKEN",
+		Usage: types.Env,
+	}}
+	snapshot := types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest}
+	vmcp := &v1.VMCP{
+		Name:      "vmcp-minimal",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			UserID: "owner",
+			Manifest: types.VMCPManifest{
+				DisplayName: "Development vMCP",
+				Description: "Keep the vMCP description",
+				Components: []types.VMCPComponent{{
+					ID:                      "component",
+					Name:                    "Test Entry",
+					MCPServerCatalogEntryID: entry.Name,
+					CatalogEntry:            snapshot,
+					Configuration: []types.VMCPConfigurationPolicy{{
+						Key:    "TOKEN",
+						Policy: types.VMCPConfigurationPolicyUserAllowed,
+					}},
+					ToolOverrides: []types.ToolOverride{{
+						Name:                "tool",
+						OverrideName:        "renamed_tool",
+						Description:         strings.Repeat("Tool description. ", 50),
+						OverrideDescription: "Override description",
+						Enabled:             true,
+					}},
+				}},
+			},
+		},
+		Status: v1.VMCPStatus{
+			Components: []v1.VMCPComponentStatus{{
+				Name:               "Test Entry",
+				Ready:              true,
+				ConnectionSnapshot: &snapshot,
+			}},
+		},
+	}
+	hidden := vmcp.DeepCopy()
+	hidden.Name = "vmcp-hidden"
+	hidden.Spec.UserID = "other"
+	storage := newVMCPTestStorage(vmcp, hidden)
+
+	owner := &user.DefaultInfo{
+		Name:   "owner",
+		UID:    "owner",
+		Groups: []string{types.GroupAPI},
+	}
+	admin := &user.DefaultInfo{
+		Name:   "admin",
+		UID:    "admin",
+		Groups: []string{types.GroupAPI, types.GroupAdmin},
+	}
+
+	for _, tc := range []struct {
+		name    string
+		query   string
+		user    *user.DefaultInfo
+		minimal bool
+		want    []*v1.VMCP
+	}{
+		{
+			name: "default full response",
+			user: owner,
+			want: []*v1.VMCP{vmcp},
+		},
+		{
+			name:    "minimal response",
+			query:   "?minimal=true",
+			user:    owner,
+			minimal: true,
+			want:    []*v1.VMCP{vmcp},
+		},
+		{
+			name:    "minimal response ignores all for non-admin",
+			query:   "?minimal=true&all=true",
+			user:    owner,
+			minimal: true,
+			want:    []*v1.VMCP{vmcp},
+		},
+		{
+			name:    "minimal response with all for admin",
+			query:   "?minimal=true&all=true",
+			user:    admin,
+			minimal: true,
+			want:    []*v1.VMCP{hidden, vmcp}, // storage lists by name
+		},
+		{
+			name:  "uppercase flag defaults to full response",
+			query: "?minimal=TRUE",
+			user:  owner,
+			want:  []*v1.VMCP{vmcp},
+		},
+		{
+			name:  "numeric flag defaults to full response",
+			query: "?minimal=1",
+			user:  owner,
+			want:  []*v1.VMCP{vmcp},
+		},
+		{
+			name:  "explicit full response",
+			query: "?minimal=false",
+			user:  owner,
+			want:  []*v1.VMCP{vmcp},
+		},
+		{
+			name:  "invalid flag defaults to full response",
+			query: "?minimal=invalid",
+			user:  owner,
+			want:  []*v1.VMCP{vmcp},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			err := NewVMCPHandler(nil, "", "").List(api.Context{
+				ResponseWriter: recorder,
+				Request:        httptest.NewRequest(http.MethodGet, "/api/vmcps"+tc.query, nil),
+				Storage:        storage,
+				User:           tc.user,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if recorder.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", recorder.Code)
+			}
+			var response types.VMCPList
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+
+			expectedItems := make([]types.VMCP, 0, len(tc.want))
+			fullItems := make([]types.VMCP, 0, len(tc.want))
+			for _, obj := range tc.want {
+				expected := convertVMCP(vmcpForUser(api.Context{User: tc.user}, *obj))
+				expected.LocalhostCallbackPaths = []string{}
+				fullItems = append(fullItems, convertVMCP(*obj))
+				if tc.minimal {
+					minimizeVMCP(&expected)
+				}
+				expectedItems = append(expectedItems, expected)
+			}
+			if tc.minimal {
+				// Check the trimmed shape independently of minimizeVMCP.
+				wantManifest := types.MCPServerCatalogEntryManifest{
+					Metadata:         entry.Spec.Manifest.Metadata,
+					EntryKey:         entry.Spec.Manifest.EntryKey,
+					Name:             entry.Spec.Manifest.Name,
+					ShortDescription: entry.Spec.Manifest.ShortDescription,
+					Icon:             entry.Spec.Manifest.Icon,
+					Runtime:          entry.Spec.Manifest.Runtime,
+					RemoteConfig:     entry.Spec.Manifest.RemoteConfig,
+				}
+				wantOverrides := []types.ToolOverride{{
+					Name:         "tool",
+					OverrideName: "renamed_tool",
+					Enabled:      true,
+				}}
+				for _, item := range response.Items {
+					component := item.Components[0]
+					if !reflect.DeepEqual(component.CatalogEntry.Manifest, wantManifest) {
+						t.Fatalf("component manifest = %#v, want %#v", component.CatalogEntry.Manifest, wantManifest)
+					}
+					if got := item.Status.Components[0].ConnectionSnapshot; got == nil || !reflect.DeepEqual(got.Manifest, wantManifest) {
+						t.Fatalf("connection snapshot = %#v, want manifest %#v", got, wantManifest)
+					}
+					if !reflect.DeepEqual(component.ToolOverrides, wantOverrides) {
+						t.Fatalf("tool overrides = %#v, want %#v", component.ToolOverrides, wantOverrides)
+					}
+					if len(component.Configuration) != 1 || component.Configuration[0].Policy != types.VMCPConfigurationPolicyUserAllowed {
+						t.Fatalf("configuration policies not kept: %#v", component.Configuration)
+					}
+				}
+			}
+			// Compare the complete wire response, including configuration and status.
+			want, err := json.Marshal(types.VMCPList{Items: expectedItems})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var expectedResponse types.VMCPList
+			if err := json.Unmarshal(want, &expectedResponse); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(response, expectedResponse) {
+				t.Fatalf("response = %s, want %s", recorder.Body.String(), want)
+			}
+			if tc.minimal {
+				full, err := json.Marshal(types.VMCPList{Items: fullItems})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if recorder.Body.Len() >= len(full) {
+					t.Fatalf("minimal payload (%d) is not smaller than full (%d)", recorder.Body.Len(), len(full))
+				}
+			}
+		})
+	}
+}
+
+func TestMinimizeVMCPDoesNotMutateSource(t *testing.T) {
+	entry := minimalResponseTestEntry()
+	entry.Spec.Manifest.Description = "catalog description"
+	entry.Spec.Manifest.RepoURL = "https://example.com/repo"
+	entry.Spec.Manifest.ToolPreview = []types.MCPServerTool{{Name: "tool"}}
+	entry.Spec.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: types.Env}}
+	snapshot := types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest}
+	source := v1.VMCP{
+		Name:      "vmcp-source",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{{
+					ID:           "component",
+					CatalogEntry: snapshot,
+					ToolOverrides: []types.ToolOverride{{
+						Name:        "tool",
+						Description: "Tool description",
+						Enabled:     true,
+					}},
+				}},
+			},
+		},
+		Status: v1.VMCPStatus{
+			Components: []v1.VMCPComponentStatus{{
+				Name:               "component",
+				ConnectionSnapshot: &snapshot,
+			}},
+		},
+	}
+	original := source.DeepCopy()
+
+	item := convertVMCP(source)
+	minimizeVMCP(&item)
+
+	if got := item.Components[0].CatalogEntry.Manifest; got.Description != "" || got.RepoURL != "" || got.ToolPreview != nil {
+		t.Fatalf("component manifest not minimized: %#v", got)
+	}
+	if got := item.Status.Components[0].ConnectionSnapshot.Manifest; got.Description != "" || got.RepoURL != "" || got.ToolPreview != nil {
+		t.Fatalf("connection snapshot manifest not minimized: %#v", got)
+	}
+	if got := item.Components[0].CatalogEntry.Manifest.Config; got != nil {
+		t.Fatalf("component config not minimized: %#v", got)
+	}
+	if got := item.Components[0].ToolOverrides[0].Description; got != "" {
+		t.Fatalf("tool override description not minimized: %q", got)
+	}
+	if !reflect.DeepEqual(source.Spec, original.Spec) || !reflect.DeepEqual(source.Status, original.Status) {
+		t.Fatal("minimizeVMCP modified the source vMCP")
+	}
+}

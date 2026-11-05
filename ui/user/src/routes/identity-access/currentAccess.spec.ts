@@ -1,4 +1,4 @@
-import { AdminService } from '$lib/services';
+import { AdminService, UserService } from '$lib/services';
 import { createVMCP } from '../../tests/helpers/mcp';
 import {
 	collectAccessResources,
@@ -217,7 +217,7 @@ describe('loadCurrentAccess', () => {
 		]);
 		const listModels = vi.spyOn(AdminService, 'listModelAccessPolicies');
 		const listSkills = vi.spyOn(AdminService, 'listSkillAccessPolicies');
-		const listVmcps = vi.spyOn(AdminService, 'listAllVMCPs');
+		const listVmcps = vi.spyOn(UserService, 'listVMCPs');
 
 		const mcp = await loadCurrentAccess(userTarget, 'mcp');
 
@@ -264,7 +264,7 @@ describe('loadCurrentAccess', () => {
 
 	it('includes vMCPs whose profiles apply to the target', async () => {
 		const listMcp = vi.spyOn(AdminService, 'listAccessControlRules');
-		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([
+		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([
 			createVMCP({
 				id: 'vmcp-user',
 				displayName: 'User vMCP',
@@ -305,7 +305,7 @@ describe('loadCurrentAccess', () => {
 	});
 
 	it('includes admin-created vMCPs and personal vMCPs the user owns', async () => {
-		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([
+		vi.spyOn(UserService, 'listVMCPs').mockResolvedValue([
 			createVMCP({
 				id: 'vmcp-shared',
 				displayName: 'Shared vMCP',
