@@ -176,7 +176,21 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 	}()
 
 	output := streamWriter{w: w, dialect: d}
-	for chunk := range chunks {
+	for {
+		var (
+			chunk *schemas.BifrostStreamChunk
+			ok    bool
+		)
+		// Producer cleanup may delay closure after the client disconnects.
+		select {
+		case <-ctx.Done():
+			return
+		case chunk, ok = <-chunks:
+		}
+		if !ok || ctx.Err() != nil {
+			return
+		}
+
 		if chunk == nil {
 			continue
 		}
@@ -390,7 +404,25 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	output := streamWriter{w: w, dialect: dialectChat}
-	for chunk := range chunks {
+	for {
+		var (
+			chunk *schemas.BifrostStreamChunk
+			ok    bool
+		)
+		// Producer cleanup may delay closure after the client disconnects.
+		select {
+		case <-ctx.Done():
+			return
+		case chunk, ok = <-chunks:
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		if !ok {
+			_ = output.finishChat()
+			return
+		}
+
 		if chunk == nil {
 			continue
 		}
@@ -408,7 +440,6 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	_ = output.finishChat()
 }
 
 func observeError(ctx context.Context, err *schemas.BifrostError) {
