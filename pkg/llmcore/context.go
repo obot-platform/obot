@@ -8,10 +8,14 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
-// requestContext forwards compatibility headers after the authenticated proxy has
-// removed caller credentials. Inference uses provider configuration for authentication.
+// requestContext forwards compatibility headers and privately retains an admitted
+// subscription credential. Only per-attempt admission can add it to outgoing headers.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
 	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
+	if token, _ := r.Context().Value(subscriptionTokenKey{}).(string); token != "" {
+		ctx.SetValue(subscriptionTokenKey{}, token)
+	}
+
 	// Parsing uses one replica-local view for primary, caller and rule fallbacks.
 	ctx.SetValue(modelConfigKey{}, e.account.config.Load())
 	if e.catalog != nil {
@@ -22,6 +26,9 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 	extra := map[string][]string{}
 	for name := range r.Header {
 		lower := strings.ToLower(name)
+		if isCredentialHeader(lower) {
+			continue
+		}
 		value := r.Header.Get(name)
 		headers[lower] = value
 		switch lower {
@@ -43,7 +50,7 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 	// Routing exposes normalized incoming headers through CEL's headers variable.
 	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, headers)
 	// Provider adapters forward this allowlist as upstream HTTP headers, preserving
-	// repeated values. Caller credentials are never forwarded.
+	// repeated values. Subscription admission adds Authorization per attempt.
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
 	// Bifrost uses the client identity to select provider compatibility behavior.
 	ctx.SetValue(schemas.BifrostContextKeyUserAgent, r.UserAgent())

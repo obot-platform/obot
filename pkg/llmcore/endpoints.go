@@ -8,7 +8,7 @@ import (
 )
 
 // Client exposes the trusted in-process core API. Public requests must use the
-// authenticated proxy, which strips caller credentials before HTTP inference.
+// authenticated proxy, which admits subscriptions and strips other caller credentials.
 func (e *Engine) Client() *bifrost.Bifrost { return e.client }
 
 func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {

@@ -32,6 +32,12 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 		drain := &providerRetirement{done: make(chan struct{})}
 		e.retirements[name] = drain
 		go func() {
+			// Core can reroute a producer paused after hooks onto a replacement queue.
+			// Wait inside the tracked job so Sync's shared drain budget still applies.
+			if name == schemas.Anthropic {
+				e.subscriptionLifetime.Lock()
+				defer e.subscriptionLifetime.Unlock()
+			}
 			drain.err = remove(name)
 			close(drain.done)
 		}()

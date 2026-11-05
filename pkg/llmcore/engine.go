@@ -51,6 +51,8 @@ type Engine struct {
 	mux        *http.ServeMux
 	account    *account
 	routing    *routingPlugin
+	// subscriptionLifetime prevents a validated HTTP token from reaching a replacement worker.
+	subscriptionLifetime sync.RWMutex
 
 	shutdownDone chan struct{}
 
@@ -213,9 +215,13 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	// Bifrost's default no-op tracer cannot provide that behavior.
 	e.traceStore = tracing.NewTraceStore(5*time.Minute, logger)
 	e.tracer = tracing.NewTracer(e.traceStore, nil, logger)
+	// Classify subscription attempts before access/budget hooks; enforce their
+	// destination again at the last gate after any trusted plugin rewrites.
+	plugins := append([]schemas.LLMPlugin{&subscriptionPlugin{account: e.account}}, orderedPlugins(routing, opts.Plugins)...)
+	plugins = append(plugins, &providerTransitionPlugin{account: e.account})
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:      e.account,
-		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &providerTransitionPlugin{account: e.account}),
+		LLMPlugins:   plugins,
 		Logger:       logger,
 		ModelCatalog: opts.Catalog,
 		Tracer:       e.tracer,
