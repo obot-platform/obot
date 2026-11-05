@@ -3,6 +3,7 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"maps"
 	"net/http"
@@ -277,5 +278,51 @@ func TestGuardProviderChangeKeyAddresses(t *testing.T) {
 	moved["value"] = "vllm-new-secret-0123456789"
 	if _, err := e.GuardProviderChange(ctx, http.MethodPut, "providers/vllm/keys/"+id, mustJSON(t, moved), false); err != nil {
 		t.Errorf("expected moving the key with its secret entered again to be allowed, got %v", err)
+	}
+}
+
+func TestPartialProviderUpdatePreservesNetworkAndKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		host         string
+		allowPrivate bool
+	}{
+		{
+			name: "public destination",
+			host: "8.8.8.8",
+		},
+		{
+			name:         "private destination",
+			host:         "10.1.2.3",
+			allowPrivate: true,
+		},
+	} {
+		for _, removeKeys := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/removeKeys=%t", tc.name, removeKeys), func(t *testing.T) {
+				e, ctx := startTestEngine(t)
+				_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "vllm", "network_config": map[string]any{"base_url": "http://" + tc.host + ":8000", "allow_private_network": tc.allowPrivate}}))
+				require.NoError(t, err)
+				_, err = e.CreateKey(ctx, "vllm", testJSON(t, map[string]any{"name": "test", "value": "secret", "vllm_key_config": map[string]any{"url": "http://" + tc.host + ":8000", "model_name": "test"}}))
+				require.NoError(t, err)
+				before, err := e.store.GetProvider(ctx, "vllm")
+				require.NoError(t, err)
+
+				patch := json.RawMessage(`{"concurrency_and_buffer_size":{"concurrency":7,"buffer_size":10}}`)
+				change, err := e.GuardProviderChange(ctx, http.MethodPut, "providers/vllm", patch, removeKeys)
+				require.NoError(t, err)
+				require.Empty(t, change.RemoveKeys)
+				var fields map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(change.Body, &fields))
+				require.NotContains(t, fields, "network_config", "validation must not expand the saved patch")
+
+				_, err = e.UpdateProvider(ctx, "vllm", patch, removeKeys)
+				require.NoError(t, err)
+				after, err := e.store.GetProvider(ctx, "vllm")
+				require.NoError(t, err)
+				require.Equal(t, before.Config.NetworkConfig, after.Config.NetworkConfig)
+				require.Equal(t, before.Keys, after.Keys)
+				require.Equal(t, 7, after.Config.ConcurrencyAndBufferSize.Concurrency)
+			})
+		}
 	}
 }

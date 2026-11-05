@@ -122,13 +122,19 @@ func (e *Engine) guardProviderUpdate(ctx context.Context, name string, fields ma
 	if err != nil {
 		return ProviderChange{}, fmt.Errorf("failed to read the keys of LLM gateway provider %s: %w", name, err)
 	}
-	if err := checkProviderAddresses(ctx, fields, keys); err != nil {
+	// Omitted network settings survive the update. Use them for validation without
+	// adding them to the persisted patch; an explicit network_config still replaces them.
+	effective := maps.Clone(current)
+	if name := fieldNamed(fields, "network_config"); name != "" {
+		effective["network_config"] = fields[name]
+	}
+	if err := checkProviderAddresses(ctx, effective, keys); err != nil {
 		return ProviderChange{}, err
 	}
 
 	change := ProviderChange{}
 	before, _ := networkSettings(current)
-	after, _ := networkSettings(fields)
+	after, _ := networkSettings(effective)
 	if normalizeBaseURL(before.BaseURL) != normalizeBaseURL(after.BaseURL) && len(keys) > 0 {
 		if !removeKeys {
 			return ProviderChange{}, types.NewErrBadRequest("changing a provider's base URL removes its keys, so they aren't sent to the new address: remove the keys first, or confirm their removal, and add them again after the change")
