@@ -80,7 +80,7 @@ func TestInvalidTargetsPreserveRuleAndProgram(t *testing.T) {
 			logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 			store, err := rules.NewLocalStore(t.Context(), logger, nil)
 			require.NoError(t, err)
-			plugin, err := newRoutingPlugin(store, logger)
+			plugin, err := newRoutingPlugin(store, logger, nil)
 			require.NoError(t, err)
 			old := policyRule("old-route")
 			require.NoError(t, plugin.UpsertRule(t.Context(), &old))
@@ -144,7 +144,7 @@ func TestScopedRoutingOrderIsStable(t *testing.T) {
 				logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 				store, err := rules.NewLocalStore(t.Context(), logger, nil)
 				require.NoError(t, err)
-				plugin, err := newRoutingPlugin(store, logger)
+				plugin, err := newRoutingPlugin(store, logger, nil)
 				require.NoError(t, err)
 				for _, rule := range order {
 					require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
@@ -237,7 +237,7 @@ func TestTargetWeightsAndInheritanceRemainUsable(t *testing.T) {
 			logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 			store, err := rules.NewLocalStore(t.Context(), logger, nil)
 			require.NoError(t, err)
-			plugin, err := newRoutingPlugin(store, logger)
+			plugin, err := newRoutingPlugin(store, logger, nil)
 			require.NoError(t, err)
 			rule := policyRule("unused")
 			rule.Targets = tt.targets

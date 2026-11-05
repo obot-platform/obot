@@ -30,7 +30,18 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 		drain := &providerRetirement{done: make(chan struct{})}
 		e.retirements[name] = drain
 		go func() {
-			drain.err = remove(name)
+			drain.err = func() error {
+				if name == schemas.Anthropic && e.account != nil {
+					// Core may reroute a closing queue AFTER PreLLMHook without checking
+					// credentials again. Wait for HTTP leases before removing that queue,
+					// so no admitted credential can be rerouted to its replacement. The
+					// existing transition gate stays closed through config publication and
+					// replacement; this wait consumes Sync's shared asynchronous budget.
+					e.account.subscriptionMu.Lock()
+					defer e.account.subscriptionMu.Unlock()
+				}
+				return remove(name)
+			}()
 			close(drain.done)
 		}()
 	}

@@ -11,6 +11,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/plugins/routing/rules"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,7 +67,7 @@ func TestRuleReplacementDoesNotExposeEmptyPolicy(t *testing.T) {
 	paused := &pausedReplacementStore{Store: store, removed: make(chan struct{}), resume: make(chan struct{})}
 	var resume sync.Once
 	defer resume.Do(func() { close(paused.resume) })
-	plugin, err := newRoutingPlugin(paused, logger)
+	plugin, err := newRoutingPlugin(paused, logger, nil)
 	require.NoError(t, err)
 	replaced := make(chan error, 1)
 	newRule := policyRule("new-route")
@@ -120,7 +121,7 @@ func TestRuleMutationWaitsForFullEvaluation(t *testing.T) {
 			defer resume.Do(func() { close(logger.resume) })
 			store, err := rules.NewLocalStore(t.Context(), logger, nil)
 			require.NoError(t, err)
-			plugin, err := newRoutingPlugin(store, logger)
+			plugin, err := newRoutingPlugin(store, logger, nil)
 			require.NoError(t, err)
 			oldRule := policyRule("old-route")
 			require.NoError(t, plugin.UpsertRule(t.Context(), &oldRule))
@@ -163,7 +164,7 @@ func TestRoutingValidationAcceptsBooleanExpressions(t *testing.T) {
 	logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 	store, err := rules.NewLocalStore(t.Context(), logger, nil)
 	require.NoError(t, err)
-	plugin, err := newRoutingPlugin(store, logger)
+	plugin, err := newRoutingPlugin(store, logger, nil)
 	require.NoError(t, err)
 	for _, expression := range []string{
 		"",
@@ -188,4 +189,67 @@ func TestRoutingValidationAcceptsBooleanExpressions(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestRuleLegacyFallbackAfterUnregister(t *testing.T) {
+	a := &account{}
+	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"local-rule": {}}})
+	logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
+	store, err := rules.NewLocalStore(t.Context(), logger, nil)
+	require.NoError(t, err)
+	plugin, err := newRoutingPlugin(store, logger, a)
+	require.NoError(t, err)
+	rule := policyRule("failed-primary")
+	var fallback tables.RoutingFallback
+	require.NoError(t, fallback.UnmarshalJSON([]byte(`"local-rule/namespace/backup"`)))
+	rule.ParsedFallbacks = []tables.RoutingFallback{fallback}
+	require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
+	schemas.UnregisterKnownProvider("local-rule")
+	req := policyRequest()
+	require.NoError(t, plugin.PreRequestHook(schemas.NewBifrostContext(t.Context(), schemas.NoDeadline), req))
+	require.Equal(t, []schemas.Fallback{{Provider: "local-rule", Model: "namespace/backup"}}, req.ChatRequest.Fallbacks)
+}
+
+func TestRuleFallbackParsingSnapshotAndNamespaces(t *testing.T) {
+	a := &account{}
+	configured := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"local-rule": {}}}
+	a.config.Store(configured)
+	logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
+	store, err := rules.NewLocalStore(t.Context(), logger, nil)
+	require.NoError(t, err)
+	plugin, err := newRoutingPlugin(store, logger, a)
+	require.NoError(t, err)
+	schemas.RegisterKnownProvider("foreign-rule")
+	defer schemas.UnregisterKnownProvider("foreign-rule")
+	rule := policyRule("selected")
+	for _, raw := range []string{`"unknown/backup"`, `"foreign-rule/backup"`, `"local-rule/namespace/backup"`, `{"provider":"local-rule","key_id":"pinned"}`, `{"provider":"missing-custom","model":"namespace/model","key_id":"missing-pin"}`} {
+		var fb tables.RoutingFallback
+		require.NoError(t, fb.UnmarshalJSON([]byte(raw)))
+		rule.ParsedFallbacks = append(rule.ParsedFallbacks, fb)
+	}
+	require.NoError(t, plugin.UpsertRule(t.Context(), &rule))
+	schemas.UnregisterKnownProvider("local-rule")
+	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
+	ctx.SetValue(modelConfigKey{}, configured)
+	// Primary HTTP conversion and rule parsing share the captured view even if
+	// Sync publishes another config in between. Credential safety does not.
+	a.config.Store(&llmcoreclient.Config{})
+	req := policyRequest()
+	require.NoError(t, plugin.PreRequestHook(ctx, req))
+	require.Equal(t, []schemas.Fallback{
+		{
+			Provider: "local-rule",
+			Model:    "namespace/backup",
+		},
+		{
+			Provider: "local-rule",
+			Model:    "unrouted",
+			KeyID:    "pinned",
+		},
+		{
+			Provider: "missing-custom",
+			Model:    "namespace/model",
+			KeyID:    "missing-pin",
+		},
+	}, req.ChatRequest.Fallbacks)
 }

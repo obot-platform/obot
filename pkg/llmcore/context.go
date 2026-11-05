@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/maximhq/bifrost/core/schemas"
 )
@@ -13,9 +15,13 @@ import (
 // to remove Obot credentials and API keys, admitting only admin-approved subscription
 // tokens for a verified Anthropic destination. credentialPlugin enforces the
 // Anthropic boundary again after routing and on each fallback attempt.
-// The User-Agent check below selects Bifrost compatibility behavior, not authorization.
+// Only ClaudeCLI subscription mode is supported; the attempt hook refuses other
+// credential-bearing modes before a worker can select a configured key.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
 	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
+	// Parsing uses one replica-local view for primary, caller and rule fallbacks.
+	// Credential safety must instead read the current account on every attempt.
+	ctx.SetValue(modelConfigKey{}, e.account.config.Load())
 	if e.catalog != nil {
 		ctx.SetValue(schemas.BifrostContextKeyModelCatalog, e.catalog)
 	}
@@ -28,7 +34,7 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 		headers[lower] = value
 		switch lower {
 		case "anthropic-beta", "anthropic-version", "authorization", "user-agent", "x-api-key", "x-stainless-lang", "x-stainless-package-version", "x-stainless-os", "x-stainless-arch", "x-stainless-runtime", "x-stainless-runtime-version", "x-stainless-retry-count", "x-stainless-timeout":
-			extra[lower] = append([]string(nil), r.Header.Values(name)...)
+			extra[lower] = append(extra[lower], r.Header[name]...)
 		}
 	}
 
@@ -50,10 +56,52 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 	// Bifrost uses the client identity to select compatibility behavior, including
 	// Anthropic's Claude Code subscription handling.
 	ctx.SetValue(schemas.BifrostContextKeyUserAgent, r.UserAgent())
-	if schemas.ClaudeCLI.Matches(r.UserAgent()) && r.Header.Get("Authorization") != "" {
-		// Claude Code supplies its own Authorization credential. Skip the configured
-		// key pool so Bifrost forwards that credential instead of selecting an Obot key.
+	if hasCallerCredentials(extra) {
+		// Every credential-bearing mode must reach the hook without using Obot's
+		// key pool. The hook admits only supported ClaudeCLI subscription mode.
 		ctx.SetValue(schemas.BifrostContextKeySkipKeySelection, true)
 	}
+	// TryRLock refuses new subscription admissions while retirement owns or
+	// waits for the write lease. Waiting here would strand canceled HTTP requests
+	// behind an unrelated configured-key request that is still draining.
+	if supportedSubscription(ctx, extra) {
+		lease := &subscriptionLease{account: e.account, owner: ctx.Root()}
+		if e.account.subscriptionMu.TryRLock() {
+			lease.state.Store(subscriptionLeaseActive)
+		} else {
+			// Only requestContext can record an HTTP admission refused by retirement.
+			// This marker permits a retryable error, never credential forwarding.
+			lease.state.Store(subscriptionLeasePending)
+		}
+		ctx.SetValue(subscriptionLeaseKey{}, lease)
+		// The handler defers this owned cancel across every return path. Parent
+		// cancellation signals core, but cannot release the lease while hooks or
+		// stream cleanup are still returning to the handler.
+		var once sync.Once
+		cancelContext := cancel
+		cancel = func() {
+			once.Do(func() {
+				cancelContext()
+				if lease.state.Swap(0) == subscriptionLeaseActive {
+					e.account.subscriptionMu.RUnlock()
+				}
+			})
+		}
+	}
 	return ctx, cancel
+}
+
+type subscriptionLeaseKey struct{}
+
+const (
+	subscriptionLeasePending uint32 = 1
+	subscriptionLeaseActive  uint32 = 2
+)
+
+type subscriptionLease struct {
+	account *account
+	// Private context values are inherited by derived Bifrost roots. Only this
+	// HTTP root (including its plugin scopes) is covered by the handler's lease.
+	owner *schemas.BifrostContext
+	state atomic.Uint32 // zero after the HTTP owner cancels
 }

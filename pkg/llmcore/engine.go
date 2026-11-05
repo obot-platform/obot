@@ -71,7 +71,10 @@ type Engine struct {
 // account publishes credentials only after affected runtimes have drained. Bifrost
 // reads keys per request, so key-only rotation does not require a runtime restart.
 type account struct {
-	config atomic.Pointer[llmcoreclient.Config]
+	// subscriptionMu pairs HTTP credential lifetimes with Anthropic retirement.
+	// Configured-key requests never acquire it; Sync waits in its tracked worker.
+	subscriptionMu sync.RWMutex
+	config         atomic.Pointer[llmcoreclient.Config]
 	// transitioning gates requests while a provider is drained/replaced. The bool
 	// permits config reads only while reconciliation constructs the new runtime;
 	// credentials and attempts remain blocked until construction succeeds.
@@ -183,7 +186,9 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 		return nil, err
 	}
 
-	routing, err := newRoutingPlugin(ruleStore, logger)
+	a := &account{}
+	a.config.Store(&cfg)
+	routing, err := newRoutingPlugin(ruleStore, logger, a)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +196,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	e := &Engine{
 		store:        store,
 		catalog:      opts.Catalog,
-		account:      &account{},
+		account:      a,
 		routing:      routing,
 		appliedProxy: make(map[schemas.ModelProvider]*schemas.ProxyConfig),
 	}
@@ -211,7 +216,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	e.tracer = tracing.NewTracer(e.traceStore, nil, logger)
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:      e.account,
-		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &credentialPlugin{}, &providerTransitionPlugin{account: e.account}),
+		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &credentialPlugin{account: e.account}, &providerTransitionPlugin{account: e.account}),
 		Logger:       logger,
 		ModelCatalog: opts.Catalog,
 		Tracer:       e.tracer,

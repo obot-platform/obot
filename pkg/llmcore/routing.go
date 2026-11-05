@@ -32,6 +32,7 @@ type routingPlugin struct {
 	validator *ruleValidator
 	engine    *rules.Engine
 	logger    schemas.Logger
+	account   *account
 }
 
 // noBudgets answers the budget variables routing rules can read (budget_used, tokens_used,
@@ -66,7 +67,7 @@ func (s orderedRuleStore) GetScopedRules(ctx context.Context, scope, scopeID str
 	return scoped
 }
 
-func newRoutingPlugin(store rules.Store, logger schemas.Logger) (*routingPlugin, error) {
+func newRoutingPlugin(store rules.Store, logger schemas.Logger, account *account) (*routingPlugin, error) {
 	depth := rules.DefaultChainMaxDepth
 	engine, err := rules.NewEngine(orderedRuleStore{Store: store}, noBudgets{}, logger, &depth)
 	if err != nil {
@@ -76,7 +77,7 @@ func newRoutingPlugin(store rules.Store, logger schemas.Logger) (*routingPlugin,
 	if err != nil {
 		return nil, err
 	}
-	return &routingPlugin{rules: store, validator: validator, engine: engine, logger: logger}, nil
+	return &routingPlugin{rules: store, validator: validator, engine: engine, logger: logger, account: account}, nil
 }
 
 // UpsertRule owns all live edits to the store; callers must not mutate it directly.
@@ -163,9 +164,10 @@ func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas
 		req.SetModel(decision.Model)
 	}
 	if len(decision.Fallbacks) > 0 {
+		cfg := requestModelConfig(ctx, p.account)
 		fallbacks := make([]schemas.Fallback, 0, len(decision.Fallbacks))
 		for _, fb := range decision.Fallbacks {
-			resolved := fb.Resolved()
+			resolved := resolveConfiguredRuleFallback(cfg, fb)
 			resolved.Provider = schemas.ModelProvider(strings.TrimSpace(string(resolved.Provider)))
 			resolved.Model = strings.TrimSpace(resolved.Model)
 			if resolved.Provider == "" {

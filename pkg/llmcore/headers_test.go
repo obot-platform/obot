@@ -1,10 +1,13 @@
 package llmcore_test
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -14,12 +17,8 @@ import (
 )
 
 func TestProviderHeaders(t *testing.T) {
-	for _, subscription := range []bool{false, true} {
-		name := "configured key"
-		if subscription {
-			name = "Claude subscription"
-		}
-		t.Run(name, func(t *testing.T) {
+	for _, configuredAuth := range []bool{false, true} {
+		t.Run(fmt.Sprintf("configured auth headers=%t", configuredAuth), func(t *testing.T) {
 			received := make(chan http.Header, 1)
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodPost {
@@ -32,9 +31,15 @@ func TestProviderHeaders(t *testing.T) {
 			}))
 			defer upstream.Close()
 			store := newTestStore(t)
-			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
-				NetworkConfig: schemas.NetworkConfig{BaseURL: upstream.URL, AllowPrivateNetwork: true},
-			}}))
+			pc := schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{BaseURL: upstream.URL, AllowPrivateNetwork: true}}
+			expectedAuth := ""
+			if configuredAuth {
+				// Admin-configured authentication remains available to ordinary key traffic.
+				// Subscription requests alone reject this additional auth source.
+				expectedAuth = "Bearer admin-fixture"
+				pc.NetworkConfig.ExtraHeaders = map[string]string{"Authorization": expectedAuth}
+			}
+			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: pc}))
 			require.NoError(t, store.PutKey(t.Context(), "anthropic", schemas.Key{
 				ID: "configured", Name: "configured", Value: *schemas.NewSecretVar("configured-key"),
 				Models: schemas.WhiteList{"*"}, Weight: 1,
@@ -48,12 +53,7 @@ func TestProviderHeaders(t *testing.T) {
 			req.Header.Add("X-Stainless-Lang", "go")
 			req.Header.Add("X-Stainless-Lang", "typescript")
 			req.Header.Set("X-Unapproved", "must-not-reach-provider")
-			if subscription {
-				// This models headers admitted by the proxy, which already validated the
-				// subscription policy, token type, and direct Anthropic destination.
-				req.Header.Set("User-Agent", "claude-cli/2.1.168")
-				req.Header.Set("Authorization", "Bearer sk-ant-oat-test")
-			}
+
 			w := httptest.NewRecorder()
 			engine.ServeHTTP(w, req)
 			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
@@ -67,96 +67,123 @@ func TestProviderHeaders(t *testing.T) {
 			require.Contains(t, headers.Get("Anthropic-Beta"), "test-beta")
 			require.Equal(t, []string{"go", "typescript"}, headers.Values("X-Stainless-Lang"))
 			require.Empty(t, headers.Get("X-Unapproved"))
-			if subscription {
-				require.Equal(t, "Bearer sk-ant-oat-test", headers.Get("Authorization"))
-				require.Empty(t, headers.Get("X-Api-Key"), "subscription must not select the configured key")
-			} else {
-				require.Equal(t, "configured-key", headers.Get("X-Api-Key"))
-				require.Empty(t, headers.Get("Authorization"))
+			require.Equal(t, "configured-key", headers.Get("X-Api-Key"))
+			require.Equal(t, expectedAuth, headers.Get("Authorization"))
+		})
+	}
+}
+
+// These are real HTTP requests to the engine, with recording destinations. No
+// successful subscription transport fixture may replace Anthropic with loopback.
+func TestCallerCredentialsHTTPRejection(t *testing.T) {
+	for _, keyed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("configured-key=%t", keyed), func(t *testing.T) {
+			var calls atomic.Int32
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				calls.Add(1)
+				http.Error(w, "unexpected outbound", http.StatusInternalServerError)
+			}))
+			defer upstream.Close()
+			store := newTestStore(t)
+			provider := llmcoreclient.Provider{Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{BaseURL: upstream.URL, AllowPrivateNetwork: true}}}
+			if keyed {
+				provider.Keys = []schemas.Key{{ID: "configured", Name: "configured", Value: *schemas.NewSecretVar("configured-key"), Models: schemas.WhiteList{"*"}, Weight: 1}}
+			}
+			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", provider))
+			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
+			require.NoError(t, err)
+			defer engine.Shutdown()
+
+			for _, mode := range []string{"unsafe destination", "missing UA", "other UA", "api key", "mixed", "duplicate", "wrong bearer"} {
+				t.Run(mode, func(t *testing.T) {
+					req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"anthropic/test","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`))
+					req.Header.Set("User-Agent", "claude-cli/2.1.168")
+					req.Header.Set("Authorization", "Bearer sk-ant-oat-fixture")
+					switch mode {
+					case "missing UA":
+						req.Header.Del("User-Agent")
+					case "other UA":
+						req.Header.Set("User-Agent", "other")
+					case "api key":
+						req.Header.Del("Authorization")
+						req.Header.Set("X-Api-Key", "fixture")
+					case "mixed":
+						req.Header.Set("X-Api-Key", "fixture")
+					case "duplicate":
+						req.Header.Add("Authorization", "Bearer sk-ant-oat-other")
+					case "wrong bearer":
+						req.Header.Set("Authorization", "Bearer other")
+					}
+					out := httptest.NewRecorder()
+					engine.ServeHTTP(out, req)
+					require.Equal(t, http.StatusForbidden, out.Code, out.Body.String())
+					require.Contains(t, out.Body.String(), "permission_denied")
+					require.Zero(t, calls.Load(), "neither subscription nor configured credentials may be sent")
+				})
 			}
 		})
 	}
 }
 
-// A core request has no proxy AttemptCheck; the engine must protect its credentials itself.
-func TestSubscriptionFallbackCannotForwardCredentialsToAnotherProvider(t *testing.T) {
-	for _, target := range []string{"openai", "custom-anthropic"} {
-		t.Run(target, func(t *testing.T) {
-			primaryHeaders := make(chan http.Header, 8)
-			primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				primaryHeaders <- r.Header.Clone()
-				body, _ := io.ReadAll(r.Body)
-				w.Header().Set("Content-Type", "application/json")
-				if strings.Contains(string(body), `"model":"recovered"`) {
-					_, _ = io.WriteString(w, `{"id":"msg_recovered","type":"message","role":"assistant","model":"recovered","content":[{"type":"text","text":"hello"}],"stop_reason":"end_turn","usage":{"input_tokens":1,"output_tokens":1}}`)
-					return
-				}
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = io.WriteString(w, `{"type":"error","error":{"type":"api_error","message":"primary unavailable"}}`)
-			}))
-			defer primary.Close()
-			fallbackHeaders := make(chan http.Header, 8)
-			fallback := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fallbackHeaders <- r.Header.Clone()
-				w.Header().Set("Content-Type", "application/json")
-				_, _ = io.WriteString(w, `{"id":"fallback","object":"chat.completion","model":"fallback","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`)
-			}))
-			defer fallback.Close()
-			store := newTestStore(t)
-			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{Config: schemas.ProviderConfig{
-				NetworkConfig: schemas.NetworkConfig{BaseURL: primary.URL, AllowPrivateNetwork: true, MaxRetries: 1},
-			}}))
-			pc := schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{BaseURL: fallback.URL, AllowPrivateNetwork: true, MaxRetries: 1}}
-			if target == "custom-anthropic" {
-				pc.CustomProviderConfig = &schemas.CustomProviderConfig{BaseProviderType: schemas.Anthropic}
-			}
-			require.NoError(t, store.CreateProvider(t.Context(), target, llmcoreclient.Provider{Config: pc}))
-			require.NoError(t, store.PutKey(t.Context(), target, schemas.Key{
-				ID: "configured", Name: "configured", Value: *schemas.NewSecretVar("configured-key"),
-				Models: schemas.WhiteList{"*"}, Weight: 1,
-			}))
-			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
-			require.NoError(t, err)
-			defer engine.Shutdown()
-			req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"anthropic/claude-test","messages":[{"role":"user","content":"hi"}],"fallbacks":["`+target+`/fallback"]}`))
-			req.Header.Set("User-Agent", "claude-cli/2.1.168")
-			req.Header.Set("Authorization", "Bearer sk-ant-oat-test")
-			req.Header.Set("X-Api-Key", "caller-key")
-			w := httptest.NewRecorder()
-			engine.ServeHTTP(w, req)
-			require.NotEmpty(t, primaryHeaders, "exercise an actual failed Anthropic attempt")
-			require.Equal(t, "Bearer sk-ant-oat-test", (<-primaryHeaders).Get("Authorization"))
-			require.Empty(t, fallbackHeaders, "credentials must never reach another provider, including a custom Anthropic provider")
-			// Bifrost preserves the primary error when all fallbacks fail.
-			require.Equal(t, http.StatusInternalServerError, w.Code, w.Body.String())
-			require.Contains(t, w.Body.String(), "primary unavailable")
+// Pause after admission and queue capture, but before credential enforcement.
+// Retirement must stay pending while the request holds its old context.
+type pausedCredentialAttempt struct {
+	entered chan struct{}
+	resume  chan struct{}
+}
 
-			// A direct attempt on the other provider fails with the boundary's 403.
-			for _, credential := range []string{"Authorization", "X-Api-Key"} {
-				direct := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"`+target+`/fallback","messages":[{"role":"user","content":"hi"}]}`))
-				direct.Header.Set("User-Agent", req.UserAgent())
-				direct.Header.Set(credential, req.Header.Get(credential))
-				denied := httptest.NewRecorder()
-				engine.ServeHTTP(denied, direct)
-				require.Equal(t, http.StatusForbidden, denied.Code, denied.Body.String())
-				require.Contains(t, denied.Body.String(), "Anthropic")
-				require.Empty(t, fallbackHeaders)
-			}
+func (*pausedCredentialAttempt) GetName() string { return "pause-credential-attempt" }
+func (*pausedCredentialAttempt) Cleanup() error  { return nil }
+func (*pausedCredentialAttempt) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostRequest) error {
+	return nil
+}
+func (p *pausedCredentialAttempt) PreLLMHook(_ *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	close(p.entered)
+	<-p.resume
+	return req, nil, nil
+}
+func (*pausedCredentialAttempt) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
+	return resp, err, nil
+}
 
-			// Refusing a foreign provider must not discard the token for a later
-			// canonical Anthropic fallback in the same request.
-			recovery := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"anthropic/claude-test","messages":[{"role":"user","content":"hi"}],"fallbacks":["`+target+`/fallback","anthropic/recovered"]}`))
-			recovery.Header = req.Header.Clone()
-			recovered := httptest.NewRecorder()
-			engine.ServeHTTP(recovered, recovery)
-			require.Equal(t, http.StatusOK, recovered.Code, recovered.Body.String())
-			require.Empty(t, fallbackHeaders)
-			require.NotEmpty(t, primaryHeaders)
-			for len(primaryHeaders) > 0 {
-				headers := <-primaryHeaders
-				require.Equal(t, "Bearer sk-ant-oat-test", headers.Get("Authorization"))
-				require.Equal(t, "caller-key", headers.Get("X-Api-Key"))
-			}
-		})
-	}
+func TestSubscriptionAdmissionSyncAttemptRace(t *testing.T) {
+	var calls atomic.Int32
+	alternate := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		http.Error(w, "unexpected outbound", http.StatusInternalServerError)
+	}))
+	defer alternate.Close()
+	store := newTestStore(t)
+	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{}))
+	pause := &pausedCredentialAttempt{entered: make(chan struct{}), resume: make(chan struct{})}
+	var resume sync.Once
+	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{pause}})
+	require.NoError(t, err)
+	// Release before waiting for Shutdown, including assertion failures.
+	defer func() { resume.Do(func() { close(pause.resume) }); engine.Shutdown() }()
+	out := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"anthropic/test","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`))
+		req.Header.Set("User-Agent", "claude-cli/2.1.168")
+		req.Header.Set("Authorization", "Bearer sk-ant-oat-fixture")
+		engine.ServeHTTP(out, req)
+	}()
+	waitTransition(t, pause.entered)
+	require.NoError(t, store.MutateProvider(t.Context(), "anthropic", func(p *llmcoreclient.Provider) error {
+		p.Config.NetworkConfig.BaseURL = alternate.URL
+		p.Config.NetworkConfig.AllowPrivateNetwork = true
+		return nil
+	}))
+	// The lease keeps the old queue alive, but Sync still has a bounded wait.
+	_, err = engine.Sync(t.Context())
+	require.ErrorContains(t, err, "anthropic is still draining")
+	resume.Do(func() { close(pause.resume) })
+	waitTransition(t, done)
+	require.Equal(t, http.StatusServiceUnavailable, out.Code, out.Body.String())
+	require.Contains(t, out.Body.String(), "api_error")
+	require.Zero(t, calls.Load())
+	_, err = engine.Sync(t.Context())
+	require.NoError(t, err, "released HTTP context allows replacement on retry")
 }

@@ -297,6 +297,15 @@ func parseStream(api string, r *llmResult) {
 		ev := gjson.Parse(data)
 		if ev.Get("error").Exists() || ev.Get("type").String() == "error" || ev.Get("type").String() == "response.failed" {
 			parseError(ev, r)
+			// Responses terminal errors use top-level message/code after HTTP 200.
+			// Preserve nested Chat/Messages errors and response.failed as fallbacks.
+			if ev.Get("type").String() == "error" && ev.Get("message").Exists() {
+				r.ErrorMsg = ev.Get("message").String()
+				r.ErrorType = ev.Get("code").String()
+			}
+			if r.ErrorType == "" {
+				r.ErrorType = ev.Get("response.error.code").String()
+			}
 			if r.ErrorMsg == "" {
 				r.ErrorMsg = ev.Get("response.error.message").String()
 			}
