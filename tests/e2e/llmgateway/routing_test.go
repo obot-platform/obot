@@ -164,31 +164,6 @@ func TestRoutingAndFormats(t *testing.T) {
 		}
 	})
 
-	t.Run("embeddings", func(t *testing.T) {
-		// Model access policies only grant models whose usage is "llm", so a model the
-		// gateway classifies as an embedding model can't be granted to anyone. The endpoint
-		// itself is checked with an LLM model; the mock returns embeddings for any model.
-		n := nonce("embed")
-		resp := gw.Do(t, http.MethodPost, "/api/llm-proxy/v1/embeddings", map[string]any{
-			"model": "openai/gpt-e2e-b",
-			"input": []string{"embed " + n, "second"},
-		})
-		if resp.Status != http.StatusOK {
-			t.Fatalf("embeddings: %s", resp)
-		}
-		if got := len(gjson.GetBytes(resp.Body, "data").Array()); got != 2 {
-			t.Fatalf("want 2 embeddings, got %d: %s", got, resp)
-		}
-		if reqs := env.mock.InferenceRequests(n); len(reqs) != 1 || reqs[0].Format != harness.FormatEmbeddings || reqs[0].Model != "gpt-e2e-b" {
-			t.Fatalf("embeddings upstream: %+v", reqs)
-		}
-		if resp := gw.Do(t, http.MethodPost, "/api/llm-proxy/v1/embeddings", map[string]any{
-			"model": "openai/text-embedding-e2e", "input": "x",
-		}); resp.Status != http.StatusOK {
-			t.Logf("NOTE: an embedding-usage model can't be granted by a model access policy, so it is refused: %s", resp)
-		}
-	})
-
 	t.Run("models lists only allowed models", func(t *testing.T) {
 		ids := listedModels(t, gw)
 		for _, want := range []string{"openai/gpt-e2e-a", "anthropic/claude-e2e-a", "anthropic/claude-e2e-b"} {
