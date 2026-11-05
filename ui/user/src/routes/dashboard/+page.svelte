@@ -1,20 +1,13 @@
 <script lang="ts">
+	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
-	import TweenedMetric from '$lib/components/TweenedMetric.svelte';
-	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
-	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
+	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
-	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
-	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
-	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
-	import HorizontalBarList from '$lib/components/graph/HorizontalBarList.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import { formatNumber } from '$lib/format';
 	import { m } from '$lib/i18n';
-	import Loading from '$lib/icons/Loading.svelte';
-	import { stripMarkdownToText } from '$lib/markdown';
+	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -22,12 +15,10 @@
 		type DeviceMCPServerStat,
 		type DeviceScanStats,
 		type DeviceSkillStat,
-		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
 		type TotalTokenUsage
 	} from '$lib/services';
-	import { entryTypeDonutLegend } from '$lib/services/dashboard/constants';
 	import type {
 		AvgToolCallResponseTimeRow,
 		TopServerUsageRow,
@@ -36,30 +27,54 @@
 	import {
 		avgToolCallResponseTimeFromStats,
 		compileServerAndEntries,
-		deploymentStatusGridColClass,
-		deploymentStatusGridShowBorderRight,
 		topServersFromStats,
 		topToolCallsFromStats
 	} from '$lib/services/dashboard/utils';
-	import { getMCPDisplayName } from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
-	import { resolve } from '$lib/url';
+	import ConfigureDashboard from './ConfigureDashboard.svelte';
+	import HeaderBar from './HeaderBar.svelte';
+	import {
+		DASHBOARD_LAYOUT_KEY,
+		DEVICE_STAT_IDS,
+		PLATFORM_STAT_IDS,
+		availableWidgets,
+		colSpanClass,
+		commitLayout,
+		factoryConfig,
+		type WidgetId,
+		isHiddenBecauseEmpty,
+		moveHeader,
+		parseDashboardConfig,
+		placeWidget,
+		projectConfig,
+		rowsForRender,
+		visibleStatIds,
+		widgetStatuses,
+		type DashboardConfig,
+		type DashboardRow,
+		type DeviceStatId,
+		type DropTarget,
+		type PlatformStatId,
+		type WidgetPlacement
+	} from './dashboardLayout';
+	import DashboardWidget from './widgets/DashboardWidget.svelte';
+	import WidgetFrame from './widgets/WidgetFrame.svelte';
+	import { deviceStatLabel, platformStatLabel } from './widgets/labels';
+	import type { DashboardStatTile, PopularServer } from './widgets/model';
 	import {
 		Activity,
-		ChevronRight,
 		CircleDollarSign,
 		Coins,
+		Columns3Cog,
 		Laptop,
+		LayoutDashboard,
 		MonitorCheck,
 		PencilRuler,
 		Server,
-		Siren,
-		Users,
-		Wrench
+		Users
 	} from '@lucide/svelte';
 	import { isWithinInterval, subMonths } from 'date-fns';
-	import { onMount } from 'svelte';
-	import { fade, fly } from 'svelte/transition';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
@@ -67,11 +82,24 @@
 	let loading = $state(true);
 	let loadingToolUsage = $state(true);
 	let loadingDeviceScanStats = $state(true);
+	let loadingTokens = $state(true);
+
+	let configureDashboardDialog = $state<ReturnType<typeof ConfigureDashboard>>();
 
 	let usersData = $state<OrgUser[]>([]);
 	let totalTokensData = $state<TotalTokenUsage>();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
+	const isAdmin = $derived(Boolean(profile.current.hasAdminAccess?.()));
+	const viewer = $derived({ isAdmin });
+
+	const storedLayout = localState<DashboardConfig | null>(DASHBOARD_LAYOUT_KEY, null, {
+		parse: parseDashboardConfig
+	});
+	const dashboardLayout = $derived.by(() => {
+		if (!storedLayout.isReady || storedLayout.current == null) return factoryConfig(viewer);
+		return projectConfig(storedLayout.current, viewer);
+	});
 
 	let topToolCalls = $state<TopToolCallRow[]>([]);
 	let topServerUsage = $state<TopServerUsageRow[]>([]);
@@ -80,8 +108,11 @@
 	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
 	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
 
-	const end = new Date();
-	const start = subMonths(end, 1);
+	const initialEnd = new Date();
+	let end = $state(untrack(() => initialEnd));
+	let start = $state(untrack(() => subMonths(initialEnd, 1)));
+	const rangeBusy = $derived(loadingToolUsage || loadingTokens || loadingDeviceScanStats);
+	let rangeRequest = 0;
 
 	let monthlyActiveUsers = $derived(
 		usersData.filter(
@@ -117,12 +148,274 @@
 
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
-	onMount(async () => {
+	function handleDateRangeChange(range: DateRange) {
+		if (!range.start || !range.end) return;
+		start = range.start;
+		end = range.end;
+	}
+
+	function applyLayout(next: DashboardConfig) {
+		const previous = storedLayout.current ?? factoryConfig(viewer);
+		storedLayout.current = commitLayout(previous, next, viewer);
+	}
+
+	function resetLayout() {
+		storedLayout.current = null;
+	}
+
+	type DragSubject = { kind: 'widget'; id: WidgetId } | { kind: 'header'; id: string };
+
+	let dragging = $state<DragSubject | null>(null);
+	let draft = $state<DashboardConfig | null>(null);
+	let dragOrigin = $state<string | null>(null);
+	let dragClone: HTMLElement | null = null;
+	let dragOffsetX = 0;
+	let dragOffsetY = 0;
+	const editingLayout = $derived(draft ?? dashboardLayout);
+
+	function updateLayout(next: DashboardConfig) {
+		applyLayout(next);
+		if (dragging) draft = next;
+	}
+
+	function showRow(row: DashboardRow): boolean {
+		if (row.kind === 'header') return !(row.onlyWithDeviceScans && !hasDeviceScans);
+		if (row.kind === 'box') {
+			if (row.rows.length === 0) return true;
+			return row.rows.some(showRow);
+		}
+		return row.items.some((item) => !isHiddenBecauseEmpty(item, statuses[item.id]));
+	}
+
+	function visiblePlacements(items: WidgetPlacement[]) {
+		return items.flatMap((item, index) =>
+			isHiddenBecauseEmpty(item, statuses[item.id]) ? [] : [{ item, index }]
+		);
+	}
+
+	function parsePath(value: string | undefined): number[] {
+		if (!value) return [];
+		return value.split('-').map((part) => Number(part));
+	}
+
+	function draggedNode(): HTMLElement | null {
+		if (!dragging || typeof document === 'undefined') return null;
+		const selector =
+			dragging.kind === 'widget'
+				? `[data-dashboard-card][data-widget-id="${CSS.escape(dragging.id)}"]`
+				: `[data-dashboard-header][data-header-id="${CSS.escape(dragging.id)}"]`;
+		for (const match of document.querySelectorAll(selector)) {
+			if (match instanceof HTMLElement && !match.closest('[data-drag-clone]')) return match;
+		}
+		return null;
+	}
+
+	function pointInside(node: HTMLElement, x: number, y: number): boolean {
+		const rect = node.getBoundingClientRect();
+		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+	}
+
+	function nodeArea(node: HTMLElement): number {
+		const rect = node.getBoundingClientRect();
+		return rect.width * rect.height;
+	}
+
+	function actionFor(
+		node: HTMLElement,
+		x: number,
+		y: number,
+		kind: DragSubject['kind']
+	): DropTarget {
+		const rect = node.getBoundingClientRect();
+		if (node.hasAttribute('data-dashboard-card')) {
+			const parent = parsePath(node.dataset.parent);
+			const row = Number(node.dataset.row);
+			const index = Number(node.dataset.index);
+			// A thin strip only. The rest of a card, including a row with one widget, drops beside it.
+			const edgeBand = Math.min(16, rect.height * 0.12);
+			const edge = y < rect.top + edgeBand || y > rect.bottom - edgeBand;
+			if (kind === 'header' || edge) {
+				return {
+					kind: 'new-row',
+					path: parent,
+					index: y < rect.top + rect.height / 2 ? row : row + 1
+				};
+			}
+			return {
+				kind: 'slot',
+				path: [...parent, row],
+				index: x < rect.left + rect.width / 2 ? index : index + 1
+			};
+		}
+		if (node.hasAttribute('data-dashboard-header')) {
+			const parent = parsePath(node.dataset.parent);
+			const row = Number(node.dataset.row);
+			return {
+				kind: 'new-row',
+				path: parent,
+				index: y < rect.top + rect.height / 2 ? row : row + 1
+			};
+		}
+		const path = parsePath(node.dataset.boxPath);
+		const count = Number(node.dataset.childCount ?? '0');
+		return { kind: 'new-row', path, index: y < rect.top + rect.height * 0.35 ? 0 : count };
+	}
+
+	function actionAt(x: number, y: number, subject: DragSubject): DropTarget | null {
+		const dragged = draggedNode();
+		const candidates = [
+			...document.querySelectorAll(
+				'[data-dashboard-card], [data-dashboard-header], [data-dashboard-box]'
+			)
+		].filter(
+			(node): node is HTMLElement =>
+				node instanceof HTMLElement && node !== dragged && !node.closest('[data-drag-clone]')
+		);
+		const hit = candidates
+			.filter((node) => !node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
+			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
+		if (hit) return actionFor(hit, x, y, subject.kind);
+		// The placeholder fills its cell. Stay put until the pointer reaches another card,
+		// instead of treating the box behind that cell as a new row.
+		if (dragged && pointInside(dragged, x, y)) return null;
+		const box = candidates
+			.filter((node) => node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
+			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
+		return box ? actionFor(box, x, y, subject.kind) : null;
+	}
+
+	function clearDragClone() {
+		dragClone?.remove();
+		dragClone = null;
+	}
+
+	function mountDragClone(event: PointerEvent) {
+		if (typeof document === 'undefined') return;
+		const current = event.currentTarget;
+		const source =
+			current instanceof Element
+				? current.closest('[data-dashboard-card], [data-dashboard-header]')
+				: null;
+		if (!(source instanceof HTMLElement)) return;
+		const heading = source.querySelector('h2, h3, h4, h5, h6');
+		const anchor = heading instanceof HTMLElement ? heading : source;
+		const rect = anchor.getBoundingClientRect();
+		const clone = document.createElement('div');
+
+		clearDragClone();
+		clone.textContent = anchor.textContent?.trim() ?? '';
+		clone.setAttribute('aria-hidden', 'true');
+		clone.setAttribute('data-drag-clone', '');
+		clone.className = source.hasAttribute('data-dashboard-header')
+			? 'bg-base-100 dark:bg-base-300 border-base-300 rounded-md border px-3 py-2 text-lg font-semibold shadow-xl'
+			: 'bg-base-100 dark:bg-base-300 border-base-300 rounded-md border px-3 py-2 text-xs font-medium tracking-wider uppercase shadow-xl';
+		clone.style.position = 'fixed';
+		clone.style.margin = '0';
+		clone.style.width = 'max-content';
+		clone.style.maxWidth = '420px';
+		clone.style.pointerEvents = 'none';
+		clone.style.zIndex = '70';
+		clone.style.opacity = '0.95';
+		document.body.appendChild(clone);
+		const cloneRect = clone.getBoundingClientRect();
+		dragOffsetX = Math.min(
+			Math.max(event.clientX - rect.left, 0),
+			Math.max(cloneRect.width - 8, 0)
+		);
+		dragOffsetY = Math.min(
+			Math.max(event.clientY - rect.top, 0),
+			Math.max(cloneRect.height - 8, 0)
+		);
+		clone.style.left = `${event.clientX - dragOffsetX}px`;
+		clone.style.top = `${event.clientY - dragOffsetY}px`;
+		dragClone = clone;
+	}
+
+	function moveDragClone(x: number, y: number) {
+		if (!dragClone) return;
+		dragClone.style.left = `${x - dragOffsetX}px`;
+		dragClone.style.top = `${y - dragOffsetY}px`;
+	}
+
+	function moveSubject(layout: DashboardConfig, subject: DragSubject, action: DropTarget) {
+		if (subject.kind === 'widget') return placeWidget(layout, subject.id, action);
+		if (action.kind !== 'new-row') return layout;
+		return moveHeader(layout, subject.id, action.index, action.path);
+	}
+
+	function onPointerMove(event: PointerEvent) {
+		if (!dragging) return;
+		moveDragClone(event.clientX, event.clientY);
+		const action = actionAt(event.clientX, event.clientY, dragging);
+		if (!action) return;
+		const layout = draft ?? dashboardLayout;
+		const next = moveSubject(layout, dragging, action);
+		if (JSON.stringify(next.rows) !== JSON.stringify(layout.rows)) draft = next;
+	}
+
+	function detachDragListeners() {
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onPointerMove);
+		window.removeEventListener('pointerup', onPointerUp);
+		window.removeEventListener('pointercancel', onPointerCancel);
+		window.removeEventListener('keydown', onKeyDown);
+		clearDragClone();
+	}
+
+	function finishDrag(commit: boolean) {
+		if (!dragging && !draft) {
+			detachDragListeners();
+			return;
+		}
+		const next = draft;
+		const origin = dragOrigin;
+		dragging = null;
+		draft = null;
+		dragOrigin = null;
+		detachDragListeners();
+		if (commit && next && origin && JSON.stringify(next.rows) !== origin) applyLayout(next);
+	}
+
+	function onPointerUp() {
+		finishDrag(true);
+	}
+
+	function onPointerCancel() {
+		finishDrag(false);
+	}
+
+	function onKeyDown(event: KeyboardEvent) {
+		if (event.key !== 'Escape') return;
+		event.preventDefault();
+		finishDrag(false);
+	}
+
+	function beginDrag(event: PointerEvent, subject: DragSubject) {
+		if (event.button !== 0) return;
+		event.preventDefault();
+		event.stopPropagation();
+		mountDragClone(event);
+		dragging = subject;
+		dragOrigin = JSON.stringify((draft ?? dashboardLayout).rows);
+		draft = null;
+		window.addEventListener('pointermove', onPointerMove);
+		window.addEventListener('pointerup', onPointerUp);
+		window.addEventListener('pointercancel', onPointerCancel);
+		window.addEventListener('keydown', onKeyDown);
+	}
+
+	onDestroy(detachDragListeners);
+
+	function loadRangeDatasets(rangeStart: Date, rangeEnd: Date) {
+		const request = ++rangeRequest;
+		loadingToolUsage = true;
+
 		UserService.listMcpAuditLogUsageStats({
-			start_time: start.toISOString(),
-			end_time: end.toISOString()
+			start_time: rangeStart.toISOString(),
+			end_time: rangeEnd.toISOString()
 		})
 			.then((stats) => {
+				if (request !== rangeRequest) return;
 				const statsToUse = (stats.items ?? []).filter(
 					(s) =>
 						!s.mcpID.startsWith('sms1') &&
@@ -138,69 +431,85 @@
 				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats);
 			})
 			.catch((error) => {
+				if (request !== rangeRequest || error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				if (request === rangeRequest) loadingToolUsage = false;
+			});
+
+		if (!profile.current.hasAdminAccess?.()) {
+			loadingTokens = false;
+			loadingDeviceScanStats = false;
+			return;
+		}
+
+		loadingDeviceScanStats = true;
+		loadingTokens = true;
+
+		AdminService.getDeviceScanStats({
+			start: rangeStart.toISOString(),
+			end: rangeEnd.toISOString()
+		})
+			.then((stats) => {
+				if (request !== rangeRequest) return;
+				deviceScanStats = stats;
+			})
+			.catch((error) => {
+				if (request !== rangeRequest || error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				if (request === rangeRequest) loadingDeviceScanStats = false;
+			});
+
+		AdminService.listTotalTokenUsage({ start: rangeStart, end: rangeEnd })
+			.then((tokens) => {
+				if (request !== rangeRequest) return;
+				totalTokensData = tokens;
+			})
+			.catch((error) => {
+				if (request !== rangeRequest || error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				if (request === rangeRequest) loadingTokens = false;
+			});
+	}
+
+	$effect(() => {
+		loadRangeDatasets(start, end);
+	});
+
+	onMount(() => {
+		if (!profile.current.hasAdminAccess?.()) {
+			loading = false;
+			return;
+		}
+
+		Promise.all([
+			UserService.listUsersIncludeDeleted(),
+			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
+			AdminService.listAllWorkspaceDeployedSingleRemoteServers()
+		])
+			.then(([users, catalogServers, workspaceServers]) => {
+				usersData = users;
+				deployedCatalogEntryServers = catalogServers;
+				deployedWorkspaceCatalogEntryServers = workspaceServers;
+			})
+			.catch((error) => {
 				if (error?.name === 'AbortError') return;
 				errors.append(error);
 			})
 			.finally(() => {
-				loadingToolUsage = false;
+				loading = false;
 			});
-
-		if (profile.current.hasAdminAccess?.()) {
-			AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
-				.then((stats) => {
-					deviceScanStats = stats;
-				})
-				.catch((error) => {
-					if (error?.name === 'AbortError') return;
-					errors.append(error);
-				})
-				.finally(() => {
-					loadingDeviceScanStats = false;
-				});
-		}
-
-		if (profile.current.hasAdminAccess?.()) {
-			const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
-				UserService.listUsersIncludeDeleted(),
-				AdminService.listTotalTokenUsage({ start, end }),
-				AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
-				AdminService.listAllWorkspaceDeployedSingleRemoteServers()
-			]);
-
-			usersData = users;
-			totalTokensData = tokens;
-			deployedCatalogEntryServers = catalogServers;
-			deployedWorkspaceCatalogEntryServers = workspaceServers;
-		}
-		loading = false;
 	});
 
-	const deploymentStatusLabels: Record<string, () => string> = {
-		Available: m.dashboard_status_available,
-		Progressing: m.dashboard_status_progressing,
-		Unavailable: m.dashboard_status_unavailable,
-		'Needs Attention': m.dashboard_status_needs_attention,
-		Shutdown: m.dashboard_status_shutdown,
-		Unknown: m.core_unknown,
-		Pending: m.core_status_pending
-	};
-
-	function deploymentStatusLabel(status: string) {
-		return deploymentStatusLabels[status]?.() ?? status;
-	}
-
-	function getServerUrl(server: MCPCatalogServer) {
-		return `/mcp-servers/s/${server.id}?view=server-instances`;
-	}
-
-	function getEntryUrl(entry: MCPCatalogEntry) {
-		return `/mcp-servers/c/${entry.id}?view=server-instances`;
-	}
-
-	const platformStatTiles = $derived([
+	const platformStatTiles = $derived<DashboardStatTile<PlatformStatId>[]>([
 		{
 			id: 'total-users',
-			label: m.dashboard_total_users(),
+			label: platformStatLabel('total-users'),
 			loading,
 			value: usersData.length,
 			icon: Users,
@@ -208,7 +517,7 @@
 		},
 		{
 			id: 'monthly-active-users',
-			label: m.dashboard_monthly_active_users(),
+			label: platformStatLabel('monthly-active-users'),
 			loading,
 			value: monthlyActiveUsers,
 			icon: Activity,
@@ -216,19 +525,20 @@
 		},
 		{
 			id: 'total-tokens',
-			label: m.dashboard_total_tokens(),
-			loading,
+			label: platformStatLabel('total-tokens'),
+			loading: loadingTokens,
 			value: totalTokensData?.totalTokens ?? 0,
 			icon: Coins,
 			seeMore: '/usage?view=llm'
 		},
 		{
 			id: 'total-spend',
-			label: m.dashboard_total_spend(),
-			loading,
+			label: platformStatLabel('total-spend'),
+			loading: loadingTokens,
 			value: totalTokensData?.totalSpend ?? 0,
 			icon: CircleDollarSign,
-			seeMore: '/usage?view=llm'
+			seeMore: '/usage?view=llm',
+			format: formatTokenUsageUSD
 		}
 	]);
 
@@ -271,10 +581,10 @@
 	);
 	let totalDeviceScanSubmissions = $derived(deviceScanStats?.scanTimestamps?.length ?? 0);
 
-	let deviceScanTiles = $derived([
+	const deviceScanTiles = $derived<DashboardStatTile<DeviceStatId>[]>([
 		{
 			id: 'device-overview',
-			label: m.dashboard_unique_devices(),
+			label: deviceStatLabel('device-overview'),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.deviceCount ?? 0,
 			icon: Laptop,
@@ -282,7 +592,7 @@
 		},
 		{
 			id: 'device-clients',
-			label: m.dashboard_unique_clients(),
+			label: deviceStatLabel('device-clients'),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.clients?.length ?? 0,
 			icon: MonitorCheck,
@@ -290,7 +600,7 @@
 		},
 		{
 			id: 'device-mcps',
-			label: m.dashboard_unique_mcps(),
+			label: deviceStatLabel('device-mcps'),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.mcpServers?.length ?? 0,
 			icon: Server,
@@ -298,7 +608,7 @@
 		},
 		{
 			id: 'device-skills',
-			label: m.dashboard_unique_skills(),
+			label: deviceStatLabel('device-skills'),
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.skills?.length ?? 0,
 			icon: PencilRuler,
@@ -306,524 +616,182 @@
 		}
 	]);
 
-	const graphContainerClasses = 'px-6 py-4 flex flex-col gap-4 h-full';
+	const visiblePlatformTiles = $derived(
+		platformStatTiles.filter((tile) =>
+			visibleStatIds(dashboardLayout.platformStats, PLATFORM_STAT_IDS).includes(tile.id)
+		)
+	);
+	const visibleDeviceTiles = $derived(
+		deviceScanTiles.filter((tile) =>
+			visibleStatIds(dashboardLayout.deviceStats, DEVICE_STAT_IDS).includes(tile.id)
+		)
+	);
+	const serverLoading = $derived(serverAndEntries.loading || loading);
+	const statuses = $derived(
+		widgetStatuses({
+			platformTiles: visiblePlatformTiles,
+			deviceTiles: visibleDeviceTiles,
+			serverLoading,
+			totalServers,
+			toolUsageLoading: loadingToolUsage,
+			topServerCount: topServerUsage.length,
+			popularToolCount: topToolCalls.length,
+			responseTimeCount: avgToolCallResponseTime.length,
+			serversLoading: serverLoading,
+			deployedCount: popularServers.length,
+			deviceScanLoading: loadingDeviceScanStats,
+			skillCount: deviceScanSkillBuckets.length,
+			clientCount: deviceScanClientBuckets.length,
+			mcpCount: deviceScanMcpBuckets.length,
+			scanCount: deviceScanTimelineRows.length,
+			tokenLoading: loadingTokens,
+			totalTokens: totalTokensData?.totalTokens ?? 0,
+			totalSpend: totalTokensData?.totalSpend ?? 0
+		})
+	);
+	const renderedRows = $derived(rowsForRender(editingLayout, statuses, hasDeviceScans));
+	const emptyWidgets = $derived(
+		(
+			Object.entries(statuses) as [WidgetId, { loading: boolean; empty: boolean } | undefined][]
+		).flatMap(([id, status]) => (status && !status.loading && status.empty ? [id] : []))
+	);
+	const widgetModel = $derived({
+		isBootStrapUser,
+		hasDeviceScans,
+		start,
+		end,
+		platformTiles: visiblePlatformTiles,
+		deviceTiles: visibleDeviceTiles,
+		serverLoading,
+		doesSupportK8sUpdates,
+		deploymentStatusBreakdown,
+		totalServers,
+		graphData,
+		loadingToolUsage,
+		topServerUsage,
+		maxServersToShow,
+		popularServers: popularServers as PopularServer[],
+		serversLoading: serverLoading,
+		topToolCalls,
+		maxToolsToShow,
+		avgToolCallResponseTime,
+		loadingDeviceScanStats,
+		deviceScanSkillBuckets,
+		totalDeviceScanSkillGroups,
+		deviceScanClientBuckets,
+		totalDeviceScanClientGroups,
+		deviceScanMcpBuckets,
+		totalDeviceScanMcpGroups,
+		deviceScanTimelineRows,
+		totalDeviceScanSubmissions
+	});
 </script>
 
-<Layout title={m.nav_dashboard()} classes={{ childrenContainer: 'max-w-none', container: '' }}>
-	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
-		{#if profile.current.hasAdminAccess?.()}
-			<div class="col-span-12 grid grid-cols-12 gap-4">
+{#snippet dashboardRows(rows: DashboardRow[], parent: number[])}
+	{#each rows as row, rowIndex (row.kind === 'widgets' ? row.items
+				.map((placement) => placement.id)
+				.join('|') : row.id)}
+		{#if row.kind === 'box'}
+			{#if showRow(row)}
 				<div
-					class={twMerge(
-						'paper flex min-w-0 flex-col gap-0 p-0 h-full',
-						hasDeviceScans ? ' col-span-12 @3xl:col-span-5' : 'col-span-12'
-					)}
+					class="@container border-base-300 bg-base-100/35 dark:bg-base-300/35 col-span-12 rounded-xl border px-3 py-3"
+					data-dashboard-box
+					data-box-path={[...parent, rowIndex].join('-')}
+					data-child-count={row.rows.length}
 				>
-					{#if hasDeviceScans}
-						<div class="shrink-0 border-b border-base-300 px-4 py-2">
-							<h4 class="flex items-center font-medium text-xs uppercase">
-								{m.dashboard_on_platform()}
-							</h4>
-						</div>
-					{/if}
-					<div class="@container min-w-0 w-full max-w-full">
-						<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12">
-							{#each platformStatTiles as platformStat (platformStat.id)}
-								{@render platformStatCell(platformStat)}
-							{/each}
-						</div>
+					<div class="grid grid-cols-12 gap-4">
+						{@render dashboardRows(row.rows, [...parent, rowIndex])}
 					</div>
-				</div>
-				{#if hasDeviceScans}
-					<div
-						class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7 h-full"
-						in:fly={{ x: 100, duration: 150 }}
-					>
-						<div class="col-span-12 border-b border-base-300 px-4 py-2">
-							<h4 class="flex items-center font-medium text-xs uppercase">
-								{m.dashboard_device_scans()}
-							</h4>
-						</div>
-						<div class="@container min-w-0 w-full max-w-full">
-							<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12 @3xl:grid-cols-4">
-								{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
-									{@render deviceScanStatCell(deviceScanStat)}
-								{/each}
-							</div>
-						</div>
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		{#if profile.current.hasAdminAccess?.()}
-			{#if hasDeviceScans}
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render serverActivityGraph()}
-					{#if loadingDeviceScanStats}
-						<Skeleton type="card" class="min-h-72 h-full w-full" />
-					{:else}
-						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-							<DeviceScanDonutCard
-								title={m.dashboard_top_device_skills()}
-								buckets={deviceScanSkillBuckets}
-								totalGroups={totalDeviceScanSkillGroups}
-								emptyMsg={m.dashboard_no_skills_observed()}
-								class="h-full"
-								classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
-							/>
-						</div>
-					{/if}
-				</div>
-
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
-					{@render topServerDeploymentList()}
-					{#if loadingDeviceScanStats}
-						<Skeleton type="card" class="min-h-72 h-full w-full" />
-						<Skeleton type="card" class="min-h-72 h-full w-full" />
-					{:else}
-						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-							<DeviceScanDonutCard
-								legendOnBottom
-								title={m.dashboard_device_clients()}
-								buckets={deviceScanClientBuckets}
-								totalGroups={totalDeviceScanClientGroups}
-								emptyMsg={m.dashboard_no_clients_observed()}
-								class="h-full"
-							/>
-						</div>
-						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-							<DeviceScanDonutCard
-								legendOnBottom
-								title={m.dashboard_top_device_mcp_servers()}
-								buckets={deviceScanMcpBuckets}
-								totalGroups={totalDeviceScanMcpGroups}
-								emptyMsg={m.dashboard_no_mcp_servers_observed()}
-								class="h-full"
-							/>
-						</div>
-					{/if}
-				</div>
-
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render toolUsageGraph()}
-					{#if loadingDeviceScanStats}
-						<Skeleton type="card" class="min-h-80 h-full w-full" />
-					{:else}
-						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-							<DeviceScanTimelineCard
-								rangeStart={start}
-								rangeEnd={end}
-								timelineRows={deviceScanTimelineRows}
-								totalSubmissions={totalDeviceScanSubmissions}
-							/>
-						</div>
-					{/if}
-				</div>
-
-				<div class="col-span-12">
-					<TokenUsageTimelineCard startDate={start} endDate={end} />
-				</div>
-
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render popularTools()}
-					{@render toolAverageResponseTime()}
-				</div>
-			{:else}
-				<div class="col-span-12">
-					<TokenUsageTimelineCard startDate={start} endDate={end} />
-				</div>
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-					{@render toolUsageGraph()}
-					{@render serverActivityGraph()}
-				</div>
-				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
-					{@render popularTools()}
-					{@render toolAverageResponseTime()}
-					{@render topServerDeploymentList()}
 				</div>
 			{/if}
+		{:else if row.kind === 'header'}
+			{#if row.text.trim() && showRow(row)}
+				<HeaderBar
+					{row}
+					parent={parent.join('-')}
+					{rowIndex}
+					config={editingLayout}
+					dragging={dragging?.kind === 'header' && dragging.id === row.id}
+					onChange={updateLayout}
+					onDragStart={(event) => beginDrag(event, { kind: 'header', id: row.id })}
+				/>
+			{/if}
 		{:else}
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4">
-				{@render toolUsageGraph()}
+			{@const visible = visiblePlacements(row.items)}
+			{#if visible.length > 0}
+				{#each visible as placement (placement.item.id)}
+					<div
+						class={twMerge('h-full min-w-0', colSpanClass(visible.length))}
+						data-dashboard-card
+						data-widget-id={placement.item.id}
+						data-parent={parent.join('-')}
+						data-row={rowIndex}
+						data-index={placement.index}
+					>
+						<WidgetFrame
+							placement={placement.item}
+							config={editingLayout}
+							dragging={dragging?.kind === 'widget' && dragging.id === placement.item.id}
+							onChange={updateLayout}
+							onDragStart={(event) => beginDrag(event, { kind: 'widget', id: placement.item.id })}
+						>
+							<DashboardWidget id={placement.item.id} model={widgetModel} />
+						</WidgetFrame>
+					</div>
+				{/each}
+			{/if}
+		{/if}
+	{/each}
+{/snippet}
+
+<Layout title={m.nav_dashboard()} classes={{ childrenContainer: 'max-w-none', container: '' }}>
+	{#snippet rightNavActions()}
+		<IconButton
+			tooltip={{ text: m.dashboard_configure(), placement: 'left' }}
+			onclick={() => configureDashboardDialog?.open()}
+			class="dark:hover:bg-base-400"
+		>
+			<Columns3Cog class="size-6" />
+		</IconButton>
+		<AuditLogCalendar
+			{start}
+			{end}
+			disabled={rangeBusy}
+			onChange={handleDateRangeChange}
+			classes={{
+				input: 'bg-base-300 hover:bg-base-300 shadow-inner',
+				calendar: 'bg-base-300 shadow-none! border not-dark:border-base-300!'
+			}}
+		/>
+	{/snippet}
+	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
+		{#if renderedRows.length === 0}
+			<div class="col-span-12 flex flex-col items-center gap-3 py-16 text-center">
+				<LayoutDashboard class="text-muted-content size-24 opacity-50" />
+				<p class="text-muted-content text-sm font-light">{m.dashboard_configure_empty()}</p>
+				<button
+					type="button"
+					class="btn btn-primary"
+					onclick={() => configureDashboardDialog?.open()}
+				>
+					{m.dashboard_configure()}
+				</button>
 			</div>
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-				{@render popularTools()}
-				{@render toolAverageResponseTime()}
-			</div>
+		{:else}
+			{@render dashboardRows(editingLayout.rows, [])}
 		{/if}
 	</div>
 </Layout>
 
-{#snippet toolUsageGraph()}
-	{#if loadingToolUsage}
-		<Skeleton type="card" class="min-h-72 h-full w-full" />
-	{:else}
-		<div in:fade={{ duration: 150 }} class="paper h-full min-h-72 gap-0 w-full p-0">
-			<GraphTitle
-				title={m.dashboard_top_servers_used()}
-				description={m.dashboard_last_30_days()}
-				element="h4"
-			/>
-			<div class="p-4">
-				<HorizontalBarList
-					data={topServerUsage.slice(0, maxServersToShow)}
-					labelKey="serverName"
-					valueKey="count"
-					formatValue={(value) => Math.round(value).toString()}
-				>
-					{#snippet tooltipContent(item)}
-						<div class="flex flex-col gap-0 text-xs">
-							<div class="text-muted-content text-xs">{item.label}</div>
-						</div>
-						<div class="text-base-content font-semibold">
-							{m.dashboard_calls_count({ count: item.value })}
-						</div>
-					{/snippet}
-				</HorizontalBarList>
-			</div>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet serverActivityGraph()}
-	{#if serverAndEntries.loading || loading}
-		<Skeleton type="card" class="min-h-96 h-full w-full" />
-	{:else}
-		<div
-			in:fade={{ duration: 150 }}
-			class={twMerge('paper h-full p-0 gap-0', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
-		>
-			<GraphTitle title={m.dashboard_server_activity()} element="h4" />
-			<div class="px-6 py-4 flex flex-col gap-4">
-				{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
-					<div class="mb-2 grid grid-cols-12 gap-x-2 gap-y-5">
-						{#each deploymentStatusBreakdown as row, i (row.status)}
-							<div
-								class={twMerge(
-									'flex flex-col items-center justify-center px-1 text-center',
-									deploymentStatusGridColClass(i, deploymentStatusBreakdown.length),
-									deploymentStatusGridShowBorderRight(i, deploymentStatusBreakdown.length) &&
-										'border-r border-base-300'
-								)}
-							>
-								<div class="flex items-center gap-1">
-									<div class={twMerge('font-semibold', hasDeviceScans ? 'text-xl' : 'text-3xl')}>
-										<TweenedMetric target={row.count} />
-									</div>
-									{#if row.status === 'Available'}
-										<Server class="size-6 text-primary" />
-									{:else if row.status === 'Needs Attention'}
-										<Siren class="size-6 text-warning" />
-									{:else}
-										<Server class="size-6 text-muted-content/75" />
-									{/if}
-								</div>
-								<div class="text-xs">{deploymentStatusLabel(row.status)}</div>
-							</div>
-						{/each}
-					</div>
-				{:else}
-					<div class="mb-2 flex flex-col justify-center items-center">
-						<div class="flex w-full gap-2 items-center justify-center">
-							<div class={twMerge('font-semibold', hasDeviceScans ? 'text-xl' : 'text-3xl')}>
-								<TweenedMetric target={totalServers} />
-							</div>
-							<Server class="size-6 text-primary" />
-						</div>
-						<div class="text-xs">{m.dashboard_total_currently_active()}</div>
-					</div>
-				{/if}
-
-				<div
-					class={twMerge(
-						'flex flex-col items-center justify-center grow',
-						hasDeviceScans ? 'h-64' : 'h-80'
-					)}
-				>
-					{#if graphData.some((g) => g.value > 0)}
-						<DonutGraph
-							class={twMerge('h-80', hasDeviceScans ? 'h-64' : '')}
-							donutRatio={0.65}
-							data={graphData}
-							legend={doesSupportK8sUpdates ? entryTypeDonutLegend : undefined}
-						/>
-					{:else}
-						<p class="font-light text-xs text-muted-content pt-2 text-center">
-							{m.dashboard_no_servers_deployed()}
-						</p>
-					{/if}
-				</div>
-
-				{#if !isBootStrapUser && totalServers > 0}
-					<div class="flex justify-end">
-						<a
-							href={resolve('/mcp-servers?view=deployments')}
-							class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-						>
-							{m.dashboard_see_more()}
-							<ChevronRight class="size-3" />
-						</a>
-					</div>
-				{/if}
-			</div>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet topServerDeploymentList()}
-	<div in:fade={{ duration: 150 }} class="paper h-full gap-0 p-0">
-		<GraphTitle title={m.dashboard_most_deployed_servers()} element="h4" />
-		<div class={graphContainerClasses}>
-			{#if mcpServersAndEntries.current.loading || loading}
-				<Skeleton type="list" />
-			{:else if popularServers.length > 0}
-				<div class="flex flex-col gap-2 -ml-2 w-[calc(100%+1rem)]">
-					{#each popularServers as info (info.id)}
-						{@const icon =
-							'server' in info ? info.server?.manifest.icon : info.entry?.manifest.icon}
-						{@const displayName =
-							'server' in info ? getMCPDisplayName(info.server) : info.entry?.manifest.name}
-						{@const description =
-							'server' in info
-								? info.server?.manifest.description
-								: info.entry?.manifest.description}
-						{@const url = info.server
-							? getServerUrl(info.server)
-							: info.entry
-								? getEntryUrl(info.entry)
-								: undefined}
-						<a
-							class="flex gap-2 w-full items-center dark:hover:bg-base-300 hover:bg-base-200 transition-colors duration-150 px-2 py-1 rounded-md"
-							href={url ? resolve(url as `/${string}`) : undefined}
-						>
-							{#if icon}
-								<img
-									src={icon}
-									alt={info.id}
-									class="size-9 bg-base-200 dark:bg-base-300 rounded-md p-1"
-								/>
-							{:else}
-								<Server class="size-9 opacity-65 bg-base-200 rounded-md p-1" />
-							{/if}
-							<div class="flex flex-col gap-0.5 max-w-[calc(100%-4.5rem)] grow">
-								<p class="text-sm font-medium">{displayName}</p>
-								{#if description}
-									<p class="text-xs truncate line-clamp-1 break-all font-light">
-										{stripMarkdownToText(description ?? '')}
-									</p>
-								{/if}
-								<p class="text-xs text-muted-content italic">
-									{m.dashboard_deployed_times({ count: info.count })}
-								</p>
-							</div>
-							<ChevronRight class="size-5 shrink-0" />
-						</a>
-					{/each}
-				</div>
-			{:else}
-				<p
-					class="text-xs text-muted-content pt-2 font-light text-center h-full flex items-center justify-center grow"
-				>
-					{m.dashboard_no_servers_deployed()}
-				</p>
-			{/if}
-			<div class="flex grow"></div>
-			{#if popularServers.length > 0 && !isBootStrapUser}
-				<a
-					href={resolve('/mcp-servers')}
-					class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
-				>
-					{m.dashboard_see_more()}
-					<ChevronRight class="size-3" />
-				</a>
-			{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet platformStatCell(platformStat: (typeof platformStatTiles)[number])}
-	{@const defaultClasses = 'col-span-4 p-2 flex gap-2 items-center justify-between w-full'}
-	<div
-		class="col-span-2 @sm:col-span-1 min-w-0 @sm:border-r px-2 my-2 flex @md:col-span-4 @md:not-last:border-r @md:not-last:border-base-300 @md:nth-3:border-r-0 @sm:not-odd:border-r-0 @xl:col-span-3"
-	>
-		{#if platformStat.seeMore && !isBootStrapUser}
-			<a
-				class={twMerge(
-					defaultClasses,
-					'truncate group w-full hover:bg-base-300/50 transition-colors duration-200 rounded-md'
-				)}
-				href={resolve(platformStat.seeMore as `/${string}`)}
-			>
-				{@render statContent(platformStat)}
-			</a>
-		{:else}
-			<div class={defaultClasses}>
-				{@render statContent(platformStat)}
-			</div>
-		{/if}
-	</div>
-{/snippet}
-
-{#snippet deviceScanStatCell(deviceScanStat: (typeof deviceScanTiles)[number])}
-	{@const defaultClasses = 'p-2 flex gap-2 items-center justify-between w-full'}
-	<div
-		class="col-span-2 @sm:col-span-1 min-w-0 flex @sm:border-r @sm:not-odd:border-r-0 px-2 my-2 @md:col-span-6 @md:last:border-r-0 @md:not-last:border-base-300 @3xl:col-span-1 @3xl:not-odd:not-last:border-r"
-	>
-		{#if deviceScanStat.seeMore}
-			<a
-				href={resolve(deviceScanStat.seeMore as `/${string}`)}
-				class={twMerge(
-					defaultClasses,
-					'group w-full hover:bg-base-300/50 transition-colors duration-200 rounded-md'
-				)}
-			>
-				{@render statContent(deviceScanStat)}
-			</a>
-		{:else}
-			<div class={defaultClasses}>
-				{@render statContent(deviceScanStat)}
-			</div>
-		{/if}
-	</div>
-{/snippet}
-
-{#snippet statContent(platformStat: (typeof platformStatTiles | typeof deviceScanTiles)[number])}
-	<div class="w-full min-w-0 leading-none">
-		<div
-			class="text-[11px] @md:text-xs text-muted-content flex items-center gap-1 shrink-0 mb-1 tracking-wide"
-		>
-			{platformStat.label}
-		</div>
-
-		<div class="flex items-baseline gap-2 justify-between">
-			{#if platformStat.loading}
-				<Loading class="size-5" />
-			{:else}
-				<div class="text-lg @md:text-xl font-semibold tabular-nums tracking-tight">
-					<TweenedMetric
-						holdAtZero={platformStat.loading}
-						target={platformStat.value}
-						format={platformStat.id === 'total-spend' ? formatTokenUsageUSD : undefined}
-					/>
-				</div>
-			{/if}
-			<div class="relative size-3.5 @md:size-4 shrink-0 self-center">
-				<platformStat.icon
-					class="size-3.5 @md:size-4 text-primary transition-opacity duration-200 group-hover:opacity-0"
-				/>
-				<ChevronRight
-					class="pointer-events-none text-muted-content absolute inset-0 size-3.5 @md:size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
-				/>
-			</div>
-		</div>
-	</div>
-{/snippet}
-
-{#snippet popularTools()}
-	<div class="paper h-full min-h-72 flex flex-col p-0 gap-0">
-		<GraphTitle
-			title={m.dashboard_recently_popular_tools()}
-			description={m.dashboard_last_30_days()}
-			element="h4"
-		/>
-		<div class={graphContainerClasses}>
-			{#if loadingToolUsage}
-				<Skeleton type="list" class="w-full" count={maxToolsToShow} />
-			{:else if topToolCalls.length === 0}
-				<p
-					class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
-				>
-					{m.dashboard_no_recent_tool_calls()}
-				</p>
-			{:else}
-				<ul class="flex flex-col gap-2">
-					{#each topToolCalls.slice(0, maxToolsToShow) as row (row.compositeKey)}
-						<li class="flex gap-2 items-center">
-							<div
-								class="size-8 items-center justify-center shrink-0 bg-base-200 dark:bg-base-300 rounded-md p-1"
-							>
-								<Wrench class="size-6 opacity-65 shrink-0" />
-							</div>
-							<div class="flex flex-col gap-1 min-w-0">
-								<p class="text-sm font-medium truncate">
-									{row.toolLabel.split('.').slice(1).join('.') || row.compositeKey}
-								</p>
-								<p class="text-xs text-muted-content">
-									{m.dashboard_calls_with_server({
-										count: formatNumber(row.count),
-										server: row.serverDisplayName
-									})}
-								</p>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			<div class="flex grow min-h-0"></div>
-			{#if topToolCalls.length > 0 && !isBootStrapUser}
-				<a
-					href={resolve('/usage')}
-					class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
-				>
-					{m.dashboard_see_more()}
-					<ChevronRight class="size-3" />
-				</a>
-			{/if}
-		</div>
-	</div>
-{/snippet}
-
-{#snippet toolAverageResponseTime()}
-	<div class="paper h-full min-h-72 gap-0 flex flex-col p-0">
-		<GraphTitle
-			title={m.dashboard_tool_call_avg_response_time()}
-			description={m.dashboard_last_30_days()}
-			element="h4"
-		/>
-		<div class={graphContainerClasses}>
-			{#if loadingToolUsage}
-				<Skeleton type="list" class="w-full" count={maxToolsToShow} />
-			{:else if avgToolCallResponseTime.length === 0}
-				<p
-					class="text-xs text-muted-content pt-2 font-light grow flex items-center justify-center h-full text-center"
-				>
-					{m.dashboard_no_recent_tool_calls()}
-				</p>
-			{:else}
-				<div class="flex flex-col gap-4 w-full">
-					<ul class="flex flex-col gap-2">
-						{#each avgToolCallResponseTime.slice(0, maxToolsToShow) as row (row.toolName)}
-							<li class="flex gap-2 items-center">
-								<div class="flex flex-col gap-1 min-w-0 grow pr-4">
-									<p class="text-sm font-medium truncate">
-										{row.toolName.split('.').slice(1).join('.')}
-									</p>
-									<p class="text-xs text-muted-content">
-										{row.serverDisplayName}
-									</p>
-								</div>
-								<div class="text-sm">
-									{row.averageResponseTimeMs.toFixed(2)}ms
-								</div>
-							</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
-			<div class="flex grow min-h-0"></div>
-			{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
-				<a
-					href={resolve('/usage')}
-					class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
-				>
-					{m.dashboard_see_more()}
-					<ChevronRight class="size-3" />
-				</a>
-			{/if}
-		</div>
-	</div>
-{/snippet}
+<ConfigureDashboard
+	bind:this={configureDashboardDialog}
+	config={dashboardLayout}
+	defaults={factoryConfig(viewer)}
+	available={availableWidgets(viewer)}
+	{emptyWidgets}
+	onChange={applyLayout}
+	onReset={resetLayout}
+/>
 
 <svelte:head>
 	<title>{m.dashboard_page_title()}</title>

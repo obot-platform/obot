@@ -1,14 +1,27 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Calendar from '$lib/components/Calendar.svelte';
+	import Calendar, { type DateRange } from '$lib/components/Calendar.svelte';
 	import { m } from '$lib/i18n';
 	import { responsive } from '$lib/stores';
 	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
+	import type { Placement } from '@floating-ui/dom';
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
 
-	let { start, end, disabled = false, onChange } = $props();
+	type Props = {
+		start: Date;
+		end: Date;
+		disabled?: boolean;
+		onChange: (range: DateRange) => void;
+		classes?: {
+			input?: string;
+			calendar?: string;
+		};
+		tooltipPlacement?: Placement;
+	};
+
+	let { start, end, disabled = false, onChange, classes, tooltipPlacement }: Props = $props();
 
 	let open = $state(false);
 	const today = new Date();
@@ -113,7 +126,10 @@
 <div class="flex w-full md:max-w-fit">
 	<button
 		type="button"
-		class="dark:border-base-400 dark:hover:bg-base-300/70 dark:active:bg-base-300 dark:bg-base-100 hover:bg-base-100/70 active:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 flex-1 shrink-0 items-center gap-2 truncate rounded-l-sm border border-r-0 border-transparent px-4 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
+		class={twMerge(
+			'dark:border-base-400 dark:hover:bg-base-300/70 dark:active:bg-base-300 dark:bg-base-100 hover:bg-base-100/70 active:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 flex-1 shrink-0 items-center gap-2 truncate rounded-l-sm border border-r-0 border-transparent px-4 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50',
+			classes?.input
+		)}
 		{disabled}
 		use:refAction
 		onclick={() => {
@@ -124,7 +140,7 @@
 		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
 				text: m.audit_usage_exports_calendar_quick_actions(),
-				placement: 'top-end',
+				placement: tooltipPlacement,
 				classes: ['z-60']
 			});
 
@@ -183,7 +199,10 @@
 
 	<Calendar
 		compact
-		class="dark:border-base-400 hover:bg-base-100 dark:hover:bg-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm"
+		class={twMerge(
+			'dark:border-base-400 hover:bg-base-100 dark:hover:bg-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm',
+			classes?.calendar
+		)}
 		initialValue={{
 			start: new Date(start),
 			end: end ? new Date(end) : null
