@@ -165,3 +165,26 @@ it('keeps local login mounted and avoids a preview loop after a consumed attempt
 	await page.getByRole('button', { name: 'Generate new command', exact: true }).click();
 	await vi.waitFor(() => expect(calls).toBe(3));
 });
+
+it('offers separate tool label review for a readonly Git-managed catalog entry', async () => {
+	await preparePageData();
+	const entry = createMCPCatalogEntry({
+		id: 'git-tools',
+		name: 'Git tools',
+		sourceURL: 'https://github.com/example/tools',
+		manifest: { toolPreview: [{ id: 'read', name: 'read', description: 'Read records' }] }
+	});
+	render(McpServerEntryForm, {
+		entry,
+		id: 'default',
+		entity: 'catalog',
+		type: 'remote',
+		readonly: true,
+		isDialogView: true,
+		limitViews: ['tools']
+	});
+	await page.getByRole('button', { name: 'Tools', exact: true }).click();
+	await expect
+		.element(page.getByRole('link', { name: 'Review tool labels' }))
+		.toHaveAttribute('href', '/tool-labels?resourceType=catalog-entry&resourceID=git-tools');
+});

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/obot-platform/mmmcp/namespace"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/provenance"
@@ -42,6 +43,8 @@ type mcpProvenance struct {
 	session provenance.SessionKey
 	// server is the server's display name and serverID its MCPServer ID.
 	server, serverID string
+	labelScope       string
+	labelPrefix      string
 	// descriptions caches tool descriptions seen in tools/list results, keyed by server and
 	// tool, so capability labelling of a call can use the tool's description.
 	descriptions *sync.Map
@@ -94,12 +97,24 @@ func newMCPProvenance(engine *provenance.Engine, caller user.Info, serverConfig 
 	}
 
 	actor := provenance.Actor{Agent: agent, AgentVersion: clientVersion, APIKeyID: apiKeyID, ClientSessionID: sessionID}
+	var labelScope string
+	var labelPrefix string
+	if serverConfig.Runtime == "vmcp" {
+		labelScope = provenance.ToolLabelScope("vmcp", serverConfig.AuditLogMetadata["mcpID"])
+		if len(serverConfig.Components) == 1 && serverConfig.Components[0].ToolPrefix == "" {
+			labelPrefix = serverConfig.Components[0].ProvenanceToolPrefix
+		}
+	} else if serverConfig.MCPCatalogEntryName != "" {
+		labelScope = provenance.ToolLabelScope("catalog-entry", serverConfig.MCPCatalogEntryName)
+	}
 	return &mcpProvenance{
 		engine:       engine,
 		subject:      provenance.Subject{UserID: userID, Email: email, Groups: groups, Actor: actor},
 		session:      provenance.SessionKey{Explicit: explicit, ClientSessionID: sessionID, Agent: agent, UserID: userID, APIKeyID: apiKeyID},
 		server:       cmp.Or(serverConfig.MCPServerDisplayName, serverConfig.MCPServerName),
 		serverID:     cmp.Or(serverConfig.AuditLogMetadata["mcpID"], serverConfig.MCPServerName),
+		labelScope:   labelScope,
+		labelPrefix:  labelPrefix,
 		descriptions: descriptions,
 	}
 }
@@ -273,11 +288,30 @@ func (p *mcpProvenance) cacheToolList(ctx context.Context, result json.RawMessag
 		if p.descriptions != nil {
 			p.descriptions.Store(p.descriptionKey(tool.Name), tool.Description)
 		}
-		p.engine.ToolCapabilities(ctx, p.server, tool.Name, tool.Description)
+		p.capabilities(ctx, tool.Name)
 	}
 }
 
 func (p *mcpProvenance) capabilities(ctx context.Context, tool string) provenance.Labels {
+	labelTool := tool
+	if p.labelPrefix != "" {
+		// Map a profile's single unprefixed runtime component back to the
+		// full definition's component identity, never by a suffix search.
+		if canonical, err := namespace.Tool(p.labelPrefix, tool); err == nil {
+			labelTool = canonical
+		}
+	}
+	if labels, ok := p.engine.ReviewedToolCapabilities(ctx, p.labelScope, labelTool); ok {
+		return labels
+	}
+	if p.labelScope != "" {
+		// Managed resources use deterministic defaults until review, including
+		// Git imports. Retain any pre-existing explicit display-name override.
+		if labels, ok := p.engine.ReviewedToolCapabilities(ctx, p.server, tool); ok {
+			return labels
+		}
+		return provenance.ToolCapabilityHeuristics(p.server, tool, p.description(tool))
+	}
 	return p.engine.ToolCapabilities(ctx, p.server, tool, p.description(tool))
 }
 

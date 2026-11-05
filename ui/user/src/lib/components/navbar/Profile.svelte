@@ -204,9 +204,11 @@
 			{#if showMcpManagement}
 				<a
 					href={resolve(
-						profile.current.groups.includes(Group.POWERUSER) || profile.current.hasAdminAccess?.()
-							? '/dashboard'
-							: '/vmcps'
+						profile.current.hasAdminAccess?.()
+							? '/supervision'
+							: profile.current.groups.includes(Group.POWERUSER)
+								? '/dashboard'
+								: '/vmcps'
 					)}
 					rel="external"
 					class="dropdown-link"

@@ -5,6 +5,7 @@ import {
 	kills,
 	overview,
 	pendingApproval,
+	policies,
 	redTeam,
 	supervisorAnswer,
 	supervisorInsights,
@@ -25,7 +26,9 @@ vi.mock(import('$lib/url'), async (importOriginal) => ({
 function mockOverview() {
 	worker.use(
 		http.get('/api/provenance/overview', () => HttpResponse.json(overview)),
-		http.get('/api/provenance/kills', () => HttpResponse.json({ items: kills }))
+		http.get('/api/provenance/kills', () => HttpResponse.json({ items: kills })),
+		http.get('/api/provenance/policies', () => HttpResponse.json({ items: policies })),
+		http.get('/api/provenance/tool-label-reviews', () => HttpResponse.json({ items: [], total: 0 }))
 	);
 }
 
@@ -214,7 +217,7 @@ describe('Supervision overview', () => {
 				.toBeInTheDocument();
 		});
 
-		it('briefs the reader and refreshes the briefing on request', async () => {
+		it('keeps findings as the only summary and refreshes them on request', async () => {
 			mockSupervisor();
 			const refreshed = vi.fn();
 			worker.use(
@@ -225,18 +228,16 @@ describe('Supervision overview', () => {
 			);
 			await renderPage();
 
-			const briefing = page.getByRole('region', { name: "Here's what I'm seeing" });
 			await expect
-				.element(briefing.getByText('I watched 12 sessions today', { exact: false }))
-				.toBeInTheDocument();
-			await expect
-				.element(briefing.getByText(/^Updated .* · written by claude-sonnet-4/))
-				.toBeInTheDocument();
-			await briefing.getByRole('button', { name: 'Refresh briefing' }).click();
+				.element(page.getByRole('region', { name: "Here's what I'm seeing" }))
+				.not.toBeInTheDocument();
+			const findings = page.getByRole('region', { name: 'What I noticed' });
+			await expect.element(findings.getByText(/^Updated /)).toBeInTheDocument();
+			await findings.getByRole('button', { name: 'Refresh findings' }).click();
 			await vi.waitFor(() => expect(refreshed).toHaveBeenCalled());
 		});
 
-		it('says when the briefing is unavailable', async () => {
+		it('says when findings are unavailable', async () => {
 			mockSupervisor();
 			worker.use(
 				http.get(
@@ -247,44 +248,144 @@ describe('Supervision overview', () => {
 			await renderPage();
 
 			await expect
-				.element(page.getByText("My briefing isn't available right now."))
-				.toBeInTheDocument();
-			await expect
 				.element(page.getByText("My findings aren't available right now."))
 				.toBeInTheDocument();
 		});
 
-		it('queues held actions with its recommendation and accepts it', async () => {
+		it('summarizes held actions and links to the full review without inline decisions', async () => {
 			mockSupervisor();
-			const denied = vi.fn();
-			worker.use(
-				http.post('/api/provenance/approvals/:id/deny', async ({ params, request }) => {
-					denied(params.id, await request.json());
-					return HttpResponse.json({ ...pendingApproval, status: 'denied' });
-				})
-			);
 			await renderPage();
-
 			const queue = page.getByRole('region', { name: 'Needs your attention' });
 			await expect.element(queue.getByText('I recommend denying this.')).toBeInTheDocument();
 			await expect.element(queue.getByText('1 more waiting')).toBeInTheDocument();
-			await expect.element(queue.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
-			await queue.getByRole('button', { name: 'Accept recommendation' }).click();
-			await vi.waitFor(() =>
-				expect(denied).toHaveBeenCalledWith('apr-1', {
-					note: "Accepted the Supervisor's recommendation."
-				})
-			);
+			await expect
+				.element(queue.getByRole('link', { name: 'Review', exact: true }))
+				.toHaveAttribute('href', '/approvals?approval=apr-1');
+			await expect.element(queue.getByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+			await expect
+				.element(queue.getByRole('button', { name: 'Accept recommendation' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(queue.getByText(pendingApproval.reason, { exact: true }))
+				.not.toBeInTheDocument();
 		});
 
-		it('lists what it noticed, most severe first, and performs a one-click action', async () => {
+		it('groups pending tool-label approvals by resource beside held actions', async () => {
+			mockSupervisor();
+			worker.use(
+				http.get('/api/provenance/tool-label-reviews', () =>
+					HttpResponse.json({
+						items: [
+							{
+								resourceType: 'catalog-entry',
+								resourceID: 'meridian',
+								displayName: 'Meridian Operations',
+								toolCount: 7,
+								generatedAt: new Date().toISOString()
+							},
+							{
+								resourceType: 'vmcp',
+								resourceID: 'care',
+								displayName: 'Northstar Health',
+								toolCount: 5,
+								generatedAt: new Date().toISOString()
+							}
+						],
+						total: 2
+					})
+				)
+			);
+			await renderPage();
+			const queue = page.getByRole('region', { name: 'Needs your attention' });
+			await expect
+				.element(queue.getByText('Meridian Operations', { exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(queue.getByText('MCP · Suggested labels for 7 tools'))
+				.toBeInTheDocument();
+			await expect
+				.element(queue.getByText('vMCP · Suggested labels for 5 tools'))
+				.toBeInTheDocument();
+			await expect
+				.element(queue.getByRole('link', { name: 'Review labels' }).first())
+				.toHaveAttribute('href', '/tool-labels?resourceType=catalog-entry&resourceID=meridian');
+			await expect
+				.element(queue.getByRole('link', { name: 'Review', exact: true }))
+				.toHaveAttribute('href', '/approvals?approval=apr-1');
+			await expect.element(queue.getByRole('heading')).toHaveTextContent('Needs your attention 5');
+			await expect.element(queue.getByRole('button', { name: /Approve/ })).not.toBeInTheDocument();
+		});
+
+		it('keeps label reviews visible even when no action is held', async () => {
+			mockSupervisor();
+			worker.use(
+				http.get('/api/provenance/approvals', () => HttpResponse.json({ items: [], total: 0 })),
+				http.get('/api/provenance/tool-label-reviews', () =>
+					HttpResponse.json({
+						items: [
+							{
+								resourceType: 'catalog-entry',
+								resourceID: 'meridian',
+								displayName: 'Meridian Operations',
+								toolCount: 7
+							}
+						],
+						total: 1
+					})
+				)
+			);
+			await renderPage();
+			const queue = page.getByRole('region', { name: 'Needs your attention' });
+			await expect.element(queue.getByRole('link', { name: 'Review labels' })).toBeInTheDocument();
+			await expect.element(queue.getByText('Nothing is waiting on you.')).not.toBeInTheDocument();
+		});
+
+		it('keeps the queue compact and expands additional resource reviews on demand', async () => {
+			mockSupervisor();
+			const items = Array.from({ length: 5 }, (_, index) => ({
+				resourceType: 'catalog-entry',
+				resourceID: `resource-${index}`,
+				displayName: `Operations ${index + 1}`,
+				toolCount: 7
+			}));
+			worker.use(
+				http.get('/api/provenance/tool-label-reviews', () => HttpResponse.json({ items, total: 5 }))
+			);
+			await renderPage();
+			const queue = page.getByRole('region', { name: 'Needs your attention' });
+			await expect.element(queue.getByText('Operations 3', { exact: true })).toBeInTheDocument();
+			await expect
+				.element(queue.getByText('Operations 4', { exact: true }))
+				.not.toBeInTheDocument();
+			await queue.getByRole('button', { name: 'Show all 5 label reviews' }).click();
+			await expect.element(queue.getByText('Operations 5', { exact: true })).toBeInTheDocument();
+		});
+
+		it('retains action reviews and reports a label-inventory outage honestly', async () => {
+			mockSupervisor();
+			worker.use(
+				http.get(
+					'/api/provenance/tool-label-reviews',
+					() => new HttpResponse(null, { status: 503 })
+				)
+			);
+			await renderPage();
+			const queue = page.getByRole('region', { name: 'Needs your attention' });
+			await expect
+				.element(queue.getByRole('link', { name: 'Review', exact: true }))
+				.toBeInTheDocument();
+			await expect
+				.element(queue.getByRole('status'))
+				.toHaveTextContent('Some pending reviews could not be loaded. Retrying shortly.');
+		});
+
+		it('queues suggested shadow policies for review without enforcing them from findings', async () => {
 			mockSupervisor();
 			const updated = vi.fn();
 			worker.use(
 				http.put('/api/provenance/policies/:id', async ({ params, request }) => {
-					const body = (await request.json()) as Record<string, unknown>;
-					updated(params.id, body.mode);
-					return HttpResponse.json(body);
+					updated(params.id, await request.json());
+					return HttpResponse.json({});
 				})
 			);
 			await renderPage();
@@ -297,20 +398,69 @@ describe('Supervision overview', () => {
 				.element(noticed.getByText('2 sessions were seen on only one surface', { exact: false }))
 				.toBeInTheDocument();
 			await expect.element(noticed.getByText(/^Updated /)).toBeInTheDocument();
+			await expect
+				.element(noticed.getByRole('button', { name: 'Enforce policy' }))
+				.not.toBeInTheDocument();
 
-			const reads = vi.fn();
+			const queue = page.getByRole('region', { name: 'Needs your attention' });
+			await expect.element(queue.getByText('Lethal trifecta', { exact: true })).toBeInTheDocument();
+			await expect
+				.element(queue.getByText('Lethal trifecta would have held 3 actions'))
+				.toBeInTheDocument();
+			await expect
+				.element(queue.getByRole('link', { name: 'Review policy' }))
+				.toHaveAttribute('href', '/policies/builtin-lethal-trifecta');
+			expect(updated).not.toHaveBeenCalled();
+		});
+
+		it('includes drafted shadow policies but excludes enforced, disabled and unrecommended policies', async () => {
+			mockSupervisor();
+			const drafted = {
+				...policies[1],
+				id: 'draft-phi',
+				name: 'Protect patient reports',
+				builtIn: false,
+				source: 'Ask before sharing patient reports externally.'
+			};
+			const enforced = {
+				...policies[1],
+				id: 'enforced-rule',
+				name: 'Active sharing rule',
+				mode: 'enforce',
+				source: 'An already enforced draft.'
+			};
+			const disabled = {
+				...policies[1],
+				id: 'disabled-rule',
+				name: 'Disabled sharing draft',
+				enabled: false,
+				source: 'A disabled draft.'
+			};
+			const unrecommended = {
+				...policies[1],
+				id: 'unrecommended-rule',
+				name: 'Unrecommended shadow rule'
+			};
 			worker.use(
-				http.get('/api/provenance/supervisor/insights', ({ request }) => {
-					reads(new URL(request.url).searchParams.get('refresh'));
-					return HttpResponse.json(supervisorInsights);
-				})
+				http.get('/api/provenance/policies', () =>
+					HttpResponse.json({ items: [policies[1], drafted, enforced, disabled, unrecommended] })
+				)
 			);
-			await noticed.getByRole('button', { name: 'Enforce policy' }).click();
-			await vi.waitFor(() =>
-				expect(updated).toHaveBeenCalledWith('builtin-lethal-trifecta', 'enforce')
-			);
-			// Findings are cached for 30 minutes; acting on one forces a fresh read.
-			await vi.waitFor(() => expect(reads).toHaveBeenCalledWith('true'));
+			await renderPage();
+
+			const queue = page.getByRole('region', { name: 'Needs your attention' });
+			await expect
+				.element(queue.getByText('Protect patient reports', { exact: true }))
+				.toBeInTheDocument();
+			expect(await queue.getByRole('link', { name: 'Review policy' }).elements()).toHaveLength(2);
+			await expect
+				.element(queue.getByRole('link', { name: 'Review policy' }).last())
+				.toHaveAttribute('href', '/policies/draft-phi');
+			await expect.element(queue.getByText(enforced.name, { exact: true })).not.toBeInTheDocument();
+			await expect.element(queue.getByText(disabled.name, { exact: true })).not.toBeInTheDocument();
+			await expect
+				.element(queue.getByText(unrecommended.name, { exact: true }))
+				.not.toBeInTheDocument();
 		});
 
 		it('shows the five most severe findings until asked for all', async () => {

@@ -174,9 +174,9 @@ func TestBuildActionsAndSubject(t *testing.T) {
 	if !a.Capabilities.Has(provenance.CapWritesExternal) || !a.Sink.Writes {
 		t.Fatalf("send email should write externally: %+v", a)
 	}
-	// The first email address in the inputs is the destination; foobar.com is approved.
-	if a.Sink.Destination != "foobar.com" || a.Sink.External {
-		t.Fatalf("sink should be refined by the approved destination: %+v", a.Sink)
+	// The approved To address cannot hide an external BCC recipient.
+	if a.Sink.Destination != "evil.com" || !a.Sink.External {
+		t.Fatalf("sink must include the external BCC destination: %+v", a.Sink)
 	}
 	if a.Arguments["bcc"] != "hacker@evil.com" {
 		t.Fatalf("arguments must carry the inputs: %+v", a.Arguments)
@@ -185,6 +185,11 @@ func TestBuildActionsAndSubject(t *testing.T) {
 	external := BuildActions(ctx, fakeEngine{}, &r)[0]
 	if !external.Sink.External {
 		t.Fatalf("with no approved destinations the sink is external: %+v", external.Sink)
+	}
+	delete(r.Actions[0].Inputs, "bcc")
+	internal := BuildActions(ctx, fakeEngine{approved: []string{"foobar.com"}}, &r)[0]
+	if internal.Sink.External || internal.Sink.Destination != "foobar.com" {
+		t.Fatalf("approved recipient without BCC should remain internal: %+v", internal.Sink)
 	}
 
 	// A reading tool with an address in its inputs is not an external write.
@@ -293,5 +298,40 @@ func TestDedupeAndSummary(t *testing.T) {
 	}
 	if got := Summary(strings.Repeat("word ", 40)); len([]rune(got)) != 80 || !strings.HasSuffix(got, "...") {
 		t.Fatalf("summary should be 80 runes: %q", got)
+	}
+}
+
+func TestBuildActionsDestinationUsesRoutingFieldsNotPatientPayload(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		inputs   map[string]any
+		host     string
+		external bool
+	}{
+		{
+			name:   "internal write with patient email in body",
+			inputs: map[string]any{"body": map[string]any{"email": "patient@outside.example", "url": "https://outside.example"}},
+		},
+		{
+			name:   "explicit approved destination with external email in body",
+			inputs: map[string]any{"destination_url": "https://care.internal.example/update", "body": "patient@outside.example"},
+			host:   "care.internal.example",
+		},
+		{
+			name:     "later external recipient cannot hide behind approved recipient",
+			inputs:   map[string]any{"recipients": []any{"care@care.internal.example", "hacker@outside.example"}},
+			host:     "outside.example",
+			external: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for range 100 {
+				r := &Request{Actions: []PlanAction{{Name: "update_patient", Description: "Update a patient record", Inputs: tt.inputs}}}
+				actions := BuildActions(t.Context(), fakeEngine{approved: []string{"care.internal.example"}}, r)
+				if len(actions) != 1 || actions[0].Sink.Destination != tt.host || actions[0].Sink.External != tt.external {
+					t.Fatalf("sink = %+v, want host %q external %v", actions[0].Sink, tt.host, tt.external)
+				}
+			}
+		})
 	}
 }

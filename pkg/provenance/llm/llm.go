@@ -10,11 +10,11 @@ package llm
 
 import (
 	"encoding/json"
-	"net/url"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/pkg/provenance"
 )
 
 const (
@@ -24,9 +24,6 @@ const (
 )
 
 var (
-	// destinationKeys are argument names that commonly carry where a tool sends
-	// data, checked in order.
-	destinationKeys = []string{"url", "uri", "endpoint", "webhook", "host", "hostname", "to", "recipient", "recipients", "email", "address", "channel"}
 	// quarantineWords are words whose lines are dropped from a quarantined
 	// summary: the vocabulary of prompt injection.
 	quarantineWords = []string{"ignore", "instruction", "system", "assistant"}
@@ -374,60 +371,11 @@ func ParseArguments(argumentsJSON string) map[string]any {
 // of a URL, or the domain of an email address. It returns "" when the
 // arguments don't say.
 func Destination(args map[string]any) string {
-	for _, key := range destinationKeys {
-		for k, v := range args {
-			if !strings.EqualFold(k, key) {
-				continue
-			}
-			if dest := destinationOf(v); dest != "" {
-				return dest
-			}
-		}
+	hosts := provenance.DestinationHosts(args)
+	if len(hosts) > 0 {
+		return hosts[0]
 	}
 	return ""
-}
-
-func destinationOf(v any) string {
-	switch v := v.(type) {
-	case string:
-		return hostOf(v)
-	case []any:
-		for _, item := range v {
-			if dest := destinationOf(item); dest != "" {
-				return dest
-			}
-		}
-	}
-	return ""
-}
-
-func hostOf(s string) string {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return ""
-	}
-	if strings.Contains(s, "://") {
-		if u, err := url.Parse(s); err == nil && u.Hostname() != "" {
-			return strings.ToLower(u.Hostname())
-		}
-		return ""
-	}
-	if at := strings.LastIndex(s, "@"); at >= 0 && at < len(s)-1 {
-		domain := s[at+1:]
-		if end := strings.IndexAny(domain, " >,;"); end >= 0 {
-			domain = domain[:end]
-		}
-		return strings.ToLower(domain)
-	}
-	host := s
-	if i := strings.IndexAny(host, "/?#"); i >= 0 {
-		host = host[:i]
-	}
-	host, _, _ = strings.Cut(host, ":")
-	if host == "" || strings.ContainsAny(host, " \t\n") || !strings.Contains(host, ".") {
-		return ""
-	}
-	return strings.ToLower(host)
 }
 
 // AgentFromUserAgent names the agent program from a request's User-Agent:

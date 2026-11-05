@@ -92,6 +92,10 @@ type ComponentServer struct {
 	URL                 string               `json:"url"`
 	Tools               []types.ToolOverride `json:"tools"`
 	ToolPrefix          string               `json:"toolPrefix"`
+	// ProvenanceToolPrefix is the label identity from the full vMCP definition.
+	// A user's grant may select one component, which omits its implicit public
+	// prefix at runtime without changing which component a reviewed label owns.
+	ProvenanceToolPrefix string `json:"provenanceToolPrefix,omitempty"`
 }
 
 // ConnectID identifies the connection while Name identifies its backing server.

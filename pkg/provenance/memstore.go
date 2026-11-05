@@ -258,6 +258,7 @@ func (m *MemStore) GetApproval(_ context.Context, id string) (*Approval, error) 
 		return nil, ErrNotFound
 	}
 	c := *a
+	c.Status = c.EffectiveStatus(time.Now())
 	return &c, nil
 }
 
@@ -265,8 +266,11 @@ func (m *MemStore) ListApprovals(_ context.Context, q ApprovalQuery) ([]Approval
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	var out []Approval
+	now := time.Now()
 	for _, a := range m.approvals {
-		if q.Status != "" && a.Status != q.Status {
+		current := *a
+		current.Status = current.EffectiveStatus(now)
+		if q.Status != "" && current.Status != q.Status {
 			continue
 		}
 		if q.UserID != "" && a.UserID != q.UserID {
@@ -275,7 +279,7 @@ func (m *MemStore) ListApprovals(_ context.Context, q ApprovalQuery) ([]Approval
 		if q.SessionID != "" && a.SessionID != q.SessionID {
 			continue
 		}
-		out = append(out, *a)
+		out = append(out, current)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	total := int64(len(out))

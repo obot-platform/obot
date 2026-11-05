@@ -33,6 +33,7 @@ const adminOnlyLinks = [
 	'/supervision',
 	'/sessions',
 	'/policies',
+	'/tool-labels',
 	'/approvals',
 	'/admin/platform'
 ];
@@ -241,14 +242,21 @@ describe('Layout.svelte', () => {
 			);
 		}
 
-		it('names the group Supervisor and badges Approvals with the pending count', async () => {
+		it('puts the Supervisor dashboard and workflows first, with pending approvals visible', async () => {
 			mockPending(3);
 			await renderLayout([Group.ADMIN]);
-			await expandSection('supervision', '/supervision');
-
 			await expect
-				.element(page.getByRole('button', { name: /^Supervisor/ }).first())
-				.toBeInTheDocument();
+				.element(page.getByCSS('a.sidebar-link').first())
+				.toHaveAttribute('href', '/supervision');
+			await expect
+				.element(page.getByRole('link', { name: 'Dashboard', exact: true }))
+				.toHaveAttribute('href', '/supervision');
+			await expectLink('/sessions');
+			await expectLink('/policies');
+			await expect
+				.element(page.getByRole('link', { name: 'Labels', exact: true }))
+				.toHaveAttribute('href', '/tool-labels');
+			await expect.element(page.getByCSS('#sidebar-collapse-supervision')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('link', { name: /Approvals.*3 pending approvals/ }))
 				.toHaveAttribute('href', '/approvals');

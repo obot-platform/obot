@@ -1,5 +1,6 @@
 import { CommonAuthProviderIds } from '$lib/constants';
-import { UserService, type AuthProvider } from '$lib/services';
+import { Group, UserService, type AuthProvider } from '$lib/services';
+import { createMockProfile } from '../tests/helpers/pageData';
 import { load } from './+page';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -31,4 +32,38 @@ describe('local login redirect', () => {
 			});
 		}
 	);
+});
+
+describe('signed-in landing page', () => {
+	it.each([
+		{ groups: [Group.ADMIN], destination: '/supervision' },
+		{ groups: [Group.USER, Group.AUDITOR], destination: '/supervision' },
+		{ groups: [Group.POWERUSER], destination: '/dashboard' },
+		{ groups: [Group.USER], destination: '/vmcps' }
+	])('sends $groups to $destination', async ({ groups, destination }) => {
+		vi.spyOn(UserService, 'getBootstrapStatus').mockResolvedValue({
+			enabled: false,
+			setupEnabled: false
+		});
+		await expect(
+			load({
+				fetch: vi.fn(),
+				url: new URL('https://obot.example/'),
+				parent: async () => ({ profile: createMockProfile(groups) })
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 302, location: destination });
+	});
+	it('preserves an explicit destination for administrators', async () => {
+		vi.spyOn(UserService, 'getBootstrapStatus').mockResolvedValue({
+			enabled: false,
+			setupEnabled: false
+		});
+		await expect(
+			load({
+				fetch: vi.fn(),
+				url: new URL('https://obot.example/?rd=/sessions'),
+				parent: async () => ({ profile: createMockProfile([Group.ADMIN]) })
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 302, location: '/sessions' });
+	});
 });

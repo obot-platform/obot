@@ -42,6 +42,7 @@
 		type VMCPComponent,
 		type VMCPConfigurationPolicy
 	} from '$lib/services';
+	import { toolLabelReviewURL } from '$lib/services/provenance';
 	import { MAX_TOOL_PREFIX_LENGTH, hasEditableFields } from '$lib/services/user/mcp';
 	import { vmcpRowHeight } from '$lib/services/vmcps/camera';
 	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
@@ -60,7 +61,7 @@
 	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
-	import { Plus, Trash2 } from '@lucide/svelte';
+	import { Plus, Sparkles, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -654,6 +655,16 @@
 	{showBackButton}
 	onBackButtonClick={handleBack}
 >
+	{#snippet rightNavActions()}
+		{#if selectedVMcp && profile.current.hasAdminAccess?.()}
+			<a
+				class="btn btn-secondary btn-sm"
+				href={toolLabelReviewURL({ resourceType: 'vmcp', resourceID: selectedVMcp.id })}
+			>
+				<Sparkles class="size-4" />{m.supervision_tool_labels_review()}
+			</a>
+		{/if}
+	{/snippet}
 	{#snippet titleContent()}
 		{title}
 		{#if selectedVMcp}

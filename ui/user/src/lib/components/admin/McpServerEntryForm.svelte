@@ -18,6 +18,7 @@
 		type MCPCatalogEntryServerManifest
 	} from '$lib/services';
 	import type { OpenAPIImportDraft } from '$lib/services/openapi';
+	import { toolLabelReviewURL } from '$lib/services/provenance';
 	import {
 		getMCPDisplayName,
 		getManifestConfiguration,
@@ -1133,6 +1134,16 @@
 					buttonTitle={m.mcps_catalog_include_deployments()}
 					displayCount={selectedDeploymentsToView.length > 0}
 				/>
+			</div>
+		{/if}
+		{#if entry && 'isCatalogEntry' in entry && profile.current.hasAdminAccess?.()}
+			<div class="mb-4 flex justify-end">
+				<a
+					class="btn btn-secondary btn-sm"
+					href={toolLabelReviewURL({ resourceType: 'catalog-entry', resourceID: entry.id })}
+				>
+					<Wrench class="size-4" />{m.supervision_tool_labels_review()}
+				</a>
 			</div>
 		{/if}
 		{#if showRegenerateToolsButton}

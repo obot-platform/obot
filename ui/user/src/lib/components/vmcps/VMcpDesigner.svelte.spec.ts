@@ -3080,3 +3080,22 @@ describe('VMcpDesigner.svelte', () => {
 		});
 	});
 });
+
+describe('tool capability label review', () => {
+	it('offers review for a Git-managed vMCP without making its manifest editable', async () => {
+		const vmcp = {
+			...createIssueTrackerVMcp(toolOverrides),
+			sourceURL: 'https://github.com/example/catalog'
+		};
+		await renderDesigner([componentEntry], vmcp);
+		await expect
+			.element(page.getByRole('link', { name: 'Review tool labels' }))
+			.toHaveAttribute('href', '/tool-labels?resourceType=vmcp&resourceID=vmcp-1');
+	});
+	it('does not offer administrative label review to basic users', async () => {
+		await renderDesigner([componentEntry], createIssueTrackerVMcp(), { groups: [Group.USER] });
+		await expect
+			.element(page.getByRole('link', { name: 'Review tool labels' }))
+			.not.toBeInTheDocument();
+	});
+});

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"regexp"
 	"strings"
 	"sync"
 	"unicode"
@@ -15,11 +14,6 @@ import (
 const (
 	// Agent is the actor reported for every Copilot Studio agent.
 	Agent = "copilot_studio"
-)
-
-var (
-	urlHostRe = regexp.MustCompile(`(?i)\bhttps?://([^/\s:?#"']+)`)
-	emailRe   = regexp.MustCompile(`(?i)\b[a-z0-9._%+-]+@([a-z0-9.-]+\.[a-z]{2,})\b`)
 )
 
 // Engine is what the builders need from the provenance engine.
@@ -103,10 +97,17 @@ func BuildActions(ctx context.Context, engine Engine, r *Request) []provenance.A
 			Source:       provenance.SourceFromCapabilities(caps),
 			Arguments:    a.Inputs,
 		}
-		if host := Destination(a.Inputs); host != "" {
-			action.Sink.Destination = host
+		if hosts := provenance.DestinationHosts(a.Inputs); len(hosts) > 0 {
+			action.Sink.Destination = hosts[0]
 			if action.Sink.Writes {
-				action.Sink.External = engine.IsExternal(ctx, host)
+				action.Sink.External = false
+				for _, host := range hosts {
+					if engine.IsExternal(ctx, host) {
+						action.Sink.External = true
+						action.Sink.Destination = host
+						break
+					}
+				}
 			}
 		}
 		out = append(out, action)
@@ -114,18 +115,12 @@ func BuildActions(ctx context.Context, engine Engine, r *Request) []provenance.A
 	return out
 }
 
-// Destination finds where an action's inputs point: the host of the first
-// URL, else the domain of the first email address, else "".
+// Destination returns the primary explicit routing destination, in stable
+// field-priority order. Content inside a message body is never a destination.
 func Destination(inputs map[string]any) string {
-	if len(inputs) == 0 {
-		return ""
-	}
-	text := provenance.FlattenArguments(inputs)
-	if m := urlHostRe.FindStringSubmatch(text); m != nil {
-		return strings.ToLower(m[1])
-	}
-	if m := emailRe.FindStringSubmatch(text); m != nil {
-		return strings.ToLower(m[1])
+	hosts := provenance.DestinationHosts(inputs)
+	if len(hosts) > 0 {
+		return hosts[0]
 	}
 	return ""
 }

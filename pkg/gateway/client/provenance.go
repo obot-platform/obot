@@ -424,12 +424,20 @@ func (s *provenanceStore) GetApproval(ctx context.Context, id string) (*provenan
 		return nil, provenanceErr(err)
 	}
 	a := row.Payload
+	a.Status = a.EffectiveStatus(time.Now())
 	return &a, nil
 }
 
 func (s *provenanceStore) ListApprovals(ctx context.Context, q provenance.ApprovalQuery) ([]provenance.Approval, int64, error) {
 	db := s.db(ctx).Model(&types.ProvenanceApproval{})
-	if q.Status != "" {
+	now := time.Now().UTC()
+	switch q.Status {
+	case provenance.ApprovalPending:
+		db = db.Where("status = ? AND expires_at > ?", provenance.ApprovalPending, now)
+	case provenance.ApprovalExpired:
+		db = db.Where("(status = ? OR (status = ? AND expires_at <= ?))", provenance.ApprovalExpired, provenance.ApprovalPending, now)
+	case "":
+	default:
 		db = db.Where("status = ?", q.Status)
 	}
 	if q.UserID != "" {
@@ -458,7 +466,9 @@ func (s *provenanceStore) ListApprovals(ctx context.Context, q provenance.Approv
 	}
 	out := make([]provenance.Approval, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, r.Payload)
+		a := r.Payload
+		a.Status = a.EffectiveStatus(now)
+		out = append(out, a)
 	}
 	return out, total, nil
 }
@@ -567,6 +577,7 @@ func (s *provenanceStore) ListToolLabels(ctx context.Context) ([]provenance.Tool
 			Source:    r.Source,
 			Rationale: r.Rationale,
 			UpdatedAt: r.UpdatedAt,
+			Proposal:  r.Proposal,
 		})
 	}
 	return out, nil
@@ -587,10 +598,11 @@ func (s *provenanceStore) PutToolLabel(ctx context.Context, l *provenance.ToolLa
 		Rationale: l.Rationale,
 		UpdatedAt: updatedAt,
 		Labels:    l.Labels,
+		Proposal:  l.Proposal,
 	}
 	return s.db(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "server"}, {Name: "tool"}},
-		DoUpdates: clause.AssignmentColumns([]string{"source", "rationale", "updated_at", "labels"}),
+		DoUpdates: clause.AssignmentColumns([]string{"source", "rationale", "updated_at", "labels", "proposal"}),
 	}).Create(&row).Error
 }
 

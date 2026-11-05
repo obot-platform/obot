@@ -82,6 +82,15 @@ type Approval struct {
 	Labels Labels `json:"labels,omitempty"`
 }
 
+// EffectiveStatus reports an approval's current state without requiring a
+// background job to persist expiration. Resolved decisions keep their status.
+func (a Approval) EffectiveStatus(now time.Time) string {
+	if a.Status == ApprovalPending && !now.Before(a.ExpiresAt) {
+		return ApprovalExpired
+	}
+	return a.Status
+}
+
 // ApprovalQuery filters approvals.
 type ApprovalQuery struct {
 	Status    string
@@ -135,6 +144,16 @@ type ToolLabel struct {
 	Source    string    `json:"source"`
 	Rationale string    `json:"rationale,omitempty"`
 	UpdatedAt time.Time `json:"updatedAt"`
+	// Proposal is advisory until an administrator explicitly accepts it.
+	Proposal *ToolLabelProposal `json:"proposal,omitempty"`
+}
+
+// ToolLabelProposal ties an AI recommendation to the inventory it reviewed.
+type ToolLabelProposal struct {
+	Labels      Labels    `json:"labels"`
+	Rationale   string    `json:"rationale"`
+	SchemaHash  string    `json:"schemaHash"`
+	GeneratedAt time.Time `json:"generatedAt"`
 }
 
 // Store persists sessions, events, policies and the rest. The engine keeps

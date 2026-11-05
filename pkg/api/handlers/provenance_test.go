@@ -502,6 +502,54 @@ func TestProvenanceDraft(t *testing.T) {
 	}
 }
 
+func TestProvenanceExpiredApprovalsLeaveAttentionQueue(t *testing.T) {
+	h, e := newProvAPITest(t)
+	now := time.Now().UTC()
+	for _, a := range []provenance.Approval{
+		{
+			ID:        "apr-stale",
+			Status:    provenance.ApprovalPending,
+			CreatedAt: now,
+			ExpiresAt: now.Add(-time.Hour),
+		},
+		{
+			ID:        "apr-live",
+			Status:    provenance.ApprovalPending,
+			CreatedAt: now,
+			ExpiresAt: now.Add(time.Hour),
+		},
+	} {
+		if err := e.Store().CreateApproval(t.Context(), &a); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var list struct {
+		Items []provenance.Approval `json:"items"`
+		Total int64                 `json:"total"`
+	}
+	provAPIOK(t, h.ListApprovals, http.MethodGet, "/api/provenance/approvals?status=pending&limit=1", nil, nil, &list)
+	if list.Total != 1 || len(list.Items) != 1 || list.Items[0].ID != "apr-live" {
+		t.Fatalf("pending approvals: %+v", list)
+	}
+	provAPIOK(t, h.ListApprovals, http.MethodGet, "/api/provenance/approvals?status=expired", nil, nil, &list)
+	if list.Total != 1 || len(list.Items) != 1 || list.Items[0].Status != provenance.ApprovalExpired {
+		t.Fatalf("expired approvals: %+v", list)
+	}
+	var overview ProvenanceOverview
+	provAPIOK(t, h.Overview, http.MethodGet, "/api/provenance/overview", nil, nil, &overview)
+	if overview.Decisions.ApprovalsPending != 1 {
+		t.Fatalf("overview pending count: %+v", overview.Decisions)
+	}
+	var status SupervisorStatus
+	provAPIOK(t, h.SupervisorStatus, http.MethodGet, "/api/provenance/supervisor/status", nil, nil, &status)
+	if status.PendingApprovals != 1 {
+		t.Fatalf("Supervisor pending count: %d", status.PendingApprovals)
+	}
+	if code := provAPIStatus(t, h.ApproveApproval, http.MethodPost, "/api/provenance/approvals/apr-stale/approve", nil, map[string]string{"id": "apr-stale"}); code != http.StatusConflict {
+		t.Fatalf("an expired approval cannot be approved, got %d", code)
+	}
+}
+
 func TestProvenanceApprovals(t *testing.T) {
 	h, e := newProvAPITest(t)
 	provAPISeedTrifecta(t, e)

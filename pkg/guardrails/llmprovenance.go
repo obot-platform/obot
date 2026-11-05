@@ -146,10 +146,17 @@ func (pc *ProvenanceContext) decide(ctx context.Context, calls []llm.ProposedCal
 			Capabilities: caps, Sink: provenance.SinkFromCapabilities(caps), Source: provenance.SourceFromCapabilities(caps),
 			Arguments: llm.ParseArguments(c.ArgumentsJSON),
 		}
-		if dest := llm.Destination(action.Arguments); dest != "" {
-			action.Sink.Destination = dest
+		if hosts := provenance.DestinationHosts(action.Arguments); len(hosts) > 0 {
+			action.Sink.Destination = hosts[0]
 			if action.Sink.Writes {
-				action.Sink.External = pc.Engine.IsExternal(ctx, dest)
+				action.Sink.External = false
+				for _, host := range hosts {
+					if pc.Engine.IsExternal(ctx, host) {
+						action.Sink.External = true
+						action.Sink.Destination = host
+						break
+					}
+				}
 			}
 		}
 		_, d, err := pc.Engine.Decide(ctx, provenance.DecideRequest{

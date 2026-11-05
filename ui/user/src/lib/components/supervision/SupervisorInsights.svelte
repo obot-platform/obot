@@ -8,7 +8,7 @@
 	import { success } from '$lib/stores/success';
 	import { formatTimeAgo } from '$lib/time';
 	import { resolve } from '$lib/url';
-	import { Info, Lightbulb, Siren, TriangleAlert } from '@lucide/svelte';
+	import { Info, Lightbulb, RefreshCw, Siren, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	// What the Supervisor noticed on its own, most severe first, each with an optional one-click
@@ -25,6 +25,8 @@
 		generatedAt?: string;
 		/** How many to show before "Show all"; the most severe come first. */
 		limit?: number;
+		onRefresh?: () => void;
+		refreshing?: boolean;
 		onActed?: (insight: Insight) => void;
 	}
 
@@ -37,6 +39,8 @@
 		loading = false,
 		generatedAt = '',
 		limit = 5,
+		onRefresh,
+		refreshing = false,
 		onActed
 	}: Props = $props();
 
@@ -93,10 +97,23 @@
 
 <section class="paper gap-3" aria-label={title}>
 	<div class="flex flex-col gap-1">
-		<h2 class="flex items-center gap-2 text-base font-semibold">
-			<Lightbulb class="text-primary size-4" />
-			{title}
-		</h2>
+		<div class="flex items-center justify-between gap-2">
+			<h2 class="flex items-center gap-2 text-base font-semibold">
+				<Lightbulb class="text-primary size-4" />
+				{title}
+			</h2>
+			{#if onRefresh}
+				<button
+					type="button"
+					class="btn btn-ghost btn-sm"
+					aria-label={m.supervision_insights_refresh()}
+					disabled={loading || refreshing}
+					onclick={onRefresh}
+				>
+					<RefreshCw class="size-4 {refreshing ? 'animate-spin' : ''}" />
+				</button>
+			{/if}
+		</div>
 		{#if description}
 			<p class="text-muted-content text-xs">{description}</p>
 		{/if}

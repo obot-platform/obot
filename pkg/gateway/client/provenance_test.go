@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	provenanceTestNow     = time.Date(2026, 10, 28, 12, 0, 0, 0, time.UTC)
+	provenanceTestNow     = time.Now().UTC()
 	provenanceTestSubject = provenance.Subject{UserID: "u1", Email: "craig@example.com", Actor: provenance.Actor{Agent: "claude_code", DeviceID: "dev1"}}
 	provenanceTestKey     = provenance.SessionKey{ClientSessionID: "cc-session-1", Agent: "claude_code"}
 )
@@ -31,6 +31,84 @@ func newProvenanceTestEngine(t *testing.T) (*provenance.Engine, provenance.Store
 		t.Fatalf("seed: %v", err)
 	}
 	return e, store, c
+}
+
+func TestProvenanceStoreApprovalExpiry(t *testing.T) {
+	store := newTestClient(t).ProvenanceStore()
+	now := time.Now().UTC()
+	for _, a := range []provenance.Approval{
+		{
+			ID:        "stale",
+			UserID:    "u1",
+			SessionID: "s1",
+			Status:    provenance.ApprovalPending,
+			CreatedAt: now,
+			ExpiresAt: now.Add(-time.Hour),
+		},
+		{
+			ID:        "pending",
+			UserID:    "u1",
+			SessionID: "s1",
+			Status:    provenance.ApprovalPending,
+			CreatedAt: now.Add(-time.Minute),
+			ExpiresAt: now.Add(time.Hour),
+		},
+		{
+			ID:        "resolved",
+			UserID:    "u1",
+			SessionID: "s1",
+			Status:    provenance.ApprovalApproved,
+			CreatedAt: now.Add(-2 * time.Minute),
+			ExpiresAt: now.Add(-time.Hour),
+		},
+		{
+			ID:        "other-user",
+			UserID:    "u2",
+			SessionID: "s2",
+			Status:    provenance.ApprovalExpired,
+			CreatedAt: now,
+			ExpiresAt: now.Add(-time.Hour),
+		},
+	} {
+		if err := store.CreateApproval(t.Context(), &a); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tt := range []struct {
+		status string
+		id     string
+	}{
+		{
+			status: provenance.ApprovalPending,
+			id:     "pending",
+		},
+		{
+			status: provenance.ApprovalExpired,
+			id:     "stale",
+		},
+		{
+			status: provenance.ApprovalApproved,
+			id:     "resolved",
+		},
+	} {
+		items, total, err := store.ListApprovals(t.Context(), provenance.ApprovalQuery{
+			Status:    tt.status,
+			UserID:    "u1",
+			SessionID: "s1",
+			Limit:     1,
+		})
+		if err != nil || total != 1 || len(items) != 1 || items[0].ID != tt.id || items[0].Status != tt.status {
+			t.Fatalf("%s: items=%+v total=%d err=%v", tt.status, items, total, err)
+		}
+	}
+	all, total, err := store.ListApprovals(t.Context(), provenance.ApprovalQuery{UserID: "u1"})
+	if err != nil || total != 3 || len(all) != 3 || all[0].Status != provenance.ApprovalExpired {
+		t.Fatalf("unfiltered status: items=%+v total=%d err=%v", all, total, err)
+	}
+	got, err := store.GetApproval(t.Context(), "stale")
+	if err != nil || got.Status != provenance.ApprovalExpired {
+		t.Fatalf("get stale: %+v (%v)", got, err)
+	}
 }
 
 func setProvenancePolicyMode(t *testing.T, e *provenance.Engine, store provenance.Store, id, mode string) {
@@ -783,5 +861,28 @@ func TestProvenanceRetention(t *testing.T) {
 	}
 	if _, err := store.GetApproval(ctx, "apr-fresh"); err != nil {
 		t.Fatalf("fresh approval should remain: %v", err)
+	}
+}
+
+func TestProvenanceStoreToolLabelProposal(t *testing.T) {
+	store := newTestClient(t).ProvenanceStore()
+	label := provenance.ToolLabel{
+		Server: "catalog-entry:entry1", Tool: "read_record", Source: "heuristic", Labels: provenance.NewLabels(provenance.CapExec),
+		Proposal: &provenance.ToolLabelProposal{Labels: provenance.NewLabels(provenance.CapReadsPrivate), Rationale: "Reads patient records", SchemaHash: "inventory-v1", GeneratedAt: time.Now().UTC()},
+	}
+	if err := store.PutToolLabel(t.Context(), &label); err != nil {
+		t.Fatal(err)
+	}
+	labels, err := store.ListToolLabels(t.Context())
+	if err != nil || len(labels) != 1 || labels[0].Proposal == nil || labels[0].Proposal.SchemaHash != "inventory-v1" || !labels[0].Labels.Has(provenance.CapExec) {
+		t.Fatalf("proposal round-trip: %+v (%v)", labels, err)
+	}
+	label.Source, label.Labels, label.Proposal = "admin", label.Proposal.Labels, nil
+	if err := store.PutToolLabel(t.Context(), &label); err != nil {
+		t.Fatal(err)
+	}
+	labels, err = store.ListToolLabels(t.Context())
+	if err != nil || len(labels) != 1 || labels[0].Proposal != nil || !labels[0].Labels.Has(provenance.CapReadsPrivate) {
+		t.Fatalf("approved proposal: %+v (%v)", labels, err)
 	}
 }

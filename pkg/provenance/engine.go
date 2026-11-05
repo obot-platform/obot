@@ -299,8 +299,8 @@ func (e *Engine) IsTrustedHost(ctx context.Context, host string) bool {
 }
 
 // ToolCapabilities returns the capability labels of a tool: the administrator's
-// or Supervisor's labelling when there is one, otherwise the heuristic
-// labelling, which is stored and queued for the Supervisor to refine.
+// reviewed labelling when there is one, otherwise the heuristic labelling,
+// which is stored and queued for the Supervisor to recommend changes to.
 func (e *Engine) ToolCapabilities(ctx context.Context, server, tool, description string) Labels {
 	if err := e.loadRefs(ctx); err != nil {
 		e.logger.Warn("provenance: loading tool labels", "error", err)
@@ -325,8 +325,8 @@ func (e *Engine) ToolCapabilities(ctx context.Context, server, tool, description
 	return caps
 }
 
-// classifyAsync asks the Supervisor to refine a heuristic labelling, once per
-// tool per process.
+// classifyAsync asks the Supervisor to propose refinements, once per tool per
+// process. A proposal never changes effective capabilities before review.
 func (e *Engine) classifyAsync(server, tool, description string, heuristic Labels) {
 	if e.supervisor == nil {
 		return
@@ -357,7 +357,11 @@ func (e *Engine) classifyAsync(server, tool, description string, heuristic Label
 		if ok && current.Source == "admin" {
 			return
 		}
-		label := ToolLabel{Server: server, Tool: tool, Labels: labels, Source: "supervisor", Rationale: rationale, UpdatedAt: e.now()}
+		label := current
+		if !ok {
+			label = ToolLabel{Server: server, Tool: tool, Labels: heuristic, Source: "heuristic", UpdatedAt: e.now()}
+		}
+		label.Proposal = &ToolLabelProposal{Labels: labels, Rationale: rationale, GeneratedAt: e.now()}
 		if err := e.store.PutToolLabel(ctx, &label); err != nil {
 			e.logger.Warn("provenance: storing supervisor tool label", "error", err)
 			return
@@ -994,7 +998,7 @@ func (e *Engine) ResolveApproval(ctx context.Context, id string, approve bool, b
 		return a, fmt.Errorf("approval is already %s", a.Status)
 	}
 	now := e.now()
-	if now.After(a.ExpiresAt) {
+	if !now.Before(a.ExpiresAt) {
 		a.Status = ApprovalExpired
 	} else if approve {
 		a.Status = ApprovalApproved

@@ -100,7 +100,11 @@
 		Logs,
 		Settings2,
 		ChevronRight,
-		ShieldCheck
+		ShieldCheck,
+		Activity,
+		Inbox,
+		Shield,
+		Tags
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -247,17 +251,32 @@
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	let routes = $derived([
-		...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
+		// Supervision is the daily workflow. Infrastructure supports it below.
+		...(profile.current.hasAdminAccess?.()
 			? [
+					{ id: 'supervision', icon: ShieldCheck, label: m.nav_dashboard(), href: '/supervision' },
+					{ id: 'sessions', icon: Activity, label: m.nav_sessions(), href: '/sessions' },
 					{
-						id: 'mcp-dashboard',
-						icon: LayoutDashboard,
-						label: m.nav_dashboard(),
-						href: '/dashboard',
-						collapsible: false
-					}
+						id: 'approvals',
+						icon: Inbox,
+						label: m.nav_approvals(),
+						href: '/approvals',
+						count: pendingApprovals,
+						countLabel: m.nav_approvals_pending({ count: pendingApprovals })
+					},
+					{ id: 'policies', icon: Shield, label: m.nav_policies(), href: '/policies' },
+					{ id: 'labels', icon: Tags, label: m.supervision_labels(), href: '/tool-labels' }
 				]
-			: []),
+			: isAtLeastPoweruser
+				? [
+						{
+							id: 'mcp-dashboard',
+							icon: LayoutDashboard,
+							label: m.nav_dashboard(),
+							href: '/dashboard'
+						}
+					]
+				: []),
 		{
 			id: 'ai-resources',
 			icon: Bot,
@@ -307,6 +326,9 @@
 			label: m.nav_operations(),
 			collapsible: true,
 			items: [
+				...(profile.current.hasAdminAccess?.()
+					? [{ id: 'infrastructure', label: m.nav_infrastructure(), href: '/dashboard' }]
+					: []),
 				{
 					id: 'audit-logs',
 					label: m.nav_audit_logs(),
@@ -328,46 +350,7 @@
 					: [])
 			]
 		},
-		// The Supervisor: the cross-surface session graph, Obot Policy and the AI Supervisor. The
-		// nav renders one level of items under a group, so it is its own group next to Operations.
-		// The group shows the pending approvals count while collapsed; Approvals always does.
-		...(profile.current.hasAdminAccess?.()
-			? [
-					{
-						id: 'supervision',
-						icon: ShieldCheck,
-						label: m.nav_supervision(),
-						collapsible: true,
-						beta: true,
-						count: isNavCollapsed('supervision') ? pendingApprovals : 0,
-						countLabel: m.nav_approvals_pending({ count: pendingApprovals }),
-						items: [
-							{
-								id: 'supervision-overview',
-								label: m.nav_supervision_overview(),
-								href: '/supervision'
-							},
-							{
-								id: 'sessions',
-								label: m.nav_sessions(),
-								href: '/sessions'
-							},
-							{
-								id: 'policies',
-								label: m.nav_policies(),
-								href: '/policies'
-							},
-							{
-								id: 'approvals',
-								label: m.nav_approvals(),
-								href: '/approvals',
-								count: pendingApprovals,
-								countLabel: m.nav_approvals_pending({ count: pendingApprovals })
-							}
-						]
-					}
-				]
-			: []),
+
 		{
 			id: 'identity-and-access',
 			label: m.nav_identity_access(),

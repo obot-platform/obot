@@ -129,9 +129,11 @@ func DecisionSchema(options []provenance.Choice) map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
-			"option":     map[string]any{"type": "string", "enum": keys},
-			"rationale":  map[string]any{"type": "string"},
-			"confidence": map[string]any{"type": "number", "minimum": 0, "maximum": 1},
+			"option":    map[string]any{"type": "string", "enum": keys},
+			"rationale": map[string]any{"type": "string"},
+			// Anthropic's structured output omits numeric bounds. ParseAnswer
+			// clamps confidence after decoding, for every provider.
+			"confidence": map[string]any{"type": "number"},
 		},
 		"required":             []string{"option", "rationale", "confidence"},
 		"additionalProperties": false,

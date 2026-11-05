@@ -24,6 +24,10 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
+		if (profile?.hasAdminAccess?.()) {
+			throw redirect(302, '/supervision');
+		}
+
 		const isAtLeastPoweruser =
 			profile?.groups.includes(Group.POWERUSER) || profile?.hasAdminAccess?.();
 		throw redirect(302, isAtLeastPoweruser ? '/dashboard' : '/vmcps');

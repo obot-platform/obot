@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/obot-platform/mmmcp/namespace"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -172,17 +173,25 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 				injectObotHeaders[header] = struct{}{}
 			}
 		}
+		var labelPrefix string
+		if len(vmcp.Spec.Manifest.Components) > 1 || component.ToolPrefix != "" {
+			labelPrefix, err = namespace.Prefix(component.Name, component.ToolPrefix)
+			if err != nil {
+				return ServerConfig{}, fmt.Errorf("resolve component label identity: %w", err)
+			}
+		}
 		connectID := server.Name
 		if connections[component.ID] != "" {
 			connectID = connections[component.ID]
 		}
 		components = append(components, ComponentServer{
-			Name:                server.Name,
-			MCPServerInstanceID: connections[component.ID],
-			DisplayName:         component.Name,
-			URL:                 system.LocalMCPConnectURL(connectID, sm.httpListenPort),
-			Tools:               slices.Clone(component.ToolOverrides),
-			ToolPrefix:          component.ToolPrefix,
+			Name:                 server.Name,
+			MCPServerInstanceID:  connections[component.ID],
+			DisplayName:          component.Name,
+			URL:                  system.LocalMCPConnectURL(connectID, sm.httpListenPort),
+			Tools:                slices.Clone(component.ToolOverrides),
+			ToolPrefix:           component.ToolPrefix,
+			ProvenanceToolPrefix: labelPrefix,
 		})
 	}
 

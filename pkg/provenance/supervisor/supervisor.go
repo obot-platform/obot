@@ -307,6 +307,14 @@ func (s *Supervisor) ClassifyTool(ctx context.Context, t provenance.ToolDescript
 
 // completeJSON runs a text-model call that must answer in JSON and decodes
 // the answer into out. It returns the model that answered.
+// modelJSONError distinguishes invalid model output from transport failures.
+type modelJSONError struct{ err error }
+
+func (e *modelJSONError) Error() string {
+	return "the model did not answer in the expected JSON: " + e.err.Error()
+}
+func (e *modelJSONError) Unwrap() error { return e.err }
+
 func (s *Supervisor) completeJSON(ctx context.Context, system, user string, schema map[string]any, out any) (string, error) {
 	if s.writer == nil {
 		return "", errors.New("the Supervisor has no text model")
@@ -324,7 +332,7 @@ func (s *Supervisor) completeJSON(ctx context.Context, system, user string, sche
 		return "", err
 	}
 	if err := parseJSON(text, out); err != nil {
-		return "", fmt.Errorf("the model did not answer in the expected JSON: %w", err)
+		return "", &modelJSONError{err: err}
 	}
 	model = firstNonEmpty(model, s.model)
 	s.remember(&s.lastText, model)

@@ -383,3 +383,81 @@ func TestRedactToolArguments(t *testing.T) {
 		})
 	}
 }
+
+func TestProvenanceReviewedResourceLabelsControlGatewayDecisions(t *testing.T) {
+	for _, resourceType := range []string{"catalog-entry", "vmcp"} {
+		t.Run(resourceType, func(t *testing.T) {
+			engine := newTestProvenanceEngine(t)
+			policy := provenance.Policy{ID: "block-reviewed-destructive", Name: "Reviewed destructive tools",
+				Condition: `"destructive" in action.capabilities`, Effect: provenance.EffectDeny, Mode: provenance.ModeEnforce, Enabled: true}
+			if err := engine.Store().PutPolicy(t.Context(), &policy); err != nil {
+				t.Fatal(err)
+			}
+			tool := "status"
+			config := mcp.ServerConfig{MCPServerName: "ms1", MCPServerDisplayName: "Same display name", MCPCatalogEntryName: "entry1", AuditLogMetadata: map[string]string{"mcpID": "ms1"}}
+			resourceID := "entry1"
+			if resourceType == "vmcp" {
+				config.Runtime = "vmcp"
+				config.AuditLogMetadata["mcpID"] = "vmcp1"
+				resourceID, tool = "vmcp1", "care__status"
+			}
+			label := provenance.ToolLabel{Server: provenance.ToolLabelScope(resourceType, resourceID), Tool: tool,
+				Labels: provenance.Labels{}, Source: "heuristic", Proposal: &provenance.ToolLabelProposal{Labels: provenance.NewLabels(provenance.CapDestructive)}}
+			if err := engine.Store().PutToolLabel(t.Context(), &label); err != nil {
+				t.Fatal(err)
+			}
+			engine.Invalidate()
+			p := newMCPProvenance(engine, nil, config, httptest.NewRequest(http.MethodPost, "/mcp", nil), nil, new(sync.Map))
+			message := mcp.Message{Params: json.RawMessage(`{"arguments":{}}`)}
+			result, _, err := p.decideToolCall(t.Context(), message, tool)
+			if err != nil || result == nil || !result.Accept {
+				t.Fatalf("pending suggestion changed enforcement: %+v (%v)", result, err)
+			}
+			label.Source, label.Labels, label.Proposal = "admin", provenance.NewLabels(provenance.CapDestructive), nil
+			if err := engine.Store().PutToolLabel(t.Context(), &label); err != nil {
+				t.Fatal(err)
+			}
+			engine.Invalidate()
+			result, _, err = p.decideToolCall(t.Context(), message, tool)
+			if err != nil || result == nil || result.Accept {
+				t.Fatalf("approved label did not control enforcement: %+v (%v)", result, err)
+			}
+			// A different resource with the same display name must not inherit
+			// an override accepted for this resource.
+			if resourceType == "vmcp" {
+				config.AuditLogMetadata["mcpID"] = "vmcp-other"
+			} else {
+				config.MCPCatalogEntryName = "entry-other"
+			}
+			other := newMCPProvenance(engine, nil, config, httptest.NewRequest(http.MethodPost, "/mcp", nil), nil, new(sync.Map))
+			result, _, err = other.decideToolCall(t.Context(), message, tool)
+			if err != nil || result == nil || !result.Accept {
+				t.Fatalf("resource identity collision: %+v (%v)", result, err)
+			}
+		})
+	}
+}
+
+func TestProfileSelectedComponentLabelsCannotMatchAnotherComponent(t *testing.T) {
+	engine := newTestProvenanceEngine(t)
+	for _, label := range []provenance.ToolLabel{
+		{Server: "vmcp:vmcp1", Tool: "lookup", Source: "admin", Labels: provenance.NewLabels(provenance.CapCredentialBearing)},
+		{Server: "vmcp:vmcp1", Tool: "care__lookup", Source: "admin", Labels: provenance.NewLabels(provenance.CapDestructive)},
+	} {
+		if err := engine.Store().PutToolLabel(t.Context(), &label); err != nil {
+			t.Fatal(err)
+		}
+	}
+	engine.Invalidate()
+	config := mcp.ServerConfig{Runtime: "vmcp", MCPServerName: "instance1", MCPServerDisplayName: "Care", AuditLogMetadata: map[string]string{"mcpID": "vmcp1"},
+		Components: []mcp.ComponentServer{{DisplayName: "care", ProvenanceToolPrefix: "care"}}}
+	care := newMCPProvenance(engine, nil, config, httptest.NewRequest(http.MethodPost, "/mcp", nil), nil, new(sync.Map))
+	if labels := care.capabilities(t.Context(), "lookup"); !labels.Has(provenance.CapDestructive) || labels.Has(provenance.CapCredentialBearing) {
+		t.Fatalf("wrong canonical component label: %v", labels)
+	}
+	config.Components[0] = mcp.ComponentServer{DisplayName: "claims", ProvenanceToolPrefix: "claims"}
+	claims := newMCPProvenance(engine, nil, config, httptest.NewRequest(http.MethodPost, "/mcp", nil), nil, new(sync.Map))
+	if labels := claims.capabilities(t.Context(), "lookup"); labels.HasAny(provenance.CapDestructive, provenance.CapCredentialBearing) {
+		t.Fatalf("claims inherited another component's reviewed label: %v", labels)
+	}
+}

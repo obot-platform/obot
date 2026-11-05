@@ -15,9 +15,16 @@
 		intro?: string;
 		/** Render without the surrounding card, for embedding in another panel. */
 		embedded?: boolean;
+		scrollable?: boolean;
 	}
 
-	let { sessionId, suggestions = [], intro, embedded = false }: Props = $props();
+	let {
+		sessionId,
+		suggestions = [],
+		intro,
+		embedded = false,
+		scrollable = false
+	}: Props = $props();
 
 	interface Exchange {
 		id: number;
@@ -64,60 +71,63 @@
 </script>
 
 {#snippet body()}
-	{#if intro}
-		<p class="text-muted-content text-sm">{intro}</p>
-	{/if}
+	<div
+		class={scrollable ? 'flex max-h-[50dvh] flex-col gap-3 overflow-y-auto' : 'flex flex-col gap-3'}
+	>
+		{#if intro}
+			<p class="text-muted-content text-sm">{intro}</p>
+		{/if}
 
-	{#if exchanges.length}
-		<ol class="flex flex-col gap-3" aria-label={m.supervision_ask_conversation()}>
-			{#each exchanges as ex (ex.id)}
-				<li class="flex flex-col gap-2">
-					<div class="flex justify-end">
-						<p
-							class="bg-base-200 dark:bg-base-300 max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm"
-						>
-							<span class="sr-only">{m.supervision_ask_you()}:</span>
-							{ex.question}
-						</p>
-					</div>
-					<div class="flex items-start gap-2">
-						<SupervisorAvatar size="sm" />
-						{#if ex.pending}
-							<p class="text-muted-content flex items-center gap-2 py-1 text-sm">
-								<Loading class="size-4" />
-								{m.supervision_ask_thinking()}
+		{#if exchanges.length}
+			<ol class="flex flex-col gap-3" aria-label={m.supervision_ask_conversation()}>
+				{#each exchanges as ex (ex.id)}
+					<li class="flex flex-col gap-2">
+						<div class="flex justify-end">
+							<p
+								class="bg-base-200 dark:bg-base-300 max-w-[85%] rounded-2xl rounded-br-sm px-3 py-2 text-sm"
+							>
+								<span class="sr-only">{m.supervision_ask_you()}:</span>
+								{ex.question}
 							</p>
-						{:else if ex.error}
-							<p class="bg-warning/10 rounded-2xl rounded-tl-sm px-3 py-2 text-sm" role="alert">
-								{ex.error}
-							</p>
-						{:else}
-							<div class="flex min-w-0 flex-col gap-1">
-								<p
-									class="bg-primary/5 rounded-2xl rounded-tl-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap"
-								>
-									{ex.answer}
+						</div>
+						<div class="flex items-start gap-2">
+							<SupervisorAvatar size="sm" />
+							{#if ex.pending}
+								<p class="text-muted-content flex items-center gap-2 py-1 text-sm">
+									<Loading class="size-4" />
+									{m.supervision_ask_thinking()}
 								</p>
-								<span class="text-muted-content px-1 text-xs">
-									{#if ex.model}{m.supervision_ask_answered_by({ model: ex.model })}{/if}
-									{#if ex.model && ex.context}
-										·
-									{/if}
-									{#if ex.context}
-										{m.supervision_ask_context({
-											sessions: ex.context.sessions,
-											events: ex.context.events
-										})}
-									{/if}
-								</span>
-							</div>
-						{/if}
-					</div>
-				</li>
-			{/each}
-		</ol>
-	{/if}
-
+							{:else if ex.error}
+								<p class="bg-warning/10 rounded-2xl rounded-tl-sm px-3 py-2 text-sm" role="alert">
+									{ex.error}
+								</p>
+							{:else}
+								<div class="flex min-w-0 flex-col gap-1">
+									<p
+										class="bg-primary/5 rounded-2xl rounded-tl-sm px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap"
+									>
+										{ex.answer}
+									</p>
+									<span class="text-muted-content px-1 text-xs">
+										{#if ex.model}{m.supervision_ask_answered_by({ model: ex.model })}{/if}
+										{#if ex.model && ex.context}
+											·
+										{/if}
+										{#if ex.context}
+											{m.supervision_ask_context({
+												sessions: ex.context.sessions,
+												events: ex.context.events
+											})}
+										{/if}
+									</span>
+								</div>
+							{/if}
+						</div>
+					</li>
+				{/each}
+			</ol>
+		{/if}
+	</div>
 	{#if suggestions.length}
 		<div class="flex flex-wrap gap-2">
 			{#each suggestions as s (s)}

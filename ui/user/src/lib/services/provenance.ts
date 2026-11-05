@@ -2,7 +2,7 @@
 // the kill switch and the Supervisor. Shapes mirror pkg/provenance JSON. Actions are content-free:
 // the API never returns tool arguments, and nothing here should render them.
 import { m } from '$lib/i18n';
-import { buildQueryString } from '$lib/url';
+import { buildQueryString, resolve } from '$lib/url';
 import { doDelete, doGet, doPatch, doPost, doPut, type Fetcher } from './http';
 
 type Opts = { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean };
@@ -1043,4 +1043,133 @@ export function supervisorLine(event: ProvenanceEvent): SupervisorLine | undefin
 export function isIntervention(event: ProvenanceEvent): boolean {
 	const line = supervisorLine(event);
 	return !!line && line.tone !== 'allowed';
+}
+
+// Suggested capability labels are reviewed separately from the resource manifest.
+export type ToolLabelResourceType = 'catalog-entry' | 'vmcp';
+export interface ToolLabelResource {
+	resourceType: ToolLabelResourceType;
+	resourceID: string;
+}
+export interface ToolLabelReviewRequest extends ToolLabelResource {
+	displayName: string;
+	toolCount: number;
+	generatedAt: string;
+}
+export async function listToolLabelReviews(opts?: Opts): Promise<ToolLabelReviewRequest[]> {
+	const response = (await doGet(`${B}/tool-label-reviews`, opts)) as {
+		items: ToolLabelReviewRequest[] | null;
+	};
+	return response.items ?? [];
+}
+export interface ToolLabelSuggestion {
+	server: string;
+	tool: string;
+	description?: string;
+	labels: string[];
+	source: string;
+	proposal?: {
+		labels: string[];
+		rationale: string;
+		schemaHash: string;
+		generatedAt: string;
+	};
+	stale: boolean;
+}
+export interface ToolLabelSuggestions extends ToolLabelResource {
+	displayName: string;
+	sourceURL?: string;
+	items: ToolLabelSuggestion[];
+}
+export function toolLabelReviewURL(resource: ToolLabelResource): string {
+	return `${resolve('/tool-labels')}?${new URLSearchParams({ resourceType: resource.resourceType, resourceID: resource.resourceID })}`;
+}
+export async function getToolLabelSuggestions(
+	resource: ToolLabelResource,
+	opts?: Opts
+): Promise<ToolLabelSuggestions> {
+	return normalizeToolLabelSuggestions(
+		(await doGet(
+			`${B}/tool-label-suggestions?${new URLSearchParams({ ...resource })}`,
+			opts
+		)) as ToolLabelSuggestions
+	);
+}
+export async function suggestToolLabels(
+	resource: ToolLabelResource,
+	opts?: Opts
+): Promise<ToolLabelSuggestions> {
+	return normalizeToolLabelSuggestions(
+		(await doPost(`${B}/tool-label-suggestions`, resource, opts)) as ToolLabelSuggestions
+	);
+}
+export async function approveToolLabelSuggestions(
+	resource: ToolLabelResource,
+	tools: { tool: string; schemaHash: string }[],
+	opts?: Opts
+): Promise<ToolLabelSuggestions> {
+	return normalizeToolLabelSuggestions(
+		(await doPost(
+			`${B}/tool-label-suggestions/approve`,
+			{ ...resource, tools },
+			opts
+		)) as ToolLabelSuggestions
+	);
+}
+
+function normalizeToolLabelSuggestions(value: ToolLabelSuggestions): ToolLabelSuggestions {
+	return {
+		...value,
+		items: (value.items ?? []).map((item) => ({
+			...item,
+			labels: item.labels ?? [],
+			proposal: item.proposal ? { ...item.proposal, labels: item.proposal.labels ?? [] } : undefined
+		}))
+	};
+}
+
+export interface LabelResourceSummary extends ToolLabelResource {
+	inventoryError?: string;
+	displayName: string;
+	sourceURL?: string;
+	toolCount: number;
+	reviewedToolCount: number;
+	pendingToolCount: number;
+	staleToolCount: number;
+	labels: string[];
+	updatedAt?: string;
+}
+export interface LabelContentTagging {
+	enabled: boolean;
+	mode?: 'async' | 'sync';
+	sampleRate?: number;
+	minBytes?: number;
+	onlyUnlabeled?: boolean;
+	capabilities?: string[];
+	budgetSeconds?: number;
+}
+export interface LabelInventory {
+	resources: LabelResourceSummary[];
+	observedTools: (ToolLabel & { proposal?: ToolLabelSuggestion['proposal'] })[];
+	capabilities: string[];
+	contentLabels: string[];
+	contentTagging: LabelContentTagging;
+	supervisorEnabled: boolean;
+}
+export async function getLabelInventory(opts?: Opts): Promise<LabelInventory> {
+	const value = (await doGet(`${B}/label-inventory`, opts)) as LabelInventory;
+	return {
+		...value,
+		resources: (value.resources ?? []).map((resource) => ({
+			...resource,
+			labels: resource.labels ?? []
+		})),
+		observedTools: (value.observedTools ?? []).map((tool) => ({
+			...tool,
+			labels: tool.labels ?? []
+		})),
+		capabilities: value.capabilities ?? [],
+		contentLabels: value.contentLabels ?? [],
+		contentTagging: value.contentTagging ?? { enabled: false }
+	};
 }

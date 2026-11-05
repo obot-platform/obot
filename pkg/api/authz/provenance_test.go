@@ -80,6 +80,34 @@ func TestProvenanceRouteAuthorization(t *testing.T) {
 			readOnly: true,
 		},
 		{
+			name:     "read tool label suggestions",
+			method:   http.MethodGet,
+			path:     "/api/provenance/tool-label-suggestions",
+			readOnly: true,
+		},
+		{
+			name:     "read pending tool label reviews",
+			method:   http.MethodGet,
+			path:     "/api/provenance/tool-label-reviews",
+			readOnly: true,
+		},
+		{
+			name:     "read central label inventory",
+			method:   http.MethodGet,
+			path:     "/api/provenance/label-inventory",
+			readOnly: true,
+		},
+		{
+			name:   "generate tool label suggestions",
+			method: http.MethodPost,
+			path:   "/api/provenance/tool-label-suggestions",
+		},
+		{
+			name:   "approve tool label suggestions",
+			method: http.MethodPost,
+			path:   "/api/provenance/tool-label-suggestions/approve",
+		},
+		{
 			name:     "list sessions",
 			method:   http.MethodGet,
 			path:     "/api/provenance/sessions",

@@ -112,6 +112,32 @@ func TestGatewayDeciderPassesSchemaAndModel(t *testing.T) {
 	if len(enum) != len(provenance.TriageOptions) {
 		t.Fatalf("schema enum should list the option keys, got %v", enum)
 	}
+	confidence := props["confidence"].(map[string]any)
+	if confidence["minimum"] != nil || confidence["maximum"] != nil || c.lastSchema["additionalProperties"] != false {
+		t.Fatalf("schema must use the supported Anthropic structured-output subset: %+v", c.lastSchema)
+	}
+}
+
+func TestGatewayDeciderClampsConfidenceWithoutProviderBounds(t *testing.T) {
+	for _, tt := range []struct {
+		response string
+		want     float64
+	}{
+		{
+			response: `{"option":"allow","rationale":"routine","confidence":2}`,
+			want:     1,
+		},
+		{
+			response: `{"option":"allow","rationale":"routine","confidence":-1}`,
+			want:     0,
+		},
+	} {
+		c := &stubCompleter{text: tt.response}
+		answer, err := NewGatewayDecider(c, "").Decide(t.Context(), provenance.Question{Question: "Proceed?", Options: provenance.JudgeOptions})
+		if err != nil || answer.Confidence != tt.want {
+			t.Fatalf("confidence=%v want=%v error=%v", answer.Confidence, tt.want, err)
+		}
+	}
 }
 
 func TestGatewayDeciderErrors(t *testing.T) {

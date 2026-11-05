@@ -19,7 +19,8 @@ var (
 	contentTagRe = regexp.MustCompile(`(?i)<\s*/\s*content\s*>`)
 
 	contentClassifySchema = map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"labels":    map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": provenance.ContentLabels.Strings()}},
 			"rationale": map[string]any{"type": "string"},

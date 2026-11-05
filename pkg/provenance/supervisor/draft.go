@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/obot-platform/obot/pkg/provenance"
 )
 
@@ -34,7 +35,8 @@ var (
 	}
 
 	narrativeSchema = map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"summary":  map[string]any{"type": "string"},
 			"timeline": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
@@ -44,7 +46,8 @@ var (
 	}
 
 	classifySchema = map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"labels":    map[string]any{"type": "array", "items": map[string]any{"type": "string", "enum": provenance.CapabilityLabels.Strings()}},
 			"rationale": map[string]any{"type": "string"},
@@ -53,7 +56,8 @@ var (
 	}
 
 	draftSchema = map[string]any{
-		"type": "object",
+		"type":                 "object",
+		"additionalProperties": false,
 		"properties": map[string]any{
 			"name":        map[string]any{"type": "string"},
 			"description": map[string]any{"type": "string"},
@@ -66,12 +70,13 @@ var (
 			"tests": map[string]any{
 				"type": "array",
 				"items": map[string]any{
-					"type": "object",
+					"type":                 "object",
+					"additionalProperties": false,
 					"properties": map[string]any{
 						"name":     map[string]any{"type": "string"},
 						"summary":  map[string]any{"type": "string"},
 						"expected": map[string]any{"type": "boolean"},
-						"input":    map[string]any{"type": "object"},
+						"input":    map[string]any{"type": "string", "description": "JSON-encoded test input following the typed input schema in the instructions"},
 					},
 					"required": []string{"name", "summary", "expected", "input"},
 				},
@@ -169,9 +174,63 @@ type draftTestInput struct {
 	} `json:"org"`
 }
 
+// UnmarshalJSON accepts the compact wire representation used for structured
+// output, as well as object inputs from text-only models. Both paths decode
+// into the same typed fields and reject booleans in string fields.
+func (in *draftTestInput) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '"' {
+		var text string
+		if err := json.Unmarshal(data, &text); err != nil {
+			return err
+		}
+		data = []byte(text)
+	}
+	type input draftTestInput
+	return json.Unmarshal(data, (*input)(in))
+}
+
+// mustDraftInputSchema derives the model's test vocabulary from the decoder so
+// strings such as subject.agent cannot be mistaken for booleans. This static
+// type contains only JSON-compatible fields; construction failures are bugs.
+func mustDraftInputSchema() map[string]any {
+	schema, err := jsonschema.For[draftTestInput](nil)
+	if err != nil {
+		panic(fmt.Sprintf("policy draft input schema: %v", err))
+	}
+	data, err := json.Marshal(schema)
+	if err != nil {
+		panic(fmt.Sprintf("marshal policy draft input schema: %v", err))
+	}
+	var out map[string]any
+	if err := json.Unmarshal(data, &out); err != nil {
+		panic(fmt.Sprintf("decode policy draft input schema: %v", err))
+	}
+	// Draft inputs use empty lists and objects, rather than null. A single
+	// concrete type also avoids provider conversions of nullable type unions
+	// into anyOf schemas with incompatible sibling keywords such as items.
+	normalizeDraftInputSchema(out)
+	return out
+}
+
+func normalizeDraftInputSchema(schema map[string]any) {
+	if types, ok := schema["type"].([]any); ok {
+		for _, typ := range types {
+			if typ != "null" {
+				schema["type"] = typ
+				break
+			}
+		}
+	}
+	for _, value := range schema {
+		if child, ok := value.(map[string]any); ok {
+			normalizeDraftInputSchema(child)
+		}
+	}
+}
+
 // DraftPolicy turns a plain-language rule into a policy with tests. The
-// condition is validated; an invalid draft is sent back to the model once with
-// the compiler's message. Each test is then evaluated so Actual is filled.
+// JSON and condition are validated; an invalid draft is sent back to the model
+// once with the decoding or compiler message. Each test is then evaluated so Actual is filled.
 func (s *Supervisor) DraftPolicy(ctx context.Context, text string, examples []provenance.Event) (provenance.PolicyDraft, error) {
 	if strings.TrimSpace(text) == "" {
 		return provenance.PolicyDraft{}, errors.New("a rule is required")
@@ -189,7 +248,12 @@ func (s *Supervisor) DraftPolicy(ctx context.Context, text string, examples []pr
 		}
 		resp = draftResponse{}
 		if _, err := s.completeJSON(ctx, draftSystemPrompt(), prompt, draftSchema, &resp); err != nil {
-			return provenance.PolicyDraft{}, err
+			var responseErr *modelJSONError
+			if !errors.As(err, &responseErr) {
+				return provenance.PolicyDraft{}, err
+			}
+			lastErr = err
+			continue
 		}
 		policy = provenance.Policy{
 			Name:        strings.TrimSpace(resp.Name),
@@ -293,12 +357,20 @@ func draftSystemPrompt() string {
 	b.WriteString("- Prefer labels, capabilities, sink/source and lineage over tool names, so the policy holds on every surface.\n")
 	b.WriteString("- mode is always \"shadow\"; the administrator enables enforcement after simulation.\n")
 	b.WriteString("- Write 3 to 6 tests. At least one must expect false. A test input is an object with subject, action, session and org, ")
-	b.WriteString("using the variable fields above as JSON (lists as arrays, sink/source/lineage/warrant as objects). Only set the fields the test needs.\n\n")
+	b.WriteString("using the variable fields above as JSON (lists as arrays, sink/source/lineage/warrant as objects). Follow the test input schema and use empty strings, empty arrays, false and zero for unused fields. subject.agent is a string naming the agent (for example \"claude_code\"), never a boolean.\n\n")
 
+	// Embedding the complete input as a JSON string keeps the provider's strict
+	// output grammar small. The typed decoder and bounded repair validate it.
+	inputSchema, _ := json.Marshal(mustDraftInputSchema())
+	fmt.Fprintf(&b, "The tests[].input field is a JSON-encoded string, whose decoded object must match this schema:\n%s\n\n", inputSchema)
 	b.WriteString("Answer ONLY with JSON of this shape:\n")
-	b.WriteString(`{"name": "...", "description": "...", "explanation": "<what the condition checks, in plain language>", ` +
-		`"condition": "<CEL>", "effect": "<effect>", "mode": "shadow", "surfaces": [], "guidance": "<for judge, else empty>", ` +
-		`"tests": [{"name": "...", "summary": "<content-free description>", "expected": true, "input": {"subject": {}, "action": {}, "session": {}, "org": {}}}]}`)
+	example, _ := json.Marshal(map[string]any{
+		"name": "...", "description": "...", "explanation": "what the condition checks",
+		"condition": "<CEL>", "effect": "<effect>", "mode": "shadow", "surfaces": []string{}, "guidance": "",
+		"tests": []map[string]any{{"name": "...", "summary": "content-free description", "expected": true,
+			"input": `{"subject":{},"action":{},"session":{},"org":{}}`}},
+	})
+	b.Write(example)
 	return b.String()
 }
 

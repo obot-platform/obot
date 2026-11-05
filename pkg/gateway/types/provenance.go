@@ -117,13 +117,14 @@ type ProvenanceHoneytoken struct {
 
 // ProvenanceToolLabel is the capability labelling of one tool on one server.
 type ProvenanceToolLabel struct {
-	ID        uint              `json:"id" gorm:"primaryKey;autoIncrement"`
-	Server    string            `json:"server" gorm:"uniqueIndex:idx_provenance_tool_labels_server_tool;not null"`
-	Tool      string            `json:"tool" gorm:"uniqueIndex:idx_provenance_tool_labels_server_tool;not null"`
-	Source    string            `json:"source" gorm:"index"`
-	Rationale string            `json:"rationale"`
-	UpdatedAt time.Time         `json:"updatedAt"`
-	Labels    provenance.Labels `json:"labels" gorm:"serializer:json"`
+	ID        uint                          `json:"id" gorm:"primaryKey;autoIncrement"`
+	Server    string                        `json:"server" gorm:"uniqueIndex:idx_provenance_tool_labels_server_tool;not null"`
+	Tool      string                        `json:"tool" gorm:"uniqueIndex:idx_provenance_tool_labels_server_tool;not null"`
+	Source    string                        `json:"source" gorm:"index"`
+	Rationale string                        `json:"rationale"`
+	UpdatedAt time.Time                     `json:"updatedAt"`
+	Labels    provenance.Labels             `json:"labels" gorm:"serializer:json"`
+	Proposal  *provenance.ToolLabelProposal `json:"proposal,omitempty" gorm:"serializer:json"`
 }
 
 // ProvenanceSettings is the single row (ID 1) of organization-wide settings.
