@@ -27,10 +27,6 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 		value := r.Header.Get(name)
 		headers[lower] = value
 		switch lower {
-		case "openai-beta", "originator", "session_id", "conversation_id":
-			if credential, _ := ctx.Value(subscriptionTokenKey{}).(subscriptionCredentialValue); credential.provider == schemas.OpenAI {
-				extra[lower] = append(extra[lower], r.Header[name]...)
-			}
 		case "anthropic-beta", "anthropic-version", "user-agent", "x-stainless-lang", "x-stainless-package-version", "x-stainless-os", "x-stainless-arch", "x-stainless-runtime", "x-stainless-runtime-version", "x-stainless-retry-count", "x-stainless-timeout":
 			extra[lower] = append(extra[lower], r.Header[name]...)
 		}

@@ -17,24 +17,14 @@ type modelConfigKey struct{}
 // retains them as pending providers. Admission and credentials remain per attempt.
 func (e *Engine) normalizeRequestModels(ctx *schemas.BifrostContext, model string, fallbacks []string) (schemas.ModelProvider, string, []schemas.Fallback) {
 	cfg := requestModelConfig(ctx, e.account)
-	parse := func(name string) (schemas.ModelProvider, string) {
-		provider, model := parseConfiguredModel(cfg, name)
-		credential, _ := ctx.Value(subscriptionTokenKey{}).(subscriptionCredentialValue)
-		// Native catalog slugs are OpenAI models only in admitted Codex HTTP mode.
-		// Explicit standard/configured provider prefixes keep their normal meaning.
-		if provider == "" && credential.provider == schemas.OpenAI {
-			provider = schemas.OpenAI
-		}
-		return provider, model
-	}
-	provider, model := parse(model)
+	provider, model := parseConfiguredModel(cfg, model)
 	if len(fallbacks) == 0 {
 		return provider, model, nil
 	}
 
 	parsed := make([]schemas.Fallback, 0, len(fallbacks))
 	for _, fallback := range fallbacks {
-		fallbackProvider, fallbackModel := parse(fallback)
+		fallbackProvider, fallbackModel := parseConfiguredModel(cfg, fallback)
 		if fallbackProvider != "" && fallbackModel != "" {
 			parsed = append(parsed, schemas.Fallback{Provider: fallbackProvider, Model: fallbackModel})
 		}

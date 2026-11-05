@@ -76,34 +76,46 @@ func TestSubscriptionCredential(t *testing.T) {
 	}
 }
 
-func TestSubscriptionDestination(t *testing.T) {
-	for _, provider := range []schemas.ModelProvider{schemas.Anthropic, schemas.OpenAI} {
-		t.Run(string(provider), func(t *testing.T) { testSubscriptionDestination(t, provider) })
+func TestCodexSubscriptionRejected(t *testing.T) {
+	for _, tc := range []struct {
+		method string
+		path   string
+	}{
+		{
+			method: http.MethodPost,
+			path:   "/v1/responses",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/v1/models?client_version=0.162.1",
+		},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(`{"model":"openai/test","input":"hi"}`))
+			r.Header.Set("Authorization", "Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.c2ln")
+			r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
+			w := httptest.NewRecorder()
+			// Unsupported credentials must be refused before reaching inference or a catalog handler.
+			(&Engine{}).ServeHTTP(w, r)
+			require.Equal(t, http.StatusForbidden, w.Code, w.Body.String())
+			require.Contains(t, w.Body.String(), "permission_denied")
+		})
 	}
 }
 
-func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
-	t.Helper()
-	reply := subscriptionReply
-	transport := subscriptionTransport
-	credential := subscriptionCredentialValue{provider: schemas.Anthropic, token: subscriptionFixture}
-	if provider == schemas.OpenAI {
-		reply = codexReply
-		transport = codexTransport
-		credential = subscriptionCredentialValue{provider: provider, token: codexFixture, accountID: "workspace-fixture"}
-	}
+func TestSubscriptionDestination(t *testing.T) {
 	received := make(chan http.Header, 1)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		received <- r.Header.Clone()
-		reply(w, r)
+		subscriptionReply(w, r)
 	}))
 	defer server.Close()
 	store := subscriptionStore(t)
-	require.NoError(t, store.CreateProvider(t.Context(), string(provider), subscriptionProvider("configured-key")))
+	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("configured-key")))
 	e, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
-	transport(t, e, server)
+	subscriptionTransport(t, e, server)
 
 	for _, tc := range []struct {
 		name   string
@@ -210,23 +222,18 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 				Settings:  map[string]json.RawMessage{"proxy": json.RawMessage(tc.proxy)},
 			}
 			if !tc.absent {
-				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "anthropic", string(provider))
-				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "ANTHROPIC", strings.ToUpper(string(provider)))
-				cfg.Providers[provider] = tc.config
+				cfg.Providers[schemas.Anthropic] = tc.config
 			}
-			require.Equal(t, tc.safe, subscriptionDestination(cfg, provider))
+			require.Equal(t, tc.safe, subscriptionDestination(cfg))
 
 			a := &account{}
 			a.config.Store(cfg)
 			ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
-			ctx.SetValue(subscriptionTokenKey{}, credential)
-			req := &schemas.BifrostRequest{
-				RequestType:      schemas.ResponsesRequest,
-				ResponsesRequest: &schemas.BifrostResponsesRequest{Provider: provider, Model: "test"},
-			}
+			ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{token: "Bearer sk-ant-oat-fixture"})
+			req := &schemas.BifrostRequest{ChatRequest: &schemas.BifrostChatRequest{Provider: schemas.Anthropic, Model: "test"}}
 			denied := prepareSubscription(ctx, req, a)
 			require.Equal(t, tc.safe, denied == nil)
-			require.Equal(t, tc.safe && provider == schemas.Anthropic, ctx.Value(schemas.BifrostContextKeySkipKeySelection))
+			require.Equal(t, tc.safe, ctx.Value(schemas.BifrostContextKeySkipKeySelection))
 			if !tc.safe {
 				require.Equal(t, http.StatusForbidden, denied.Error.EffectiveHTTPStatus())
 				require.True(t, *denied.Error.AllowFallbacks)
@@ -236,49 +243,20 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 			// Keep the recording runtime fixed while varying the policy snapshot:
 			// a missed refusal would produce a real outbound recorded request.
 			e.account.config.Store(cfg)
-			var result *httptest.ResponseRecorder
-			if provider == schemas.OpenAI {
-				result = codexCall(t.Context(), e, "/v1/responses", `{"model":"gpt-5.4","input":"hi"}`, true, nil)
-			} else {
-				result = subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", false, true, nil, nil)
-			}
+			result := subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", false, true, nil, nil)
 			if tc.safe {
 				require.Equal(t, http.StatusOK, result.Code, result.Body.String())
-				require.Equal(t, credential.token, (<-received).Get("Authorization"))
+				require.Equal(t, subscriptionFixture, (<-received).Get("Authorization"))
 			} else {
 				require.Equal(t, http.StatusForbidden, result.Code, result.Body.String())
 				require.Empty(t, received)
 			}
-			if provider == schemas.OpenAI {
-				catalog := codexCall(t.Context(), e, "/v1/models?client_version=0.162.1", "", true, nil)
-				if tc.safe {
-					require.Equal(t, http.StatusOK, catalog.Code, catalog.Body.String())
-					require.Equal(t, credential.token, (<-received).Get("Authorization"))
-				} else {
-					require.Equal(t, http.StatusForbidden, catalog.Code, catalog.Body.String())
-					require.Empty(t, received)
-				}
-			}
 		})
 	}
-	blockedHeaders := []string{"Authorization", "x-API-key", "api-key", "X-Goog-Api-Key", "ChatGPT-Account-ID", "X-Obot-Api-Key"}
-	if provider == schemas.OpenAI {
-		blockedHeaders = append(blockedHeaders, "Cookie", "OpenAI-Organization", "OpenAI-Project")
-	}
-	for _, name := range blockedHeaders {
-		cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
-			provider: {NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{name: ""}}},
-		}}
-		require.False(t, subscriptionDestination(cfg, provider), name)
-		e.account.config.Store(cfg)
-		var result *httptest.ResponseRecorder
-		if provider == schemas.OpenAI {
-			result = codexCall(t.Context(), e, "/v1/responses", `{"model":"gpt-5.4","input":"hi"}`, true, nil)
-		} else {
-			result = subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", false, true, nil, nil)
-		}
-		require.Equal(t, http.StatusForbidden, result.Code, result.Body.String())
-		require.Empty(t, received)
+	for _, name := range []string{"Authorization", "x-API-key", "api-key", "X-Goog-Api-Key", "ChatGPT-Account-ID", "X-Obot-Api-Key"} {
+		require.False(t, subscriptionDestination(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
+			schemas.Anthropic: {NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{name: ""}}},
+		}}), name)
 	}
 }
 
@@ -286,7 +264,7 @@ func TestSubscriptionAttemptIsolation(t *testing.T) {
 	a := &account{}
 	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Anthropic: {}}})
 	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
-	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{provider: schemas.Anthropic, token: "Bearer sk-ant-oat-fixture"})
+	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{token: "Bearer sk-ant-oat-fixture"})
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, map[string][]string{"x-stainless-lang": {"go", "typescript"}})
 	for _, provider := range []schemas.ModelProvider{schemas.Anthropic, schemas.OpenAI, "custom-anthropic", schemas.Anthropic} {
 		req := &schemas.BifrostRequest{ChatRequest: &schemas.BifrostChatRequest{Provider: provider, Model: "test"}}
