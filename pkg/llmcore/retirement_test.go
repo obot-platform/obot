@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -90,8 +91,9 @@ func TestFailedRetirementDoesNotStopApply(t *testing.T) {
 func TestRetirementCancellationReusesPendingDrain(t *testing.T) {
 	engine := &Engine{}
 	release, entered := make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
 	defer func() {
-		close(release)
+		releaseOnce.Do(func() { close(release) })
 		for _, drain := range engine.retirements {
 			<-drain.done
 		}
@@ -114,4 +116,12 @@ func TestRetirementCancellationReusesPendingDrain(t *testing.T) {
 	require.Contains(t, blocked, schemas.ModelProvider("pending"))
 	require.ErrorIs(t, errors.Join(errs...), context.Canceled)
 	require.EqualValues(t, 1, removals.Load())
+
+	releaseOnce.Do(func() { close(release) })
+	<-engine.retirements["pending"].done
+	blocked, errs = engine.retireProviders(ctx, providers, remove)
+	require.Empty(t, blocked, "completed removals must advance even when the wait budget has expired")
+	require.Empty(t, errs)
+	require.Empty(t, engine.retirements)
+	require.EqualValues(t, 1, removals.Load(), "joining a completed removal must not start another")
 }

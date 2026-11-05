@@ -46,10 +46,11 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 		// expired while another provider was draining.
 		select {
 		case <-drain.done:
-		default:
+		case <-waitCtx.Done():
+			// Both may become ready together; recheck completion before deferring it.
 			select {
 			case <-drain.done:
-			case <-waitCtx.Done():
+			default:
 				blocked[name] = struct{}{}
 				errs = append(errs, fmt.Errorf("provider %s is still draining: %w", name, waitCtx.Err()))
 				continue
