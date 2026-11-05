@@ -312,7 +312,7 @@ func TestLLMAuditRecorderCapsResponseCapture(t *testing.T) {
 
 func TestLLMAuditRecordsSpendAndCachedTokens(t *testing.T) {
 	recorder := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), nil, 5<<20)
-	r := &responseModifier{audit: recorder}
+	r := &llmResponseWriter{audit: recorder}
 	r.recordUsage(types.TokenUsage{
 		InputTokens:      3132,
 		CacheReadTokens:  3072,

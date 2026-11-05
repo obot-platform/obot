@@ -11,12 +11,7 @@ import (
 // requestContext forwards compatibility headers after the authenticated proxy has
 // removed caller credentials. Inference uses provider configuration for authentication.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
-	ctx, cancel := schemas.NewBifrostContextWithCancel(r.Context())
-	// Parsing uses one replica-local view for primary, caller and rule fallbacks.
-	ctx.SetValue(modelConfigKey{}, e.account.config.Load())
-	if e.catalog != nil {
-		ctx.SetValue(schemas.BifrostContextKeyModelCatalog, e.catalog)
-	}
+	ctx, cancel := e.inferenceContext(r.Context())
 
 	headers := make(map[string]string, len(r.Header))
 	extra := map[string][]string{}
@@ -47,5 +42,21 @@ func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, conte
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
 	// Bifrost uses the client identity to select provider compatibility behavior.
 	ctx.SetValue(schemas.BifrostContextKeyUserAgent, r.UserAgent())
+	return ctx, cancel
+}
+
+// inferenceContext gives HTTP and trusted native calls the same model snapshot,
+// catalog and plugin context, without manufacturing an internal HTTP request.
+func (e *Engine) inferenceContext(parent context.Context) (*schemas.BifrostContext, context.CancelFunc) {
+	ctx, cancel := schemas.NewBifrostContextWithCancel(parent)
+	// Parsing uses one replica-local view for primary, caller and rule fallbacks.
+	ctx.SetValue(modelConfigKey{}, e.account.config.Load())
+	if e.catalog != nil {
+		ctx.SetValue(schemas.BifrostContextKeyModelCatalog, e.catalog)
+	}
+
+	ctx.SetValue(schemas.BifrostContextKeyRequestQuery, map[string]string{})
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{})
+	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, map[string][]string{})
 	return ctx, cancel
 }

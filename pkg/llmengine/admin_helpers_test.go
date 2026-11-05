@@ -5,8 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -62,23 +61,14 @@ func testInference(t *testing.T, e *Engine, ctx context.Context, method, path st
 	if body != nil {
 		raw = testJSON(t, body)
 	}
-	u := e.BaseURL()
-	req, err := http.NewRequestWithContext(ctx, method, u.String()+path, bytes.NewReader(raw))
-	if err != nil {
-		return err
-	}
-	resp, err := e.Transport().RoundTrip(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		raw, _ := io.ReadAll(resp.Body)
-		return &APIError{StatusCode: resp.StatusCode, Message: string(raw)}
+	req := httptest.NewRequest(method, path, bytes.NewReader(raw)).WithContext(ctx)
+	recorder := httptest.NewRecorder()
+	e.ServeHTTP(recorder, req)
+	if recorder.Code >= 300 {
+		return &APIError{StatusCode: recorder.Code, Message: recorder.Body.String()}
 	}
 	if out == nil {
-		_, err := io.Copy(io.Discard, resp.Body)
-		return err
+		return nil
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	return json.Unmarshal(recorder.Body.Bytes(), out)
 }

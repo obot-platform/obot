@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -13,8 +12,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"path"
 	"slices"
 	"strconv"
@@ -45,19 +42,24 @@ const (
 	budgetExceededType = "budget_exceeded"
 )
 
-type responseModifier struct {
+type llmResponseWriter struct {
 	user          kuser.Info
 	model         string
 	modelProvider string
 	routeDialect  llmtypes.Dialect
 	client        *client.Client
-	b             *bufio.Reader
-	c             io.Closer
+	w             http.ResponseWriter
+	request       *http.Request
+	header        http.Header
+	status        int
+	committed     bool
 	stream        bool
-	leftover      []byte
-	// Non-streaming JSON is accumulated while forwarded, then parsed once at EOF or Close.
-	nonStreamResponse bytes.Buffer
-	nonStreamParsed   bool
+	body          bytes.Buffer
+	pending       []byte
+	err           error
+	streamError   []byte
+	cancel        context.CancelFunc
+	finished      bool
 
 	// Token usage and model access gating
 	tokenUsageTracker *threadSafeTokenUsageTracker
@@ -85,8 +87,8 @@ type preparedLLMProxyRequest struct {
 // llmProviderProxyBackend is the LLM gateway, which serves every model.
 type llmProviderProxyBackend interface {
 	modelProviderName() string
-	upstreamURL(req *http.Request) (url.URL, llmtypes.Dialect, error)
-	transport() (http.RoundTripper, error)
+	route(req *http.Request) (bifrostRoute, error)
+	ServeHTTP(http.ResponseWriter, *http.Request)
 	// decorateRequest adds headers for the upstream and checks each model the gateway tries
 	// for the request.
 	decorateRequest(l *llmProviderProxy, req api.Context, model *v1.Model) (gatewayRequest, error)
@@ -193,7 +195,9 @@ func copyBody(body *io.ReadCloser) ([]byte, error) {
 	return b, nil
 }
 
-func (r *responseModifier) modifyResponse(resp *http.Response) error {
+// prepareUnary buffers only finite responses so lists and budget errors can be
+// rewritten before headers commit. Streaming never uses a response-body adapter.
+func (r *llmResponseWriter) prepareUnary(resp *http.Response) error {
 	if isModelsListRequest(resp.Request) {
 		if r.unlisted != nil {
 			if err := addListedModels(resp, r.unlisted(resp.Request.Context()), r.routeDialect == llmtypes.DialectAnthropicMessages); err != nil {
@@ -216,32 +220,10 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 		if err := filterModelListResponse(resp, allowedTargetModels, allowAllModels); err != nil {
 			return err
 		}
-		r.audit.recordResponse(resp)
-		wrapRecordingResponse(resp, r.audit, nil, r.client)
 		return nil
 	}
 
 	r.rewriteBudgetExceeded(resp)
-	r.applyServedModel(resp)
-	r.audit.recordResponse(resp)
-	r.usage.recordResponseStatus(resp.StatusCode)
-
-	if !shouldWrapLLMResponse(resp) && !r.shouldWrapGatewayResponse(resp) {
-		// A response an output guardrail blocked reaches the caller as an error, but the
-		// provider produced and billed it, and the gateway priced it.
-		if r.gateway != nil {
-			if cost, ok := r.gateway.cost(); ok {
-				r.recordUsage(r.withGatewayUsage(gatewaytypes.TokenUsage{}, cost))
-			}
-		}
-		wrapRecordingResponse(resp, r.audit, r.usage, r.client)
-		return nil
-	}
-
-	r.c = resp.Body
-	r.b = bufio.NewReader(resp.Body)
-	r.stream = strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
-	resp.Body = r
 	return nil
 }
 
@@ -249,7 +231,7 @@ func (r *responseModifier) modifyResponse(resp *http.Response) error {
 // The gateway's routing rules and fallbacks can serve a request with another model than the
 // requested one, which may cost more or less. The LLM audit log keeps the requested model, and
 // records the served one separately.
-func (r *responseModifier) applyServedModel(resp *http.Response) {
+func (r *llmResponseWriter) applyServedModel(resp *http.Response) {
 	// A refused request names the model it was routed to, but wasn't served by it.
 	if r.modelProvider != system.LLMGatewayModelProvider || resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return
@@ -294,33 +276,6 @@ func servedModelChange(header http.Header, requested string, resolve func(string
 		return nil
 	}
 	return m
-}
-
-func shouldWrapLLMResponse(resp *http.Response) bool {
-	if resp.StatusCode != http.StatusOK {
-		return false
-	}
-	switch resp.Request.URL.Path {
-	case "/v1/messages", "/anthropic/v1/messages", "/v1/responses", "/openai/v1/responses":
-		return true
-	default:
-		return false
-	}
-}
-
-// shouldWrapGatewayResponse reports whether an LLM gateway response carries usage that
-// Obot must meter. The gateway also serves Chat Completions and embeddings, which the
-// per-provider routes pass through unmetered.
-func (r *responseModifier) shouldWrapGatewayResponse(resp *http.Response) bool {
-	if r.modelProvider != system.LLMGatewayModelProvider || resp.StatusCode != http.StatusOK {
-		return false
-	}
-	switch resp.Request.URL.Path {
-	case "/v1/chat/completions", "/v1/embeddings":
-		return true
-	default:
-		return false
-	}
 }
 
 // filterModelListResponse rewrites a provider models-list response, dropping any
@@ -418,100 +373,10 @@ func rewriteAnthropicListCursors(body []byte) ([]byte, error) {
 	return body, nil
 }
 
-func (r *responseModifier) Read(p []byte) (int, error) {
-	if !r.stream {
-		n, err := r.b.Read(p)
-		if n > 0 {
-			_, _ = r.nonStreamResponse.Write(p[:n])
-			r.audit.captureResponseChunk(p[:n])
-		}
-		if errors.Is(err, io.EOF) {
-			r.parseNonStreamTokenUsage()
-		}
-		return n, err
-	}
-
-	if len(r.leftover) > 0 {
-		n := copy(p, r.leftover)
-		r.leftover = r.leftover[n:]
-		r.audit.captureResponseChunk(p[:n])
-		return n, nil
-	}
-
-	line, err := r.b.ReadBytes('\n')
-	if len(line) > 0 && errors.Is(err, io.EOF) {
-		// Don't send an EOF until we read everything.
-		err = nil
-	}
-	if err != nil {
-		n := copy(p, line)
-		r.audit.captureResponseChunk(p[:n])
-		return n, err
-	}
-
-	var prefix []byte
-	if r.stream {
-		prefix = []byte("data: ")
-		rest, ok := bytes.CutPrefix(line, prefix)
-		if !ok {
-			// This isn't a data line, so send it through.
-			n := copy(p, line)
-			r.audit.captureResponseChunk(p[:n])
-			return n, nil
-		}
-		line = rest
-	}
-
-	r.tokenUsageTracker.addTokenUsage(line)
-
-	n := copy(p, prefix)
-	if n < len(prefix) {
-		// We couldn't copy the entire prefix, so save the leftover for the next read and return.
-		r.leftover = append(prefix[n:], line...)
-		r.audit.captureResponseChunk(p[:n])
-		return n, nil
-	}
-
-	n += copy(p[n:], line)
-
-	// If we didn't copy the entire line, then save the leftover for the next read.
-	r.leftover = line[n-len(prefix):]
-
-	r.audit.captureResponseChunk(p[:n])
-	return n, nil
-}
-
-func (r *responseModifier) parseNonStreamTokenUsage() {
-	if r.stream || r.nonStreamParsed {
-		return
-	}
-	r.tokenUsageTracker.addTokenUsage(r.nonStreamResponse.Bytes())
-	r.nonStreamParsed = true
-}
-
-func (r *responseModifier) Close() error {
-	r.parseNonStreamTokenUsage()
-	if r.tokenUsageTracker != nil {
-		usage := r.tokenUsageTracker.getTokenUsage()
-		if r.gateway != nil {
-			if cost, ok := r.gateway.cost(); ok {
-				usage = r.withGatewayUsage(usage, cost)
-			}
-		}
-		r.recordUsage(usage)
-	}
-	// ReverseProxy does not return body-copy errors to the handler, so Close is
-	// the terminal point for proxied responses. The handler defer is a fallback.
-	err := r.c.Close()
-	r.audit.finish(r.client, err)
-	r.usage.finish(err)
-	return err
-}
-
 // recordUsage records a response's usage in the audit log and token usage, and charges a
 // gateway request's budgets with it. A response the caller's Claude subscription paid for
 // cost Obot nothing, so its tokens are recorded without spend.
-func (r *responseModifier) recordUsage(usage gatewaytypes.TokenUsage) {
+func (r *llmResponseWriter) recordUsage(usage gatewaytypes.TokenUsage) {
 	if r.gateway != nil && r.gateway.paidBySubscription() {
 		usage.InputSpend, usage.CacheReadSpend, usage.CacheWriteSpend, usage.OutputSpend, usage.TotalSpend = 0, 0, 0, 0, 0
 	}
@@ -531,7 +396,7 @@ func (r *responseModifier) recordUsage(usage gatewaytypes.TokenUsage) {
 // provider bills than Obot's per-token rates; an administrator's cost override for the model
 // still wins. When the response carried no usage the caller could see, such as one an output
 // guardrail blocked, the gateway's token counts are used.
-func (r *responseModifier) withGatewayUsage(usage gatewaytypes.TokenUsage, cost guardrails.Cost) gatewaytypes.TokenUsage {
+func (r *llmResponseWriter) withGatewayUsage(usage gatewaytypes.TokenUsage, cost guardrails.Cost) gatewaytypes.TokenUsage {
 	if usage.TotalTokens == 0 {
 		usage = gatewayTokenUsage(cost)
 		if r.tokenUsageTracker.costOverridden() {
@@ -542,51 +407,6 @@ func (r *responseModifier) withGatewayUsage(usage gatewaytypes.TokenUsage, cost 
 		return usage
 	}
 	return withGatewayCost(usage, cost)
-}
-
-// llmRewriteRequest rewrites requests for the upstream model provider. Director
-// made ReverseProxy append the client IP to X-Forwarded-For automatically, so
-// that is replicated here. SetXForwarded is deliberately not used: it would
-// additionally send X-Forwarded-Host and X-Forwarded-Proto, which Director never
-// did and which would expose internal hostnames to upstream model providers.
-func llmRewriteRequest(u url.URL) func(*httputil.ProxyRequest) {
-	return func(r *httputil.ProxyRequest) {
-		if clientIP, _, err := net.SplitHostPort(r.In.RemoteAddr); err == nil {
-			if prior := r.In.Header.Values("X-Forwarded-For"); len(prior) > 0 {
-				clientIP = strings.Join(prior, ", ") + ", " + clientIP
-			}
-			r.Out.Header.Set("X-Forwarded-For", clientIP)
-		}
-
-		urlCopy := u // avoid mutating the original url.URL across requests
-		req := r.Out
-		reqPath := req.PathValue("path")
-		switch {
-		case urlCopy.Path == "":
-			// Upstream base has no path. Ensure exactly one /v1 prefix in the
-			// final URL regardless of whether the client supplied it.
-			if strings.HasPrefix(reqPath, "v1/") || reqPath == "v1" {
-				urlCopy.Path = "/"
-			} else {
-				urlCopy.Path = "/v1"
-			}
-		case strings.HasSuffix(urlCopy.Path, "/v1"):
-			// The upstream base already ends in /v1. Strip the same prefix from
-			// the client path so we don't produce /v1/v1/...
-			reqPath = strings.TrimPrefix(reqPath, "v1/")
-			if reqPath == "v1" {
-				reqPath = ""
-			}
-		}
-		urlCopy.Path = path.Join(urlCopy.Path, reqPath)
-		req.URL = &urlCopy
-		req.Host = urlCopy.Host
-
-		// Ensure the upstream transport can transparently decode compressed responses.
-		// If we forward Accept-Encoding from the client, net/http transport will not
-		// auto-decompress and token usage parsing can see compressed bytes.
-		req.Header.Del("Accept-Encoding")
-	}
 }
 
 func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
@@ -611,17 +431,27 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		usage *llmUsageRecorder
 	)
 	audit = newProxyLLMAuditRecorder(req)
+	// Engine and plugin code runs on this handler's stack and can panic if buggy.
+	// Record failed accounting before rethrowing to the outer HTTP recovery handler.
 	defer func() {
+		recovered := recover()
+		if recovered != nil {
+			retErr = errors.New("LLM gateway request panicked")
+		}
 		audit.finish(req.GatewayClient, retErr)
 		usage.finish(retErr)
+		if recovered != nil {
+			panic(recovered)
+		}
 	}()
 	audit.setModel(l.backend.modelProviderName(), "", "")
 
-	u, routeDialect, err := l.backend.upstreamURL(req.Request)
+	endpoint, err := l.backend.route(req.Request)
 	if err != nil {
 		return err
 	}
 
+	routeDialect := endpoint.dialect
 	var limit int64
 	if limiter, ok := l.backend.(bodyLimitingBackend); ok {
 		limit = limiter.maxRequestBodyBytes()
@@ -704,7 +534,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	req.Request.Body = io.NopCloser(bytes.NewReader(prepared.body))
 	req.ContentLength = int64(len(prepared.body))
 
-	// The transport fills in how the gateway routed the request as the response arrives.
+	// Core observers record routing as the response arrives.
 	routing := &gatewayRouting{audit: audit}
 	req.Request = req.WithContext(withGatewayRouting(req.Context(), routing))
 	var gateway gatewayRequest
@@ -724,12 +554,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	defer gateway.release()
 	audit.setGuardrailFindings(gateway.guardrailFindings)
 
-	transport, err := l.backend.transport()
-	if err != nil {
-		return err
-	}
-
-	modifier := &responseModifier{
+	output := &llmResponseWriter{
 		user:              req.User,
 		model:             prepared.model,
 		modelProvider:     modelProvider.Name,
@@ -744,28 +569,43 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		clientHeader:      req.ResponseWriter.Header(),
 	}
 	if lister, ok := l.backend.(modelListingBackend); ok && isModelsListRequest(req.Request) {
-		modifier.unlisted = lister.unlistedModels
+		output.unlisted = lister.unlistedModels
 	}
 
-	var proxyErr error
-	(&httputil.ReverseProxy{
-		Rewrite:   llmRewriteRequest(u),
-		Transport: transport,
-		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
-			proxyErr = err
-			audit.recordResponseStatus(http.StatusBadGateway)
-			audit.finish(req.GatewayClient, err)
-			usage.recordResponseStatus(http.StatusBadGateway)
-			usage.finish(err)
-			slog.Warn("LLM provider proxy error", "error", err)
-			llmtypes.WriteError(w, req.Request, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
-		},
-		ModifyResponse: modifier.modifyResponse,
-	}).ServeHTTP(req.ResponseWriter, req.Request)
-	if proxyErr != nil {
-		return nil
+	// Preserve route identity for policy/audit while composing the engine handler
+	// with its native endpoint and the caller's query parameters.
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
+	engineReq := req.Request.Clone(ctx)
+	engineReq.URL.Path = path.Join(endpoint.base, req.PathValue("path"))
+	engineReq.URL.RawPath = ""
+	engineReq.Header.Del("Accept-Encoding")
+	// Retain the former proxy's routing headers without exposing host/protocol.
+	for _, name := range []string{"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto"} {
+		engineReq.Header.Del(name)
 	}
-
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		if prior := req.Request.Header.Values("X-Forwarded-For"); len(prior) > 0 {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		engineReq.Header.Set("X-Forwarded-For", clientIP)
+	}
+	output.w, output.request, output.header, output.cancel = req.ResponseWriter, engineReq, make(http.Header), cancel
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			// Leave HTTP recovery to the outer server; never flush buffered success
+			// while unwinding a panic. Accounting and attempt release still run once.
+			output.failed(errors.New("LLM gateway handler panicked"))
+			if !output.committed {
+				output.audit.recordResponseStatus(http.StatusInternalServerError)
+				output.usage.recordResponseStatus(http.StatusInternalServerError)
+			}
+			output.finalize()
+			panic(recovered)
+		}
+		output.finish()
+	}()
+	l.backend.ServeHTTP(output, engineReq.WithContext(observeGatewayResponse(engineReq.Context())))
 	return nil
 }
 
@@ -892,7 +732,7 @@ func isBudgetRefusal(body []byte, exceeded *client.LLMGatewayBudgetExceeded) boo
 
 // rewriteBudgetExceeded turns the gateway's refusal of a request whose budgets are exhausted
 // into the budget error clients are given.
-func (r *responseModifier) rewriteBudgetExceeded(resp *http.Response) {
+func (r *llmResponseWriter) rewriteBudgetExceeded(resp *http.Response) {
 	if r.gateway == nil || resp.StatusCode != http.StatusTooManyRequests {
 		return
 	}

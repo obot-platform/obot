@@ -1,23 +1,17 @@
 package messagepolicy
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"regexp"
 	"strings"
 	"sync"
 
-	"github.com/tidwall/gjson"
+	"github.com/maximhq/bifrost/core/schemas"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
-	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -67,25 +61,13 @@ type MessagePolicyViolation struct {
 
 // resolvedModel holds pre-resolved model provider information to avoid redundant lookups.
 type resolvedModel struct {
-	targetModel  string
-	providerName string
-	providerURL  string
-	dialect      string
-	httpClient   *http.Client
+	targetModel string
 }
 
-// chatMessage is a minimal OpenAI-format chat message for policy evaluation requests.
+// chatMessage keeps the policy prompts independent of provider wire formats.
 type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// chatCompletionRequest is the request body for OpenAI-format chat completions.
-// Stream is always set to true to match normal Obot proxy usage patterns.
-type chatCompletionRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
+	Role    string
+	Content string
 }
 
 // reviewResult holds the outcome of a Stage 2 review.
@@ -124,7 +106,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 		return violations
 	}
 
-	slog.Debug("Resolved llm-mini to", "model", resolved.targetModel, "provider", resolved.providerURL)
+	slog.Debug("Resolved llm-mini to", "model", resolved.targetModel)
 
 	conversationContext := BuildConversationContext(conversationHistory)
 
@@ -191,12 +173,12 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 	return violations
 }
 
-// resolveModel resolves the llm-mini alias to get the target model name, provider URL, and credential headers.
+// resolveModel resolves the llm-mini alias to get the configured target model.
 func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
 	return h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLMMini)
 }
 
-// resolveModelByAlias resolves the given model alias to get the target model name, provider URL, and credential headers.
+// resolveModelByAlias resolves the given model alias to get the configured target model.
 func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.DefaultModelAliasType) (*resolvedModel, error) {
 	slog.Debug("Resolving model alias", "aliasType", aliasType)
 
@@ -232,95 +214,31 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 	if h.llmGateway == nil {
 		return nil, fmt.Errorf("the LLM gateway is not available")
 	}
-	// The gateway translates every dialect, and Chat Completions is the one every upstream
-	// provider supports.
-	u := h.llmGateway.BaseURL()
-	u.Path = "/v1"
-	return &resolvedModel{
-		targetModel:  model.Spec.Manifest.TargetModel,
-		providerName: system.LLMGatewayModelProvider,
-		providerURL:  u.String(),
-		dialect:      string(llmtypes.DialectOpenAIChatCompletions),
-		httpClient:   &http.Client{Transport: h.llmGateway.Transport()},
-	}, nil
+	return &resolvedModel{targetModel: model.Spec.Manifest.TargetModel}, nil
 }
 
-// callLLM makes a streaming LLM call through the LLM gateway.
+// Policies consume complete text, so a native unary call avoids an internal SSE
+// round trip while retaining core normalization, routing and policy plugins.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
-	return h.callLLMChatCompletions(ctx, resolved, messages)
-}
-
-// callLLMChatCompletions calls the provider using the OpenAI chat completions format.
-func (h *Helper) callLLMChatCompletions(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
-	reqBody := chatCompletionRequest{
-		Model:    resolved.targetModel,
-		Messages: messages,
-		Stream:   true,
+	input := make([]schemas.ChatMessage, 0, len(messages))
+	for _, message := range messages {
+		input = append(input, schemas.ChatMessage{
+			Role:    schemas.ChatMessageRole(message.Role),
+			Content: &schemas.ChatMessageContent{ContentStr: &message.Content},
+		})
 	}
-
-	body, err := json.Marshal(reqBody)
+	resp, err := h.llmGateway.ChatCompletion(ctx, resolved.targetModel, input)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	reqURL := resolved.providerURL + "/chat/completions"
-	slog.Debug("Making LLM call to", "model", resolved.targetModel, "url", reqURL)
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	httpClient := http.DefaultClient
-	if resolved.httpClient != nil {
-		httpClient = resolved.httpClient
-	}
-	resp, err := httpClient.Do(httpReq)
-	if err != nil {
-		slog.Error("LLM call failed", "model", resolved.targetModel, "error", err)
 		return "", fmt.Errorf("LLM call failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		slog.Error("LLM call returned non-OK status", "model", resolved.targetModel, "status", resp.StatusCode, "body", string(respBody))
-		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
+	if resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message == nil || resp.Choices[0].Message.Content == nil || resp.Choices[0].Message.Content.ContentStr == nil {
+		return "", fmt.Errorf("LLM call returned no text")
 	}
-
-	return readStreamingResponse(resp.Body, func(data string) gjson.Result {
-		return gjson.Get(data, "choices.0.delta.content")
-	})
-}
-
-// readStreamingResponse reads a generic SSE stream, calling extractDelta for each data line.
-// If the returned Result exists, its string value is appended to the output.
-func readStreamingResponse(r io.Reader, extractDelta func(data string) gjson.Result) (string, error) {
-	var content strings.Builder
-	scanner := bufio.NewScanner(r)
-	scanner.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), 1024*1024) // 1MB max to handle large SSE data lines
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
-		if delta := extractDelta(data); delta.Exists() {
-			content.WriteString(delta.String())
-		}
+	text := *resp.Choices[0].Message.Content.ContentStr
+	if strings.TrimSpace(text) == "" {
+		return "", fmt.Errorf("LLM call returned empty text")
 	}
-
-	if err := scanner.Err(); err != nil {
-		return "", fmt.Errorf("failed to read SSE stream: %w", err)
-	}
-
-	return content.String(), nil
+	return text, nil
 }
 
 // judgeInput builds the user content for both stages: the policy, then the conversation and

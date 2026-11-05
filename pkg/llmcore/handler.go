@@ -469,3 +469,33 @@ func writeBodyReadError(w http.ResponseWriter, d dialect, err error) {
 	}
 	writeError(w, d, http.StatusBadRequest, "invalid_request_error", "could not read request body")
 }
+
+// ChatCompletion is for trusted internal callers that consume a complete result.
+// It shares HTTP model normalization and the configured routing/plugin chain.
+func (e *Engine) ChatCompletion(parent context.Context, model string, messages []schemas.ChatMessage) (resp *schemas.BifrostChatResponse, err error) {
+	// Policy workers have no HTTP recovery. Contain synchronous hook failures here
+	// and discard partial results without including potentially secret panic values.
+	defer func() {
+		if recover() != nil {
+			resp = nil
+			err = errors.New("LLM gateway inference failed")
+		}
+	}()
+	ctx, cancel := e.inferenceContext(parent)
+	defer cancel()
+	// Preserve the routing header seen by the former internal JSON caller.
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{"content-type": "application/json"})
+	provider, normalized, _ := e.normalizeRequestModels(ctx, model, nil)
+	if provider == "" {
+		return nil, fmt.Errorf("model %q must be named as provider/model", model)
+	}
+	resp, engineErr := e.client.ChatCompletionRequest(ctx, &schemas.BifrostChatRequest{Provider: provider, Model: normalized, Input: messages})
+	if engineErr != nil {
+		_, _, message := errorParts(engineErr)
+		return nil, errors.New(message)
+	}
+	if err := parent.Err(); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}

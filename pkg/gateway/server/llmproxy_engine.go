@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
 	"context"
@@ -10,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -79,29 +77,11 @@ type bifrostRoute struct {
 	dialect llmtypes.Dialect
 }
 
-// sanitizingTransport strips implementation details from gateway responses before they
-// reach clients: engine-specific headers (which include upstream key names), the engine's
-// CORS headers, and the engine's extra response fields. The provider and model that served
-// the request are passed on under Obot's own header names.
-type sanitizingTransport struct {
-	next http.RoundTripper
-}
-
-// sseSanitizer strips the engine's fields from each "data:" event of a stream, one line at a
-// time so streaming isn't delayed.
-type sseSanitizer struct {
-	r       *bufio.Reader
-	c       io.Closer
-	pending []byte
-	routing *gatewayRouting
-	audit   *llmAuditRecorder
-}
-
 // gatewayRouting is how the gateway routed one request, as the engine reported it: the
 // provider, model and key of the attempt that answered, and whether that attempt was a
 // fallback. The engine reports it in response headers and in its own response fields, which
-// sanitizingTransport strips before the response reaches the client, so it is kept here for
-// Obot's own records. The proxy puts it in the request's context for the transport to fill.
+// the response writer strips before the response reaches the client, so it is kept here for
+// Obot's own records. The proxy puts it in the request's context for the core observers to fill.
 type gatewayRouting struct {
 	lock  sync.Mutex
 	route llmRoute
@@ -213,28 +193,20 @@ func resolveBifrostRoute(req *http.Request) (bifrostRoute, error) {
 	}
 }
 
-func (b *bifrostProviderBackend) upstreamURL(req *http.Request) (url.URL, llmtypes.Dialect, error) {
+func (b *bifrostProviderBackend) route(req *http.Request) (bifrostRoute, error) {
 	if !b.engine.Ready() {
 		if err := b.engine.Err(); err != nil {
-			return url.URL{}, "", types2.NewErrHTTP(http.StatusServiceUnavailable, "the LLM gateway failed to start")
+			return bifrostRoute{}, types2.NewErrHTTP(http.StatusServiceUnavailable, "the LLM gateway failed to start")
 		}
-		return url.URL{}, "", types2.NewErrHTTP(http.StatusServiceUnavailable, "the LLM gateway is starting")
+		return bifrostRoute{}, types2.NewErrHTTP(http.StatusServiceUnavailable, "the LLM gateway is starting")
 	}
-	route, err := resolveBifrostRoute(req)
-	if err != nil {
-		return url.URL{}, "", err
-	}
-	u := b.engine.BaseURL()
-	u.Path = route.base
-	return u, route.dialect, nil
+	return resolveBifrostRoute(req)
 }
 
-func (b *bifrostProviderBackend) maxRequestBodyBytes() int64 {
-	return b.engine.MaxRequestBodyBytes()
-}
+func (b *bifrostProviderBackend) maxRequestBodyBytes() int64 { return b.engine.MaxRequestBodyBytes() }
 
-func (b *bifrostProviderBackend) transport() (http.RoundTripper, error) {
-	return sanitizingTransport{next: b.engine.Transport()}, nil
+func (b *bifrostProviderBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	b.engine.ServeHTTP(w, r)
 }
 
 func withGatewayRouting(ctx context.Context, routing *gatewayRouting) context.Context {
@@ -298,62 +270,18 @@ func (g *gatewayRouting) recordBody(body []byte) {
 	}
 }
 
-func (t sanitizingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Capture the resolved attempt before sanitization removes internal routing metadata.
-	req = req.WithContext(llmcore.WithResponseObserver(req.Context(), func(extra schemas.BifrostResponseExtraFields) {
+// Observers run in core after routing and successful stream delivery, including
+// guardrail replay. Internal metadata never needs to travel through client JSON.
+func observeGatewayResponse(ctx context.Context) context.Context {
+	ctx = llmcore.WithResponseObserver(ctx, func(extra schemas.BifrostResponseExtraFields) {
 		info := extra.RoutingInfo
-		gatewayRoutingFrom(req.Context()).set(llmRoute{Provider: string(info.Provider), Model: info.Model, Key: info.Key, Fallback: info.IsFallback})
-	}))
-	// Audit only chunks delivered after guardrail replay, using the core accumulator
-	// to preserve each dialect's usage and response shape.
-	req = req.WithContext(llmcore.WithStreamObserver(req.Context(), func(_ *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
-		if routing := gatewayRoutingFrom(req.Context()); routing != nil {
+		gatewayRoutingFrom(ctx).set(llmRoute{Provider: string(info.Provider), Model: info.Model, Key: info.Key, Fallback: info.IsFallback})
+	})
+	return llmcore.WithStreamObserver(ctx, func(_ *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, a *streaming.Accumulator) {
+		if routing := gatewayRoutingFrom(ctx); routing != nil {
 			routing.audit.observeResponseChunk(chunk, a)
 		}
-	}))
-	resp, err := t.next.RoundTrip(req)
-	if err != nil {
-		return nil, err
-	}
-
-	routing := gatewayRoutingFrom(req.Context())
-	routing.recordHeaders(resp.Header)
-	provider := resp.Header.Get("X-Bifrost-Provider")
-	model := resp.Header.Get("X-Bifrost-Resolved-Model")
-	for name := range resp.Header {
-		lower := strings.ToLower(name)
-		if strings.HasPrefix(lower, "x-bifrost-") || strings.HasPrefix(lower, "x-bf-") ||
-			strings.HasPrefix(lower, "access-control-") || lower == "server" || lower == "vary" {
-			resp.Header.Del(name)
-		}
-	}
-	if provider != "" {
-		resp.Header.Set(headerServedProvider, provider)
-	}
-	if model != "" {
-		resp.Header.Set(headerServedModel, model)
-	}
-
-	contentType := resp.Header.Get("Content-Type")
-	switch {
-	case strings.Contains(contentType, "text/event-stream"):
-		resp.Body = &sseSanitizer{r: bufio.NewReader(resp.Body), c: resp.Body, routing: routing, audit: routingAudit(routing)}
-	case strings.Contains(contentType, "application/json"):
-		body, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-		routing.recordBody(body)
-		body = stripEngineFields(body)
-		if resp.StatusCode >= http.StatusBadRequest {
-			body = llmengine.ScrubEngineNameBytes(body)
-		}
-		resp.Body = io.NopCloser(bytes.NewReader(body))
-		resp.ContentLength = int64(len(body))
-		resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
-	}
-	return resp, nil
+	})
 }
 
 // stripEngineFields removes the engine's own fields from a JSON response object. Responses
@@ -372,39 +300,6 @@ func stripEngineFields(body []byte) []byte {
 		}
 	}
 	return body
-}
-
-func (s *sseSanitizer) Read(p []byte) (int, error) {
-	for len(s.pending) == 0 {
-		line, err := s.r.ReadBytes('\n')
-		if len(line) > 0 {
-			if data, ok := bytes.CutPrefix(line, []byte("data: ")); ok && len(data) > 0 && data[0] == '{' {
-				trimmed := bytes.TrimRight(data, "\r\n")
-				// The last event that names a route names the attempt that finished the stream.
-				s.routing.recordBody(trimmed)
-				event := stripEngineFields(trimmed)
-				if gjson.GetBytes(event, "error").Exists() {
-					event = llmengine.ScrubEngineNameBytes(event)
-					s.audit.captureStreamError(event)
-				}
-				line = append(append([]byte("data: "), event...), data[len(trimmed):]...)
-			}
-			s.pending = line
-		}
-		if err != nil {
-			if len(s.pending) == 0 {
-				return 0, err
-			}
-			break
-		}
-	}
-	n := copy(p, s.pending)
-	s.pending = s.pending[n:]
-	return n, nil
-}
-
-func (s *sseSanitizer) Close() error {
-	return s.c.Close()
 }
 
 // trackerDialect lets usage tracking follow the route: every model is served in every
@@ -792,11 +687,4 @@ func (l *llmProviderProxy) gatewayIdentity(user kuser.Info) (guardrails.Identity
 		return guardrails.Identity{}, false, fmt.Errorf("failed to resolve gateway profiles: %w", err)
 	}
 	return identity, isAdmin, nil
-}
-
-func routingAudit(r *gatewayRouting) *llmAuditRecorder {
-	if r == nil {
-		return nil
-	}
-	return r.audit
 }

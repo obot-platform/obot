@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -48,7 +47,6 @@ type Engine struct {
 	core             atomic.Pointer[llmcore.Engine]
 	store            *llmcoreclient.Client
 	prices           *modelcatalog.ModelCatalog
-	baseURL          *url.URL
 	ready            chan struct{}
 	startErr         error
 	startOnce        sync.Once
@@ -69,7 +67,7 @@ type APIError struct {
 }
 
 func New() *Engine {
-	e := &Engine{availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{}), baseURL: &url.URL{Scheme: "http", Host: "obot.internal"}}
+	e := &Engine{availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{})}
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil
@@ -246,10 +244,6 @@ func (e *Engine) MaxRequestBodyBytes() int64 {
 	return defaultMaxRequestBodyBytes
 }
 
-func (e *Engine) Transport() http.RoundTripper { return handlerTransport{handler: e} }
-
-func (e *Engine) BaseURL() url.URL { return *e.baseURL }
-
 func (e *Engine) Client() *bifrostcore.Bifrost {
 	if !e.Ready() {
 		return nil
@@ -274,4 +268,12 @@ func (e *Engine) LLMPluginOrder() []string {
 
 func (e *APIError) Error() string {
 	return fmt.Sprintf("LLM gateway returned %d: %s", e.StatusCode, e.Message)
+}
+
+// ChatCompletion runs trusted message-policy inference through the configured core.
+func (e *Engine) ChatCompletion(ctx context.Context, model string, messages []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+	if !e.Ready() {
+		return nil, errors.New("LLM gateway unavailable")
+	}
+	return e.core.Load().ChatCompletion(ctx, model, messages)
 }

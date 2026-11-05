@@ -1,40 +1,12 @@
 package messagepolicy
 
 import (
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	llmtypes "github.com/obot-platform/obot/pkg/llm"
-	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestCallLLMUsesChatCompletions(t *testing.T) {
-	var gotPath string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.URL.Path
-		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = io.WriteString(w, "data: {\"choices\":[{\"delta\":{\"content\":\"yes\"}}]}\n\n")
-	}))
-	defer server.Close()
-
-	result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
-		targetModel:  "anthropic/claude-haiku-4-5",
-		providerName: system.LLMGatewayModelProvider,
-		providerURL:  server.URL + "/v1",
-		dialect:      string(llmtypes.DialectOpenAIChatCompletions),
-	}, []chatMessage{{Role: "user", Content: "Hello"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, "yes", result)
-	assert.Equal(t, "/v1/chat/completions", gotPath)
-}
 
 func TestBuildConversationContextUserMessage(t *testing.T) {
 	messages := []ConversationMessage{

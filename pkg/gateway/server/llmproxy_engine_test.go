@@ -23,10 +23,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-type fakeRoundTripper struct {
-	resp *http.Response
-}
-
 func TestResolveBifrostRoute(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -139,7 +135,7 @@ func TestChatCompletionsTokenUsageTracker(t *testing.T) {
 	}
 }
 
-func TestSanitizingTransport(t *testing.T) {
+func TestDirectResponseSanitation(t *testing.T) {
 	t.Run("json", func(t *testing.T) {
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
@@ -154,7 +150,7 @@ func TestSanitizingTransport(t *testing.T) {
 			},
 			Body: io.NopCloser(strings.NewReader(`{"id":"c1","is_bifrost_error":false,"extra_fields":{"routing_info":{"key":"primary"}},"choices":[]}`)),
 		}
-		out, err := sanitizingTransport{next: fakeRoundTripper{resp: resp}}.RoundTrip(httptest.NewRequest(http.MethodPost, "/", nil))
+		out, err := writeTestResponse(t, resp, httptest.NewRequest(http.MethodPost, "/", nil))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -178,7 +174,7 @@ func TestSanitizingTransport(t *testing.T) {
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
 			Body:       io.NopCloser(strings.NewReader(`{"object":"list","data":[{"id":"openai/gpt-4.1"}],"key_statuses":[{"key_id":"k1","provider":"openai","status":"success"}]}`)),
 		}
-		out, err := sanitizingTransport{next: fakeRoundTripper{resp: resp}}.RoundTrip(httptest.NewRequest(http.MethodGet, "/v1/models", nil))
+		out, err := writeTestResponse(t, resp, httptest.NewRequest(http.MethodGet, "/v1/models", nil))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -197,7 +193,7 @@ func TestSanitizingTransport(t *testing.T) {
 			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
 			Body:       io.NopCloser(strings.NewReader(stream)),
 		}
-		out, err := sanitizingTransport{next: fakeRoundTripper{resp: resp}}.RoundTrip(httptest.NewRequest(http.MethodPost, "/", nil))
+		out, err := writeTestResponse(t, resp, httptest.NewRequest(http.MethodPost, "/", nil))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -209,10 +205,6 @@ func TestSanitizingTransport(t *testing.T) {
 			t.Fatalf("got %q, want %q", body, want)
 		}
 	})
-}
-
-func (f fakeRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
-	return f.resp, nil
 }
 
 func TestBudgetExceededResponse(t *testing.T) {
@@ -290,7 +282,7 @@ func TestRewriteBudgetExceeded(t *testing.T) {
 			clientHeader.Set("X-RateLimit-Limit", "200")
 			clientHeader.Set("X-RateLimit-Remaining", "199")
 			clientHeader.Set("X-RateLimit-Reset", time.Now().UTC().Format(time.RFC1123))
-			r := &responseModifier{gateway: &gatewayAttempts{budgets: map[string][]string{}, exceeded: exceeded}, clientHeader: clientHeader}
+			r := &llmResponseWriter{gateway: &gatewayAttempts{budgets: map[string][]string{}, exceeded: exceeded}, clientHeader: clientHeader}
 			resp := &http.Response{
 				StatusCode: http.StatusTooManyRequests,
 				Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -637,7 +629,7 @@ func TestWithGatewayUsage(t *testing.T) {
 			if tt.overridden {
 				model.Spec.Manifest.OverrideCost = &override
 			}
-			r := &responseModifier{tokenUsageTracker: newTokenUsageTrackerForDialect(model, llmtypes.DialectOpenAIChatCompletions)}
+			r := &llmResponseWriter{tokenUsageTracker: newTokenUsageTrackerForDialect(model, llmtypes.DialectOpenAIChatCompletions)}
 			got := r.withGatewayUsage(tt.usage, cost)
 			const eps = 1e-12
 			if got.InputTokens != tt.want.InputTokens || got.OutputTokens != tt.want.OutputTokens || got.TotalTokens != tt.want.TotalTokens ||
