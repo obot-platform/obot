@@ -363,7 +363,7 @@ env:
 
 ### Caller attribution headers
 
-Set `injectObotHeaders` on a `remote` or `containerized` catalog entry to select caller information sent to its backend. Omit the field or use an empty list to disable injection. Other runtimes do not support this setting. See [caller attribution headers](../mcp-gateway/register-remote.md#caller-attribution-headers) for the available fields and their limits.
+Set `injectObotHeaders` on a `remote` or `containerized` catalog entry to select caller information sent to its backend. Omit the field or use an empty list to disable injection. Other runtimes do not support this setting. See [caller attribution headers](../mcp-gateway/server-configuration.md#caller-attribution-headers) for the available fields and their limits.
 
 ```yaml
 name: Internal API
