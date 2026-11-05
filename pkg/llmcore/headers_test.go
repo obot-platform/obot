@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -44,7 +45,7 @@ func TestProviderHeaders(t *testing.T) {
 			}))
 			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 			require.NoError(t, err)
-			defer engine.Shutdown()
+			defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 			req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"anthropic/claude-test","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`))
 			req.Header.Set("User-Agent", "claude-cli/2.1.168")
 			req.Header.Set("Anthropic-Version", "2023-06-01")
@@ -90,7 +91,7 @@ func TestCallerCredentialsHTTPRejection(t *testing.T) {
 			require.NoError(t, store.CreateProvider(t.Context(), "anthropic", provider))
 			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 			require.NoError(t, err)
-			defer engine.Shutdown()
+			defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 
 			for _, mode := range []string{"unsafe destination", "missing UA", "other UA", "api key", "mixed", "duplicate", "wrong bearer"} {
 				t.Run(mode, func(t *testing.T) {

@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -46,7 +47,7 @@ func TestHTTPConversionUsesConfiguredProviders(t *testing.T) {
 	capture := &conversionRecorder{}
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{capture}})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 
 	// Another engine can retire this name globally while this engine retains it.
 	schemas.UnregisterKnownProvider("conversion-custom")
@@ -142,7 +143,7 @@ func TestUnavailableCustomProviderHTTPGate(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "unavailable-custom", provider))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	require.ErrorContains(t, engine.Err(), "unavailable-custom")
 
 	for _, path := range []string{
@@ -188,7 +189,7 @@ func TestUpstreamBadRequestKeepsItsStatus(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "upstream-input", transitionProvider(upstream.URL, "secret")))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	defer engine.Shutdown()
+	defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 
 	response := httptest.NewRecorder()
 	engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"upstream-input/test","messages":[{"role":"user","content":"hello"}]}`)))

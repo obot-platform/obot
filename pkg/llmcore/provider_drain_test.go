@@ -62,7 +62,10 @@ func testLongStreamRetirement(t *testing.T, action string) {
 	logger := &drainLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn)}
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: logger})
 	require.NoError(t, err)
-	defer func() { releaseOnce.Do(func() { close(release) }); engine.Shutdown() }()
+	defer func() {
+		releaseOnce.Do(func() { close(release) })
+		require.NoError(t, engine.Shutdown(context.Background()))
+	}()
 	ctx, cancel := schemas.NewBifrostContextWithCancel(t.Context())
 	defer cancel()
 	streamDone := make(chan struct{})

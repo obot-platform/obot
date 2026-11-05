@@ -40,7 +40,7 @@ func TestProviderReadErrorsQuarantineAndRecover(t *testing.T) {
 	}
 	refreshed, err := llmcore.New(ctx, store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(refreshed.Shutdown)
+	t.Cleanup(func() { require.NoError(t, refreshed.Shutdown(context.Background())) })
 	var providers v1.LLMGatewayProviderList
 	require.NoError(t, storage.List(ctx, &providers))
 	var corrupt *v1.LLMGatewayProvider
@@ -55,7 +55,7 @@ func TestProviderReadErrorsQuarantineAndRecover(t *testing.T) {
 	require.NoError(t, storage.Update(ctx, corrupt))
 	degraded, err := llmcore.New(ctx, store, llmcore.Options{})
 	require.NoError(t, err, "unreadable provider must not block healthy startup")
-	t.Cleanup(degraded.Shutdown)
+	t.Cleanup(func() { require.NoError(t, degraded.Shutdown(context.Background())) })
 	require.ErrorContains(t, degraded.Err(), "quarantined")
 	for _, engine := range []*llmcore.Engine{refreshed, degraded} {
 		for range 2 {
@@ -93,7 +93,7 @@ func TestBlockingLoadFailurePreservesRuntime(t *testing.T) {
 	require.NoError(t, store.CreateProvider(ctx, "openai", llmcoreclient.Provider{}))
 	engine, err := llmcore.New(ctx, store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	invalid := &v1.LLMGatewayConfig{Name: system.LLMGatewayConfigName, Namespace: system.DefaultNamespace, Spec: v1.LLMGatewayResourceSpec{Payload: "invalid JSON"}}
 	require.NoError(t, storage.Create(ctx, invalid))
 	changed, err := engine.Sync(ctx)
@@ -125,7 +125,7 @@ func TestStartupProviderFailuresRemainPending(t *testing.T) {
 	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
 	engine, err := llmcore.New(ctx, store, llmcore.Options{Logger: log})
 	require.NoError(t, err, "one failed runtime must not block healthy startup")
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	require.ErrorContains(t, engine.Err(), "broken", "startup failures must be observable before Sync")
 	healthy := engine.Client().GetProviderByKey("healthy")
 	require.NotNil(t, healthy)

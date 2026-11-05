@@ -46,7 +46,7 @@ func TestPartialSyncDoesNotRestartUpdatedProviders(t *testing.T) {
 	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
 	e, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: log})
 	require.NoError(t, err)
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	require.NoError(t, store.MutateSettings(t.Context(), func(settings map[string]json.RawMessage) error {
 		settings["proxy"] = json.RawMessage(`{"enabled":true,"enable_for_inference":true,"url":"http://proxy.example"}`)
 		return nil
@@ -95,7 +95,7 @@ func TestSyncOnlyRestartsProvidersWhoseProxyChanges(t *testing.T) {
 	log := &providerUpdateLogger{Logger: bifrost.NewDefaultLogger(schemas.LogLevelWarn), attempts: map[string]int{}}
 	e, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: log})
 	require.NoError(t, err)
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	for _, raw := range []string{
 		`{"enabled":true,"enable_for_inference":true,"url":"http://global-proxy.example"}`,
 		`{ "url": "http://global-proxy.example", "type":"http", "enable_for_inference": true, "enabled": true }`,

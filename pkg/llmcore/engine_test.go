@@ -149,7 +149,9 @@ func (env *testEnv) newReplica(t *testing.T) *replica {
 	s := httptest.NewServer(e)
 	t.Cleanup(func() {
 		s.Close()
-		e.Shutdown()
+		if err := e.Shutdown(context.Background()); err != nil {
+			t.Errorf("shutdown: %v", err)
+		}
 	})
 	return &replica{engine: e, server: s}
 }

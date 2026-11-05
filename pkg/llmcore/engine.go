@@ -52,6 +52,8 @@ type Engine struct {
 	account    *account
 	routing    *routingPlugin
 
+	shutdownDone chan struct{}
+
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex
 	// retirements retain unfinished removals across Sync retries. Both fields
@@ -433,21 +435,33 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	return changed, nil
 }
 
-// Shutdown stops the engine, letting in-flight requests finish.
-func (e *Engine) Shutdown() {
+// Shutdown starts shutdown and waits for completion or ctx cancellation.
+// Cancellation bounds only the caller's wait: cleanup continues in order because
+// Bifrost provider removal is not cancellable. Later calls join the same shutdown.
+// The caller must stop serving requests before shutting down the engine.
+func (e *Engine) Shutdown(ctx context.Context) error {
 	e.stopOnce.Do(func() {
-		e.syncLock.Lock()
-		defer e.syncLock.Unlock()
-		e.stopped = true
-		// Bifrost removal is not cancellable. Finish the tracked operations before
-		// Shutdown touches the same queues and worker wait groups.
-		for _, drain := range e.retirements {
-			<-drain.done
-		}
-		e.client.Shutdown()
-		e.tracer.Stop()
-		e.traceStore.Stop()
+		e.shutdownDone = make(chan struct{})
+		go func() {
+			defer close(e.shutdownDone)
+			e.syncLock.Lock()
+			defer e.syncLock.Unlock()
+			e.stopped = true
+			// Join removals before core shutdown touches the same queues and workers.
+			for _, drain := range e.retirements {
+				<-drain.done
+			}
+			e.client.Shutdown()
+			e.tracer.Stop()
+			e.traceStore.Stop()
+		}()
 	})
+	select {
+	case <-e.shutdownDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (e *Engine) applySettings(cfg llmcoreclient.Config) {

@@ -80,7 +80,7 @@ func TestFailedProviderReplacementBlocksNewCredentials(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "paired", transitionProvider(oldServer.URL, "old-secret")))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	defer engine.Shutdown()
+	defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 	require.Nil(t, callTransitionProvider(t.Context(), engine))
 	require.NoError(t, store.MutateProvider(t.Context(), "paired", func(p *llmcoreclient.Provider) error {
 		*p = transitionProvider(newServer.URL, "new-secret")
@@ -155,7 +155,10 @@ func TestProviderReplacementGatesHTTPAndDirectCalls(t *testing.T) {
 	defer release.Do(func() { close(logger.releaseUpdate) })
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: logger})
 	require.NoError(t, err)
-	defer func() { release.Do(func() { close(logger.releaseUpdate) }); engine.Shutdown() }()
+	defer func() {
+		release.Do(func() { close(logger.releaseUpdate) })
+		require.NoError(t, engine.Shutdown(context.Background()))
+	}()
 	require.Nil(t, callTransitionProvider(t.Context(), engine))
 	require.NoError(t, store.MutateProvider(t.Context(), "paired", func(p *llmcoreclient.Provider) error {
 		*p = transitionProvider(newServer.URL, "new-secret")
@@ -209,7 +212,10 @@ func TestProviderReplacementDrainsInflightRequests(t *testing.T) {
 	close(logger.releaseUpdate)
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Logger: logger})
 	require.NoError(t, err)
-	defer func() { releaseOnce.Do(func() { close(release) }); engine.Shutdown() }()
+	defer func() {
+		releaseOnce.Do(func() { close(release) })
+		require.NoError(t, engine.Shutdown(context.Background()))
+	}()
 	inflight := make(chan *schemas.BifrostError, 1)
 	go func() { inflight <- callTransitionProvider(t.Context(), engine) }()
 	waitTransition(t, entered)

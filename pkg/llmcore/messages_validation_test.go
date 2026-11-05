@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -51,7 +52,7 @@ var (
 func TestMessagesInputErrorsAreBadRequests(t *testing.T) {
 	engine, err := llmcore.New(t.Context(), newTestStore(t), llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	for _, api := range messagesRequestModes {
 		for _, tt := range []struct {
 			name  string
@@ -109,7 +110,7 @@ func TestMessagesUpstreamFailuresRemainServerErrors(t *testing.T) {
 	}))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	defer engine.Shutdown()
+	defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 	for _, api := range messagesRequestModes {
 		t.Run(fmt.Sprintf("%s/stream=%t", api.path, api.stream), func(t *testing.T) {
 			before := calls.Load()

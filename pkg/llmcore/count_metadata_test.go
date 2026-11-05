@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -65,7 +66,7 @@ func TestSuccessfulTokenCountsReportServingMetadata(t *testing.T) {
 			require.NoError(t, store.PutRule(t.Context(), rule))
 			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 			require.NoError(t, err)
-			defer engine.Shutdown()
+			defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 			for _, api := range []struct {
 				path string
 				body string

@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -71,7 +72,7 @@ func TestProviderStreamErrorsUseAPISpecificEnvelopes(t *testing.T) {
 				require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
 				engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{&streamErrorFixture{before: before}}})
 				require.NoError(t, err)
-				defer engine.Shutdown()
+				defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 				response := httptest.NewRecorder()
 				engine.ServeHTTP(response, httptest.NewRequest(http.MethodPost, api.path, strings.NewReader(fmt.Sprintf(api.body, true))))
 				expected := `{"error":{"type":"rate_limit_error","message":"gateway: quota exhausted"}}`

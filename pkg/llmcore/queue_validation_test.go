@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -39,7 +40,7 @@ func TestInvalidProviderQueuesRecover(t *testing.T) {
 
 				engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 				require.NoError(t, err)
-				defer engine.Shutdown()
+				defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 				healthy := engine.Client().GetProviderByKey("queue-healthy")
 				require.NotNil(t, healthy)
 
@@ -116,7 +117,7 @@ func TestInvalidStandardProviderQueueRemainsPending(t *testing.T) {
 
 			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 			require.NoError(t, err)
-			defer engine.Shutdown()
+			defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 			require.ErrorContains(t, engine.Err(), "openai")
 			require.ErrorContains(t, engine.Err(), field)
 

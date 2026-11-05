@@ -53,7 +53,7 @@ func TestHTTPStreamRedactsSplitSecret(t *testing.T) {
 	input, output := guardrails.New(redactionPolicies{}, nil).Plugins()
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{input, output}})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 
 	for _, api := range encodingAPIs {
 		format, terminal := apiResponses, "event: response.completed\n"

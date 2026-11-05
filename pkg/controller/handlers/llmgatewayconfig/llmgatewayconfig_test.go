@@ -70,7 +70,7 @@ func TestReconcileRetriesStartupAndDiscovery(t *testing.T) {
 	require.Zero(t, attempts)
 	engine.core, err = llmcore.New(ctx, store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(engine.core.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.core.Shutdown(context.Background())) })
 	engine.ready = true
 	require.NoError(t, store.CreateProvider(ctx, "openai", llmcoreclient.Provider{}))
 	// The event's payload is deliberately obsolete: reconciliation must load the store.
@@ -94,7 +94,7 @@ func TestReconcileRetriesApplicationWithoutStarvingDiscovery(t *testing.T) {
 	require.NoError(t, err)
 	core, err := llmcore.New(ctx, store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(core.Shutdown)
+	t.Cleanup(func() { require.NoError(t, core.Shutdown(context.Background())) })
 	applicationErr := errors.New("application failed")
 	engine := &testEngine{ready: true, core: core, syncErr: applicationErr}
 	discoveries := 0
@@ -125,7 +125,7 @@ func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
 	}))
 	core, err := llmcore.New(ctx, store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(core.Shutdown)
+	t.Cleanup(func() { require.NoError(t, core.Shutdown(context.Background())) })
 	require.NoError(t, store.DeleteProvider(ctx, "anthropic"))
 	// An unrelated provider must still apply and become discoverable.
 	require.NoError(t, store.CreateProvider(ctx, "gemini", llmcoreclient.Provider{}))

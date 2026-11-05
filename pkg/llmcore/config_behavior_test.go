@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"math"
@@ -55,7 +56,7 @@ func TestEmptyProviderProxyUsesGlobalInferenceProxy(t *testing.T) {
 	}))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	defer engine.Shutdown()
+	defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 	response := configTestChat(engine, "")
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	require.Equal(t, int64(1), proxyCalls.Load(), "an empty provider proxy must inherit the global inference proxy")
@@ -74,7 +75,7 @@ func newRoutingConfigEngine(t *testing.T, rule tables.TableRoutingRule) (*llmcor
 	require.NoError(t, store.PutRule(t.Context(), rule))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	return engine, store
 }
 

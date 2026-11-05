@@ -36,7 +36,7 @@ func TestFailedRetirementDoesNotStopApply(t *testing.T) {
 	}
 	engine, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
-	defer engine.Shutdown()
+	defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 	oldFailed := engine.client.GetProviderByKey("failed")
 	oldHealthy := engine.client.GetProviderByKey("healthy")
 	for _, provider := range []string{"failed", "healthy"} {

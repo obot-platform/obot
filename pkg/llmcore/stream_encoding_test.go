@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -101,7 +102,7 @@ func newEncodingEngine(t *testing.T, later bool) *llmcore.Engine {
 	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{&encodingFixture{later: later}}})
 	require.NoError(t, err)
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	return engine
 }
 

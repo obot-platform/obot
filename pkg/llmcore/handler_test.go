@@ -1,6 +1,7 @@
 package llmcore_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"math"
@@ -18,7 +19,7 @@ type interruptedBody struct{}
 func TestEndpointRegistration(t *testing.T) {
 	e, err := llmcore.New(t.Context(), newTestStore(t), llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 
 	for _, path := range []string{
 		"/v1/responses",
@@ -82,7 +83,7 @@ func TestBodyReadErrors(t *testing.T) {
 	}))
 	e, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	for _, path := range []string{"/v1/responses", "/v1/chat/completions", "/v1/messages", "/v1/messages/count_tokens", "/v1/responses/input_tokens"} {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, path, nil)
@@ -108,6 +109,6 @@ func TestRequestLimitDoesNotOverflow(t *testing.T) {
 	}))
 	e, err := llmcore.New(t.Context(), store, llmcore.Options{})
 	require.NoError(t, err)
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	require.Equal(t, int64(math.MaxInt64), e.MaxRequestBodyBytes())
 }
