@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -171,9 +170,8 @@ func LegacyImportDone(mp *v1.ModelProvider) bool {
 	return mp.Annotations[legacyImportAnnotation] != ""
 }
 
-// RunStartupTasks imports legacy credentials, configures environment keys, and periodically
-// asks Obot to refresh models. Each provider import is independently idempotent and uses resource-version conflict retries.
-func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) {
+// RunStartupTasks configures environment keys and periodically asks Obot to refresh models.
+func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client) {
 	if err := e.Wait(ctx); err != nil {
 		return
 	}
@@ -191,7 +189,7 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 		}
 	}
 
-	changed, _ := e.startupChanges(ctx, c, gatewayClient, &mp)()
+	changed, _ := e.startupChanges(ctx, c, &mp)()
 	if changed {
 		if _, err := e.Sync(ctx); err != nil {
 			slog.Warn("LLM gateway startup sync failed", "error", err)
@@ -213,30 +211,11 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 	}
 }
 
-// startupChanges imports legacy provider credentials once, configures providers from the
-// environment and applies the egress proxy. mp is the gateway's ModelProvider.
-func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client, mp *v1.ModelProvider) func() (bool, bool) {
+// startupChanges configures providers from the environment and applies the egress proxy.
+// Legacy credential migration is disabled until upgrades from v0.27 are supported.
+func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) func() (bool, bool) {
 	return func() (bool, bool) {
 		changed := false
-		if !LegacyImportDone(mp) {
-			results, err := e.ImportLegacyModelProviders(ctx, c, gatewayClient)
-			changed = slices.ContainsFunc(results, func(r LegacyImportResult) bool { return r.Status == "imported" })
-			failed := err != nil
-			if err != nil {
-				slog.Warn("failed to import legacy model providers into the LLM gateway", "error", err)
-			}
-			for _, r := range results {
-				slog.Info("LLM gateway legacy provider import", "modelProvider", r.ModelProvider, "gatewayProvider", r.GatewayProvider, "status", r.Status, "message", r.Message)
-				failed = failed || r.Status == "error"
-			}
-			// Only record the import once it fully succeeded, so a failure is retried next start.
-			if !failed {
-				if err := recordLegacyImport(ctx, c, mp); err != nil {
-					slog.Warn("failed to record LLM gateway legacy import", "error", err)
-				}
-			}
-		}
-
 		if e.importEnvProviders(ctx, c, mp) {
 			changed = true
 		}

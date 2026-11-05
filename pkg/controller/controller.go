@@ -689,6 +689,6 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 	}
 
 	storage := c.services.StorageClient
-	go c.services.BifrostEngine.RunStartupTasks(ctx, storage, c.services.GatewayClient)
+	go c.services.BifrostEngine.RunStartupTasks(ctx, storage)
 	return nil
 }

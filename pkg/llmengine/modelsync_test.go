@@ -93,3 +93,21 @@ func TestCoreDoesNotAutoDetectKeys(t *testing.T) {
 		t.Fatalf("core imported ambient keys: %v", resp.Providers)
 	}
 }
+
+func TestStartupLeavesLegacyImportPending(t *testing.T) {
+	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
+	t.Setenv(system.AnthropicAPIKeyEnvVar, "")
+	e, ctx := startTestEngine(t)
+	mp := ModelProviderResource()
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
+
+	e.startupChanges(ctx, c, mp)()
+
+	var got v1.ModelProvider
+	if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), &got); err != nil {
+		t.Fatal(err)
+	}
+	if LegacyImportDone(&got) {
+		t.Fatal("startup must not mark unsupported legacy migration complete")
+	}
+}
