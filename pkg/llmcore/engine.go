@@ -333,27 +333,27 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	// must retain their old account values while unrelated providers advance.
 	previous := e.account.config.Load()
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
-	retiring := make(map[schemas.ModelProvider]bool)
+	retiring := make(map[schemas.ModelProvider]struct{})
 	for name, pc := range cfg.Providers {
 		proxy := providerProxy(pc, cfg.Settings["proxy"])
 		_, pending := e.account.transitioning.Load(name)
 		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			updates[name] = proxy
-			retiring[name] = true
+			retiring[name] = struct{}{}
 		}
 	}
 	for name := range previous.Providers {
 		if _, exists := cfg.Providers[name]; !exists {
-			retiring[name] = true
+			retiring[name] = struct{}{}
 		}
 	}
 	for name := range retiring {
 		e.account.transitioning.Store(name, false)
 	}
-	toDrain := make(map[schemas.ModelProvider]bool)
+	toDrain := make(map[schemas.ModelProvider]struct{})
 	for name := range retiring {
 		if e.client.GetProviderByKey(name) != nil || e.retirements[name] != nil {
-			toDrain[name] = true
+			toDrain[name] = struct{}{}
 		}
 	}
 	blocked, errs := e.retireProviders(ctx, toDrain, e.client.RemoveProvider)
@@ -377,7 +377,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	e.applySettings(live)
 	old.Keys = live.Keys
 	for name, proxy := range updates {
-		if blocked[name] {
+		if _, exists := blocked[name]; exists {
 			continue
 		}
 		// Bifrost's constructor reads provider config through the same Account as
@@ -399,7 +399,8 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 		}
 	}
 	for name := range retiring {
-		if _, exists := cfg.Providers[name]; !exists && !blocked[name] {
+		_, isBlocked := blocked[name]
+		if _, exists := cfg.Providers[name]; !exists && !isBlocked {
 			delete(old.Providers, name)
 			delete(e.appliedProxy, name)
 			e.account.transitioning.Delete(name)

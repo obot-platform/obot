@@ -21,7 +21,7 @@ type providerRetirement struct {
 
 // retireProviders requires syncLock. Only the removal goroutines run outside
 // the lock; they publish results through done and never mutate engine state.
-func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.ModelProvider]bool, remove func(schemas.ModelProvider) error) (map[schemas.ModelProvider]bool, []error) {
+func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.ModelProvider]struct{}, remove func(schemas.ModelProvider) error) (map[schemas.ModelProvider]struct{}, []error) {
 	if e.retirements == nil {
 		e.retirements = make(map[schemas.ModelProvider]*providerRetirement)
 	}
@@ -38,7 +38,7 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 	}
 	waitCtx, cancel := context.WithTimeout(ctx, providerDrainWait)
 	defer cancel()
-	blocked := make(map[schemas.ModelProvider]bool)
+	blocked := make(map[schemas.ModelProvider]struct{})
 	var errs []error
 	for name := range providers {
 		drain := e.retirements[name]
@@ -50,14 +50,14 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 			select {
 			case <-drain.done:
 			case <-waitCtx.Done():
-				blocked[name] = true
+				blocked[name] = struct{}{}
 				errs = append(errs, fmt.Errorf("provider %s is still draining: %w", name, waitCtx.Err()))
 				continue
 			}
 		}
 		delete(e.retirements, name)
 		if drain.err != nil {
-			blocked[name] = true
+			blocked[name] = struct{}{}
 			errs = append(errs, fmt.Errorf("retire provider %s: %w", name, drain.err))
 		}
 	}

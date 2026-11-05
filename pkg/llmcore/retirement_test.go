@@ -105,13 +105,13 @@ func TestRetirementCancellationReusesPendingDrain(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	providers := map[schemas.ModelProvider]bool{"pending": true}
+	providers := map[schemas.ModelProvider]struct{}{"pending": {}}
 	blocked, errs := engine.retireProviders(ctx, providers, remove)
-	require.True(t, blocked["pending"])
+	require.Contains(t, blocked, schemas.ModelProvider("pending"))
 	require.ErrorIs(t, errors.Join(errs...), context.Canceled)
 	<-entered
 	blocked, errs = engine.retireProviders(ctx, providers, remove)
-	require.True(t, blocked["pending"])
+	require.Contains(t, blocked, schemas.ModelProvider("pending"))
 	require.ErrorIs(t, errors.Join(errs...), context.Canceled)
 	require.EqualValues(t, 1, removals.Load())
 }
