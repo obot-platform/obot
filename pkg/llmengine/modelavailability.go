@@ -51,12 +51,8 @@ func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schem
 		if model.Alias != nil {
 			id = *model.Alias
 		}
-		if unavailable, ok := statuses[id]; ok {
-			m.unavailable[model.ID] = unavailable
-		}
-		if model.IsDeprecated {
-			m.unavailable[model.ID] = true
-		}
+		// A fresh listing can restore a model that was previously deprecated.
+		m.unavailable[model.ID] = model.IsDeprecated || statuses[id]
 	}
 	return resp, err, nil
 }

@@ -154,3 +154,35 @@ func TestCachedAliasesOmitDeprecatedTargets(t *testing.T) {
 	require.Len(t, models.Models, 1, "neither the deprecated target nor its cached alias may return")
 	require.Equal(t, "openai/current", models.Models[0].ID, "available cached models remain discoverable")
 }
+
+func TestModelAvailabilityRecoversOnSuccessfulListing(t *testing.T) {
+	availability := &modelAvailability{unavailable: map[string]bool{}}
+	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
+	defer ctx.Cancel()
+	ctx.SetValue(modelAvailabilityProviderKey{}, schemas.OpenAI)
+	response := &schemas.BifrostResponse{
+		ListModelsResponse: &schemas.BifrostListModelsResponse{
+			Data: []schemas.Model{{
+				ID:           "openai/test",
+				IsDeprecated: true,
+			}},
+		},
+	}
+	_, _, err := availability.PostLLMHook(ctx, response, nil)
+	require.NoError(t, err)
+	require.True(t, availability.isUnavailable("openai/test"))
+
+	response.ListModelsResponse.Data[0].IsDeprecated = false
+	_, _, err = availability.PostLLMHook(ctx, response, &schemas.BifrostError{})
+	require.NoError(t, err)
+	require.True(t, availability.isUnavailable("openai/test"), "failed listings must retain the previous status")
+	_, _, err = availability.PostLLMHook(ctx, &schemas.BifrostResponse{
+		ListModelsResponse: &schemas.BifrostListModelsResponse{},
+	}, nil)
+	require.NoError(t, err)
+	require.True(t, availability.isUnavailable("openai/test"), "absent models must retain their previous status")
+
+	_, _, err = availability.PostLLMHook(ctx, response, nil)
+	require.NoError(t, err)
+	require.False(t, availability.isUnavailable("openai/test"), "a successful active listing must clear stale deprecation")
+}
