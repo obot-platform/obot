@@ -3,9 +3,9 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -27,28 +27,28 @@ import (
 func TestProviderQueueDefaults(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	var created schemas.ProviderConfig
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, &created))
+	require.NoError(t, testMutation(e, ctx, &created)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
 	require.Positive(t, created.ConcurrencyAndBufferSize.Concurrency, "API must show the effective worker count")
 	require.Positive(t, created.ConcurrencyAndBufferSize.BufferSize)
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, created.ConcurrencyAndBufferSize, cfg.Config.Providers[schemas.OpenAI].ConcurrencyAndBufferSize)
 	var updated schemas.ProviderConfig
-	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai", map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 0}}, &updated))
+	require.NoError(t, testMutation(e, ctx, &updated)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 0}}), false)))
 	require.Positive(t, updated.ConcurrencyAndBufferSize.Concurrency)
 	require.Positive(t, updated.ConcurrencyAndBufferSize.BufferSize)
-	require.Error(t, e.Do(ctx, http.MethodPut, "/api/providers/openai", map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 1}}, nil), "validate effective defaults against the requested queue size")
+	require.Error(t, testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 1}}), false)), "validate effective defaults against the requested queue size")
 }
 
 func TestOmittedQueueStillServesInference(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}))))
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	require.NoError(t, e.Do(bounded, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "openai/gpt-4o-mini", "messages": []map[string]any{{"role": "user", "content": "hello"}}}, nil))
+	require.NoError(t, testInference(t, e, bounded, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "openai/gpt-4o-mini", "messages": []map[string]any{{"role": "user", "content": "hello"}}}, nil))
 }
 
 func TestConcurrentEnvImport(t *testing.T) {
@@ -136,14 +136,14 @@ func TestRefreshModelsFetchesUpstream(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{"id": model, "object": "model"}}})
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}))))
 	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/refresh-models", map[string]any{}, nil))
+	require.NoError(t, e.RefreshProviderModels(ctx, "openai"))
 	require.Contains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-old")
 	generation.Store(1)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/refresh-models", map[string]any{}, nil))
+	require.NoError(t, e.RefreshProviderModels(ctx, "openai"))
 	require.Contains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-new")
 	require.NotContains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-old")
 	after, err := e.store.Load(ctx)
@@ -151,38 +151,35 @@ func TestRefreshModelsFetchesUpstream(t *testing.T) {
 	require.Equal(t, before, after, "model refresh is not a configuration write")
 	require.EqualValues(t, 2, calls.Load())
 	generation.Store(2)
-	require.Error(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/refresh-models", map[string]any{}, nil))
+	require.Error(t, e.RefreshProviderModels(ctx, "openai"))
 	require.Contains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-new", "a failed refresh preserves the last successful listing")
 	generation.Store(3)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/refresh-models", map[string]any{}, nil))
+	require.NoError(t, e.RefreshProviderModels(ctx, "openai"))
 	require.NotContains(t, e.prices.GetUnfilteredModelsForProvider(schemas.OpenAI), "gpt-new", "an empty successful listing replaces cached models")
 }
 
 func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
-	e, _ := startTestEngine(t)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	req := httptest.NewRequest(http.MethodPost, "/api/providers", strings.NewReader(`{"provider":"openai"}`)).WithContext(ctx)
-	rec := httptest.NewRecorder()
-	e.syncMu.Lock()
-	unlock := sync.OnceFunc(e.syncMu.Unlock)
-	defer unlock()
-	done := make(chan struct{})
-	go func() { defer close(done); e.ServeHTTP(rec, req) }()
-	require.Eventually(t, func() bool {
-		cfg, err := e.store.Load(t.Context())
-		_, ok := cfg.Config.Providers[schemas.OpenAI]
-		return err == nil && ok
-	}, 3*time.Second, time.Millisecond)
-	cancel()
-	unlock()
-	select {
-	case <-done:
-	case <-time.After(3 * time.Second):
-		t.Fatal("handler did not finish")
-	}
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	cfg, err := e.store.Load(t.Context())
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
+		Create: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.CreateOption) error {
+			err := c.Create(ctx, obj, opts...)
+			if _, ok := obj.(*v1.LLMGatewayProvider); ok && err == nil {
+				cancel()
+			}
+			return err
+		},
+	})
+	store, err := llmcoreclient.New(wrapped, plaintextConfigCodec{})
+	require.NoError(t, err)
+	e := New()
+	require.NoError(t, e.Start(t.Context(), Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(e.Shutdown)
+	_, err = e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai"}`))
+	require.NoError(t, err)
+	require.ErrorIs(t, ctx.Err(), context.Canceled)
+	cfg, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.Contains(t, cfg.Config.Providers, schemas.OpenAI)
 }
@@ -190,9 +187,11 @@ func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
 func TestSyncFailureAfterCommitStillReturnsSuccess(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	e.core.Load().Shutdown()
-	var out map[string]any
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, &out))
-	require.Equal(t, "openai", out["name"])
+	out, err := e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai"}`))
+	require.NoError(t, err)
+	require.Equal(t, schemas.OpenAI, out.Name)
+	_, err = e.Sync(ctx)
+	require.Error(t, err)
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Contains(t, cfg.Config.Providers, schemas.OpenAI)
@@ -201,19 +200,19 @@ func TestSyncFailureAfterCommitStillReturnsSuccess(t *testing.T) {
 
 func TestKeyRenamePreservesUniqueNames(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
 	var first, second schemas.Key
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "first", "value": "secret-one"}, &first))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "second", "value": "secret-two"}, &second))
-	path := "/api/providers/openai/keys/" + first.ID
-	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": "first"}, nil), "keeping the same name is allowed")
+	require.NoError(t, testMutation(e, ctx, &first)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "first", "value": "secret-one"}))))
+	require.NoError(t, testMutation(e, ctx, &second)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "second", "value": "secret-two"}))))
+	id := first.ID
+	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": "first", "id": second.ID}))), "keeping the same name is allowed")
 	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Error(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": second.Name}, nil))
+	require.Error(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": second.Name}))))
 	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after, "rejected rename must not commit")
-	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": "renamed"}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": "renamed"}))))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	names := map[string]string{}
@@ -229,16 +228,17 @@ func TestPublicWriteDoesNotWaitForRuntime(t *testing.T) {
 	e.syncMu.Lock()
 	unlock := sync.OnceFunc(e.syncMu.Unlock)
 	defer unlock()
-	request := httptest.NewRequest(http.MethodPost, "/api/providers", strings.NewReader(`{"provider":"openai"}`)).WithContext(ctx)
-	response := httptest.NewRecorder()
-	done := make(chan struct{})
-	go func() { defer close(done); e.ServeHTTP(response, request) }()
+	done := make(chan error, 1)
+	go func() {
+		_, err := e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai"}`))
+		done <- err
+	}()
 	select {
-	case <-done:
+	case err := <-done:
+		require.NoError(t, err)
 	case <-time.After(3 * time.Second):
 		t.Fatal("persisted write waited for runtime synchronization")
 	}
-	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	providers, err := e.Client().GetConfiguredProviders()
 	require.NoError(t, err)
 	require.Empty(t, providers, "public write must leave application to reconciliation")
@@ -287,4 +287,55 @@ func TestEnvImportRetriesResourceConflict(t *testing.T) {
 	require.Equal(t, "env-secret", values["env-"+system.OpenAIAPIKeyEnvVar])
 	require.NoError(t, storage.Get(ctx, kclient.ObjectKeyFromObject(mp), mp))
 	require.NotEmpty(t, mp.Annotations["obot.ai/llm-gateway-env-key-openai"])
+}
+
+func TestDirectProviderGuardsUseOwningSnapshot(t *testing.T) {
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	blockLists := false
+	wrapped := interceptor.NewClient(storage, interceptor.Funcs{
+		List: func(ctx context.Context, c kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+			if blockLists {
+				return fmt.Errorf("unexpected aggregate read during scoped mutation")
+			}
+			return c.List(ctx, list, opts...)
+		},
+	})
+	store, err := llmcoreclient.New(wrapped, plaintextConfigCodec{})
+	require.NoError(t, err)
+	e := New()
+	require.NoError(t, e.Start(t.Context(), Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(e.Shutdown)
+	ctx := t.Context()
+	_, err = e.CreateProvider(ctx, json.RawMessage(`{"provider":"vllm","network_config":{"allow_private_network":true}}`))
+	require.NoError(t, err)
+	blockLists = true
+
+	_, err = e.CreateKey(ctx, "vllm", json.RawMessage(`{"name":"metadata","value":"secret","vllm_key_config":{"url":"http://169.254.169.254"}}`))
+	require.ErrorContains(t, err, "can't be used")
+	key, err := e.CreateKey(ctx, "vllm", json.RawMessage(`{"name":"primary","value":"secret-with-enough-characters","vllm_key_config":{"url":"http://10.1.2.3:8000"}}`))
+	require.NoError(t, err)
+	patch := object(key)
+	patch["vllm_key_config"] = map[string]any{"url": "http://10.1.2.4:8000"}
+	_, err = e.UpdateKey(ctx, "vllm", key.ID, testJSON(t, patch))
+	require.ErrorContains(t, err, "entering its secrets again")
+	before, err := store.GetProvider(ctx, "vllm")
+	require.NoError(t, err)
+
+	patch = map[string]any{"network_config": map[string]any{"base_url": "http://127.0.0.1:9000", "allow_private_network": true}}
+	_, err = e.UpdateProvider(ctx, "vllm", testJSON(t, patch), false)
+	require.ErrorContains(t, err, "removes its keys")
+	patch["concurrency_and_buffer_size"] = map[string]any{"concurrency": 2, "buffer_size": 1}
+	_, err = e.UpdateProvider(ctx, "vllm", testJSON(t, patch), true)
+	require.ErrorContains(t, err, "Concurrency must be less")
+	after, err := store.GetProvider(ctx, "vllm")
+	require.NoError(t, err)
+	require.Equal(t, before, after, "failed validation must roll back confirmed key removal too")
+
+	delete(patch, "concurrency_and_buffer_size")
+	_, err = e.UpdateProvider(ctx, "vllm", testJSON(t, patch), true)
+	require.NoError(t, err)
+	after, err = store.GetProvider(ctx, "vllm")
+	require.NoError(t, err)
+	require.Empty(t, after.Keys)
+	require.Equal(t, "http://127.0.0.1:9000", after.Config.NetworkConfig.BaseURL)
 }

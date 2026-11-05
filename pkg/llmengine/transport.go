@@ -6,7 +6,7 @@ import (
 	"sync"
 )
 
-// handlerTransport lets the gateway reverse proxy and internal admin client call
+// handlerTransport lets the inference reverse proxy call
 // Engine.ServeHTTP without a listening socket. The proxy still uses RoundTripper
 // to sanitize headers and bodies, including streaming responses.
 //

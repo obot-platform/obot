@@ -36,7 +36,7 @@ func TestGatewayChecksRoutedModelAccess(t *testing.T) {
 			"fallbacks":      []string{"openai/gpt-4o-mini"},
 		},
 	} {
-		if err := gw.Do(ctx, http.MethodPost, "/api/governance/routing-rules", rule, nil); err != nil {
+		if _, err := gw.CreateRoutingRule(ctx, gatewayJSON(t, rule)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -49,6 +49,10 @@ func TestGatewayChecksRoutedModelAccess(t *testing.T) {
 		return &AttemptError{Status: http.StatusForbidden, Type: "permission_denied", Message: fmt.Sprintf("user does not have permission to use model %q", attempt.Model)}
 	}
 	body := `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`
+
+	if _, err := gw.Sync(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name       string
@@ -279,15 +283,19 @@ func TestGatewayDoesNotFallBackAfterInvalidRequest(t *testing.T) {
 func TestGatewayFallsBackWhenNoKeySupportsModel(t *testing.T) {
 	gw, up := startGateway(t, &fakeStore{})
 	ctx := context.Background()
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "mistral",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers/mistral/keys", map[string]any{"name": "km", "value": "sk-m-test", "models": []string{"mistral-large-latest"}, "weight": 1}, nil); err != nil {
+	if _, err := gw.CreateKey(ctx, "mistral", gatewayJSON(t, map[string]any{"name": "km", "value": "sk-m-test", "models": []string{"mistral-large-latest"}, "weight": 1})); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := gw.Sync(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name string
 		path string

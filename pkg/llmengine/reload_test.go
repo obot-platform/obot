@@ -1,7 +1,6 @@
 package llmengine
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -22,7 +21,7 @@ func TestCoreSyncPicksUpAnotherReplicasChanges(t *testing.T) {
 		}
 		t.Cleanup(e.Shutdown)
 	}
-	if err := a.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil); err != nil {
+	if err := testMutation(a, ctx, nil)(a.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))); err != nil {
 		t.Fatal(err)
 	}
 	before := b.core.Load()
@@ -48,8 +47,8 @@ func TestListModelsSyncsAnotherReplicasChanges(t *testing.T) {
 	}
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
-	require.NoError(t, a.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
-	require.NoError(t, a.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}, nil))
+	require.NoError(t, testMutation(a, ctx, nil)(a.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(a, ctx, nil)(a.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}))))
 	providers, err := b.Client().GetConfiguredProviders()
 	require.NoError(t, err)
 	require.Empty(t, providers, "replica B has not reconciled yet")
@@ -65,8 +64,8 @@ func TestListModelsSurvivesPartialSyncFailure(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}))))
 	// Simulate a persisted configuration this replica cannot fully apply.
 	require.NoError(t, e.store.CreateProvider(ctx, "broken", llmcoreclient.Provider{}))
 	for range 2 {
@@ -108,7 +107,7 @@ func TestDegradedStartupExposesProviderDiagnostics(t *testing.T) {
 	require.True(t, engine.Ready(), "healthy providers must remain usable")
 	require.ErrorContains(t, engine.Err(), "anthropic", "startup must expose core diagnostics before a watch event")
 	var configured map[string]any
-	require.NoError(t, engine.Do(ctx, http.MethodGet, "/api/providers/openai", nil, &configured))
+	require.NoError(t, testResult(&configured, "")(engine.GetProvider(ctx, "openai")))
 	require.Equal(t, "openai", configured["name"])
 	_, err = engine.Sync(ctx)
 	require.ErrorContains(t, err, "anthropic")

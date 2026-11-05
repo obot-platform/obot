@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	bifrostcore "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -45,12 +44,10 @@ type syncFailure struct{ err error }
 
 type Engine struct {
 	syncFailure      atomic.Pointer[syncFailure]
-	admin            *http.ServeMux
 	availability     *modelAvailability
 	core             atomic.Pointer[llmcore.Engine]
 	store            *llmcoreclient.Client
 	prices           *modelcatalog.ModelCatalog
-	client           *http.Client
 	baseURL          *url.URL
 	ready            chan struct{}
 	startErr         error
@@ -79,8 +76,6 @@ func New() *Engine {
 		}
 		return e.prices
 	}
-	e.admin = e.adminRoutes()
-	e.client = &http.Client{Transport: handlerTransport{handler: e}}
 	return e
 }
 
@@ -237,10 +232,6 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "LLM gateway unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if strings.HasPrefix(r.URL.Path, "/api/") {
-		e.admin.ServeHTTP(w, r)
-		return
-	}
 	if r.Method == http.MethodGet && (r.URL.Path == "/v1/models" || r.URL.Path == "/anthropic/v1/models") {
 		e.serveModels(w, r)
 		return
@@ -255,7 +246,7 @@ func (e *Engine) MaxRequestBodyBytes() int64 {
 	return defaultMaxRequestBodyBytes
 }
 
-func (e *Engine) Transport() http.RoundTripper { return e.client.Transport }
+func (e *Engine) Transport() http.RoundTripper { return handlerTransport{handler: e} }
 
 func (e *Engine) BaseURL() url.URL { return *e.baseURL }
 
@@ -279,91 +270,6 @@ func (e *Engine) LLMPluginOrder() []string {
 		names = append(names, e.opts.LastPlugin.GetName())
 	}
 	return names
-}
-
-// Do sends a request to the embedded server's API and decodes a JSON response into out. A
-// write the store refused because it was busy is sent again, for up to 30 seconds (see
-// IsStoreBusy).
-func (e *Engine) Do(ctx context.Context, method, path string, body any, out any) error {
-	deadline := time.Now().Add(30 * time.Second)
-	for delay := 100 * time.Millisecond; ; delay = min(delay*2, 2*time.Second) {
-		err := e.do(ctx, method, path, body, out)
-		// Internal import/configuration callers may use a provider immediately after a write.
-		// Public HTTP writes acknowledge persistence; every-replica controllers apply them.
-		if err == nil && method != http.MethodGet && strings.HasPrefix(path, "/api/") && ctx.Value(configContextKey{}) == nil {
-			if _, syncErr := e.Sync(ctx); syncErr != nil {
-				slog.Warn("gateway configuration saved; reconciliation will retry", "error", syncErr)
-			}
-		}
-
-		var apiErr *APIError
-		if !errors.As(err, &apiErr) || !IsStoreBusy(apiErr.StatusCode, []byte(apiErr.Message)) || time.Now().Add(delay).After(deadline) {
-			return err
-		}
-		select {
-		case <-ctx.Done():
-			return err
-		case <-time.After(delay):
-		}
-	}
-}
-
-func (e *Engine) do(ctx context.Context, method, path string, body any, out any) error {
-	if !e.Ready() {
-		if err := e.Err(); err != nil {
-			return fmt.Errorf("LLM gateway failed to start: %w", err)
-		}
-		return errors.New("LLM gateway is starting")
-	}
-
-	var reader *strings.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		reader = strings.NewReader(string(data))
-	} else {
-		reader = strings.NewReader("")
-	}
-
-	u := e.BaseURL()
-	u.Path = path
-	if p, q, ok := strings.Cut(path, "?"); ok {
-		u.Path = p
-		u.RawQuery = q
-	}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), reader)
-	if err != nil {
-		return err
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := e.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		var errBody struct {
-			Error struct {
-				Message string `json:"message"`
-			} `json:"error"`
-			Message string `json:"message"`
-		}
-		_ = json.NewDecoder(resp.Body).Decode(&errBody)
-		msg := errBody.Error.Message
-		if msg == "" {
-			msg = errBody.Message
-		}
-		return &APIError{StatusCode: resp.StatusCode, Message: msg}
-	}
-	if out == nil {
-		return nil
-	}
-	return json.NewDecoder(resp.Body).Decode(out)
 }
 
 func (e *APIError) Error() string {

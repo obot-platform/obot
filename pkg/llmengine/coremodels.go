@@ -2,6 +2,8 @@ package llmengine
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -16,6 +18,9 @@ func (e *Engine) gatewayModels(ctx context.Context, provider schemas.ModelProvid
 }
 
 func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelProvider, unfiltered bool) ([]schemas.Model, error) {
+	if !e.Ready() {
+		return nil, &APIError{StatusCode: http.StatusServiceUnavailable, Message: "LLM gateway unavailable"}
+	}
 	bctx, cancel := schemas.NewBifrostContextWithCancel(ctx)
 	defer cancel()
 	// Preserve provider lifecycle fields through the per-provider post-hook.
@@ -86,4 +91,20 @@ func (e *Engine) serveModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	adminJSON(w, 200, map[string]any{"object": "list", "data": models})
+}
+
+func adminJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	if v != nil {
+		_ = json.NewEncoder(w).Encode(v)
+	}
+}
+
+func adminError(w http.ResponseWriter, err error) {
+	code := http.StatusBadRequest
+	if apiErr, ok := errors.AsType[*APIError](err); ok {
+		code = apiErr.StatusCode
+	}
+	adminJSON(w, code, map[string]any{"error": map[string]any{"message": ScrubEngineName(err.Error())}})
 }

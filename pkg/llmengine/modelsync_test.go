@@ -2,7 +2,6 @@ package llmengine
 
 import (
 	"context"
-	"net/http"
 	"testing"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -87,7 +86,7 @@ func TestCoreDoesNotAutoDetectKeys(t *testing.T) {
 	var resp struct {
 		Providers []any `json:"providers"`
 	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
+	if err := testResult(&resp, "providers")(e.ListProviders(ctx)); err != nil {
 		t.Fatal(err)
 	}
 	if len(resp.Providers) != 0 {

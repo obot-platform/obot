@@ -1,14 +1,9 @@
 package handlers
 
 import (
-	"context"
-	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
-	"time"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/tidwall/gjson"
 )
 
@@ -270,97 +265,6 @@ func TestRejectUnsafeConfig(t *testing.T) {
 	}
 }
 
-func TestEngineError(t *testing.T) {
-	tests := []struct {
-		name        string
-		code        int
-		body        string
-		wantMessage string
-	}{
-		{
-			name:        "engine error object",
-			code:        http.StatusNotFound,
-			body:        `{"is_bifrost_error":false,"status_code":404,"error":{"message":"Provider not found: not found"},"extra_fields":{"routing_info":{}}}`,
-			wantMessage: "Provider not found: not found",
-		},
-		{
-			name:        "top-level message",
-			code:        http.StatusBadRequest,
-			body:        `{"message":"bifrost could not parse the request"}`,
-			wantMessage: "LLM gateway could not parse the request",
-		},
-		{
-			name:        "plain text",
-			code:        http.StatusConflict,
-			body:        "Provider openai already exists\n",
-			wantMessage: "Provider openai already exists",
-		},
-		{
-			name:        "empty body",
-			code:        http.StatusBadGateway,
-			body:        "",
-			wantMessage: "Bad Gateway",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var httpErr *types.ErrHTTP
-			if err := engineError(tt.code, []byte(tt.body)); !errors.As(err, &httpErr) {
-				t.Fatalf("engineError returned %T, want *types.ErrHTTP", err)
-			}
-			if httpErr.Code != tt.code || httpErr.Message != tt.wantMessage {
-				t.Errorf("engineError = %d %q, want %d %q", httpErr.Code, httpErr.Message, tt.code, tt.wantMessage)
-			}
-		})
-	}
-}
-
-// A change the gateway's store refused because it was busy is sent again until it goes
-// through, and given up on, with the store's answer, once retrying takes too long.
-func TestServeRetryingBusyStore(t *testing.T) {
-	respond := func(code int, body string) *httptest.ResponseRecorder {
-		rec := httptest.NewRecorder()
-		rec.WriteHeader(code)
-		_, _ = rec.WriteString(body)
-		return rec
-	}
-	const busy = `{"error":{"message":"failed to update provider key in store: database is locked"}}`
-
-	calls := 0
-	rec, err := serveRetryingBusyStore(context.Background(), func() (*httptest.ResponseRecorder, error) {
-		calls++
-		if calls < 3 {
-			return respond(http.StatusInternalServerError, busy), nil
-		}
-		return respond(http.StatusOK, `{}`), nil
-	})
-	if err != nil || rec.Code != http.StatusOK || calls != 3 {
-		t.Fatalf("got %v, %d after %d calls; want 200 on the third", err, rec.Code, calls)
-	}
-
-	calls = 0
-	rec, _ = serveRetryingBusyStore(context.Background(), func() (*httptest.ResponseRecorder, error) {
-		calls++
-		return respond(http.StatusInternalServerError, `{"error":{"message":"failed to start"}}`), nil
-	})
-	if rec.Code != http.StatusInternalServerError || calls != 1 {
-		t.Fatalf("another failure was retried: %d calls", calls)
-	}
-
-	old := busyStoreRetryTimeout
-	busyStoreRetryTimeout = 500 * time.Millisecond
-	defer func() { busyStoreRetryTimeout = old }()
-	calls = 0
-	start := time.Now()
-	rec, _ = serveRetryingBusyStore(context.Background(), func() (*httptest.ResponseRecorder, error) {
-		calls++
-		return respond(http.StatusInternalServerError, busy), nil
-	})
-	if rec.Code != http.StatusInternalServerError || calls < 2 || time.Since(start) > 2*time.Second {
-		t.Fatalf("got %d after %d calls in %s; want the busy answer once the retry time runs out", rec.Code, calls, time.Since(start))
-	}
-}
-
 func TestRejectEngineAuthConfig(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -500,16 +404,5 @@ func TestIsProviderWrite(t *testing.T) {
 		if got := isProviderWrite(tt.method, tt.path); got != tt.want {
 			t.Errorf("isProviderWrite(%s, %s) = %v, want %v", tt.method, tt.path, got, tt.want)
 		}
-	}
-}
-
-func TestHideEngineFrameworkConfig(t *testing.T) {
-	body := `{"client_config":{"drop_excess_requests":true},"framework_config":{"pricing_url":"file:///data/pricing.json","mcp_library_url":"https://vendor.example/mcp-library","mcp_library_sync_interval":0}}`
-	want := `{"client_config":{"drop_excess_requests":true},"framework_config":{"pricing_url":"file:///data/pricing.json"}}`
-	if got := string(hideEngineFrameworkConfig([]byte(body))); got != want {
-		t.Fatalf("hideEngineFrameworkConfig() = %s, want %s", got, want)
-	}
-	if got := string(hideEngineFrameworkConfig([]byte("nope"))); got != "nope" {
-		t.Fatalf("hideEngineFrameworkConfig() changed a body that isn't JSON: %s", got)
 	}
 }

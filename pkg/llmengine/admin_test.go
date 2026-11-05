@@ -1,7 +1,6 @@
 package llmengine
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -12,27 +11,27 @@ func TestAdminKeyUpdateAndConfirmedDestinationChange(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	upstream := mockOpenAI(t)
 	defer upstream.Close()
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "primary", "value": "sk-private-long-secret", "models": []string{"*"}, "weight": 1}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "primary", "value": "sk-private-long-secret", "models": []string{"*"}, "weight": 1}))))
 	var listed struct {
 		Keys []map[string]any `json:"keys"`
 	}
-	require.NoError(t, e.Do(ctx, http.MethodGet, "/api/providers/openai/keys", nil, &listed))
+	require.NoError(t, testResult(&listed, "keys")(e.ListProviderKeys(ctx, "openai")))
 	require.Len(t, listed.Keys, 1)
 	key := listed.Keys[0]
 	key["name"] = "renamed"
-	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai/keys/"+key["id"].(string), key, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", key["id"].(string), testJSON(t, key))))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "sk-private-long-secret", cfg.Config.Keys[schemas.OpenAI][0].Value.GetValue())
 	before := cfg
 	change := map[string]any{"network_config": map[string]any{"base_url": upstream.URL, "allow_private_network": true}}
-	require.Error(t, e.Do(ctx, http.MethodPut, "/api/providers/openai", change, nil))
+	require.Error(t, testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, change), false)))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, cfg)
 	require.Len(t, cfg.Config.Keys[schemas.OpenAI], 1)
-	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/providers/openai?removeKeys=true", change, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, change), true)))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Empty(t, cfg.Config.Keys[schemas.OpenAI])
@@ -43,11 +42,11 @@ func TestPricingAndRoutingValidationBeforeCommit(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Error(t, e.Do(ctx, http.MethodPost, "/api/governance/pricing-overrides", map[string]any{"name": "invalid", "scope_kind": "unknown", "match_type": "exact", "pattern": "gpt-4o", "patch": map[string]any{}}, nil))
+	require.Error(t, testMutation(e, ctx, nil, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "invalid", "scope_kind": "unknown", "match_type": "exact", "pattern": "gpt-4o", "patch": map[string]any{}}))))
 	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/governance/pricing-overrides", map[string]any{"name": "global", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o", "request_types": []string{"chat_completion"}, "patch": map[string]any{}}, nil))
+	require.NoError(t, testMutation(e, ctx, nil, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "global", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o", "request_types": []string{"chat_completion"}, "patch": map[string]any{}}))))
 	require.False(t, usesUnsupportedBudgetVariable(`headers["request"] == "budget_used"`))
 	require.True(t, usesUnsupportedBudgetVariable(`budget_used > 0.5`))
 	require.True(t, usesUnsupportedBudgetVariable(`request > 0`))
@@ -55,65 +54,13 @@ func TestPricingAndRoutingValidationBeforeCommit(t *testing.T) {
 
 func TestGlobalProxyPasswordRoundTrip(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/proxy-config", map[string]any{"enabled": false, "type": "http", "url": "http://proxy.example.com:3128", "password": "private-proxy-password"}, nil))
+	require.NoError(t, e.UpdateProxyConfig(ctx, testJSON(t, map[string]any{"enabled": false, "type": "http", "url": "http://proxy.example.com:3128", "password": "private-proxy-password"})))
 	var proxy map[string]any
-	require.NoError(t, e.Do(ctx, http.MethodGet, "/api/proxy-config", nil, &proxy))
+	require.NoError(t, testResult(&proxy, "")(e.GetProxyConfig(ctx)))
 	require.NotEqual(t, "private-proxy-password", proxy["password"])
 	proxy["timeout"] = 20
-	require.NoError(t, e.Do(ctx, http.MethodPut, "/api/proxy-config", proxy, nil))
+	require.NoError(t, e.UpdateProxyConfig(ctx, testJSON(t, proxy)))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Contains(t, string(cfg.Config.Settings["proxy"]), "private-proxy-password")
-}
-
-func TestAdminRoutesRejectUnsupportedOperations(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil))
-	before, err := e.store.Load(ctx)
-	require.NoError(t, err)
-
-	for _, tc := range []struct {
-		method string
-		path   string
-		status int
-	}{
-		{
-			method: http.MethodGet,
-			path:   "/api/providers/openai/keys/extra/segment",
-			status: http.StatusNotFound,
-		},
-		{
-			method: http.MethodGet,
-			path:   "/api/config/extra",
-			status: http.StatusNotFound,
-		},
-		{
-			method: http.MethodDelete,
-			path:   "/api/config",
-			status: http.StatusMethodNotAllowed,
-		},
-		{
-			method: http.MethodPost,
-			path:   "/api/proxy-config",
-			status: http.StatusMethodNotAllowed,
-		},
-		{
-			method: http.MethodPut,
-			path:   "/api/governance/routing-rules",
-			status: http.StatusMethodNotAllowed,
-		},
-		{
-			method: http.MethodDelete,
-			path:   "/api/governance/pricing-overrides",
-			status: http.StatusMethodNotAllowed,
-		},
-	} {
-		t.Run(tc.method+tc.path, func(t *testing.T) {
-			status, body := do(t, e, tc.method, tc.path, `{}`)
-			require.Equal(t, tc.status, status, body)
-			after, err := e.store.Load(ctx)
-			require.NoError(t, err)
-			require.Equal(t, before, after, "unsupported operations must not write configuration")
-		})
-	}
 }

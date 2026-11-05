@@ -2,9 +2,9 @@ package llmengine
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"maps"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -28,8 +28,9 @@ var (
 // environment. Bifrost's HTTP client does not read HTTPS_PROXY/NO_PROXY itself, so without
 // this an Obot deployed behind an egress proxy could not reach any provider. Providers that
 // already have a proxy configured, and those whose endpoint NO_PROXY excludes (such as
-// in-cluster vLLM or Ollama servers), are left alone.
-func (e *Engine) ApplyEgressProxy(ctx context.Context) (changed bool) {
+// in-cluster vLLM or Ollama servers), are left alone. This only persists desired
+// settings; startup and model controllers apply them through Sync.
+func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 	if !e.Ready() {
 		return false
 	}
@@ -39,14 +40,15 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) (changed bool) {
 	}
 	proxyFor := cfg.ProxyFunc()
 
-	var resp struct {
-		Providers []map[string]any `json:"providers"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
+	providers, err := e.ListProviders(ctx)
+	if err != nil {
 		slog.Warn("failed to list LLM gateway providers to apply the egress proxy", "error", err)
 		return false
 	}
-	for _, p := range resp.Providers {
+
+	changed := false
+	for _, provider := range providers {
+		p := object(provider)
 		name, _ := p["name"].(string)
 		if name == "" {
 			continue
@@ -72,7 +74,11 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) (changed bool) {
 				delete(body, "keys")
 				// An omitted proxy configuration is kept, so turn it off explicitly.
 				body["proxy_config"] = map[string]any{"type": "none"}
-				if err := e.Do(ctx, http.MethodPut, "/api/providers/"+url.PathEscape(name), body, nil); err != nil {
+				raw, err := json.Marshal(body)
+				if err != nil {
+					continue
+				}
+				if _, err := e.UpdateProvider(ctx, name, raw, false); err != nil {
 					slog.Warn("failed to remove the egress proxy from an LLM gateway provider", "provider", name, "error", err)
 					continue
 				}
@@ -93,7 +99,11 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) (changed bool) {
 			"type": proxyType(proxyURL),
 			"url":  map[string]any{"value": proxyURL.String(), "type": "plain_text"},
 		}
-		if err := e.Do(ctx, http.MethodPut, "/api/providers/"+url.PathEscape(name), body, nil); err != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			continue
+		}
+		if _, err := e.UpdateProvider(ctx, name, raw, false); err != nil {
 			slog.Warn("failed to apply the egress proxy to an LLM gateway provider", "provider", name, "error", err)
 			continue
 		}

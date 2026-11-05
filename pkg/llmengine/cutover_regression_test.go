@@ -3,7 +3,6 @@ package llmengine
 import (
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -13,83 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProviderWriteMethodsCannotBypassGuards(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil))
-	var key schemas.Key
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "primary", "value": "secret"}, &key))
-	before, err := e.store.Load(ctx)
-	require.NoError(t, err)
-	for _, tc := range []struct {
-		method string
-		path   string
-		body   string
-	}{
-		{
-			method: http.MethodPost,
-			path:   "/api/providers/openai",
-			body:   `{"network_config":{"base_url":"http://169.254.169.254"}}`,
-		},
-		{
-			method: http.MethodPost,
-			path:   "/api/providers/openai/keys/" + key.ID,
-			body:   `{"azure_key_config":{"endpoint":"http://169.254.169.254"}}`,
-		},
-		{
-			method: http.MethodPut,
-			path:   "/api/providers/openai/keys",
-			body:   `{"name":"unvalidated","value":"secret"}`,
-		},
-		{
-			method: http.MethodPut,
-			path:   "/api/providers/openai/keys/" + key.ID + "/extra",
-			body:   `{"name":"unvalidated"}`,
-		},
-	} {
-		t.Run(tc.method+tc.path, func(t *testing.T) {
-			code, body := do(t, e, tc.method, tc.path, tc.body)
-			require.Contains(t, []int{http.StatusMethodNotAllowed, http.StatusNotFound}, code, body)
-			after, err := e.store.Load(ctx)
-			require.NoError(t, err)
-			require.Equal(t, before, after)
-		})
-	}
-}
-
-func TestDeletionResponsesAreJSON(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai"}, nil))
-	var rule struct {
-		Rule struct {
-			ID string `json:"id"`
-		} `json:"rule"`
-	}
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/governance/routing-rules", map[string]any{"name": "test", "cel_expression": "true", "targets": []map[string]any{{"provider": "openai", "model": "gpt-4o-mini", "weight": 1}}}, &rule))
-	require.NotEmpty(t, rule.Rule.ID)
-	for _, path := range []string{"/api/providers/openai", "/api/governance/routing-rules/" + rule.Rule.ID} {
-		rec := httptest.NewRecorder()
-		e.ServeHTTP(rec, httptest.NewRequest(http.MethodDelete, path, nil))
-		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-		require.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-		var ack map[string]string
-		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &ack))
-		require.Equal(t, "deleted", ack["status"])
-	}
-}
-
 func TestPricingUpdatePreservesOmittedPatch(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	var out struct {
 		Override configPricingOverride `json:"pricing_override"`
 	}
 	patch := `{"input_cost_per_token":0.001,"output_cost_per_token":0.002}`
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/governance/pricing-overrides", map[string]any{"name": "custom", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o-mini", "request_types": []string{"chat_completion"}, "patch": json.RawMessage(patch)}, &out))
-	path := "/api/governance/pricing-overrides/" + out.Override.ID
-	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"name": "renamed"}, &out))
+	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "custom", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o-mini", "request_types": []string{"chat_completion"}, "patch": json.RawMessage(patch)}))))
+	id := out.Override.ID
+	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"name": "renamed"}))))
 	require.JSONEq(t, patch, out.Override.PricingPatchJSON)
-	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"patch": map[string]any{"input_cost_per_token": 0.003}}, &out))
+	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"patch": map[string]any{"input_cost_per_token": 0.003}}))))
 	require.JSONEq(t, `{"input_cost_per_token":0.003}`, out.Override.PricingPatchJSON)
-	require.NoError(t, e.Do(ctx, http.MethodPut, path, map[string]any{"patch": map[string]any{}}, &out))
+	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"patch": map[string]any{}}))))
 	require.JSONEq(t, `{}`, out.Override.PricingPatchJSON)
 }
 
@@ -109,13 +44,13 @@ func TestModelListingsIncludeCatalogMetadata(t *testing.T) {
 	require.NoError(t, e.prices.ForceReloadPricing(ctx))
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "primary", "value": "secret", "aliases": map[string]any{"friendly": map[string]any{"model_id": "gpt-4o-mini"}}}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "primary", "value": "secret", "aliases": map[string]any{"friendly": map[string]any{"model_id": "gpt-4o-mini"}}}))))
 	for _, path := range []string{"/v1/models", "/v1/models?provider=openai"} {
 		var out struct {
 			Data []schemas.Model `json:"data"`
 		}
-		require.NoError(t, e.Do(ctx, http.MethodGet, path, nil, &out))
+		require.NoError(t, testInference(t, e, ctx, http.MethodGet, path, nil, &out))
 		for _, id := range []string{"openai/gpt-4o-mini", "openai/friendly"} {
 			var found bool
 			for _, m := range out.Data {

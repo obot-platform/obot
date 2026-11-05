@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"slices"
 	"time"
@@ -93,13 +92,13 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		// reload it and upsert only the named environment key rather than replacing it.
 		update := func(provider *llmcoreclient.Provider) error {
 			cfg := llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.ModelProvider(p.provider): provider.Config}, Keys: map[schemas.ModelProvider][]schemas.Key{schemas.ModelProvider(p.provider): provider.Keys}}
-			path, method := "providers/"+p.provider+"/keys", http.MethodPost
+			id, method := "", http.MethodPost
 			if i := slices.IndexFunc(provider.Keys, func(k schemas.Key) bool { return k.Name == keyName }); i >= 0 {
-				path += "/" + provider.Keys[i].ID
+				id = provider.Keys[i].ID
 				method = http.MethodPut
 			}
 			body, _ := json.Marshal(key)
-			if _, err := e.adminWrite(&cfg, path, method, body); err != nil {
+			if _, err := updateKey(&cfg, schemas.ModelProvider(p.provider), provider.Config, id, method, body); err != nil {
 				return err
 			}
 			provider.Keys = cfg.Keys[schemas.ModelProvider(p.provider)]
@@ -155,13 +154,15 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 
 // providerKeys lists a provider's keys, as the engine lists them (with secrets redacted).
 func (e *Engine) providerKeys(ctx context.Context, provider string) ([]map[string]any, error) {
-	var resp struct {
-		Keys []map[string]any `json:"keys"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(provider)+"/keys", nil, &resp); err != nil {
+	keys, err := e.ListProviderKeys(ctx, provider)
+	if err != nil {
 		return nil, err
 	}
-	return resp.Keys, nil
+	out := make([]map[string]any, 0, len(keys))
+	for _, key := range keys {
+		out = append(out, object(key))
+	}
+	return out, nil
 }
 
 // LegacyImportDone reports whether the credentials of legacy model providers have been

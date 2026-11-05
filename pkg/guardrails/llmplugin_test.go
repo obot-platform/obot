@@ -132,23 +132,27 @@ func startGateway(t *testing.T, store *fakeStore) (*llmengine.Engine, *upstream)
 		t.Fatal(err)
 	}
 	t.Cleanup(gw.Shutdown)
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "k", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+	if _, err := gw.CreateKey(ctx, "openai", gatewayJSON(t, map[string]any{"name": "k", "value": "sk-test", "models": []string{"*"}, "weight": 1})); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "anthropic",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers/anthropic/keys", map[string]any{"name": "ka", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+	if _, err := gw.CreateKey(ctx, "anthropic", gatewayJSON(t, map[string]any{"name": "ka", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1})); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := gw.Sync(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -531,4 +535,13 @@ func TestCoreStreamObserverSeesGuardrailReplay(t *testing.T) {
 	if strings.Contains(observed.String(), leakedKey[:10]) || !strings.Contains(observed.String(), "REDACTED:AWS_ACCESS_KEY_ID") {
 		t.Fatalf("observer saw %s", observed.String())
 	}
+}
+
+func gatewayJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }

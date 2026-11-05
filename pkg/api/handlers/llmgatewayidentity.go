@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -270,11 +269,8 @@ func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body 
 		return t
 	}
 	if name != "" {
-		var existing map[string]json.RawMessage
-		if err := h.engine.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(name), nil, &existing); err == nil {
-			if t := baseType(existing); t != "" {
-				return t
-			}
+		if existing, err := h.engine.GetProvider(ctx, name); err == nil && existing.CustomProviderConfig != nil {
+			return string(existing.CustomProviderConfig.BaseProviderType)
 		}
 	}
 	return name

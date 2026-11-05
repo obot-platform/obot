@@ -37,7 +37,7 @@ var (
 // ProviderChange is a provider change made through the admin API, after GuardProviderChange
 // checked it.
 type ProviderChange struct {
-	// Body is the request body to send to the engine.
+	// Body is the validated partial patch, with custom provider identity preserved.
 	Body []byte
 	// RemoveKeys are the IDs of the provider's keys to remove before the change: its base URL
 	// changes, and the caller asked for its keys to be removed rather than sent to the new
@@ -103,8 +103,8 @@ func (e *Engine) GuardProviderChange(ctx context.Context, method, path string, b
 }
 
 func (e *Engine) guardProviderUpdate(ctx context.Context, name string, fields map[string]json.RawMessage, removeKeys bool) (ProviderChange, error) {
-	var current map[string]json.RawMessage
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(name), nil, &current); err != nil {
+	view, err := e.GetProvider(ctx, name)
+	if err != nil {
 		var apiErr *APIError
 		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
 			// An update creates a provider that doesn't exist yet.
@@ -113,6 +113,10 @@ func (e *Engine) guardProviderUpdate(ctx context.Context, name string, fields ma
 		}
 		return ProviderChange{}, fmt.Errorf("failed to read LLM gateway provider %s: %w", name, err)
 	}
+
+	raw, _ := json.Marshal(view)
+	var current map[string]json.RawMessage
+	_ = json.Unmarshal(raw, &current)
 
 	keys, err := e.providerKeys(ctx, name)
 	if err != nil {
@@ -145,11 +149,14 @@ func (e *Engine) guardProviderUpdate(ctx context.Context, name string, fields ma
 
 // guardKey checks a new key, or an update of the stored key (redacted, as the engine lists it).
 func (e *Engine) guardKey(ctx context.Context, provider string, fields map[string]json.RawMessage, stored []byte) error {
-	var current map[string]json.RawMessage
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(provider), nil, &current); err != nil {
+	view, err := e.GetProvider(ctx, provider)
+	if err != nil {
 		// The engine reports the missing provider.
 		return nil
 	}
+	raw, _ := json.Marshal(view)
+	var current map[string]json.RawMessage
+	_ = json.Unmarshal(raw, &current)
 	network, _ := networkSettings(current)
 
 	body, _ := json.Marshal(fields)

@@ -31,10 +31,10 @@ func TestModelDiscoveryOmitsCatalogDeprecatedModels(t *testing.T) {
 		}})
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}, nil))
-	require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "test", "value": "secret"}, nil))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret"}))))
 	var listed struct{ Data []schemas.Model }
-	require.NoError(t, e.Do(ctx, http.MethodGet, "/v1/models", nil, &listed))
+	require.NoError(t, testInference(t, e, ctx, http.MethodGet, "/v1/models", nil, &listed))
 	ids := []string{}
 	for _, model := range listed.Data {
 		ids = append(ids, model.ID)
@@ -44,7 +44,7 @@ func TestModelDiscoveryOmitsCatalogDeprecatedModels(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, models.Models, 3)
 	var admin struct{ Models []struct{ Name string } }
-	require.NoError(t, e.Do(ctx, http.MethodGet, "/api/models?provider=openai", nil, &admin))
+	require.NoError(t, testResult(&admin, "models")(e.ListCatalogModels(ctx, "openai", "")))
 	for _, model := range admin.Models {
 		require.NotEqual(t, "babbage-002", model.Name)
 		require.NotEqual(t, "old-chat", model.Name)
@@ -90,24 +90,24 @@ func TestBedrockDiscoveryOmitsUnavailableModels(t *testing.T) {
 				}})
 			}))
 			t.Cleanup(up.Close)
-			require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "bedrock", "network_config": map[string]any{"insecure_skip_verify": true, "allow_private_network": true}}, nil))
-			require.NoError(t, e.Do(ctx, http.MethodPost, "/api/providers/bedrock/keys", map[string]any{
+			require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "bedrock", "network_config": map[string]any{"insecure_skip_verify": true, "allow_private_network": true}}))))
+			require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "bedrock", testJSON(t, map[string]any{
 				"name": "test", "value": "test-bearer", "bedrock_key_config": map[string]any{
 					"region": "us-east-1", "endpoints": map[string]any{"control_plane": up.URL, "mantle": up.URL},
 				},
-			}, nil))
+			}))))
 			models, err := e.ListModels(ctx)
 			require.NoError(t, err)
 			require.Len(t, models.Models, 1, "models supporting both inference types remain available")
 			unavailable.Store(true)
 			var listed struct{ Data []schemas.Model }
-			require.NoError(t, e.Do(ctx, http.MethodGet, "/v1/models", nil, &listed))
+			require.NoError(t, testInference(t, e, ctx, http.MethodGet, "/v1/models", nil, &listed))
 			require.Empty(t, listed.Data, "unavailable models must disappear from public discovery")
 			models, err = e.ListModels(ctx)
 			require.NoError(t, err)
 			require.Empty(t, models.Models, "last-known fallback must not resurrect the unavailable model")
 			var admin struct{ Models []struct{ Name string } }
-			require.NoError(t, e.Do(ctx, http.MethodGet, "/api/models?provider=bedrock", nil, &admin))
+			require.NoError(t, testResult(&admin, "models")(e.ListCatalogModels(ctx, "bedrock", "")))
 			require.Empty(t, admin.Models)
 		})
 	}

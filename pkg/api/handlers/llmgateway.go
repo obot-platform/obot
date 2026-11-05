@@ -8,12 +8,9 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"path"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -45,17 +42,12 @@ var (
 		"proxy-config",
 	}
 
-	// busyStoreRetryTimeout bounds how long a change waits for the gateway's store.
-	busyStoreRetryTimeout = 30 * time.Second
-
 	// gatewayRegion matches a cloud region, such as us-central1 or eu-west-2.
 	gatewayRegion = regexp.MustCompile(`^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$`)
 )
 
-// LLMGatewayHandler serves Obot's management API for the embedded Bifrost gateway. Most
-// of it is a guarded pass-through to Bifrost's own management API; Obot adds its own
-// budgets (enforced by Obot, not Bifrost), model sync, and import of legacy model provider
-// credentials.
+// LLMGatewayHandler owns the public management HTTP boundary. Engine operations
+// validate and persist desired configuration directly; Obot also owns budgets and model sync.
 type LLMGatewayHandler struct {
 	engine    *llmengine.Engine
 	mapHelper *modelaccesspolicy.Helper
@@ -130,7 +122,7 @@ func (h *LLMGatewayHandler) requireEngine() error {
 	return nil
 }
 
-// Proxy forwards /api/llm-gateway/admin/{path...} to Bifrost's /api/{path...}.
+// Proxy serves the existing /api/llm-gateway/admin/{path...} contract through direct Engine calls.
 func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 	if err := h.requireEngine(); err != nil {
 		return err
@@ -139,6 +131,10 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 	path, ok := allowedBifrostAPIPath(req.PathValue("path"), req.URL.EscapedPath())
 	if !ok {
 		return types.NewErrNotFound("LLM gateway API %q is not available", req.PathValue("path"))
+	}
+
+	if err := validateAdminOperation(req.Method, path); err != nil {
+		return err
 	}
 
 	body, err := req.Body(api.BodyOptions{MaxBytes: 32 * 1024 * 1024})
@@ -182,115 +178,21 @@ func (h *LLMGatewayHandler) Proxy(req api.Context) error {
 		}
 	}
 
-	// removeKeys confirms that changing a provider's base URL removes its keys (see
-	// llmengine.GuardProviderChange). The core admin handler applies it atomically.
-	query := req.URL.Query()
-
 	ctx := req.Context()
-	if req.Method != http.MethodGet {
-		// Once a change reaches the gateway it must finish and be announced to the other
-		// replicas even if the client goes away, so the client can't cancel it midway.
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
+		// Successful durable writes must announce model/subscription changes even
+		// after a disconnect. Runtime reconciliation is independent of this response.
 		ctx = context.WithoutCancel(ctx)
 	}
-	serve := func(method, path string, body []byte) (*httptest.ResponseRecorder, error) {
-		out, err := http.NewRequestWithContext(ctx, method, (&url.URL{Path: "/api/" + path, RawQuery: query.Encode()}).String(), bytes.NewReader(body))
-		if err != nil {
-			return nil, err
-		}
-		if ct := req.Request.Header.Get("Content-Type"); ct != "" && body != nil {
-			out.Header.Set("Content-Type", ct)
-		}
-		out.Header.Set("Accept", "application/json")
-		rec := httptest.NewRecorder()
-		h.engine.ServeHTTP(rec, out)
-		return rec, nil
-	}
-
-	rec, err := serve(req.Method, path, body)
+	out, err := h.adminOperation(ctx, req.Method, path, req.URL.Query(), body)
 	if err != nil {
-		return err
+		return gatewayAdminError(err)
 	}
-	if req.Method != http.MethodGet && rec.Code < 300 {
+	if req.Method != http.MethodGet && req.Method != http.MethodHead {
 		h.afterMutation(ctx, req, path)
 	}
-
-	if req.Method == http.MethodGet && path == "config" && rec.Code < 300 {
-		rec.Body = bytes.NewBuffer(hideEngineFrameworkConfig(rec.Body.Bytes()))
-	}
-	if rec.Code >= http.StatusBadRequest {
-		return engineError(rec.Code, rec.Body.Bytes())
-	}
-	for k, vs := range rec.Header() {
-		if strings.EqualFold(k, "Content-Length") {
-			continue
-		}
-		for _, v := range vs {
-			req.ResponseWriter.Header().Add(k, v)
-		}
-	}
-	req.WriteHeader(rec.Code)
-	_, err = req.ResponseWriter.Write(rec.Body.Bytes())
-	return err
-}
-
-// hideEngineFrameworkConfig removes from the gateway's config the settings of the engine's
-// own MCP server library, which Obot doesn't use and which name the engine vendor's site.
-func hideEngineFrameworkConfig(body []byte) []byte {
-	var config map[string]any
-	if json.Unmarshal(body, &config) != nil {
-		return body
-	}
-	framework, ok := config["framework_config"].(map[string]any)
-	if !ok {
-		return body
-	}
-	for key := range framework {
-		if strings.HasPrefix(key, "mcp_library_") {
-			delete(framework, key)
-		}
-	}
-	if out, err := json.Marshal(config); err == nil {
-		return out
-	}
-	return body
-}
-
-// serveRetryingBusyStore sends a change to the gateway, and sends it again while the gateway's
-// store reports it is busy. With SQLite, a write fails at once while the gateway writes its
-// model catalog, which it does for a few seconds after every start or reload. The gateway
-// undoes a change whose store write failed, so sending it again is safe.
-func serveRetryingBusyStore(ctx context.Context, serve func() (*httptest.ResponseRecorder, error)) (*httptest.ResponseRecorder, error) {
-	deadline := time.Now().Add(busyStoreRetryTimeout)
-	for delay := 100 * time.Millisecond; ; delay = min(delay*2, 2*time.Second) {
-		rec, err := serve()
-		if err != nil || !llmengine.IsStoreBusy(rec.Code, rec.Body.Bytes()) || time.Now().Add(delay).After(deadline) {
-			return rec, err
-		}
-		select {
-		case <-ctx.Done():
-			return rec, nil
-		case <-time.After(delay):
-		}
-	}
-}
-
-// engineError turns an error response from the engine's API into an Obot API error carrying
-// only its message, so the engine's own error format and name don't reach clients.
-func engineError(code int, body []byte) error {
-	var errBody struct {
-		Message string `json:"message"`
-		Error   struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	message := strings.TrimSpace(string(body))
-	if json.Unmarshal(body, &errBody) == nil {
-		message = cmp.Or(errBody.Error.Message, errBody.Message)
-	}
-	if message == "" {
-		message = http.StatusText(code)
-	}
-	return types.NewErrHTTP(code, llmengine.ScrubEngineName(message))
+	req.ResponseWriter.Header().Set("Content-Type", "application/json")
+	return json.NewEncoder(req.ResponseWriter).Encode(out)
 }
 
 // allowedBifrostAPIPath validates the requested Bifrost API path against the allowlist. The
@@ -498,7 +400,7 @@ func isServiceAccountKey(creds string) bool {
 	return found
 }
 
-// afterMutation keeps Obot in step with changes made through the proxy.
+// afterMutation announces durable changes to the model controllers and subscription settings.
 func (h *LLMGatewayHandler) afterMutation(ctx context.Context, req api.Context, path string) {
 	switch {
 	case strings.HasPrefix(path, "providers"), strings.HasPrefix(path, "models"), strings.HasPrefix(path, "keys"):

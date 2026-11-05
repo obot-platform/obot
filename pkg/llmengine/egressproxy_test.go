@@ -2,7 +2,6 @@ package llmengine
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -36,7 +35,7 @@ func TestApplyEgressProxy(t *testing.T) {
 			"network_config":         map[string]any{"base_url": "https://10.255.255.1/v1", "allow_private_network": true, "default_request_timeout_in_seconds": 300},
 		},
 	} {
-		if err := e.Do(ctx, http.MethodPost, "/api/providers", p, nil); err != nil {
+		if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, p))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -46,7 +45,7 @@ func TestApplyEgressProxy(t *testing.T) {
 	var resp struct {
 		Providers []map[string]any `json:"providers"`
 	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
+	if err := testResult(&resp, "providers")(e.ListProviders(ctx)); err != nil {
 		t.Fatal(err)
 	}
 	seen := 0
@@ -70,16 +69,16 @@ func TestApplyEgressProxy(t *testing.T) {
 	// Moving a provider to a local endpoint, with its proxy sent back as the UI does, removes
 	// the egress proxy Obot gave it.
 	var custom map[string]any
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/generic-responses", nil, &custom); err != nil {
+	if err := testResult(&custom, "")(e.GetProvider(ctx, "generic-responses")); err != nil {
 		t.Fatal(err)
 	}
 	delete(custom, "keys")
 	custom["network_config"].(map[string]any)["base_url"] = "http://127.0.0.1:9/v1"
-	if err := e.Do(ctx, http.MethodPut, "/api/providers/generic-responses", custom, nil); err != nil {
+	if err := testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "generic-responses", testJSON(t, custom), false)); err != nil {
 		t.Fatal(err)
 	}
 	e.ApplyEgressProxy(ctx)
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/generic-responses", nil, &custom); err != nil {
+	if err := testResult(&custom, "")(e.GetProvider(ctx, "generic-responses")); err != nil {
 		t.Fatal(err)
 	}
 	if hasProxy(custom["proxy_config"]) {

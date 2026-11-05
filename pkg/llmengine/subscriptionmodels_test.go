@@ -110,10 +110,10 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	}
 	defer e.Shutdown()
 
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "anthropic",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	}))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -180,7 +180,7 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 
 	// A provider whose keys are only disabled keeps its models, subscriptions or not, like any
 	// other provider whose keys are disabled for a while.
-	if err := e.Do(ctx, http.MethodPost, "/api/providers/anthropic/keys", map[string]any{"name": "paused", "value": "sk-ant-paused", "models": []string{"*"}, "weight": 1, "enabled": false}, nil); err != nil {
+	if err := testMutation(e, ctx, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "paused", "value": "sk-ant-paused", "models": []string{"*"}, "weight": 1, "enabled": false}))); err != nil {
 		t.Fatal(err)
 	}
 	if _, keys, enabled, err := e.anthropicKeys(ctx); err != nil || keys != 1 || enabled != 0 {
@@ -198,7 +198,7 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	}
 
 	// A key lists the provider's own models instead.
-	if err := e.Do(ctx, http.MethodPost, "/api/providers/anthropic/keys", map[string]any{"name": "k", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+	if err := testMutation(e, ctx, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "k", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1}))); err != nil {
 		t.Fatal(err)
 	}
 	if models := list(); models["anthropic/claude-test-5"] != nil || models["anthropic/claude-live-1"] == nil {

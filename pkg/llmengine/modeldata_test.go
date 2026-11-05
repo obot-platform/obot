@@ -151,13 +151,13 @@ func TestEngineForwardsRequestParameters(t *testing.T) {
 	}
 	defer e.Shutdown()
 	for _, provider := range []string{"openai", "anthropic"} {
-		if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+		if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 			"provider":       provider,
 			"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-		}, nil); err != nil {
+		}))); err != nil {
 			t.Fatal(err)
 		}
-		if err := e.Do(ctx, http.MethodPost, "/api/providers/"+provider+"/keys", map[string]any{"name": provider + "-key", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+		if err := testMutation(e, ctx, nil)(e.CreateKey(ctx, ""+provider+"", testJSON(t, map[string]any{"name": provider + "-key", "value": "sk-test", "models": []string{"*"}, "weight": 1}))); err != nil {
 			t.Fatal(err)
 		}
 	}
