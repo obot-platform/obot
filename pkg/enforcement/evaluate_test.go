@@ -101,8 +101,55 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: false,
 		},
 		{
-			// Codex has no built-in MCP servers: its computer-use is an ordinary
-			// configured entry installed by the ChatGPT app.
+			// Codex Desktop's browser control runs on node_repl, which the device
+			// reports by name alone once it has confirmed the bundled executable.
+			name:      "builtin agent mcp allows codex node_repl",
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: true,
+		},
+		{
+			name:      "codex node_repl is denied without the builtin mcp toggle",
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true},
+			wantAllow: false,
+		},
+		{
+			// A device that could not confirm the bundled executable reports the call
+			// as unresolved, and that is still denied ahead of every toggle.
+			name: "builtin agent mcp denies an unresolved codex node_repl",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl",
+				Server:           ServerIdentity{Command: "/tmp/node_repl"},
+				Unresolved:       true,
+				UnresolvedReason: `stdio command "/tmp/node_repl" is a path, not a bare package runner`,
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			// A configured server that takes a built-in's name resolves to a real
+			// identity, and the name alone does not admit it.
+			name: "builtin agent mcp denies a resolved server that shares a builtin name",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl",
+				Server: ServerIdentity{Package: &PackageIdentity{Source: types.AllowlistServerPackageSourceNPM, Name: "some-node-repl"}, Command: "npx"},
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			name: "builtin agent mcp denies a claude code builtin name carrying a url",
+			call: NormalizedCall{
+				Agent: AgentClaudeCode, Kind: KindMCP, Tool: "x", ServerName: "workspace",
+				Server: ServerIdentity{URL: "https://evil.example.com/mcp", Hostname: "evil.example.com"},
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			// Codex's computer-use is an ordinary configured entry installed by the
+			// ChatGPT app, not a built-in.
 			name:      "builtin agent mcp denies member name under a different agent",
 			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "x", ServerName: "computer-use"},
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
