@@ -386,6 +386,7 @@
 	"models_routing_empty_description": "リクエストは指定されたプロバイダーとモデルに送られます。ルールを追加すると、トラフィックのリダイレクト、分割、フェイルオーバーができます。",
 	"models_routing_search_placeholder": "ルーティングルールを検索...",
 	"models_routing_priority": "優先度",
+	"models_routing_priority_help": "小さい数値から順に評価されます。同じ優先度のルールの順序は保証されません。順序が重要な場合は異なる優先度を設定してください。",
 	"models_routing_when": "条件",
 	"models_routing_route_to": "ルーティング先",
 	"models_routing_fallbacks": "フォールバック",

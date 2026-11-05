@@ -87,7 +87,7 @@ func TestConcurrentEnvImport(t *testing.T) {
 	a, b := New(), New()
 	for _, e := range []*Engine{a, b} {
 		require.NoError(t, e.Start(ctx, opts))
-		t.Cleanup(e.Shutdown)
+		t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	}
 	mp := ModelProviderResource()
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
@@ -175,7 +175,7 @@ func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
 	require.NoError(t, err)
 	e := New()
 	require.NoError(t, e.Start(t.Context(), Options{Store: store, DataDir: t.TempDir()}))
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	_, err = e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai"}`))
 	require.NoError(t, err)
 	require.ErrorIs(t, ctx.Err(), context.Canceled)
@@ -186,7 +186,7 @@ func TestCanceledAfterCommitStillReturnsSuccess(t *testing.T) {
 
 func TestSyncFailureAfterCommitStillReturnsSuccess(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	e.core.Load().Shutdown()
+	require.NoError(t, e.core.Load().Shutdown(context.Background()))
 	out, err := e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai"}`))
 	require.NoError(t, err)
 	require.Equal(t, schemas.OpenAI, out.Name)
@@ -274,7 +274,7 @@ func TestEnvImportRetriesResourceConflict(t *testing.T) {
 	require.NoError(t, err)
 	engine := New()
 	require.NoError(t, engine.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	require.True(t, engine.importEnvProviders(ctx, storage, mp))
 	require.True(t, injected)
 	provider, err := base.GetProvider(ctx, "openai")
@@ -304,7 +304,7 @@ func TestDirectProviderGuardsUseOwningSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	e := New()
 	require.NoError(t, e.Start(t.Context(), Options{Store: store, DataDir: t.TempDir()}))
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	ctx := t.Context()
 	_, err = e.CreateProvider(ctx, json.RawMessage(`{"provider":"vllm","network_config":{"allow_private_network":true}}`))
 	require.NoError(t, err)

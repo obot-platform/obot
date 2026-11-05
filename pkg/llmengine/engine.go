@@ -51,6 +51,7 @@ type Engine struct {
 	startErr         error
 	startOnce        sync.Once
 	stopOnce         sync.Once
+	shutdownDone     chan struct{}
 	syncMu           sync.Mutex
 	appliedPricing   json.RawMessage
 	pricingApplied   bool
@@ -136,7 +137,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.ModelDataURL != "" {
 			go modeldata.Refresh(ctx, dir, opts.ModelDataURL, modeldata.RefreshInterval)
 		}
-		go func() { <-ctx.Done(); e.Shutdown() }()
+		go func() { <-ctx.Done(); _ = e.Shutdown(context.Background()) }()
 	})
 	return e.startErr
 }
@@ -178,15 +179,26 @@ func (e *Engine) syncPricing(_ context.Context) error {
 	return nil
 }
 
-func (e *Engine) Shutdown() {
+// Shutdown bounds the caller's wait while core cleanup continues before the catalog stops.
+func (e *Engine) Shutdown(ctx context.Context) error {
 	e.stopOnce.Do(func() {
-		if engine := e.core.Load(); engine != nil {
-			engine.Shutdown()
-		}
-		if e.prices != nil {
-			_ = e.prices.Cleanup()
-		}
+		e.shutdownDone = make(chan struct{})
+		go func() {
+			defer close(e.shutdownDone)
+			if engine := e.core.Load(); engine != nil {
+				_ = engine.Shutdown(context.Background())
+			}
+			if e.prices != nil {
+				_ = e.prices.Cleanup()
+			}
+		}()
 	})
+	select {
+	case <-e.shutdownDone:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (e *Engine) Wait(ctx context.Context) error {

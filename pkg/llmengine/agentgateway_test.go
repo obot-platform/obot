@@ -8,6 +8,7 @@ import (
 	"time"
 
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEngineStopsUnusedAgentGateway(t *testing.T) {
@@ -29,7 +30,7 @@ func TestEngineStopsUnusedAgentGateway(t *testing.T) {
 	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
 	if after := countRelays(); after != before {
 		t.Fatalf("startup left an unused A2A push relay running: %d before, %d after", before, after)

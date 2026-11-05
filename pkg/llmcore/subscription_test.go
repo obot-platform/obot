@@ -1,6 +1,7 @@
 package llmcore
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -101,7 +102,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 	require.NoError(t, store.CreateProvider(t.Context(), string(provider), subscriptionProvider("configured-key")))
 	e, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	transport(t, e, server)
 
 	for _, tc := range []struct {

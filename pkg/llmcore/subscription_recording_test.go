@@ -156,7 +156,7 @@ func TestSubscriptionRecordingHTTP(t *testing.T) {
 	input, output := guardrails.New(subscriptionPolicies{}, nil).Plugins()
 	e, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{input, output}})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	subscriptionTransport(t, e, server)
 
 	for _, path := range []string{"/v1/messages", "/anthropic/v1/messages", "/v1/chat/completions", "/v1/responses", "/v1/messages/count_tokens", "/anthropic/v1/messages/count_tokens", "/v1/responses/input_tokens"} {
@@ -266,7 +266,7 @@ func TestSubscriptionRecordingFallbackRetry(t *testing.T) {
 			input, output := guardrails.New(subscriptionPolicies{}, nil).Plugins()
 			e, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{input, output}})
 			require.NoError(t, err)
-			defer e.Shutdown()
+			defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 			subscriptionTransport(t, e, server)
 
 			result := subscriptionCall(t.Context(), e, path, "anthropic/fail", stream, true, []string{"foreign/test", "anthropic/test"}, nil)
@@ -360,7 +360,7 @@ func TestSubscriptionFinalGateAfterRewrite(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("configured-key")))
 	e, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{&subscriptionRewrite{}}})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	subscriptionTransport(t, e, server)
 	for _, stream := range []bool{false, true} {
 		result := subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", stream, true, nil, nil)
@@ -383,7 +383,7 @@ func TestNativeJudgeDoesNotInheritSubscriptionCredentials(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("judge-configured-key")))
 	engine, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
-	defer engine.Shutdown()
+	defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 	subscriptionTransport(t, engine, server)
 
 	parent := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)

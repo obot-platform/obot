@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/stretchr/testify/require"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -131,7 +132,7 @@ func startGateway(t *testing.T, store *fakeStore) (*llmengine.Engine, *upstream)
 	if err := gw.Start(ctx, llmengine.Options{Store: configStore, DataDir: dataDir, FirstPlugin: input, LastPlugin: output}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(gw.Shutdown)
+	t.Cleanup(func() { require.NoError(t, gw.Shutdown(context.Background())) })
 	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},

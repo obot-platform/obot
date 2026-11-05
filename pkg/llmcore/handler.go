@@ -69,7 +69,12 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Subscription provider is being reconfigured; retry the request")
 			return
 		}
-		defer lifetime.RUnlock()
+		credential.lease = &subscriptionLease{lock: lifetime}
+		defer func() {
+			if !credential.lease.draining {
+				lifetime.RUnlock()
+			}
+		}()
 		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, credential))
 	}
 
@@ -180,12 +185,7 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 		writeEngineError(w, d, bifrostErr)
 		return
 	}
-	defer func() {
-		ctx.Cancel()
-		// Keep late response hooks within the lifetime of the request's bound state.
-		for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
-		}
-	}()
+	defer drainCanceledStream(ctx, chunks)
 
 	output := streamWriter{w: w, dialect: d}
 	for {
@@ -419,12 +419,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		writeEngineError(w, dialectChat, engineErr)
 		return
 	}
-	defer func() {
-		ctx.Cancel()
-		// Keep late response hooks within the lifetime of the request's bound state.
-		for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
-		}
-	}()
+	defer drainCanceledStream(ctx, chunks)
 
 	output := streamWriter{w: w, dialect: dialectChat}
 	for {
@@ -463,6 +458,21 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		e.observeStream(ctx, chunk)
+	}
+}
+
+// Keep late response hooks within the lifetime of the request's bound state.
+// Subscription admission remains locked until producer cleanup finishes.
+func drainCanceledStream(ctx *schemas.BifrostContext, chunks <-chan *schemas.BifrostStreamChunk) {
+	ctx.Cancel()
+	credential, _ := ctx.Value(subscriptionTokenKey{}).(subscriptionCredentialValue)
+	if credential.lease != nil {
+		credential.lease.draining = true
+	}
+	if credential.lease != nil {
+		defer credential.lease.lock.RUnlock()
+	}
+	for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/maximhq/bifrost/framework/modelcatalog"
 	"github.com/maximhq/bifrost/framework/modelcatalog/datasheet"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/stretchr/testify/require"
 )
 
 // testDatasheet is a small model catalog datasheet, in the format the gateway syncs.
@@ -108,7 +109,7 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
 	if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "anthropic",

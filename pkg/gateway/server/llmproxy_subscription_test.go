@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,7 +49,7 @@ func TestDirectHostedSubscriptionHandoff(t *testing.T) {
 			input, _ := guardrails.New(req.GatewayClient, nil).Plugins()
 			engine := llmengine.New()
 			require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: t.TempDir(), FirstPlugin: input, LastPlugin: fixture}))
-			t.Cleanup(engine.Shutdown)
+			t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 			proxy.backend = &bifrostProviderBackend{engine: engine}
 
 			// Hosted egress supplies the Obot key separately, preserving Claude's login.

@@ -93,6 +93,13 @@ describe('Models routing tab', () => {
 		const dialog = page.getByRole('dialog');
 		await dialog.getByLabelText('Name').fill('Split Claude');
 		await dialog.getByLabelText('Priority').fill('3');
+		await expect
+			.element(
+				dialog.getByText(
+					'Lower numbers run first. Rules with equal priority have no guaranteed order; use different priorities when order matters.'
+				)
+			)
+			.toBeVisible();
 		await dialog.getByLabelText('When (CEL expression)').fill('model.startsWith("claude-")');
 		// New rules start enabled, so creating one offers no toggle.
 		await expect.element(dialog.getByRole('switch', { name: 'Enabled' })).not.toBeInTheDocument();

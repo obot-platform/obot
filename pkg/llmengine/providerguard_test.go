@@ -3,6 +3,7 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"maps"
 	"net/http"
 	"strings"
@@ -18,7 +19,7 @@ func startTestEngine(t *testing.T) (*Engine, context.Context) {
 	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	return e, ctx
 }
 

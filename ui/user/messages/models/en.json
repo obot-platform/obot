@@ -386,6 +386,7 @@
 	"models_routing_empty_description": "Requests go to the provider and model they name. Add a rule to redirect, split or fail over traffic.",
 	"models_routing_search_placeholder": "Search routing rules...",
 	"models_routing_priority": "Priority",
+	"models_routing_priority_help": "Lower numbers run first. Rules with equal priority have no guaranteed order; use different priorities when order matters.",
 	"models_routing_when": "When",
 	"models_routing_route_to": "Route to",
 	"models_routing_fallbacks": "Fallbacks",

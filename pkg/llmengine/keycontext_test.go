@@ -40,7 +40,7 @@ func TestKeyGuardKeepsAcceptedContextAfterCallerCancellation(t *testing.T) {
 	require.NoError(t, err)
 	e := New()
 	require.NoError(t, e.Start(t.Context(), Options{Store: store, DataDir: t.TempDir()}))
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	_, err = e.CreateProvider(t.Context(), json.RawMessage(`{"provider":"azure"}`))
 	require.NoError(t, err)
 

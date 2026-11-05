@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/llm"
@@ -22,6 +23,13 @@ type subscriptionCredentialValue struct {
 	provider  schemas.ModelProvider
 	token     string
 	accountID string
+	lease     *subscriptionLease
+}
+
+// A stream transfers its admission lock to background draining before HTTP returns.
+type subscriptionLease struct {
+	lock     *sync.RWMutex
+	draining bool // Set/read by the HTTP goroutine; the drainer only releases the lock.
 }
 
 type subscriptionPlugin struct {

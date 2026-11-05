@@ -144,7 +144,7 @@ func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Co
 	require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
 	engine := llmengine.New()
 	require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: t.TempDir(), LastPlugin: plugin}))
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	b := &directAccessBackend{storage: storage, informers: map[string]cache.SharedIndexInformer{}}
 	helper, err := modelaccesspolicy.NewHelper(t.Context(), b)
 	require.NoError(t, err)

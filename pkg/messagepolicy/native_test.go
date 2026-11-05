@@ -80,7 +80,7 @@ func nativeHelper(t *testing.T, judge *nativeJudge) (*Helper, kclient.Client) {
 	require.NoError(t, store.CreateProvider(t.Context(), "judge-custom", llmcoreclient.Provider{Config: schemas.ProviderConfig{CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.OpenAI}}}))
 	engine := llmengine.New()
 	require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: t.TempDir(), LastPlugin: judge}))
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	model := &v1.Model{Name: "m1-judge", Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, ModelProvider: system.LLMGatewayModelProvider, TargetModel: "judge-custom/team/model"}}}
 	require.NoError(t, storage.Create(t.Context(), model))
 	for _, name := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {

@@ -208,7 +208,7 @@ func TestApplyEgressProxyPreservesConcurrentEdits(t *testing.T) {
 			require.NoError(t, err)
 			engine := New()
 			require.NoError(t, engine.Start(t.Context(), Options{Store: store, DataDir: t.TempDir()}))
-			t.Cleanup(engine.Shutdown)
+			t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 			t.Setenv("HTTPS_PROXY", environmentProxy)
 			t.Setenv("HTTP_PROXY", "")
 			t.Setenv("NO_PROXY", "")

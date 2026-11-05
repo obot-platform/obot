@@ -1,6 +1,7 @@
 package llmengine
 
 import (
+	"context"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -19,7 +20,7 @@ func TestCoreSyncPicksUpAnotherReplicasChanges(t *testing.T) {
 		if err := e.Start(ctx, opts); err != nil {
 			t.Fatal(err)
 		}
-		t.Cleanup(e.Shutdown)
+		t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	}
 	if err := testMutation(a, ctx, nil)(a.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))); err != nil {
 		t.Fatal(err)
@@ -43,7 +44,7 @@ func TestListModelsSyncsAnotherReplicasChanges(t *testing.T) {
 	a, b := New(), New()
 	for _, e := range []*Engine{a, b} {
 		require.NoError(t, e.Start(ctx, opts))
-		t.Cleanup(e.Shutdown)
+		t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	}
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
@@ -103,7 +104,7 @@ func TestDegradedStartupExposesProviderDiagnostics(t *testing.T) {
 	require.NoError(t, storage.Update(ctx, corrupt))
 	engine := New()
 	require.NoError(t, engine.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	require.True(t, engine.Ready(), "healthy providers must remain usable")
 	require.ErrorContains(t, engine.Err(), "anthropic", "startup must expose core diagnostics before a watch event")
 	var configured map[string]any

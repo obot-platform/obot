@@ -43,7 +43,7 @@ func newAdminTestHandler(t *testing.T, storage kclient.WithWatch) (*LLMGatewayHa
 	modeldatatest.Write(t, dir)
 	engine := llmengine.New()
 	require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: dir}))
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	return NewLLMGatewayHandler(engine, nil), store
 }
 

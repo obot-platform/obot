@@ -244,7 +244,7 @@ func TestCodexRecordingCatalogAndToolLoop(t *testing.T) {
 	input, output := guardrails.New(subscriptionPolicies{}, nil).Plugins()
 	e, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{input, output}})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	codexTransport(t, e, server)
 
 	var metadata []schemas.BifrostResponseExtraFields
@@ -402,7 +402,7 @@ func TestCodexRecordingFallbackRetryAndErrors(t *testing.T) {
 			input, output := guardrails.New(subscriptionPolicies{}, nil).Plugins()
 			e, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{input, output}})
 			require.NoError(t, err)
-			defer e.Shutdown()
+			defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 			codexTransport(t, e, server)
 
 			call := func(model string, fallbacks []string, subscription bool) *httptest.ResponseRecorder {
@@ -541,7 +541,7 @@ func TestCodexAttemptIsolationAndFinalGate(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "openai", subscriptionProvider("configured-key")))
 	e, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{&subscriptionRewrite{}}})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	codexTransport(t, e, server)
 	for _, stream := range []bool{false, true} {
 		result := codexCall(t.Context(), e, "/v1/responses", fmt.Sprintf(`{"model":"gpt-5.4","input":"hi","stream":%t}`, stream), true, nil)
@@ -603,7 +603,7 @@ func TestCodexOptionalIdentityStreamFailureAndParseRelease(t *testing.T) {
 	require.NoError(t, store.CreateProvider(t.Context(), "openai", subscriptionProvider("configured-key")))
 	e, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	codexTransport(t, e, server)
 
 	for _, stream := range []bool{false, true} {

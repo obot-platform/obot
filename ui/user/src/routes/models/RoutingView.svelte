@@ -380,7 +380,16 @@
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="rule-priority" class="text-sm font-light">{m.models_routing_priority()}</label>
-				<input id="rule-priority" type="number" class="text-input-filled" bind:value={priority} />
+				<input
+					id="rule-priority"
+					type="number"
+					class="text-input-filled"
+					bind:value={priority}
+					aria-describedby="rule-priority-help"
+				/>
+				<p id="rule-priority-help" class="text-muted-content text-xs">
+					{m.models_routing_priority_help()}
+				</p>
 			</div>
 			<div class="flex flex-col gap-1 md:col-span-3">
 				<label for="rule-description" class="text-sm font-light">{m.core_description()}</label>

@@ -386,6 +386,7 @@
 	"models_routing_empty_description": "请求会发送到其指定的提供商和模型。添加规则可重定向、拆分流量或进行故障转移。",
 	"models_routing_search_placeholder": "搜索路由规则...",
 	"models_routing_priority": "优先级",
+	"models_routing_priority_help": "数值越小越先执行。相同优先级的规则顺序不保证；顺序重要时，请设置不同的优先级。",
 	"models_routing_when": "条件",
 	"models_routing_route_to": "路由到",
 	"models_routing_fallbacks": "回退",

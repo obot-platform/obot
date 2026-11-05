@@ -17,6 +17,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/modeldata"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
+	"github.com/stretchr/testify/require"
 )
 
 // TestEngineBootsWithoutNetwork starts the gateway with no way to reach the internet. It must
@@ -38,7 +39,7 @@ func TestEngineBootsWithoutNetwork(t *testing.T) {
 	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
 	catalog := e.prices
 	usage := &schemas.BifrostLLMUsage{PromptTokens: 1_000_000, CompletionTokens: 1_000_000, TotalTokens: 2_000_000}
@@ -68,7 +69,7 @@ func TestEnginePicksUpChangedModelData(t *testing.T) {
 	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	catalog := e.prices
 	gpt4o := func() float64 {
 		t.Helper()
@@ -149,7 +150,7 @@ func TestEngineForwardsRequestParameters(t *testing.T) {
 	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	for _, provider := range []string{"openai", "anthropic"} {
 		if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 			"provider":       provider,

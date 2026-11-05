@@ -3,6 +3,7 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -59,7 +60,7 @@ func TestEngineE2E(t *testing.T) {
 	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
 	if e.HasUpstreamProviders(ctx) {
 		t.Fatal("expected no upstream providers before configuring one")

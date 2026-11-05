@@ -119,7 +119,10 @@ func testSubscriptionReplacementAfterHooks(t *testing.T, provider schemas.ModelP
 			tracer := &subscriptionPauseTracer{Tracer: e.tracer, entered: make(chan struct{}), release: make(chan struct{})}
 			e.client.SetTracer(tracer)
 			var release sync.Once
-			defer func() { release.Do(func() { close(tracer.release) }); e.Shutdown() }()
+			defer func() {
+				release.Do(func() { close(tracer.release) })
+				require.NoError(t, e.Shutdown(context.Background()))
+			}()
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			// Unary/count calls need an explicit trace for the core phase span.
@@ -235,7 +238,7 @@ func testSubscriptionKeyOnlyRotation(t *testing.T, provider schemas.ModelProvide
 	require.NoError(t, store.CreateProvider(t.Context(), string(provider), subscriptionProvider("old-key")))
 	e, err := New(t.Context(), store, Options{})
 	require.NoError(t, err)
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	transport(t, e, server)
 	original := e.client.GetProviderByKey(provider)
 	e.subscriptionLock(provider).RLock()
@@ -256,4 +259,69 @@ func testSubscriptionKeyOnlyRotation(t *testing.T, provider schemas.ModelProvide
 		result = subscriptionCall(t.Context(), e, "/v1/messages", "anthropic/test", false, true, nil, nil)
 	}
 	require.Equal(t, http.StatusOK, result.Code, result.Body.String())
+}
+
+type canceledSubscriptionStream struct {
+	subscriptionPlugin
+	entered chan struct{}
+	release chan struct{}
+	done    chan struct{}
+}
+
+func (*canceledSubscriptionStream) GetName() string { return "canceled-subscription" }
+
+func (p *canceledSubscriptionStream) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	chunks := make(chan *schemas.BifrostStreamChunk)
+	go func() {
+		defer close(p.done)
+		defer close(chunks)
+		close(p.entered)
+		<-ctx.Done()
+		<-p.release
+	}()
+	return req, &schemas.LLMPluginShortCircuit{Stream: chunks}, nil
+}
+
+func TestCanceledSubscriptionRetainsAdmissionUntilDrained(t *testing.T) {
+	plugin := &canceledSubscriptionStream{entered: make(chan struct{}), release: make(chan struct{}), done: make(chan struct{})}
+	store := subscriptionStore(t)
+	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("configured")))
+	engine, err := New(t.Context(), store, Options{Plugins: []schemas.LLMPlugin{plugin}})
+	require.NoError(t, err)
+	var release sync.Once
+	defer func() {
+		release.Do(func() { close(plugin.release) })
+		require.NoError(t, engine.Shutdown(context.Background()))
+	}()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	returned := make(chan struct{})
+	go func() {
+		subscriptionCall(ctx, engine, "/v1/messages", "anthropic/test", true, true, nil, nil)
+		close(returned)
+	}()
+	select {
+	case <-plugin.entered:
+	case <-time.After(3 * time.Second):
+		t.Fatal("stream did not start")
+	}
+	cancel()
+	select {
+	case <-returned:
+	case <-time.After(3 * time.Second):
+		t.Fatal("HTTP cancellation waited for producer cleanup")
+	}
+	lifetime := engine.subscriptionLock(schemas.Anthropic)
+	if lifetime.TryLock() {
+		lifetime.Unlock()
+		t.Fatal("provider retirement can replace a subscription destination before its producer drained")
+	}
+	release.Do(func() { close(plugin.release) })
+	require.Eventually(t, func() bool {
+		if lifetime.TryLock() {
+			lifetime.Unlock()
+			return true
+		}
+		return false
+	}, 3*time.Second, time.Millisecond, "draining must release subscription admission")
 }
