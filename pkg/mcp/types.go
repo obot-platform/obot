@@ -21,6 +21,19 @@ const (
 
 	// AuditLogIgnore is a metadata field that tells the audit log persistence layer to ignore audit logs for this server
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
+
+	// caTrustStorePreamble best-effort installs a CA certificate mounted via the
+	// SSL_CERT_FILE env var (see caCertificateEnvKeys) into the container's OS trust
+	// store, covering both Debian/Ubuntu-style (update-ca-certificates) and
+	// RHEL/Fedora-style (update-ca-trust) layouts, before handing control back to the
+	// real command. Every step is guarded so a missing tool or read-only path never
+	// prevents the real command from starting.
+	caTrustStorePreamble = `if [ -n "$SSL_CERT_FILE" ] && [ -f "$SSL_CERT_FILE" ]; then ` +
+		`mkdir -p /usr/local/share/ca-certificates 2>/dev/null && cp "$SSL_CERT_FILE" /usr/local/share/ca-certificates/obot-custom-ca.crt 2>/dev/null; ` +
+		`mkdir -p /etc/pki/ca-trust/source/anchors 2>/dev/null && cp "$SSL_CERT_FILE" /etc/pki/ca-trust/source/anchors/obot-custom-ca.crt 2>/dev/null; ` +
+		`fi; ` +
+		`update-ca-certificates >/dev/null 2>&1 || update-ca-trust extract >/dev/null 2>&1 || true; ` +
+		`exec "$@"`
 )
 
 var (
@@ -297,7 +310,7 @@ func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntime
 	return nil
 }
 
-func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, expandImage bool) error {
+func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConfig *types.ContainerizedRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}, expandImage bool, caCertificate string, installCATrustStore bool) error {
 	if containerizedConfig == nil {
 		return fmt.Errorf("containerized runtime requires containerized config")
 	}
@@ -314,7 +327,27 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 		serverConfig.Args = append(serverConfig.Args, expandEnvVars(arg, credEnv, fileEnvVars))
 	}
 
+	// Best-effort: install the custom CA into the container's OS trust store before
+	// starting it. This only works when we know the real start command to re-exec
+	// afterward (an explicit command override), and only if the user opted in, since
+	// wrapping unconditionally would replace the command of any image without a
+	// POSIX shell with one that can't start at all.
+	if caCertificate != "" && installCATrustStore && serverConfig.Command != "" {
+		wrapCommandForCATrustStore(serverConfig)
+	}
+
 	return nil
+}
+
+// wrapCommandForCATrustStore re-targets the container's command through a shell
+// preamble that attempts a best-effort OS trust-store install before re-exec'ing
+// the original command and arguments.
+func wrapCommandForCATrustStore(serverConfig *ServerConfig) {
+	originalCommand := serverConfig.Command
+	originalArgs := serverConfig.Args
+
+	serverConfig.Command = "/bin/sh"
+	serverConfig.Args = append([]string{"-c", caTrustStorePreamble, "--", originalCommand}, originalArgs...)
 }
 
 func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, config []types.MCPConfig, credEnv map[string]string) ([]string, error) {
@@ -418,6 +451,18 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		}
 	}
 
+	// Resolved once up front (rather than in the per-entry loop below) so it's
+	// available to the containerized runtime's trust-store decision, which runs
+	// before that loop, and so it's validated before anything gets mounted -
+	// static values are already checked by ValidateConfig, but a value resolved
+	// from a bound credential or per-user option is not.
+	caCertValue, installCATrustStore := resolveCACertificate(mcpServer.Spec.Manifest.Config, runtimeCredEnv)
+	if caCertValue != "" {
+		if err := types.ValidateCACertificate(caCertValue); err != nil {
+			return ServerConfig{}, nil, fmt.Errorf("invalid CA certificate: %w", err)
+		}
+	}
+
 	displayName := mcpServer.Spec.Manifest.Name
 	if displayName == "" {
 		displayName = mcpServer.Name
@@ -500,7 +545,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		}
 	case types.RuntimeContainerized:
 		serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
-		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, runtimeCredEnv, fileEnvVars, true); err != nil {
+		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, runtimeCredEnv, fileEnvVars, true, caCertValue, installCATrustStore); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
@@ -517,6 +562,21 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		if env.Usage == types.Header {
 			continue
 		}
+		if env.Usage == types.CACertificate {
+			// Already resolved and validated above; reuse that value rather than
+			// resolving it again here.
+			if caCertValue == "" {
+				if env.Required {
+					missingRequiredNames = append(missingRequiredNames, env.Key)
+				}
+				continue
+			}
+			for _, key := range types.CACertificateEnvKeys {
+				serverConfig.Files = append(serverConfig.Files, File{Data: caCertValue, EnvKey: key})
+			}
+			continue
+		}
+
 		val := env.Value
 		isStatic := val != ""
 		if !isStatic {
@@ -550,6 +610,20 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 	}
 
 	return serverConfig, dedupe(missingRequiredNames), nil
+}
+
+// resolveCACertificate returns the resolved value of the manifest's Usage:
+// CACertificate config entry, if any, and whether it asked for a best-effort
+// OS trust-store install, so callers that run before the main per-entry
+// resolution loop (e.g. deciding whether to wrap a containerized runtime's
+// command) can see it early.
+func resolveCACertificate(config []types.MCPConfig, runtimeCredEnv map[string]string) (string, bool) {
+	for _, c := range config {
+		if c.Usage == types.CACertificate {
+			return runtimeCredEnv[c.Key], c.InstallCATrustStore
+		}
+	}
+	return "", false
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
@@ -622,7 +696,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
-		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, false); err != nil {
+		if err := configureContainerizedRuntime(&serverConfig, systemServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, false, "", false); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
@@ -672,6 +746,15 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		}
 
 		if env.Usage == types.Interpolated {
+			continue
+		}
+		if env.Usage == types.CACertificate {
+			if err := types.ValidateCACertificate(val); err != nil {
+				return serverConfig, missingRequiredNames, fmt.Errorf("invalid CA certificate: %w", err)
+			}
+			for _, key := range types.CACertificateEnvKeys {
+				serverConfig.Files = append(serverConfig.Files, File{Data: val, EnvKey: key})
+			}
 			continue
 		}
 		if env.Usage != types.File && env.Usage != types.DynamicFile {

@@ -336,7 +336,12 @@
 				icon: manifest.icon ?? '',
 				shortDescription: manifest.shortDescription ?? '',
 				env: [],
-				config: manifest.config?.map((config) => ({ ...config, value: config.value ?? '' })) ?? [],
+				config:
+					manifest.config?.map((config) => ({
+						...config,
+						value: config.value ?? '',
+						installCATrustStore: config.installCATrustStore ?? false
+					})) ?? [],
 				openAPIConfig: manifest.openAPIConfig
 					? structuredClone($state.snapshot(manifest.openAPIConfig))
 					: undefined,
@@ -1136,6 +1141,9 @@
 			secretBindingTargets={editableSecretBindingTargets}
 			showRequired={showRequired.env}
 			showInvalid={showInvalid.env}
+			runtime={formData.runtime}
+			hasCommand={!!formData.containerizedConfig?.command?.trim()}
+			allowCACertificate={formData.runtime !== 'remote'}
 		/>
 	{:else if formData.runtime !== 'remote'}
 		<CustomConfigurationForm
