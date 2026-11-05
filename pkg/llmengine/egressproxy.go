@@ -2,12 +2,12 @@ package llmengine
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
-	"maps"
 	"net/url"
 	"strings"
 
+	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"golang.org/x/net/http/httpproxy"
 )
 
@@ -48,110 +48,73 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 
 	changed := false
 	for _, provider := range providers {
-		p := object(provider)
-		name, _ := p["name"].(string)
+		name := string(provider.Name)
 		if name == "" {
 			continue
 		}
-		network, _ := p["network_config"].(map[string]any)
-		target, _ := network["base_url"].(string)
-		if target == "" {
-			target = defaultProviderURLs[name]
-		}
-		if target == "" {
-			target = "https://" + name + ".invalid"
-		}
-		u, err := url.Parse(target)
-		if err != nil {
-			continue
-		}
-		proxyURL, err := proxyFor(u)
-		if hasProxy(p["proxy_config"]) {
-			// A provider moved to an endpoint the proxy doesn't apply to (localhost, NO_PROXY)
-			// stops using the egress proxy Obot gave it; any other proxy is the admin's.
-			if (err != nil || proxyURL == nil) && isEgressProxy(p["proxy_config"], cfg) {
-				body := maps.Clone(p)
-				delete(body, "keys")
-				// An omitted proxy configuration is kept, so turn it off explicitly.
-				body["proxy_config"] = map[string]any{"type": "none"}
-				raw, err := json.Marshal(body)
+		updated := false
+		err := e.mutation(ctx, func(ctx context.Context) error {
+			// The listing supplies names only. Recompute from the latest aggregate
+			// and edit only its proxy so intervening admin changes are preserved.
+			return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
+				target := current.Config.NetworkConfig.BaseURL
+				if target == "" {
+					target = defaultProviderURLs[name]
+				}
+				if target == "" {
+					target = "https://" + name + ".invalid"
+				}
+				u, err := url.Parse(target)
 				if err != nil {
-					continue
+					return nil
 				}
-				if _, err := e.UpdateProvider(ctx, name, raw, false); err != nil {
-					slog.Warn("failed to remove the egress proxy from an LLM gateway provider", "provider", name, "error", err)
-					continue
+				proxyURL, err := proxyFor(u)
+				pc := current.Config.ProxyConfig
+				if pc != nil && pc.Type != schemas.NoProxy {
+					// Remove only our environment proxy when the current endpoint
+					// no longer needs it; an administrator's proxy is left alone.
+					if (err != nil || proxyURL == nil) && isEgressProxy(pc, cfg) {
+						current.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.NoProxy}
+						updated = true
+					}
+					return nil
 				}
-				slog.Info("LLM gateway provider no longer uses the egress proxy", "provider", name)
-				changed = true
-			}
-			continue
-		}
-		if err != nil || proxyURL == nil {
-			continue
-		}
-		// Send the provider's whole configuration back: the update treats some omitted
-		// fields as removed (custom_provider_config can't be removed, so custom providers
-		// would be rejected). Redacted values are kept as they are. Keys have their own API.
-		body := maps.Clone(p)
-		delete(body, "keys")
-		body["proxy_config"] = map[string]any{
-			"type": proxyType(proxyURL),
-			"url":  map[string]any{"value": proxyURL.String(), "type": "plain_text"},
-		}
-		raw, err := json.Marshal(body)
+				if err != nil || proxyURL == nil {
+					return nil
+				}
+				current.Config.ProxyConfig = &schemas.ProxyConfig{
+					Type: proxyType(proxyURL),
+					URL:  schemas.NewSecretVar(proxyURL.String()),
+				}
+				updated = true
+				return nil
+			})
+		})
 		if err != nil {
+			slog.Warn("failed to update the egress proxy for an LLM gateway provider", "provider", name, "error", err)
 			continue
 		}
-		if _, err := e.UpdateProvider(ctx, name, raw, false); err != nil {
-			slog.Warn("failed to apply the egress proxy to an LLM gateway provider", "provider", name, "error", err)
-			continue
+		if updated {
+			slog.Info("LLM gateway provider egress proxy updated", "provider", name)
+			changed = true
 		}
-		slog.Info("LLM gateway provider uses the egress proxy", "provider", name, "proxy", proxyURL.Redacted())
-		changed = true
 	}
 	return changed
 }
 
-// hasProxy reports whether a provider's proxy configuration routes through a proxy.
-func hasProxy(proxyConfig any) bool {
-	pc, ok := proxyConfig.(map[string]any)
-	return ok && pc["type"] != "none"
-}
-
-// isEgressProxy reports whether a provider's proxy configuration is the environment's
-// egress proxy, which Obot applies, as opposed to one an administrator configured. The engine
-// returns the proxy URL redacted, so a redacted URL matches the environment's proxy redacted
-// the same way.
-func isEgressProxy(proxyConfig any, cfg *httpproxy.Config) bool {
-	pc, _ := proxyConfig.(map[string]any)
-	var configured string
-	switch v := pc["url"].(type) {
-	case string:
-		configured = v
-	case map[string]any:
-		configured, _ = v["value"].(string)
-	}
-	if configured == "" {
+// isEgressProxy compares the stored credential value, not a redacted listing,
+// so unrelated administrator proxies cannot match by their masked prefix/suffix.
+func isEgressProxy(pc *schemas.ProxyConfig, cfg *httpproxy.Config) bool {
+	if pc == nil {
 		return false
 	}
-	for _, env := range []string{cfg.HTTPSProxy, cfg.HTTPProxy} {
-		if env != "" && (configured == env || matchesRedacted(configured, env)) {
-			return true
-		}
-	}
-	return false
+	configured := pc.URL.GetValue()
+	return configured != "" && (configured == cfg.HTTPSProxy || configured == cfg.HTTPProxy)
 }
 
-// matchesRedacted reports whether redacted is value as the engine redacts secrets: its first
-// and last four characters with 24 asterisks between.
-func matchesRedacted(redacted, value string) bool {
-	return len(value) > 8 && redacted == value[:4]+strings.Repeat("*", 24)+value[len(value)-4:]
-}
-
-func proxyType(u *url.URL) string {
+func proxyType(u *url.URL) schemas.ProxyType {
 	if strings.HasPrefix(u.Scheme, "socks5") {
-		return "socks5"
+		return schemas.Socks5Proxy
 	}
-	return "http"
+	return schemas.HTTPProxy
 }
