@@ -280,15 +280,15 @@ func TestConflictScimType(t *testing.T) {
 		{
 			name: "values that are already in use",
 			err: &gclient.SCIMConflictError{
-				Message: "a group named \"team\" already exists",
+				Message:    "a group named \"team\" already exists",
+				Uniqueness: true,
 			},
 			wantScimType: scimTypeUniqueness,
 		},
 		{
 			name: "a conflict with Obot's state, such as the refused deletion of its last owner",
 			err: &gclient.SCIMConflictError{
-				Message:       "this user is Obot's last owner",
-				NotUniqueness: true,
+				Message: "this user is Obot's last owner",
 			},
 		},
 	}

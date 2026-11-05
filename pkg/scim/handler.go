@@ -754,13 +754,13 @@ func toError(err error) *Error {
 		}
 	}
 	if e, ok := errors.AsType[*gclient.SCIMConflictError](err); ok {
-		if e.NotUniqueness {
-			return &Error{
-				Status: http.StatusConflict,
-				Detail: e.Message,
-			}
+		if e.Uniqueness {
+			return conflict(e.Message)
 		}
-		return conflict(e.Message)
+		return &Error{
+			Status: http.StatusConflict,
+			Detail: e.Message,
+		}
 	}
 	if e, ok := errors.AsType[*gclient.SCIMInvalidValueError](err); ok {
 		return badRequest(scimTypeInvalidValue, "%s", e.Message)

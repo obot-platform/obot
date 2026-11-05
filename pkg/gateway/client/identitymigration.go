@@ -49,11 +49,11 @@ func (e *SCIMGroupLookupIDsMissingError) Error() string {
 // BackfillIdentityGroupLookupIDHashes stores the hash of the group lookup ID of every identity that was written
 // without one, once. Identities written since the column was added already have it, because encryptIdentity sets it.
 //
-// The backfill reads the identities in batches, in primary key order, and holds no transaction between them. It is
-// idempotent, so replicas starting together may both run it, and a run that fails is retried from the start.
+// The backfill and the record that it ran commit in one transaction, so a run that fails leaves nothing behind and is
+// retried from the start. It reads the identities in batches, in primary key order, to bound what it holds in memory.
 func (c *Client) BackfillIdentityGroupLookupIDHashes(ctx context.Context) error {
-	return c.MigrateKinmIfNotRun(ctx, identityGroupLookupIDHashesMigrationName, func() error {
-		return c.backfillIdentityGroupLookupIDHashes(ctx, identityGroupLookupIDBackfillBatchSize, nil)
+	return c.migrateIfNotRun(ctx, identityGroupLookupIDHashesMigrationName, func(tx *gorm.DB) error {
+		return c.backfillIdentityGroupLookupIDHashes(ctx, tx, identityGroupLookupIDBackfillBatchSize, nil)
 	})
 }
 
@@ -67,7 +67,7 @@ func (c *Client) prepareIdentitiesForLookupMatching(ctx context.Context, provide
 	} else if !ready {
 		return new(SCIMIdentitiesNotReadyError)
 	}
-	return c.backfillIdentityGroupLookupIDHashes(ctx, identityGroupLookupIDBackfillBatchSize, &provider)
+	return c.backfillIdentityGroupLookupIDHashes(ctx, c.db.WithContext(ctx), identityGroupLookupIDBackfillBatchSize, &provider)
 }
 
 // UsersWithoutGroupLookupID returns the live users of the auth provider whose identities have no group lookup ID, which
@@ -128,10 +128,9 @@ func (c *Client) IdentityGroupLookupIDHashesReady(ctx context.Context) (bool, er
 }
 
 // backfillIdentityGroupLookupIDHashes stores the hashes of the identities without one, of provider, or of every auth
-// provider when provider is nil.
-func (c *Client) backfillIdentityGroupLookupIDHashes(ctx context.Context, batchSize int, provider *AuthProviderRef) error {
+// provider when provider is nil. Each batch is written in its own transaction, nested in db's when it has one.
+func (c *Client) backfillIdentityGroupLookupIDHashes(ctx context.Context, db *gorm.DB, batchSize int, provider *AuthProviderRef) error {
 	var (
-		db      = c.db.WithContext(ctx)
 		after   *types.Identity
 		scanned int
 		updated int64

@@ -150,7 +150,7 @@ func testBackfillIdentityGroupLookupIDHashes(t *testing.T, c *Client) {
 		UpdateColumn("hashed_provider_group_lookup_id", "kept").Error)
 
 	// A batch smaller than the identities makes the backfill page through them.
-	require.NoError(t, c.backfillIdentityGroupLookupIDHashes(t.Context(), 2, nil))
+	require.NoError(t, c.backfillIdentityGroupLookupIDHashes(t.Context(), c.db.WithContext(t.Context()), 2, nil))
 
 	want := map[string]string{
 		"00u-plain":  hash.String("lookup-plain"),
@@ -171,7 +171,7 @@ func testBackfillIdentityGroupLookupIDHashes(t *testing.T, c *Client) {
 	check()
 
 	// Running it again changes nothing.
-	require.NoError(t, c.backfillIdentityGroupLookupIDHashes(t.Context(), 2, nil))
+	require.NoError(t, c.backfillIdentityGroupLookupIDHashes(t.Context(), c.db.WithContext(t.Context()), 2, nil))
 	check()
 }
 

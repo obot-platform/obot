@@ -95,9 +95,9 @@ type SCIMNotFoundError struct {
 // SCIMConflictError reports a SCIM write that conflicts with an existing resource.
 type SCIMConflictError struct {
 	Message string
-	// NotUniqueness is set for a conflict with the state of Obot rather than with attribute values that are already
-	// in use, which is what RFC 7644's uniqueness error means. Its response has no scimType.
-	NotUniqueness bool
+	// Uniqueness is set for a conflict with attribute values that are already in use, which is what RFC 7644's
+	// uniqueness error means. Without it, such as for a conflict with the state of Obot, the response has no scimType.
+	Uniqueness bool
 }
 
 // SCIMInvalidValueError reports a SCIM write whose values cannot be applied.
@@ -329,7 +329,8 @@ func (c *Client) createSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 			return fmt.Errorf("failed to check SCIM userName: %w", err)
 		} else if conflicts > 0 {
 			return &SCIMConflictError{
-				Message: fmt.Sprintf("a user with userName %q already exists", input.UserName),
+				Message:    fmt.Sprintf("a user with userName %q already exists", input.UserName),
+				Uniqueness: true,
 			}
 		}
 		if err := tx.Model(new(types.SCIMUserBinding)).
@@ -338,7 +339,8 @@ func (c *Client) createSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 			return fmt.Errorf("failed to check SCIM externalId: %w", err)
 		} else if conflicts > 0 {
 			return &SCIMConflictError{
-				Message: "a user with this externalId already exists",
+				Message:    "a user with this externalId already exists",
+				Uniqueness: true,
 			}
 		}
 
@@ -478,7 +480,8 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 					return fmt.Errorf("failed to check SCIM userName: %w", err)
 				} else if conflicts > 0 {
 					return &SCIMConflictError{
-						Message: fmt.Sprintf("a user with userName %q already exists", input.UserName),
+						Message:    fmt.Sprintf("a user with userName %q already exists", input.UserName),
+						Uniqueness: true,
 					}
 				}
 			}
@@ -579,14 +582,12 @@ func (c *Client) DeleteSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 		}
 		if _, ok := errors.AsType[*LastOwnerError](err); ok {
 			return &SCIMConflictError{
-				Message:       "this user is Obot's last owner; make another user an owner in Obot before deleting them in the identity provider",
-				NotUniqueness: true,
+				Message: "this user is Obot's last owner; make another user an owner in Obot before deleting them in the identity provider",
 			}
 		}
 		if _, ok := errors.AsType[*LastAdminError](err); ok {
 			return &SCIMConflictError{
-				Message:       "this user is Obot's last admin; make another user an admin in Obot before deleting them in the identity provider",
-				NotUniqueness: true,
+				Message: "this user is Obot's last admin; make another user an admin in Obot before deleting them in the identity provider",
 			}
 		}
 		return err
@@ -649,7 +650,8 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		switch len(unbound) {
 		case 0:
 			return 0, false, &SCIMConflictError{
-				Message: "the user with this externalId is already provisioned",
+				Message:    "the user with this externalId is already provisioned",
+				Uniqueness: true,
 			}
 		case 1:
 			if err := c.projectSCIMProfileTx(ctx, tx, unbound[0], input.Profile); err != nil {
@@ -658,7 +660,8 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 			return unbound[0], false, nil
 		default:
 			return 0, false, &SCIMConflictError{
-				Message: fmt.Sprintf("%d Obot users have the identity provider ID in this externalId; delete the duplicates in Obot", len(unbound)),
+				Message:    fmt.Sprintf("%d Obot users have the identity provider ID in this externalId; delete the duplicates in Obot", len(unbound)),
+				Uniqueness: true,
 			}
 		}
 	}
@@ -715,7 +718,8 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 		if result.RowsAffected == 0 {
 			return 0, false, &scimCreateRaceError{
 				err: &SCIMConflictError{
-					Message: "the user signed in while they were being provisioned; retry the request",
+					Message:    "the user signed in while they were being provisioned; retry the request",
+					Uniqueness: true,
 				},
 			}
 		}
@@ -738,7 +742,8 @@ func (c *Client) bindOrCreateSCIMUserTx(ctx context.Context, tx *gorm.DB, conn *
 			// A concurrent sign-in may have just created the user, which the retry binds to.
 			return 0, false, &scimCreateRaceError{
 				err: &SCIMConflictError{
-					Message: "an Obot user with this user's username already exists",
+					Message:    "an Obot user with this user's username already exists",
+					Uniqueness: true,
 				},
 			}
 		}

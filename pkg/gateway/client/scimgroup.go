@@ -274,7 +274,8 @@ func bindSCIMGroupByNameTx(tx *gorm.DB, conn *types.SCIMConnection, a adapter.Ad
 		return nil
 	default:
 		return &SCIMConflictError{
-			Message: fmt.Sprintf("%d existing groups are named %q; in Obot, remove the references to all but one of them, and delete the groups that nothing references", len(candidates), displayName),
+			Message:    fmt.Sprintf("%d existing groups are named %q; in Obot, remove the references to all but one of them, and delete the groups that nothing references", len(candidates), displayName),
+			Uniqueness: true,
 		}
 	}
 }
@@ -291,7 +292,8 @@ func bindSCIMGroupByIDTx(tx *gorm.DB, conn *types.SCIMConnection, binding *types
 		return fmt.Errorf("failed to check the binding of group %s: %w", groupID, err)
 	} else if bound > 0 {
 		return &SCIMConflictError{
-			Message: "this group is already provisioned",
+			Message:    "this group is already provisioned",
+			Uniqueness: true,
 		}
 	}
 
@@ -300,14 +302,16 @@ func bindSCIMGroupByIDTx(tx *gorm.DB, conn *types.SCIMConnection, binding *types
 		return fmt.Errorf("failed to check whether group %s is pending deletion: %w", groupID, err)
 	} else if pending > 0 {
 		return &SCIMConflictError{
-			Message: "Obot is deleting this group because nothing references it; retry once the deletion finishes",
+			Message:    "Obot is deleting this group because nothing references it; retry once the deletion finishes",
+			Uniqueness: true,
 		}
 	}
 	if err := tx.Model(new(types.SCIMGroupSubjectCleanup)).Where("group_id = ?", groupID).Count(&pending).Error; err != nil {
 		return fmt.Errorf("failed to check the cleanup of group %s: %w", groupID, err)
 	} else if pending > 0 {
 		return &SCIMConflictError{
-			Message: "Obot is still removing this group from access policies after an earlier deletion; retry later",
+			Message:    "Obot is still removing this group from access policies after an earlier deletion; retry later",
+			Uniqueness: true,
 		}
 	}
 
@@ -323,7 +327,8 @@ func bindSCIMGroupByIDTx(tx *gorm.DB, conn *types.SCIMConnection, binding *types
 	group := groups[0]
 	if group.AuthProviderNamespace != conn.AuthProviderNamespace || group.AuthProviderName != conn.AuthProviderName {
 		return &SCIMConflictError{
-			Message: fmt.Sprintf("group %s belongs to another auth provider", groupID),
+			Message:    fmt.Sprintf("group %s belongs to another auth provider", groupID),
+			Uniqueness: true,
 		}
 	}
 	binding.Origin = types.SCIMGroupBindingOriginExisting
@@ -953,7 +958,8 @@ func checkSCIMGroupNameTx(tx *gorm.DB, connectionID, normalized, displayName, ex
 		return fmt.Errorf("failed to check SCIM group name: %w", err)
 	} else if conflicts > 0 {
 		return &SCIMConflictError{
-			Message: fmt.Sprintf("a group named %q already exists", displayName),
+			Message:    fmt.Sprintf("a group named %q already exists", displayName),
+			Uniqueness: true,
 		}
 	}
 	return nil

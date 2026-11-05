@@ -624,7 +624,9 @@ func (c *Client) deliverUserDeletedEvent(ctx context.Context, event types.UserLi
 		Spec: v1.UserDeleteSpec{
 			UserID: event.UserID,
 		},
-	}); err != nil && !apierrors.IsAlreadyExists(err) {
+	}); apierrors.IsAlreadyExists(err) {
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("failed to start the cleanup of deleted user %d: %w", event.UserID, err)
 	}
 	slog.Info("Scheduled user cleanup after deletion", "targetUserID", event.UserID)

@@ -404,7 +404,7 @@ func TestDeleteSCIMUserRefusesTheLastOwnerAndAdmin(t *testing.T) {
 			_, err = c.DeleteSCIMUser(t.Context(), conn, provisioned.ID)
 			var conflict *SCIMConflictError
 			require.ErrorAs(t, err, &conflict)
-			require.True(t, conflict.NotUniqueness)
+			require.False(t, conflict.Uniqueness)
 
 			// Nothing changed.
 			user := storedLifecycleUser(t, c, provisioned.UserID)
