@@ -87,9 +87,24 @@ const sidebars = {
 					"label": "Add hosted MCP servers"
 				},
 				{
-					"type": "doc",
-					"id": "mcp-gateway/server-configuration",
-					"label": "MCP server configuration"
+					"type": "category",
+					"label": "MCP server configuration",
+					"link": {
+						"type": "doc",
+						"id": "mcp-gateway/server-configuration"
+					},
+					"items": [
+						{
+							"type": "doc",
+							"id": "configuration/tutorials/slack-mcp-server",
+							"label": "Slack MCP Server"
+						},
+						{
+							"type": "doc",
+							"id": "configuration/tutorials/vercel-mcp-server",
+							"label": "Vercel MCP Server"
+						}
+					]
 				},
 				{
 					"type": "doc",
