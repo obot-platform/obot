@@ -4,6 +4,7 @@ package llmgatewayconfig
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -19,6 +20,10 @@ type Engine interface {
 // Handler runs on every replica, independently of leader election. Application
 // failures go back to the router for retry; the engine tracks its applied state.
 type Handler struct {
+	mu      sync.Mutex
+	running bool
+	pending bool
+
 	engine           Engine
 	triggerModelSync func(context.Context) error
 }
@@ -34,11 +39,30 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 		resp.RetryAfter(time.Second)
 		return nil
 	}
-	// Reload desired resources through Sync rather than applying a stale event payload.
-	_, syncErr := h.engine.Sync(req.Ctx)
-	// Sync can apply healthy providers despite other application failures.
-	// Discover those successes even while incomplete application retries.
-	// Always retry discovery too: a previous trigger may have failed after Sync
-	// finished, leaving no runtime change on the next attempt.
-	return errors.Join(syncErr, h.triggerModelSync(req.Ctx))
+	// The active event owns retries; overlapping events request another pass.
+	h.mu.Lock()
+	if h.running {
+		h.pending = true
+		h.mu.Unlock()
+		return nil
+	}
+	h.running = true
+	h.mu.Unlock()
+
+	for {
+		// Load the latest store state, including changes made during the previous pass.
+		_, syncErr := h.engine.Sync(req.Ctx)
+		// Discover partial successes and retry discovery even when Sync reports no change.
+		err := errors.Join(syncErr, h.triggerModelSync(req.Ctx))
+
+		h.mu.Lock()
+		if err != nil || !h.pending {
+			// Completion and admission share the lock so a late event cannot be lost.
+			h.running, h.pending = false, false
+			h.mu.Unlock()
+			return err
+		}
+		h.pending = false
+		h.mu.Unlock()
+	}
 }
