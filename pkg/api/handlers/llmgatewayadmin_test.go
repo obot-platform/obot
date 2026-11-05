@@ -12,6 +12,8 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
@@ -24,6 +26,13 @@ import (
 )
 
 type adminTestCodec struct{}
+
+type adminTestMux struct {
+	*http.ServeMux
+	storage       kclient.WithWatch
+	gatewayClient *gatewayclient.Client
+	handlerErr    error
+}
 
 func (adminTestCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
 	return data, nil
@@ -53,23 +62,24 @@ func callAdmin(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWat
 	return callAdminRequest(handler, storage, request)
 }
 
-func callAdminRequest(handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
-	mux := http.NewServeMux()
-	var handlerErr error
-	handler.RegisterAdminRoutes(func(pattern string, handle api.HandlerFunc) {
-		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-			handlerErr = handle(api.Context{Request: r, ResponseWriter: w, Storage: storage})
-		})
+func (m *adminTestMux) HandleFunc(pattern string, handle api.HandlerFunc) {
+	m.ServeMux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+		m.handlerErr = handle(api.Context{Request: r, ResponseWriter: w, Storage: m.storage, GatewayClient: m.gatewayClient})
 	})
+}
+
+func callAdminRequest(handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
+	mux := &adminTestMux{ServeMux: http.NewServeMux(), storage: storage}
+	handler.RegisterAdminRoutes(mux)
 	// Include the same API fallback as the production router.
 	mux.Handle("/api/", http.NotFoundHandler())
 	response := httptest.NewRecorder()
 	mux.ServeHTTP(response, request)
-	if handlerErr == nil && response.Code >= http.StatusBadRequest {
+	if mux.handlerErr == nil && response.Code >= http.StatusBadRequest {
 		// The mux itself handles unknown paths and unsupported methods before an API handler runs.
-		handlerErr = types.NewErrHTTP(response.Code, response.Body.String())
+		mux.handlerErr = types.NewErrHTTP(response.Code, response.Body.String())
 	}
-	return response, handlerErr
+	return response, mux.handlerErr
 }
 
 func TestGatewayAdminUnsupportedOperationsCannotMutate(t *testing.T) {
@@ -87,6 +97,46 @@ func TestGatewayAdminUnsupportedOperationsCannotMutate(t *testing.T) {
 		path   string
 		code   int
 	}{
+		{
+			method: http.MethodPut,
+			path:   "governance/virtual-keys",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "plugins/obot-guardrails-input",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "feature-flags/warp",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "cache/clear",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "mcp/clients",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "providers/%2eopenai",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "providers/openai%2Fextra",
+			code:   http.StatusNotFound,
+		},
+		{
+			method: http.MethodPut,
+			path:   "providers/openai%5Cextra",
+			code:   http.StatusNotFound,
+		},
 		{
 			method: http.MethodPost,
 			path:   "providers/openai",
@@ -263,7 +313,6 @@ func TestGatewayAdminStorageErrorStatus(t *testing.T) {
 	httpErr, ok := errors.AsType[*types.ErrHTTP](err)
 	require.True(t, ok, "%v", err)
 	require.Equal(t, http.StatusServiceUnavailable, httpErr.Code)
-
 }
 
 func TestGatewayAdminCanceledWriteStillAnnounces(t *testing.T) {
@@ -323,4 +372,78 @@ func TestGatewayAdminMuxKeyRoutes(t *testing.T) {
 	provider, err := store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	require.Empty(t, provider.Keys)
+}
+
+func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
+	storage := newFakeStorage(t, llmengine.ModelProviderResource())
+	h, store := newAdminTestHandler(t, storage)
+	gateway := newHandlerTestGateway(t)
+	require.NoError(t, gateway.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{SubscriptionPassthrough: true}))
+	for _, provider := range []string{"azure", "anthropic"} {
+		_, err := h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"`+provider+`"}`))
+		require.NoError(t, err)
+	}
+	mux := &adminTestMux{ServeMux: http.NewServeMux(), storage: storage, gatewayClient: gateway}
+	h.RegisterAdminRoutes(mux)
+	before, err := store.Load(t.Context())
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		method string
+		path   string
+		body   string
+	}{
+		{
+			method: http.MethodPost,
+			path:   "providers",
+			body:   `{"provider":"openai","network_config":{"extra_headers":{"Authorization":"env.PRIVATE_KEY"}}}`,
+		},
+		{
+			method: http.MethodPut,
+			path:   "providers/azure",
+			body:   `{"provider":"openai","network_config":{"insecure_skip_verify":true}}`,
+		},
+		{
+			method: http.MethodPost,
+			path:   "providers/azure/keys",
+			body:   `{"name":"ambient","azure_key_config":{"endpoint":"https://attacker.example"}}`,
+		},
+		{
+			method: http.MethodPut,
+			path:   "providers/anthropic",
+			body:   `{"proxy_config":{"skip_tls_verify":true}}`,
+		},
+		{
+			method: http.MethodPut,
+			path:   "config",
+			body:   `{"client_config":{},"Auth_Config":{"is_enabled":true}}`,
+		},
+		{
+			method: http.MethodPut,
+			path:   "proxy-config",
+			body:   `{"skip_tls_verify":true}`,
+		},
+	} {
+		t.Run(tc.path+tc.body, func(t *testing.T) {
+			mux.handlerErr = nil
+			mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(tc.method, gatewayAdminPrefix+tc.path, strings.NewReader(tc.body)))
+			httpErr, ok := errors.AsType[*types.ErrHTTP](mux.handlerErr)
+			require.True(t, ok, "%v", mux.handlerErr)
+			require.Equal(t, http.StatusBadRequest, httpErr.Code)
+			after, err := store.Load(t.Context())
+			require.NoError(t, err)
+			require.Equal(t, before, after, "rejected configuration must not be persisted")
+		})
+	}
+
+	// Subscription settings must follow a committed provider deletion even after disconnect.
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	mux.handlerErr = nil
+	mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/anthropic", nil).WithContext(ctx))
+	require.NoError(t, mux.handlerErr)
+	settings, err := gateway.GetLLMGatewaySettings(t.Context())
+	require.NoError(t, err)
+	require.False(t, settings.SubscriptionPassthrough)
+	_, err = store.GetProvider(t.Context(), "anthropic")
+	require.True(t, apierrors.IsNotFound(err))
 }

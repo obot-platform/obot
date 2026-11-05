@@ -89,10 +89,7 @@ func rejectSubscriptionRedirects(body []byte) error {
 // would turn them off for providers that use the server's own cloud identity and for users'
 // Claude subscription tokens too, and a provider can be added under it later. Proxies that
 // inspect TLS can be trusted with a CA in the proxy settings of providers with their own keys.
-func rejectGlobalProxySkipVerify(path string, body []byte) error {
-	if path != "proxy-config" {
-		return nil
-	}
+func rejectGlobalProxySkipVerify(body []byte) error {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(body, &fields) != nil {
 		return nil
@@ -244,14 +241,10 @@ func isAzureAIEndpoint(endpoint string) bool {
 	return slices.ContainsFunc(azureAIHostSuffixes, func(suffix string) bool { return strings.HasSuffix(host, suffix) })
 }
 
-// providerType returns the base type of the gateway provider a request to path is for: the
-// provider's own name for a built-in provider, or the type a custom provider is built on.
-func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body []byte) string {
-	if !strings.HasPrefix(path, "providers") {
-		return ""
-	}
+// providerType returns a provider's base type, including custom providers.
+func (h *LLMGatewayHandler) providerType(ctx context.Context, provider string, body []byte) string {
 	var name string
-	if names := providerNames(path, body); len(names) > 0 {
+	if names := providerNames(provider, body); len(names) > 0 {
 		name = names[0]
 	}
 	var fields map[string]json.RawMessage
@@ -276,15 +269,10 @@ func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body 
 	return name
 }
 
-// providerNames returns the name of the gateway provider a request to path is for: from the
-// path, or, when creating a provider, from every spelling of the body's "provider" field.
-func providerNames(path string, body []byte) []string {
-	rest, ok := strings.CutPrefix(path, "providers")
-	if !ok {
-		return nil
-	}
-	if name, _, _ := strings.Cut(strings.TrimPrefix(rest, "/"), "/"); name != "" {
-		return []string{name}
+// Creation can contain multiple case variants of the provider field; check each one.
+func providerNames(provider string, body []byte) []string {
+	if provider != "" {
+		return []string{provider}
 	}
 	var names []string
 	var fields map[string]json.RawMessage
@@ -298,10 +286,9 @@ func providerNames(path string, body []byte) []string {
 	return names
 }
 
-// isAnthropicProvider reports whether a request to path is for the Anthropic provider, the
-// one Claude subscription tokens are forwarded to.
-func isAnthropicProvider(path string, body []byte) bool {
-	return slices.ContainsFunc(providerNames(path, body), func(name string) bool {
+// isAnthropicProvider identifies the provider that receives Claude subscription tokens.
+func isAnthropicProvider(provider string, body []byte) bool {
+	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
 		return strings.EqualFold(name, "anthropic")
 	})
 }

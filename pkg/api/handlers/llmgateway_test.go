@@ -1,101 +1,10 @@
 package handlers
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/tidwall/gjson"
 )
-
-func TestAllowedBifrostAPIPath(t *testing.T) {
-	tests := []struct {
-		name    string
-		raw     string
-		escaped string
-		want    string
-		wantOK  bool
-	}{
-		{
-			name:    "provider list",
-			raw:     "providers",
-			escaped: "/api/llm-gateway/admin/providers",
-			want:    "providers",
-			wantOK:  true,
-		},
-		{
-			name:    "provider keys",
-			raw:     "providers/openai/keys",
-			escaped: "/api/llm-gateway/admin/providers/openai/keys",
-			want:    "providers/openai/keys",
-			wantOK:  true,
-		},
-		{
-			name:    "routing rules",
-			raw:     "governance/routing-rules",
-			escaped: "/api/llm-gateway/admin/governance/routing-rules",
-			want:    "governance/routing-rules",
-			wantOK:  true,
-		},
-		{
-			name:    "virtual keys are not exposed",
-			raw:     "governance/virtual-keys",
-			escaped: "/api/llm-gateway/admin/governance/virtual-keys",
-		},
-		{
-			name:    "plugins are not exposed",
-			raw:     "plugins/obot-guardrails-input",
-			escaped: "/api/llm-gateway/admin/plugins/obot-guardrails-input",
-		},
-		{
-			name:    "feature flags are not exposed",
-			raw:     "feature-flags/warp",
-			escaped: "/api/llm-gateway/admin/feature-flags/warp",
-		},
-		{
-			name:    "the response cache is not exposed",
-			raw:     "cache/clear",
-			escaped: "/api/llm-gateway/admin/cache/clear",
-		},
-		{
-			name:    "hidden api",
-			raw:     "mcp/clients",
-			escaped: "/api/llm-gateway/admin/mcp/clients",
-		},
-		{
-			name:    "dot segments",
-			raw:     "providers/../session/login",
-			escaped: "/api/llm-gateway/admin/providers/../session/login",
-		},
-		{
-			name:    "encoded dot segments",
-			raw:     "providers/../mcp/clients",
-			escaped: "/api/llm-gateway/admin/providers/%2e%2e/mcp/clients",
-		},
-		{
-			name:    "encoded slash",
-			raw:     "providers/../mcp/clients",
-			escaped: "/api/llm-gateway/admin/providers%2F..%2Fmcp%2Fclients",
-		},
-		{
-			name:    "prefix lookalike",
-			raw:     "providersx",
-			escaped: "/api/llm-gateway/admin/providersx",
-		},
-		{
-			name:    "double slash",
-			raw:     "providers//openai",
-			escaped: "/api/llm-gateway/admin/providers//openai",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := allowedBifrostAPIPath(tt.raw, tt.escaped)
-			if ok != tt.wantOK || got != tt.want {
-				t.Fatalf("got (%q, %v), want (%q, %v)", got, ok, tt.want, tt.wantOK)
-			}
-		})
-	}
-}
 
 func TestRejectUnsafeConfig(t *testing.T) {
 	tests := []struct {
@@ -268,44 +177,33 @@ func TestRejectUnsafeConfig(t *testing.T) {
 func TestRejectEngineAuthConfig(t *testing.T) {
 	tests := []struct {
 		name    string
-		path    string
 		body    string
 		wantErr bool
 	}{
 		{
 			name:    "auth config on config",
-			path:    "config",
 			body:    `{"auth_config":{"is_enabled":true,"admin_username":"a","admin_password":"b"}}`,
 			wantErr: true,
 		},
 		{
 			name:    "auth config in another case",
-			path:    "config",
 			body:    `{"Auth_Config":{"is_enabled":true}}`,
 			wantErr: true,
 		},
 		{
 			name:    "client config only",
-			path:    "config",
 			body:    `{"client_config":{"drop_excess_requests":true}}`,
 			wantErr: false,
 		},
 		{
 			name:    "null auth config",
-			path:    "config",
 			body:    `{"client_config":{},"auth_config":null}`,
-			wantErr: false,
-		},
-		{
-			name:    "auth config on another path",
-			path:    "providers",
-			body:    `{"auth_config":{"is_enabled":true}}`,
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := rejectEngineAuthConfig(tt.path, []byte(tt.body))
+			err := rejectEngineAuthConfig([]byte(tt.body))
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("rejectEngineAuthConfig() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -386,23 +284,5 @@ func TestWithProviderDefaults(t *testing.T) {
 	update := `{"network_config":{"base_url":"https://api.openai.com"},"keys":[]}`
 	if body, err = withProviderDefaults([]byte(update), false, "openai"); err != nil || string(body) != update {
 		t.Fatalf("update body %s, %v", body, err)
-	}
-}
-
-func TestIsProviderWrite(t *testing.T) {
-	for _, tt := range []struct {
-		method, path string
-		want         bool
-	}{
-		{method: http.MethodPost, path: "providers", want: true},
-		{method: http.MethodPut, path: "providers/openai", want: true},
-		{method: http.MethodPost, path: "providers/openai/keys", want: false},
-		{method: http.MethodPut, path: "providers/openai/keys/k1", want: false},
-		{method: http.MethodDelete, path: "providers/openai", want: false},
-		{method: http.MethodPut, path: "config", want: false},
-	} {
-		if got := isProviderWrite(tt.method, tt.path); got != tt.want {
-			t.Errorf("isProviderWrite(%s, %s) = %v, want %v", tt.method, tt.path, got, tt.want)
-		}
 	}
 }

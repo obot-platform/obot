@@ -203,53 +203,41 @@ func TestRejectSubscriptionRedirects(t *testing.T) {
 func TestRejectGlobalProxySkipVerify(t *testing.T) {
 	tests := []struct {
 		name    string
-		path    string
 		body    string
 		wantErr bool
 	}{
 		{
 			name:    "certificate checks off",
-			path:    "proxy-config",
 			body:    `{"enabled":true,"type":"http","url":"https://proxy.corp:3128","skip_tls_verify":true}`,
 			wantErr: true,
 		},
 		{
 			name:    "certificate checks off in another case",
-			path:    "proxy-config",
 			body:    `{"enabled":true,"type":"http","url":"https://proxy.corp:3128","Skip_TLS_Verify":true}`,
 			wantErr: true,
 		},
 		{
 			name:    "certificate checks off with the proxy disabled",
-			path:    "proxy-config",
 			body:    `{"enabled":false,"skip_tls_verify":true}`,
 			wantErr: true,
 		},
 		{
 			name:    "certificate checks off beside a false spelling",
-			path:    "proxy-config",
 			body:    `{"skip_tls_verify":false,"SKIP_TLS_VERIFY":true}`,
 			wantErr: true,
 		},
 		{
 			name: "a proxy with certificate checks on",
-			path: "proxy-config",
 			body: `{"enabled":true,"type":"http","url":"http://proxy.corp:3128","skip_tls_verify":false,"enable_for_inference":true}`,
 		},
 		{
 			name: "a proxy without the setting",
-			path: "proxy-config",
 			body: `{"enabled":true,"type":"http","url":"http://proxy.corp:3128"}`,
-		},
-		{
-			name: "another API",
-			path: "providers/openai",
-			body: `{"skip_tls_verify":true}`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := rejectGlobalProxySkipVerify(tt.path, []byte(tt.body))
+			err := rejectGlobalProxySkipVerify([]byte(tt.body))
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -259,48 +247,43 @@ func TestRejectGlobalProxySkipVerify(t *testing.T) {
 
 func TestIsAnthropicProvider(t *testing.T) {
 	tests := []struct {
-		name string
-		path string
-		body string
-		want bool
+		name     string
+		provider string
+		body     string
+		want     bool
 	}{
 		{
-			name: "updating the provider",
-			path: "providers/anthropic",
-			body: `{"proxy_config":{"type":"none"}}`,
-			want: true,
+			name:     "updating the provider",
+			provider: "anthropic",
+			body:     `{"proxy_config":{"type":"none"}}`,
+			want:     true,
 		},
 		{
-			name: "creating the provider",
-			path: "providers",
-			body: `{"provider":"anthropic"}`,
-			want: true,
+			name:     "creating the provider",
+			provider: "",
+			body:     `{"provider":"anthropic"}`,
+			want:     true,
 		},
 		{
-			name: "creating the provider with its name spelled twice",
-			path: "providers",
-			body: `{"provider":"e2e","PROVIDER":"anthropic"}`,
-			want: true,
+			name:     "creating the provider with its name spelled twice",
+			provider: "",
+			body:     `{"provider":"e2e","PROVIDER":"anthropic"}`,
+			want:     true,
 		},
 		{
-			name: "another provider",
-			path: "providers/openai",
-			body: `{"provider":"anthropic"}`,
+			name:     "another provider",
+			provider: "openai",
+			body:     `{"provider":"anthropic"}`,
 		},
 		{
-			name: "a custom provider",
-			path: "providers",
-			body: `{"provider":"claude-proxy","custom_provider_config":{"base_provider_type":"anthropic"}}`,
-		},
-		{
-			name: "another API",
-			path: "proxy-config",
-			body: `{"provider":"anthropic"}`,
+			name:     "a custom provider",
+			provider: "",
+			body:     `{"provider":"claude-proxy","custom_provider_config":{"base_provider_type":"anthropic"}}`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isAnthropicProvider(tt.path, []byte(tt.body)); got != tt.want {
+			if got := isAnthropicProvider(tt.provider, []byte(tt.body)); got != tt.want {
 				t.Fatalf("isAnthropicProvider = %v, want %v", got, tt.want)
 			}
 		})

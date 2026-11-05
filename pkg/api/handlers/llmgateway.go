@@ -8,7 +8,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"path"
 	"regexp"
 	"strings"
 
@@ -22,26 +21,6 @@ import (
 )
 
 var (
-	// allowedBifrostAPIPrefixes are the Bifrost management routes exposed through Obot. Bifrost
-	// also has MCP, skills, prompt repository, and session APIs; Obot has its own versions of
-	// those features, so they stay hidden. Its plugins and response cache aren't exposed
-	// either: Obot's guardrail plugins must stay enabled, and responses aren't cached. Its
-	// request log is off, since Obot keeps its own records of requests (the LLM audit log and
-	// token usage), so its log APIs aren't exposed. Its feature flags only turn on engine
-	// features Obot doesn't expose, so they aren't exposed either.
-	allowedBifrostAPIPrefixes = []string{
-		"providers",
-		"keys",
-		"models",
-		"governance/routing-rules",
-		"governance/pricing-overrides",
-		"config",
-		"routing/",
-		"version",
-		"pricing/",
-		"proxy-config",
-	}
-
 	// gatewayRegion matches a cloud region, such as us-central1 or eu-west-2.
 	gatewayRegion = regexp.MustCompile(`^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$`)
 )
@@ -84,16 +63,6 @@ func (h *LLMGatewayHandler) Status(req api.Context) error {
 	return req.Write(status)
 }
 
-// isProviderWrite reports whether a request creates (POST providers) or updates (PUT
-// providers/<name>) a provider.
-func isProviderWrite(method, path string) bool {
-	if method == http.MethodPost {
-		return path == "providers"
-	}
-	name, ok := strings.CutPrefix(path, "providers/")
-	return method == http.MethodPut && ok && name != "" && !strings.Contains(name, "/")
-}
-
 // withProviderDefaults fills in the network settings a new provider leaves unset, such as
 // retries, which also let requests fail over between its keys. For a new or updated provider,
 // it drops an API version from the end of the base URL when the engine adds it to every path.
@@ -122,106 +91,51 @@ func (h *LLMGatewayHandler) requireEngine() error {
 	return nil
 }
 
-// admin applies the shared HTTP boundary around a direct Engine operation.
-func (h *LLMGatewayHandler) admin(operation func(api.Context, []byte) (any, error)) api.HandlerFunc {
+// adminHandler applies readiness and path-encoding checks to registered admin routes.
+func (h *LLMGatewayHandler) adminHandler(next api.HandlerFunc) api.HandlerFunc {
 	return func(req api.Context) error {
 		if err := h.requireEngine(); err != nil {
 			return err
 		}
-
-		path, ok := allowedBifrostAPIPath(strings.TrimPrefix(req.URL.Path, gatewayAdminPrefix), req.URL.EscapedPath())
-		if !ok {
+		// Reject encoded separators and dot segments before named identifiers reach storage.
+		escaped := strings.ToLower(req.URL.EscapedPath())
+		if strings.Contains(escaped, "%2f") || strings.Contains(escaped, "%2e") || strings.Contains(escaped, "%5c") || strings.Contains(req.URL.Path, "\\") {
 			return types.NewErrNotFound("LLM gateway API %q is not available", req.URL.Path)
 		}
-
-		body, err := req.Body(api.BodyOptions{MaxBytes: 32 * 1024 * 1024})
-		if err != nil {
-			return err
-		}
-		if len(body) > 0 {
-			if err := rejectUnsafeConfig(body); err != nil {
-				return err
-			}
-			if err := rejectEngineAuthConfig(path, body); err != nil {
-				return err
-			}
-			if err := rejectGlobalProxySkipVerify(path, body); err != nil {
-				return err
-			}
-			if path == "config" && req.Method != http.MethodGet {
-				if body, err = clientConfigOnly(body); err != nil {
-					return err
-				}
-			}
-			providerType := h.providerType(req.Context(), path, body)
-			if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
-				return err
-			}
-			if isAnthropicProvider(path, body) {
-				settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
-				if err != nil {
-					return err
-				}
-				if settings.SubscriptionPassthrough {
-					if err := rejectSubscriptionRedirects(body); err != nil {
-						return err
-					}
-				}
-			}
-			if isProviderWrite(req.Method, path) {
-				if body, err = withProviderDefaults(body, req.Method == http.MethodPost, providerType); err != nil {
-					return err
-				}
-			}
-		}
-
-		ctx := req.Context()
-		if req.Method != http.MethodGet && req.Method != http.MethodHead {
-			// Successful durable writes must announce model/subscription changes even
-			// after a disconnect. Runtime reconciliation is independent of this response.
-			ctx = context.WithoutCancel(ctx)
-		}
-		req.Request = req.Request.WithContext(ctx)
-		out, err := operation(req, body)
-		if err != nil {
-			return gatewayAdminError(err)
-		}
-		if req.Method != http.MethodGet && req.Method != http.MethodHead {
-			h.afterMutation(ctx, req, path)
-		}
-		req.ResponseWriter.Header().Set("Content-Type", "application/json")
-		return json.NewEncoder(req.ResponseWriter).Encode(out)
+		return next(req)
 	}
 }
 
-// allowedBifrostAPIPath validates the requested Bifrost API path against the allowlist. The
-// path is matched after cleaning, and any dot segment or encoded separator is refused, so a
-// path like "providers/%2e%2e/session" can't reach an API that isn't listed.
-func allowedBifrostAPIPath(raw, escaped string) (string, bool) {
-	raw = strings.TrimPrefix(raw, "/")
-	lowerEscaped := strings.ToLower(escaped)
-	if strings.Contains(lowerEscaped, "%2f") || strings.Contains(lowerEscaped, "%2e") || strings.Contains(lowerEscaped, "%5c") {
-		return "", false
+func readGatewayAdminBody(req api.Context) ([]byte, error) {
+	body, err := req.Body(api.BodyOptions{MaxBytes: 32 * 1024 * 1024})
+	if err != nil {
+		return nil, err
 	}
-	for segment := range strings.SplitSeq(raw, "/") {
-		if segment == "." || segment == ".." {
-			return "", false
+	if err := rejectUnsafeConfig(body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+// Provider and key writes share credential restrictions; route handlers select defaults.
+func (h *LLMGatewayHandler) validateProviderBody(req api.Context, body []byte) (string, error) {
+	name := req.PathValue("provider")
+	providerType := h.providerType(req.Context(), name, body)
+	if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
+		return "", err
+	}
+	if isAnthropicProvider(name, body) {
+		settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
+		if err != nil {
+			return "", err
+		}
+		if settings.SubscriptionPassthrough {
+			if err := rejectSubscriptionRedirects(body); err != nil {
+				return "", err
+			}
 		}
 	}
-	if strings.Contains(raw, "\\") {
-		return "", false
-	}
-	cleaned := strings.TrimPrefix(path.Clean("/"+raw), "/")
-	if cleaned != strings.TrimSuffix(raw, "/") {
-		return "", false
-	}
-	for _, prefix := range allowedBifrostAPIPrefixes {
-		prefix = strings.TrimSuffix(prefix, "/")
-		if cleaned == prefix || strings.HasPrefix(cleaned, prefix+"/") {
-			return cleaned, true
-		}
-	}
-	return "", false
+	return providerType, nil
 }
 
 // clientConfigOnly keeps only client_config from a config update. The rest of the engine's
@@ -246,15 +160,9 @@ func clientConfigOnly(body []byte) ([]byte, error) {
 	return json.Marshal(update)
 }
 
-// rejectEngineAuthConfig refuses a change to the engine's own login. Obot reaches the engine
-// with its setup token, which the engine accepts for creating its first admin account, so
-// without this an Obot admin could turn on the engine's login through this API and lock Obot
-// out of its own gateway on every replica. Obot controls access to the gateway itself. Keys
-// are matched without regard to case, as the engine's JSON decoding matches them.
-func rejectEngineAuthConfig(path string, body []byte) error {
-	if path != "config" {
-		return nil
-	}
+// Obot controls gateway authentication; client settings cannot enable a separate login.
+// Match every spelling that the engine's JSON decoder accepts.
+func rejectEngineAuthConfig(body []byte) error {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(body, &fields) != nil {
 		return nil
@@ -399,21 +307,15 @@ func isServiceAccountKey(creds string) bool {
 	return found
 }
 
-// afterMutation announces durable changes to the model controllers and subscription settings.
-func (h *LLMGatewayHandler) afterMutation(ctx context.Context, req api.Context, path string) {
-	switch {
-	case strings.HasPrefix(path, "providers"), strings.HasPrefix(path, "models"), strings.HasPrefix(path, "keys"):
-		if strings.HasPrefix(path, "providers") && req.Method != http.MethodDelete {
-			h.engine.ApplyEgressProxy(ctx)
-		}
-		if req.Method == http.MethodDelete && strings.TrimSuffix(path, "/") == "providers/anthropic" {
-			// Claude subscriptions are a setting of the Anthropic provider: removing the provider
-			// turns them off, so adding it back later doesn't quietly forward them again.
-			disableSubscriptionPassthrough(ctx, req)
-		}
-		if err := llmengine.TriggerModelSync(ctx, req.Storage); err != nil {
-			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
-		}
+// Engine mutations finish accepted writes after disconnects; their follow-up must also finish.
+func (h *LLMGatewayHandler) providerChanged(req api.Context) {
+	h.engine.ApplyEgressProxy(context.WithoutCancel(req.Context()))
+	triggerGatewayModelSync(req)
+}
+
+func triggerGatewayModelSync(req api.Context) {
+	if err := llmengine.TriggerModelSync(context.WithoutCancel(req.Context()), req.Storage); err != nil {
+		slog.Warn("failed to trigger LLM gateway model sync", "error", err)
 	}
 }
 
