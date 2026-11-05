@@ -62,6 +62,8 @@ func isBuiltinAgentToolKind(kind string) bool {
 // entry, and a configured server that merely shares a built-in's name must be
 // matched against the allowlist like any other, not waved through on its name.
 func isBuiltinAgentMCPCall(call NormalizedCall) bool {
+	// Hostname is included for replayed decision-log rows; on the live path the
+	// handler derives it from URL rather than trusting the device.
 	if call.Server.URL != "" || call.Server.Package != nil || call.Server.Command != "" ||
 		call.Server.Hostname != "" || call.Server.Connector != "" {
 		return false
@@ -70,13 +72,16 @@ func isBuiltinAgentMCPCall(call NormalizedCall) bool {
 }
 
 // isBuiltinAgentMCP reports whether serverName is a built-in MCP server for the
-// given agent, matching exactly first and then by normalized name.
+// given agent, matching exactly first and then, for Claude Code only, by
+// normalized name.
 //
-// The normalized rung is required: two of Claude Code's five built-in names
-// contain spaces and capitals, and no tool namespace preserves either, so
+// The normalized rung is required for Claude Code: two of its five built-in
+// names contain spaces and capitals, and no tool namespace preserves either, so
 // "Claude Preview" reaches a device-side hook as something like "Claude_Preview"
 // and an exact-only comparison would miss it every time. The device applies the
-// same ladder.
+// same ladder. Codex's node_repl needs no such rung — the device reports the
+// exact config key — and fuzzy matching would only widen what the name admits
+// (node-repl, NodeRepl, node.repl), so every other agent matches exactly.
 func isBuiltinAgentMCP(agent, serverName string) bool {
 	if serverName == "" {
 		return false
@@ -87,6 +92,9 @@ func isBuiltinAgentMCP(agent, serverName string) bool {
 	}
 	if _, ok := servers[serverName]; ok {
 		return true
+	}
+	if agent != AgentClaudeCode {
+		return false
 	}
 	target := normalizedServerName(serverName)
 	if target == "" {

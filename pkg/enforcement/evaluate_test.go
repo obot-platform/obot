@@ -148,6 +148,52 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: false,
 		},
 		{
+			// Codex reports the exact config key, so only the exact name is a built-in.
+			name:      "builtin agent mcp denies a codex name that only normalizes to node_repl",
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node-repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			name:      "builtin agent mcp denies a codex name differing only in case",
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "Node_Repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			name:      "builtin agent mcp denies node_repl under another agent",
+			call:      NormalizedCall{Agent: AgentCursor, Kind: KindMCP, Tool: "js", ServerName: "node_repl"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			name: "builtin agent mcp denies a builtin name carrying only a command",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl",
+				Server: ServerIdentity{Command: "/tmp/node_repl"},
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			name: "builtin agent mcp denies a builtin name carrying only a connector",
+			call: NormalizedCall{
+				Agent: AgentClaudeCode, Kind: KindMCP, Tool: "x", ServerName: "workspace",
+				Server: ServerIdentity{Connector: "workspace"},
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
+			name: "builtin agent mcp denies a builtin name carrying an empty package",
+			call: NormalizedCall{
+				Agent: AgentCodex, Kind: KindMCP, Tool: "js", ServerName: "node_repl",
+				Server: ServerIdentity{Package: &PackageIdentity{}},
+			},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: false,
+		},
+		{
 			// Codex's computer-use is an ordinary configured entry installed by the
 			// ChatGPT app, not a built-in.
 			name:      "builtin agent mcp denies member name under a different agent",
