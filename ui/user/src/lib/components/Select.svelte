@@ -119,12 +119,21 @@
 
 	// The options that are rendered. With thousands of options, rendering all of them makes the
 	// page slow and heavy, so maxRenderedOptions lists the first matches and asks for a narrower query.
+	// Options whose label or searchText is exactly the query come first, so that every option can be
+	// reached by typing it in full, even one whose text is part of more than the cap of others.
 	let hasSearchInput = $derived(searchInDropdown || (multiple && !readonly && !buttonReadOnly));
-	let renderedOptions = $derived(
-		maxRenderedOptions && hasSearchInput
-			? availableOptions.slice(0, maxRenderedOptions)
-			: availableOptions
-	);
+	let renderedOptions = $derived.by(() => {
+		if (!maxRenderedOptions || !hasSearchInput || availableOptions.length <= maxRenderedOptions) {
+			return availableOptions;
+		}
+		const q = query?.toLowerCase() ?? '';
+		const isExact = (option: T) =>
+			q !== '' && [option.label, option.searchText ?? ''].some((text) => text.toLowerCase() === q);
+		return [
+			...availableOptions.filter(isExact),
+			...availableOptions.filter((option) => !isExact(option))
+		].slice(0, maxRenderedOptions);
+	});
 	let hiddenOptionCount = $derived(availableOptions.length - renderedOptions.length);
 
 	// The option list is only rendered while the dropdown is open: a closed dropdown is hidden, but

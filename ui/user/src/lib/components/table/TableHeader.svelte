@@ -147,7 +147,10 @@
 				}}
 				options={filterOptions?.filter(Boolean).map((option) => ({
 					label: formatOption?.(option) ?? option.toString(),
-					id: option.toString()
+					id: option.toString(),
+					// A formatted label can be shared by many values, e.g. an owner ID shown as a name.
+					// Searching by the value itself reaches each of them past the option cap.
+					searchText: formatOption ? option.toString() : undefined
 				})) ?? []}
 				onClear={(option) => {
 					if (!option) return;

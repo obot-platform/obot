@@ -77,6 +77,25 @@ describe('Table pagination', () => {
 		await expect.element(page.getByText('row 120')).toBeVisible();
 	});
 
+	// The filter renders at most 100 options, and here every value has the same label, so the last
+	// owner is only reachable by searching for its value.
+	it('reaches a formatted filter value past the option cap by searching for the value', async () => {
+		const data = rows(101).map((row, i) => ({ ...row, kind: `owner-${i + 1}` }));
+		renderTable({
+			data,
+			filterable: ['kind'],
+			displayValue: (property, value) => (property === 'kind' ? 'Alex Smith' : String(value))
+		});
+
+		await page.getByRole('button', { name: 'Kind', exact: true }).click();
+		await page.getByRole('combobox', { name: 'Filter by Kind...' }).click();
+		await page.getByPlaceholder('Filter by Kind...').fill('owner-101');
+		await page.getByRole('button', { name: 'Alex Smith', exact: true }).click();
+
+		await expect.element(page.getByText('row 101')).toBeVisible();
+		await expect.element(page.getByText('row 001')).not.toBeInTheDocument();
+	});
+
 	it('shows no pager when the rows fit on one page', async () => {
 		renderTable({ data: rows(50) });
 

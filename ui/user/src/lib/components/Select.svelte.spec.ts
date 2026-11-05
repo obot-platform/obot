@@ -62,6 +62,23 @@ describe('Select', () => {
 			.not.toBeInTheDocument();
 	});
 
+	// "Option 1" is part of 61 other labels and comes last, so without ranking it first it would
+	// never be within the cap however it is searched for.
+	it('lists an exact match first when more options match than the cap', async () => {
+		render(Select, {
+			options: options(150).reverse(),
+			placeholder: 'Pick one',
+			searchInDropdown: true,
+			maxRenderedOptions: 5
+		});
+
+		await page.getByRole('combobox', { name: 'Pick one' }).click();
+		await page.getByPlaceholder('Pick one').fill('Option 1');
+
+		await expect.element(page.getByRole('button', { name: 'Option 1', exact: true })).toBeVisible();
+		await expect.element(page.getByText('57 more — type to narrow the results')).toBeVisible();
+	});
+
 	// Options past the cap are only reachable by searching, so a Select without a search input
 	// renders all of them.
 	it('ignores maxRenderedOptions when there is no search input', async () => {
