@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -35,7 +34,6 @@ func TestProviderHeaders(t *testing.T) {
 			expectedAuth := ""
 			if configuredAuth {
 				// Admin-configured authentication remains available to ordinary key traffic.
-				// Subscription requests alone reject this additional auth source.
 				expectedAuth = "Bearer admin-fixture"
 				pc.NetworkConfig.ExtraHeaders = map[string]string{"Authorization": expectedAuth}
 			}
@@ -48,6 +46,7 @@ func TestProviderHeaders(t *testing.T) {
 			require.NoError(t, err)
 			defer engine.Shutdown()
 			req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"anthropic/claude-test","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`))
+			req.Header.Set("User-Agent", "claude-cli/2.1.168")
 			req.Header.Set("Anthropic-Version", "2023-06-01")
 			req.Header.Set("Anthropic-Beta", "test-beta")
 			req.Header.Add("X-Stainless-Lang", "go")
@@ -73,8 +72,7 @@ func TestProviderHeaders(t *testing.T) {
 	}
 }
 
-// These are real HTTP requests to the engine, with recording destinations. No
-// successful subscription transport fixture may replace Anthropic with loopback.
+// Caller credentials are refused before any request reaches the provider.
 func TestCallerCredentialsHTTPRejection(t *testing.T) {
 	for _, keyed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("configured-key=%t", keyed), func(t *testing.T) {
@@ -123,67 +121,4 @@ func TestCallerCredentialsHTTPRejection(t *testing.T) {
 			}
 		})
 	}
-}
-
-// Pause after admission and queue capture, but before credential enforcement.
-// Retirement must stay pending while the request holds its old context.
-type pausedCredentialAttempt struct {
-	entered chan struct{}
-	resume  chan struct{}
-}
-
-func (*pausedCredentialAttempt) GetName() string { return "pause-credential-attempt" }
-func (*pausedCredentialAttempt) Cleanup() error  { return nil }
-func (*pausedCredentialAttempt) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostRequest) error {
-	return nil
-}
-func (p *pausedCredentialAttempt) PreLLMHook(_ *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
-	close(p.entered)
-	<-p.resume
-	return req, nil, nil
-}
-func (*pausedCredentialAttempt) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
-	return resp, err, nil
-}
-
-func TestSubscriptionAdmissionSyncAttemptRace(t *testing.T) {
-	var calls atomic.Int32
-	alternate := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		calls.Add(1)
-		http.Error(w, "unexpected outbound", http.StatusInternalServerError)
-	}))
-	defer alternate.Close()
-	store := newTestStore(t)
-	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", llmcoreclient.Provider{}))
-	pause := &pausedCredentialAttempt{entered: make(chan struct{}), resume: make(chan struct{})}
-	var resume sync.Once
-	engine, err := llmcore.New(t.Context(), store, llmcore.Options{Plugins: []schemas.LLMPlugin{pause}})
-	require.NoError(t, err)
-	// Release before waiting for Shutdown, including assertion failures.
-	defer func() { resume.Do(func() { close(pause.resume) }); engine.Shutdown() }()
-	out := httptest.NewRecorder()
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"anthropic/test","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`))
-		req.Header.Set("User-Agent", "claude-cli/2.1.168")
-		req.Header.Set("Authorization", "Bearer sk-ant-oat-fixture")
-		engine.ServeHTTP(out, req)
-	}()
-	waitTransition(t, pause.entered)
-	require.NoError(t, store.MutateProvider(t.Context(), "anthropic", func(p *llmcoreclient.Provider) error {
-		p.Config.NetworkConfig.BaseURL = alternate.URL
-		p.Config.NetworkConfig.AllowPrivateNetwork = true
-		return nil
-	}))
-	// The lease keeps the old queue alive, but Sync still has a bounded wait.
-	_, err = engine.Sync(t.Context())
-	require.ErrorContains(t, err, "anthropic is still draining")
-	resume.Do(func() { close(pause.resume) })
-	waitTransition(t, done)
-	require.Equal(t, http.StatusServiceUnavailable, out.Code, out.Body.String())
-	require.Contains(t, out.Body.String(), "api_error")
-	require.Zero(t, calls.Load())
-	_, err = engine.Sync(t.Context())
-	require.NoError(t, err, "released HTTP context allows replacement on retry")
 }

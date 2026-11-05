@@ -16,35 +16,37 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var messagesRequestModes = []struct {
-	path   string
-	stream bool
-}{
-	{
-		path:   "/v1/messages",
-		stream: false,
-	},
-	{
-		path:   "/v1/messages",
-		stream: true,
-	},
-	{
-		path:   "/anthropic/v1/messages",
-		stream: false,
-	},
-	{
-		path:   "/anthropic/v1/messages",
-		stream: true,
-	},
-	{
-		path:   "/v1/messages/count_tokens",
-		stream: false,
-	},
-	{
-		path:   "/anthropic/v1/messages/count_tokens",
-		stream: false,
-	},
-}
+var (
+	messagesRequestModes = []struct {
+		path   string
+		stream bool
+	}{
+		{
+			path:   "/v1/messages",
+			stream: false,
+		},
+		{
+			path:   "/v1/messages",
+			stream: true,
+		},
+		{
+			path:   "/anthropic/v1/messages",
+			stream: false,
+		},
+		{
+			path:   "/anthropic/v1/messages",
+			stream: true,
+		},
+		{
+			path:   "/v1/messages/count_tokens",
+			stream: false,
+		},
+		{
+			path:   "/anthropic/v1/messages/count_tokens",
+			stream: false,
+		},
+	}
+)
 
 func TestMessagesInputErrorsAreBadRequests(t *testing.T) {
 	engine, err := llmcore.New(t.Context(), newTestStore(t), llmcore.Options{})

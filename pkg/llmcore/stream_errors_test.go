@@ -37,8 +37,8 @@ func (p *streamErrorFixture) PreLLMHook(_ *schemas.BifrostContext, req *schemas.
 	chunks <- &schemas.BifrostStreamChunk{BifrostError: &schemas.BifrostError{
 		StatusCode: schemas.Ptr(http.StatusTooManyRequests),
 		Error: &schemas.ErrorField{
-			Type:    schemas.Ptr("rate_limit_error"),
-			Code:    schemas.Ptr("quota_exceeded"),
+			Type:    new("rate_limit_error"),
+			Code:    new("quota_exceeded"),
 			Message: "Bifrost: quota exhausted",
 			Param:   "input",
 		},
@@ -49,11 +49,11 @@ func (p *streamErrorFixture) PreLLMHook(_ *schemas.BifrostContext, req *schemas.
 
 func errorEventData(t *testing.T, body string) []byte {
 	t.Helper()
-	for _, frame := range strings.Split(body, "\n\n") {
+	for frame := range strings.SplitSeq(body, "\n\n") {
 		if !strings.HasPrefix(frame, "event: error\n") {
 			continue
 		}
-		for _, line := range strings.Split(frame, "\n") {
+		for line := range strings.SplitSeq(frame, "\n") {
 			if data, ok := strings.CutPrefix(line, "data: "); ok {
 				return []byte(data)
 			}
@@ -97,9 +97,9 @@ func TestProviderStreamErrorsUseAPISpecificEnvelopes(t *testing.T) {
 				var event schemas.BifrostResponsesStreamResponse
 				require.NoError(t, json.Unmarshal(data, &event))
 				require.Equal(t, schemas.ResponsesStreamResponseTypeError, event.Type)
-				require.Equal(t, schemas.Ptr("quota_exceeded"), event.Code)
-				require.Equal(t, schemas.Ptr("gateway: quota exhausted"), event.Message)
-				require.Equal(t, schemas.Ptr("input"), event.Param)
+				require.Equal(t, new("quota_exceeded"), event.Code)
+				require.Equal(t, new("gateway: quota exhausted"), event.Message)
+				require.Equal(t, new("input"), event.Param)
 				require.Equal(t, 8, event.SequenceNumber)
 				require.Nil(t, event.Error, "Responses SSE errors use top-level fields")
 			})

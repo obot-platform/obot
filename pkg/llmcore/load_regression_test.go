@@ -135,7 +135,7 @@ func TestStartupProviderFailuresRemainPending(t *testing.T) {
 	_, attemptErr := engine.Client().ChatCompletionRequest(schemas.NewBifrostContext(requestCtx, schemas.NoDeadline), &schemas.BifrostChatRequest{
 		Provider: "broken",
 		Model:    "test",
-		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("hello")}}},
+		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: new("hello")}}},
 	})
 	require.NotNil(t, attemptErr)
 	require.Contains(t, attemptErr.Error.Message, "being reconfigured", "startup failure must fail closed rather than wait on a workerless queue")

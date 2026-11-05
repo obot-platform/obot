@@ -40,14 +40,14 @@ type routingPlugin struct {
 // replicas, unlike the engine's.
 type noBudgets struct{}
 
-func (noBudgets) GetBudgetAndRateLimitStatus(*schemas.BifrostContext, schemas.ModelProvider, string, map[string]float64, map[string]int64, map[string]int64) *governance.BudgetAndRateLimitStatus {
-	return nil
-}
-
 // orderedRuleStore keeps LocalStore's program cache while making first-match
 // evaluation deterministic: priority ascending, newest first, then ID ascending.
 type orderedRuleStore struct {
 	rules.Store
+}
+
+func (noBudgets) GetBudgetAndRateLimitStatus(*schemas.BifrostContext, schemas.ModelProvider, string, map[string]float64, map[string]int64, map[string]int64) *governance.BudgetAndRateLimitStatus {
+	return nil
 }
 
 func (s orderedRuleStore) GetScopedRules(ctx context.Context, scope, scopeID string) []*tables.TableRoutingRule {

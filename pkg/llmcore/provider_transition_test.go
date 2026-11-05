@@ -23,6 +23,16 @@ type credentialRecorder struct {
 	keys []string
 }
 
+// transitionLogger pauses construction after reconciliation publishes the desired
+// account view. On the old implementation, the old worker is still live here.
+type transitionLogger struct {
+	schemas.Logger
+	updateStarted chan struct{}
+	releaseUpdate chan struct{}
+	removing      chan struct{}
+	armed         atomic.Bool
+}
+
 func (r *credentialRecorder) serve(w http.ResponseWriter, req *http.Request) {
 	r.mu.Lock()
 	r.keys = append(r.keys, req.Header.Get("Authorization"))
@@ -55,7 +65,7 @@ func callTransitionProvider(ctx context.Context, engine *llmcore.Engine) *schema
 	_, err := engine.Client().ChatCompletionRequest(bfCtx, &schemas.BifrostChatRequest{
 		Provider: "paired",
 		Model:    "test",
-		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("hello")}}},
+		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: new("hello")}}},
 	})
 	return err
 }
@@ -99,16 +109,6 @@ func TestFailedProviderReplacementBlocksNewCredentials(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, callTransitionProvider(t.Context(), engine))
 	require.Equal(t, []string{"Bearer new-secret"}, newRecorder.snapshot())
-}
-
-// transitionLogger pauses construction after reconciliation publishes the desired
-// account view. On the old implementation, the old worker is still live here.
-type transitionLogger struct {
-	schemas.Logger
-	updateStarted chan struct{}
-	releaseUpdate chan struct{}
-	removing      chan struct{}
-	armed         atomic.Bool
 }
 
 func (l *transitionLogger) Info(msg string, args ...any) {

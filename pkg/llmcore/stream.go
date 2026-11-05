@@ -8,7 +8,9 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
-const responseEncodingMessage = "failed to encode gateway response"
+const (
+	responseEncodingMessage = "failed to encode gateway response"
+)
 
 // streamWriter owns header commitment for every streaming dialect. Encoding must
 // succeed before the first event commits HTTP 200; after that, failures can only
@@ -26,7 +28,7 @@ func (s *streamWriter) write(name string, value any, extra schemas.BifrostRespon
 	if err != nil {
 		s.fail(&schemas.BifrostError{
 			StatusCode: schemas.Ptr(http.StatusInternalServerError),
-			Error:      &schemas.ErrorField{Type: schemas.Ptr("api_error"), Message: responseEncodingMessage},
+			Error:      &schemas.ErrorField{Type: new("api_error"), Message: responseEncodingMessage},
 		})
 		return err
 	}

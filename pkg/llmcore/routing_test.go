@@ -23,8 +23,17 @@ type pausedReplacementStore struct {
 	resume  chan struct{}
 }
 
+// Pause after evaluation loads the old rule but before it fetches its compiled
+// program. A writer here must not change the separately cached CEL program.
+type pausedEvaluationLogger struct {
+	schemas.Logger
+	loaded chan struct{}
+	resume chan struct{}
+	once   sync.Once
+}
+
 func (s *pausedReplacementStore) UpsertRule(ctx context.Context, rule *tables.TableRoutingRule) error {
-	if err := s.Store.DeleteRule(ctx, rule.ID); err != nil {
+	if err := s.DeleteRule(ctx, rule.ID); err != nil {
 		return err
 	}
 	close(s.removed)
@@ -91,15 +100,6 @@ func TestRuleReplacementDoesNotExposeEmptyPolicy(t *testing.T) {
 	require.NoError(t, <-replaced)
 	require.NoError(t, <-evaluated)
 	require.Equal(t, "new-route", req.ChatRequest.Model)
-}
-
-// Pause after evaluation loads the old rule but before it fetches its compiled
-// program. A writer here must not change the separately cached CEL program.
-type pausedEvaluationLogger struct {
-	schemas.Logger
-	loaded chan struct{}
-	resume chan struct{}
-	once   sync.Once
 }
 
 func (l *pausedEvaluationLogger) Debug(msg string, args ...any) {

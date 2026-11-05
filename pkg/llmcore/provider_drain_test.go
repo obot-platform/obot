@@ -72,7 +72,7 @@ func testLongStreamRetirement(t *testing.T, action string) {
 		chunks, streamErr := engine.Client().ChatCompletionStreamRequest(ctx, &schemas.BifrostChatRequest{
 			Provider: "paired",
 			Model:    "test",
-			Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("hello")}}},
+			Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: new("hello")}}},
 		})
 		streamErrors <- streamErr
 		if chunks != nil {
@@ -109,7 +109,7 @@ func testLongStreamRetirement(t *testing.T, action string) {
 	_, unrelatedErr := engine.Client().ChatCompletionRequest(unrelatedCtx, &schemas.BifrostChatRequest{
 		Provider: "unrelated",
 		Model:    "test",
-		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("hello")}}},
+		Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: new("hello")}}},
 	})
 	require.Nil(t, unrelatedErr, "healthy changes must apply while paired drains")
 	require.Equal(t, []string{"Bearer unrelated-secret"}, newRecorder.snapshot())

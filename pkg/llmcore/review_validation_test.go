@@ -15,6 +15,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type sharedScopedStore struct {
+	rules.Store
+	scoped []*tables.TableRoutingRule
+}
+
 func TestAccountRejectsNegativeQueues(t *testing.T) {
 	for _, tt := range []struct {
 		field string
@@ -194,11 +199,11 @@ func TestTargetWeightsAndInheritanceRemainUsable(t *testing.T) {
 			name: "all zero weights",
 			targets: []tables.TableRoutingTarget{
 				{
-					Model:  schemas.Ptr("a"),
+					Model:  new("a"),
 					Weight: 0,
 				},
 				{
-					Model:  schemas.Ptr("b"),
+					Model:  new("b"),
 					Weight: 0,
 				},
 			},
@@ -208,11 +213,11 @@ func TestTargetWeightsAndInheritanceRemainUsable(t *testing.T) {
 			name: "weighted target",
 			targets: []tables.TableRoutingTarget{
 				{
-					Model:  schemas.Ptr("a"),
+					Model:  new("a"),
 					Weight: 0,
 				},
 				{
-					Model:  schemas.Ptr("b"),
+					Model:  new("b"),
 					Weight: 2,
 				},
 			},
@@ -226,8 +231,8 @@ func TestTargetWeightsAndInheritanceRemainUsable(t *testing.T) {
 		{
 			name: "empty provider and model",
 			targets: []tables.TableRoutingTarget{{
-				Provider: schemas.Ptr(""),
-				Model:    schemas.Ptr(""),
+				Provider: new(""),
+				Model:    new(""),
 				Weight:   1,
 			}},
 			models: []string{"unrouted"},
@@ -251,11 +256,6 @@ func TestTargetWeightsAndInheritanceRemainUsable(t *testing.T) {
 			}
 		})
 	}
-}
-
-type sharedScopedStore struct {
-	rules.Store
-	scoped []*tables.TableRoutingRule
 }
 
 func (s sharedScopedStore) GetScopedRules(context.Context, string, string) []*tables.TableRoutingRule {
@@ -309,10 +309,10 @@ func TestConfigurationGateHTTPClassificationIsNarrow(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			err := &schemas.BifrostError{
-				StatusCode:  tt.status,
-				Error:       &schemas.ErrorField{Message: tt.message},
-				ExtraFields: schemas.BifrostErrorExtraFields{Provider: tt.provider},
+				StatusCode: tt.status,
+				Error:      &schemas.ErrorField{Message: tt.message},
 			}
+			err.PopulateExtraFields(schemas.ChatCompletionRequest, tt.provider, "", "")
 			status, kind, _ := errorParts(err)
 			require.Equal(t, tt.want, status)
 			if tt.want == http.StatusServiceUnavailable {

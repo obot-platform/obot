@@ -47,18 +47,9 @@ IDs within the provider; provider-specific authentication validation belongs to
 callers and the runtime. The upstream key value may be empty when authentication
 uses provider-specific fields or ambient credentials.
 
-Provide resource watches for every replica. The reconciliation handler reloads
-desired resources, applies them to the core engine, and triggers model discovery,
-including after partial application. The engine tracks successfully applied
-providers, effective proxy settings, and rules so failed items remain retryable
-without restarting successful providers. Provider configuration or effective proxy
-changes gate affected core requests and drain active and retired workers before
-publishing new credentials. Failed replacements remain gated until a successful
-retry; key-only rotations do not require a runtime replacement. The handler returns
-application and discovery errors to the router for retry.
-
-Server cutover will activate these watches with the core runtime adapter. The
-existing transport engine retains its current configuration mechanism.
+Register resource watches on every replica. Their reconciliation handler is an
+explicit placeholder until the core-engine follow-ups connect runtime application.
+The existing transport engine retains its current configuration mechanism.
 
 ## Rationale
 
@@ -74,41 +65,25 @@ providers remain usable. Diagnostics distinguish unavailable resources from
 resources observed missing. Collection-read failures and unreadable routing rules
 or global settings return a blocking error and no usable result.
 
-The core engine allows degraded startup with healthy providers and exposes
-provider diagnostics through its replica-local Err method. Provider constructors
-that fail during startup remain gated and pending reconciliation; only runtime
-instances that actually started are recorded as applied. Workerless startup queues
-are removed, and unchanged desired state retries initialization. Refresh disables
-prior runtime configuration for a quarantined provider without deleting its stored
-resource. Sync applies healthy changes before returning diagnostic errors for
-backoff retries, including when desired contents have not changed. Repairing the
-resource makes it eligible for application again. Blocking load errors fail
-startup or preserve the running configuration during refresh.
-
-Provider retirement has a shared one-second wait budget per reconciliation.
-Unfinished removals continue in the background and are reused by later retries;
-removal failures and pending drains preserve that provider's prior account values
-and gate while healthy providers, rules, and settings advance. Reconciliation
-reports incomplete retirement for retry instead of holding its lock indefinitely.
-Bifrost holds the retiring provider's queue lock during removal, so calls to that
-provider can wait before reaching the attempt gate. Shutdown joins outstanding
-removals before stopping core; the wait budget does not cancel upstream work or
-bound shutdown.
+Engine integration must allow degraded startup with healthy providers and expose
+provider diagnostics through replica-local status. Refresh must disable any prior
+runtime configuration for a quarantined provider, without deleting its stored
+resource. Apply healthy changes before returning diagnostic errors for backoff
+retries, including when desired contents have not changed. Repairing the resource
+makes it eligible for application again. Blocking load errors fail startup or
+preserve the running configuration during refresh.
 
 Cross-resource reads are eventually consistent and do not form a transactional
 snapshot. Deleting a provider retains routing rules that target it. Runtime
 integration must tolerate these dangling references, keep healthy providers
-serving, and report missing dependencies through Err, including at startup.
-An applied rule with a missing target does not fail Sync or force repeated model
-discovery. A provider or rule resource event reconciles the repair and clears the
-diagnostic. Actual application and discovery failures remain retryable. Affected
+serving, and report missing dependencies with bounded/backoff retries. Affected
 requests fail or use their configured fallbacks; missing targets must not silently
 disable or bypass routing policy.
 
-Model discovery proceeds after partial application and retries a failed trigger
-even when desired contents are unchanged. Changes to resources do not affect the
-running gateway until server cutover activates this integration. No migration
-from the unmerged configuration-table draft is provided.
+Changes to these resources do not affect the running gateway until that integration
+lands. The child PR that connects runtime application must update the placeholder
+description above to reflect the behavior it implements. No migration from the
+unmerged configuration-table draft is provided.
 
 ### Bifrost upgrade compatibility
 
@@ -137,6 +112,4 @@ the compatibility assessment in the dependency-update PR before merging.
 
 - `pkg/llmcore/client`
 - `pkg/storage/apis/obot.obot.ai/v1/llmgateway.go`
-- `pkg/llmcore/engine.go`
-- `pkg/controller/handlers/llmgatewayconfig`
-- `pkg/controller/llmgatewayconfig.go`
+- `pkg/controller/everyreplicaroutes.go`

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/maximhq/bifrost/core/providers/anthropic"
 	"github.com/maximhq/bifrost/core/providers/openai"
@@ -41,6 +42,14 @@ type responseObserverKey struct{}
 // /v1/messages (and /anthropic/v1/messages, the path Obot's proxy uses for the engine today).
 // Either API can reach any provider's models: the engine translates.
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if hasCallerCredentials(r.Header) {
+		d := dialectResponses
+		if strings.Contains(r.URL.Path, "/messages") {
+			d = dialectMessages
+		}
+		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials are not supported by the inference engine; use an Obot API key")
+		return
+	}
 	e.mux.ServeHTTP(w, r)
 }
 

@@ -60,7 +60,7 @@ func TestSuccessfulTokenCountsReportServingMetadata(t *testing.T) {
 				Targets:       []tables.TableRoutingTarget{{Provider: &provider, Model: &model, Weight: 1}},
 			}
 			if mode == "fallback" {
-				rule.ParsedFallbacks = []tables.RoutingFallback{{Fallback: schemas.Fallback{Provider: schemas.OpenAI, Model: "fallback-count"}}}
+				rule.ParsedFallbacks = []tables.RoutingFallback{{Provider: schemas.OpenAI, Model: "fallback-count"}}
 			}
 			require.NoError(t, store.PutRule(t.Context(), rule))
 			engine, err := llmcore.New(t.Context(), store, llmcore.Options{})

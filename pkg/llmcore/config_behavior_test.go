@@ -17,7 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const configTestChatResponse = `{"id":"test","object":"chat.completion","model":"test","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`
+const (
+	configTestChatResponse = `{"id":"test","object":"chat.completion","model":"test","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}`
+)
 
 func configTestChat(engine *llmcore.Engine, query string) *httptest.ResponseRecorder {
 	response := httptest.NewRecorder()
@@ -167,7 +169,7 @@ func TestRoutingTargetProviderInheritanceConverges(t *testing.T) {
 		},
 		{
 			name:     "empty provider",
-			provider: schemas.Ptr(""),
+			provider: new(""),
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -191,7 +193,7 @@ func TestRoutingTargetProviderInheritanceConverges(t *testing.T) {
 
 			// A named dependency still has to exist, and its policy stays live
 			// while Err reports the missing provider without forcing retries.
-			rule.Targets[0].Provider = schemas.Ptr("missing-provider")
+			rule.Targets[0].Provider = new("missing-provider")
 			require.NoError(t, store.PutRule(t.Context(), rule))
 			for attempt := range 2 {
 				changed, err = engine.Sync(t.Context())
@@ -209,7 +211,7 @@ func TestMissingRoutingProviderDiagnosticsAtStartupAndRecovery(t *testing.T) {
 	for _, repair := range []string{"create provider", "edit rule", "delete rule"} {
 		t.Run(repair, func(t *testing.T) {
 			rule := configRoutingRule("true", "routed")
-			rule.Targets[0].Provider = schemas.Ptr("missing-provider")
+			rule.Targets[0].Provider = new("missing-provider")
 			engine, store := newRoutingConfigEngine(t, rule)
 			require.ErrorContains(t, engine.Err(), "missing-provider", "startup must expose the dangling reference")
 			changed, err := engine.Sync(t.Context())
@@ -224,7 +226,7 @@ func TestMissingRoutingProviderDiagnosticsAtStartupAndRecovery(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, store.CreateProvider(t.Context(), "missing-provider", provider))
 			case "edit rule":
-				rule.Targets[0].Provider = schemas.Ptr("openai")
+				rule.Targets[0].Provider = new("openai")
 				require.NoError(t, store.PutRule(t.Context(), rule))
 			case "delete rule":
 				require.NoError(t, store.DeleteRule(t.Context(), rule.ID))

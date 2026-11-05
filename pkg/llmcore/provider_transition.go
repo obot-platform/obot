@@ -38,7 +38,7 @@ func (p *providerTransitionPlugin) PreLLMHook(_ *schemas.BifrostContext, req *sc
 	if err := p.unavailable(req); err != nil {
 		return req, &schemas.LLMPluginShortCircuit{Error: &schemas.BifrostError{
 			StatusCode: schemas.Ptr(http.StatusServiceUnavailable),
-			Error:      &schemas.ErrorField{Type: schemas.Ptr("api_error"), Message: err.Error()},
+			Error:      &schemas.ErrorField{Type: new("api_error"), Message: err.Error()},
 		}}, nil
 	}
 	return req, nil, nil
@@ -58,7 +58,11 @@ func isProviderConfigGateError(err *schemas.BifrostError) bool {
 		return false
 	}
 
-	provider := err.ExtraFields.Provider
+	provider := err.ExtraFields.RoutingInfo.Provider
+	if provider == "" {
+		// Core v1.12.0 only fills the legacy stamp for failures before dispatch.
+		provider = err.ExtraFields.Provider //nolint:staticcheck // Preserve early configuration-gate classification until core populates RoutingInfo.
+	}
 	if provider == "" {
 		return false
 	}

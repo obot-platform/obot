@@ -17,15 +17,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var (
+	encodingAPIs = []struct {
+		path string
+		body string
+	}{
+		{
+			path: "/v1/responses",
+			body: `{"model":"openai/test","input":"hello","stream":%t}`,
+		},
+		{
+			path: "/v1/messages",
+			body: `{"model":"openai/test","messages":[{"role":"user","content":"hello"}],"max_tokens":8,"stream":%t}`,
+		},
+		{
+			path: "/v1/chat/completions",
+			body: `{"model":"openai/test","messages":[{"role":"user","content":"hello"}],"stream":%t}`,
+		},
+	}
+)
+
 // Encoding failures originate in provider/plugin output. Inject through a real
 // core plugin so tests cover conversion and header commitment in each HTTP API.
 type encodingFixture struct{ later bool }
 
+type failedStreamTransport struct {
+	header    http.Header
+	writes    int
+	flushes   int
+	failWrite bool
+}
+
 func (*encodingFixture) GetName() string { return "encoding-fixture" }
-func (*encodingFixture) Cleanup() error  { return nil }
+
+func (*encodingFixture) Cleanup() error { return nil }
+
 func (*encodingFixture) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostRequest) error {
 	return nil
 }
+
 func (*encodingFixture) PostLLMHook(_ *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
 	return resp, err, nil
 }
@@ -34,7 +64,7 @@ func (p *encodingFixture) PreLLMHook(_ *schemas.BifrostContext, req *schemas.Bif
 	if !bifrost.IsStreamRequestType(req.RequestType) {
 		return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
 			ResponsesResponse: &schemas.BifrostResponsesResponse{
-				Temperature:      schemas.Ptr(math.NaN()),
+				Temperature:      new(math.NaN()),
 				SafeguardResults: json.RawMessage(`{`),
 			},
 			ChatResponse: &schemas.BifrostChatResponse{PromptFilterResults: json.RawMessage(`{`)},
@@ -50,37 +80,19 @@ func (p *encodingFixture) PreLLMHook(_ *schemas.BifrostContext, req *schemas.Bif
 		if req.RequestType == schemas.ChatCompletionStreamRequest {
 			chunk.BifrostChatResponse = &schemas.BifrostChatResponse{Object: "chat.completion.chunk"}
 			if i == badIndex {
-				chunk.BifrostChatResponse.PromptFilterResults = json.RawMessage(`{`)
+				chunk.PromptFilterResults = json.RawMessage(`{`)
 			}
 		} else {
 			chunk.BifrostResponsesStreamResponse = &schemas.BifrostResponsesStreamResponse{Type: schemas.ResponsesStreamResponseTypeCreated}
 			if i == badIndex {
 				chunk.BifrostResponsesStreamResponse.LogProbs = []schemas.ResponsesOutputMessageContentTextLogProb{{LogProb: math.NaN()}}
-				chunk.BifrostResponsesStreamResponse.SafeguardResults = json.RawMessage(`{`)
+				chunk.SafeguardResults = json.RawMessage(`{`)
 			}
 		}
 		chunks <- chunk
 	}
 	close(chunks)
 	return req, &schemas.LLMPluginShortCircuit{Stream: chunks}, nil
-}
-
-var encodingAPIs = []struct {
-	path string
-	body string
-}{
-	{
-		path: "/v1/responses",
-		body: `{"model":"openai/test","input":"hello","stream":%t}`,
-	},
-	{
-		path: "/v1/messages",
-		body: `{"model":"openai/test","messages":[{"role":"user","content":"hello"}],"max_tokens":8,"stream":%t}`,
-	},
-	{
-		path: "/v1/chat/completions",
-		body: `{"model":"openai/test","messages":[{"role":"user","content":"hello"}],"stream":%t}`,
-	},
 }
 
 func newEncodingEngine(t *testing.T, later bool) *llmcore.Engine {
@@ -116,8 +128,8 @@ func TestHTTPEncodingFailures(t *testing.T) {
 						var event schemas.BifrostResponsesStreamResponse
 						require.NoError(t, json.Unmarshal(errorEventData(t, response.Body.String()), &event))
 						require.Equal(t, schemas.ResponsesStreamResponseTypeError, event.Type)
-						require.Equal(t, schemas.Ptr("api_error"), event.Code, "encoding failures use a stable fallback code")
-						require.Equal(t, schemas.Ptr("failed to encode gateway response"), event.Message)
+						require.Equal(t, new("api_error"), event.Code, "encoding failures use a stable fallback code")
+						require.Equal(t, new("failed to encode gateway response"), event.Message)
 						require.Equal(t, 1, event.SequenceNumber)
 						require.Nil(t, event.Error)
 					} else {
@@ -132,15 +144,10 @@ func TestHTTPEncodingFailures(t *testing.T) {
 	}
 }
 
-type failedStreamTransport struct {
-	header    http.Header
-	writes    int
-	flushes   int
-	failWrite bool
-}
-
 func (w *failedStreamTransport) Header() http.Header { return w.header }
-func (*failedStreamTransport) WriteHeader(int)       {}
+
+func (*failedStreamTransport) WriteHeader(int) {}
+
 func (w *failedStreamTransport) Write(data []byte) (int, error) {
 	w.writes++
 	if w.failWrite {
@@ -148,6 +155,7 @@ func (w *failedStreamTransport) Write(data []byte) (int, error) {
 	}
 	return len(data), nil
 }
+
 func (w *failedStreamTransport) FlushError() error { w.flushes++; return io.ErrClosedPipe }
 
 func TestStreamWriteFailureDoesNotAttemptErrorResponse(t *testing.T) {
