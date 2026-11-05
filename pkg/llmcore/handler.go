@@ -53,6 +53,17 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	e.mux.ServeHTTP(w, r)
 }
 
+func hasCallerCredentials(headers http.Header) bool {
+	for name, values := range headers {
+		if strings.EqualFold(name, "authorization") || strings.EqualFold(name, "x-api-key") || strings.EqualFold(name, "api-key") || strings.EqualFold(name, "x-goog-api-key") {
+			if strings.Join(values, "") != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (e *Engine) newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/messages/count_tokens", func(w http.ResponseWriter, r *http.Request) {
@@ -90,31 +101,9 @@ func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
 
 	ctx, cancel := e.requestContext(r)
 	defer cancel()
-	var (
-		req    *schemas.BifrostResponsesRequest
-		stream bool
-	)
-	switch d {
-	case dialectResponses:
-		var in openai.OpenAIResponsesRequest
-		if err := json.Unmarshal(body, &in); err != nil {
-			writeError(w, d, http.StatusBadRequest, "invalid_request_error", "invalid request body: "+err.Error())
-			return
-		}
-		req, stream = in.ToBifrostResponsesRequest(ctx), in.Stream != nil && *in.Stream
-		req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(ctx, in.Model, in.Fallbacks)
-	case dialectMessages:
-		var in anthropic.AnthropicMessageRequest
-		if err := json.Unmarshal(body, &in); err != nil {
-			writeError(w, d, http.StatusBadRequest, "invalid_request_error", "invalid request body: "+err.Error())
-			return
-		}
-		req, stream = in.ToBifrostResponsesRequest(ctx), in.Stream != nil && *in.Stream
-		req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(ctx, in.Model, anthropicFallbackModels(&in))
-	}
-	if req.Provider == "" {
-		// Obot's proxy resolves bare model IDs to provider/model before the engine sees them.
-		writeError(w, d, http.StatusBadRequest, "invalid_request_error", fmt.Sprintf("model %q must be named as provider/model", req.Model))
+	req, stream, err := e.decodeResponsesRequest(ctx, body, d)
+	if err != nil {
+		writeError(w, d, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
 
@@ -137,6 +126,35 @@ func (e *Engine) serve(w http.ResponseWriter, r *http.Request, d dialect) {
 	case dialectMessages:
 		writeJSON(w, d, http.StatusOK, anthropic.ToAnthropicResponsesResponse(ctx, resp))
 	}
+}
+
+// Inference and token counting must use the same dialect conversion and
+// replica-local model parsing, including caller fallbacks.
+func (e *Engine) decodeResponsesRequest(ctx *schemas.BifrostContext, body []byte, d dialect) (*schemas.BifrostResponsesRequest, bool, error) {
+	var (
+		req    *schemas.BifrostResponsesRequest
+		stream *bool
+	)
+	if d == dialectMessages {
+		var in anthropic.AnthropicMessageRequest
+		if err := json.Unmarshal(body, &in); err != nil {
+			return nil, false, fmt.Errorf("invalid request body: %w", err)
+		}
+		req, stream = in.ToBifrostResponsesRequest(ctx), in.Stream
+		req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(ctx, in.Model, anthropicFallbackModels(&in))
+	} else {
+		var in openai.OpenAIResponsesRequest
+		if err := json.Unmarshal(body, &in); err != nil {
+			return nil, false, fmt.Errorf("invalid request body: %w", err)
+		}
+		req, stream = in.ToBifrostResponsesRequest(ctx), in.Stream
+		req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(ctx, in.Model, in.Fallbacks)
+	}
+	if req.Provider == "" {
+		// Obot's proxy resolves bare model IDs before the engine sees them.
+		return nil, false, fmt.Errorf("model %q must be named as provider/model", req.Model)
+	}
+	return req, stream != nil && *stream, nil
 }
 
 // serveStream relays the engine's stream as server-sent events in the request's format. Headers

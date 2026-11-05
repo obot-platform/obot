@@ -213,7 +213,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	e.tracer = tracing.NewTracer(e.traceStore, nil, logger)
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:      e.account,
-		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &credentialPlugin{}, &providerTransitionPlugin{account: e.account}),
+		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &providerTransitionPlugin{account: e.account}),
 		Logger:       logger,
 		ModelCatalog: opts.Catalog,
 		Tracer:       e.tracer,

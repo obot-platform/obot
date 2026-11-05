@@ -1,16 +1,14 @@
 package llmcore
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 
 	bifrost "github.com/maximhq/bifrost/core"
-	"github.com/maximhq/bifrost/core/providers/anthropic"
-	"github.com/maximhq/bifrost/core/providers/openai"
-	"github.com/maximhq/bifrost/core/schemas"
 )
 
+// Client exposes the trusted in-process core API. Public requests must use the
+// authenticated proxy, which strips caller credentials before HTTP inference.
 func (e *Engine) Client() *bifrost.Bifrost { return e.client }
 
 func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
@@ -22,23 +20,8 @@ func (e *Engine) serveCount(w http.ResponseWriter, r *http.Request, d dialect) {
 
 	ctx, cancel := e.requestContext(r)
 	defer cancel()
-	var req *schemas.BifrostResponsesRequest
-	if d == dialectMessages {
-		var in anthropic.AnthropicMessageRequest
-		err = json.Unmarshal(body, &in)
-		if err == nil {
-			req = in.ToBifrostResponsesRequest(ctx)
-			req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(ctx, in.Model, anthropicFallbackModels(&in))
-		}
-	} else {
-		var in openai.OpenAIResponsesRequest
-		err = json.Unmarshal(body, &in)
-		if err == nil {
-			req = in.ToBifrostResponsesRequest(ctx)
-			req.Provider, req.Model, req.Fallbacks = e.normalizeRequestModels(ctx, in.Model, in.Fallbacks)
-		}
-	}
-	if err != nil || req == nil || req.Provider == "" {
+	req, _, err := e.decodeResponsesRequest(ctx, body, d)
+	if err != nil {
 		writeError(w, d, http.StatusBadRequest, "invalid_request_error", "invalid token counting request")
 		return
 	}
