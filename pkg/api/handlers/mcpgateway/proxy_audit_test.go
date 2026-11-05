@@ -418,7 +418,7 @@ func TestMCPProxyAuditCorrelatesServerRequestResponseWithoutHooks(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := newHookProcessor(post, nil, nil, nil, postAuditor, newHookCorrelationStore(storageClient, metadata), nil, nil); err != nil {
+	if _, err := newHookProcessor(post, nil, nil, nil, postAuditor, newHookCorrelationStore(storageClient, metadata), nil); err != nil {
 		t.Fatal(err)
 	}
 

@@ -71,6 +71,7 @@ var (
 			"GET    /api/users/{user_id}/activities",
 			"GET    /api/users/{user_id}/token-usage",
 			"GET    /api/users/{user_id}/total-token-usage",
+			"GET    /api/users/{user_id}/remaining-token-usage",
 			"GET    /api/workspaces",
 		},
 		types.GroupPowerUser: {

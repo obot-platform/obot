@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/oauth2"
 )
 
@@ -20,8 +19,6 @@ type (
 	Options struct {
 		BlockLoopback  bool
 		BlockPrivateIP bool
-		// BlockLinkLocal also blocks the cloud metadata addresses outside the link-local
-		// ranges (see IsCloudMetadata).
 		BlockLinkLocal bool
 		AllowList      []string
 		Timeout        time.Duration
@@ -36,15 +33,6 @@ type (
 		dialer      *safeDialer
 		headers     http.Header
 		tokenSource oauth2.TokenSource
-		// proxyFor returns the proxy a request goes through, if any.
-		proxyFor func(*url.URL) (*url.URL, error)
-	}
-
-	// BlockedAddressError is returned when a host resolves to an address the options block.
-	BlockedAddressError struct {
-		Host   string
-		Reason string
-		IP     net.IP
 	}
 
 	safeDialer struct {
@@ -56,8 +44,6 @@ type (
 		blockPrivateIP bool
 		blockLinkLocal bool
 		allowList      []allowListEntry
-		// proxies are the addresses of the environment's proxies, which aren't checked.
-		proxies map[string]bool
 	}
 
 	allowListEntry struct {
@@ -79,20 +65,10 @@ func NewSafeTransport(options Options) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	dialer := newSafeDialer(options)
 	transport.DialContext = dialer.DialContext
-	// Requests through the environment's proxy are checked by their destination (see
-	// RoundTrip), and the dialer connects to the proxy itself without checking it: the
-	// operator configured it, and it may well be on a loopback or private address.
-	proxyConfig := httpproxy.FromEnvironment()
-	proxyFor := proxyConfig.ProxyFunc()
-	transport.Proxy = func(req *http.Request) (*url.URL, error) {
-		return proxyFor(req.URL)
-	}
-	dialer.proxies = proxyAddresses(proxyConfig)
 
 	return checkingTransport{
 		base:        transport,
 		dialer:      dialer,
-		proxyFor:    proxyFor,
 		headers:     options.Headers.Clone(),
 		tokenSource: options.TokenSource,
 	}
@@ -113,10 +89,6 @@ func ValidateURL(ctx context.Context, rawURL string, options Options) error {
 	return err
 }
 
-func (e *BlockedAddressError) Error() string {
-	return fmt.Sprintf("address %s resolves to blocked %s IP %s", e.Host, e.Reason, e.IP)
-}
-
 func newSafeDialer(options Options) *safeDialer {
 	return &safeDialer{
 		dialer:           &net.Dialer{},
@@ -132,12 +104,7 @@ func newSafeDialer(options Options) *safeDialer {
 func (t checkingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if host := req.URL.Hostname(); host != "" {
 		if _, err := t.dialer.checkHost(req.Context(), host, portForURL(req.URL)); err != nil {
-			// Behind a proxy, the local resolver may not know hosts the proxy can reach. A
-			// host that resolves locally is still checked.
-			var blocked *BlockedAddressError
-			if errors.As(err, &blocked) || net.ParseIP(host) != nil || !t.viaProxy(req.URL) {
-				return nil, err
-			}
+			return nil, err
 		}
 	}
 
@@ -162,14 +129,6 @@ func (t checkingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 
 	return t.base.RoundTrip(req)
-}
-
-func (t checkingTransport) viaProxy(u *url.URL) bool {
-	if t.proxyFor == nil {
-		return false
-	}
-	proxy, err := t.proxyFor(u)
-	return err == nil && proxy != nil
 }
 
 func sameOriginAsInitialRequest(req *http.Request, target *url.URL) bool {
@@ -216,9 +175,6 @@ func (d *safeDialer) dialOnce(ctx context.Context, network, address string) (net
 	if err != nil {
 		return nil, err
 	}
-	if d.proxies[strings.ToLower(address)] {
-		return d.dialer.DialContext(ctx, network, address)
-	}
 
 	ips, err := d.checkHost(ctx, host, port)
 	if err != nil {
@@ -250,7 +206,7 @@ func (d *safeDialer) checkHost(ctx context.Context, host, port string) ([]net.IP
 
 	for _, ip := range ips {
 		if reason := d.blockedReason(ip); reason != "" {
-			return nil, &BlockedAddressError{Host: host, Reason: reason, IP: ip}
+			return nil, fmt.Errorf("address %s resolves to blocked %s IP %s", host, reason, ip)
 		}
 	}
 	return ips, nil
@@ -309,36 +265,7 @@ func (d *safeDialer) blockedReason(ip net.IP) string {
 	if d.blockLinkLocal && IsLinkLocal(ip) {
 		return "link-local"
 	}
-	if d.blockLinkLocal && IsCloudMetadata(ip) {
-		return "cloud metadata"
-	}
 	return ""
-}
-
-// proxyAddresses returns the host:port addresses of the proxies cfg configures.
-func proxyAddresses(cfg *httpproxy.Config) map[string]bool {
-	result := map[string]bool{}
-	for _, raw := range []string{cfg.HTTPProxy, cfg.HTTPSProxy} {
-		if raw == "" {
-			continue
-		}
-		u, err := url.Parse(raw)
-		if err != nil || u.Host == "" {
-			// A proxy given without a scheme is an HTTP proxy, as httpproxy reads it.
-			if u, err = url.Parse("http://" + raw); err != nil {
-				continue
-			}
-		}
-		port := u.Port()
-		if port == "" {
-			port = map[string]string{"https": "443", "socks5": "1080", "socks5h": "1080"}[u.Scheme]
-			if port == "" {
-				port = "80"
-			}
-		}
-		result[strings.ToLower(net.JoinHostPort(u.Hostname(), port))] = true
-	}
-	return result
 }
 
 func parseAllowList(entries []string) []allowListEntry {

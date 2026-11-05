@@ -19,8 +19,6 @@
 		recommended?: boolean;
 		experimental?: boolean;
 		provider: BaseProvider;
-		// Catalog logos can supply dark-mode inversion without changing authentication provider icons.
-		iconClass?: string;
 		onConfigure: () => void;
 		// Omitted when the provider cannot be deconfigured, so the menu is not offered at all.
 		onDeconfigure?: () => void;
@@ -40,7 +38,6 @@
 		recommended,
 		experimental,
 		provider,
-		iconClass,
 		onConfigure,
 		onDeconfigure,
 		configuredActions,
@@ -105,18 +102,10 @@
 		<img
 			src={url}
 			alt={provider.name}
-			class={twMerge(
-				'size-16 rounded-md object-contain p-1',
-				!provider.iconDark && !iconClass && 'bg-base-400',
-				iconClass
-			)}
+			class={twMerge('size-16 rounded-md p-1', !provider.iconDark && 'bg-base-400')}
 		/>
 	{:else}
-		<img
-			src={provider.icon}
-			alt={provider.name}
-			class={twMerge('size-16 rounded-md object-contain p-1', iconClass)}
-		/>
+		<img src={provider.icon} alt={provider.name} class="size-16 rounded-md p-1" />
 	{/if}
 	<h4 class="text-center text-lg font-semibold">{provider.name}</h4>
 	<div

@@ -18,8 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/obot-platform/obot/pkg/guardrails"
-
 	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/mmmcp"
@@ -61,7 +59,6 @@ type Handler struct {
 	auditLogCollector         proxyAuditCollector
 	composite                 *mmmcp.Composite
 	hookRunner                mcp.HookRunner
-	guardrails                *guardrails.Engine
 	tunnelManager             *tunnel.Manager
 	secretBindingAllowedLabel string
 	serverURL                 string
@@ -194,7 +191,7 @@ func compositeSessionKey(serverConfig mcp.ServerConfig) string {
 	return tunnel.CompositeSessionKey(serverConfig.MCPServerName)
 }
 
-func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error), guardrailEngine *guardrails.Engine) (*Handler, error) {
+func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager, authorizationURLs func(api.Context) ([]mmmcp.AuthorizationURL, error)) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	var componentAuth componenthttp.OAuthHandlerProvider
@@ -232,7 +229,6 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		auditLogCollector:         auditLogCollector,
 		composite:                 composite,
 		hookRunner:                mcp.NewHookRunner(mcpSessionManager),
-		guardrails:                guardrailEngine,
 		tunnelManager:             tunnelManager,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 		serverURL:                 serverURL,
@@ -440,8 +436,7 @@ func (h *Handler) Proxy(req api.Context) error {
 
 		var resolvedCall *resolvedToolCall
 		if serverConfig.Runtime == types.RuntimeVMCP && serverConfig.ToolSearch {
-			// Guardrail filters run in-process, without the hook runner.
-			inspect := audit != nil || (len(hookConfig) > 0 && (h.hookRunner != nil || (h.guardrails != nil && hookConfig.HasGuardrails())))
+			inspect := audit != nil || (h.hookRunner != nil && len(hookConfig) > 0)
 			cfg, configErr := compositeConfig(req, serverConfig)
 			if configErr != nil {
 				return configErr
@@ -472,20 +467,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			}
 		}
 
-		var filterGuardrails *mcpGuardrails
-
-		// Resolve the caller for guardrail filters on every method: tool results can also
-		// arrive on a GET stream (stream resumption, or the legacy SSE transport).
-		if h.guardrails != nil && hookConfig.HasGuardrails() {
-			identity, _, err := guardrails.ResolveIdentity(req.Context(), req.GatewayClient, req.User)
-			if err != nil {
-				return err
-			}
-
-			filterGuardrails = newMCPGuardrails(h.guardrails, identity, serverConfig, req.Request.Header)
-		}
-
-		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall, filterGuardrails)
+		hooks, err := newHookProcessor(req.Request, h.hookRunner, hookConfig, hookServers, audit, newHookCorrelationStore(req.Storage, serverConfig.AuditLogMetadata), resolvedCall)
 		if err != nil {
 			if errors.Is(err, errMCPCaseVariantFieldNames) && handleGenericToolCallError(req, audit, err) {
 				return nil
@@ -588,7 +570,7 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	// These headers may authenticate the client to Obot and must not cross the
 	// trust boundary to the upstream MCP server. The transport adds any
 	// explicitly configured upstream credentials after this rewrite.
-	for _, header := range []string{"Authorization", "Cookie", "Proxy-Authorization", "X-API-Key", "X-Obot-Api-Key"} {
+	for _, header := range []string{"Authorization", "Cookie", "Proxy-Authorization", "X-API-Key"} {
 		r.Out.Header.Del(header)
 	}
 

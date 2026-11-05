@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"net"
 	"net/url"
@@ -182,87 +181,6 @@ func TestClaudeEgressCredentials(t *testing.T) {
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 }
 
-func TestClaudeLLMEgressCredential(t *testing.T) {
-	gateway, _ := newCredentialTestGateway(t)
-
-	ctx := t.Context()
-	env := &gt.ClaudeEnvironment{ID: "environment", EnvironmentID: "ccpool_test", OrganizationID: "org_test", ClaudeTagEnabled: true}
-	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	require.NoError(t, gateway.EnsureClaudeTagUser(ctx, env))
-	// The LLM key does not depend on MCP grants.
-	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}}}
-	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session", ClaudeRuntime: `{}`}}
-	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
-	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
-	provider := &CredentialProvider{Gateway: gateway, Storage: storage}
-	ref := substrate.Ref(inst)
-	actor := "spiffe://substrate-actor.local/actor/" + ref.Atespace + "/" + ref.Name
-	input := &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name + "/llm", ActorSpiffeId: actor}
-
-	_, err := provider.fetchSecret(ctx, input, true)
-	require.Equal(t, codes.PermissionDenied, status.Code(err), "no LLM key for a session whose environment leaves the LLM proxy off")
-	inst.Spec.ClaudeRuntime = `{"llmProxy":true}`
-	require.NoError(t, storage.Update(ctx, inst))
-
-	_, err = provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: "ate-secret://obot/claude/" + inst.Name, ActorSpiffeId: actor}, true)
-	require.Equal(t, codes.PermissionDenied, status.Code(err), "no MCP key without MCP grants")
-
-	started := time.Now()
-	first, err := provider.fetchSecret(ctx, input, true)
-	finished := time.Now()
-	require.NoError(t, err)
-	key, err := gateway.ValidateAPIKey(ctx, string(first.OpaqueBytes))
-	require.NoError(t, err)
-	require.Equal(t, gt.APIKeyScopes{CanAccessLLMProxy: true}, key.APIKeyScopes)
-	require.Equal(t, env.ClaudeTagUserID, fmt.Sprint(key.UserID))
-	require.True(t, key.ClaudeEnvironment)
-	require.WithinRange(t, *key.ExpiresAt, started.Add(5*time.Minute), finished.Add(5*time.Minute))
-
-	for _, uri := range []string{input.Uri + "/extra", input.Uri + "x", "ate-secret://obot/claude/" + inst.Name + "/LLM"} {
-		_, err = provider.fetchSecret(ctx, &pb.FetchSecretRequest{Uri: uri, ActorSpiffeId: actor}, true)
-		require.Equal(t, codes.PermissionDenied, status.Code(err), uri)
-	}
-
-	env.ClaudeTagEnabled = false
-	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	_, err = provider.fetchSecret(ctx, input, true)
-	require.Equal(t, codes.PermissionDenied, status.Code(err), "removing environment access removes LLM access")
-}
-
-func TestLLMProxyKeyPlaceholder(t *testing.T) {
-	processor := &AuditProcessor{Provider: &CredentialProvider{ObotURL: "http://obot.obot.svc:8080"}}
-	for _, tc := range []struct {
-		name   string
-		scheme string
-		host   string
-		path   string
-		want   bool
-	}{
-		{name: "model request", scheme: "http", host: "obot.obot.svc:8080", path: "/api/llm-proxy/v1/messages?beta=true", want: true},
-		{name: "files request", scheme: "http", host: "OBOT.obot.svc.:8080", path: "/api/llm-proxy/v1/files/file_1/content", want: true},
-		{name: "other Obot path", scheme: "http", host: "obot.obot.svc:8080", path: "/mcp-connect/vmcp_one"},
-		{name: "other port", scheme: "http", host: "obot.obot.svc:8081", path: "/api/llm-proxy/v1/messages"},
-		{name: "default port", scheme: "http", host: "obot.obot.svc", path: "/api/llm-proxy/v1/messages"},
-		{name: "other host", scheme: "http", host: "other.example:8080", path: "/api/llm-proxy/v1/messages"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			mutation, err := processor.secretPlaceholders(t.Context(), &gt.EgressAuditLog{Scheme: tc.scheme, Host: tc.host, Path: tc.path})
-			require.NoError(t, err)
-			if !tc.want {
-				require.Empty(t, mutation.GetSetHeaders())
-				return
-			}
-			require.Len(t, mutation.SetHeaders, 1)
-			require.Equal(t, "x-obot-api-key", mutation.SetHeaders[0].Header.Key)
-			require.Equal(t, "obot-egress-placeholder", string(mutation.SetHeaders[0].Header.RawValue))
-			require.Equal(t, core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD, mutation.SetHeaders[0].AppendAction)
-		})
-	}
-	require.True(t, obotAuthority("http://obot.obot.svc", "obot.obot.svc:80"))
-	require.False(t, obotAuthority("https://obot.example.com", "obot.example.com:443"), "only cleartext Obot URLs receive the key from egress")
-}
-
 func TestEgressPeerRequiresVerifiedCurrentCertificate(t *testing.T) {
 	uri, err := url.Parse(egressIdentity)
 	require.NoError(t, err)
@@ -366,7 +284,7 @@ func TestFetchSecretTakesTheLockOnlyToIssueKeys(t *testing.T) {
 	env.EgressSecrets = []gt.ClaudeEgressSecret{{ID: "ces-token", Hostname: "api.example.com", Header: "authorization", Value: "env-secret"}}
 	env.Profiles = []gt.ClaudeEnvironmentProfile{{Name: "service", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: env.ClaudeTagUserID}}, MCPServerIDs: []string{"vmcp_one"}}}
 	require.NoError(t, gateway.SaveClaudeEnvironment(ctx, env, nil))
-	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session", ClaudeRuntime: `{"llmProxy":true}`}}
+	inst := &v1.AgentInstance{Spec: v1.AgentInstanceSpec{UserID: env.ClaudeTagUserID, ClaudeEnvironment: env.ID, ClaudeAccount: clauderunner.ClaudeTagAccount, ClaudeOrder: "order", ClaudeSession: "session"}}
 	inst.Name, inst.Namespace = "acr-test", system.DefaultNamespace
 	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(inst).Build()
 	provider := &CredentialProvider{Gateway: gateway, Storage: storage}
@@ -381,7 +299,7 @@ func TestFetchSecretTakesTheLockOnlyToIssueKeys(t *testing.T) {
 		return string(response.GetOpaqueBytes()), err
 	}
 
-	llmKey, err := fetch("/llm")
+	mcpKey, err := fetch("")
 	require.NoError(t, err)
 	require.EqualValues(t, 1, locks.Load(), "issuing the session's first key takes the lock")
 
@@ -390,14 +308,14 @@ func TestFetchSecretTakesTheLockOnlyToIssueKeys(t *testing.T) {
 	errs := make(chan error, concurrent)
 	for range concurrent {
 		go func() {
-			key, err := fetch("/llm")
+			key, err := fetch("")
 			keys <- key
 			errs <- err
 		}()
 	}
 	for range concurrent {
 		require.NoError(t, <-errs)
-		require.Equal(t, llmKey, <-keys)
+		require.Equal(t, mcpKey, <-keys)
 	}
 	require.EqualValues(t, 1, locks.Load(), "reusing the current key takes no lock")
 
@@ -405,31 +323,31 @@ func TestFetchSecretTakesTheLockOnlyToIssueKeys(t *testing.T) {
 	require.NoError(t, err)
 	_, err = fetch("")
 	require.NoError(t, err)
-	require.EqualValues(t, 2, locks.Load(), "only issuing the MCP key takes the lock")
+	require.EqualValues(t, 1, locks.Load(), "reusing the MCP key takes no lock")
 	secret, err := fetch("/ces-token")
 	require.NoError(t, err)
 	require.Equal(t, "env-secret", secret)
-	require.EqualValues(t, 2, locks.Load(), "stored secrets take no lock")
+	require.EqualValues(t, 1, locks.Load(), "stored secrets take no lock")
 
-	key, err := gateway.ValidateAPIKey(ctx, llmKey)
+	key, err := gateway.ValidateAPIKey(ctx, mcpKey)
 	require.NoError(t, err)
 	require.NoError(t, db.Model(&gt.APIKey{}).Where("id = ?", key.ID).Update("expires_at", time.Now().Add(10*time.Second)).Error)
-	rotated, err := fetch("/llm")
+	rotated, err := fetch("")
 	require.NoError(t, err)
-	require.NotEqual(t, llmKey, rotated)
-	require.EqualValues(t, 3, locks.Load(), "rotating a key that expires soon takes the lock")
+	require.NotEqual(t, mcpKey, rotated)
+	require.EqualValues(t, 2, locks.Load(), "rotating a key that expires soon takes the lock")
 
 	inst.Spec.Suspended = true
 	require.NoError(t, storage.Update(ctx, inst))
-	_, err = fetch("/llm")
+	_, err = fetch("")
 	require.Equal(t, codes.PermissionDenied, status.Code(err), "every fetch checks the session")
 	inst.Spec.Suspended = false
 	require.NoError(t, storage.Update(ctx, inst))
 
 	require.NoError(t, gateway.RevokeClaudeCredentials(ctx, inst.Name))
-	_, err = fetch("/llm")
+	_, err = fetch("")
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
 	_, err = fetch("")
 	require.Equal(t, codes.PermissionDenied, status.Code(err))
-	require.EqualValues(t, 3, locks.Load(), "a revoked key is refused without the lock or a new key")
+	require.EqualValues(t, 2, locks.Load(), "a revoked key is refused without the lock or a new key")
 }
