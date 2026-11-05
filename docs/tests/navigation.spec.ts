@@ -24,7 +24,7 @@ test('current documentation navigation and direct loads', async ({ page }) => {
   // Nested groups are deliberate. Add one here only as an intended navigation
   // change; other references stay in page content rather than catch-all groups.
   await expect(page.locator('.theme-doc-sidebar-menu > li > ul .menu__list-item-collapsible > a')).toHaveText([
-    'MCP Servers', 'Cloud deployments',
+    'MCP server configuration', 'Cloud deployments',
   ]);
   const links = [...discovered];
   expect(links.length).toBeGreaterThan(0);
