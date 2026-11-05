@@ -19,18 +19,16 @@ import (
 )
 
 const (
+	dialectResponses dialect = iota
+	dialectMessages
+	dialectChat
+
 	// headerServedProvider and headerServedModel name the provider and model that served a
 	// response, which routing rules and fallbacks can make differ from the requested ones.
 	headerServedProvider = "X-Obot-LLM-Provider"
 	headerServedModel    = "X-Obot-LLM-Model"
 
 	maxRequestBodyBytes = 100 << 20
-)
-
-const (
-	dialectResponses dialect = iota
-	dialectMessages
-	dialectChat
 )
 
 // engineName matches a library error prefix, preserving provider text that merely mentions it.
@@ -57,11 +55,9 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func hasCallerCredentials(headers http.Header) bool {
-	for name, values := range headers {
-		if strings.EqualFold(name, "authorization") || strings.EqualFold(name, "x-api-key") || strings.EqualFold(name, "api-key") || strings.EqualFold(name, "x-goog-api-key") {
-			if strings.Join(values, "") != "" {
-				return true
-			}
+	for _, name := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"} {
+		if strings.Join(headers.Values(name), "") != "" {
+			return true
 		}
 	}
 	return false

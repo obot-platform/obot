@@ -93,7 +93,7 @@ func TestCallerCredentialsHTTPRejection(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { require.NoError(t, engine.Shutdown(context.Background())) }()
 
-			for _, mode := range []string{"unsafe destination", "missing UA", "other UA", "api key", "mixed", "duplicate", "wrong bearer"} {
+			for _, mode := range []string{"unsafe destination", "missing UA", "other UA", "api key", "mixed", "duplicate", "empty first value", "wrong bearer"} {
 				t.Run(mode, func(t *testing.T) {
 					req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"anthropic/test","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`))
 					req.Header.Set("User-Agent", "claude-cli/2.1.168")
@@ -110,6 +110,9 @@ func TestCallerCredentialsHTTPRejection(t *testing.T) {
 						req.Header.Set("X-Api-Key", "fixture")
 					case "duplicate":
 						req.Header.Add("Authorization", "Bearer sk-ant-oat-other")
+					case "empty first value":
+						req.Header.Set("Authorization", "")
+						req.Header.Add("Authorization", "Bearer sk-ant-oat-fixture")
 					case "wrong bearer":
 						req.Header.Set("Authorization", "Bearer other")
 					}
