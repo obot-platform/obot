@@ -2,13 +2,12 @@ package llmengine
 
 import (
 	"encoding/json"
-	"net/http"
 	"testing"
 )
 
 func TestGuardAuthenticationSwap(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "azure"}, nil); err != nil {
+	if _, err := e.CreateProvider(ctx, mustJSON(t, map[string]any{"provider": "azure"})); err != nil {
 		t.Fatal(err)
 	}
 	const masked = "abcd************************wxyz"

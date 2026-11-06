@@ -1,20 +1,24 @@
 package llmengine
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
+	"net"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
-func TestAuthenticationSwapPersistsAcrossReload(t *testing.T) {
+func TestAuthenticationSwapPersistsAcrossRestart(t *testing.T) {
+	// Azure server identity requires Azure hosts; resolve fixtures without external DNS.
+	previousResolver := net.DefaultResolver
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: testKeyDNS}
+	t.Cleanup(func() { net.DefaultResolver = previousResolver })
 	e, ctx := startTestEngine(t)
-	var revision int64
 	for _, provider := range []string{"azure", "bedrock"} {
-		if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": provider}, nil); err != nil {
+		if _, err := e.CreateProvider(ctx, mustJSON(t, map[string]any{"provider": provider})); err != nil {
 			t.Fatal(err)
 		}
 		for _, from := range []string{"api", "credentials", "server"} {
@@ -33,36 +37,34 @@ func TestAuthenticationSwapPersistsAcrossReload(t *testing.T) {
 							"value":  value,
 							"models": []string{"*"},
 							"weight": 1,
-							// Disabled keys use the real persistence path without cloud token
-							// acquisition or model discovery during writes and reloads.
+							// Disabled keys exercise persistence and reconciliation without cloud calls.
 							"enabled":  false,
 							configName: config,
 						})
 					}
-					createPath := "providers/" + provider + "/keys"
-					change, err := e.GuardProviderChange(ctx, http.MethodPost, createPath, payload(sourceValue, sourceConfig), false)
+					// CreateKey and UpdateKey run GuardProviderChange inside the resource mutation.
+					created, err := e.CreateKey(ctx, provider, payload(sourceValue, sourceConfig))
 					if err != nil {
-						t.Fatal(err)
-					}
-					var created schemas.Key
-					if err := e.Do(ctx, http.MethodPost, "/api/"+createPath, json.RawMessage(change.Body), &created); err != nil {
 						t.Fatal(err)
 					}
 					if created.ID == "" {
 						t.Fatal("created key has no ID")
 					}
-					path := createPath + "/" + created.ID
 
-					assertSaved := func(phase, wantValue string, wantConfig map[string]string) {
+					assertSaved := func(engine *Engine, phase, wantValue string, wantConfig map[string]string) {
 						t.Helper()
-						rawKey, err := e.inst.Load().server.Config.GetProviderKeyRaw(schemas.ModelProvider(provider), created.ID)
+						persisted, err := engine.store.GetProvider(ctx, provider)
 						if err != nil {
-							t.Fatalf("%s: read raw key: %v", phase, err)
+							t.Fatalf("%s: read stored provider: %v", phase, err)
 						}
-						raw := mustJSON(t, rawKey)
-						var response map[string]any
-						if err := e.Do(ctx, http.MethodGet, "/api/"+path, nil, &response); err != nil {
-							t.Fatalf("%s: read key through API: %v", phase, err)
+						index := slices.IndexFunc(persisted.Keys, func(key schemas.Key) bool { return key.ID == created.ID })
+						if index < 0 {
+							t.Fatalf("%s: stored key is missing", phase)
+						}
+						raw := mustJSON(t, persisted.Keys[index])
+						response, err := engine.GetKey(ctx, provider, created.ID)
+						if err != nil {
+							t.Fatalf("%s: read key through admin API: %v", phase, err)
 						}
 						listed := mustJSON(t, response)
 						want := map[string]string{"value": wantValue}
@@ -88,21 +90,27 @@ func TestAuthenticationSwapPersistsAcrossReload(t *testing.T) {
 
 					// Establish that the old credentials were actually stored, rather than
 					// passing the removal assertions because the key started empty.
-					assertSaved("before swap", sourceValue, sourceConfig)
-					change, err = e.GuardProviderChange(ctx, http.MethodPut, path, payload(targetValue, targetConfig), false)
-					if err != nil {
+					assertSaved(e, "before swap", sourceValue, sourceConfig)
+					if _, err := e.UpdateKey(ctx, provider, created.ID, payload(targetValue, targetConfig)); err != nil {
 						t.Fatal(err)
 					}
-					if err := e.Do(ctx, http.MethodPut, "/api/"+path, json.RawMessage(change.Body), nil); err != nil {
+					assertSaved(e, "after swap", targetValue, targetConfig)
+					if _, err := e.Sync(ctx); err != nil {
 						t.Fatal(err)
 					}
-					assertSaved("after swap", targetValue, targetConfig)
+					assertSaved(e, "after reconciliation", targetValue, targetConfig)
 
-					revision++
-					if reloaded, err := e.Reload(revision); err != nil || !reloaded {
-						t.Fatalf("reload = %v, error = %v", reloaded, err)
+					// A new replica must reconstruct the selected authentication from resources.
+					restarted := New()
+					if err := restarted.Start(ctx, e.opts); err != nil {
+						t.Fatal(err)
 					}
-					assertSaved("after reload", targetValue, targetConfig)
+					t.Cleanup(func() {
+						if err := restarted.Shutdown(context.Background()); err != nil {
+							t.Error(err)
+						}
+					})
+					assertSaved(restarted, "after restart", targetValue, targetConfig)
 				})
 			}
 		}
@@ -115,9 +123,9 @@ func swapTestCredentials(provider, method, prefix string) (string, map[string]st
 	value := ""
 	var config map[string]string
 	if provider == "azure" {
-		endpoint := "https://8.8.8.8"
+		endpoint := "https://source.openai.azure.com"
 		if prefix == "target" {
-			endpoint = "https://8.8.4.4"
+			endpoint = "https://target.openai.azure.com"
 		}
 		config = map[string]string{
 			"endpoint":      endpoint,
