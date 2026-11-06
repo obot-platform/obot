@@ -24,6 +24,13 @@ type subscriptionPauseTracer struct {
 	release chan struct{}
 }
 
+type canceledSubscriptionStream struct {
+	subscriptionPlugin
+	entered chan struct{}
+	release chan struct{}
+	done    chan struct{}
+}
+
 func (p *subscriptionPauseTracer) EndSpan(handle schemas.SpanHandle, status schemas.SpanStatus, message string) {
 	span := p.SpanFromHandle(handle)
 	pause := span != nil && span.Name == "pipeline-pre"
@@ -205,13 +212,6 @@ func TestSubscriptionKeyOnlyRotationDoesNotRetire(t *testing.T) {
 	require.Equal(t, http.StatusOK, result.Code, result.Body.String())
 }
 
-type canceledSubscriptionStream struct {
-	subscriptionPlugin
-	entered chan struct{}
-	release chan struct{}
-	done    chan struct{}
-}
-
 func (*canceledSubscriptionStream) GetName() string { return "canceled-subscription" }
 
 func (p *canceledSubscriptionStream) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
@@ -252,8 +252,8 @@ func TestCanceledSubscriptionRetainsAdmissionUntilDrained(t *testing.T) {
 	cancel()
 	select {
 	case <-returned:
-	case <-time.After(3 * time.Second):
-		t.Fatal("HTTP cancellation waited for producer cleanup")
+		t.Fatal("handler returned before producer cleanup")
+	case <-time.After(50 * time.Millisecond):
 	}
 	lifetime := &engine.subscriptionLifetime
 	if lifetime.TryLock() {
@@ -261,11 +261,11 @@ func TestCanceledSubscriptionRetainsAdmissionUntilDrained(t *testing.T) {
 		t.Fatal("provider retirement can replace a subscription destination before its producer drained")
 	}
 	release.Do(func() { close(plugin.release) })
-	require.Eventually(t, func() bool {
-		if lifetime.TryLock() {
-			lifetime.Unlock()
-			return true
-		}
-		return false
-	}, 3*time.Second, time.Millisecond, "draining must release subscription admission")
+	select {
+	case <-returned:
+	case <-time.After(3 * time.Second):
+		t.Fatal("handler did not return after producer cleanup")
+	}
+	require.True(t, lifetime.TryLock(), "handler return must release subscription admission")
+	lifetime.Unlock()
 }

@@ -64,12 +64,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Subscription provider is being reconfigured; retry the request")
 			return
 		}
-		credential.lease = &subscriptionLease{lock: lifetime}
-		defer func() {
-			if !credential.lease.draining {
-				lifetime.RUnlock()
-			}
-		}()
+		defer lifetime.RUnlock()
 		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, credential))
 	}
 
@@ -459,13 +454,6 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 // Subscription admission remains locked until producer cleanup finishes.
 func drainCanceledStream(ctx *schemas.BifrostContext, chunks <-chan *schemas.BifrostStreamChunk) {
 	ctx.Cancel()
-	credential, _ := ctx.Value(subscriptionTokenKey{}).(subscriptionCredentialValue)
-	if credential.lease != nil {
-		credential.lease.draining = true
-	}
-	if credential.lease != nil {
-		defer credential.lease.lock.RUnlock()
-	}
 	for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
 	}
 }

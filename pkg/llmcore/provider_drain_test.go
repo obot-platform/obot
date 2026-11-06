@@ -79,7 +79,7 @@ func testLongStreamRetirement(t *testing.T, action string) {
 		})
 		streamErrors <- streamErr
 		if chunks != nil {
-			for range chunks {
+			for range chunks { //nolint:revive // Drain producer output before signaling stream completion.
 			}
 		}
 	}()
