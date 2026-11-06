@@ -39,12 +39,17 @@ const (
 	modelProvidersRegistryDir       = "model-providers"
 	authProvidersRegistryDir        = "auth-providers"
 	providerRegistryMaxFiles        = 1000
+	// maxPostgresIdentifierLength is the longest identifier PostgreSQL keeps whole; it truncates longer ones.
+	maxPostgresIdentifierLength = 63
 )
 
 var (
 	jsonErrRegexp            = regexp.MustCompile(`(?s)\{.*"error":.*}`)
 	providerNameInvalidChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	providerNameDashes       = regexp.MustCompile(`-{2,}`)
+
+	postgresTablePrefixPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+	postgresTableSuffixPattern = regexp.MustCompile(`^[a-z0-9_]+$`)
 )
 
 type Handler struct {
@@ -183,6 +188,10 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 			slog.Warn("Skipping auth provider with invalid group ID prefix", "name", a.Name, "groupIDPrefix", a.Manifest.GroupIDPrefix, "error", err)
 			continue
 		}
+		if _, err := PostgresTableNames(a.Manifest); err != nil {
+			slog.Warn("Skipping auth provider with invalid Postgres tables", "name", a.Name, "postgresTablePrefix", a.Manifest.PostgresTablePrefix, "postgresTables", a.Manifest.PostgresTables, "error", err)
+			continue
+		}
 
 		a.Manifest.Command = path.Join(registryPath, a.Manifest.Command)
 
@@ -195,6 +204,30 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 	}
 
 	return objs
+}
+
+// PostgresTableNames returns the full names of the tables an auth provider declares in postgresTables, besides
+// its session tables. Obot drops them when the provider is deconfigured, so a name must be one the provider owns:
+// its prefix followed by a suffix of lowercase letters, digits, and underscores.
+func PostgresTableNames(manifest types.AuthProviderManifest) ([]string, error) {
+	if len(manifest.PostgresTables) == 0 {
+		return nil, nil
+	}
+	if !postgresTablePrefixPattern.MatchString(manifest.PostgresTablePrefix) {
+		return nil, fmt.Errorf("postgresTables requires a postgresTablePrefix of lowercase letters, digits, and underscores, starting with a letter; got %q", manifest.PostgresTablePrefix)
+	}
+	names := make([]string, 0, len(manifest.PostgresTables))
+	for _, suffix := range manifest.PostgresTables {
+		if !postgresTableSuffixPattern.MatchString(suffix) {
+			return nil, fmt.Errorf("postgres table %q must contain only lowercase letters, digits, and underscores", suffix)
+		}
+		name := manifest.PostgresTablePrefix + suffix
+		if len(name) > maxPostgresIdentifierLength {
+			return nil, fmt.Errorf("postgres table %q is longer than %d characters", name, maxPostgresIdentifierLength)
+		}
+		names = append(names, name)
+	}
+	return names, nil
 }
 
 func validateUniqueAuthProviderGroupIDPrefixes(objs []kclient.Object) error {

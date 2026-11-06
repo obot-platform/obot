@@ -9,7 +9,11 @@ type AuthProvider struct {
 type AuthProviderManifest struct {
 	CommonProviderMetadata `json:",inline" yaml:",inline"`
 	PostgresTablePrefix    string `json:"postgresTablePrefix,omitempty" yaml:"postgresTablePrefix,omitempty"`
-	GroupIDPrefix          string `json:"groupIDPrefix,omitempty" yaml:"groupIDPrefix,omitempty"`
+	// PostgresTables names the tables the provider creates in Obot's database besides its session tables, each
+	// as a suffix of PostgresTablePrefix. Obot drops them with the session tables when the provider is
+	// deconfigured. A suffix may contain only lowercase letters, digits, and underscores.
+	PostgresTables []string `json:"postgresTables,omitempty" yaml:"postgresTables,omitempty"`
+	GroupIDPrefix  string   `json:"groupIDPrefix,omitempty" yaml:"groupIDPrefix,omitempty"`
 }
 
 type AuthProviderStatus struct {

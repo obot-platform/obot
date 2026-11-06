@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
@@ -568,7 +569,7 @@ func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Cl
 			return fmt.Errorf("delete local auth sessions: %w", err)
 		}
 	}
-	if err := dropAuthProviderSessionTables(authProvider, h.postgresDSN); err != nil {
+	if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
 		return err
 	}
 
@@ -642,9 +643,15 @@ func markAuthProviderCleanupReady(ctx context.Context, client kclient.Client, cl
 	return nil
 }
 
-func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN string) error {
+// dropAuthProviderTables drops the tables an auth provider keeps in Obot's database: oauth2-proxy's session tables,
+// and any others the provider declares in its manifest's postgresTables.
+func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) error {
 	if postgresDSN == "" || authProvider.Spec.PostgresTablePrefix == "" {
 		return nil
+	}
+	declaredTables, err := provider.PostgresTableNames(authProvider.Spec.AuthProviderManifest)
+	if err != nil {
+		return fmt.Errorf("auth provider %q declares invalid postgres tables: %w", authProvider.Name, err)
 	}
 	db, err := gorm.Open(postgres.Open(postgresDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
@@ -662,6 +669,11 @@ func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN str
 	}
 	if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
 		return fmt.Errorf("drop auth provider session locks table: %w", err)
+	}
+	for _, table := range declaredTables {
+		if err := db.Exec("DROP TABLE IF EXISTS ?", clause.Table{Name: table}).Error; err != nil {
+			return fmt.Errorf("drop auth provider table %s: %w", table, err)
+		}
 	}
 	return nil
 }
