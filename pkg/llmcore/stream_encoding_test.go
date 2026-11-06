@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -121,11 +122,12 @@ func newEncodingEngine(t *testing.T, later bool) *llmcore.Engine {
 	return engine
 }
 
-func TestStreamCancellationDoesNotWaitForProducerCleanup(t *testing.T) {
+func TestStreamCancellationWaitsForProducerCleanup(t *testing.T) {
 	for _, api := range encodingAPIs {
 		t.Run(api.path, func(t *testing.T) {
 			release, canceled := make(chan struct{}), make(chan struct{})
-			defer close(release)
+			var releaseOnce sync.Once
+			defer releaseOnce.Do(func() { close(release) })
 			store := newTestStore(t)
 			require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{}))
 			plugin := &encodingFixture{release: release, canceled: canceled}
@@ -145,8 +147,14 @@ func TestStreamCancellationDoesNotWaitForProducerCleanup(t *testing.T) {
 			}
 			select {
 			case <-returned:
+				t.Fatal("handler returned before producer cleanup")
+			case <-time.After(50 * time.Millisecond):
+			}
+			releaseOnce.Do(func() { close(release) })
+			select {
+			case <-returned:
 			case <-time.After(3 * time.Second):
-				t.Fatal("handler waited for producer cleanup")
+				t.Fatal("handler did not return after producer cleanup")
 			}
 			require.Equal(t, http.StatusInternalServerError, response.Code, response.Body.String())
 		})

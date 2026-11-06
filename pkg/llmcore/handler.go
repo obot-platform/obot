@@ -168,11 +168,9 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 	}
 	defer func() {
 		ctx.Cancel()
-		// Let canceled producers finish without delaying the HTTP handler's return.
-		go func() {
-			for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
-			}
-		}()
+		// Keep late response hooks within the lifetime of the request's bound state.
+		for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
+		}
 	}()
 
 	output := streamWriter{w: w, dialect: d}
@@ -396,11 +394,9 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		ctx.Cancel()
-		// Let canceled producers finish without delaying the HTTP handler's return.
-		go func() {
-			for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
-			}
-		}()
+		// Keep late response hooks within the lifetime of the request's bound state.
+		for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
+		}
 	}()
 
 	output := streamWriter{w: w, dialect: dialectChat}

@@ -78,7 +78,7 @@ func (w *streamActivityWriter) Flush() {
 	w.ResponseRecorder.Flush()
 }
 
-func TestIdleStreamCancellationDoesNotWaitForProducerClosure(t *testing.T) {
+func TestIdleStreamCancellationDrainsBeforeReturning(t *testing.T) {
 	for _, api := range encodingAPIs {
 		t.Run(api.path, func(t *testing.T) {
 			plugin := &idleStreamFixture{
@@ -118,19 +118,22 @@ func TestIdleStreamCancellationDoesNotWaitForProducerClosure(t *testing.T) {
 			}
 			select {
 			case <-returned:
-			case <-time.After(3 * time.Second):
-				t.Fatal("canceled idle handler waited for producer closure")
+				t.Fatal("canceled handler returned before producer closure")
+			case <-time.After(50 * time.Millisecond):
 			}
-			require.Zero(t, writer.activity.Load())
-			require.Zero(t, observations.Load())
 			releaseOnce.Do(func() { close(plugin.release) })
 			select {
 			case <-plugin.done:
 			case <-time.After(3 * time.Second):
-				t.Fatal("background drain did not release the late producer")
+				t.Fatal("drain did not release the late producer")
 			}
-			require.Zero(t, writer.activity.Load(), "background drain must not access the response writer")
-			require.Zero(t, observations.Load(), "background drain must not notify the response observer")
+			select {
+			case <-returned:
+			case <-time.After(3 * time.Second):
+				t.Fatal("handler did not return after producer closure")
+			}
+			require.Zero(t, writer.activity.Load(), "drain must not access the response writer")
+			require.Zero(t, observations.Load(), "drain must not notify the response observer")
 		})
 	}
 }
