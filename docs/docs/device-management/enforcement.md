@@ -14,8 +14,6 @@ Tool call enforcement is experimental.
 
 Enforcement keeps local AI clients on the MCP servers and tools you approve. It blocks the common ways an unapproved server ends up in use, such as a server copied from a blog post, a repository that ships its own `.mcp.json`, or a mistyped package name. Every allow and block is recorded, so you can see which servers people try to use and approve the ones they need.
 
-Enforcement adds a layer to the defenses you already have. On a managed device, your MDM controls what is installed and keeps it in place, the AI client's own managed settings control which MCP servers it loads, and Obot Sentry checks each tool call against your Obot allowlist and records it.
-
 Obot Sentry runs on the user's device and works from each client's own configuration, so enforcement has limits that a determined user can work around. Read [Limitations](#limitations) before you roll it out. When you need controls that the user can't change, run agents and MCP servers on infrastructure Obot manages instead; see [Strengthen enforcement](#strengthen-enforcement).
 
 ### Fail-closed behavior and client support {#fail-closed-behavior}
