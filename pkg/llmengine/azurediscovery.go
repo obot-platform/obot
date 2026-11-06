@@ -78,13 +78,13 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 	// Workers can finish after caller cancellation without blocking on result delivery.
 	results := make(chan error, len(cfg.Keys[provider]))
 	pending := 0
-	keep := map[string]bool{}
+	keep := map[string]struct{}{}
 	for _, key := range cfg.Keys[provider] {
 		account := cfg.AzureAccounts[provider][key.ID]
 		if account == (llmcoreclient.AzureAccount{}) || (key.Enabled != nil && !*key.Enabled) {
 			continue
 		}
-		keep[string(provider)+"/"+key.ID] = true
+		keep[string(provider)+"/"+key.ID] = struct{}{}
 		pending++
 		// Each key gets the caller's whole window; a slow key cannot starve healthy keys.
 		go func() {
@@ -107,7 +107,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 	}
 	d.mu.Lock()
 	for id := range d.entries {
-		if strings.HasPrefix(id, string(provider)+"/") && !keep[id] {
+		if _, exists := keep[id]; strings.HasPrefix(id, string(provider)+"/") && !exists {
 			delete(d.entries, id)
 		}
 	}
