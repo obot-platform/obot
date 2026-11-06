@@ -554,7 +554,7 @@ In the PingFederate administrative console:
    - **Allowed Grant Types:** **Authorization Code** and **Refresh Token**.
    - **Require Proof Key for Code Exchange (PKCE):** can be enabled. Obot always sends an `S256` code challenge.
    - **OpenID Connect > Policy:** the policy from the next step.
-2. **Create or choose an OpenID Connect policy.** Go to **Applications > OAuth > OpenID Connect Policy Management**. In its attribute contract, release `sub`, `email`, and `name` (or `given_name` and `family_name`), and, for group-based access, a `groups` attribute marked **Multi-Valued**. Fulfill them from your directory, for example `mail`, `cn`, and `memberOf` from an LDAP data store.
+2. **Create or choose an OpenID Connect policy.** Go to **Applications > OAuth > OpenID Connect Policy Management**. In its attribute contract, release `sub`, `email`, and `name` (or `given_name` and `family_name`), and, for group-based access, a `groups` attribute marked **Multi-Valued**. Release `groups` in **User Info**, not only in the ID token: PingFederate doesn't issue a new ID token on refresh by default, so Obot reads group changes from userinfo. Fulfill them from your directory, for example `mail`, `cn`, and `memberOf` from an LDAP data store.
 3. **Map the attributes to scopes.** PingFederate releases only the claims mapped to a scope that the client requests. In the policy's scope mappings, map `email` to the `email` scope and the name attributes to `profile`. For groups, add a scope such as `groups` under **System > OAuth Settings > Scope Management**, map the `groups` attribute to it, and add the scope to **Scopes** in Obot. Without it, users sign in with no groups.
 
 PingFederate's issuer is its base URL, under **System > Server > Protocol Settings > Federation Info**, such as `https://sso.example.com` or `https://sso.example.com:9031`. Obot's Issuer URL must match it exactly. To check, open `<issuer>/.well-known/openid-configuration` and compare its `issuer` value.
@@ -572,11 +572,11 @@ In **Identity & Access > Auth Providers**, configure **PingFederate**:
 | CA Certificate File (optional) | Path, inside the Obot container, of a PEM CA bundle. An alternative to pasting the certificate. |
 | Scopes (optional) | Defaults to `openid email profile`. Add the scope you mapped groups to, such as `openid email profile groups`. |
 | Name Claim (optional) | The claim shown as the user's name in Obot. Defaults to `name`. |
-| Email Claim / Groups Claim (optional) | The claims carrying the email address and group memberships. Default to `email` and `groups`. |
+| Email Claim / Groups Claim (optional) | The claims carrying the email address and group memberships. Default to `email` and `groups`. Obot rejects an unverified address only when the email claim is `email`; with another claim, use an attribute users can't set themselves, or the allowed email domains stop restricting who signs in. |
 | Groups Delimiter (optional) | Set only when PingFederate sends groups as one delimited string instead of a list. |
-| Known Groups (optional) | Group names, one per line, exactly as PingFederate releases them |
+| Known Groups (optional) | Group names, one per line, exactly as PingFederate releases them. Commas belong to the name, as in an LDAP DN. |
 
-Obot verifies the ID token's issuer, audience, signature, and nonce, and always uses PKCE. These checks can't be turned off. Obot rejects a sign-in whose ID token has `email_verified: false`. PingFederate usually omits that claim, and a token without it is accepted.
+Obot verifies the ID token's issuer, audience, signature, and nonce, and always uses PKCE. These checks can't be turned off. Obot rejects a sign-in whose ID token has `email_verified: false`. PingFederate usually omits that claim, and a token without it is accepted. The Issuer URL and every endpoint in PingFederate's discovery document must use HTTPS, except on a loopback host such as `localhost`.
 
 Changes to the Issuer URL of the active provider take effect immediately. If PingFederate can't be reached or reports a different issuer, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
 
@@ -588,13 +588,14 @@ Obot sees a group once one of its members signs in. To assign a role to a group 
 
 Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. At each refresh, Obot asks PingFederate's userinfo endpoint for the user's current groups, so a change in PingFederate takes effect without the user signing in again, even though PingFederate doesn't issue a new ID token on refresh by default.
 
-When Obot uses PostgreSQL, as a deployment with several replicas must, every replica shares the users' groups and the groups seen at sign-in through two tables in Obot's database, `pingfederate_user_groups` and `pingfederate_seen_groups`. Obot drops them, with the provider's session tables, when you deconfigure PingFederate. Without PostgreSQL, Obot keeps them in memory.
+When Obot uses PostgreSQL, as a deployment with several replicas must, every replica shares the users' groups and the groups seen at sign-in through two tables in Obot's database, `pingfederate_user_groups` and `pingfederate_seen_groups`. Obot drops them, with the provider's session tables, when you deconfigure PingFederate, switch to another provider, or discard a staged switch to PingFederate. Without PostgreSQL, Obot keeps them in memory.
 
 #### Troubleshooting {#pingfederate-troubleshooting}
 
 - **The provider reports an issuer mismatch:** set **Issuer URL** to the `issuer` value it reports, which is PingFederate's base URL. A trailing slash or a missing port is enough to differ.
 - **Certificate errors when the provider starts:** PingFederate's TLS certificate is issued by a CA the provider doesn't trust. Add the CA's certificate chain to **CA Certificate (PEM)**.
 - **Users sign in with no groups:** the groups attribute isn't mapped to a scope Obot requests, or it isn't in the policy's attribute contract. Map it to a scope and add that scope to **Scopes**.
+- **Group changes take effect only after users sign in again:** the groups attribute is released in the ID token but not in **User Info**. Release it in **User Info** too, or turn on returning an ID token on the refresh grant in the OIDC policy.
 
 ## Switching Between Auth Providers
 
