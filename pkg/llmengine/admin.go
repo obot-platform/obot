@@ -10,12 +10,12 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"uuid"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
-	"github.com/google/uuid"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
@@ -653,7 +653,7 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 		return schemas.Key{}, nil
 	}
 
-	key := schemas.Key{ID: uuid.NewString(), Weight: 1, Models: schemas.WhiteList{"*"}}
+	key := schemas.Key{ID: uuid.New().String(), Weight: 1, Models: schemas.WhiteList{"*"}}
 	if index >= 0 {
 		key = keys[index]
 	}
@@ -676,7 +676,7 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 	if index >= 0 {
 		key.ID = keys[index].ID
 	} else {
-		key.ID = uuid.NewString()
+		key.ID = uuid.New().String()
 	}
 	if slices.ContainsFunc(keys, func(existing schemas.Key) bool { return existing.ID != key.ID && existing.Name == key.Name }) {
 		return schemas.Key{}, fmt.Errorf("key name already exists")
@@ -759,7 +759,7 @@ func updateRule(cfg *llmcoreclient.Config, id string, body []byte) (tables.Table
 	if id != "" {
 		in.ID = id
 	} else {
-		in.ID = uuid.NewString()
+		in.ID = uuid.New().String()
 	}
 	if in.Scope == "" {
 		in.Scope = "global"
@@ -839,7 +839,7 @@ func updatePricingOverride(cfg *llmcoreclient.Config, id, method string, body []
 		}
 
 		if index < 0 {
-			in.ID = uuid.NewString()
+			in.ID = uuid.New().String()
 			rows = append(rows, in)
 		} else {
 			in.ID = id
