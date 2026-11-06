@@ -217,19 +217,20 @@ func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[strin
 	}
 	unavailable := make(map[string]bool)
 	// Build each provider's membership set once, even when checking thousands of saved IDs.
-	memberships := map[schemas.ModelProvider]map[string]bool{}
+	memberships := map[schemas.ModelProvider]map[string]struct{}{}
 	for _, id := range ids {
 		provider, _, _ := strings.Cut(id, "/")
 		name := schemas.ModelProvider(provider)
 		azure := isAzureProvider(cfg, name)
 		if azure && memberships[name] == nil {
 			models, _ := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name))
-			memberships[name] = make(map[string]bool, len(models))
+			memberships[name] = make(map[string]struct{}, len(models))
 			for _, model := range models {
-				memberships[name][model.ID] = true
+				memberships[name][model.ID] = struct{}{}
 			}
 		}
-		if (azure && !memberships[name][id]) || e.modelWithKeysIsUnavailable(id, cfg.Keys[name]) {
+		_, member := memberships[name][id]
+		if (azure && !member) || e.modelWithKeysIsUnavailable(id, cfg.Keys[name]) {
 			unavailable[id] = true
 		}
 	}
