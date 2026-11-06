@@ -118,7 +118,7 @@
 	"inventory_enforcement_configuration_no_release": "暂无可用的 Obot Sentry 版本。请检查更新以获取最新版本。",
 	"inventory_enforcement_configuration_not_enforced": "当前未执行——启用策略执行后这些规则才会生效。",
 	"inventory_enforcement_configuration_readonly_create_note": "必须由具有写入权限的管理员创建初始配置。",
-	"inventory_enforcement_configuration_reinstall_note": "策略执行钩子由 Obot Sentry 软件包安装。请重新下载上方的安装包并在设备上重新安装，以使此更改生效。",
+	"inventory_enforcement_configuration_reinstall_note": "策略执行钩子由 Obot Sentry 软件包安装。请重新下载上方的安装包，并按照其中的说明应用此更改，包括已运行 Obot Sentry 的设备。",
 	"inventory_enforcement_configuration_rejected": "已拒绝",
 	"inventory_enforcement_configuration_remove_allowed_msg": "从允许列表中移除“{server}”？除非有其他规则允许，否则对它的调用将被阻止。",
 	"inventory_enforcement_configuration_remove_allowed_title": "移除允许的服务器",

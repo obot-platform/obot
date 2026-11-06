@@ -118,7 +118,7 @@
 	"inventory_enforcement_configuration_no_release": "No Obot Sentry release available yet. Check for updates to fetch the latest.",
 	"inventory_enforcement_configuration_not_enforced": "Not currently enforced — these rules take effect when enforcement is enabled.",
 	"inventory_enforcement_configuration_readonly_create_note": "An administrator with write access must create the initial configuration.",
-	"inventory_enforcement_configuration_reinstall_note": "Enforcement hooks are installed by the Obot Sentry package. Re-download the install package above and reinstall it on your devices for this change to take effect.",
+	"inventory_enforcement_configuration_reinstall_note": "Enforcement hooks are installed by the Obot Sentry package. Re-download the install package above and follow its instructions to apply this change, including on devices that already run Obot Sentry.",
 	"inventory_enforcement_configuration_rejected": "Rejected",
 	"inventory_enforcement_configuration_remove_allowed_msg": "Remove \"{server}\" from the allowlist? Calls to it will be blocked unless another rule allows them.",
 	"inventory_enforcement_configuration_remove_allowed_title": "Remove allowed server",

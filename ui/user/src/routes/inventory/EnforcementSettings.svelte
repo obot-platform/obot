@@ -103,8 +103,8 @@
 	let toggleChanged = $derived(enabled !== (configuration.enforcementEnabled ?? false));
 	let listIsEmpty = $derived(isAllowlistEmpty(allowlist));
 	let blocksEverything = $derived(enabled && listIsEmpty);
-	// Only worth telling an administrator to reinstall once there is something to
-	// reinstall. A configuration with no pinned bundle has no artifacts at all.
+	// Only worth pointing an administrator at the install package once there is
+	// one. A configuration with no pinned bundle has no artifacts at all.
 	let hasArtifacts = $derived((configuration.artifacts ?? []).length > 0);
 
 	const tableData = $derived(
