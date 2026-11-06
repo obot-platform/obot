@@ -321,25 +321,40 @@ func (r *llmAuditRecorder) observeResponseChunk(chunk *schemas.BifrostStreamChun
 	if r == nil || chunk == nil {
 		return
 	}
+	data, err := json.Marshal(chunk)
+	if err != nil {
+		return
+	}
+	id := gjson.GetBytes(data, "id").String()
+	model := gjson.GetBytes(data, "model").String()
+	if nested := gjson.GetBytes(data, "response.id").String(); nested != "" {
+		id = nested
+	}
+	if nested := gjson.GetBytes(data, "response.model").String(); nested != "" {
+		model = nested
+	}
+	typ := gjson.GetBytes(data, "type").String()
+	terminal := typ == "response.completed" || typ == "response.failed" || typ == "response.incomplete"
+	// Terminal events carry complete fields that incremental snapshots may not reconstruct.
+	var complete *schemas.BifrostResponsesResponse
+	if terminal && len(data) <= r.responseCaptureLimit && chunk.BifrostResponsesStreamResponse != nil && chunk.Response != nil {
+		if raw, err := json.Marshal(chunk.Response); err == nil {
+			var response schemas.BifrostResponsesResponse
+			if json.Unmarshal(raw, &response) == nil {
+				complete = &response
+			}
+		}
+	}
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.closed || r.responseCaptureFilled {
 		return
 	}
-	data, err := json.Marshal(chunk)
-	if err != nil {
-		return
-	}
-	if id := gjson.GetBytes(data, "id").String(); id != "" {
+	if id != "" {
 		r.streamID = id
 	}
-	if model := gjson.GetBytes(data, "model").String(); model != "" {
-		r.streamModel = model
-	}
-	if id := gjson.GetBytes(data, "response.id").String(); id != "" {
-		r.streamID = id
-	}
-	if model := gjson.GetBytes(data, "response.model").String(); model != "" {
+	if model != "" {
 		r.streamModel = model
 	}
 	// Bound retained chunks even when the provider runs ahead of the proxy reader.
@@ -352,30 +367,23 @@ func (r *llmAuditRecorder) observeResponseChunk(chunk *schemas.BifrostStreamChun
 	r.accumulator = a
 	ctx := schemas.NewBifrostContext(context.Background(), time.Time{})
 	ctx.SetValue(schemas.BifrostContextKeyAccumulatorID, r.log.ID)
-	typ := gjson.GetBytes(data, "type").String()
-	terminal := typ == "response.completed" || typ == "response.failed" || typ == "response.incomplete"
 	ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, terminal)
 	resp := &schemas.BifrostResponse{ChatResponse: chunk.BifrostChatResponse, ResponsesStreamResponse: chunk.BifrostResponsesStreamResponse}
+	// Keep accumulation serialized with close/overflow so cleanup cannot be undone by a late chunk.
 	processed, err := a.ProcessStreamingResponse(ctx, resp, chunk.BifrostError)
 	if terminal && processed != nil {
 		r.finalResponse = processed.ToBifrostResponse()
 	}
-	// Responses terminal events already carry the complete client response, including
-	// fields that the incremental snapshot need not reconstruct.
-	if terminal && chunk.BifrostResponsesStreamResponse != nil && chunk.Response != nil {
-		raw, marshalErr := json.Marshal(chunk.Response)
-		if marshalErr == nil {
-			var complete schemas.BifrostResponsesResponse
-			if json.Unmarshal(raw, &complete) == nil {
-				r.finalResponse = &schemas.BifrostResponse{ResponsesResponse: &complete}
-			}
-		}
+	if complete != nil {
+		r.finalResponse = &schemas.BifrostResponse{ResponsesResponse: complete}
 	}
 	if err != nil {
 		r.responseCaptureFilled = true
 		r.discardAccumulator()
 	}
 }
+
+// discardAccumulator requires r.mu to serialize cleanup with chunk accumulation.
 func (r *llmAuditRecorder) discardAccumulator() {
 	r.finalResponse = nil
 	if r.accumulator != nil {
@@ -383,44 +391,53 @@ func (r *llmAuditRecorder) discardAccumulator() {
 		r.accumulator = nil
 	}
 }
+
+// finishBody closes capture under r.mu; response formatting uses only the detached state.
 func (r *llmAuditRecorder) finishBody() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 	r.closed = true
-	defer r.discardAccumulator()
+	accumulator, resp := r.accumulator, r.finalResponse
+	if accumulator != nil && resp == nil && !r.responseCaptureFilled {
+		resp = accumulator.GetAccumulatedResponse(r.log.ID)
+	}
+	var unary []byte
+	if accumulator == nil && !r.stream && !r.responseCaptureFilled {
+		unary = bytes.Clone(r.responseJSON.Bytes())
+	}
+	r.accumulator, r.finalResponse = nil, nil
+	r.mu.Unlock()
+	// Keep accumulator-owned data alive until serialization finishes. Closed capture
+	// prevents concurrent callbacks from adding chunks or cleaning up this detached state.
+	if accumulator != nil {
+		defer accumulator.ForceCleanupStreamAccumulator(r.log.ID)
+	}
 	if r.responseCaptureFilled {
 		r.log.ResponseBody = nil
 		return
 	}
-	if r.accumulator != nil {
-		resp := r.finalResponse
-		if resp == nil {
-			resp = r.accumulator.GetAccumulatedResponse(r.log.ID)
-		}
-		if resp != nil {
-			var body any
-			switch {
-			case resp.ChatResponse != nil:
-				body = resp.ChatResponse
-			case resp.ResponsesResponse != nil:
-				body = resp.ResponsesResponse
-				if strings.HasSuffix(strings.TrimRight(r.log.RequestPath, "/"), "/messages") {
-					body = anthropic.ToAnthropicResponsesResponse(schemas.NewBifrostContext(context.Background(), time.Time{}), resp.ResponsesResponse)
-				}
-			}
-			if body != nil {
-				r.log.ResponseBody, _ = json.Marshal(body)
-			}
-			r.log.ResponseBody = stripEngineFields(r.log.ResponseBody)
-			if r.streamID != "" {
-				r.log.ResponseBody, _ = sjson.SetBytes(r.log.ResponseBody, "id", r.streamID)
-			}
-			if r.streamModel != "" {
-				r.log.ResponseBody, _ = sjson.SetBytes(r.log.ResponseBody, "model", r.streamModel)
+	if resp != nil {
+		var body any
+		switch {
+		case resp.ChatResponse != nil:
+			body = resp.ChatResponse
+		case resp.ResponsesResponse != nil:
+			body = resp.ResponsesResponse
+			if strings.HasSuffix(strings.TrimRight(r.log.RequestPath, "/"), "/messages") {
+				body = anthropic.ToAnthropicResponsesResponse(schemas.NewBifrostContext(context.Background(), time.Time{}), resp.ResponsesResponse)
 			}
 		}
-	} else if !r.stream && json.Valid(r.responseJSON.Bytes()) {
-		r.log.ResponseBody = bytes.Clone(r.responseJSON.Bytes())
+		if body != nil {
+			r.log.ResponseBody, _ = json.Marshal(body)
+		}
+		r.log.ResponseBody = stripEngineFields(r.log.ResponseBody)
+		if r.streamID != "" {
+			r.log.ResponseBody, _ = sjson.SetBytes(r.log.ResponseBody, "id", r.streamID)
+		}
+		if r.streamModel != "" {
+			r.log.ResponseBody, _ = sjson.SetBytes(r.log.ResponseBody, "model", r.streamModel)
+		}
+	} else if json.Valid(unary) {
+		r.log.ResponseBody = unary
 	}
 	if len(r.log.ResponseBody) > r.responseCaptureLimit {
 		r.log.ResponseBody = nil

@@ -410,3 +410,41 @@ func TestAuditCaptureConcurrentCloseAndOverflow(t *testing.T) {
 		t.Fatal("oversized capture retained data")
 	}
 }
+
+func TestAuditCaptureConcurrentFinish(t *testing.T) {
+	a := streaming.NewAccumulator(nil, bifrost.NewDefaultLogger(schemas.LogLevelWarn))
+	defer a.Cleanup()
+	r := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/chat/completions", nil), nil, 5<<20)
+	r.stream = true
+	var resp schemas.BifrostChatResponse
+	if err := json.Unmarshal([]byte(`{"id":"chat_1","choices":[{"index":0,"delta":{"content":"hello"}}]}`), &resp); err != nil {
+		t.Fatal(err)
+	}
+	resp.ExtraFields.RequestType = schemas.ChatCompletionStreamRequest
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			<-start
+			r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+			r.captureResponseChunk([]byte("hello"))
+			r.captureStreamError([]byte(`{"error":"stream ended"}`))
+		})
+	}
+	wg.Go(func() {
+		<-start
+		r.finishBody()
+	})
+	close(start)
+	wg.Wait()
+	if !r.closed || a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("capture did not close and release its accumulator")
+	}
+	if len(r.log.ResponseBody) > 0 && !json.Valid(r.log.ResponseBody) {
+		t.Fatal("concurrent finalization produced invalid JSON")
+	}
+	r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+	if a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("late callback recreated closed capture")
+	}
+}
