@@ -38,6 +38,11 @@ func azureTestProvider(keys ...schemas.Key) llmcoreclient.Provider {
 func mockAzureDiscovery(t *testing.T, e *Engine, transport discoveryTransport) {
 	t.Helper()
 
+	e.discovery.mu.Lock()
+	defer e.discovery.mu.Unlock()
+
+	// Replacing a test transport also replaces clients bound to the previous transport.
+	e.discovery.entries = nil
 	e.discovery.credential = func(schemas.Key) (azcore.TokenCredential, error) { return discoveryToken{t: t}, nil }
 	e.discovery.client = &http.Client{Transport: transport}
 }

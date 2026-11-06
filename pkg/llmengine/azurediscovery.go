@@ -2,6 +2,7 @@ package llmengine
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,7 +17,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 )
 
@@ -50,6 +53,7 @@ func validateAzureDiscovery(key schemas.Key, account llmcoreclient.AzureAccount)
 type azureDiscoveryEntry struct {
 	fingerprint [32]byte
 	credential  azcore.TokenCredential
+	client      *http.Client
 }
 
 type azureDiscovery struct {
@@ -81,6 +85,8 @@ func (*azureDiscovery) snapshot(cfg llmcoreclient.Config, provider schemas.Model
 }
 
 func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, provider schemas.ModelProvider, store *llmcoreclient.Client) error {
+	proxy := llmcore.ProviderProxy(cfg.Providers[provider], cfg.Settings["proxy"])
+
 	// Workers can finish after caller cancellation without blocking on result delivery.
 	results := make(chan error, len(cfg.Keys[provider]))
 	pending := 0
@@ -97,7 +103,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 
 		// Each key gets the caller's whole window; a slow key cannot starve healthy keys.
 		go func() {
-			credential, err := d.keyCredential(provider, key, account)
+			entry, err := d.keyClient(provider, key, account, proxy)
 			if err == nil {
 				fingerprint := llmcoreclient.AzureDiscoveryFingerprint(key, account)
 				var generation uint64
@@ -109,7 +115,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 
 				metadata := map[string]string{}
 				var names []string
-				names, err = d.list(ctx, credential, account.ResourceID(), metadata)
+				names, err = entry.list(ctx, account.ResourceID(), metadata)
 				if err == nil {
 					// ARM page order is not identity; canonical names prevent redundant watch events.
 					slices.Sort(names)
@@ -128,6 +134,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 	d.mu.Lock()
 	for id := range d.entries {
 		if _, exists := keep[id]; strings.HasPrefix(id, string(provider)+"/") && !exists {
+			d.entries[id].client.CloseIdleConnections()
 			delete(d.entries, id)
 		}
 	}
@@ -147,12 +154,25 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 	return errors.Join(failures...)
 }
 
-func (d *azureDiscovery) keyCredential(provider schemas.ModelProvider, key schemas.Key, account llmcoreclient.AzureAccount) (azcore.TokenCredential, error) {
+func (d *azureDiscovery) keyClient(provider schemas.ModelProvider, key schemas.Key, account llmcoreclient.AzureAccount, proxy *schemas.ProxyConfig) (*azureDiscoveryEntry, error) {
 	if err := validateAzureDiscovery(key, account); err != nil {
 		return nil, err
 	}
 
-	fingerprint := llmcoreclient.AzureDiscoveryFingerprint(key, account)
+	// Resolve proxy secrets so credential reuse also follows live proxy changes.
+	network := struct {
+		Identity                             [32]byte
+		Type                                 schemas.ProxyType
+		URL, Username, Password, CA, NoProxy string
+		SkipTLSVerify                        bool
+	}{Identity: llmcoreclient.AzureDiscoveryFingerprint(key, account)}
+	if proxy != nil {
+		network.Type, network.URL = proxy.Type, proxy.URL.GetValue()
+		network.Username, network.Password = proxy.Username.GetValue(), proxy.Password.GetValue()
+		network.CA, network.NoProxy, network.SkipTLSVerify = proxy.CACertPEM.GetValue(), proxy.NoProxy, proxy.SkipTLSVerify
+	}
+	raw, _ := json.Marshal(network)
+	fingerprint := sha256.Sum256(raw)
 	cacheID := string(provider) + "/" + key.ID
 
 	// Credential construction performs no network I/O; only cache access holds the mutex.
@@ -160,7 +180,25 @@ func (d *azureDiscovery) keyCredential(provider schemas.ModelProvider, key schem
 	defer d.mu.Unlock()
 
 	if entry := d.entries[cacheID]; entry != nil && entry.fingerprint == fingerprint {
-		return entry.credential, nil
+		return entry, nil
+	}
+
+	client := d.client
+	if client == nil {
+		proxyFunc, tlsConfig, err := providerUtils.NetHTTPProxy(proxy)
+		if err != nil {
+			return nil, fmt.Errorf("invalid Azure discovery proxy configuration")
+		}
+
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		if proxyFunc != nil {
+			transport.Proxy = proxyFunc
+		}
+		if tlsConfig != nil {
+			transport.TLSClientConfig = tlsConfig
+		}
+
+		client = &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 
 	factory := d.credential
@@ -168,7 +206,9 @@ func (d *azureDiscovery) keyCredential(provider schemas.ModelProvider, key schem
 		factory = func(k schemas.Key) (azcore.TokenCredential, error) {
 			c := k.AzureKeyConfig
 
-			return azidentity.NewClientSecretCredential(c.TenantID.GetValue(), c.ClientID.GetValue(), c.ClientSecret.GetValue(), nil)
+			return azidentity.NewClientSecretCredential(c.TenantID.GetValue(), c.ClientID.GetValue(), c.ClientSecret.GetValue(), &azidentity.ClientSecretCredentialOptions{
+				ClientOptions: azcore.ClientOptions{Transport: client},
+			})
 		}
 	}
 
@@ -181,23 +221,22 @@ func (d *azureDiscovery) keyCredential(provider schemas.ModelProvider, key schem
 		d.entries = map[string]*azureDiscoveryEntry{}
 	}
 
-	d.entries[cacheID] = &azureDiscoveryEntry{fingerprint: fingerprint, credential: credential}
+	if previous := d.entries[cacheID]; previous != nil {
+		previous.client.CloseIdleConnections()
+	}
+	entry := &azureDiscoveryEntry{fingerprint: fingerprint, credential: credential, client: client}
+	d.entries[cacheID] = entry
 
-	return credential, nil
+	return entry, nil
 }
 
-func (d *azureDiscovery) list(ctx context.Context, credential azcore.TokenCredential, id string, metadata ...map[string]string) ([]string, error) {
+func (entry *azureDiscoveryEntry) list(ctx context.Context, id string, metadata map[string]string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	token, err := credential.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{"https://management.azure.com/.default"}})
+	token, err := entry.credential.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{"https://management.azure.com/.default"}})
 	if err != nil {
 		return nil, fmt.Errorf("Azure deployment discovery authentication failed")
-	}
-
-	client := d.client
-	if client == nil {
-		client = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	}
 
 	next := "https://management.azure.com" + id + "/deployments?api-version=2024-10-01"
@@ -217,7 +256,7 @@ func (d *azureDiscovery) list(ctx context.Context, credential azcore.TokenCreden
 		}
 
 		req.Header.Set("Authorization", "Bearer "+token.Token)
-		resp, err := client.Do(req)
+		resp, err := entry.client.Do(req)
 		if err != nil {
 			return nil, fmt.Errorf("Azure deployment discovery request failed")
 		}
@@ -248,8 +287,8 @@ func (d *azureDiscovery) list(ctx context.Context, credential azcore.TokenCreden
 		for _, deployment := range page.Value {
 			if deployment.Name != "" && deployment.Properties.ProvisioningState == "Succeeded" {
 				names = append(names, deployment.Name)
-				if len(metadata) > 0 {
-					metadata[0][deployment.Name] = deployment.Properties.Model.Name
+				if metadata != nil {
+					metadata[deployment.Name] = deployment.Properties.Model.Name
 				}
 			}
 		}

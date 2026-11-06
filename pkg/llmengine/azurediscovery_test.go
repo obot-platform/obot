@@ -108,7 +108,7 @@ func TestAzureDiscoveryPagination(t *testing.T) {
 	for _, next := range []string{"https://management.azure.com" + id + "/deployments?page=2", "https://evil.example/deployments", "https://management.azure.com/other/deployments"} {
 		t.Run(next, func(t *testing.T) {
 			calls := 0
-			d := azureDiscovery{client: &http.Client{Transport: discoveryTransport(func(r *http.Request) (*http.Response, error) {
+			entry := azureDiscoveryEntry{credential: discoveryToken{t: t}, client: &http.Client{Transport: discoveryTransport(func(r *http.Request) (*http.Response, error) {
 				calls++
 				body := `{"value":[{"name":"second","properties":{"provisioningState":"Succeeded"}}]}`
 				if calls == 1 {
@@ -117,7 +117,7 @@ func TestAzureDiscoveryPagination(t *testing.T) {
 
 				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
 			})}}
-			names, err := d.list(t.Context(), discoveryToken{t: t}, id)
+			names, err := entry.list(t.Context(), id, nil)
 			if strings.Contains(next, id) {
 				require.NoError(t, err)
 				require.Equal(t, []string{"second"}, names)

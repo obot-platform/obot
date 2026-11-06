@@ -119,7 +119,7 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 	}
 	pc.CheckAndSetDefaults()
 
-	pc.ProxyConfig = providerProxy(pc, cfg.Settings["proxy"])
+	pc.ProxyConfig = ProviderProxy(pc, cfg.Settings["proxy"])
 	return &pc, nil
 }
 
@@ -136,10 +136,10 @@ func validateProviderQueue(provider schemas.ModelProvider, pc schemas.ProviderCo
 	return nil
 }
 
-// providerProxy returns the effective inference proxy, including provider overrides.
+// ProviderProxy returns the effective inference proxy, including provider overrides.
 // Compare this value during reconciliation so unrelated or cosmetic global edits
 // do not restart providers whose network behavior has not changed.
-func providerProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
+func ProviderProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
 	pc.CheckAndSetDefaults()
 	// An empty proxy object, like NoProxy, is unconfigured and must inherit
 	// an enabled global inference proxy.
@@ -263,7 +263,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 			}
 			continue
 		}
-		e.appliedProxy[name] = providerProxy(cfg.Providers[name], cfg.Settings["proxy"])
+		e.appliedProxy[name] = ProviderProxy(cfg.Providers[name], cfg.Settings["proxy"])
 	}
 	e.syncErr = errors.Join(startupErrors...)
 	return e, nil
@@ -348,7 +348,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
 	retiring := make(map[schemas.ModelProvider]struct{})
 	for name, pc := range cfg.Providers {
-		proxy := providerProxy(pc, cfg.Settings["proxy"])
+		proxy := ProviderProxy(pc, cfg.Settings["proxy"])
 		_, pending := e.account.transitioning.Load(name)
 		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			updates[name] = proxy
