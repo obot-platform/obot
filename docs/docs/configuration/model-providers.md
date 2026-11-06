@@ -65,7 +65,7 @@ When Obot runs in Docker and Ollama runs on the host, start Ollama with `OLLAMA_
 
 ## Server configuration {#server-configuration}
 
-The gateway is always on. Its configuration and credentials share Obot's database, and credentials use Obot's encryption configuration. Changes synchronize across replicas in place within five seconds. These settings control it:
+The gateway is always on. Its configuration and credentials share Obot's database, and credentials use Obot's encryption configuration. Changes reconcile asynchronously across replicas. Provider replacement waits for in-flight requests, including subscription streams, to finish draining. Unfinished changes are retried; synchronization has no fixed completion time. These settings control it:
 
 | Flag / environment variable | Description |
 | --- | --- |
