@@ -37,6 +37,8 @@
 		 * Renders at most this many matching options, and asks to narrow the search for the rest.
 		 * The rest are only reachable by searching, so the cap applies only to a Select that has a
 		 * search input: one with searchInDropdown, or a multiple one that is not read-only.
+		 * Give capped options distinct labels: options that share a label cannot be told apart by any
+		 * search, so if more of them than the cap match, the rest are unreachable.
 		 */
 		maxRenderedOptions?: number;
 	}
@@ -119,8 +121,9 @@
 
 	// The options that are rendered. With thousands of options, rendering all of them makes the
 	// page slow and heavy, so maxRenderedOptions lists the first matches and asks for a narrower query.
-	// Options whose label or searchText is exactly the query come first, so that every option can be
-	// reached by typing it in full, even one whose text is part of more than the cap of others.
+	// Options whose label or searchText is exactly the query come first, so that an option can be
+	// reached by typing it in full, even one whose text is part of more than the cap of others. That
+	// holds only for distinct labels, which is why the prop asks for them.
 	let hasSearchInput = $derived(searchInDropdown || (multiple && !readonly && !buttonReadOnly));
 	let renderedOptions = $derived.by(() => {
 		if (!maxRenderedOptions || !hasSearchInput || availableOptions.length <= maxRenderedOptions) {
