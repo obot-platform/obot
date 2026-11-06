@@ -141,6 +141,21 @@
 							{/if}
 						</div>
 					{/each}
+					<label class="border-base-300 flex cursor-pointer gap-3 rounded-lg border p-3">
+						<input
+							type="radio"
+							name="legacy-provider"
+							value="both"
+							bind:group={selection}
+							class="radio mt-1"
+						/>
+						<span>
+							<span class="block font-medium">{m.models_migration_shared()}</span>
+							<span class="text-base-content/70 block text-sm"
+								>{m.models_migration_shared_help()}</span
+							>
+						</span>
+					</label>
 				</fieldset>
 			{:else}
 				<p>{m.models_migration_no_pending()}</p>

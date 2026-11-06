@@ -42,7 +42,7 @@ type Provider struct {
 	Migration        *ProviderMigration `json:"migration,omitempty"`
 }
 
-// ProviderMigration identifies the legacy source committed with an imported aggregate.
+// ProviderMigration identifies the imported source, or a family with Decision "both" for a shared pool.
 type ProviderMigration struct {
 	Source   string `json:"source"`
 	Decision string `json:"decision"`

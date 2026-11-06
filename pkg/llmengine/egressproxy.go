@@ -78,6 +78,14 @@ func applyProviderEgressProxy(name string, p *llmcoreclient.Provider, cfg *httpp
 	if cfg.HTTPSProxy == "" && cfg.HTTPProxy == "" {
 		return false
 	}
+	if len(p.Keys) > 1 && (name == "azure" || name == "bedrock_mantle") {
+		if pc := p.Config.ProxyConfig; pc != nil && pc.Type != schemas.NoProxy {
+			return false
+		}
+		// Shared pools need proxy selection and NO_PROXY evaluated for each destination.
+		p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.EnvProxy}
+		return true
+	}
 	u, err := url.Parse(providerEgressTarget(name, p))
 	if err != nil {
 		return false

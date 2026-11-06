@@ -77,6 +77,25 @@ describe('LegacyMigrationDialog', () => {
 		);
 		await expect.element(dialog).not.toBeInTheDocument();
 	});
+	it('offers a shared pool with an explicit routing warning', async () => {
+		const { saved } = mockMigration();
+		render(LegacyMigrationDialog);
+		const dialog = page.getByRole('dialog', { name: title });
+		await expect.element(dialog).toBeVisible();
+		const shared = dialog.getByRole('radio', { name: /Import both as a shared pool/ });
+		await expect.element(shared).not.toBeChecked();
+		await expect
+			.element(
+				dialog.getByText(/Requests, including retries, may use either account, endpoint, or region/)
+			)
+			.toBeVisible();
+		await shared.click();
+		await dialog.getByRole('button', { name: 'Migrate selected provider' }).click();
+		await vi.waitFor(() =>
+			expect(saved).toHaveBeenCalledWith({ family: 'azure', source: 'both', version: 3 })
+		);
+		await expect.element(dialog).not.toBeInTheDocument();
+	});
 	it('keeps models collapsed until expanded without selecting a provider', async () => {
 		mockMigration();
 		render(LegacyMigrationDialog);

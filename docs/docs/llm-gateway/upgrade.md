@@ -28,9 +28,11 @@ The first time the new version starts, Obot moves your configuration to the gate
    | Amazon Bedrock, Amazon Bedrock API key | `bedrock_mantle` |
    | Azure, Azure Entra | `azure` |
 
-   When both variants of Bedrock or Azure are configured, an administrator must choose which configuration to migrate in the migration dialog. No option is selected automatically. The dialog shows each source's endpoint or region and known models, without its credentials. **Decide later** leaves the family pending; reopen the dialog from **Models → Providers**. Other providers migrate independently.
+   When both variants of Bedrock or Azure are configured, an administrator must choose one configuration or **Import both as a shared pool** in the migration dialog. No option is selected automatically. The dialog shows each source's endpoint or region and known models, without its credentials. **Decide later** leaves the family pending; reopen the dialog from **Models → Providers**. Other providers migrate independently.
 
-   Only the selected configuration is imported. The other source's credentials, models and references remain available for manual setup, but its old proxy route cannot serve requests. The gateway currently supports one instance of each of these cloud providers; named cloud instances are not part of this upgrade.
+   Choosing one configuration imports only that source. The other source's credentials, models and references remain available for manual setup, but its old proxy route cannot serve requests. Choosing the shared pool imports both configurations as separate keys of the same gateway provider, preserving each key's credentials, Azure endpoint or Bedrock region. Both keys are saved together; interrupted reconciliation does not add duplicate keys.
+
+   **A shared pool changes routing.** Requests, including retries, can use either configuration for the same model. Both keys initially allow every model. Legacy routes and migrated model references also use the pool; they no longer choose the original account, endpoint or region. Choose this option only when you intend to use the configurations interchangeably, and review each key's allowed models afterward. The gateway currently supports one instance of each of these cloud providers; named cloud instances are not part of this upgrade.
 
    A gateway provider that already exists is preserved and reported as needing manual attention. When `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set, the environment key retains precedence over the stored legacy credential. Provider settings, keys and import provenance are saved together as one Obot resource. Interrupted imports resume through resource reconciliation without adding duplicate keys.
 
@@ -44,10 +46,10 @@ The first time the new version starts, Obot moves your configuration to the gate
 | --- | --- |
 | `/api/llm-proxy/v1` | Serves every model in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Use this for new setups. |
 | `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic`, `/api/llm-proxy/generic-responses` | Supported inference and model-listing requests retain their URLs. Bare model names resolve within the original provider. |
-| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported Mantle paths, including `anthropic/v1/messages` and `openai/v1/responses`, are adapted to the selected imported Mantle configuration. |
-| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the selected imported Azure configuration. |
+| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported Mantle paths, including `anthropic/v1/messages` and `openai/v1/responses`, are adapted to the selected imported Mantle configuration or explicitly shared pool. |
+| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the selected imported Azure configuration or explicitly shared pool. |
 
-Existing client base URLs can remain unchanged for these supported operations. Old model resource IDs continue to resolve through saved migration mappings. Legacy routes never silently select another provider when the original configuration is unavailable. An unselected cloud variant or a configuration requiring manual setup returns HTTP 410 with instructions to review **Models → Providers**. Unsupported operations also return HTTP 410; inference requests are not redirected.
+Existing client base URLs can remain unchanged for these supported operations. Old model resource IDs continue to resolve through saved migration mappings. Legacy routes never silently select another provider when the original configuration is unavailable; routing between configurations requires the explicit shared-pool choice. An unselected cloud variant or a configuration requiring manual setup returns HTTP 410 with instructions to review **Models → Providers**. Unsupported operations also return HTTP 410; inference requests are not redirected.
 
 For new client setups use `/api/llm-proxy/v1` and provider-qualified model names, such as `bedrock_mantle/claude-sonnet-4-5`. See [Connecting clients](./connect-clients.md).
 

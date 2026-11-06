@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	migrationSetting = "legacy-provider-migration"
+	migrationSetting      = "legacy-provider-migration"
+	sharedMigrationChoice = "both"
 )
 
 // MigrationStatus contains no credentials. Version guards administrator decisions;
@@ -93,19 +94,21 @@ func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStat
 func (e *Engine) ResolveMigration(ctx context.Context, family, source string, version int) error {
 	err := e.mutateMigration(ctx, func(s *MigrationStatus) error {
 		entry, ok := s.Sources[source]
-		if !ok || entry.Provider != family || (family != "azure" && family != "bedrock_mantle") {
+		if (family != "azure" && family != "bedrock_mantle") || (source != sharedMigrationChoice && (!ok || entry.Provider != family)) {
 			return &APIError{StatusCode: 400, Message: "invalid legacy provider selection"}
 		}
 		if s.Version != version || s.Choices[family] != "" {
 			return &APIError{StatusCode: 409, Message: "the migration decision changed; refresh and try again"}
 		}
 		count := 0
+		pending := true
 		for _, candidate := range s.Sources {
 			if candidate.Provider == family {
 				count++
+				pending = pending && candidate.Status == "pending"
 			}
 		}
-		if count < 2 || entry.Status != "pending" {
+		if count < 2 || (source == sharedMigrationChoice && !pending) || (source != sharedMigrationChoice && entry.Status != "pending") {
 			return &APIError{StatusCode: 409, Message: "this provider is no longer awaiting a choice"}
 		}
 		s.Choices[family] = source
@@ -238,7 +241,7 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 		case entryUnsupported(name):
 			result.Status = "unsupported"
 			result.Message = "this legacy provider is not imported automatically; configure a gateway provider manually"
-		case choice != "" && choice != name:
+		case choice != "" && choice != name && choice != sharedMigrationChoice:
 			result.Status = "not-selected"
 			result.Message = "another legacy configuration was selected; configure this source manually"
 		case count > 1 && choice == "":
@@ -248,8 +251,19 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 			result.Status = "environment"
 			result.Message = "configured from the server environment"
 		default:
+			names := []string{name}
+			if choice == sharedMigrationChoice {
+				names = nil
+				for candidate, candidatePlan := range legacyImportPlans {
+					if candidatePlan.provider == plan.provider {
+						names = append(names, candidate)
+					}
+				}
+				slices.Sort(names)
+			}
+			completed := slices.ContainsFunc(names, func(source string) bool { return state.Sources[source].Imported })
 			var err error
-			result.Status, result.Message, err = e.importLegacySource(ctx, name, secrets[name], state.Sources[name].Imported)
+			result.Status, result.Message, err = e.importLegacySources(ctx, names, secrets, completed)
 			if err != nil {
 				importErrors = append(importErrors, fmt.Errorf("import legacy provider %s: %w", name, err))
 			}
@@ -344,7 +358,8 @@ func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error)
 		if err != nil {
 			return nil, err
 		}
-		if entry.Status == "imported" && p.Migration != nil && p.Migration.Source == name && len(p.Keys) > 0 {
+		if entry.Status == "imported" && p.Migration != nil && len(p.Keys) > 0 && (p.Migration.Source == name ||
+			(p.Migration.Source == entry.Provider && p.Migration.Decision == sharedMigrationChoice && s.Choices[entry.Provider] == sharedMigrationChoice)) {
 			approved[name] = entry.Provider
 		}
 		if entry.Status == "environment" && slices.ContainsFunc(p.Keys, func(k schemas.Key) bool { return k.Name == "env-"+envConfigured(entry.Provider) }) {
@@ -370,7 +385,7 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 	})
 }
 
-// LegacyGatewayProvider binds a former route to its original configured upstream.
+// LegacyGatewayProvider binds a former route to its imported provider or explicitly shared pool.
 func (e *Engine) LegacyGatewayProvider(ctx context.Context, source string) (string, error) {
 	sources, err := e.migratedSources(ctx)
 	if err != nil {
@@ -432,16 +447,33 @@ func legacySourceName(name string) string {
 
 // A completed import is never recreated after an administrator removes it.
 // A missing outcome, however, can be recovered from the aggregate's provenance.
-func (e *Engine) importLegacySource(ctx context.Context, name string, secrets map[string]string, completed bool) (string, string, error) {
+func (e *Engine) importLegacySources(ctx context.Context, names []string, secrets map[string]map[string]string, completed bool) (string, string, error) {
+	name := names[0]
 	plan := legacyImportPlans[name]
+	provenance := llmcoreclient.ProviderMigration{Source: name, Decision: name}
+	if len(names) > 1 {
+		provenance = llmcoreclient.ProviderMigration{Source: plan.provider, Decision: sharedMigrationChoice}
+	}
 	proxy := httpproxy.FromEnvironment()
 	p, err := e.store.GetProvider(ctx, plan.provider)
 	if apierrors.IsNotFound(err) {
 		if completed {
 			return "blocked", "the imported gateway provider was removed; configure it manually to resume", nil
 		}
-		p, err = legacyAggregate(ctx, name, secrets)
+		for i, source := range names {
+			var candidate llmcoreclient.Provider
+			candidate, err = legacyAggregate(ctx, source, secrets[source])
+			if err != nil {
+				break
+			}
+			if i == 0 {
+				p = candidate
+			} else {
+				p.Keys = append(p.Keys, candidate.Keys...)
+			}
+		}
 		if err == nil {
+			p.Migration = &provenance
 			applyProviderEgressProxy(plan.provider, &p, proxy)
 			err = e.store.CreateProvider(ctx, plan.provider, p)
 		}
@@ -452,14 +484,14 @@ func (e *Engine) importLegacySource(ctx context.Context, name string, secrets ma
 	if err != nil {
 		return "error", "provider import failed; check server logs; reconciliation will retry", err
 	}
-	if p.Migration == nil || p.Migration.Source != name || p.Migration.Decision != name {
+	if p.Migration == nil || *p.Migration != provenance {
 		return "blocked", "a gateway provider already exists; existing configuration was preserved", nil
 	}
 	// Repair aggregates imported before proxy inheritance was applied atomically.
 	// Re-evaluate on the latest version so concurrent administrator edits survive.
 	if applyProviderEgressProxy(plan.provider, &p, proxy) {
 		if err := e.store.MutateProvider(ctx, plan.provider, func(current *llmcoreclient.Provider) error {
-			if current.Migration != nil && current.Migration.Source == name && current.Migration.Decision == name {
+			if current.Migration != nil && *current.Migration == provenance {
 				applyProviderEgressProxy(plan.provider, current, proxy)
 			}
 			return nil

@@ -496,7 +496,7 @@
 	"models_providers_azure_resource_group": "Resource Group",
 	"models_providers_azure_account_name": "Account Name",
 	"models_migration_title": "Choose a model provider to migrate",
-	"models_migration_description": "These legacy providers share one gateway provider. Choose the configuration to migrate. The other configuration and its credentials will be kept for manual setup; its models will remain unavailable until you configure it.",
+	"models_migration_description": "These legacy configurations share one gateway provider. Choose one configuration, or import both as a shared pool. An unselected configuration and its credentials are kept for manual setup.",
 	"models_migration_later": "Decide later",
 	"models_migration_apply": "Migrate selected provider",
 	"models_migration_saving": "Saving…",
@@ -508,5 +508,7 @@
 	"models_migration_error": "The import failed. Reconciliation will retry; check the server logs if it continues.",
 	"models_migration_not_selected": "Another configuration was selected. This source and its credentials were kept for manual setup.",
 	"models_migration_unsupported": "This legacy provider requires manual gateway setup. Its configuration and model records were kept.",
-	"models_migration_models": "Models ({count})"
+	"models_migration_models": "Models ({count})",
+	"models_migration_shared": "Import both as a shared pool",
+	"models_migration_shared_help": "Requests, including retries, may use either account, endpoint, or region. Legacy routes and migrated models will also use this pool. Combine configurations only if you intend to use them interchangeably."
 }

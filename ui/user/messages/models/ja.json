@@ -496,7 +496,7 @@
 	"models_providers_azure_resource_group": "リソース グループ",
 	"models_providers_azure_account_name": "アカウント名",
 	"models_migration_title": "移行するモデルプロバイダーを選択",
-	"models_migration_description": "これらの旧プロバイダーは同じゲートウェイプロバイダーを使用します。移行する設定を選択してください。選択しなかった設定と認証情報は手動設定用に保持されます。そのモデルは設定するまで利用できません。",
+	"models_migration_description": "これらの従来の構成は1つのゲートウェイプロバイダーを共有します。1つの構成を選択するか、両方を共有プールとしてインポートしてください。選択されなかった構成と認証情報は、手動設定用に保持されます。",
 	"models_migration_later": "後で決める",
 	"models_migration_apply": "選択したプロバイダーを移行",
 	"models_migration_saving": "保存中…",
@@ -508,5 +508,7 @@
 	"models_migration_error": "移行に失敗しました。自動的に再試行します。問題が続く場合はサーバーログを確認してください。",
 	"models_migration_not_selected": "別の設定が選択されました。この設定と認証情報は手動設定用に保持されています。",
 	"models_migration_unsupported": "この旧プロバイダーは手動設定が必要です。設定とモデルの記録は保持されています。",
-	"models_migration_models": "モデル（{count}）"
+	"models_migration_models": "モデル（{count}）",
+	"models_migration_shared": "両方を共有プールとしてインポート",
+	"models_migration_shared_help": "再試行を含むリクエストには、いずれかのアカウント、エンドポイント、リージョンが使用される場合があります。従来のルートと移行済みモデルもこのプールを使用します。構成を相互に置き換えて使用する場合にのみ組み合わせてください。"
 }

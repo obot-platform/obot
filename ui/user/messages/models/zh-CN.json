@@ -496,7 +496,7 @@
 	"models_providers_azure_resource_group": "资源组",
 	"models_providers_azure_account_name": "账户名称",
 	"models_migration_title": "选择要迁移的模型提供商",
-	"models_migration_description": "这些旧提供商共用一个网关提供商。请选择要迁移的配置。其他配置及其凭据将保留供手动设置；其模型在完成设置前不可用。",
+	"models_migration_description": "这些旧配置共用一个网关提供商。请选择一个配置，或将两者导入为共享池。未选择的配置及其凭据将保留，以便手动设置。",
 	"models_migration_later": "稍后决定",
 	"models_migration_apply": "迁移所选提供商",
 	"models_migration_saving": "正在保存…",
@@ -508,5 +508,7 @@
 	"models_migration_error": "导入失败，系统将自动重试。如果问题持续，请检查服务器日志。",
 	"models_migration_not_selected": "已选择其他配置。此配置及其凭据已保留供手动设置。",
 	"models_migration_unsupported": "此旧提供商需要手动设置网关。其配置和模型记录已保留。",
-	"models_migration_models": "模型（{count}）"
+	"models_migration_models": "模型（{count}）",
+	"models_migration_shared": "将两者导入为共享池",
+	"models_migration_shared_help": "请求（包括重试）可能使用任一账户、端点或区域。旧路由和已迁移的模型也将使用此共享池。仅在您打算交替使用这些配置时才将其合并。"
 }

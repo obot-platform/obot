@@ -1,9 +1,9 @@
 # 2026-11-03: Recover legacy model-provider imports through resource reconciliation
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-11-03
 - **Supersedes:** None
-- **Superseded by:** None
+- **Superseded by:** [Explicit shared pools for legacy cloud providers](2026-11-05-shared-legacy-provider-pools.md)
 
 ## Related issues
 
