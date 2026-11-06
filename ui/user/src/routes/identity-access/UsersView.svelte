@@ -311,7 +311,7 @@
 	function isOwnerActionRestricted(user: TableItem) {
 		return (
 			user.hasOrgUser &&
-			user.groups.includes(Group.OWNER) &&
+			(user.groups.includes(Group.OWNER) || user.auditor) &&
 			!profile.current.groups.includes(Group.OWNER)
 		);
 	}
