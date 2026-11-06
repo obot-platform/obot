@@ -429,7 +429,10 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('Codex CLI');
-		await expect.element(page.getByText('~/.codex/config.toml')).toBeInTheDocument();
+		await expect.element(page.getByText('~/.codex/obot-api-key.config.toml')).toBeInTheDocument();
+		await expect
+			.element(page.getByText('codex --profile obot-api-key', { exact: false }))
+			.toBeInTheDocument();
 		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('model = "openai/gpt-4o"', { exact: false }))
@@ -445,6 +448,12 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models, codexSubscriptionPassthrough: true });
 		await openClient('Codex CLI');
 		await expect.element(page.getByRole('tab', { name: 'Use subscription' })).toBeInTheDocument();
+		await expect
+			.element(page.getByText('~/.codex/obot-subscription.config.toml'))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('codex --profile obot-subscription', { exact: false }))
+			.toBeInTheDocument();
 		await expect
 			.element(page.getByText('requires_openai_auth = true', { exact: false }))
 			.toBeInTheDocument();
@@ -473,11 +482,19 @@ describe('GatewayConnect', () => {
 		await page.getByRole('button', { name: 'OpenAI · openai/gpt-4o', exact: true }).click();
 		await expect.element(page.getByText('model = "gpt-4o"', { exact: false })).toBeInTheDocument();
 		await openTab('Use API key');
+		await expect.element(page.getByText('~/.codex/obot-api-key.config.toml')).toBeInTheDocument();
+		await expect
+			.element(page.getByText('codex --profile obot-api-key', { exact: false }))
+			.toBeInTheDocument();
 		await expect
 			.element(page.getByText('env_key = "OBOT_API_KEY"', { exact: false }))
 			.toBeInTheDocument();
 		await expect
 			.element(page.getByText('model = "openai/gpt-4o"', { exact: false }))
+			.toBeInTheDocument();
+		await openTab('Use subscription');
+		await expect
+			.element(page.getByText('codex --profile obot-subscription', { exact: false }))
 			.toBeInTheDocument();
 	});
 

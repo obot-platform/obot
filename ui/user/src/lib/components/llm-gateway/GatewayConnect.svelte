@@ -395,7 +395,7 @@
 			}
 			case 'codex': {
 				const apiKey: ConnectBlock = {
-					title: '~/.codex/config.toml',
+					title: '~/.codex/obot-api-key.config.toml',
 					language: 'toml' as const,
 					code: [
 						`model = "${model}"`,
@@ -412,18 +412,21 @@
 						'wire_api = "responses"'
 					].join('\n')
 				};
+				// Profile files layer over the user's config; select the active tab's credential mode.
+				const profile =
+					codexSubscriptionPassthrough && selectedTab === 0 ? 'obot-subscription' : 'obot-api-key';
 				const run = {
 					title: m.models_connect_run_in_terminal(),
-					language: 'bash' as const,
 					authVariable: AUTH.obot,
-					code: `export ${AUTH.obot}="${token}"\ncodex`
+					language: 'bash' as const,
+					code: `export ${AUTH.obot}="${token}"\ncodex --profile ${profile}`
 				};
 				if (!codexSubscriptionPassthrough) return [apiKey, run];
 				const nativeModel = pickedModel('codex-subscription');
 				return [
 					{
 						tabTitle: m.models_connect_tab_subscription(),
-						title: '~/.codex/config.toml',
+						title: '~/.codex/obot-subscription.config.toml',
 						picker: 'codex-subscription',
 						language: 'toml',
 						code: [
@@ -822,7 +825,12 @@
 				</div>
 			{/if}
 
-			<div class="flex flex-col gap-2">
+			<div
+				class={twMerge(
+					'flex flex-col gap-6',
+					tabBlocks.length > 0 && codeBlocks.length > 0 && 'mt-6'
+				)}
+			>
 				{#each codeBlocks as block, i (`${selected}-${i}-codeblock`)}
 					<LLMGatewayCodeBlock
 						{block}
