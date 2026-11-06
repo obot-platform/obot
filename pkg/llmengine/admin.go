@@ -247,7 +247,7 @@ func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []
 
 func object(v any) map[string]any {
 	raw, _ := json.Marshal(v)
-	out := map[string]any{}
+	var out map[string]any
 	_ = json.Unmarshal(raw, &out)
 	if out == nil {
 		out = map[string]any{}
@@ -530,6 +530,7 @@ func mergeJSON(current any, body []byte) ([]byte, error) {
 	if err := json.Unmarshal(body, &patch); err != nil {
 		return nil, err
 	}
+	// Declare before assigning so the closure can call itself recursively.
 	var merge func(map[string]any, map[string]any)
 	merge = func(dst, src map[string]any) {
 		for k, v := range src {
@@ -711,8 +712,7 @@ func updateClientConfig(cfg *llmcoreclient.Config, body []byte) (map[string]any,
 	if err := json.Unmarshal(body, &in); err != nil {
 		return nil, err
 	}
-	prior := map[string]any{}
-	_ = json.Unmarshal(cfg.Settings["client"], &prior)
+	prior := object(cfg.Settings["client"])
 	maps.Copy(prior, in.Client)
 	if v, ok := prior["max_request_body_size_mb"].(float64); ok && (v <= 0 || v > 1048576) {
 		return nil, fmt.Errorf("invalid request body size")

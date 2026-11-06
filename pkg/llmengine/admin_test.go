@@ -1,9 +1,11 @@
 package llmengine
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,4 +65,36 @@ func TestGlobalProxyPasswordRoundTrip(t *testing.T) {
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Contains(t, string(cfg.Config.Settings["proxy"]), "private-proxy-password")
+}
+
+func TestUpdateClientConfigInitializesWritableSettings(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		prior json.RawMessage
+	}{
+		{
+			name: "missing",
+		},
+		{
+			name:  "null",
+			prior: json.RawMessage(`null`),
+		},
+		{
+			name:  "existing fields",
+			prior: json.RawMessage(`{"log_retention_days":7}`),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := llmcoreclient.Config{Settings: map[string]json.RawMessage{"client": tc.prior}}
+			out, err := updateClientConfig(&cfg, []byte(`{"client_config":{"max_request_body_size_mb":4}}`))
+			require.NoError(t, err)
+			require.Equal(t, float64(4), out["max_request_body_size_mb"])
+			if tc.name == "existing fields" {
+				require.Equal(t, float64(7), out["log_retention_days"])
+			}
+			var persisted map[string]any
+			require.NoError(t, json.Unmarshal(cfg.Settings["client"], &persisted))
+			require.Equal(t, out, persisted)
+		})
+	}
 }
