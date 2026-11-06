@@ -235,11 +235,6 @@ const sidebars = {
 					"type": "doc",
 					"id": "device-management/enforcement",
 					"label": "Policy enforcement"
-				},
-				{
-					"type": "doc",
-					"id": "device-management/claude-code",
-					"label": "Claude Code reference deployment"
 				}
 			]
 		},
