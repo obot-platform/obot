@@ -351,9 +351,16 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 	}
 
 	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
+	// An Anthropic-format list carries no provider field, so the same bare ID can
+	// appear once per provider that serves it. Keep the first occurrence, as
+	// addListedModels does: the entries name the same model to the caller, and the
+	// repeated ID is what makes clients such as Claude Code list the model twice.
 	var kept []string
+	seen := make(map[string]bool, data.Get("#").Int())
 	data.ForEach(func(_, entry gjson.Result) bool {
-		if allowedTargetModels[entry.Get("id").String()] {
+		id := entry.Get("id").String()
+		if allowedTargetModels[id] && !seen[id] {
+			seen[id] = true
 			kept = append(kept, entry.Raw)
 		}
 		return true

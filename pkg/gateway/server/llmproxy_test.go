@@ -754,6 +754,14 @@ func TestModifyResponse_FiltersAnthropicModelList(t *testing.T) {
 			wantFirstID: new("claude-sonnet-4"),
 			wantLastID:  new("claude-sonnet-4"),
 		},
+		{
+			name:        "collapses a bare ID served by two providers to the first entry",
+			allowed:     map[string]bool{"anthropic/claude-sonnet-4-6": true, "claude-sonnet-4-6": true},
+			body:        `{"data":[{"type":"model","id":"claude-sonnet-4-6","display_name":"Claude Sonnet 4.6"},{"type":"model","id":"claude-sonnet-4-6","display_name":""}],"first_id":"claude-sonnet-4-6","has_more":false,"last_id":"claude-sonnet-4-6"}`,
+			wantIDs:     []string{"claude-sonnet-4-6"},
+			wantFirstID: new("claude-sonnet-4-6"),
+			wantLastID:  new("claude-sonnet-4-6"),
+		},
 	}
 
 	for _, tt := range tests {
