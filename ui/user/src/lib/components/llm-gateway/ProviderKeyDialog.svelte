@@ -129,7 +129,20 @@
 			for (const f of fields) {
 				const v = values[f.path]?.trim() ?? '';
 				if (!v && !f.required && f.path !== 'value') continue;
-				setPath(body, f.path, v);
+				const previous = editing
+					? getPath(editing as unknown as Record<string, unknown>, f.path)
+					: undefined;
+				// Keep the masked value wrapped; reference metadata stays in stored configuration.
+				const unchanged =
+					previous &&
+					typeof previous === 'object' &&
+					'value' in previous &&
+					String(previous.value ?? '') === values[f.path];
+				setPath(body, f.path, unchanged ? { value: previous.value } : v);
+			}
+			if (entry?.id === 'azure' && authenticationMethod === 'server-identity') {
+				// Server identity must use the default scope, not a retained Entra scope.
+				setPath(body, 'azure_key_config.scopes', []);
 			}
 			const key = body as unknown as ProviderKey;
 			const saved = editing?.id

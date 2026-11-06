@@ -56,7 +56,7 @@ describe('server identity authentication', () => {
 					expect(saved.mock.calls[0][0]).toMatchObject({ value: '' });
 					expect(saved.mock.calls[0][0][configName]).toEqual({
 						...sharedConfig,
-						...(addingProvider ? {} : emptyCredentials),
+						...(addingProvider ? {} : { ...emptyCredentials, ...(!aws ? { scopes: [] } : {}) }),
 						...(role ? { role_arn: role } : {})
 					});
 				});
@@ -97,7 +97,11 @@ describe('server identity authentication', () => {
 					weight: 2,
 					enabled: false
 				});
-				expect(saved.mock.calls[0][0][configName]).toEqual({ ...emptyCredentials, ...config });
+				expect(saved.mock.calls[0][0][configName]).toEqual({
+					...emptyCredentials,
+					...config,
+					...(!aws ? { scopes: [] } : {})
+				});
 			});
 		}
 
@@ -133,7 +137,8 @@ describe('server identity authentication', () => {
 				expect(saved.mock.calls[0][0]).toMatchObject({ value: '' });
 				expect(saved.mock.calls[0][0][configName]).toEqual({
 					...emptyCredentials,
-					...sharedConfig
+					...sharedConfig,
+					...(!aws ? { scopes: [] } : {})
 				});
 				component.open({
 					id: 'key',

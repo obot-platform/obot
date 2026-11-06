@@ -164,10 +164,10 @@ describe('provider authentication', () => {
 			);
 			const masked = 'abcd************************wxyz';
 			const { component } = await render(ProviderKeyDialog, { provider });
-			component.open({
+			const key = {
 				id: 'key',
 				name: 'existing',
-				value: { value: masked },
+				value: { value: masked, type: 'env', ref: 'env.OBOT_TEST_API_KEY' },
 				models: ['*'],
 				weight: 1,
 				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
@@ -175,10 +175,11 @@ describe('provider authentication', () => {
 					: {
 							endpoint: sharedValue,
 							client_id: { value: 'client' },
-							client_secret: { value: masked },
+							client_secret: { value: masked, type: 'env', ref: 'env.OBOT_TEST_ENTRA_SECRET' },
 							tenant_id: { value: 'tenant' }
 						}
-			});
+			};
+			component.open(key);
 			const dialog = page.getByRole('dialog');
 			await expect
 				.element(dialog.getByRole('radio', { name: aws ? 'API Key' : method, exact: true }))
@@ -190,16 +191,26 @@ describe('provider authentication', () => {
 			expect(saved.mock.calls[0][0]).toMatchObject({
 				name: 'renamed',
 				weight: 2,
-				value: aws ? masked : '',
+				value: aws ? { value: masked } : '',
 				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
 					? { region: sharedValue, access_key: '', secret_key: '', session_token: '', role_arn: '' }
 					: {
 							endpoint: sharedValue,
-							client_id: 'client',
-							client_secret: masked,
-							tenant_id: 'tenant'
+							client_id: { value: 'client' },
+							client_secret: { value: masked },
+							tenant_id: { value: 'tenant' }
 						}
 			});
+			expect(saved.mock.calls[0][0].value).toEqual(aws ? { value: masked } : '');
+			if (!aws)
+				expect(saved.mock.calls[0][0].azure_key_config.client_secret).toEqual({ value: masked });
+			component.open(key);
+			await dialog.getByLabelText(aws ? apiKeyLabel : /^Entra Client Secret/).fill('replacement');
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+			await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
+			expect(
+				aws ? saved.mock.calls[1][0].value : saved.mock.calls[1][0].azure_key_config.client_secret
+			).toBe('replacement');
 		});
 
 		it(`${provider}: selects saved credentials and excludes inactive fields`, () => {

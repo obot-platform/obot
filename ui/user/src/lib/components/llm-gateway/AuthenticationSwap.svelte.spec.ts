@@ -22,7 +22,12 @@ describe('authentication configuration replacement', () => {
 					session_token: { value: '********' },
 					role_arn: 'old-role'
 				}
-			: { client_id: 'old-client', client_secret: { value: '********' }, tenant_id: 'old-tenant' };
+			: {
+					client_id: 'old-client',
+					client_secret: { value: '********' },
+					tenant_id: 'old-tenant',
+					scopes: ['https://ai.azure.com/.default']
+				};
 		const labels = {
 			api: 'API Key',
 			credentials: aws ? 'AWS credentials' : 'Microsoft Entra ID',
@@ -57,7 +62,10 @@ describe('authentication configuration replacement', () => {
 					const expected = { ...emptyConfig, ...sharedConfig };
 					if (!aws) {
 						await dialog.getByLabelText(/^Endpoint/).fill('https://new.openai.azure.com');
-						Object.assign(expected, { endpoint: 'https://new.openai.azure.com' });
+						Object.assign(expected, {
+							endpoint: 'https://new.openai.azure.com',
+							...(to === 'server' ? { scopes: [] } : {})
+						});
 					}
 					if (to === 'api') {
 						await dialog
