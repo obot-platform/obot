@@ -283,7 +283,7 @@
   "pingfederate_auth_provider_email_claim_friendly_name": "이메일 클레임",
   "pingfederate_auth_provider_email_claim_description": "사용자의 이메일 주소를 담은 클레임의 이름입니다. 기본값: email. Obot은 이 값이 email일 때만 확인되지 않은 주소(email_verified: false)를 거부합니다. 다른 클레임을 사용하는 경우 사용자가 직접 설정할 수 없는 속성인지 확인하세요.",
   "pingfederate_auth_provider_groups_claim_friendly_name": "그룹 클레임",
-  "pingfederate_auth_provider_groups_claim_description": "ID 토큰 또는 userinfo 응답에서 사용자의 그룹 멤버십을 담은 클레임의 이름입니다. 기본값: groups",
+  "pingfederate_auth_provider_groups_claim_description": "userinfo 응답에서 사용자의 그룹 멤버십을 담은 클레임의 이름입니다. 기본값: groups",
   "pingfederate_auth_provider_groups_delimiter_friendly_name": "그룹 구분자",
   "pingfederate_auth_provider_groups_delimiter_description": "PingFederate가 그룹 멤버십을 목록 대신 구분된 하나의 문자열로 보내는 경우 설정합니다(예: 쉼표). 클레임이 목록이거나 그룹 이름에 구분자가 포함될 수 있는 경우 비워 두세요.",
   "pingfederate_auth_provider_known_groups_friendly_name": "알려진 그룹",

@@ -283,7 +283,7 @@
   "pingfederate_auth_provider_email_claim_friendly_name": "电子邮件声明",
   "pingfederate_auth_provider_email_claim_description": "包含用户电子邮件地址的声明名称。默认值：email。仅当此值为 email 时，Obot 才会拒绝未验证的地址（email_verified: false）；使用其他声明时，请确保用户无法自行设置该属性。",
   "pingfederate_auth_provider_groups_claim_friendly_name": "组声明",
-  "pingfederate_auth_provider_groups_claim_description": "在 ID 令牌或 userinfo 响应中包含用户组成员身份的声明名称。默认值：groups",
+  "pingfederate_auth_provider_groups_claim_description": "在 userinfo 响应中包含用户组成员身份的声明名称。默认值：groups",
   "pingfederate_auth_provider_groups_delimiter_friendly_name": "组分隔符",
   "pingfederate_auth_provider_groups_delimiter_description": "当 PingFederate 以单个分隔字符串而非列表发送组成员身份时设置，例如逗号。如果声明是列表，或组名可能包含分隔符，请留空。",
   "pingfederate_auth_provider_known_groups_friendly_name": "已知组",

@@ -283,7 +283,7 @@
   "pingfederate_auth_provider_email_claim_friendly_name": "Email Claim",
   "pingfederate_auth_provider_email_claim_description": "Name of the claim that carries the user's email address. Default: email. Obot rejects an unverified address (email_verified: false) only when this is email; with another claim, make sure users cannot set it themselves.",
   "pingfederate_auth_provider_groups_claim_friendly_name": "Groups Claim",
-  "pingfederate_auth_provider_groups_claim_description": "Name of the claim that carries the user's group memberships, in the ID token or the userinfo response. Default: groups",
+  "pingfederate_auth_provider_groups_claim_description": "Name of the claim that carries the user's group memberships in the userinfo response. Default: groups",
   "pingfederate_auth_provider_groups_delimiter_friendly_name": "Groups Delimiter",
   "pingfederate_auth_provider_groups_delimiter_description": "Set when PingFederate sends group membership as one delimited string instead of a list, e.g. a comma. Leave empty when the claim is a list, or when group names may contain the delimiter.",
   "pingfederate_auth_provider_known_groups_friendly_name": "Known Groups",

@@ -554,7 +554,7 @@ In the PingFederate administrative console:
    - **Allowed Grant Types:** **Authorization Code** and **Refresh Token**.
    - **Require Proof Key for Code Exchange (PKCE):** can be enabled. Obot always sends an `S256` code challenge.
    - **OpenID Connect > Policy:** the policy from the next step.
-2. **Create or choose an OpenID Connect policy.** Go to **Applications > OAuth > OpenID Connect Policy Management**. In its attribute contract, release `sub`, `email`, and `name` (or `given_name` and `family_name`), and, for group-based access, a `groups` attribute marked **Multi-Valued**. Release `groups` in **User Info**, not only in the ID token: PingFederate doesn't issue a new ID token on refresh by default, so Obot reads group changes from userinfo. Fulfill them from your directory, for example `mail`, `cn`, and `memberOf` from an LDAP data store.
+2. **Create or choose an OpenID Connect policy.** Go to **Applications > OAuth > OpenID Connect Policy Management**. In its attribute contract, release `sub`, `email`, and `name` (or `given_name` and `family_name`), and, for group-based access, a `groups` attribute marked **Multi-Valued**. Release `groups` in **User Info**: Obot reads group memberships only from the userinfo response, which reflects changes at each session refresh, and ignores groups released only in the ID token. Fulfill them from your directory, for example `mail`, `cn`, and `memberOf` from an LDAP data store.
 3. **Map the attributes to scopes.** PingFederate releases only the claims mapped to a scope that the client requests. In the policy's scope mappings, map `email` to the `email` scope and the name attributes to `profile`. For groups, add a scope such as `groups` under **System > OAuth Settings > Scope Management**, map the `groups` attribute to it, and add the scope to **Scopes** in Obot. Without it, users sign in with no groups.
 
 PingFederate's issuer is its base URL, under **System > Server > Protocol Settings > Federation Info**, such as `https://sso.example.com` or `https://sso.example.com:9031`. Obot's Issuer URL must match it exactly. To check, open `<issuer>/.well-known/openid-configuration` and compare its `issuer` value.
@@ -594,8 +594,7 @@ When Obot uses PostgreSQL, as a deployment with several replicas must, every rep
 
 - **The provider reports an issuer mismatch:** set **Issuer URL** to the `issuer` value it reports, which is PingFederate's base URL. A trailing slash or a missing port is enough to differ.
 - **Certificate errors when the provider starts:** PingFederate's TLS certificate is issued by a CA the provider doesn't trust. Add the CA's certificate chain to **CA Certificate (PEM)**.
-- **Users sign in with no groups:** the groups attribute isn't mapped to a scope Obot requests, or it isn't in the policy's attribute contract. Map it to a scope and add that scope to **Scopes**.
-- **Group changes take effect only after users sign in again:** the groups attribute is released in the ID token but not in **User Info**. Release it in **User Info** too, or turn on returning an ID token on the refresh grant in the OIDC policy.
+- **Users sign in with no groups:** the groups attribute isn't released in **User Info**, isn't in the policy's attribute contract, or isn't mapped to a scope Obot requests. Release it in **User Info**, map it to a scope, and add that scope to **Scopes**.
 
 ## Switching Between Auth Providers
 

@@ -283,7 +283,7 @@
   "pingfederate_auth_provider_email_claim_friendly_name": "メールクレーム",
   "pingfederate_auth_provider_email_claim_description": "ユーザーのメールアドレスを含むクレームの名前。デフォルト: email。未確認のアドレス (email_verified: false) を Obot が拒否するのは、この値が email の場合のみです。別のクレームを使う場合は、ユーザー自身が設定できない属性にしてください。",
   "pingfederate_auth_provider_groups_claim_friendly_name": "グループクレーム",
-  "pingfederate_auth_provider_groups_claim_description": "ID トークンまたは userinfo 応答で、ユーザーのグループメンバーシップを含むクレームの名前。デフォルト: groups",
+  "pingfederate_auth_provider_groups_claim_description": "userinfo 応答でユーザーのグループメンバーシップを含むクレームの名前。デフォルト: groups",
   "pingfederate_auth_provider_groups_delimiter_friendly_name": "グループ区切り文字",
   "pingfederate_auth_provider_groups_delimiter_description": "PingFederate がグループメンバーシップをリストではなく 1 つの区切り文字列として送信する場合に設定します (例: カンマ)。クレームがリストの場合、またはグループ名に区切り文字が含まれる可能性がある場合は空のままにしてください。",
   "pingfederate_auth_provider_known_groups_friendly_name": "既知のグループ",
