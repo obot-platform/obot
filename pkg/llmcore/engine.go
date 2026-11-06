@@ -22,6 +22,7 @@ import (
 	"time"
 
 	bifrost "github.com/maximhq/bifrost/core"
+	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/streaming"
@@ -93,7 +94,45 @@ func (a *account) GetKeysForProvider(_ context.Context, provider schemas.ModelPr
 	if _, blocked := a.transitioning.Load(provider); blocked {
 		return nil, fmt.Errorf("provider %s is being reconfigured", provider)
 	}
-	return a.config.Load().Keys[provider], nil
+
+	cfg := a.config.Load()
+	keys := cfg.Keys[provider]
+	pc := cfg.Providers[provider]
+	azure := provider == schemas.Azure || (pc.CustomProviderConfig != nil && pc.CustomProviderConfig.BaseProviderType == schemas.Azure)
+	if !azure || len(cfg.AzureAccounts[provider]) == 0 {
+		return keys, nil
+	}
+
+	// Bifrost filters on the requested name before resolving its per-key alias.
+	// Only the runtime copies are narrowed; saved policies remain authoritative.
+	keys = slices.Clone(keys)
+	for i := range keys {
+		key := &keys[i]
+		account := cfg.AzureAccounts[provider][key.ID]
+		if account == (llmcoreclient.AzureAccount{}) {
+			continue
+		}
+
+		snapshot, ok := cfg.AzureDiscoveries[provider][key.ID]
+		pipeline := providerUtils.ListModelsPipeline{
+			AllowedModels:     key.Models,
+			BlacklistedModels: key.BlacklistedModels,
+			Aliases:           key.Aliases,
+			MatchFns:          providerUtils.DefaultMatchFns(),
+		}
+		key.Models = nil
+		if !ok || snapshot.Fingerprint != llmcoreclient.AzureDiscoveryFingerprint(*key, account) || pipeline.ShouldEarlyExit() {
+			continue
+		}
+
+		for _, deployment := range snapshot.Names {
+			for _, match := range pipeline.FilterModel(deployment) {
+				key.Models = append(key.Models, match.ResolvedID)
+			}
+		}
+	}
+
+	return keys, nil
 }
 
 func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas.ProviderConfig, error) {
