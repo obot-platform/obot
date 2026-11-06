@@ -477,6 +477,8 @@
 	"identity_access_users_confirm_auditor_title": "Confirm Auditor Role",
 	"identity_access_users_confirm_enable": "Confirm Enable",
 	"identity_access_users_confirm_handoff": "Confirm Handoff",
+	"identity_access_users_count_one": "{count} user",
+	"identity_access_users_count_other": "{count} users",
 	"identity_access_users_delete_user": "Delete User",
 	"identity_access_users_delete_user_confirm": "Delete user {email}?",
 	"identity_access_users_enable": "Enable User",

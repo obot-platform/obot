@@ -477,6 +477,8 @@
 	"identity_access_users_confirm_auditor_title": "确认审计员角色",
 	"identity_access_users_confirm_enable": "确认启用",
 	"identity_access_users_confirm_handoff": "确认移交",
+	"identity_access_users_count_one": "{count} 个用户",
+	"identity_access_users_count_other": "{count} 个用户",
 	"identity_access_users_delete_user": "删除用户",
 	"identity_access_users_delete_user_confirm": "删除用户 {email}？",
 	"identity_access_users_enable": "启用用户",

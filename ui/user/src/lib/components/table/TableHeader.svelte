@@ -41,11 +41,28 @@
 		disablePortal
 	}: Props = $props();
 
+	// A column can have a distinct value for every row, e.g. thousands of user emails.
+	const MAX_FILTER_OPTIONS = 100;
+
 	let query = $state('');
 	let selectedFilterValues = $derived<string[]>(
 		presetFilters?.map((d) => d.toString()).filter(Boolean) ?? []
 	);
 	let pointerOnTHeader = $derived(sortable && !filterable);
+
+	// The filter searches only what it shows. A formatted label can be shared by several values,
+	// e.g. owner IDs shown as names; those labels also show the value, so that the options can be
+	// told apart and each can be found by searching for its value, even past the option cap.
+	let options = $derived.by(() => {
+		const values = filterOptions?.filter(Boolean) ?? [];
+		const labels = values.map((value) => formatOption?.(value) ?? value.toString());
+		const counts: Record<string, number> = {};
+		for (const label of labels) counts[label] = (counts[label] ?? 0) + 1;
+		return values.map((value, i) => ({
+			id: value.toString(),
+			label: formatOption && counts[labels[i]] > 1 ? `${labels[i]} (${value})` : labels[i]
+		}));
+	});
 
 	const {
 		tooltip: tooltipRef,
@@ -142,10 +159,7 @@
 				classes={{
 					root: 'flex grow'
 				}}
-				options={filterOptions?.filter(Boolean).map((option) => ({
-					label: formatOption?.(option) ?? option.toString(),
-					id: option.toString()
-				})) ?? []}
+				{options}
 				onClear={(option) => {
 					if (!option) return;
 					selectedFilterValues = selectedFilterValues.filter((d) => d !== option.id);
@@ -164,6 +178,7 @@
 				multiple
 				selected={selectedFilterValues.join(',')}
 				searchInDropdown
+				maxRenderedOptions={MAX_FILTER_OPTIONS}
 				placeholder={m.core_filter_by_placeholder({ name: headerTitle ?? property })}
 			/>
 		</div>

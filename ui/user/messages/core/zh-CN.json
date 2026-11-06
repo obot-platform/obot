@@ -176,6 +176,7 @@
 	"core_select_date": "选择日期",
 	"core_select_date_range": "选择日期范围",
 	"core_select_export_time_range": "选择导出时间范围",
+	"core_select_more_options": "还有 {count} 项 — 输入以缩小结果范围",
 	"core_select_summary_more": "{first}、{second} 及其他 {count} 项",
 	"core_select_time": "选择时间",
 	"core_show_all_items": "显示所有项",

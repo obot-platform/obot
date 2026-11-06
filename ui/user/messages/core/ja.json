@@ -176,6 +176,7 @@
 	"core_select_date": "日付を選択",
 	"core_select_date_range": "日付範囲を選択",
 	"core_select_export_time_range": "エクスポートの期間を選択",
+	"core_select_more_options": "他 {count} 件 — 入力して絞り込んでください",
 	"core_select_summary_more": "{first}、{second}、他 {count} 件",
 	"core_select_time": "時刻を選択",
 	"core_show_all_items": "すべての項目を表示",

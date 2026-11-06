@@ -8,7 +8,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { COMMUNITY_ENTITLEMENT, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -160,11 +160,17 @@
 		return rows;
 	}
 
-	const tableData = $derived.by(() => {
-		const rows = localAuthProviderAvailable
+	// Rows are built once per load, so that typing a search only filters them. Installations can
+	// have many thousands of users.
+	const rows = $derived(
+		localAuthProviderAvailable
 			? rowsForLocalAuth(users, localAuthUsers)
-			: users.map((user) => mapOrgUser(user));
+			: users.map((user) => mapOrgUser(user))
+	);
+
+	const tableData = $derived.by(() => {
 		const q = query.toLowerCase();
+		if (!q) return rows;
 		return rows.filter(
 			(user) => user.name.toLowerCase().includes(q) || user.email?.toLowerCase().includes(q)
 		);
@@ -172,6 +178,7 @@
 
 	type TableItem = (typeof tableData)[0];
 
+	let usersTable = $state<ReturnType<typeof Table<TableItem>>>();
 	let currentAccessDialog = $state<ReturnType<typeof CurrentAccessDialog>>();
 	let updateRoleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updatingRole = $state<TableItem>();
@@ -377,6 +384,7 @@
 
 	const updateQuery = debounce((value: string) => {
 		query = value;
+		usersTable?.firstPage();
 
 		const url = new URL(page.url.toString());
 		if (value) {
@@ -439,7 +447,13 @@
 			{/if}
 
 			<Table
+				bind:this={usersTable}
 				data={tableData}
+				pageSize={PAGE_SIZE}
+				pageItemCountLabel={(count) =>
+					count === 1
+						? m.identity_access_users_count_one({ count })
+						: m.identity_access_users_count_other({ count })}
 				fields={['email', 'name', 'status', 'role', 'effectiveRole', 'lastActiveDay', 'created']}
 				filterable={['name', 'email', 'status', 'role', 'effectiveRole']}
 				filters={urlFilters}

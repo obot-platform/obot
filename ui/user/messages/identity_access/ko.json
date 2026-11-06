@@ -477,6 +477,8 @@
 	"identity_access_users_confirm_auditor_title": "감사자 역할 확인",
 	"identity_access_users_confirm_enable": "활성화 확인",
 	"identity_access_users_confirm_handoff": "인계 확인",
+	"identity_access_users_count_one": "사용자 {count}명",
+	"identity_access_users_count_other": "사용자 {count}명",
 	"identity_access_users_delete_user": "사용자 삭제",
 	"identity_access_users_delete_user_confirm": "사용자 {email}을(를) 삭제하시겠습니까?",
 	"identity_access_users_enable": "사용자 활성화",
