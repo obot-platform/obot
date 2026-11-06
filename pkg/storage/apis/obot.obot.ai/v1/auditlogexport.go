@@ -31,17 +31,21 @@ type AuditLogExportSpec struct {
 	EndTime    metav1.Time                     `json:"endTime"`
 	Filters    *types.AuditLogExportFilters    `json:"filters,omitempty"`
 	LLMFilters *types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	// ScheduleUID associates this fixed window with one schedule incarnation.
+	ScheduleUID string `json:"scheduleUID,omitempty"`
 	// WithRequestAndResponse includes source-specific sensitive request and response fields.
 	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
 }
 
 type AuditLogExportStatus struct {
-	State           types.AuditLogExportState `json:"state"`
-	Error           string                    `json:"error,omitempty"`
-	ExportSize      int64                     `json:"exportSize,omitempty"`
-	ExportPath      string                    `json:"exportPath,omitempty"`
-	StartedAt       *metav1.Time              `json:"startedAt,omitempty"`
-	CompletedAt     *metav1.Time              `json:"completedAt,omitempty"`
+	State       types.AuditLogExportState `json:"state"`
+	Error       string                    `json:"error,omitempty"`
+	ExportSize  int64                     `json:"exportSize,omitempty"`
+	ExportPath  string                    `json:"exportPath,omitempty"`
+	StartedAt   *metav1.Time              `json:"startedAt,omitempty"`
+	CompletedAt *metav1.Time              `json:"completedAt,omitempty"`
+	// RetryAt bounds retries for scheduled exports; one-time failures remain terminal.
+	RetryAt         *metav1.Time              `json:"retryAt,omitempty"`
 	StorageProvider types.StorageProviderType `json:"storageProvider,omitempty"`
 }
 

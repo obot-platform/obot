@@ -98,6 +98,8 @@ var (
 // filters apply to every selected source. MCP-only and local-agent-only filters are mutually
 // exclusive; ValidateAuditLogOptions enforces those rules before a query runs.
 type MCPAuditLogOptions struct {
+	ScheduledExport *AuditLogExportQuery
+
 	// WithRequestAndResponse requests decrypted payload and sensitive environment fields. It must
 	// only be set after the caller has passed the corresponding authorization check.
 	WithRequestAndResponse bool
@@ -344,6 +346,7 @@ func (c *Client) InsertLocalAgentAuditLogs(ctx context.Context, logs []types.MCP
 // GetMCPAuditLogs retrieves a single, globally ordered page of audit rows from the selected
 // sources. An empty SourceTypes selection preserves the MCP-only default. Mixed-source queries use
 // each source's effective event time before applying one count, order, limit, and offset window.
+// ScheduledExport instead uses server update time and skips the total count for keyset pages.
 // Sensitive payload fields are blanked unless WithRequestAndResponse is true.
 func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) ([]types.MCPAuditLog, int64, error) {
 	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
@@ -371,23 +374,26 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	}
 
 	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return nil, 0, err
+	if opts.ScheduledExport != nil {
+		db = db.Order("id ASC")
+	} else {
+		if err := db.Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
+		sortExpression, err := auditLogSortExpression(opts, sources, eventTime)
+		if err != nil {
+			return nil, 0, err
+		}
+		order := "DESC"
+		if opts.SortOrder == "asc" {
+			order = "ASC"
+		}
+		db = db.Order(sortExpression + " " + order)
+		if sortExpression != eventTime {
+			db = db.Order(eventTime + " " + order)
+		}
+		db = db.Order("id " + order)
 	}
-
-	sortExpression, err := auditLogSortExpression(opts, sources, eventTime)
-	if err != nil {
-		return nil, 0, err
-	}
-	order := "DESC"
-	if opts.SortOrder == "asc" {
-		order = "ASC"
-	}
-	db = db.Order(sortExpression + " " + order)
-	if sortExpression != eventTime {
-		db = db.Order(eventTime + " " + order)
-	}
-	db = db.Order("id " + order)
 	if opts.Limit > 0 {
 		db = db.Limit(opts.Limit)
 	}
@@ -425,11 +431,15 @@ func (c *Client) auditLogBaseQuery(ctx context.Context, opts MCPAuditLogOptions,
 	}
 
 	eventTime := auditLogEventTimeExpression(sources)
-	if !opts.StartTime.IsZero() {
-		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
-	}
-	if !opts.EndTime.IsZero() {
-		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
+	if opts.ScheduledExport != nil {
+		db = applyScheduledAuditLogQuery(db, opts.ScheduledExport, opts.StartTime, opts.EndTime)
+	} else {
+		if !opts.StartTime.IsZero() {
+			db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
+		}
+		if !opts.EndTime.IsZero() {
+			db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
+		}
 	}
 	if opts.ProcessingTimeMin > 0 {
 		db = db.Where("NULLIF(CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END, 0) >= ?",

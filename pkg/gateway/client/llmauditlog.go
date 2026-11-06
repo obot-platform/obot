@@ -32,6 +32,8 @@ type llmAuditEntry struct {
 }
 
 type LLMAuditLogOptions struct {
+	ScheduledExport *AuditLogExportQuery
+
 	WithSensitiveFields bool
 	HideModelsRequests  bool
 	APIKeyID            []uint
@@ -95,8 +97,10 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 	}
 
 	var total int64
-	if err := db.Count(&total).Error; err != nil {
-		return nil, 0, err
+	if opts.ScheduledExport == nil {
+		if err := db.Count(&total).Error; err != nil {
+			return nil, 0, err
+		}
 	}
 
 	if opts.Limit > 0 {
@@ -126,6 +130,9 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 	sortOrder := "DESC"
 	if opts.SortOrder == "asc" {
 		sortOrder = "ASC"
+	}
+	if opts.ScheduledExport != nil {
+		sortBy, sortOrder = "id", "ASC"
 	}
 	db = db.Order(sortBy + " " + sortOrder)
 	if err := db.Find(&logs).Error; err != nil {
@@ -285,11 +292,15 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	if len(opts.MessagePolicyTriggered) > 0 {
 		db = db.Where("message_policy_triggered IN (?)", opts.MessagePolicyTriggered)
 	}
-	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime.UTC())
-	}
-	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime.UTC())
+	if opts.ScheduledExport != nil {
+		db = applyScheduledAuditLogQuery(db, opts.ScheduledExport, opts.StartTime, opts.EndTime)
+	} else {
+		if !opts.StartTime.IsZero() {
+			db = db.Where("created_at >= ?", opts.StartTime.UTC())
+		}
+		if !opts.EndTime.IsZero() {
+			db = db.Where("created_at < ?", opts.EndTime.UTC())
+		}
 	}
 	return db
 }

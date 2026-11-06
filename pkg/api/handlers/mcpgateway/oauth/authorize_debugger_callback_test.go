@@ -1,9 +1,11 @@
 package oauth
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,7 +27,7 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-type oauthCallbackTokenServer struct {
+type oauthCallbackTokenClient struct {
 	url   string
 	count atomic.Int32
 }
@@ -173,7 +175,7 @@ func TestOAuthCallbackNonDebuggerStateUsesExistingFlow(t *testing.T) {
 	})
 }
 
-func (s *oauthCallbackTokenServer) config() *oauth2.Config {
+func (s *oauthCallbackTokenClient) config() *oauth2.Config {
 	return &oauth2.Config{
 		ClientID: "client",
 		Endpoint: oauth2.Endpoint{
@@ -183,17 +185,22 @@ func (s *oauthCallbackTokenServer) config() *oauth2.Config {
 	}
 }
 
-func newOAuthCallbackTestHandler(t *testing.T) (handler, *stateManager, *oauthCallbackTokenServer) {
+func newOAuthCallbackTestHandler(t *testing.T) (handler, *stateManager, *oauthCallbackTokenClient) {
 	t.Helper()
 
-	tokenRequests := &oauthCallbackTokenServer{}
-	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	tokenRequests := &oauthCallbackTokenClient{url: "https://tokens.example/token"}
+	// Count exchanges on the caller's transport so listener discovery probes cannot
+	// masquerade as OAuth requests, including in the no-exchange debugger cases.
+	tokenClient := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 		tokenRequests.count.Add(1)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"access_token":"token","token_type":"Bearer"}`))
-	}))
-	t.Cleanup(tokenServer.Close)
-	tokenRequests.url = tokenServer.URL
+		assert.Equal(t, http.MethodPost, r.Method)
+		assert.Equal(t, tokenRequests.url, r.URL.String())
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"access_token":"token","token_type":"Bearer"}`)),
+		}, nil
+	})}
 
 	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
 	require.NoError(t, err)
@@ -203,7 +210,7 @@ func newOAuthCallbackTestHandler(t *testing.T) (handler, *stateManager, *oauthCa
 	client := gatewayclient.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
-	stateMgr := newStateManager(client, fixedTokenClient(tokenServer.Client()))
+	stateMgr := newStateManager(client, fixedTokenClient(tokenClient))
 	return handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: stateMgr}}, stateMgr, tokenRequests
 }
 

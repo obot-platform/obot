@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -139,6 +140,11 @@ func (s *authProviderSCIMTest) configure(body string) map[string]string {
 	s.t.Helper()
 
 	req, _ := s.context(http.MethodPost, "/api/auth-providers/okta-auth-provider/configure", body)
+	ctx, cancel := context.WithTimeout(s.t.Context(), 5*time.Second)
+	defer cancel()
+	req.Request = req.WithContext(ctx)
+	watchStorage, watching := providerChangeWatchTestStorage(s.storage)
+	req.Storage = watchStorage
 	errC := make(chan error, 1)
 	go func() {
 		errC <- s.handler().Configure(req)
@@ -155,8 +161,20 @@ func (s *authProviderSCIMTest) configure(body string) map[string]string {
 	staged, err := s.gateway.RevealCredential(s.t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
 	require.NoError(s.t, err)
 
-	require.NoError(s.t, s.storage.Delete(s.t.Context(), &change))
-	require.NoError(s.t, <-errC)
+	select {
+	case <-watching:
+	case err := <-errC:
+		s.t.Fatalf("configure returned before watching the staged change: %v", err)
+	case <-ctx.Done():
+		s.t.Fatal("configure did not start watching the staged change: ", ctx.Err())
+	}
+	require.NoError(s.t, s.storage.Delete(ctx, &change))
+	select {
+	case err := <-errC:
+		require.NoError(s.t, err)
+	case <-ctx.Done():
+		s.t.Fatal("configure did not observe deletion of the staged change: ", ctx.Err())
+	}
 	return staged.Secrets
 }
 

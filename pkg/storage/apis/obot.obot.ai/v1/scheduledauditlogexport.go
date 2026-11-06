@@ -51,6 +51,15 @@ type ScheduledAuditLogExportStatus struct {
 	Error               string       `json:"error,omitempty"`
 	LastRunAt           *metav1.Time `json:"lastRunAt,omitempty"`
 	NextRunAt           *metav1.Time `json:"nextRunAt,omitempty"`
+	LastExportedThrough *metav1.Time `json:"lastExportedThrough,omitempty"`
+	// PendingExport captures configuration before job creation so retries and deleted
+	// jobs retain the first backfill window even after schedule edits or restarts.
+	PendingExport *ScheduledAuditLogExportPending `json:"pendingExport,omitempty"`
+}
+
+type ScheduledAuditLogExportPending struct {
+	Name string             `json:"name"`
+	Spec AuditLogExportSpec `json:"spec"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
