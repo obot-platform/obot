@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/api/server/audit"
@@ -103,9 +104,9 @@ func TestTracedFlushPreservesErrorAndTelemetry(t *testing.T) {
 	})
 
 	for _, path := range []string{"/api/stream", "/api/healthz", "/_app/immutable/app.js"} {
-		for _, body := range []bool{false, true} {
+		for _, body := range []string{"none", "write", "read-from"} {
 			for _, flushErr := range []error{nil, io.ErrClosedPipe} {
-				t.Run(fmt.Sprintf("%s/body=%t/error=%v", path, body, flushErr), func(t *testing.T) {
+				t.Run(fmt.Sprintf("%s/body=%s/error=%v", path, body, flushErr), func(t *testing.T) {
 					exporter.Reset()
 					underlying := &legacyFlushErrorWriter{flushErrorWriter: &flushErrorWriter{
 						countingResponseWriter: newCountingResponseWriter(),
@@ -113,14 +114,18 @@ func TestTracedFlushPreservesErrorAndTelemetry(t *testing.T) {
 					}}
 					status, size := http.StatusOK, int64(0)
 					handler := traced(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						flush, _ := r.Context().Value(tracingFlushKey{}).(func() error)
-						w = &headersResponseWriter{ResponseWriter: w, flush: flush}
+						w = &headersResponseWriter{ResponseWriter: w}
 						r.Pattern = path
-						if body {
+						if body != "none" {
 							status, size = http.StatusAccepted, 2
 							w.WriteHeader(status)
-							_, err := w.Write([]byte("hi"))
-							require.NoError(t, err)
+							if body == "read-from" {
+								_, err := w.(*headersResponseWriter).ReadFrom(strings.NewReader("hi"))
+								require.NoError(t, err)
+							} else {
+								_, err := w.Write([]byte("hi"))
+								require.NoError(t, err)
+							}
 						}
 						err := http.NewResponseController(w).Flush()
 						if flushErr == nil {

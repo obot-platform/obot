@@ -3,7 +3,6 @@ package server
 import (
 	"bufio"
 	"cmp"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -78,7 +77,6 @@ type Server struct {
 type headersResponseWriter struct {
 	http.ResponseWriter
 	wroteHeader bool
-	flush       func() error
 }
 
 type responseWriter struct {
@@ -87,7 +85,12 @@ type responseWriter struct {
 	auditLogger audit.Logger
 }
 
-type tracingFlushKey struct{}
+// tracingResponseWriter retains the writer below OTel's error-discarding Flush hook.
+type tracingResponseWriter struct {
+	http.ResponseWriter
+	original    http.ResponseWriter
+	wroteHeader bool
+}
 
 func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, licenseProvider *license.Provider) *Server {
 	var scope string
@@ -175,11 +178,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // traced traces the requests that h serves, other than health checks and static assets.
 func traced(h http.Handler) http.Handler {
 	handler := otelhttp.NewHandler(
-		h,
-		"obot/http",
-		otelhttp.WithFilter(func(r *http.Request) bool {
-			return r.URL.Path != "/api/healthz" && !isStaticAssetPath(r.URL.Path)
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// OTel's httpsnoop wrapper exposes the original writer through Unwrap.
+			original := w.(interface{ Unwrap() http.ResponseWriter }).Unwrap()
+			h.ServeHTTP(&tracingResponseWriter{ResponseWriter: w, original: original}, r)
 		}),
+		"obot/http",
 		otelhttp.WithSpanNameFormatter(func(operation string, r *http.Request) string {
 			if r.Pattern == "" {
 				return operation
@@ -188,11 +192,59 @@ func traced(h http.Handler) http.Handler {
 		}),
 	)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// OTel's void Flush hook loses errors. The owned API writer uses this
-		// operation after committing headers through OTel, preserving its accounting.
-		ctx := context.WithValue(r.Context(), tracingFlushKey{}, http.NewResponseController(w).Flush)
-		handler.ServeHTTP(w, r.WithContext(ctx))
+		// Filter before adding the tracing writer so its Unwrap always refers to OTel.
+		if r.URL.Path == "/api/healthz" || isStaticAssetPath(r.URL.Path) {
+			h.ServeHTTP(w, r)
+			return
+		}
+		handler.ServeHTTP(w, r)
 	})
+}
+
+func (w *tracingResponseWriter) Flush() { _ = w.FlushError() }
+
+func (w *tracingResponseWriter) WriteHeader(status int) {
+	if !w.wroteHeader {
+		w.wroteHeader = true
+		w.ResponseWriter.WriteHeader(status)
+	}
+}
+
+func (w *tracingResponseWriter) Write(p []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *tracingResponseWriter) ReadFrom(r io.Reader) (int64, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	// OTel does not instrument ReaderFrom; copy through Write and hide this method
+	// from io.Copy to avoid recursively calling ReadFrom.
+	return io.Copy(struct{ io.Writer }{w}, r)
+}
+
+func (w *tracingResponseWriter) FlushError() error {
+	// Commit through OTel for status accounting, then flush without its void hook.
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return http.NewResponseController(w.original).Flush()
+}
+
+func (w *tracingResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (w *tracingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.ResponseWriter).Hijack()
+}
+
+func (w *tracingResponseWriter) Push(target string, opts *http.PushOptions) error {
+	if p, ok := w.ResponseWriter.(http.Pusher); ok {
+		return p.Push(target, opts)
+	}
+	return http.ErrNotSupported
 }
 
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
@@ -204,8 +256,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		// Ensure security headers and a sane default Content-Type.
 		// This wrapper is intentionally applied early so it covers authn/authz
 		// errors, registry endpoints, UI, static, and proxy responses.
-		flush, _ := req.Context().Value(tracingFlushKey{}).(func() error)
-		rw = &headersResponseWriter{ResponseWriter: rw, flush: flush}
+		rw = &headersResponseWriter{ResponseWriter: rw}
 
 		// SCIM clients understand only SCIM responses, so every failure on a SCIM route is written as one.
 		isSCIM := scim.IsSCIMPath(req.URL.Path)
@@ -507,13 +558,8 @@ func (w *headersResponseWriter) Flush() {
 
 // FlushError preserves failures for ResponseController callers; http.Flusher cannot return them.
 func (w *headersResponseWriter) FlushError() error {
-	if w.flush != nil {
-		// Match OTel's implicit commitment before flushing the original writer;
-		// status/header writes still pass through telemetry and security headers.
-		if !w.wroteHeader {
-			w.WriteHeader(http.StatusOK)
-		}
-		return w.flush()
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
 	}
 	return http.NewResponseController(w.ResponseWriter).Flush()
 }
