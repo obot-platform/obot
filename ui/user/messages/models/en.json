@@ -483,5 +483,10 @@
 	"models_profiles_card_budgets_one": "{count} budget",
 	"models_profiles_card_budgets_other": "{count} budgets",
 	"models_profiles_card_guardrails_one": "{count} applied guardrail",
-	"models_profiles_card_guardrails_other": "{count} applied guardrails"
+	"models_profiles_card_guardrails_other": "{count} applied guardrails",
+	"models_providers_auth_aws": "AWS credentials",
+	"models_providers_auth_entra": "Microsoft Entra ID",
+	"models_providers_auth_api_key_help": "Authenticate using an API key.",
+	"models_providers_auth_aws_help": "Authenticate using an AWS access key pair, with an optional session token and IAM role.",
+	"models_providers_auth_entra_help": "Authenticate using a Microsoft Entra application’s client ID, client secret, and tenant ID."
 }

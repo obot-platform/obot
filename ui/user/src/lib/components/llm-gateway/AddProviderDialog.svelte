@@ -13,10 +13,12 @@
 		CHAT_COMPLETIONS_ONLY_REQUESTS,
 		CUSTOM_PROVIDER_BASES,
 		PROVIDER_CATALOG,
+		authenticationFields,
 		catalogEntry,
 		setPath,
 		type ProviderCatalogEntry
 	} from '$lib/services/llm-gateway/providers';
+	import AuthenticationMethodSelector from './AuthenticationMethodSelector.svelte';
 	import { Blocks, ChevronLeft } from '@lucide/svelte';
 
 	interface Props {
@@ -30,6 +32,7 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selected = $state<ProviderCatalogEntry | 'custom'>();
 	let search = $state('');
+	let authenticationMethod = $state('api-key');
 	let values = $state<Record<string, string>>({});
 	let baseURL = $state('');
 	let customName = $state('');
@@ -56,6 +59,7 @@
 	}
 
 	function reset() {
+		authenticationMethod = 'api-key';
 		values = {};
 		baseURL = '';
 		customName = '';
@@ -81,7 +85,9 @@
 			? keyless
 				? []
 				: [{ path: 'value', label: m.models_providers_api_key(), sensitive: true, required: false }]
-			: (selected?.keyFields ?? [])
+			: selected
+				? authenticationFields(selected, authenticationMethod)
+				: []
 	);
 
 	let providerID = $derived(selected === 'custom' ? customName.trim() : (selected?.id ?? ''));
@@ -291,6 +297,13 @@
 						</span>
 					</div>
 				{/if}
+			{/if}
+
+			{#if selected !== 'custom' && selected.authenticationMethods}
+				<AuthenticationMethodSelector
+					methods={selected.authenticationMethods}
+					bind:value={authenticationMethod}
+				/>
 			{/if}
 
 			{#each fields as field (field.path)}

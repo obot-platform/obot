@@ -483,5 +483,10 @@
 	"models_profiles_card_budgets_one": "예산 {count}개",
 	"models_profiles_card_budgets_other": "예산 {count}개",
 	"models_profiles_card_guardrails_one": "적용된 가드레일 {count}개",
-	"models_profiles_card_guardrails_other": "적용된 가드레일 {count}개"
+	"models_profiles_card_guardrails_other": "적용된 가드레일 {count}개",
+	"models_providers_auth_aws": "AWS 자격 증명",
+	"models_providers_auth_entra": "Microsoft Entra ID",
+	"models_providers_auth_api_key_help": "API 키로 인증합니다.",
+	"models_providers_auth_aws_help": "AWS 액세스 키 쌍으로 인증합니다. 세션 토큰과 IAM 역할은 선택 사항입니다.",
+	"models_providers_auth_entra_help": "Microsoft Entra 앱의 클라이언트 ID, 클라이언트 암호 및 테넌트 ID로 인증합니다."
 }

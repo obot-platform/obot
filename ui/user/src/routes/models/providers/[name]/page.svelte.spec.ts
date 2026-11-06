@@ -146,7 +146,7 @@ describe('LLM gateway provider page', () => {
 			weight: 2,
 			enabled: true,
 			// The redacted value the API returned is sent back unchanged.
-			value: 'sk-***'
+			value: { value: 'sk-***' }
 		});
 	});
 

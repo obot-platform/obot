@@ -10,11 +10,14 @@
 		type ProviderKey
 	} from '$lib/services/llm-gateway/gateway';
 	import {
+		authenticationFields,
 		catalogEntry,
 		getPath,
 		setPath,
+		savedAuthenticationMethod,
 		type KeyField
 	} from '$lib/services/llm-gateway/providers';
+	import AuthenticationMethodSelector from './AuthenticationMethodSelector.svelte';
 
 	interface Props {
 		provider: string;
@@ -28,6 +31,7 @@
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let editing = $state<ProviderKey>();
+	let authenticationMethod = $state('api-key');
 	let values = $state<Record<string, string>>({});
 	let name = $state('');
 	let models = $state('*');
@@ -37,11 +41,14 @@
 	let saving = $state(false);
 	let error = $state('');
 
-	let fields = $derived<KeyField[]>(
+	let entry = $derived(catalogEntry(baseProvider ?? provider));
+	let allFields = $derived<KeyField[]>(
 		catalogEntry(baseProvider ?? provider)?.keyFields ?? [
 			{ path: 'value', label: m.models_providers_api_key(), sensitive: true, required: true }
 		]
 	);
+
+	let fields = $derived(entry ? authenticationFields(entry, authenticationMethod) : allFields);
 
 	function defaultName() {
 		for (let i = 1; ; i++) {
@@ -60,7 +67,7 @@
 			blacklisted = (key.blacklisted_models ?? []).join(', ');
 			weight = key.weight ?? 1;
 			enabled = key.enabled ?? true;
-			for (const f of fields) {
+			for (const f of allFields) {
 				const v = getPath(key as unknown as Record<string, unknown>, f.path);
 				if (v && typeof v === 'object' && 'value' in (v as Record<string, unknown>)) {
 					values[f.path] = String((v as Record<string, unknown>).value ?? '');
@@ -75,6 +82,11 @@
 			weight = 1;
 			enabled = true;
 		}
+		authenticationMethod = entry
+			? key
+				? savedAuthenticationMethod(entry, values)
+				: (entry.authenticationMethods?.[0]?.id ?? '')
+			: '';
 		dialog?.open();
 	}
 
@@ -85,9 +97,16 @@
 			.filter(Boolean);
 	}
 
+	// Method-specific secrets must be present, even on edits: the newly selected method
+	// cannot reuse the other method’s credentials. Saved masked values count as present.
 	let valid = $derived(
 		name.trim().length > 0 &&
-			fields.every((f) => !f.required || !!values[f.path]?.trim() || (!!editing && f.sensitive))
+			fields.every(
+				(f) =>
+					!f.required ||
+					!!values[f.path]?.trim() ||
+					(!!editing && f.sensitive && !entry?.authenticationMethods)
+			)
 	);
 
 	async function save() {
@@ -102,11 +121,26 @@
 				enabled
 			};
 			if (!fields.some((f) => f.path === 'value')) body.value = '';
+			// Replace authentication as a whole. Explicit blanks remove inactive credentials
+			// even when the API merges nested configuration instead of replacing it.
+			if (entry?.authenticationMethods) {
+				for (const field of allFields) setPath(body, field.path, '');
+			}
 			for (const f of fields) {
 				const v = values[f.path]?.trim() ?? '';
 				if (!v && !f.required && f.path !== 'value') continue;
-				setPath(body, f.path, v);
+				const previous = editing
+					? getPath(editing as unknown as Record<string, unknown>, f.path)
+					: undefined;
+				// Keep the masked value wrapped; reference metadata stays in stored configuration.
+				const unchanged =
+					previous &&
+					typeof previous === 'object' &&
+					'value' in previous &&
+					String(previous.value ?? '') === values[f.path];
+				setPath(body, f.path, unchanged ? { value: previous.value } : v);
 			}
+
 			const key = body as unknown as ProviderKey;
 			const saved = editing?.id
 				? await updateProviderKey(provider, editing.id, key, { dontLogErrors: true })
@@ -144,6 +178,13 @@
 			<input id="key-name" class="text-input-filled" bind:value={name} />
 			<span class="text-muted-content text-xs">{m.models_providers_key_name_help()}</span>
 		</div>
+
+		{#if entry?.authenticationMethods}
+			<AuthenticationMethodSelector
+				methods={entry.authenticationMethods}
+				bind:value={authenticationMethod}
+			/>
+		{/if}
 
 		{#each fields as field (field.path)}
 			<div class="flex flex-col gap-1">
