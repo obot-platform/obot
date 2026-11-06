@@ -516,6 +516,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// LLM gateway (embedded Bifrost)
 	llmGateway := handlers.NewLLMGatewayHandler(services.BifrostEngine, services.ModelAccessPolicyHelper)
 	mux.HandleFunc("GET /api/llm-gateway/status", llmGateway.Status)
+	mux.HandleFunc("GET /api/llm-gateway/metrics", llmGateway.Metrics)
 	mux.HandleFunc("POST /api/llm-gateway/sync-models", llmGateway.SyncModels)
 	mux.HandleFunc("GET /api/llm-gateway/settings", llmGateway.GetSettings)
 	mux.HandleFunc("PUT /api/llm-gateway/settings", llmGateway.UpdateSettings)

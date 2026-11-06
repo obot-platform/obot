@@ -63,6 +63,15 @@ func (h *LLMGatewayHandler) Status(req api.Context) error {
 	return req.Write(status)
 }
 
+// Metrics serves inference metrics for this gateway replica.
+func (h *LLMGatewayHandler) Metrics(req api.Context) error {
+	if err := h.requireEngine(); err != nil {
+		return err
+	}
+	h.engine.ServeMetrics(req.ResponseWriter, req.Request)
+	return nil
+}
+
 // withProviderDefaults fills in the network settings a new provider leaves unset, such as
 // retries, which also let requests fail over between its keys. For a new or updated provider,
 // it drops an API version from the end of the base URL when the engine adds it to every path.

@@ -482,6 +482,7 @@ func TestAdminAPISafety(t *testing.T) {
 			"/api/token-usage-stats",
 			"/api/llm-gateway/guardrail-policies",
 			"/api/llm-gateway/guardrails",
+			"/api/llm-gateway/metrics",
 		}
 		writes := []struct {
 			method, path string

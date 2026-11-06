@@ -14,6 +14,46 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// TestMetrics checks the gateway's Prometheus metrics after traffic on each replica.
+func TestMetrics(t *testing.T) {
+	u := env.newUser(t, "metrics")
+	for _, r := range []*harness.Replica{env.A, env.B} {
+		t.Run(r.Config.Name, func(t *testing.T) {
+			callLLM(t, u.Gateway(r), apiChat, "openai/gpt-e2e-a", "metrics "+nonce("m"), false, nil).requireOK(t)
+			callLLM(t, u.Gateway(r), apiMessages, "anthropic/claude-e2e-a", "metrics "+nonce("m"), true, nil).requireOK(t)
+			admin := env.admin.On(r.BaseURL)
+			var body string
+			harness.Eventually(t, 30*time.Second, "gateway metrics on "+r.Config.Name, func() error {
+				resp := admin.Do(t, http.MethodGet, "/api/llm-gateway/metrics", nil)
+				if resp.Status != http.StatusOK {
+					return fmt.Errorf("metrics: %s", resp)
+				}
+				body = string(resp.Body)
+				for _, want := range []string{"obot_llm_gateway_", `provider="openai"`, `provider="anthropic"`} {
+					if !strings.Contains(body, want) {
+						return fmt.Errorf("metrics lack %s", want)
+					}
+				}
+				return nil
+			})
+			if strings.Contains(body, "bifrost_") {
+				t.Errorf("metrics expose the engine's name")
+			}
+			var series []string
+			for line := range strings.SplitSeq(body, "\n") {
+				if strings.HasPrefix(line, "obot_llm_gateway_") {
+					name, _, _ := strings.Cut(line, "{")
+					series = append(series, name)
+				}
+			}
+			if len(series) == 0 {
+				t.Fatalf("no obot_llm_gateway_ series:\n%s", truncate(body))
+			}
+			t.Logf("%d obot_llm_gateway_ samples, e.g. %s", len(series), series[0])
+		})
+	}
+}
+
 // TestUsageAndAudit checks that gateway requests appear in Obot's LLM audit log and token
 // usage, attributed to the caller and the gateway model.
 func TestUsageAndAudit(t *testing.T) {

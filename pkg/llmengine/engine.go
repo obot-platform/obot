@@ -42,6 +42,7 @@ type Options struct {
 type syncFailure struct{ err error }
 
 type Engine struct {
+	metrics          *gatewayMetrics
 	syncFailure      atomic.Pointer[syncFailure]
 	availability     *modelAvailability
 	core             atomic.Pointer[llmcore.Engine]
@@ -63,7 +64,7 @@ type Engine struct {
 }
 
 func New() *Engine {
-	e := &Engine{availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{})}
+	e := &Engine{metrics: newGatewayMetrics(), availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{})}
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil
@@ -109,7 +110,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.FirstPlugin != nil {
 			plugins = append(plugins, opts.FirstPlugin)
 		}
-		plugins = append(plugins, e.availability)
+		plugins = append(plugins, e.availability, e.metrics)
 		if opts.LastPlugin != nil {
 			plugins = append(plugins, opts.LastPlugin)
 		}
