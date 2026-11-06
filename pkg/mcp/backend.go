@@ -29,6 +29,8 @@ const (
 	runtimeBackendDocker          = "docker"
 	RuntimeBackendKubernetes      = "kubernetes"
 	runtimeBackendKubernetesShort = "k8s"
+	// RuntimeBackendNone runs no MCP servers itself: only remote servers and composites of them.
+	RuntimeBackendNone = "none"
 )
 
 var (
