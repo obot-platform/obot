@@ -456,6 +456,8 @@ func (p *OutputPlugin) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostR
 }
 
 func (p *OutputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	// Nested judge calls and empty plans must not reuse the parent inference's state.
+	ctx.SetValue(outputStateKey, (*outputState)(nil))
 	identity, headers, ok := identityFromContext(ctx)
 	if !ok {
 		return req, nil, nil
