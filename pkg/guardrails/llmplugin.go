@@ -16,6 +16,8 @@ import (
 	"github.com/maximhq/bifrost/core/providers/openai"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/llm"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -25,7 +27,7 @@ const (
 
 	// InputPluginName and OutputPluginName are the gateway plugins. The input plugin runs
 	// first, so content is redacted before any other plugin (including request logging)
-	// sees it; the output plugin runs last, which makes its response hook run first.
+	// sees it; output checks run before plugins that consume response content.
 	InputPluginName  = "obot-guardrails-input"
 	OutputPluginName = "obot-guardrails-output"
 
@@ -68,7 +70,7 @@ type AttemptCheck func(ctx context.Context, attempt Attempt) error
 type Attempt struct {
 	// Model is the attempted model, named "provider/model".
 	Model string
-	// Subscription is true when the gateway sends the attempt with the caller's own Claude
+	// Subscription is true when the gateway sends the attempt with the caller's own
 	// subscription token rather than a configured provider key, so the caller's subscription
 	// pays for it.
 	Subscription bool
@@ -269,11 +271,13 @@ func checkAttempt(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) *sch
 		return nil
 	}
 	model, provider := requestFields(req)
+	subscription := provider == string(schemas.Anthropic) && anthropic.IsClaudeCodeMaxMode(ctx)
+	if admitted, ok := llm.SubscriptionAttempt(ctx); ok {
+		subscription = admitted
+	}
 	attempt := Attempt{
-		Model: model,
-		// The engine skips key selection and forwards the caller's OAuth token for Claude Code
-		// requests to Anthropic; any other provider uses a configured key.
-		Subscription: provider == string(schemas.Anthropic) && anthropic.IsClaudeCodeMaxMode(ctx),
+		Model:        model,
+		Subscription: subscription,
 	}
 	if err := binding.AttemptCheck(ctx, attempt); err != nil {
 		return &schemas.LLMPluginShortCircuit{Error: attemptError(err)}
@@ -292,7 +296,8 @@ func conditionVarsForRequest(req *schemas.BifrostRequest, headers map[string]str
 	return map[string]any{"model": model, "provider": provider, "headers": headers, "params": params}, model
 }
 
-func guardrailError(message string) *schemas.BifrostError {
+func (e *Engine) guardrailError(stage, message string) *schemas.BifrostError {
+	e.blocks.WithLabelValues(stage).Inc()
 	status := http.StatusBadRequest
 	errType := guardrailErrorType
 	allowFallbacks := false
@@ -307,6 +312,11 @@ func guardrailError(message string) *schemas.BifrostError {
 func (p *InputPlugin) GetName() string { return InputPluginName }
 
 func (p *InputPlugin) Cleanup() error { return nil }
+
+// Only the input plugin exports the shared counter so it is registered once per gateway.
+func (p *InputPlugin) Describe(ch chan<- *prometheus.Desc) { p.engine.blocks.Describe(ch) }
+
+func (p *InputPlugin) Collect(ch chan<- prometheus.Metric) { p.engine.blocks.Collect(ch) }
 
 func (p *InputPlugin) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostRequest) error {
 	return nil
@@ -330,7 +340,7 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	plan, err := p.engine.Plan(ctx, types.GuardrailTargetLLM, StageInput, identity, vars)
 	if err != nil {
 		slog.Error("failed to load guardrail policies; blocking the request", "error", err)
-		return req, &schemas.LLMPluginShortCircuit{Error: guardrailError("Request blocked: guardrails could not be evaluated.")}, nil
+		return req, &schemas.LLMPluginShortCircuit{Error: p.engine.guardrailError(StageInput, "Request blocked: guardrails could not be evaluated.")}, nil
 	}
 	if plan.Empty() {
 		return req, nil, nil
@@ -343,7 +353,7 @@ func (p *InputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	})
 	reportDetections(ctx, StageInput, d)
 	if d.Blocked {
-		return req, &schemas.LLMPluginShortCircuit{Error: guardrailError(d.Message)}, nil
+		return req, &schemas.LLMPluginShortCircuit{Error: p.engine.guardrailError(StageInput, d.Message)}, nil
 	}
 	if d.Redacted {
 		refs.apply(d.Segments)
@@ -453,6 +463,8 @@ func (p *OutputPlugin) PreRequestHook(*schemas.BifrostContext, *schemas.BifrostR
 }
 
 func (p *OutputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	// Nested judge calls and empty plans must not reuse the parent inference's state.
+	ctx.SetValue(outputStateKey, (*outputState)(nil))
 	identity, headers, ok := identityFromContext(ctx)
 	if !ok {
 		return req, nil, nil
@@ -461,7 +473,7 @@ func (p *OutputPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifr
 	plan, err := p.engine.Plan(ctx, types.GuardrailTargetLLM, StageOutput, identity, vars)
 	if err != nil {
 		slog.Error("failed to load guardrail policies; blocking the request", "error", err)
-		return req, &schemas.LLMPluginShortCircuit{Error: guardrailError("Request blocked: guardrails could not be evaluated.")}, nil
+		return req, &schemas.LLMPluginShortCircuit{Error: p.engine.guardrailError(StageOutput, "Request blocked: guardrails could not be evaluated.")}, nil
 	}
 	if plan.Empty() {
 		return req, nil, nil
@@ -534,7 +546,7 @@ func (p *OutputPlugin) PostLLMHook(ctx *schemas.BifrostContext, resp *schemas.Bi
 	d := p.engine.Evaluate(ctx, state.plan, req)
 	reportDetections(ctx, StageOutput, d)
 	if d.Blocked {
-		return nil, guardrailError(d.Message), nil
+		return nil, p.engine.guardrailError(StageOutput, d.Message), nil
 	}
 	if d.Redacted {
 		refs.apply(d.Segments)
@@ -567,7 +579,7 @@ func (p *OutputPlugin) postStream(ctx *schemas.BifrostContext, state *outputStat
 				slog.Warn("failed to discard a blocked stream's buffered content", "error", err)
 			}
 		}
-		ctx.EndStream(guardrailError(d.Message))
+		ctx.EndStream(p.engine.guardrailError(StageOutput, d.Message))
 		return resp, bifrostErr, nil
 	case !st.held:
 		return resp, bifrostErr, nil
@@ -583,7 +595,7 @@ func (p *OutputPlugin) postStream(ctx *schemas.BifrostContext, state *outputStat
 		return schemas.PausedStreamBufferTransformResult{Chunks: out, ReleaseCount: len(out)}, nil
 	}); err != nil {
 		// The client would otherwise receive the blanked content; end the stream instead.
-		ctx.EndStream(guardrailError(fmt.Sprintf("Response could not be delivered after guardrail checks: %v", err)))
+		ctx.EndStream(p.engine.guardrailError(StageOutput, fmt.Sprintf("Response could not be delivered after guardrail checks: %v", err)))
 		return resp, bifrostErr, nil
 	}
 	resp = st.rewriteResponse(resp, finalText, emitted)

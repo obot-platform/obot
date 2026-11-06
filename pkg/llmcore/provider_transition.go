@@ -34,7 +34,12 @@ func (*providerTransitionPlugin) PreRequestHook(*schemas.BifrostContext, *schema
 	return nil
 }
 
-func (p *providerTransitionPlugin) PreLLMHook(_ *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+func (p *providerTransitionPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	// Recheck after trusted plugins have had their opportunity to rewrite the attempt.
+	if denied := prepareSubscription(ctx, req, p.account); denied != nil {
+		return req, denied, nil
+	}
+
 	if err := p.unavailable(req); err != nil {
 		return req, &schemas.LLMPluginShortCircuit{Error: &schemas.BifrostError{
 			StatusCode: schemas.Ptr(http.StatusServiceUnavailable),

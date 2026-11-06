@@ -1,8 +1,6 @@
 package llmengine
 
 import (
-	"bytes"
-	"net/http"
 	"regexp"
 )
 
@@ -19,13 +17,4 @@ func ScrubEngineName(message string) string {
 // ScrubEngineNameBytes is ScrubEngineName for a response body.
 func ScrubEngineNameBytes(body []byte) []byte {
 	return engineName.ReplaceAll(body, []byte("LLM gateway"))
-}
-
-// IsStoreBusy reports whether a response from the engine's API failed because its SQLite
-// store was locked by another write. The write was not made, and can be sent again.
-func IsStoreBusy(statusCode int, body []byte) bool {
-	if statusCode < http.StatusInternalServerError {
-		return false
-	}
-	return bytes.Contains(body, []byte("database is locked")) || bytes.Contains(body, []byte("SQLITE_BUSY"))
 }

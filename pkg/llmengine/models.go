@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"net/http"
-	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -39,12 +37,13 @@ const (
 )
 
 type listedModel struct {
-	ID             string `json:"id"`
-	Name           string `json:"name"`
-	NormalizedName string `json:"normalized_name"`
-	ContextLength  int    `json:"context_length"`
-	MaxOutput      int    `json:"max_output_tokens"`
-	OwnedBy        string `json:"owned_by"`
+	ID             string  `json:"id"`
+	Alias          *string `json:"alias,omitempty"`
+	Name           string  `json:"name"`
+	NormalizedName string  `json:"normalized_name"`
+	ContextLength  int     `json:"context_length"`
+	MaxOutput      int     `json:"max_output_tokens"`
+	OwnedBy        string  `json:"owned_by"`
 	Architecture   *struct {
 		Modality         string   `json:"modality"`
 		InputModalities  []string `json:"input_modalities"`
@@ -89,17 +88,35 @@ func ModelProviderResource() *v1.ModelProvider {
 // ListModels returns every model Bifrost can currently route to, in the shape the
 // provider back-population controller expects.
 func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
-	var resp struct {
-		Data []listedModel `json:"data"`
+	// A model-sync trigger can follow a write on another replica before our resource watch reconciles it.
+	if _, err := e.Sync(ctx); err != nil {
+		// Successful provider updates remain usable after a partial failure.
+		// Keep listing them while the controller retries the failed configuration.
+		slog.Warn("failed to synchronize LLM gateway before listing models; listing available models", "error", err)
 	}
-	if err := e.Do(ctx, http.MethodGet, "/v1/models", nil, &resp); err != nil {
+	models, err := e.gatewayModels(ctx, "")
+	if err != nil {
 		return nil, fmt.Errorf("failed to list models from LLM gateway: %w", err)
+	}
+	// These views retain the catalog's JSON pricing representation used by model metadata.
+	raw, err := json.Marshal(models)
+	if err != nil {
+		return nil, err
+	}
+	var resp struct{ Data []listedModel }
+	if err := json.Unmarshal(raw, &resp.Data); err != nil {
+		return nil, err
 	}
 
 	resp.Data = e.withLastKnownModels(ctx, resp.Data)
 	// Added after the last known models are recorded: they aren't a listing of the provider,
 	// so they mustn't stand in for one once subscriptions are turned off or keys are added.
 	resp.Data = append(resp.Data, e.claudeSubscriptionModels(ctx)...)
+	// A failed or empty listing may reuse cached entries. Recheck lifecycle
+	// metadata so that fallback cannot resurrect a now-unavailable model.
+	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool {
+		return e.modelWithAliasIsUnavailable(model.ID, model.Alias)
+	})
 
 	result := &openai.ModelsList{Models: make([]openai.Model, 0, len(resp.Data))}
 	seen := make(map[string]struct{}, len(resp.Data))
@@ -209,12 +226,8 @@ func CostFromMetadata(metadata map[string]string) (types.ModelCost, bool) {
 // the missing provider's models from Obot until the next successful sync. A configured
 // provider that lists nothing keeps its previous models; a provider that was removed doesn't.
 func (e *Engine) withLastKnownModels(ctx context.Context, listed []listedModel) []listedModel {
-	var providers struct {
-		Providers []struct {
-			Name string `json:"name"`
-		} `json:"providers"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &providers); err != nil {
+	providers, err := e.ListProviders(ctx)
+	if err != nil {
 		return listed
 	}
 
@@ -226,12 +239,12 @@ func (e *Engine) withLastKnownModels(ctx context.Context, listed []listedModel) 
 
 	e.modelsLock.Lock()
 	defer e.modelsLock.Unlock()
-	current := make(map[string][]listedModel, len(providers.Providers))
-	for _, p := range providers.Providers {
-		if models, ok := byProvider[p.Name]; ok {
-			current[p.Name] = models
-		} else if previous, ok := e.lastModels[p.Name]; ok {
-			current[p.Name] = previous
+	current := make(map[string][]listedModel, len(providers))
+	for _, p := range providers {
+		if models, ok := byProvider[string(p.Name)]; ok {
+			current[string(p.Name)] = models
+		} else if previous, ok := e.lastModels[string(p.Name)]; ok {
+			current[string(p.Name)] = previous
 			listed = append(listed, previous...)
 		}
 	}
@@ -297,16 +310,11 @@ func (e *Engine) anthropicWithoutKeys(ctx context.Context) (bool, error) {
 // anthropicKeys reports whether the built-in Anthropic provider is configured, and how many
 // keys it has, and how many of them are enabled.
 func (e *Engine) anthropicKeys(ctx context.Context) (builtin bool, keys, enabled int, err error) {
-	var providers struct {
-		Providers []struct {
-			Name                 string    `json:"name"`
-			CustomProviderConfig *struct{} `json:"custom_provider_config"`
-		} `json:"providers"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &providers); err != nil {
+	providers, err := e.ListProviders(ctx)
+	if err != nil {
 		return false, 0, 0, err
 	}
-	for _, p := range providers.Providers {
+	for _, p := range providers {
 		if p.Name == anthropicProvider && p.CustomProviderConfig == nil {
 			builtin = true
 		}
@@ -315,20 +323,16 @@ func (e *Engine) anthropicKeys(ctx context.Context) (builtin bool, keys, enabled
 		return false, 0, 0, nil
 	}
 
-	var list struct {
-		Keys []struct {
-			Enabled *bool `json:"enabled"`
-		} `json:"keys"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/"+anthropicProvider+"/keys", nil, &list); err != nil {
+	keysList, err := e.ListProviderKeys(ctx, anthropicProvider)
+	if err != nil {
 		return false, 0, 0, err
 	}
-	for _, k := range list.Keys {
+	for _, k := range keysList {
 		if k.Enabled == nil || *k.Enabled {
 			enabled++
 		}
 	}
-	return true, len(list.Keys), enabled, nil
+	return true, len(keysList), enabled, nil
 }
 
 // catalogModels lists a provider's current chat models from the gateway's model catalog,
@@ -368,17 +372,13 @@ func catalogModels(catalog modelCatalog, provider string) []listedModel {
 
 // ConfiguredProviders returns the names of the upstream providers configured in the gateway.
 func (e *Engine) ConfiguredProviders(ctx context.Context) ([]string, error) {
-	var resp struct {
-		Providers []struct {
-			Name string `json:"name"`
-		} `json:"providers"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
+	resp, err := e.ListProviders(ctx)
+	if err != nil {
 		return nil, err
 	}
-	names := make([]string, 0, len(resp.Providers))
-	for _, p := range resp.Providers {
-		names = append(names, p.Name)
+	names := make([]string, 0, len(resp))
+	for _, p := range resp {
+		names = append(names, string(p.Name))
 	}
 	// An Anthropic provider with no keys at all lists models only while Claude subscriptions
 	// are allowed. Once they aren't, it has none, and the models it listed for them go. One
@@ -410,27 +410,17 @@ func (e *Engine) HasUpstreamProviders(ctx context.Context) bool {
 }
 
 func (e *Engine) hasUpstreamProviders(ctx context.Context) (bool, error) {
-	var resp struct {
-		Providers []struct {
-			Name                 string `json:"name"`
-			CustomProviderConfig *struct {
-				IsKeyLess bool `json:"is_key_less"`
-			} `json:"custom_provider_config"`
-		} `json:"providers"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers", nil, &resp); err != nil {
+	resp, err := e.ListProviders(ctx)
+	if err != nil {
 		return false, err
 	}
-	for _, p := range resp.Providers {
+	for _, p := range resp {
 		if p.CustomProviderConfig != nil && p.CustomProviderConfig.IsKeyLess {
 			return true, nil
 		}
-		var keys struct {
-			Keys []json.RawMessage `json:"keys"`
-		}
-		if err := e.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(p.Name)+"/keys", nil, &keys); err != nil {
+		if keys, err := e.ListProviderKeys(ctx, string(p.Name)); err != nil {
 			return false, err
-		} else if len(keys.Keys) > 0 {
+		} else if len(keys) > 0 {
 			return true, nil
 		}
 		// Keyless built-in providers such as Ollama and vLLM are usable without keys.

@@ -2,195 +2,119 @@ package llmengine
 
 import (
 	"context"
-	"errors"
-	"net/http"
-	"runtime"
 	"testing"
-	"time"
 
-	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
-
-	providerutils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-// Two engines sharing one store stand in for two replicas.
-func TestReloadPicksUpAnotherReplicasChanges(t *testing.T) {
-	up := mockOpenAI(t)
-	defer up.Close()
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	dir := t.TempDir()
+func TestCoreSyncPicksUpAnotherReplicasChanges(t *testing.T) {
+	ctx := t.Context()
+	opts := testOptions(t, Options{DataDir: t.TempDir()})
 	a, b := New(), New()
 	for _, e := range []*Engine{a, b} {
-		if err := e.Start(ctx, Options{DataDir: dir}); err != nil {
+		if err := e.Start(ctx, opts); err != nil {
 			t.Fatal(err)
 		}
+		t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	}
-
-	// a makes the change, so it has it; b loaded its configuration before the change.
-	revision := int64(0)
-	announce := func(context.Context) (int64, error) {
-		revision++
-		return revision, nil
-	}
-	if err := a.Change(ctx, func() (bool, bool) {
-		if err := a.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
-			"provider":       "openai",
-			"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-		}, nil); err != nil {
-			t.Fatal(err)
-		}
-		if err := a.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "k", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
-			t.Fatal(err)
-		}
-		return true, true
-	}, announce); err != nil {
+	if err := testMutation(ctx, a, nil)(a.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))); err != nil {
 		t.Fatal(err)
 	}
-	chat := `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"hi"}]}`
-	if code, body := do(t, a, http.MethodPost, "/v1/chat/completions", chat); code != http.StatusOK {
-		t.Fatalf("a should serve the new provider: %d %s", code, body)
+	before := b.core.Load()
+	changed, err := b.Sync(ctx)
+	if err != nil || !changed {
+		t.Fatalf("sync = %t, %v", changed, err)
 	}
-	if code, _ := do(t, b, http.MethodPost, "/v1/chat/completions", chat); code == http.StatusOK {
-		t.Fatal("expected b to be stale before reloading")
+	if b.core.Load() != before {
+		t.Fatal("sync rebuilt the core engine")
 	}
-
-	reloaded, err := b.Reload(1)
-	if err != nil || !reloaded {
-		t.Fatalf("expected b to reload, got %v %v", reloaded, err)
-	}
-	if code, body := do(t, b, http.MethodPost, "/v1/chat/completions", chat); code != http.StatusOK {
-		t.Fatalf("b should serve the new provider after reloading: %d %s", code, body)
-	}
-	if reloaded, _ := b.Reload(1); reloaded {
-		t.Fatal("a revision already loaded must not reload again")
-	}
-	if reloaded, _ := a.Reload(1); reloaded {
-		t.Fatal("the replica that made the change must not reload for it")
-	}
-
-	// A replica that missed an earlier change can't claim a later one it made: b has
-	// revision 1, another replica made 2, and b's own change is 3.
-	revision = 2
-	if err := b.Change(ctx, func() (bool, bool) { return true, true }, announce); err != nil {
-		t.Fatal(err)
-	}
-	if reloaded, _ := b.Reload(3); !reloaded {
-		t.Fatal("b missed revision 2, so it must reload for revision 3")
-	}
-
-	// A change this engine isn't sure it holds (it failed partway) makes it reload too.
-	revision = 3
-	if err := a.Change(ctx, func() (bool, bool) { return true, false }, announce); err != nil {
-		t.Fatal(err)
-	}
-	if reloaded, _ := a.Reload(4); !reloaded {
-		t.Fatal("a must reload for a change it may not hold in memory")
-	}
-
-	// A failed announcement is reported.
-	if err := a.Change(ctx, func() (bool, bool) { return true, true }, func(context.Context) (int64, error) {
-		return 0, errors.New("storage unavailable")
-	}); err == nil {
-		t.Fatal("expected the failed announcement to be reported")
+	if changed, err := b.Sync(ctx); err != nil || changed {
+		t.Fatalf("unchanged sync = %t, %v", changed, err)
 	}
 }
 
-func TestReloadReleasesTheReplacedGateway(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
-		t.Fatal(err)
+func TestListModelsSyncsAnotherReplicasChanges(t *testing.T) {
+	ctx := t.Context()
+	opts := testOptions(t, Options{DataDir: t.TempDir()})
+	a, b := New(), New()
+	for _, e := range []*Engine{a, b} {
+		require.NoError(t, e.Start(ctx, opts))
+		t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	}
-	// Warm up: the first reload starts process-wide workers that are shared, not leaked.
-	if _, err := e.Reload(1); err != nil {
-		t.Fatal(err)
+	up := mockOpenAI(t)
+	t.Cleanup(up.Close)
+	require.NoError(t, testMutation(ctx, a, nil)(a.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(ctx, a, nil)(a.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}))))
+	providers, err := b.Client().GetConfiguredProviders()
+	require.NoError(t, err)
+	require.Empty(t, providers, "replica B has not reconciled yet")
+	models, err := b.ListModels(ctx)
+	require.NoError(t, err)
+	require.NotEmpty(t, models.Models, "the triggered sync must list the newly configured provider immediately")
+	providers, err = b.Client().GetConfiguredProviders()
+	require.NoError(t, err)
+	require.Contains(t, providers, schemas.OpenAI)
+}
+
+func TestListModelsSurvivesPartialSyncFailure(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	up := mockOpenAI(t)
+	t.Cleanup(up.Close)
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret", "models": []string{"*"}}))))
+	// Simulate a persisted configuration this replica cannot fully apply.
+	require.NoError(t, e.store.CreateProvider(ctx, "broken", llmcoreclient.Provider{}))
+	for range 2 {
+		models, err := e.ListModels(ctx)
+		require.NoError(t, err, "a failed provider update must not hide healthy models")
+		require.NotEmpty(t, models.Models)
+		ids := make([]string, 0, len(models.Models))
+		for _, model := range models.Models {
+			ids = append(ids, model.ID)
+		}
+		require.Contains(t, ids, "openai/gpt-4o-mini")
+		require.Error(t, e.Err(), "the synchronization failure remains visible in status")
 	}
-	time.Sleep(2 * time.Second)
-	before := runtime.NumGoroutine()
-	for rev := int64(2); rev <= 5; rev++ {
-		if _, err := e.Reload(rev); err != nil {
-			t.Fatal(err)
+}
+
+func TestDegradedStartupExposesProviderDiagnostics(t *testing.T) {
+	ctx := t.Context()
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, plaintextConfigCodec{})
+	require.NoError(t, err)
+	for _, name := range []string{"openai", "anthropic"} {
+		require.NoError(t, store.CreateProvider(ctx, name, llmcoreclient.Provider{}))
+	}
+	var providers v1.LLMGatewayProviderList
+	require.NoError(t, storage.List(ctx, &providers))
+	var corrupt *v1.LLMGatewayProvider
+	for i := range providers.Items {
+		if providers.Items[i].Spec.ID == "anthropic" {
+			corrupt = &providers.Items[i]
 		}
 	}
-	// Replaced gateways shut down in the background. Each reload still leaves Bifrost's
-	// WebSocket pool running (2 goroutines; see the TODO in instance.release), and 10 more
-	// allow for connections and contexts that are still winding down.
-	allowed := before + 4*2 + 10
-	deadline := time.Now().Add(20 * time.Second)
-	for runtime.NumGoroutine() > allowed && time.Now().Before(deadline) {
-		time.Sleep(200 * time.Millisecond)
-	}
-	if after := runtime.NumGoroutine(); after > allowed {
-		t.Fatalf("reloads leaked goroutines: %d before, %d after four reloads", before, after)
-	}
-}
-
-func TestFailedReloadKeepsTheRunningGateway(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
-	defer cancel()
-	// Model data, so the model catalog has capability data.
-	dataDir := t.TempDir()
-	modeldatatest.Write(t, dataDir)
-	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
-		t.Fatal(err)
-	}
-	// Stop the gateway before its data dir is removed; it writes there while it runs.
-	t.Cleanup(e.Shutdown)
-	if providerutils.CapabilitiesFor(schemas.OpenAI, "gpt-4o") == nil {
-		t.Skip("the model catalog has no capability data in this environment")
-	}
-
-	// Make the next boot fail: its stores point at a database that doesn't exist. A boot
-	// that fails after its model catalog started clears the process-wide capability lookup
-	// while releasing it; simulate that, since where exactly a boot fails varies.
-	e.opts.PostgresDSN = "postgres://nobody:nothing@127.0.0.1:1/missing?sslmode=disable"
-	providerutils.SetCapabilityResolver(nil)
-	if reloaded, err := e.Reload(1); err == nil || reloaded {
-		t.Fatalf("expected the reload to fail, got %v %v", reloaded, err)
-	}
-	if providerutils.CapabilitiesFor(schemas.OpenAI, "gpt-4o") == nil {
-		t.Fatal("a failed reload must leave the running gateway's capability lookup in place")
-	}
-	if code, body := do(t, e, http.MethodGet, "/v1/models", ""); code >= 500 {
-		t.Fatalf("the running gateway must keep serving: %d %s", code, body)
-	}
-}
-
-// An engine that read the configuration revision before booting already has everything up
-// to it, so catching up to that revision at startup doesn't boot it again.
-func TestStartRecordsTheRevisionItBootedFrom(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-	e := New()
-	if err := e.Start(ctx, Options{
-		DataDir:         t.TempDir(),
-		CurrentRevision: func(context.Context) (int64, error) { return 7, nil },
-	}); err != nil {
-		t.Fatal(err)
-	}
-	// Stop the gateway before its data dir is removed; it writes there while it runs.
-	t.Cleanup(e.Shutdown)
-	if reloaded, err := e.Reload(7); err != nil || reloaded {
-		t.Fatalf("Reload(7) = %v, %v; want no reload of the revision it booted from", reloaded, err)
-	}
-	if reloaded, err := e.Reload(8); err != nil || !reloaded {
-		t.Fatalf("Reload(8) = %v, %v; want a reload of a newer revision", reloaded, err)
-	}
-
-	// When the revision can't be read, the first reload catches up instead.
-	f := New()
-	if err := f.Start(ctx, Options{
-		DataDir:         t.TempDir(),
-		CurrentRevision: func(context.Context) (int64, error) { return 0, errors.New("not ready") },
-	}); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(f.Shutdown)
-	if reloaded, err := f.Reload(7); err != nil || !reloaded {
-		t.Fatalf("Reload(7) = %v, %v; want a reload", reloaded, err)
-	}
+	require.NotNil(t, corrupt)
+	original := corrupt.Spec.Payload
+	corrupt.Spec.Payload = "invalid JSON"
+	require.NoError(t, storage.Update(ctx, corrupt))
+	engine := New()
+	require.NoError(t, engine.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	require.True(t, engine.Ready(), "healthy providers must remain usable")
+	require.ErrorContains(t, engine.Err(), "anthropic", "startup must expose core diagnostics before a watch event")
+	var configured map[string]any
+	require.NoError(t, testResult(&configured, "")(engine.GetProvider(ctx, "openai")))
+	require.Equal(t, "openai", configured["name"])
+	_, err = engine.Sync(ctx)
+	require.ErrorContains(t, err, "anthropic")
+	corrupt.Spec.Payload = original
+	require.NoError(t, storage.Update(ctx, corrupt))
+	_, err = engine.Sync(ctx)
+	require.NoError(t, err)
+	require.NoError(t, engine.Err(), "repair must clear the replica-local error")
 }

@@ -469,7 +469,8 @@ func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
 		RequestBody:   json.RawMessage(`{"prompt":"secret"}`),
 	}
 
-	c.LogLLMAuditEntry(entry, []byte(`data: {"type":"response.created","response":{"id":"resp_1","output":[]}}`+"\n"))
+	entry.ResponseBody = json.RawMessage(`{"id":"resp_1","output":[]}`)
+	c.LogLLMAuditEntry(entry)
 
 	queued := <-c.llmAuditEntries
 	if queued.log.Encrypted {
@@ -478,8 +479,8 @@ func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
 	if !bytes.Equal(queued.log.RequestBody, entry.RequestBody) {
 		t.Fatalf("expected plaintext queued body %q, got %q", entry.RequestBody, queued.log.RequestBody)
 	}
-	if len(queued.responseStream) == 0 {
-		t.Fatal("expected raw response stream to be queued")
+	if !bytes.Equal(queued.log.ResponseBody, entry.ResponseBody) {
+		t.Fatal("expected completed response body to be queued")
 	}
 }
 
@@ -487,8 +488,8 @@ func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
 	c := newTestClient(t)
 	c.llmAuditEntries = make(chan llmAuditEntry, 1)
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()})
 
 	if got := len(c.llmAuditEntries); got != 1 {
 		t.Fatalf("expected one queued entry, got %d", got)
@@ -499,7 +500,7 @@ func TestLogLLMAuditEntryNoopsWhenDisabled(t *testing.T) {
 	c := newTestClient(t)
 	c.llmAuditEnabled = false
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()})
 
 	if got := len(c.llmAuditEntries); got != 0 {
 		t.Fatalf("expected no queued entries, got %d", got)
@@ -528,7 +529,9 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 			ModelProvider: system.LLMGatewayModelProvider,
 			RequestPath:   "/api/llm-proxy/v1/responses",
 			RequestBody:   json.RawMessage(fmt.Sprintf(`{"prompt":"secret-%d"}`, i)),
-		}, []byte(`data: {"type":"response.created","response":{"id":"resp_async","output":[]}}`+"\n"))
+			ResponseID:    "resp_async",
+			ResponseBody:  json.RawMessage(`{"id":"resp_async","output":[]}`),
+		})
 	}
 
 	waitForLLMAuditLogCount(t, c, 3)
@@ -560,7 +563,7 @@ func TestRunLLMAuditPersistenceLoopFlushesOnInterval(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, 20*time.Millisecond)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()})
 	waitForLLMAuditLogCount(t, c, 1)
 	cancel()
 	<-done
@@ -575,8 +578,8 @@ func TestRunLLMAuditPersistenceLoopDrainsOnShutdown(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, time.Hour)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()})
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()})
 	cancel()
 	<-done
 

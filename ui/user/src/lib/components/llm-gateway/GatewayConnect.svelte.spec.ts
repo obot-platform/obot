@@ -469,7 +469,7 @@ describe('GatewayConnect', () => {
 			.toBeVisible();
 	});
 
-	it('shows curl requests for both API formats', async () => {
+	it('shows curl requests for all three API formats', async () => {
 		render(GatewayConnect, { obotURL });
 
 		await openClient('curl');
@@ -477,6 +477,14 @@ describe('GatewayConnect', () => {
 		await expect.element(page.getByRole('heading', { name: 'curl' })).toBeVisible();
 		await expect.element(page.getByRole('tab', { name: 'Via Chat Completions' })).toBeVisible();
 		await expect.element(page.getByText('OpenAI Chat Completions (any model)')).toBeVisible();
+		await openTab('Via Responses');
+		await expect.element(page.getByText('OpenAI Responses (any model)')).toBeVisible();
+		await expect
+			.element(
+				page.getByText('curl https://obot.example.com/api/llm-proxy/v1/responses', { exact: false })
+			)
+			.toBeInTheDocument();
+		await expect.element(page.getByText('"input": "hello"', { exact: false })).toBeInTheDocument();
 		await openTab('Via Messages');
 		await expect.element(page.getByText('Anthropic Messages (any model)')).toBeVisible();
 		await expect

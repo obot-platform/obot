@@ -128,12 +128,12 @@ describe('Layout.svelte', () => {
 	});
 
 	describe('LLM gateway navigation', () => {
-		it('names the models page LLM Gateway, marked beta', async () => {
+		it('names the models page LLM Gateway without a beta badge', async () => {
 			await renderLayout([Group.ADMIN]);
 			await expandSection('ai-resources', '/models');
-			await expect
-				.element(page.getByCSS('a.sidebar-link[href="/models"]'))
-				.toHaveTextContent('LLM Gateway Beta');
+			const link = page.getByCSS('a.sidebar-link[href="/models"]');
+			await expect.element(link).toHaveTextContent('LLM Gateway');
+			await expect.element(link).not.toHaveTextContent('Beta');
 		});
 	});
 

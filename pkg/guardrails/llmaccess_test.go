@@ -36,7 +36,7 @@ func TestGatewayChecksRoutedModelAccess(t *testing.T) {
 			"fallbacks":      []string{"openai/gpt-4o-mini"},
 		},
 	} {
-		if err := gw.Do(ctx, http.MethodPost, "/api/governance/routing-rules", rule, nil); err != nil {
+		if _, err := gw.CreateRoutingRule(ctx, gatewayJSON(t, rule)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -49,6 +49,10 @@ func TestGatewayChecksRoutedModelAccess(t *testing.T) {
 		return &AttemptError{Status: http.StatusForbidden, Type: "permission_denied", Message: fmt.Sprintf("user does not have permission to use model %q", attempt.Model)}
 	}
 	body := `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`
+
+	if _, err := gw.Sync(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name       string
@@ -159,29 +163,26 @@ func callWithAccess(t *testing.T, gw *llmengine.Engine, body, tier string, acces
 	return rec.Code, string(b)
 }
 
-// The gateway reports an attempt as paid by the caller's Claude subscription only when it
-// forwards the caller's OAuth token instead of a configured key: Claude Code calling an
-// Anthropic model with a subscription token. Any other attempt, including a fallback to
-// another provider, uses a configured key.
-func TestGatewayFlagsSubscriptionAttempts(t *testing.T) {
+// Caller credentials are rejected before attempt hooks; ordinary requests use
+// configured provider keys even when the client is Claude Code.
+func TestGatewayUsesConfiguredCredentials(t *testing.T) {
 	gw, _ := startGateway(t, &fakeStore{})
 	const (
 		claudeCLI = "claude-cli/2.1.0 (external, cli)"
 		oauth     = "Bearer sk-ant-oat01-test"
 	)
-	messages := `{"model":"anthropic/claude-sonnet-4-5","max_tokens":100,"messages":[{"role":"user","content":"hello"}]%s}`
+	messages := `{"model":"anthropic/claude-sonnet-4-5","max_tokens":100,"messages":[{"role":"user","content":"hello"}]}`
 
 	tests := []struct {
 		name         string
 		headers      map[string]string
-		extra        string
-		refuse       string
 		wantAttempts []Attempt
+		wantStatus   int
 	}{
 		{
-			name:         "Claude Code with a subscription token",
-			headers:      map[string]string{"User-Agent": claudeCLI, "Authorization": oauth},
-			wantAttempts: []Attempt{{Model: "anthropic/claude-sonnet-4-5", Subscription: true}},
+			name:       "Claude Code with a subscription token",
+			headers:    map[string]string{"User-Agent": claudeCLI, "Authorization": oauth},
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:         "Claude Code with a configured key",
@@ -189,19 +190,9 @@ func TestGatewayFlagsSubscriptionAttempts(t *testing.T) {
 			wantAttempts: []Attempt{{Model: "anthropic/claude-sonnet-4-5"}},
 		},
 		{
-			name:         "another client with a subscription token",
-			headers:      map[string]string{"User-Agent": "curl/8.0", "Authorization": oauth},
-			wantAttempts: []Attempt{{Model: "anthropic/claude-sonnet-4-5"}},
-		},
-		{
-			name:    "a fallback to another provider",
-			headers: map[string]string{"User-Agent": claudeCLI, "Authorization": oauth},
-			extra:   `,"fallbacks":["openai/gpt-4o-mini"]`,
-			refuse:  "anthropic/",
-			wantAttempts: []Attempt{
-				{Model: "anthropic/claude-sonnet-4-5", Subscription: true},
-				{Model: "openai/gpt-4o-mini"},
-			},
+			name:       "another client with a subscription token",
+			headers:    map[string]string{"User-Agent": "curl/8.0", "Authorization": oauth},
+			wantStatus: http.StatusForbidden,
 		},
 	}
 	for _, tt := range tests {
@@ -209,12 +200,9 @@ func TestGatewayFlagsSubscriptionAttempts(t *testing.T) {
 			var attempts []Attempt
 			record := func(_ context.Context, attempt Attempt) error {
 				attempts = append(attempts, attempt)
-				if tt.refuse != "" && strings.HasPrefix(attempt.Model, tt.refuse) {
-					return &AttemptError{Status: http.StatusTooManyRequests, Type: "budget_exceeded", Message: "budget exhausted"}
-				}
 				return nil
 			}
-			req := httptest.NewRequest(http.MethodPost, "/anthropic/v1/messages", strings.NewReader(fmt.Sprintf(messages, tt.extra)))
+			req := httptest.NewRequest(http.MethodPost, "/anthropic/v1/messages", strings.NewReader(messages))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("anthropic-version", "2023-06-01")
 			for k, v := range tt.headers {
@@ -223,7 +211,15 @@ func TestGatewayFlagsSubscriptionAttempts(t *testing.T) {
 			token, release := BindRequest(Identity{UserID: "alice"}, RequestHooks{AttemptCheck: record})
 			defer release()
 			req.Header.Set(HeaderRequestToken, token)
-			gw.ServeHTTP(httptest.NewRecorder(), req)
+			response := httptest.NewRecorder()
+			gw.ServeHTTP(response, req)
+			wantStatus := tt.wantStatus
+			if wantStatus == 0 {
+				wantStatus = http.StatusOK
+			}
+			if response.Code != wantStatus {
+				t.Fatalf("status %d, want %d: %s", response.Code, wantStatus, response.Body.String())
+			}
 			if fmt.Sprint(attempts) != fmt.Sprint(tt.wantAttempts) {
 				t.Fatalf("attempts %+v, want %+v", attempts, tt.wantAttempts)
 			}
@@ -287,15 +283,19 @@ func TestGatewayDoesNotFallBackAfterInvalidRequest(t *testing.T) {
 func TestGatewayFallsBackWhenNoKeySupportsModel(t *testing.T) {
 	gw, up := startGateway(t, &fakeStore{})
 	ctx := context.Background()
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "mistral",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers/mistral/keys", map[string]any{"name": "km", "value": "sk-m-test", "models": []string{"mistral-large-latest"}, "weight": 1}, nil); err != nil {
+	if _, err := gw.CreateKey(ctx, "mistral", gatewayJSON(t, map[string]any{"name": "km", "value": "sk-m-test", "models": []string{"mistral-large-latest"}, "weight": 1})); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := gw.Sync(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name string
 		path string

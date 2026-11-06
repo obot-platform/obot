@@ -24,6 +24,7 @@ import (
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/maximhq/bifrost/framework/streaming"
 	"github.com/maximhq/bifrost/framework/tracing"
 	"github.com/maximhq/bifrost/plugins/routing/rules"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
@@ -42,17 +43,21 @@ type Options struct {
 
 // Engine is one replica's gateway.
 type Engine struct {
-	traceStore *tracing.TraceStore
-	tracer     *tracing.Tracer
-	stopOnce   sync.Once
-	catalog    schemas.ModelInfoProvider
-	store      *llmcoreclient.Client
-	client     *bifrost.Bifrost
-	mux        *http.ServeMux
-	account    *account
-	routing    *routingPlugin
+	accumulator *streaming.Accumulator
+	traceStore  *tracing.TraceStore
+	tracer      *tracing.Tracer
+	stopOnce    sync.Once
+	catalog     schemas.ModelInfoProvider
+	store       *llmcoreclient.Client
+	client      *bifrost.Bifrost
+	mux         *http.ServeMux
+	account     *account
+	routing     *routingPlugin
 
 	shutdownDone chan struct{}
+
+	// Anthropic drains after its admitted subscription requests finish.
+	subscriptionLifetime sync.RWMutex
 
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex
@@ -213,9 +218,13 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	// Bifrost's default no-op tracer cannot provide that behavior.
 	e.traceStore = tracing.NewTraceStore(5*time.Minute, logger)
 	e.tracer = tracing.NewTracer(e.traceStore, nil, logger)
+	// Classify subscription attempts before access/budget hooks; enforce their
+	// destination again at the last gate after any trusted plugin rewrites.
+	plugins := append([]schemas.LLMPlugin{&subscriptionPlugin{account: e.account}}, orderedPlugins(routing, opts.Plugins)...)
+	plugins = append(plugins, &providerTransitionPlugin{account: e.account})
 	e.client, err = bifrost.Init(ctx, schemas.BifrostConfig{
 		Account:      e.account,
-		LLMPlugins:   append(orderedPlugins(routing, opts.Plugins), &providerTransitionPlugin{account: e.account}),
+		LLMPlugins:   plugins,
 		Logger:       logger,
 		ModelCatalog: opts.Catalog,
 		Tracer:       e.tracer,
@@ -225,6 +234,8 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 		e.traceStore.Stop()
 		return nil, err
 	}
+	// Audit accumulation is separate from provider hooks, which see output before guardrail replay.
+	e.accumulator = streaming.NewAccumulator(nil, logger)
 	e.applySettings(cfg)
 	e.applied = cfg
 	// Init logs individual constructor failures but still returns a client. Its
@@ -452,6 +463,7 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 				<-drain.done
 			}
 			e.client.Shutdown()
+			e.accumulator.Cleanup()
 			e.tracer.Stop()
 			e.traceStore.Stop()
 		}()

@@ -20,6 +20,11 @@ import (
 
 func newUsageTestClient(t *testing.T) *client.Client {
 	t.Helper()
+	return newUsageTestClientWithAudit(t, false)
+}
+
+func newUsageTestClientWithAudit(t *testing.T, auditEnabled bool) *client.Client {
+	t.Helper()
 	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
 	if err != nil {
 		t.Fatal(err)
@@ -31,8 +36,11 @@ func newUsageTestClient(t *testing.T) *client.Client {
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	// The LLM audit log is off: token usage is recorded without it.
-	gatewayClient := client.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	interval := time.Hour
+	if auditEnabled {
+		interval = 5 * time.Millisecond
+	}
+	gatewayClient := client.New(t.Context(), db, nil, nil, nil, interval, 10, 0, 0, 0, auditEnabled)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	return gatewayClient
 }
@@ -133,14 +141,14 @@ func TestRecordingResponseRecordsUnmeteredResponses(t *testing.T) {
 	c := newUsageTestClient(t)
 	usage := newLLMUsageRecorder(&user.DefaultInfo{UID: "7"}, c, "openai/gpt-5", nil)
 	usage.recordResponseStatus(http.StatusInternalServerError)
-	resp := &http.Response{Body: io.NopCloser(strings.NewReader(`{"error":{"message":"upstream failed"}}`))}
-	wrapRecordingResponse(resp, nil, usage, c)
-	if _, err := io.ReadAll(resp.Body); err != nil {
-		t.Fatal(err)
-	}
-	if err := resp.Body.Close(); err != nil {
-		t.Fatal(err)
-	}
+	recorder := httptest.NewRecorder()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	out := &llmResponseWriter{w: recorder, request: httptest.NewRequest(http.MethodPost, "/v1/responses", nil).WithContext(ctx), header: make(http.Header), cancel: cancel, usage: usage}
+	out.WriteHeader(http.StatusInternalServerError)
+	_, _ = out.Write([]byte(`{"error":{"message":"upstream failed"}}`))
+	out.finish()
+	out.finish()
 
 	stats, err := c.TokenUsageStats(t.Context(), client.TokenUsageStatsOptions{Start: time.Now().Add(-time.Hour), End: time.Now().Add(time.Hour)})
 	if err != nil {
@@ -257,7 +265,7 @@ func TestGatewayRoutingFromEngineResponses(t *testing.T) {
 		routing := &gatewayRouting{}
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		req = req.WithContext(withGatewayRouting(req.Context(), routing))
-		out, err := sanitizingTransport{next: fakeRoundTripper{resp: resp}}.RoundTrip(req)
+		out, err := writeTestResponse(t, resp, req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -283,7 +291,7 @@ func TestGatewayRoutingFromEngineResponses(t *testing.T) {
 		routing := &gatewayRouting{}
 		req := httptest.NewRequest(http.MethodPost, "/", nil)
 		req = req.WithContext(withGatewayRouting(req.Context(), routing))
-		out, err := sanitizingTransport{next: fakeRoundTripper{resp: resp}}.RoundTrip(req)
+		out, err := writeTestResponse(t, resp, req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -303,7 +311,7 @@ func TestGatewayRoutingFromEngineResponses(t *testing.T) {
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
 			Body:       io.NopCloser(strings.NewReader(`{"extra_fields":{"routing_info":{"key":"k"}}}`)),
 		}
-		if _, err := (sanitizingTransport{next: fakeRoundTripper{resp: resp}}).RoundTrip(httptest.NewRequest(http.MethodPost, "/", nil)); err != nil {
+		if _, err := writeTestResponse(t, resp, httptest.NewRequest(http.MethodPost, "/", nil)); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -367,7 +375,7 @@ func TestSubscriptionResponsesRecordNoSpend(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			audit := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), &user.DefaultInfo{UID: "7"}, 1024)
 			recorder := &llmUsageRecorder{}
-			r := &responseModifier{
+			r := &llmResponseWriter{
 				user:   &user.DefaultInfo{UID: "7"},
 				client: newUsageTestClient(t),
 				gateway: &gatewayAttempts{

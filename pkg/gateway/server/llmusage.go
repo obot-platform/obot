@@ -2,9 +2,7 @@ package server
 
 import (
 	"context"
-	"io"
 	"log/slog"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -43,15 +41,6 @@ type llmUsageRecorder struct {
 	// route, when set, returns how the gateway served the request. It is read when the request
 	// ends.
 	route func() llmRoute
-}
-
-// llmRecordingResponseBody records a response that Obot doesn't meter when it has been
-// delivered: in the LLM audit log, and in token usage as a request without usage.
-type llmRecordingResponseBody struct {
-	body   io.ReadCloser
-	audit  *llmAuditRecorder
-	usage  *llmUsageRecorder
-	client *client.Client
 }
 
 // meteredLLMEndpoint reports whether a client path under the LLM proxy names an endpoint
@@ -131,32 +120,4 @@ func newRunTokenActivity(user kuser.Info, model string, usage types.TokenUsage) 
 		activity.APIKeyName = attribution.Name
 	}
 	return activity
-}
-
-// wrapRecordingResponse records a response Obot doesn't meter once it has been delivered.
-func wrapRecordingResponse(resp *http.Response, audit *llmAuditRecorder, usage *llmUsageRecorder, client *client.Client) {
-	if (audit == nil && usage == nil) || resp == nil || resp.Body == nil {
-		return
-	}
-	resp.Body = &llmRecordingResponseBody{
-		body:   resp.Body,
-		audit:  audit,
-		usage:  usage,
-		client: client,
-	}
-}
-
-func (r *llmRecordingResponseBody) Read(p []byte) (int, error) {
-	n, err := r.body.Read(p)
-	if n > 0 {
-		r.audit.captureResponseChunk(p[:n])
-	}
-	return n, err
-}
-
-func (r *llmRecordingResponseBody) Close() error {
-	err := r.body.Close()
-	r.audit.finish(r.client, err)
-	r.usage.finish(err)
-	return err
 }

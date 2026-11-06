@@ -2,15 +2,17 @@ package llmengine
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -116,17 +118,20 @@ type legacyImportPlan struct {
 // environment (see importEnvProviders). Two legacy providers that map to the same
 // gateway provider (the Bedrock or Azure variants) become two keys of one provider.
 func (engine *Engine) ImportLegacyModelProviders(ctx context.Context, _ kclient.Client, gatewayClient *gateway.Client) ([]LegacyImportResult, error) {
-	var existing struct {
-		Providers []struct {
-			Name string `json:"name"`
-		} `json:"providers"`
-	}
-	if err := engine.Do(ctx, http.MethodGet, "/api/providers", nil, &existing); err != nil {
+	existing, err := engine.ListProviders(ctx)
+	if err != nil {
 		return nil, err
 	}
+	// Import callers may discover models immediately; a failed apply is retried by controllers.
+	defer func() {
+		if _, err := engine.Sync(ctx); err != nil {
+			slog.Warn("gateway import saved; reconciliation will retry", "error", err)
+		}
+	}()
+
 	have := map[string]bool{}
-	for _, p := range existing.Providers {
-		have[p.Name] = true
+	for _, p := range existing {
+		have[string(p.Name)] = true
 	}
 	// Gateway providers this import created, which more legacy providers may add keys to.
 	created := map[string]bool{}
@@ -164,32 +169,40 @@ func (engine *Engine) ImportLegacyModelProviders(ctx context.Context, _ kclient.
 		// Send credentials as explicit plain-text values so Bifrost never interprets a stored
 		// secret that happens to start with "env." or "vault." as a reference to resolve.
 		plainTextSecrets(key)
-		if !created[plan.provider] {
-			providerBody["provider"] = plan.provider
-			ApplyProviderDefaults(providerBody)
-			if err := engine.Do(ctx, http.MethodPost, "/api/providers", providerBody, nil); err != nil {
-				result.Status = "error"
-				result.Message = err.Error()
-				results = append(results, result)
-				continue
-			}
-		}
+		var keyBody []byte
 		if key != nil {
 			key["name"] = "imported-" + name
 			if _, ok := key["models"]; !ok {
 				key["models"] = []string{"*"}
 			}
 			key["weight"] = 1
-			if err := engine.Do(ctx, http.MethodPost, "/api/providers/"+url.PathEscape(plan.provider)+"/keys", key, nil); err != nil {
-				if !created[plan.provider] {
-					// Remove the provider again so a later import can retry it.
-					_ = engine.Do(ctx, http.MethodDelete, "/api/providers/"+url.PathEscape(plan.provider), nil, nil)
+			keyBody, _ = json.Marshal(key)
+		}
+		if !created[plan.provider] {
+			providerBody["provider"] = plan.provider
+			ApplyProviderDefaults(providerBody)
+			raw, _ := json.Marshal(providerBody)
+			// Create the validated aggregate once; rollback could delete a concurrent writer's keys.
+			_, err = changeProvider(ctx, engine, "", http.MethodPost, raw, false, func(ctx context.Context, cfg *llmcoreclient.Config, body []byte) (ProviderResponse, error) {
+				provider, err := createProvider(ctx, cfg, body)
+				if err == nil && keyBody != nil {
+					_, err = engine.applyKey(ctx, cfg, plan.provider, "", http.MethodPost, keyBody)
+					if err != nil {
+						err = fmt.Errorf("adding the provider's key failed: %w", err)
+					}
 				}
-				result.Status = "error"
-				result.Message = "adding the provider's key failed: " + err.Error()
-				results = append(results, result)
-				continue
+				return provider, err
+			})
+		} else if keyBody != nil {
+			if _, err = engine.CreateKey(ctx, plan.provider, keyBody); err != nil {
+				err = fmt.Errorf("adding the provider's key failed: %w", err)
 			}
+		}
+		if err != nil {
+			result.Status = "error"
+			result.Message = err.Error()
+			results = append(results, result)
+			continue
 		}
 		have[plan.provider], created[plan.provider] = true, true
 		result.Status = "imported"

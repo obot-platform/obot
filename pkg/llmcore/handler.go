@@ -14,6 +14,7 @@ import (
 	"github.com/maximhq/bifrost/core/providers/anthropic"
 	"github.com/maximhq/bifrost/core/providers/openai"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -38,29 +39,36 @@ var (
 
 type dialect int
 type responseObserverKey struct{}
+type streamObserverKey struct{}
 
 // ServeHTTP serves the OpenAI Responses API at /v1/responses and the Anthropic Messages API at
 // /v1/messages (and /anthropic/v1/messages, the path Obot's proxy uses for the engine today).
 // Either API can reach any provider's models: the engine translates.
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if hasCallerCredentials(r.Header) {
-		d := dialectResponses
-		if strings.Contains(r.URL.Path, "/messages") {
-			d = dialectMessages
-		}
-		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials are not supported by the inference engine; use an Obot API key")
+	d := dialectResponses
+	if strings.Contains(r.URL.Path, "/messages") {
+		d = dialectMessages
+	}
+
+	credential, valid := subscriptionCredential(r.Header)
+	if !valid {
+		writeError(w, d, http.StatusForbidden, "permission_denied", "Caller credentials require a single supported subscription bearer and matching CLI User-Agent; use the authenticated Obot proxy")
 		return
 	}
-	e.mux.ServeHTTP(w, r)
-}
 
-func hasCallerCredentials(headers http.Header) bool {
-	for _, name := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"} {
-		if strings.Join(headers.Values(name), "") != "" {
-			return true
+	if credential.token != "" {
+		lifetime := &e.subscriptionLifetime
+		// TryRLock refuses new readers once retirement is waiting. Hold through
+		// stream drain and handler return, beyond core's pre-hook/enqueue window.
+		if !lifetime.TryRLock() {
+			writeError(w, d, http.StatusServiceUnavailable, "api_error", "Subscription provider is being reconfigured; retry the request")
+			return
 		}
+		defer lifetime.RUnlock()
+		r = r.WithContext(context.WithValue(r.Context(), subscriptionTokenKey{}, credential))
 	}
-	return false
+
+	e.mux.ServeHTTP(w, r)
 }
 
 func (e *Engine) newMux() *http.ServeMux {
@@ -166,12 +174,7 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 		writeEngineError(w, d, bifrostErr)
 		return
 	}
-	defer func() {
-		ctx.Cancel()
-		// Keep late response hooks within the lifetime of the request's bound state.
-		for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
-		}
-	}()
+	defer drainCanceledStream(ctx, chunks)
 
 	output := streamWriter{w: w, dialect: d}
 	for {
@@ -217,6 +220,7 @@ func (e *Engine) serveStream(w http.ResponseWriter, ctx *schemas.BifrostContext,
 				}
 			}
 		}
+		e.observeStream(ctx, chunk)
 	}
 }
 
@@ -346,6 +350,18 @@ func WithResponseObserver(ctx context.Context, observe func(schemas.BifrostRespo
 	return context.WithValue(ctx, responseObserverKey{}, observe)
 }
 
+// WithStreamObserver observes chunks after guardrail replay and successful client encoding.
+// The accumulator belongs to the engine; observers must clean up their per-request state.
+func WithStreamObserver(ctx context.Context, observe func(*schemas.BifrostContext, *schemas.BifrostStreamChunk, *streaming.Accumulator)) context.Context {
+	return context.WithValue(ctx, streamObserverKey{}, observe)
+}
+
+func (e *Engine) observeStream(ctx *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk) {
+	if observe, ok := ctx.Value(streamObserverKey{}).(func(*schemas.BifrostContext, *schemas.BifrostStreamChunk, *streaming.Accumulator)); ok && observe != nil {
+		observe(ctx, chunk, e.accumulator)
+	}
+}
+
 func observeResponse(ctx context.Context, extra schemas.BifrostResponseExtraFields) {
 	if observe, ok := ctx.Value(responseObserverKey{}).(func(schemas.BifrostResponseExtraFields)); ok && observe != nil {
 		observe(extra)
@@ -392,12 +408,7 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		writeEngineError(w, dialectChat, engineErr)
 		return
 	}
-	defer func() {
-		ctx.Cancel()
-		// Keep late response hooks within the lifetime of the request's bound state.
-		for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
-		}
-	}()
+	defer drainCanceledStream(ctx, chunks)
 
 	output := streamWriter{w: w, dialect: dialectChat}
 	for {
@@ -435,6 +446,15 @@ func (e *Engine) serveChat(w http.ResponseWriter, r *http.Request) {
 		if err := output.write("", event, event.ExtraFields); err != nil {
 			return
 		}
+		e.observeStream(ctx, chunk)
+	}
+}
+
+// Keep late response hooks within the lifetime of the request's bound state.
+// Subscription admission remains locked until producer cleanup finishes.
+func drainCanceledStream(ctx *schemas.BifrostContext, chunks <-chan *schemas.BifrostStreamChunk) {
+	ctx.Cancel()
+	for range chunks { //nolint:revive // Drain canceled producers so core can release stream resources.
 	}
 }
 
@@ -452,4 +472,34 @@ func writeBodyReadError(w http.ResponseWriter, d dialect, err error) {
 		return
 	}
 	writeError(w, d, http.StatusBadRequest, "invalid_request_error", "could not read request body")
+}
+
+// ChatCompletion is for trusted internal callers that consume a complete result.
+// It shares HTTP model normalization and the configured routing/plugin chain.
+func (e *Engine) ChatCompletion(parent context.Context, model string, messages []schemas.ChatMessage) (resp *schemas.BifrostChatResponse, err error) {
+	// Policy workers have no HTTP recovery. Contain synchronous hook failures here
+	// and discard partial results without including potentially secret panic values.
+	defer func() {
+		if recover() != nil {
+			resp = nil
+			err = errors.New("LLM gateway inference failed")
+		}
+	}()
+	ctx, cancel := e.inferenceContext(parent)
+	defer cancel()
+	// Preserve the routing header seen by the former internal JSON caller.
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{"content-type": "application/json"})
+	provider, normalized, _ := e.normalizeRequestModels(ctx, model, nil)
+	if provider == "" {
+		return nil, fmt.Errorf("model %q must be named as provider/model", model)
+	}
+	resp, engineErr := e.client.ChatCompletionRequest(ctx, &schemas.BifrostChatRequest{Provider: provider, Model: normalized, Input: messages})
+	if engineErr != nil {
+		_, _, message := errorParts(engineErr)
+		return nil, errors.New(message)
+	}
+	if err := parent.Err(); err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 
@@ -14,22 +12,9 @@ import (
 )
 
 const (
-	// azureDefaultScope is the scope the gateway requests for Azure AI when none is configured.
-	azureDefaultScope = "https://cognitiveservices.azure.com/.default"
-
 	// The reasons TLS settings are refused for a provider.
 	ambientIdentityReason = "it may authenticate with the Obot server's own cloud identity"
 	subscriptionReason    = "Claude subscriptions are allowed, and users' subscription tokens may only reach Anthropic over verified TLS"
-)
-
-var (
-	// azureAIHostSuffixes are the Azure OpenAI and AI Services hosts, in the public and
-	// sovereign clouds.
-	azureAIHostSuffixes = []string{
-		".openai.azure.com", ".cognitiveservices.azure.com", ".services.ai.azure.com",
-		".openai.azure.us", ".cognitiveservices.azure.us",
-		".openai.azure.cn", ".cognitiveservices.azure.cn",
-	}
 )
 
 // Some gateway providers fall back to the Obot server's own cloud identity when a key has no
@@ -58,8 +43,12 @@ func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
 				}
 			}
 		}
-		if azure, ok := field(fields, "azure_key_config"); ok {
-			if err := checkAzureKey(fields, azure); err != nil {
+		if _, ok := field(fields, "azure_key_config"); ok {
+			key, err := json.Marshal(fields)
+			if err != nil {
+				return err
+			}
+			if err := llmengine.ValidateAzureKey(key); err != nil {
 				return err
 			}
 		}
@@ -90,10 +79,7 @@ func rejectSubscriptionRedirects(body []byte) error {
 // would turn them off for providers that use the server's own cloud identity and for users'
 // Claude subscription tokens too, and a provider can be added under it later. Proxies that
 // inspect TLS can be trusted with a CA in the proxy settings of providers with their own keys.
-func rejectGlobalProxySkipVerify(path string, body []byte) error {
-	if path != "proxy-config" {
-		return nil
-	}
+func rejectGlobalProxySkipVerify(body []byte) error {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(body, &fields) != nil {
 		return nil
@@ -181,78 +167,10 @@ func checkProviderTLS(settings json.RawMessage, reason string) error {
 	return nil
 }
 
-// checkAzureKey checks an Azure key that has no credentials of its own.
-func checkAzureKey(key map[string]json.RawMessage, azureConfig json.RawMessage) error {
-	cfg := objectFields(azureConfig)
-	secret := func(fields map[string]json.RawMessage, name string) string {
-		v, _ := field(fields, name)
-		return llmengine.SecretValue(v)
-	}
-	value, _ := field(key, "value")
-	if llmengine.SecretValue(value) != "" || (secret(cfg, "client_id") != "" && secret(cfg, "client_secret") != "" && secret(cfg, "tenant_id") != "") {
-		return nil
-	}
-	if scopes, ok := field(cfg, "scopes"); ok {
-		var list []string
-		_ = json.Unmarshal(scopes, &list)
-		for _, s := range list {
-			if s = strings.TrimSpace(s); s != "" && s != azureDefaultScope {
-				return types.NewErrBadRequest("an Azure key without credentials uses the Obot server's own identity, so it can't request other scopes")
-			}
-		}
-	}
-	// The key's endpoint, and any endpoint a model alias of the key overrides it with.
-	var endpoints []string
-	var collect func(raw json.RawMessage)
-	collect = func(raw json.RawMessage) {
-		trimmed := bytes.TrimSpace(raw)
-		if len(trimmed) == 0 {
-			return
-		}
-		switch trimmed[0] {
-		case '{':
-			for k, v := range objectFields(trimmed) {
-				if strings.EqualFold(k, "endpoint") {
-					endpoints = append(endpoints, llmengine.SecretValue(v))
-				}
-				collect(v)
-			}
-		case '[':
-			var items []json.RawMessage
-			_ = json.Unmarshal(trimmed, &items)
-			for _, item := range items {
-				collect(item)
-			}
-		}
-	}
-	for _, v := range key {
-		collect(v)
-	}
-	for _, endpoint := range endpoints {
-		if endpoint != "" && !isAzureAIEndpoint(endpoint) {
-			return types.NewErrBadRequest("an Azure key without credentials uses the Obot server's own identity, so its endpoint must be an Azure OpenAI or AI Services host (https://<resource>.openai.azure.com, .cognitiveservices.azure.com or .services.ai.azure.com); enter an API key or service principal to use %q", endpoint)
-		}
-	}
-	return nil
-}
-
-func isAzureAIEndpoint(endpoint string) bool {
-	u, err := url.Parse(strings.TrimSpace(endpoint))
-	if err != nil || u.Scheme != "https" || u.User != nil || (u.Port() != "" && u.Port() != "443") {
-		return false
-	}
-	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
-	return slices.ContainsFunc(azureAIHostSuffixes, func(suffix string) bool { return strings.HasSuffix(host, suffix) })
-}
-
-// providerType returns the base type of the gateway provider a request to path is for: the
-// provider's own name for a built-in provider, or the type a custom provider is built on.
-func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body []byte) string {
-	if !strings.HasPrefix(path, "providers") {
-		return ""
-	}
+// providerType returns a provider's base type, including custom providers.
+func (h *LLMGatewayHandler) providerType(ctx context.Context, provider string, body []byte) string {
 	var name string
-	if names := providerNames(path, body); len(names) > 0 {
+	if names := providerNames(provider, body); len(names) > 0 {
 		name = names[0]
 	}
 	var fields map[string]json.RawMessage
@@ -270,25 +188,17 @@ func (h *LLMGatewayHandler) providerType(ctx context.Context, path string, body 
 		return t
 	}
 	if name != "" {
-		var existing map[string]json.RawMessage
-		if err := h.engine.Do(ctx, http.MethodGet, "/api/providers/"+url.PathEscape(name), nil, &existing); err == nil {
-			if t := baseType(existing); t != "" {
-				return t
-			}
+		if existing, err := h.engine.GetProvider(ctx, name); err == nil && existing.CustomProviderConfig != nil {
+			return string(existing.CustomProviderConfig.BaseProviderType)
 		}
 	}
 	return name
 }
 
-// providerNames returns the name of the gateway provider a request to path is for: from the
-// path, or, when creating a provider, from every spelling of the body's "provider" field.
-func providerNames(path string, body []byte) []string {
-	rest, ok := strings.CutPrefix(path, "providers")
-	if !ok {
-		return nil
-	}
-	if name, _, _ := strings.Cut(strings.TrimPrefix(rest, "/"), "/"); name != "" {
-		return []string{name}
+// Creation can contain multiple case variants of the provider field; check each one.
+func providerNames(provider string, body []byte) []string {
+	if provider != "" {
+		return []string{provider}
 	}
 	var names []string
 	var fields map[string]json.RawMessage
@@ -302,10 +212,9 @@ func providerNames(path string, body []byte) []string {
 	return names
 }
 
-// isAnthropicProvider reports whether a request to path is for the Anthropic provider, the
-// one Claude subscription tokens are forwarded to.
-func isAnthropicProvider(path string, body []byte) bool {
-	return slices.ContainsFunc(providerNames(path, body), func(name string) bool {
+// isAnthropicProvider identifies the provider that receives Claude subscription tokens.
+func isAnthropicProvider(provider string, body []byte) bool {
+	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
 		return strings.EqualFold(name, "anthropic")
 	})
 }

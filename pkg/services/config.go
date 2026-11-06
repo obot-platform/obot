@@ -33,7 +33,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/bootstrap"
-	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/db"
@@ -46,6 +45,7 @@ import (
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/license"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/logutil"
@@ -133,9 +133,7 @@ type Config struct {
 	EgressAuditLogRetentionDays int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
 	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
 	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
-	LLMGatewayDataDir           string `usage:"Directory for the embedded LLM gateway's configuration and, without a Postgres DSN, its SQLite stores (default: $XDG_DATA_HOME/obot/llm-gateway)" name:"llm-gateway-data-dir" env:"OBOT_SERVER_LLM_GATEWAY_DATA_DIR"`
-	LLMGatewayPostgresDSN       string `usage:"Postgres DSN for the embedded LLM gateway's configuration store. Must be a different database from Obot's. When Obot uses Postgres and this is unset, a <database>_llm_gateway database is created on the same server" name:"llm-gateway-postgres-dsn" env:"OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN"`
-	LLMGatewayEncryptionKey     string `usage:"Key used by the embedded LLM gateway to encrypt provider keys at rest. Set it before the first start: changing it makes stored provider keys unreadable (default: generated, and stored in Obot's database when the gateway uses Postgres, otherwise in the data dir)" name:"llm-gateway-encryption-key" env:"OBOT_SERVER_LLM_GATEWAY_ENCRYPTION_KEY"`
+	LLMGatewayDataDir           string `usage:"Directory for LLM gateway model pricing and capability files (default: $XDG_DATA_HOME/obot/llm-gateway)" name:"llm-gateway-data-dir" env:"OBOT_SERVER_LLM_GATEWAY_DATA_DIR"`
 	LLMGatewayLogLevel          string `usage:"Log level for the embedded LLM gateway (debug, info, warn, error)" name:"llm-gateway-log-level" default:"warn" env:"OBOT_SERVER_LLM_GATEWAY_LOG_LEVEL"`
 	LLMGatewayModelDataURL      string `usage:"Where the LLM gateway refreshes model prices and capabilities from, every 6 hours. Set to off to use only the prices bundled with Obot" name:"llm-gateway-model-data-url" default:"https://upgrade-server.obot.ai/v1/model-data" env:"OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL"`
 	DeviceScanRetentionDays     int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
@@ -966,44 +964,25 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Bootstrapping contacts configured providers to list their models, so it runs in
 		// the background; requests made before it finishes get a 503.
 		go func() {
-			gatewayDSN := config.LLMGatewayPostgresDSN
-			if gatewayDSN == "" && postgresDSN != "" {
-				// Keep the gateway's state in Postgres alongside Obot's so every replica shares
-				// it. There's no fallback to SQLite: with several replicas, each would have its
-				// own providers, keys and routing.
-				derived, err := llmengine.DerivePostgresDSN(ctx, postgresDSN)
-				if err != nil {
-					bifrostEngine.Fail(err)
-					return
-				}
-				gatewayDSN = derived
+			coreStore, err := llmcoreclient.New(storageClient, gatewayClient)
+			if err != nil {
+				bifrostEngine.Fail(err)
+				return
 			}
-			var sharedKeys llmengine.SharedKeyStore
-			if gatewayDSN != "" {
-				// Every replica shares the stores, so they must share the encryption key.
-				sharedKeys = llmengine.CredentialKeyStore(ctx, gatewayClient)
-			}
+
 			modelDataURL, err := modeldata.RefreshURL(config.LLMGatewayModelDataURL)
 			if err != nil {
 				bifrostEngine.Fail(err)
 				return
 			}
 			_ = bifrostEngine.Start(ctx, llmengine.Options{
-				DataDir:       dataDir,
-				PostgresDSN:   gatewayDSN,
-				EncryptionKey: config.LLMGatewayEncryptionKey,
-				SharedKeys:    sharedKeys,
-				LogLevel:      config.LLMGatewayLogLevel,
-				ModelDataURL:  modelDataURL,
+				DataDir:      dataDir,
+				Store:        coreStore,
+				LogLevel:     config.LLMGatewayLogLevel,
+				ModelDataURL: modelDataURL,
 				// Guardrails are part of the gateway: it doesn't serve until they're in place.
 				FirstPlugin: guardrailInput,
 				LastPlugin:  guardrailOutput,
-				CurrentRevision: func(ctx context.Context) (int64, error) {
-					return providerconfigurationchange.CurrentLLMGatewayRevision(ctx, storageClient)
-				},
-				// Replicas that start together boot one at a time, and not while another
-				// changes the configuration.
-				WithLock: gatewayClient.WithLLMGatewayLock,
 				ClaudeSubscriptions: func(ctx context.Context) (bool, error) {
 					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
 					return settings.SubscriptionPassthrough, err

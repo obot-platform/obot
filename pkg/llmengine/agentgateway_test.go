@@ -6,6 +6,9 @@ import (
 	"runtime/pprof"
 	"testing"
 	"time"
+
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEngineStopsUnusedAgentGateway(t *testing.T) {
@@ -24,19 +27,22 @@ func TestEngineStopsUnusedAgentGateway(t *testing.T) {
 	defer cancel()
 
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
 	if after := countRelays(); after != before {
 		t.Fatalf("startup left an unused A2A push relay running: %d before, %d after", before, after)
 	}
 
-	if reloaded, err := e.Reload(1); err != nil || !reloaded {
-		t.Fatalf("expected reload, got %v, %v", reloaded, err)
+	if err := e.store.CreateProvider(ctx, "openai", llmcoreclient.Provider{}); err != nil {
+		t.Fatal(err)
+	}
+	if changed, err := e.Sync(ctx); err != nil || !changed {
+		t.Fatalf("expected configuration sync, got %v, %v", changed, err)
 	}
 	if after := countRelays(); after != before {
-		t.Fatalf("reload left an unused A2A push relay running: %d before, %d after", before, after)
+		t.Fatalf("configuration sync left an unused A2A push relay running: %d before, %d after", before, after)
 	}
 }

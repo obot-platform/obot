@@ -10,28 +10,17 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/tests/e2e/harness"
 )
 
-// TestFreshReplicasStartTogether installs Obot from scratch several times, each time starting
-// two replicas together on an empty database with OPENAI_API_KEY and ANTHROPIC_API_KEY set, as
-// a new two-replica Kubernetes installation does. Every time, the gateway must end up with the
-// openai and anthropic providers, each with only the key from its variable, in the shared
-// database and on both replicas.
-//
-// What matters is that the second gateway loads its configuration while the first is still
-// starting, and finishes starting after it. Started at the same instant, replicas rarely do
-// that here: the gateway's first start creates its tables while holding a lock that another
-// replica retries only every 5 seconds. So startTogether lines them up: it holds the second
-// replica back just before its gateway starts, and lets it go once the first gateway has
-// created its tables, a little later in each installation. OBOT_E2E_STARTUP_RUNS sets the
-// number of installations (default 5).
-func TestFreshReplicasStartTogether(t *testing.T) {
+// TestFreshReplicaConfiguration installs Obot from scratch with two replicas and
+// environment provider keys. Both replicas must read exactly the imported keys
+// from shared resource storage, including after startup has settled.
+// OBOT_E2E_STARTUP_RUNS sets the number of installations (default 5).
+func TestFreshReplicaConfiguration(t *testing.T) {
 	runs := 5
 	if v := os.Getenv("OBOT_E2E_STARTUP_RUNS"); v != "" {
 		var err error
@@ -65,21 +54,14 @@ func TestFreshReplicasStartTogether(t *testing.T) {
 				}
 			}()
 
-			replicas := startTogether(ctx, t, cluster, binary, envKeys, time.Duration(run%5)*150*time.Millisecond)
+			replicas := startFreshReplicas(ctx, t, cluster, binary, envKeys)
 			admin, err := cluster.ActivateAdmin(ctx, replicas[0])
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			gatewayDB := cluster.DB + "_llm_gateway"
 			check := func() error {
-				out, err := cluster.PG.Exec(ctx, gatewayDB, "select p.name || '/' || k.name from config_keys k join config_providers p on p.id = k.provider_id order by 1")
-				if err != nil {
-					return err
-				}
-				if got := strings.Fields(out); !slices.Equal(got, want) {
-					return fmt.Errorf("gateway database has keys %v, want %v", got, want)
-				}
+				// These APIs read persisted provider/key aggregates, not runtime caches.
 				for _, r := range replicas {
 					if got := replicaKeys(t, admin.On(r.BaseURL)); !slices.Equal(got, want) {
 						return fmt.Errorf("%s has keys %v, want %v", r.Config.Name, got, want)
@@ -99,13 +81,9 @@ func TestFreshReplicasStartTogether(t *testing.T) {
 	}
 }
 
-// startTogether starts two replicas of binary on cluster so that their gateways start at the
-// same time, and waits for them to serve. The first replica creates Obot's tables before the
-// second starts (replicas that create them at the same moment can fail). The second is stopped
-// (SIGSTOP) as its gateway begins to start, while the first gateway creates its tables, and is
-// resumed delay after the first gateway has created them. The gateways log both at the info
-// level.
-func startTogether(ctx context.Context, t *testing.T, cluster *harness.Cluster, binary string, env map[string]string, delay time.Duration) []*harness.Replica {
+// startFreshReplicas bootstraps Obot's schema on the first replica before starting
+// the second, avoiding concurrent schema creation on a fresh database.
+func startFreshReplicas(ctx context.Context, t *testing.T, cluster *harness.Cluster, binary string, env map[string]string) []*harness.Replica {
 	t.Helper()
 	first, err := cluster.StartReplica(ctx, "replica-a", binary, nil, env)
 	if err != nil {
@@ -115,33 +93,11 @@ func startTogether(ctx context.Context, t *testing.T, cluster *harness.Cluster, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if waitForLog(t, second, "loading configuration from", time.Minute) && !strings.Contains(first.Log(), "schema migrations complete") {
-		_ = syscall.Kill(-second.PID(), syscall.SIGSTOP)
-		waitForLog(t, first, "schema migrations complete", 2*time.Minute)
-		time.Sleep(delay)
-		_ = syscall.Kill(-second.PID(), syscall.SIGCONT)
-	} else {
-		t.Logf("the first gateway created its tables before the second began to start")
-	}
+
 	if err := second.WaitHealthy(ctx, 3*time.Minute); err != nil {
 		t.Fatal(err)
 	}
 	return []*harness.Replica{first, second}
-}
-
-// waitForLog waits for text to appear in r's log, and reports whether it did.
-func waitForLog(t *testing.T, r *harness.Replica, text string, timeout time.Duration) bool {
-	t.Helper()
-	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
-		if strings.Contains(r.Log(), text) {
-			return true
-		}
-		if r.Exited() {
-			t.Fatalf("%s exited; log tail:\n%s", r.Config.Name, r.LogTail(40))
-		}
-	}
-	t.Logf("%s did not log %q within %s", r.Config.Name, text, timeout)
-	return false
 }
 
 // replicaKeys lists the gateway's keys on one replica, as provider/key names.

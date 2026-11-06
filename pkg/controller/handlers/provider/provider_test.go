@@ -263,6 +263,10 @@ func TestKeepModelEdits(t *testing.T) {
 
 func (f fakeLister) ConfiguredProviders(context.Context) ([]string, error) { return f, nil }
 
+func (fakeLister) UnavailableModels(context.Context, []string) (map[string]bool, error) {
+	return nil, nil
+}
+
 func TestUnlistedProviderModels(t *testing.T) {
 	model := func(name, target string) v1.Model {
 		return v1.Model{Namespace: "default", Name: name, Spec: v1.ModelSpec{Manifest: types.ModelManifest{TargetModel: target, ModelProvider: system.LLMGatewayModelProvider, DisplayName: "edited " + name}}}

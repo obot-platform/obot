@@ -194,7 +194,7 @@ func TestAnthropicProxyRequestsAreNotLLMAudited(t *testing.T) {
 
 	// Entries are written in the order they are logged, so once this one is stored, any the
 	// requests above logged would be stored too.
-	gatewayClient.LogLLMAuditEntry(types.LLMAuditLog{ID: "marker", CreatedAt: time.Now(), RequestPath: "/api/llm-proxy/v1/messages"}, nil)
+	gatewayClient.LogLLMAuditEntry(types.LLMAuditLog{ID: "marker", CreatedAt: time.Now(), RequestPath: "/api/llm-proxy/v1/messages"})
 	var logs []types.LLMAuditLog
 	require.Eventually(t, func() bool {
 		logs, _, err = gatewayClient.GetLLMAuditLogs(t.Context(), client.LLMAuditLogOptions{})

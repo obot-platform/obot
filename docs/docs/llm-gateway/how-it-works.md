@@ -50,7 +50,9 @@ Administrators manage the gateway from these pages:
 | **Audit Logs** → **LLM** | Every request with its user, the model it asked for and the provider, model and key that served it, whether a fallback did, its guardrail findings, tokens, duration and content. See [Audit usage and costs](./audit.md). |
 | **LLM Gateway** → **Settings** | Queueing behavior and request size limits. |
 
-Prometheus metrics for the gateway (requests, latency, tokens and cost by provider, model, provider key and routing rule) are served at `GET /api/llm-gateway/metrics` to administrators, auditors and credentials allowed to read `/debug/metrics`. The gateway's own metric names start with `obot_llm_gateway_`. Its HTTP request metrics keep their standard names, such as `http_requests_total`.
+Gateway Prometheus metrics are available at `GET /api/llm-gateway/metrics` to administrators, auditors and credentials allowed to read `/debug/metrics`. The `obot_llm_gateway_` metrics report inference attempts, time to the first response or error, tokens and cost by provider, model and provider key. Scrape each replica to collect its metrics. Fallbacks count as separate attempts; retries within an attempt do not.
+
+`obot_llm_gateway_guardrail_blocks_total` counts guardrail blocks by `stage` (`input` or `output`), including failures that block a request because guardrails could not be evaluated. Input blocks do not count as provider attempts. Responses blocked by output guardrails still count toward the provider's tokens and cost.
 
 ## Default models {#default-models}
 
@@ -83,7 +85,7 @@ Clients may also send a default model alias, such as `llm` or `llm-mini`, as the
 
 A request can be served by a different model from the one the client asked for:
 
-- A **routing rule** (**LLM Gateway** → **Routing**) whose condition matches sends the request to its targets, splitting traffic between them by weight. Rules are checked in priority order, lowest number first, and the first match applies. A rule can also list fallbacks.
+- A **routing rule** (**LLM Gateway** → **Routing**) whose condition matches sends the request to its targets, splitting traffic between them by weight. Rules are checked in priority order, lowest number first, and the first match applies. Rules with equal priority have no guaranteed evaluation order. Assign distinct priority values when precedence matters; the table's display order and a rule's creation time do not break ties. A rule can also list fallbacks.
 - A **fallback** is tried when the model before it fails. Fallbacks come from the request's `fallbacks` field or from the routing rule that matched. They aren't tried when the provider rejects the request itself as invalid (such as HTTP 400 for a malformed image or an unknown parameter), since the fallbacks would reject it too: the caller gets the provider's error, and no other provider receives the request. A request that never reached a provider, such as one for a model none of the provider's keys serve, still goes on to its fallbacks.
 - A **time to first token timeout** on a routing rule target (in seconds) cuts off a streaming request that gets no first token in time and moves it to the next fallback without retrying. When that target is chosen, the timeout applies to it and to each fallback except the last, which always runs to an answer, so it has no effect without a fallback. Requests that don't stream aren't affected.
 

@@ -6,15 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"path"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -23,53 +18,18 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	// allowedBifrostAPIPrefixes are the Bifrost management routes exposed through Obot. Bifrost
-	// also has MCP, skills, prompt repository, and session APIs; Obot has its own versions of
-	// those features, so they stay hidden. Its plugins and response cache aren't exposed
-	// either: Obot's guardrail plugins must stay enabled, and responses aren't cached. Its
-	// request log is off, since Obot keeps its own records of requests (the LLM audit log and
-	// token usage), so its log APIs aren't exposed. Its feature flags only turn on engine
-	// features Obot doesn't expose, so they aren't exposed either.
-	allowedBifrostAPIPrefixes = []string{
-		"providers",
-		"keys",
-		"models",
-		"governance/routing-rules",
-		"governance/pricing-overrides",
-		"config",
-		"routing/",
-		"version",
-		"pricing/",
-		"proxy-config",
-	}
-
-	// busyStoreRetryTimeout bounds how long a change waits for the gateway's store.
-	busyStoreRetryTimeout = 30 * time.Second
-
 	// gatewayRegion matches a cloud region, such as us-central1 or eu-west-2.
 	gatewayRegion = regexp.MustCompile(`^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$`)
 )
 
-// LLMGatewayHandler serves Obot's management API for the embedded Bifrost gateway. Most
-// of it is a guarded pass-through to Bifrost's own management API; Obot adds its own
-// budgets (enforced by Obot, not Bifrost), model sync, and import of legacy model provider
-// credentials.
+// LLMGatewayHandler owns the public management HTTP boundary. Engine operations
+// validate and persist desired configuration directly; Obot also owns budgets and model sync.
 type LLMGatewayHandler struct {
 	engine    *llmengine.Engine
-	revisions LLMGatewayRevisions
 	mapHelper *modelaccesspolicy.Helper
-}
-
-// LLMGatewayRevisions reads and advances the gateway configuration revision that tells the
-// replicas to reload their gateways. The controller owns the revision, and the handler gets
-// these from it rather than importing the controller.
-type LLMGatewayRevisions struct {
-	Current func(context.Context, kclient.Client) (int64, error)
-	Advance func(context.Context, kclient.Client) (int64, error)
 }
 
 // LLMGatewayStatus describes the embedded gateway.
@@ -82,10 +42,9 @@ type LLMGatewayStatus struct {
 	ProxyPath         string `json:"proxyPath"`
 }
 
-func NewLLMGatewayHandler(engine *llmengine.Engine, revisions LLMGatewayRevisions, mapHelper *modelaccesspolicy.Helper) *LLMGatewayHandler {
+func NewLLMGatewayHandler(engine *llmengine.Engine, mapHelper *modelaccesspolicy.Helper) *LLMGatewayHandler {
 	return &LLMGatewayHandler{
 		engine:    engine,
-		revisions: revisions,
 		mapHelper: mapHelper,
 	}
 }
@@ -104,14 +63,13 @@ func (h *LLMGatewayHandler) Status(req api.Context) error {
 	return req.Write(status)
 }
 
-// isProviderWrite reports whether a request creates (POST providers) or updates (PUT
-// providers/<name>) a provider.
-func isProviderWrite(method, path string) bool {
-	if method == http.MethodPost {
-		return path == "providers"
+// Metrics serves inference metrics for this gateway replica.
+func (h *LLMGatewayHandler) Metrics(req api.Context) error {
+	if err := h.requireEngine(); err != nil {
+		return err
 	}
-	name, ok := strings.CutPrefix(path, "providers/")
-	return method == http.MethodPut && ok && name != "" && !strings.Contains(name, "/")
+	h.engine.ServeMetrics(req.ResponseWriter, req.Request)
+	return nil
 }
 
 // withProviderDefaults fills in the network settings a new provider leaves unset, such as
@@ -142,246 +100,51 @@ func (h *LLMGatewayHandler) requireEngine() error {
 	return nil
 }
 
-// Proxy forwards /api/llm-gateway/admin/{path...} to Bifrost's /api/{path...}.
-func (h *LLMGatewayHandler) Proxy(req api.Context) error {
-	if err := h.requireEngine(); err != nil {
-		return err
+// adminHandler applies readiness and path-encoding checks to registered admin routes.
+func (h *LLMGatewayHandler) adminHandler(next api.HandlerFunc) api.HandlerFunc {
+	return func(req api.Context) error {
+		if err := h.requireEngine(); err != nil {
+			return err
+		}
+		// Reject encoded separators and dot segments before named identifiers reach storage.
+		escaped := strings.ToLower(req.URL.EscapedPath())
+		if strings.Contains(escaped, "%2f") || strings.Contains(escaped, "%2e") || strings.Contains(escaped, "%5c") || strings.Contains(req.URL.Path, "\\") {
+			return types.NewErrNotFound("LLM gateway API %q is not available", req.URL.Path)
+		}
+		return next(req)
 	}
+}
 
-	path, ok := allowedBifrostAPIPath(req.PathValue("path"), req.URL.EscapedPath())
-	if !ok {
-		return types.NewErrNotFound("LLM gateway API %q is not available", req.PathValue("path"))
-	}
-
+func readGatewayAdminBody(req api.Context) ([]byte, error) {
 	body, err := req.Body(api.BodyOptions{MaxBytes: 32 * 1024 * 1024})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if len(body) > 0 {
-		if err := rejectUnsafeConfig(body); err != nil {
-			return err
-		}
-		if err := rejectEngineAuthConfig(path, body); err != nil {
-			return err
-		}
-		if err := rejectGlobalProxySkipVerify(path, body); err != nil {
-			return err
-		}
-		if path == "config" && req.Method != http.MethodGet {
-			if body, err = clientConfigOnly(body); err != nil {
-				return err
-			}
-		}
-		providerType := h.providerType(req.Context(), path, body)
-		if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
-			return err
-		}
-		if isAnthropicProvider(path, body) {
-			settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
-			if err != nil {
-				return err
-			}
-			if settings.SubscriptionPassthrough {
-				if err := rejectSubscriptionRedirects(body); err != nil {
-					return err
-				}
-			}
-		}
-		if isProviderWrite(req.Method, path) {
-			if body, err = withProviderDefaults(body, req.Method == http.MethodPost, providerType); err != nil {
-				return err
-			}
-		}
+	if err := rejectUnsafeConfig(body); err != nil {
+		return nil, err
 	}
+	return body, nil
+}
 
-	// removeKeys confirms that changing a provider's base URL removes its keys (see
-	// llmengine.GuardProviderChange). It is Obot's, so it isn't passed on.
-	query := req.URL.Query()
-	removeKeys := query.Get("removeKeys") == "true"
-	query.Del("removeKeys")
-
-	ctx := req.Context()
-	if req.Method != http.MethodGet {
-		// Once a change reaches the gateway it must finish and be announced to the other
-		// replicas even if the client goes away, so the client can't cancel it midway.
-		ctx = context.WithoutCancel(ctx)
+// Provider and key writes share credential restrictions; route handlers select defaults.
+func (h *LLMGatewayHandler) validateProviderBody(req api.Context, body []byte) (string, error) {
+	name := req.PathValue("provider")
+	providerType := h.providerType(req.Context(), name, body)
+	if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
+		return "", err
 	}
-	serve := func(method, path string, body []byte) (*httptest.ResponseRecorder, error) {
-		out, err := http.NewRequestWithContext(ctx, method, (&url.URL{Path: "/api/" + path, RawQuery: query.Encode()}).String(), bytes.NewReader(body))
+	if isAnthropicProvider(name, body) {
+		settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
 		if err != nil {
-			return nil, err
+			return "", err
 		}
-		if ct := req.Request.Header.Get("Content-Type"); ct != "" && body != nil {
-			out.Header.Set("Content-Type", ct)
-		}
-		out.Header.Set("Accept", "application/json")
-		rec := httptest.NewRecorder()
-		h.engine.ServeHTTP(rec, out)
-		return rec, nil
-	}
-
-	var (
-		rec      *httptest.ResponseRecorder
-		guardErr error
-	)
-	if req.Method == http.MethodGet {
-		if rec, err = serve(req.Method, path, body); err != nil {
-			return err
-		}
-	} else if err := h.change(ctx, req, func() (bool, bool) {
-		// Checked here, under the lock every replica shares, so the check sees the
-		// configuration the change is made to.
-		change, err := h.engine.GuardProviderChange(ctx, req.Method, path, body, removeKeys)
-		if err != nil {
-			guardErr = err
-			return false, false
-		}
-		for i, id := range change.RemoveKeys {
-			keyPath := strings.TrimSuffix(path, "/") + "/keys/" + url.PathEscape(id)
-			if rec, err = serveRetryingBusyStore(ctx, func() (*httptest.ResponseRecorder, error) {
-				return serve(http.MethodDelete, keyPath, nil)
-			}); err != nil {
-				guardErr = err
-				return i > 0, false
-			} else if rec.Code >= 300 {
-				// Keys removed so far are gone; reload to be safe.
-				return i > 0 || rec.Code >= 500, false
+		if settings.SubscriptionPassthrough {
+			if err := rejectSubscriptionRedirects(body); err != nil {
+				return "", err
 			}
 		}
-		rec, err = serveRetryingBusyStore(ctx, func() (*httptest.ResponseRecorder, error) {
-			return serve(req.Method, path, change.Body)
-		})
-		if err != nil {
-			guardErr = err
-			return len(change.RemoveKeys) > 0, false
-		}
-		switch {
-		case rec.Code < 300:
-			h.afterMutation(ctx, req, path)
-			// Some settings, such as the request size limit, only take effect when the
-			// engine starts, so this replica reloads a config change too.
-			return true, path != "config" && len(change.RemoveKeys) == 0
-		case rec.Code < 500 && len(change.RemoveKeys) == 0:
-			// Rejected; nothing changed.
-			return false, false
-		default:
-			// The change may have been saved before the failure, in the stores, in memory or
-			// both, so every replica, this one included, reloads to be safe.
-			return true, false
-		}
-	}); err != nil {
-		return types.NewErrHTTP(http.StatusInternalServerError, llmengine.ScrubEngineName(err.Error()))
-	} else if guardErr != nil {
-		return guardErr
 	}
-
-	if req.Method == http.MethodGet && path == "config" && rec.Code < 300 {
-		rec.Body = bytes.NewBuffer(hideEngineFrameworkConfig(rec.Body.Bytes()))
-	}
-	if rec.Code >= http.StatusBadRequest {
-		return engineError(rec.Code, rec.Body.Bytes())
-	}
-	for k, vs := range rec.Header() {
-		if strings.EqualFold(k, "Content-Length") {
-			continue
-		}
-		for _, v := range vs {
-			req.ResponseWriter.Header().Add(k, v)
-		}
-	}
-	req.WriteHeader(rec.Code)
-	_, err = req.ResponseWriter.Write(rec.Body.Bytes())
-	return err
-}
-
-// hideEngineFrameworkConfig removes from the gateway's config the settings of the engine's
-// own MCP server library, which Obot doesn't use and which name the engine vendor's site.
-func hideEngineFrameworkConfig(body []byte) []byte {
-	var config map[string]any
-	if json.Unmarshal(body, &config) != nil {
-		return body
-	}
-	framework, ok := config["framework_config"].(map[string]any)
-	if !ok {
-		return body
-	}
-	for key := range framework {
-		if strings.HasPrefix(key, "mcp_library_") {
-			delete(framework, key)
-		}
-	}
-	if out, err := json.Marshal(config); err == nil {
-		return out
-	}
-	return body
-}
-
-// serveRetryingBusyStore sends a change to the gateway, and sends it again while the gateway's
-// store reports it is busy. With SQLite, a write fails at once while the gateway writes its
-// model catalog, which it does for a few seconds after every start or reload. The gateway
-// undoes a change whose store write failed, so sending it again is safe.
-func serveRetryingBusyStore(ctx context.Context, serve func() (*httptest.ResponseRecorder, error)) (*httptest.ResponseRecorder, error) {
-	deadline := time.Now().Add(busyStoreRetryTimeout)
-	for delay := 100 * time.Millisecond; ; delay = min(delay*2, 2*time.Second) {
-		rec, err := serve()
-		if err != nil || !llmengine.IsStoreBusy(rec.Code, rec.Body.Bytes()) || time.Now().Add(delay).After(deadline) {
-			return rec, err
-		}
-		select {
-		case <-ctx.Done():
-			return rec, nil
-		case <-time.After(delay):
-		}
-	}
-}
-
-// engineError turns an error response from the engine's API into an Obot API error carrying
-// only its message, so the engine's own error format and name don't reach clients.
-func engineError(code int, body []byte) error {
-	var errBody struct {
-		Message string `json:"message"`
-		Error   struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	message := strings.TrimSpace(string(body))
-	if json.Unmarshal(body, &errBody) == nil {
-		message = cmp.Or(errBody.Error.Message, errBody.Message)
-	}
-	if message == "" {
-		message = http.StatusText(code)
-	}
-	return types.NewErrHTTP(code, llmengine.ScrubEngineName(message))
-}
-
-// allowedBifrostAPIPath validates the requested Bifrost API path against the allowlist. The
-// path is matched after cleaning, and any dot segment or encoded separator is refused, so a
-// path like "providers/%2e%2e/session" can't reach an API that isn't listed.
-func allowedBifrostAPIPath(raw, escaped string) (string, bool) {
-	raw = strings.TrimPrefix(raw, "/")
-	lowerEscaped := strings.ToLower(escaped)
-	if strings.Contains(lowerEscaped, "%2f") || strings.Contains(lowerEscaped, "%2e") || strings.Contains(lowerEscaped, "%5c") {
-		return "", false
-	}
-	for segment := range strings.SplitSeq(raw, "/") {
-		if segment == "." || segment == ".." {
-			return "", false
-		}
-	}
-	if strings.Contains(raw, "\\") {
-		return "", false
-	}
-	cleaned := strings.TrimPrefix(path.Clean("/"+raw), "/")
-	if cleaned != strings.TrimSuffix(raw, "/") {
-		return "", false
-	}
-	for _, prefix := range allowedBifrostAPIPrefixes {
-		prefix = strings.TrimSuffix(prefix, "/")
-		if cleaned == prefix || strings.HasPrefix(cleaned, prefix+"/") {
-			return cleaned, true
-		}
-	}
-	return "", false
+	return providerType, nil
 }
 
 // clientConfigOnly keeps only client_config from a config update. The rest of the engine's
@@ -406,15 +169,9 @@ func clientConfigOnly(body []byte) ([]byte, error) {
 	return json.Marshal(update)
 }
 
-// rejectEngineAuthConfig refuses a change to the engine's own login. Obot reaches the engine
-// with its setup token, which the engine accepts for creating its first admin account, so
-// without this an Obot admin could turn on the engine's login through this API and lock Obot
-// out of its own gateway on every replica. Obot controls access to the gateway itself. Keys
-// are matched without regard to case, as the engine's JSON decoding matches them.
-func rejectEngineAuthConfig(path string, body []byte) error {
-	if path != "config" {
-		return nil
-	}
+// Obot controls gateway authentication; client settings cannot enable a separate login.
+// Match every spelling that the engine's JSON decoder accepts.
+func rejectEngineAuthConfig(body []byte) error {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(body, &fields) != nil {
 		return nil
@@ -559,21 +316,15 @@ func isServiceAccountKey(creds string) bool {
 	return found
 }
 
-// afterMutation keeps Obot in step with changes made through the proxy.
-func (h *LLMGatewayHandler) afterMutation(ctx context.Context, req api.Context, path string) {
-	switch {
-	case strings.HasPrefix(path, "providers"), strings.HasPrefix(path, "models"), strings.HasPrefix(path, "keys"):
-		if strings.HasPrefix(path, "providers") && req.Method != http.MethodDelete {
-			h.engine.ApplyEgressProxy(ctx)
-		}
-		if req.Method == http.MethodDelete && strings.TrimSuffix(path, "/") == "providers/anthropic" {
-			// Claude subscriptions are a setting of the Anthropic provider: removing the provider
-			// turns them off, so adding it back later doesn't quietly forward them again.
-			disableSubscriptionPassthrough(ctx, req)
-		}
-		if err := llmengine.TriggerModelSync(ctx, req.Storage); err != nil {
-			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
-		}
+// Engine mutations finish accepted writes after disconnects; their follow-up must also finish.
+func (h *LLMGatewayHandler) providerChanged(req api.Context) {
+	h.engine.ApplyEgressProxy(context.WithoutCancel(req.Context()))
+	triggerGatewayModelSync(req)
+}
+
+func triggerGatewayModelSync(req api.Context) {
+	if err := llmengine.TriggerModelSync(context.WithoutCancel(req.Context()), req.Storage); err != nil {
+		slog.Warn("failed to trigger LLM gateway model sync", "error", err)
 	}
 }
 
@@ -589,51 +340,6 @@ func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
 	if err := req.GatewayClient.SetLLMGatewaySettings(ctx, settings); err != nil {
 		slog.Warn("failed to turn off Claude subscriptions after removing the Anthropic provider", "error", err)
 	}
-}
-
-// change makes a change to the gateway's configuration and announces it to the other
-// replicas. It holds a lock every replica shares, and first reloads what other replicas
-// announced, so the change is never made to a stale copy of the configuration and doesn't
-// overwrite theirs.
-func (h *LLMGatewayHandler) change(ctx context.Context, req api.Context, fn func() (changed, applied bool)) error {
-	return req.GatewayClient.WithLLMGatewayLock(ctx, func() error {
-		revision, err := h.revisions.Current(ctx, req.Storage)
-		if err != nil {
-			return fmt.Errorf("failed to read the LLM gateway configuration revision: %w", err)
-		}
-		if _, err := h.engine.Reload(revision); err != nil {
-			return fmt.Errorf("failed to reload the LLM gateway configuration: %w", err)
-		}
-		return h.engine.Change(ctx, fn, h.announceChange(req.Storage))
-	})
-}
-
-// announceChange advances the gateway's configuration revision, so the other replicas reload
-// their gateways from the shared stores.
-func (h *LLMGatewayHandler) announceChange(storage kclient.Client) func(context.Context) (int64, error) {
-	return func(ctx context.Context) (int64, error) {
-		return h.revisions.Advance(ctx, storage)
-	}
-}
-
-// Metrics serves the gateway's Prometheus metrics: request counts, latencies, tokens and cost
-// by provider, model and key.
-func (h *LLMGatewayHandler) Metrics(req api.Context) error {
-	if err := h.requireEngine(); err != nil {
-		return err
-	}
-	out, err := http.NewRequestWithContext(req.Context(), http.MethodGet, "/metrics", nil)
-	if err != nil {
-		return err
-	}
-	rec := httptest.NewRecorder()
-	h.engine.ServeHTTP(rec, out)
-	// Publish the metrics under Obot's own name.
-	metrics := strings.ReplaceAll(rec.Body.String(), "bifrost_", "obot_llm_gateway_")
-	req.ResponseWriter.Header().Set("Content-Type", rec.Header().Get("Content-Type"))
-	req.WriteHeader(rec.Code)
-	_, err = req.ResponseWriter.Write([]byte(metrics))
-	return err
 }
 
 func (h *LLMGatewayHandler) SyncModels(req api.Context) error {

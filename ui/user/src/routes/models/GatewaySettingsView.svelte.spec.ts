@@ -21,7 +21,6 @@ const clientConfig = {
 	disable_content_logging: false,
 	log_retention_days: 30,
 	max_request_body_size_mb: 100,
-	prometheus_labels: null,
 	// Fields the page does not edit must be sent back unchanged.
 	initial_pool_size: 300
 };

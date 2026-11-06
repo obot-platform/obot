@@ -3,8 +3,6 @@ package llmengine
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -58,34 +56,22 @@ func IsMaskedSecret(raw []byte) bool {
 // of their own. A proxy without such settings, such as the environment's egress proxy, only
 // relays the TLS connection to Anthropic, so it doesn't stop the token being forwarded.
 func (e *Engine) AnthropicIsDirect(ctx context.Context) bool {
-	var provider struct {
-		NetworkConfig struct {
-			BaseURL            string          `json:"base_url"`
-			InsecureSkipVerify bool            `json:"insecure_skip_verify"`
-			CACertPEM          json.RawMessage `json:"ca_cert_pem"`
-		} `json:"network_config"`
-		ProxyConfig struct {
-			SkipTLSVerify bool            `json:"skip_tls_verify"`
-			CACertPEM     json.RawMessage `json:"ca_cert_pem"`
-		} `json:"proxy_config"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/providers/anthropic", nil, &provider); err != nil {
+	provider, err := e.GetProvider(ctx, "anthropic")
+	if err != nil {
 		return false
 	}
 	nc, pc := provider.NetworkConfig, provider.ProxyConfig
-	if nc.InsecureSkipVerify || HasSecretValue(nc.CACertPEM) {
+	if nc.InsecureSkipVerify || (nc.CACertPEM != nil && nc.CACertPEM.GetValue() != "") {
 		return false
 	}
-	if pc.SkipTLSVerify || HasSecretValue(pc.CACertPEM) {
+	if pc != nil && (pc.SkipTLSVerify || (pc.CACertPEM != nil && pc.CACertPEM.GetValue() != "")) {
 		return false
 	}
 	// The engine applies its global proxy's skip_tls_verify to the TLS settings of the
 	// clients it builds, so it is treated as turning certificate checks off whether or not
 	// the proxy itself is on.
-	var globalProxy struct {
-		SkipTLSVerify bool `json:"skip_tls_verify"`
-	}
-	if err := e.Do(ctx, http.MethodGet, "/api/proxy-config", nil, &globalProxy); err != nil || globalProxy.SkipTLSVerify {
+	globalProxy, err := e.GetProxyConfig(ctx)
+	if err != nil || globalProxy["skip_tls_verify"] == true {
 		return false
 	}
 	if nc.BaseURL == "" {

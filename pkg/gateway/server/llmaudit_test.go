@@ -1,16 +1,19 @@
 package server
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
+	bifrost "github.com/maximhq/bifrost/core"
+	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
-	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -20,6 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
+
+type auditMarshalProbe func()
+
+func (p auditMarshalProbe) MarshalJSON() ([]byte, error) {
+	p()
+	return nil, errors.New("serialization probe")
+}
 
 func TestRedactedHeaders(t *testing.T) {
 	headers := http.Header{
@@ -297,176 +307,19 @@ func TestExtractLLMReasoningEffort(t *testing.T) {
 	}
 }
 
-func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
-	a.Write([]byte(strings.Join([]string{
-		`data: {"type":"response.created","response":{"id":"resp_123","model":"gpt-5","output":null}}`,
-		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"ignored"}`,
-		`data: {"type":"response.completed","response":{"id":"resp_123","model":"gpt-5","status":"completed","output":[{"id":"msg_1","type":"message","content":[{"type":"output_text","text":"final"}]}]}}`,
-	}, "\n") + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "output.0.content.0.text").String() != "final" {
-		t.Fatalf("expected terminal response text, got %s", got)
-	}
-	if a.ResponseID() != "resp_123" {
-		t.Fatalf("expected response ID, got %q", a.ResponseID())
-	}
-}
-
-func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
-	a.Write([]byte(strings.Join([]string{
-		`data: {"type":"response.created","response":{"id":"resp_bedrock","model":"openai.gpt-5.5","output":[]}}`,
-		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"hello"}`,
-	}, "\n") + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
-		t.Fatalf("expected Bedrock OpenAI text, got %s", got)
-	}
-	if a.ResponseID() != "resp_bedrock" {
-		t.Fatalf("expected response ID, got %q", a.ResponseID())
-	}
-}
-
-func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
-	a.Write([]byte(`data: {"type":"response.created","response":{"id":"resp_partial","model":"gpt-5","output":null}}` + "\n"))
-	a.Write([]byte(`data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"hel`))
-	a.Write([]byte(`lo"}` + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
-		t.Fatalf("expected accumulated text, got %s", got)
-	}
-}
-
-func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
-	a.Write([]byte(strings.Join([]string{
-		`data: {"type":"response.created","response":{"id":"resp_tools","model":"gpt-5","output":[]}}`,
-		`data: {"type":"response.output_item.added","output_index":0,"item":{"id":"call_1","type":"function_call","name":"lookup","arguments":""}}`,
-		`data: {"type":"response.function_call_arguments.delta","output_index":0,"delta":"{\"q\":"}`,
-		`data: {"type":"response.function_call_arguments.delta","output_index":0,"delta":"\"hi\"}"}`,
-		`data: {"type":"response.output_item.added","output_index":1,"item":{"id":"rs_1","type":"reasoning","encrypted_content":"secret"}}`,
-	}, "\n") + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "output.0.arguments").String() != `{"q":"hi"}` {
-		t.Fatalf("expected function arguments, got %s", got)
-	}
-	if gjson.GetBytes(got, "output.1.encrypted_content").String() != "secret" {
-		t.Fatalf("expected reasoning encrypted content, got %s", got)
-	}
-}
-
-func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/messages")
-	a.Write([]byte(strings.Join([]string{
-		`event: message_start`,
-		`data: {"type":"message_start","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[],"usage":{"input_tokens":1}}}`,
-		`event: content_block_start`,
-		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
-		`event: content_block_delta`,
-		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
-		`event: message_delta`,
-		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}`,
-	}, "\n") + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
-		t.Fatalf("expected anthropic text, got %s", got)
-	}
-	if gjson.GetBytes(got, "usage.output_tokens").Int() != 5 {
-		t.Fatalf("expected usage, got %s", got)
-	}
-	if a.ResponseID() != "msg_123" {
-		t.Fatalf("expected message ID, got %q", a.ResponseID())
-	}
-}
-
-func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/messages")
-	a.Write([]byte(strings.Join([]string{
-		`data: {"type":"message_start","message":{"id":"msg_bedrock","type":"message","role":"assistant","model":"claude","content":[]}}`,
-		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
-		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
-	}, "\n") + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
-		t.Fatalf("expected Bedrock Anthropic text, got %s", got)
-	}
-	if a.ResponseID() != "msg_bedrock" {
-		t.Fatalf("expected message ID, got %q", a.ResponseID())
-	}
-}
-
-func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/messages")
-	a.Write([]byte(strings.Join([]string{
-		`data: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","content":[]}}`,
-		`data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_1","name":"lookup","input":{}}}`,
-		`data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"q\":"}}`,
-		`data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"\"hi\"}"}}`,
-		`data: {"type":"content_block_stop","index":0}`,
-		`data: {"type":"content_block_start","index":1,"content_block":{"type":"thinking","thinking":"","signature":""}}`,
-		`data: {"type":"content_block_delta","index":1,"delta":{"type":"thinking_delta","thinking":"ponder"}}`,
-		`data: {"type":"content_block_delta","index":1,"delta":{"type":"signature_delta","signature":"sig"}}`,
-	}, "\n") + "\n"))
-
-	got := a.JSON()
-	if gjson.GetBytes(got, "content.0.input.q").String() != "hi" {
-		t.Fatalf("expected tool input, got %s", got)
-	}
-	if gjson.GetBytes(got, "content.1.thinking").String() != "ponder" || gjson.GetBytes(got, "content.1.signature").String() != "sig" {
-		t.Fatalf("expected thinking/signature, got %s", got)
-	}
-}
-
-func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
-	a := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
-	a.Write([]byte(`{"id":"resp_plain","status":"completed"}`))
-	if got := a.JSON(); gjson.GetBytes(got, "id").String() != "resp_plain" {
-		t.Fatalf("expected plain JSON response, got %s", got)
-	}
-
-	empty := gatewayllmaudit.NewResponseAccumulator(system.LLMGatewayModelProvider, "/api/llm-proxy/v1/responses")
-	if got := empty.JSON(); !bytes.Equal(got, []byte(`{}`)) {
-		t.Fatalf("expected empty object, got %s", got)
-	}
-}
-
-func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
-	recorder := newLLMAuditRecorder(req, nil, 5<<20)
-	recorder.setModel(system.OpenAIModelProvider, "", "")
-	chunk := []byte(`data: {"type":"response.created","response":{"id":"resp_rec","output":[]}}` + "\n")
-	recorder.captureResponseChunk(chunk)
-	accumulator := gatewayllmaudit.NewResponseAccumulator(recorder.log.ModelProvider, recorder.log.RequestPath)
-	accumulator.Write(recorder.responseStream.Bytes())
-	recorder.log.ResponseBody = accumulator.JSON()
-
-	if gjson.GetBytes(recorder.log.ResponseBody, "id").String() != "resp_rec" {
-		t.Fatalf("expected aggregated response body, got %s", recorder.log.ResponseBody)
-	}
-}
-
 func TestLLMAuditRecorderCapsResponseCapture(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
-	recorder := newLLMAuditRecorder(req, nil, 5)
-	recorder.captureResponseChunk([]byte("hello"))
-	recorder.captureResponseChunk([]byte(" world"))
-
-	if got := recorder.responseStream.String(); got != "hello" {
-		t.Fatalf("expected capped response stream, got %q", got)
+	r := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/responses", nil), nil, 5)
+	r.captureResponseChunk([]byte("hello"))
+	r.captureResponseChunk([]byte(" world"))
+	r.finishBody()
+	if len(r.log.ResponseBody) != 0 || !r.responseCaptureFilled {
+		t.Fatal("oversized body must be omitted")
 	}
 }
 
 func TestLLMAuditRecordsSpendAndCachedTokens(t *testing.T) {
 	recorder := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), nil, 5<<20)
-	r := &responseModifier{audit: recorder}
+	r := &llmResponseWriter{audit: recorder}
 	r.recordUsage(types.TokenUsage{
 		InputTokens:      3132,
 		CacheReadTokens:  3072,
@@ -481,5 +334,163 @@ func TestLLMAuditRecordsSpendAndCachedTokens(t *testing.T) {
 	if entry.InputTokens != 3132 || entry.CacheReadTokens != 3072 || entry.CacheWriteTokens != 10 ||
 		entry.OutputTokens != 40 || entry.ReasoningTokens != 12 || entry.Spend != 0.0002394 {
 		t.Fatalf("the audit entry doesn't carry the request's usage and spend: %+v", entry)
+	}
+}
+
+func TestAuditBifrostChatCapture(t *testing.T) {
+	a := streaming.NewAccumulator(nil, bifrost.NewDefaultLogger(schemas.LogLevelWarn))
+	defer a.Cleanup()
+	r := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/chat/completions", nil), nil, 5<<20)
+	r.stream = true
+	for i, text := range []string{"hello", " world"} {
+		var resp schemas.BifrostChatResponse
+		if err := json.Unmarshal([]byte(`{"id":"chat_1","object":"chat.completion.chunk","model":"test","choices":[{"index":0,"delta":{"role":"assistant","content":"`+text+`"}}]}`), &resp); err != nil {
+			t.Fatal(err)
+		}
+		resp.ExtraFields.RequestType = schemas.ChatCompletionStreamRequest
+		resp.ExtraFields.ChunkIndex = i
+		r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+	}
+	r.finishBody()
+	if got := gjson.GetBytes(r.log.ResponseBody, "choices.0.message.content").String(); got != "hello world" {
+		t.Fatalf("body = %s", r.log.ResponseBody)
+	}
+	if gjson.GetBytes(r.log.ResponseBody, "extra_fields").Exists() {
+		t.Fatal("internal fields persisted")
+	}
+	if r.log.ResponseID != "chat_1" {
+		t.Fatalf("ID = %s", r.log.ResponseID)
+	}
+	if a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("capture was not cleaned up")
+	}
+	r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &schemas.BifrostChatResponse{}}, a)
+	if a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("late callback recreated capture")
+	}
+}
+
+func TestAuditBifrostResponsesDialects(t *testing.T) {
+	for _, path := range []string{"/responses", "/messages"} {
+		t.Run(path, func(t *testing.T) {
+			a := streaming.NewAccumulator(nil, bifrost.NewDefaultLogger(schemas.LogLevelWarn))
+			defer a.Cleanup()
+			r := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, path, nil), nil, 5<<20)
+			r.stream = true
+			var resp schemas.BifrostResponsesStreamResponse
+			raw := `{"type":"response.completed","sequence_number":0,"response":{"id":"resp_1","model":"test","object":"response","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","content":[{"type":"output_text","text":"approved"}]}]}}`
+			if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+				t.Fatal(err)
+			}
+			resp.ExtraFields.RequestType = schemas.ResponsesStreamRequest
+			r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostResponsesStreamResponse: &resp}, a)
+			r.finishBody()
+			if !strings.Contains(string(r.log.ResponseBody), "approved") {
+				t.Fatalf("body = %s", r.log.ResponseBody)
+			}
+			if path == "/messages" && gjson.GetBytes(r.log.ResponseBody, "type").String() != "message" {
+				t.Fatalf("wrong dialect: %s", r.log.ResponseBody)
+			}
+		})
+	}
+}
+
+func TestAuditCaptureSkipsSerializationWhenClosedOrFull(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		closed      bool
+		full        bool
+		wantMarshal bool
+	}{
+		{
+			name:        "active",
+			wantMarshal: true,
+		},
+		{
+			name:   "closed",
+			closed: true,
+		},
+		{
+			name: "full",
+			full: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &llmAuditRecorder{
+				closed:                tc.closed,
+				responseCaptureFilled: tc.full,
+			}
+			marshaled := false
+			chunk := &schemas.BifrostStreamChunk{BifrostChatResponse: &schemas.BifrostChatResponse{
+				ExtraFields: schemas.BifrostResponseExtraFields{
+					RawResponse: auditMarshalProbe(func() { marshaled = true }),
+				},
+			}}
+			r.observeResponseChunk(chunk, nil)
+			if marshaled != tc.wantMarshal {
+				t.Fatalf("serialized chunk = %v, want %v", marshaled, tc.wantMarshal)
+			}
+		})
+	}
+}
+
+func TestAuditCaptureConcurrentCloseAndOverflow(t *testing.T) {
+	a := streaming.NewAccumulator(nil, bifrost.NewDefaultLogger(schemas.LogLevelWarn))
+	defer a.Cleanup()
+	r := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/responses", nil), nil, 5)
+	var resp schemas.BifrostChatResponse
+	if err := json.Unmarshal([]byte(`{"id":"chat_1","choices":[{"index":0,"delta":{"content":"too large"}}]}`), &resp); err != nil {
+		t.Fatal(err)
+	}
+	resp.ExtraFields.RequestType = schemas.ChatCompletionStreamRequest
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+			r.captureResponseChunk([]byte("too large"))
+		})
+	}
+	wg.Wait()
+	r.finishBody()
+	if !r.responseCaptureFilled || len(r.log.ResponseBody) != 0 || a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("oversized capture retained data")
+	}
+}
+
+func TestAuditCaptureConcurrentFinish(t *testing.T) {
+	a := streaming.NewAccumulator(nil, bifrost.NewDefaultLogger(schemas.LogLevelWarn))
+	defer a.Cleanup()
+	r := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/chat/completions", nil), nil, 5<<20)
+	r.stream = true
+	var resp schemas.BifrostChatResponse
+	if err := json.Unmarshal([]byte(`{"id":"chat_1","choices":[{"index":0,"delta":{"content":"hello"}}]}`), &resp); err != nil {
+		t.Fatal(err)
+	}
+	resp.ExtraFields.RequestType = schemas.ChatCompletionStreamRequest
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			<-start
+			r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+			r.captureResponseChunk([]byte("hello"))
+			r.captureStreamError([]byte(`{"error":"stream ended"}`))
+		})
+	}
+	wg.Go(func() {
+		<-start
+		r.finishBody()
+	})
+	close(start)
+	wg.Wait()
+	if !r.closed || a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("capture did not close and release its accumulator")
+	}
+	if len(r.log.ResponseBody) > 0 && !json.Valid(r.log.ResponseBody) {
+		t.Fatal("concurrent finalization produced invalid JSON")
+	}
+	r.observeResponseChunk(&schemas.BifrostStreamChunk{BifrostChatResponse: &resp}, a)
+	if a.GetAccumulatedResponse(r.log.ID) != nil {
+		t.Fatal("late callback recreated closed capture")
 	}
 }

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
+	"github.com/stretchr/testify/require"
 )
 
 func mockOpenAI(t *testing.T) *httptest.Server {
@@ -58,10 +58,10 @@ func TestEngineE2E(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
 	if e.HasUpstreamProviders(ctx) {
 		t.Fatal("expected no upstream providers before configuring one")
@@ -76,8 +76,15 @@ func TestEngineE2E(t *testing.T) {
 		return resp
 	}
 
-	mustOK("POST", "/api/providers", `{"provider":"openai","network_config":{"base_url":"`+up.URL+`","allow_private_network":true,"default_request_timeout_in_seconds":30}}`)
-	mustOK("POST", "/api/providers/openai/keys", `{"name":"k1","value":"sk-test-123","models":["*"],"weight":1}`)
+	if _, err := e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai","network_config":{"base_url":"`+up.URL+`","allow_private_network":true,"default_request_timeout_in_seconds":30}}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.CreateKey(ctx, "openai", json.RawMessage(`{"name":"k1","value":"sk-test-123","models":["*"],"weight":1}`)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	if !e.HasUpstreamProviders(ctx) {
 		t.Fatal("expected upstream providers after adding a key")
@@ -143,12 +150,12 @@ func TestMaxRequestBodyBytesFollowsTheSettings(t *testing.T) {
 	var config struct {
 		ClientConfig map[string]any `json:"client_config"`
 	}
-	if err := e.Do(ctx, http.MethodGet, "/api/config", nil, &config); err != nil {
+	if err := testResult(&config, "")(e.GetClientConfig(ctx)); err != nil {
 		t.Fatal(err)
 	}
 	config.ClientConfig["max_request_body_size_mb"] = 1
 	config.ClientConfig["log_retention_days"] = 1
-	if err := e.Do(ctx, http.MethodPut, "/api/config", map[string]any{"client_config": config.ClientConfig}, nil); err != nil {
+	if err := testMutation(ctx, e, nil, "client_config")(e.UpdateClientConfig(ctx, testJSON(t, map[string]any{"client_config": config.ClientConfig}))); err != nil {
 		t.Fatal(err)
 	}
 	// The engine applies its own limit only when it next starts; Obot's applies at once.
@@ -163,13 +170,13 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 	up := mockOpenAI(t)
 	defer up.Close()
 	e, ctx := startTestEngine(t)
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	}))); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "k1", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+	if err := testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "k1", "value": "sk-test", "models": []string{"*"}, "weight": 1}))); err != nil {
 		t.Fatal(err)
 	}
 	setLimit := func(mb int) {
@@ -177,18 +184,18 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 		var config struct {
 			ClientConfig map[string]any `json:"client_config"`
 		}
-		if err := e.Do(ctx, http.MethodGet, "/api/config", nil, &config); err != nil {
+		if err := testResult(&config, "")(e.GetClientConfig(ctx)); err != nil {
 			t.Fatal(err)
 		}
 		config.ClientConfig["max_request_body_size_mb"] = mb
 		config.ClientConfig["log_retention_days"] = 1
-		if err := e.Do(ctx, http.MethodPut, "/api/config", map[string]any{"client_config": config.ClientConfig}, nil); err != nil {
+		if err := testMutation(ctx, e, nil, "client_config")(e.UpdateClientConfig(ctx, testJSON(t, map[string]any{"client_config": config.ClientConfig}))); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// The engine starts with a 1 MB limit, then it is raised to 2 MB.
 	setLimit(1)
-	if _, err := e.Reload(1); err != nil {
+	if _, err := e.Sync(ctx); err != nil {
 		t.Fatal(err)
 	}
 	setLimit(2)
@@ -199,21 +206,5 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 	body := `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"` + strings.Repeat("a", 3<<19) + `"}]}`
 	if code, resp := do(t, e, http.MethodPost, "/v1/chat/completions", body); code != http.StatusOK || !strings.Contains(resp, "Hello from mock") {
 		t.Fatalf("a 1.5 MB request under the raised limit got %d: %.200s", code, resp)
-	}
-}
-
-// Warp, the engine's dashboard agent, is on by default; Obot turns it off, and it stays off
-// even if the engine's API is asked to turn it on.
-func TestWarpIsOff(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	warpEnabled := func() bool {
-		return e.inst.Load().server.Config.FeatureFlags.IsEnabled(lib.FeatureFlagWarp)
-	}
-	if warpEnabled() {
-		t.Fatal("warp is on")
-	}
-	_ = e.Do(ctx, http.MethodPut, "/api/feature-flags/"+lib.FeatureFlagWarp, map[string]any{"enabled": true}, nil)
-	if warpEnabled() {
-		t.Fatal("the engine's API turned warp on")
 	}
 }

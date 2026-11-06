@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -23,13 +22,10 @@ type limitedBackend struct {
 
 func (b limitedBackend) modelProviderName() string { return system.LLMGatewayModelProvider }
 
-func (b limitedBackend) upstreamURL(*http.Request) (url.URL, llmtypes.Dialect, error) {
-	return url.URL{Scheme: "http", Host: "gateway.invalid"}, llmtypes.DialectOpenAIChatCompletions, nil
+func (b limitedBackend) route(*http.Request) (bifrostRoute, error) {
+	return bifrostRoute{base: "/", dialect: llmtypes.DialectOpenAIChatCompletions}, nil
 }
-
-func (b limitedBackend) transport() (http.RoundTripper, error) {
-	return nil, nil
-}
+func (b limitedBackend) ServeHTTP(http.ResponseWriter, *http.Request) {}
 
 func (b limitedBackend) decorateRequest(*llmProviderProxy, api.Context, *v1.Model) (gatewayRequest, error) {
 	return nil, nil

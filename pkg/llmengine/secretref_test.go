@@ -3,7 +3,6 @@ package llmengine
 import (
 	"context"
 	"maps"
-	"net/http"
 	"testing"
 	"time"
 )
@@ -14,13 +13,13 @@ func TestAnthropicIsDirect(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
 	if e.AnthropicIsDirect(ctx) {
 		t.Fatal("direct without an Anthropic provider")
 	}
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "anthropic"}, nil); err != nil {
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "anthropic"}))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +87,7 @@ func TestAnthropicIsDirect(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var provider map[string]any
-			if err := e.Do(ctx, http.MethodGet, "/api/providers/anthropic", nil, &provider); err != nil {
+			if err := testResult(&provider, "")(e.GetProvider(ctx, "anthropic")); err != nil {
 				t.Fatal(err)
 			}
 			nc := map[string]any{"default_request_timeout_in_seconds": 30}
@@ -103,14 +102,14 @@ func TestAnthropicIsDirect(t *testing.T) {
 					update[k] = v
 				}
 			}
-			if err := e.Do(ctx, http.MethodPut, "/api/providers/anthropic", update, nil); err != nil {
+			if err := testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "anthropic", testJSON(t, update), false)); err != nil {
 				t.Fatal(err)
 			}
 			globalProxy := tt.globalProxy
 			if globalProxy == nil {
 				globalProxy = map[string]any{"enabled": false, "type": "http"}
 			}
-			if err := e.Do(ctx, http.MethodPut, "/api/proxy-config", globalProxy, nil); err != nil {
+			if err := e.UpdateProxyConfig(ctx, testJSON(t, globalProxy)); err != nil {
 				t.Fatal(err)
 			}
 			if got := e.AnthropicIsDirect(ctx); got != tt.want {

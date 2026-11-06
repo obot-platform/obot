@@ -1,9 +1,9 @@
 # 2026-09-26: Embed an LLM gateway engine in Obot
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-09-26
 - **Supersedes:** None
-- **Superseded by:** None
+- **Superseded by:** [Core LLM gateway](2026-11-02-core-llm-gateway.md)
 
 ## Related issues
 
@@ -32,7 +32,7 @@ Obot imports the engine's HTTP transport (`github.com/maximhq/bifrost/transports
 - **Model data comes from Obot, not the engine's vendor.** The engine downloads its pricing datasheet and model parameters from its vendor's website by default, and exits the process when it starts with an empty store and can't download them. Obot instead embeds a snapshot converted from LiteLLM's MIT-licensed model list (`pkg/modeldata`), downloaded when CI builds the published Docker images and release binaries rather than committed, writes it to the gateway's data dir, and points the engine at it with `file://` URLs. Obot refreshes those files every 6 hours from `--llm-gateway-model-data-url` (`https://upgrade-server.obot.ai/v1/model-data` by default, which serves the same conversion), keeping the current files when a download fails or looks incomplete. A build without the snapshot, such as one from source, downloads the files when it starts and starts without model prices if it can't. The engine re-reads them hourly. Its MCP library sync, also from its vendor, is off.
 - **The engine keeps its own configuration.** Providers, keys, virtual keys, routing rules and plugin settings live in the engine's config store, with provider keys encrypted (see Consequences). It is a SQLite file in the Obot data directory when Obot uses SQLite. When Obot uses Postgres, it lives in a `<database>_llm_gateway` database on the same server, which Obot creates if needed; `--llm-gateway-postgres-dsn` overrides this. If the database can't be created, the gateway doesn't start and says how to create it. It never falls back to SQLite on Postgres, because with several replicas each would keep its own providers, keys and routing. The engine's table names collide with Obot's, so the store cannot share Obot's schema.
 - **Obot UI for everything.** The gateway's admin pages, under `/models` and `/usage`, use a guarded pass-through, `/api/llm-gateway/admin/*` to the engine's `/api/*`. It exposes only providers and their keys, models, routing rules, pricing overrides, the engine's client and proxy configuration, and its version. The engine's MCP, skills, prompt-repository, plugin, cache, log and feature flag APIs are not exposed, and the engine's own UI is not served. Its dashboard agent (Warp), on by default, is turned off in the configuration Obot generates. Response caching isn't offered.
-- **The engine is not part of Obot's external interface.** No path, provider or model ID names it. The gateway strips the engine's response headers (which name upstream keys) and its `extra_fields`/`is_bifrost_error` body fields, from JSON and streaming responses alike. Client tuning headers use Obot names (`X-Obot-Session-ID`), and metrics are republished as `obot_llm_gateway_*`. That keeps the engine replaceable.
+- **The engine is not part of Obot's external interface.** No path, provider or model ID names it. The gateway strips the engine's response headers (which name upstream keys) and its `extra_fields`/`is_bifrost_error` body fields, from JSON and streaming responses alike. Client tuning headers use Obot names (`X-Obot-Session-ID`). That keeps the engine replaceable.
 - **The gateway replaces model providers.** The legacy per-provider routes, their backends and model provider daemons are removed, and the gateway can't be disabled. On first start, the credentials of configured legacy model providers are imported into the engine. After each gateway model sync, default model aliases and model access policies that named a legacy model move to the gateway model for the same upstream model, and legacy models and providers are then deleted. The former per-provider routes other than OpenAI and Anthropic answer 410.
 
 ## Rationale

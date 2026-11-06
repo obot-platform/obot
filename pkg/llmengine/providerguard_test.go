@@ -3,11 +3,14 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func startTestEngine(t *testing.T) (*Engine, context.Context) {
@@ -15,10 +18,10 @@ func startTestEngine(t *testing.T) (*Engine, context.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	t.Cleanup(cancel)
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: t.TempDir()}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: t.TempDir()})); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(e.Shutdown)
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	return e, ctx
 }
 
@@ -142,11 +145,11 @@ func TestGuardProviderChangeAddresses(t *testing.T) {
 
 func TestGuardProviderChangeKeepsCustomProviderConfig(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":               "qa-custom",
 		"custom_provider_config": map[string]any{"base_provider_type": "openai"},
 		"network_config":         map[string]any{"base_url": "http://10.1.2.3:8000", "allow_private_network": true},
-	}, nil); err != nil {
+	}))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -160,7 +163,7 @@ func TestGuardProviderChangeKeepsCustomProviderConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 	var sent map[string]any
-	if err := e.Do(ctx, http.MethodPut, "/api/providers/qa-custom", json.RawMessage(change.Body), &sent); err != nil {
+	if err := testMutation(ctx, e, &sent)(e.UpdateProvider(ctx, "qa-custom", testJSON(t, json.RawMessage(change.Body)), false)); err != nil {
 		t.Fatalf("the engine refused the update: %v", err)
 	}
 	if nc, _ := sent["network_config"].(map[string]any); nc["default_request_timeout_in_seconds"] != float64(45) {
@@ -175,16 +178,16 @@ func TestGuardProviderChangeBaseURLWithKeys(t *testing.T) {
 	up := mockOpenAI(t)
 	defer up.Close()
 	e, ctx := startTestEngine(t)
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
-	}, nil); err != nil {
+	}))); err != nil {
 		t.Fatal(err)
 	}
 	var key map[string]any
-	if err := e.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{
+	if err := testMutation(ctx, e, &key)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
 		"name": "stored", "value": "sk-stored-0123456789", "models": []string{"*"}, "weight": 1,
-	}, &key); err != nil {
+	}))); err != nil {
 		t.Fatal(err)
 	}
 	keys, err := e.providerKeys(ctx, "openai")
@@ -213,7 +216,7 @@ func TestGuardProviderChangeBaseURLWithKeys(t *testing.T) {
 
 func TestGuardProviderChangeKeyAddresses(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{"provider": "vllm"}, nil); err != nil {
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "vllm"}))); err != nil {
 		t.Fatal(err)
 	}
 	vllmKey := func(url, value string) []byte {
@@ -229,10 +232,10 @@ func TestGuardProviderChangeKeyAddresses(t *testing.T) {
 			t.Errorf("expected a key on %s to be refused", url)
 		}
 	}
-	if err := e.Do(ctx, http.MethodPut, "/api/providers/vllm", map[string]any{
+	if err := testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "vllm", testJSON(t, map[string]any{
 		"network_config":              map[string]any{"allow_private_network": true},
 		"concurrency_and_buffer_size": map[string]any{"concurrency": 1000, "buffer_size": 5000},
-	}, nil); err != nil {
+	}), false)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.GuardProviderChange(ctx, http.MethodPost, "providers/vllm/keys", vllmKey("http://169.254.169.254", "vllm-secret-0123456789"), false); err == nil {
@@ -242,7 +245,7 @@ func TestGuardProviderChangeKeyAddresses(t *testing.T) {
 	if _, err := e.GuardProviderChange(ctx, http.MethodPost, "providers/vllm/keys", body, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := e.Do(ctx, http.MethodPost, "/api/providers/vllm/keys", json.RawMessage(body), nil); err != nil {
+	if err := testMutation(ctx, e, nil)(e.CreateKey(ctx, "vllm", testJSON(t, json.RawMessage(body)))); err != nil {
 		t.Fatal(err)
 	}
 	keys, err := e.providerKeys(ctx, "vllm")
@@ -276,5 +279,51 @@ func TestGuardProviderChangeKeyAddresses(t *testing.T) {
 	moved["value"] = "vllm-new-secret-0123456789"
 	if _, err := e.GuardProviderChange(ctx, http.MethodPut, "providers/vllm/keys/"+id, mustJSON(t, moved), false); err != nil {
 		t.Errorf("expected moving the key with its secret entered again to be allowed, got %v", err)
+	}
+}
+
+func TestPartialProviderUpdatePreservesNetworkAndKeys(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		host         string
+		allowPrivate bool
+	}{
+		{
+			name: "public destination",
+			host: "8.8.8.8",
+		},
+		{
+			name:         "private destination",
+			host:         "10.1.2.3",
+			allowPrivate: true,
+		},
+	} {
+		for _, removeKeys := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/removeKeys=%t", tc.name, removeKeys), func(t *testing.T) {
+				e, ctx := startTestEngine(t)
+				_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "vllm", "network_config": map[string]any{"base_url": "http://" + tc.host + ":8000", "allow_private_network": tc.allowPrivate}}))
+				require.NoError(t, err)
+				_, err = e.CreateKey(ctx, "vllm", testJSON(t, map[string]any{"name": "test", "value": "secret", "vllm_key_config": map[string]any{"url": "http://" + tc.host + ":8000", "model_name": "test"}}))
+				require.NoError(t, err)
+				before, err := e.store.GetProvider(ctx, "vllm")
+				require.NoError(t, err)
+
+				patch := json.RawMessage(`{"concurrency_and_buffer_size":{"concurrency":7,"buffer_size":10}}`)
+				change, err := e.GuardProviderChange(ctx, http.MethodPut, "providers/vllm", patch, removeKeys)
+				require.NoError(t, err)
+				require.Empty(t, change.RemoveKeys)
+				var fields map[string]json.RawMessage
+				require.NoError(t, json.Unmarshal(change.Body, &fields))
+				require.NotContains(t, fields, "network_config", "validation must not expand the saved patch")
+
+				_, err = e.UpdateProvider(ctx, "vllm", patch, removeKeys)
+				require.NoError(t, err)
+				after, err := e.store.GetProvider(ctx, "vllm")
+				require.NoError(t, err)
+				require.Equal(t, before.Config.NetworkConfig, after.Config.NetworkConfig)
+				require.Equal(t, before.Keys, after.Keys)
+				require.Equal(t, 7, after.Config.ConcurrencyAndBufferSize.Concurrency)
+			})
+		}
 	}
 }

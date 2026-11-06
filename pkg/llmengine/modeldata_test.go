@@ -17,6 +17,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/modeldata"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
+	"github.com/stretchr/testify/require"
 )
 
 // TestEngineBootsWithoutNetwork starts the gateway with no way to reach the internet. It must
@@ -35,12 +36,12 @@ func TestEngineBootsWithoutNetwork(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 
-	catalog := e.inst.Load().server.Config.ModelCatalog
+	catalog := e.prices
 	usage := &schemas.BifrostLLMUsage{PromptTokens: 1_000_000, CompletionTokens: 1_000_000, TotalTokens: 2_000_000}
 	if cost := catalog.CalculateCostForUsage(usage, schemas.OpenAI, "gpt-4o", schemas.ChatCompletionRequest, nil); cost <= 0 {
 		t.Errorf("gpt-4o costs %v for a million tokens each way, want a price from the model data", cost)
@@ -65,11 +66,11 @@ func TestEnginePicksUpChangedModelData(t *testing.T) {
 		}
 	}
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(e.Shutdown)
-	catalog := e.inst.Load().server.Config.ModelCatalog
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
+	catalog := e.prices
 	gpt4o := func() float64 {
 		t.Helper()
 		usage := &schemas.BifrostLLMUsage{PromptTokens: 1_000_000, TotalTokens: 1_000_000}
@@ -146,18 +147,18 @@ func TestEngineForwardsRequestParameters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	e := New()
-	if err := e.Start(ctx, Options{DataDir: dataDir}); err != nil {
+	if err := e.Start(ctx, testOptions(t, Options{DataDir: dataDir})); err != nil {
 		t.Fatal(err)
 	}
-	defer e.Shutdown()
+	defer func() { require.NoError(t, e.Shutdown(context.Background())) }()
 	for _, provider := range []string{"openai", "anthropic"} {
-		if err := e.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+		if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 			"provider":       provider,
 			"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-		}, nil); err != nil {
+		}))); err != nil {
 			t.Fatal(err)
 		}
-		if err := e.Do(ctx, http.MethodPost, "/api/providers/"+provider+"/keys", map[string]any{"name": provider + "-key", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+		if err := testMutation(ctx, e, nil)(e.CreateKey(ctx, ""+provider+"", testJSON(t, map[string]any{"name": provider + "-key", "value": "sk-test", "models": []string{"*"}, "weight": 1}))); err != nil {
 			t.Fatal(err)
 		}
 	}

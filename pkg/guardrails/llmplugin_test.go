@@ -13,9 +13,16 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/streaming"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/llmcore"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 const (
@@ -30,6 +37,16 @@ type upstream struct {
 	*httptest.Server
 	lock    sync.Mutex
 	prompts []string
+}
+
+type plaintextGatewayCodec struct{}
+
+func (plaintextGatewayCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
+}
+
+func (plaintextGatewayCodec) OpenGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
 }
 
 func newUpstream(t *testing.T) *upstream {
@@ -108,26 +125,35 @@ func startGateway(t *testing.T, store *fakeStore) (*llmengine.Engine, *upstream)
 	// Model prices for the tests that check what the gateway charges.
 	dataDir := t.TempDir()
 	modeldatatest.Write(t, dataDir)
-	if err := gw.Start(ctx, llmengine.Options{DataDir: dataDir, FirstPlugin: input, LastPlugin: output}); err != nil {
+	configStore, err := llmcoreclient.New(fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(), plaintextGatewayCodec{})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if err := gw.Start(ctx, llmengine.Options{Store: configStore, DataDir: dataDir, FirstPlugin: input, LastPlugin: output}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { require.NoError(t, gw.Shutdown(context.Background())) })
+	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers/openai/keys", map[string]any{"name": "k", "value": "sk-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+	if _, err := gw.CreateKey(ctx, "openai", gatewayJSON(t, map[string]any{"name": "k", "value": "sk-test", "models": []string{"*"}, "weight": 1})); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers", map[string]any{
+	if _, err := gw.CreateProvider(ctx, gatewayJSON(t, map[string]any{
 		"provider":       "anthropic",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
-	}, nil); err != nil {
+	})); err != nil {
 		t.Fatal(err)
 	}
-	if err := gw.Do(ctx, http.MethodPost, "/api/providers/anthropic/keys", map[string]any{"name": "ka", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1}, nil); err != nil {
+	if _, err := gw.CreateKey(ctx, "anthropic", gatewayJSON(t, map[string]any{"name": "ka", "value": "sk-ant-test", "models": []string{"*"}, "weight": 1})); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := gw.Sync(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -341,6 +367,124 @@ func TestGatewayPluginsBlock(t *testing.T) {
 	}
 }
 
+func TestGatewayMetricsIncludeBlockedOutput(t *testing.T) {
+	store := &fakeStore{
+		guardrails: []types.Guardrail{guardrail("secrets", "secrets", nil)},
+		policies:   []types.GuardrailPolicy{policy("block-secrets", types.GuardrailActionBlock, "secrets")},
+	}
+	gw, _ := startGateway(t, store)
+	code, body := call(t, gw, `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`, true)
+	require.Equal(t, http.StatusBadRequest, code, body)
+	require.Contains(t, body, "block-secrets")
+	require.NotContains(t, body, leakedKey)
+
+	scrape := httptest.NewRecorder()
+	gw.ServeMetrics(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusOK, scrape.Code)
+	require.NotContains(t, scrape.Body.String(), `provider=""`)
+	require.Contains(t, scrape.Body.String(), "obot_llm_gateway_guardrail_blocks_total{stage=\"output\"} 1\n")
+	const labels = `key="k",model="gpt-4o-mini",provider="openai"`
+	// Blocking delivery does not undo the provider's billed 5 input and 3 output tokens.
+	for series, want := range map[string]float64{
+		`obot_llm_gateway_requests_total{` + labels + `}`:                  1,
+		`obot_llm_gateway_attempt_duration_seconds_count{` + labels + `}`:  1,
+		`obot_llm_gateway_tokens_total{direction="input",` + labels + `}`:  5,
+		`obot_llm_gateway_tokens_total{direction="output",` + labels + `}`: 3,
+		`obot_llm_gateway_cost_total{` + labels + `}`:                      5*0.15e-6 + 3*0.6e-6,
+	} {
+		found := false
+		for line := range strings.SplitSeq(scrape.Body.String(), "\n") {
+			if !strings.HasPrefix(line, series+" ") {
+				continue
+			}
+			var got float64
+			_, err := fmt.Sscanf(strings.TrimPrefix(line, series+" "), "%f", &got)
+			require.NoError(t, err)
+			require.InDelta(t, want, got, want*1e-6, series)
+			found = true
+		}
+		require.True(t, found, "missing metrics series %s", series)
+	}
+}
+
+func TestGatewayGuardrailBlockMetrics(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		action     string
+		input      string
+		stream     bool
+		loadError  bool
+		failClosed bool
+		stage      string
+	}{
+		{
+			name:   "input block",
+			action: types.GuardrailActionBlock,
+			input:  leakedKey,
+			stage:  StageInput,
+		},
+		{
+			name:   "stream output block",
+			action: types.GuardrailActionBlock,
+			stream: true,
+			stage:  StageOutput,
+		},
+		{
+			name:      "fail-closed policy loading",
+			action:    types.GuardrailActionBlock,
+			loadError: true,
+			stage:     StageInput,
+		},
+		{
+			name:       "fail-closed output evaluation",
+			action:     types.GuardrailActionBlock,
+			failClosed: true,
+			stage:      StageOutput,
+		},
+		{
+			name:   "redaction is not a block",
+			action: types.GuardrailActionRedact,
+		},
+		{
+			name:   "logging is not a block",
+			action: types.GuardrailActionLog,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeStore{
+				guardrails: []types.Guardrail{guardrail("secrets", "secrets", nil)},
+				policies:   []types.GuardrailPolicy{policy("secrets-policy", tc.action, "secrets")},
+			}
+			if tc.failClosed {
+				store.guardrails = []types.Guardrail{guardrail("secrets", "test-failing", nil)}
+				store.policies[0].ApplyTo = types.GuardrailApplyOutput
+				store.policies[0].FailClosed = true
+			}
+			gw, _ := startGateway(t, store)
+			if tc.loadError {
+				store.loadErr = fmt.Errorf("policy storage unavailable")
+			}
+			prompt := "hello " + tc.input
+			code, body := call(t, gw, fmt.Sprintf(`{"model":"openai/gpt-4o-mini","stream":%t,"messages":[{"role":"user","content":%q}]}`, tc.stream, prompt), true)
+			if tc.stage == "" {
+				require.Equal(t, http.StatusOK, code, body)
+			} else {
+				require.Contains(t, body, "guardrail_intervention")
+			}
+			scrape := httptest.NewRecorder()
+			gw.ServeMetrics(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+			if tc.stage == "" {
+				require.NotContains(t, scrape.Body.String(), "obot_llm_gateway_guardrail_blocks_total{")
+			} else {
+				require.Contains(t, scrape.Body.String(), `obot_llm_gateway_guardrail_blocks_total{stage="`+tc.stage+"\"} 1\n")
+			}
+			if tc.stage == StageInput {
+				require.NotContains(t, scrape.Body.String(), "obot_llm_gateway_requests_total{")
+			}
+		})
+	}
+}
+
 func secretDetection(stage, policyName, outcome string) Detection {
 	return Detection{
 		Stage:         stage,
@@ -476,4 +620,47 @@ func TestGatewayPluginsReportDetections(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCoreStreamObserverSeesGuardrailReplay(t *testing.T) {
+	store := &fakeStore{
+		guardrails: []types.Guardrail{guardrail("secrets", "secrets", nil)},
+		policies:   []types.GuardrailPolicy{policy("redact-secrets", types.GuardrailActionRedact, "secrets")},
+	}
+	gw, _ := startGateway(t, store)
+	var lock sync.Mutex
+	var observed strings.Builder
+	token, release := BindRequest(Identity{UserID: "alice", ProfileIDs: []string{testProfile}}, RequestHooks{})
+	defer release()
+	ctx := llmcore.WithStreamObserver(t.Context(), func(_ *schemas.BifrostContext, chunk *schemas.BifrostStreamChunk, _ *streaming.Accumulator) {
+		data, err := json.Marshal(chunk)
+		if err != nil {
+			return
+		}
+		lock.Lock()
+		defer lock.Unlock()
+		observed.Write(data)
+	})
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"openai/gpt-4o-mini","stream":true,"messages":[{"role":"user","content":"hello"}]}`)).WithContext(ctx)
+	req.Header.Set(HeaderRequestToken, token)
+	rec := httptest.NewRecorder()
+	gw.ServeHTTP(rec, req)
+	code, body := rec.Code, rec.Body.String()
+	if code != http.StatusOK {
+		t.Fatalf("%d %s", code, body)
+	}
+	lock.Lock()
+	defer lock.Unlock()
+	if strings.Contains(observed.String(), leakedKey[:10]) || !strings.Contains(observed.String(), "REDACTED:AWS_ACCESS_KEY_ID") {
+		t.Fatalf("observer saw %s", observed.String())
+	}
+}
+
+func gatewayJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
 }
