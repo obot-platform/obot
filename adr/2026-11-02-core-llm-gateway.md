@@ -11,7 +11,7 @@
 
 ## Related ODPs
 
-- Bifrost core gateway proposal — local `obot-design-proposals` branch `bifrost-core-gateway`, document `proposals/2026-11-02-bifrost-core-gateway/README.md`. Calvin explicitly authorized implementation before proposal merge. Add its permanent link when published.
+None.
 
 ## Context
 
