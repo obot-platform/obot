@@ -21,16 +21,21 @@ type flushErrorWriter struct {
 	err     error
 }
 
+type flushAuditLogger struct {
+	entries []audit.LogEntry
+}
+
+// The real HTTP writer exposes both methods; tracing used to lose the error via Flush.
+type legacyFlushErrorWriter struct {
+	*flushErrorWriter
+}
+
 func (w *flushErrorWriter) FlushError() error {
 	if w.code == 0 {
 		w.WriteHeader(http.StatusOK)
 	}
 	w.flushes++
 	return w.err
-}
-
-type flushAuditLogger struct {
-	entries []audit.LogEntry
 }
 
 func (l *flushAuditLogger) LogEntry(entry audit.LogEntry) error {
@@ -83,11 +88,6 @@ func TestResponseWritersFlush(t *testing.T) {
 			require.ErrorIs(t, http.NewResponseController(wrap(newCountingResponseWriter())).Flush(), http.ErrNotSupported)
 		})
 	}
-}
-
-// The real HTTP writer exposes both methods; tracing used to lose the error via Flush.
-type legacyFlushErrorWriter struct {
-	*flushErrorWriter
 }
 
 func (w *legacyFlushErrorWriter) Flush() { _ = w.FlushError() }

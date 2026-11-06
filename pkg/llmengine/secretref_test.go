@@ -19,7 +19,7 @@ func TestAnthropicIsDirect(t *testing.T) {
 	if e.AnthropicIsDirect(ctx) {
 		t.Fatal("direct without an Anthropic provider")
 	}
-	if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "anthropic"}))); err != nil {
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "anthropic"}))); err != nil {
 		t.Fatal(err)
 	}
 
@@ -102,7 +102,7 @@ func TestAnthropicIsDirect(t *testing.T) {
 					update[k] = v
 				}
 			}
-			if err := testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "anthropic", testJSON(t, update), false)); err != nil {
+			if err := testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "anthropic", testJSON(t, update), false)); err != nil {
 				t.Fatal(err)
 			}
 			globalProxy := tt.globalProxy

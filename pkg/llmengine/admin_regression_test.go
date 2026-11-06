@@ -27,28 +27,28 @@ import (
 func TestProviderQueueDefaults(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	var created schemas.ProviderConfig
-	require.NoError(t, testMutation(e, ctx, &created)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
+	require.NoError(t, testMutation(ctx, e, &created)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
 	require.Positive(t, created.ConcurrencyAndBufferSize.Concurrency, "API must show the effective worker count")
 	require.Positive(t, created.ConcurrencyAndBufferSize.BufferSize)
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, created.ConcurrencyAndBufferSize, cfg.Config.Providers[schemas.OpenAI].ConcurrencyAndBufferSize)
 	var updated schemas.ProviderConfig
-	require.NoError(t, testMutation(e, ctx, &updated)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 0}}), false)))
+	require.NoError(t, testMutation(ctx, e, &updated)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 0}}), false)))
 	require.Positive(t, updated.ConcurrencyAndBufferSize.Concurrency)
 	require.Positive(t, updated.ConcurrencyAndBufferSize.BufferSize)
-	require.Error(t, testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 1}}), false)), "validate effective defaults against the requested queue size")
+	require.Error(t, testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, map[string]any{"concurrency_and_buffer_size": map[string]any{"concurrency": 0, "buffer_size": 1}}), false)), "validate effective defaults against the requested queue size")
 }
 
 func TestOmittedQueueStillServesInference(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}))))
 	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
-	require.NoError(t, testInference(t, e, bounded, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "openai/gpt-4o-mini", "messages": []map[string]any{{"role": "user", "content": "hello"}}}, nil))
+	require.NoError(t, testInference(bounded, t, e, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "openai/gpt-4o-mini", "messages": []map[string]any{{"role": "user", "content": "hello"}}}, nil))
 }
 
 func TestConcurrentEnvImport(t *testing.T) {
@@ -136,8 +136,8 @@ func TestRefreshModelsFetchesUpstream(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]any{{"id": model, "object": "model"}}})
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "test-secret", "models": []string{"*"}, "weight": 1}))))
 	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.NoError(t, e.RefreshProviderModels(ctx, "openai"))
@@ -200,19 +200,19 @@ func TestSyncFailureAfterCommitStillReturnsSuccess(t *testing.T) {
 
 func TestKeyRenamePreservesUniqueNames(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
 	var first, second schemas.Key
-	require.NoError(t, testMutation(e, ctx, &first)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "first", "value": "secret-one"}))))
-	require.NoError(t, testMutation(e, ctx, &second)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "second", "value": "secret-two"}))))
+	require.NoError(t, testMutation(ctx, e, &first)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "first", "value": "secret-one"}))))
+	require.NoError(t, testMutation(ctx, e, &second)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "second", "value": "secret-two"}))))
 	id := first.ID
-	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": "first", "id": second.ID}))), "keeping the same name is allowed")
+	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": "first", "id": second.ID}))), "keeping the same name is allowed")
 	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Error(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": second.Name}))))
+	require.Error(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": second.Name}))))
 	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after, "rejected rename must not commit")
-	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": "renamed"}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "openai", id, testJSON(t, map[string]any{"name": "renamed"}))))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	names := map[string]string{}

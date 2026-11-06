@@ -1,6 +1,8 @@
 package llm
 
-import "github.com/maximhq/bifrost/core/schemas"
+import (
+	"github.com/maximhq/bifrost/core/schemas"
+)
 
 type subscriptionAttemptKey struct{}
 

@@ -110,8 +110,10 @@ func testKeyDNS(context.Context, string, string) (net.Conn, error) {
 			return
 		}
 		response := dnsmessage.Message{
-			Header:    dnsmessage.Header{ID: request.ID, Response: true, RecursionAvailable: true},
-			Questions: request.Questions,
+			ID:                 request.ID,
+			Response:           true,
+			RecursionAvailable: true,
+			Questions:          request.Questions,
 		}
 		for _, question := range request.Questions {
 			if question.Type == dnsmessage.TypeA {

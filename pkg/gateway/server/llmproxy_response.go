@@ -151,7 +151,7 @@ func (r *llmResponseWriter) finish() {
 		return
 	}
 	if err := r.request.Context().Err(); err != nil {
-		r.failed(err)
+		_ = r.failed(err)
 	}
 	if r.err != nil {
 		r.finalize()
@@ -175,7 +175,7 @@ func (r *llmResponseWriter) finish() {
 			r.body.Reset()
 			llmtypes.WriteError(r, r.request, "failed to prepare gateway response", http.StatusBadGateway)
 			body = r.body.Bytes()
-			r.failed(err)
+			_ = r.failed(err)
 		} else {
 			// Preparation helpers return byte-backed bodies; there is no upstream I/O here.
 			body, _ = io.ReadAll(resp.Body)

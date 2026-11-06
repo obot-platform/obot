@@ -215,10 +215,7 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client) {
 // Legacy credential migration is disabled until upgrades from v0.27 are supported.
 func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) func() (bool, bool) {
 	return func() (bool, bool) {
-		changed := false
-		if e.importEnvProviders(ctx, c, mp) {
-			changed = true
-		}
+		changed := e.importEnvProviders(ctx, c, mp)
 		if e.ApplyEgressProxy(ctx) {
 			changed = true
 		}

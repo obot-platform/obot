@@ -87,6 +87,8 @@ type responseWriter struct {
 	auditLogger audit.Logger
 }
 
+type tracingFlushKey struct{}
+
 func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, licenseProvider *license.Provider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
@@ -169,8 +171,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.otelHandler.ServeHTTP(w, r)
 }
-
-type tracingFlushKey struct{}
 
 // traced traces the requests that h serves, other than health checks and static assets.
 func traced(h http.Handler) http.Handler {

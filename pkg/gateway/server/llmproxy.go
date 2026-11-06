@@ -576,7 +576,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	// with its native endpoint and the caller's query parameters.
 	ctx, cancel := context.WithCancel(req.Context())
 	defer cancel()
-	engineReq := req.Request.Clone(ctx)
+	engineReq := req.Clone(ctx)
 	engineReq.URL.Path = path.Join(endpoint.base, req.PathValue("path"))
 	engineReq.URL.RawPath = ""
 	engineReq.Header.Del("Accept-Encoding")
@@ -595,7 +595,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		if recovered := recover(); recovered != nil {
 			// Leave HTTP recovery to the outer server; never flush buffered success
 			// while unwinding a panic. Accounting and attempt release still run once.
-			output.failed(errors.New("LLM gateway handler panicked"))
+			_ = output.failed(errors.New("LLM gateway handler panicked"))
 			if !output.committed {
 				output.audit.recordResponseStatus(http.StatusInternalServerError)
 				output.usage.recordResponseStatus(http.StatusInternalServerError)

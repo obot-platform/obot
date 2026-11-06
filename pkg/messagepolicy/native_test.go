@@ -14,19 +14,11 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 type nativeCodec struct{}
-
-func (nativeCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
-	return data, nil
-}
-func (nativeCodec) OpenGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
-	return data, nil
-}
 
 type nativeJudge struct {
 	panicStage    string
@@ -36,6 +28,13 @@ type nativeJudge struct {
 	cancel        bool
 	model         string
 	messages      []schemas.ChatMessage
+}
+
+func (nativeCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
+}
+func (nativeCodec) OpenGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
 }
 
 func (*nativeJudge) GetName() string { return "native-judge-fixture" }
@@ -134,7 +133,7 @@ func TestNativePolicyFailuresStayClosed(t *testing.T) {
 				require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Name: alias.KeyFromScopeID("Model", string(types.DefaultModelAliasTypeLLMMini))}, obj))
 				obj.Spec.TargetKind = "DefaultModelAlias"
 				require.NoError(t, storage.Update(t.Context(), obj))
-				require.NoError(t, storage.Create(t.Context(), &v1.DefaultModelAlias{ObjectMeta: metav1.ObjectMeta{Name: "m1-judge", Namespace: system.DefaultNamespace}}))
+				require.NoError(t, storage.Create(t.Context(), &v1.DefaultModelAlias{Name: "m1-judge", Namespace: system.DefaultNamespace}))
 			}
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()

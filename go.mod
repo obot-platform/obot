@@ -66,6 +66,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/tidwall/gjson v1.19.0
 	github.com/tidwall/sjson v1.2.5
+	github.com/valyala/fasthttp v1.74.0
 	github.com/zalando/go-keyring v0.2.8
 	go.opentelemetry.io/contrib/exporters/autoexport v0.69.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.70.0
@@ -343,7 +344,6 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	github.com/valyala/fasthttp v1.74.0 // indirect
 	github.com/weaviate/weaviate v1.38.0 // indirect
 	github.com/weaviate/weaviate-go-client/v5 v5.7.1 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect

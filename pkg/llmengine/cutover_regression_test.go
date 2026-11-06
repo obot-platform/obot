@@ -18,13 +18,13 @@ func TestPricingUpdatePreservesOmittedPatch(t *testing.T) {
 		Override configPricingOverride `json:"pricing_override"`
 	}
 	patch := `{"input_cost_per_token":0.001,"output_cost_per_token":0.002}`
-	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "custom", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o-mini", "request_types": []string{"chat_completion"}, "patch": json.RawMessage(patch)}))))
+	require.NoError(t, testMutation(ctx, e, &out, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "custom", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o-mini", "request_types": []string{"chat_completion"}, "patch": json.RawMessage(patch)}))))
 	id := out.Override.ID
-	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"name": "renamed"}))))
+	require.NoError(t, testMutation(ctx, e, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"name": "renamed"}))))
 	require.JSONEq(t, patch, out.Override.PricingPatchJSON)
-	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"patch": map[string]any{"input_cost_per_token": 0.003}}))))
+	require.NoError(t, testMutation(ctx, e, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"patch": map[string]any{"input_cost_per_token": 0.003}}))))
 	require.JSONEq(t, `{"input_cost_per_token":0.003}`, out.Override.PricingPatchJSON)
-	require.NoError(t, testMutation(e, ctx, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"patch": map[string]any{}}))))
+	require.NoError(t, testMutation(ctx, e, &out, "pricing_override")(e.UpdatePricingOverride(ctx, id, testJSON(t, map[string]any{"patch": map[string]any{}}))))
 	require.JSONEq(t, `{}`, out.Override.PricingPatchJSON)
 }
 
@@ -44,13 +44,13 @@ func TestModelListingsIncludeCatalogMetadata(t *testing.T) {
 	require.NoError(t, e.prices.ForceReloadPricing(ctx))
 	up := mockOpenAI(t)
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "primary", "value": "secret", "aliases": map[string]any{"friendly": map[string]any{"model_id": "gpt-4o-mini"}}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "primary", "value": "secret", "aliases": map[string]any{"friendly": map[string]any{"model_id": "gpt-4o-mini"}}}))))
 	for _, path := range []string{"/v1/models", "/v1/models?provider=openai"} {
 		var out struct {
 			Data []schemas.Model `json:"data"`
 		}
-		require.NoError(t, testInference(t, e, ctx, http.MethodGet, path, nil, &out))
+		require.NoError(t, testInference(ctx, t, e, http.MethodGet, path, nil, &out))
 		for _, id := range []string{"openai/gpt-4o-mini", "openai/friendly"} {
 			var found bool
 			for _, m := range out.Data {

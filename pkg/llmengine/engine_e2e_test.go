@@ -3,13 +3,14 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
-	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func mockOpenAI(t *testing.T) *httptest.Server {
@@ -154,7 +155,7 @@ func TestMaxRequestBodyBytesFollowsTheSettings(t *testing.T) {
 	}
 	config.ClientConfig["max_request_body_size_mb"] = 1
 	config.ClientConfig["log_retention_days"] = 1
-	if err := testMutation(e, ctx, nil, "client_config")(e.UpdateClientConfig(ctx, testJSON(t, map[string]any{"client_config": config.ClientConfig}))); err != nil {
+	if err := testMutation(ctx, e, nil, "client_config")(e.UpdateClientConfig(ctx, testJSON(t, map[string]any{"client_config": config.ClientConfig}))); err != nil {
 		t.Fatal(err)
 	}
 	// The engine applies its own limit only when it next starts; Obot's applies at once.
@@ -169,13 +170,13 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 	up := mockOpenAI(t)
 	defer up.Close()
 	e, ctx := startTestEngine(t)
-	if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+	if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "default_request_timeout_in_seconds": 30},
 	}))); err != nil {
 		t.Fatal(err)
 	}
-	if err := testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "k1", "value": "sk-test", "models": []string{"*"}, "weight": 1}))); err != nil {
+	if err := testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "k1", "value": "sk-test", "models": []string{"*"}, "weight": 1}))); err != nil {
 		t.Fatal(err)
 	}
 	setLimit := func(mb int) {
@@ -188,7 +189,7 @@ func TestRaisedRequestSizeLimitAppliesAtOnce(t *testing.T) {
 		}
 		config.ClientConfig["max_request_body_size_mb"] = mb
 		config.ClientConfig["log_retention_days"] = 1
-		if err := testMutation(e, ctx, nil, "client_config")(e.UpdateClientConfig(ctx, testJSON(t, map[string]any{"client_config": config.ClientConfig}))); err != nil {
+		if err := testMutation(ctx, e, nil, "client_config")(e.UpdateClientConfig(ctx, testJSON(t, map[string]any{"client_config": config.ClientConfig}))); err != nil {
 			t.Fatal(err)
 		}
 	}

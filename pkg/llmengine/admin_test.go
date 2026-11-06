@@ -11,8 +11,8 @@ func TestAdminKeyUpdateAndConfirmedDestinationChange(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	upstream := mockOpenAI(t)
 	defer upstream.Close()
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "primary", "value": "sk-private-long-secret", "models": []string{"*"}, "weight": 1}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai"}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "primary", "value": "sk-private-long-secret", "models": []string{"*"}, "weight": 1}))))
 	var listed struct {
 		Keys []map[string]any `json:"keys"`
 	}
@@ -20,18 +20,18 @@ func TestAdminKeyUpdateAndConfirmedDestinationChange(t *testing.T) {
 	require.Len(t, listed.Keys, 1)
 	key := listed.Keys[0]
 	key["name"] = "renamed"
-	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateKey(ctx, "openai", key["id"].(string), testJSON(t, key))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "openai", key["id"].(string), testJSON(t, key))))
 	cfg, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "sk-private-long-secret", cfg.Config.Keys[schemas.OpenAI][0].Value.GetValue())
 	before := cfg
 	change := map[string]any{"network_config": map[string]any{"base_url": upstream.URL, "allow_private_network": true}}
-	require.Error(t, testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, change), false)))
+	require.Error(t, testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, change), false)))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, cfg)
 	require.Len(t, cfg.Config.Keys[schemas.OpenAI], 1)
-	require.NoError(t, testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, change), true)))
+	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "openai", testJSON(t, change), true)))
 	cfg, err = e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Empty(t, cfg.Config.Keys[schemas.OpenAI])
@@ -42,11 +42,11 @@ func TestPricingAndRoutingValidationBeforeCommit(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	before, err := e.store.Load(ctx)
 	require.NoError(t, err)
-	require.Error(t, testMutation(e, ctx, nil, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "invalid", "scope_kind": "unknown", "match_type": "exact", "pattern": "gpt-4o", "patch": map[string]any{}}))))
+	require.Error(t, testMutation(ctx, e, nil, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "invalid", "scope_kind": "unknown", "match_type": "exact", "pattern": "gpt-4o", "patch": map[string]any{}}))))
 	after, err := e.store.Load(ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after)
-	require.NoError(t, testMutation(e, ctx, nil, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "global", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o", "request_types": []string{"chat_completion"}, "patch": map[string]any{}}))))
+	require.NoError(t, testMutation(ctx, e, nil, "pricing_override")(e.CreatePricingOverride(ctx, testJSON(t, map[string]any{"name": "global", "scope_kind": "global", "match_type": "exact", "pattern": "gpt-4o", "request_types": []string{"chat_completion"}, "patch": map[string]any{}}))))
 	require.False(t, usesUnsupportedBudgetVariable(`headers["request"] == "budget_used"`))
 	require.True(t, usesUnsupportedBudgetVariable(`budget_used > 0.5`))
 	require.True(t, usesUnsupportedBudgetVariable(`request > 0`))

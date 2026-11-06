@@ -39,7 +39,7 @@ func testResult(out any, envelope string) func(any, error) error {
 
 // Inference fixtures need their setup applied locally. Persistence regressions use
 // direct operations instead so this helper cannot conceal an implicit runtime wait.
-func testMutation(e *Engine, ctx context.Context, out any, envelope ...string) func(any, error) error {
+func testMutation(ctx context.Context, e *Engine, out any, envelope ...string) func(any, error) error {
 	return func(value any, err error) error {
 		if err == nil {
 			_, _ = e.Sync(ctx)
@@ -52,7 +52,7 @@ func testMutation(e *Engine, ctx context.Context, out any, envelope ...string) f
 	}
 }
 
-func testInference(t *testing.T, e *Engine, ctx context.Context, method, path string, body, out any) error {
+func testInference(ctx context.Context, t *testing.T, e *Engine, method, path string, body, out any) error {
 	t.Helper()
 	if !strings.HasPrefix(path, "/v1/") && !strings.HasPrefix(path, "/anthropic/") {
 		return fmt.Errorf("test inference transport cannot administer %s", path)

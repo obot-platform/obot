@@ -31,10 +31,10 @@ func TestModelDiscoveryOmitsCatalogDeprecatedModels(t *testing.T) {
 		}})
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret"}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "openai", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{"name": "test", "value": "secret"}))))
 	var listed struct{ Data []schemas.Model }
-	require.NoError(t, testInference(t, e, ctx, http.MethodGet, "/v1/models", nil, &listed))
+	require.NoError(t, testInference(ctx, t, e, http.MethodGet, "/v1/models", nil, &listed))
 	ids := []string{}
 	for _, model := range listed.Data {
 		ids = append(ids, model.ID)
@@ -90,8 +90,8 @@ func TestBedrockDiscoveryOmitsUnavailableModels(t *testing.T) {
 				}})
 			}))
 			t.Cleanup(up.Close)
-			require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "bedrock", "network_config": map[string]any{"insecure_skip_verify": true, "allow_private_network": true}}))))
-			require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "bedrock", testJSON(t, map[string]any{
+			require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "bedrock", "network_config": map[string]any{"insecure_skip_verify": true, "allow_private_network": true}}))))
+			require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "bedrock", testJSON(t, map[string]any{
 				"name": "test", "value": "test-bearer", "bedrock_key_config": map[string]any{
 					"region": "us-east-1", "endpoints": map[string]any{"control_plane": up.URL, "mantle": up.URL},
 				},
@@ -101,7 +101,7 @@ func TestBedrockDiscoveryOmitsUnavailableModels(t *testing.T) {
 			require.Len(t, models.Models, 1, "models supporting both inference types remain available")
 			unavailable.Store(true)
 			var listed struct{ Data []schemas.Model }
-			require.NoError(t, testInference(t, e, ctx, http.MethodGet, "/v1/models", nil, &listed))
+			require.NoError(t, testInference(ctx, t, e, http.MethodGet, "/v1/models", nil, &listed))
 			require.Empty(t, listed.Data, "unavailable models must disappear from public discovery")
 			models, err = e.ListModels(ctx)
 			require.NoError(t, err)
@@ -130,11 +130,11 @@ func TestCachedAliasesOmitDeprecatedTargets(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{"data": models})
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
 	}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
 		"name": "test", "value": "secret",
 		"aliases": map[string]any{"friendly": map[string]any{"model_id": "old-chat"}},
 	}))))
@@ -199,18 +199,18 @@ func TestHTTPModelListingOmitsAliasesWithActiveNamesAndDeprecatedTargets(t *test
 		_, _ = w.Write([]byte(`{"data":[{"id":"retired"}]}`))
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
 	}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
 		"name":    "test",
 		"value":   "secret",
 		"aliases": map[string]any{"friendly": map[string]any{"model_id": "retired"}},
 	}))))
 	for _, path := range []string{"/v1/models", "/v1/models?provider=openai"} {
 		var listed struct{ Data []schemas.Model }
-		require.NoError(t, testInference(t, e, ctx, http.MethodGet, path, nil, &listed))
+		require.NoError(t, testInference(ctx, t, e, http.MethodGet, path, nil, &listed))
 		require.Empty(t, listed.Data, "an active advertised name must not hide a deprecated target")
 	}
 	var catalog struct{ Models []struct{ Name string } }
@@ -251,18 +251,18 @@ func TestModelDiscoveryUsesAliasTargetMetadata(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":[{"id":"current"}]}`))
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
 		"provider":       "openai",
 		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
 	}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
 		"name": "test", "value": "secret",
 		"models":  []string{"old-chat"},
 		"aliases": map[string]any{"old-chat": map[string]any{"model_id": "current"}},
 	}))))
 	for _, path := range []string{"/v1/models", "/v1/models?provider=openai"} {
 		var listed struct{ Data []schemas.Model }
-		require.NoError(t, testInference(t, e, ctx, http.MethodGet, path, nil, &listed))
+		require.NoError(t, testInference(ctx, t, e, http.MethodGet, path, nil, &listed))
 		require.Len(t, listed.Data, 1)
 		require.Equal(t, "openai/old-chat", listed.Data[0].ID)
 		require.False(t, listed.Data[0].IsDeprecated)

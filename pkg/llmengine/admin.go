@@ -27,6 +27,14 @@ import (
 type configPricingOverride = tables.TablePricingOverride
 type configContextKey struct{}
 
+// ProviderResponse adds Obot's admin identifiers to Bifrost's redacted configuration.
+type ProviderResponse struct {
+	*configstore.ProviderConfig
+	Name           schemas.ModelProvider `json:"name"`
+	Provider       schemas.ModelProvider `json:"provider"`
+	ProviderStatus string                `json:"provider_status"`
+}
+
 func (e *Engine) config(ctx context.Context) (llmcoreclient.Config, error) {
 	if cfg, ok := ctx.Value(configContextKey{}).(*llmcoreclient.Config); ok {
 		return *cfg, nil
@@ -207,14 +215,6 @@ func (e *Engine) changeRule(ctx context.Context, id string, body []byte) (tables
 		return tables.TableRoutingRule{}, rejected
 	}
 	return out, storageError(err)
-}
-
-// ProviderResponse adds Obot's admin identifiers to Bifrost's redacted configuration.
-type ProviderResponse struct {
-	*configstore.ProviderConfig
-	Name           schemas.ModelProvider `json:"name"`
-	Provider       schemas.ModelProvider `json:"provider"`
-	ProviderStatus string                `json:"provider_status"`
 }
 
 func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key) ProviderResponse {

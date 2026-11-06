@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"k8s.io/apimachinery/pkg/runtime"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -36,6 +35,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -51,6 +51,54 @@ type directAccessBackend struct {
 	informers map[string]cache.SharedIndexInformer
 }
 
+type directCodec struct{}
+
+type directFixture struct {
+	next    chan struct{}
+	drained chan struct{}
+	before  bool
+	later   bool
+	headers map[string]string
+	query   map[string]string
+}
+
+type notifyingWriter struct {
+	*httptest.ResponseRecorder
+	once  sync.Once
+	first chan struct{}
+	fail  bool
+}
+
+// A broken index simulates the storage/access error during a buffered model list.
+type failedAccessBackend struct{ directAccessBackend }
+
+type failingInformer struct{ cache.SharedIndexInformer }
+
+type failedIndexer struct{ cache.Indexer }
+
+type panickingBackend struct {
+	*bifrostProviderBackend
+	released int
+	stream   bool
+	ctx      context.Context
+}
+
+type panicStatusWriter struct {
+	*httptest.ResponseRecorder
+	statuses []int
+}
+
+// Capture the real direct writer without replacing engine execution or observers.
+type mountedDirectBackend struct {
+	*bifrostProviderBackend
+	output *llmResponseWriter
+}
+
+type publicFlushFailureWriter struct {
+	panicStatusWriter
+	flushes int
+}
+
 func (b *directAccessBackend) GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error) {
 	return b.storage.GroupVersionKindFor(obj.(kclient.Object))
 }
@@ -64,22 +112,11 @@ func (b *directAccessBackend) GetInformerForKind(_ context.Context, gvk schema.G
 	return i, nil
 }
 
-type directCodec struct{}
-
 func (directCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
 	return data, nil
 }
 func (directCodec) OpenGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
 	return data, nil
-}
-
-type directFixture struct {
-	next    chan struct{}
-	drained chan struct{}
-	before  bool
-	later   bool
-	headers map[string]string
-	query   map[string]string
 }
 
 func (*directFixture) GetName() string { return "direct-fixture" }
@@ -157,13 +194,6 @@ func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Co
 	return &llmProviderProxy{backend: &bifrostProviderBackend{engine: engine}, mapHelper: helper, modelProvider: &v1.ModelProvider{Name: system.LLMGatewayModelProvider, Namespace: system.DefaultNamespace}}, api.Context{Storage: storage, GatewayClient: c, User: &user.DefaultInfo{UID: "7"}}
 }
 
-type notifyingWriter struct {
-	*httptest.ResponseRecorder
-	once  sync.Once
-	first chan struct{}
-	fail  bool
-}
-
 func (w *notifyingWriter) FlushError() error {
 	w.once.Do(func() { close(w.first) })
 	if w.fail {
@@ -234,23 +264,16 @@ func TestDirectPublicInferenceStreaming(t *testing.T) {
 	}
 }
 
-// A broken index simulates the storage/access error during a buffered model list.
-type failedAccessBackend struct{ directAccessBackend }
-
 func (b *failedAccessBackend) GetInformerForKind(ctx context.Context, gvk schema.GroupVersionKind) (cache.SharedIndexInformer, error) {
 	i, err := b.directAccessBackend.GetInformerForKind(ctx, gvk)
 	return failingInformer{SharedIndexInformer: i}, err
 }
 
-type failingInformer struct{ cache.SharedIndexInformer }
-
 func (i failingInformer) GetIndexer() cache.Indexer {
 	return failedIndexer{Indexer: i.SharedIndexInformer.GetIndexer()}
 }
 
-type failedIndexer struct{ cache.Indexer }
-
-func (failedIndexer) ByIndex(string, string) ([]interface{}, error) {
+func (failedIndexer) ByIndex(string, string) ([]any, error) {
 	return nil, errors.New("fixture index failure")
 }
 
@@ -309,13 +332,6 @@ func TestDirectPublicInferenceUnary(t *testing.T) {
 	}
 }
 
-type panickingBackend struct {
-	*bifrostProviderBackend
-	released int
-	stream   bool
-	ctx      context.Context
-}
-
 func (b *panickingBackend) decorateRequest(l *llmProviderProxy, req api.Context, model *v1.Model) (gatewayRequest, error) {
 	tracked, err := b.bifrostProviderBackend.decorateRequest(l, req, model)
 	if err != nil {
@@ -350,11 +366,6 @@ func (b *panickingBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"success":true}`))
 	}
 	panic("fixture panic")
-}
-
-type panicStatusWriter struct {
-	*httptest.ResponseRecorder
-	statuses []int
 }
 
 func (w *panicStatusWriter) WriteHeader(status int) {
@@ -462,20 +473,9 @@ func TestDirectHandlerPanicDoesNotFlushSuccess(t *testing.T) {
 	}
 }
 
-// Capture the real direct writer without replacing engine execution or observers.
-type mountedDirectBackend struct {
-	*bifrostProviderBackend
-	output *llmResponseWriter
-}
-
 func (b *mountedDirectBackend) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	b.output = w.(*llmResponseWriter)
 	b.bifrostProviderBackend.ServeHTTP(w, r)
-}
-
-type publicFlushFailureWriter struct {
-	panicStatusWriter
-	flushes int
 }
 
 func (w *publicFlushFailureWriter) FlushError() error {
@@ -514,7 +514,7 @@ func TestDirectMountedFlushFailure(t *testing.T) {
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			request := httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/chat/completions", strings.NewReader(`{"model":"m1-test","messages":[{"role":"user","content":"hi"}],"stream":true}`)).WithContext(ctx)
-			w := &publicFlushFailureWriter{panicStatusWriter: panicStatusWriter{ResponseRecorder: httptest.NewRecorder()}}
+			w := &publicFlushFailureWriter{ResponseRecorder: httptest.NewRecorder()}
 			done := make(chan struct{})
 			go func() {
 				server.ServeHTTP(w, request)

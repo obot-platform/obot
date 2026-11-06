@@ -3,21 +3,31 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	llmtypes "github.com/obot-platform/obot/pkg/llm"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
-	"github.com/stretchr/testify/require"
 	"io"
-	"k8s.io/apiserver/pkg/authentication/user"
 	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
+
+type failingClientWriter struct {
+	*httptest.ResponseRecorder
+	writeError error
+	flushError error
+	short      bool
+	writes     int
+	flushes    int
+}
 
 // Fixture responses are delivered by the real writer, including EOF finalization.
 func writeTestResponse(t *testing.T, resp *http.Response, req *http.Request) (*http.Response, error) {
@@ -33,15 +43,6 @@ func writeTestResponse(t *testing.T, resp *http.Response, req *http.Request) (*h
 	}
 	out.finish()
 	return recorder.Result(), out.err
-}
-
-type failingClientWriter struct {
-	*httptest.ResponseRecorder
-	writeError error
-	flushError error
-	short      bool
-	writes     int
-	flushes    int
 }
 
 func (w *failingClientWriter) Write(p []byte) (int, error) {

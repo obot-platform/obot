@@ -42,7 +42,7 @@ func TestApplyEgressProxy(t *testing.T) {
 			"network_config":         map[string]any{"base_url": "https://10.255.255.1/v1", "allow_private_network": true, "default_request_timeout_in_seconds": 300},
 		},
 	} {
-		if err := testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, p))); err != nil {
+		if err := testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, p))); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -81,7 +81,7 @@ func TestApplyEgressProxy(t *testing.T) {
 	}
 	delete(custom, "keys")
 	custom["network_config"].(map[string]any)["base_url"] = "http://127.0.0.1:9/v1"
-	if err := testMutation(e, ctx, nil)(e.UpdateProvider(ctx, "generic-responses", testJSON(t, custom), false)); err != nil {
+	if err := testMutation(ctx, e, nil)(e.UpdateProvider(ctx, "generic-responses", testJSON(t, custom), false)); err != nil {
 		t.Fatal(err)
 	}
 	e.ApplyEgressProxy(ctx)
