@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	bifrostcore "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -123,7 +124,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		// pricing initialization with any concurrent model-discovery synchronization.
 		e.syncMu.Lock()
 		e.core.Store(engine)
-		if err = errors.Join(engine.Err(), e.syncPricing(ctx)); err != nil {
+		if err = errors.Join(engine.Err(), e.syncPricing()); err != nil {
 			e.syncFailure.Store(&syncFailure{err: err})
 			slog.Warn("LLM gateway configuration application will retry", "error", err)
 		}
@@ -131,7 +132,14 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.ModelDataURL != "" {
 			go modeldata.Refresh(ctx, dir, opts.ModelDataURL, modeldata.RefreshInterval)
 		}
-		go func() { <-ctx.Done(); _ = e.Shutdown(context.Background()) }()
+		go func() {
+			<-ctx.Done()
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			if err := e.Shutdown(shutdownCtx); err != nil {
+				slog.Warn("LLM gateway shutdown is still completing", "error", err)
+			}
+		}()
 	})
 	return e.startErr
 }
@@ -144,7 +152,7 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	changed, err := engine.Sync(ctx)
-	err = errors.Join(err, e.syncPricing(ctx))
+	err = errors.Join(err, e.syncPricing())
 	if err != nil {
 		e.syncFailure.Store(&syncFailure{err: err})
 	} else {
@@ -153,7 +161,7 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	return changed, err
 }
 
-func (e *Engine) syncPricing(_ context.Context) error {
+func (e *Engine) syncPricing() error {
 	engine := e.core.Load()
 	raw := engine.Setting("pricing-overrides")
 	if e.pricingApplied && bytes.Equal(raw, e.appliedPricing) {
