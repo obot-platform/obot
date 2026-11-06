@@ -5,7 +5,7 @@ title: "Upgrading from model providers"
 :::warning Migration is not supported yet
 Existing LLM gateway users should hold off on updating to v0.28.0. Migration from v0.27 model providers is not supported at this time, and existing provider credentials, models and access settings are not automatically migrated to the new gateway.
 
-Migration support will be available in the following release, **v0.28.1**. Wait for that release and its migration instructions before upgrading an existing installation. If you test v0.28.0, use a separate copy of your database and keep a backup for rollback.
+Migration support is planned for a future patch release. Wait for that release and its migration instructions before upgrading an existing installation. If you test v0.28.0, use a separate copy of your database and keep a backup for rollback.
 :::
 
 Earlier versions of Obot reached models through per-provider model providers (OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Azure and others), each with its own proxy route. In v0.28.0, the [LLM gateway](./how-it-works.md) is the only way Obot reaches models, and it can't be turned off.
