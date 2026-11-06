@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 )
@@ -17,6 +19,7 @@ import (
 type modelAvailability struct {
 	mu          sync.RWMutex
 	unavailable map[string]bool
+	engine      *Engine
 }
 
 type modelAvailabilityProviderKey struct{}
@@ -25,11 +28,49 @@ func (*modelAvailability) GetName() string { return "obot-model-availability" }
 
 func (*modelAvailability) Cleanup() error { return nil }
 
-func (*modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
 	if req.ListModelsRequest != nil {
 		ctx.SetValue(modelAvailabilityProviderKey{}, req.ListModelsRequest.Provider)
+		if m.engine != nil {
+			cfg, err := m.engine.config(ctx)
+			if err != nil {
+				return req, modelListingError(err), nil
+			}
+			provider := req.ListModelsRequest.Provider
+			if isAzureProvider(cfg, provider) {
+				if err := m.engine.discovery.refresh(ctx, cfg, provider, m.engine.store); err != nil {
+					if req.ListModelsRequest.Unfiltered {
+						return req, modelListingError(err), nil
+					}
+					slog.Warn("Azure deployment discovery failed; retaining unchanged keys' last successful results", "error", err)
+				}
+
+				// Observe discovery writes and concurrent credential edits before returning IDs.
+				// A provider deadline must not hide results already saved by healthy keys;
+				// bound this final local read separately.
+				readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
+				defer cancel()
+				cfg, err = m.engine.config(readCtx)
+				if err != nil {
+					return req, modelListingError(err), nil
+				}
+				models, _ := azureDeploymentModels(cfg, provider, m.engine.discovery.snapshot(cfg, provider))
+				return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
+					ListModelsResponse: &schemas.BifrostListModelsResponse{Data: models},
+				}}, nil
+			}
+		}
 	}
 	return req, nil, nil
+}
+
+// Bifrost logs plain hook errors and continues to the provider; terminal failures
+// must use its short-circuit contract to prevent Azure offerings from leaking through.
+func modelListingError(err error) *schemas.LLMPluginShortCircuit {
+	return &schemas.LLMPluginShortCircuit{Error: &schemas.BifrostError{
+		IsBifrostError: true, StatusCode: schemas.Ptr(502), AllowFallbacks: schemas.Ptr(false),
+		Error: &schemas.ErrorField{Message: err.Error()},
+	}}
 }
 
 func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
@@ -175,9 +216,20 @@ func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[strin
 		return nil, err
 	}
 	unavailable := make(map[string]bool)
+	// Build each provider's membership set once, even when checking thousands of saved IDs.
+	memberships := map[schemas.ModelProvider]map[string]bool{}
 	for _, id := range ids {
 		provider, _, _ := strings.Cut(id, "/")
-		if e.modelWithKeysIsUnavailable(id, cfg.Keys[schemas.ModelProvider(provider)]) {
+		name := schemas.ModelProvider(provider)
+		azure := isAzureProvider(cfg, name)
+		if azure && memberships[name] == nil {
+			models, _ := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name))
+			memberships[name] = make(map[string]bool, len(models))
+			for _, model := range models {
+				memberships[name][model.ID] = true
+			}
+		}
+		if (azure && !memberships[name][id]) || e.modelWithKeysIsUnavailable(id, cfg.Keys[name]) {
 			unavailable[id] = true
 		}
 	}

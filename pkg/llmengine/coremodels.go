@@ -40,12 +40,19 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	if engineErr != nil {
 		return nil, fmt.Errorf("model listing failed: %v", engineErr.Error)
 	}
+	cfg, err := e.config(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out.Data {
 		model := &out.Data[i]
 		provider, id := schemas.ParseModelString(model.ID, "")
 		// Catalog metadata describes the wire model, even if an alias reuses another model's name.
 		if model.Alias != nil {
 			id = *model.Alias
+		}
+		if base := e.discovery.baseModel(cfg, provider, id); base != "" {
+			id = base
 		}
 		entry := e.prices.GetPricingEntryForModel(id, provider)
 		// Core lists provider data; the catalog fills details formerly added by the transport.

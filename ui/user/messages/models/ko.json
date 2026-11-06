@@ -488,5 +488,10 @@
 	"models_providers_auth_entra": "Microsoft Entra ID",
 	"models_providers_auth_api_key_help": "API 키로 인증합니다.",
 	"models_providers_auth_aws_help": "AWS 액세스 키 쌍으로 인증합니다. 세션 토큰과 IAM 역할은 선택 사항입니다.",
-	"models_providers_auth_entra_help": "Microsoft Entra 앱의 클라이언트 ID, 클라이언트 암호 및 테넌트 ID로 인증합니다."
+	"models_providers_auth_entra_help": "Microsoft Entra 앱의 클라이언트 ID, 클라이언트 암호 및 테넌트 ID로 인증합니다.",
+	"models_providers_azure_deployments_help": "배포 이름을 쉼표로 구분하여 입력하세요. 명시적으로 설정된 이름만 표시됩니다. *는 Azure 배포를 검색하지 않습니다.",
+	"models_providers_azure_resource_help": "선택 사항: Entra 자격 증명으로 배포를 검색하려면 Azure 계정 필드 세 개를 모두 입력하세요. 배포 읽기 권한이 필요합니다. 허용 모델을 비우거나 *를 사용하면 검색된 모든 배포가 표시됩니다.",
+	"models_providers_azure_subscription_id": "구독 ID",
+	"models_providers_azure_resource_group": "리소스 그룹",
+	"models_providers_azure_account_name": "계정 이름"
 }

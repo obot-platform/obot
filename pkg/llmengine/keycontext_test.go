@@ -73,7 +73,7 @@ func TestKeyGuardKeepsAcceptedContextAfterCallerCancellation(t *testing.T) {
 			endpoint := "https://" + operation + "-key-context.invalid"
 			body := testJSON(t, map[string]any{"name": operation, "value": "secret", "azure_key_config": map[string]any{"endpoint": endpoint}})
 			before := lookups.Load()
-			var key schemas.Key
+			var key Key
 			if operation == "create" {
 				key, err = e.CreateKey(ctx, "azure", body)
 			} else {

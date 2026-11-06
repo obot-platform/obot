@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -10,13 +11,57 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// AzureAccount identifies the account used for management-plane deployment discovery.
+type AzureAccount struct {
+	SubscriptionID string `json:"azure_subscription_id,omitempty"`
+	ResourceGroup  string `json:"azure_resource_group,omitempty"`
+	AccountName    string `json:"azure_account_name,omitempty"`
+}
+
+func (a AzureAccount) ResourceID() string {
+	if a == (AzureAccount{}) {
+		return ""
+	}
+	return "/subscriptions/" + a.SubscriptionID + "/resourceGroups/" + a.ResourceGroup + "/providers/Microsoft.CognitiveServices/accounts/" + a.AccountName
+}
+
+// AzureDiscoverySnapshot records only successful discovery, including a confirmed empty result.
+// Keeping it with the key allows another replica to retain deployments during an ARM outage.
+type AzureDiscoverySnapshot struct {
+	Fingerprint [32]byte
+	Names       []string
+	BaseModels  map[string]string
+}
+
+// AzureDiscoveryFingerprint binds a snapshot to the effective authentication and account.
+// Policies are applied when listing, so policy edits need no new ARM request.
+func AzureDiscoveryFingerprint(key schemas.Key, account AzureAccount) [32]byte {
+	// Hash effective values, not SecretVar encoding: an empty value gains a type
+	// during decoding, and that representation change must not invalidate a snapshot.
+	var credentials, scopes []string
+	if c := key.AzureKeyConfig; c != nil {
+		credentials = []string{c.Endpoint.GetValue(), c.ClientID.GetValue(), c.ClientSecret.GetValue(), c.TenantID.GetValue()}
+		scopes = c.Scopes
+	}
+	raw, _ := json.Marshal(struct {
+		Account     AzureAccount
+		Value       string
+		Credentials []string
+		Scopes      []string `json:",omitempty"`
+	}{Account: account, Value: key.Value.GetValue(), Credentials: credentials, Scopes: scopes})
+	return sha256.Sum256(raw)
+}
+
 // Provider is one atomic configuration aggregate: provider settings and its keys.
 type Provider struct {
-	Config schemas.ProviderConfig
-	Keys   []schemas.Key
+	AzureAccounts    map[string]AzureAccount           `json:",omitempty"`
+	AzureDiscoveries map[string]AzureDiscoverySnapshot `json:",omitempty"`
+	Config           schemas.ProviderConfig
+	Keys             []schemas.Key
 }
 
 func (s *Client) GetProvider(ctx context.Context, name string) (Provider, error) {
@@ -73,6 +118,13 @@ func (s *Client) MutateProvider(ctx context.Context, name string, change func(*P
 		return err
 	}
 
+	// Remove snapshots as part of the same atomic edit that changes or removes a key.
+	for id, snapshot := range provider.AzureDiscoveries {
+		i := slices.IndexFunc(provider.Keys, func(key schemas.Key) bool { return key.ID == id })
+		if i < 0 || provider.AzureAccounts[id] == (AzureAccount{}) || snapshot.Fingerprint != AzureDiscoveryFingerprint(provider.Keys[i], provider.AzureAccounts[id]) {
+			delete(provider.AzureDiscoveries, id)
+		}
+	}
 	if err := validateKeys(provider.Keys); err != nil {
 		return err
 	}
@@ -117,6 +169,7 @@ func (s *Client) PutKey(ctx context.Context, name string, key schemas.Key) error
 // no-op, but a missing provider or one removed during the update returns NotFound.
 func (s *Client) DeleteKey(ctx context.Context, name, id string) error {
 	return s.MutateProvider(ctx, name, func(provider *Provider) error {
+		delete(provider.AzureAccounts, id)
 		provider.Keys = slices.DeleteFunc(provider.Keys, func(key schemas.Key) bool { return key.ID == id })
 		return nil
 	})
@@ -147,4 +200,23 @@ func validateKeys(keys []schemas.Key) error {
 		ids[key.ID] = struct{}{}
 	}
 	return nil
+}
+
+// SaveAzureDiscovery rejects results fetched before a concurrent key/account edit.
+// MutateProvider skips identical payloads, so unchanged listings do not trigger watch loops.
+func (s *Client) SaveAzureDiscovery(ctx context.Context, name, id string, snapshot AzureDiscoverySnapshot) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		return s.MutateProvider(ctx, name, func(provider *Provider) error {
+			for _, key := range provider.Keys {
+				if key.ID == id && provider.AzureAccounts[id] != (AzureAccount{}) && (key.Enabled == nil || *key.Enabled) && snapshot.Fingerprint == AzureDiscoveryFingerprint(key, provider.AzureAccounts[id]) {
+					if provider.AzureDiscoveries == nil {
+						provider.AzureDiscoveries = map[string]AzureDiscoverySnapshot{}
+					}
+					provider.AzureDiscoveries[id] = snapshot
+					break
+				}
+			}
+			return nil
+		})
+	})
 }

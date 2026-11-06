@@ -488,5 +488,10 @@
 	"models_providers_auth_entra": "Microsoft Entra ID",
 	"models_providers_auth_api_key_help": "使用 API 密钥进行身份验证。",
 	"models_providers_auth_aws_help": "使用 AWS 访问密钥对进行身份验证，可选会话令牌和 IAM 角色。",
-	"models_providers_auth_entra_help": "使用 Microsoft Entra 应用的客户端 ID、客户端密码和租户 ID 进行身份验证。"
+	"models_providers_auth_entra_help": "使用 Microsoft Entra 应用的客户端 ID、客户端密码和租户 ID 进行身份验证。",
+	"models_providers_azure_deployments_help": "输入部署名称，以逗号分隔。仅列出明确配置的名称；* 不会发现 Azure 部署。",
+	"models_providers_azure_resource_help": "可选：填写全部三个 Azure 账户字段，使用 Entra 凭据发现部署。需要读取部署的权限。将允许的模型留空或使用 * 可列出所有发现的部署。",
+	"models_providers_azure_subscription_id": "订阅 ID",
+	"models_providers_azure_resource_group": "资源组",
+	"models_providers_azure_account_name": "账户名称"
 }

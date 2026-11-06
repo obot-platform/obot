@@ -44,6 +44,7 @@ type syncFailure struct{ err error }
 type Engine struct {
 	metrics          *gatewayMetrics
 	syncFailure      atomic.Pointer[syncFailure]
+	discovery        azureDiscovery
 	availability     *modelAvailability
 	core             atomic.Pointer[llmcore.Engine]
 	store            *llmcoreclient.Client
@@ -69,6 +70,7 @@ func New() *Engine {
 		availability: &modelAvailability{unavailable: map[string]bool{}},
 		ready:        make(chan struct{}),
 	}
+	e.availability.engine = e
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil

@@ -30,7 +30,13 @@ type configPricingOverride = tables.TablePricingOverride
 type configContextKey struct{}
 
 // ProviderResponse adds Obot's admin identifiers to Bifrost's redacted configuration.
+type Key struct {
+	schemas.Key
+	llmcoreclient.AzureAccount
+}
+
 type ProviderResponse struct {
+	Keys []Key `json:"keys"`
 	*configstore.ProviderConfig
 	Name           schemas.ModelProvider `json:"name"`
 	Provider       schemas.ModelProvider `json:"provider"`
@@ -100,7 +106,7 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 	var out T
 	var rejected error
 	err := e.mutation(ctx, func(ctx context.Context) error {
-		cfg := llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{}, Keys: map[schemas.ModelProvider][]schemas.Key{}}
+		cfg := llmcoreclient.Config{AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{}, Providers: map[schemas.ModelProvider]schemas.ProviderConfig{}, Keys: map[schemas.ModelProvider][]schemas.Key{}}
 		change := func() error {
 			rejected = nil
 			scoped := context.WithValue(ctx, configContextKey{}, &cfg)
@@ -115,6 +121,7 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 			}
 			if len(guarded.RemoveKeys) > 0 {
 				cfg.Keys[schemas.ModelProvider(name)] = nil
+				cfg.AzureAccounts[schemas.ModelProvider(name)] = nil
 			}
 			out, err = apply(ctx, &cfg, guarded.Body)
 			rejected = err
@@ -132,10 +139,12 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 		provider := schemas.ModelProvider(name)
 		return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
 			cfg.Providers[provider], cfg.Keys[provider] = current.Config, current.Keys
+			cfg.AzureAccounts[provider] = current.AzureAccounts
 			if err := change(); err != nil {
 				return err
 			}
 			current.Config, current.Keys = cfg.Providers[provider], cfg.Keys[provider]
+			current.AzureAccounts = cfg.AzureAccounts[provider]
 			return nil
 		})
 	})
@@ -145,12 +154,13 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 	return out, storageError(err)
 }
 
-func (e *Engine) changeKey(ctx context.Context, provider, id, method string, body []byte) (schemas.Key, error) {
+func (e *Engine) changeKey(ctx context.Context, provider, id, method string, body []byte) (Key, error) {
 	if err := requireAdminIdentifier(provider); err != nil {
-		return schemas.Key{}, err
+		return Key{}, err
 	}
-	return changeProvider(ctx, e, provider, method, nil, false, func(ctx context.Context, cfg *llmcoreclient.Config, _ []byte) (schemas.Key, error) {
-		return e.applyKey(ctx, cfg, provider, id, method, body)
+	return changeProvider(ctx, e, provider, method, nil, false, func(ctx context.Context, cfg *llmcoreclient.Config, _ []byte) (Key, error) {
+		key, err := e.applyKey(ctx, cfg, provider, id, method, body)
+		return Key{Key: key, AzureAccount: cfg.AzureAccounts[schemas.ModelProvider(provider)][key.ID]}, err
 	})
 }
 
@@ -239,6 +249,7 @@ func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []
 	}
 	return ProviderResponse{
 		ProviderConfig: provider.Redacted(),
+		Keys:           keyViews(provider.Redacted().Keys, nil),
 		Name:           name,
 		Provider:       name,
 		ProviderStatus: "active",
@@ -262,7 +273,7 @@ func (e *Engine) ListProviders(ctx context.Context) ([]ProviderResponse, error) 
 	}
 	out := []ProviderResponse{}
 	for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
-		out = append(out, providerView(name, cfg.Providers[name], cfg.Keys[name]))
+		out = append(out, providerViewWithIDs(name, cfg.Providers[name], cfg.Keys[name], cfg.AzureAccounts[name]))
 	}
 	return out, nil
 }
@@ -277,22 +288,22 @@ func (e *Engine) GetProvider(ctx context.Context, provider string) (ProviderResp
 	if !ok {
 		return ProviderResponse{}, missing("provider")
 	}
-	return providerView(name, pc, cfg.Keys[name]), nil
+	return providerViewWithIDs(name, pc, cfg.Keys[name], cfg.AzureAccounts[name]), nil
 }
 
-func (e *Engine) ListKeys(ctx context.Context) ([]schemas.Key, error) {
+func (e *Engine) ListKeys(ctx context.Context) ([]Key, error) {
 	providers, err := e.ListProviders(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := []schemas.Key{}
+	out := []Key{}
 	for _, provider := range providers {
 		out = append(out, provider.Keys...)
 	}
 	return out, nil
 }
 
-func (e *Engine) ListProviderKeys(ctx context.Context, provider string) ([]schemas.Key, error) {
+func (e *Engine) ListProviderKeys(ctx context.Context, provider string) ([]Key, error) {
 	view, err := e.GetProvider(ctx, provider)
 	if err != nil {
 		return nil, err
@@ -300,17 +311,17 @@ func (e *Engine) ListProviderKeys(ctx context.Context, provider string) ([]schem
 	return view.Keys, nil
 }
 
-func (e *Engine) GetKey(ctx context.Context, provider, id string) (schemas.Key, error) {
+func (e *Engine) GetKey(ctx context.Context, provider, id string) (Key, error) {
 	keys, err := e.ListProviderKeys(ctx, provider)
 	if err != nil {
-		return schemas.Key{}, err
+		return Key{}, err
 	}
 	for _, key := range keys {
 		if key.ID == id {
 			return key, nil
 		}
 	}
-	return schemas.Key{}, missing("key")
+	return Key{}, missing("key")
 }
 
 func (e *Engine) GetClientConfig(ctx context.Context) (map[string]any, error) {
@@ -388,7 +399,15 @@ func (e *Engine) ListCatalogModels(ctx context.Context, provider, query string) 
 		if provider != "" && provider != string(name) {
 			continue
 		}
-		for _, model := range e.prices.GetUnfilteredModelsForProvider(name) {
+		names := e.prices.GetUnfilteredModelsForProvider(name)
+		if models, azure := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name)); azure {
+			names = nil
+			for _, model := range models {
+				_, id, _ := strings.Cut(model.ID, "/")
+				names = append(names, id)
+			}
+		}
+		for _, model := range names {
 			if e.modelWithKeysIsUnavailable(string(name)+"/"+model, cfg.Keys[name]) {
 				continue
 			}
@@ -450,13 +469,13 @@ func (e *Engine) DeleteProvider(ctx context.Context, provider string) error {
 	return e.mutation(ctx, func(ctx context.Context) error { return storageError(e.store.DeleteProvider(ctx, provider)) })
 }
 
-func (e *Engine) CreateKey(ctx context.Context, provider string, body json.RawMessage) (schemas.Key, error) {
+func (e *Engine) CreateKey(ctx context.Context, provider string, body json.RawMessage) (Key, error) {
 	return e.changeKey(ctx, provider, "", http.MethodPost, body)
 }
 
-func (e *Engine) UpdateKey(ctx context.Context, provider, id string, body json.RawMessage) (schemas.Key, error) {
+func (e *Engine) UpdateKey(ctx context.Context, provider, id string, body json.RawMessage) (Key, error) {
 	if err := requireAdminIdentifier(id); err != nil {
-		return schemas.Key{}, err
+		return Key{}, err
 	}
 	return e.changeKey(ctx, provider, id, http.MethodPut, body)
 }
@@ -633,7 +652,7 @@ func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc sc
 	}
 
 	cfg.Providers[name] = next
-	return providerView(name, next, cfg.Keys[name]), nil
+	return providerViewWithIDs(name, next, cfg.Keys[name], cfg.AzureAccounts[name]), nil
 }
 
 func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas.ProviderConfig, id, method string, body []byte) (schemas.Key, error) {
@@ -649,6 +668,7 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 		if index < 0 {
 			return schemas.Key{}, missing("key")
 		}
+		delete(cfg.AzureAccounts[name], id)
 		cfg.Keys[name] = slices.Delete(keys, index, index+1)
 		return schemas.Key{}, nil
 	}
@@ -664,6 +684,46 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 	if err = json.Unmarshal(raw, &key); err != nil {
 		return schemas.Key{}, err
 	}
+	// The URL (or a fresh create ID) owns metadata; a body ID never selects another key.
+	if index >= 0 {
+		key.ID = keys[index].ID
+	} else {
+		key.ID = uuid.New().String()
+	}
+	var discovery struct {
+		SubscriptionID *string         `json:"azure_subscription_id"`
+		ResourceGroup  *string         `json:"azure_resource_group"`
+		AccountName    *string         `json:"azure_account_name"`
+		ResourceID     json.RawMessage `json:"azure_resource_id"`
+	}
+	if err := json.Unmarshal(body, &discovery); err != nil {
+		return schemas.Key{}, err
+	}
+	if len(discovery.ResourceID) > 0 {
+		return schemas.Key{}, fmt.Errorf("use azure_subscription_id, azure_resource_group and azure_account_name instead of azure_resource_id")
+	}
+	if cfg.AzureAccounts == nil {
+		cfg.AzureAccounts = map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{}
+	}
+	if cfg.AzureAccounts[name] == nil {
+		cfg.AzureAccounts[name] = map[string]llmcoreclient.AzureAccount{}
+	}
+	account := cfg.AzureAccounts[name][key.ID]
+	if discovery.SubscriptionID != nil {
+		account.SubscriptionID = strings.TrimSpace(*discovery.SubscriptionID)
+	}
+	if discovery.ResourceGroup != nil {
+		account.ResourceGroup = strings.TrimSpace(*discovery.ResourceGroup)
+	}
+	if discovery.AccountName != nil {
+		account.AccountName = strings.TrimSpace(*discovery.AccountName)
+	}
+	if account != (llmcoreclient.AzureAccount{}) {
+		if err := validateAzureDiscovery(key, account); err != nil {
+			return schemas.Key{}, err
+		}
+	}
+
 	// Validate the decoded key so alternate field spellings cannot disagree with persistence.
 	effective, err := json.Marshal(key)
 	if err != nil {
@@ -674,11 +734,6 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 		if err := ValidateAzureKey(effective); err != nil {
 			return schemas.Key{}, err
 		}
-	}
-	if index >= 0 {
-		key.ID = keys[index].ID
-	} else {
-		key.ID = uuid.New().String()
 	}
 	if slices.ContainsFunc(keys, func(existing schemas.Key) bool { return existing.ID != key.ID && existing.Name == key.Name }) {
 		return schemas.Key{}, fmt.Errorf("key name already exists")
@@ -702,9 +757,14 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 		keys = append(keys, key)
 	}
 
+	if account == (llmcoreclient.AzureAccount{}) {
+		delete(cfg.AzureAccounts[name], key.ID)
+	} else {
+		cfg.AzureAccounts[name][key.ID] = account
+	}
 	cfg.Keys[name] = keys
 	redacted := providerView(name, pc, []schemas.Key{key})
-	return redacted.Keys[0], nil
+	return redacted.Keys[0].Key, nil
 }
 
 func updateClientConfig(cfg *llmcoreclient.Config, body []byte) (map[string]any, error) {

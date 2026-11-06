@@ -55,6 +55,14 @@ func (s *Client) Load(ctx context.Context) (LoadResult, error) {
 		}
 
 		name := schemas.ModelProvider(p.Spec.ID)
+		if cfg.AzureAccounts == nil {
+			cfg.AzureAccounts = map[schemas.ModelProvider]map[string]AzureAccount{}
+		}
+		cfg.AzureAccounts[name] = data.AzureAccounts
+		if cfg.AzureDiscoveries == nil {
+			cfg.AzureDiscoveries = map[schemas.ModelProvider]map[string]AzureDiscoverySnapshot{}
+		}
+		cfg.AzureDiscoveries[name] = data.AzureDiscoveries
 		cfg.Providers[name] = data.Config
 		cfg.Keys[name] = data.Keys
 	}

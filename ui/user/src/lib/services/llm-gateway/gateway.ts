@@ -188,6 +188,9 @@ export interface SecretValue {
 }
 
 export interface ProviderKey {
+	azure_subscription_id?: string;
+	azure_resource_group?: string;
+	azure_account_name?: string;
 	id?: string;
 	name: string;
 	value: SecretValue | string;
