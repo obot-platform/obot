@@ -659,6 +659,15 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 	if err = json.Unmarshal(raw, &key); err != nil {
 		return schemas.Key{}, err
 	}
+	// Validate the decoded key so alternate field spellings cannot disagree with persistence.
+	effective, err := json.Marshal(key)
+	if err != nil {
+		return schemas.Key{}, err
+	}
+	// Partial credential clears can switch retained endpoints to server identity.
+	if err := ValidateAzureKey(effective); err != nil {
+		return schemas.Key{}, err
+	}
 	if index >= 0 {
 		key.ID = keys[index].ID
 	} else {
