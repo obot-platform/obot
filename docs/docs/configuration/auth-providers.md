@@ -586,7 +586,9 @@ Each group appears in Obot as `pingfederate/<name>`, with the name exactly as Pi
 
 Obot sees a group once one of its members signs in. To assign a role to a group before then, list it under **Known Groups**, so the group picker offers it.
 
-Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. A change to a user's groups in PingFederate takes effect in Obot then.
+Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. At each refresh, Obot asks PingFederate's userinfo endpoint for the user's current groups, so a change in PingFederate takes effect without the user signing in again, even though PingFederate doesn't issue a new ID token on refresh by default.
+
+When Obot uses PostgreSQL, as a deployment with several replicas must, every replica shares the users' groups and the groups seen at sign-in through two tables in Obot's database, `pingfederate_user_groups` and `pingfederate_seen_groups`. Obot drops them, with the provider's session tables, when you deconfigure PingFederate. Without PostgreSQL, Obot keeps them in memory.
 
 #### Troubleshooting {#pingfederate-troubleshooting}
 
