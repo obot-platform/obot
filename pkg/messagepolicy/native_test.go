@@ -3,6 +3,7 @@ package messagepolicy
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -93,9 +94,12 @@ func TestNativePolicyInference(t *testing.T) {
 	h, _ := nativeHelper(t, judge)
 	// Retirement in another replica must not affect this replica's model parsing.
 	schemas.UnregisterKnownProvider("judge-custom")
-	resolved, err := h.resolveModel(t.Context())
+	resolved, err := h.resolveModelByAlias(t.Context(), types.DefaultModelAliasTypeLLMMini)
 	require.NoError(t, err)
-	text, err := h.callLLM(t.Context(), resolved, []chatMessage{{Role: "system", Content: "judge"}, {Role: "user", Content: "quoted input"}})
+	text, err := h.callLLM(t.Context(), resolved, []schemas.ChatMessage{
+		{Role: schemas.ChatMessageRoleSystem, Content: &schemas.ChatMessageContent{ContentStr: new("judge")}},
+		{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: new("quoted input")}},
+	})
 	require.NoError(t, err)
 	require.Equal(t, "yes", text)
 	require.Equal(t, "team/model", judge.model)
@@ -140,10 +144,13 @@ func TestNativePolicyFailuresStayClosed(t *testing.T) {
 			if mode == "canceled" {
 				cancel()
 			}
-			violations := h.EvaluateMessage(ctx, []ApplicablePolicy{{ID: "p1", Manifest: types.MessagePolicyManifest{DisplayName: "Rule", Definition: "No cooking"}}}, nil, "a message", types.PolicyDirectionUserMessage)
-			require.Len(t, violations, 1)
-			if mode != "malformed" {
-				require.True(t, violations[0].Failed)
+			result, err := h.EvaluateMessage(ctx, types.MessagePolicyManifest{DisplayName: "Rule", Definition: "No cooking"}, "", "a message")
+			require.False(t, result.Compliant)
+			if mode == "malformed" {
+				require.NoError(t, err)
+				require.Equal(t, `Your message was blocked by the "Rule" message policy.`, result.Explanation)
+			} else {
+				require.Error(t, err)
 			}
 		})
 	}
@@ -154,13 +161,13 @@ func TestNativeInferenceHookPanics(t *testing.T) {
 		t.Run(stage, func(t *testing.T) {
 			judge := &nativeJudge{
 				panicStage:    stage,
-				panicContexts: make(chan *schemas.BifrostContext, 2),
+				panicContexts: make(chan *schemas.BifrostContext, 4),
 			}
 			h, _ := nativeHelper(t, judge)
-			resolved, err := h.resolveModel(t.Context())
+			resolved, err := h.resolveModelByAlias(t.Context(), types.DefaultModelAliasTypeLLMMini)
 			require.NoError(t, err)
 			require.NotPanics(t, func() {
-				resp, err := h.llmGateway.ChatCompletion(t.Context(), resolved.targetModel, []schemas.ChatMessage{
+				resp, err := h.llmGateway.ChatCompletion(t.Context(), resolved, []schemas.ChatMessage{
 					{
 						Role:    schemas.ChatMessageRoleUser,
 						Content: &schemas.ChatMessageContent{ContentStr: new("hi")},
@@ -168,17 +175,31 @@ func TestNativeInferenceHookPanics(t *testing.T) {
 				})
 				require.Nil(t, resp)
 				require.EqualError(t, err, "LLM gateway inference failed")
-				text, err := h.callLLM(t.Context(), resolved, []chatMessage{
+				text, err := h.callLLM(t.Context(), resolved, []schemas.ChatMessage{
 					{
-						Role:    "user",
-						Content: "hi",
+						Role:    schemas.ChatMessageRoleUser,
+						Content: &schemas.ChatMessageContent{ContentStr: new("hi")},
 					},
 				})
 				require.Empty(t, text)
 				require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
 			})
-			require.Len(t, judge.panicContexts, 2)
-			for range 2 {
+			_, err = h.EvaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "hi")
+			require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
+
+			// Let screening deny without a hook call, so the panic occurs in full review.
+			engine := h.llmGateway
+			h.llmGateway = completionFunc(func(ctx context.Context, model string, messages []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+				if strings.HasPrefix(*messages[0].Content.ContentStr, "You are a policy compliance checker.") {
+					return textResponse("no"), nil
+				}
+				return engine.ChatCompletion(ctx, model, messages)
+			})
+			_, err = h.EvaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "hi")
+			require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
+
+			require.Len(t, judge.panicContexts, 4)
+			for range 4 {
 				require.ErrorIs(t, (<-judge.panicContexts).Err(), context.Canceled)
 			}
 			require.NoError(t, t.Context().Err(), "the caller's context remains usable")
@@ -186,49 +207,42 @@ func TestNativeInferenceHookPanics(t *testing.T) {
 	}
 }
 
-func TestNativePolicyWorkersFailClosedOnHookPanic(t *testing.T) {
+func TestNativeConcurrentPoliciesFailOnHookPanic(t *testing.T) {
 	judge := &nativeJudge{
 		panicStage:    "request",
 		panicContexts: make(chan *schemas.BifrostContext, 3),
 	}
 	h, _ := nativeHelper(t, judge)
-	policies := []ApplicablePolicy{
+	policies := []types.MessagePolicyManifest{
 		{
-			ID: "p1",
-			Manifest: types.MessagePolicyManifest{
-				DisplayName: "First",
-				Definition:  "No cooking",
-			},
+			DisplayName: "First",
+			Definition:  "No cooking",
 		},
 		{
-			ID: "p2",
-			Manifest: types.MessagePolicyManifest{
-				DisplayName: "Second",
-				Definition:  "No baking",
-			},
+			DisplayName: "Second",
+			Definition:  "No baking",
 		},
 		{
-			ID: "p3",
-			Manifest: types.MessagePolicyManifest{
-				DisplayName: "Third",
-				Definition:  "No grilling",
-			},
+			DisplayName: "Third",
+			Definition:  "No grilling",
 		},
 	}
-	// EvaluateMessage creates the worker goroutines itself; a lost native recovery
-	// would panic in those workers, beyond any recovery in this test's goroutine.
-	violations := h.EvaluateMessage(t.Context(), policies, nil, "hi", types.PolicyDirectionUserMessage)
-	require.Len(t, violations, len(policies))
-	seen := make(map[string]bool)
-	for _, violation := range violations {
-		require.True(t, violation.Failed)
-		require.NotContains(t, violation.Explanation, "fixture-private-panic-value")
-		require.False(t, seen[violation.PolicyID], "each policy fails once")
-		seen[violation.PolicyID] = true
+	// Callers own concurrency; a lost native recovery would panic outside this goroutine.
+	errors := make(chan error, len(policies))
+	for _, policy := range policies {
+		go func() {
+			_, err := h.EvaluateMessage(t.Context(), policy, "", "hi")
+			errors <- err
+		}()
+	}
+	for range policies {
+		err := <-errors
+		require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
+		require.NotContains(t, err.Error(), "fixture-private-panic-value")
 	}
 	require.Len(t, judge.panicContexts, len(policies))
-	for _, policy := range policies {
-		require.True(t, seen[policy.ID])
+	for range policies {
 		require.ErrorIs(t, (<-judge.panicContexts).Err(), context.Canceled)
 	}
+	require.NoError(t, t.Context().Err(), "the caller's context remains usable")
 }

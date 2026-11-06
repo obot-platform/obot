@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/maximhq/bifrost/core/schemas"
-	"github.com/obot-platform/obot/apiclient/types"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -19,12 +18,6 @@ type completionEngine interface {
 type Helper struct {
 	client     kclient.Client
 	llmGateway completionEngine
-}
-
-// ApplicablePolicy pairs a policy's ID with its manifest.
-type ApplicablePolicy struct {
-	ID       string
-	Manifest types.MessagePolicyManifest
 }
 
 // NewHelper returns a judge that calls the default model aliases' models through the LLM

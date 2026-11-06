@@ -1,100 +1,260 @@
 package messagepolicy
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/stretchr/testify/assert"
+	"github.com/obot-platform/obot/pkg/alias"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestBuildConversationContextUserMessage(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "user", Content: "Book me a first class flight to Paris"},
-	}
+type completionFunc func(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error)
 
-	result := BuildConversationContext(messages)
-	assert.Equal(t, "User: Book me a first class flight to Paris", result)
+func (f completionFunc) ChatCompletion(ctx context.Context, model string, messages []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+	return f(ctx, model, messages)
 }
 
-func TestBuildConversationContextAssistantText(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "user", Content: "Hello"},
-		{Role: "assistant", Content: "Hi there! How can I help?"},
-	}
-
-	result := BuildConversationContext(messages)
-	assert.Equal(t, "User: Hello\nAssistant: Hi there! How can I help?", result)
+func textResponse(text string) *schemas.BifrostChatResponse {
+	return &schemas.BifrostChatResponse{Choices: []schemas.BifrostResponseChoice{{ChatNonStreamResponseChoice: &schemas.ChatNonStreamResponseChoice{Message: &schemas.ChatMessage{
+		Role:    schemas.ChatMessageRoleAssistant,
+		Content: &schemas.ChatMessageContent{ContentStr: new(text)},
+	}}}}}
 }
 
-func TestBuildConversationContextAssistantToolCalls(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "user", Content: "Book a flight"},
-		{Role: "assistant", ToolCalls: []ToolCallInfo{
-			{Name: "book_flight", Arguments: `{"destination": "Paris", "class": "first"}`},
-		}},
+func evaluationHelper(t *testing.T, engine completionEngine) *Helper {
+	t.Helper()
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	for _, name := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
+		model := &v1.Model{Name: "m-" + string(name), Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+			Active:        true,
+			ModelProvider: system.LLMGatewayModelProvider,
+			TargetModel:   string(name),
+		}}}
+		require.NoError(t, client.Create(t.Context(), model))
+		require.NoError(t, client.Create(t.Context(), &v1.Alias{Name: alias.KeyFromScopeID("Model", string(name)), Spec: v1.AliasSpec{
+			TargetKind:      "Model",
+			TargetNamespace: system.DefaultNamespace,
+			TargetName:      model.Name,
+		}}))
 	}
-
-	result := BuildConversationContext(messages)
-	expected := "User: Book a flight\nAssistant: [called tool \"book_flight\" with args: {\"destination\": \"Paris\", \"class\": \"first\"}]"
-	assert.Equal(t, expected, result)
+	return NewHelper(client, engine)
 }
 
-func TestBuildConversationContextAssistantTextAndToolCalls(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "assistant", Content: "Let me book that for you.", ToolCalls: []ToolCallInfo{
-			{Name: "book_flight", Arguments: `{"destination": "Paris"}`},
-		}},
+func TestEvaluateMessageDecisions(t *testing.T) {
+	policy := types.MessagePolicyManifest{DisplayName: "Rule", Definition: "No cooking"}
+	denial := Result{Explanation: `Your message was blocked by the "Rule" message policy.`}
+	tests := []struct {
+		name   string
+		mini   string
+		review string
+		want   Result
+	}{
+		{
+			name: "mini approval",
+			mini: "  YeS\n",
+			want: Result{Compliant: true},
+		},
+		{
+			name:   "review override",
+			mini:   "no",
+			review: "REASONING: harmless\nCOMPLIANT",
+			want:   Result{Compliant: true},
+		},
+		{
+			name:   "ambiguous mini gets review",
+			mini:   "maybe",
+			review: "COMPLIANT",
+			want:   Result{Compliant: true},
+		},
+		{
+			name:   "confirmed denial",
+			mini:   "no",
+			review: "REASONING: recipe\nVIOLATION: Your message asks for a recipe.",
+			want:   Result{Explanation: "Your message asks for a recipe."},
+		},
+		{
+			name:   "malformed review",
+			mini:   "no",
+			review: "COMPLIANT\nnot a verdict",
+			want:   denial,
+		},
+		{
+			name:   "missing explanation",
+			mini:   "no",
+			review: "VIOLATION:",
+			want:   denial,
+		},
 	}
-
-	result := BuildConversationContext(messages)
-	expected := "Assistant: Let me book that for you.\nAssistant: [called tool \"book_flight\" with args: {\"destination\": \"Paris\"}]"
-	assert.Equal(t, expected, result)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var models []string
+			h := evaluationHelper(t, completionFunc(func(_ context.Context, model string, messages []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+				models = append(models, model)
+				require.Len(t, messages, 2)
+				require.Equal(t, schemas.ChatMessageRoleSystem, messages[0].Role)
+				require.Contains(t, *messages[0].Content.ContentStr, quotedMaterialNotice)
+				require.Equal(t, schemas.ChatMessageRoleUser, messages[1].Role)
+				require.Equal(t, judgeInput(policy, "User: history", "a message"), *messages[1].Content.ContentStr)
+				if model == string(types.DefaultModelAliasTypeLLMMini) {
+					return textResponse(tt.mini), nil
+				}
+				return textResponse(tt.review), nil
+			}))
+			result, err := h.EvaluateMessage(t.Context(), policy, "User: history", "a message")
+			require.NoError(t, err)
+			require.Equal(t, tt.want, result)
+			wantModels := []string{string(types.DefaultModelAliasTypeLLMMini)}
+			if tt.review != "" {
+				wantModels = append(wantModels, string(types.DefaultModelAliasTypeLLM))
+			}
+			require.Equal(t, wantModels, models)
+		})
+	}
 }
 
-func TestBuildConversationContextToolOutputRedacted(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "assistant", ToolCalls: []ToolCallInfo{
-			{Name: "search", Arguments: `{"query": "flights"}`},
-		}},
-		{Role: "tool", Content: "Here are 5 flights...", ToolCallID: "call_123"},
+func TestEvaluateMessageInferenceFailures(t *testing.T) {
+	for _, stage := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
+		t.Run(string(stage), func(t *testing.T) {
+			for _, mode := range []string{"error", "canceled", "nil response", "no choices", "nil choice", "nil message", "nil content", "nil text", "empty text", "whitespace"} {
+				t.Run(mode, func(t *testing.T) {
+					failure := errors.New("inference failed")
+					ctx, cancel := context.WithCancel(t.Context())
+					defer cancel()
+					h := evaluationHelper(t, completionFunc(func(_ context.Context, model string, _ []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+						if model != string(stage) {
+							return textResponse("no"), nil
+						}
+						switch mode {
+						case "error":
+							return nil, failure
+						case "canceled":
+							cancel()
+							return nil, ctx.Err()
+						case "nil response":
+							return nil, nil
+						case "no choices":
+							return &schemas.BifrostChatResponse{}, nil
+						case "nil choice":
+							return &schemas.BifrostChatResponse{Choices: []schemas.BifrostResponseChoice{{}}}, nil
+						case "nil message":
+							return &schemas.BifrostChatResponse{Choices: []schemas.BifrostResponseChoice{{ChatNonStreamResponseChoice: &schemas.ChatNonStreamResponseChoice{}}}}, nil
+						case "nil content":
+							return &schemas.BifrostChatResponse{Choices: []schemas.BifrostResponseChoice{{ChatNonStreamResponseChoice: &schemas.ChatNonStreamResponseChoice{Message: &schemas.ChatMessage{}}}}}, nil
+						case "nil text":
+							resp := textResponse("")
+							resp.Choices[0].Message.Content.ContentStr = nil
+							return resp, nil
+						case "empty text":
+							return textResponse(""), nil
+						default:
+							return textResponse(" \n\t"), nil
+						}
+					}))
+					result, err := h.EvaluateMessage(ctx, types.MessagePolicyManifest{DisplayName: "Rule"}, "", "message")
+					require.Error(t, err)
+					require.Equal(t, Result{}, result)
+					switch mode {
+					case "error":
+						require.ErrorIs(t, err, failure)
+					case "canceled":
+						require.ErrorIs(t, err, context.Canceled)
+					}
+				})
+			}
+		})
 	}
-
-	result := BuildConversationContext(messages)
-	expected := "Assistant: [called tool \"search\" with args: {\"query\": \"flights\"}]\nTool: [tool output redacted]"
-	assert.Equal(t, expected, result)
 }
 
-func TestBuildConversationContextSystemMessagesExcluded(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "system", Content: "You are a helpful assistant."},
-		{Role: "user", Content: "Hello"},
+func TestEvaluateMessageResolutionFailures(t *testing.T) {
+	for _, stage := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
+		t.Run(string(stage), func(t *testing.T) {
+			for _, mode := range []string{"missing alias", "missing model", "inactive", "wrong provider", "nil gateway", "empty alias"} {
+				t.Run(mode, func(t *testing.T) {
+					var calls []string
+					h := evaluationHelper(t, completionFunc(func(_ context.Context, model string, _ []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+						calls = append(calls, model)
+						return textResponse("no"), nil
+					}))
+					var model v1.Model
+					require.NoError(t, h.client.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "m-" + string(stage)}, &model))
+					switch mode {
+					case "missing alias", "empty alias":
+						var a v1.Alias
+						require.NoError(t, h.client.Get(t.Context(), kclient.ObjectKey{Name: alias.KeyFromScopeID("Model", string(stage))}, &a))
+						if mode == "missing alias" {
+							require.NoError(t, h.client.Delete(t.Context(), &a))
+						} else {
+							a.Spec.TargetKind = "DefaultModelAlias"
+							require.NoError(t, h.client.Update(t.Context(), &a))
+							var empty v1.DefaultModelAlias
+							empty.Name, empty.Namespace = model.Name, model.Namespace
+							require.NoError(t, h.client.Create(t.Context(), &empty))
+						}
+					case "missing model":
+						require.NoError(t, h.client.Delete(t.Context(), &model))
+					case "inactive":
+						model.Spec.Manifest.Active = false
+						require.NoError(t, h.client.Update(t.Context(), &model))
+					case "wrong provider":
+						model.Spec.Manifest.ModelProvider = "other"
+						require.NoError(t, h.client.Update(t.Context(), &model))
+					case "nil gateway":
+						if stage == types.DefaultModelAliasTypeLLM {
+							// Make the gateway unavailable only after the mini model's denial.
+							h.llmGateway = completionFunc(func(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+								calls = append(calls, string(types.DefaultModelAliasTypeLLMMini))
+								h.llmGateway = nil
+								return textResponse("no"), nil
+							})
+						} else {
+							h.llmGateway = nil
+						}
+					}
+					result, err := h.EvaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "message")
+					require.Error(t, err)
+					require.Equal(t, Result{}, result)
+					if stage == types.DefaultModelAliasTypeLLMMini {
+						require.Empty(t, calls)
+					} else {
+						require.Equal(t, []string{string(types.DefaultModelAliasTypeLLMMini)}, calls)
+					}
+				})
+			}
+		})
 	}
-
-	result := BuildConversationContext(messages)
-	assert.Equal(t, "User: Hello", result)
 }
 
-func TestBuildConversationContextFullConversation(t *testing.T) {
-	messages := []ConversationMessage{
-		{Role: "system", Content: "You are a travel agent."},
-		{Role: "user", Content: "Find me a flight to NYC"},
-		{Role: "assistant", Content: "I'll search for flights.", ToolCalls: []ToolCallInfo{
-			{Name: "search_flights", Arguments: `{"to": "NYC"}`},
-		}},
-		{Role: "tool", Content: "<big json response>", ToolCallID: "call_1"},
-		{Role: "assistant", Content: "I found several options."},
-		{Role: "user", Content: "Book the cheapest one in first class"},
-	}
+func TestResolveModelByDefaultAlias(t *testing.T) {
+	for _, stage := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
+		t.Run(string(stage), func(t *testing.T) {
+			h := evaluationHelper(t, completionFunc(func(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+				t.Fatal("resolution must not run inference")
+				return nil, nil
+			}))
+			var a v1.Alias
+			require.NoError(t, h.client.Get(t.Context(), kclient.ObjectKey{Name: alias.KeyFromScopeID("Model", string(stage))}, &a))
+			modelName := a.Spec.TargetName
+			a.Spec.TargetKind = "DefaultModelAlias"
+			require.NoError(t, h.client.Update(t.Context(), &a))
+			var defaultAlias v1.DefaultModelAlias
+			defaultAlias.Name, defaultAlias.Namespace = modelName, system.DefaultNamespace
+			defaultAlias.Spec.Manifest.Model = modelName
+			require.NoError(t, h.client.Create(t.Context(), &defaultAlias))
 
-	result := BuildConversationContext(messages)
-	expected := "User: Find me a flight to NYC\n" +
-		"Assistant: I'll search for flights.\n" +
-		"Assistant: [called tool \"search_flights\" with args: {\"to\": \"NYC\"}]\n" +
-		"Tool: [tool output redacted]\n" +
-		"Assistant: I found several options.\n" +
-		"User: Book the cheapest one in first class"
-	assert.Equal(t, expected, result)
+			model, err := h.resolveModelByAlias(t.Context(), stage)
+			require.NoError(t, err)
+			require.Equal(t, string(stage), model)
+		})
+	}
 }
 
 // The conversation and the message are quoted, and quoted text can't close its own quote.
@@ -125,31 +285,31 @@ func TestJudgeInputEscapesCloserVariants(t *testing.T) {
 }
 
 func TestParseReviewResponse(t *testing.T) {
-	denial := reviewResult{Explanation: "blocked"}
+	denial := Result{Explanation: "blocked"}
 	tests := []struct {
 		name     string
 		response string
-		want     reviewResult
+		want     Result
 	}{
 		{
 			name:     "reasoning then compliant",
 			response: "REASONING: The message asks about deployment, not cooking.\n\nCOMPLIANT",
-			want:     reviewResult{Compliant: true},
+			want:     Result{Compliant: true},
 		},
 		{
 			name:     "reasoning then violation",
 			response: "REASONING: It asks for a meatloaf recipe.\nVIOLATION: Your message asks for a recipe, which isn't allowed.",
-			want:     reviewResult{Explanation: "Your message asks for a recipe, which isn't allowed."},
+			want:     Result{Explanation: "Your message asks for a recipe, which isn't allowed."},
 		},
 		{
 			name:     "verdict alone",
 			response: "COMPLIANT",
-			want:     reviewResult{Compliant: true},
+			want:     Result{Compliant: true},
 		},
 		{
 			name:     "reasoning that mentions compliant isn't a verdict",
 			response: "REASONING: This is not COMPLIANT with the rule.\nVIOLATION: Recipes aren't allowed.",
-			want:     reviewResult{Explanation: "Recipes aren't allowed."},
+			want:     Result{Explanation: "Recipes aren't allowed."},
 		},
 		{
 			name:     "a compliant line in the reasoning doesn't count when the verdict is malformed",
@@ -159,7 +319,7 @@ func TestParseReviewResponse(t *testing.T) {
 		{
 			name:     "a verdict in markdown",
 			response: "REASONING: fine.\n**COMPLIANT**",
-			want:     reviewResult{Compliant: true},
+			want:     Result{Compliant: true},
 		},
 		{
 			name:     "no verdict upholds the denial",
