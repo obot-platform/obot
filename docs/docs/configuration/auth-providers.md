@@ -542,7 +542,7 @@ OneLogin stops suspended, locked, and unlicensed users from signing in, but Obot
 
 ### PingFederate {#pingfederate}
 
-Obot signs users in through PingFederate with OpenID Connect. PingFederate has no directory API for Obot to read, so Obot learns each user's groups from the claims PingFederate releases when they sign in.
+Obot signs users in through PingFederate with OpenID Connect. PingFederate has no directory API for Obot to read, so Obot learns each user's groups from the userinfo claims PingFederate releases, at sign-in and at each session refresh.
 
 #### Set up PingFederate {#pingfederate-setup}
 
@@ -586,7 +586,7 @@ Each group appears in Obot as `pingfederate/<name>`, with the name exactly as Pi
 
 Obot sees a group once one of its members signs in. To assign a role to a group before then, list it under **Known Groups**, so the group picker offers it.
 
-Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. At each refresh, Obot asks PingFederate's userinfo endpoint for the user's current groups, so a change in PingFederate takes effect without the user signing in again, even though PingFederate doesn't issue a new ID token on refresh by default.
+Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. At each refresh, Obot asks PingFederate's userinfo endpoint for the user's current groups, so a change in PingFederate takes effect without the user signing in again.
 
 When Obot uses PostgreSQL, as a deployment with several replicas must, every replica shares the users' groups and the groups seen at sign-in through two tables in Obot's database, `pingfederate_user_groups` and `pingfederate_seen_groups`. Obot drops them, with the provider's session tables, when you deconfigure PingFederate, switch to another provider, or discard a staged switch to PingFederate. Without PostgreSQL, Obot keeps them in memory.
 
