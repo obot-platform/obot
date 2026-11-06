@@ -127,6 +127,12 @@ func Run(ctx context.Context, c services.Config) error {
 		// Stop and drain egress handlers before closing the audit persister/database.
 		stopCredentials()
 
+		// Share the HTTP/OTel deadline and drain gateway plugins before audit storage closes.
+		slog.Info("Shutting down LLM gateway")
+		if err := svcs.BifrostEngine.Shutdown(ctx); err != nil {
+			slog.Error("Failed to gracefully shutdown LLM gateway", "error", err)
+		}
+
 		// Ensure that the audit logs are persisted.
 		svcs.AuditLogger.Close()
 

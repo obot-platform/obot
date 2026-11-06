@@ -15,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	bifrostcore "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -64,7 +63,11 @@ type Engine struct {
 }
 
 func New() *Engine {
-	e := &Engine{metrics: newGatewayMetrics(), availability: &modelAvailability{unavailable: map[string]bool{}}, ready: make(chan struct{})}
+	e := &Engine{
+		metrics:      newGatewayMetrics(),
+		availability: &modelAvailability{unavailable: map[string]bool{}},
+		ready:        make(chan struct{}),
+	}
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {
 			return nil
@@ -133,14 +136,9 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.ModelDataURL != "" {
 			go modeldata.Refresh(ctx, dir, opts.ModelDataURL, modeldata.RefreshInterval)
 		}
-		go func() {
-			<-ctx.Done()
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-			defer cancel()
-			if err := e.Shutdown(shutdownCtx); err != nil {
-				slog.Warn("LLM gateway shutdown is still completing", "error", err)
-			}
-		}()
+		// The application joins cleanup with its shared shutdown deadline. Cancellation
+		// still starts cleanup for standalone callers, without a separate wait budget.
+		context.AfterFunc(ctx, func() { _ = e.Shutdown(ctx) })
 	})
 	return e.startErr
 }
@@ -188,6 +186,12 @@ func (e *Engine) Shutdown(ctx context.Context) error {
 		e.shutdownDone = make(chan struct{})
 		go func() {
 			defer close(e.shutdownDone)
+			// Application shutdown can race background startup; join it before reading
+			// the core/catalog, and leave failed-start cleanup to Start.
+			<-e.ready
+			if e.startErr != nil {
+				return
+			}
 			if engine := e.core.Load(); engine != nil {
 				_ = engine.Shutdown(context.Background())
 			}
