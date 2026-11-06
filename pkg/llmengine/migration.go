@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/net/http/httpproxy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -92,13 +93,15 @@ func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStat
 // ResolveMigration records a first-writer-wins decision. Import runs separately:
 // a crash after accepting the decision is recovered by resource reconciliation.
 func (e *Engine) ResolveMigration(ctx context.Context, family, source string, version int) error {
-	err := e.mutateMigration(ctx, func(s *MigrationStatus) error {
+	var rejected error
+	err := e.mutateMigration(ctx, func(s *MigrationStatus) (decisionErr error) {
+		defer func() { rejected = decisionErr }()
 		entry, ok := s.Sources[source]
 		if (family != "azure" && family != "bedrock_mantle") || (source != sharedMigrationChoice && (!ok || entry.Provider != family)) {
-			return &APIError{StatusCode: 400, Message: "invalid legacy provider selection"}
+			return apierrors.NewBadRequest("invalid legacy provider selection")
 		}
 		if s.Version != version || s.Choices[family] != "" {
-			return &APIError{StatusCode: 409, Message: "the migration decision changed; refresh and try again"}
+			return &apierrors.StatusError{ErrStatus: metav1.Status{Code: 409, Message: "the migration decision changed; refresh and try again"}}
 		}
 		count := 0
 		pending := true
@@ -109,14 +112,15 @@ func (e *Engine) ResolveMigration(ctx context.Context, family, source string, ve
 			}
 		}
 		if count < 2 || (source == sharedMigrationChoice && !pending) || (source != sharedMigrationChoice && entry.Status != "pending") {
-			return &APIError{StatusCode: 409, Message: "this provider is no longer awaiting a choice"}
+			return &apierrors.StatusError{ErrStatus: metav1.Status{Code: 409, Message: "this provider is no longer awaiting a choice"}}
 		}
 		s.Choices[family] = source
 		s.Version++
 		return nil
 	})
-	if apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err) {
-		return &APIError{StatusCode: 409, Message: "the migration decision changed; refresh and try again"}
+	// Selection rejections can also be 409s; only storage conflicts need remapping.
+	if rejected == nil && (apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)) {
+		return &apierrors.StatusError{ErrStatus: metav1.Status{Code: 409, Message: "the migration decision changed; refresh and try again"}}
 	}
 	return err
 }
@@ -404,7 +408,7 @@ func (e *Engine) LegacyGatewayProvider(ctx context.Context, source string) (stri
 			return legacyImportPlans[source].provider, nil
 		}
 	}
-	return "", &APIError{StatusCode: 410, Message: "this legacy configuration needs attention in Models / Providers; select it for migration or configure a gateway provider manually"}
+	return "", &apierrors.StatusError{ErrStatus: metav1.Status{Code: 410, Message: "this legacy configuration needs attention in Models / Providers; select it for migration or configure a gateway provider manually"}}
 }
 
 func (e *Engine) MigratedReference(ctx context.Context, reference string) (string, error) {

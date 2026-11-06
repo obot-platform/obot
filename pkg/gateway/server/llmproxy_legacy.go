@@ -99,8 +99,8 @@ func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
 		mux.HandleFunc("/api/llm-proxy/"+prefix+"/{path...}", func(req api.Context) error {
 			provider, err := s.llmGateway.LegacyGatewayProvider(req.Context(), source)
 			if err != nil {
-				if ae, ok := errors.AsType[*llmengine.APIError](err); ok {
-					return types.NewErrHTTP(ae.StatusCode, ae.Message)
+				if ae, ok := errors.AsType[*apierrors.StatusError](err); ok {
+					return types.NewErrHTTP(int(ae.ErrStatus.Code), ae.ErrStatus.Message)
 				}
 				return err
 			}

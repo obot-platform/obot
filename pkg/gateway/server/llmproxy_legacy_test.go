@@ -210,6 +210,9 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	}
 
 	before := len(requests)
+	unconfigured := httptest.NewRecorder()
+	mux.mux.ServeHTTP(unconfigured, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/azure/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[]}`)))
+	require.Equal(t, http.StatusGone, unconfigured.Code, "a standard gateway status error must retain its HTTP code")
 	denied := httptest.NewRecorder()
 	mux.mux.ServeHTTP(denied, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/openai/v1/chat/completions", strings.NewReader(`{"model":"generic-responses/gpt-test","messages":[]}`)))
 	require.Equal(t, http.StatusBadRequest, denied.Code)

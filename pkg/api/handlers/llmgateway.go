@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (
@@ -522,8 +523,8 @@ func (h *LLMGatewayHandler) ResolveMigration(req api.Context) error {
 		return err
 	}
 	if err := h.engine.ResolveMigration(req.Context(), body.Family, body.Source, body.Version); err != nil {
-		if apiErr, ok := errors.AsType[*llmengine.APIError](err); ok {
-			return types.NewErrHTTP(apiErr.StatusCode, apiErr.Message)
+		if apiErr, ok := errors.AsType[*apierrors.StatusError](err); ok {
+			return types.NewErrHTTP(int(apiErr.ErrStatus.Code), apiErr.ErrStatus.Message)
 		}
 		return err
 	}

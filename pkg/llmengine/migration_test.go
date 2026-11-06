@@ -170,9 +170,7 @@ func TestMigrationCloudChoiceAndRecovery(t *testing.T) {
 			require.NotContains(t, string(raw), "secret")
 			require.NoError(t, e.ResolveMigration(ctx, "azure", chosen, status.Version))
 			err = e.ResolveMigration(ctx, "azure", chosen, status.Version)
-			var conflict *APIError
-			require.ErrorAs(t, err, &conflict)
-			require.Equal(t, http.StatusConflict, conflict.StatusCode)
+			require.True(t, apierrors.IsConflict(err))
 			// The saved decision survives a process restart before import begins.
 			restarted := New()
 			restarted.store = e.store
@@ -429,9 +427,7 @@ func TestMigrationConcurrentChoices(t *testing.T) {
 			accepted++
 			continue
 		}
-		var conflict *APIError
-		require.ErrorAs(t, err, &conflict)
-		require.Equal(t, http.StatusConflict, conflict.StatusCode)
+		require.True(t, apierrors.IsConflict(err))
 	}
 	require.Equal(t, 1, accepted)
 	state, err := e.MigrationStatus(ctx)
@@ -508,8 +504,8 @@ func TestMigrationDiscoveryRejectsCoreCatalogFallback(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":{"message":"unavailable"}}`))
 	}))
 	t.Cleanup(up.Close)
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "anthropic", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "max_retries": 0}}))))
-	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "test", "value": "key"}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "anthropic", "network_config": map[string]any{"base_url": up.URL, "allow_private_network": true, "max_retries": 0}}))))
+	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "test", "value": "key"}))))
 	_, err := e.ListModels(ctx)
 	require.NoError(t, err)
 	require.Empty(t, e.availability.discoveredModels(), "catalog fallback must not count as a successful provider listing")
