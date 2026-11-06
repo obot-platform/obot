@@ -12,7 +12,7 @@ Roles determine platform capabilities. Resource policies and profiles determine 
 | [Model policies](../functionality/model-access-policies.md) | Accessible models | A configured provider alone does not grant model access |
 | [Skill policies](../registries/publish-skills.md) | Skill discovery and installation | Administrators bypass these grants; downloaded copies remain |
 | [Authorization scopes](../functionality/agent-auth-scopes.md) | Programmatic credential capabilities | Cannot exceed the owning user's access |
-| [Sentry allowlists](../device-management/enforcement.md) | Supported local client tool calls | Experimental; client coverage and fail-closed behavior apply |
+| [Sentry allowlists](../device-management/enforcement.md) | Supported local client tool calls | Experimental; runs on the user's device; [limitations](../device-management/enforcement.md#limitations) and fail-closed behavior apply |
 
 
 Use a regular test account with the intended group membership to verify grants. Review broadly matching profiles and policies before concluding a narrow rule is ineffective. [User management](./authentication.md) describes administrative account controls.
