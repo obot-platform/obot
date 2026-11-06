@@ -321,6 +321,12 @@ func (r *llmAuditRecorder) observeResponseChunk(chunk *schemas.BifrostStreamChun
 	if r == nil || chunk == nil {
 		return
 	}
+	r.mu.Lock()
+	stopped := r.closed || r.responseCaptureFilled
+	r.mu.Unlock()
+	if stopped {
+		return
+	}
 	data, err := json.Marshal(chunk)
 	if err != nil {
 		return
@@ -348,6 +354,7 @@ func (r *llmAuditRecorder) observeResponseChunk(chunk *schemas.BifrostStreamChun
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// Capture may have closed or overflowed while this chunk was serialized.
 	if r.closed || r.responseCaptureFilled {
 		return
 	}

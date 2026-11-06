@@ -24,6 +24,13 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+type auditMarshalProbe func()
+
+func (p auditMarshalProbe) MarshalJSON() ([]byte, error) {
+	p()
+	return nil, errors.New("serialization probe")
+}
+
 func TestRedactedHeaders(t *testing.T) {
 	headers := http.Header{
 		"Authorization":                               []string{"Bearer secret"},
@@ -383,6 +390,45 @@ func TestAuditBifrostResponsesDialects(t *testing.T) {
 			}
 			if path == "/messages" && gjson.GetBytes(r.log.ResponseBody, "type").String() != "message" {
 				t.Fatalf("wrong dialect: %s", r.log.ResponseBody)
+			}
+		})
+	}
+}
+
+func TestAuditCaptureSkipsSerializationWhenClosedOrFull(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		closed      bool
+		full        bool
+		wantMarshal bool
+	}{
+		{
+			name:        "active",
+			wantMarshal: true,
+		},
+		{
+			name:   "closed",
+			closed: true,
+		},
+		{
+			name: "full",
+			full: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &llmAuditRecorder{
+				closed:                tc.closed,
+				responseCaptureFilled: tc.full,
+			}
+			marshaled := false
+			chunk := &schemas.BifrostStreamChunk{BifrostChatResponse: &schemas.BifrostChatResponse{
+				ExtraFields: schemas.BifrostResponseExtraFields{
+					RawResponse: auditMarshalProbe(func() { marshaled = true }),
+				},
+			}}
+			r.observeResponseChunk(chunk, nil)
+			if marshaled != tc.wantMarshal {
+				t.Fatalf("serialized chunk = %v, want %v", marshaled, tc.wantMarshal)
 			}
 		})
 	}
