@@ -23,7 +23,9 @@ Retain the original incoming request JSON. Feed client-bound core stream chunks,
 
 ## Rationale
 
-Using Bifrost's assembler removes duplicate protocol reconstruction while observing after guardrail replay excludes withheld output. The core handler observes chunks after successful encoding using request context callbacks. The engine owns the accumulator and stops it on shutdown. The MCP tester bypasses Bifrost and uses the complete response already supplied by its terminal Responses event.
+Using Bifrost's assembler removes duplicate protocol reconstruction while observing after guardrail replay excludes withheld output. The core handler observes chunks after successful encoding using request context callbacks. The engine owns the accumulator and stops it on shutdown.
+
+The MCP tester uses the normal LLM gateway when model providers are configured. When no provider is configured and the external model service is enabled, the tester calls that service directly so installations can test MCP servers without configuring a model provider. This path intentionally bypasses the local Bifrost engine; its audit capture uses the complete response supplied by the terminal Responses event. Moving this path through Bifrost is not planned as part of this cutover.
 
 ## Consequences
 
