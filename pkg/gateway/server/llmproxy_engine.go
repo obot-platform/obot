@@ -371,9 +371,14 @@ func addListedModels(resp *http.Response, models []llmengine.ListedModel, anthro
 // resolveModel resolves a model name that names no gateway model exactly: a bare
 // provider-native ID, or an undated alias of a dated model ID, with or without its provider.
 // When several models match, it prefers one the caller may use.
-func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error) {
+func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, req api.Context, reference string) (*v1.Model, error) {
+	// Native Codex catalog slugs name OpenAI models even when another provider
+	// exposes the same ID. Explicit aliases/resources have already been resolved.
+	if llmtypes.IsCodexSubscription(req.Request.Header) && !strings.Contains(reference, "/") {
+		reference = "openai/" + reference
+	}
 	return l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, reference, func(m *v1.Model) bool {
-		ok, err := l.mapHelper.UserHasAccessToModel(user, m.Name)
+		ok, err := l.mapHelper.UserHasAccessToModel(req.User, m.Name)
 		return err == nil && ok
 	})
 }
@@ -383,7 +388,7 @@ func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, user kuser.In
 func (b *bifrostProviderBackend) authorizeModel(l *llmProviderProxy, req api.Context, reference, what string) (*v1.Model, error) {
 	model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
 	if apierrors.IsNotFound(err) {
-		model, err = b.resolveModel(l, req.User, reference)
+		model, err = b.resolveModel(l, req, reference)
 	}
 	if err != nil || model == nil || model.Spec.Manifest.ModelProvider != system.LLMGatewayModelProvider {
 		return nil, types2.NewErrBadRequest("%s %q is not available through this endpoint", what, reference)

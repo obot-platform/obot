@@ -418,6 +418,12 @@ describe('GatewayConnect', () => {
 			.element(page.getByText('codex --profile obot-subscription', { exact: false }))
 			.toBeInTheDocument();
 		await expect
+			.element(page.getByText('model_provider = "obot-subscription"', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('[model_providers.obot-subscription]', { exact: false }))
+			.toBeInTheDocument();
+		await expect
 			.element(page.getByText('requires_openai_auth = true', { exact: false }))
 			.toBeInTheDocument();
 		await expect

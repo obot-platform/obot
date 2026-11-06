@@ -370,9 +370,10 @@
 							...(nativeModel === 'codex-default'
 								? []
 								: [`model = "${nativeModel.replace(/^openai\//, '')}"`]),
-							'model_provider = "obot"',
+							// Profiles merge provider tables, so isolate ChatGPT auth from a main-config env_key.
+							'model_provider = "obot-subscription"',
 							'',
-							'[model_providers.obot]',
+							'[model_providers.obot-subscription]',
 							'name = "Obot LLM Gateway"',
 							`base_url = "${baseURL}/v1"`,
 							`model_catalog_url = "${baseURL}/v1/models"`,
