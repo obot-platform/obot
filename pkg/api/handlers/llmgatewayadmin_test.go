@@ -11,28 +11,29 @@ import (
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authn"
+	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/api/server"
+	"github.com/obot-platform/obot/pkg/api/server/audit"
+	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/license"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/authenticator"
+	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 type adminTestCodec struct{}
-
-type adminTestMux struct {
-	*http.ServeMux
-	storage       kclient.WithWatch
-	gatewayClient *gatewayclient.Client
-	handlerErr    error
-}
 
 func (adminTestCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
 	return data, nil
@@ -59,27 +60,35 @@ func newAdminTestHandler(t *testing.T, storage kclient.WithWatch) (*LLMGatewayHa
 func callAdmin(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWatch, method, path, body string) (*httptest.ResponseRecorder, error) {
 	t.Helper()
 	request := httptest.NewRequest(method, gatewayAdminPrefix+path, strings.NewReader(body))
-	return callAdminRequest(handler, storage, request)
+	return callAdminRequest(t, handler, storage, request)
 }
 
-func (m *adminTestMux) HandleFunc(pattern string, handle api.HandlerFunc) {
-	m.ServeMux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		m.handlerErr = handle(api.Context{Request: r, ResponseWriter: w, Storage: m.storage, GatewayClient: m.gatewayClient})
-	})
-}
-
-func callAdminRequest(handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
-	mux := &adminTestMux{ServeMux: http.NewServeMux(), storage: storage}
+func newAdminTestServer(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWatch, gateway *gatewayclient.Client) *server.Server {
+	t.Helper()
+	logger, err := audit.New(t.Context(), audit.Options{AuditLogsMode: audit.ModeOff})
+	require.NoError(t, err)
+	limiter, err := ratelimiter.New(ratelimiter.Options{AuthenticatedRateLimit: 100, UnauthenticatedRateLimit: 100})
+	require.NoError(t, err)
+	// Admin permissions exercise the real route wrappers; the anonymous marker skips activity writes.
+	principal := &user.DefaultInfo{UID: "7", Groups: []string{types.GroupAdmin, authz.UnauthenticatedGroup}}
+	authentication := authn.NewAuthenticator(authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+		return &authenticator.Response{User: principal}, true, nil
+	}))
+	mux := server.NewServer(storage, gateway, nil, system.DefaultNamespace, authentication,
+		authz.NewAuthorizer(gateway, storage, storage, false, nil, nil, nil), nil, logger, limiter, "http://obot.test", nil, &license.Provider{})
 	handler.RegisterAdminRoutes(mux)
-	// Include the same API fallback as the production router.
-	mux.Handle("/api/", http.NotFoundHandler())
+	mux.HTTPHandle("/api/", http.NotFoundHandler())
+	return mux
+}
+
+func callAdminRequest(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
+	t.Helper()
 	response := httptest.NewRecorder()
-	mux.ServeHTTP(response, request)
-	if mux.handlerErr == nil && response.Code >= http.StatusBadRequest {
-		// The mux itself handles unknown paths and unsupported methods before an API handler runs.
-		mux.handlerErr = types.NewErrHTTP(response.Code, response.Body.String())
+	newAdminTestServer(t, handler, storage, nil).ServeHTTP(response, request)
+	if response.Code >= http.StatusBadRequest {
+		return response, types.NewErrHTTP(response.Code, response.Body.String())
 	}
-	return response, mux.handlerErr
+	return response, nil
 }
 
 func TestGatewayAdminUnsupportedOperationsCannotMutate(t *testing.T) {
@@ -140,17 +149,17 @@ func TestGatewayAdminUnsupportedOperationsCannotMutate(t *testing.T) {
 		{
 			method: http.MethodPost,
 			path:   "providers/openai",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodPost,
 			path:   "providers/openai/keys/" + key.ID,
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodPut,
 			path:   "providers/openai/keys",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodPut,
@@ -165,27 +174,27 @@ func TestGatewayAdminUnsupportedOperationsCannotMutate(t *testing.T) {
 		{
 			method: http.MethodDelete,
 			path:   "config",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodPost,
 			path:   "proxy-config",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodPut,
 			path:   "governance/routing-rules",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodDelete,
 			path:   "governance/pricing-overrides",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodGet,
 			path:   "governance/pricing-overrides/id",
-			code:   http.StatusMethodNotAllowed,
+			code:   http.StatusNotFound,
 		},
 		{
 			method: http.MethodPost,
@@ -330,7 +339,7 @@ func TestGatewayAdminCanceledWriteStillAnnounces(t *testing.T) {
 	})
 	h, store := newAdminTestHandler(t, wrapped)
 	request := httptest.NewRequest(http.MethodPost, "/api/llm-gateway/admin/providers", strings.NewReader(`{"provider":"openai"}`)).WithContext(ctx)
-	response, err := callAdminRequest(h, storage, request)
+	response, err := callAdminRequest(t, h, storage, request)
 	require.NoError(t, err)
 	require.ErrorIs(t, ctx.Err(), context.Canceled)
 	require.Equal(t, http.StatusOK, response.Code)
@@ -383,8 +392,7 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 		_, err := h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"`+provider+`"}`))
 		require.NoError(t, err)
 	}
-	mux := &adminTestMux{ServeMux: http.NewServeMux(), storage: storage, gatewayClient: gateway}
-	h.RegisterAdminRoutes(mux)
+	mux := newAdminTestServer(t, h, storage, gateway)
 	before, err := store.Load(t.Context())
 	require.NoError(t, err)
 	for _, tc := range []struct {
@@ -424,11 +432,9 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 		},
 	} {
 		t.Run(tc.path+tc.body, func(t *testing.T) {
-			mux.handlerErr = nil
-			mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(tc.method, gatewayAdminPrefix+tc.path, strings.NewReader(tc.body)))
-			httpErr, ok := errors.AsType[*types.ErrHTTP](mux.handlerErr)
-			require.True(t, ok, "%v", mux.handlerErr)
-			require.Equal(t, http.StatusBadRequest, httpErr.Code)
+			response := httptest.NewRecorder()
+			mux.ServeHTTP(response, httptest.NewRequest(tc.method, gatewayAdminPrefix+tc.path, strings.NewReader(tc.body)))
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 			after, err := store.Load(t.Context())
 			require.NoError(t, err)
 			require.Equal(t, before, after, "rejected configuration must not be persisted")
@@ -438,9 +444,9 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 	// Subscription settings must follow a committed provider deletion even after disconnect.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	mux.handlerErr = nil
-	mux.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/anthropic", nil).WithContext(ctx))
-	require.NoError(t, mux.handlerErr)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/anthropic", nil).WithContext(ctx))
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	settings, err := gateway.GetLLMGatewaySettings(t.Context())
 	require.NoError(t, err)
 	require.False(t, settings.SubscriptionPassthrough)

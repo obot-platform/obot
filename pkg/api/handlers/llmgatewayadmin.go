@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/llmengine"
 )
 
@@ -15,7 +16,7 @@ const (
 )
 
 // RegisterAdminRoutes adds gateway administration handlers to Obot's API mux.
-func (h *LLMGatewayHandler) RegisterAdminRoutes(mux interface{ HandleFunc(string, api.HandlerFunc) }) {
+func (h *LLMGatewayHandler) RegisterAdminRoutes(mux *server.Server) {
 	mux.HandleFunc("GET /api/llm-gateway/admin/providers", h.adminHandler(h.ListProviders))
 	mux.HandleFunc("POST /api/llm-gateway/admin/providers", h.adminHandler(h.CreateProvider))
 	mux.HandleFunc("GET /api/llm-gateway/admin/providers/{provider}", h.adminHandler(h.GetProvider))
@@ -74,42 +75,6 @@ func (h *LLMGatewayHandler) RegisterAdminRoutes(mux interface{ HandleFunc(string
 	mux.HandleFunc("POST /api/llm-gateway/admin/governance/pricing-overrides/{$}", h.adminHandler(h.CreatePricingOverride))
 	mux.HandleFunc("PUT /api/llm-gateway/admin/governance/pricing-overrides/{override}/{$}", h.adminHandler(h.UpdatePricingOverride))
 	mux.HandleFunc("DELETE /api/llm-gateway/admin/governance/pricing-overrides/{override}/{$}", h.adminHandler(h.DeletePricingOverride))
-
-	// Explicit method fallbacks prevent the outer /api/ catch-all from returning 404.
-	mux.HandleFunc("/api/llm-gateway/admin/providers", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/refresh-models", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/refresh-models/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/keys", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/keys/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/keys", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/keys/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/keys/{key}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/providers/{provider}/keys/{key}/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/config", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/config/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/proxy-config", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/proxy-config/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/version", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/version/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/models", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/models/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/pricing/force-sync", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/pricing/force-sync/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/routing-rules", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/routing-rules/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/routing-rules/{rule}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/routing-rules/{rule}/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/pricing-overrides", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/pricing-overrides/{$}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/pricing-overrides/{override}", gatewayAdminMethodNotAllowed)
-	mux.HandleFunc("/api/llm-gateway/admin/governance/pricing-overrides/{override}/{$}", gatewayAdminMethodNotAllowed)
-}
-
-func gatewayAdminMethodNotAllowed(api.Context) error {
-	return types.NewErrHTTP(http.StatusMethodNotAllowed, "Method Not Allowed")
 }
 
 func (h *LLMGatewayHandler) ListProviders(req api.Context) error {
