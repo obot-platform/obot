@@ -239,8 +239,7 @@ export const steps: GuideStep[] = [
 								},
 								side: 'top',
 								title: m.inventory_enforcement_configuration_tool_call_enforcement(),
-								description: m.inventory_enforcement_guides_here_you_can_control_which_tool(),
-								experimental: true
+								description: m.inventory_enforcement_guides_here_you_can_control_which_tool()
 							},
 							listener: {
 								id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection,

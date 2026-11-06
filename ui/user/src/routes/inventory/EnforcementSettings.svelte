@@ -220,7 +220,6 @@
 			<h3 class="text-lg font-semibold">
 				{m.inventory_enforcement_configuration_tool_call_enforcement()}
 			</h3>
-			<span class="badge badge-warning badge-sm">{m.core_experimental()}</span>
 		</div>
 		<p class="text-muted-content text-sm font-light">
 			{m.inventory_enforcement_configuration_enforcement_description()}

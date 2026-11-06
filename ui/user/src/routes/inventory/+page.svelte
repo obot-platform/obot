@@ -72,8 +72,7 @@
 						label: m.inventory_enforcement_enforcement_events_tab(),
 						value: 'enforcement-events',
 						content: enforcementEvents,
-						tooltip: m.inventory_enforcement_enforcement_events_tab_tooltip(),
-						beta: true
+						tooltip: m.inventory_enforcement_enforcement_events_tab_tooltip()
 					}
 				]
 			: [])
