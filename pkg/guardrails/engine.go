@@ -15,6 +15,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -135,6 +136,7 @@ type Store interface {
 type Engine struct {
 	client Store
 	deps   Deps
+	blocks *prometheus.CounterVec
 
 	lock       sync.Mutex
 	loadedAt   time.Time
@@ -168,6 +170,10 @@ func (p Plan) Modifies() bool {
 func New(client Store, judge *messagepolicy.Helper) *Engine {
 	return &Engine{
 		client: client,
+		blocks: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "obot_llm_gateway_guardrail_blocks_total",
+			Help: "LLM guardrail blocks, including fail-closed evaluation errors, by input or output stage.",
+		}, []string{"stage"}),
 		deps: Deps{
 			Judge:      judge,
 			HTTPClient: newHTTPClient(),

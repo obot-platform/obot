@@ -382,6 +382,7 @@ func TestGatewayMetricsIncludeBlockedOutput(t *testing.T) {
 	gw.ServeMetrics(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
 	require.Equal(t, http.StatusOK, scrape.Code)
 	require.NotContains(t, scrape.Body.String(), `provider=""`)
+	require.Contains(t, scrape.Body.String(), "obot_llm_gateway_guardrail_blocks_total{stage=\"output\"} 1\n")
 	const labels = `key="k",model="gpt-4o-mini",provider="openai"`
 	// Blocking delivery does not undo the provider's billed 5 input and 3 output tokens.
 	for series, want := range map[string]float64{
@@ -403,6 +404,84 @@ func TestGatewayMetricsIncludeBlockedOutput(t *testing.T) {
 			found = true
 		}
 		require.True(t, found, "missing metrics series %s", series)
+	}
+}
+
+func TestGatewayGuardrailBlockMetrics(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		action     string
+		input      string
+		stream     bool
+		loadError  bool
+		failClosed bool
+		stage      string
+	}{
+		{
+			name:   "input block",
+			action: types.GuardrailActionBlock,
+			input:  leakedKey,
+			stage:  StageInput,
+		},
+		{
+			name:   "stream output block",
+			action: types.GuardrailActionBlock,
+			stream: true,
+			stage:  StageOutput,
+		},
+		{
+			name:      "fail-closed policy loading",
+			action:    types.GuardrailActionBlock,
+			loadError: true,
+			stage:     StageInput,
+		},
+		{
+			name:       "fail-closed output evaluation",
+			action:     types.GuardrailActionBlock,
+			failClosed: true,
+			stage:      StageOutput,
+		},
+		{
+			name:   "redaction is not a block",
+			action: types.GuardrailActionRedact,
+		},
+		{
+			name:   "logging is not a block",
+			action: types.GuardrailActionLog,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			store := &fakeStore{
+				guardrails: []types.Guardrail{guardrail("secrets", "secrets", nil)},
+				policies:   []types.GuardrailPolicy{policy("secrets-policy", tc.action, "secrets")},
+			}
+			if tc.failClosed {
+				store.guardrails = []types.Guardrail{guardrail("secrets", "test-failing", nil)}
+				store.policies[0].ApplyTo = types.GuardrailApplyOutput
+				store.policies[0].FailClosed = true
+			}
+			gw, _ := startGateway(t, store)
+			if tc.loadError {
+				store.loadErr = fmt.Errorf("policy storage unavailable")
+			}
+			prompt := "hello " + tc.input
+			code, body := call(t, gw, fmt.Sprintf(`{"model":"openai/gpt-4o-mini","stream":%t,"messages":[{"role":"user","content":%q}]}`, tc.stream, prompt), true)
+			if tc.stage == "" {
+				require.Equal(t, http.StatusOK, code, body)
+			} else {
+				require.Contains(t, body, "guardrail_intervention")
+			}
+			scrape := httptest.NewRecorder()
+			gw.ServeMetrics(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+			if tc.stage == "" {
+				require.NotContains(t, scrape.Body.String(), "obot_llm_gateway_guardrail_blocks_total{")
+			} else {
+				require.Contains(t, scrape.Body.String(), `obot_llm_gateway_guardrail_blocks_total{stage="`+tc.stage+"\"} 1\n")
+			}
+			if tc.stage == StageInput {
+				require.NotContains(t, scrape.Body.String(), "obot_llm_gateway_requests_total{")
+			}
+		})
 	}
 }
 

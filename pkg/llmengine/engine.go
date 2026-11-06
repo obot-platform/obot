@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/modeldata"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -119,6 +120,12 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		}
 		// Response hooks run in reverse: record billing before output guardrails discard responses.
 		plugins = append(plugins, e.metrics)
+		// Plugins own their counters; expose collectors through the gateway's replica-local registry.
+		for _, plugin := range plugins {
+			if collector, ok := plugin.(prometheus.Collector); ok {
+				e.metrics.registry.MustRegister(collector)
+			}
+		}
 		engine, err := llmcore.New(ctx, opts.Store, llmcore.Options{Plugins: plugins, Logger: logger, Catalog: e.prices})
 		if err != nil {
 			_ = e.prices.Cleanup()
