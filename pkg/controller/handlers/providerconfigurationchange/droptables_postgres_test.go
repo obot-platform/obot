@@ -70,7 +70,12 @@ func TestDropAuthProviderTablesRejectsInvalidNames(t *testing.T) {
 		},
 	}
 	// The DSN is never dialed: the names are checked first.
-	assert.Error(t, dropAuthProviderTables(authProvider, "postgres://unused.invalid/obot"))
+	assert.ErrorContains(t, dropAuthProviderTables(authProvider, "postgres://unused.invalid/obot"), "declares invalid postgres tables")
+
+	// So is a prefix, even with no declared tables, since it names the session tables.
+	authProvider.Spec.PostgresTables = nil
+	authProvider.Spec.PostgresTablePrefix = "x; DROP TABLE users; --"
+	assert.ErrorContains(t, dropAuthProviderTables(authProvider, "postgres://unused.invalid/obot"), "declares invalid postgres tables")
 
 	// Without a database, there is nothing to drop.
 	assert.NoError(t, dropAuthProviderTables(authProvider, ""))

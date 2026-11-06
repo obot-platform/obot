@@ -403,6 +403,18 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		if deletedConn != nil {
 			slog.Info("Deleted the SCIM connection of an unstaged auth provider", "authProvider", authProvider.Name, "connection", deletedConn.ConnectionID)
 		}
+		// The verification sign-in ran the staged provider, which may have created its tables and filled them, for
+		// example with the groups it saw. Drop them, unless the provider also has settings of its own in use. Like the
+		// SCIM connection, they go before the staged configuration, so that a retry after a failure still finds it.
+		active, err := h.hasActiveCredential(ctx, authProvider)
+		if err != nil {
+			return err
+		}
+		if !active {
+			if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
+				return err
+			}
+		}
 		deleted, err := h.gatewayClient.DeleteCredential(ctx, system.ReplacementAuthProviderCredentialContext, authProvider.Name)
 		if err != nil {
 			return fmt.Errorf("discard staged configuration for auth provider %q: %w", authProvider.Name, err)
@@ -533,6 +545,12 @@ func (h *Handler) hasActiveCredential(ctx context.Context, authProvider v1.AuthP
 }
 
 func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Client, authProvider v1.AuthProvider) error {
+	// Check the tables to drop before anything is deleted, so that a manifest that names invalid tables cannot leave
+	// the provider half deconfigured.
+	if _, err := authProviderTableNames(authProvider); err != nil {
+		return err
+	}
+
 	var cleanup *v1.AuthProviderCleanup
 	if authProvider.Spec.GroupIDPrefix != "" {
 		var err error
@@ -649,9 +667,9 @@ func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) er
 	if postgresDSN == "" || authProvider.Spec.PostgresTablePrefix == "" {
 		return nil
 	}
-	declaredTables, err := provider.PostgresTableNames(authProvider.Spec.AuthProviderManifest)
+	tables, err := authProviderTableNames(authProvider)
 	if err != nil {
-		return fmt.Errorf("auth provider %q declares invalid postgres tables: %w", authProvider.Name, err)
+		return err
 	}
 	db, err := gorm.Open(postgres.Open(postgresDSN), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
@@ -663,19 +681,27 @@ func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) er
 	}
 	defer sqlDB.Close()
 
-	tablePrefix := authProvider.Spec.PostgresTablePrefix
-	if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "sessions;").Error; err != nil {
-		return fmt.Errorf("drop auth provider sessions table: %w", err)
-	}
-	if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
-		return fmt.Errorf("drop auth provider session locks table: %w", err)
-	}
-	for _, table := range declaredTables {
+	for _, table := range tables {
 		if err := db.Exec("DROP TABLE IF EXISTS ?", clause.Table{Name: table}).Error; err != nil {
 			return fmt.Errorf("drop auth provider table %s: %w", table, err)
 		}
 	}
 	return nil
+}
+
+// authProviderTableNames returns the tables an auth provider keeps in Obot's database: oauth2-proxy's session tables,
+// and any others its manifest declares in postgresTables. It fails when the manifest's prefix or tables are invalid,
+// which registry loading already rejects.
+func authProviderTableNames(authProvider v1.AuthProvider) ([]string, error) {
+	if authProvider.Spec.PostgresTablePrefix == "" {
+		return nil, nil
+	}
+	declared, err := provider.PostgresTableNames(authProvider.Spec.AuthProviderManifest)
+	if err != nil {
+		return nil, fmt.Errorf("auth provider %q declares invalid postgres tables: %w", authProvider.Name, err)
+	}
+	prefix := authProvider.Spec.PostgresTablePrefix
+	return append([]string{prefix + "sessions", prefix + "session_locks"}, declared...), nil
 }
 
 func EnsureDaemonSync(ctx context.Context, client kclient.Client) error {

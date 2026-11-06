@@ -48,8 +48,8 @@ var (
 	providerNameInvalidChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	providerNameDashes       = regexp.MustCompile(`-{2,}`)
 
-	postgresTablePrefixPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
-	postgresTableSuffixPattern = regexp.MustCompile(`^[a-z0-9_]+$`)
+	postgresTablePrefixPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*_$`)
+	postgresTableSuffixPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 )
 
 type Handler struct {
@@ -189,7 +189,7 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 			continue
 		}
 		if _, err := PostgresTableNames(a.Manifest); err != nil {
-			slog.Warn("Skipping auth provider with invalid Postgres tables", "name", a.Name, "postgresTablePrefix", a.Manifest.PostgresTablePrefix, "postgresTables", a.Manifest.PostgresTables, "error", err)
+			slog.Warn("Skipping auth provider with an invalid Postgres table prefix or tables", "name", a.Name, "postgresTablePrefix", a.Manifest.PostgresTablePrefix, "postgresTables", a.Manifest.PostgresTables, "error", err)
 			continue
 		}
 
@@ -207,19 +207,24 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 }
 
 // PostgresTableNames returns the full names of the tables an auth provider declares in postgresTables, besides
-// its session tables. Obot drops them when the provider is deconfigured, so a name must be one the provider owns:
-// its prefix followed by a suffix of lowercase letters, digits, and underscores.
+// its session tables, after validating its postgresTablePrefix whenever one is set. Obot drops these tables when the
+// provider is deconfigured, so every name must lie in the provider's own namespace: a prefix of lowercase letters,
+// digits, and underscores that starts with a letter and ends with an underscore, followed by a suffix that starts with
+// a letter. Registries are trusted, but this keeps a mistake in one manifest from naming another's tables or Obot's.
 func PostgresTableNames(manifest types.AuthProviderManifest) ([]string, error) {
-	if len(manifest.PostgresTables) == 0 {
+	if manifest.PostgresTablePrefix == "" {
+		if len(manifest.PostgresTables) > 0 {
+			return nil, errors.New("postgresTables requires a postgresTablePrefix")
+		}
 		return nil, nil
 	}
 	if !postgresTablePrefixPattern.MatchString(manifest.PostgresTablePrefix) {
-		return nil, fmt.Errorf("postgresTables requires a postgresTablePrefix of lowercase letters, digits, and underscores, starting with a letter; got %q", manifest.PostgresTablePrefix)
+		return nil, fmt.Errorf("postgresTablePrefix %q must contain only lowercase letters, digits, and underscores, start with a letter, and end with an underscore", manifest.PostgresTablePrefix)
 	}
 	names := make([]string, 0, len(manifest.PostgresTables))
 	for _, suffix := range manifest.PostgresTables {
 		if !postgresTableSuffixPattern.MatchString(suffix) {
-			return nil, fmt.Errorf("postgres table %q must contain only lowercase letters, digits, and underscores", suffix)
+			return nil, fmt.Errorf("postgres table %q must contain only lowercase letters, digits, and underscores, and start with a letter", suffix)
 		}
 		name := manifest.PostgresTablePrefix + suffix
 		if len(name) > maxPostgresIdentifierLength {
@@ -228,6 +233,27 @@ func PostgresTableNames(manifest types.AuthProviderManifest) ([]string, error) {
 		names = append(names, name)
 	}
 	return names, nil
+}
+
+// validateDistinctAuthProviderPostgresTablePrefixes rejects auth providers whose Postgres table prefixes are equal or
+// one starts the other, since the tables of one would then be named in the other's namespace, and deconfiguring one
+// could drop the other's.
+func validateDistinctAuthProviderPostgresTablePrefixes(objs []kclient.Object) error {
+	type owner struct{ provider, prefix string }
+	var owners []owner
+	for _, obj := range objs {
+		provider, ok := obj.(*v1.AuthProvider)
+		if !ok || provider.Spec.PostgresTablePrefix == "" {
+			continue
+		}
+		for _, existing := range owners {
+			if strings.HasPrefix(existing.prefix, provider.Spec.PostgresTablePrefix) || strings.HasPrefix(provider.Spec.PostgresTablePrefix, existing.prefix) {
+				return fmt.Errorf("auth providers %q and %q declare overlapping postgres table prefixes %q and %q", existing.provider, provider.Name, existing.prefix, provider.Spec.PostgresTablePrefix)
+			}
+		}
+		owners = append(owners, owner{provider: provider.Name, prefix: provider.Spec.PostgresTablePrefix})
+	}
+	return nil
 }
 
 func validateUniqueAuthProviderGroupIDPrefixes(objs []kclient.Object) error {
@@ -272,6 +298,9 @@ func (h *Handler) ReadFromRegistry(ctx context.Context, c kclient.Client) error 
 		// Do not accidentally delete all the providers.
 		slog.Info("Skipping provider registry apply because no providers were resolved")
 		return nil
+	}
+	if err := validateDistinctAuthProviderPostgresTablePrefixes(toAdd); err != nil {
+		return err
 	}
 	if err := validateUniqueAuthProviderGroupIDPrefixes(toAdd); err != nil {
 		return fmt.Errorf("validate provider registries: %w", err)
