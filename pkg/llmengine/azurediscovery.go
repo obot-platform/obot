@@ -99,6 +99,14 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 		go func() {
 			credential, err := d.keyCredential(provider, key, account)
 			if err == nil {
+				fingerprint := llmcoreclient.AzureDiscoveryFingerprint(key, account)
+				var generation uint64
+				generation, err = store.BeginAzureDiscovery(ctx, string(provider), key.ID, fingerprint)
+				if err != nil || generation == 0 {
+					results <- err
+					return
+				}
+
 				metadata := map[string]string{}
 				var names []string
 				names, err = d.list(ctx, credential, account.ResourceID(), metadata)
@@ -107,8 +115,8 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 					slices.Sort(names)
 					names = slices.Compact(names)
 
-					err = store.SaveAzureDiscovery(ctx, string(provider), key.ID, llmcoreclient.AzureDiscoverySnapshot{
-						Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account), Names: names, BaseModels: metadata,
+					err = store.SaveAzureDiscovery(ctx, string(provider), key.ID, generation, llmcoreclient.AzureDiscoverySnapshot{
+						Fingerprint: fingerprint, Names: names, BaseModels: metadata,
 					})
 				}
 			}

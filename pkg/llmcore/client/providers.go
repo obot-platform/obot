@@ -15,6 +15,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// AzureDiscoveryReservationAnnotation distinguishes ordering writes from discovery/configuration changes.
+const AzureDiscoveryReservationAnnotation = "obot.ai/azure-discovery-reservation"
+
 // AzureAccount identifies the account used for management-plane deployment discovery.
 type AzureAccount struct {
 	SubscriptionID string `json:"azure_subscription_id,omitempty"`
@@ -61,10 +64,12 @@ func AzureDiscoveryFingerprint(key schemas.Key, account AzureAccount) [32]byte {
 
 // Provider is one atomic configuration aggregate: provider settings and its keys.
 type Provider struct {
-	AzureAccounts    map[string]AzureAccount           `json:",omitempty"`
-	AzureDiscoveries map[string]AzureDiscoverySnapshot `json:",omitempty"`
-	Config           schemas.ProviderConfig
-	Keys             []schemas.Key
+	// Ordering is storage-only: reservations must not change the runtime view or trigger model-sync loops.
+	AzureRefreshGenerations map[string]uint64                 `json:",omitempty"`
+	AzureAccounts           map[string]AzureAccount           `json:",omitempty"`
+	AzureDiscoveries        map[string]AzureDiscoverySnapshot `json:",omitempty"`
+	Config                  schemas.ProviderConfig
+	Keys                    []schemas.Key
 }
 
 func (s *Client) GetProvider(ctx context.Context, name string) (Provider, error) {
@@ -102,6 +107,10 @@ func (s *Client) CreateProvider(ctx context.Context, name string, provider Provi
 // Conflicts are returned to the caller, which can explicitly retry the operation.
 // The callback must not have side effects because its write may fail.
 func (s *Client) MutateProvider(ctx context.Context, name string, change func(*Provider) error) error {
+	return s.mutateProvider(ctx, name, change, false)
+}
+
+func (s *Client) mutateProvider(ctx context.Context, name string, change func(*Provider) error, reservation bool) error {
 	obj := v1.LLMGatewayProvider{}
 	err := s.storage.Get(ctx, resourceKey(name), &obj)
 	if err != nil {
@@ -130,6 +139,12 @@ func (s *Client) MutateProvider(ctx context.Context, name string, change func(*P
 		}
 	}
 
+	for id := range provider.AzureRefreshGenerations {
+		if !slices.ContainsFunc(provider.Keys, func(key schemas.Key) bool { return key.ID == id }) {
+			delete(provider.AzureRefreshGenerations, id)
+		}
+	}
+
 	if err := validateKeys(provider.Keys); err != nil {
 		return err
 	}
@@ -148,6 +163,15 @@ func (s *Client) MutateProvider(ctx context.Context, name string, change func(*P
 	}
 
 	obj.Spec = v1.LLMGatewayResourceSpec{ID: name, Payload: payload}
+	if reservation {
+		if obj.Annotations == nil {
+			obj.Annotations = map[string]string{}
+		}
+		obj.Annotations[AzureDiscoveryReservationAnnotation] = "true"
+	} else {
+		delete(obj.Annotations, AzureDiscoveryReservationAnnotation)
+	}
+
 	return s.storage.Update(ctx, &obj)
 }
 
@@ -207,11 +231,42 @@ func validateKeys(keys []schemas.Key) error {
 	return nil
 }
 
-// SaveAzureDiscovery rejects results fetched before a concurrent key/account edit.
+// BeginAzureDiscovery reserves publication order in shared storage before fetching ARM.
+// A newer reservation supersedes older workers even if that newer fetch subsequently fails.
+func (s *Client) BeginAzureDiscovery(ctx context.Context, name, id string, fingerprint [32]byte) (uint64, error) {
+	var generation uint64
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		generation = 0
+
+		return s.mutateProvider(ctx, name, func(provider *Provider) error {
+			for _, key := range provider.Keys {
+				if key.ID == id && provider.AzureAccounts[id] != (AzureAccount{}) && (key.Enabled == nil || *key.Enabled) && fingerprint == AzureDiscoveryFingerprint(key, provider.AzureAccounts[id]) {
+					if provider.AzureRefreshGenerations == nil {
+						provider.AzureRefreshGenerations = map[string]uint64{}
+					}
+
+					provider.AzureRefreshGenerations[id]++
+					generation = provider.AzureRefreshGenerations[id]
+					break
+				}
+			}
+
+			return nil
+		}, true)
+	})
+
+	return generation, err
+}
+
+// SaveAzureDiscovery rejects superseded refreshes and concurrent key/account edits.
 // MutateProvider skips identical payloads, so unchanged listings do not trigger watch loops.
-func (s *Client) SaveAzureDiscovery(ctx context.Context, name, id string, snapshot AzureDiscoverySnapshot) error {
+func (s *Client) SaveAzureDiscovery(ctx context.Context, name, id string, generation uint64, snapshot AzureDiscoverySnapshot) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		return s.MutateProvider(ctx, name, func(provider *Provider) error {
+			if generation == 0 || provider.AzureRefreshGenerations[id] != generation {
+				return nil
+			}
+
 			for _, key := range provider.Keys {
 				if key.ID == id && provider.AzureAccounts[id] != (AzureAccount{}) && (key.Enabled == nil || *key.Enabled) && snapshot.Fingerprint == AzureDiscoveryFingerprint(key, provider.AzureAccounts[id]) {
 					if provider.AzureDiscoveries == nil {

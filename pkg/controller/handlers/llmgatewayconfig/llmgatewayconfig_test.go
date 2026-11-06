@@ -15,6 +15,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -251,6 +252,38 @@ func TestReconcileCoalescesOverlappingEvents(t *testing.T) {
 			require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}))
 			require.Equal(t, 3, engine.syncCalls)
 			require.Equal(t, 3, discoveries)
+		})
+	}
+}
+
+func TestDiscoveryReservationsDoNotTriggerRefreshLoops(t *testing.T) {
+	for _, changed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "ordering only", true: "pending configuration"}[changed], func(t *testing.T) {
+			calls, discoveries := 0, 0
+			engine := &testEngine{
+				ready: true,
+				syncFn: func(context.Context) (bool, error) {
+					calls++
+
+					return changed && calls == 1, nil
+				},
+			}
+			handler := New(engine, func(context.Context) error {
+				discoveries++
+
+				return nil
+			})
+			request := router.Request{
+				Ctx:    t.Context(),
+				Object: &v1.LLMGatewayProvider{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{llmcoreclient.AzureDiscoveryReservationAnnotation: "true"}}},
+			}
+
+			require.NoError(t, handler.Reconcile(request, &retryResponse{}))
+			if changed {
+				require.Equal(t, 1, discoveries, "a reservation must not hide a pending configuration edit")
+			} else {
+				require.Zero(t, discoveries, "ordering writes must not start another refresh")
+			}
 		})
 	}
 }

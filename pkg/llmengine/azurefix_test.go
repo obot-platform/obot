@@ -70,14 +70,24 @@ func TestAzureRefreshCannotFallThrough(t *testing.T) {
 	require.NoError(t, e.store.CreateProvider(ctx, "azure", llmcoreclient.Provider{
 		Keys: []schemas.Key{runtimeKey}, Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{AllowPrivateNetwork: true}},
 	}))
+	_, err := e.Sync(ctx)
+	require.NoError(t, err)
+
 	cfg, err := e.config(ctx)
 	require.NoError(t, err)
 
 	cfg.Keys[schemas.Azure] = []schemas.Key{key}
 	cfg.AzureAccounts[schemas.Azure] = azureTestProvider(key).AzureAccounts
 	mockAzureDiscovery(t, e, func(*http.Request) (*http.Response, error) { return azureResponse(http.StatusForbidden), nil })
+	require.NoError(t, e.store.MutateProvider(ctx, "azure", func(provider *llmcoreclient.Provider) error {
+		provider.Keys = []schemas.Key{key}
+		provider.AzureAccounts = azureTestProvider(key).AzureAccounts
+
+		return nil
+	}))
 	desired := context.WithValue(ctx, configContextKey{}, &cfg)
-	err = e.RefreshProviderModels(desired, "azure")
+	// Exercise the explicit refresh list call without resyncing this local-only runtime.
+	_, err = e.listGatewayModels(desired, schemas.Azure, true)
 	require.ErrorContains(t, err, "HTTP 403")
 	require.Zero(t, calls.Load(), "ARM failure must not invoke the data-plane offerings endpoint")
 
@@ -328,4 +338,46 @@ func TestAzureInFlightSnapshotCannotFollowCredentialEdit(t *testing.T) {
 	require.Empty(t, current.AzureDiscoveries[schemas.Azure])
 	require.Empty(t, e.discovery.snapshot(current, schemas.Azure)["key"])
 	require.Empty(t, e.discovery.baseModel(current, schemas.Azure, "old-account-deployment"))
+}
+
+func TestAzureReversedRefreshCompletions(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	require.NoError(t, e.store.CreateProvider(ctx, "azure", azureTestProvider(azureTestKey("key"))))
+
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	mockAzureDiscovery(t, e, func(r *http.Request) (*http.Response, error) {
+		if calls.Add(1) == 1 {
+			close(entered)
+			select {
+			case <-release:
+				return azureResponse(200, "deleted-deployment"), nil
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
+			}
+		}
+
+		return azureResponse(200), nil
+	})
+
+	cfg, err := e.config(ctx)
+	require.NoError(t, err)
+	done := make(chan error, 1)
+	go func() { done <- e.discovery.refresh(ctx, cfg, schemas.Azure, e.store) }()
+
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("older discovery did not start")
+	}
+
+	require.NoError(t, e.discovery.refresh(ctx, cfg, schemas.Azure, e.store))
+	close(release)
+	require.NoError(t, <-done)
+
+	current, err := e.config(ctx)
+	require.NoError(t, err)
+	require.Contains(t, current.AzureDiscoveries[schemas.Azure], "key")
+	require.Empty(t, current.AzureDiscoveries[schemas.Azure]["key"].Names)
+	require.Empty(t, current.AzureDiscoveries[schemas.Azure]["key"].BaseModels)
 }
