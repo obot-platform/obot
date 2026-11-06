@@ -139,31 +139,32 @@ func (e *Engine) modelIsUnavailable(id string) bool {
 }
 
 func (e *Engine) modelWithAliasIsUnavailable(id string, alias *string) bool {
-	if e.modelIsUnavailable(id) {
-		return true
-	}
 	provider, _, qualified := strings.Cut(id, "/")
-	return qualified && alias != nil && e.modelIsUnavailable(provider+"/"+*alias)
+	if qualified && alias != nil {
+		// An alias name can coincide with a retired model; its target determines availability.
+		id = provider + "/" + *alias
+	}
+	return e.modelIsUnavailable(id)
 }
 
 func (e *Engine) modelWithKeysIsUnavailable(id string, keys []schemas.Key) bool {
-	if e.modelIsUnavailable(id) {
-		return true
-	}
-	_, model, _ := strings.Cut(id, "/")
-	hasAlias := false
+	provider, model, _ := strings.Cut(id, "/")
+	hasEligibleKey := false
 	for _, key := range keys {
 		if key.Enabled != nil && !*key.Enabled {
 			continue
 		}
-		alias, ok := key.Aliases[model]
-		// A shared alias remains available if another enabled key can still serve it.
-		if !ok || !e.modelWithAliasIsUnavailable(id, &alias.ModelID) {
+		// Match core's key selection on the requested name before resolving its target.
+		if !key.Models.IsAllowed(model) || key.BlacklistedModels.IsBlocked(model) {
+			continue
+		}
+		hasEligibleKey = true
+		if !e.modelIsUnavailable(provider + "/" + key.Aliases.Resolve(model)) {
 			return false
 		}
-		hasAlias = true
 	}
-	return hasAlias
+	// Missing credentials alone must not discard saved models during an outage.
+	return hasEligibleKey || e.modelIsUnavailable(id)
 }
 
 // UnavailableModels identifies models that resource retention must not restore.

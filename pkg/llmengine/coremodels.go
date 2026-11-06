@@ -40,10 +40,11 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	for i := range out.Data {
 		model := &out.Data[i]
 		provider, id := schemas.ParseModelString(model.ID, "")
-		entry := e.prices.GetPricingEntryForModel(id, provider)
-		if entry == nil && model.Alias != nil {
-			entry = e.prices.GetPricingEntryForModel(*model.Alias, provider)
+		// Catalog metadata describes the wire model, even if an alias reuses another model's name.
+		if model.Alias != nil {
+			id = *model.Alias
 		}
+		entry := e.prices.GetPricingEntryForModel(id, provider)
 		// Core lists provider data; the catalog fills details formerly added by the transport.
 		modelcatalog.ApplyModelInfo(model, entry)
 	}

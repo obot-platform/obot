@@ -238,3 +238,103 @@ func TestHTTPModelListingOmitsAliasesWithActiveNamesAndDeprecatedTargets(t *test
 	require.NoError(t, err)
 	require.True(t, unavailable["openai/friendly"])
 }
+
+func TestModelDiscoveryUsesAliasTargetMetadata(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	path, _ := modeldata.Paths(e.opts.DataDir)
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"old-chat":{"provider":"openai","mode":"chat","is_deprecated":true,"input_cost_per_token":0.01},
+		"current":{"provider":"openai","mode":"chat","input_cost_per_token":0.001}
+	}`), 0600))
+	require.NoError(t, e.prices.ForceReloadPricing(ctx))
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"id":"current"}]}`))
+	}))
+	t.Cleanup(up.Close)
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+		"provider":       "openai",
+		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
+	}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+		"name": "test", "value": "secret",
+		"models":  []string{"old-chat"},
+		"aliases": map[string]any{"old-chat": map[string]any{"model_id": "current"}},
+	}))))
+	for _, path := range []string{"/v1/models", "/v1/models?provider=openai"} {
+		var listed struct{ Data []schemas.Model }
+		require.NoError(t, testInference(t, e, ctx, http.MethodGet, path, nil, &listed))
+		require.Len(t, listed.Data, 1)
+		require.Equal(t, "openai/old-chat", listed.Data[0].ID)
+		require.False(t, listed.Data[0].IsDeprecated)
+		require.NotNil(t, listed.Data[0].Pricing)
+		require.Equal(t, "0.0010000000", *listed.Data[0].Pricing.Prompt)
+	}
+	models, err := e.ListModels(ctx)
+	require.NoError(t, err)
+	require.Len(t, models.Models, 1)
+	unavailable, err := e.UnavailableModels(ctx, []string{"openai/old-chat"})
+	require.NoError(t, err)
+	require.Empty(t, unavailable, "retention must preserve aliases with active targets")
+	catalog, err := e.ListCatalogModels(ctx, "openai", "old-chat")
+	require.NoError(t, err)
+	require.Len(t, catalog, 1)
+}
+
+func TestAliasAvailabilityRequiresEligibleAlternativeKeys(t *testing.T) {
+	e := &Engine{availability: &modelAvailability{unavailable: map[string]bool{"openai/retired": true}}}
+	aliasKey := schemas.Key{
+		Models:  schemas.WhiteList{"friendly"},
+		Aliases: schemas.KeyAliases{"friendly": {ModelID: "retired"}},
+	}
+	for _, tc := range []struct {
+		name        string
+		alternative schemas.Key
+		unavailable bool
+	}{
+		{
+			name:        "unrelated allowlist",
+			alternative: schemas.Key{Models: schemas.WhiteList{"other"}},
+			unavailable: true,
+		},
+		{
+			name: "blacklisted alias",
+			alternative: schemas.Key{
+				Models:            schemas.WhiteList{"*"},
+				BlacklistedModels: schemas.BlackList{"friendly"},
+			},
+			unavailable: true,
+		},
+		{
+			name: "regex blacklist",
+			alternative: schemas.Key{
+				Models:            schemas.WhiteList{"*"},
+				BlacklistedModels: schemas.BlackList{"regex:friend.*"},
+			},
+			unavailable: true,
+		},
+		{
+			name:        "eligible direct model",
+			alternative: schemas.Key{Models: schemas.WhiteList{"friendly"}},
+		},
+		{
+			name: "eligible active alias",
+			alternative: schemas.Key{
+				Models:  schemas.WhiteList{"friendly"},
+				Aliases: schemas.KeyAliases{"FRIENDLY": {ModelID: "current"}},
+			},
+		},
+		{
+			name: "disabled alternative",
+			alternative: schemas.Key{
+				Models:  schemas.WhiteList{"*"},
+				Enabled: new(false),
+			},
+			unavailable: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.unavailable, e.modelWithKeysIsUnavailable("openai/friendly", []schemas.Key{aliasKey, tc.alternative}))
+		})
+	}
+	require.False(t, e.modelWithKeysIsUnavailable("openai/unknown", nil), "missing credentials alone must not disable outage retention")
+}
