@@ -406,11 +406,15 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		// The verification sign-in ran the staged provider, which may have created its tables and filled them, for
 		// example with the groups it saw. Drop them, unless the provider also has settings of its own in use. Like the
 		// SCIM connection, they go before the staged configuration, so that a retry after a failure still finds it.
+		staged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+		if err != nil {
+			return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
+		}
 		active, err := h.hasActiveCredential(ctx, authProvider)
 		if err != nil {
 			return err
 		}
-		if !active {
+		if staged && !active {
 			if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
 				return err
 			}

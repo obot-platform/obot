@@ -210,7 +210,9 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 // its session tables, after validating its postgresTablePrefix whenever one is set. Obot drops these tables when the
 // provider is deconfigured, so every name must lie in the provider's own namespace: a prefix of lowercase letters,
 // digits, and underscores that starts with a letter and ends with an underscore, followed by a suffix that starts with
-// a letter. Registries are trusted, but this keeps a mistake in one manifest from naming another's tables or Obot's.
+// a letter. Together with the check that no two providers' prefixes overlap, this keeps a mistake in one manifest from
+// naming another provider's tables. It does not keep a prefix from naming Obot's own tables (for example "llm_"):
+// registries are trusted, and the provider binary a manifest names already receives Obot's database connection.
 func PostgresTableNames(manifest types.AuthProviderManifest) ([]string, error) {
 	if manifest.PostgresTablePrefix == "" {
 		if len(manifest.PostgresTables) > 0 {

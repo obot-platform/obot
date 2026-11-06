@@ -576,7 +576,7 @@ In **Identity & Access > Auth Providers**, configure **PingFederate**:
 | Groups Delimiter (optional) | Set only when PingFederate sends groups as one delimited string instead of a list. |
 | Known Groups (optional) | Group names, one per line, exactly as PingFederate releases them. Commas belong to the name, as in an LDAP DN. |
 
-Obot verifies the ID token's issuer, audience, signature, and nonce, and always uses PKCE. These checks can't be turned off. Obot rejects a sign-in whose ID token has `email_verified: false`. PingFederate usually omits that claim, and a token without it is accepted. The Issuer URL and every endpoint in PingFederate's discovery document must use HTTPS, except on a loopback host such as `localhost`.
+Obot verifies the ID token's issuer, audience, signature, and nonce, and always uses PKCE. These checks can't be turned off. Obot rejects a sign-in whose ID token has `email_verified: false`. PingFederate usually omits that claim, and a token without it is accepted. The Issuer URL and the authorization, token, JWKS, and userinfo endpoints in PingFederate's discovery document must use HTTPS, except on a loopback host such as `localhost`.
 
 Changes to the Issuer URL of the active provider take effect immediately. If PingFederate can't be reached or reports a different issuer, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
 
