@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/safehttp"
@@ -105,8 +107,7 @@ func (e *Engine) GuardProviderChange(ctx context.Context, method, path string, b
 func (e *Engine) guardProviderUpdate(ctx context.Context, name string, fields map[string]json.RawMessage, removeKeys bool) (ProviderChange, error) {
 	view, err := e.GetProvider(ctx, name)
 	if err != nil {
-		var apiErr *APIError
-		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound {
+		if apierrors.IsNotFound(err) {
 			// An update creates a provider that doesn't exist yet.
 			body, _ := json.Marshal(fields)
 			return ProviderChange{Body: body}, checkProviderAddresses(ctx, fields, nil)

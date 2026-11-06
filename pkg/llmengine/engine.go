@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -60,11 +59,6 @@ type Engine struct {
 	lastModels       map[string][]listedModel
 	lastHasProviders bool
 	catalog          func() modelCatalog
-}
-
-type APIError struct {
-	StatusCode int
-	Message    string
 }
 
 func New() *Engine {
@@ -276,10 +270,6 @@ func (e *Engine) LLMPluginOrder() []string {
 		names = append(names, e.opts.LastPlugin.GetName())
 	}
 	return names
-}
-
-func (e *APIError) Error() string {
-	return fmt.Sprintf("LLM gateway returned %d: %s", e.StatusCode, e.Message)
 }
 
 // ChatCompletion runs trusted message-policy inference through the configured core.

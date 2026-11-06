@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
@@ -389,12 +391,9 @@ func (h *LLMGatewayHandler) DeletePricingOverride(req api.Context) error {
 }
 
 func gatewayAdminError(err error) error {
-	if err == nil {
-		return nil
-	}
 	code := http.StatusBadRequest
-	if apiErr, ok := errors.AsType[*llmengine.APIError](err); ok {
-		code = apiErr.StatusCode
+	if apiErr, ok := errors.AsType[*apierrors.StatusError](err); ok {
+		code = int(apiErr.ErrStatus.Code)
 	}
 	return types.NewErrHTTP(code, llmengine.ScrubEngineName(err.Error()))
 }

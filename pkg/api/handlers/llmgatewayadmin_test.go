@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -475,4 +477,23 @@ func TestGatewayAdminRejectsPartialAzureCredentialClear(t *testing.T) {
 	after, err := store.GetProvider(t.Context(), "azure")
 	require.NoError(t, err)
 	require.Equal(t, before, after, "reject the merged key without persisting credential changes")
+}
+
+func TestGatewayAdminErrorPreservesStatusAndScrubsMessage(t *testing.T) {
+	for _, code := range []int{http.StatusBadRequest, http.StatusNotFound, http.StatusConflict, http.StatusBadGateway, http.StatusServiceUnavailable} {
+		t.Run(http.StatusText(code), func(t *testing.T) {
+			original := &apierrors.StatusError{ErrStatus: metav1.Status{
+				Code:    int32(code),
+				Message: "Bifrost configuration unavailable",
+			}}
+			err := gatewayAdminError(fmt.Errorf("admin operation: %w", original))
+			httpErr, ok := errors.AsType[*types.ErrHTTP](err)
+			require.True(t, ok)
+			require.Equal(t, code, httpErr.Code)
+			require.Equal(t, "admin operation: LLM gateway configuration unavailable", httpErr.Message)
+		})
+	}
+	httpErr, ok := errors.AsType[*types.ErrHTTP](gatewayAdminError(errors.New("invalid configuration")))
+	require.True(t, ok)
+	require.Equal(t, http.StatusBadRequest, httpErr.Code)
 }

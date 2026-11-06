@@ -9,6 +9,9 @@ import (
 	"slices"
 	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/modelcatalog"
 )
@@ -19,7 +22,7 @@ func (e *Engine) gatewayModels(ctx context.Context, provider schemas.ModelProvid
 
 func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelProvider, unfiltered bool) ([]schemas.Model, error) {
 	if !e.Ready() {
-		return nil, &APIError{StatusCode: http.StatusServiceUnavailable, Message: "LLM gateway unavailable"}
+		return nil, apierrors.NewServiceUnavailable("LLM gateway unavailable")
 	}
 	bctx, cancel := schemas.NewBifrostContextWithCancel(ctx)
 	defer cancel()
@@ -84,7 +87,7 @@ func (e *Engine) serveModels(w http.ResponseWriter, r *http.Request) {
 	}
 	models, err := e.gatewayModels(r.Context(), provider)
 	if err != nil {
-		adminError(w, &APIError{StatusCode: 502, Message: err.Error()})
+		adminError(w, &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusBadGateway, Message: err.Error()}})
 		return
 	}
 	if anthropic {
@@ -112,8 +115,8 @@ func adminJSON(w http.ResponseWriter, code int, v any) {
 
 func adminError(w http.ResponseWriter, err error) {
 	code := http.StatusBadRequest
-	if apiErr, ok := errors.AsType[*APIError](err); ok {
-		code = apiErr.StatusCode
+	if apiErr, ok := errors.AsType[*apierrors.StatusError](err); ok {
+		code = int(apiErr.ErrStatus.Code)
 	}
 	adminJSON(w, code, map[string]any{"error": map[string]any{"message": ScrubEngineName(err.Error())}})
 }

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/google/cel-go/cel"
 	celast "github.com/google/cel-go/common/ast"
 	"github.com/google/uuid"
@@ -40,12 +42,12 @@ func (e *Engine) config(ctx context.Context) (llmcoreclient.Config, error) {
 		return *cfg, nil
 	}
 	if !e.Ready() {
-		return llmcoreclient.Config{}, &APIError{StatusCode: http.StatusServiceUnavailable, Message: "LLM gateway unavailable"}
+		return llmcoreclient.Config{}, apierrors.NewServiceUnavailable("LLM gateway unavailable")
 	}
 	// Keep healthy aggregates readable; provider diagnostics are exposed by engine status.
 	loaded, err := e.store.Load(ctx)
 	if err != nil {
-		return loaded.Config, &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()}
+		return loaded.Config, apierrors.NewServiceUnavailable(err.Error())
 	}
 	return loaded.Config, nil
 }
@@ -57,14 +59,16 @@ func requireAdminIdentifier(id string) error {
 	return nil
 }
 
-func missing(what string) error { return &APIError{StatusCode: 404, Message: what + " not found"} }
+func missing(what string) error {
+	return &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusNotFound, Message: what + " not found"}}
+}
 
 // Administration returns desired configuration directly. HTTP routing and envelopes
 // belong to Obot's API; only inference uses Engine.ServeHTTP and Transport.
 // Mutations acknowledge persistence, leaving runtime application to Sync.
 func (e *Engine) mutation(ctx context.Context, persist func(context.Context) error) error {
 	if !e.Ready() {
-		return &APIError{StatusCode: http.StatusServiceUnavailable, Message: "LLM gateway unavailable"}
+		return apierrors.NewServiceUnavailable("LLM gateway unavailable")
 	}
 	// Once accepted, finish the durable write even if the caller disconnects.
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
@@ -77,7 +81,7 @@ func storageError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if _, ok := errors.AsType[*APIError](err); ok {
+	if _, ok := errors.AsType[*apierrors.StatusError](err); ok {
 		return err
 	}
 	status := http.StatusServiceUnavailable
@@ -87,7 +91,7 @@ func storageError(err error) error {
 	if apierrors.IsNotFound(err) {
 		status = http.StatusNotFound
 	}
-	return &APIError{StatusCode: status, Message: err.Error()}
+	return &apierrors.StatusError{ErrStatus: metav1.Status{Code: int32(status), Message: err.Error()}}
 }
 
 // changeProvider runs guards against the owning resource on every mutation attempt.
@@ -399,17 +403,17 @@ func (e *Engine) ListCatalogModels(ctx context.Context, provider, query string) 
 
 func (e *Engine) RefreshPricing(ctx context.Context) error {
 	if !e.Ready() {
-		return &APIError{StatusCode: http.StatusServiceUnavailable, Message: "LLM gateway unavailable"}
+		return apierrors.NewServiceUnavailable("LLM gateway unavailable")
 	}
 	if err := e.prices.ForceReloadPricing(ctx); err != nil {
-		return &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()}
+		return apierrors.NewServiceUnavailable(err.Error())
 	}
 	return nil
 }
 
 func (e *Engine) RefreshProviderModels(ctx context.Context, name string) error {
 	if _, err := e.Sync(ctx); err != nil {
-		return &APIError{StatusCode: http.StatusServiceUnavailable, Message: err.Error()}
+		return apierrors.NewServiceUnavailable(err.Error())
 	}
 	cfg, err := e.config(ctx)
 	if err != nil {
@@ -420,7 +424,7 @@ func (e *Engine) RefreshProviderModels(ctx context.Context, name string) error {
 		return missing("provider")
 	}
 	if _, err := e.listGatewayModels(ctx, provider, true); err != nil {
-		return &APIError{StatusCode: http.StatusBadGateway, Message: err.Error()}
+		return &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusBadGateway, Message: err.Error()}}
 	}
 	return nil
 }
@@ -859,7 +863,7 @@ func validateProvider(name schemas.ModelProvider, pc schemas.ProviderConfig) err
 		return fmt.Errorf("unsupported provider type %q", base)
 	}
 	if pc.ConcurrencyAndBufferSize.BufferSize > 0 && pc.ConcurrencyAndBufferSize.Concurrency > pc.ConcurrencyAndBufferSize.BufferSize {
-		return &APIError{StatusCode: http.StatusBadRequest, Message: "Concurrency must be less than or equal to buffer size"}
+		return apierrors.NewBadRequest("Concurrency must be less than or equal to buffer size")
 	}
 	if pc.ConcurrencyAndBufferSize.Concurrency < 0 || pc.ConcurrencyAndBufferSize.BufferSize < 0 {
 		return fmt.Errorf("invalid concurrency configuration")

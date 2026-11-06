@@ -116,7 +116,7 @@ func TestLegacyImportCreateConflictPreservesConcurrentProvider(t *testing.T) {
 						require.NoError(t, err)
 						err = c.Create(ctx, obj, opts...)
 						require.True(t, apierrors.IsAlreadyExists(err))
-						require.Equal(t, http.StatusConflict, storageError(err).(*APIError).StatusCode)
+						require.EqualValues(t, http.StatusConflict, storageError(err).(*apierrors.StatusError).ErrStatus.Code)
 						return err
 					}
 					return c.Create(ctx, obj, opts...)

@@ -8,6 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func testJSON(t *testing.T, value any) json.RawMessage {
@@ -65,7 +68,7 @@ func testInference(ctx context.Context, t *testing.T, e *Engine, method, path st
 	recorder := httptest.NewRecorder()
 	e.ServeHTTP(recorder, req)
 	if recorder.Code >= 300 {
-		return &APIError{StatusCode: recorder.Code, Message: recorder.Body.String()}
+		return &apierrors.StatusError{ErrStatus: metav1.Status{Code: int32(recorder.Code), Message: recorder.Body.String()}}
 	}
 	if out == nil {
 		return nil
