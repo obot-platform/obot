@@ -121,7 +121,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	require.NoError(t, err)
 	engine := llmengine.New()
 	require.NoError(t, engine.Start(ctx, llmengine.Options{Store: store, DataDir: t.TempDir()}))
-	t.Cleanup(engine.Shutdown)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	_, err = engine.ImportLegacyModelProviders(ctx, storageClient, g)
 	require.NoError(t, err)
 	for _, provider := range []string{"openai", "generic-responses"} {

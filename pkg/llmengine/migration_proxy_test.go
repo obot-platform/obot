@@ -90,7 +90,7 @@ func TestMigrationAppliesEgressProxyBeforePublishingProvider(t *testing.T) {
 					require.NoError(t, err)
 					e := New()
 					require.NoError(t, e.Start(ctx, testOptions(t, Options{Store: store, DataDir: t.TempDir()})))
-					t.Cleanup(e.Shutdown)
+					t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 					// Set after startup so the model catalog bootstrap cannot use the fake proxy.
 					t.Setenv("HTTP_PROXY", "http://http-only.invalid:8080")
 					t.Setenv("HTTPS_PROXY", "http://egress.invalid:3128")

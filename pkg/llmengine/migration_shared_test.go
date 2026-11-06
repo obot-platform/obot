@@ -91,7 +91,7 @@ func TestMigrationSharedPool(t *testing.T) {
 			require.NoError(t, err)
 			e := New()
 			require.NoError(t, e.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
-			t.Cleanup(e.Shutdown)
+			t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 			t.Setenv("HTTPS_PROXY", "http://egress.invalid:3128")
 			t.Setenv("NO_PROXY", "one.openai.azure.com,bedrock-mantle.eu-west-1.api.aws")
 			g := migrationCredentials(t)
