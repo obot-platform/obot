@@ -50,6 +50,20 @@
 	);
 	let pointerOnTHeader = $derived(sortable && !filterable);
 
+	// The filter searches only what it shows. A formatted label can be shared by several values,
+	// e.g. owner IDs shown as names; those labels also show the value, so that the options can be
+	// told apart and each can be found by searching for its value, even past the option cap.
+	let options = $derived.by(() => {
+		const values = filterOptions?.filter(Boolean) ?? [];
+		const labels = values.map((value) => formatOption?.(value) ?? value.toString());
+		const counts: Record<string, number> = {};
+		for (const label of labels) counts[label] = (counts[label] ?? 0) + 1;
+		return values.map((value, i) => ({
+			id: value.toString(),
+			label: formatOption && counts[labels[i]] > 1 ? `${labels[i]} (${value})` : labels[i]
+		}));
+	});
+
 	const {
 		tooltip: tooltipRef,
 		ref,
@@ -145,13 +159,7 @@
 				classes={{
 					root: 'flex grow'
 				}}
-				options={filterOptions?.filter(Boolean).map((option) => ({
-					label: formatOption?.(option) ?? option.toString(),
-					id: option.toString(),
-					// A formatted label can be shared by many values, e.g. an owner ID shown as a name.
-					// Searching by the value itself reaches each of them past the option cap.
-					searchText: formatOption ? option.toString() : undefined
-				})) ?? []}
+				{options}
 				onClear={(option) => {
 					if (!option) return;
 					selectedFilterValues = selectedFilterValues.filter((d) => d !== option.id);

@@ -77,9 +77,15 @@ describe('Table pagination', () => {
 		await expect.element(page.getByText('row 120')).toBeVisible();
 	});
 
-	// The filter renders at most 100 options, and here every value has the same label, so the last
-	// owner is only reachable by searching for its value.
-	it('reaches a formatted filter value past the option cap by searching for the value', async () => {
+	async function searchKindFilter(text: string) {
+		await page.getByRole('button', { name: 'Kind', exact: true }).click();
+		await page.getByRole('combobox', { name: 'Filter by Kind...' }).click();
+		await page.getByPlaceholder('Filter by Kind...').fill(text);
+	}
+
+	// The filter renders at most 100 options, and here every value has the same label, so the
+	// labels show the values, and the last owner is reached by searching for its value.
+	it('shows the values of formatted filter options that share a label', async () => {
 		const data = rows(101).map((row, i) => ({ ...row, kind: `owner-${i + 1}` }));
 		renderTable({
 			data,
@@ -87,13 +93,35 @@ describe('Table pagination', () => {
 			displayValue: (property, value) => (property === 'kind' ? 'Alex Smith' : String(value))
 		});
 
-		await page.getByRole('button', { name: 'Kind', exact: true }).click();
-		await page.getByRole('combobox', { name: 'Filter by Kind...' }).click();
-		await page.getByPlaceholder('Filter by Kind...').fill('owner-101');
-		await page.getByRole('button', { name: 'Alex Smith', exact: true }).click();
+		await searchKindFilter('owner-101');
+		await page.getByRole('button', { name: 'Alex Smith (owner-101)', exact: true }).click();
 
 		await expect.element(page.getByText('row 101')).toBeVisible();
 		await expect.element(page.getByText('row 001')).not.toBeInTheDocument();
+	});
+
+	// A search that matched values the options do not show would list options for no visible reason.
+	it('searches formatted filter options only by what they show', async () => {
+		const names: Record<string, string> = {
+			'default-gmail': 'Gmail',
+			'default-slack': 'Slack'
+		};
+		renderTable({
+			data: [
+				{ id: '1', name: 'row 001', kind: 'default-gmail' },
+				{ id: '2', name: 'row 002', kind: 'default-slack' }
+			],
+			filterable: ['kind'],
+			displayValue: (property, value) =>
+				property === 'kind' ? names[String(value)] : String(value)
+		});
+
+		await searchKindFilter('default');
+		await expect.element(page.getByText('No options available')).toBeVisible();
+
+		await page.getByPlaceholder('Filter by Kind...').fill('gmail');
+		await expect.element(page.getByRole('button', { name: 'Gmail', exact: true })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: /default-/ })).not.toBeInTheDocument();
 	});
 
 	it('shows no pager when the rows fit on one page', async () => {
