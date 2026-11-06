@@ -113,10 +113,12 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		if opts.FirstPlugin != nil {
 			plugins = append(plugins, opts.FirstPlugin)
 		}
-		plugins = append(plugins, e.availability, e.metrics)
+		plugins = append(plugins, e.availability)
 		if opts.LastPlugin != nil {
 			plugins = append(plugins, opts.LastPlugin)
 		}
+		// Response hooks run in reverse: record billing before output guardrails discard responses.
+		plugins = append(plugins, e.metrics)
 		engine, err := llmcore.New(ctx, opts.Store, llmcore.Options{Plugins: plugins, Logger: logger, Catalog: e.prices})
 		if err != nil {
 			_ = e.prices.Cleanup()

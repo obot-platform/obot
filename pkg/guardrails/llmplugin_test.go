@@ -367,6 +367,45 @@ func TestGatewayPluginsBlock(t *testing.T) {
 	}
 }
 
+func TestGatewayMetricsIncludeBlockedOutput(t *testing.T) {
+	store := &fakeStore{
+		guardrails: []types.Guardrail{guardrail("secrets", "secrets", nil)},
+		policies:   []types.GuardrailPolicy{policy("block-secrets", types.GuardrailActionBlock, "secrets")},
+	}
+	gw, _ := startGateway(t, store)
+	code, body := call(t, gw, `{"model":"openai/gpt-4o-mini","messages":[{"role":"user","content":"hello"}]}`, true)
+	require.Equal(t, http.StatusBadRequest, code, body)
+	require.Contains(t, body, "block-secrets")
+	require.NotContains(t, body, leakedKey)
+
+	scrape := httptest.NewRecorder()
+	gw.ServeMetrics(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	require.Equal(t, http.StatusOK, scrape.Code)
+	require.NotContains(t, scrape.Body.String(), `provider=""`)
+	const labels = `key="k",model="gpt-4o-mini",provider="openai"`
+	// Blocking delivery does not undo the provider's billed 5 input and 3 output tokens.
+	for series, want := range map[string]float64{
+		`obot_llm_gateway_requests_total{` + labels + `}`:                  1,
+		`obot_llm_gateway_attempt_duration_seconds_count{` + labels + `}`:  1,
+		`obot_llm_gateway_tokens_total{direction="input",` + labels + `}`:  5,
+		`obot_llm_gateway_tokens_total{direction="output",` + labels + `}`: 3,
+		`obot_llm_gateway_cost_total{` + labels + `}`:                      5*0.15e-6 + 3*0.6e-6,
+	} {
+		found := false
+		for line := range strings.SplitSeq(scrape.Body.String(), "\n") {
+			if !strings.HasPrefix(line, series+" ") {
+				continue
+			}
+			var got float64
+			_, err := fmt.Sscanf(strings.TrimPrefix(line, series+" "), "%f", &got)
+			require.NoError(t, err)
+			require.InDelta(t, want, got, want*1e-6, series)
+			found = true
+		}
+		require.True(t, found, "missing metrics series %s", series)
+	}
+}
+
 func secretDetection(stage, policyName, outcome string) Detection {
 	return Detection{
 		Stage:         stage,
