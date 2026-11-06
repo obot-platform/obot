@@ -159,7 +159,9 @@ echo 'Checking fresh application startup and persisted restart'
 new_volume fresh
 start_app fresh fresh
 [[ $(sql "$prefix-fresh" postgres -c 'SHOW server_version_num') == 18* ]]
-[[ $(sql "$prefix-fresh" postgres -c "SELECT count(*) FROM pg_database WHERE datname IN ('obot', 'obot_llm_gateway')") == 2 ]]
+[[ $(sql "$prefix-fresh" postgres -c "SELECT count(*) FROM pg_database WHERE datname = 'obot'") == 1 ]]
+# Fresh installs share Obot's database; only restored legacy clusters retain the old gateway database.
+[[ $(sql "$prefix-fresh" postgres -c "SELECT count(*) FROM pg_database WHERE datname = 'obot_llm_gateway'") == 0 ]]
 sql "$prefix-fresh" obot -c "CREATE TABLE embedded_upgrade_marker (value text); INSERT INTO embedded_upgrade_marker VALUES ('persisted');" >/dev/null
 docker restart -t 30 "$prefix-fresh" >/dev/null
 wait_app "$prefix-fresh"
