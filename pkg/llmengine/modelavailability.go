@@ -2,6 +2,7 @@ package llmengine
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -135,6 +136,51 @@ func (e *Engine) modelIsUnavailable(id string) bool {
 		return info != nil && info.IsDeprecated
 	}
 	return false
+}
+
+func (e *Engine) modelWithAliasIsUnavailable(id string, alias *string) bool {
+	if e.modelIsUnavailable(id) {
+		return true
+	}
+	provider, _, qualified := strings.Cut(id, "/")
+	return qualified && alias != nil && e.modelIsUnavailable(provider+"/"+*alias)
+}
+
+func (e *Engine) modelWithKeysIsUnavailable(id string, keys []schemas.Key) bool {
+	if e.modelIsUnavailable(id) {
+		return true
+	}
+	_, model, _ := strings.Cut(id, "/")
+	hasAlias := false
+	for _, key := range keys {
+		if key.Enabled != nil && !*key.Enabled {
+			continue
+		}
+		alias, ok := key.Aliases[model]
+		// A shared alias remains available if another enabled key can still serve it.
+		if !ok || !e.modelWithAliasIsUnavailable(id, &alias.ModelID) {
+			return false
+		}
+		hasAlias = true
+	}
+	return hasAlias
+}
+
+// UnavailableModels identifies models that resource retention must not restore.
+// Unknown models remain eligible for retention during upstream listing failures.
+func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[string]bool, error) {
+	cfg, err := e.config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	unavailable := make(map[string]bool)
+	for _, id := range ids {
+		provider, _, _ := strings.Cut(id, "/")
+		if e.modelWithKeysIsUnavailable(id, cfg.Keys[schemas.ModelProvider(provider)]) {
+			unavailable[id] = true
+		}
+	}
+	return unavailable, nil
 }
 
 func (*modelAvailability) PreRequestHook(_ *schemas.BifrostContext, _ *schemas.BifrostRequest) error {

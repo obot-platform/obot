@@ -63,6 +63,7 @@ type providerFromFile[T types.ModelProviderManifest | types.AuthProviderManifest
 // providers, such as the LLM gateway.
 type upstreamProviderLister interface {
 	ConfiguredProviders(ctx context.Context) ([]string, error)
+	UnavailableModels(ctx context.Context, ids []string) (map[string]bool, error)
 }
 
 func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, registryPaths []string) *Handler {
@@ -444,7 +445,8 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		models = append(models, kept...)
 	}
 
-	if err = apply.New(client).Apply(ctx, modelProvider, models...); err != nil {
+	// Include both resource types even when filtering leaves no desired models.
+	if err = apply.New(client).WithPruneTypes(&v1.Model{}, &v1.ModelInfo{}).Apply(ctx, modelProvider, models...); err != nil {
 		return fmt.Errorf("failed to create models for model provider %q: %w", modelProvider.Name, err)
 	}
 	slog.Info("Back-populated models for model provider", "provider", modelProvider.Name, "models", len(models))
@@ -463,11 +465,19 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 // still configured but are missing from a listing: a provider whose list call fails (an
 // outage, an expired key) lists nothing, and syncing without its models would delete them,
 // and with them the default model aliases, access policies and edits that refer to them.
-// Only removing a provider removes its models.
+// Confirmed-unavailable models are removed even when their provider lists nothing.
 func unlistedProviderModels(ctx context.Context, client kclient.Client, lister upstreamProviderLister, listed *openai.ModelsList, existing []v1.Model) ([]kclient.Object, error) {
 	configured, err := lister.ConfiguredProviders(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list upstream providers: %w", err)
+	}
+	ids := make([]string, 0, len(existing))
+	for _, model := range existing {
+		ids = append(ids, model.Spec.Manifest.TargetModel)
+	}
+	unavailable, err := lister.UnavailableModels(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check model availability: %w", err)
 	}
 	listedProviders := map[string]bool{}
 	for _, m := range listed.Models {
@@ -477,7 +487,7 @@ func unlistedProviderModels(ctx context.Context, client kclient.Client, lister u
 	var kept []kclient.Object
 	for _, m := range existing {
 		provider, _, _ := strings.Cut(m.Spec.Manifest.TargetModel, "/")
-		if listedProviders[provider] || !slices.Contains(configured, provider) {
+		if listedProviders[provider] || !slices.Contains(configured, provider) || unavailable[m.Spec.Manifest.TargetModel] {
 			continue
 		}
 		kept = append(kept, &v1.Model{Namespace: m.Namespace, Name: m.Name, Spec: m.Spec})

@@ -115,12 +115,7 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 	// A failed or empty listing may reuse cached entries. Recheck lifecycle
 	// metadata so that fallback cannot resurrect a now-unavailable model.
 	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool {
-		if e.modelIsUnavailable(model.ID) {
-			return true
-		}
-		// Alias targets use the same provider namespace as the listed ID.
-		provider, _, qualified := strings.Cut(model.ID, "/")
-		return qualified && model.Alias != nil && e.modelIsUnavailable(provider+"/"+*model.Alias)
+		return e.modelWithAliasIsUnavailable(model.ID, model.Alias)
 	})
 
 	result := &openai.ModelsList{Models: make([]openai.Model, 0, len(resp.Data))}

@@ -47,14 +47,22 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 		// Core lists provider data; the catalog fills details formerly added by the transport.
 		modelcatalog.ApplyModelInfo(model, entry)
 	}
-	out.Data = slices.DeleteFunc(out.Data, func(model schemas.Model) bool {
-		return model.IsDeprecated || e.modelIsUnavailable(model.ID)
-	})
 	live := map[schemas.ModelProvider][]string{}
 	if provider != "" {
 		// A successful empty response must also replace the previous live listing.
 		live[provider] = nil
 	}
+	// Record providers before filtering so removing their last unavailable model
+	// also clears their previous live catalog entries.
+	for _, model := range out.Data {
+		p, _, ok := strings.Cut(model.ID, "/")
+		if ok {
+			live[schemas.ModelProvider(p)] = nil
+		}
+	}
+	out.Data = slices.DeleteFunc(out.Data, func(model schemas.Model) bool {
+		return model.IsDeprecated || e.modelWithAliasIsUnavailable(model.ID, model.Alias)
+	})
 	for _, model := range out.Data {
 		p, id, ok := strings.Cut(model.ID, "/")
 		if ok {

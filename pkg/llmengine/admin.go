@@ -385,7 +385,7 @@ func (e *Engine) ListCatalogModels(ctx context.Context, provider, query string) 
 			continue
 		}
 		for _, model := range e.prices.GetUnfilteredModelsForProvider(name) {
-			if e.modelIsUnavailable(string(name) + "/" + model) {
+			if e.modelWithKeysIsUnavailable(string(name)+"/"+model, cfg.Keys[name]) {
 				continue
 			}
 			if query != "" && !strings.Contains(strings.ToLower(model), strings.ToLower(query)) {

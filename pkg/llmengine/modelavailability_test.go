@@ -186,3 +186,55 @@ func TestModelAvailabilityRecoversOnSuccessfulListing(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, availability.isUnavailable("openai/test"), "a successful active listing must clear stale deprecation")
 }
+
+func TestHTTPModelListingOmitsAliasesWithActiveNamesAndDeprecatedTargets(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	path, _ := modeldata.Paths(e.opts.DataDir)
+	require.NoError(t, os.WriteFile(path, []byte(`{
+		"retired":{"provider":"openai","mode":"chat","is_deprecated":true},
+		"friendly":{"provider":"openai","mode":"chat"}
+	}`), 0600))
+	require.NoError(t, e.prices.ForceReloadPricing(ctx))
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"id":"retired"}]}`))
+	}))
+	t.Cleanup(up.Close)
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateProvider(ctx, testJSON(t, map[string]any{
+		"provider":       "openai",
+		"network_config": map[string]any{"base_url": up.URL, "allow_private_network": true},
+	}))))
+	require.NoError(t, testMutation(e, ctx, nil)(e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+		"name":    "test",
+		"value":   "secret",
+		"aliases": map[string]any{"friendly": map[string]any{"model_id": "retired"}},
+	}))))
+	for _, path := range []string{"/v1/models", "/v1/models?provider=openai"} {
+		var listed struct{ Data []schemas.Model }
+		require.NoError(t, testInference(t, e, ctx, http.MethodGet, path, nil, &listed))
+		require.Empty(t, listed.Data, "an active advertised name must not hide a deprecated target")
+	}
+	var catalog struct{ Models []struct{ Name string } }
+	require.NoError(t, testResult(&catalog, "models")(e.ListCatalogModels(ctx, "openai", "")))
+	require.Empty(t, catalog.Models)
+	ids := []string{"openai/friendly", "openai/retired", "openai/unknown"}
+	unavailable, err := e.UnavailableModels(ctx, ids)
+	require.NoError(t, err)
+	require.True(t, unavailable["openai/friendly"])
+	require.True(t, unavailable["openai/retired"])
+	require.False(t, unavailable["openai/unknown"])
+
+	// An enabled key with an available target keeps a shared alias discoverable.
+	key, err := e.CreateKey(ctx, "openai", testJSON(t, map[string]any{
+		"name": "available", "value": "secret",
+		"aliases": map[string]any{"friendly": map[string]any{"model_id": "current"}},
+	}))
+	require.NoError(t, err)
+	unavailable, err = e.UnavailableModels(ctx, ids)
+	require.NoError(t, err)
+	require.False(t, unavailable["openai/friendly"])
+	_, err = e.UpdateKey(ctx, "openai", key.ID, testJSON(t, map[string]any{"enabled": false}))
+	require.NoError(t, err)
+	unavailable, err = e.UnavailableModels(ctx, ids)
+	require.NoError(t, err)
+	require.True(t, unavailable["openai/friendly"])
+}

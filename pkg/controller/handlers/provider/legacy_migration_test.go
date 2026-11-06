@@ -64,6 +64,7 @@ func TestGatewayModelSyncPreservesLegacyConfiguration(t *testing.T) {
 	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
 	mapper.Add(v1.SchemeGroupVersion.WithKind("Model"), meta.RESTScopeNamespace)
 	mapper.Add(v1.SchemeGroupVersion.WithKind("ModelProvider"), meta.RESTScopeNamespace)
+	mapper.Add(v1.SchemeGroupVersion.WithKind("ModelInfo"), meta.RESTScopeNamespace)
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithRESTMapper(mapper).
 		WithObjects(append(objects, mp)...).
 		WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string {
