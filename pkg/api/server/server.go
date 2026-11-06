@@ -143,9 +143,9 @@ func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
 
 // WithMiddleware shares the server's mux and services, applying middleware only to
 // routes registered through the returned server. Parent middleware runs first.
-func (s *Server) WithMiddleware(middleware func(api.HandlerFunc) api.HandlerFunc) *Server {
+func (s *Server) WithMiddleware(middleware ...func(api.HandlerFunc) api.HandlerFunc) *Server {
 	scoped := *s
-	scoped.middleware = append(slices.Clone(s.middleware), middleware)
+	scoped.middleware = append(slices.Clone(s.middleware), middleware...)
 	return &scoped
 }
 

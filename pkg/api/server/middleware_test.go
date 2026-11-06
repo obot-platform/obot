@@ -33,11 +33,13 @@ func TestWithMiddlewareScopesRegistrations(t *testing.T) {
 	parent := s.WithMiddleware(mark("parent"))
 	child := parent.WithMiddleware(mark("child"))
 	sibling := parent.WithMiddleware(mark("sibling"))
+	combined := parent.WithMiddleware(mark("first"), mark("second"))
 	handler := func(req api.Context) error { return req.Write(req.PathValue("name")) }
 	s.HandleFunc("GET /v0.1/plain/{name}", handler)
 	parent.HandleFunc("GET /v0.1/parent/{name}", handler)
 	child.HandleFunc("GET /v0.1/child/{name}", handler)
 	sibling.HandleFunc("GET /v0.1/sibling/{name}", handler)
+	combined.HandleFunc("GET /v0.1/combined/{name}", handler)
 	for _, tc := range []struct {
 		path string
 		want string
@@ -56,6 +58,10 @@ func TestWithMiddlewareScopesRegistrations(t *testing.T) {
 		{
 			path: "sibling",
 			want: "parent,sibling",
+		},
+		{
+			path: "combined",
+			want: "parent,first,second",
 		},
 	} {
 		t.Run(tc.path, func(t *testing.T) {
