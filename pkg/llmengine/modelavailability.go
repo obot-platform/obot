@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 )
 
 // modelAvailability preserves provider availability metadata before Bifrost
@@ -24,6 +25,8 @@ type modelAvailability struct {
 
 type modelAvailabilityProviderKey struct{}
 
+type modelListingConfigKey struct{}
+
 func (*modelAvailability) GetName() string { return "obot-model-availability" }
 
 func (*modelAvailability) Cleanup() error { return nil }
@@ -32,10 +35,16 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 	if req.ListModelsRequest != nil {
 		ctx.SetValue(modelAvailabilityProviderKey{}, req.ListModelsRequest.Provider)
 		if m.engine != nil {
-			cfg, err := m.engine.config(ctx)
-			if err != nil {
-				return req, modelListingError(err), nil
+			shared, ok := ctx.Value(modelListingConfigKey{}).(*llmcoreclient.Config)
+			if !ok {
+				cfg, err := m.engine.config(ctx)
+				if err != nil {
+					return req, modelListingError(err), nil
+				}
+
+				shared = &cfg
 			}
+			cfg := *shared
 
 			provider := req.ListModelsRequest.Provider
 			if isAzureProvider(cfg, provider) {
@@ -53,9 +62,17 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 				readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 				defer cancel()
 
-				cfg, err = m.engine.config(readCtx)
+				current, err := m.engine.store.GetProvider(readCtx, string(provider))
 				if err != nil {
 					return req, modelListingError(err), nil
+				}
+
+				// Reload only this provider and leave the shared snapshot untouched.
+				cfg = llmcoreclient.Config{
+					Providers:        map[schemas.ModelProvider]schemas.ProviderConfig{provider: current.Config},
+					Keys:             map[schemas.ModelProvider][]schemas.Key{provider: current.Keys},
+					AzureAccounts:    map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{provider: current.AzureAccounts},
+					AzureDiscoveries: map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{provider: current.AzureDiscoveries},
 				}
 
 				models, _ := azureDeploymentModels(cfg, provider, m.engine.discovery.snapshot(cfg, provider))
