@@ -33,12 +33,12 @@ func ValidateAzureKey(body []byte) error {
 		return err
 	}
 	azureConfig := key[fieldNamed(key, "azure_key_config")]
-	if isNull(azureConfig) {
-		return nil
-	}
 	var cfg map[string]json.RawMessage
-	if err := json.Unmarshal(azureConfig, &cfg); err != nil {
-		return err
+	// Missing config can still use server identity; aliases can supply an endpoint independently.
+	if !isNull(azureConfig) {
+		if err := json.Unmarshal(azureConfig, &cfg); err != nil {
+			return err
+		}
 	}
 	secret := func(fields map[string]json.RawMessage, name string) string {
 		v := fields[fieldNamed(fields, name)]

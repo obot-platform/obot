@@ -670,8 +670,10 @@ func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas
 		return schemas.Key{}, err
 	}
 	// Partial credential clears can switch retained endpoints to server identity.
-	if err := ValidateAzureKey(effective); err != nil {
-		return schemas.Key{}, err
+	if name == schemas.Azure || key.AzureKeyConfig != nil {
+		if err := ValidateAzureKey(effective); err != nil {
+			return schemas.Key{}, err
+		}
 	}
 	if index >= 0 {
 		key.ID = keys[index].ID

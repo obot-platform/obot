@@ -457,26 +457,30 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 }
 
 func TestGatewayAdminRejectsPartialAzureCredentialClear(t *testing.T) {
-	storage := newFakeStorage(t, llmengine.ModelProviderResource())
-	h, store := newAdminTestHandler(t, storage)
-	_, err := callAdmin(t, h, storage, http.MethodPost, "providers", `{"provider":"azure"}`)
-	require.NoError(t, err)
-	_, err = callAdmin(t, h, storage, http.MethodPost, "providers/azure/keys", `{
+	for _, patch := range []string{`{"azure_key_config":{"client_secret":""}}`, `{"azure_key_config":null}`} {
+		t.Run(patch, func(t *testing.T) {
+			storage := newFakeStorage(t, llmengine.ModelProviderResource())
+			h, store := newAdminTestHandler(t, storage)
+			_, err := callAdmin(t, h, storage, http.MethodPost, "providers", `{"provider":"azure"}`)
+			require.NoError(t, err)
+			_, err = callAdmin(t, h, storage, http.MethodPost, "providers/azure/keys", `{
 		"name":"owned", "azure_key_config":{
 			"endpoint":"https://8.8.8.8", "client_id":"client", "client_secret":"secret", "tenant_id":"tenant"
-		}
+		}, "aliases":{"friendly":{"model_id":"current","endpoint":"https://8.8.8.8"}}
 	}`)
-	require.NoError(t, err)
-	before, err := store.GetProvider(t.Context(), "azure")
-	require.NoError(t, err)
-	require.Len(t, before.Keys, 1)
-	_, err = callAdmin(t, h, storage, http.MethodPut, "providers/azure/keys/"+before.Keys[0].ID, `{"azure_key_config":{"client_secret":""}}`)
-	httpErr, ok := errors.AsType[*types.ErrHTTP](err)
-	require.True(t, ok, "%v", err)
-	require.Equal(t, http.StatusBadRequest, httpErr.Code)
-	after, err := store.GetProvider(t.Context(), "azure")
-	require.NoError(t, err)
-	require.Equal(t, before, after, "reject the merged key without persisting credential changes")
+			require.NoError(t, err)
+			before, err := store.GetProvider(t.Context(), "azure")
+			require.NoError(t, err)
+			require.Len(t, before.Keys, 1)
+			_, err = callAdmin(t, h, storage, http.MethodPut, "providers/azure/keys/"+before.Keys[0].ID, patch)
+			httpErr, ok := errors.AsType[*types.ErrHTTP](err)
+			require.True(t, ok, "%v", err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Code)
+			after, err := store.GetProvider(t.Context(), "azure")
+			require.NoError(t, err)
+			require.Equal(t, before, after, "reject the merged key without persisting credential changes")
+		})
+	}
 }
 
 func TestGatewayAdminErrorPreservesStatusAndScrubsMessage(t *testing.T) {
