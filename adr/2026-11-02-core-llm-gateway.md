@@ -33,7 +33,7 @@ Core provides inference, translation, retries and routing without the transport'
 
 ## Consequences
 
-Obot maintains streaming and management API compatibility directly. Core's internal API remains an upgrade constraint. The cutover is coordinated, without mixed transport/core replicas or a runtime flag. Unreleased gateway configuration must be re-entered; old gateway stores are left untouched. Legacy model-provider credential import remains supported. Historical audit data needs no migration.
+Obot maintains streaming and management API compatibility directly. Core's internal API remains an upgrade constraint. The cutover is coordinated, without mixed transport/core replicas or a runtime flag. Unreleased gateway configuration must be re-entered; old gateway stores are left untouched. Automatic legacy credential import, model-reference migration and cleanup are disabled in v0.28.0. Migration support is planned for v0.28.1; existing LLM gateway users should hold off on updating. Historical audit data needs no migration.
 
 ## References
 
