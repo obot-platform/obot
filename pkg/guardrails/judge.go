@@ -1,4 +1,4 @@
-package messagepolicy
+package guardrails
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -32,26 +33,43 @@ var (
 	quoteCloser = regexp.MustCompile(`(?i)<\s*/\s*(message|conversation)\s*>`)
 )
 
-// Result is a policy's compliance decision and, when denied, its explanation.
-type Result struct {
+// completionEngine lets the judge use native inference without owning gateway lifecycle.
+type completionEngine interface {
+	ChatCompletion(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error)
+}
+
+// Judge evaluates natural-language guardrail policies with an LLM.
+type Judge struct {
+	client     kclient.Client
+	llmGateway completionEngine
+}
+
+// judgeResult is a policy's compliance decision and, when denied, its explanation.
+type judgeResult struct {
 	Compliant   bool
 	Explanation string
 }
 
-// EvaluateMessage screens one policy synchronously, reviewing any denial with the full model.
+// NewJudge returns a judge that calls the default model aliases' models through the LLM
+// gateway.
+func NewJudge(client kclient.Client, llmGateway completionEngine) *Judge {
+	return &Judge{client: client, llmGateway: llmGateway}
+}
+
+// evaluateMessage screens one policy synchronously, reviewing any denial with the full model.
 // Errors remain failures so the caller can apply its configured fail-closed behavior.
-func (h *Helper) EvaluateMessage(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (Result, error) {
+func (h *Judge) evaluateMessage(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (judgeResult, error) {
 	model, err := h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLMMini)
 	if err != nil {
-		return Result{}, err
+		return judgeResult{}, err
 	}
 
 	compliant, err := h.checkCompliance(ctx, model, policy, conversationContext, targetMessage)
 	if err != nil {
-		return Result{}, err
+		return judgeResult{}, err
 	}
 	if compliant {
-		return Result{Compliant: true}, nil
+		return judgeResult{Compliant: true}, nil
 	}
 
 	// A negative or ambiguous screening answer needs the full model's verdict.
@@ -59,7 +77,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policy types.MessagePolicy
 }
 
 // resolveModelByAlias resolves the given model alias to get the configured target model.
-func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.DefaultModelAliasType) (string, error) {
+func (h *Judge) resolveModelByAlias(ctx context.Context, aliasType types.DefaultModelAliasType) (string, error) {
 	slog.Debug("Resolving model alias", "aliasType", aliasType)
 
 	m, err := alias.GetFromScope(ctx, h.client, "Model", system.DefaultNamespace, string(aliasType))
@@ -99,7 +117,7 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 
 // Policies consume complete text, so a native unary call avoids an internal SSE
 // round trip while retaining core normalization, routing and policy plugins.
-func (h *Helper) callLLM(ctx context.Context, model string, messages []schemas.ChatMessage) (string, error) {
+func (h *Judge) callLLM(ctx context.Context, model string, messages []schemas.ChatMessage) (string, error) {
 	resp, err := h.llmGateway.ChatCompletion(ctx, model, messages)
 	if err != nil {
 		return "", fmt.Errorf("LLM call failed: %w", err)
@@ -133,7 +151,7 @@ func judgeInput(policy types.MessagePolicyManifest, conversationContext, targetM
 
 // checkCompliance performs Stage 1: a yes/no compliance check. Returns true if compliant.
 // An ambiguous response is treated as a violation; a failed call is returned as an error.
-func (h *Helper) checkCompliance(ctx context.Context, model string, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (bool, error) {
+func (h *Judge) checkCompliance(ctx context.Context, model string, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (bool, error) {
 	slog.Debug("Checking compliance for", "policy", policy.DisplayName)
 
 	messages := []schemas.ChatMessage{
@@ -171,17 +189,17 @@ func (h *Helper) checkCompliance(ctx context.Context, model string, policy types
 // reviewCompliance performs Stage 2: uses the full Chat model (llm alias) to review a stage 1 denial.
 // Returns the review result with a compliance decision and, if denied, a user-facing explanation.
 // Resolution and inference errors are returned separately from policy denials.
-func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (Result, error) {
+func (h *Judge) reviewCompliance(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (judgeResult, error) {
 	slog.Debug("Reviewing stage 1 denial using Chat model", "policy", policy.DisplayName)
 
-	genericDenial := Result{
+	genericDenial := judgeResult{
 		Compliant:   false,
 		Explanation: fmt.Sprintf("Your message was blocked by the \"%s\" message policy.", policy.DisplayName),
 	}
 
 	model, err := h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLM)
 	if err != nil {
-		return Result{}, err
+		return judgeResult{}, err
 	}
 
 	messages := []schemas.ChatMessage{
@@ -217,13 +235,13 @@ func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolic
 	result, err := h.callLLM(ctx, model, messages)
 	if err != nil {
 		slog.Warn("Stage 2 review LLM call failed", "policy", policy.DisplayName, "error", err)
-		return Result{}, err
+		return judgeResult{}, err
 	}
 
 	return parseReviewResponse(result, genericDenial), nil
 }
 
-// parseReviewResponse parses the Stage 2 model output into a Result.
+// parseReviewResponse parses the Stage 2 model output into a judgeResult.
 // Expects reasoning, then a final "COMPLIANT" or "VIOLATION: <explanation>" line.
 // Falls back to the provided genericDenial if the format is unrecognized.
 //
@@ -231,12 +249,12 @@ func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolic
 // answer in one word, without reasoning first, gave different verdicts for the same message
 // when the conversation context was long. Only the last line counts, so a verdict-like line
 // in the reasoning can't decide, and a malformed last line upholds the denial.
-func parseReviewResponse(response string, genericDenial Result) Result {
+func parseReviewResponse(response string, genericDenial judgeResult) judgeResult {
 	lines := strings.Split(strings.TrimSpace(response), "\n")
 	response = strings.TrimSpace(strings.Trim(strings.TrimSpace(lines[len(lines)-1]), "*_`"))
 
 	if strings.EqualFold(response, "COMPLIANT") {
-		return Result{Compliant: true}
+		return judgeResult{Compliant: true}
 	}
 
 	upper := strings.ToUpper(response)
@@ -245,7 +263,7 @@ func parseReviewResponse(response string, genericDenial Result) Result {
 		if explanation == "" {
 			return genericDenial
 		}
-		return Result{Compliant: false, Explanation: explanation}
+		return judgeResult{Compliant: false, Explanation: explanation}
 	}
 
 	slog.Warn("Unexpected stage 2 review response format, upholding denial", "response", response)

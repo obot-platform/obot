@@ -1,4 +1,4 @@
-package messagepolicy
+package guardrails
 
 import (
 	"context"
@@ -71,7 +71,7 @@ func (p *nativeJudge) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{ChatResponse: &resp}}, nil
 }
 
-func nativeHelper(t *testing.T, judge *nativeJudge) (*Helper, kclient.Client) {
+func nativeHelper(t *testing.T, judge *nativeJudge) (*Judge, kclient.Client) {
 	t.Helper()
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, nativeCodec{})
@@ -86,7 +86,7 @@ func nativeHelper(t *testing.T, judge *nativeJudge) (*Helper, kclient.Client) {
 	for _, name := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
 		require.NoError(t, storage.Create(t.Context(), &v1.Alias{Name: alias.KeyFromScopeID("Model", string(name)), Spec: v1.AliasSpec{TargetKind: "Model", TargetNamespace: system.DefaultNamespace, TargetName: model.Name}}))
 	}
-	return NewHelper(storage, engine), storage
+	return NewJudge(storage, engine), storage
 }
 
 func TestNativePolicyInference(t *testing.T) {
@@ -144,7 +144,7 @@ func TestNativePolicyFailuresStayClosed(t *testing.T) {
 			if mode == "canceled" {
 				cancel()
 			}
-			result, err := h.EvaluateMessage(ctx, types.MessagePolicyManifest{DisplayName: "Rule", Definition: "No cooking"}, "", "a message")
+			result, err := h.evaluateMessage(ctx, types.MessagePolicyManifest{DisplayName: "Rule", Definition: "No cooking"}, "", "a message")
 			require.False(t, result.Compliant)
 			if mode == "malformed" {
 				require.NoError(t, err)
@@ -184,7 +184,7 @@ func TestNativeInferenceHookPanics(t *testing.T) {
 				require.Empty(t, text)
 				require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
 			})
-			_, err = h.EvaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "hi")
+			_, err = h.evaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "hi")
 			require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
 
 			// Let screening deny without a hook call, so the panic occurs in full review.
@@ -195,7 +195,7 @@ func TestNativeInferenceHookPanics(t *testing.T) {
 				}
 				return engine.ChatCompletion(ctx, model, messages)
 			})
-			_, err = h.EvaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "hi")
+			_, err = h.evaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "hi")
 			require.EqualError(t, err, "LLM call failed: LLM gateway inference failed")
 
 			require.Len(t, judge.panicContexts, 4)
@@ -231,7 +231,7 @@ func TestNativeConcurrentPoliciesFailOnHookPanic(t *testing.T) {
 	errors := make(chan error, len(policies))
 	for _, policy := range policies {
 		go func() {
-			_, err := h.EvaluateMessage(t.Context(), policy, "", "hi")
+			_, err := h.evaluateMessage(t.Context(), policy, "", "hi")
 			errors <- err
 		}()
 	}

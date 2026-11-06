@@ -1,4 +1,4 @@
-package messagepolicy
+package guardrails
 
 import (
 	"context"
@@ -30,7 +30,7 @@ func textResponse(text string) *schemas.BifrostChatResponse {
 	}}}}}
 }
 
-func evaluationHelper(t *testing.T, engine completionEngine) *Helper {
+func evaluationHelper(t *testing.T, engine completionEngine) *Judge {
 	t.Helper()
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	for _, name := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
@@ -46,40 +46,40 @@ func evaluationHelper(t *testing.T, engine completionEngine) *Helper {
 			TargetName:      model.Name,
 		}}))
 	}
-	return NewHelper(client, engine)
+	return NewJudge(client, engine)
 }
 
 func TestEvaluateMessageDecisions(t *testing.T) {
 	policy := types.MessagePolicyManifest{DisplayName: "Rule", Definition: "No cooking"}
-	denial := Result{Explanation: `Your message was blocked by the "Rule" message policy.`}
+	denial := judgeResult{Explanation: `Your message was blocked by the "Rule" message policy.`}
 	tests := []struct {
 		name   string
 		mini   string
 		review string
-		want   Result
+		want   judgeResult
 	}{
 		{
 			name: "mini approval",
 			mini: "  YeS\n",
-			want: Result{Compliant: true},
+			want: judgeResult{Compliant: true},
 		},
 		{
 			name:   "review override",
 			mini:   "no",
 			review: "REASONING: harmless\nCOMPLIANT",
-			want:   Result{Compliant: true},
+			want:   judgeResult{Compliant: true},
 		},
 		{
 			name:   "ambiguous mini gets review",
 			mini:   "maybe",
 			review: "COMPLIANT",
-			want:   Result{Compliant: true},
+			want:   judgeResult{Compliant: true},
 		},
 		{
 			name:   "confirmed denial",
 			mini:   "no",
 			review: "REASONING: recipe\nVIOLATION: Your message asks for a recipe.",
-			want:   Result{Explanation: "Your message asks for a recipe."},
+			want:   judgeResult{Explanation: "Your message asks for a recipe."},
 		},
 		{
 			name:   "malformed review",
@@ -109,7 +109,7 @@ func TestEvaluateMessageDecisions(t *testing.T) {
 				}
 				return textResponse(tt.review), nil
 			}))
-			result, err := h.EvaluateMessage(t.Context(), policy, "User: history", "a message")
+			result, err := h.evaluateMessage(t.Context(), policy, "User: history", "a message")
 			require.NoError(t, err)
 			require.Equal(t, tt.want, result)
 			wantModels := []string{string(types.DefaultModelAliasTypeLLMMini)}
@@ -159,9 +159,9 @@ func TestEvaluateMessageInferenceFailures(t *testing.T) {
 							return textResponse(" \n\t"), nil
 						}
 					}))
-					result, err := h.EvaluateMessage(ctx, types.MessagePolicyManifest{DisplayName: "Rule"}, "", "message")
+					result, err := h.evaluateMessage(ctx, types.MessagePolicyManifest{DisplayName: "Rule"}, "", "message")
 					require.Error(t, err)
-					require.Equal(t, Result{}, result)
+					require.Equal(t, judgeResult{}, result)
 					switch mode {
 					case "error":
 						require.ErrorIs(t, err, failure)
@@ -219,9 +219,9 @@ func TestEvaluateMessageResolutionFailures(t *testing.T) {
 							h.llmGateway = nil
 						}
 					}
-					result, err := h.EvaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "message")
+					result, err := h.evaluateMessage(t.Context(), types.MessagePolicyManifest{}, "", "message")
 					require.Error(t, err)
-					require.Equal(t, Result{}, result)
+					require.Equal(t, judgeResult{}, result)
 					if stage == types.DefaultModelAliasTypeLLMMini {
 						require.Empty(t, calls)
 					} else {
@@ -285,31 +285,31 @@ func TestJudgeInputEscapesCloserVariants(t *testing.T) {
 }
 
 func TestParseReviewResponse(t *testing.T) {
-	denial := Result{Explanation: "blocked"}
+	denial := judgeResult{Explanation: "blocked"}
 	tests := []struct {
 		name     string
 		response string
-		want     Result
+		want     judgeResult
 	}{
 		{
 			name:     "reasoning then compliant",
 			response: "REASONING: The message asks about deployment, not cooking.\n\nCOMPLIANT",
-			want:     Result{Compliant: true},
+			want:     judgeResult{Compliant: true},
 		},
 		{
 			name:     "reasoning then violation",
 			response: "REASONING: It asks for a meatloaf recipe.\nVIOLATION: Your message asks for a recipe, which isn't allowed.",
-			want:     Result{Explanation: "Your message asks for a recipe, which isn't allowed."},
+			want:     judgeResult{Explanation: "Your message asks for a recipe, which isn't allowed."},
 		},
 		{
 			name:     "verdict alone",
 			response: "COMPLIANT",
-			want:     Result{Compliant: true},
+			want:     judgeResult{Compliant: true},
 		},
 		{
 			name:     "reasoning that mentions compliant isn't a verdict",
 			response: "REASONING: This is not COMPLIANT with the rule.\nVIOLATION: Recipes aren't allowed.",
-			want:     Result{Explanation: "Recipes aren't allowed."},
+			want:     judgeResult{Explanation: "Recipes aren't allowed."},
 		},
 		{
 			name:     "a compliant line in the reasoning doesn't count when the verdict is malformed",
@@ -319,7 +319,7 @@ func TestParseReviewResponse(t *testing.T) {
 		{
 			name:     "a verdict in markdown",
 			response: "REASONING: fine.\n**COMPLIANT**",
-			want:     Result{Compliant: true},
+			want:     judgeResult{Compliant: true},
 		},
 		{
 			name:     "no verdict upholds the denial",

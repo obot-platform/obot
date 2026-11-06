@@ -10,7 +10,6 @@ import (
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/messagepolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -116,7 +115,7 @@ func (f judgeCompletionFunc) ChatCompletion(ctx context.Context, model string, m
 	return f(ctx, model, messages)
 }
 
-func checkerJudge(t *testing.T, complete judgeCompletionFunc) *messagepolicy.Helper {
+func checkerJudge(t *testing.T, complete judgeCompletionFunc) *Judge {
 	t.Helper()
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	model := &v1.Model{Name: "judge", Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: apitypes.ModelManifest{
@@ -132,7 +131,7 @@ func checkerJudge(t *testing.T, complete judgeCompletionFunc) *messagepolicy.Hel
 			TargetName:      model.Name,
 		}}))
 	}
-	return messagepolicy.NewHelper(storage, complete)
+	return NewJudge(storage, complete)
 }
 
 func judgeResponse(text string) *schemas.BifrostChatResponse {

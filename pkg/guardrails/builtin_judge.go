@@ -9,7 +9,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/messagepolicy"
 )
 
 const (
@@ -20,7 +19,7 @@ const (
 
 type judgeChecker struct {
 	definition string
-	judge      *messagepolicy.Helper
+	judge      *Judge
 }
 
 func init() {
@@ -83,7 +82,7 @@ func (c *judgeChecker) Check(ctx context.Context, in CheckInput) (Result, error)
 		return Result{}, nil
 	}
 
-	verdict, err := c.judge.EvaluateMessage(ctx, types.MessagePolicyManifest{
+	verdict, err := c.judge.evaluateMessage(ctx, types.MessagePolicyManifest{
 		DisplayName: "guardrail",
 		Definition:  c.definition,
 	}, conversation(history), target)
