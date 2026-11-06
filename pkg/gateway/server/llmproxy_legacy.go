@@ -44,6 +44,7 @@ func normalizeLegacyProxyPath(provider, path string) (string, error) {
 		return "", types.NewErrHTTP(410, "this legacy operation is not supported; use a supported endpoint under /api/llm-proxy/v1")
 	}
 }
+
 func scopedLegacyReference(ctx context.Context, reference string) string {
 	scope := llmengine.LegacyProviderScope(ctx)
 	if scope != "" && !strings.Contains(reference, "/") {
@@ -51,6 +52,7 @@ func scopedLegacyReference(ctx context.Context, reference string) string {
 	}
 	return reference
 }
+
 func (b *bifrostProviderBackend) resolveRequestModel(l *llmProviderProxy, req api.Context, reference string) (*v1.Model, error) {
 	mapped, err := b.engine.MigratedReference(req.Context(), reference)
 	if err != nil {
@@ -72,8 +74,6 @@ func (b *bifrostProviderBackend) resolveRequestModel(l *llmProviderProxy, req ap
 	return model, nil
 }
 
-// proxyRouteRegistrar is shared by the production API mux and HTTP regression tests.
-
 func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
 	// LLM proxy. The LLM gateway serves every model, in every API format, at the root of the
 	// LLM proxy.
@@ -90,11 +90,14 @@ func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
 	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ws", anthropic.agentProxyWebSocket)
 
 	// Subscription-backed, model-free Anthropic requests also retain their old URL.
+	// These legacy URLs are planned for deprecation in the next non-patch release.
 	mux.HandleFunc("/api/llm-proxy/anthropic/v1/files", anthropic.files)
 	mux.HandleFunc("/api/llm-proxy/anthropic/v1/files/{path...}", anthropic.files)
 	mux.HandleFunc("GET /api/llm-proxy/anthropic/v1/code/agent-proxy/ca-cert", anthropic.agentProxyCACert)
 	mux.HandleFunc("GET /api/llm-proxy/anthropic/v1/code/agent-proxy/ws", anthropic.agentProxyWebSocket)
 
+	// Legacy provider routes are planned for deprecation in the next non-patch release.
+	// New clients should use /api/llm-proxy/v1.
 	for prefix, source := range legacyProxySources {
 		mux.HandleFunc("/api/llm-proxy/"+prefix+"/{path...}", func(req api.Context) error {
 			provider, err := s.llmGateway.LegacyGatewayProvider(req.Context(), source)
