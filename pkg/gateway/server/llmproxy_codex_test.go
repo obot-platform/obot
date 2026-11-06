@@ -17,14 +17,21 @@ import (
 
 	"github.com/maximhq/bifrost/core/providers/openai"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/valyala/fasthttp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Pin the recording seam to Bifrost v1.12.0 without relaxing production TLS policy.
@@ -163,5 +170,48 @@ func TestCodexCatalogRequiresOpenAIGrant(t *testing.T) {
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 		require.Equal(t, granted, gjson.GetBytes(body, "models.0").Exists())
+	}
+}
+
+func TestPublicCodexNativeModelNamespace(t *testing.T) {
+	proxy, req := directProxy(t, &directFixture{})
+	b := &directAccessBackend{storage: req.Storage, informers: map[string]cache.SharedIndexInformer{}}
+	helper, err := modelaccesspolicy.NewHelper(t.Context(), b)
+	require.NoError(t, err)
+	proxy.mapHelper = helper
+
+	// Both first-party providers expose the slug; the newer foreign model must
+	// not shadow the OpenAI model advertised by the native Codex catalog.
+	var model v1.Model
+	require.NoError(t, req.Storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "m1-test"}, &model))
+	require.NoError(t, b.informers["Model"].GetIndexer().Add(&model))
+	foreign := model.DeepCopy()
+	foreign.Name = "m1-foreign"
+	foreign.Spec.Manifest.TargetModel = "anthropic/test"
+	foreign.CreationTimestamp = metav1.NewTime(model.CreationTimestamp.Add(time.Second))
+	require.NoError(t, b.informers["Model"].GetIndexer().Add(foreign))
+	policy := &v1.ModelAccessPolicy{
+		Name:      "profile",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}},
+			Models:   []types.ModelResource{{ID: model.Name}, {ID: foreign.Name}},
+		}},
+	}
+	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
+	require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{CodexSubscriptionPassthrough: true}))
+
+	for _, reference := range []string{"test", "openai/test", "m1-test"} {
+		t.Run(reference, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", strings.NewReader(fmt.Sprintf(`{"model":%q,"input":"hi"}`, reference)))
+			r.SetPathValue("path", "v1/responses")
+			r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
+			r.Header.Set("Authorization", "Bearer eyJfixture.payload.signature")
+			w := httptest.NewRecorder()
+			call := req
+			call.Request, call.ResponseWriter = r, w
+			require.NoError(t, proxy.proxy(call))
+			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+		})
 	}
 }
