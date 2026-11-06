@@ -36,12 +36,14 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 			if err != nil {
 				return req, modelListingError(err), nil
 			}
+
 			provider := req.ListModelsRequest.Provider
 			if isAzureProvider(cfg, provider) {
 				if err := m.engine.discovery.refresh(ctx, cfg, provider, m.engine.store); err != nil {
 					if req.ListModelsRequest.Unfiltered {
 						return req, modelListingError(err), nil
 					}
+
 					slog.Warn("Azure deployment discovery failed; retaining unchanged keys' last successful results", "error", err)
 				}
 
@@ -50,11 +52,14 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 				// bound this final local read separately.
 				readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 				defer cancel()
+
 				cfg, err = m.engine.config(readCtx)
 				if err != nil {
 					return req, modelListingError(err), nil
 				}
+
 				models, _ := azureDeploymentModels(cfg, provider, m.engine.discovery.snapshot(cfg, provider))
+
 				return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
 					ListModelsResponse: &schemas.BifrostListModelsResponse{Data: models},
 				}}, nil
@@ -216,8 +221,10 @@ func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[strin
 		return nil, err
 	}
 	unavailable := make(map[string]bool)
+
 	// Build each provider's membership set once, even when checking thousands of saved IDs.
 	memberships := map[schemas.ModelProvider]map[string]struct{}{}
+
 	for _, id := range ids {
 		provider, _, _ := strings.Cut(id, "/")
 		name := schemas.ModelProvider(provider)
@@ -225,10 +232,12 @@ func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[strin
 		if azure && memberships[name] == nil {
 			models, _ := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name))
 			memberships[name] = make(map[string]struct{}, len(models))
+
 			for _, model := range models {
 				memberships[name][model.ID] = struct{}{}
 			}
 		}
+
 		_, member := memberships[name][id]
 		if (azure && !member) || e.modelWithKeysIsUnavailable(id, cfg.Keys[name]) {
 			unavailable[id] = true

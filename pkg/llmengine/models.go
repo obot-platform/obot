@@ -110,14 +110,18 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 
 	resp.Data = e.withLastKnownModels(ctx, resp.Data)
 	ids := make([]string, 0, len(resp.Data))
+
 	for _, model := range resp.Data {
 		ids = append(ids, model.ID)
 	}
+
 	unavailable, err := e.UnavailableModels(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
+
 	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool { return unavailable[model.ID] })
+
 	// Added after the last known models are recorded: they aren't a listing of the provider,
 	// so they mustn't stand in for one once subscriptions are turned off or keys are added.
 	resp.Data = append(resp.Data, e.claudeSubscriptionModels(ctx)...)

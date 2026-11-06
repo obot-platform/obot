@@ -26,6 +26,7 @@ func (a AzureAccount) ResourceID() string {
 	if a == (AzureAccount{}) {
 		return ""
 	}
+
 	return "/subscriptions/" + a.SubscriptionID + "/resourceGroups/" + a.ResourceGroup + "/providers/Microsoft.CognitiveServices/accounts/" + a.AccountName
 }
 
@@ -47,12 +48,14 @@ func AzureDiscoveryFingerprint(key schemas.Key, account AzureAccount) [32]byte {
 		credentials = []string{c.Endpoint.GetValue(), c.ClientID.GetValue(), c.ClientSecret.GetValue(), c.TenantID.GetValue()}
 		scopes = c.Scopes
 	}
+
 	raw, _ := json.Marshal(struct {
 		Account     AzureAccount
 		Value       string
 		Credentials []string
 		Scopes      []string `json:",omitempty"`
 	}{Account: account, Value: key.Value.GetValue(), Credentials: credentials, Scopes: scopes})
+
 	return sha256.Sum256(raw)
 }
 
@@ -119,12 +122,14 @@ func (s *Client) MutateProvider(ctx context.Context, name string, change func(*P
 	}
 
 	// Remove snapshots as part of the same atomic edit that changes or removes a key.
+
 	for id, snapshot := range provider.AzureDiscoveries {
 		i := slices.IndexFunc(provider.Keys, func(key schemas.Key) bool { return key.ID == id })
 		if i < 0 || provider.AzureAccounts[id] == (AzureAccount{}) || snapshot.Fingerprint != AzureDiscoveryFingerprint(provider.Keys[i], provider.AzureAccounts[id]) {
 			delete(provider.AzureDiscoveries, id)
 		}
 	}
+
 	if err := validateKeys(provider.Keys); err != nil {
 		return err
 	}
@@ -212,10 +217,12 @@ func (s *Client) SaveAzureDiscovery(ctx context.Context, name, id string, snapsh
 					if provider.AzureDiscoveries == nil {
 						provider.AzureDiscoveries = map[string]AzureDiscoverySnapshot{}
 					}
+
 					provider.AzureDiscoveries[id] = snapshot
 					break
 				}
 			}
+
 			return nil
 		})
 	})

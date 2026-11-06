@@ -16,6 +16,7 @@ func TestAzureDeploymentModels(t *testing.T) {
 		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Azure: {}, "custom": {CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}},
 		Keys:      map[schemas.ModelProvider][]schemas.Key{},
 	}
+
 	for _, tc := range []struct {
 		name string
 		keys []schemas.Key
@@ -56,17 +57,22 @@ func TestAzureDeploymentModels(t *testing.T) {
 			cfg.Keys[schemas.Azure] = tc.keys
 			models, azure := azureDeploymentModels(cfg, schemas.Azure)
 			require.True(t, azure)
+
 			ids := []string{}
+
 			for _, model := range models {
 				ids = append(ids, model.ID)
 			}
+
 			require.Equal(t, tc.want, ids)
 		})
 	}
+
 	cfg.Keys["custom"] = []schemas.Key{{Models: schemas.WhiteList{"deployment"}}}
 	models, azure := azureDeploymentModels(cfg, "custom")
 	require.True(t, azure)
 	require.Equal(t, "custom/deployment", models[0].ID)
+
 	_, azure = azureDeploymentModels(cfg, schemas.OpenAI)
 	require.False(t, azure)
 }
@@ -74,27 +80,34 @@ func TestAzureDeploymentModels(t *testing.T) {
 func TestAzureListsConfiguredDeploymentsWithoutUpstreamDiscovery(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	require.NoError(t, testMutation(ctx, e, nil)(e.CreateProvider(ctx, []byte(`{"provider":"azure"}`))))
+
 	var key schemas.Key
 	require.NoError(t, testMutation(ctx, e, &key)(e.CreateKey(ctx, "azure", []byte(`{"name":"test","value":"secret","models":["my-deployment"],"azure_key_config":{"endpoint":"https://example.openai.azure.com"}}`))))
+
 	for _, path := range []string{"/v1/models", "/v1/models?provider=azure"} {
 		var listed struct{ Data []schemas.Model }
 		require.NoError(t, testInference(ctx, t, e, http.MethodGet, path, nil, &listed))
 		require.Len(t, listed.Data, 1)
 		require.Equal(t, "azure/my-deployment", listed.Data[0].ID)
 	}
+
 	// Listing needs no Azure token, including when inference uses Entra credentials.
 	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "azure", key.ID, []byte(`{"value":"","azure_key_config":{"client_id":"client","client_secret":"secret","tenant_id":"tenant"}}`))))
 	require.NoError(t, e.RefreshProviderModels(ctx, "azure"))
+
 	catalog, err := e.ListCatalogModels(ctx, "azure", "")
 	require.NoError(t, err)
 	require.Len(t, catalog, 1)
+
 	models, err := e.ListModels(ctx)
 	require.NoError(t, err)
 	require.Len(t, models.Models, 1)
 	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "azure", key.ID, []byte(`{"models":[]}`))))
+
 	models, err = e.ListModels(ctx)
 	require.NoError(t, err)
 	require.Empty(t, models.Models)
+
 	unavailable, err := e.UnavailableModels(ctx, []string{"azure/my-deployment"})
 	require.NoError(t, err)
 	require.True(t, unavailable["azure/my-deployment"])
@@ -153,6 +166,7 @@ func TestAzureAutomaticDeploymentPolicies(t *testing.T) {
 				Providers: map[schemas.ModelProvider]schemas.ProviderConfig{tc.provider: {CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}},
 				Keys:      map[schemas.ModelProvider][]schemas.Key{tc.provider: tc.keys},
 			}
+
 			models, azure := azureDeploymentModels(cfg, tc.provider, tc.discovered)
 			require.True(t, azure)
 			require.Equal(t, tc.want, models)
@@ -166,20 +180,24 @@ func BenchmarkAzureUnavailableModels(b *testing.B) {
 			key := azureTestKey("key")
 			account := llmcoreclient.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
 			names, ids := make([]string, count), make([]string, count)
+
 			for i := range names {
 				names[i] = fmt.Sprintf("deployment-%04d", i)
 				ids[i] = "azure/" + names[i]
 			}
+
 			cfg := llmcoreclient.Config{
 				Providers:        map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Azure: {}},
 				Keys:             map[schemas.ModelProvider][]schemas.Key{schemas.Azure: {key}},
 				AzureAccounts:    map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{schemas.Azure: {key.ID: account}},
 				AzureDiscoveries: map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{schemas.Azure: {key.ID: {Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account), Names: names}}},
 			}
+
 			ctx := context.WithValue(context.Background(), configContextKey{}, &cfg)
 			e := New()
 			b.ReportAllocs()
 			b.ResetTimer()
+
 			for b.Loop() {
 				unavailable, err := e.UnavailableModels(ctx, ids)
 				if err != nil || len(unavailable) != 0 {

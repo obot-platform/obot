@@ -70,6 +70,7 @@ func New() *Engine {
 		availability: &modelAvailability{unavailable: map[string]bool{}},
 		ready:        make(chan struct{}),
 	}
+
 	e.availability.engine = e
 	e.catalog = func() modelCatalog {
 		if e.prices == nil {

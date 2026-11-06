@@ -17,26 +17,34 @@ func TestAzureSnapshotPublicationAndInvalidation(t *testing.T) {
 	key := schemas.Key{ID: "key", AzureKeyConfig: &schemas.AzureKeyConfig{ClientSecret: schemas.NewSecretVar("secret")}}
 	account := client.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
 	require.NoError(t, store.CreateProvider(t.Context(), "azure", client.Provider{Keys: []schemas.Key{key}, AzureAccounts: map[string]client.AzureAccount{key.ID: account}}))
+
 	snapshot := client.AzureDiscoverySnapshot{Fingerprint: client.AzureDiscoveryFingerprint(key, account), Names: []string{"real"}}
 	require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, snapshot))
+
 	versions := func() string {
 		t.Helper()
+
 		var providers v1.LLMGatewayProviderList
 		require.NoError(t, storage.List(t.Context(), &providers))
 		require.Len(t, providers.Items, 1)
+
 		return providers.Items[0].ResourceVersion
 	}
+
 	loaded, err := store.Load(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, snapshot, loaded.Config.AzureDiscoveries[schemas.Azure][key.ID])
+
 	before := versions()
 	require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, snapshot))
 	require.Equal(t, before, versions(), "identical discovery must not write or trigger another watch")
+
 	for _, change := range []string{"credentials", "account", "clear", "delete"} {
 		t.Run(change, func(t *testing.T) {
 			require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *client.Provider) error {
 				p.Keys = []schemas.Key{key}
 				p.AzureAccounts = map[string]client.AzureAccount{key.ID: account}
+
 				return nil
 			}))
 			require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, snapshot))
@@ -54,12 +62,15 @@ func TestAzureSnapshotPublicationAndInvalidation(t *testing.T) {
 					p.Keys = nil
 					delete(p.AzureAccounts, key.ID)
 				}
+
 				return nil
 			}))
 			before := versions()
+
 			// This is the old worker completing after the administrator's edit.
 			require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, snapshot))
 			require.Equal(t, before, versions())
+
 			loaded, err := store.Load(t.Context())
 			require.NoError(t, err)
 			require.Empty(t, loaded.Config.AzureDiscoveries[schemas.Azure])
