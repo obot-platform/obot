@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	openai "github.com/obot-platform/chat-completion-client"
@@ -122,6 +123,204 @@ func TestAppendProvidersSkipsInvalidGroupIDPrefix(t *testing.T) {
 	}
 	if provider.Name != "valid" || provider.Spec.GroupIDPrefix != "valid/" {
 		t.Fatalf("provider = %#v, want valid provider", provider)
+	}
+}
+
+func TestAppendProvidersSkipsInvalidPostgresTables(t *testing.T) {
+	providers := []providerFromFile[types.AuthProviderManifest]{
+		{
+			Name: "valid",
+			Manifest: types.AuthProviderManifest{
+				CommonProviderMetadata: types.CommonProviderMetadata{
+					Command: "bin/valid",
+				},
+				PostgresTablePrefix: "valid_",
+				PostgresTables:      []string{"user_groups"},
+			},
+		},
+		{
+			Name: "invalid",
+			Manifest: types.AuthProviderManifest{
+				CommonProviderMetadata: types.CommonProviderMetadata{
+					Command: "bin/invalid",
+				},
+				PostgresTablePrefix: "invalid_",
+				PostgresTables:      []string{"users; DROP TABLE users"},
+			},
+		},
+		{
+			Name: "invalid-prefix",
+			Manifest: types.AuthProviderManifest{
+				CommonProviderMetadata: types.CommonProviderMetadata{
+					Command: "bin/invalid-prefix",
+				},
+				PostgresTablePrefix: "x; DROP TABLE users; --",
+			},
+		},
+	}
+
+	objects := appendProviders("/registry", providers)
+	if len(objects) != 1 {
+		t.Fatalf("providers = %d, want 1", len(objects))
+	}
+	provider, ok := objects[0].(*v1.AuthProvider)
+	if !ok {
+		t.Fatalf("provider type = %T, want *v1.AuthProvider", objects[0])
+	}
+	if provider.Name != "valid" || !slices.Equal(provider.Spec.PostgresTables, []string{"user_groups"}) {
+		t.Fatalf("provider = %#v, want valid provider", provider)
+	}
+}
+
+func TestPostgresTableNames(t *testing.T) {
+	tests := []struct {
+		name    string
+		prefix  string
+		tables  []string
+		want    []string
+		wantErr bool
+	}{
+		{
+			name:   "no declared tables",
+			prefix: "pingfederate_",
+		},
+		{
+			name:   "no declared tables or prefix",
+			prefix: "",
+		},
+		{
+			name:   "declared tables",
+			prefix: "pingfederate_",
+			tables: []string{"user_groups", "seen_groups"},
+			want:   []string{"pingfederate_user_groups", "pingfederate_seen_groups"},
+		},
+		{
+			name:    "tables without a prefix",
+			prefix:  "",
+			tables:  []string{"user_groups"},
+			wantErr: true,
+		},
+		{
+			name:    "prefix without a trailing underscore",
+			prefix:  "ping",
+			tables:  []string{"federate_user_groups"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid prefix without declared tables",
+			prefix:  "x; DROP TABLE users; --",
+			wantErr: true,
+		},
+		{
+			name:    "table starting with an underscore",
+			prefix:  "pingfederate_",
+			tables:  []string{"_user_groups"},
+			wantErr: true,
+		},
+		{
+			name:    "table starting with a digit",
+			prefix:  "pingfederate_",
+			tables:  []string{"1groups"},
+			wantErr: true,
+		},
+		{
+			name:    "prefix with a character outside the identifier set",
+			prefix:  "ping-federate_",
+			tables:  []string{"user_groups"},
+			wantErr: true,
+		},
+		{
+			name:    "prefix starting with a digit",
+			prefix:  "1ping_",
+			tables:  []string{"user_groups"},
+			wantErr: true,
+		},
+		{
+			name:    "uppercase table",
+			prefix:  "pingfederate_",
+			tables:  []string{"User_groups"},
+			wantErr: true,
+		},
+		{
+			name:    "table with SQL",
+			prefix:  "pingfederate_",
+			tables:  []string{"x; DROP TABLE users"},
+			wantErr: true,
+		},
+		{
+			name:    "empty table",
+			prefix:  "pingfederate_",
+			tables:  []string{""},
+			wantErr: true,
+		},
+		{
+			name:    "name longer than PostgreSQL keeps",
+			prefix:  "pingfederate_",
+			tables:  []string{strings.Repeat("x", 51)},
+			wantErr: true,
+		},
+		{
+			name:   "name exactly as long as PostgreSQL keeps",
+			prefix: "pingfederate_",
+			tables: []string{strings.Repeat("x", 50)},
+			want:   []string{"pingfederate_" + strings.Repeat("x", 50)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := PostgresTableNames(types.AuthProviderManifest{
+				PostgresTablePrefix: tt.prefix,
+				PostgresTables:      tt.tables,
+			})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !slices.Equal(got, tt.want) {
+				t.Fatalf("names = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateDistinctAuthProviderPostgresTablePrefixes(t *testing.T) {
+	authProvider := func(name, prefix string) *v1.AuthProvider {
+		return &v1.AuthProvider{
+			Name: name,
+			Spec: v1.AuthProviderSpec{
+				AuthProviderManifest: types.AuthProviderManifest{PostgresTablePrefix: prefix},
+			},
+		}
+	}
+	tests := []struct {
+		name    string
+		objects []kclient.Object
+		wantErr bool
+	}{
+		{
+			name:    "distinct prefixes",
+			objects: []kclient.Object{authProvider("google", "google_"), authProvider("pingfederate", "pingfederate_"), authProvider("local", "")},
+		},
+		{
+			name:    "the same prefix",
+			objects: []kclient.Object{authProvider("a", "ping_"), authProvider("b", "ping_")},
+			wantErr: true,
+		},
+		{
+			name:    "one prefix starts the other",
+			objects: []kclient.Object{authProvider("a", "ping_federate_"), authProvider("b", "ping_")},
+			wantErr: true,
+		},
+		{
+			name:    "providers without a prefix",
+			objects: []kclient.Object{authProvider("a", ""), authProvider("b", "")},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateDistinctAuthProviderPostgresTablePrefixes(tt.objects); (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 

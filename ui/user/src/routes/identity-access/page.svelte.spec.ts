@@ -639,6 +639,71 @@ describe('Identity & Access Page', () => {
 			});
 		});
 
+		describe('PingFederate configuration', () => {
+			const pingFederateProvider: AuthProvider = {
+				...googleProvider,
+				id: CommonAuthProviderIds.PINGFEDERATE,
+				name: 'PingFederate',
+				configured: false,
+				missingConfigurationParameters: [],
+				missingEntitlements: [],
+				requiredConfigurationParameters: [
+					{ name: 'OBOT_PINGFEDERATE_AUTH_PROVIDER_ISSUER_URL', friendlyName: 'Issuer URL' }
+				],
+				optionalConfigurationParameters: [
+					{
+						name: 'OBOT_PINGFEDERATE_AUTH_PROVIDER_CA_CERTIFICATE',
+						friendlyName: 'CA Certificate (PEM)',
+						multiline: true
+					},
+					{
+						name: 'OBOT_PINGFEDERATE_AUTH_PROVIDER_KNOWN_GROUPS',
+						friendlyName: 'Known Groups',
+						multiline: true
+					}
+				]
+			};
+
+			async function openPingFederateForm() {
+				worker.use(
+					http.post(`/api/auth-providers/${pingFederateProvider.id}/reveal`, () =>
+						HttpResponse.json(null, { status: 404 })
+					)
+				);
+				await renderIdentityAccessPage({
+					authProviders: [pingFederateProvider],
+					groups: [Group.OWNER, Group.ADMIN]
+				});
+				await providerCard('PingFederate')
+					.getByRole('button', { name: 'Configure', exact: true })
+					.click();
+				const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up PingFederate' });
+				await expect.element(dialog.getByLabelText('Issuer URL', { exact: true })).toBeVisible();
+				return dialog;
+			}
+
+			it('links the PingFederate setup documentation', async () => {
+				const dialog = await openPingFederateForm();
+
+				await expect
+					.element(dialog.getByRole('link', { name: 'the documentation', exact: true }))
+					.toHaveAttribute(
+						'href',
+						'https://docs.obot.ai/configuration/auth-providers/#pingfederate'
+					);
+			});
+
+			it('offers multi-line fields for the CA certificate and known groups', async () => {
+				const dialog = await openPingFederateForm();
+
+				for (const label of ['CA Certificate (PEM)', 'Known Groups']) {
+					await expect
+						.element(dialog.getByRole('textbox', { name: label, exact: true }))
+						.toHaveProperty('tagName', 'TEXTAREA');
+				}
+			});
+		});
+
 		describe('SCIM setup of the Okta provider', () => {
 			async function openOktaForm(provider: AuthProvider, values?: Record<string, string>) {
 				worker.use(

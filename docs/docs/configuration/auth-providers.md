@@ -83,7 +83,7 @@ Local is now the active provider. To use Local accounts, you're done; see [Local
 To use a different provider, switch to it:
 
 1. Go to **Identity & Access > Auth Providers**.
-2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 require free Obot Community registration or an Enterprise license.
+2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0, and PingFederate require free Obot Community registration or an Enterprise license.
 3. Configure the provider, sign in with it to verify your account, and complete the switch. See [Switching Between Auth Providers](#switching-between-auth-providers) for each step.
 
 :::important
@@ -173,7 +173,7 @@ You can:
 | Providers | Availability |
 |-----------|--------------|
 | Local, GitHub, Google | Available in every edition, without registration |
-| Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0 | Require free Obot Community registration or an Enterprise license |
+| Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0, PingFederate | Require free Obot Community registration or an Enterprise license |
 
 To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
 
@@ -539,6 +539,62 @@ You can now return to Obot and finish configuring OneLogin. Use the table below 
 :::important Removing a user's access
 OneLogin stops suspended, locked, and unlicensed users from signing in, but Obot keeps their existing access for a while: their browser session lasts until it next needs OneLogin, and their Obot API keys keep working. To remove someone's access immediately, delete them on Obot's **Users** page, or use [SCIM](./onelogin-scim.md).
 :::
+
+### PingFederate {#pingfederate}
+
+Obot signs users in through PingFederate with OpenID Connect. PingFederate has no directory API for Obot to read, so Obot learns each user's groups from the userinfo claims PingFederate releases, at sign-in and at each session refresh.
+
+#### Set up PingFederate {#pingfederate-setup}
+
+In the PingFederate administrative console:
+
+1. **Create an OAuth client.** Go to **Applications > OAuth > Clients > Add Client** and set:
+   - **Client Authentication:** **Client Secret**. Take note of the client ID and secret.
+   - **Redirect URIs:** the callback URL shown in Obot's Auth Provider configuration dialog.
+   - **Allowed Grant Types:** **Authorization Code** and **Refresh Token**.
+   - **Require Proof Key for Code Exchange (PKCE):** can be enabled. Obot always sends an `S256` code challenge.
+   - **OpenID Connect > Policy:** the policy from the next step.
+2. **Create or choose an OpenID Connect policy.** Go to **Applications > OAuth > OpenID Connect Policy Management**. In its attribute contract, release `sub`, `email`, and `name` (or `given_name` and `family_name`), and, for group-based access, a `groups` attribute marked **Multi-Valued**. Release `groups` in **User Info**: Obot reads group memberships only from the userinfo response, which reflects changes at each session refresh, and ignores groups released only in the ID token. Fulfill them from your directory, for example `mail`, `cn`, and `memberOf` from an LDAP data store.
+3. **Map the attributes to scopes.** PingFederate releases only the claims mapped to a scope that the client requests. In the policy's scope mappings, map `email` to the `email` scope and the name attributes to `profile`. For groups, add a scope such as `groups` under **System > OAuth Settings > Scope Management**, map the `groups` attribute to it, and add the scope to **Scopes** in Obot. Without it, users sign in with no groups.
+
+PingFederate's issuer is its base URL, under **System > Server > Protocol Settings > Federation Info**, such as `https://sso.example.com` or `https://sso.example.com:9031`. Obot's Issuer URL must match it exactly. To check, open `<issuer>/.well-known/openid-configuration` and compare its `issuer` value.
+
+#### Configure Obot {#pingfederate-configure}
+
+In **Identity & Access > Auth Providers**, configure **PingFederate**:
+
+| Obot field | Value |
+| --- | --- |
+| Client ID / Client Secret | The OAuth client's credentials |
+| Issuer URL | PingFederate's base URL, matching the `issuer` in its discovery document exactly |
+| Allowed E-Mail Domains | Allowed domains, or `*` for all domains |
+| CA Certificate (PEM) (optional) | The PEM certificate chain of the CA that issued PingFederate's TLS certificate. Required when that CA is private: the provider doesn't use the Obot server's trust store. |
+| CA Certificate File (optional) | Path, inside the Obot container, of a PEM CA bundle. An alternative to pasting the certificate. |
+| Scopes (optional) | Defaults to `openid email profile`. Add the scope you mapped groups to, such as `openid email profile groups`. |
+| Name Claim (optional) | The claim shown as the user's name in Obot. Defaults to `name`. |
+| Email Claim / Groups Claim (optional) | The claims carrying the email address and group memberships. Default to `email` and `groups`. Obot rejects an unverified address only when the email claim is `email`; with another claim, use an attribute users can't set themselves, or the allowed email domains stop restricting who signs in. |
+| Groups Delimiter (optional) | Set only when PingFederate sends groups as one delimited string instead of a list. |
+| Known Groups (optional) | Group names, one per line, exactly as PingFederate releases them. Commas belong to the name, as in an LDAP DN. |
+
+Obot verifies the ID token's issuer, audience, signature, and nonce, and always uses PKCE. These checks can't be turned off. Obot rejects a sign-in whose ID token has `email_verified: false`. PingFederate usually omits that claim, and a token without it is accepted. The Issuer URL and the authorization, token, JWKS, and userinfo endpoints in PingFederate's discovery document must use HTTPS, except on a loopback host such as `localhost`.
+
+Changes to the Issuer URL of the active provider take effect immediately. If PingFederate can't be reached or reports a different issuer, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
+
+#### Groups {#pingfederate-groups}
+
+Each group appears in Obot as `pingfederate/<name>`, with the name exactly as PingFederate releases it. A group released from LDAP's `memberOf` appears under its full DN, for example `pingfederate/cn=engineering,ou=groups,dc=example,dc=com`. Because DNs contain commas, leave **Groups Delimiter** empty for them.
+
+Obot sees a group once one of its members signs in. To assign a role to a group before then, list it under **Known Groups**, so the group picker offers it.
+
+Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. At each refresh, Obot asks PingFederate's userinfo endpoint for the user's current groups, so a change in PingFederate takes effect without the user signing in again.
+
+When Obot uses PostgreSQL, as a deployment with several replicas must, every replica shares the users' groups and the groups seen at sign-in through two tables in Obot's database, `pingfederate_user_groups` and `pingfederate_seen_groups`. Obot drops them, with the provider's session tables, when you deconfigure PingFederate, switch to another provider, or discard a staged switch to PingFederate. Without PostgreSQL, Obot keeps them in memory.
+
+#### Troubleshooting {#pingfederate-troubleshooting}
+
+- **The provider reports an issuer mismatch:** set **Issuer URL** to the `issuer` value it reports, which is PingFederate's base URL. A trailing slash or a missing port is enough to differ.
+- **Certificate errors when the provider starts:** PingFederate's TLS certificate is issued by a CA the provider doesn't trust. Add the CA's certificate chain to **CA Certificate (PEM)**.
+- **Users sign in with no groups:** the groups attribute isn't released in **User Info**, isn't in the policy's attribute contract, or isn't mapped to a scope Obot requests. Release it in **User Info**, map it to a scope, and add that scope to **Scopes**.
 
 ## Switching Between Auth Providers
 
