@@ -59,6 +59,7 @@ func ValidateAzureKey(body []byte) error {
 	}
 	// The key's endpoint, and any endpoint a model alias of the key overrides it with.
 	var endpoints []string
+	// Declare before assigning so the closure can call itself recursively.
 	var collect func(raw json.RawMessage)
 	collect = func(raw json.RawMessage) {
 		trimmed := bytes.TrimSpace(raw)
