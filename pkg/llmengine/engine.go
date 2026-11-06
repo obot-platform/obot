@@ -19,6 +19,7 @@ import (
 	bifrostcore "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/modelcatalog"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/modeldata"
@@ -37,6 +38,7 @@ type Options struct {
 	LogLevel                string
 	FirstPlugin, LastPlugin schemas.LLMPlugin
 	ClaudeSubscriptions     func(context.Context) (bool, error)
+	CodexSubscriptions      func(context.Context) (bool, error)
 	ModelDataURL            string
 }
 
@@ -262,7 +264,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "LLM gateway unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if r.Method == http.MethodGet && (r.URL.Path == "/v1/models" || r.URL.Path == "/anthropic/v1/models") {
+	if r.Method == http.MethodGet && (r.URL.Path == "/v1/models" || r.URL.Path == "/anthropic/v1/models") && !llmtypes.IsCodexSubscription(r.Header) {
 		e.serveModels(w, r)
 		return
 	}

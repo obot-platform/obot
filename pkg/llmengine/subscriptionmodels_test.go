@@ -184,7 +184,7 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 	if err := testMutation(ctx, e, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "paused", "value": "sk-ant-paused", "models": []string{"*"}, "weight": 1, "enabled": false}))); err != nil {
 		t.Fatal(err)
 	}
-	if _, keys, enabled, err := e.anthropicKeys(ctx); err != nil || keys != 1 || enabled != 0 {
+	if _, keys, enabled, err := e.subscriptionProviderKeys(ctx, anthropicProvider); err != nil || keys != 1 || enabled != 0 {
 		t.Fatalf("want one disabled key, got %d keys, %d enabled: %v", keys, enabled, err)
 	}
 	subscriptions.Store(false)
@@ -213,4 +213,32 @@ func TestListModelsFromCatalogForClaudeSubscriptions(t *testing.T) {
 func closeCost(a, b types.ModelCost) bool {
 	near := func(x, y float64) bool { return x-y < 1e-9 && y-x < 1e-9 }
 	return near(a.Input, b.Input) && near(a.Output, b.Output) && near(a.CacheRead, b.CacheRead) && near(a.CacheWrite, b.CacheWrite)
+}
+
+func TestCodexSubscriptionCatalogWithoutKeys(t *testing.T) {
+	var allowed atomic.Bool
+	engine := New()
+	catalog := testCatalog(t)
+	engine.catalog = func() modelCatalog { return catalog }
+	require.NoError(t, engine.Start(t.Context(), testOptions(t, Options{
+		DataDir:             t.TempDir(),
+		ClaudeSubscriptions: func(context.Context) (bool, error) { return true, nil },
+		CodexSubscriptions:  func(context.Context) (bool, error) { return allowed.Load(), nil },
+	})))
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	require.NoError(t, testMutation(t.Context(), engine, nil)(engine.CreateProvider(t.Context(), testJSON(t, map[string]any{"provider": "openai"}))))
+	for _, enabled := range []bool{false, true, false} {
+		allowed.Store(enabled)
+		models, err := engine.ListModels(t.Context())
+		require.NoError(t, err)
+		found := false
+		for _, model := range models.Models {
+			found = found || model.ID == "openai/gpt-test"
+		}
+		require.Equal(t, enabled, found)
+		names, err := engine.ConfiguredProviders(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, enabled, slices.Contains(names, "openai"))
+		require.Equal(t, enabled, engine.HasUpstreamProviders(t.Context()))
+	}
 }

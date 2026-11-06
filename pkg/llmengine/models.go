@@ -131,7 +131,9 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 
 	// Added after the last known models are recorded: they aren't a listing of the provider,
 	// so they mustn't stand in for one once subscriptions are turned off or keys are added.
-	resp.Data = append(resp.Data, e.claudeSubscriptionModels(ctx)...)
+	for _, provider := range []string{anthropicProvider, "openai"} {
+		resp.Data = append(resp.Data, e.subscriptionModels(ctx, provider)...)
+	}
 	// A failed or empty listing may reuse cached entries. Recheck lifecycle
 	// metadata so that fallback cannot resurrect a now-unavailable model.
 	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool {
@@ -277,13 +279,11 @@ func (e *Engine) withLastKnownModels(ctx context.Context, listed []listedModel) 
 	return listed
 }
 
-// claudeSubscriptionModels lists Anthropic's models from the gateway's model catalog when
-// Claude subscriptions are allowed and the Anthropic provider has no enabled keys. The
-// gateway only learns a provider's models by listing them with a key, so an Anthropic
-// provider used only for subscriptions would otherwise have no models to grant access to.
-func (e *Engine) claudeSubscriptionModels(ctx context.Context) []listedModel {
-	if only, err := e.claudeSubscriptionsOnly(ctx); err != nil {
-		slog.Warn("failed to check whether the Anthropic provider is only used for Claude subscriptions", "error", err)
+// subscriptionModels supplies grantable models from the catalog when a subscription
+// provider has no enabled keys. User tokens are never used for background model sync.
+func (e *Engine) subscriptionModels(ctx context.Context, provider string) []listedModel {
+	if only, err := e.subscriptionsOnly(ctx, provider); err != nil {
+		slog.Warn("failed to check subscription provider", "provider", provider, "error", err)
 		return nil
 	} else if !only {
 		return nil
@@ -292,15 +292,15 @@ func (e *Engine) claudeSubscriptionModels(ctx context.Context) []listedModel {
 	if catalog == nil {
 		return nil
 	}
-	return catalogModels(catalog, anthropicProvider)
+	return catalogModels(catalog, provider)
 }
 
 // ClaudeSubscriptionModels returns the Anthropic models listed from the model catalog while
 // the Anthropic provider is used only for Claude subscriptions, which Obot's model list has
-// too (see claudeSubscriptionModels). The gateway's own /v1/models endpoint lists a
+// too (see subscriptionModels). The gateway's own /v1/models endpoint lists a
 // provider's models with its keys, so it lists none of them.
 func (e *Engine) ClaudeSubscriptionModels(ctx context.Context) []ListedModel {
-	listed := e.claudeSubscriptionModels(ctx)
+	listed := e.subscriptionModels(ctx, anthropicProvider)
 	models := make([]ListedModel, 0, len(listed))
 	for _, m := range listed {
 		_, id, _ := strings.Cut(m.ID, "/")
@@ -309,46 +309,41 @@ func (e *Engine) ClaudeSubscriptionModels(ctx context.Context) []ListedModel {
 	return models
 }
 
-// claudeSubscriptionsOnly reports whether the built-in Anthropic provider has no enabled keys
-// and Claude subscriptions are allowed, so its only use is forwarding the subscriptions.
-func (e *Engine) claudeSubscriptionsOnly(ctx context.Context) (bool, error) {
-	if allowed, err := e.claudeSubscriptionsAllowed(ctx); err != nil || !allowed {
+// subscriptionsOnly reports whether a built-in provider is used only for subscriptions.
+func (e *Engine) subscriptionsOnly(ctx context.Context, provider string) (bool, error) {
+	if allowed, err := e.subscriptionsAllowed(ctx, provider); err != nil || !allowed {
 		return false, err
 	}
-	return e.anthropicWithoutKeys(ctx)
-}
-
-func (e *Engine) claudeSubscriptionsAllowed(ctx context.Context) (bool, error) {
-	if e.opts.ClaudeSubscriptions == nil {
-		return false, nil
-	}
-	return e.opts.ClaudeSubscriptions(ctx)
-}
-
-// anthropicWithoutKeys reports whether the built-in Anthropic provider is configured with no
-// enabled keys. Only the built-in provider forwards subscriptions, not a custom one.
-func (e *Engine) anthropicWithoutKeys(ctx context.Context) (bool, error) {
-	builtin, _, enabled, err := e.anthropicKeys(ctx)
+	builtin, _, enabled, err := e.subscriptionProviderKeys(ctx, provider)
 	return builtin && enabled == 0, err
 }
 
-// anthropicKeys reports whether the built-in Anthropic provider is configured, and how many
-// keys it has, and how many of them are enabled.
-func (e *Engine) anthropicKeys(ctx context.Context) (builtin bool, keys, enabled int, err error) {
+func (e *Engine) subscriptionsAllowed(ctx context.Context, provider string) (bool, error) {
+	allowed := e.opts.ClaudeSubscriptions
+	if provider == "openai" {
+		allowed = e.opts.CodexSubscriptions
+	}
+	if allowed == nil {
+		return false, nil
+	}
+	return allowed(ctx)
+}
+
+// subscriptionProviderKeys counts only a built-in provider's keys; custom providers never accept subscriptions.
+func (e *Engine) subscriptionProviderKeys(ctx context.Context, provider string) (builtin bool, keys, enabled int, err error) {
 	providers, err := e.ListProviders(ctx)
 	if err != nil {
 		return false, 0, 0, err
 	}
 	for _, p := range providers {
-		if p.Name == anthropicProvider && p.CustomProviderConfig == nil {
+		if string(p.Name) == provider && p.CustomProviderConfig == nil {
 			builtin = true
 		}
 	}
 	if !builtin {
 		return false, 0, 0, nil
 	}
-
-	keysList, err := e.ListProviderKeys(ctx, anthropicProvider)
+	keysList, err := e.ListProviderKeys(ctx, provider)
 	if err != nil {
 		return false, 0, 0, err
 	}
@@ -405,13 +400,13 @@ func (e *Engine) ConfiguredProviders(ctx context.Context) ([]string, error) {
 	for _, p := range resp {
 		names = append(names, string(p.Name))
 	}
-	// An Anthropic provider with no keys at all lists models only while Claude subscriptions
-	// are allowed. Once they aren't, it has none, and the models it listed for them go. One
-	// whose keys are only disabled keeps its models, like any other provider.
-	if slices.Contains(names, anthropicProvider) {
-		if allowed, err := e.claudeSubscriptionsAllowed(ctx); err == nil && !allowed {
-			if builtin, keys, _, err := e.anthropicKeys(ctx); err == nil && builtin && keys == 0 {
-				names = slices.DeleteFunc(names, func(n string) bool { return n == anthropicProvider })
+	// Subscription-only providers stop advertising models when their setting is disabled.
+	for _, provider := range []string{anthropicProvider, "openai"} {
+		if slices.Contains(names, provider) {
+			if allowed, err := e.subscriptionsAllowed(ctx, provider); err == nil && !allowed {
+				if builtin, keys, _, err := e.subscriptionProviderKeys(ctx, provider); err == nil && builtin && keys == 0 {
+					names = slices.DeleteFunc(names, func(n string) bool { return n == provider })
+				}
 			}
 		}
 	}
@@ -453,6 +448,11 @@ func (e *Engine) hasUpstreamProviders(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 	}
-	// An Anthropic provider without keys is usable for Claude subscriptions.
-	return e.claudeSubscriptionsOnly(ctx)
+	// A built-in subscription provider can be used without configured keys.
+	for _, provider := range []string{anthropicProvider, "openai"} {
+		if only, err := e.subscriptionsOnly(ctx, provider); err != nil || only {
+			return only, err
+		}
+	}
+	return false, nil
 }

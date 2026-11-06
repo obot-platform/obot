@@ -27,3 +27,13 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 		t.Errorf("the audit log entry doesn't say a Claude subscription paid for it: %s", data)
 	}
 }
+
+func TestConvertLLMAuditLogCodexSubscription(t *testing.T) {
+	data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{CodexSubscription: true}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"codexSubscription":true`) || strings.Contains(string(data), `"claudeSubscription":true`) {
+		t.Fatalf("incorrect subscription type: %s", data)
+	}
+}
