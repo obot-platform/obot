@@ -70,6 +70,7 @@ type Server struct {
 
 	mux         *http.ServeMux
 	otelHandler http.Handler
+	middleware  []func(api.HandlerFunc) api.HandlerFunc
 	// scimHandler serves the SCIM endpoint, which HandleSCIM sets.
 	scimHandler http.Handler
 }
@@ -134,7 +135,18 @@ func authenticationError[T error](err error) (T, bool) {
 }
 
 func (s *Server) HandleFunc(pattern string, f api.HandlerFunc) {
+	for _, middleware := range slices.Backward(s.middleware) {
+		f = middleware(f)
+	}
 	s.mux.Handle(pattern, s.Wrap(f))
+}
+
+// WithMiddleware shares the server's mux and services, applying middleware only to
+// routes registered through the returned server. Parent middleware runs first.
+func (s *Server) WithMiddleware(middleware func(api.HandlerFunc) api.HandlerFunc) *Server {
+	scoped := *s
+	scoped.middleware = append(slices.Clone(s.middleware), middleware)
+	return &scoped
 }
 
 // HandleSCIM serves the SCIM endpoint with f. SCIM requests bypass the mux, which would answer the base URL without a
