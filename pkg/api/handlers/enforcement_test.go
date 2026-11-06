@@ -1635,3 +1635,56 @@ func TestEnforcementDecideEvaluatesTheFullURLNotTheTruncatedOne(t *testing.T) {
 		t.Fatalf("decision = %q, want deny: the full URL is a sibling path, not a descendant", got)
 	}
 }
+
+// TestEnforcementDecideBuiltinCodexNodeREPL covers Codex Desktop's node_repl under
+// the built-in MCP toggle: admitted when the device reports it by name alone, and
+// denied when the same name arrives carrying an identity the device resolved
+// from a configured entry.
+func TestEnforcementDecideBuiltinCodexNodeREPL(t *testing.T) {
+	cases := []struct {
+		name   string
+		server types.EnforcementDecisionServer
+		want   string
+	}{
+		{name: "name only", want: types.EnforcementDecisionAllow},
+		{
+			name:   "with a package",
+			server: types.EnforcementDecisionServer{Package: &types.AllowlistServerPackage{Source: "npm", Name: "some-node-repl"}, Command: "npx"},
+			want:   types.EnforcementDecisionDeny,
+		},
+		{
+			name:   "with a command",
+			server: types.EnforcementDecisionServer{Command: "/tmp/node_repl"},
+			want:   types.EnforcementDecisionDeny,
+		},
+		{
+			name:   "with a url",
+			server: types.EnforcementDecisionServer{URL: "https://example.com/mcp"},
+			want:   types.EnforcementDecisionDeny,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gatewayClient := newEnforcementTestGatewayClient(t)
+			configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{
+				AllowAllBuiltinAgentTools: true,
+				AllowAllBuiltinAgentMCP:   true,
+			})
+
+			rec := httptest.NewRecorder()
+			body := types.EnforcementDecisionRequest{
+				Agent:      "codex",
+				Tool:       "js",
+				Kind:       "mcp",
+				ServerName: "node_repl",
+				Server:     tc.server,
+			}
+			if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+				t.Fatalf("decide: %v", err)
+			}
+			if resp := decodeDecisionResponse(t, rec); resp.Decision != tc.want {
+				t.Fatalf("decision = %q, want %q (reason %q)", resp.Decision, tc.want, resp.Reason)
+			}
+		})
+	}
+}

@@ -54,7 +54,7 @@ func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decisio
 		}
 
 		// Coarse: built-in agent MCP servers.
-		if allowlist.AllowAllBuiltinAgentMCP && isBuiltinAgentMCP(call.Agent, call.ServerName) {
+		if allowlist.AllowAllBuiltinAgentMCP && isBuiltinAgentMCPCall(call) {
 			return Decision{Allow: true, Reason: "built-in agent MCP servers are allowed"}
 		}
 
