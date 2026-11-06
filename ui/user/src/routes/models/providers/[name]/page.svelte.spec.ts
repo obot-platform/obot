@@ -469,6 +469,62 @@ describe('LLM gateway provider page', () => {
 		await expect.element(toggle).toBeChecked();
 	});
 
+	it('controls Codex subscriptions independently on the OpenAI provider', async () => {
+		mockProvider();
+		const saved = vi.fn();
+		worker.use(
+			http.get('/api/llm-gateway/settings', () =>
+				HttpResponse.json({ subscriptionPassthrough: true, codexSubscriptionPassthrough: false })
+			),
+			http.put('/api/llm-gateway/settings', async ({ request }) => {
+				const body = await request.json();
+				saved(body);
+				return HttpResponse.json(body);
+			})
+		);
+		await renderProviderPage([Group.ADMIN], 'openai');
+		const toggle = page.getByRole('switch', { name: 'Allow Codex subscriptions' });
+		await expect.element(toggle).not.toBeChecked();
+		await expect
+			.element(page.getByRole('switch', { name: 'Allow Claude subscriptions' }))
+			.not.toBeInTheDocument();
+		await toggle.click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+		expect(saved).toHaveBeenCalledWith({
+			subscriptionPassthrough: true,
+			codexSubscriptionPassthrough: true
+		});
+		await expect.element(toggle).toBeChecked();
+	});
+
+	it('does not offer Codex subscriptions for a custom OpenAI provider', async () => {
+		mockProvider({
+			provider: {
+				...openai,
+				name: 'custom',
+				custom_provider_config: { base_provider_type: 'openai' }
+			}
+		});
+		await renderProviderPage([Group.ADMIN], 'custom');
+		await expect.element(page.getByText('openai-key-1')).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('switch', { name: 'Allow Codex subscriptions' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the Codex setting read-only to auditors', async () => {
+		mockProvider();
+		worker.use(
+			http.get('/api/llm-gateway/settings', () =>
+				HttpResponse.json({ subscriptionPassthrough: false, codexSubscriptionPassthrough: true })
+			)
+		);
+		await renderProviderPage([Group.USER, Group.AUDITOR], 'openai');
+		const toggle = page.getByRole('switch', { name: 'Allow Codex subscriptions' });
+		await expect.element(toggle).toBeChecked();
+		await expect.element(toggle).toBeDisabled();
+	});
+
 	it('only offers Claude subscriptions on the built-in Anthropic provider', async () => {
 		mockProvider({
 			provider: {

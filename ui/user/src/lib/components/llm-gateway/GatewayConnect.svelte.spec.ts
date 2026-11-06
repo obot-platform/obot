@@ -404,6 +404,57 @@ describe('GatewayConnect', () => {
 			.toBeInTheDocument();
 	});
 
+	it('keeps the ChatGPT login and sends the Obot key separately for Codex subscriptions', async () => {
+		render(GatewayConnect, { obotURL, models, codexSubscriptionPassthrough: true });
+		await openClient('Codex CLI');
+		await expect.element(page.getByRole('tab', { name: 'Use subscription' })).toBeInTheDocument();
+		await expect
+			.element(page.getByText('requires_openai_auth = true', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('supports_websockets = false', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText('env_http_headers = { "X-Obot-Api-Key" = "OBOT_API_KEY" }', { exact: false })
+			)
+			.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText('model_catalog_url = "https://obot.example.com/api/llm-proxy/v1/models"', {
+					exact: false
+				})
+			)
+			.toBeInTheDocument();
+		await expect.element(page.getByText('env_key =', { exact: false })).not.toBeInTheDocument();
+		await page.getByRole('combobox', { name: 'Model' }).click();
+		await expect
+			.element(
+				page.getByRole('button', { name: 'Anthropic · anthropic/claude-opus-4-5', exact: true })
+			)
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'OpenAI · openai/gpt-4o', exact: true }).click();
+		await expect.element(page.getByText('model = "gpt-4o"', { exact: false })).toBeInTheDocument();
+		await openTab('Use API key');
+		await expect
+			.element(page.getByText('env_key = "OBOT_API_KEY"', { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByText('model = "openai/gpt-4o"', { exact: false }))
+			.toBeInTheDocument();
+	});
+
+	it('keeps Codex subscription setup hidden when only Claude subscriptions are enabled', async () => {
+		render(GatewayConnect, { obotURL, models, subscriptionPassthrough: true });
+		await openClient('Codex CLI');
+		await expect
+			.element(page.getByRole('tab', { name: 'Use subscription' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByText('env_key = "OBOT_API_KEY"', { exact: false }))
+			.toBeInTheDocument();
+	});
+
 	it('configures OpenCode with the gateway and the picked model', async () => {
 		render(GatewayConnect, { obotURL, models });
 

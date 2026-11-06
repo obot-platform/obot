@@ -78,6 +78,8 @@ type LLMGatewaySettings struct {
 	// it through the gateway: their Anthropic OAuth token is forwarded to Anthropic for Claude
 	// models instead of a configured provider key.
 	SubscriptionPassthrough bool `json:"subscriptionPassthrough"`
+	// CodexSubscriptionPassthrough forwards Codex CLI ChatGPT credentials to OpenAI's Codex endpoint.
+	CodexSubscriptionPassthrough bool `json:"codexSubscriptionPassthrough"`
 }
 
 func (LLMGatewayBudget) TableName() string {

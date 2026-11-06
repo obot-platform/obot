@@ -340,6 +340,13 @@ func TestLLMAuditRecorderRecordsRoute(t *testing.T) {
 	if !subscription.log.ClaudeSubscription || subscription.log.ProviderKey != "" {
 		t.Fatalf("audit log of a subscription request: subscription %v, key %q", subscription.log.ClaudeSubscription, subscription.log.ProviderKey)
 	}
+	codex := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", nil), &user.DefaultInfo{UID: "7"}, 1024)
+	codex.setRoute(func() llmRoute { return llmRoute{Provider: "openai", Model: "test", Subscription: true} })
+	codex.recordResponseStatus(http.StatusOK)
+	codex.finish(newUsageTestClient(t), nil)
+	if !codex.log.CodexSubscription || codex.log.ClaudeSubscription || codex.log.ProviderKey != "" {
+		t.Fatalf("incorrect Codex subscription attribution: %+v", codex.log)
+	}
 }
 
 // A response the caller's Claude subscription paid for cost Obot nothing: the audit log and

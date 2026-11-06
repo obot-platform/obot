@@ -77,14 +77,15 @@
 		Number(bufferSize) < Number(concurrency) ? m.models_providers_queue_size_too_small() : ''
 	);
 
-	// Whether Claude Code users may use their own Claude subscription through this provider.
-	// Only the built-in Anthropic provider can forward a subscription.
+	// Whether this provider accepts its CLI users’ subscription credentials.
+	// Only the built-in Anthropic and OpenAI providers accept subscription credentials.
 	let subscriptionPassthrough = $state(false);
 	let savingSubscriptions = $state(false);
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let base = $derived(provider?.custom_provider_config?.base_provider_type);
 	let isAnthropic = $derived(name === 'anthropic' && !base);
+	let isOpenAI = $derived(name === 'openai' && !base);
 
 	// A provider serves the Responses API unless its allowed requests leave it out.
 	function servesResponses(p: Provider) {
@@ -115,24 +116,36 @@
 	}
 
 	async function loadSubscriptionSetting() {
-		if (!isAnthropic) return;
-		subscriptionPassthrough = (await getSettings()).subscriptionPassthrough;
+		if (!isAnthropic && !isOpenAI) return;
+		const settings = await getSettings();
+		subscriptionPassthrough = isOpenAI
+			? !!settings.codexSubscriptionPassthrough
+			: settings.subscriptionPassthrough;
 	}
 
 	async function setSubscriptionPassthrough(allowed: boolean) {
 		savingSubscriptions = true;
 		try {
-			await updateSettings({ ...(await getSettings()), subscriptionPassthrough: allowed });
+			await updateSettings({
+				...(await getSettings()),
+				...(isOpenAI
+					? { codexSubscriptionPassthrough: allowed }
+					: { subscriptionPassthrough: allowed })
+			});
 			subscriptionPassthrough = allowed;
 			success.add(
 				allowed
-					? m.models_providers_subscriptions_allowed()
-					: m.models_providers_subscriptions_turned_off()
+					? isOpenAI
+						? m.models_providers_codex_subscriptions_allowed()
+						: m.models_providers_subscriptions_allowed()
+					: isOpenAI
+						? m.models_providers_codex_subscriptions_turned_off()
+						: m.models_providers_subscriptions_turned_off()
 			);
 		} finally {
 			savingSubscriptions = false;
 		}
-		// Saving the setting syncs models: an Anthropic provider without keys lists its models
+		// Saving the setting syncs models: a subscription provider without keys lists its models
 		// only while subscriptions are allowed.
 		void loadModelsAfterSync();
 	}
@@ -402,23 +415,35 @@
 				</Table>
 			</section>
 
-			{#if isAnthropic}
+			{#if isAnthropic || isOpenAI}
 				<section class="paper">
 					<div>
-						<h2 class="text-lg font-semibold">{m.models_providers_subscriptions_heading()}</h2>
+						<h2 class="text-lg font-semibold">
+							{isOpenAI
+								? m.models_providers_codex_subscriptions_heading()
+								: m.models_providers_subscriptions_heading()}
+						</h2>
 						<p class="text-muted-content text-sm">
-							{m.models_providers_subscriptions_description_prefix()}
+							{isOpenAI
+								? m.models_providers_codex_subscriptions_description_prefix()
+								: m.models_providers_subscriptions_description_prefix()}
 							<code>X-Obot-Api-Key</code>
 							{m.models_providers_subscriptions_description_suffix()}
 						</p>
 						<p class="text-muted-content text-sm">
 							{m.models_providers_subscriptions_forwarded_prefix()}
-							<code>https://api.anthropic.com</code>
+							<code
+								>{isOpenAI
+									? 'https://chatgpt.com/backend-api/codex'
+									: 'https://api.anthropic.com'}</code
+							>
 							{m.models_providers_subscriptions_forwarded_suffix()}
 						</p>
 					</div>
 					<Toggle
-						label={m.models_providers_allow_subscriptions()}
+						label={isOpenAI
+							? m.models_providers_allow_codex_subscriptions()
+							: m.models_providers_allow_subscriptions()}
 						labelInline
 						checked={subscriptionPassthrough}
 						disabled={readonly || savingSubscriptions}

@@ -494,5 +494,6 @@
 	"audit_usage_egress_outcome_denied": "拒否",
 	"audit_usage_egress_outcome_error": "エラー",
 	"audit_usage_egress_outcome_interrupted": "中断",
-	"audit_usage_usage_unknown_provider": "不明"
+	"audit_usage_usage_unknown_provider": "不明",
+	"audit_usage_audit_logs_model_routing_codex_subscription": "ユーザーの ChatGPT サブスクリプション"
 }

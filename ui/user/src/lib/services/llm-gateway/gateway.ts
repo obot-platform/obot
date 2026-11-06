@@ -24,7 +24,10 @@ export async function getStatus(opts?: Opts): Promise<GatewayStatus> {
 }
 
 // Settings Obot enforces itself, rather than the engine's configuration.
-export type LLMGatewaySettings = { subscriptionPassthrough: boolean };
+export type LLMGatewaySettings = {
+	subscriptionPassthrough: boolean;
+	codexSubscriptionPassthrough?: boolean;
+};
 
 export async function getSettings(opts?: Opts): Promise<LLMGatewaySettings> {
 	return (await doGet('/llm-gateway/settings', opts)) as LLMGatewaySettings;

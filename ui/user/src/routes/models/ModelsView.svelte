@@ -19,16 +19,21 @@
 	// The store only holds the LLM gateway's models.
 	let gatewayModels = $derived(accessibleModels.current);
 	let subscriptionPassthrough = $state(false);
+	let codexSubscriptionPassthrough = $state(false);
 
 	onMount(() => {
 		obotURL = window.location.origin;
-		// Without it, the setup instructions just leave out the Claude subscription option.
+		// If settings are unavailable, setup instructions leave out subscription options.
 		(
 			doGet('/llm-gateway/settings', { dontLogErrors: true }) as Promise<{
 				subscriptionPassthrough: boolean;
+				codexSubscriptionPassthrough?: boolean;
 			}>
 		)
-			.then((s) => (subscriptionPassthrough = s.subscriptionPassthrough))
+			.then((s) => {
+				subscriptionPassthrough = s.subscriptionPassthrough;
+				codexSubscriptionPassthrough = !!s.codexSubscriptionPassthrough;
+			})
 			.catch(() => {});
 	});
 
@@ -87,7 +92,12 @@
 					{m.models_connect_naming_suffix()}
 				</p>
 			</div>
-			<GatewayConnect {obotURL} models={gatewayModels} {subscriptionPassthrough} />
+			<GatewayConnect
+				{obotURL}
+				models={gatewayModels}
+				{subscriptionPassthrough}
+				{codexSubscriptionPassthrough}
+			/>
 			<GatewayModelsDialog bind:this={modelsDialog} models={gatewayModels} />
 		{:else}
 			<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">

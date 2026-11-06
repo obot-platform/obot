@@ -299,8 +299,13 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 		return err
 	}
 
-	// Only rewrite a recognized {"data": [...]} list envelope.
-	data := gjson.GetBytes(body, "data")
+	// Codex catalog entries use models/slug; ordinary API lists use data/id.
+	list, id, prefix := "data", "id", ""
+	if resp.Request != nil && llmtypes.IsCodexSubscription(resp.Request.Header) {
+		// Native slugs belong only to OpenAI; a same-named foreign grant is insufficient.
+		list, id, prefix = "models", "slug", "openai/"
+	}
+	data := gjson.GetBytes(body, list)
 	if !data.IsArray() {
 		return nil
 	}
@@ -308,13 +313,13 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
 	var kept []string
 	data.ForEach(func(_, entry gjson.Result) bool {
-		if allowedTargetModels[entry.Get("id").String()] {
+		if allowedTargetModels[prefix+entry.Get(id).String()] {
 			kept = append(kept, entry.Raw)
 		}
 		return true
 	})
 
-	out, err := sjson.SetRawBytes(body, "data", []byte("["+strings.Join(kept, ",")+"]"))
+	out, err := sjson.SetRawBytes(body, list, []byte("["+strings.Join(kept, ",")+"]"))
 	if err != nil {
 		return nil
 	}

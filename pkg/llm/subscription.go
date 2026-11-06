@@ -1,6 +1,9 @@
 package llm
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/maximhq/bifrost/core/schemas"
 )
 
@@ -17,4 +20,11 @@ func SetSubscriptionAttempt(ctx *schemas.BifrostContext, admitted bool) {
 func SubscriptionAttempt(ctx *schemas.BifrostContext) (admitted, classified bool) {
 	admitted, classified = ctx.Value(subscriptionAttemptKey{}).(bool)
 	return admitted, classified
+}
+
+// IsCodexSubscription recognizes the CLI credential mode at the proxy boundary.
+// Core validates the full credential before inference; no JWT claims are trusted.
+func IsCodexSubscription(headers http.Header) bool {
+	return schemas.CodexCLI.Matches(strings.ReplaceAll(headers.Get("User-Agent"), "_", "-")) &&
+		strings.HasPrefix(strings.ToLower(headers.Get("Authorization")), "bearer eyj")
 }

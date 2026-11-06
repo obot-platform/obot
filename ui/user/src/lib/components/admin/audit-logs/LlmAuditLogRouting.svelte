@@ -9,6 +9,7 @@
 		| 'providerKey'
 		| 'fallback'
 		| 'claudeSubscription'
+		| 'codexSubscription'
 	>;
 
 	// servedBy names the provider and model that served a request, as "provider/model".
@@ -51,11 +52,13 @@
 				value: auditLog.providerKey
 			},
 			{
-				// The user's own Claude subscription paid for the request, not a provider key.
+				// A subscription pays without a gateway provider key.
 				label: m.audit_usage_audit_logs_model_routing_paid_by(),
 				value: auditLog.claudeSubscription
 					? m.audit_usage_audit_logs_model_routing_claude_subscription()
-					: ''
+					: auditLog.codexSubscription
+						? m.audit_usage_audit_logs_model_routing_codex_subscription()
+						: ''
 			},
 			{
 				label: m.audit_usage_audit_logs_model_routing_fallback(),
