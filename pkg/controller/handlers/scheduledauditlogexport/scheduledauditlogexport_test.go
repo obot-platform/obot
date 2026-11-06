@@ -1,6 +1,9 @@
 package scheduledauditlogexport
 
 import (
+	"context"
+	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -11,7 +14,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
+
+type testResponse struct {
+	router.Response
+	delay time.Duration
+}
+
+func (r *testResponse) RetryAfter(delay time.Duration) { r.delay = delay }
 
 func TestCreateExportFromSchedule(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -21,7 +32,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	next := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
 	scheduled := &v1.ScheduledAuditLogExport{
-		Name: "scheduled", Namespace: "default",
+		Name: "scheduled", Namespace: "default", UID: "schedule-uid",
 		Spec: v1.ScheduledAuditLogExportSpec{
 			Name:                   "weekly",
 			Type:                   types.AuditLogTypeLLM,
@@ -34,7 +45,9 @@ func TestCreateExportFromSchedule(t *testing.T) {
 		Status: v1.ScheduledAuditLogExportStatus{TotalExportsCreated: 2},
 	}
 
-	if err := createExportFromSchedule(router.Request{Ctx: t.Context(), Client: c}, scheduled, next); err != nil {
+	scheduled.Status.PendingExport = pendingExportFromSchedule(scheduled, next)
+	scheduled.Status.TotalExportsCreated++
+	if err := reconcilePendingExport(router.Request{Ctx: t.Context(), Client: c}, &testResponse{}, scheduled); err != nil {
 		t.Fatal(err)
 	}
 
@@ -120,5 +133,204 @@ func TestCalculateNextRunTimeWithNilLastRunAt(t *testing.T) {
 	want := time.Date(2026, 7, 1, 10, 30, 0, 0, time.UTC)
 	if !next.Equal(want) {
 		t.Fatalf("expected %s, got %s", want, next)
+	}
+}
+
+func TestInitialBackfillAndLegacySchedules(t *testing.T) {
+	cutoff := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name   string
+		days   int
+		cursor *metav1.Time
+		want   time.Time
+	}{
+		{
+			name: "configured",
+			days: 7,
+			want: cutoff.Add(-7 * 24 * time.Hour),
+		},
+		{
+			name: "all history",
+			days: -1,
+			want: time.Time{},
+		},
+		{
+			name:   "incremental ignores lookback",
+			days:   90,
+			cursor: &metav1.Time{Time: cutoff.Add(-time.Hour)},
+			want:   cutoff.Add(-time.Hour - 5*time.Second),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &v1.ScheduledAuditLogExport{Spec: v1.ScheduledAuditLogExportSpec{RetentionPeriodInDays: tc.days}, Status: v1.ScheduledAuditLogExportStatus{LastRunAt: &metav1.Time{Time: cutoff.Add(-time.Minute)}, LastExportedThrough: tc.cursor}}
+			got := pendingExportFromSchedule(s, cutoff)
+			if !got.Spec.StartTime.Time.Equal(tc.want) {
+				t.Fatalf("start = %s, want %s", got.Spec.StartTime.Time, tc.want)
+			}
+		})
+	}
+}
+
+func TestScheduledExportRecoveryAndProgress(t *testing.T) {
+	for _, failure := range []string{"none", "create response lost", "completion status update"} {
+		t.Run(failure, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			if err := v1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			scheduled := &v1.ScheduledAuditLogExport{
+				Name:              "schedule",
+				Namespace:         "default",
+				UID:               "schedule-uid",
+				CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+				Spec:              v1.ScheduledAuditLogExportSpec{Name: "daily", Enabled: true, Bucket: "original", RetentionPeriodInDays: 7, Schedule: v1.Schedule{Interval: "hourly"}},
+			}
+			failCreate, failCompletion := failure == "create response lost", false
+			c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1.ScheduledAuditLogExport{}, &v1.AuditLogExport{}).WithObjects(scheduled).WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.CreateOption) error {
+					if err := c.Create(ctx, obj, opts...); err != nil {
+						return err
+					}
+					if failCreate {
+						failCreate = false
+						return errors.New("create response lost")
+					}
+					return nil
+				},
+				SubResourceUpdate: func(ctx context.Context, c kclient.Client, sub string, obj kclient.Object, opts ...kclient.SubResourceUpdateOption) error {
+					if s, ok := obj.(*v1.ScheduledAuditLogExport); ok && s.Status.PendingExport == nil && failCompletion {
+						failCompletion = false
+						return errors.New("status write failed")
+					}
+					return c.SubResource(sub).Update(ctx, obj, opts...)
+				},
+			}).Build()
+			key := kclient.ObjectKeyFromObject(scheduled)
+			reconcile := func(wantError bool) *v1.ScheduledAuditLogExport {
+				t.Helper()
+				s := &v1.ScheduledAuditLogExport{}
+				if err := c.Get(t.Context(), key, s); err != nil {
+					t.Fatal(err)
+				}
+				err := NewHandler().ScheduleExports(router.Request{Ctx: t.Context(), Client: c, Object: s}, &testResponse{})
+				if (err != nil) != wantError {
+					t.Fatalf("reconcile error = %v, want error %v", err, wantError)
+				}
+				s = &v1.ScheduledAuditLogExport{}
+				if err := c.Get(t.Context(), key, s); err != nil {
+					t.Fatal(err)
+				}
+				return s
+			}
+			s := reconcile(failure == "create response lost")
+			pending := s.Status.PendingExport.DeepCopy()
+			if pending == nil || s.Status.LastExportedThrough != nil {
+				t.Fatal("window must be pending without progress")
+			}
+			export := &v1.AuditLogExport{}
+			exportKey := kclient.ObjectKey{Namespace: s.Namespace, Name: pending.Name}
+			if err := c.Get(t.Context(), exportKey, export); err != nil {
+				t.Fatal(err)
+			}
+			// Deleting the job and changing configuration must still recover the captured window.
+			if err := c.Delete(t.Context(), export); err != nil {
+				t.Fatal(err)
+			}
+			s.Spec.Bucket, s.Spec.RetentionPeriodInDays = "edited", 1
+			if err := c.Update(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			reconcile(false)
+			if err := c.Get(t.Context(), exportKey, export); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(export.Spec, pending.Spec) {
+				t.Fatal("recovered export changed its fixed configuration")
+			}
+			export.Status.State = types.AuditLogExportStateFailed
+			if err := c.Status().Update(t.Context(), export); err != nil {
+				t.Fatal(err)
+			}
+			s = reconcile(false)
+			if s.Status.LastExportedThrough != nil || s.Status.PendingExport.Name != pending.Name {
+				t.Fatal("failed export advanced or replaced window")
+			}
+			exports := &v1.AuditLogExportList{}
+			if err := c.List(t.Context(), exports); err != nil {
+				t.Fatal(err)
+			}
+			if len(exports.Items) != 1 {
+				t.Fatalf("created %d jobs", len(exports.Items))
+			}
+			// Empty successful uploads count as coverage; completion is consumed while disabled.
+			s.Spec.Enabled = false
+			if err := c.Update(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			export.Status.State = types.AuditLogExportStateCompleted
+			if err := c.Status().Update(t.Context(), export); err != nil {
+				t.Fatal(err)
+			}
+			failCompletion = failure == "completion status update"
+			if failCompletion {
+				reconcile(true)
+			}
+			s = reconcile(false)
+			if s.Status.PendingExport != nil || !s.Status.LastExportedThrough.Equal(&pending.Spec.EndTime) {
+				t.Fatal("successful completion did not advance coverage")
+			}
+			s = reconcile(false)
+			if s.Status.PendingExport != nil {
+				t.Fatal("disabled schedule started new work")
+			}
+			s.Spec.Enabled = true
+			if err := c.Update(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			s.Status.LastRunAt = &metav1.Time{Time: time.Now().Add(-2 * time.Hour)}
+			if err := c.Status().Update(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			s = reconcile(false)
+			if s.Status.PendingExport == nil || !s.Status.PendingExport.Spec.StartTime.Time.Equal(pending.Spec.EndTime.Add(-5*time.Second)) {
+				t.Fatal("reenabled schedule did not resume with one overlap")
+			}
+		})
+	}
+}
+
+func TestSchedulePersistsWindowBeforeCreatingJob(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	scheduled := &v1.ScheduledAuditLogExport{
+		Name:              "schedule",
+		Namespace:         "default",
+		UID:               "original",
+		CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+		Spec:              v1.ScheduledAuditLogExportSpec{Enabled: true, RetentionPeriodInDays: -1, Schedule: v1.Schedule{Interval: "hourly"}},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1.ScheduledAuditLogExport{}).WithObjects(scheduled).WithInterceptorFuncs(interceptor.Funcs{
+		SubResourceUpdate: func(context.Context, kclient.Client, string, kclient.Object, ...kclient.SubResourceUpdateOption) error {
+			return errors.New("schedule status unavailable")
+		},
+	}).Build()
+	if err := NewHandler().ScheduleExports(router.Request{Ctx: t.Context(), Client: c, Object: scheduled}, &testResponse{}); err == nil {
+		t.Fatal("expected status write failure")
+	}
+	var exports v1.AuditLogExportList
+	if err := c.List(t.Context(), &exports); err != nil {
+		t.Fatal(err)
+	}
+	if len(exports.Items) != 0 {
+		t.Fatal("created job before its fixed window was durable")
+	}
+	cutoff := time.Now()
+	original := pendingExportFromSchedule(scheduled, cutoff)
+	scheduled.UID = "recreated"
+	recreated := pendingExportFromSchedule(scheduled, cutoff)
+	if original.Name == recreated.Name {
+		t.Fatal("recreated schedule would reuse old job identity")
 	}
 }

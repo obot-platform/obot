@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auditlog"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -18,7 +21,16 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
+
+type exportTestResponse struct {
+	router.Response
+	delay time.Duration
+}
 
 type testStorageProvider struct {
 	bucket string
@@ -321,13 +333,13 @@ func TestStreamingExportReturnsUploadErrorAfterDataWritten(t *testing.T) {
 	}
 }
 
-func TestGenerateExportPath(t *testing.T) {
-	withDefault := generateExportPath("daily", "", "llm-audit-logs")
+func TestExportPathAt(t *testing.T) {
+	withDefault := exportPathAt("daily", "", "llm-audit-logs", time.Now())
 	if !strings.HasPrefix(withDefault, "llm-audit-logs/") || !strings.HasSuffix(withDefault, ".jsonl") || !strings.Contains(withDefault, "/daily-") {
 		t.Fatalf("unexpected default export path: %q", withDefault)
 	}
 
-	withPrefix := generateExportPath("daily", "custom/prefix", "llm-audit-logs")
+	withPrefix := exportPathAt("daily", "custom/prefix", "llm-audit-logs", time.Now())
 	if !strings.HasPrefix(withPrefix, "custom/prefix/daily-") || !strings.HasSuffix(withPrefix, ".jsonl") {
 		t.Fatalf("unexpected custom export path: %q", withPrefix)
 	}
@@ -565,4 +577,145 @@ func waitForMCPAuditLog(t *testing.T, c *gatewayclient.Client) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("timed out waiting for MCP audit log to persist")
+}
+
+func (r *exportTestResponse) RetryAfter(delay time.Duration) { r.delay = delay }
+
+func TestScheduledExportRetryAndCompletionPersistence(t *testing.T) {
+	for _, scenario := range []string{"empty success", "upload failure", "completion persistence failure", "one-time upload failure"} {
+		t.Run(scenario, func(t *testing.T) {
+			paths := make(chan string, 8)
+			uploadFails := strings.Contains(scenario, "upload failure")
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				paths <- r.URL.Path
+				_, _ = io.Copy(io.Discard, r.Body)
+				if uploadFails {
+					w.Header().Set("Content-Type", "application/xml")
+					w.WriteHeader(http.StatusForbidden)
+					_, _ = io.WriteString(w, "<Error><Code>AccessDenied</Code><Message>denied</Message></Error>")
+					return
+				}
+				w.WriteHeader(http.StatusOK)
+			}))
+			defer server.Close()
+			gateway := newExportTestGatewayClient(t)
+			handler := NewHandler(gateway)
+			if err := handler.credProvider.StoreCredentials(t.Context(), types.StorageProviderConfigInput{
+				Provider: types.StorageProviderCustomS3,
+				CustomS3Config: &types.CustomS3Config{
+					Endpoint:        server.URL,
+					Region:          "us-east-1",
+					AccessKeyID:     "key",
+					SecretAccessKey: "secret",
+				},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			scheme := runtime.NewScheme()
+			if err := v1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			export := &v1.AuditLogExport{
+				Name:      "export-window",
+				Namespace: "default",
+				Spec: v1.AuditLogExportSpec{
+					Name:        "daily",
+					Bucket:      "bucket",
+					ScheduleUID: "uid",
+					StartTime:   metav1.NewTime(time.Now().Add(-time.Hour).Truncate(time.Second)),
+					EndTime:     metav1.NewTime(time.Now().Truncate(time.Second)),
+				},
+			}
+			if scenario == "one-time upload failure" {
+				export.Spec.ScheduleUID = ""
+			}
+			failCompletion := scenario == "completion persistence failure"
+			c := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1.AuditLogExport{}).WithObjects(export).WithInterceptorFuncs(interceptor.Funcs{
+				SubResourceUpdate: func(ctx context.Context, c kclient.Client, sub string, obj kclient.Object, opts ...kclient.SubResourceUpdateOption) error {
+					if obj.(*v1.AuditLogExport).Status.State == types.AuditLogExportStateCompleted && failCompletion {
+						failCompletion = false
+						return errors.New("completion write failed")
+					}
+					return c.SubResource(sub).Update(ctx, obj, opts...)
+				},
+			}).Build()
+			key := kclient.ObjectKeyFromObject(export)
+			reconcile := func(wantError bool) (*v1.AuditLogExport, *exportTestResponse) {
+				t.Helper()
+				e := &v1.AuditLogExport{}
+				if err := c.Get(t.Context(), key, e); err != nil {
+					t.Fatal(err)
+				}
+				resp := &exportTestResponse{}
+				err := handler.ExportAuditLogs(router.Request{Ctx: t.Context(), Client: c, Object: e}, resp)
+				if (err != nil) != wantError {
+					t.Fatalf("export error=%v, want error=%v", err, wantError)
+				}
+				if err := c.Get(t.Context(), key, e); err != nil {
+					t.Fatal(err)
+				}
+				return e, resp
+			}
+			e, resp := reconcile(scenario == "completion persistence failure" || scenario == "one-time upload failure")
+			firstPath := <-paths
+			// Storage SDK retries can make multiple HTTP requests within one controller attempt.
+			// Compare their keys, then count only requests caused by later reconciliations.
+			for len(paths) > 0 {
+				if path := <-paths; path != firstPath {
+					t.Fatal("upload attempt used inconsistent object keys")
+				}
+			}
+			if uploadFails {
+				if e.Status.State != types.AuditLogExportStateFailed {
+					t.Fatalf("state=%s", e.Status.State)
+				}
+				if export.Spec.ScheduleUID != "" {
+					if e.Status.RetryAt == nil || resp.delay < 50*time.Second {
+						t.Fatal("failure did not persist bounded retry delay")
+					}
+					reconcile(false)
+					if len(paths) != 0 {
+						t.Fatal("retry ignored persisted delay")
+					}
+					retry := metav1.NewTime(time.Now().Add(-time.Second))
+					e.Status.RetryAt = &retry
+					if err := c.Status().Update(t.Context(), e); err != nil {
+						t.Fatal(err)
+					}
+					retried, _ := reconcile(false)
+					if nextPath := <-paths; nextPath != firstPath {
+						t.Fatalf("retry object key changed: %s != %s", nextPath, firstPath)
+					}
+					if !retried.Spec.StartTime.Equal(&export.Spec.StartTime) || !retried.Spec.EndTime.Equal(&export.Spec.EndTime) {
+						t.Fatal("retry moved window")
+					}
+				} else {
+					if e.Status.RetryAt != nil {
+						t.Fatal("one-time failure gained retry")
+					}
+					reconcile(false)
+					if len(paths) != 0 {
+						t.Fatal("one-time failed job was retried")
+					}
+				}
+				return
+			}
+			if scenario == "completion persistence failure" {
+				if e.Status.State == types.AuditLogExportStateCompleted {
+					t.Fatal("failed completion write appeared durable")
+				}
+				e, _ = reconcile(false)
+				if nextPath := <-paths; nextPath != firstPath {
+					t.Fatal("completion persistence retry changed object key")
+				}
+			}
+			if e.Status.State != types.AuditLogExportStateCompleted || e.Status.ExportSize != 0 {
+				t.Fatalf("empty upload did not complete: %#v", e.Status)
+			}
+			reconcile(false)
+			if len(paths) != 0 {
+				t.Fatal("durably completed export uploaded again")
+			}
+		})
+	}
 }
