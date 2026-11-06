@@ -71,7 +71,6 @@ secret:
   OBOT_BOOTSTRAP_TOKEN: <some random value>
 
   # Point this to your postgres database
-  # The LLM gateway shares this database; no second database or CREATEDB privilege is required.
   OBOT_SERVER_DSN: postgres://<user>:<pass>@<host>/<db>
 
   # Optional. These configure the LLM gateway's OpenAI and Anthropic providers at startup.

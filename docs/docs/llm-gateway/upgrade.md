@@ -10,15 +10,13 @@ Migration support will be available in the following release, **v0.28.1**. Wait 
 
 Earlier versions of Obot reached models through per-provider model providers (OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Azure and others), each with its own proxy route. In v0.28.0, the [LLM gateway](./how-it-works.md) is the only way Obot reaches models, and it can't be turned off.
 
-:::note Gateway storage
-The gateway stores configuration in Obot's existing database and uses Obot's credential encryption configuration. No separate database, database-creation privilege or gateway encryption key is required.
-
-Development installations that used the earlier embedded gateway must re-enter that gateway's provider configuration, keys, routing rules and settings. Its old stores are left untouched. This does not provide migration from v0.27 model providers.
+:::note Development installations
+Development installations that used the earlier embedded gateway must re-enter that gateway's provider configuration, keys, routing rules and settings. This does not provide migration from v0.27 model providers.
 :::
 
 ## What happens on upgrade {#what-happens-on-upgrade}
 
-Automatic legacy credential import, model-reference migration and legacy cleanup are disabled. Existing credentials are not copied into gateway providers, and default model aliases and model access policies are not re-pointed to gateway models.
+Existing provider credentials, default model aliases and model access policies are not automatically migrated to the gateway.
 
 Fresh installations can configure providers and access through the gateway.
 
