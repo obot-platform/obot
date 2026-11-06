@@ -488,8 +488,5 @@
 	"models_providers_auth_entra": "Microsoft Entra ID",
 	"models_providers_auth_api_key_help": "API 키로 인증합니다.",
 	"models_providers_auth_aws_help": "AWS 액세스 키 쌍으로 인증합니다. 세션 토큰과 IAM 역할은 선택 사항입니다.",
-	"models_providers_auth_entra_help": "Microsoft Entra 앱의 클라이언트 ID, 클라이언트 암호 및 테넌트 ID로 인증합니다.",
-	"models_providers_auth_server_identity": "서버 ID",
-	"models_providers_auth_server_aws_help": "IAM 역할 등 Obot 서버의 AWS 자격 증명을 사용합니다. 필요하면 다른 IAM 역할을 수임합니다.",
-	"models_providers_auth_server_azure_help": "Obot 서버의 Azure 관리 ID 또는 워크로드 ID를 사용합니다."
+	"models_providers_auth_entra_help": "Microsoft Entra 앱의 클라이언트 ID, 클라이언트 암호 및 테넌트 ID로 인증합니다."
 }

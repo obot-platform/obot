@@ -140,10 +140,7 @@
 					String(previous.value ?? '') === values[f.path];
 				setPath(body, f.path, unchanged ? { value: previous.value } : v);
 			}
-			if (entry?.id === 'azure' && authenticationMethod === 'server-identity') {
-				// Server identity must use the default scope, not a retained Entra scope.
-				setPath(body, 'azure_key_config.scopes', []);
-			}
+
 			const key = body as unknown as ProviderKey;
 			const saved = editing?.id
 				? await updateProviderKey(provider, editing.id, key, { dontLogErrors: true })

@@ -204,6 +204,7 @@ describe('provider authentication', () => {
 			expect(saved.mock.calls[0][0].value).toEqual(aws ? { value: masked } : '');
 			if (!aws)
 				expect(saved.mock.calls[0][0].azure_key_config.client_secret).toEqual({ value: masked });
+			await expect.element(dialog).not.toBeInTheDocument();
 			component.open(key);
 			await dialog.getByLabelText(aws ? apiKeyLabel : /^Entra Client Secret/).fill('replacement');
 			await dialog.getByRole('button', { name: 'Save', exact: true }).click();

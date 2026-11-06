@@ -488,8 +488,5 @@
 	"models_providers_auth_entra": "Microsoft Entra ID",
 	"models_providers_auth_api_key_help": "使用 API 密钥进行身份验证。",
 	"models_providers_auth_aws_help": "使用 AWS 访问密钥对进行身份验证，可选会话令牌和 IAM 角色。",
-	"models_providers_auth_entra_help": "使用 Microsoft Entra 应用的客户端 ID、客户端密码和租户 ID 进行身份验证。",
-	"models_providers_auth_server_identity": "服务器身份",
-	"models_providers_auth_server_aws_help": "使用 Obot 服务器的 AWS 凭据，例如其 IAM 角色。也可选择代入其他 IAM 角色。",
-	"models_providers_auth_server_azure_help": "使用 Obot 服务器的 Azure 托管身份或工作负载身份。"
+	"models_providers_auth_entra_help": "使用 Microsoft Entra 应用的客户端 ID、客户端密码和租户 ID 进行身份验证。"
 }

@@ -30,12 +30,11 @@ describe('authentication configuration replacement', () => {
 				};
 		const labels = {
 			api: 'API Key',
-			credentials: aws ? 'AWS credentials' : 'Microsoft Entra ID',
-			server: 'Server identity'
+			credentials: aws ? 'AWS credentials' : 'Microsoft Entra ID'
 		};
 
-		for (const from of ['api', 'credentials', 'server'] as const) {
-			for (const to of ['api', 'credentials', 'server'] as const) {
+		for (const from of ['api', 'credentials'] as const) {
+			for (const to of ['api', 'credentials'] as const) {
 				if (from === to) continue;
 				it(`${provider}: replaces ${from} with ${to} and clears the previous credentials`, async () => {
 					const saved = vi.fn();
@@ -63,8 +62,7 @@ describe('authentication configuration replacement', () => {
 					if (!aws) {
 						await dialog.getByLabelText(/^Endpoint/).fill('https://new.openai.azure.com');
 						Object.assign(expected, {
-							endpoint: 'https://new.openai.azure.com',
-							...(to === 'server' ? { scopes: [] } : {})
+							endpoint: 'https://new.openai.azure.com'
 						});
 					}
 					if (to === 'api') {
@@ -93,9 +91,6 @@ describe('authentication configuration replacement', () => {
 								tenant_id: 'new-tenant'
 							});
 						}
-					} else if (aws) {
-						// The optional role is visible in both AWS credential modes; clear it explicitly.
-						await dialog.getByLabelText('Role ARN').fill('');
 					}
 					await dialog.getByRole('button', { name: 'Save', exact: true }).click();
 					await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());

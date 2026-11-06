@@ -116,12 +116,6 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 					'bedrock_key_config.session_token',
 					'bedrock_key_config.role_arn'
 				]
-			},
-			{
-				id: 'server-identity',
-				label: m.models_providers_auth_server_identity(),
-				description: m.models_providers_auth_server_aws_help(),
-				paths: ['bedrock_key_config.role_arn']
 			}
 		],
 		keyFields: [
@@ -181,12 +175,6 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 					'azure_key_config.client_secret',
 					'azure_key_config.tenant_id'
 				]
-			},
-			{
-				id: 'server-identity',
-				label: m.models_providers_auth_server_identity(),
-				description: m.models_providers_auth_server_azure_help(),
-				paths: []
 			}
 		],
 		keyFields: [
@@ -467,8 +455,7 @@ export function savedAuthenticationMethod(
 	) {
 		return 'credentials';
 	}
-	// A role ARN can use the server's identity or explicit credentials, so it does not
-	// identify the credential source. Missing explicit credentials mean server identity.
+	// An optional role ARN alone does not identify the credential source.
 	return (
 		entry.authenticationMethods?.find((method) =>
 			method.paths.some(
@@ -477,7 +464,6 @@ export function savedAuthenticationMethod(
 					values[path]?.trim()
 			)
 		)?.id ??
-		entry.authenticationMethods?.find((method) => method.id === 'server-identity')?.id ??
 		entry.authenticationMethods?.[0]?.id ??
 		''
 	);
