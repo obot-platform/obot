@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/entitlements"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,15 +19,15 @@ type ConfiguredAuthProviderGetter interface {
 
 type environment struct {
 	authProviders ConfiguredAuthProviderGetter
-	userLimits    gclient.UserLimitProvider
+	entitlements  entitlements.Reader
 	storage       kclient.Client
 }
 
 // NewEnvironment returns the Environment of a running Obot server.
-func NewEnvironment(authProviders ConfiguredAuthProviderGetter, userLimits gclient.UserLimitProvider, storage kclient.Client) Environment {
+func NewEnvironment(authProviders ConfiguredAuthProviderGetter, entitlements entitlements.Reader, storage kclient.Client) Environment {
 	return &environment{
 		authProviders: authProviders,
-		userLimits:    userLimits,
+		entitlements:  entitlements,
 		storage:       storage,
 	}
 }
@@ -41,7 +42,11 @@ func (e *environment) ConfiguredAuthProvider(ctx context.Context) (string, strin
 }
 
 func (e *environment) UserLimit(ctx context.Context) (gclient.UserLimit, error) {
-	return e.userLimits.UserLimit(ctx)
+	granted, err := e.entitlements.Entitlements(ctx)
+	if err != nil {
+		return gclient.UserLimit{}, err
+	}
+	return gclient.NewUserLimit(granted.Users), nil
 }
 
 func (e *environment) DefaultRole(ctx context.Context) (types2.Role, error) {

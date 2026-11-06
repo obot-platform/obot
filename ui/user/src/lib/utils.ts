@@ -369,6 +369,26 @@ export const validateVersionUserLimit = (version: Version): boolean => {
 	return (userLimit - userCount) / userLimit <= userThreshold;
 };
 
+// planLimitViolationTypes are the violations that come from the billing plan's limits and its restriction.
+export const planLimitViolationTypes = new Set([
+	'userLimit',
+	'deviceLimit',
+	'memoryLimit',
+	'cpuLimit',
+	'restricted'
+]);
+
+// connectionsBlocked returns whether the license or plan stops users from connecting to MCP servers. Without billing,
+// any violation does. With billing, the plan's limits and restriction don't, since the server checks them itself, but
+// anything else, like an auth provider that needs a feature the plan lacks, does.
+export function connectionsBlocked(version: Version): boolean {
+	const violations = version.licenseEntitlementViolations ?? [];
+	if (!version.billingEnabled) {
+		return violations.length > 0;
+	}
+	return violations.some((violation) => !planLimitViolationTypes.has(violation.type));
+}
+
 function stripQuotes(value: string): string {
 	// Remove double quotes if the entire value is wrapped in them
 	if (value.startsWith('"') && value.endsWith('"')) {

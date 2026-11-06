@@ -229,10 +229,14 @@
 				forceSingleUser: next.forceSingleUser
 			};
 		});
-		await UserService.updateVMCP(latest.id, {
-			...vmcpManifest(latest),
-			components
-		});
+		await UserService.updateVMCP(
+			latest.id,
+			{
+				...vmcpManifest(latest),
+				components
+			},
+			{ dontLogErrors: true }
+		);
 	}
 
 	async function handleConfigurationNext(
@@ -257,15 +261,11 @@
 			return;
 		}
 
-		try {
-			await saveCollectedConfiguration();
-			const onConfirm = pending.onConfirm;
-			pendingConfigUpdate = undefined;
-			await onConfirm();
-		} catch {
-			errors.append(m.vmcps_failed_to_update());
-			throw new Error(m.vmcps_failed_to_update());
-		}
+		// The configuration dialog shows why a save failed.
+		await saveCollectedConfiguration();
+		const onConfirm = pending.onConfirm;
+		pendingConfigUpdate = undefined;
+		await onConfirm();
 	}
 
 	function handleConfigurationClose() {

@@ -1,47 +1,16 @@
 package license
 
 import (
-	"errors"
-	"net/http"
+	"slices"
 	"testing"
 
-	keygen "github.com/keygen-sh/keygen-go/v3"
 	"github.com/obot-platform/obot/apiclient/types"
 )
-
-func TestMissingAndRequire(t *testing.T) {
-	provider := &Provider{
-		entitlements: map[keygen.EntitlementCode]struct{}{
-			"ENTITLED": {},
-		},
-	}
-
-	missing, err := provider.MissingEntitlements(t.Context(), []string{"ENTITLED", "MISSING"})
-	if err != nil {
-		t.Fatalf("Missing() error = %v, want nil", err)
-	}
-	if len(missing) != 1 || missing[0] != "MISSING" {
-		t.Fatalf("Missing() = %v, want [MISSING]", missing)
-	}
-
-	if err := provider.RequireEntitlements(t.Context(), []string{"ENTITLED"}); err != nil {
-		t.Fatalf("Require() error = %v, want nil", err)
-	}
-
-	err = provider.RequireEntitlements(t.Context(), []string{"MISSING"})
-	var httpErr *types.ErrHTTP
-	if !errors.As(err, &httpErr) {
-		t.Fatalf("Require() error = %T, want *types.ErrHTTP", err)
-	}
-	if httpErr.Code != http.StatusPaymentRequired {
-		t.Fatalf("Require() status = %d, want %d", httpErr.Code, http.StatusPaymentRequired)
-	}
-}
 
 func TestGetDistributionFromEntitlements(t *testing.T) {
 	for _, test := range []struct {
 		name         string
-		entitlements []string
+		entitlements types.Entitlements
 		want         types.ProductTelemetryDistribution
 	}{
 		{
@@ -50,17 +19,17 @@ func TestGetDistributionFromEntitlements(t *testing.T) {
 		},
 		{
 			name:         "registered",
-			entitlements: []string{CommunityEntitlement},
+			entitlements: Features([]string{CommunityEntitlement}),
 			want:         types.ProductTelemetryDistributionRegistered,
 		},
 		{
 			name:         "enterprise",
-			entitlements: []string{CommunityEntitlement, EnterpriseEntitlement},
+			entitlements: Features([]string{CommunityEntitlement, EnterpriseEntitlement}),
 			want:         types.ProductTelemetryDistributionEnterprise,
 		},
 		{
 			name:         "cloud",
-			entitlements: []string{CommunityEntitlement, EnterpriseEntitlement, CloudEntitlement},
+			entitlements: Features([]string{CommunityEntitlement, EnterpriseEntitlement, CloudEntitlement}),
 			want:         types.ProductTelemetryDistributionCloud,
 		},
 	} {
@@ -69,5 +38,26 @@ func TestGetDistributionFromEntitlements(t *testing.T) {
 				t.Fatalf("GetDistributionFromEntitlements() = %q, want %q", got, test.want)
 			}
 		})
+	}
+}
+
+func TestFeaturesAndCodes(t *testing.T) {
+	codes := []string{
+		CloudEntitlement,
+		CommunityEntitlement,
+		EnterpriseEntitlement,
+		EnterpriseAuthProvidersEntitlement,
+		EnterpriseModelProvidersEntitlement,
+	}
+	entitlements := Features(append([]string{"OBOT_ENTERPRISE_50_USERS"}, codes...))
+	if !entitlements.Cloud || !entitlements.Community || !entitlements.Enterprise ||
+		!entitlements.EnterpriseAuthProviders || !entitlements.EnterpriseModelProviders {
+		t.Fatalf("Features() = %+v", entitlements)
+	}
+	if got := Codes(entitlements); !slices.Equal(got, codes) {
+		t.Fatalf("Codes() = %v, want %v", got, codes)
+	}
+	if got := Codes(types.Entitlements{}); got != nil {
+		t.Fatalf("Codes() = %v, want none", got)
 	}
 }

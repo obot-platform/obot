@@ -1101,6 +1101,7 @@ export interface Profile {
 	unauthorized?: boolean;
 	/** The server refused the session because the account is not active. */
 	accountInactive?: boolean;
+	environmentRestricted?: boolean;
 	username: string;
 	currentAuthProvider?: string;
 	expired?: boolean;
@@ -1177,6 +1178,7 @@ export interface Version {
 	deviceCount?: number;
 	deviceLimit?: number;
 	licenseEntitlementViolations?: LicenseEntitlementViolation[];
+	billingEnabled?: boolean;
 	missingLicenseEntitlements?: string[];
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';

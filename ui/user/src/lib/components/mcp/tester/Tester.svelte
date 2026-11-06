@@ -88,13 +88,16 @@
 		'dark:bg-base-200 dark:border-base-400 bg-base-100 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-transparent p-4 shadow-sm';
 
 	const hasCommunityOrEnterprise = $derived.by(() => {
+		// Obot Cloud is licensed by billing and never needs a community license.
+		if (version.current.billingEnabled) return true;
 		if (version.current.enterprise || license.current.enterprise) return true;
-		const entitlements = [
-			...(license.current.entitlements ?? []),
-			...(version.current.licenseEntitlements ?? [])
-		];
+		const { community, enterprise } = license.current.entitlements;
+		const codes = version.current.licenseEntitlements ?? [];
 		return (
-			entitlements.includes(COMMUNITY_ENTITLEMENT) || entitlements.includes(ENTERPRISE_ENTITLEMENT)
+			community ||
+			enterprise ||
+			codes.includes(COMMUNITY_ENTITLEMENT) ||
+			codes.includes(ENTERPRISE_ENTITLEMENT)
 		);
 	});
 	const isAdminReadonly = $derived(profile.current.isAdminReadonly?.());

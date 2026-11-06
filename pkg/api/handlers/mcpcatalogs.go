@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/billing"
 	mcpcataloghandler "github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -46,6 +47,7 @@ type MCPCatalogHandler struct {
 	acrHelper                 *accesscontrolrule.Helper
 	secretBindingAllowedLabel string
 	openAPIImporter           openAPIImporter
+	billing                   *billing.Subscription
 }
 
 type openAPIImporter interface {
@@ -56,7 +58,7 @@ type capacityInfoProvider interface {
 	GetCapacityInfoForServers(context.Context, []string) (types.MCPCapacityInfo, error)
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string, subscription *billing.Subscription) *MCPCatalogHandler {
 	var validationOptions mcp.ValidationOptions
 	if sessionManager != nil {
 		validationOptions = sessionManager.ValidationOptions()
@@ -71,6 +73,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBacken
 		gatewayClient:             gatewayClient,
 		acrHelper:                 acrHelper,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		billing:                   subscription,
 		openAPIImporter:           openapi.NewImporter(validationOptions.RemoteMCPURLValidationConfig.SafeHTTPOptions(), validationOptions.DevMode),
 	}
 }
@@ -705,6 +708,14 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 			return types.NewErrBadRequest("%s", nse.Error())
 		}
 		return err
+	}
+	// With billing, the entry's deployments are shown against the plan's limits.
+	if h.billing != nil {
+		subscription, err := h.billing.Read(req.Context())
+		if err != nil {
+			return err
+		}
+		info = mcp.PlanCapacity(info, billing.EntitlementsOf(subscription.Status), nil)
 	}
 
 	return req.Write(info)

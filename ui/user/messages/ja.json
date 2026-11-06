@@ -54,6 +54,7 @@
 	"language_select_title": "言語を選択",
 	"login_account_inactive": "このアプリケーションへのアクセスは許可されていません。管理者にお問い合わせください。",
 	"login_continue_with": "{provider} で続行",
+	"login_environment_restricted": "この環境はプランの上限を超えています。管理者に連絡してください。",
 	"login_local_heading": "Obot にサインイン",
 	"login_local_no_account": "アカウントをお持ちでない場合は、管理者に作成を依頼してください。",
 	"login_local_page_title": "Obot | サインイン",
