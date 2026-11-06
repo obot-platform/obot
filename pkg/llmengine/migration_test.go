@@ -149,57 +149,6 @@ func TestLegacyAggregateAllProviders(t *testing.T) {
 	}
 }
 
-func TestMigrationCloudChoiceAndRecovery(t *testing.T) {
-	for _, chosen := range []string{system.AzureModelProvider, system.AzureEntraModelProvider} {
-		t.Run(chosen, func(t *testing.T) {
-			e, ctx := startTestEngine(t)
-			g := migrationCredentials(t)
-			putLegacy(t, g, system.AzureModelProvider, azureSecrets("https://user:secret@one.openai.azure.com/openai/v1?token=secret"))
-			putLegacy(t, g, system.AzureEntraModelProvider, map[string]string{"OBOT_AZURE_ENTRA_MODEL_PROVIDER_ENDPOINT": "https://two.services.ai.azure.com", "OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_ID": "client", "OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_SECRET": "secret", "OBOT_AZURE_ENTRA_MODEL_PROVIDER_TENANT_ID": "tenant"})
-			results, err := e.ImportLegacyModelProviders(ctx, nil, g)
-			require.NoError(t, err)
-			require.Len(t, results, 2)
-			for _, r := range results {
-				require.Equal(t, "pending", r.Status)
-			}
-			_, err = e.store.GetProvider(ctx, "azure")
-			require.True(t, apierrors.IsNotFound(err))
-			status, err := e.MigrationStatus(ctx)
-			require.NoError(t, err)
-			raw, _ := json.Marshal(status)
-			require.NotContains(t, string(raw), "secret")
-			require.NoError(t, e.ResolveMigration(ctx, "azure", chosen, status.Version))
-			err = e.ResolveMigration(ctx, "azure", chosen, status.Version)
-			require.True(t, apierrors.IsConflict(err))
-			// The saved decision survives a process restart before import begins.
-			restarted := New()
-			restarted.store = e.store
-			_, err = restarted.ImportLegacyModelProviders(ctx, nil, g)
-			require.NoError(t, err)
-			p, err := e.store.GetProvider(ctx, "azure")
-			require.NoError(t, err)
-			require.Equal(t, chosen, p.Migration.Source)
-			require.Len(t, p.Keys, 1)
-			// Outcome write lost after aggregate creation: recover from aggregate provenance.
-			require.NoError(t, e.mutateMigration(ctx, func(s *MigrationStatus) error {
-				x := s.Sources[chosen]
-				x.Status = "pending"
-				x.Imported = false
-				s.Sources[chosen] = x
-				return nil
-			}))
-			_, err = restarted.ImportLegacyModelProviders(ctx, nil, g)
-			require.NoError(t, err)
-			p, err = e.store.GetProvider(ctx, "azure")
-			require.NoError(t, err)
-			require.Len(t, p.Keys, 1)
-			sources, err := e.migratedSources(ctx)
-			require.NoError(t, err)
-			require.Equal(t, map[string]string{chosen: "azure"}, sources)
-		})
-	}
-}
-
 func TestMigrationDoesNotOverwriteExistingProvider(t *testing.T) {
 	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
 	e, ctx := startTestEngine(t)
@@ -334,7 +283,7 @@ func TestMigrationReferenceRecoveryPreservesLaterEdits(t *testing.T) {
 	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{})))
 }
 
-func TestMigrationDoesNotMoveUnselectedWildcardGrants(t *testing.T) {
+func TestMigrationDoesNotMoveUnverifiedWildcardGrants(t *testing.T) {
 	ns := system.DefaultNamespace
 	models := []*v1.Model{
 		{Namespace: ns, Name: "m1-api", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.AzureModelProvider, TargetModel: "gpt-5", Active: true}}},
@@ -347,7 +296,7 @@ func TestMigrationDoesNotMoveUnselectedWildcardGrants(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
 	require.Equal(t, []types.ModelResource{{ID: "gpt*"}, {ID: "azure/gpt*"}, {ID: "m1-entra"}, {ID: "m1-gw"}}, policy.Spec.Manifest.Models)
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(models[2]), models[2]))
-	require.True(t, models[2].Spec.Manifest.Active, "unselected inactive source must not disable the selected target")
+	require.True(t, models[2].Spec.Manifest.Active, "unverified inactive source must not disable the gateway target")
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(models[1]), models[1]))
 }
 
@@ -404,75 +353,6 @@ func TestMigrationCodecFailure(t *testing.T) {
 	p, err := store.GetProvider(t.Context(), "openai")
 	require.NoError(t, err)
 	require.Len(t, p.Keys, 1)
-}
-
-func TestMigrationConcurrentChoices(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	require.NoError(t, e.mutateMigration(ctx, func(s *MigrationStatus) error {
-		for _, name := range []string{system.AzureModelProvider, system.AzureEntraModelProvider} {
-			s.Sources[name] = MigrationSource{Provider: "azure", Status: "pending"}
-		}
-		return nil
-	}))
-	var wg sync.WaitGroup
-	errs := make(chan error, 2)
-	for _, name := range []string{system.AzureModelProvider, system.AzureEntraModelProvider} {
-		wg.Go(func() { errs <- e.ResolveMigration(ctx, "azure", name, 0) })
-	}
-	wg.Wait()
-	close(errs)
-	accepted := 0
-	for err := range errs {
-		if err == nil {
-			accepted++
-			continue
-		}
-		require.True(t, apierrors.IsConflict(err))
-	}
-	require.Equal(t, 1, accepted)
-	state, err := e.MigrationStatus(ctx)
-	require.NoError(t, err)
-	require.Equal(t, 1, state.Version)
-	require.Len(t, state.Choices, 1)
-}
-
-func TestMigrationBedrockChoicesKeepAccountsSeparate(t *testing.T) {
-	for _, selected := range []string{system.AmazonBedrockModelProvider, system.AmazonBedrockAPIKeyModelProvider} {
-		t.Run(selected, func(t *testing.T) {
-			e, ctx := startTestEngine(t)
-			g := migrationCredentials(t)
-			putLegacy(t, g, system.AmazonBedrockModelProvider, map[string]string{"OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID": "access", "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret", "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_REGION": "eu-west-1"})
-			putLegacy(t, g, system.AmazonBedrockAPIKeyModelProvider, map[string]string{"OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_API_KEY": "other-account", "OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_REGION": "us-west-2"})
-			results, err := e.ImportLegacyModelProviders(ctx, nil, g)
-			require.NoError(t, err)
-			for _, r := range results {
-				require.Equal(t, "pending", r.Status)
-			}
-			state, err := e.MigrationStatus(ctx)
-			require.NoError(t, err)
-			require.NoError(t, e.ResolveMigration(ctx, "bedrock_mantle", selected, state.Version))
-			_, err = e.ImportLegacyModelProviders(ctx, nil, g)
-			require.NoError(t, err)
-			p, err := e.store.GetProvider(ctx, "bedrock_mantle")
-			require.NoError(t, err)
-			require.Len(t, p.Keys, 1)
-			require.Equal(t, selected, p.Migration.Source)
-			expectedRegion := "eu-west-1"
-			if selected == system.AmazonBedrockAPIKeyModelProvider {
-				expectedRegion = "us-west-2"
-			}
-			require.Equal(t, expectedRegion, p.Keys[0].BedrockMantleKeyConfig.Region.GetValue())
-			for _, name := range []string{system.AmazonBedrockModelProvider, system.AmazonBedrockAPIKeyModelProvider} {
-				provider, err := e.LegacyGatewayProvider(ctx, name)
-				if name == selected {
-					require.NoError(t, err)
-					require.Equal(t, "bedrock_mantle", provider)
-				} else {
-					require.Error(t, err)
-				}
-			}
-		})
-	}
 }
 
 func TestMigrationWaitsForProviderDiscoveryBeforeUsingSubscriptionModels(t *testing.T) {

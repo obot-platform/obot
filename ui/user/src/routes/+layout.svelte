@@ -4,7 +4,6 @@
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
-	import LegacyMigrationDialog from '$lib/components/llm-gateway/LegacyMigrationDialog.svelte';
 	import { applyDocumentLocale } from '$lib/i18n';
 	import {
 		darkMode,
@@ -180,4 +179,3 @@
 <Notifications />
 <SuccessNotifications />
 <ReLoginDialog />
-<LegacyMigrationDialog />

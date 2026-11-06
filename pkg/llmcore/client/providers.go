@@ -42,10 +42,9 @@ type Provider struct {
 	Migration        *ProviderMigration `json:"migration,omitempty"`
 }
 
-// ProviderMigration identifies the imported source, or a family with Decision "both" for a shared pool.
+// ProviderMigration identifies the legacy source, or the family shared by a pooled import.
 type ProviderMigration struct {
-	Source   string `json:"source"`
-	Decision string `json:"decision"`
+	Source string `json:"source"`
 }
 
 func (a AzureAccount) ResourceID() string {

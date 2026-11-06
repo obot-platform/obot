@@ -25,44 +25,34 @@ func TestMigrationAppliesEgressProxyBeforePublishingProvider(t *testing.T) {
 	iam := map[string]string{"OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID": "access", "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret", "OBOT_AMAZON_BEDROCK_MODEL_PROVIDER_REGION": "eu-west-1"}
 	apiKey := map[string]string{"OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_API_KEY": "key", "OBOT_AMAZON_BEDROCK_API_KEY_MODEL_PROVIDER_REGION": "eu-west-1"}
 	for _, tc := range []struct {
-		source   string
-		other    string
-		family   string
-		secrets  map[string]string
-		otherKey map[string]string
-		host     string
+		source  string
+		family  string
+		secrets map[string]string
+		host    string
 	}{
 		{
-			source:   system.AzureModelProvider,
-			other:    system.AzureEntraModelProvider,
-			family:   "azure",
-			secrets:  azure,
-			otherKey: entra,
-			host:     "migration.openai.azure.com",
+			source:  system.AzureModelProvider,
+			family:  "azure",
+			secrets: azure,
+			host:    "migration.openai.azure.com",
 		},
 		{
-			source:   system.AzureEntraModelProvider,
-			other:    system.AzureModelProvider,
-			family:   "azure",
-			secrets:  entra,
-			otherKey: azure,
-			host:     "migration.services.ai.azure.com",
+			source:  system.AzureEntraModelProvider,
+			family:  "azure",
+			secrets: entra,
+			host:    "migration.services.ai.azure.com",
 		},
 		{
-			source:   system.AmazonBedrockModelProvider,
-			other:    system.AmazonBedrockAPIKeyModelProvider,
-			family:   "bedrock_mantle",
-			secrets:  iam,
-			otherKey: apiKey,
-			host:     "bedrock-mantle.eu-west-1.api.aws",
+			source:  system.AmazonBedrockModelProvider,
+			family:  "bedrock_mantle",
+			secrets: iam,
+			host:    "bedrock-mantle.eu-west-1.api.aws",
 		},
 		{
-			source:   system.AmazonBedrockAPIKeyModelProvider,
-			other:    system.AmazonBedrockModelProvider,
-			family:   "bedrock_mantle",
-			secrets:  apiKey,
-			otherKey: iam,
-			host:     "bedrock-mantle.eu-west-1.api.aws",
+			source:  system.AmazonBedrockAPIKeyModelProvider,
+			family:  "bedrock_mantle",
+			secrets: apiKey,
+			host:    "bedrock-mantle.eu-west-1.api.aws",
 		},
 	} {
 		t.Run(tc.source, func(t *testing.T) {
@@ -97,20 +87,13 @@ func TestMigrationAppliesEgressProxyBeforePublishingProvider(t *testing.T) {
 					t.Setenv("NO_PROXY", map[bool]string{true: tc.host, false: "unrelated.invalid"}[bypass])
 					g := migrationCredentials(t)
 					putLegacy(t, g, tc.source, tc.secrets)
-					putLegacy(t, g, tc.other, tc.otherKey)
-					_, err = e.ImportLegacyModelProviders(ctx, nil, g)
-					require.NoError(t, err)
-					require.False(t, created, "cloud migration must wait for selection")
-					status, err := e.MigrationStatus(ctx)
-					require.NoError(t, err)
-					require.NoError(t, e.ResolveMigration(ctx, tc.family, tc.source, status.Version))
 					_, err = e.ImportLegacyModelProviders(ctx, nil, g)
 					require.NoError(t, err)
 					require.True(t, created)
 					require.False(t, e.ApplyEgressProxy(ctx), "startup/admin proxy setup must agree with migration, including NO_PROXY")
 					_, err = e.Sync(ctx)
 					require.NoError(t, err)
-					require.NotNil(t, e.Client().GetProviderByKey(schemas.ModelProvider(tc.family)), "selection must activate the provider in the running engine")
+					require.NotNil(t, e.Client().GetProviderByKey(schemas.ModelProvider(tc.family)), "reconciliation must activate the provider in the running engine")
 				})
 			}
 		})
@@ -139,13 +122,7 @@ func TestMigratedAzureUsesEgressProxyWithoutRestart(t *testing.T) {
 	t.Setenv("no_proxy", "")
 	g := migrationCredentials(t)
 	putLegacy(t, g, system.AzureModelProvider, azureSecrets("http://azure-migration.invalid"))
-	putLegacy(t, g, system.AzureEntraModelProvider, map[string]string{"OBOT_AZURE_ENTRA_MODEL_PROVIDER_ENDPOINT": "https://other.services.ai.azure.com", "OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_ID": "client", "OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_SECRET": "secret", "OBOT_AZURE_ENTRA_MODEL_PROVIDER_TENANT_ID": "tenant"})
 	_, err := e.ImportLegacyModelProviders(ctx, nil, g)
-	require.NoError(t, err)
-	status, err := e.MigrationStatus(ctx)
-	require.NoError(t, err)
-	require.NoError(t, e.ResolveMigration(ctx, "azure", system.AzureModelProvider, status.Version))
-	_, err = e.ImportLegacyModelProviders(ctx, nil, g)
 	require.NoError(t, err)
 	_, err = e.Sync(ctx)
 	require.NoError(t, err)

@@ -94,7 +94,7 @@ func TestCoreDoesNotAutoDetectKeys(t *testing.T) {
 	}
 }
 
-func TestStartupLeavesLegacyImportPending(t *testing.T) {
+func TestStartupAutomaticallyImportsLegacyProviders(t *testing.T) {
 	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
 	t.Setenv(system.AnthropicAPIKeyEnvVar, "")
 	e, ctx := startTestEngine(t)
@@ -113,7 +113,7 @@ func TestStartupLeavesLegacyImportPending(t *testing.T) {
 	if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), &got); err != nil {
 		t.Fatal(err)
 	}
-	if LegacyImportDone(&got) {
-		t.Fatal("startup must not mark a pending cloud migration complete")
+	if !LegacyImportDone(&got) {
+		t.Fatal("startup must complete automatic cloud migration")
 	}
 }

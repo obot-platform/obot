@@ -138,7 +138,7 @@ func TestLegacyImportCreateConflictPreservesConcurrentProvider(t *testing.T) {
 	}
 }
 
-func TestLegacyImportCloudProvidersRequireSelection(t *testing.T) {
+func TestLegacyImportCloudProvidersPoolKeys(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	gateway := legacyImportGateway(t, map[string]map[string]string{
 		system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "vault.literal-secret"},
@@ -162,33 +162,12 @@ func TestLegacyImportCloudProvidersRequireSelection(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, results, 4)
 	for _, result := range results {
-		require.Equal(t, "pending", result.Status, result.Message)
-	}
-	for _, name := range []string{"bedrock_mantle", "azure"} {
-		_, err := e.store.GetProvider(ctx, name)
-		require.True(t, apierrors.IsNotFound(err), "no aggregate can be published before selection")
-	}
-	for family, source := range map[string]string{
-		"bedrock_mantle": system.AmazonBedrockAPIKeyModelProvider,
-		"azure":          system.AzureModelProvider,
-	} {
-		status, err := e.MigrationStatus(ctx)
-		require.NoError(t, err)
-		require.NoError(t, e.ResolveMigration(ctx, family, source, status.Version))
-	}
-	results, err = e.ImportLegacyModelProviders(ctx, nil, gateway)
-	require.NoError(t, err)
-	for _, result := range results {
-		want := "not-selected"
-		if result.ModelProvider == system.AmazonBedrockAPIKeyModelProvider || result.ModelProvider == system.AzureModelProvider {
-			want = "imported"
-		}
-		require.Equal(t, want, result.Status, result.Message)
+		require.Equal(t, "imported", result.Status, result.Message)
 	}
 	for _, name := range []string{"bedrock_mantle", "azure"} {
 		provider, err := e.store.GetProvider(ctx, name)
 		require.NoError(t, err)
-		require.Len(t, provider.Keys, 1)
+		require.Len(t, provider.Keys, 2)
 		require.Equal(t, defaultMaxRetries, provider.Config.NetworkConfig.MaxRetries)
 		require.Equal(t, defaultRequestTimeout, provider.Config.NetworkConfig.DefaultRequestTimeoutInSeconds)
 		for _, key := range provider.Keys {
@@ -208,6 +187,6 @@ func TestLegacyImportCloudProvidersRequireSelection(t *testing.T) {
 	require.NoError(t, err)
 	providers, err := e.Client().GetConfiguredProviders()
 	require.NoError(t, err)
-	require.Contains(t, providers, schemas.BedrockMantle, "reconciliation activates the selected provider")
+	require.Contains(t, providers, schemas.BedrockMantle, "reconciliation activates the imported pool")
 	require.Contains(t, providers, schemas.Azure)
 }

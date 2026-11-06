@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"maps"
-	"net/url"
 	"slices"
 	"strings"
 
@@ -23,27 +22,20 @@ import (
 )
 
 const (
-	migrationSetting      = "legacy-provider-migration"
-	sharedMigrationChoice = "both"
+	migrationSetting = "legacy-provider-migration"
 )
 
-// MigrationStatus contains no credentials. Version guards administrator decisions;
-// background outcome updates do not invalidate an otherwise current choice.
+// MigrationStatus contains only migration outcomes and compatibility mappings, never credentials.
 type MigrationStatus struct {
-	Version  int                        `json:"version"`
-	Choices  map[string]string          `json:"choices"`
 	Sources  map[string]MigrationSource `json:"sources"`
 	Mappings map[string]string          `json:"mappings"`
 }
 type MigrationSource struct {
-	Imported bool     `json:"imported,omitempty"`
-	Name     string   `json:"name"`
-	Provider string   `json:"provider"`
-	Status   string   `json:"status"`
-	Message  string   `json:"message,omitempty"`
-	Endpoint string   `json:"endpoint,omitempty"`
-	Region   string   `json:"region,omitempty"`
-	Models   []string `json:"models"`
+	Imported bool   `json:"imported,omitempty"`
+	Name     string `json:"name"`
+	Provider string `json:"provider"`
+	Status   string `json:"status"`
+	Message  string `json:"message,omitempty"`
 }
 
 type legacyProviderScopeKey struct{}
@@ -54,9 +46,6 @@ func decodeMigration(settings map[string]json.RawMessage) (MigrationStatus, erro
 		if err := json.Unmarshal(raw, &s); err != nil {
 			return s, err
 		}
-	}
-	if s.Choices == nil {
-		s.Choices = map[string]string{}
 	}
 	if s.Sources == nil {
 		s.Sources = map[string]MigrationSource{}
@@ -90,46 +79,11 @@ func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStat
 	})
 }
 
-// ResolveMigration records a first-writer-wins decision. Import runs separately:
-// a crash after accepting the decision is recovered by resource reconciliation.
-func (e *Engine) ResolveMigration(ctx context.Context, family, source string, version int) error {
-	var rejected error
-	err := e.mutateMigration(ctx, func(s *MigrationStatus) (decisionErr error) {
-		defer func() { rejected = decisionErr }()
-		entry, ok := s.Sources[source]
-		if (family != "azure" && family != "bedrock_mantle") || (source != sharedMigrationChoice && (!ok || entry.Provider != family)) {
-			return apierrors.NewBadRequest("invalid legacy provider selection")
-		}
-		if s.Version != version || s.Choices[family] != "" {
-			return &apierrors.StatusError{ErrStatus: metav1.Status{Code: 409, Message: "the migration decision changed; refresh and try again"}}
-		}
-		count := 0
-		pending := true
-		for _, candidate := range s.Sources {
-			if candidate.Provider == family {
-				count++
-				pending = pending && candidate.Status == "pending"
-			}
-		}
-		if count < 2 || (source == sharedMigrationChoice && !pending) || (source != sharedMigrationChoice && entry.Status != "pending") {
-			return &apierrors.StatusError{ErrStatus: metav1.Status{Code: 409, Message: "this provider is no longer awaiting a choice"}}
-		}
-		s.Choices[family] = source
-		s.Version++
-		return nil
-	})
-	// Selection rejections can also be 409s; only storage conflicts need remapping.
-	if rejected == nil && (apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)) {
-		return &apierrors.StatusError{ErrStatus: metav1.Status{Code: 409, Message: "the migration decision changed; refresh and try again"}}
-	}
-	return err
-}
-
 // ImportLegacyModelProviders reconciles independent provider aggregates. No write
 // callback performs I/O, and no cross-resource transaction is assumed.
 func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Client, g *gateway.Client) ([]LegacyImportResult, error) {
 	var results []LegacyImportResult
-	// Each attempt reloads decisions and provider provenance. Partial imports are
+	// Each attempt reloads outcomes and provider provenance. Partial imports are
 	// idempotent, so concurrent replicas can resume without overwriting manual edits.
 	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
 		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
@@ -157,17 +111,7 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 			return nil, fmt.Errorf("read legacy credential %s: %w", name, err)
 		}
 		secrets[name] = cred.Secrets
-		entry := MigrationSource{Name: legacySourceName(name), Provider: legacyImportPlans[name].provider, Status: "pending", Models: []string{}}
-		if endpoint := secretWithSuffix(cred.Secrets, "_MODEL_PROVIDER_ENDPOINT"); endpoint != "" {
-			// Userinfo, query strings and fragments may contain credentials.
-			if u, err := url.Parse(endpoint); err == nil && u.Host != "" {
-				entry.Endpoint = u.Scheme + "://" + u.Host
-			}
-		}
-		entry.Region = secretWithSuffix(cred.Secrets, "_MODEL_PROVIDER_REGION")
-		if entry.Provider == "bedrock_mantle" && entry.Region == "" {
-			entry.Region = "us-east-1"
-		}
+		entry := MigrationSource{Name: legacySourceName(name), Provider: legacyImportPlans[name].provider, Status: "pending"}
 		entries[name] = entry
 	}
 	if c != nil {
@@ -184,7 +128,7 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 				continue
 			}
 			if _, supported := legacyImportPlans[provider.Name]; !supported && provider.Status.Configured {
-				entries[provider.Name] = MigrationSource{Name: provider.Spec.Name, Status: "unsupported", Models: []string{}}
+				entries[provider.Name] = MigrationSource{Name: provider.Spec.Name, Status: "unsupported"}
 			}
 		}
 		for _, m := range models.Items {
@@ -197,27 +141,17 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 				if _, supported := legacyImportPlans[source]; supported {
 					continue
 				}
-				entry = MigrationSource{Name: source, Status: "unsupported", Models: []string{}}
+				entry = MigrationSource{Name: source, Status: "unsupported"}
 			}
-			entry.Models = append(entry.Models, m.Spec.Manifest.TargetModel)
-			slices.Sort(entry.Models)
 			entries[source] = entry
 		}
 	}
-	// Discover all conflicts before importing any source. Retain old outcomes after
+	// Gather every source before importing a family. Retain old outcomes after
 	// source resources have been cleaned up (credentials intentionally survive).
 	if err := e.mutateMigration(ctx, func(s *MigrationStatus) error {
 		for name, entry := range entries {
 			if old, ok := s.Sources[name]; ok {
 				entry.Status, entry.Message, entry.Imported = old.Status, old.Message, old.Imported
-				if len(entry.Models) == 0 {
-					entry.Models = old.Models
-				}
-				if entry.Endpoint != old.Endpoint || entry.Region != old.Region {
-					s.Version++
-				}
-			} else {
-				s.Version++
 			}
 			s.Sources[name] = entry
 		}
@@ -229,42 +163,26 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 	if err != nil {
 		return nil, err
 	}
+	groups := map[string][]string{}
+	for _, name := range slices.Sorted(maps.Keys(entries)) {
+		if plan, ok := legacyImportPlans[name]; ok {
+			groups[plan.provider] = append(groups[plan.provider], name)
+		}
+	}
 	var results []LegacyImportResult
 	var importErrors []error
 	for _, name := range slices.Sorted(maps.Keys(entries)) {
 		plan := legacyImportPlans[name]
 		result := LegacyImportResult{ModelProvider: name, GatewayProvider: plan.provider}
-		count := 0
-		for _, other := range entries {
-			if other.Provider == plan.provider {
-				count++
-			}
-		}
-		choice := state.Choices[plan.provider]
 		switch {
 		case entryUnsupported(name):
 			result.Status = "unsupported"
 			result.Message = "this legacy provider is not imported automatically; configure a gateway provider manually"
-		case choice != "" && choice != name && choice != sharedMigrationChoice:
-			result.Status = "not-selected"
-			result.Message = "another legacy configuration was selected; configure this source manually"
-		case count > 1 && choice == "":
-			result.Status = "pending"
-			result.Message = "choose a legacy configuration in Models / Providers"
 		case envConfigured(plan.provider) != "":
 			result.Status = "environment"
 			result.Message = "configured from the server environment"
 		default:
-			names := []string{name}
-			if choice == sharedMigrationChoice {
-				names = nil
-				for candidate, candidatePlan := range legacyImportPlans {
-					if candidatePlan.provider == plan.provider {
-						names = append(names, candidate)
-					}
-				}
-				slices.Sort(names)
-			}
+			names := groups[plan.provider]
 			completed := slices.ContainsFunc(names, func(source string) bool { return state.Sources[source].Imported })
 			var err error
 			result.Status, result.Message, err = e.importLegacySources(ctx, names, secrets, completed)
@@ -340,11 +258,11 @@ func legacyAggregate(ctx context.Context, name string, secrets map[string]string
 	if err = json.Unmarshal(raw, &k); err != nil {
 		return llmcoreclient.Provider{}, err
 	}
-	return llmcoreclient.Provider{Config: pc, Keys: []schemas.Key{k}, Migration: &llmcoreclient.ProviderMigration{Source: name, Decision: name}}, nil
+	return llmcoreclient.Provider{Config: pc, Keys: []schemas.Key{k}, Migration: &llmcoreclient.ProviderMigration{Source: name}}, nil
 }
 
 // migratedSources verifies aggregates rather than trusting a global completion
-// annotation or a separately written outcome. Failed or unselected sources stay put.
+// annotation or a separately written outcome. Failed sources stay put.
 func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error) {
 	s, err := e.MigrationStatus(ctx)
 	if err != nil {
@@ -363,7 +281,7 @@ func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error)
 			return nil, err
 		}
 		if entry.Status == "imported" && p.Migration != nil && len(p.Keys) > 0 && (p.Migration.Source == name ||
-			(p.Migration.Source == entry.Provider && p.Migration.Decision == sharedMigrationChoice && s.Choices[entry.Provider] == sharedMigrationChoice)) {
+			p.Migration.Source == entry.Provider) {
 			approved[name] = entry.Provider
 		}
 		if entry.Status == "environment" && slices.ContainsFunc(p.Keys, func(k schemas.Key) bool { return k.Name == "env-"+envConfigured(entry.Provider) }) {
@@ -389,7 +307,7 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 	})
 }
 
-// LegacyGatewayProvider binds a former route to its imported provider or explicitly shared pool.
+// LegacyGatewayProvider binds a former route to its imported provider pool.
 func (e *Engine) LegacyGatewayProvider(ctx context.Context, source string) (string, error) {
 	sources, err := e.migratedSources(ctx)
 	if err != nil {
@@ -408,7 +326,7 @@ func (e *Engine) LegacyGatewayProvider(ctx context.Context, source string) (stri
 			return legacyImportPlans[source].provider, nil
 		}
 	}
-	return "", &apierrors.StatusError{ErrStatus: metav1.Status{Code: 410, Message: "this legacy configuration needs attention in Models / Providers; select it for migration or configure a gateway provider manually"}}
+	return "", &apierrors.StatusError{ErrStatus: metav1.Status{Code: 410, Message: "this legacy configuration needs attention in Models / Providers; configure a gateway provider manually"}}
 }
 
 func (e *Engine) MigratedReference(ctx context.Context, reference string) (string, error) {
@@ -454,9 +372,9 @@ func legacySourceName(name string) string {
 func (e *Engine) importLegacySources(ctx context.Context, names []string, secrets map[string]map[string]string, completed bool) (string, string, error) {
 	name := names[0]
 	plan := legacyImportPlans[name]
-	provenance := llmcoreclient.ProviderMigration{Source: name, Decision: name}
+	provenance := llmcoreclient.ProviderMigration{Source: name}
 	if len(names) > 1 {
-		provenance = llmcoreclient.ProviderMigration{Source: plan.provider, Decision: sharedMigrationChoice}
+		provenance = llmcoreclient.ProviderMigration{Source: plan.provider}
 	}
 	proxy := httpproxy.FromEnvironment()
 	p, err := e.store.GetProvider(ctx, plan.provider)

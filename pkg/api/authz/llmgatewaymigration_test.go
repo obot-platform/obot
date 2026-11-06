@@ -38,21 +38,7 @@ func TestLLMGatewayMigrationAuthorization(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			u := &user.DefaultInfo{Name: tc.name, Groups: tc.role.Groups()}
-			for _, route := range []struct {
-				method string
-				path   string
-			}{
-				{
-					method: http.MethodGet,
-					path:   "/api/llm-gateway/migration",
-				},
-				{
-					method: http.MethodPost,
-					path:   "/api/llm-gateway/migration/resolve",
-				},
-			} {
-				require.Equal(t, tc.allowed, a.Authorize(httptest.NewRequest(route.method, route.path, nil), u))
-			}
+			require.Equal(t, tc.allowed, a.Authorize(httptest.NewRequest(http.MethodGet, "/api/llm-gateway/migration", nil), u))
 		})
 	}
 }

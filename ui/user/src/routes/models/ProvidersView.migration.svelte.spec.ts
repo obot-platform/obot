@@ -14,24 +14,18 @@ beforeEach(() => {
 			HttpResponse.json({ providers: [{ name: 'bedrock_mantle' }] })
 		),
 		http.get('/api/llm-gateway/admin/providers/:provider/keys', () =>
-			HttpResponse.json({ keys: [{ id: 'migrated', name: 'imported-key' }] })
+			HttpResponse.json({
+				keys: [
+					{ id: 'iam', name: 'imported-iam' },
+					{ id: 'api', name: 'imported-api' }
+				]
+			})
 		),
 		http.get('/api/llm-gateway/migration', () =>
 			HttpResponse.json({
-				version: 2,
-				choices: { bedrock_mantle: 'amazon-bedrock-api-key-model-provider' },
-				mappings: {},
 				sources: {
-					'amazon-bedrock-model-provider': {
-						provider: 'bedrock_mantle',
-						status: 'not-selected',
-						models: []
-					},
-					'amazon-bedrock-api-key-model-provider': {
-						provider: 'bedrock_mantle',
-						status: 'imported',
-						models: []
-					}
+					iam: { provider: 'bedrock_mantle', status: 'imported' },
+					api: { provider: 'bedrock_mantle', status: 'imported' }
 				}
 			})
 		)
@@ -39,14 +33,11 @@ beforeEach(() => {
 });
 
 describe('ProvidersView migration results', () => {
-	it('does not show a migration warning for a completed selection', async () => {
+	it('does not show a migration warning for a completed automatic pool', async () => {
 		render(ProvidersView);
-		await expect.element(page.getByText('1 key', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('Some legacy model providers need attention.'))
-			.not.toBeInTheDocument();
-		await expect
-			.element(page.getByRole('button', { name: 'Review migration' }))
 			.not.toBeInTheDocument();
 	});
 	it('shows the imported Mantle provider as configured AWS Bedrock without a duplicate', async () => {
@@ -62,35 +53,32 @@ describe('ProvidersView migration results', () => {
 			.element(page.getByRole('img', { name: 'AWS Bedrock', exact: true }))
 			.toHaveAttribute('src', '/admin/assets/amazon-bedrock.png');
 	});
-	it('keeps unresolved choices actionable', async () => {
+	it('does not require a choice while automatic imports are pending', async () => {
 		worker.use(
 			http.get('/api/llm-gateway/migration', () =>
 				HttpResponse.json({
-					version: 0,
-					choices: {},
-					mappings: {},
 					sources: {
-						iam: { provider: 'bedrock_mantle', status: 'pending', models: [] },
-						api: { provider: 'bedrock_mantle', status: 'pending', models: [] }
+						iam: { provider: 'bedrock_mantle', status: 'pending' },
+						api: { provider: 'bedrock_mantle', status: 'pending' }
 					}
 				})
 			)
 		);
 		render(ProvidersView);
+		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('Some legacy model providers need attention.'))
-			.toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Review migration' })).toBeVisible();
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Review migration' }))
+			.not.toBeInTheDocument();
 	});
-	it('keeps failed imports visible without offering a nonexistent choice', async () => {
+	it('keeps failed imports visible without offering a choice', async () => {
 		worker.use(
 			http.get('/api/llm-gateway/migration', () =>
 				HttpResponse.json({
-					version: 0,
-					choices: {},
-					mappings: {},
 					sources: {
-						openai: { name: 'OpenAI', provider: 'openai', status: 'error', models: [] }
+						openai: { name: 'OpenAI', provider: 'openai', status: 'error' }
 					}
 				})
 			)
@@ -106,22 +94,15 @@ describe('ProvidersView migration results', () => {
 			.element(page.getByRole('button', { name: 'Review migration' }))
 			.not.toBeInTheDocument();
 	});
-	it('clears the pending warning after a saved choice finishes reconciling', async () => {
+	it('clears a failure warning after automatic reconciliation succeeds', async () => {
 		let reads = 0;
 		worker.use(
 			http.get('/api/llm-gateway/migration', () => {
 				reads++;
 				return HttpResponse.json({
-					version: 1,
-					choices: { bedrock_mantle: 'api' },
-					mappings: {},
 					sources: {
-						iam: { provider: 'bedrock_mantle', status: 'not-selected', models: [] },
-						api: {
-							provider: 'bedrock_mantle',
-							status: reads === 1 ? 'pending' : 'imported',
-							models: []
-						}
+						iam: { provider: 'bedrock_mantle', status: reads === 1 ? 'error' : 'imported' },
+						api: { provider: 'bedrock_mantle', status: reads === 1 ? 'error' : 'imported' }
 					}
 				});
 			})

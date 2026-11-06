@@ -11,7 +11,6 @@
 		getSettings,
 		getMigration,
 		type MigrationStatus,
-		pendingMigrationFamily,
 		getStatus,
 		listProviderKeys,
 		listProviders,
@@ -54,10 +53,9 @@
 	let migration = $state<MigrationStatus>();
 	let migrationIssues = $derived(
 		Object.entries(migration?.sources ?? {}).filter(([, source]) =>
-			['pending', 'blocked', 'error', 'unsupported'].includes(source.status)
+			['blocked', 'error', 'unsupported'].includes(source.status)
 		)
 	);
-	let pendingFamily = $derived(pendingMigrationFamily(migration));
 	let addDialog = $state<ReturnType<typeof AddProviderDialog>>();
 	let removing = $state<string>();
 	// With Claude subscriptions allowed, Anthropic works without keys of its own.
@@ -135,13 +133,11 @@
 
 	onMount(() => {
 		void load();
-		const refresh = () => void load(false);
-		// The choice commits before resource reconciliation finishes. Refresh while
-		// that work is pending so the banner and configured cards settle together.
+		// Refresh while automatic imports are pending or retrying.
 		let refreshing = false;
 		const timer = window.setInterval(async () => {
 			const applying = Object.values(migration?.sources ?? {}).some(
-				(source) => source.status === 'pending' && migration?.choices[source.provider]
+				(source) => source.status === 'pending' || source.status === 'error'
 			);
 			if (!applying || refreshing) return;
 			refreshing = true;
@@ -151,10 +147,8 @@
 				refreshing = false;
 			}
 		}, 2000);
-		window.addEventListener('llm-migration-updated', refresh);
 		return () => {
 			clearInterval(timer);
-			window.removeEventListener('llm-migration-updated', refresh);
 		};
 	});
 </script>
@@ -164,20 +158,13 @@
 	{#if migrationIssues.length}
 		<div class="notification-info space-y-2 rounded-md p-3 text-sm">
 			<p>{m.models_migration_attention()}</p>
-			{#each migrationIssues.filter(([, source]) => source.status !== 'pending') as [id, source] (id)}
+			{#each migrationIssues as [id, source] (id)}
 				<p>
 					{source.name ?? id}: {migrationMessages[
 						source.status as keyof typeof migrationMessages
 					]()}
 				</p>
 			{/each}
-			{#if pendingFamily}
-				<button
-					class="btn btn-sm"
-					onclick={() => window.dispatchEvent(new Event('open-llm-migration'))}
-					>{m.models_migration_review()}</button
-				>
-			{/if}
 		</div>
 	{/if}
 

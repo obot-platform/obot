@@ -486,7 +486,7 @@ func IsMCPRegistryRequest(req *http.Request) bool {
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
-	if req.URL.Path == "/api/llm-gateway/migration" || req.URL.Path == "/api/llm-gateway/migration/resolve" {
+	if req.URL.Path == "/api/llm-gateway/migration" {
 		return slices.Contains(userInfo.GetGroups(), types.GroupAdmin) || slices.Contains(userInfo.GetGroups(), types.GroupOwner)
 	}
 	// The SCIM endpoint serves only a SCIM connection's principal, and that principal nothing else. There is at most

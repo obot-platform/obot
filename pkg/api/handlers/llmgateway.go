@@ -18,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 var (
@@ -512,23 +511,4 @@ func (h *LLMGatewayHandler) Migration(req api.Context) error {
 		return err
 	}
 	return req.Write(status)
-}
-func (h *LLMGatewayHandler) ResolveMigration(req api.Context) error {
-	var body struct {
-		Family  string `json:"family"`
-		Source  string `json:"source"`
-		Version int    `json:"version"`
-	}
-	if err := req.Read(&body); err != nil {
-		return err
-	}
-	if err := h.engine.ResolveMigration(req.Context(), body.Family, body.Source, body.Version); err != nil {
-		if apiErr, ok := errors.AsType[*apierrors.StatusError](err); ok {
-			return types.NewErrHTTP(int(apiErr.ErrStatus.Code), apiErr.ErrStatus.Message)
-		}
-		return err
-	}
-	// Saving the choice triggers every-replica reconciliation. Do not acknowledge
-	// an import here: provider application and model discovery are asynchronous.
-	return h.Migration(req)
 }

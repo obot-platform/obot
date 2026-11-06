@@ -65,7 +65,6 @@ func TestMigrationSharedPool(t *testing.T) {
 						require.NoError(t, json.Unmarshal([]byte(resource.Spec.Payload), &p))
 						require.Len(t, p.Keys, 2, "both keys must be present in the first durable version")
 						require.Equal(t, tc.family, p.Migration.Source)
-						require.Equal(t, "both", p.Migration.Decision)
 						require.Equal(t, schemas.EnvProxy, p.Config.ProxyConfig.Type)
 						creates++
 					}
@@ -98,19 +97,12 @@ func TestMigrationSharedPool(t *testing.T) {
 			for name, secrets := range tc.secrets {
 				putLegacy(t, g, name, secrets)
 			}
-			_, err = e.ImportLegacyModelProviders(ctx, nil, g)
-			require.NoError(t, err)
-			require.Zero(t, creates, "shared import must be explicitly selected")
-			state, err := e.MigrationStatus(ctx)
-			require.NoError(t, err)
-			require.NoError(t, e.ResolveMigration(ctx, tc.family, "both", state.Version))
-			require.ErrorContains(t, e.ResolveMigration(ctx, tc.family, "both", state.Version), "decision changed")
 			failOutcome = true
 			_, err = e.ImportLegacyModelProviders(ctx, nil, g)
 			require.ErrorContains(t, err, "interrupted outcome write")
 			require.Equal(t, 1, creates)
 
-			// A fresh reconciler recovers the saved decision and complete aggregate.
+			// A fresh reconciler recovers from the complete aggregate before outcomes were saved.
 			recovered := New()
 			recovered.store = store
 			results, err := recovered.ImportLegacyModelProviders(ctx, nil, g)
@@ -120,7 +112,7 @@ func TestMigrationSharedPool(t *testing.T) {
 				require.Equal(t, "imported", result.Status)
 				provider, err := recovered.LegacyGatewayProvider(ctx, result.ModelProvider)
 				require.NoError(t, err)
-				require.Equal(t, tc.family, provider, "both legacy routes resolve to the shared pool")
+				require.Equal(t, tc.family, provider, "both legacy routes resolve to the automatic pool")
 			}
 			p, err := store.GetProvider(ctx, tc.family)
 			require.NoError(t, err)
@@ -189,6 +181,32 @@ func TestMigrationSharedPool(t *testing.T) {
 	}
 }
 
+func TestMigrationSharedPoolConcurrentImport(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	g := migrationCredentials(t)
+	putLegacy(t, g, system.AmazonBedrockModelProvider, map[string]string{
+		"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID":     "access",
+		"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret",
+	})
+	putLegacy(t, g, system.AmazonBedrockAPIKeyModelProvider, map[string]string{"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "api-key"})
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for range 2 {
+		wg.Go(func() {
+			_, err := e.ImportLegacyModelProviders(ctx, nil, g)
+			errs <- err
+		})
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+	p, err := e.store.GetProvider(ctx, "bedrock_mantle")
+	require.NoError(t, err)
+	require.Len(t, p.Keys, 2, "replicas must converge on one complete pool without duplicate keys")
+}
+
 func TestMigrationSharedPoolValidatesAllKeysBeforeWriting(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	g := migrationCredentials(t)
@@ -200,11 +218,6 @@ func TestMigrationSharedPoolValidatesAllKeysBeforeWriting(t *testing.T) {
 		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_TENANT_ID":     "tenant",
 	})
 	_, err := e.ImportLegacyModelProviders(ctx, nil, g)
-	require.NoError(t, err)
-	state, err := e.MigrationStatus(ctx)
-	require.NoError(t, err)
-	require.NoError(t, e.ResolveMigration(ctx, "azure", "both", state.Version))
-	_, err = e.ImportLegacyModelProviders(ctx, nil, g)
 	require.ErrorContains(t, err, "link-local")
 	_, err = e.store.GetProvider(ctx, "azure")
 	require.True(t, apierrors.IsNotFound(err), "a valid first key must not be committed before the second is validated")
@@ -219,17 +232,9 @@ func TestMigrationSharedPoolPreservesExistingProvider(t *testing.T) {
 	})
 	_, err := e.ImportLegacyModelProviders(ctx, nil, g)
 	require.NoError(t, err)
-	state, err := e.MigrationStatus(ctx)
-	require.NoError(t, err)
-	require.ErrorContains(t, e.ResolveMigration(ctx, "bedrock_mantle", "both", state.Version), "no longer awaiting a choice")
 	before, err := e.store.GetProvider(ctx, "bedrock_mantle")
 	require.NoError(t, err)
 	putLegacy(t, g, system.AmazonBedrockAPIKeyModelProvider, map[string]string{"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "api-key"})
-	_, err = e.ImportLegacyModelProviders(ctx, nil, g)
-	require.NoError(t, err)
-	state, err = e.MigrationStatus(ctx)
-	require.NoError(t, err)
-	require.NoError(t, e.ResolveMigration(ctx, "bedrock_mantle", "both", state.Version))
 	results, err := e.ImportLegacyModelProviders(ctx, nil, g)
 	require.NoError(t, err)
 	for _, result := range results {
@@ -237,7 +242,7 @@ func TestMigrationSharedPoolPreservesExistingProvider(t *testing.T) {
 	}
 	after, err := e.store.GetProvider(ctx, "bedrock_mantle")
 	require.NoError(t, err)
-	require.Equal(t, before, after, "a shared decision cannot extend an existing single import")
+	require.Equal(t, before, after, "automatic pooling must not overwrite an existing provider")
 }
 
 func TestSharedAzurePoolEgressHonorsNoProxy(t *testing.T) {
