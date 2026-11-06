@@ -61,6 +61,10 @@ func (e *Engine) inferenceContext(parent context.Context) (*schemas.BifrostConte
 	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{})
 	ctx.SetValue(schemas.BifrostContextKeySkipKeySelection, false)
 	ctx.SetValue(schemas.BifrostContextKeyDirectKey, nil)
+	// Nested calls select their own credentials; their routing rules can set a new pin.
+	ctx.SetValue(schemas.BifrostContextKeyRoutingPinnedAPIKeyID, "")
+	ctx.SetValue(schemas.BifrostContextKeyAPIKeyID, "")
+	ctx.SetValue(schemas.BifrostContextKeyAPIKeyName, "")
 	ctx.SetValue(schemas.BifrostContextKeyURLPath, nil)
 	llm.SetSubscriptionAttempt(ctx, false)
 

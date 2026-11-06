@@ -406,3 +406,40 @@ func TestNativeJudgeDoesNotInheritSubscriptionCredentials(t *testing.T) {
 	require.Empty(t, headers.Get("Authorization"))
 	require.NoError(t, parent.Err(), "the judge cancels only its own inference context")
 }
+
+func TestNativeJudgeDoesNotInheritKeyPins(t *testing.T) {
+	received := make(chan http.Header, 1)
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received <- r.Header.Clone()
+		subscriptionReply(w, r)
+	}))
+	t.Cleanup(server.Close)
+	store := subscriptionStore(t)
+	require.NoError(t, store.CreateProvider(t.Context(), "anthropic", subscriptionProvider("judge-configured-key")))
+	engine, err := New(t.Context(), store, Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	subscriptionTransport(t, engine, server)
+
+	for _, key := range []schemas.BifrostContextKey{
+		schemas.BifrostContextKeyRoutingPinnedAPIKeyID,
+		schemas.BifrostContextKeyAPIKeyID,
+		schemas.BifrostContextKeyAPIKeyName,
+	} {
+		t.Run(string(key), func(t *testing.T) {
+			parent := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
+			defer parent.Cancel()
+			parent.SetValue(key, "outer-provider-key")
+			_, err := engine.ChatCompletion(parent, "anthropic/test", []schemas.ChatMessage{{
+				Role: schemas.ChatMessageRoleUser,
+				Content: &schemas.ChatMessageContent{
+					ContentStr: new("Judge this message"),
+				},
+			}})
+			require.NoError(t, err)
+			require.Equal(t, "judge-configured-key", (<-received).Get("X-Api-Key"))
+			require.Equal(t, "outer-provider-key", parent.Value(key), "child key selection must not change the parent's pin")
+			require.NoError(t, parent.Err())
+		})
+	}
+}
