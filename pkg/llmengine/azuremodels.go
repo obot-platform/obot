@@ -23,7 +23,7 @@ func (e *Engine) azureDeploymentModels(cfg llmcoreclient.Config, provider schema
 
 	discovered := e.discovery.snapshot(cfg, provider)
 	models := []schemas.Model{}
-	seen := map[string]bool{}
+	seen := map[string]struct{}{}
 
 	for _, key := range cfg.Keys[provider] {
 		if key.Enabled != nil && !*key.Enabled {
@@ -75,12 +75,13 @@ func (e *Engine) azureDeploymentModels(cfg llmcoreclient.Config, provider schema
 
 		for _, model := range entries {
 			// A retired contributor must not hide an eligible active account sharing this ID.
-			if seen[model.ID] || e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model)) {
+			_, exists := seen[model.ID]
+			if exists || e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model)) {
 				continue
 			}
 
 			models = append(models, model)
-			seen[model.ID] = true
+			seen[model.ID] = struct{}{}
 		}
 	}
 

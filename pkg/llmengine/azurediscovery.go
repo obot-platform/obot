@@ -271,15 +271,16 @@ func (entry *azureDiscoveryEntry) list(ctx context.Context, id string, metadata 
 
 	next := "https://management.azure.com" + id + "/deployments?api-version=2024-10-01"
 	names := []string{}
-	visited := map[string]bool{}
+	visited := map[string]struct{}{}
 
 	for next != "" {
+		_, seen := visited[next]
 		u, err := url.Parse(next)
-		if err != nil || u.Scheme != "https" || u.Host != "management.azure.com" || u.User != nil || !strings.EqualFold(u.Path, id+"/deployments") || visited[next] {
+		if err != nil || u.Scheme != "https" || u.Host != "management.azure.com" || u.User != nil || !strings.EqualFold(u.Path, id+"/deployments") || seen {
 			return nil, fmt.Errorf("invalid Azure deployment pagination URL")
 		}
 
-		visited[next] = true
+		visited[next] = struct{}{}
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, next, nil)
 		if err != nil {
 			return nil, err
