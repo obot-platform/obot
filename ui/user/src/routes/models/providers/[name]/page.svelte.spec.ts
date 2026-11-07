@@ -2,6 +2,7 @@ import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
 import { CHAT_COMPLETIONS_ONLY_REQUESTS } from '$lib/services/llm-gateway/providers';
 import { errors } from '$lib/stores';
+import { success } from '$lib/stores/success';
 import { goto } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
 import { worker } from '../../../../tests/mocks/worker';
@@ -78,6 +79,21 @@ afterEach(() => {
 });
 
 describe('LLM gateway provider page', () => {
+	it('reports a queued Azure refresh without issuing another sync request', async () => {
+		const { synced } = mockProvider({ provider: { ...openai, name: 'azure' }, keys: [] });
+		const notified = vi.spyOn(success, 'add');
+		worker.use(
+			http.post('/api/llm-gateway/admin/providers/azure/refresh-models', () =>
+				HttpResponse.json({ status: 'pending' }, { status: 202 })
+			)
+		);
+		await renderProviderPage([Group.ADMIN], 'azure');
+		await page.getByRole('button', { name: 'Refresh models', exact: true }).click();
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Model refresh requested.'));
+		expect(synced).not.toHaveBeenCalled();
+		notified.mockRestore();
+	});
+
 	it('shows the provider keys and models', async () => {
 		mockProvider();
 		await renderProviderPage();

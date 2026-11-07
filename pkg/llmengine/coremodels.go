@@ -24,6 +24,14 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	if !e.Ready() {
 		return nil, apierrors.NewServiceUnavailable("LLM gateway unavailable")
 	}
+
+	cfg, err := e.config(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Bifrost fans out across providers; share one immutable configuration snapshot.
+	ctx = context.WithValue(ctx, modelListingConfigKey{}, &cfg)
 	bctx, cancel := schemas.NewBifrostContextWithCancel(ctx)
 	defer cancel()
 	// Preserve provider lifecycle fields through the per-provider post-hook.
@@ -40,6 +48,7 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 	if engineErr != nil {
 		return nil, fmt.Errorf("model listing failed: %v", engineErr.Error)
 	}
+
 	for i := range out.Data {
 		model := &out.Data[i]
 		provider, id := schemas.ParseModelString(model.ID, "")
@@ -47,6 +56,11 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 		if model.Alias != nil {
 			id = *model.Alias
 		}
+
+		if base := azureBaseModel(*model); base != "" {
+			id = base
+		}
+
 		entry := e.prices.GetPricingEntryForModel(id, provider)
 		// Core lists provider data; the catalog fills details formerly added by the transport.
 		modelcatalog.ApplyModelInfo(model, entry)
@@ -65,7 +79,7 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 		}
 	}
 	out.Data = slices.DeleteFunc(out.Data, func(model schemas.Model) bool {
-		return model.IsDeprecated || e.modelWithAliasIsUnavailable(model.ID, model.Alias)
+		return model.IsDeprecated || e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model))
 	})
 	for _, model := range out.Data {
 		p, id, ok := strings.Cut(model.ID, "/")

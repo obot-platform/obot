@@ -327,6 +327,20 @@ func (h *Handler) SetModelProviderConfiguredStatus(req router.Request, _ router.
 	return nil
 }
 
+// RefreshAzureDeployments runs only on the leader router, before model back-population.
+// Runtime configuration application remains on the every-replica router.
+func (h *Handler) RefreshAzureDeployments(req router.Request, _ router.Response) error {
+	modelProvider := req.Object.(*v1.ModelProvider)
+	builtin, ok := h.dispatcher.BuiltinModelProvider(modelProvider.Namespace, modelProvider.Name)
+	if !ok || !builtin.Ready() {
+		return nil
+	}
+	if refresher, ok := builtin.(interface{ RefreshAzureDeployments(context.Context) error }); ok {
+		return refresher.RefreshAzureDeployments(req.Ctx)
+	}
+	return nil
+}
+
 func (h *Handler) BackPopulateModels(req router.Request, _ router.Response) error {
 	modelProvider := req.Object.(*v1.ModelProvider)
 	return BackPopulateModels(req.Ctx, req.Client, h.dispatcher, modelProvider)

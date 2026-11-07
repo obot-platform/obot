@@ -3,7 +3,6 @@ package llmgatewayconfig
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -24,12 +23,11 @@ type Handler struct {
 	running bool
 	pending bool
 
-	engine           Engine
-	triggerModelSync func(context.Context) error
+	engine Engine
 }
 
-func New(engine Engine, triggerModelSync func(context.Context) error) *Handler {
-	return &Handler{engine: engine, triggerModelSync: triggerModelSync}
+func New(engine Engine) *Handler {
+	return &Handler{engine: engine}
 }
 
 func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
@@ -51,9 +49,7 @@ func (h *Handler) Reconcile(req router.Request, resp router.Response) error {
 
 	for {
 		// Load the latest store state, including changes made during the previous pass.
-		_, syncErr := h.engine.Sync(req.Ctx)
-		// Discover partial successes and retry discovery even when Sync reports no change.
-		err := errors.Join(syncErr, h.triggerModelSync(req.Ctx))
+		_, err := h.engine.Sync(req.Ctx)
 
 		h.mu.Lock()
 		if err != nil || !h.pending {

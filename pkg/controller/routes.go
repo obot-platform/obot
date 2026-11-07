@@ -73,6 +73,7 @@ func (c *Controller) setupRoutes() {
 
 	// ModelProviders
 	root.Type(&v1.ModelProvider{}).HandlerFunc(providers.SetModelProviderConfiguredStatus)
+	root.Type(&v1.ModelProvider{}).HandlerFunc(providers.RefreshAzureDeployments)
 	root.Type(&v1.ModelProvider{}).HandlerFunc(providers.BackPopulateModels)
 	root.Type(&v1.ModelProvider{}).FinalizeFunc(v1.ModelProviderFinalizer, providers.CleanupModelProvider)
 

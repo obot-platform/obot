@@ -27,6 +27,36 @@ describe('provider authentication', () => {
 		}
 	});
 
+	it('discovers Azure deployments using the three account fields and Entra credentials', async () => {
+		const saved = vi.fn();
+		worker.use(
+			http.post('/api/llm-gateway/admin/providers/:provider/keys', async ({ request }) => {
+				saved(await request.json());
+				return HttpResponse.json({ id: 'key' });
+			})
+		);
+		const dialog = await renderOpenDialog(ProviderKeyDialog, { provider: 'azure' });
+		await dialog.getByRole('radio', { name: 'Microsoft Entra ID', exact: true }).click();
+		await dialog
+			.getByLabelText('Endpoint', { exact: false })
+			.fill('https://account.openai.azure.com');
+		await dialog.getByLabelText('Entra Client ID', { exact: false }).fill('client');
+		await dialog.getByLabelText('Entra Client Secret', { exact: false }).fill('secret');
+		await dialog.getByLabelText('Entra Tenant ID', { exact: false }).fill('tenant');
+		await dialog.getByLabelText('Subscription ID', { exact: true }).fill('sub');
+		await expect.element(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await dialog.getByLabelText('Resource Group', { exact: true }).fill('group');
+		await dialog.getByLabelText('Account Name', { exact: true }).fill('account');
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+		expect(saved.mock.calls[0][0]).toMatchObject({
+			azure_subscription_id: 'sub',
+			azure_resource_group: 'group',
+			azure_account_name: 'account',
+			models: ['*']
+		});
+	});
+
 	for (const provider of ['bedrock', 'azure']) {
 		const aws = provider === 'bedrock';
 		const method = aws ? 'AWS credentials' : 'Microsoft Entra ID';
@@ -80,8 +110,15 @@ describe('provider authentication', () => {
 				await dialog.getByRole('radio', { name: 'API Key', exact: true }).click();
 				await expect.element(dialog.getByLabelText(apiKeyLabel)).toHaveValue('api-secret');
 				await dialog.getByRole('radio', { name: method, exact: true }).click();
+				if (!aws) {
+					await expect
+						.element(dialog.getByLabelText('Allowed models', { exact: true }))
+						.toHaveValue('');
+					await dialog.getByLabelText('Allowed models', { exact: true }).fill('my-deployment');
+				}
 				await submit.click();
 				await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+				if (!aws) expect(saved.mock.calls[0][0].models).toEqual(['my-deployment']);
 				expect(saved.mock.calls[0][0]).toMatchObject({
 					value: '',
 					[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
@@ -108,6 +145,9 @@ describe('provider authentication', () => {
 			const key = {
 				id: 'key',
 				name: 'existing',
+				azure_subscription_id: aws ? undefined : 'sub',
+				azure_resource_group: aws ? undefined : 'group',
+				azure_account_name: aws ? undefined : 'account',
 				value: '',
 				models: ['*'],
 				weight: 1,
@@ -127,6 +167,17 @@ describe('provider authentication', () => {
 			component.open(key);
 			const dialog = page.getByRole('dialog');
 			await expect.element(dialog.getByRole('radio', { name: method, exact: true })).toBeChecked();
+			if (!aws) {
+				await expect
+					.element(dialog.getByLabelText('Subscription ID', { exact: true }))
+					.toHaveValue('sub');
+				await expect
+					.element(dialog.getByLabelText('Resource Group', { exact: true }))
+					.toHaveValue('group');
+				await expect
+					.element(dialog.getByLabelText('Account Name', { exact: true }))
+					.toHaveValue('account');
+			}
 			const submit = dialog.getByRole('button', { name: 'Save', exact: true });
 			await expect.element(submit).toBeEnabled();
 			await submit.click();

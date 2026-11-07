@@ -75,7 +75,7 @@ func subscriptionDestination(cfg *llmcoreclient.Config) bool {
 			return false
 		}
 	}
-	if proxy := providerProxy(pc, cfg.Settings["proxy"]); proxy != nil && (proxy.SkipTLSVerify || proxy.CACertPEM.IsSet()) {
+	if proxy := ProviderProxy(pc, cfg.Settings["proxy"]); proxy != nil && (proxy.SkipTLSVerify || proxy.CACertPEM.IsSet()) {
 		return false
 	}
 	if nc.BaseURL == "" {

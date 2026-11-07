@@ -10,10 +10,12 @@ import (
 
 // Config is a decoded desired configuration assembled from independent resources.
 type Config struct {
-	Providers map[schemas.ModelProvider]schemas.ProviderConfig
-	Keys      map[schemas.ModelProvider][]schemas.Key
-	Rules     map[string]configstoreTables.TableRoutingRule
-	Settings  map[string]json.RawMessage
+	AzureDiscoveries map[schemas.ModelProvider]map[string]AzureDiscoverySnapshot
+	AzureAccounts    map[schemas.ModelProvider]map[string]AzureAccount
+	Providers        map[schemas.ModelProvider]schemas.ProviderConfig
+	Keys             map[schemas.ModelProvider][]schemas.Key
+	Rules            map[string]configstoreTables.TableRoutingRule
+	Settings         map[string]json.RawMessage
 }
 
 // LoadResult separates usable desired state from providers that could not be read.

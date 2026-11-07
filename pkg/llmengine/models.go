@@ -37,6 +37,8 @@ const (
 )
 
 type listedModel struct {
+	// Keep the resolved base model in the last-known cache without changing wire IDs.
+	BaseModel      string  `json:"-"`
 	ID             string  `json:"id"`
 	Alias          *string `json:"alias,omitempty"`
 	Name           string  `json:"name"`
@@ -108,14 +110,32 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 		return nil, err
 	}
 
+	// ProviderExtra is intentionally absent from JSON; preserve it in the internal listing cache.
+	for i, model := range models {
+		resp.Data[i].BaseModel = azureBaseModel(model)
+	}
+
 	resp.Data = e.withLastKnownModels(ctx, resp.Data)
+	ids := make([]string, 0, len(resp.Data))
+
+	for _, model := range resp.Data {
+		ids = append(ids, model.ID)
+	}
+
+	unavailable, err := e.UnavailableModels(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool { return unavailable[model.ID] })
+
 	// Added after the last known models are recorded: they aren't a listing of the provider,
 	// so they mustn't stand in for one once subscriptions are turned off or keys are added.
 	resp.Data = append(resp.Data, e.claudeSubscriptionModels(ctx)...)
 	// A failed or empty listing may reuse cached entries. Recheck lifecycle
 	// metadata so that fallback cannot resurrect a now-unavailable model.
 	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool {
-		return e.modelWithAliasIsUnavailable(model.ID, model.Alias)
+		return e.modelMetadataIsUnavailable(model.ID, model.Alias, model.BaseModel)
 	})
 
 	result := &openai.ModelsList{Models: make([]openai.Model, 0, len(resp.Data))}
@@ -136,9 +156,14 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 			displayName = modelID
 		}
 
+		usageModel := modelID
+		if m.BaseModel != "" {
+			usageModel = m.BaseModel
+		}
+
 		metadata := map[string]string{
 			"displayName":    fmt.Sprintf("%s (%s)", displayName, provider),
-			"usage":          string(modelUsage(modelID, m)),
+			"usage":          string(modelUsage(usageModel, m)),
 			"dialect":        string(DialectForModel(provider, modelID)),
 			MetadataProvider: provider,
 		}

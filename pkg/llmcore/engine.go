@@ -22,6 +22,7 @@ import (
 	"time"
 
 	bifrost "github.com/maximhq/bifrost/core"
+	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/streaming"
@@ -93,7 +94,50 @@ func (a *account) GetKeysForProvider(_ context.Context, provider schemas.ModelPr
 	if _, blocked := a.transitioning.Load(provider); blocked {
 		return nil, fmt.Errorf("provider %s is being reconfigured", provider)
 	}
-	return a.config.Load().Keys[provider], nil
+
+	cfg := a.config.Load()
+	keys := cfg.Keys[provider]
+	pc := cfg.Providers[provider]
+	azure := provider == schemas.Azure || (pc.CustomProviderConfig != nil && pc.CustomProviderConfig.BaseProviderType == schemas.Azure)
+	if !azure || len(cfg.AzureAccounts[provider]) == 0 {
+		return keys, nil
+	}
+
+	// Bifrost filters on the requested name before resolving its per-key alias.
+	// Only the runtime copies are narrowed; saved policies remain authoritative.
+	keys = slices.Clone(keys)
+	for i := range keys {
+		key := &keys[i]
+		account := cfg.AzureAccounts[provider][key.ID]
+		if account == (llmcoreclient.AzureAccount{}) {
+			continue
+		}
+
+		snapshot, ok := cfg.AzureDiscoveries[provider][key.ID]
+		pipeline := providerUtils.ListModelsPipeline{
+			AllowedModels:     key.Models,
+			BlacklistedModels: key.BlacklistedModels,
+			Aliases:           key.Aliases,
+			MatchFns:          providerUtils.DefaultMatchFns(),
+		}
+		key.Models = nil
+		if !ok || snapshot.Fingerprint != llmcoreclient.AzureDiscoveryFingerprint(*key, account) || pipeline.ShouldEarlyExit() {
+			continue
+		}
+
+		for _, deployment := range snapshot.Names {
+			for _, match := range pipeline.FilterModel(deployment) {
+				// An alias can shadow a discovered name; authorize its actual wire target only.
+				if key.Aliases.Resolve(match.ResolvedID) != deployment {
+					continue
+				}
+
+				key.Models = append(key.Models, match.ResolvedID)
+			}
+		}
+	}
+
+	return keys, nil
 }
 
 func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas.ProviderConfig, error) {
@@ -119,7 +163,7 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 	}
 	pc.CheckAndSetDefaults()
 
-	pc.ProxyConfig = providerProxy(pc, cfg.Settings["proxy"])
+	pc.ProxyConfig = ProviderProxy(pc, cfg.Settings["proxy"])
 	return &pc, nil
 }
 
@@ -136,10 +180,10 @@ func validateProviderQueue(provider schemas.ModelProvider, pc schemas.ProviderCo
 	return nil
 }
 
-// providerProxy returns the effective inference proxy, including provider overrides.
+// ProviderProxy returns the effective inference proxy, including provider overrides.
 // Compare this value during reconciliation so unrelated or cosmetic global edits
 // do not restart providers whose network behavior has not changed.
-func providerProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
+func ProviderProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
 	pc.CheckAndSetDefaults()
 	// An empty proxy object, like NoProxy, is unconfigured and must inherit
 	// an enabled global inference proxy.
@@ -263,7 +307,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 			}
 			continue
 		}
-		e.appliedProxy[name] = providerProxy(cfg.Providers[name], cfg.Settings["proxy"])
+		e.appliedProxy[name] = ProviderProxy(cfg.Providers[name], cfg.Settings["proxy"])
 	}
 	e.syncErr = errors.Join(startupErrors...)
 	return e, nil
@@ -348,7 +392,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
 	retiring := make(map[schemas.ModelProvider]struct{})
 	for name, pc := range cfg.Providers {
-		proxy := providerProxy(pc, cfg.Settings["proxy"])
+		proxy := ProviderProxy(pc, cfg.Settings["proxy"])
 		_, pending := e.account.transitioning.Load(name)
 		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			updates[name] = proxy

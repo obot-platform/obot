@@ -40,7 +40,13 @@
 	let enabled = $state(true);
 	let saving = $state(false);
 	let error = $state('');
+	let azureAccount = $state<Record<string, string>>({ subscription: '', group: '', account: '' });
+	let hasAzureAccount = $derived(Object.values(azureAccount).every((v) => v.trim()));
+	let accountComplete = $derived(
+		!Object.values(azureAccount).some((v) => v.trim()) || hasAzureAccount
+	);
 
+	let azure = $derived((baseProvider ?? provider) === 'azure');
 	let entry = $derived(catalogEntry(baseProvider ?? provider));
 	let allFields = $derived<KeyField[]>(
 		catalogEntry(baseProvider ?? provider)?.keyFields ?? [
@@ -59,6 +65,11 @@
 
 	export function open(key?: ProviderKey) {
 		editing = key;
+		azureAccount = {
+			subscription: key?.azure_subscription_id ?? '',
+			group: key?.azure_resource_group ?? '',
+			account: key?.azure_account_name ?? ''
+		};
 		error = '';
 		values = {};
 		if (key) {
@@ -77,7 +88,7 @@
 			}
 		} else {
 			name = defaultName();
-			models = '*';
+			models = azure ? '' : '*';
 			blacklisted = '';
 			weight = 1;
 			enabled = true;
@@ -100,7 +111,8 @@
 	// Method-specific secrets must be present, even on edits: the newly selected method
 	// cannot reuse the other method’s credentials. Saved masked values count as present.
 	let valid = $derived(
-		name.trim().length > 0 &&
+		(!(azure && authenticationMethod === 'credentials') || accountComplete) &&
+			name.trim().length > 0 &&
 			fields.every(
 				(f) =>
 					!f.required ||
@@ -115,11 +127,20 @@
 		try {
 			const body: Record<string, unknown> = {
 				name: name.trim(),
-				models: split(models).length ? split(models) : ['*'],
+				models: split(models).length ? split(models) : azure && !hasAzureAccount ? [] : ['*'],
 				blacklisted_models: split(blacklisted),
 				weight: Number(weight) || 1,
 				enabled
 			};
+			if (azure) {
+				// Explicit blanks clear discovery metadata when switching to API-key authentication.
+				body.azure_subscription_id =
+					authenticationMethod === 'credentials' ? azureAccount.subscription.trim() : '';
+				body.azure_resource_group =
+					authenticationMethod === 'credentials' ? azureAccount.group.trim() : '';
+				body.azure_account_name =
+					authenticationMethod === 'credentials' ? azureAccount.account.trim() : '';
+			}
 			if (!fields.some((f) => f.path === 'value')) body.value = '';
 			// Replace authentication as a whole. Explicit blanks remove inactive credentials
 			// even when the API merges nested configuration instead of replacing it.
@@ -215,6 +236,22 @@
 			</div>
 		{/each}
 
+		{#if azure && authenticationMethod === 'credentials'}
+			{#each [{ key: 'subscription', label: m.models_providers_azure_subscription_id() }, { key: 'group', label: m.models_providers_azure_resource_group() }, { key: 'account', label: m.models_providers_azure_account_name() }] as field (field.key)}
+				<div class="flex flex-col gap-1">
+					<label for={`azure-${field.key}`} class="text-sm font-light">{field.label}</label>
+					<input
+						id={`azure-${field.key}`}
+						class="text-input-filled"
+						bind:value={azureAccount[field.key]}
+						aria-describedby="azure-resource-help"
+					/>
+				</div>
+			{/each}
+			<span id="azure-resource-help" class="text-muted-content text-xs"
+				>{m.models_providers_azure_resource_help()}</span
+			>
+		{/if}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<div class="flex flex-col gap-1">
 				<label for="key-models" class="text-sm font-light"
@@ -227,8 +264,14 @@
 					placeholder={m.models_providers_key_allowed_models_placeholder()}
 				/>
 				<span class="text-muted-content text-xs"
-					>{m.models_providers_key_comma_separated()} <code>*</code>
-					{m.models_providers_key_star_allows_all()}</span
+					>{#if azure}
+						{hasAzureAccount && authenticationMethod === 'credentials'
+							? m.models_providers_azure_resource_help()
+							: m.models_providers_azure_deployments_help()}
+					{:else}
+						{m.models_providers_key_comma_separated()} <code>*</code>
+						{m.models_providers_key_star_allows_all()}
+					{/if}</span
 				>
 			</div>
 			<div class="flex flex-col gap-1">

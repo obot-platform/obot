@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 )
 
 // modelAvailability preserves provider availability metadata before Bifrost
@@ -17,19 +18,52 @@ import (
 type modelAvailability struct {
 	mu          sync.RWMutex
 	unavailable map[string]bool
+	engine      *Engine
 }
 
 type modelAvailabilityProviderKey struct{}
+
+type modelListingConfigKey struct{}
 
 func (*modelAvailability) GetName() string { return "obot-model-availability" }
 
 func (*modelAvailability) Cleanup() error { return nil }
 
-func (*modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
 	if req.ListModelsRequest != nil {
 		ctx.SetValue(modelAvailabilityProviderKey{}, req.ListModelsRequest.Provider)
+		if m.engine != nil {
+			shared, ok := ctx.Value(modelListingConfigKey{}).(*llmcoreclient.Config)
+			if !ok {
+				cfg, err := m.engine.config(ctx)
+				if err != nil {
+					return req, modelListingError(err), nil
+				}
+
+				shared = &cfg
+			}
+			cfg := *shared
+
+			provider := req.ListModelsRequest.Provider
+			if isAzureProvider(cfg, provider) {
+				models, _ := m.engine.azureDeploymentModels(cfg, provider)
+
+				return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
+					ListModelsResponse: &schemas.BifrostListModelsResponse{Data: models},
+				}}, nil
+			}
+		}
 	}
 	return req, nil, nil
+}
+
+// Bifrost logs plain hook errors and continues to the provider; terminal failures
+// must use its short-circuit contract to prevent Azure offerings from leaking through.
+func modelListingError(err error) *schemas.LLMPluginShortCircuit {
+	return &schemas.LLMPluginShortCircuit{Error: &schemas.BifrostError{
+		IsBifrostError: true, StatusCode: new(502), AllowFallbacks: new(false),
+		Error: &schemas.ErrorField{Message: err.Error()},
+	}}
 }
 
 func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schemas.BifrostResponse, err *schemas.BifrostError) (*schemas.BifrostResponse, *schemas.BifrostError, error) {
@@ -138,9 +172,12 @@ func (e *Engine) modelIsUnavailable(id string) bool {
 	return false
 }
 
-func (e *Engine) modelWithAliasIsUnavailable(id string, alias *string) bool {
+func (e *Engine) modelMetadataIsUnavailable(id string, alias *string, base string) bool {
 	provider, _, qualified := strings.Cut(id, "/")
-	if qualified && alias != nil {
+	if qualified && base != "" {
+		// A deployment or alias can reuse a retired name while its discovered base model is active.
+		id = provider + "/" + base
+	} else if qualified && alias != nil {
 		// An alias name can coincide with a retired model; its target determines availability.
 		id = provider + "/" + *alias
 	}
@@ -175,9 +212,30 @@ func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[strin
 		return nil, err
 	}
 	unavailable := make(map[string]bool)
+
+	// Resolve membership and base-model lifecycle once per provider, including cached IDs.
+	azureUnavailable := map[schemas.ModelProvider]map[string]bool{}
+
 	for _, id := range ids {
 		provider, _, _ := strings.Cut(id, "/")
-		if e.modelWithKeysIsUnavailable(id, cfg.Keys[schemas.ModelProvider(provider)]) {
+		name := schemas.ModelProvider(provider)
+		if isAzureProvider(cfg, name) {
+			if azureUnavailable[name] == nil {
+				models, _ := e.azureDeploymentModels(cfg, name)
+				azureUnavailable[name] = make(map[string]bool, len(models))
+				for _, model := range models {
+					azureUnavailable[name][model.ID] = e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model))
+				}
+			}
+
+			retired, member := azureUnavailable[name][id]
+			if !member || retired {
+				unavailable[id] = true
+			}
+			continue
+		}
+
+		if e.modelWithKeysIsUnavailable(id, cfg.Keys[name]) {
 			unavailable[id] = true
 		}
 	}

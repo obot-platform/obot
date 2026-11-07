@@ -34,9 +34,11 @@
 	let search = $state('');
 	let authenticationMethod = $state('api-key');
 	let values = $state<Record<string, string>>({});
+	let deployments = $state('');
 	let baseURL = $state('');
 	let customName = $state('');
 	let customBase = $state('openai');
+	let azure = $derived(selected === 'custom' ? customBase === 'azure' : selected?.id === 'azure');
 	let keyless = $state(false);
 	// Whether a custom OpenAI-compatible server serves the Responses API as well as Chat
 	// Completions. Many self-hosted servers serve only Chat Completions.
@@ -44,6 +46,11 @@
 	let allowPrivate = $state(false);
 	let saving = $state(false);
 	let error = $state('');
+	let azureAccount = $state<Record<string, string>>({ subscription: '', group: '', account: '' });
+	let hasAzureAccount = $derived(Object.values(azureAccount).every((v) => v.trim()));
+	let accountComplete = $derived(
+		!Object.values(azureAccount).some((v) => v.trim()) || hasAzureAccount
+	);
 	// Opened for one provider, from its card, rather than to pick one.
 	let direct = $state(false);
 
@@ -61,6 +68,8 @@
 	function reset() {
 		authenticationMethod = 'api-key';
 		values = {};
+		deployments = '';
+		azureAccount = { subscription: '', group: '', account: '' };
 		baseURL = '';
 		customName = '';
 		customBase = 'openai';
@@ -93,7 +102,8 @@
 	let providerID = $derived(selected === 'custom' ? customName.trim() : (selected?.id ?? ''));
 
 	let valid = $derived(
-		!!providerID &&
+		(!(azure && authenticationMethod === 'credentials') || accountComplete) &&
+			!!providerID &&
 			(selected !== 'custom' ||
 				(/^[a-z0-9][a-z0-9_-]*$/.test(providerID) &&
 					!configured.includes(providerID) &&
@@ -139,10 +149,21 @@
 			if (hasKeyValues) {
 				const key: Record<string, unknown> = {
 					name: keyName(),
-					models: ['*'],
+					models:
+						azure && (deployments.trim() || !hasAzureAccount)
+							? deployments
+									.split(',')
+									.map((name) => name.trim())
+									.filter(Boolean)
+							: ['*'],
 					weight: 1,
 					enabled: true
 				};
+				if (azure && authenticationMethod === 'credentials') {
+					key.azure_subscription_id = azureAccount.subscription.trim();
+					key.azure_resource_group = azureAccount.group.trim();
+					key.azure_account_name = azureAccount.account.trim();
+				}
 				if (!fields.some((f) => f.path === 'value')) key.value = '';
 				for (const f of fields) {
 					const v = values[f.path]?.trim();
@@ -333,6 +354,41 @@
 				</div>
 			{/each}
 
+			{#if azure && authenticationMethod === 'credentials'}
+				{#each [{ key: 'subscription', label: m.models_providers_azure_subscription_id() }, { key: 'group', label: m.models_providers_azure_resource_group() }, { key: 'account', label: m.models_providers_azure_account_name() }] as field (field.key)}
+					<div class="flex flex-col gap-1">
+						<label for={`azure-${field.key}`} class="text-sm font-light">{field.label}</label>
+						<input
+							id={`azure-${field.key}`}
+							class="text-input-filled"
+							bind:value={azureAccount[field.key]}
+							aria-describedby="azure-resource-help"
+						/>
+					</div>
+				{/each}
+				<span id="azure-resource-help" class="text-muted-content text-xs"
+					>{m.models_providers_azure_resource_help()}</span
+				>
+			{/if}
+
+			{#if azure}
+				<div class="flex flex-col gap-1">
+					<label for="new-deployments" class="text-sm font-light"
+						>{m.models_providers_key_allowed_models()}</label
+					>
+					<input
+						id="new-deployments"
+						class="text-input-filled"
+						bind:value={deployments}
+						aria-describedby="new-deployments-help"
+					/>
+					<span id="new-deployments-help" class="text-muted-content text-xs"
+						>{hasAzureAccount && authenticationMethod === 'credentials'
+							? m.models_providers_azure_resource_help()
+							: m.models_providers_azure_deployments_help()}</span
+					>
+				</div>
+			{/if}
 			<div class="flex flex-col gap-1">
 				<label for="new-base-url" class="text-sm font-light">
 					{m.models_providers_base_url()}
