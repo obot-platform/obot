@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -9,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
+	"github.com/obot-platform/obot/pkg/modeldata"
 	"github.com/obot-platform/obot/pkg/modeldata/modeldatatest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -32,7 +34,7 @@ func (l azureRetentionLister) ListModels(context.Context) (*openai.ModelsList, e
 }
 
 func TestAzureFreshEngineControllerRetention(t *testing.T) {
-	for _, outcome := range []string{"outage", "credentials changed", "account changed", "confirmed empty"} {
+	for _, outcome := range []string{"outage", "credentials changed", "account changed", "confirmed empty", "base model deprecated"} {
 		t.Run(outcome, func(t *testing.T) {
 			mp := llmengine.ModelProviderResource()
 			mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
@@ -52,7 +54,11 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 			account := llmcoreclient.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
 			require.NoError(t, store.CreateProvider(t.Context(), "azure", llmcoreclient.Provider{Keys: []schemas.Key{key}, AzureAccounts: map[string]llmcoreclient.AzureAccount{key.ID: account}}))
 
-			snapshot := llmcoreclient.AzureDiscoverySnapshot{Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account), Names: []string{"deployment"}}
+			snapshot := llmcoreclient.AzureDiscoverySnapshot{
+				Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account),
+				Names:       []string{"deployment"},
+				BaseModels:  map[string]string{"deployment": "gpt-4o"},
+			}
 			_, version, err := store.GetProviderWithVersion(t.Context(), "azure")
 			require.NoError(t, err)
 			require.NoError(t, store.SaveAzureDiscoveries(t.Context(), "azure", version, map[string]llmcoreclient.AzureDiscoverySnapshot{key.ID: snapshot}))
@@ -99,6 +105,9 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 
 					return nil
 				}))
+			case "base model deprecated":
+				pricingPath, _ := modeldata.Paths(dir)
+				require.NoError(t, os.WriteFile(pricingPath, []byte(`{"gpt-4o":{"provider":"azure","mode":"chat","is_deprecated":true}}`), 0600))
 			case "confirmed empty":
 				snapshot.Names = []string{}
 				_, version, err = store.GetProviderWithVersion(t.Context(), "azure")

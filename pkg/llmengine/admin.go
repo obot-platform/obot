@@ -408,17 +408,22 @@ func (e *Engine) ListCatalogModels(ctx context.Context, provider, query string) 
 		}
 
 		names := e.prices.GetUnfilteredModelsForProvider(name)
-		if models, azure := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name)); azure {
+		models, azure := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name))
+		if azure {
 			names = nil
 
 			for _, model := range models {
+				if e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model)) {
+					continue
+				}
+
 				_, id, _ := strings.Cut(model.ID, "/")
 				names = append(names, id)
 			}
 		}
 
 		for _, model := range names {
-			if e.modelWithKeysIsUnavailable(string(name)+"/"+model, cfg.Keys[name]) {
+			if !azure && e.modelWithKeysIsUnavailable(string(name)+"/"+model, cfg.Keys[name]) {
 				continue
 			}
 			if query != "" && !strings.Contains(strings.ToLower(model), strings.ToLower(query)) {

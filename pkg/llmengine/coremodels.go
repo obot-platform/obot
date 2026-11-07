@@ -57,7 +57,7 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 			id = *model.Alias
 		}
 
-		if base := e.discovery.baseModel(cfg, provider, id); base != "" {
+		if base := azureBaseModel(*model); base != "" {
 			id = base
 		}
 
@@ -79,7 +79,7 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 		}
 	}
 	out.Data = slices.DeleteFunc(out.Data, func(model schemas.Model) bool {
-		return model.IsDeprecated || e.modelWithAliasIsUnavailable(model.ID, model.Alias)
+		return model.IsDeprecated || e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model))
 	})
 	for _, model := range out.Data {
 		p, id, ok := strings.Cut(model.ID, "/")

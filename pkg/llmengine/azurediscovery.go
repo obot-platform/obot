@@ -345,17 +345,3 @@ func providerViewWithIDs(name schemas.ModelProvider, pc schemas.ProviderConfig, 
 
 	return view
 }
-
-// Deployment names remain the wire IDs; catalog metadata belongs to the underlying model.
-func (*azureDiscovery) baseModel(cfg llmcoreclient.Config, provider schemas.ModelProvider, deployment string) string {
-	for _, key := range cfg.Keys[provider] {
-		snapshot, ok := cfg.AzureDiscoveries[provider][key.ID]
-		if ok && (key.Enabled == nil || *key.Enabled) && snapshot.Fingerprint == llmcoreclient.AzureDiscoveryFingerprint(key, cfg.AzureAccounts[provider][key.ID]) {
-			if name := snapshot.BaseModels[deployment]; name != "" {
-				return name
-			}
-		}
-	}
-
-	return ""
-}

@@ -306,7 +306,6 @@ func TestAzureInFlightSnapshotCannotFollowCredentialEdit(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, current.AzureDiscoveries[schemas.Azure])
 	require.Empty(t, e.discovery.snapshot(current, schemas.Azure)["key"])
-	require.Empty(t, e.discovery.baseModel(current, schemas.Azure, "old-account-deployment"))
 }
 
 func TestAzureFormerLeaderCannotOverwriteNewOwner(t *testing.T) {
