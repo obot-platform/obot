@@ -327,22 +327,6 @@
 				/>
 			{/if}
 
-			{#if azure && authenticationMethod === 'credentials'}
-				{#each [{ key: 'subscription', label: m.models_providers_azure_subscription_id() }, { key: 'group', label: m.models_providers_azure_resource_group() }, { key: 'account', label: m.models_providers_azure_account_name() }] as field (field.key)}
-					<div class="flex flex-col gap-1">
-						<label for={`azure-${field.key}`} class="text-sm font-light">{field.label}</label>
-						<input
-							id={`azure-${field.key}`}
-							class="text-input-filled"
-							bind:value={azureAccount[field.key]}
-							aria-describedby="azure-resource-help"
-						/>
-					</div>
-				{/each}
-				<span id="azure-resource-help" class="text-muted-content text-xs"
-					>{m.models_providers_azure_resource_help()}</span
-				>
-			{/if}
 			{#each fields as field (field.path)}
 				<div class="flex flex-col gap-1">
 					<label for={`new-${field.path}`} class="text-sm font-light">
@@ -369,6 +353,23 @@
 					{/if}
 				</div>
 			{/each}
+
+			{#if azure && authenticationMethod === 'credentials'}
+				{#each [{ key: 'subscription', label: m.models_providers_azure_subscription_id() }, { key: 'group', label: m.models_providers_azure_resource_group() }, { key: 'account', label: m.models_providers_azure_account_name() }] as field (field.key)}
+					<div class="flex flex-col gap-1">
+						<label for={`azure-${field.key}`} class="text-sm font-light">{field.label}</label>
+						<input
+							id={`azure-${field.key}`}
+							class="text-input-filled"
+							bind:value={azureAccount[field.key]}
+							aria-describedby="azure-resource-help"
+						/>
+					</div>
+				{/each}
+				<span id="azure-resource-help" class="text-muted-content text-xs"
+					>{m.models_providers_azure_resource_help()}</span
+				>
+			{/if}
 
 			{#if azure}
 				<div class="flex flex-col gap-1">
