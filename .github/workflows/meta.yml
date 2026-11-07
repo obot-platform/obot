@@ -1,0 +1,88 @@
+name: Meta
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'feat/*'
+    paths:
+      - .claude/**
+      - adr/**
+      - '*.md'
+      - .github/workflows/meta.yml
+
+jobs:
+  # Branch protection requires checks named lint and build, and go.yml,
+  # test.yaml and test-docker-build.yml skip changes that only touch these paths.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate skill frontmatter
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          files=(.claude/skills/*/SKILL.md)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No skills found under .claude/skills."
+            exit 0
+          fi
+
+          status=0
+          for f in "${files[@]}"; do
+            if [ "$(head -n 1 "$f" | tr -d '\r')" != "---" ]; then
+              echo "::error file=$f::$f must start with YAML frontmatter (first line must be ---)."
+              status=1
+              continue
+            fi
+
+            # Lines between the opening and closing --- markers.
+            if ! frontmatter=$(awk 'NR == 1 { next } /^---[[:space:]]*$/ { found = 1; exit } { print } END { if (!found) exit 1 }' "$f"); then
+              echo "::error file=$f::$f has no closing --- for its YAML frontmatter."
+              status=1
+              continue
+            fi
+
+            for key in name description; do
+              # Accepts an inline value, or a block scalar (>, |) or empty value
+              # followed by an indented, non-empty line.
+              value=$(printf '%s\n' "$frontmatter" | tr -d '\r' | awk -v k="$key" '
+                pending && /^[[:space:]]+[^[:space:]]/ { print "(multiline)"; exit }
+                pending { exit }
+                index($0, k ":") == 1 {
+                  v = substr($0, length(k) + 2)
+                  gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+                  if (v == "" || v ~ /^[>|][-+]?[0-9]?[-+]?$/) { pending = 1; next }
+                  if (v == "\"\"" || v == "\047\047") exit
+                  print v
+                  exit
+                }')
+              if [ -z "$value" ]; then
+                echo "::error file=$f::$f frontmatter must contain a non-empty '$key:' key."
+                status=1
+              fi
+            done
+          done
+
+          if [ "$status" -eq 0 ]; then
+            echo "All ${#files[@]} skill files have valid frontmatter."
+          fi
+          exit "$status"
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # This job exists only to satisfy the required build check for PRs that
+      # skip the Go and Docker workflows because they only touch these paths.
+      - name: Nothing to build
+        run: echo "No build required for skill, ADR, or top-level Markdown changes."

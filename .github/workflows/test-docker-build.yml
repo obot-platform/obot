@@ -12,6 +12,9 @@ on:
     paths-ignore:
       - docs/**
       - chart/**
+      - .claude/**
+      - adr/**
+      - '*.md'
 
 jobs:
   build:
