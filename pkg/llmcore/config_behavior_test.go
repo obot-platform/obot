@@ -30,19 +30,75 @@ func configTestChat(engine *llmcore.Engine, query string) *httptest.ResponseReco
 
 func TestEmptyProviderProxyUsesGlobalInferenceProxy(t *testing.T) {
 	var directCalls, proxyCalls atomic.Int64
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
+			return
+		}
 		directCalls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, configTestChatResponse)
 	}))
 	defer upstream.Close()
-	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The HTTP dialer may establish a CONNECT tunnel before the inference POST.
-		if r.Method == http.MethodPost {
-			proxyCalls.Add(1)
+	serveProxiedRequest := func(w http.ResponseWriter, r *http.Request) {
+		// Discovery probes do not represent inference traffic through the proxy.
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
+			return
 		}
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("unexpected proxied request %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected inference request", http.StatusBadRequest)
+			return
+		}
+		proxyCalls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, configTestChatResponse)
+	}
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect {
+			serveProxiedRequest(w, r)
+			return
+		}
+		if r.Host != strings.TrimPrefix(upstream.URL, "http://") {
+			t.Errorf("unexpected CONNECT destination %s", r.Host)
+			http.Error(w, "unexpected proxy destination", http.StatusBadRequest)
+			return
+		}
+		// fasthttp establishes CONNECT even for an HTTP provider. A JSON response
+		// to CONNECT is not a tunnel: acknowledge it, then serve the nested HTTP request.
+		connection, buffered, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer connection.Close()
+		if _, err := io.WriteString(buffered, "HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := buffered.Flush(); err != nil {
+			t.Error(err)
+			return
+		}
+		tunneled, err := http.ReadRequest(buffered.Reader)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer tunneled.Body.Close()
+		response := httptest.NewRecorder()
+		serveProxiedRequest(response, tunneled)
+		result := response.Result()
+		defer result.Body.Close()
+		result.Close = true
+		if err := result.Write(buffered); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := buffered.Flush(); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer proxy.Close()
 	store := newTestStore(t)

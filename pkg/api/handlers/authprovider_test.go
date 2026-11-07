@@ -21,8 +21,10 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/watch"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 type failProviderChangeCreateStorage struct {
@@ -104,12 +106,14 @@ func TestConfigureAuthProviderStagesCredentialAndWaitsForChangeDeletion(t *testi
 			},
 		},
 	}
-	storage := newAuthProviderTestStorage(authProvider)
+	storage, watching := providerChangeWatchTestStorage(newAuthProviderTestStorage(authProvider))
 	gatewayClient := newHandlerTestGateway(t)
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
 	providerDispatcher := dispatcher.New(nil, storage, gatewayClient, licenseProvider, "", "", "")
-	request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/google-auth-provider/configure", bytes.NewBufferString(`{"CLIENT_SECRET":"secret","EMPTY":""}`))
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/auth-providers/google-auth-provider/configure", bytes.NewBufferString(`{"CLIENT_SECRET":"secret","EMPTY":""}`))
 	request.SetPathValue("id", authProvider.Name)
 	req := api.Context{
 		ResponseWriter: httptest.NewRecorder(),
@@ -143,8 +147,20 @@ func TestConfigureAuthProviderStagesCredentialAndWaitsForChangeDeletion(t *testi
 	_, err = gatewayClient.RevealCredential(t.Context(), []string{authProvider.Name}, authProvider.Name)
 	require.Error(t, err)
 
-	require.NoError(t, storage.Delete(t.Context(), &change))
-	require.NoError(t, <-errC)
+	select {
+	case <-watching:
+	case err := <-errC:
+		t.Fatalf("configure returned before watching the staged change: %v", err)
+	case <-ctx.Done():
+		t.Fatal("configure did not start watching the staged change: ", ctx.Err())
+	}
+	require.NoError(t, storage.Delete(ctx, &change))
+	select {
+	case err := <-errC:
+		require.NoError(t, err)
+	case <-ctx.Done():
+		t.Fatal("configure did not observe deletion of the staged change: ", ctx.Err())
+	}
 }
 
 func newAuthProviderTestStorage(objects ...kclient.Object) kclient.WithWatch {
@@ -157,6 +173,24 @@ func newAuthProviderTestStorage(objects ...kclient.Object) kclient.WithWatch {
 		// The provider configuration change controller, which some tests run, writes the status of auth providers.
 		WithStatusSubresource(&v1.AuthProvider{}).
 		Build()
+}
+
+// providerChangeWatchTestStorage lets tests wait for watch registration before
+// simulating controller cleanup of a provider configuration change.
+func providerChangeWatchTestStorage(storage kclient.WithWatch) (kclient.WithWatch, <-chan struct{}) {
+	watching := make(chan struct{})
+	return interceptor.NewClient(storage, interceptor.Funcs{
+		Watch: func(ctx context.Context, c kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) (watch.Interface, error) {
+			w, err := c.Watch(ctx, list, opts...)
+			if err == nil {
+				// Fake watches neither replay resource versions nor honor context cancellation.
+				// Register before deleting the change, and stop the watch if the test times out.
+				context.AfterFunc(ctx, w.Stop)
+				close(watching)
+			}
+			return w, err
+		},
+	}), watching
 }
 
 func TestSubmitProviderConfigurationChangeReturnsConflict(t *testing.T) {

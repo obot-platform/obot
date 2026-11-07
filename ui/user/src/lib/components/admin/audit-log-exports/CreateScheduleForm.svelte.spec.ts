@@ -54,3 +54,44 @@ test('preserves comma-containing server names when creating, editing and viewing
 	});
 	await expect.element(page.getByCSS('#mcp_server')).toHaveTextContent(name);
 });
+
+test('explains initial backfill and incremental exports when creating a schedule', async () => {
+	await preparePageData();
+	await render(CreateScheduleForm, { onCancel: vi.fn(), onSubmit: vi.fn() });
+	await expect.element(page.getByRole('heading', { name: 'Initial Backfill' })).toBeVisible();
+	await expect
+		.element(page.getByText('Later exports include new and updated logs', { exact: false }))
+		.toBeVisible();
+	await expect
+		.element(page.getByText('with a five-second overlap', { exact: false }))
+		.toBeVisible();
+});
+
+test('explains that changing backfill on an initialized schedule does not replay history', async () => {
+	await preparePageData();
+	const initialData = {
+		id: 'schedule',
+		name: 'Daily logs',
+		type: 'mcp',
+		enabled: true,
+		bucket: 'audit-logs',
+		retentionPeriodInDays: 7,
+		schedule: { interval: 'daily', hour: 3, minute: 0, day: 0, weekday: 0, timezone: 'UTC' },
+		lastExportedThrough: '2026-07-01T00:00:00Z'
+	} as ScheduledAuditLogExport;
+	await render(CreateScheduleForm, {
+		onCancel: vi.fn(),
+		onSubmit: vi.fn(),
+		mode: 'edit',
+		initialData
+	});
+	await expect.element(page.getByRole('heading', { name: 'Initial Backfill' })).toBeVisible();
+	await expect
+		.element(
+			page.getByText(
+				'Changing this setting after the first successful export does not replay history.',
+				{ exact: false }
+			)
+		)
+		.toBeVisible();
+});
