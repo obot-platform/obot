@@ -188,10 +188,10 @@ blocks and table text with its unmodified source using independent test helpers,
 and checks the frontmatter schema and version/HTML URL metadata (also part of
 `verify` and CI). This does not establish complete prose or formatting fidelity.
 Unit tests also compare clean-build output bytes and reject missing assets.
-Run `npm run test:exports:release` for an isolated v0.28.0 snapshot, previous-latest
+Run `npm run test:exports:release` for an isolated v0.29.0 snapshot, previous-latest
 rollover, oldest-version removal, and clean rebuild. This invokes Docusaurus's
 actual version command without modifying this checkout. Update the fixture version
-once v0.28.0 is released. `KEEP_RELEASE_FIXTURE=1` retains the temporary copy for
+once v0.29.0 is released. `KEEP_RELEASE_FIXTURE=1` retains the temporary copy for
 inspection. Browser tests verify headers, raw server-rendered discovery links, and Markdown
 links after in-app navigation.
 

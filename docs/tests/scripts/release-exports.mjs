@@ -43,7 +43,7 @@ try {
   const original = JSON.parse(
     await fs.readFile(path.join(temp, "versions.json"), "utf8"),
   );
-  const next = "v0.28.0";
+  const next = "v0.29.0";
   assert.ok(!original.includes(next), "Use an unreleased fixture version");
   // Exercise real metadata/theme behavior for an HTML-only unlisted page.
   await fs.writeFile(
@@ -71,7 +71,7 @@ try {
   await fs.writeFile(path.join(temp, "build", "stale.md"), "stale");
   run(["build"]);
   const read = (p) => fs.readFile(path.join(temp, "build", p), "utf8");
-  assert.match(await read("llms.txt"), /Use v0\.28\.0/);
+  assert.match(await read("llms.txt"), /Use v0\.29\.0/);
   assert.equal(await read("index.md"), await read(`${next}/index.md`));
   assert.match(
     await read(`${next}/index.md`),
@@ -91,17 +91,20 @@ try {
     fs.access(path.join(temp, "build", dropped, "llms.txt")),
   );
   await assert.rejects(fs.access(path.join(temp, "build", "stale.md")));
-  // The new release has main's unified gateway; old release retains provider routes.
+  // The new release has main's unified gateway; v0.27.0, the last release
+  // before it, retains the per-provider routes while it is still kept.
   assert.ok(
     (await read(`${next}/llm-gateway/connect-clients.md`)).includes(
       "/api/llm-proxy/v1",
     ),
   );
-  assert.ok(
-    (await read(`${original[0]}/llm-gateway/connect-clients.md`)).includes(
-      "/azure-entra/v1/messages",
-    ),
-  );
+  if (versions.includes("v0.27.0")) {
+    assert.ok(
+      (await read("v0.27.0/llm-gateway/connect-clients.md")).includes(
+        "/azure-entra/v1/messages",
+      ),
+    );
+  }
   assert.match(await read("next/index.md"), /unreleased: true/);
   for (const prefix of ["", "next/"]) {
     const html = await read(`${prefix}export-unlisted-fixture/index.html`);

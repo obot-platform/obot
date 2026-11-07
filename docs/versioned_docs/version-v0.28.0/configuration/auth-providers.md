@@ -1,0 +1,588 @@
+---
+displayed_sidebar: sidebar
+title: "Configure authentication providers"
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Configure authentication providers {#auth-providers}
+
+Authentication providers allow your Obot installation to authenticate users with the identity provider of your choice.
+Administrators must configure an authentication provider before users can log in. Only one authentication provider can be configured at a time.
+To replace it later, see [Switching Between Auth Providers](./auth-providers.md#switching-between-auth-providers).
+
+:::note
+In order for authentication to be enabled, the Obot server must be run with the environment variable set:
+
+`OBOT_SERVER_ENABLE_AUTHENTICATION=true`.
+:::
+
+## Setting up Authentication
+
+Configure either the built-in Local provider or an external identity provider. Use the bootstrap user only to complete setup, then sign in with a regular account.
+
+:::note
+If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
+:::
+
+### Step 1: Set Environment Variables {#enabling-authentication-step-1-set-environment-variables}
+
+Enabling authentication begins with launching Obot with additional configuration options in the form of environment variables. See the [Docker](../installation/docker-deployment.md) or [Kubernetes](../installation/kubernetes-deployment.md) deployment guides for full setup details.
+
+<Tabs>
+  <TabItem value="docker" label="Docker" default>
+
+Add these settings to the environment file used by your [Docker deployment](../installation/docker-deployment.md):
+
+```dotenv
+OBOT_SERVER_ENABLE_AUTHENTICATION=true
+OBOT_BOOTSTRAP_TOKEN=<random-bootstrap-secret>
+```
+
+Generate the bootstrap secret with `openssl rand -hex 32`. Keep the environment file private.
+
+  </TabItem>
+  <TabItem value="kubernetes" label="Kubernetes">
+
+```yaml
+config:
+  # Required: Enable authentication
+  OBOT_SERVER_ENABLE_AUTHENTICATION: "true"
+
+secret:
+  # Optional: generated automatically when omitted from the chart-managed Secret
+  OBOT_BOOTSTRAP_TOKEN: "your-secret-token"
+```
+
+  </TabItem>
+</Tabs>
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `OBOT_SERVER_ENABLE_AUTHENTICATION` | Yes | Enables authentication |
+| `OBOT_BOOTSTRAP_TOKEN` | No | Token used for bootstrap login while no auth provider is configured or no non-bootstrap owner user exists. If not set, a token will be generated and printed to the logs. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` | No | Initial local-auth owner's email. Must be set with the setup token. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` | No | At least 32 characters of high-entropy, randomly generated secret material used to activate the initial owner. Store as a secret; `openssl rand -hex 32` is the recommended generator. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | No | Setup-link validity in hours. Defaults to `168`. |
+
+### Step 2: Start Obot and Login {#enabling-authentication-step-2-start-obot-and-login}
+
+Start (or restart) your Obot deployment with the new environment variables. Navigate to your Obot installation and log in with the bootstrap token. Obot then walks you through creating the owner account:
+
+1. Accept the license agreement.
+2. In **Set Up Owner Account**, create the owner as a [Local](#local) account, with an email address and password.
+3. Sign in with that account. You continue as the owner, and the bootstrap login is no longer needed.
+
+If you [preconfigured a Local owner](../installation/docker-deployment.md#preconfigure-a-local-owner), there is no bootstrap login. Activate the owner from the setup link instead.
+
+### Step 3: Configure Authentication Provider {#enabling-authentication-step-3-configure-authentication-provider}
+
+Local is now the active provider. To use Local accounts, you're done; see [Local](#local) to manage them.
+
+To use a different provider, switch to it:
+
+1. Go to **Identity & Access > Auth Providers**.
+2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 require free Obot Community registration or an Enterprise license.
+3. Configure the provider, sign in with it to verify your account, and complete the switch. See [Switching Between Auth Providers](#switching-between-auth-providers) for each step.
+
+:::important
+The account you sign in with during the switch becomes the owner. The Local owner account doesn't carry over, so switch before you set up anything as the Local owner.
+:::
+
+For detailed provider configuration, see the [Auth Providers](./auth-providers.md) documentation.
+
+### Post-Setup {#enabling-authentication-post-setup}
+
+Once you have configured an authentication provider:
+
+1. Users can login using the configured authentication provider
+2. Each identity from an auth provider is its own user. Obot does not combine identities from different auth providers into one user, even when they share an email address.
+
+Owners and admins can assign the admin role to additional users through the User pages. Only owners can assign the owner role.
+
+### Troubleshooting {#enabling-authentication-troubleshooting}
+
+### Bootstrap Token Not Working {#enabling-authentication-bootstrap-token-not-working}
+
+- Ensure `OBOT_SERVER_ENABLE_AUTHENTICATION=true` is set
+- Check that you're using the correct token
+- If an auth provider has already been configured and a non-bootstrap owner user exists, set `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true` to re-enable bootstrap login
+
+### Authentication Provider Issues {#enabling-authentication-authentication-provider-issues}
+
+- Verify callback URLs match between Obot and your OAuth provider
+- Check that client ID and secret are correct
+- Ensure proper scopes and permissions are configured
+
+#### Locked Out After Changing Provider Settings {#locked-out-after-changing-provider-settings}
+
+Changes to the active auth provider take effect immediately. If the provider can't start with the new settings, such as an issuer it can't reach or rejects, nobody can sign in, even when the dialog reports that the change couldn't be saved.
+
+To recover:
+
+1. Remove both `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` and `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` from the deployment configuration if they are still set. These initial Local-owner provisioning variables disable bootstrap authentication even when force-enabled; removing only one prevents Obot from starting.
+2. Restart Obot with `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP=true`. Open Obot in a private or incognito window, or clear your browser's cookies for Obot first, and sign in with the bootstrap token. A browser that is still signed in from before the lockout shows an error instead of the bootstrap token option.
+3. Fix the provider's settings in **Identity & Access > Auth Providers**.
+4. Restart Obot without `OBOT_SERVER_FORCE_ENABLE_BOOTSTRAP`.
+
+The provider's reason for failing is in the Obot server log.
+
+## Next Steps {#enabling-authentication-next-steps}
+
+- Review [Auth Providers configuration](./auth-providers.md) for detailed provider setup
+
+
+### Bootstrap Token
+
+When launching Obot for the first time, the server will print a randomly generated bootstrap token to the console.
+
+:::info
+When installing via Helm, this token is saved inside a kubernetes secret `<helm install name>-config`.
+:::
+
+This token can be used to authenticate as an admin user in the UI.
+You will then be able to configure authentication providers.
+Bootstrap login remains available until at least one authentication provider is configured and at least one non-bootstrap owner user exists.
+Once both are true, the bootstrap token will no longer be valid.
+
+:::tip Custom Bootstrap Token
+You can use the `OBOT_BOOTSTRAP_TOKEN` environment variable to provide a specific value for the token,
+rather than having one generated for you. If you do this, the value will **not** be printed to the console.
+
+Obot will persist the value of the bootstrap token on its first launch (whether randomly generated or
+supplied by `OBOT_BOOTSTRAP_TOKEN`), and all future server launches will use that same value.
+`OBOT_BOOTSTRAP_TOKEN` can always be used to override the stored value.
+:::
+
+## Access Control
+
+### Restricting Access by Email Domain
+
+All authentication providers support restricting access to specific email domains, using the "Email Domains" field in the configuration UI.
+
+You can:
+
+- Use `*` to allow all email domains
+- Specify a comma-separated list of domains to restrict access
+
+**Example:** `example.com,example.org` would only allow users with email addresses ending in `example.com` or `example.org`.
+
+## Available Auth Providers
+
+| Providers | Availability |
+|-----------|--------------|
+| Local, GitHub, Google | Available in every edition, without registration |
+| Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0 | Require free Obot Community registration or an Enterprise license |
+
+To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
+
+Obot supports the built-in [Local](./auth-providers.md#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
+
+### Local
+
+Local passwords are stored as salted Argon2id hashes, independently of optional [database field encryption](../security/credentials.md#overview-local-passwords).
+
+The Local provider authenticates users with an email address and password stored in Obot's own database. It requires no external identity provider, which makes it a good fit for evaluations, air-gapped installations, and small deployments.
+
+Passwords are hashed with [argon2id](https://en.wikipedia.org/wiki/Argon2) and are never stored, logged, or returned by the API.
+
+To set it up:
+
+1. Go to Admin -> Auth Providers and configure the **Local** provider, setting the email domains that local users are allowed to have (`*` allows any domain).
+2. During bootstrap setup, create your first local account. Bootstrap can create only one account at a time.
+3. Save the account and sign in with its email and password. It becomes **Owner** automatically, and you continue in the same session without confirming a handoff or signing in again.
+4. After signing in as Owner, head to the **Users** section to create additional users. You can assign their roles after their first sign-in.
+
+The first bootstrap-created account's password is ready to use by default. You can select the option to require a password change before completing setup. Other new and administrator-reset local passwords require a password change at next sign-in by default; the administrator can turn this off in the users management. Until the change is complete, the backend restricts that session to the password-change flow. A successful change signs out the user's other sessions while preserving the current one.
+
+Local users cannot currently rotate their password voluntarily after completing a required change. An administrator must reset it from the **Users** page; the user will then be prompted to choose a new password at their next sign-in.
+
+Deleting a local user prevents them from signing in again, but it does not delete the Obot user account they created by signing in. Delete that from the Users page, as you would for any other user.
+
+### GitHub
+
+You will need to create an OAuth App in GitHub following these [instructions](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/creating-an-oauth-app).
+
+You can view the source code for GitHub provider in this [repo](https://github.com/obot-platform/tools).
+
+### Google
+
+Follow the instructions [here](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred) to create the OAuth app for Obot.
+
+You can view the source code for Google provider in this [repo](https://github.com/obot-platform/tools).
+
+### Entra
+
+Obot can get users and groups from Entra in one of two ways:
+
+- **SCIM:** Entra's provisioning service sends Obot only the users and groups you assign to the app. Skip the **application** permissions below, and follow [Provision users and groups from Microsoft Entra ID with SCIM](./entra-scim.md).
+- **Microsoft Graph:** Obot reads each user's groups from Microsoft Graph when they sign in. Follow all the steps below, and when you configure Entra in Obot, set **Directory integration** to **Microsoft Graph**. The **application** permissions are only needed for this option.
+
+:::tip Create the app as an enterprise app if you may use SCIM
+Only an app created under **Enterprise applications** can provision users with SCIM. An app created under **App registrations**, as described below, can't, so you would need a second app for provisioning. To use one app for both sign-in and provisioning:
+
+1. Go to **Entra ID > Enterprise apps > New application > Create your own application**, select **Integrate any other application you don't find in the gallery (Non-gallery)**, and select **Create**. Don't set up **Single sign-on** on the new app; see the troubleshooting note below.
+2. Go to **App registrations**, and open the registration with the same name, which Entra created with the app. If you don't see it under **Owned applications**, look under **All applications**.
+3. Under **Authentication**, select **Add Redirect URI** (**Add a platform** in the older view), select **Web**, enter the redirect URI provided in Obot's Auth Provider configuration dialog, and select **Configure**.
+4. On the registration's **Overview** page, check that **Supported account types** allows accounts in this organizational directory only.
+5. Continue below from the **API permissions** step, skipping the new registration form.
+:::
+
+Within the [Microsoft Entra admin center](https://entra.microsoft.com), go to App registrations and click New registration.
+
+Under Supported account types, ensure `Accounts in this organizational directory only` is selected. In the Redirect URI section, set the platform to `Web` and enter the redirect URI provided in Obot's Auth Provider configuration dialog.
+
+![screenshot of Entra App registration](/img/entra-app-registration.png)
+
+After completing the form, click Register.
+
+Next, go to the API permissions tab and add the following **delegated** permissions:
+
+- `User.Read`
+- `ProfilePhoto.Read.All` *requires admin approval*
+
+If Obot will read groups from Microsoft Graph, rather than use SCIM, then add the following **application** permissions:
+
+- `GroupMember.Read.All` *requires admin approval*
+- `User.Read.All` *requires admin approval*
+
+After all permissions are approved, your App's Configured permissions section should look something like this:
+
+![screenshot of Entra configured permissions](/img/entra-new-configured-permissions.png)
+
+Head to the Certificates & secrets tab and click New Client secret.
+Select a desired expiration date and click `Add`.
+
+Copy the exposed secret from the `Value` column to a safe location. You will not be able to retrieve the secret value after this point.
+
+![screenshot of Entra client secret](/img/entra-client-secret.png)
+
+Finally, navigate to the Overview tab and copy the values of `Application (client) ID` and `Directory (tenant) ID` for reference.
+
+You can now return to Obot and finish configuring Entra. Use the table below to determine the values to use for each field:
+
+| Obot          | Entra                   | Entra App Tab          |
+|---------------|-------------------------|------------------------|
+| Client ID     | Application (client) ID | Overview               |
+| Client Secret | Secret `Value` column   | Certificates & secrets |
+| Tenant ID     | Directory (tenant) ID   | Overview               |
+
+:::warning Troubleshooting sign-in
+
+If you followed these instructions and users cannot sign in, SAML SSO may have been enabled by default on the enterprise application associated with Obot. To check, navigate to **Entra ID > Enterprise apps > All applications** in the Entra admin center, select the application associated with Obot, and open **Single sign-on**.
+
+Obot does not currently support SAML SSO on its Entra enterprise application. If SAML is enabled, disable it or use a separate app registration for Obot. See [Microsoft's troubleshooting guide](https://learn.microsoft.com/en-us/troubleshoot/entra/entra-id/app-integration/troubleshooting-signature-validation-errors#scenario-2-the-application-is-enabled-for-saml-sso) for more information.
+
+:::
+
+#### Restricting Login to Specific Users and Groups (Optional)
+
+You can restrict login access to specific Entra users and groups by taking the following steps:
+
+1. Navigate to the [Microsoft Entra admin center](https://entra.microsoft.com)
+2. Select `Enterprise apps`, then select `All applications`
+3. Select the application corresponding to your Obot instance
+4. On the application's `Overview` page, under the `Manage` section, select `Properties`
+5. Toggle the `Assignment required?` setting to `Yes`
+6. Select `Save` in the top bar
+7. Under `Manage`, select `Users and Groups` and then select `Add user/group`
+8. Search for and add the desired Entra users and groups to the application
+
+For more details, [see Entra's docs](https://learn.microsoft.com/en-us/entra/identity-platform/howto-restrict-your-app-to-a-set-of-users).
+
+### Okta
+
+:::note
+Only the org-level authorization server is supported (no custom authorization servers).
+:::
+
+Create an OAuth app of type `OIDC` in Okta following these [instructions](https://developer.okta.com/docs/guides/implement-oauth-for-okta/main/#create-an-oauth-2-0-app-in-okta).
+Make sure to add the redirect URL displayed in Obot to the list of Sign-in redirect URIs in your Okta application settings.
+
+Take note of the Client ID and Client Secret. You will need to provide these to Obot.
+
+Obot can get users and groups from Okta in one of two ways:
+
+- **SCIM:** Okta sends Obot only the users and groups you choose. Skip the API Services app below, and follow [Provision users and groups from Okta with SCIM](./okta-scim.md).
+- **API Services app:** Obot reads each user's groups from Okta when they sign in. Continue with the steps below, and when you configure Okta in Obot, set **Directory integration** to **Okta API**.
+
+Next, create another OAuth app, this time of type `API Services`. Grant it the API scopes `okta.users.read` and `okta.groups.read`.
+Assign an administrator role to this app that has, at a minimum, `okta.users.read` and `okta.groups.read` permissions.
+You can use an existing administrator role (such as Read-Only Administrator), or create a custom one.
+
+Next, change the client authentication method on your API Services app from `Client secret` to `Public key / Private key`.
+Then, add a new key to your app. Ensure that your app has only one key in total. You can generate the key on your own,
+or have Okta do it for you. Make sure you save the private key in PEM format, as you will need to provide that to Obot,
+in addition to the Client ID for this app. When you are done with that, the `Client Credentials` section should look similar to this:
+
+![Okta API Services App Client Credentials configuration](/img/okta-client-credentials.png)
+
+#### Restricting Login to Specific Users and Groups (Optional)
+
+You can restrict login access to specific Okta users and groups by taking the following steps:
+
+1. While creating the `OIDC` App for Obot, select the `Skip group assignment for now` option in the `Assignments` configuration section
+2. After the App is created, go to the App's configuration page
+3. In the `Assignments` tab, click on the `Assign` button and select `Assign to Groups` in the dropdown menu
+4. Select `Assign` on groups you want to allow Obot access to
+5. Once you've made your selections, click `Done`
+
+### JumpCloud
+
+Create a **Custom OIDC App** in the [JumpCloud Admin Portal](https://console.jumpcloud.com/). When configuring the app:
+
+1. Set the **Redirect URI / Callback URL** to the redirect URI displayed in Obot's Auth Provider configuration dialog
+2. Ensure the application can issue the scopes `openid`, `email`, `profile`, and `offline_access`
+3. Take note of the app's **Client ID** and **Client Secret**
+4. Configure the app to include group membership claims:
+   - Enable **Include Group Attribute** and set the exact attribute name to `memberOf`. This is required for group-based authorization in Obot.
+   - Set group assignment to **User groups assigned to this app**
+5. Assign the JumpCloud user groups that should be allowed to sign in to this application. Users who are not assigned to the app through a group assignment will not be able to log in.
+
+You will also need JumpCloud management API credentials for JumpCloud management API access. These credentials are separate from the OIDC app credentials used for login.
+
+Obot uses the JumpCloud management API to:
+
+- look up the authenticated JumpCloud system user
+- verify the user is active and not suspended
+- list JumpCloud user groups for admin selection
+- map OIDC `memberOf` claim values to known JumpCloud groups
+
+You must provide one of the following in the Obot Auth Provider configuration:
+
+- a JumpCloud service account client ID and client secret. This is the preferred option for JumpCloud group lookup and assignment in Obot.
+- or an API key with access to read users and user groups
+
+If you use a service account:
+
+1. Create a JumpCloud API service account for Obot in the JumpCloud admin console
+2. Generate or reveal its **Client ID** and **Client Secret**
+3. Read-only permissions are sufficient
+
+If you use service-account credentials and your JumpCloud region requires a different admin OAuth endpoint, override the token URL in Obot as well.
+
+You can now return to Obot and finish configuring JumpCloud. Use the table below to determine the values to use for each field:
+
+| Obot                         | JumpCloud |
+|------------------------------|-----------|
+| Client ID                    | OIDC app Client ID |
+| Client Secret                | OIDC app Client Secret |
+| Service Account Client ID    | JumpCloud service account client ID. Preferred instead of `API Key`. |
+| Service Account Client Secret| JumpCloud service account client secret. Preferred instead of `API Key`. |
+| API Key                      | Admin Portal API key. Required if `Service Account Client ID` and `Service Account Client Secret` are not configured. |
+| Service Account Token URL (Optional) | Optional admin OAuth token endpoint. Defaults to `https://admin-oauth.id.jumpcloud.com/oauth2/token`. |
+| Issuer URL (Optional)        | Optional OIDC issuer URL. Defaults to `https://oauth.id.jumpcloud.com/`. |
+| API Base URL (Optional)      | Optional JumpCloud API base URL. Defaults to `https://console.jumpcloud.com`; use `https://console.eu.jumpcloud.com` for EU tenants. |
+
+:::important Account Status Requirement
+The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
+:::
+
+### Keycloak {#keycloak}
+
+Use Keycloak 24 or later. Create two clients in the same realm: one lets users sign in to Obot, and the other lets Obot read users and groups for access control.
+
+#### Setup {#keycloak-setup}
+
+**Create the sign-in client**
+
+1. In Keycloak, create an **OpenID Connect** client for signing in to Obot.
+2. Enable **Client authentication** and **Standard flow**. Disable the other authentication flows and service accounts.
+3. Set **Valid redirect URIs** to the callback URL shown in Obot.
+4. In the client's **Client scopes**, make sure `profile`, `email`, and `offline_access` are available. Keep the default `profile` and `email` scopes.
+5. Assign users the `offline_access` realm role. If you restrict the client's role scope mappings, include this role.
+
+**Create the directory client**
+
+1. Create a second **OpenID Connect** client for reading users and groups.
+2. Enable **Client authentication** and **Service accounts roles**. Disable the other authentication flows.
+3. Assign the service account the **`view-users`** role from **`realm-management`**. This is the only role it needs.
+4. In the directory client's scope settings, turn **Full Scope Allowed** off and include **`view-users`** in the allowed roles. Keep the default `roles` client scope.
+
+**Set up email verification**
+
+By default, users must have a verified email address in Keycloak to sign in to Obot. Enable **Verify email** under **Realm settings > Login** to have users verify their addresses. For existing accounts, check their **Email verified** setting.
+
+If your organization does not verify email addresses, enable **Allow Unverified Emails** in Obot.
+
+:::important
+When allowing unverified emails, remember that email-domain restrictions depend on users having trustworthy email addresses.
+:::
+
+In **Identity & Access > Auth Providers**, configure **Keycloak**:
+
+| Obot field | Keycloak value |
+| --- | --- |
+| Realm Issuer URL | Realm URL, such as `https://id.example.com/realms/employees`; include `/auth` if used |
+| Client ID / Client Secret | Sign-in client credentials |
+| Directory Service Client ID / Secret | Directory client credentials |
+| Allowed E-Mail Domains | Allowed domains, or `*` for all domains |
+| Admin URL (optional) | Leave blank unless your Keycloak administrator provides a separate address for the Admin API. For example, `https://keycloak-admin.internal`; include `/auth` if used, but not `/admin` or `/realms`. |
+
+Changes to the Realm Issuer URL or Admin URL of the active provider take effect immediately. If Keycloak can't be reached or rejects the new value, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
+
+For optional avatars, map a `picture` user attribute to the OIDC `picture` claim in UserInfo. Use HTTPS URLs restricted to a trusted image host. See Keycloak's [avatar guide](https://www.keycloak.org/ui-customization/avatars).
+
+#### Sessions {#keycloak-sessions}
+
+**Token Refresh Duration** controls how often Obot refreshes authentication tokens for active sessions. The default is 1 hour.
+
+Set **Token Refresh Duration** shorter than the realm's **Access Token Lifespan**, under **Realm settings > Tokens**. Keycloak's default lifespan is 5 minutes, so a value such as `4m` works. If tokens expire before Obot refreshes them, updates to users' display names and avatars fail until the next refresh.
+
+Keep **Revoke Refresh Token** off in the realm, so that parallel refreshes from the same browser succeed.
+
+### Auth0
+
+Create a **Regular Web Application** in the [Auth0 Dashboard](https://manage.auth0.com) by navigating to Applications > Applications > Create Application.
+
+In the application's Settings tab:
+
+1. Set the **Allowed Callback URLs** to the redirect URI displayed in Obot's Auth Provider configuration dialog
+2. Take note of the **Domain**, **Client ID**, and **Client Secret**
+
+:::important Email Verification
+Auth0 users must have a verified email address to log in to Obot. If a user's email is not verified, the login will fail with a 500 error.
+
+You can verify a user's email in the Auth0 Dashboard under **User Management > Users** by selecting the user and confirming their email is marked as verified. Alternatively, ensure your Auth0 connection is configured to automatically verify emails.
+
+If your Auth0 tenant does not support email verification (e.g. certain social or enterprise connections), you can set the `OBOT_AUTH0_AUTH_PROVIDER_INSECURE_ALLOW_UNVERIFIED_EMAIL` configuration option to `true` in the Auth Provider configuration dialog. Note that this weakens account and email-domain validation.
+:::
+
+You can now return to Obot and finish configuring Auth0. Use the table below to determine the values to use for each field:
+
+| Obot          | Auth0         | Auth0 Dashboard Location |
+|---------------|---------------|--------------------------|
+| Auth0 Domain  | Domain        | Application Settings     |
+| Client ID     | Client ID     | Application Settings     |
+| Client Secret | Client Secret | Application Settings     |
+
+#### Machine to Machine Application
+
+A **Machine to Machine** application is required for Obot to read user and role information from Auth0.
+
+Create one in the Auth0 Dashboard by navigating to Applications > Applications > Create Application and selecting **Machine to Machine**.
+
+1. Authorize the app for the **Auth0 Management API** with the following scopes:
+   - `read:users`
+   - `read:roles`
+   - `read:role_members`
+2. Take note of the **Client ID** and **Client Secret** for this application
+
+Use the table below to determine the values to use for each field in Obot's Auth Provider configuration dialog:
+
+| Obot                        | Auth0         | Auth0 Dashboard Location |
+|-----------------------------|---------------|--------------------------|
+| Machine to Machine Client ID     | Client ID     | Application Settings     |
+| Machine to Machine Client Secret | Client Secret | Application Settings     |
+
+#### Restricting Login to Specific Users (Optional)
+
+You can restrict which users can log in to Obot through Auth0 using connection-level access control or organizations.
+
+##### Using Connection-Level Access Control
+
+You can limit which Auth0 connections (identity providers) are allowed to log in to Obot.
+
+1. In the Auth0 Dashboard, navigate to **Applications > Applications**
+2. Select your Obot application
+3. Open the **Connections** tab
+4. Disable any connections that should not be allowed to log in to Obot
+5. Leave enabled only the connections for users who should have access
+
+##### Using Auth0 Organizations
+
+If your Auth0 tenant supports [Organizations](https://auth0.com/docs/manage-users/organizations), you can restrict access to users who belong to specific organizations.
+
+1. In the Auth0 Dashboard, navigate to **Organizations**
+2. Create a new organization
+3. Add the desired users as members
+4. Under the organization's **Connections** tab, enable the connections users should use to log in
+5. In **Applications > Applications**, select your Obot application
+6. Open the **Organizations** tab and configure the application to require organization membership
+
+### OneLogin
+
+In the OneLogin admin console, go to **Applications > Applications > Add App**, and add **OpenId Connect (OIDC)**. Configure it:
+
+| Tab | Setting | Value |
+|-----|---------|-------|
+| Configuration | Login Url | Your Obot URL, such as `https://obot.example.com` |
+| Configuration | Redirect URIs | The redirect URI displayed in Obot's Auth Provider configuration dialog |
+| SSO | Application Type | **Web** |
+| SSO | Token Endpoint, Authentication Method | **Basic** |
+| SSO | Refresh Token Timeout | How long users stay signed in to Obot without signing in to OneLogin again. Blank means 30 days. |
+| Access | Roles | The roles whose users may sign in to Obot. Users without one of these roles can't sign in. |
+
+Take note of the **Client ID**, **Client Secret**, and issuer URL on the **SSO** tab.
+
+Obot can get users and groups from OneLogin in one of two ways:
+
+- **SCIM:** OneLogin sends Obot only the users and roles you choose. Skip the API credential below, and follow [Provision users and groups from OneLogin with SCIM](./onelogin-scim.md).
+- **API credential:** Obot reads each user's roles from the OneLogin API when they sign in, and refreshes them periodically. Continue with the steps below.
+
+Go to **Developers > API Credentials > New Credential** and create a credential with the **Read users** scope. Take note of its **Client ID** and **Client Secret**.
+
+Obot uses OneLogin **roles** as groups. Each role appears in Obot as a group that you can use in roles and access policies. OneLogin's own groups are not used.
+
+You can now return to Obot and finish configuring OneLogin. Use the table below to determine the values to use for each field:
+
+| Obot | OneLogin |
+|------|----------|
+| Client ID | OIDC app Client ID |
+| Client Secret | OIDC app Client Secret |
+| Issuer URL | `https://<your-subdomain>.onelogin.com/oidc/2` |
+| API Client ID | API credential Client ID. Leave empty to use SCIM. |
+| API Client Secret | API credential Client Secret. Leave empty to use SCIM. |
+| API Base URL (Optional) | Defaults to `https://<your-subdomain>.onelogin.com`. Set it only to use a regional API host, such as `https://api.us.onelogin.com` or `https://api.eu.onelogin.com`. |
+
+:::important Removing a user's access
+OneLogin stops suspended, locked, and unlicensed users from signing in, but Obot keeps their existing access for a while: their browser session lasts until it next needs OneLogin, and their Obot API keys keep working. To remove someone's access immediately, delete them on Obot's **Users** page, or use [SCIM](./onelogin-scim.md).
+:::
+
+## Switching Between Auth Providers
+
+This section describes the steps involved in switching authentication providers in Obot. In this example, the provider is switched from **GitHub** to **Microsoft Entra**.
+
+### Prerequisites
+
+- Authentication is already enabled.
+- GitHub is configured as the active authentication provider.
+- You are logged in as an **Owner**.
+- You have registered Obot Community or added an Enterprise license key, either of which includes Entra. See [Editions and licensing](../enterprise/overview.md).
+
+### Step 1: Configure Microsoft Entra
+
+1. Navigate to **Identity & Access** and select the **Auth Providers** tab.
+2. Locate **Microsoft Entra** and click **Configure**. The **Switch to Microsoft Entra** dialog opens.
+3. Follow the documentation to create and configure the Entra application from [Entra Instructions](./auth-providers.md#entra).
+4. Click **Continue**.
+
+### Step 2: Sign In Using Microsoft Entra
+
+1. Click **Sign in with Microsoft Entra**.
+2. Authenticate using your Microsoft Entra credentials.
+3. You are returned to the **Auth Providers** page, and the dialog shows the email address you signed in with as **Verified**.
+
+:::important
+The account you sign in with is granted the **Owner** role. Use the account that should own Obot after the switch.
+:::
+
+### Step 3: Complete the Switch
+
+1. Click **Switch to Microsoft Entra**.
+2. Microsoft Entra becomes the active provider and GitHub is deconfigured.
+
+All users authenticated via GitHub are immediately logged out and must log in again through Entra. You remain logged in as the Entra account you verified with.
+
+:::note
+User identities are scoped to the authentication provider used during login. Signing in through Entra creates a new user record, so the work and settings belonging to a user's GitHub account are lost.
+:::
+
+### Leaving and Resuming a Switch
+
+You can close the dialog at any point. The staged provider's card shows **Staged** with a **Resume switch** button that returns you to where you left off, and the dialog also reopens on its own the next time an owner visits the **Auth Providers** tab.
+
+To abandon a switch, click **Unstage**. The staged settings are discarded and the active provider is unchanged.
+
+Only one provider can be staged at a time, and the remaining providers cannot be configured until the switch finishes or is unstaged.
