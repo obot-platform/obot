@@ -75,7 +75,7 @@ func TestAzureInferenceUsesTheOwningAccount(t *testing.T) {
 		_, err := engine.Client().ChatCompletionRequest(ctx, &schemas.BifrostChatRequest{
 			Provider: schemas.Azure,
 			Model:    model,
-			Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: schemas.Ptr("hello")}}},
+			Input:    []schemas.ChatMessage{{Role: schemas.ChatMessageRoleUser, Content: &schemas.ChatMessageContent{ContentStr: new("hello")}}},
 		})
 
 		return err

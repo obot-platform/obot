@@ -65,7 +65,7 @@ func TestModelListingSharesConfigurationAcrossProviders(t *testing.T) {
 			codec := &listingConfigCodec{}
 			store, err := llmcoreclient.New(storage, codec)
 			require.NoError(t, err)
-			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				require.NoError(t, json.NewEncoder(w).Encode(map[string]any{"data": []map[string]string{{"id": "model"}}}))
 			}))

@@ -16,13 +16,13 @@ import (
 
 type discoveryToken struct{ t *testing.T }
 
+type discoveryTransport func(*http.Request) (*http.Response, error)
+
 func (c discoveryToken) GetToken(_ context.Context, options policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	require.Equal(c.t, []string{"https://management.azure.com/.default"}, options.Scopes)
 
 	return azcore.AccessToken{Token: "test-token"}, nil
 }
-
-type discoveryTransport func(*http.Request) (*http.Response, error)
 
 func (f discoveryTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
 
@@ -52,7 +52,7 @@ func TestAzureEntraDiscovery(t *testing.T) {
 
 	key, err := e.CreateKey(ctx, "azure", []byte(`{"name":"entra","models":["*"],"azure_subscription_id":"sub","azure_resource_group":"group","azure_account_name":"account","azure_key_config":{"endpoint":"https://account.openai.azure.com","client_id":"client","client_secret":"secret","tenant_id":"tenant"}}`))
 	require.NoError(t, err)
-	require.Equal(t, resourceID, key.AzureAccount.ResourceID())
+	require.Equal(t, resourceID, key.ResourceID())
 
 	stored, err := e.store.GetProvider(ctx, "azure")
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestAzureEntraDiscovery(t *testing.T) {
 
 	got, err := e.GetKey(ctx, "azure", key.ID)
 	require.NoError(t, err)
-	require.Equal(t, resourceID, got.AzureAccount.ResourceID())
+	require.Equal(t, resourceID, got.ResourceID())
 	require.NoError(t, e.DeleteKey(ctx, "azure", key.ID))
 
 	stored, err = e.store.GetProvider(ctx, "azure")
@@ -108,14 +108,14 @@ func TestAzureDiscoveryPagination(t *testing.T) {
 	for _, next := range []string{"https://management.azure.com" + id + "/deployments?page=2", "https://evil.example/deployments", "https://management.azure.com/other/deployments"} {
 		t.Run(next, func(t *testing.T) {
 			calls := 0
-			entry := azureDiscoveryEntry{credential: discoveryToken{t: t}, client: &http.Client{Transport: discoveryTransport(func(r *http.Request) (*http.Response, error) {
+			entry := azureDiscoveryEntry{credential: discoveryToken{t: t}, client: &http.Client{Transport: discoveryTransport(func(_ *http.Request) (*http.Response, error) {
 				calls++
 				body := `{"value":[{"name":"second","properties":{"provisioningState":"Succeeded"}}]}`
 				if calls == 1 {
 					body = `{"value":[],"nextLink":"` + next + `"}`
 				}
 
-				return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(body))}, nil
+				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body))}, nil
 			})}}
 			names, err := entry.list(t.Context(), id, nil)
 			if strings.Contains(next, id) {

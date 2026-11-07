@@ -15,7 +15,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -275,7 +274,7 @@ func TestDiscoveryReservationsDoNotTriggerRefreshLoops(t *testing.T) {
 			})
 			request := router.Request{
 				Ctx:    t.Context(),
-				Object: &v1.LLMGatewayProvider{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{llmcoreclient.AzureDiscoveryReservationAnnotation: "true"}}},
+				Object: &v1.LLMGatewayProvider{Annotations: map[string]string{llmcoreclient.AzureDiscoveryReservationAnnotation: "true"}},
 			}
 
 			require.NoError(t, handler.Reconcile(request, &retryResponse{}))

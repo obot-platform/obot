@@ -90,7 +90,7 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 // must use its short-circuit contract to prevent Azure offerings from leaking through.
 func modelListingError(err error) *schemas.LLMPluginShortCircuit {
 	return &schemas.LLMPluginShortCircuit{Error: &schemas.BifrostError{
-		IsBifrostError: true, StatusCode: schemas.Ptr(502), AllowFallbacks: schemas.Ptr(false),
+		IsBifrostError: true, StatusCode: new(502), AllowFallbacks: new(false),
 		Error: &schemas.ErrorField{Message: err.Error()},
 	}}
 }

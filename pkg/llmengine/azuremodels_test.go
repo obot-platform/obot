@@ -39,7 +39,7 @@ func TestAzureDeploymentModels(t *testing.T) {
 		},
 		{
 			name: "disabled",
-			keys: []schemas.Key{{Models: schemas.WhiteList{"hidden"}, Enabled: schemas.Ptr(false)}},
+			keys: []schemas.Key{{Models: schemas.WhiteList{"hidden"}, Enabled: new(false)}},
 			want: []string{},
 		},
 		{
@@ -141,7 +141,7 @@ func TestAzureAutomaticDeploymentPolicies(t *testing.T) {
 			keys: []schemas.Key{
 				{ID: "one", Models: schemas.WhiteList{"*"}},
 				{ID: "two", Models: schemas.WhiteList{"*"}},
-				{ID: "disabled", Models: schemas.WhiteList{"*"}, Enabled: schemas.Ptr(false)},
+				{ID: "disabled", Models: schemas.WhiteList{"*"}, Enabled: new(false)},
 			},
 			discovered: map[string][]string{"one": {"real"}, "two": {"real", "second"}, "disabled": {"hidden"}},
 			want:       []schemas.Model{{ID: "azure/real"}, {ID: "azure/second"}},
@@ -151,7 +151,7 @@ func TestAzureAutomaticDeploymentPolicies(t *testing.T) {
 			provider:   "custom",
 			keys:       []schemas.Key{{ID: "key", Models: schemas.WhiteList{"friendly"}, Aliases: schemas.KeyAliases{"friendly": {ModelID: "real"}}}},
 			discovered: map[string][]string{"key": {"real"}},
-			want:       []schemas.Model{{ID: "custom/friendly", Alias: schemas.Ptr("real")}},
+			want:       []schemas.Model{{ID: "custom/friendly", Alias: new("real")}},
 		},
 		{
 			name:       "confirmed empty cannot backfill aliases",

@@ -99,7 +99,6 @@ func TestAzureKeysStayWithinDiscoveredAccounts(t *testing.T) {
 			keys, err = account.GetKeysForProvider(t.Context(), provider)
 			require.NoError(t, err)
 			require.Equal(t, schemas.WhiteList{"*"}, keys[1].Models)
-
 		})
 	}
 }

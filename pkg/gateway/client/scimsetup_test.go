@@ -1198,6 +1198,8 @@ func testMarkingWaitsOnlyForUnexpiredReferenceWrites(t *testing.T, c *Client) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	expiresAt := now.Add(300 * time.Millisecond)
+
 	// A write that crashed long ago does not count, and one that crashed recently counts until it expires.
 	if err := c.db.WithContext(t.Context()).Create(&[]types.SCIMReferenceWrite{
 		{
@@ -1206,7 +1208,7 @@ func testMarkingWaitsOnlyForUnexpiredReferenceWrites(t *testing.T, c *Client) {
 		},
 		{
 			ID:        "crashed-recently",
-			ExpiresAt: now.Add(300 * time.Millisecond),
+			ExpiresAt: expiresAt,
 		},
 	}).Error; err != nil {
 		t.Fatal(err)
@@ -1217,9 +1219,19 @@ func testMarkingWaitsOnlyForUnexpiredReferenceWrites(t *testing.T, c *Client) {
 	if err != nil {
 		t.Fatalf("failed to mark groups: %v", err)
 	}
-	if waited := time.Since(start); waited < 250*time.Millisecond || waited > 5*time.Second {
+	if waited := time.Since(start); waited > 5*time.Second {
 		t.Fatalf("marking waited %v for a write that expires in 300ms", waited)
 	}
+
+	// Fixture insertion can consume part of the lifetime; check expiry against the shared database clock.
+	finished, err := c.scimReferenceClock(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finished.Before(expiresAt) {
+		t.Fatalf("marking returned at %v before the reference write expired at %v", finished, expiresAt)
+	}
+
 	if !slices.Equal(run.GroupIDs, []string{"okta/00g-stale"}) {
 		t.Fatalf("marked groups = %v", run.GroupIDs)
 	}

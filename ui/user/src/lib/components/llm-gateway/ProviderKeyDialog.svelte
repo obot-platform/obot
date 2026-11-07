@@ -128,16 +128,19 @@
 			const body: Record<string, unknown> = {
 				name: name.trim(),
 				models: split(models).length ? split(models) : azure && !hasAzureAccount ? [] : ['*'],
-				azure_subscription_id:
-					azure && authenticationMethod === 'credentials' ? azureAccount.subscription.trim() : '',
-				azure_resource_group:
-					azure && authenticationMethod === 'credentials' ? azureAccount.group.trim() : '',
-				azure_account_name:
-					azure && authenticationMethod === 'credentials' ? azureAccount.account.trim() : '',
 				blacklisted_models: split(blacklisted),
 				weight: Number(weight) || 1,
 				enabled
 			};
+			if (azure) {
+				// Explicit blanks clear discovery metadata when switching to API-key authentication.
+				body.azure_subscription_id =
+					authenticationMethod === 'credentials' ? azureAccount.subscription.trim() : '';
+				body.azure_resource_group =
+					authenticationMethod === 'credentials' ? azureAccount.group.trim() : '';
+				body.azure_account_name =
+					authenticationMethod === 'credentials' ? azureAccount.account.trim() : '';
+			}
 			if (!fields.some((f) => f.path === 'value')) body.value = '';
 			// Replace authentication as a whole. Explicit blanks remove inactive credentials
 			// even when the API merges nested configuration instead of replacing it.

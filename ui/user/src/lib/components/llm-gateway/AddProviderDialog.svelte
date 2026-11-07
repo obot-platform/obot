@@ -149,12 +149,6 @@
 			if (hasKeyValues) {
 				const key: Record<string, unknown> = {
 					name: keyName(),
-					azure_subscription_id:
-						azure && authenticationMethod === 'credentials' ? azureAccount.subscription.trim() : '',
-					azure_resource_group:
-						azure && authenticationMethod === 'credentials' ? azureAccount.group.trim() : '',
-					azure_account_name:
-						azure && authenticationMethod === 'credentials' ? azureAccount.account.trim() : '',
 					models:
 						azure && (deployments.trim() || !hasAzureAccount)
 							? deployments
@@ -165,6 +159,11 @@
 					weight: 1,
 					enabled: true
 				};
+				if (azure && authenticationMethod === 'credentials') {
+					key.azure_subscription_id = azureAccount.subscription.trim();
+					key.azure_resource_group = azureAccount.group.trim();
+					key.azure_account_name = azureAccount.account.trim();
+				}
 				if (!fields.some((f) => f.path === 'value')) key.value = '';
 				for (const f of fields) {
 					const v = values[f.path]?.trim();

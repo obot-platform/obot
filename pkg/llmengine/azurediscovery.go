@@ -23,6 +23,21 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 )
 
+type azureDiscoveryEntry struct {
+	fingerprint [32]byte
+	credential  azcore.TokenCredential
+	client      *http.Client
+}
+
+type azureDiscovery struct {
+	mu      sync.Mutex
+	entries map[string]*azureDiscoveryEntry
+
+	// Injected only by tests; production always uses the fixed ARM host.
+	client     *http.Client
+	credential func(schemas.Key) (azcore.TokenCredential, error)
+}
+
 func validateAzureDiscovery(key schemas.Key, account llmcoreclient.AzureAccount) error {
 	for _, field := range []struct {
 		name  string
@@ -39,30 +54,15 @@ func validateAzureDiscovery(key schemas.Key, account llmcoreclient.AzureAccount)
 
 	c := key.AzureKeyConfig
 	if c == nil || c.ClientID == nil || c.ClientSecret == nil || c.TenantID == nil || c.ClientID.GetValue() == "" || c.ClientSecret.GetValue() == "" || c.TenantID.GetValue() == "" || key.Value.GetValue() != "" {
-		return fmt.Errorf("Azure discovery requires explicit Entra credentials")
+		return fmt.Errorf("azure discovery requires explicit Entra credentials")
 	}
 
 	u, err := url.Parse(c.Endpoint.GetValue())
-	if err != nil || u.Scheme != "https" || !(strings.HasSuffix(u.Hostname(), ".openai.azure.com") || strings.HasSuffix(u.Hostname(), ".services.ai.azure.com") || strings.HasSuffix(u.Hostname(), ".cognitiveservices.azure.com")) {
-		return fmt.Errorf("Azure discovery requires an Azure public cloud endpoint")
+	if err != nil || u.Scheme != "https" || (!strings.HasSuffix(u.Hostname(), ".openai.azure.com") && !strings.HasSuffix(u.Hostname(), ".services.ai.azure.com") && !strings.HasSuffix(u.Hostname(), ".cognitiveservices.azure.com")) {
+		return fmt.Errorf("azure discovery requires an Azure public cloud endpoint")
 	}
 
 	return nil
-}
-
-type azureDiscoveryEntry struct {
-	fingerprint [32]byte
-	credential  azcore.TokenCredential
-	client      *http.Client
-}
-
-type azureDiscovery struct {
-	mu      sync.Mutex
-	entries map[string]*azureDiscoveryEntry
-
-	// Injected only by tests; production always uses the fixed ARM host.
-	client     *http.Client
-	credential func(schemas.Key) (azcore.TokenCredential, error)
 }
 
 func (*azureDiscovery) snapshot(cfg llmcoreclient.Config, provider schemas.ModelProvider) map[string][]string {
@@ -207,7 +207,7 @@ func (d *azureDiscovery) keyClient(provider schemas.ModelProvider, key schemas.K
 			c := k.AzureKeyConfig
 
 			return azidentity.NewClientSecretCredential(c.TenantID.GetValue(), c.ClientID.GetValue(), c.ClientSecret.GetValue(), &azidentity.ClientSecretCredentialOptions{
-				ClientOptions: azcore.ClientOptions{Transport: client},
+				Transport: client,
 			})
 		}
 	}
@@ -236,7 +236,7 @@ func (entry *azureDiscoveryEntry) list(ctx context.Context, id string, metadata 
 
 	token, err := entry.credential.GetToken(ctx, policy.TokenRequestOptions{Scopes: []string{"https://management.azure.com/.default"}})
 	if err != nil {
-		return nil, fmt.Errorf("Azure deployment discovery authentication failed")
+		return nil, fmt.Errorf("azure deployment discovery authentication failed")
 	}
 
 	next := "https://management.azure.com" + id + "/deployments?api-version=2024-10-01"
@@ -258,13 +258,13 @@ func (entry *azureDiscoveryEntry) list(ctx context.Context, id string, metadata 
 		req.Header.Set("Authorization", "Bearer "+token.Token)
 		resp, err := entry.client.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("Azure deployment discovery request failed")
+			return nil, fmt.Errorf("azure deployment discovery request failed")
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			resp.Body.Close()
 
-			return nil, fmt.Errorf("Azure deployment discovery returned HTTP %d; verify resource ID and deployment-read permission", resp.StatusCode)
+			return nil, fmt.Errorf("azure deployment discovery returned HTTP %d; verify resource ID and deployment-read permission", resp.StatusCode)
 		}
 
 		var page struct {

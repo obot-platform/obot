@@ -41,7 +41,7 @@ func azureDeploymentModels(cfg llmcoreclient.Config, provider schemas.ModelProvi
 					for _, match := range pipeline.FilterModel(name) {
 						model := schemas.Model{ID: string(provider) + "/" + match.ResolvedID}
 						if match.AliasValue != "" {
-							model.Alias = schemas.Ptr(match.AliasValue)
+							model.Alias = new(match.AliasValue)
 						}
 
 						entries = append(entries, model)

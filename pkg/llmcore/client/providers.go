@@ -16,7 +16,9 @@ import (
 )
 
 // AzureDiscoveryReservationAnnotation distinguishes ordering writes from discovery/configuration changes.
-const AzureDiscoveryReservationAnnotation = "obot.ai/azure-discovery-reservation"
+const (
+	AzureDiscoveryReservationAnnotation = "obot.ai/azure-discovery-reservation"
+)
 
 // AzureAccount identifies the account used for management-plane deployment discovery.
 type AzureAccount struct {
@@ -25,20 +27,30 @@ type AzureAccount struct {
 	AccountName    string `json:"azure_account_name,omitempty"`
 }
 
-func (a AzureAccount) ResourceID() string {
-	if a == (AzureAccount{}) {
-		return ""
-	}
-
-	return "/subscriptions/" + a.SubscriptionID + "/resourceGroups/" + a.ResourceGroup + "/providers/Microsoft.CognitiveServices/accounts/" + a.AccountName
-}
-
 // AzureDiscoverySnapshot records only successful discovery, including a confirmed empty result.
 // Keeping it with the key allows another replica to retain deployments during an ARM outage.
 type AzureDiscoverySnapshot struct {
 	Fingerprint [32]byte
 	Names       []string
 	BaseModels  map[string]string
+}
+
+// Provider is one atomic configuration aggregate: provider settings and its keys.
+type Provider struct {
+	// Ordering is storage-only: reservations must not change the runtime view or trigger model-sync loops.
+	AzureRefreshGenerations map[string]uint64                 `json:",omitempty"`
+	AzureAccounts           map[string]AzureAccount           `json:",omitempty"`
+	AzureDiscoveries        map[string]AzureDiscoverySnapshot `json:",omitempty"`
+	Config                  schemas.ProviderConfig
+	Keys                    []schemas.Key
+}
+
+func (a AzureAccount) ResourceID() string {
+	if a == (AzureAccount{}) {
+		return ""
+	}
+
+	return "/subscriptions/" + a.SubscriptionID + "/resourceGroups/" + a.ResourceGroup + "/providers/Microsoft.CognitiveServices/accounts/" + a.AccountName
 }
 
 // AzureDiscoveryFingerprint binds a snapshot to the effective authentication and account.
@@ -60,16 +72,6 @@ func AzureDiscoveryFingerprint(key schemas.Key, account AzureAccount) [32]byte {
 	}{Account: account, Value: key.Value.GetValue(), Credentials: credentials, Scopes: scopes})
 
 	return sha256.Sum256(raw)
-}
-
-// Provider is one atomic configuration aggregate: provider settings and its keys.
-type Provider struct {
-	// Ordering is storage-only: reservations must not change the runtime view or trigger model-sync loops.
-	AzureRefreshGenerations map[string]uint64                 `json:",omitempty"`
-	AzureAccounts           map[string]AzureAccount           `json:",omitempty"`
-	AzureDiscoveries        map[string]AzureDiscoverySnapshot `json:",omitempty"`
-	Config                  schemas.ProviderConfig
-	Keys                    []schemas.Key
 }
 
 func (s *Client) GetProvider(ctx context.Context, name string) (Provider, error) {

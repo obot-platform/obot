@@ -122,7 +122,7 @@ func TestAzureProxyUsedForARMAndEntra(t *testing.T) {
 	// The real SDK and the ARM request both reach the rejecting local proxy, never Azure.
 	arm := azureDiscoveryEntry{credential: discoveryToken{t: t}, client: entry.client}
 	_, err = arm.list(t.Context(), account.ResourceID(), nil)
-	require.ErrorContains(t, err, "Azure deployment discovery request failed")
+	require.ErrorContains(t, err, "azure deployment discovery request failed")
 
 	mu.Lock()
 	require.Positive(t, hosts["management.azure.com:443"])
