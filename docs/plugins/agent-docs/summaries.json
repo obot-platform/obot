@@ -7,8 +7,5 @@
   },
   "v0.27.0": {
     "llm-gateway/compatibility": "Provider endpoint compatibility, supported request formats, and model identifiers for the LLM Gateway."
-  },
-  "v0.24.0": {
-    "enterprise/overview": "Enterprise capabilities, support, and how to contact Obot about an enterprise deployment."
   }
 }
