@@ -53,9 +53,9 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 			require.NoError(t, store.CreateProvider(t.Context(), "azure", llmcoreclient.Provider{Keys: []schemas.Key{key}, AzureAccounts: map[string]llmcoreclient.AzureAccount{key.ID: account}}))
 
 			snapshot := llmcoreclient.AzureDiscoverySnapshot{Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account), Names: []string{"deployment"}}
-			generation, err := store.BeginAzureDiscovery(t.Context(), "azure", key.ID, snapshot.Fingerprint)
+			_, version, err := store.GetProviderWithVersion(t.Context(), "azure")
 			require.NoError(t, err)
-			require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
+			require.NoError(t, store.SaveAzureDiscoveries(t.Context(), "azure", version, map[string]llmcoreclient.AzureDiscoverySnapshot{key.ID: snapshot}))
 
 			dir := t.TempDir()
 			modeldatatest.Write(t, dir)
@@ -101,7 +101,9 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 				}))
 			case "confirmed empty":
 				snapshot.Names = []string{}
-				require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
+				_, version, err = store.GetProviderWithVersion(t.Context(), "azure")
+				require.NoError(t, err)
+				require.NoError(t, store.SaveAzureDiscoveries(t.Context(), "azure", version, map[string]llmcoreclient.AzureDiscoverySnapshot{key.ID: snapshot}))
 			}
 
 			engine = llmengine.New()

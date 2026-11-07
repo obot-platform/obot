@@ -976,8 +976,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				return
 			}
 			_ = bifrostEngine.Start(ctx, llmengine.Options{
-				DataDir:      dataDir,
-				Store:        coreStore,
+				DataDir: dataDir,
+				Store:   coreStore,
+				TriggerModelSync: func(ctx context.Context) error {
+					return llmengine.TriggerModelSync(ctx, storageClient)
+				},
 				LogLevel:     config.LLMGatewayLogLevel,
 				ModelDataURL: modelDataURL,
 				// Guardrails are part of the gateway: it doesn't serve until they're in place.

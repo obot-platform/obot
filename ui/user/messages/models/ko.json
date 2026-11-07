@@ -205,6 +205,7 @@
 	"models_providers_subscriptions_turned_off": "Claude 구독을 껐습니다.",
 	"models_providers_settings_saved": "공급자 설정을 저장했습니다.",
 	"models_providers_models_refreshed": "모델을 새로 고쳤습니다.",
+	"models_providers_models_refresh_requested": "모델 새로 고침을 요청했습니다.",
 	"models_providers_key_models_none": "없음",
 	"models_providers_key_status_healthy": "정상",
 	"models_providers_status_unknown": "알 수 없음",

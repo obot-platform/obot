@@ -2,7 +2,6 @@ package llmengine
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,10 +22,26 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 )
 
+// Resolved credential and proxy values make cache identity directly comparable.
+type azureDiscoveryCacheKey struct {
+	Account       llmcoreclient.AzureAccount
+	Endpoint      string
+	ClientID      string
+	ClientSecret  string
+	TenantID      string
+	ProxyType     schemas.ProxyType
+	ProxyURL      string
+	ProxyUsername string
+	ProxyPassword string
+	ProxyCA       string
+	NoProxy       string
+	SkipTLSVerify bool
+}
+
 type azureDiscoveryEntry struct {
-	fingerprint [32]byte
-	credential  azcore.TokenCredential
-	client      *http.Client
+	cacheKey   azureDiscoveryCacheKey
+	credential azcore.TokenCredential
+	client     *http.Client
 }
 
 type azureDiscovery struct {
@@ -84,51 +99,75 @@ func (*azureDiscovery) snapshot(cfg llmcoreclient.Config, provider schemas.Model
 	return out
 }
 
+// RefreshAzureDeployments is called only by the leader-elected model-sync controller.
+func (e *Engine) RefreshAzureDeployments(ctx context.Context) error {
+	cfg, err := e.config(ctx)
+	if err != nil {
+		return err
+	}
+
+	var failures []error
+
+	for provider := range cfg.Providers {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if isAzureProvider(cfg, provider) {
+			failures = append(failures, e.discovery.refresh(ctx, cfg, provider, e.store))
+		}
+	}
+
+	return errors.Join(failures...)
+}
+
 func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, provider schemas.ModelProvider, store *llmcoreclient.Client) error {
-	proxy := llmcore.ProviderProxy(cfg.Providers[provider], cfg.Settings["proxy"])
+	current, version, err := store.GetProviderWithVersion(ctx, string(provider))
+	if err != nil {
+		return err
+	}
+	// Recheck the provider type from the same version used for publication.
+	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{provider: current.Config}}, provider) {
+		return nil
+	}
 
-	// Workers can finish after caller cancellation without blocking on result delivery.
-	results := make(chan error, len(cfg.Keys[provider]))
-	pending := 0
+	proxy := llmcore.ProviderProxy(current.Config, cfg.Settings["proxy"])
+	snapshots := map[string]llmcoreclient.AzureDiscoverySnapshot{}
 	keep := map[string]struct{}{}
+	var failures []error
 
-	for _, key := range cfg.Keys[provider] {
-		account := cfg.AzureAccounts[provider][key.ID]
+	for _, key := range current.Keys {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		account := current.AzureAccounts[key.ID]
 		if account == (llmcoreclient.AzureAccount{}) || (key.Enabled != nil && !*key.Enabled) {
 			continue
 		}
 
 		keep[string(provider)+"/"+key.ID] = struct{}{}
-		pending++
 
-		// Each key gets the caller's whole window; a slow key cannot starve healthy keys.
-		go func() {
-			entry, err := d.keyClient(provider, key, account, proxy)
-			if err == nil {
-				fingerprint := llmcoreclient.AzureDiscoveryFingerprint(key, account)
-				var generation uint64
-				generation, err = store.BeginAzureDiscovery(ctx, string(provider), key.ID, fingerprint)
-				if err != nil || generation == 0 {
-					results <- err
-					return
-				}
+		entry, err := d.keyClient(provider, key, account, proxy)
+		if err != nil {
+			failures = append(failures, err)
+			continue
+		}
 
-				metadata := map[string]string{}
-				var names []string
-				names, err = entry.list(ctx, account.ResourceID(), metadata)
-				if err == nil {
-					// ARM page order is not identity; canonical names prevent redundant watch events.
-					slices.Sort(names)
-					names = slices.Compact(names)
+		metadata := map[string]string{}
+		names, err := entry.list(ctx, account.ResourceID(), metadata)
+		if err != nil {
+			failures = append(failures, err)
+			continue
+		}
 
-					err = store.SaveAzureDiscovery(ctx, string(provider), key.ID, generation, llmcoreclient.AzureDiscoverySnapshot{
-						Fingerprint: fingerprint, Names: names, BaseModels: metadata,
-					})
-				}
-			}
-
-			results <- err
-		}()
+		// ARM page order is not identity; canonicalize persisted deployment names.
+		slices.Sort(names)
+		names = slices.Compact(names)
+		snapshots[key.ID] = llmcoreclient.AzureDiscoverySnapshot{
+			Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account),
+			Names:       names,
+			BaseModels:  metadata,
+		}
 	}
 
 	d.mu.Lock()
@@ -140,16 +179,8 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 	}
 	d.mu.Unlock()
 
-	var failures []error
-
-	for range pending {
-		select {
-		case err := <-results:
-			failures = append(failures, err)
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
+	// A conflict retries the whole controller pass, including ARM, rather than rebasing stale results.
+	failures = append(failures, store.SaveAzureDiscoveries(ctx, string(provider), version, snapshots))
 
 	return errors.Join(failures...)
 }
@@ -159,27 +190,26 @@ func (d *azureDiscovery) keyClient(provider schemas.ModelProvider, key schemas.K
 		return nil, err
 	}
 
-	// Resolve proxy secrets so credential reuse also follows live proxy changes.
-	network := struct {
-		Identity                             [32]byte
-		Type                                 schemas.ProxyType
-		URL, Username, Password, CA, NoProxy string
-		SkipTLSVerify                        bool
-	}{Identity: llmcoreclient.AzureDiscoveryFingerprint(key, account)}
-	if proxy != nil {
-		network.Type, network.URL = proxy.Type, proxy.URL.GetValue()
-		network.Username, network.Password = proxy.Username.GetValue(), proxy.Password.GetValue()
-		network.CA, network.NoProxy, network.SkipTLSVerify = proxy.CACertPEM.GetValue(), proxy.NoProxy, proxy.SkipTLSVerify
+	c := key.AzureKeyConfig
+	cacheKey := azureDiscoveryCacheKey{
+		Account:      account,
+		Endpoint:     c.Endpoint.GetValue(),
+		ClientID:     c.ClientID.GetValue(),
+		ClientSecret: c.ClientSecret.GetValue(),
+		TenantID:     c.TenantID.GetValue(),
 	}
-	raw, _ := json.Marshal(network)
-	fingerprint := sha256.Sum256(raw)
+	if proxy != nil {
+		cacheKey.ProxyType, cacheKey.ProxyURL = proxy.Type, proxy.URL.GetValue()
+		cacheKey.ProxyUsername, cacheKey.ProxyPassword = proxy.Username.GetValue(), proxy.Password.GetValue()
+		cacheKey.ProxyCA, cacheKey.NoProxy, cacheKey.SkipTLSVerify = proxy.CACertPEM.GetValue(), proxy.NoProxy, proxy.SkipTLSVerify
+	}
 	cacheID := string(provider) + "/" + key.ID
 
 	// Credential construction performs no network I/O; only cache access holds the mutex.
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if entry := d.entries[cacheID]; entry != nil && entry.fingerprint == fingerprint {
+	if entry := d.entries[cacheID]; entry != nil && entry.cacheKey == cacheKey {
 		return entry, nil
 	}
 
@@ -224,7 +254,7 @@ func (d *azureDiscovery) keyClient(provider schemas.ModelProvider, key schemas.K
 	if previous := d.entries[cacheID]; previous != nil {
 		previous.client.CloseIdleConnections()
 	}
-	entry := &azureDiscoveryEntry{fingerprint: fingerprint, credential: credential, client: client}
+	entry := &azureDiscoveryEntry{cacheKey: cacheKey, credential: credential, client: client}
 	d.entries[cacheID] = entry
 
 	return entry, nil

@@ -205,6 +205,7 @@
 	"models_providers_subscriptions_turned_off": "已关闭 Claude 订阅。",
 	"models_providers_settings_saved": "提供商设置已保存。",
 	"models_providers_models_refreshed": "模型已刷新。",
+	"models_providers_models_refresh_requested": "已请求刷新模型。",
 	"models_providers_key_models_none": "无",
 	"models_providers_key_status_healthy": "正常",
 	"models_providers_status_unknown": "未知",

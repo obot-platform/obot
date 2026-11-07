@@ -285,8 +285,17 @@ export async function deleteProviderKey(provider: string, id: string, opts?: Opt
 	);
 }
 
-export async function refreshProviderModels(provider: string, opts?: Opts): Promise<void> {
-	await doPost(`${B}/providers/${encodeURIComponent(provider)}/refresh-models`, {}, opts);
+export async function refreshProviderModels(
+	provider: string,
+	opts?: Opts
+): Promise<{ status: 'pending' | 'refreshed' }> {
+	return (await doPost(
+		`${B}/providers/${encodeURIComponent(provider)}/refresh-models`,
+		{},
+		opts
+	)) as {
+		status: 'pending' | 'refreshed';
+	};
 }
 
 export interface GatewayModel {

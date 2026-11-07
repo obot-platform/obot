@@ -205,6 +205,7 @@
 	"models_providers_subscriptions_turned_off": "Claude subscriptions turned off.",
 	"models_providers_settings_saved": "Provider settings saved.",
 	"models_providers_models_refreshed": "Models refreshed.",
+	"models_providers_models_refresh_requested": "Model refresh requested.",
 	"models_providers_key_models_none": "none",
 	"models_providers_key_status_healthy": "healthy",
 	"models_providers_status_unknown": "unknown",

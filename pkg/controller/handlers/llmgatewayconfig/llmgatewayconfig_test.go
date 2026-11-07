@@ -48,175 +48,51 @@ func (e *testEngine) Sync(ctx context.Context) (bool, error) {
 	return e.core.Sync(ctx)
 }
 
-func TestReconcileRetriesStartupAndDiscovery(t *testing.T) {
-	ctx := t.Context()
-	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store, err := llmcoreclient.New(storage, plaintextCodec{})
-	require.NoError(t, err)
+func TestReconcileRetriesStartupAndApplication(t *testing.T) {
 	engine := &testEngine{}
-	attempts := 0
-	discoveryErr := errors.New("discovery unavailable")
-	handler := New(engine, func(context.Context) error {
-		attempts++
-		if attempts == 1 {
-			return discoveryErr
-		}
-		return nil
-	})
+	handler := New(engine)
 	response := &retryResponse{}
-	require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, response))
-	require.Equal(t, time.Second, response.delay, "startup-window events must be retried")
+	require.NoError(t, handler.Reconcile(router.Request{Ctx: t.Context()}, response))
+	require.Equal(t, time.Second, response.delay)
 	require.Zero(t, engine.syncCalls)
-	require.Zero(t, attempts)
-	engine.core, err = llmcore.New(ctx, store, llmcore.Options{})
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, engine.core.Shutdown(context.Background())) })
+
 	engine.ready = true
-	require.NoError(t, store.CreateProvider(ctx, "openai", llmcoreclient.Provider{}))
-	// The event's payload is deliberately obsolete: reconciliation must load the store.
-	request := router.Request{Ctx: ctx, Object: &v1.LLMGatewayProvider{Spec: v1.LLMGatewayResourceSpec{ID: "obsolete"}}}
-	require.ErrorIs(t, handler.Reconcile(request, &retryResponse{}), discoveryErr)
-	providers, err := engine.core.Client().GetConfiguredProviders()
-	require.NoError(t, err)
-	require.Contains(t, providers, schemas.OpenAI, "application succeeded before discovery failed")
-	require.NotContains(t, providers, schemas.ModelProvider("obsolete"))
-	changed, err := engine.core.Sync(ctx)
-	require.NoError(t, err)
-	require.False(t, changed)
-	require.NoError(t, handler.Reconcile(request, &retryResponse{}))
-	require.Equal(t, 2, attempts, "discovery must retry even when application is unchanged")
-}
-
-func TestReconcileRetriesApplicationWithoutStarvingDiscovery(t *testing.T) {
-	ctx := t.Context()
-	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store, err := llmcoreclient.New(storage, plaintextCodec{})
-	require.NoError(t, err)
-	core, err := llmcore.New(ctx, store, llmcore.Options{})
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, core.Shutdown(context.Background())) })
-	applicationErr := errors.New("application failed")
-	engine := &testEngine{ready: true, core: core, syncErr: applicationErr}
-	discoveries := 0
-	handler := New(engine, func(context.Context) error { discoveries++; return nil })
-	request := router.Request{Ctx: ctx}
-	for range 2 {
-		require.ErrorIs(t, handler.Reconcile(request, &retryResponse{}), applicationErr)
-	}
-	require.Equal(t, 2, engine.syncCalls, "failed application remains retryable without another write")
-	require.Equal(t, 2, discoveries, "application errors must not starve discovery")
+	failure := errors.New("application failed")
+	engine.syncErr = failure
+	require.ErrorIs(t, handler.Reconcile(router.Request{Ctx: t.Context()}, &retryResponse{}), failure)
+	require.Equal(t, 1, engine.syncCalls)
 	engine.syncErr = nil
-	require.NoError(t, handler.Reconcile(request, &retryResponse{}))
-	require.Equal(t, 3, discoveries)
-}
-
-func TestDiscoveryAfterRoutingTargetDeleted(t *testing.T) {
-	ctx := t.Context()
-	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store, err := llmcoreclient.New(storage, plaintextCodec{})
-	require.NoError(t, err)
-	for _, name := range []string{"openai", "anthropic"} {
-		require.NoError(t, store.CreateProvider(ctx, name, llmcoreclient.Provider{}))
-	}
-	provider := "anthropic"
-	require.NoError(t, store.PutRule(ctx, tables.TableRoutingRule{
-		ID: "keep-policy", Name: "keep-policy", CelExpression: "true", Scope: "global",
-		Targets: []tables.TableRoutingTarget{{Provider: &provider, Weight: 1}},
-	}))
-	core, err := llmcore.New(ctx, store, llmcore.Options{})
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, core.Shutdown(context.Background())) })
-	require.NoError(t, store.DeleteProvider(ctx, "anthropic"))
-	// An unrelated provider must still apply and become discoverable.
-	require.NoError(t, store.CreateProvider(ctx, "gemini", llmcoreclient.Provider{}))
-	discoveries := 0
-	discoveryErr := errors.New("discovery unavailable")
-	handler := New(&testEngine{ready: true, core: core}, func(context.Context) error {
-		discoveries++
-		providers, err := core.Client().GetConfiguredProviders()
-		require.NoError(t, err)
-		require.Contains(t, providers, schemas.Gemini)
-		require.NotContains(t, providers, schemas.Anthropic)
-		if discoveries == 1 {
-			return discoveryErr
-		}
-		return nil
-	})
-	require.ErrorIs(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}), discoveryErr)
-	require.ErrorContains(t, core.Err(), "anthropic is not configured")
-	response := &retryResponse{}
-	require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, response), "the dangling reference must not force another retry")
-	require.Zero(t, response.delay)
-	require.Equal(t, 2, discoveries, "failed discovery still retries with an unchanged dangling rule")
-	changed, err := core.Sync(ctx)
-	require.NoError(t, err)
-	require.False(t, changed)
-	require.ErrorContains(t, core.Err(), "anthropic is not configured")
-	loaded, err := store.Load(ctx)
-	require.NoError(t, err)
-	require.Contains(t, loaded.Config.Rules, "keep-policy")
+	engine.syncFn = func(context.Context) (bool, error) { return false, nil }
+	require.NoError(t, handler.Reconcile(router.Request{Ctx: t.Context()}, &retryResponse{}))
+	require.Equal(t, 2, engine.syncCalls)
 }
 
 func TestReconcileCoalescesOverlappingEvents(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		stage string
-		fail  bool
-	}{
-		{
-			name:  "during sync",
-			stage: "sync",
-		},
-		{
-			name:  "during discovery",
-			stage: "discovery",
-		},
-		{
-			name:  "failed sync retries pending changes",
-			stage: "sync",
-			fail:  true,
-		},
-		{
-			name:  "failed discovery retries pending changes",
-			stage: "discovery",
-			fail:  true,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(map[bool]string{false: "success", true: "retry"}[fail], func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 			entered, release := make(chan struct{}), make(chan struct{})
 			var desired atomic.Int64
 			var observed []int64
 			failure := errors.New("first pass failed")
-			pause := func() error {
-				close(entered)
-				select {
-				case <-release:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
-				if tc.fail {
-					return failure
-				}
-				return nil
-			}
 			engine := &testEngine{ready: true}
 			engine.syncFn = func(context.Context) (bool, error) {
 				observed = append(observed, desired.Load())
-				if engine.syncCalls == 1 && tc.stage == "sync" {
-					return false, pause()
+				if engine.syncCalls == 1 {
+					close(entered)
+					select {
+					case <-release:
+					case <-ctx.Done():
+						return false, ctx.Err()
+					}
+					if fail {
+						return false, failure
+					}
 				}
 				return false, ctx.Err()
 			}
-			discoveries := 0
-			handler := New(engine, func(context.Context) error {
-				discoveries++
-				if discoveries == 1 && tc.stage == "discovery" {
-					return pause()
-				}
-				return ctx.Err()
-			})
+			handler := New(engine)
 			done := make(chan error, 1)
 			go func() { done <- handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}) }()
 			select {
@@ -229,14 +105,12 @@ func TestReconcileCoalescesOverlappingEvents(t *testing.T) {
 			for range 10 {
 				require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}))
 			}
-			require.Equal(t, 1, engine.syncCalls, "overlapping events must not reload independently")
+			require.Equal(t, 1, engine.syncCalls)
 			close(release)
 			select {
 			case err := <-done:
-				if tc.fail {
-					require.ErrorIs(t, err, failure, "the active event must return the error for router retry")
-					require.Equal(t, 1, discoveries, "application failure must still trigger discovery")
-					// Retry the active event without another configuration change.
+				if fail {
+					require.ErrorIs(t, err, failure)
 					require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}))
 				} else {
 					require.NoError(t, err)
@@ -244,45 +118,78 @@ func TestReconcileCoalescesOverlappingEvents(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("reconciliation did not finish")
 			}
-			require.Equal(t, []int64{0, 1}, observed, "the next pass must load changes made during sync or discovery")
-			require.Equal(t, 2, engine.syncCalls)
-			require.Equal(t, 2, discoveries)
-			// A later, non-overlapping event must still reconcile normally.
-			require.NoError(t, handler.Reconcile(router.Request{Ctx: ctx}, &retryResponse{}))
-			require.Equal(t, 3, engine.syncCalls)
-			require.Equal(t, 3, discoveries)
+			require.Equal(t, []int64{0, 1}, observed)
 		})
 	}
 }
 
-func TestDiscoveryReservationsDoNotTriggerRefreshLoops(t *testing.T) {
-	for _, changed := range []bool{false, true} {
-		t.Run(map[bool]string{false: "ordering only", true: "pending configuration"}[changed], func(t *testing.T) {
-			calls, discoveries := 0, 0
-			engine := &testEngine{
-				ready: true,
-				syncFn: func(context.Context) (bool, error) {
-					calls++
+func TestSnapshotEventsApplyOnEveryReplicaWithoutModelSync(t *testing.T) {
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, plaintextCodec{})
+	require.NoError(t, err)
+	key := schemas.Key{ID: "key", Models: schemas.WhiteList{"*"}}
+	account := llmcoreclient.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
+	require.NoError(t, store.CreateProvider(t.Context(), "azure", llmcoreclient.Provider{
+		Keys:          []schemas.Key{key},
+		AzureAccounts: map[string]llmcoreclient.AzureAccount{key.ID: account},
+	}))
 
-					return changed && calls == 1, nil
-				},
-			}
-			handler := New(engine, func(context.Context) error {
-				discoveries++
-
-				return nil
-			})
-			request := router.Request{
-				Ctx:    t.Context(),
-				Object: &v1.LLMGatewayProvider{Annotations: map[string]string{llmcoreclient.AzureDiscoveryReservationAnnotation: "true"}},
-			}
-
-			require.NoError(t, handler.Reconcile(request, &retryResponse{}))
-			if changed {
-				require.Equal(t, 1, discoveries, "a reservation must not hide a pending configuration edit")
-			} else {
-				require.Zero(t, discoveries, "ordering writes must not start another refresh")
-			}
-		})
+	var engines []*llmcore.Engine
+	for range 2 {
+		core, err := llmcore.New(t.Context(), store, llmcore.Options{})
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, core.Shutdown(context.Background())) })
+		engines = append(engines, core)
 	}
+	_, version, err := store.GetProviderWithVersion(t.Context(), "azure")
+	require.NoError(t, err)
+	require.NoError(t, store.SaveAzureDiscoveries(t.Context(), "azure", version, map[string]llmcoreclient.AzureDiscoverySnapshot{key.ID: {
+		Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account),
+		Names:       []string{"deployment"},
+	}}))
+
+	for _, core := range engines {
+		engine := &testEngine{ready: true, core: core}
+		handler := New(engine)
+		require.NoError(t, handler.Reconcile(router.Request{Ctx: t.Context(), Object: &v1.LLMGatewayProvider{}}, &retryResponse{}))
+		changed, err := core.Sync(t.Context())
+		require.NoError(t, err)
+		require.False(t, changed, "the snapshot was already applied by this replica's watch")
+	}
+	// The watcher has no discovery/trigger callback: snapshot publication can only apply runtime state.
+}
+
+func TestReconcileAfterRoutingTargetDeleted(t *testing.T) {
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store, err := llmcoreclient.New(storage, plaintextCodec{})
+	require.NoError(t, err)
+	for _, name := range []string{"openai", "anthropic"} {
+		require.NoError(t, store.CreateProvider(t.Context(), name, llmcoreclient.Provider{}))
+	}
+	provider := "anthropic"
+	require.NoError(t, store.PutRule(t.Context(), tables.TableRoutingRule{
+		ID:            "keep-policy",
+		Name:          "keep-policy",
+		CelExpression: "true",
+		Scope:         "global",
+		Targets:       []tables.TableRoutingTarget{{Provider: &provider, Weight: 1}},
+	}))
+	core, err := llmcore.New(t.Context(), store, llmcore.Options{})
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, core.Shutdown(context.Background())) })
+	require.NoError(t, store.DeleteProvider(t.Context(), "anthropic"))
+	require.NoError(t, store.CreateProvider(t.Context(), "gemini", llmcoreclient.Provider{}))
+
+	handler := New(&testEngine{ready: true, core: core})
+	response := &retryResponse{}
+	require.NoError(t, handler.Reconcile(router.Request{Ctx: t.Context()}, response))
+	require.Zero(t, response.delay, "an unchanged dangling rule must not force a retry")
+	configured, err := core.Client().GetConfiguredProviders()
+	require.NoError(t, err)
+	require.Contains(t, configured, schemas.Gemini)
+	require.NotContains(t, configured, schemas.Anthropic)
+	require.ErrorContains(t, core.Err(), "anthropic is not configured")
+	loaded, err := store.Load(t.Context())
+	require.NoError(t, err)
+	require.Contains(t, loaded.Config.Rules, "keep-policy")
 }

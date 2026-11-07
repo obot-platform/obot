@@ -57,7 +57,7 @@ func TestAzureEntraDiscovery(t *testing.T) {
 	stored, err := e.store.GetProvider(ctx, "azure")
 	require.NoError(t, err)
 	require.Equal(t, resourceID, stored.AzureAccounts[key.ID].ResourceID())
-	require.NoError(t, e.RefreshProviderModels(ctx, "azure"))
+	require.NoError(t, e.RefreshAzureDeployments(ctx))
 
 	models, err := e.ListModels(ctx)
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestAzureEntraDiscovery(t *testing.T) {
 	require.Equal(t, "azure/custom-deployment", models.Models[0].ID)
 
 	status = http.StatusForbidden
-	require.Error(t, e.RefreshProviderModels(ctx, "azure"))
+	require.Error(t, e.RefreshAzureDeployments(ctx))
 
 	models, err = e.ListModels(ctx)
 	require.NoError(t, err)
@@ -80,10 +80,12 @@ func TestAzureEntraDiscovery(t *testing.T) {
 		require.Empty(t, models.Models, "changed credentials cannot reuse old discovery")
 	}
 
-	require.Equal(t, 2, credentials)
+	require.Equal(t, 1, credentials, "public listing does not create a credential")
 
 	status = http.StatusOK
 	body = `{"value":[]}`
+	require.NoError(t, e.RefreshAzureDeployments(ctx))
+	require.Equal(t, 2, credentials)
 	models, err = e.ListModels(ctx)
 	require.NoError(t, err)
 	require.Empty(t, models.Models)

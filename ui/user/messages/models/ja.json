@@ -205,6 +205,7 @@
 	"models_providers_subscriptions_turned_off": "Claude サブスクリプションをオフにしました。",
 	"models_providers_settings_saved": "プロバイダーの設定を保存しました。",
 	"models_providers_models_refreshed": "モデルを更新しました。",
+	"models_providers_models_refresh_requested": "モデルの更新をリクエストしました。",
 	"models_providers_key_models_none": "なし",
 	"models_providers_key_status_healthy": "正常",
 	"models_providers_status_unknown": "不明",

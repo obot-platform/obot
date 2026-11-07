@@ -54,7 +54,11 @@ func newAdminTestHandler(t *testing.T, storage kclient.WithWatch) (*LLMGatewayHa
 	dir := t.TempDir()
 	modeldatatest.Write(t, dir)
 	engine := llmengine.New()
-	require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: dir}))
+	require.NoError(t, engine.Start(t.Context(), llmengine.Options{
+		Store:            store,
+		DataDir:          dir,
+		TriggerModelSync: func(ctx context.Context) error { return llmengine.TriggerModelSync(ctx, storage) },
+	}))
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	return NewLLMGatewayHandler(engine, nil), store
 }
@@ -500,4 +504,23 @@ func TestGatewayAdminErrorPreservesStatusAndScrubsMessage(t *testing.T) {
 	httpErr, ok := errors.AsType[*types.ErrHTTP](gatewayAdminError(errors.New("invalid configuration")))
 	require.True(t, ok)
 	require.Equal(t, http.StatusBadRequest, httpErr.Code)
+}
+
+func TestGatewayAdminAzureRefreshReturnsPending(t *testing.T) {
+	storage := newFakeStorage(t, llmengine.ModelProviderResource())
+	handler, store := newAdminTestHandler(t, storage)
+	require.NoError(t, store.CreateProvider(t.Context(), "azure", llmcoreclient.Provider{}))
+	before, err := store.Load(t.Context())
+	require.NoError(t, err)
+
+	response, err := callAdmin(t, handler, storage, http.MethodPost, "providers/azure/refresh-models", `{}`)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusAccepted, response.Code)
+	require.JSONEq(t, `{"status":"pending"}`, response.Body.String())
+	var mp v1.ModelProvider
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(llmengine.ModelProviderResource()), &mp))
+	require.Equal(t, "true", mp.Annotations[v1.ModelProviderSyncAnnotation], "enqueue model sync exactly once")
+	after, err := store.Load(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, before.Config, after.Config, "the caller queues work without fetching or publishing discovery")
 }

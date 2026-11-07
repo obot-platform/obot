@@ -1,10 +1,7 @@
 package controller
 
 import (
-	"context"
-
 	"github.com/obot-platform/obot/pkg/controller/handlers/llmgatewayconfig"
-	"github.com/obot-platform/obot/pkg/llmengine"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -16,9 +13,7 @@ func (c *Controller) setupLLMGatewayConfigRoutes(engine llmgatewayconfig.Engine)
 	if c.services.EveryReplicaRouter == nil {
 		return
 	}
-	configSync := llmgatewayconfig.New(engine, func(ctx context.Context) error {
-		return llmengine.TriggerModelSync(ctx, c.services.StorageClient)
-	})
+	configSync := llmgatewayconfig.New(engine)
 	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayProvider{}).
 		Namespace(system.DefaultNamespace).
 		IncludeRemoved().

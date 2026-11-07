@@ -32,6 +32,7 @@ const (
 
 type Options struct {
 	Store                   *llmcoreclient.Client
+	TriggerModelSync        func(context.Context) error
 	DataDir                 string
 	LogLevel                string
 	FirstPlugin, LastPlugin schemas.LLMPlugin

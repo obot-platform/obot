@@ -245,9 +245,13 @@
 	async function refresh() {
 		refreshing = true;
 		try {
-			await refreshProviderModels(name);
-			await syncModels();
-			success.add(m.models_providers_models_refreshed());
+			const result = await refreshProviderModels(name);
+			if (result?.status !== 'pending') await syncModels();
+			success.add(
+				result?.status === 'pending'
+					? m.models_providers_models_refresh_requested()
+					: m.models_providers_models_refreshed()
+			);
 			void loadModelsAfterSync();
 		} finally {
 			refreshing = false;

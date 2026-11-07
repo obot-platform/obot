@@ -1,60 +1,63 @@
 package client_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/pkg/llmcore/client"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-func TestAzureSnapshotPublicationAndInvalidation(t *testing.T) {
-	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	store := newStore(t, storage)
-	key := schemas.Key{ID: "key", AzureKeyConfig: &schemas.AzureKeyConfig{ClientSecret: schemas.NewSecretVar("secret")}}
-	account := client.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
-	require.NoError(t, store.CreateProvider(t.Context(), "azure", client.Provider{Keys: []schemas.Key{key}, AzureAccounts: map[string]client.AzureAccount{key.ID: account}}))
+type cancelingDiscoveryCodec struct {
+	cancel  context.CancelFunc
+	enabled bool
+}
 
-	snapshot := client.AzureDiscoverySnapshot{Fingerprint: client.AzureDiscoveryFingerprint(key, account), Names: []string{"real"}}
-	generation, err := store.BeginAzureDiscovery(t.Context(), "azure", key.ID, snapshot.Fingerprint)
-	require.NoError(t, err)
-	require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
-
-	versions := func() string {
-		t.Helper()
-
-		var providers v1.LLMGatewayProviderList
-		require.NoError(t, storage.List(t.Context(), &providers))
-		require.Len(t, providers.Items, 1)
-
-		return providers.Items[0].ResourceVersion
+func (c *cancelingDiscoveryCodec) SealGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	if c.enabled {
+		c.cancel()
 	}
+	return data, nil
+}
 
-	loaded, err := store.Load(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, snapshot, loaded.Config.AzureDiscoveries[schemas.Azure][key.ID])
+func (*cancelingDiscoveryCodec) OpenGatewayConfig(_ context.Context, _ string, data []byte) ([]byte, error) {
+	return data, nil
+}
 
-	before := versions()
-	require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
-	require.Equal(t, before, versions(), "identical discovery must not write or trigger another watch")
-
-	for _, change := range []string{"credentials", "account", "clear", "delete"} {
+func TestAzureSnapshotPublicationAndInvalidation(t *testing.T) {
+	for _, change := range []string{"credentials", "credentials restored", "account", "clear", "delete"} {
 		t.Run(change, func(t *testing.T) {
-			require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *client.Provider) error {
-				p.Keys = []schemas.Key{key}
-				p.AzureAccounts = map[string]client.AzureAccount{key.ID: account}
-
-				return nil
+			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+			store := newStore(t, storage)
+			key := schemas.Key{ID: "key", AzureKeyConfig: &schemas.AzureKeyConfig{ClientSecret: schemas.NewSecretVar("secret")}}
+			account := client.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
+			require.NoError(t, store.CreateProvider(t.Context(), "azure", client.Provider{
+				Keys:          []schemas.Key{key},
+				AzureAccounts: map[string]client.AzureAccount{key.ID: account},
 			}))
-			generation, err = store.BeginAzureDiscovery(t.Context(), "azure", key.ID, snapshot.Fingerprint)
+			snapshots := map[string]client.AzureDiscoverySnapshot{key.ID: {
+				Fingerprint: client.AzureDiscoveryFingerprint(key, account),
+				Names:       []string{"real"},
+			}}
+			_, version, err := store.GetProviderWithVersion(t.Context(), "azure")
 			require.NoError(t, err)
-			require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
+			require.NoError(t, store.SaveAzureDiscoveries(t.Context(), "azure", version, snapshots))
+			loaded, err := store.Load(t.Context())
+			require.NoError(t, err)
+			require.Equal(t, snapshots[key.ID].Names, loaded.Config.AzureDiscoveries[schemas.Azure][key.ID].Names)
+			require.NotEmpty(t, loaded.Config.AzureDiscoveries[schemas.Azure][key.ID].RefreshID)
+
+			_, oldVersion, err := store.GetProviderWithVersion(t.Context(), "azure")
+			require.NoError(t, err)
 			require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *client.Provider) error {
 				switch change {
-				case "credentials":
+				case "credentials", "credentials restored":
 					p.Keys[0].AzureKeyConfig.ClientSecret = schemas.NewSecretVar("replacement")
 				case "account":
 					a := p.AzureAccounts[key.ID]
@@ -69,72 +72,79 @@ func TestAzureSnapshotPublicationAndInvalidation(t *testing.T) {
 
 				return nil
 			}))
-			before := versions()
-
-			// This is the old worker completing after the administrator's edit.
-			require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
-			require.Equal(t, before, versions())
-
-			loaded, err := store.Load(t.Context())
+			if change == "credentials restored" {
+				require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *client.Provider) error {
+					p.Keys[0].AzureKeyConfig.ClientSecret = schemas.NewSecretVar("secret")
+					return nil
+				}))
+			}
+			require.True(t, apierrors.IsConflict(store.SaveAzureDiscoveries(t.Context(), "azure", oldVersion, snapshots)))
+			loaded, err = store.Load(t.Context())
 			require.NoError(t, err)
 			require.Empty(t, loaded.Config.AzureDiscoveries[schemas.Azure])
 		})
 	}
 }
 
-func TestAzureDiscoveryRejectsOlderRefresh(t *testing.T) {
+func TestAzureDiscoveryRejectsOlderOwnerIncludingUnchangedSuccess(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	olderClient := newStore(t, storage)
-	newerClient := newStore(t, storage)
+	older := newStore(t, storage)
+	newer := newStore(t, storage)
 	key := schemas.Key{ID: "key", AzureKeyConfig: &schemas.AzureKeyConfig{ClientSecret: schemas.NewSecretVar("secret")}}
 	account := client.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
-	require.NoError(t, olderClient.CreateProvider(t.Context(), "azure", client.Provider{
+	empty := map[string]client.AzureDiscoverySnapshot{key.ID: {
+		Fingerprint: client.AzureDiscoveryFingerprint(key, account),
+		Names:       []string{},
+	}}
+	require.NoError(t, older.CreateProvider(t.Context(), "azure", client.Provider{
+		Keys:             []schemas.Key{key},
+		AzureAccounts:    map[string]client.AzureAccount{key.ID: account},
+		AzureDiscoveries: empty,
+	}))
+	_, oldVersion, err := older.GetProviderWithVersion(t.Context(), "azure")
+	require.NoError(t, err)
+	_, newVersion, err := newer.GetProviderWithVersion(t.Context(), "azure")
+	require.NoError(t, err)
+
+	// An unchanged empty success still fences the previous owner's delayed response.
+	require.NoError(t, newer.SaveAzureDiscoveries(t.Context(), "azure", newVersion, empty))
+	stale := map[string]client.AzureDiscoverySnapshot{key.ID: {
+		Fingerprint: empty[key.ID].Fingerprint,
+		Names:       []string{"deleted-deployment"},
+	}}
+	require.True(t, apierrors.IsConflict(older.SaveAzureDiscoveries(t.Context(), "azure", oldVersion, stale)))
+	stored, _, err := older.GetProviderWithVersion(t.Context(), "azure")
+	require.NoError(t, err)
+	require.Empty(t, stored.AzureDiscoveries[key.ID].Names)
+	require.NotEmpty(t, stored.AzureDiscoveries[key.ID].RefreshID)
+}
+
+func TestAzurePublicationChecksCancellationAfterEncoding(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	codec := &cancelingDiscoveryCodec{cancel: cancel}
+	var updates int
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithInterceptorFuncs(interceptor.Funcs{
+		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+			updates++
+			return c.Update(context.WithoutCancel(ctx), obj, opts...)
+		},
+	}).Build()
+	store, err := client.New(storage, codec)
+	require.NoError(t, err)
+	key := schemas.Key{ID: "key"}
+	account := client.AzureAccount{SubscriptionID: "sub", ResourceGroup: "group", AccountName: "account"}
+	require.NoError(t, store.CreateProvider(ctx, "azure", client.Provider{
 		Keys:          []schemas.Key{key},
 		AzureAccounts: map[string]client.AzureAccount{key.ID: account},
 	}))
+	_, version, err := store.GetProviderWithVersion(ctx, "azure")
+	require.NoError(t, err)
+	codec.enabled = true
 
-	older := client.AzureDiscoverySnapshot{
+	err = store.SaveAzureDiscoveries(ctx, "azure", version, map[string]client.AzureDiscoverySnapshot{key.ID: {
 		Fingerprint: client.AzureDiscoveryFingerprint(key, account),
-		Names:       []string{"deleted-deployment"},
-		BaseModels:  map[string]string{"deleted-deployment": "gpt-4o"},
-	}
-	newer := client.AzureDiscoverySnapshot{Fingerprint: older.Fingerprint, Names: []string{}}
-
-	olderGeneration, err := olderClient.BeginAzureDiscovery(t.Context(), "azure", key.ID, older.Fingerprint)
-	require.NoError(t, err)
-	newerGeneration, err := newerClient.BeginAzureDiscovery(t.Context(), "azure", key.ID, newer.Fingerprint)
-	require.NoError(t, err)
-	require.Greater(t, newerGeneration, olderGeneration)
-
-	reservation, err := newerClient.GetProvider(t.Context(), "azure")
-	require.NoError(t, err)
-	require.Equal(t, newerGeneration, reservation.AzureRefreshGenerations[key.ID])
-
-	// A second replica confirms deletion before the older replica returns its result.
-	require.NoError(t, newerClient.SaveAzureDiscovery(t.Context(), "azure", key.ID, newerGeneration, newer))
-	require.NoError(t, olderClient.SaveAzureDiscovery(t.Context(), "azure", key.ID, olderGeneration, older))
-
-	stored, err := olderClient.GetProvider(t.Context(), "azure")
-	require.NoError(t, err)
-	require.Empty(t, stored.AzureDiscoveries[key.ID].Names)
-	require.Empty(t, stored.AzureDiscoveries[key.ID].BaseModels)
-
-	before, err := olderClient.Load(t.Context())
-	require.NoError(t, err)
-
-	// A failed newer attempt also keeps the last published result, not an older worker's late result.
-	lateGeneration, err := olderClient.BeginAzureDiscovery(t.Context(), "azure", key.ID, older.Fingerprint)
-	require.NoError(t, err)
-	_, err = newerClient.BeginAzureDiscovery(t.Context(), "azure", key.ID, newer.Fingerprint)
-	require.NoError(t, err)
-	require.NoError(t, olderClient.SaveAzureDiscovery(t.Context(), "azure", key.ID, lateGeneration, older))
-
-	stored, err = olderClient.GetProvider(t.Context(), "azure")
-	require.NoError(t, err)
-	require.Empty(t, stored.AzureDiscoveries[key.ID].Names)
-
-	after, err := olderClient.Load(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, newer, after.Config.AzureDiscoveries[schemas.Azure][key.ID])
-	require.Equal(t, before.Config, after.Config, "reservations must not change the runtime configuration view")
+		Names:       []string{"late"},
+	}})
+	require.ErrorIs(t, err, context.Canceled)
+	require.Zero(t, updates, "a canceled owner cannot reach storage publication even if storage ignores cancellation")
 }

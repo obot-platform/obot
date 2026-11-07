@@ -156,9 +156,12 @@ func (h *LLMGatewayHandler) RefreshProviderModels(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	err = h.engine.RefreshProviderModels(context.WithoutCancel(req.Context()), req.PathValue("provider"))
+	pending, err := h.engine.RefreshProviderModels(context.WithoutCancel(req.Context()), req.PathValue("provider"))
 	if err != nil {
 		return gatewayAdminError(err)
+	}
+	if pending {
+		return req.WriteCode(map[string]any{"status": "pending"}, http.StatusAccepted)
 	}
 	h.providerChanged(req)
 	return req.Write(map[string]any{"status": "refreshed"})

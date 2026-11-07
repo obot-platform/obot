@@ -440,22 +440,33 @@ func (e *Engine) RefreshPricing(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) RefreshProviderModels(ctx context.Context, name string) error {
+// RefreshProviderModels queues Azure discovery on the leader; other providers refresh synchronously.
+func (e *Engine) RefreshProviderModels(ctx context.Context, name string) (pending bool, err error) {
 	if _, err := e.Sync(ctx); err != nil {
-		return apierrors.NewServiceUnavailable(err.Error())
+		return false, apierrors.NewServiceUnavailable(err.Error())
 	}
 	cfg, err := e.config(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	provider := schemas.ModelProvider(name)
 	if _, ok := cfg.Providers[provider]; !ok {
-		return missing("provider")
+		return false, missing("provider")
 	}
+	if isAzureProvider(cfg, provider) {
+		if e.opts.TriggerModelSync == nil {
+			return false, apierrors.NewServiceUnavailable("model-sync controller unavailable")
+		}
+		if err := e.opts.TriggerModelSync(ctx); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+
 	if _, err := e.listGatewayModels(ctx, provider, true); err != nil {
-		return &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusBadGateway, Message: err.Error()}}
+		return false, &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusBadGateway, Message: err.Error()}}
 	}
-	return nil
+	return false, nil
 }
 
 func (e *Engine) CreateProvider(ctx context.Context, body json.RawMessage) (ProviderResponse, error) {

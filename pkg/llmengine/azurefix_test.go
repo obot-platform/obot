@@ -93,7 +93,8 @@ func TestAzureRefreshCannotFallThrough(t *testing.T) {
 	desired := context.WithValue(ctx, configContextKey{}, &cfg)
 	// Exercise the explicit refresh list call without resyncing this local-only runtime.
 	_, err = e.listGatewayModels(desired, schemas.Azure, true)
-	require.ErrorContains(t, err, "HTTP 403")
+	require.NoError(t, err)
+	require.ErrorContains(t, e.RefreshAzureDeployments(ctx), "HTTP 403")
 	require.Zero(t, calls.Load(), "ARM failure must not invoke the data-plane offerings endpoint")
 
 	// Configuration read failures must use the same terminal contract.
@@ -105,98 +106,58 @@ func TestAzureRefreshCannotFallThrough(t *testing.T) {
 	require.False(t, *short.Error.AllowFallbacks)
 }
 
-func TestAzureSlowKeyDoesNotBlockOtherProvidersOrHealthyKeys(t *testing.T) {
+func TestAzureLeaderProcessesKeysSequentiallyWithoutBlockingPublicLists(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	require.NoError(t, e.store.CreateProvider(ctx, "azure", azureTestProvider(azureTestKey("slow"), azureTestKey("healthy"))))
-
-	openai := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"data":[{"id":"fast"}]}`)) }))
-	defer openai.Close()
-
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"data":[{"id":"fast"}]}`))
+	}))
+	t.Cleanup(upstream.Close)
 	require.NoError(t, e.store.CreateProvider(ctx, "openai", llmcoreclient.Provider{
-		Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{BaseURL: openai.URL, AllowPrivateNetwork: true}},
+		Config: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{BaseURL: upstream.URL, AllowPrivateNetwork: true}},
 		Keys:   []schemas.Key{{ID: "openai", Name: "openai", Value: *schemas.NewSecretVar("secret"), Models: schemas.WhiteList{"*"}, Weight: 1}},
 	}))
 	_, err := e.Sync(ctx)
 	require.NoError(t, err)
 
-	entered := make(chan struct{}, 1)
+	entered, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
 	mockAzureDiscovery(t, e, func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
 		if strings.Contains(r.URL.Path, "/accounts/slow/") {
+			close(entered)
 			select {
-			case entered <- struct{}{}:
-			default:
+			case <-release:
+			case <-r.Context().Done():
+				return nil, r.Context().Err()
 			}
-
-			<-r.Context().Done()
-
-			return nil, r.Context().Err()
+			return azureResponse(http.StatusForbidden), nil
 		}
-
-		return azureResponse(200, "healthy-deployment"), nil
+		return azureResponse(http.StatusOK, "healthy-deployment"), nil
 	})
-
-	listingCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	done := make(chan error, 1)
-	go func() { _, err := e.gatewayModels(listingCtx, schemas.Azure); done <- err }()
-
+	go func() { done <- e.RefreshAzureDeployments(ctx) }()
 	select {
 	case <-entered:
 	case <-time.After(time.Second):
-		t.Fatal("slow request did not start")
+		t.Fatal("leader did not start discovery")
 	}
 
-	independent := make(chan error, 1)
-	go func() {
-		_, err := e.gatewayModels(ctx, schemas.OpenAI)
-		independent <- err
-	}()
-
-	select {
-	case err := <-independent:
-		require.NoError(t, err)
-	case <-time.After(time.Second):
-		t.Fatal("Azure blocked OpenAI")
-	}
-
-	require.Eventually(t, func() bool {
-		cfg, err := e.config(ctx)
-
-		return err == nil && len(e.discovery.snapshot(cfg, schemas.Azure)["healthy"]) == 1
-	}, time.Second, time.Millisecond)
-	cfg, err := e.config(ctx)
+	models, err := e.gatewayModels(ctx, schemas.Azure)
 	require.NoError(t, err)
-	require.Empty(t, e.discovery.snapshot(cfg, schemas.OpenAI))
-
-	cancel()
-
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("listing ignored cancellation")
-	}
-
-	// The successful key is published independently, before the canceled key finishes.
-	cfg, err = e.config(ctx)
+	require.Empty(t, models, "public listings read snapshots without waiting for ARM")
+	models, err = e.gatewayModels(ctx, schemas.OpenAI)
 	require.NoError(t, err)
+	require.Len(t, models, 1)
+	require.EqualValues(t, 1, calls.Load(), "the second key must not start concurrently")
+	close(release)
+	require.ErrorContains(t, <-done, "HTTP 403")
+	require.EqualValues(t, 2, calls.Load(), "one failing key must not starve the next")
 
-	models, _ := azureDeploymentModels(cfg, schemas.Azure, e.discovery.snapshot(cfg, schemas.Azure))
+	models, err = e.gatewayModels(ctx, schemas.Azure)
+	require.NoError(t, err)
 	require.Len(t, models, 1)
 	require.Equal(t, "azure/healthy-deployment", models[0].ID)
-
-	// The real aggregate uses Bifrost's provider deadline. A timed-out first key
-	// must still return the second key's successful deployment in that response.
-	listed, err := e.ListModels(ctx)
-	require.NoError(t, err)
-
-	found := false
-
-	for _, model := range listed.Models {
-		found = found || model.ID == "azure/healthy-deployment"
-	}
-
-	require.True(t, found)
 }
 
 func TestAzureMetadataIgnoresBodyIDAndPreservesMaskedEdits(t *testing.T) {
@@ -257,7 +218,7 @@ func TestAzureSnapshotsSurviveFreshEngineAndStayPerKey(t *testing.T) {
 		return azureResponse(200, "second"), nil
 	})
 
-	require.NoError(t, e.RefreshProviderModels(ctx, "azure"))
+	require.NoError(t, e.RefreshAzureDeployments(ctx))
 
 	fresh := New()
 	require.NoError(t, fresh.Start(ctx, Options{Store: e.store, DataDir: e.opts.DataDir}))
@@ -270,6 +231,8 @@ func TestAzureSnapshotsSurviveFreshEngineAndStayPerKey(t *testing.T) {
 
 		return azureResponse(200, "new-second"), nil
 	})
+
+	require.ErrorContains(t, fresh.RefreshAzureDeployments(ctx), "HTTP 403")
 
 	models, err := fresh.ListModels(ctx)
 	require.NoError(t, err)
@@ -291,6 +254,7 @@ func TestAzureSnapshotsSurviveFreshEngineAndStayPerKey(t *testing.T) {
 	require.Equal(t, "azure/new-second", models.Models[0].ID)
 
 	mockAzureDiscovery(t, fresh, func(*http.Request) (*http.Response, error) { return azureResponse(200), nil })
+	require.NoError(t, fresh.RefreshAzureDeployments(ctx))
 	models, err = fresh.ListModels(ctx)
 	require.NoError(t, err)
 	require.Empty(t, models.Models)
@@ -336,7 +300,7 @@ func TestAzureInFlightSnapshotCannotFollowCredentialEdit(t *testing.T) {
 		return nil
 	}))
 	close(release)
-	require.NoError(t, <-done)
+	require.ErrorContains(t, <-done, "provider changed during Azure discovery")
 
 	current, err := e.config(ctx)
 	require.NoError(t, err)
@@ -345,30 +309,29 @@ func TestAzureInFlightSnapshotCannotFollowCredentialEdit(t *testing.T) {
 	require.Empty(t, e.discovery.baseModel(current, schemas.Azure, "old-account-deployment"))
 }
 
-func TestAzureReversedRefreshCompletions(t *testing.T) {
+func TestAzureFormerLeaderCannotOverwriteNewOwner(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	require.NoError(t, e.store.CreateProvider(ctx, "azure", azureTestProvider(azureTestKey("key"))))
 
 	entered, release := make(chan struct{}), make(chan struct{})
-	var calls atomic.Int32
 	mockAzureDiscovery(t, e, func(r *http.Request) (*http.Response, error) {
-		if calls.Add(1) == 1 {
-			close(entered)
-			select {
-			case <-release:
-				return azureResponse(200, "deleted-deployment"), nil
-			case <-r.Context().Done():
-				return nil, r.Context().Err()
-			}
+		close(entered)
+		select {
+		case <-release:
+			return azureResponse(http.StatusOK, "deleted-deployment"), nil
+		case <-r.Context().Done():
+			return nil, r.Context().Err()
 		}
-
-		return azureResponse(200), nil
+	})
+	newOwner := New()
+	require.NoError(t, newOwner.Start(ctx, Options{Store: e.store, DataDir: e.opts.DataDir}))
+	t.Cleanup(func() { require.NoError(t, newOwner.Shutdown(context.Background())) })
+	mockAzureDiscovery(t, newOwner, func(*http.Request) (*http.Response, error) {
+		return azureResponse(http.StatusOK), nil
 	})
 
-	cfg, err := e.config(ctx)
-	require.NoError(t, err)
 	done := make(chan error, 1)
-	go func() { done <- e.discovery.refresh(ctx, cfg, schemas.Azure, e.store) }()
+	go func() { done <- e.RefreshAzureDeployments(ctx) }()
 
 	select {
 	case <-entered:
@@ -376,13 +339,38 @@ func TestAzureReversedRefreshCompletions(t *testing.T) {
 		t.Fatal("older discovery did not start")
 	}
 
-	require.NoError(t, e.discovery.refresh(ctx, cfg, schemas.Azure, e.store))
+	require.NoError(t, newOwner.RefreshAzureDeployments(ctx))
 	close(release)
-	require.NoError(t, <-done)
+	require.ErrorContains(t, <-done, "provider changed during Azure discovery")
 
 	current, err := e.config(ctx)
 	require.NoError(t, err)
 	require.Contains(t, current.AzureDiscoveries[schemas.Azure], "key")
 	require.Empty(t, current.AzureDiscoveries[schemas.Azure]["key"].Names)
 	require.Empty(t, current.AzureDiscoveries[schemas.Azure]["key"].BaseModels)
+}
+
+func TestAzureCanceledOwnerCannotPublishEvenWhenARMIgnoresCancellation(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	require.NoError(t, e.store.CreateProvider(ctx, "azure", azureTestProvider(azureTestKey("key"))))
+	entered, release := make(chan struct{}), make(chan struct{})
+	mockAzureDiscovery(t, e, func(*http.Request) (*http.Response, error) {
+		close(entered)
+		<-release
+		return azureResponse(http.StatusOK, "late"), nil
+	})
+	ownerCtx, cancel := context.WithCancel(ctx)
+	done := make(chan error, 1)
+	go func() { done <- e.RefreshAzureDeployments(ownerCtx) }()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("discovery did not start")
+	}
+	cancel()
+	close(release)
+	require.ErrorIs(t, <-done, context.Canceled)
+	provider, err := e.store.GetProvider(ctx, "azure")
+	require.NoError(t, err)
+	require.Empty(t, provider.AzureDiscoveries)
 }

@@ -93,7 +93,8 @@ func TestAzureListsConfiguredDeploymentsWithoutUpstreamDiscovery(t *testing.T) {
 
 	// Listing needs no Azure token, including when inference uses Entra credentials.
 	require.NoError(t, testMutation(ctx, e, nil)(e.UpdateKey(ctx, "azure", key.ID, []byte(`{"value":"","azure_key_config":{"client_id":"client","client_secret":"secret","tenant_id":"tenant"}}`))))
-	require.NoError(t, e.RefreshProviderModels(ctx, "azure"))
+	_, err := e.listGatewayModels(ctx, schemas.Azure, true)
+	require.NoError(t, err)
 
 	catalog, err := e.ListCatalogModels(ctx, "azure", "")
 	require.NoError(t, err)

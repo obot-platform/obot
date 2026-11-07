@@ -49,18 +49,6 @@ func (e *Engine) listGatewayModels(ctx context.Context, provider schemas.ModelPr
 		return nil, fmt.Errorf("model listing failed: %v", engineErr.Error)
 	}
 
-	for name := range cfg.Providers {
-		if (provider == "" || provider == name) && isAzureProvider(cfg, name) {
-			// Azure discovery may have just saved new deployment-to-model metadata.
-			cfg, err = e.config(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			break
-		}
-	}
-
 	for i := range out.Data {
 		model := &out.Data[i]
 		provider, id := schemas.ParseModelString(model.ID, "")

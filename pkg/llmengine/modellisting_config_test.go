@@ -101,7 +101,7 @@ func TestModelListingSharesConfigurationAcrossProviders(t *testing.T) {
 
 			if tc.azure {
 				// Keep local OpenAI runtimes: Bifrost cannot initialize custom Azure providers,
-				// but their hooks must still discover from the desired Azure configuration.
+				// but their hooks must still list persisted Azure deployments.
 				for i := range count {
 					name := fmt.Sprintf("provider-%d", i)
 					require.NoError(t, store.MutateProvider(t.Context(), name, func(provider *llmcoreclient.Provider) error {
@@ -114,6 +114,11 @@ func TestModelListingSharesConfigurationAcrossProviders(t *testing.T) {
 
 				mockAzureDiscovery(t, engine, func(*http.Request) (*http.Response, error) {
 					return azureResponse(http.StatusOK, "deployment"), nil
+				})
+				require.NoError(t, engine.RefreshAzureDeployments(t.Context()))
+				mockAzureDiscovery(t, engine, func(*http.Request) (*http.Response, error) {
+					t.Error("public listing must not call ARM")
+					return azureResponse(http.StatusForbidden), nil
 				})
 			}
 
@@ -128,7 +133,7 @@ func TestModelListingSharesConfigurationAcrossProviders(t *testing.T) {
 					require.Len(t, models, 1)
 				}
 				if tc.azure {
-					require.Equal(t, int32(2), loads.Load(), "one initial load and one metadata reload, regardless of Azure provider fan-out")
+					require.Equal(t, int32(1), loads.Load(), "one persisted snapshot load, regardless of Azure provider fan-out")
 					for _, model := range models {
 						require.True(t, strings.HasSuffix(model.ID, "/deployment"), "newly discovered deployments must be visible")
 					}

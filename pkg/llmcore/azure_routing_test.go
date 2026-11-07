@@ -59,9 +59,9 @@ func TestAzureInferenceUsesTheOwningAccount(t *testing.T) {
 			Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, provider.AzureAccounts[key.ID]),
 			Names:       []string{"only-" + key.ID},
 		}
-		generation, err := store.BeginAzureDiscovery(t.Context(), "azure", key.ID, snapshot.Fingerprint)
+		_, version, err := store.GetProviderWithVersion(t.Context(), "azure")
 		require.NoError(t, err)
-		require.NoError(t, store.SaveAzureDiscovery(t.Context(), "azure", key.ID, generation, snapshot))
+		require.NoError(t, store.SaveAzureDiscoveries(t.Context(), "azure", version, map[string]llmcoreclient.AzureDiscoverySnapshot{key.ID: snapshot}))
 	}
 
 	engine, err := llmcore.New(t.Context(), store, llmcore.Options{})
