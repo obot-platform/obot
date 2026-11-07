@@ -127,6 +127,11 @@ func (a *account) GetKeysForProvider(_ context.Context, provider schemas.ModelPr
 
 		for _, deployment := range snapshot.Names {
 			for _, match := range pipeline.FilterModel(deployment) {
+				// An alias can shadow a discovered name; authorize its actual wire target only.
+				if key.Aliases.Resolve(match.ResolvedID) != deployment {
+					continue
+				}
+
 				key.Models = append(key.Models, match.ResolvedID)
 			}
 		}

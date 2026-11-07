@@ -102,3 +102,55 @@ func TestAzureKeysStayWithinDiscoveredAccounts(t *testing.T) {
 		})
 	}
 }
+
+func TestAzureAliasCollisionsRespectTheActualTarget(t *testing.T) {
+	for _, provider := range []schemas.ModelProvider{schemas.Azure, "custom"} {
+		for _, tc := range []struct {
+			name        string
+			deployments []string
+			want        []string
+		}{
+			{
+				name:        "missing target",
+				deployments: []string{"blue"},
+				want:        []string{},
+			},
+			{
+				name:        "discovered target",
+				deployments: []string{"blue", "green"},
+				want:        []string{"blue", "green"},
+			},
+		} {
+			t.Run(string(provider)+"/"+tc.name, func(t *testing.T) {
+				key := schemas.Key{
+					ID:      "key",
+					Models:  schemas.WhiteList{"*"},
+					Aliases: schemas.KeyAliases{"blue": {ModelID: "green"}},
+				}
+				resource := llmcoreclient.AzureAccount{
+					SubscriptionID: "sub",
+					ResourceGroup:  "group",
+					AccountName:    "account",
+				}
+				cfg := llmcoreclient.Config{
+					Providers: map[schemas.ModelProvider]schemas.ProviderConfig{provider: {
+						CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure},
+					}},
+					Keys:          map[schemas.ModelProvider][]schemas.Key{provider: {key}},
+					AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{provider: {key.ID: resource}},
+					AzureDiscoveries: map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{provider: {key.ID: {
+						Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, resource),
+						Names:       tc.deployments,
+					}}},
+				}
+				runtime := &account{}
+				runtime.config.Store(&cfg)
+
+				keys, err := runtime.GetKeysForProvider(t.Context(), provider)
+				require.NoError(t, err)
+				require.ElementsMatch(t, tc.want, keys[0].Models)
+				require.Equal(t, schemas.WhiteList{"*"}, cfg.Keys[provider][0].Models)
+			})
+		}
+	}
+}

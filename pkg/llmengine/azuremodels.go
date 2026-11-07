@@ -52,6 +52,11 @@ func azureDeploymentModels(cfg llmcoreclient.Config, provider schemas.ModelProvi
 
 				for _, name := range names {
 					for _, match := range pipeline.FilterModel(name) {
+						// Match inference's alias precedence before advertising this deployment's metadata.
+						if key.Aliases.Resolve(match.ResolvedID) != name {
+							continue
+						}
+
 						model := schemas.Model{ID: string(provider) + "/" + match.ResolvedID}
 
 						// Deduplication must keep metadata from the same eligible key that advertised the ID.

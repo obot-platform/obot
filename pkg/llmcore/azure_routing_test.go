@@ -94,4 +94,28 @@ func TestAzureInferenceUsesTheOwningAccount(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, schemas.WhiteList{"*"}, stored.Keys[0].Models)
 	require.Equal(t, schemas.WhiteList{"*"}, stored.Keys[1].Models)
+
+	// A real deployment name can also be an alias. Inference must honor the alias,
+	// and the key must stay ineligible until that actual target has been discovered.
+	require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *llmcoreclient.Provider) error {
+		p.Keys[0].Aliases["only-one"] = schemas.AliasConfig{ModelID: "missing"}
+
+		return nil
+	}))
+	_, err = engine.Sync(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, call("one", "only-one"))
+	require.Empty(t, served, "an undiscovered alias target must be rejected before dispatch")
+
+	require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *llmcoreclient.Provider) error {
+		snapshot := p.AzureDiscoveries["one"]
+		snapshot.Names = append(snapshot.Names, "missing")
+		p.AzureDiscoveries["one"] = snapshot
+
+		return nil
+	}))
+	_, err = engine.Sync(t.Context())
+	require.NoError(t, err)
+	require.Nil(t, call("one", "only-one"))
+	require.Equal(t, "one/missing", <-served, "the alias must call its discovered target rather than the colliding raw deployment")
 }

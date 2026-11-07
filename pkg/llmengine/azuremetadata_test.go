@@ -170,3 +170,62 @@ func TestAzureBaseModelRetirementCannotRestoreCachedDeployments(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, catalog)
 }
+
+func TestAzureAliasCollisionUsesTheActualDeploymentMetadata(t *testing.T) {
+	for _, outcome := range []string{"missing", "active", "retired"} {
+		t.Run(outcome, func(t *testing.T) {
+			e, ctx := startTestEngine(t)
+			key := azureTestKey("key")
+			key.Models = schemas.WhiteList{"blue"}
+			key.Aliases = schemas.KeyAliases{"blue": {ModelID: "green"}}
+			provider := azureTestProvider(key)
+			blueBase, greenBase := "retired-base", "tts-1"
+			names := []string{"blue", "green"}
+			if outcome == "missing" {
+				names = []string{"blue"}
+				blueBase = "tts-1"
+			}
+			if outcome == "retired" {
+				blueBase, greenBase = "tts-1", "retired-base"
+			}
+			provider.AzureDiscoveries = map[string]llmcoreclient.AzureDiscoverySnapshot{key.ID: {
+				Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, provider.AzureAccounts[key.ID]),
+				Names:       names,
+				BaseModels:  map[string]string{"blue": blueBase, "green": greenBase},
+			}}
+			require.NoError(t, e.store.CreateProvider(ctx, "azure", provider))
+			_, err := e.Sync(ctx)
+			require.NoError(t, err)
+			path, _ := modeldata.Paths(e.opts.DataDir)
+			require.NoError(t, os.WriteFile(path, []byte(`{
+ "retired-base":{"provider":"azure","mode":"chat","is_deprecated":true},
+ "tts-1":{"provider":"azure","mode":"audio_speech","input_cost_per_token":0.000003}
+ }`), 0600))
+			require.NoError(t, e.prices.ForceReloadPricing(ctx))
+
+			models, err := e.gatewayModels(ctx, schemas.Azure)
+			require.NoError(t, err)
+			unavailable, err := e.UnavailableModels(ctx, []string{"azure/blue"})
+			require.NoError(t, err)
+			if outcome != "active" {
+				require.Empty(t, models)
+				require.True(t, unavailable["azure/blue"])
+				return
+			}
+			require.Len(t, models, 1)
+			require.Equal(t, "azure/blue", models[0].ID)
+			require.NotNil(t, models[0].Alias)
+			require.Equal(t, "green", *models[0].Alias)
+			require.Equal(t, "tts-1", azureBaseModel(models[0]))
+			require.NotNil(t, models[0].Pricing)
+			cost, err := strconv.ParseFloat(*models[0].Pricing.Prompt, 64)
+			require.NoError(t, err)
+			require.Equal(t, 0.000003, cost)
+			require.False(t, unavailable["azure/blue"])
+			listed, err := e.ListModels(ctx)
+			require.NoError(t, err)
+			require.Len(t, listed.Models, 1)
+			require.Equal(t, string(types.ModelUsageOther), listed.Models[0].Metadata["usage"])
+		})
+	}
+}
