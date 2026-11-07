@@ -12,6 +12,7 @@ import (
 )
 
 func TestAzureDeploymentModels(t *testing.T) {
+	engine := New()
 	cfg := llmcoreclient.Config{
 		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Azure: {}, "custom": {CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}},
 		Keys:      map[schemas.ModelProvider][]schemas.Key{},
@@ -55,7 +56,7 @@ func TestAzureDeploymentModels(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg.Keys[schemas.Azure] = tc.keys
-			models, azure := azureDeploymentModels(cfg, schemas.Azure)
+			models, azure := engine.azureDeploymentModels(cfg, schemas.Azure)
 			require.True(t, azure)
 
 			ids := []string{}
@@ -69,11 +70,11 @@ func TestAzureDeploymentModels(t *testing.T) {
 	}
 
 	cfg.Keys["custom"] = []schemas.Key{{Models: schemas.WhiteList{"deployment"}}}
-	models, azure := azureDeploymentModels(cfg, "custom")
+	models, azure := engine.azureDeploymentModels(cfg, "custom")
 	require.True(t, azure)
 	require.Equal(t, "custom/deployment", models[0].ID)
 
-	_, azure = azureDeploymentModels(cfg, schemas.OpenAI)
+	_, azure = engine.azureDeploymentModels(cfg, schemas.OpenAI)
 	require.False(t, azure)
 }
 
@@ -115,6 +116,7 @@ func TestAzureListsConfiguredDeploymentsWithoutUpstreamDiscovery(t *testing.T) {
 }
 
 func TestAzureAutomaticDeploymentPolicies(t *testing.T) {
+	engine := New()
 	for _, tc := range []struct {
 		name       string
 		provider   schemas.ModelProvider
@@ -168,7 +170,24 @@ func TestAzureAutomaticDeploymentPolicies(t *testing.T) {
 				Keys:      map[schemas.ModelProvider][]schemas.Key{tc.provider: tc.keys},
 			}
 
-			models, azure := azureDeploymentModels(cfg, tc.provider, tc.discovered)
+			cfg.AzureAccounts = map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{tc.provider: {}}
+			cfg.AzureDiscoveries = map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{tc.provider: {}}
+			for _, key := range tc.keys {
+				if names, automatic := tc.discovered[key.ID]; automatic {
+					account := llmcoreclient.AzureAccount{
+						SubscriptionID: "sub",
+						ResourceGroup:  "group",
+						AccountName:    key.ID,
+					}
+					cfg.AzureAccounts[tc.provider][key.ID] = account
+					cfg.AzureDiscoveries[tc.provider][key.ID] = llmcoreclient.AzureDiscoverySnapshot{
+						Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account),
+						Names:       names,
+					}
+				}
+			}
+
+			models, azure := engine.azureDeploymentModels(cfg, tc.provider)
 			require.True(t, azure)
 			require.Equal(t, tc.want, models)
 		})

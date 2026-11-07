@@ -46,7 +46,7 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 
 			provider := req.ListModelsRequest.Provider
 			if isAzureProvider(cfg, provider) {
-				models, _ := azureDeploymentModels(cfg, provider, m.engine.discovery.snapshot(cfg, provider))
+				models, _ := m.engine.azureDeploymentModels(cfg, provider)
 
 				return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
 					ListModelsResponse: &schemas.BifrostListModelsResponse{Data: models},
@@ -221,7 +221,7 @@ func (e *Engine) UnavailableModels(ctx context.Context, ids []string) (map[strin
 		name := schemas.ModelProvider(provider)
 		if isAzureProvider(cfg, name) {
 			if azureUnavailable[name] == nil {
-				models, _ := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name))
+				models, _ := e.azureDeploymentModels(cfg, name)
 				azureUnavailable[name] = make(map[string]bool, len(models))
 				for _, model := range models {
 					azureUnavailable[name][model.ID] = e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model))

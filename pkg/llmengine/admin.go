@@ -408,7 +408,7 @@ func (e *Engine) ListCatalogModels(ctx context.Context, provider, query string) 
 		}
 
 		names := e.prices.GetUnfilteredModelsForProvider(name)
-		models, azure := azureDeploymentModels(cfg, name, e.discovery.snapshot(cfg, name))
+		models, azure := e.azureDeploymentModels(cfg, name)
 		if azure {
 			names = nil
 

@@ -2,6 +2,7 @@ package llmengine
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strconv"
 	"testing"
@@ -227,5 +228,85 @@ func TestAzureAliasCollisionUsesTheActualDeploymentMetadata(t *testing.T) {
 			require.Len(t, listed.Models, 1)
 			require.Equal(t, string(types.ModelUsageOther), listed.Models[0].Metadata["usage"])
 		})
+	}
+}
+
+func TestAzureDuplicateDeploymentsKeepAnActiveContributor(t *testing.T) {
+	for _, alias := range []bool{false, true} {
+		for _, order := range []string{"retired first", "active first", "all retired"} {
+			t.Run(fmt.Sprintf("%s/alias=%t", order, alias), func(t *testing.T) {
+				e, ctx := startTestEngine(t)
+				path, _ := modeldata.Paths(e.opts.DataDir)
+				require.NoError(t, os.WriteFile(path, []byte(`{
+ "retired-base":{"provider":"azure","mode":"chat","is_deprecated":true},
+ "tts-1":{"provider":"azure","mode":"audio_speech","input_cost_per_token":0.000003}
+ }`), 0600))
+				require.NoError(t, e.prices.ForceReloadPricing(ctx))
+				retired, active := azureTestKey("retired"), azureTestKey("active")
+				retiredTarget, activeTarget := "deployment", "deployment"
+				advertised := "azure/deployment"
+				if alias {
+					retiredTarget, activeTarget = "old-deployment", "current-deployment"
+					advertised = "azure/friendly"
+					retired.Models, active.Models = schemas.WhiteList{"friendly"}, schemas.WhiteList{"friendly"}
+					retired.Aliases = schemas.KeyAliases{"friendly": {ModelID: retiredTarget}}
+					active.Aliases = schemas.KeyAliases{"friendly": {ModelID: activeTarget}}
+				}
+				provider := azureTestProvider(retired, active)
+				if order == "active first" {
+					provider.Keys = []schemas.Key{active, retired}
+				}
+				activeBase := "tts-1"
+				if order == "all retired" {
+					activeBase = "retired-base"
+				}
+				provider.AzureDiscoveries = map[string]llmcoreclient.AzureDiscoverySnapshot{
+					retired.ID: {
+						Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(retired, provider.AzureAccounts[retired.ID]),
+						Names:       []string{retiredTarget},
+						BaseModels:  map[string]string{retiredTarget: "retired-base"},
+					},
+					active.ID: {
+						Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(active, provider.AzureAccounts[active.ID]),
+						Names:       []string{activeTarget},
+						BaseModels:  map[string]string{activeTarget: activeBase},
+					},
+				}
+				require.NoError(t, e.store.CreateProvider(ctx, "azure", provider))
+				_, err := e.Sync(ctx)
+				require.NoError(t, err)
+
+				models, err := e.gatewayModels(ctx, schemas.Azure)
+				require.NoError(t, err)
+				unavailable, err := e.UnavailableModels(ctx, []string{advertised})
+				require.NoError(t, err)
+				listed, err := e.ListModels(ctx)
+				require.NoError(t, err)
+				catalog, err := e.ListCatalogModels(ctx, "azure", "")
+				require.NoError(t, err)
+				if order == "all retired" {
+					require.Empty(t, models)
+					require.True(t, unavailable[advertised])
+					require.Empty(t, listed.Models)
+					require.Empty(t, catalog)
+					return
+				}
+				require.Len(t, models, 1)
+				require.Equal(t, advertised, models[0].ID)
+				require.Equal(t, "tts-1", azureBaseModel(models[0]))
+				if alias {
+					require.NotNil(t, models[0].Alias)
+					require.Equal(t, activeTarget, *models[0].Alias)
+				}
+				require.NotNil(t, models[0].Pricing)
+				cost, err := strconv.ParseFloat(*models[0].Pricing.Prompt, 64)
+				require.NoError(t, err)
+				require.Equal(t, 0.000003, cost)
+				require.False(t, unavailable[advertised])
+				require.Len(t, listed.Models, 1)
+				require.Equal(t, string(types.ModelUsageOther), listed.Models[0].Metadata["usage"])
+				require.Len(t, catalog, 1)
+			})
+		}
 	}
 }

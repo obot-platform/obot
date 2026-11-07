@@ -16,11 +16,12 @@ type azureDeploymentMetadata struct {
 }
 
 // Azure's data-plane endpoint lists offerings; use ARM discoveries or explicitly configured names.
-func azureDeploymentModels(cfg llmcoreclient.Config, provider schemas.ModelProvider, discovered ...map[string][]string) ([]schemas.Model, bool) {
+func (e *Engine) azureDeploymentModels(cfg llmcoreclient.Config, provider schemas.ModelProvider) ([]schemas.Model, bool) {
 	if !isAzureProvider(cfg, provider) {
 		return nil, false
 	}
 
+	discovered := e.discovery.snapshot(cfg, provider)
 	models := []schemas.Model{}
 	seen := map[string]bool{}
 
@@ -46,39 +47,40 @@ func azureDeploymentModels(cfg llmcoreclient.Config, provider schemas.ModelProvi
 		}
 
 		entries := pipeline.BackfillModels(map[string]bool{})
-		if len(discovered) > 0 {
-			if names, automatic := discovered[0][key.ID]; automatic {
-				entries = nil
+		if names, automatic := discovered[key.ID]; automatic {
+			entries = nil
 
-				for _, name := range names {
-					for _, match := range pipeline.FilterModel(name) {
-						// Match inference's alias precedence before advertising this deployment's metadata.
-						if key.Aliases.Resolve(match.ResolvedID) != name {
-							continue
-						}
-
-						model := schemas.Model{ID: string(provider) + "/" + match.ResolvedID}
-
-						// Deduplication must keep metadata from the same eligible key that advertised the ID.
-						if base := baseModels[name]; base != "" {
-							model.ProviderExtra, _ = json.Marshal(azureDeploymentMetadata{BaseModel: base})
-						}
-
-						if match.AliasValue != "" {
-							model.Alias = new(match.AliasValue)
-						}
-
-						entries = append(entries, model)
+			for _, name := range names {
+				for _, match := range pipeline.FilterModel(name) {
+					// Match inference's alias precedence before advertising this deployment's metadata.
+					if key.Aliases.Resolve(match.ResolvedID) != name {
+						continue
 					}
+
+					model := schemas.Model{ID: string(provider) + "/" + match.ResolvedID}
+
+					// Deduplication must keep metadata from the same eligible key that advertised the ID.
+					if base := baseModels[name]; base != "" {
+						model.ProviderExtra, _ = json.Marshal(azureDeploymentMetadata{BaseModel: base})
+					}
+
+					if match.AliasValue != "" {
+						model.Alias = new(match.AliasValue)
+					}
+
+					entries = append(entries, model)
 				}
 			}
 		}
 
 		for _, model := range entries {
-			if !seen[model.ID] {
-				models = append(models, model)
-				seen[model.ID] = true
+			// A retired contributor must not hide an eligible active account sharing this ID.
+			if seen[model.ID] || e.modelMetadataIsUnavailable(model.ID, model.Alias, azureBaseModel(model)) {
+				continue
 			}
+
+			models = append(models, model)
+			seen[model.ID] = true
 		}
 	}
 

@@ -34,7 +34,7 @@ func (l azureRetentionLister) ListModels(context.Context) (*openai.ModelsList, e
 }
 
 func TestAzureFreshEngineControllerRetention(t *testing.T) {
-	for _, outcome := range []string{"outage", "credentials changed", "account changed", "confirmed empty", "base model deprecated"} {
+	for _, outcome := range []string{"outage", "credentials changed", "account changed", "confirmed empty", "base model deprecated", "healthy duplicate first", "healthy duplicate last"} {
 		t.Run(outcome, func(t *testing.T) {
 			mp := llmengine.ModelProviderResource()
 			mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
@@ -105,6 +105,30 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 
 					return nil
 				}))
+			case "healthy duplicate first", "healthy duplicate last":
+				pricingPath, _ := modeldata.Paths(dir)
+				require.NoError(t, os.WriteFile(pricingPath, []byte(`{
+ "gpt-4o":{"provider":"azure","mode":"chat","is_deprecated":true},
+ "gpt-4o-mini":{"provider":"azure","mode":"chat"}
+ }`), 0600))
+				require.NoError(t, store.MutateProvider(t.Context(), "azure", func(p *llmcoreclient.Provider) error {
+					healthy := key
+					healthy.ID, healthy.Name = "healthy", "healthy"
+					healthyAccount := account
+					healthyAccount.AccountName = "healthy-account"
+					p.Keys = append(p.Keys, healthy)
+					if outcome == "healthy duplicate first" {
+						p.Keys = []schemas.Key{healthy, key}
+					}
+					p.AzureAccounts[healthy.ID] = healthyAccount
+					p.AzureDiscoveries[healthy.ID] = llmcoreclient.AzureDiscoverySnapshot{
+						Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(healthy, healthyAccount),
+						Names:       []string{"deployment"},
+						BaseModels:  map[string]string{"deployment": "gpt-4o-mini"},
+					}
+
+					return nil
+				}))
 			case "base model deprecated":
 				pricingPath, _ := modeldata.Paths(dir)
 				require.NoError(t, os.WriteFile(pricingPath, []byte(`{"gpt-4o":{"provider":"azure","mode":"chat","is_deprecated":true}}`), 0600))
@@ -127,7 +151,7 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 			require.NoError(t, storage.List(t.Context(), &models, kclient.InNamespace(system.DefaultNamespace)))
 			require.NoError(t, storage.List(t.Context(), &info, kclient.InNamespace(system.DefaultNamespace)))
 
-			if outcome == "outage" {
+			if outcome == "outage" || outcome == "healthy duplicate first" || outcome == "healthy duplicate last" {
 				require.Len(t, models.Items, 1)
 				require.Equal(t, "Admin edit", models.Items[0].Spec.Manifest.DisplayName)
 				require.Len(t, info.Items, 1)
