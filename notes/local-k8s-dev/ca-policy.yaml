@@ -1,0 +1,40 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicy
+metadata: {name: discobox-ca}
+spec:
+  failurePolicy: Ignore
+  reinvocationPolicy: Never
+  matchConstraints:
+    resourceRules:
+    - {apiGroups: [""], apiVersions: [v1], operations: [CREATE], resources: [pods]}
+    namespaceSelector:
+      matchExpressions:
+      - {key: kubernetes.io/metadata.name, operator: NotIn, values: [kube-system]}
+  matchConditions:
+  - name: not-yet-mounted
+    expression: "!has(object.spec.volumes) || !object.spec.volumes.exists(v, v.name == 'discobox-ca')"
+  mutations:
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        Object{
+          spec: Object.spec{
+            volumes: [Object.spec.volumes{name: "discobox-ca", hostPath: Object.spec.volumes.hostPath{path: "/etc/discobox-ca-bundle.crt", type: "File"}}],
+            containers: object.spec.containers.map(c, Object.spec.containers{name: c.name, volumeMounts: [Object.spec.containers.volumeMounts{name: "discobox-ca", mountPath: "/etc/ssl/certs/ca-certificates.crt", readOnly: true}]})
+          }
+        }
+  - patchType: ApplyConfiguration
+    applyConfiguration:
+      expression: >
+        has(object.spec.initContainers) ?
+        Object{
+          spec: Object.spec{
+            initContainers: object.spec.initContainers.map(c, Object.spec.initContainers{name: c.name, volumeMounts: [Object.spec.initContainers.volumeMounts{name: "discobox-ca", mountPath: "/etc/ssl/certs/ca-certificates.crt", readOnly: true}]})
+          }
+        } : Object{}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionPolicyBinding
+metadata: {name: discobox-ca}
+spec:
+  policyName: discobox-ca

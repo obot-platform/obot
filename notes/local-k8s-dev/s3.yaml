@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: Namespace
+metadata: {name: minio}
+---
+apiVersion: v1
+kind: Secret
+metadata: {name: s3-config, namespace: minio}
+stringData:
+  s3.json: |
+    {"identities":[{"name":"obot","credentials":[{"accessKey":"obotdev","secretKey":"obotdev-snapshots-secret"}],"actions":["Admin","Read","List","Tagging","Write"]}]}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: minio, namespace: minio}
+spec: {accessModes: [ReadWriteOnce], resources: {requests: {storage: 5Gi}}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: minio, namespace: minio}
+spec:
+  selector: {matchLabels: {app: minio}}
+  strategy: {type: Recreate}
+  template:
+    metadata: {labels: {app: minio}}
+    spec:
+      containers:
+      - name: s3
+        image: chrislusf/seaweedfs:3.97
+        args: [server, -dir=/data, -s3, -s3.port=9000, -s3.config=/etc/s3/s3.json, -master.volumeSizeLimitMB=256, -master.volumePreallocate=false, -volume.max=8, -master.defaultReplication=000]
+        ports: [{containerPort: 9000}]
+        volumeMounts: [{name: data, mountPath: /data}, {name: cfg, mountPath: /etc/s3}]
+        readinessProbe: {tcpSocket: {port: 9000}}
+      volumes:
+      - {name: data, persistentVolumeClaim: {claimName: minio}}
+      - {name: cfg, secret: {secretName: s3-config}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: minio, namespace: minio}
+spec: {selector: {app: minio}, ports: [{name: s3, port: 9000}]}
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: make-bucket, namespace: minio}
+spec:
+  backoffLimit: 10
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mb
+        image: amazon/aws-cli:2.22.0
+        env:
+        - {name: AWS_ACCESS_KEY_ID, value: obotdev}
+        - {name: AWS_SECRET_ACCESS_KEY, value: obotdev-snapshots-secret}
+        - {name: AWS_REGION, value: us-east-1}
+        command: [sh, -c, 'aws --endpoint-url http://minio.minio:9000 s3 mb s3://claude-snapshots || aws --endpoint-url http://minio.minio:9000 s3 ls s3://claude-snapshots']

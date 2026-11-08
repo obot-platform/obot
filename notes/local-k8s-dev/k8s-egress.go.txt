@@ -1,0 +1,169 @@
+// Transparent egress forwarder: pods on the k3d bridge have no direct route out,
+// so iptables redirects their outbound 80/443 here. TLS is forwarded by CONNECTing
+// to the ClientHello SNI (CONNECT by IP gets a cert for the IP); HTTP by Host.
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"strings"
+	"syscall"
+	"time"
+	"unsafe"
+)
+
+var upstream = os.Getenv("UPSTREAM_PROXY") // host:port
+
+func origDst(c *net.TCPConn) (string, error) {
+	f, err := c.File()
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	var addr syscall.RawSockaddrInet4
+	size := uint32(unsafe.Sizeof(addr))
+	const SO_ORIGINAL_DST = 80
+	_, _, e := syscall.Syscall6(syscall.SYS_GETSOCKOPT, f.Fd(), syscall.IPPROTO_IP, SO_ORIGINAL_DST, uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0)
+	if e != 0 {
+		return "", e
+	}
+	port := binary.BigEndian.Uint16((*[2]byte)(unsafe.Pointer(&addr.Port))[:])
+	return fmt.Sprintf("%d.%d.%d.%d:%d", addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3], port), nil
+}
+
+func sni(b []byte) string {
+	// record header(5) handshake header(4) version(2) random(32)
+	if len(b) < 43 || b[0] != 0x16 || b[5] != 0x01 {
+		return ""
+	}
+	p := 43
+	if p >= len(b) {
+		return ""
+	}
+	p += 1 + int(b[p]) // session id
+	if p+2 > len(b) {
+		return ""
+	}
+	p += 2 + int(binary.BigEndian.Uint16(b[p:])) // cipher suites
+	if p+1 > len(b) {
+		return ""
+	}
+	p += 1 + int(b[p]) // compression
+	if p+2 > len(b) {
+		return ""
+	}
+	end := p + 2 + int(binary.BigEndian.Uint16(b[p:]))
+	p += 2
+	for p+4 <= end && p+4 <= len(b) {
+		typ := binary.BigEndian.Uint16(b[p:])
+		l := int(binary.BigEndian.Uint16(b[p+2:]))
+		p += 4
+		if typ == 0 && p+5 <= len(b) {
+			nl := int(binary.BigEndian.Uint16(b[p+3:]))
+			if p+5+nl <= len(b) {
+				return string(b[p+5 : p+5+nl])
+			}
+		}
+		p += l
+	}
+	return ""
+}
+
+func connect(target string) (net.Conn, error) {
+	c, err := net.DialTimeout("tcp", upstream, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(c, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", target, target)
+	br := bufio.NewReader(c)
+	resp, err := http.ReadResponse(br, &http.Request{Method: http.MethodConnect})
+	if err != nil {
+		c.Close()
+		return nil, err
+	}
+	if resp.StatusCode != 200 {
+		c.Close()
+		return nil, fmt.Errorf("CONNECT %s: %s", target, resp.Status)
+	}
+	if br.Buffered() > 0 {
+		c.Close()
+		return nil, errors.New("unexpected data after CONNECT")
+	}
+	return c, nil
+}
+
+func handle(c *net.TCPConn) {
+	defer c.Close()
+	dst, err := origDst(c)
+	if err != nil {
+		log.Printf("origdst: %v", err)
+		return
+	}
+	_, port, _ := net.SplitHostPort(dst)
+	c.SetReadDeadline(time.Now().Add(10 * time.Second))
+	buf := make([]byte, 16384)
+	n, err := c.Read(buf)
+	if err != nil {
+		return
+	}
+	// A ClientHello can span reads; try to read more if SNI not found yet.
+	head := buf[:n]
+	host := ""
+	if head[0] == 0x16 {
+		for i := 0; i < 4 && host == ""; i++ {
+			if host = sni(head); host == "" && len(head) < len(buf) {
+				m, err := c.Read(buf[len(head):])
+				if err != nil {
+					break
+				}
+				head = buf[:len(head)+m]
+			}
+		}
+	} else if req, err := http.ReadRequest(bufio.NewReader(bytes.NewReader(head))); err == nil {
+		host = req.Host
+		if h, _, err := net.SplitHostPort(host); err == nil {
+			host = h
+		}
+	}
+	c.SetReadDeadline(time.Time{})
+	target := dst
+	if host != "" {
+		target = net.JoinHostPort(strings.TrimSuffix(host, "."), port)
+	}
+	up, err := connect(target)
+	if err != nil {
+		log.Printf("%s (%s): %v", target, dst, err)
+		return
+	}
+	defer up.Close()
+	if _, err := up.Write(head); err != nil {
+		return
+	}
+	done := make(chan struct{}, 2)
+	go func() { io.Copy(up, c); up.(*net.TCPConn).CloseWrite(); done <- struct{}{} }()
+	go func() { io.Copy(c, up); c.CloseWrite(); done <- struct{}{} }()
+	<-done
+	<-done
+}
+
+func main() {
+	l, err := net.Listen("tcp", os.Getenv("LISTEN"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		c, err := l.Accept()
+		if err != nil {
+			log.Fatal(err)
+		}
+		go handle(c.(*net.TCPConn))
+	}
+}

@@ -1,0 +1,3 @@
+# Dev image: upstream main's image with a locally built Obot binary.
+FROM ghcr.io/obot-platform/obot:main@sha256:ba295b1b46c621f7db5f60b372819b35912319a80cb6c7bb3216a5f98a7340db
+COPY obot /bin/obot

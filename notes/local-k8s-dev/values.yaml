@@ -1,0 +1,31 @@
+image:
+  repository: obot
+  pullPolicy: IfNotPresent
+replicaCount: 1
+dev:
+  useEmbeddedDb: true
+persistence:
+  enabled: true
+ingress:
+  enabled: false
+service:
+  type: ClusterIP
+config:
+  OBOT_SERVER_HOSTNAME: http://localhost:8080
+  OBOT_SERVER_ENABLE_AUTHENTICATION: true
+  OBOT_SERVER_SUBSTRATE_SNAPSHOT_LOCATION: s3://claude-snapshots/claude/
+  # Local stand-in for a Slack incoming webhook; kubectl logs deploy/webhook-echo shows posts.
+  OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL: http://webhook-echo.default:8080/slack
+substrate:
+  enabled: true
+  apiServer:
+    replicas: 1
+  storage:
+    backend: s3
+    credentials:
+      AWS_ACCESS_KEY_ID: obotdev
+      AWS_SECRET_ACCESS_KEY: obotdev-snapshots-secret
+    env:
+      AWS_REGION: us-east-1
+      AWS_ENDPOINT_URL: http://minio.minio:9000
+      AWS_S3_USE_PATH_STYLE: "true"

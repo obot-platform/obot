@@ -1,0 +1,12 @@
+# The discobox upstream resolver answers SERVFAIL (not NXDOMAIN) for unknown TLDs, and Go
+# gives up on a SERVFAIL while walking the search list. Answer bare *.svc ourselves.
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: coredns-custom, namespace: kube-system}
+data:
+  svc.server: |
+    svc:53 {
+      template ANY ANY {
+        rcode NXDOMAIN
+      }
+    }
