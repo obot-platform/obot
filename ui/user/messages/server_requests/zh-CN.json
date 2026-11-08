@@ -45,5 +45,6 @@
 	"server_requests_copied": "已复制",
 	"server_requests_slack_hint": "将 OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL 设置为 Slack 传入 Webhook，即可在有新请求时通知管理员。",
 	"server_requests_catalog_entry": "已在目录中",
-	"server_requests_grant_requester": "如果请求者尚无法连接，则授予其访问此服务器的权限"
+	"server_requests_grant_requester": "如果请求者尚无法连接，则授予其访问此服务器的权限",
+	"server_requests_matched": "此服务器已作为 {entry} 存在于目录中。批准后将添加该条目，而不会创建重复条目。"
 }

@@ -89,3 +89,30 @@ func TestRequesterHasComponent(t *testing.T) {
 		t.Fatal("admins are granted every component")
 	}
 }
+
+func TestMatchCatalogEntry(t *testing.T) {
+	entries := []v1.MCPServerCatalogEntry{
+		{Name: "supabase", Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://mcp.supabase.com/mcp?read_only=${READ_ONLY}"}}}},
+		{Name: "fs", Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeNPX, NPXConfig: &types.NPXRuntimeConfig{Package: "@modelcontextprotocol/server-filesystem@1.2.0"}}}},
+		{Name: "grafana", Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeContainerized, ContainerizedConfig: &types.ContainerizedRuntimeConfig{Image: "docker.io/mcp/grafana:v1"}}}},
+	}
+	tests := []struct {
+		name string
+		m    types.MCPServerRequestManifest
+		want string
+	}{
+		{name: "remote ignoring query and slash", m: types.MCPServerRequestManifest{Runtime: types.RuntimeRemote, RemoteURL: "https://MCP.supabase.com/mcp/"}, want: "supabase"},
+		{name: "npx ignoring version", m: types.MCPServerRequestManifest{Runtime: types.RuntimeNPX, Package: "@modelcontextprotocol/server-filesystem"}, want: "fs"},
+		{name: "image ignoring tag", m: types.MCPServerRequestManifest{Runtime: types.RuntimeContainerized, Image: "docker.io/mcp/grafana:latest"}, want: "grafana"},
+		{name: "different host", m: types.MCPServerRequestManifest{Runtime: types.RuntimeRemote, RemoteURL: "https://mcp.example.com/mcp"}},
+		{name: "same package, other runtime", m: types.MCPServerRequestManifest{Runtime: types.RuntimeUVX, Package: "@modelcontextprotocol/server-filesystem"}},
+	}
+	for _, tt := range tests {
+		if got := matchCatalogEntry(tt.m, entries); got != tt.want {
+			t.Errorf("%s: got %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}

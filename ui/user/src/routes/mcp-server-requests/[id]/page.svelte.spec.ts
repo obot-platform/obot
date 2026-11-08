@@ -158,6 +158,15 @@ describe('Server request', () => {
 		await expect.element(page.getByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
 	});
 
+	it('tells administrators when the server is already in the catalog', async () => {
+		mockRequest({ ...pending, matchedCatalogEntryID: 'default-sentry-1' });
+		await renderPage();
+
+		await expect
+			.element(page.getByText(/already in the catalog as default-sentry-1/))
+			.toBeInTheDocument();
+	});
+
 	it('shows requesters their request without decision controls', async () => {
 		mockRequest();
 		await renderPage([Group.USER]);

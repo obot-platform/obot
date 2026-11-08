@@ -167,6 +167,9 @@ type MCPServerRequest struct {
 	// CatalogEntryID and VMCPID are set when the request is approved.
 	CatalogEntryID string `json:"catalogEntryID,omitempty"`
 	VMCPID         string `json:"vmcpID,omitempty"`
+	// MatchedCatalogEntryID, shown to administrators, is an existing catalog entry for the
+	// same server, which approval reuses.
+	MatchedCatalogEntryID string `json:"matchedCatalogEntryID,omitempty"`
 	// RequesterCanConnect reports, for an approved request, whether the vMCP's profiles let
 	// the requester connect. Approving into an existing vMCP doesn't change who it grants.
 	RequesterCanConnect *bool `json:"requesterCanConnect,omitempty"`

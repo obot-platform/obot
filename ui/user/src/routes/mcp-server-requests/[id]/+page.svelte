@@ -238,6 +238,11 @@
 					aria-labelledby="decide-title"
 				>
 					<h2 id="decide-title" class="font-semibold">{m.server_requests_decide_title()}</h2>
+					{#if request.matchedCatalogEntryID}
+						<p class="notification-info rounded-md p-3 text-sm">
+							{m.server_requests_matched({ entry: request.matchedCatalogEntryID })}
+						</p>
+					{/if}
 
 					<fieldset class="flex flex-col gap-3">
 						<legend class="mb-2 text-sm font-medium">{m.server_requests_destination()}</legend>

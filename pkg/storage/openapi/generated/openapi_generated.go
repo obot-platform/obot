@@ -9966,6 +9966,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerRequest(ref common.Refer
 							Format: "",
 						},
 					},
+					"matchedCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MatchedCatalogEntryID, shown to administrators, is an existing catalog entry for the same server, which approval reuses.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"requesterCanConnect": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RequesterCanConnect reports, for an approved request, whether the vMCP's profiles let the requester connect. Approving into an existing vMCP doesn't change who it grants.",
@@ -23501,6 +23508,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerRequestStatus(ref common.Referen
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"matchedCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MatchedCatalogEntryID is an existing catalog entry for the same server, which approval reuses rather than adding a duplicate.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"notified": {

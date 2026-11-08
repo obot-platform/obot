@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -135,8 +136,16 @@ func (h *MCPServerRequestHandler) CreateRequest(req api.Context, manifest types.
 	if err := req.Create(&request); err != nil {
 		return types.MCPServerRequest{}, fmt.Errorf("failed to create MCP server request: %w", err)
 	}
+	matched := ""
+	if manifest.ExistingCatalogEntryID == "" {
+		var entries v1.MCPServerCatalogEntryList
+		if err := req.List(&entries); err == nil {
+			matched = matchCatalogEntry(manifest, entries.Items)
+		}
+	}
 	if err := h.setStatus(req, request.Name, func(status *v1.MCPServerRequestStatus) error {
 		status.State = types.MCPServerRequestStatePending
+		status.MatchedCatalogEntryID = matched
 		return nil
 	}, &request); err != nil {
 		return types.MCPServerRequest{}, err
@@ -148,7 +157,7 @@ func (h *MCPServerRequestHandler) CreateRequest(req api.Context, manifest types.
 		// request: it is still listed for administrators in Obot.
 		go h.notify(req.Storage, req.Namespace(), converted)
 	}
-	return converted, nil
+	return forCaller(req, converted), nil
 }
 
 func (h *MCPServerRequestHandler) notify(client kclient.Client, namespace string, request types.MCPServerRequest) {
@@ -188,7 +197,7 @@ func (h *MCPServerRequestHandler) ListRequests(req api.Context, all bool, state 
 		if state != "" && requestState(request) != state {
 			continue
 		}
-		items = append(items, convertMCPServerRequest(request))
+		items = append(items, forCaller(req, convertMCPServerRequest(request)))
 	}
 	// Newest first.
 	slices.SortFunc(items, func(a, b types.MCPServerRequest) int {
@@ -368,7 +377,7 @@ func (h *MCPServerRequestHandler) ApproveRequest(req api.Context, id string, app
 		entry       v1.MCPServerCatalogEntry
 		removeEntry = func(cause error) error { return cause }
 	)
-	if id := request.Spec.Manifest.ExistingCatalogEntryID; id != "" {
+	if id := cmpOr(request.Spec.Manifest.ExistingCatalogEntryID, request.Status.MatchedCatalogEntryID); id != "" && approval.Manifest == nil {
 		// The server is in the catalog already; only the vMCP changes.
 		if err := req.Get(&entry, id); err != nil {
 			if apierrors.IsNotFound(err) {
@@ -552,6 +561,78 @@ func componentName(name string) string {
 	return cmpOr(strings.Trim(b.String(), "-"), "server")
 }
 
+// forCaller hides what only administrators may see: whether the catalog already has the
+// server, which the requester may not be allowed to know.
+func forCaller(req api.Context, r types.MCPServerRequest) types.MCPServerRequest {
+	if !req.UserIsAdmin() {
+		r.MatchedCatalogEntryID = ""
+	}
+	return r
+}
+
+// matchCatalogEntry finds a catalog entry for the same server as m: the same remote
+// endpoint (ignoring query strings and templates), package, or image repository.
+func matchCatalogEntry(m types.MCPServerRequestManifest, entries []v1.MCPServerCatalogEntry) string {
+	for _, e := range entries {
+		em := e.Spec.Manifest
+		if em.Runtime != m.Runtime {
+			continue
+		}
+		switch m.Runtime {
+		case types.RuntimeRemote:
+			if em.RemoteConfig == nil {
+				continue
+			}
+			want := endpointKey(m.RemoteURL)
+			if want != "" && (want == endpointKey(em.RemoteConfig.FixedURL) || want == endpointKey(em.RemoteConfig.URLTemplate)) {
+				return e.Name
+			}
+		case types.RuntimeNPX:
+			if em.NPXConfig != nil && packageKey(em.NPXConfig.Package) == packageKey(m.Package) {
+				return e.Name
+			}
+		case types.RuntimeUVX:
+			if em.UVXConfig != nil && packageKey(em.UVXConfig.Package) == packageKey(m.Package) {
+				return e.Name
+			}
+		case types.RuntimeContainerized:
+			if em.ContainerizedConfig != nil && imageKey(em.ContainerizedConfig.Image) == imageKey(m.Image) {
+				return e.Name
+			}
+		}
+	}
+	return ""
+}
+
+// endpointKey is a URL's host and path, lowercased, without scheme, query or trailing slash.
+func endpointKey(raw string) string {
+	raw, _, _ = strings.Cut(raw, "?")
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Host == "" || strings.Contains(u.Host, "$") {
+		return ""
+	}
+	return strings.ToLower(u.Host) + strings.TrimSuffix(u.Path, "/")
+}
+
+// packageKey is a package name without its version.
+func packageKey(p string) string {
+	p = strings.ToLower(strings.TrimSpace(p))
+	if i := strings.LastIndex(p, "@"); i > 0 {
+		p = p[:i]
+	}
+	p, _, _ = strings.Cut(p, "==")
+	return p
+}
+
+// imageKey is an image's repository without its tag or digest.
+func imageKey(image string) string {
+	image, _, _ = strings.Cut(strings.ToLower(strings.TrimSpace(image)), "@")
+	if i := strings.LastIndex(image, ":"); i > strings.LastIndex(image, "/") {
+		image = image[:i]
+	}
+	return image
+}
+
 func convertMCPServerRequest(request v1.MCPServerRequest) types.MCPServerRequest {
 	converted := types.MCPServerRequest{
 		Metadata:                 MetadataFrom(&request),
@@ -564,6 +645,7 @@ func convertMCPServerRequest(request v1.MCPServerRequest) types.MCPServerRequest
 		DecisionReason:           request.Status.DecisionReason,
 		CatalogEntryID:           request.Status.CatalogEntryID,
 		VMCPID:                   request.Status.VMCPID,
+		MatchedCatalogEntryID:    request.Status.MatchedCatalogEntryID,
 	}
 	if request.Status.DecidedAt != nil {
 		converted.DecidedAt = types.NewTime(request.Status.DecidedAt.Time)

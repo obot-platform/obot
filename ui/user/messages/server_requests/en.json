@@ -45,5 +45,6 @@
 	"server_requests_copied": "Copied",
 	"server_requests_slack_hint": "Set OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL to a Slack incoming webhook to alert administrators about new requests.",
 	"server_requests_catalog_entry": "Already in the catalog",
-	"server_requests_grant_requester": "Give the requester access to this server if they can’t already connect"
+	"server_requests_grant_requester": "Give the requester access to this server if they can’t already connect",
+	"server_requests_matched": "This server is already in the catalog as {entry}. Approving adds that entry instead of a duplicate."
 }

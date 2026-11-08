@@ -105,6 +105,9 @@ func slackMessage(r types.MCPServerRequest, reviewURL string) map[string]any {
 	if r.SourceURL != "" {
 		fields = append(fields, map[string]any{"type": "mrkdwn", "text": "*Source*\n" + slackEscape(r.SourceURL)})
 	}
+	if id := cmpOr(r.ExistingCatalogEntryID, r.MatchedCatalogEntryID); id != "" {
+		fields = append(fields, map[string]any{"type": "mrkdwn", "text": "*Already in the catalog*\n`" + slackEscape(id) + "`"})
+	}
 
 	blocks := []map[string]any{
 		{"type": "section", "text": map[string]any{"type": "mrkdwn", "text": fmt.Sprintf(":inbox_tray: *New MCP server request:* %s", slackEscape(r.Name))}},

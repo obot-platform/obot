@@ -45,5 +45,6 @@
 	"server_requests_copied": "복사됨",
 	"server_requests_slack_hint": "새 요청을 관리자에게 알리려면 OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL에 Slack 수신 웹후크를 설정하세요.",
 	"server_requests_catalog_entry": "이미 카탈로그에 있음",
-	"server_requests_grant_requester": "요청자가 아직 연결할 수 없으면 이 서버에 대한 액세스 권한 부여"
+	"server_requests_grant_requester": "요청자가 아직 연결할 수 없으면 이 서버에 대한 액세스 권한 부여",
+	"server_requests_matched": "이 서버는 이미 카탈로그에 {entry}(으)로 있습니다. 승인하면 중복 항목 대신 해당 항목이 추가됩니다."
 }

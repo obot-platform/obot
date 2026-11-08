@@ -31,6 +31,8 @@ export interface MCPServerRequest {
 	suggestedVMCPID?: string;
 	/** Set when the request is for a server already in the catalog. */
 	existingCatalogEntryID?: string;
+	/** Shown to administrators: an existing catalog entry for the same server. */
+	matchedCatalogEntryID?: string;
 	requesterID: string;
 	requesterName?: string;
 	requesterEmail?: string;

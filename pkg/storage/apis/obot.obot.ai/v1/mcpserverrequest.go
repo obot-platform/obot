@@ -31,6 +31,9 @@ type MCPServerRequestStatus struct {
 	DecisionReason string                      `json:"decisionReason,omitempty"`
 	CatalogEntryID string                      `json:"catalogEntryID,omitempty"`
 	VMCPID         string                      `json:"vmcpID,omitempty"`
+	// MatchedCatalogEntryID is an existing catalog entry for the same server, which
+	// approval reuses rather than adding a duplicate.
+	MatchedCatalogEntryID string `json:"matchedCatalogEntryID,omitempty"`
 	// Notified records that administrators were alerted about the request.
 	Notified bool `json:"notified,omitempty"`
 }
