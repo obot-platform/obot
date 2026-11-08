@@ -43,5 +43,6 @@
 	"server_requests_admin_server": "管理サーバー",
 	"server_requests_copy": "コピー",
 	"server_requests_copied": "コピーしました",
-	"server_requests_slack_hint": "新しいリクエストを管理者に通知するには、OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL に Slack の受信 Webhook を設定してください。"
+	"server_requests_slack_hint": "新しいリクエストを管理者に通知するには、OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL に Slack の受信 Webhook を設定してください。",
+	"server_requests_catalog_entry": "カタログに登録済み"
 }

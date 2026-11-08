@@ -43,5 +43,6 @@
 	"server_requests_admin_server": "管理服务器",
 	"server_requests_copy": "复制",
 	"server_requests_copied": "已复制",
-	"server_requests_slack_hint": "将 OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL 设置为 Slack 传入 Webhook，即可在有新请求时通知管理员。"
+	"server_requests_slack_hint": "将 OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL 设置为 Slack 传入 Webhook，即可在有新请求时通知管理员。",
+	"server_requests_catalog_entry": "已在目录中"
 }

@@ -240,6 +240,10 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
 
+	if vmcp.Spec.SourceURL != "" {
+		return types.NewErrBadRequest("catalog synced vMCP %s cannot be updated via API", vmcp.Name)
+	}
+
 	var manifest types.VMCPManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)

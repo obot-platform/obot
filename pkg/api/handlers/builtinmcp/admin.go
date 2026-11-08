@@ -77,6 +77,17 @@ func (h *Handler) adminServer(req api.Context) *mcp.Server {
 		if err != nil {
 			return toolError(err)
 		}
+		if request.ExistingCatalogEntryID != "" {
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, request.ExistingCatalogEntryID); err != nil {
+				return toolError(err)
+			}
+			return jsonResult(map[string]any{
+				"request":              h.view(request),
+				"existingCatalogEntry": entry.Spec.Manifest,
+				"note":                 "The server is already in the catalog. Approving adds this entry to the chosen vMCP.",
+			})
+		}
 		return jsonResult(map[string]any{
 			"request":              h.view(request),
 			"proposedCatalogEntry": request.CatalogEntryManifest(),

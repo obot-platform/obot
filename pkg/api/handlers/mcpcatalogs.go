@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -1629,4 +1630,36 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 	}
 
 	return req.Write(map[string]bool{"deleted": deleted})
+}
+
+// VisibleCatalogEntry returns a catalog entry the caller may see under the catalog's access
+// control rules, and not found otherwise.
+func (h *MCPCatalogHandler) VisibleCatalogEntry(req api.Context, id string) (v1.MCPServerCatalogEntry, error) {
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, id); err != nil {
+		if apierrors.IsNotFound(err) {
+			return entry, types.NewErrNotFound("catalog entry %q not found", id)
+		}
+		return entry, err
+	}
+	if req.UserIsAdmin() {
+		return entry, nil
+	}
+	var (
+		allowed bool
+		err     error
+	)
+	switch {
+	case entry.Spec.MCPCatalogName != "":
+		allowed, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInCatalog(req.User, entry.Name, entry.Spec.MCPCatalogName)
+	case entry.Spec.PowerUserWorkspaceID != "":
+		allowed, err = h.acrHelper.UserHasAccessToMCPServerCatalogEntryInWorkspace(req.Context(), req.User, entry.Name, entry.Spec.PowerUserWorkspaceID)
+	}
+	if err != nil {
+		return entry, err
+	}
+	if !allowed {
+		return entry, types.NewErrNotFound("catalog entry %q not found", id)
+	}
+	return entry, nil
 }

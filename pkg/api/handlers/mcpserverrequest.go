@@ -97,6 +97,23 @@ func (h *MCPServerRequestHandler) ReviewURL(id string) string {
 // CreateRequest records the caller's request and alerts administrators.
 func (h *MCPServerRequestHandler) CreateRequest(req api.Context, manifest types.MCPServerRequestManifest) (types.MCPServerRequest, error) {
 	manifest.Name = strings.TrimSpace(manifest.Name)
+	if manifest.ExistingCatalogEntryID != "" {
+		// A request for a server already in the catalog: describe it from the entry, which the
+		// requester must be able to see.
+		entry, err := h.catalogs.VisibleCatalogEntry(req, manifest.ExistingCatalogEntryID)
+		if err != nil {
+			return types.MCPServerRequest{}, err
+		}
+		manifest = types.MCPServerRequestManifest{
+			Name:                   entry.Spec.Manifest.Name,
+			Description:            cmpOr(entry.Spec.Manifest.ShortDescription, entry.Spec.Manifest.Description),
+			Reason:                 manifest.Reason,
+			SourceURL:              entry.Spec.Manifest.RepoURL,
+			Runtime:                entry.Spec.Manifest.Runtime,
+			SuggestedVMCPID:        manifest.SuggestedVMCPID,
+			ExistingCatalogEntryID: entry.Name,
+		}
+	}
 	if err := manifest.Validate(); err != nil {
 		return types.MCPServerRequest{}, types.NewErrBadRequest("invalid request: %v", err)
 	}
@@ -258,24 +275,38 @@ func (h *MCPServerRequestHandler) ApproveRequest(req api.Context, id string, app
 		}
 	}
 
-	manifest := request.Spec.Manifest.CatalogEntryManifest()
-	if approval.Manifest != nil {
-		manifest = *approval.Manifest
-	}
-	entry, err := h.catalogs.CreateCatalogEntry(req, system.DefaultCatalog, "", manifest)
-	if err != nil {
-		return types.MCPServerRequest{}, err
-	}
-	removeEntry := func(cause error) error {
-		if err := req.Delete(&entry); err != nil && !apierrors.IsNotFound(err) {
-			return errors.Join(cause, fmt.Errorf("failed to remove catalog entry %s: %w", entry.Name, err))
+	var (
+		entry       v1.MCPServerCatalogEntry
+		removeEntry = func(cause error) error { return cause }
+	)
+	if id := request.Spec.Manifest.ExistingCatalogEntryID; id != "" {
+		// The server is in the catalog already; only the vMCP changes.
+		if err := req.Get(&entry, id); err != nil {
+			if apierrors.IsNotFound(err) {
+				return types.MCPServerRequest{}, types.NewErrBadRequest("catalog entry %q no longer exists", id)
+			}
+			return types.MCPServerRequest{}, err
 		}
-		return cause
+	} else {
+		manifest := request.Spec.Manifest.CatalogEntryManifest()
+		if approval.Manifest != nil {
+			manifest = *approval.Manifest
+		}
+		entry, err = h.catalogs.CreateCatalogEntry(req, system.DefaultCatalog, "", manifest)
+		if err != nil {
+			return types.MCPServerRequest{}, err
+		}
+		removeEntry = func(cause error) error {
+			if err := req.Delete(&entry); err != nil && !apierrors.IsNotFound(err) {
+				return errors.Join(cause, fmt.Errorf("failed to remove catalog entry %s: %w", entry.Name, err))
+			}
+			return cause
+		}
 	}
 
 	component := types.VMCPComponent{
 		Name:                    componentName(entry.Spec.Manifest.Name),
-		MCPCatalogID:            system.DefaultCatalog,
+		MCPCatalogID:            cmpOr(entry.Spec.MCPCatalogName, system.DefaultCatalog),
 		MCPServerCatalogEntryID: entry.Name,
 	}
 	// Users supply the values the server needs, such as their own API keys.

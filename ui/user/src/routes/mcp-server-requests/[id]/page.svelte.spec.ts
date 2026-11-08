@@ -49,7 +49,10 @@ function mockRequest(request: MCPServerRequest = pending) {
 async function renderPage(groups: string[] = [Group.ADMIN]) {
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 	const data = await preparePageData<PageData>({ profile: createMockProfile(groups) });
-	return render(RequestPage, { data: { ...data, id: 'msrq1pending' } });
+	return render(RequestPage, {
+		data: { ...data, id: 'msrq1pending' },
+		params: { id: 'msrq1pending' }
+	});
 }
 
 describe('Server request', () => {

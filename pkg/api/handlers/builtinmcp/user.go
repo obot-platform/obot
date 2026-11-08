@@ -3,7 +3,9 @@ package builtinmcp
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -41,22 +43,26 @@ type searchResult struct {
 	Servers     []string  `json:"servers,omitempty"`
 	Runtime     string    `json:"runtime,omitempty"`
 	InVMCPs     []vmcpRef `json:"inVMCPs,omitempty"`
+	// Note tells the agent what to do with a catalog entry it can't reach yet.
+	Note  string `json:"note,omitempty"`
+	score int
 }
 
 type requestInput struct {
-	Name            string                         `json:"name" jsonschema:"The server's name."`
-	Description     string                         `json:"description,omitempty" jsonschema:"What the server does."`
-	Reason          string                         `json:"reason,omitempty" jsonschema:"Why the user wants it, in their words where possible. Administrators read this."`
-	SourceURL       string                         `json:"sourceURL,omitempty" jsonschema:"Where the server was found, such as its repository or documentation page."`
-	Runtime         string                         `json:"runtime" jsonschema:"How the server runs: remote (a hosted MCP endpoint), npx (an npm package), uvx (a PyPI package) or containerized (a container image)."`
-	RemoteURL       string                         `json:"remoteURL,omitempty" jsonschema:"For remote: the MCP endpoint URL."`
-	Package         string                         `json:"package,omitempty" jsonschema:"For npx or uvx: the package name."`
-	Image           string                         `json:"image,omitempty" jsonschema:"For containerized: the image."`
-	Port            int                            `json:"port,omitempty" jsonschema:"For containerized: the port the MCP endpoint listens on."`
-	Path            string                         `json:"path,omitempty" jsonschema:"For containerized: the HTTP path of the MCP endpoint, such as /mcp."`
-	Args            []string                       `json:"args,omitempty" jsonschema:"Arguments the server needs."`
-	Config          []types.MCPServerRequestConfig `json:"config,omitempty" jsonschema:"Values each user must supply, such as API keys, by environment variable or header name. Never include the values themselves."`
-	SuggestedVMCPID string                         `json:"suggestedVMCPID,omitempty" jsonschema:"The ID of an existing vMCP the user would like the server added to."`
+	Name                   string                         `json:"name" jsonschema:"The server's name."`
+	Description            string                         `json:"description,omitempty" jsonschema:"What the server does."`
+	Reason                 string                         `json:"reason,omitempty" jsonschema:"Why the user wants it, in their words where possible. Administrators read this."`
+	SourceURL              string                         `json:"sourceURL,omitempty" jsonschema:"Where the server was found, such as its repository or documentation page."`
+	ExistingCatalogEntryID string                         `json:"existingCatalogEntryID,omitempty" jsonschema:"To ask for a server that is already in Obot's catalog but in no vMCP the user can connect to, its catalog entry ID from search_mcp_servers. The fields describing the server are then not needed."`
+	Runtime                string                         `json:"runtime,omitempty" jsonschema:"How a new server runs: remote (a hosted MCP endpoint), npx (an npm package), uvx (a PyPI package) or containerized (a container image)."`
+	RemoteURL              string                         `json:"remoteURL,omitempty" jsonschema:"For remote: the MCP endpoint URL."`
+	Package                string                         `json:"package,omitempty" jsonschema:"For npx or uvx: the package name."`
+	Image                  string                         `json:"image,omitempty" jsonschema:"For containerized: the image."`
+	Port                   int                            `json:"port,omitempty" jsonschema:"For containerized: the port the MCP endpoint listens on."`
+	Path                   string                         `json:"path,omitempty" jsonschema:"For containerized: the HTTP path of the MCP endpoint, such as /mcp."`
+	Args                   []string                       `json:"args,omitempty" jsonschema:"Arguments the server needs."`
+	Config                 []types.MCPServerRequestConfig `json:"config,omitempty" jsonschema:"Values each user must supply, such as API keys, by environment variable or header name. Never include the values themselves."`
+	SuggestedVMCPID        string                         `json:"suggestedVMCPID,omitempty" jsonschema:"The ID of an existing vMCP the user would like the server added to."`
 }
 
 type requestStateInput struct {
@@ -100,25 +106,27 @@ func (h *Handler) addUserTools(s *mcp.Server, req api.Context) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "request_mcp_server",
-		Description: "Ask an Obot administrator to add an MCP server to the organization's catalog. " +
-			"Use it for a server the user found on the web or one search_mcp_servers didn't find. " +
-			"An administrator is alerted and approves or denies the request; check on it with get_mcp_server_request.",
+		Description: "Ask an Obot administrator for an MCP server. For a server Obot doesn't have, such as one the user " +
+			"found on the web, describe it. For one search_mcp_servers found in the catalog but in no vMCP the user can " +
+			"connect to, pass its ID as existingCatalogEntryID. An administrator is alerted and approves or denies the request; check " +
+			"on it with get_mcp_server_request.",
 		Annotations: &mcp.ToolAnnotations{OpenWorldHint: new(false)},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in requestInput) (*mcp.CallToolResult, any, error) {
 		request, err := h.requests.CreateRequest(req, types.MCPServerRequestManifest{
-			Name:            in.Name,
-			Description:     in.Description,
-			Reason:          in.Reason,
-			SourceURL:       in.SourceURL,
-			Runtime:         types.Runtime(strings.ToLower(strings.TrimSpace(in.Runtime))),
-			RemoteURL:       in.RemoteURL,
-			Package:         in.Package,
-			Image:           in.Image,
-			Port:            in.Port,
-			Path:            in.Path,
-			Args:            in.Args,
-			Config:          in.Config,
-			SuggestedVMCPID: in.SuggestedVMCPID,
+			Name:                   in.Name,
+			Description:            in.Description,
+			Reason:                 in.Reason,
+			SourceURL:              in.SourceURL,
+			Runtime:                types.Runtime(strings.ToLower(strings.TrimSpace(in.Runtime))),
+			RemoteURL:              in.RemoteURL,
+			Package:                in.Package,
+			Image:                  in.Image,
+			Port:                   in.Port,
+			Path:                   in.Path,
+			Args:                   in.Args,
+			Config:                 in.Config,
+			SuggestedVMCPID:        in.SuggestedVMCPID,
+			ExistingCatalogEntryID: strings.TrimSpace(in.ExistingCatalogEntryID),
 		})
 		if err != nil {
 			return toolError(err)
@@ -173,22 +181,15 @@ func (h *Handler) views(requests []types.MCPServerRequest) []requestView {
 	return views
 }
 
-// search finds the vMCPs the user can connect to and the catalog entries they can see
-// whose names or descriptions contain every word of query.
+// search finds the vMCPs the user can connect to and the catalog entries they can see that
+// match every word of query at the start of a word, best matches first: an exact name, then
+// names containing every word, then descriptions.
 func (h *Handler) search(req api.Context, query string, limit int) ([]searchResult, error) {
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	terms := strings.Fields(strings.ToLower(query))
-	matches := func(texts ...string) bool {
-		haystack := strings.ToLower(strings.Join(texts, " "))
-		for _, t := range terms {
-			if !strings.Contains(haystack, t) {
-				return false
-			}
-		}
-		return true
-	}
+	q := normalize(query)
+	terms := strings.Fields(q)
 
 	var vmcps v1.VMCPList
 	if err := req.List(&vmcps); err != nil {
@@ -203,15 +204,15 @@ func (h *Handler) search(req api.Context, query string, limit int) ([]searchResu
 			continue
 		}
 		ref := vmcpRef{ID: vmcp.Name, Name: vmcp.Spec.Manifest.DisplayName, ConnectURL: h.connectURL(vmcp.Name)}
-		texts := []string{vmcp.Spec.Manifest.DisplayName, vmcp.Spec.Manifest.Description}
+		descriptions := []string{vmcp.Spec.Manifest.Description}
 		var servers []string
 		for _, c := range vmcp.Spec.Manifest.Components {
 			byEntry[c.MCPServerCatalogEntryID] = append(byEntry[c.MCPServerCatalogEntryID], ref)
 			name := cmpOr(c.CatalogEntry.Manifest.Name, c.Name)
 			servers = append(servers, name)
-			texts = append(texts, name, c.CatalogEntry.Manifest.ShortDescription)
+			descriptions = append(descriptions, name, c.CatalogEntry.Manifest.ShortDescription)
 		}
-		if matches(texts...) {
+		if score := matchScore(q, terms, vmcp.Spec.Manifest.DisplayName, descriptions...); score > 0 {
 			results = append(results, searchResult{
 				Kind:        "vmcp",
 				ID:          vmcp.Name,
@@ -219,6 +220,8 @@ func (h *Handler) search(req api.Context, query string, limit int) ([]searchResu
 				Description: vmcp.Spec.Manifest.Description,
 				ConnectURL:  ref.ConnectURL,
 				Servers:     servers,
+				// Something the user can use now ranks above a catalog entry that matches as well.
+				score: score + 1,
 			})
 		}
 	}
@@ -229,7 +232,8 @@ func (h *Handler) search(req api.Context, query string, limit int) ([]searchResu
 	}
 	for _, entry := range entries.Items {
 		m := entry.Spec.Manifest
-		if !matches(m.Name, m.ShortDescription, m.Description) {
+		score := matchScore(q, terms, m.Name, m.ShortDescription, m.Description)
+		if score == 0 {
 			continue
 		}
 		var (
@@ -248,20 +252,74 @@ func (h *Handler) search(req api.Context, query string, limit int) ([]searchResu
 		if !allowed && !req.UserIsAdmin() {
 			continue
 		}
-		results = append(results, searchResult{
+		result := searchResult{
 			Kind:        "catalogEntry",
 			ID:          entry.Name,
 			Name:        m.Name,
 			Description: cmpOr(m.ShortDescription, m.Description),
 			Runtime:     string(m.Runtime),
 			InVMCPs:     byEntry[entry.Name],
-		})
+			score:       score,
+		}
+		if len(result.InVMCPs) == 0 {
+			result.Note = "In the catalog but in no vMCP you can connect to. To use it, request it with request_mcp_server, passing this ID as existingCatalogEntryID."
+		}
+		results = append(results, result)
 	}
 
+	slices.SortStableFunc(results, func(a, b searchResult) int { return b.score - a.score })
 	if len(results) > limit {
 		results = results[:limit]
 	}
 	return results, nil
+}
+
+// normalize lowercases s and turns everything but letters and digits into spaces.
+func normalize(s string) string {
+	return strings.Join(strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}), " ")
+}
+
+// hasWordPrefix reports whether a word of text starts with term.
+func hasWordPrefix(text, term string) bool {
+	for w := range strings.FieldsSeq(text) {
+		if strings.HasPrefix(w, term) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchScore ranks how well name and descriptions match a normalized query. Zero means no
+// match; an empty query matches everything weakly.
+func matchScore(query string, terms []string, name string, descriptions ...string) int {
+	if len(terms) == 0 {
+		return 1
+	}
+	name = normalize(name)
+	description := normalize(strings.Join(descriptions, " "))
+	inName := 0
+	for _, t := range terms {
+		switch {
+		case hasWordPrefix(name, t):
+			inName++
+		case hasWordPrefix(description, t):
+		default:
+			return 0
+		}
+	}
+	switch {
+	case name == query:
+		return 100
+	case strings.HasPrefix(name, query):
+		return 80
+	case inName == len(terms):
+		return 60
+	case inName > 0:
+		return 30 + inName
+	}
+	return 10
 }
 
 func cmpOr(values ...string) string {

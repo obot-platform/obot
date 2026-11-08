@@ -10217,6 +10217,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerRequestManifest(ref comm
 							Format:      "",
 						},
 					},
+					"existingCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExistingCatalogEntryID asks for a server already in the catalog to be made available, rather than for a new one. Runtime and its fields are then unused.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"name", "runtime"},
 			},

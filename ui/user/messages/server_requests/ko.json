@@ -43,5 +43,6 @@
 	"server_requests_admin_server": "관리 서버",
 	"server_requests_copy": "복사",
 	"server_requests_copied": "복사됨",
-	"server_requests_slack_hint": "새 요청을 관리자에게 알리려면 OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL에 Slack 수신 웹후크를 설정하세요."
+	"server_requests_slack_hint": "새 요청을 관리자에게 알리려면 OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL에 Slack 수신 웹후크를 설정하세요.",
+	"server_requests_catalog_entry": "이미 카탈로그에 있음"
 }

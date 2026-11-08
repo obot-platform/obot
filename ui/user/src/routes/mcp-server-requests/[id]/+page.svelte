@@ -153,8 +153,13 @@
 					<p class="text-sm">{request.description}</p>
 				{/if}
 				<dl class="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-[max-content_1fr]">
-					<dt class="font-medium">{m.server_requests_runs_as()}</dt>
-					<dd><code class="break-all">{requestTarget(request)}</code></dd>
+					{#if request.existingCatalogEntryID}
+						<dt class="font-medium">{m.server_requests_catalog_entry()}</dt>
+						<dd><code class="break-all">{request.existingCatalogEntryID}</code></dd>
+					{:else}
+						<dt class="font-medium">{m.server_requests_runs_as()}</dt>
+						<dd><code class="break-all">{requestTarget(request)}</code></dd>
+					{/if}
 					{#if request.reason}
 						<dt class="font-medium">{m.server_requests_reason()}</dt>
 						<dd class="whitespace-pre-wrap">{request.reason}</dd>

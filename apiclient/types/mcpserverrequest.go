@@ -53,12 +53,19 @@ type MCPServerRequestManifest struct {
 
 	// SuggestedVMCPID is the vMCP the requester would like the server added to.
 	SuggestedVMCPID string `json:"suggestedVMCPID,omitempty"`
+
+	// ExistingCatalogEntryID asks for a server already in the catalog to be made available,
+	// rather than for a new one. Runtime and its fields are then unused.
+	ExistingCatalogEntryID string `json:"existingCatalogEntryID,omitempty"`
 }
 
 // Validate checks the request is complete enough for an administrator to act on.
 func (m MCPServerRequestManifest) Validate() error {
 	if strings.TrimSpace(m.Name) == "" {
 		return fmt.Errorf("name is required")
+	}
+	if m.ExistingCatalogEntryID != "" {
+		return nil
 	}
 	switch m.Runtime {
 	case RuntimeRemote:

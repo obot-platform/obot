@@ -52,6 +52,10 @@ func TestMCPServerRequestManifestValidate(t *testing.T) {
 			wantErr:  true,
 		},
 		{
+			name:     "existing catalog entry",
+			manifest: MCPServerRequestManifest{Name: "Exa Search", ExistingCatalogEntryID: "default-exa-search-1"},
+		},
+		{
 			name:     "config without key",
 			manifest: MCPServerRequestManifest{Name: "x", Runtime: RuntimeNPX, Package: "x", Config: []MCPServerRequestConfig{{Description: "token"}}},
 			wantErr:  true,

@@ -29,6 +29,8 @@ export interface MCPServerRequest {
 	args?: string[];
 	config?: MCPServerRequestConfig[];
 	suggestedVMCPID?: string;
+	/** Set when the request is for a server already in the catalog. */
+	existingCatalogEntryID?: string;
 	requesterID: string;
 	requesterName?: string;
 	requesterEmail?: string;
@@ -93,6 +95,7 @@ export async function denyMCPServerRequest(
 
 /** How the requested server runs, for display: its URL, package or image. */
 export function requestTarget(r: MCPServerRequest): string {
+	if (r.existingCatalogEntryID) return r.existingCatalogEntryID;
 	switch (r.runtime) {
 		case 'remote':
 			return r.remoteURL ?? '';
