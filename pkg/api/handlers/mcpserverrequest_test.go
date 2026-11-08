@@ -5,6 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestComponentName(t *testing.T) {
@@ -65,5 +66,26 @@ func TestGrantRequester(t *testing.T) {
 	}
 	if err := manifest.Validate(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRequesterHasComponent(t *testing.T) {
+	requester := &kuser.DefaultInfo{Name: "dev", UID: "3", Extra: map[string][]string{"obot_groups": {types.GroupBasic}}}
+	vmcp := v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "c1", Name: "deepwiki"}, {ID: "c2", Name: "semgrep"}},
+		Profiles: []types.VMCPProfile{
+			{Name: "admins", Subjects: []types.Subject{{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+			{Name: "dev", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "3"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"c1": {}}}},
+		},
+	}}}
+	if !requesterHasComponent(requester, vmcp, "deepwiki") {
+		t.Fatal("dev's profile grants deepwiki")
+	}
+	if requesterHasComponent(requester, vmcp, "semgrep") {
+		t.Fatal("dev's profile doesn't grant semgrep, though dev can connect to the vMCP")
+	}
+	admin := &kuser.DefaultInfo{Name: "a", UID: "1", Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+	if !requesterHasComponent(admin, vmcp, "semgrep") {
+		t.Fatal("admins are granted every component")
 	}
 }

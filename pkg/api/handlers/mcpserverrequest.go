@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcpserverrequest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -218,6 +219,29 @@ func (h *MCPServerRequestHandler) requesterInfo(req api.Context, id string) kuse
 	return info
 }
 
+// requesterHasComponent reports whether a profile of vmcp grants requester the component
+// named componentName.
+func requesterHasComponent(requester kuser.Info, vmcp v1.VMCP, componentName string) bool {
+	if vmcp.Spec.UserID != "" {
+		return vmcp.Spec.UserID == requester.GetUID()
+	}
+	var componentID string
+	for _, c := range vmcp.Spec.Manifest.Components {
+		if c.Name == componentName {
+			componentID = c.ID
+		}
+	}
+	for _, p := range vmcpaccess.MatchingProfiles(requester, vmcp.Spec.Manifest.Profiles) {
+		if p.Permissions.AllowAllComponents {
+			return true
+		}
+		if _, ok := p.Permissions.AllowedComponents[componentID]; ok && componentID != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // uniqueComponentName returns name, or name with a numeric suffix if a component already
 // uses it.
 func uniqueComponentName(components []types.VMCPComponent, name string) string {
@@ -281,7 +305,13 @@ func (h *MCPServerRequestHandler) withAccess(req api.Context, request types.MCPS
 	if requester == nil {
 		return request
 	}
+	// The requester needs the server itself, not just some other part of the vMCP.
 	canConnect := authz.UserCanConnectVMCP(requester, &vmcp)
+	for _, c := range vmcp.Spec.Manifest.Components {
+		if c.MCPServerCatalogEntryID == request.CatalogEntryID {
+			canConnect = canConnect && requesterHasComponent(requester, vmcp, c.Name)
+		}
+	}
 	request.RequesterCanConnect = &canConnect
 	return request
 }
@@ -416,7 +446,7 @@ func (h *MCPServerRequestHandler) ApproveRequest(req api.Context, id string, app
 			return types.MCPServerRequest{}, removeEntry(err)
 		}
 		vmcpID = target.Name
-		if grant && requester != nil && !authz.UserCanConnectVMCP(requester, &target) {
+		if grant && requester != nil && !requesterHasComponent(requester, target, addedName) {
 			// The update assigned the new component its ID. Grant the requester that component
 			// alone, in a profile of their own, so nothing else in the vMCP opens up to them. The
 			// server is in the vMCP either way, so a failure here is reported, not undone.
