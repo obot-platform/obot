@@ -4,6 +4,13 @@ Recorded 2026-11-08 from Craig. None of these have been started.
 
 ## 1. Built-in MCP servers: one for users, one for admins
 
+**Status (2026-11-08):** first version built on this branch. `/mcp-connect/obot` (search,
+request, follow requests) and `/mcp-connect/obot-admin` (list, approve into an existing or new
+vMCP, deny); a Slack incoming webhook alert linking to `/mcp-server-requests/{id}`; managed
+settings snippets on the Server Requests page. Still open: Slack interactive buttons (approve
+from Slack itself), letting an admin edit the catalog entry before approving, and what else the
+admin server should do (self-configuration).
+
 ### User MCP server
 - Admins can push it to users through Claude managed settings.
 - Users can search the MCP servers that are already in Obot's catalog.
