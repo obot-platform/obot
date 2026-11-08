@@ -92,10 +92,10 @@ func requestTarget(m types.MCPServerRequestManifest) string {
 
 func slackMessage(r types.MCPServerRequest, reviewURL string) map[string]any {
 	requester := r.RequesterName
-	if r.RequesterEmail != "" {
+	if r.RequesterEmail != "" && r.RequesterEmail != requester {
 		requester = fmt.Sprintf("%s (%s)", cmpOr(requester, r.RequesterEmail), r.RequesterEmail)
 	}
-	requester = cmpOr(requester, r.RequesterID)
+	requester = cmpOr(requester, r.RequesterEmail, r.RequesterID)
 
 	fields := []map[string]any{
 		{"type": "mrkdwn", "text": "*Server*\n" + slackEscape(r.Name)},
@@ -129,9 +129,11 @@ func slackMessage(r types.MCPServerRequest, reviewURL string) map[string]any {
 	}
 }
 
-func cmpOr(a, b string) string {
-	if a != "" {
-		return a
+func cmpOr(values ...string) string {
+	for _, v := range values {
+		if v != "" {
+			return v
+		}
 	}
-	return b
+	return ""
 }
