@@ -184,6 +184,13 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate":                 schema_obot_platform_obot_apiclient_types_MCPServerNeedingK8sUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialRequest":           schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialStatus":            schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequest":                          schema_obot_platform_obot_apiclient_types_MCPServerRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequestApproval":                  schema_obot_platform_obot_apiclient_types_MCPServerRequestApproval(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequestConfig":                    schema_obot_platform_obot_apiclient_types_MCPServerRequestConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequestDenial":                    schema_obot_platform_obot_apiclient_types_MCPServerRequestDenial(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequestList":                      schema_obot_platform_obot_apiclient_types_MCPServerRequestList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequestManifest":                  schema_obot_platform_obot_apiclient_types_MCPServerRequestManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerRequestNewVMCP":                   schema_obot_platform_obot_apiclient_types_MCPServerRequestNewVMCP(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                             schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":            schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPTesterChatMessage":                      schema_obot_platform_obot_apiclient_types_MCPTesterChatMessage(ref),
@@ -463,6 +470,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.MCPServerInstanceSpec{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref),
 		v1.MCPServerInstanceStatus{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_MCPServerInstanceStatus(ref),
 		v1.MCPServerList{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerList(ref),
+		v1.MCPServerRequest{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_MCPServerRequest(ref),
+		v1.MCPServerRequestList{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_MCPServerRequestList(ref),
+		v1.MCPServerRequestSpec{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_MCPServerRequestSpec(ref),
+		v1.MCPServerRequestStatus{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_MCPServerRequestStatus(ref),
 		v1.MCPServerSpec{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
 		v1.MCPServerStatus{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
 		v1.MCPTunnel{}.OpenAPIModelName():                                                         schema_storage_apis_obotobotai_v1_MCPTunnel(ref),
@@ -9876,6 +9887,367 @@ func schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(re
 					},
 				},
 				Required: []string{"configured"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"MCPServerRequestManifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerRequestManifest"),
+						},
+					},
+					"requesterID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"requesterName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"requesterEmail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"decidedBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"decidedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"decisionReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"catalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CatalogEntryID and VMCPID are set when the request is approved.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"requesterCanConnect": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequesterCanConnect reports, for an approved request, whether the vMCP's profiles let the requester connect. Approving into an existing vMCP doesn't change who it grants.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "MCPServerRequestManifest", "requesterID", "state"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerRequestManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequestApproval(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerRequestApproval is an administrator's approval: where the server goes, and optionally the catalog entry as edited by the administrator.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPID adds the server to an existing vMCP.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"newVMCP": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NewVMCP creates a vMCP for the server.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerRequestNewVMCP"),
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Manifest overrides the catalog entry derived from the request.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.MCPServerRequestNewVMCP"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequestConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerRequestConfig is a value the requested server needs, such as an API key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Key is the environment variable or, for a remote server, the header name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"usage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Usage is env or header. It defaults to header for a remote server and env otherwise.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"key"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequestDenial(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequestList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPServerRequest"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerRequest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequestManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerRequestManifest is what a user asks an administrator to add to the catalog, typically from their agent through Obot's built-in MCP server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the server's display name.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reason says why the user wants the server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sourceURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceURL is where the server was found, such as its repository or documentation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Runtime is remote, npx, uvx or containerized.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"remoteURL": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RemoteURL is the MCP endpoint of a remote server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"package": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Package is the npm or PyPI package of an npx or uvx server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image, Port and Path describe a containerized server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"port": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"args": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Config lists the values the server needs, such as API keys.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPServerRequestConfig"),
+									},
+								},
+							},
+						},
+					},
+					"suggestedVMCPID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SuggestedVMCPID is the vMCP the requester would like the server added to.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "runtime"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerRequestConfig"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerRequestNewVMCP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerRequestNewVMCP describes the vMCP to create for an approved server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"displayName"},
 			},
 		},
 	}
@@ -22938,6 +23310,197 @@ func schema_storage_apis_obotobotai_v1_MCPServerList(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			v1.MCPServer{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPServerRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerRequest is a user's request to add an MCP server to the catalog, which an administrator approves into a vMCP or denies.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.MCPServerRequestSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.MCPServerRequestStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			v1.MCPServerRequestSpec{}.OpenAPIModelName(), v1.MCPServerRequestStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPServerRequestList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.MCPServerRequest{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1.MCPServerRequest{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPServerRequestSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerRequestManifest"),
+						},
+					},
+					"requesterID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"requesterName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"requesterEmail": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"manifest", "requesterID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerRequestManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPServerRequestStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"decidedBy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"decidedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"decisionReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"catalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"notified": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Notified records that administrators were alerted about the request.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 

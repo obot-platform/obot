@@ -50,6 +50,7 @@ import (
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcpserverrequest"
 	"github.com/obot-platform/obot/pkg/mcptester"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
@@ -148,6 +149,8 @@ type Config struct {
 	SubstrateSnapshotLocation   string `usage:"Substrate snapshot bucket URI"`
 	SubstrateObotURL            string `usage:"Obot URL reachable from actors; defaults to server URL"`
 
+	MCPServerRequestSlackWebhookURL string `usage:"Slack incoming webhook URL alerted when a user requests a new MCP server" name:"mcp-server-request-slack-webhook-url" env:"OBOT_SERVER_MCP_SERVER_REQUEST_SLACK_WEBHOOK_URL"`
+
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartName    string `usage:"Helm chart name for the network policy provider chart"`
 	MCPNetworkPolicyProviderChartVersion string `usage:"Helm chart version for the network policy provider chart"`
@@ -179,6 +182,8 @@ type Services struct {
 	AuditLogger           audit.Logger
 	DSN                   string
 	ServerURL             string
+	// MCPServerRequestNotifier alerts administrators about requests for new MCP servers.
+	MCPServerRequestNotifier *mcpserverrequest.Notifier
 	// LocalServerURL is Obot's address as Obot itself can reach it, which differs
 	// from ServerURL when the public port is mapped by a Service or ingress.
 	LocalServerURL    string
@@ -1190,13 +1195,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
-		EncryptionConfig:      encryptionConfig,
-		ServerURL:             config.Hostname,
-		LocalServerURL:        system.LocalServerURL(config.HTTPListenPort),
-		StorageClient:         storageClient,
-		StorageDB:             dbAccess,
-		Router:                r,
-		PersistentTokenServer: persistentTokenServer,
+		EncryptionConfig:         encryptionConfig,
+		ServerURL:                config.Hostname,
+		MCPServerRequestNotifier: mcpserverrequest.NewNotifier(config.MCPServerRequestSlackWebhookURL, config.UIHostname),
+		LocalServerURL:           system.LocalServerURL(config.HTTPListenPort),
+		StorageClient:            storageClient,
+		StorageDB:                dbAccess,
+		Router:                   r,
+		PersistentTokenServer:    persistentTokenServer,
 		APIServer: server.NewServer(
 			storageClient,
 			gatewayClient,

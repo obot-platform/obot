@@ -53,6 +53,8 @@ var (
 		"/api/mcp-servers/",
 		"/api/vmcps",
 		"/api/vmcps/",
+		"/api/mcp-server-requests",
+		"/api/mcp-server-requests/",
 		"/api/vmcp-instances",
 		"/api/vmcp-instances/",
 		"/api/all-mcps",
@@ -345,6 +347,12 @@ var (
 			"GET /api/groups",
 
 			"GET /api/app-notification",
+
+			// Users request new MCP servers and follow their own requests. The handler
+			// limits non-administrators to their own requests and reserves decisions.
+			"GET /api/mcp-server-requests",
+			"POST /api/mcp-server-requests",
+			"GET /api/mcp-server-requests/{request_id}",
 
 			// Allow authenticated users to read servers and entries from MCP catalogs.
 			// Filtering is handled in the handler.

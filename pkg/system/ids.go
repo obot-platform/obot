@@ -7,28 +7,33 @@ import (
 )
 
 const (
-	ModelPrefix                   = "m1"
-	AliasPrefix                   = "al1"
-	DefaultModelAliasPrefix       = "dma1"
-	DeviceEnrollmentPrefix        = "ode1"
-	UserDeletePrefix              = "ud1"
-	AuthProviderCleanupPrefix     = "apc1"
-	ProviderChangePrefix          = "pcc1"
-	UserRoleChangePrefix          = "urc1"
-	UserGroupChangePrefix         = "ugc1"
-	GroupRoleChangePrefix         = "grc1"
-	MCPServerPrefix               = "ms1"
-	MCPTunnelPrefix               = "mt1"
-	MCPNetworkPolicyPrefix        = "mnp1"
-	MCPServerInstancePrefix       = "msi1"
-	VMCPPrefix                    = "vmcp1"
-	VMCPInstancePrefix            = "vmcpi1"
-	ImagePullSecretPrefix         = "ips1"
-	GitCredentialPrefix           = "gc1"
-	SystemCatalogPrefix           = "smcat1"
-	SkillRepositoryPrefix         = "skr1"
-	SkillPrefix                   = "sk1"
-	SkillAccessRulePrefix         = "sar1"
+	ModelPrefix               = "m1"
+	AliasPrefix               = "al1"
+	DefaultModelAliasPrefix   = "dma1"
+	DeviceEnrollmentPrefix    = "ode1"
+	UserDeletePrefix          = "ud1"
+	AuthProviderCleanupPrefix = "apc1"
+	ProviderChangePrefix      = "pcc1"
+	UserRoleChangePrefix      = "urc1"
+	UserGroupChangePrefix     = "ugc1"
+	GroupRoleChangePrefix     = "grc1"
+	MCPServerPrefix           = "ms1"
+	MCPTunnelPrefix           = "mt1"
+	MCPNetworkPolicyPrefix    = "mnp1"
+	MCPServerInstancePrefix   = "msi1"
+	VMCPPrefix                = "vmcp1"
+	VMCPInstancePrefix        = "vmcpi1"
+	ImagePullSecretPrefix     = "ips1"
+	GitCredentialPrefix       = "gc1"
+	SystemCatalogPrefix       = "smcat1"
+	SkillRepositoryPrefix     = "skr1"
+	SkillPrefix               = "sk1"
+	SkillAccessRulePrefix     = "sar1"
+	MCPServerRequestPrefix    = "msrq1"
+
+	// Obot serves these MCP servers itself at /mcp-connect/{id}.
+	BuiltinUserMCPID              = "obot"
+	BuiltinAdminMCPID             = "obot-admin"
 	OAuthClientPrefix             = "oc1"
 	OAuthAuthRequestPrefix        = "oar1"
 	AccessControlRulePrefix       = "acr1"
@@ -79,4 +84,9 @@ func IsModelID(id string) bool {
 
 func GetPowerUserWorkspaceID(userID string) string {
 	return name.SafeConcatName(PowerUserWorkspacePrefix, userID)
+}
+
+// IsBuiltinMCPID reports whether id names an MCP server Obot serves itself.
+func IsBuiltinMCPID(id string) bool {
+	return id == BuiltinUserMCPID || id == BuiltinAdminMCPID
 }

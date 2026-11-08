@@ -96,7 +96,11 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 }
 
 // OAuth connections must resolve to a vMCP or instance, including migrated aliases.
+// Obot's built-in MCP servers resolve to neither.
 func resolveOAuthConnection(req api.Context, id string) (*v1.VMCP, *v1.VMCPInstance, error) {
+	if system.IsBuiltinMCPID(id) {
+		return nil, nil, nil
+	}
 	vmcp, instance, err := vmcpconfig.ResolveID(req.Context(), req.Storage, id)
 	if err != nil {
 		return nil, nil, err
@@ -115,6 +119,9 @@ func validOAuthConnection(req api.Context, mcpID, audience, resource, userID str
 	resourceID, ok := strings.CutPrefix(u.Path, "/mcp-connect/")
 	if !ok || resourceID == "" {
 		return false, nil
+	}
+	if system.IsBuiltinMCPID(mcpID) {
+		return resourceID == mcpID && (audience == "" || audience == mcpID), nil
 	}
 	ids := []string{mcpID, resourceID}
 	if audience != "" {

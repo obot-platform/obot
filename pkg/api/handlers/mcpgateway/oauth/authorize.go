@@ -17,6 +17,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -323,6 +324,21 @@ func (h *handler) callback(req api.Context) error {
 }
 
 func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.OAuthAuthRequest) error {
+	if id := oauthAppAuthRequest.Spec.MCPID; system.IsBuiltinMCPID(id) {
+		// Obot serves these itself: there is nothing to configure or authenticate upstream.
+		if !authz.UserCanUseBuiltinMCP(req.User, id) {
+			return types.NewErrForbidden("access denied to MCP server %q", id)
+		}
+		oauthAppAuthRequest.Spec.ConsentPrepared = true
+		oauthAppAuthRequest.Spec.ConsentMCPConfigRequired = false
+		oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = false
+		oauthAppAuthRequest.Spec.ConsentMCPAuthURL = ""
+		oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = false
+		oauthAppAuthRequest.Spec.ConsentMCPServerName = builtinMCPDisplayName(id)
+		oauthAppAuthRequest.Spec.ConsentMCPServerURL = ""
+		return req.Update(oauthAppAuthRequest)
+	}
+
 	vmcp, instance, err := vmcpConsentTarget(req, oauthAppAuthRequest.Spec.MCPID)
 	if err != nil {
 		return err
@@ -432,6 +448,9 @@ func (h *handler) consent(req api.Context) error {
 	}
 
 	continueURL, cancelURL := oauthConsentURLs(oauthAppAuthRequest)
+	if system.IsBuiltinMCPID(oauthAppAuthRequest.Spec.MCPID) {
+		return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL))
+	}
 	vmcp, instance, err := vmcpConsentTarget(req, oauthAppAuthRequest.Spec.MCPID)
 	if err != nil {
 		return err
@@ -901,4 +920,11 @@ func oauthPreparationError(err error, state string) oauthError {
 	}
 
 	return newOAuthError(ErrServerError, err.Error(), state)
+}
+
+func builtinMCPDisplayName(id string) string {
+	if id == system.BuiltinAdminMCPID {
+		return "Obot Admin"
+	}
+	return "Obot"
 }

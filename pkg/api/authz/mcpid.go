@@ -44,6 +44,13 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.
 		return true, nil
 	}
+	if system.IsBuiltinMCPID(resources.MCPID) {
+		// Only the server's root path is served.
+		if p := strings.TrimSuffix(req.URL.Path, "/"); p != "/mcp-connect/"+resources.MCPID {
+			return false, nil
+		}
+		return UserCanUseBuiltinMCP(user.Info, resources.MCPID), nil
+	}
 	connection, err := resolveMCPConnection(req.Context(), a.uncached, resources.MCPID, user.GetUID())
 	if err != nil {
 		return false, err
@@ -87,6 +94,9 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 // MCP gateway. API handlers that act on an MCP deployment without traversing
 // /mcp-connect must call this rather than relying on management visibility.
 func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
+	if system.IsBuiltinMCPID(mcpID) {
+		return UserCanUseBuiltinMCP(user, mcpID), nil
+	}
 	return userCanConnectToMCP(ctx, client, acrHelper, user, mcpID, nil)
 }
 
@@ -112,6 +122,9 @@ func userCanConnectToResolvedMCP(ctx context.Context, client kclient.Client, acr
 }
 
 func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
+	if system.IsBuiltinMCPID(mcpID) {
+		return UserCanUseBuiltinMCP(user, mcpID), nil
+	}
 	connection, err := resolveMCPConnection(ctx, client, mcpID, user.GetUID())
 	if err != nil {
 		return false, err
@@ -316,4 +329,24 @@ func vmcpScopeMatches(scopes []string, vmcp *v1.VMCP, instance *v1.VMCPInstance)
 		return true
 	}
 	return instance != nil && (slices.Contains(scopes, instance.Name) || instance.Spec.LegacySlug != "" && slices.Contains(scopes, instance.Spec.LegacySlug))
+}
+
+// UserCanUseBuiltinMCP reports whether user may use one of the MCP servers Obot serves
+// itself: every authenticated user may use the user server, and administrators the admin
+// server. MCP tokens carry the user's role in extra["obot_groups"].
+func UserCanUseBuiltinMCP(user kuser.Info, mcpID string) bool {
+	if user == nil || user.GetUID() == "" || user.GetName() == "anonymous" {
+		return false
+	}
+	switch mcpID {
+	case system.BuiltinUserMCPID:
+		return true
+	case system.BuiltinAdminMCPID:
+		for _, groups := range [][]string{user.GetGroups(), user.GetExtra()["obot_groups"]} {
+			if slices.Contains(groups, types.GroupAdmin) || slices.Contains(groups, types.GroupOwner) {
+				return true
+			}
+		}
+	}
+	return false
 }

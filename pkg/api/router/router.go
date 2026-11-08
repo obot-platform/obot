@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	"github.com/obot-platform/obot/pkg/api/handlers/builtinmcp"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
@@ -13,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/scim"
 	scimsetup "github.com/obot-platform/obot/pkg/scim/setup"
 	"github.com/obot-platform/obot/pkg/services"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -192,6 +195,14 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Virtual MCPs
 	mux.HandleFunc("GET /api/vmcps", vmcps.List)
 	mux.HandleFunc("POST /api/vmcps", vmcps.Create)
+
+	// Requests to add MCP servers, from users or their agents, and administrators' decisions.
+	mcpServerRequests := handlers.NewMCPServerRequestHandler(vmcps, mcpCatalogs, services.MCPServerRequestNotifier)
+	mux.HandleFunc("GET /api/mcp-server-requests", mcpServerRequests.List)
+	mux.HandleFunc("POST /api/mcp-server-requests", mcpServerRequests.Create)
+	mux.HandleFunc("GET /api/mcp-server-requests/{request_id}", mcpServerRequests.Get)
+	mux.HandleFunc("POST /api/mcp-server-requests/{request_id}/approve", mcpServerRequests.Approve)
+	mux.HandleFunc("POST /api/mcp-server-requests/{request_id}/deny", mcpServerRequests.Deny)
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}", vmcps.Get)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/launch", mcp.LaunchServer)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/check-oauth", mcp.CheckOAuth)
@@ -745,8 +756,16 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	// Auth Provider tools
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
-	// MCP Gateway Endpoints
-	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
+	// MCP Gateway Endpoints. Obot serves its built-in MCP servers itself; every other ID is
+	// proxied.
+	builtinMCP := builtinmcp.New(mcpServerRequests, services.AccessControlRuleHelper, services.ServerURL)
+	mcpConnect := func(req api.Context) error {
+		if system.IsBuiltinMCPID(req.PathValue("mcp_id")) {
+			return builtinMCP.Serve(req)
+		}
+		return mcpGateway.Proxy(req)
+	}
+	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpConnect)
 	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
 	// This is a special path for internal MCP composite requests.
 	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)

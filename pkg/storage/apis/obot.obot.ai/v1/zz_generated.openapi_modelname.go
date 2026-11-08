@@ -436,6 +436,26 @@ func (in MCPServerList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerRequest) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerRequest"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerRequestList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerRequestList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerRequestSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerRequestSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerRequestStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerRequestStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPServerSpec) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerSpec"
 }
