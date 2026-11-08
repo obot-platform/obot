@@ -3,6 +3,10 @@ package builtinmcp
 import (
 	"strings"
 	"testing"
+
+	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestMatchScore(t *testing.T) {
@@ -33,5 +37,20 @@ func TestMatchScore(t *testing.T) {
 	}
 	if score("exa", "Exa Search") <= score("exa", "Tavily", "Exa-compatible search") {
 		t.Error("a name match must outrank a description match")
+	}
+}
+
+func TestGrantedComponents(t *testing.T) {
+	dev := &kuser.DefaultInfo{Name: "dev", UID: "3", Extra: map[string][]string{"obot_groups": {types.GroupBasic}}}
+	admin := &kuser.DefaultInfo{Name: "a", UID: "1", Extra: map[string][]string{"obot_groups": {types.GroupAdmin}}}
+	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{
+		{Name: "admins", Subjects: []types.Subject{{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+		{Name: "dev", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "3"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"c1": {}}}},
+	}}}}
+	if g := grantedComponents(dev, vmcp); !g("c1") || g("c2") {
+		t.Fatal("dev should be granted c1 only")
+	}
+	if g := grantedComponents(admin, vmcp); !g("c2") {
+		t.Fatal("admins are granted everything")
 	}
 }

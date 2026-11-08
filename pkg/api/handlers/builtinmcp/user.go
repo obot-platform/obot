@@ -12,6 +12,8 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -49,7 +51,7 @@ type searchResult struct {
 }
 
 type requestInput struct {
-	Name                   string                         `json:"name" jsonschema:"The server's name."`
+	Name                   string                         `json:"name,omitempty" jsonschema:"The server's name. Not needed with existingCatalogEntryID."`
 	Description            string                         `json:"description,omitempty" jsonschema:"What the server does."`
 	Reason                 string                         `json:"reason,omitempty" jsonschema:"Why the user wants it, in their words where possible. Administrators read this."`
 	SourceURL              string                         `json:"sourceURL,omitempty" jsonschema:"Where the server was found, such as its repository or documentation page."`
@@ -206,7 +208,12 @@ func (h *Handler) search(req api.Context, query string, limit int) ([]searchResu
 		ref := vmcpRef{ID: vmcp.Name, Name: vmcp.Spec.Manifest.DisplayName, ConnectURL: h.connectURL(vmcp.Name)}
 		descriptions := []string{vmcp.Spec.Manifest.Description}
 		var servers []string
+		granted := grantedComponents(req.User, vmcp)
 		for _, c := range vmcp.Spec.Manifest.Components {
+			// Only the servers the user's profiles grant are theirs to use.
+			if !granted(c.ID) {
+				continue
+			}
 			byEntry[c.MCPServerCatalogEntryID] = append(byEntry[c.MCPServerCatalogEntryID], ref)
 			name := cmpOr(c.CatalogEntry.Manifest.Name, c.Name)
 			servers = append(servers, name)
@@ -272,6 +279,23 @@ func (h *Handler) search(req api.Context, query string, limit int) ([]searchResu
 		results = results[:limit]
 	}
 	return results, nil
+}
+
+// grantedComponents reports which of vmcp's components the user's profiles grant.
+func grantedComponents(u kuser.Info, vmcp *v1.VMCP) func(string) bool {
+	if vmcp.Spec.UserID != "" {
+		return func(string) bool { return vmcp.Spec.UserID == u.GetUID() }
+	}
+	ids := map[string]bool{}
+	for _, p := range vmcpaccess.MatchingProfiles(u, vmcp.Spec.Manifest.Profiles) {
+		if p.Permissions.AllowAllComponents {
+			return func(string) bool { return true }
+		}
+		for id := range p.Permissions.AllowedComponents {
+			ids[id] = true
+		}
+	}
+	return func(id string) bool { return ids[id] }
 }
 
 // normalize lowercases s and turns everything but letters and digits into spaces.
