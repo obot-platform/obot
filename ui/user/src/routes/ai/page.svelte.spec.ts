@@ -71,6 +71,48 @@ describe('Obot AI', () => {
 		});
 	});
 
+	it('streams tool calls and the answer as they happen', async () => {
+		let release!: () => void;
+		const gate = new Promise<void>((r) => (release = r));
+		worker.use(
+			http.post('/api/ai/chat', () => {
+				const encoder = new TextEncoder();
+				const send = (c: ReadableStreamDefaultController, event: object) =>
+					c.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+				const body = new ReadableStream({
+					async start(c) {
+						send(c, { type: 'thinking' });
+						send(c, { type: 'tool_start', tool: 'llm_usage', arguments: { days: 7 } });
+						await gate;
+						send(c, { type: 'tool_end', tool: 'llm_usage' });
+						send(c, { type: 'thinking' });
+						send(c, { type: 'delta', text: 'Spend is ' });
+						send(c, { type: 'delta', text: '**$12**' });
+						send(c, {
+							type: 'done',
+							reply: 'Spend is **$12** this week.',
+							steps: [{ tool: 'llm_usage', arguments: { days: 7 } }]
+						});
+						c.close();
+					}
+				});
+				return new HttpResponse(body, { headers: { 'Content-Type': 'text/event-stream' } });
+			})
+		);
+		await renderPage();
+
+		await page.getByRole('textbox', { name: 'Ask Obot AI…' }).fill('spend?');
+		await page.getByRole('button', { name: 'Send' }).click();
+
+		// The tool shows while it runs, before any answer text.
+		await expect.element(page.getByText('Checking LLM spend')).toBeInTheDocument();
+		await expect.element(page.getByText('running')).toBeInTheDocument();
+		release();
+
+		await expect.element(page.getByText('this week.', { exact: false })).toBeInTheDocument();
+		await expect.element(page.getByText('Used 1 tools')).toBeInTheDocument();
+	});
+
 	it('shows basic users suggestions about finding servers', async () => {
 		await renderPage([Group.USER]);
 

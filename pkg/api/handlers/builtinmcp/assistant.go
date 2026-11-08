@@ -3,8 +3,11 @@ package builtinmcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -24,6 +27,33 @@ const (
 // ChatModel takes one turn of a tool-using conversation.
 type ChatModel interface {
 	ChatTurn(ctx context.Context, model string, messages []schemas.ChatMessage, tools []schemas.ChatTool) (*schemas.ChatMessage, string, error)
+}
+
+// AssistantEvent is one server-sent event of a streamed answer.
+type AssistantEvent struct {
+	// Type is thinking (a model turn started), tool_start, tool_end, delta (answer text),
+	// done or error.
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	Tool      string          `json:"tool,omitempty"`
+	Arguments json.RawMessage `json:"arguments,omitempty"`
+	IsError   bool            `json:"isError,omitempty"`
+	Reply     string          `json:"reply,omitempty"`
+	Model     string          `json:"model,omitempty"`
+	Steps     []AssistantStep `json:"steps,omitempty"`
+	Message   string          `json:"message,omitempty"`
+}
+
+// StreamingChatModel is a ChatModel that can stream a turn's text as it is written.
+type StreamingChatModel interface {
+	ChatTurnStream(ctx context.Context, model string, messages []schemas.ChatMessage, tools []schemas.ChatTool, onText func(string)) (*schemas.ChatMessage, string, error)
+}
+
+// eventStream writes server-sent events, flushing each one.
+type eventStream struct {
+	w       http.ResponseWriter
+	flusher http.Flusher
+	lock    sync.Mutex
 }
 
 // AssistantMessage is one message of the conversation the UI keeps.
@@ -61,6 +91,10 @@ func NewAssistant(servers *Handler, model ChatModel) *Assistant {
 	return &Assistant{servers: servers, model: model}
 }
 
+// Chat answers the conversation's last message. A request that accepts text/event-stream
+// gets the answer as server-sent events as it is produced: each model turn, each tool call
+// as it starts and ends, the answer's text as it is written, then the complete reply.
+// Otherwise the complete reply is returned as JSON.
 func (a *Assistant) Chat(req api.Context) error {
 	var in AssistantRequest
 	if err := req.Read(&in); err != nil {
@@ -79,6 +113,32 @@ func (a *Assistant) Chat(req api.Context) error {
 	ctx, cancel := context.WithTimeout(req.Context(), assistantTimeout)
 	defer cancel()
 
+	if !strings.Contains(req.Request.Header.Get("Accept"), "text/event-stream") {
+		out, err := a.run(ctx, req, in.Messages, nil)
+		if err != nil {
+			return err
+		}
+		return req.Write(out)
+	}
+
+	events, err := newEventStream(req.ResponseWriter)
+	if err != nil {
+		return err
+	}
+	out, err := a.run(ctx, req, in.Messages, events.send)
+	if err != nil {
+		events.send(AssistantEvent{Type: "error", Message: errorMessage(err)})
+		return nil
+	}
+	events.send(AssistantEvent{Type: "done", Reply: out.Reply, Model: out.Model, Steps: out.Steps})
+	return nil
+}
+
+// run answers the conversation, reporting progress to emit when it is set.
+func (a *Assistant) run(ctx context.Context, req api.Context, conversation []AssistantMessage, emit func(AssistantEvent)) (AssistantResponse, error) {
+	if emit == nil {
+		emit = func(AssistantEvent) {}
+	}
 	// Administrators get the admin server's tools, which include everything a user's has
 	// that matters to them; others get the user server's.
 	admin := req.UserIsAdmin()
@@ -89,30 +149,30 @@ func (a *Assistant) Chat(req api.Context) error {
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	serverSession, err := server.Connect(ctx, serverTransport, nil)
 	if err != nil {
-		return err
+		return AssistantResponse{}, err
 	}
 	defer serverSession.Close()
 	session, err := mcp.NewClient(&mcp.Implementation{Name: "obot-ai"}, nil).Connect(ctx, clientTransport, nil)
 	if err != nil {
-		return err
+		return AssistantResponse{}, err
 	}
 	defer session.Close()
 
 	listed, err := session.ListTools(ctx, nil)
 	if err != nil {
-		return err
+		return AssistantResponse{}, err
 	}
 	tools := make([]schemas.ChatTool, 0, len(listed.Tools))
 	for _, t := range listed.Tools {
 		tool, err := chatTool(t)
 		if err != nil {
-			return err
+			return AssistantResponse{}, err
 		}
 		tools = append(tools, tool)
 	}
 
 	messages := []schemas.ChatMessage{textMessage(schemas.ChatMessageRoleSystem, a.systemPrompt(req, admin))}
-	for _, m := range in.Messages {
+	for _, m := range conversation {
 		switch m.Role {
 		case "user":
 			messages = append(messages, textMessage(schemas.ChatMessageRoleUser, m.Content))
@@ -123,10 +183,13 @@ func (a *Assistant) Chat(req api.Context) error {
 
 	out := AssistantResponse{Steps: []AssistantStep{}}
 	for range assistantMaxSteps {
-		reply, model, err := a.model.ChatTurn(ctx, assistantModel, messages, tools)
+		emit(AssistantEvent{Type: "thinking"})
+		reply, model, err := a.turn(ctx, messages, tools, func(text string) {
+			emit(AssistantEvent{Type: "delta", Text: text})
+		})
 		out.Model = model
 		if err != nil {
-			return types.NewErrHTTP(502, "Obot AI could not answer: "+err.Error())
+			return out, types.NewErrHTTP(502, "Obot AI could not answer: "+err.Error())
 		}
 		var calls []schemas.ChatAssistantMessageToolCall
 		if reply.ChatAssistantMessage != nil {
@@ -134,11 +197,21 @@ func (a *Assistant) Chat(req api.Context) error {
 		}
 		if len(calls) == 0 {
 			out.Reply = messageText(reply)
-			return req.Write(out)
+			return out, nil
 		}
 		messages = append(messages, *reply)
 		for _, call := range calls {
+			name := ""
+			if call.Function.Name != nil {
+				name = *call.Function.Name
+			}
+			start := AssistantEvent{Type: "tool_start", Tool: name}
+			if json.Valid([]byte(call.Function.Arguments)) {
+				start.Arguments = json.RawMessage(call.Function.Arguments)
+			}
+			emit(start)
 			step, result := a.call(ctx, session, call)
+			emit(AssistantEvent{Type: "tool_end", Tool: name, IsError: step.IsError})
 			out.Steps = append(out.Steps, step)
 			id := ""
 			if call.ID != nil {
@@ -150,7 +223,46 @@ func (a *Assistant) Chat(req api.Context) error {
 		}
 	}
 	out.Reply = "I stopped after too many steps without an answer. Try a narrower question."
-	return req.Write(out)
+	return out, nil
+}
+
+// turn takes one model turn, streaming its text to onText when the model can stream.
+func (a *Assistant) turn(ctx context.Context, messages []schemas.ChatMessage, tools []schemas.ChatTool, onText func(string)) (*schemas.ChatMessage, string, error) {
+	if streaming, ok := a.model.(StreamingChatModel); ok {
+		return streaming.ChatTurnStream(ctx, assistantModel, messages, tools, onText)
+	}
+	return a.model.ChatTurn(ctx, assistantModel, messages, tools)
+}
+
+func newEventStream(w http.ResponseWriter) (*eventStream, error) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		return nil, errors.New("streaming is not supported")
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+	return &eventStream{w: w, flusher: flusher}, nil
+}
+
+func (e *eventStream) send(ev AssistantEvent) {
+	b, err := json.Marshal(ev)
+	if err != nil {
+		return
+	}
+	e.lock.Lock()
+	defer e.lock.Unlock()
+	_, _ = fmt.Fprintf(e.w, "data: %s\n\n", b)
+	e.flusher.Flush()
+}
+
+func errorMessage(err error) string {
+	if httpErr, ok := errors.AsType[*types.ErrHTTP](err); ok {
+		return httpErr.Message
+	}
+	return err.Error()
 }
 
 // call runs one tool call and returns the step to show and the result for the model.

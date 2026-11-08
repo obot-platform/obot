@@ -509,3 +509,47 @@ func (e *Engine) ChatCompletionWithParams(parent context.Context, model string, 
 	}
 	return resp, nil
 }
+
+// ChatCompletionStream is ChatCompletionWithParams streamed: onDelta receives each partial
+// message as the model produces it. It returns when the stream ends.
+func (e *Engine) ChatCompletionStream(parent context.Context, model string, messages []schemas.ChatMessage, params *schemas.ChatParameters, onDelta func(*schemas.ChatStreamResponseChoiceDelta)) (err error) {
+	// As for ChatCompletionWithParams: callers have no HTTP recovery.
+	defer func() {
+		if recover() != nil {
+			err = errors.New("LLM gateway inference failed")
+		}
+	}()
+	ctx, cancel := e.inferenceContext(parent)
+	defer cancel()
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{"content-type": "application/json"})
+	provider, normalized, _ := e.normalizeRequestModels(ctx, model, nil)
+	if provider == "" {
+		return fmt.Errorf("model %q must be named as provider/model", model)
+	}
+	stream, engineErr := e.client.ChatCompletionStreamRequest(ctx, &schemas.BifrostChatRequest{Provider: provider, Model: normalized, Input: messages, Params: params})
+	if engineErr != nil {
+		_, _, message := errorParts(engineErr)
+		return errors.New(message)
+	}
+	for chunk := range stream {
+		if chunk == nil {
+			continue
+		}
+		if chunk.BifrostError != nil {
+			_, _, message := errorParts(chunk.BifrostError)
+			// Drain so the producer is never left blocked.
+			for range stream {
+			}
+			return errors.New(message)
+		}
+		if chunk.BifrostChatResponse == nil {
+			continue
+		}
+		for _, choice := range chunk.BifrostChatResponse.Choices {
+			if choice.ChatStreamResponseChoice != nil && choice.Delta != nil {
+				onDelta(choice.Delta)
+			}
+		}
+	}
+	return parent.Err()
+}

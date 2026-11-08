@@ -3,9 +3,18 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
-	import { chatWithAI, type AIMessage, type AIStep } from '$lib/services/ai';
+	import { streamChatWithAI, type AIEvent, type AIMessage, type AIStep } from '$lib/services/ai';
 	import { profile } from '$lib/stores';
-	import { ArrowUp, ChevronRight, Plus, Sparkles, Wrench } from '@lucide/svelte';
+	import {
+		ArrowUp,
+		Check,
+		ChevronRight,
+		LoaderCircle,
+		Plus,
+		Sparkles,
+		TriangleAlert,
+		Wrench
+	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 
 	// Obot AI. The conversation lives in this tab's session storage so it survives navigating
@@ -16,6 +25,43 @@
 		error?: boolean;
 	}
 
+	// The answer being streamed: the tools it calls as they run, and its text so far.
+	interface LiveStep {
+		tool: string;
+		arguments?: Record<string, unknown>;
+		state: 'running' | 'done' | 'error';
+	}
+	interface Live {
+		steps: LiveStep[];
+		text: string;
+	}
+
+	const thinkingWords = [
+		m.ai_thinking_1,
+		m.ai_thinking_2,
+		m.ai_thinking_3,
+		m.ai_thinking_4,
+		m.ai_thinking_5,
+		m.ai_thinking_6
+	];
+	const toolLabels: Record<string, () => string> = {
+		llm_usage: m.ai_tool_llm_usage,
+		adoption_summary: m.ai_tool_adoption_summary,
+		ask_supervisor: m.ai_tool_ask_supervisor,
+		list_claude_sessions: m.ai_tool_list_claude_sessions,
+		search_mcp_servers: m.ai_tool_search_mcp_servers,
+		list_mcp_server_requests: m.ai_tool_list_mcp_server_requests,
+		get_mcp_server_request: m.ai_tool_get_mcp_server_request,
+		list_shared_vmcps: m.ai_tool_list_shared_vmcps,
+		approve_mcp_server_request: m.ai_tool_approve_mcp_server_request,
+		deny_mcp_server_request: m.ai_tool_deny_mcp_server_request,
+		request_mcp_server: m.ai_tool_request_mcp_server,
+		list_my_mcp_server_requests: m.ai_tool_list_my_mcp_server_requests
+	};
+	function toolLabel(tool: string) {
+		return toolLabels[tool]?.() ?? m.ai_tool_other({ tool });
+	}
+
 	const STORAGE_KEY = 'obot-ai-conversation';
 
 	let isAdmin = $derived(!!profile.current.isAdmin?.());
@@ -23,6 +69,22 @@
 	let input = $state('');
 	let busy = $state(false);
 	let scroller = $state<HTMLElement>();
+	let live = $state<Live>();
+	let thinkingIndex = $state(0);
+
+	// Rotate the stand-in words while the model works and nothing new is on screen.
+	$effect(() => {
+		if (!busy) return;
+		thinkingIndex = Math.floor(Math.random() * thinkingWords.length);
+		const timer = setInterval(() => {
+			thinkingIndex = (thinkingIndex + 1) % thinkingWords.length;
+		}, 1800);
+		return () => clearInterval(timer);
+	});
+
+	let waiting = $derived(
+		!!live && !live.text && live.steps.every((step) => step.state !== 'running')
+	);
 
 	let suggestions = $derived(
 		isAdmin
@@ -57,18 +119,42 @@
 		scroller?.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
 	}
 
+	function onEvent(event: AIEvent) {
+		if (!live) return;
+		switch (event.type) {
+			case 'thinking':
+				// A new model turn: text from an earlier turn was a preamble to tool calls.
+				live.text = '';
+				break;
+			case 'tool_start':
+				live.text = '';
+				live.steps.push({ tool: event.tool, arguments: event.arguments, state: 'running' });
+				break;
+			case 'tool_end': {
+				const step = live.steps.findLast((s) => s.tool === event.tool && s.state === 'running');
+				if (step) step.state = event.isError ? 'error' : 'done';
+				break;
+			}
+			case 'delta':
+				live.text += event.text;
+				break;
+		}
+		scrollToEnd();
+	}
+
 	async function send(text = input) {
 		const question = text.trim();
 		if (!question || busy) return;
 		input = '';
 		turns = [...turns, { role: 'user', content: question }];
 		busy = true;
+		live = { steps: [], text: '' };
 		scrollToEnd();
 		try {
 			const history: AIMessage[] = turns
 				.filter((t) => !t.error)
 				.map(({ role, content }) => ({ role, content }));
-			const reply = await chatWithAI(history);
+			const reply = await streamChatWithAI(history, onEvent);
 			turns = [...turns, { role: 'assistant', content: reply.reply, steps: reply.steps }];
 		} catch (e) {
 			turns = [
@@ -81,6 +167,7 @@
 			];
 		} finally {
 			busy = false;
+			live = undefined;
 			scrollToEnd();
 		}
 	}
@@ -162,10 +249,47 @@
 				{/if}
 			{/each}
 
-			{#if busy}
-				<p class="text-muted-content animate-pulse self-start text-sm" role="status">
-					{m.ai_thinking()}
-				</p>
+			{#if busy && live}
+				<article
+					class="dark:bg-base-200 bg-base-100 flex max-w-full flex-col gap-2 self-start rounded-2xl p-4 text-sm shadow-sm"
+					aria-busy="true"
+				>
+					{#if live.steps.length}
+						<ul
+							class="text-muted-content flex flex-col gap-1 text-xs"
+							aria-label={m.ai_steps({ count: live.steps.length })}
+						>
+							{#each live.steps as step, j (j)}
+								<li class="flex items-center gap-2">
+									{#if step.state === 'running'}
+										<LoaderCircle class="text-primary size-3.5 animate-spin" />
+									{:else if step.state === 'error'}
+										<TriangleAlert class="size-3.5 text-red-500" />
+									{:else}
+										<Check class="size-3.5 text-green-600" />
+									{/if}
+									<span>{toolLabel(step.tool)}</span>
+									<span class="sr-only">
+										{step.state === 'running'
+											? m.ai_step_running()
+											: step.state === 'error'
+												? m.ai_step_failed()
+												: m.ai_step_done()}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+					{#if live.text}
+						<div class="milkdown-content">
+							{@html toHTMLFromMarkdownWithNewTabLinks(live.text)}
+						</div>
+					{:else if waiting}
+						<p class="text-muted-content animate-pulse" role="status">
+							{thinkingWords[thinkingIndex]()}
+						</p>
+					{/if}
+				</article>
 			{/if}
 		</div>
 

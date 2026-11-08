@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
+	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -19,6 +21,11 @@ import (
 // plugins; both call into the judge, so importing the engine would create a cycle.
 type completionEngine interface {
 	ChatCompletion(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error)
+}
+
+// streamingCompletionEngine is implemented by gateways that stream chat completions.
+type streamingCompletionEngine interface {
+	ChatCompletionStream(context.Context, string, []schemas.ChatMessage, *schemas.ChatParameters, func(*schemas.ChatStreamResponseChoiceDelta)) error
 }
 
 // structuredCompletionEngine is implemented by gateways that accept request parameters,
@@ -147,4 +154,78 @@ func (h *Helper) ChatTurn(ctx context.Context, model string, messages []schemas.
 		return nil, resolved.targetModel, errors.New("LLM call returned no message")
 	}
 	return resp.Choices[0].Message, resolved.targetModel, nil
+}
+
+// ChatTurnStream is ChatTurn streamed: onText receives the assistant's text as it is
+// written. The returned message, including any tool calls, is assembled from the stream.
+func (h *Helper) ChatTurnStream(ctx context.Context, model string, messages []schemas.ChatMessage, tools []schemas.ChatTool, onText func(string)) (*schemas.ChatMessage, string, error) {
+	resolved, err := h.resolveNamedModel(ctx, model)
+	if err != nil {
+		return nil, "", err
+	}
+	streaming, ok := h.llmGateway.(streamingCompletionEngine)
+	if !ok {
+		return nil, resolved.targetModel, errors.New("the LLM gateway does not support streaming")
+	}
+	var params *schemas.ChatParameters
+	if len(tools) > 0 {
+		params = &schemas.ChatParameters{Tools: tools}
+	}
+	var acc streamAccumulator
+	if err := streaming.ChatCompletionStream(ctx, resolved.targetModel, messages, params, func(d *schemas.ChatStreamResponseChoiceDelta) {
+		if text := acc.add(d); text != "" && onText != nil {
+			onText(text)
+		}
+	}); err != nil {
+		return nil, resolved.targetModel, fmt.Errorf("LLM call failed: %w", err)
+	}
+	return acc.message(), resolved.targetModel, nil
+}
+
+// streamAccumulator assembles a streamed assistant message.
+type streamAccumulator struct {
+	text  strings.Builder
+	calls []schemas.ChatAssistantMessageToolCall
+}
+
+// add folds a delta into the message and returns its new text.
+func (a *streamAccumulator) add(d *schemas.ChatStreamResponseChoiceDelta) string {
+	var text string
+	if d.Content != nil {
+		text = *d.Content
+		a.text.WriteString(text)
+	}
+	for _, tc := range d.ToolCalls {
+		i := slices.IndexFunc(a.calls, func(c schemas.ChatAssistantMessageToolCall) bool {
+			if tc.ID != nil && *tc.ID != "" && c.ID != nil && *c.ID != "" {
+				return *c.ID == *tc.ID
+			}
+			return c.Index == tc.Index
+		})
+		if i < 0 {
+			a.calls = append(a.calls, schemas.ChatAssistantMessageToolCall{Index: tc.Index, Type: tc.Type, ID: tc.ID})
+			i = len(a.calls) - 1
+		}
+		c := &a.calls[i]
+		if c.ID == nil || *c.ID == "" {
+			c.ID = tc.ID
+		}
+		if tc.Function.Name != nil && *tc.Function.Name != "" {
+			c.Function.Name = tc.Function.Name
+		}
+		c.Function.Arguments += tc.Function.Arguments
+		if len(tc.ExtraContent) > 0 {
+			c.ExtraContent = tc.ExtraContent
+		}
+	}
+	return text
+}
+
+func (a *streamAccumulator) message() *schemas.ChatMessage {
+	text := a.text.String()
+	m := &schemas.ChatMessage{Role: schemas.ChatMessageRoleAssistant, Content: &schemas.ChatMessageContent{ContentStr: &text}}
+	if len(a.calls) > 0 {
+		m.ChatAssistantMessage = &schemas.ChatAssistantMessage{ToolCalls: a.calls}
+	}
+	return m
 }
