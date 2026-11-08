@@ -463,5 +463,20 @@
 	"supervision_labels_inventory_attention": "ツール一覧の確認が必要",
 	"supervision_labels_open_resource": "リソースを開く",
 	"supervision_attention_policy_suggestion": "ポリシーの提案",
-	"supervision_attention_review_policy": "ポリシーを確認"
+	"supervision_attention_review_policy": "ポリシーを確認",
+	"supervision_tagging_title": "AI コンテンツタガー",
+	"supervision_tagging_description": "組み込みのスキャンに加えて、Supervisor のモデルがエージェントセッションに入るコンテンツに機密性と信頼のラベルを付けます。ラベルは追加のみです。コンテンツは LLM ゲートウェイ経由でモデルに送信され、保存されません。",
+	"supervision_tagging_enabled": "AI でコンテンツにタグを付ける",
+	"supervision_tagging_mode": "タグ付けのタイミング",
+	"supervision_tagging_mode_async": "リアルタイム（バックグラウンド）",
+	"supervision_tagging_mode_sync": "リアルタイム（次の判断の前）",
+	"supervision_tagging_mode_batch": "一定間隔のバッチ",
+	"supervision_tagging_sample_rate": "サンプルレート（対象コンテンツの %）",
+	"supervision_tagging_interval": "バッチ間隔（分）",
+	"supervision_tagging_only_unlabeled": "組み込みのスキャンで機密データが見つからなかったコンテンツのみ",
+	"supervision_tagging_save": "保存",
+	"supervision_tagging_saved": "コンテンツタガーの設定を保存しました",
+	"supervision_tagging_queue": "次のバッチを待っている項目: {queued} 件",
+	"supervision_tagging_last_run": "前回のバッチ（{time}）で {tagged} 件にタグを付けました",
+	"supervision_tagging_run_now": "今すぐキューにタグを付ける"
 }

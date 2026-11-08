@@ -279,3 +279,73 @@ func TestContentTaggingAsyncUpdatesSessionTaint(t *testing.T) {
 		t.Fatalf("async tagging should land in the session taint, got %v", got.State.Labels)
 	}
 }
+
+func TestContentTaggingBatchQueuesUntilFlush(t *testing.T) {
+	ctx := t.Context()
+	e, _ := newTestEngine(t)
+	cl := &fakeContentClassifier{labels: NewLabels(LabelCustomerData)}
+	e.SetContentClassifier(cl)
+	setContentTagging(t, e, ContentTagging{Enabled: true, MinBytes: 200, OnlyUnlabeled: true, Mode: ContentTagBatch, BudgetSeconds: 3})
+
+	in := taggableIngest(taggableContent)
+	if _, err := e.Ingest(ctx, in); err != nil {
+		t.Fatal(err)
+	}
+	if cl.calls != 0 {
+		t.Fatalf("batch mode must not classify on ingest, calls=%d", cl.calls)
+	}
+	if status := e.ContentBatchStatus(); status.Queued != 1 {
+		t.Fatalf("expected one queued item, got %+v", status)
+	}
+
+	if tagged := e.FlushContentBatch(ctx); tagged != 1 {
+		t.Fatalf("expected one tagged item, got %d", tagged)
+	}
+	if cl.calls != 1 {
+		t.Fatalf("flush should classify once, calls=%d", cl.calls)
+	}
+	if status := e.ContentBatchStatus(); status.Queued != 0 || status.LastRun.IsZero() || status.LastTagged != 1 {
+		t.Fatalf("unexpected status after flush: %+v", status)
+	}
+	got, err := e.Resolve(ctx, in.Subject, in.Session, in.Surface)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.State.Labels.Has(LabelCustomerData) {
+		t.Fatalf("batch tagging should land in the session taint, got %v", got.State.Labels)
+	}
+}
+
+func TestContentTaggingBatchDropsOldestBeyondCap(t *testing.T) {
+	e, _ := newTestEngine(t)
+	cfg := ContentTagging{Mode: ContentTagBatch, BatchMaxItems: 2}
+	for i := range 3 {
+		e.queueContent(cfg, queuedContent{eventID: string(rune('a' + i))})
+	}
+	e.contentBatchLock.Lock()
+	defer e.contentBatchLock.Unlock()
+	if len(e.contentBatch) != 2 || e.contentBatch[0].eventID != "b" || e.contentBatch[1].eventID != "c" {
+		t.Fatalf("expected the two newest items, got %+v", e.contentBatch)
+	}
+}
+
+func TestContentTaggingValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     ContentTagging
+		wantErr bool
+	}{
+		{name: "defaults", cfg: ContentTagging{}},
+		{name: "batch", cfg: ContentTagging{Mode: ContentTagBatch, BatchIntervalMinutes: 30, SampleRate: 0.25}},
+		{name: "sample rate above one", cfg: ContentTagging{SampleRate: 1.5}, wantErr: true},
+		{name: "unknown mode", cfg: ContentTagging{Mode: "hourly"}, wantErr: true},
+		{name: "interval too long", cfg: ContentTagging{Mode: ContentTagBatch, BatchIntervalMinutes: 5000}, wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.cfg.Validate(); (err != nil) != tt.wantErr {
+				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

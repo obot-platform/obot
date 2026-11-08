@@ -446,6 +446,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("PUT /api/provenance/tool-labels", prov.PutToolLabel)
 	mux.HandleFunc("GET /api/provenance/settings", prov.GetSettings)
 	mux.HandleFunc("PUT /api/provenance/settings", prov.UpdateSettings)
+	mux.HandleFunc("GET /api/provenance/content-tagging", prov.ContentTaggingStatus)
+	mux.HandleFunc("POST /api/provenance/content-tagging/flush", prov.FlushContentTagging)
 
 	// Microsoft Copilot Studio runtime monitoring hook (handler in copilotstudio.go)
 	// TODO(lead): enable once B5 lands

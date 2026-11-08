@@ -463,5 +463,20 @@
 	"supervision_labels_inventory_attention": "도구 목록 확인 필요",
 	"supervision_labels_open_resource": "리소스 열기",
 	"supervision_attention_policy_suggestion": "정책 제안",
-	"supervision_attention_review_policy": "정책 검토"
+	"supervision_attention_review_policy": "정책 검토",
+	"supervision_tagging_title": "AI 콘텐츠 태거",
+	"supervision_tagging_description": "기본 제공 검사 외에 Supervisor 모델이 에이전트 세션에 들어오는 콘텐츠에 민감도 및 신뢰 레이블을 추가합니다. 레이블은 추가만 됩니다. 콘텐츠는 LLM 게이트웨이를 통해 모델로 전송되며 저장되지 않습니다.",
+	"supervision_tagging_enabled": "AI로 콘텐츠 태그 지정",
+	"supervision_tagging_mode": "태그 지정 시점",
+	"supervision_tagging_mode_async": "실시간, 백그라운드",
+	"supervision_tagging_mode_sync": "실시간, 다음 결정 전",
+	"supervision_tagging_mode_batch": "일정 간격 배치",
+	"supervision_tagging_sample_rate": "샘플링 비율(대상 콘텐츠의 %)",
+	"supervision_tagging_interval": "배치 간격(분)",
+	"supervision_tagging_only_unlabeled": "기본 제공 검사에서 민감한 데이터가 발견되지 않은 콘텐츠만",
+	"supervision_tagging_save": "저장",
+	"supervision_tagging_saved": "콘텐츠 태거 설정을 저장했습니다",
+	"supervision_tagging_queue": "다음 배치를 기다리는 항목 {queued}개",
+	"supervision_tagging_last_run": "마지막 배치({time})에서 {tagged}개 항목에 태그를 지정했습니다",
+	"supervision_tagging_run_now": "지금 대기열 태그 지정"
 }

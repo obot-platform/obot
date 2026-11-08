@@ -134,10 +134,17 @@ type ContentTagging struct {
 	// Capabilities runs the tagger only when the producing tool has one of these
 	// capability labels. Empty means any. Default reads-private, reads-untrusted.
 	Capabilities []Label `json:"capabilities,omitempty"`
-	// Mode is "async" (default) or "sync".
+	// Mode is "async" (default) or "sync", which tag content as it arrives, or
+	// "batch", which queues it in memory and tags the queue every
+	// BatchIntervalMinutes.
 	Mode string `json:"mode,omitempty"`
-	// BudgetSeconds bounds a sync classification. Default 3.
+	// BudgetSeconds bounds one classification. Default 3.
 	BudgetSeconds int `json:"budgetSeconds,omitempty"`
+	// BatchIntervalMinutes is how often batch mode tags its queue. Default 15.
+	BatchIntervalMinutes int `json:"batchIntervalMinutes,omitempty"`
+	// BatchMaxItems bounds the batch queue; the oldest content is dropped beyond
+	// it. Default 200.
+	BatchMaxItems int `json:"batchMaxItems,omitempty"`
 }
 
 // PolicyInput is everything a condition can see.
@@ -502,4 +509,26 @@ func BuiltInPolicies(now time.Time) []Policy {
 			"The session, user or organization was killed with the kill switch.",
 			`session.killed`, EffectDeny, ModeEnforce, 2000, ""),
 	}
+}
+
+// Validate checks the tagger's settings.
+func (c ContentTagging) Validate() error {
+	if c.SampleRate < 0 || c.SampleRate > 1 {
+		return fmt.Errorf("contentTagging.sampleRate must be between 0 and 1")
+	}
+	switch c.Mode {
+	case "", ContentTagAsync, ContentTagSync, ContentTagBatch:
+	default:
+		return fmt.Errorf("contentTagging.mode must be async, sync or batch")
+	}
+	if c.BatchIntervalMinutes < 0 || c.BatchIntervalMinutes > 24*60 {
+		return fmt.Errorf("contentTagging.batchIntervalMinutes must be between 1 and 1440")
+	}
+	if c.BatchMaxItems < 0 || c.BatchMaxItems > 10000 {
+		return fmt.Errorf("contentTagging.batchMaxItems must be at most 10000")
+	}
+	if c.MinBytes < 0 || c.BudgetSeconds < 0 {
+		return fmt.Errorf("contentTagging sizes and durations must not be negative")
+	}
+	return nil
 }

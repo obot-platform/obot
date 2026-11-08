@@ -312,7 +312,30 @@ export interface ToolLabel {
 	updatedAt: string;
 }
 
+export type ContentTaggingMode = 'async' | 'sync' | 'batch';
+
+/** The optional AI content tagger, which adds labels to content entering a session. */
+export interface ContentTagging {
+	enabled: boolean;
+	/** Fraction of eligible content to tag, 0..1; 0 means all of it. */
+	sampleRate?: number;
+	minBytes?: number;
+	onlyUnlabeled: boolean;
+	capabilities?: string[];
+	mode?: ContentTaggingMode;
+	budgetSeconds?: number;
+	batchIntervalMinutes?: number;
+	batchMaxItems?: number;
+}
+
+export interface ContentTaggingStatus {
+	queued: number;
+	lastRun?: string;
+	lastTagged: number;
+}
+
 export interface ProvenanceSettings {
+	contentTagging?: ContentTagging;
 	approvedDestinations?: string[];
 	trustedHosts?: string[];
 	supervisorEnabled: boolean;
@@ -620,6 +643,14 @@ export async function updateProvenanceSettings(
 	opts?: Opts
 ): Promise<ProvenanceSettings> {
 	return (await doPut(`${B}/settings`, settings, opts)) as ProvenanceSettings;
+}
+
+export async function getContentTaggingStatus(opts?: Opts): Promise<ContentTaggingStatus> {
+	return (await doGet(`${B}/content-tagging`, opts)) as ContentTaggingStatus;
+}
+
+export async function flushContentTagging(opts?: Opts): Promise<ContentTaggingStatus> {
+	return (await doPost(`${B}/content-tagging/flush`, {}, opts)) as ContentTaggingStatus;
 }
 
 // Overview and red team

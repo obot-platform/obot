@@ -972,6 +972,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// The Supervisor also serves as the optional AI content tagger (off until enabled in settings).
 	provenanceEngine.SetContentClassifier(sup)
 	go runProvenanceRetention(ctx, gatewayClient, provenanceEngine)
+	go provenanceEngine.RunContentBatches(ctx)
 	go func() {
 		// LLM gateway traffic is governed by budgets rather than the daily token quota, so
 		// carry the configured daily limits over as budgets, once. This runs first so the

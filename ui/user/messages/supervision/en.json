@@ -463,5 +463,20 @@
 	"supervision_labels_inventory_attention": "Inventory needs attention",
 	"supervision_labels_open_resource": "Open resource",
 	"supervision_attention_policy_suggestion": "Policy suggestion",
-	"supervision_attention_review_policy": "Review policy"
+	"supervision_attention_review_policy": "Review policy",
+	"supervision_tagging_title": "AI content tagger",
+	"supervision_tagging_description": "Lets the Supervisor's model add sensitivity and trust labels to content entering agent sessions, beyond the built-in scan. It only adds labels. Content is sent to the model through the LLM gateway and never stored.",
+	"supervision_tagging_enabled": "Tag content with AI",
+	"supervision_tagging_mode": "When to tag",
+	"supervision_tagging_mode_async": "Real time, in the background",
+	"supervision_tagging_mode_sync": "Real time, before the next decision",
+	"supervision_tagging_mode_batch": "In batches on an interval",
+	"supervision_tagging_sample_rate": "Sample rate (% of eligible content)",
+	"supervision_tagging_interval": "Batch every (minutes)",
+	"supervision_tagging_only_unlabeled": "Only content the built-in scan found no sensitive data in",
+	"supervision_tagging_save": "Save",
+	"supervision_tagging_saved": "Content tagger settings saved",
+	"supervision_tagging_queue": "{queued} items waiting for the next batch",
+	"supervision_tagging_last_run": "Last batch {time} tagged {tagged} items",
+	"supervision_tagging_run_now": "Tag the queue now"
 }

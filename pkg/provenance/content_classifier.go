@@ -11,6 +11,9 @@ const (
 	// ContentTagAsync tags content in a goroutine after Ingest returns; the extra
 	// labels reach the session taint for SUBSEQUENT decisions. It is the default.
 	ContentTagAsync = "async"
+	// ContentTagBatch queues content in memory and tags it every
+	// ContentTagging.BatchIntervalMinutes.
+	ContentTagBatch = "batch"
 	// ContentTagSync tags content within the budget before Ingest returns, so the
 	// extra labels are in the session taint for a decision in the same request.
 	ContentTagSync = "sync"
@@ -20,6 +23,8 @@ const (
 	// defaultContentBudgetSeconds bounds a sync classification when the settings
 	// name none.
 	defaultContentBudgetSeconds = 3
+	defaultContentBatchInterval = 15 * time.Minute
+	defaultContentBatchMax      = 200
 )
 
 // ContentClassifier is the optional, additive AI tagger. It assigns extra
@@ -51,6 +56,23 @@ type ContentClassification struct {
 	Labels    Labels
 	Rationale string
 	Model     string
+}
+
+// queuedContent is content waiting for the next batch. It is held in memory only and
+// dropped once tagged, as the asynchronous mode drops content once its call returns.
+type queuedContent struct {
+	in      IngestRequest
+	s       *Session
+	found   Labels
+	key     uint64
+	eventID string
+}
+
+// ContentBatchStatus reports batch mode's queue.
+type ContentBatchStatus struct {
+	Queued     int       `json:"queued"`
+	LastRun    time.Time `json:"lastRun,omitzero"`
+	LastTagged int       `json:"lastTagged"`
 }
 
 // shouldTagContent reports whether the optional AI tagger should run for an
@@ -190,6 +212,10 @@ func (e *Engine) tagContent(ctx context.Context, in IngestRequest, ev *Event, s 
 	// Async (default): the returned event keeps the deterministic labels; the
 	// extra labels reach the session taint for subsequent decisions.
 	eventID := ev.ID
+	if cfg.Mode == ContentTagBatch {
+		e.queueContent(cfg, queuedContent{in: in, s: s, found: found, key: key, eventID: eventID})
+		return
+	}
 	go func() {
 		bg, cancel := context.WithTimeout(context.Background(), contentBudget(cfg))
 		defer cancel()
@@ -239,4 +265,81 @@ func (e *Engine) applyContentTags(ctx context.Context, in IngestRequest, ev *Eve
 	if err := e.store.PutSession(ctx, &snapshot); err != nil {
 		e.logger.Warn("provenance: persisting AI content tags", "error", err)
 	}
+}
+
+func (e *Engine) queueContent(cfg ContentTagging, item queuedContent) {
+	limit := cfg.BatchMaxItems
+	if limit <= 0 {
+		limit = defaultContentBatchMax
+	}
+	e.contentBatchLock.Lock()
+	defer e.contentBatchLock.Unlock()
+	e.contentBatch = append(e.contentBatch, item)
+	if over := len(e.contentBatch) - limit; over > 0 {
+		e.contentBatch = e.contentBatch[over:]
+	}
+}
+
+// ContentBatchStatus reports how much content is waiting for the next batch.
+func (e *Engine) ContentBatchStatus() ContentBatchStatus {
+	e.contentBatchLock.Lock()
+	defer e.contentBatchLock.Unlock()
+	return ContentBatchStatus{Queued: len(e.contentBatch), LastRun: e.contentBatchRun, LastTagged: e.contentBatchTagged}
+}
+
+// RunContentBatches tags batch mode's queue every BatchIntervalMinutes until ctx ends.
+func (e *Engine) RunContentBatches(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		cfg := e.Settings(ctx).ContentTagging
+		interval := time.Duration(cfg.BatchIntervalMinutes) * time.Minute
+		if interval <= 0 {
+			interval = defaultContentBatchInterval
+		}
+		e.contentBatchLock.Lock()
+		due := len(e.contentBatch) > 0 && e.now().Sub(e.contentBatchRun) >= interval
+		e.contentBatchLock.Unlock()
+		if due {
+			e.FlushContentBatch(ctx)
+		}
+	}
+}
+
+// FlushContentBatch tags everything queued now and returns how many items gained labels.
+func (e *Engine) FlushContentBatch(ctx context.Context) int {
+	e.contentBatchLock.Lock()
+	items := e.contentBatch
+	e.contentBatch = nil
+	e.contentBatchRun = e.now()
+	e.contentBatchLock.Unlock()
+
+	cfg := e.Settings(ctx).ContentTagging
+	tagged := 0
+	for _, item := range items {
+		if ctx.Err() != nil {
+			break
+		}
+		cached, ok := e.contentCacheGet(item.key)
+		if !ok {
+			cctx, cancel := context.WithTimeout(ctx, contentBudget(cfg))
+			e.classifyContentNow(cctx, item.in, nil, item.s, item.found, item.key, item.eventID)
+			cancel()
+			cached, ok = e.contentCacheGet(item.key)
+		} else {
+			e.applyContentTags(ctx, item.in, nil, item.s, cached, item.found, item.eventID)
+		}
+		if ok && len(filterContentLabels(cached.Labels, item.found)) > 0 {
+			tagged++
+		}
+	}
+	e.contentBatchLock.Lock()
+	e.contentBatchTagged = tagged
+	e.contentBatchLock.Unlock()
+	return tagged
 }

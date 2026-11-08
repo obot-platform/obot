@@ -56,6 +56,12 @@ type Engine struct {
 	contentCacheLock  sync.Mutex
 	contentCache      map[uint64]ContentClassification
 	contentCacheKeys  []uint64
+
+	// contentBatch is batch mode's queue, tagged every BatchIntervalMinutes.
+	contentBatchLock   sync.Mutex
+	contentBatch       []queuedContent
+	contentBatchRun    time.Time
+	contentBatchTagged int
 }
 
 type cachedSession struct {

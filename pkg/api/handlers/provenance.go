@@ -986,6 +986,9 @@ func (h *ProvenanceHandler) UpdateSettings(req api.Context) error {
 		return types.NewErrBadRequest("durations must not be negative")
 	}
 	settings := settingsFromAPI(in)
+	if err := settings.ContentTagging.Validate(); err != nil {
+		return types.NewErrBadRequest("%v", err)
+	}
 	if err := h.engine.Store().PutSettings(req.Context(), settings); err != nil {
 		return err
 	}
@@ -1083,4 +1086,17 @@ func (h *ProvenanceHandler) Overview(req api.Context) error {
 	out.Supervisor.Enabled = out.Supervisor.Configured && settings.SupervisorEnabled
 	out.Supervisor.Model = settings.SupervisorModel
 	return req.Write(out)
+}
+
+// ContentTaggingStatus reports the AI content tagger's batch queue.
+func (h *ProvenanceHandler) ContentTaggingStatus(req api.Context) error {
+	return req.Write(h.engine.ContentBatchStatus())
+}
+
+// FlushContentTagging tags batch mode's queue now rather than at the next interval.
+func (h *ProvenanceHandler) FlushContentTagging(req api.Context) error {
+	tagged := h.engine.FlushContentBatch(req.Context())
+	status := h.engine.ContentBatchStatus()
+	status.LastTagged = tagged
+	return req.Write(status)
 }
