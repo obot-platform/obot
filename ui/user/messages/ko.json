@@ -86,6 +86,7 @@
 	"nav_sessions": "세션",
 	"nav_policies": "정책",
 	"nav_approvals": "승인",
+	"nav_server_requests": "서버 요청",
 	"nav_approvals_pending": "대기 중인 승인 {count}개",
 	"nav_skills": "스킬",
 	"nav_usage": "사용량",

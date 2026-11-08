@@ -86,6 +86,7 @@
 	"nav_sessions": "セッション",
 	"nav_policies": "ポリシー",
 	"nav_approvals": "承認",
+	"nav_server_requests": "サーバーリクエスト",
 	"nav_approvals_pending": "保留中の承認 {count} 件",
 	"nav_skills": "スキル",
 	"nav_usage": "使用状況",

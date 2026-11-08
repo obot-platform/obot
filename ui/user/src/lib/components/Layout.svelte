@@ -298,6 +298,11 @@
 						]
 					: []),
 				{
+					id: 'mcp-server-requests',
+					label: m.nav_server_requests(),
+					href: '/mcp-server-requests'
+				},
+				{
 					id: 'skills',
 					label: m.nav_skills(),
 					href: '/skills'
