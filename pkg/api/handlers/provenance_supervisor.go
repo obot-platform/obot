@@ -3,6 +3,7 @@ package handlers
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -61,6 +62,10 @@ const (
 
 // supervisorBriefer is implemented by a Supervisor that can write a short
 // first-person briefing from content-free facts.
+var (
+	errSupervisorNotConfigured = errors.New(supervisorNotConfigured)
+)
+
 type supervisorBriefer interface {
 	Brief(ctx context.Context, facts string) (text, model string, err error)
 }
@@ -230,41 +235,64 @@ func (h *ProvenanceHandler) SupervisorAsk(req api.Context) error {
 	if len(in.Question) > supervisorMaxQuestion {
 		return types.NewErrBadRequest("question must be at most %d characters", supervisorMaxQuestion)
 	}
-	ctx := req.Context()
+	answer, model, sessions, events, err := h.askSupervisor(req.Context(), in.Question, in.SessionID)
+	if errors.Is(err, errSupervisorNotConfigured) {
+		return req.WriteCode(map[string]string{"error": supervisorNotConfigured}, http.StatusServiceUnavailable)
+	} else if err != nil {
+		return err
+	}
+	var out supervisorAskResponse
+	out.Answer, out.Model = answer, model
+	out.Context.Sessions, out.Context.Events = sessions, events
+	return req.Write(out)
+}
+
+// AskSupervisor answers a question about what agents are doing, as SupervisorAsk does, for
+// callers outside the HTTP API such as Obot's own assistant.
+func (h *ProvenanceHandler) AskSupervisor(ctx context.Context, question, sessionID string) (string, string, error) {
+	question = strings.TrimSpace(question)
+	if question == "" {
+		return "", "", errors.New("question is required")
+	}
+	if len(question) > supervisorMaxQuestion {
+		question = question[:supervisorMaxQuestion]
+	}
+	answer, model, _, _, err := h.askSupervisor(ctx, question, sessionID)
+	return answer, model, err
+}
+
+func (h *ProvenanceHandler) askSupervisor(ctx context.Context, question, sessionID string) (string, string, int, int, error) {
 	asker, ok := h.engine.Supervisor().(supervisorAsker)
 	if !ok || !h.engine.Settings(ctx).SupervisorEnabled {
-		return req.WriteCode(map[string]string{"error": supervisorNotConfigured}, http.StatusServiceUnavailable)
+		return "", "", 0, 0, errSupervisorNotConfigured
 	}
 	var session *provenance.Session
-	if id := strings.TrimSpace(in.SessionID); id != "" {
+	if id := strings.TrimSpace(sessionID); id != "" {
 		s, err := h.engine.Store().GetSession(ctx, id)
 		if err != nil {
-			return provenanceLookupErr(err, "session", id)
+			return "", "", 0, 0, provenanceLookupErr(err, "session", id)
 		}
 		session = s
 	}
 	snap, err := h.supervisorSnapshot(ctx)
 	if err != nil {
-		return err
+		return "", "", 0, 0, err
 	}
 	var sessionEvents []provenance.Event
 	if session != nil {
 		if sessionEvents, _, err = h.engine.Store().ListEvents(ctx, provenance.EventQuery{SessionID: session.ID, Limit: supervisorAskSessionEvents}); err != nil {
-			return err
+			return "", "", 0, 0, err
 		}
 	}
 	text, sessions, events := supervisorAskContext(ctx, snap, session, sessionEvents)
 
 	actx, cancel := context.WithTimeout(ctx, supervisorAskTimeout)
 	defer cancel()
-	answer, model, err := asker.Ask(actx, in.Question, text)
+	answer, model, err := asker.Ask(actx, question, text)
 	if err != nil {
-		return types.NewErrHTTP(http.StatusBadGateway, "the Supervisor could not answer: "+err.Error())
+		return "", "", 0, 0, types.NewErrHTTP(http.StatusBadGateway, "the Supervisor could not answer: "+err.Error())
 	}
-	var out supervisorAskResponse
-	out.Answer, out.Model = answer, model
-	out.Context.Sessions, out.Context.Events = sessions, events
-	return req.Write(out)
+	return answer, model, sessions, events, nil
 }
 
 // ---- snapshot and status ----

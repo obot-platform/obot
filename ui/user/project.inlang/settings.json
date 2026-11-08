@@ -6,6 +6,7 @@
 	"plugin.inlang.messageFormat": {
 		"pathPattern": [
 			"./messages/{locale}.json",
+			"./messages/ai/{locale}.json",
 			"./messages/ai_judge/{locale}.json",
 			"./messages/audit_usage/{locale}.json",
 			"./messages/auth/{locale}.json",

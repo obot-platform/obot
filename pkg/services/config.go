@@ -184,6 +184,8 @@ type Services struct {
 	ServerURL             string
 	// MCPServerRequestNotifier alerts administrators about requests for new MCP servers.
 	MCPServerRequestNotifier *mcpserverrequest.Notifier
+	// AssistantModel answers Obot AI's chats through the LLM gateway.
+	AssistantModel *messagepolicy.Helper
 	// LocalServerURL is Obot's address as Obot itself can reach it, which differs
 	// from ServerURL when the public port is mapped by a Service or ingress.
 	LocalServerURL    string
@@ -1244,6 +1246,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		BifrostEngine:                bifrostEngine,
 		GuardrailEngine:              guardrailEngine,
 		ProvenanceEngine:             provenanceEngine,
+		AssistantModel:               judge,
 
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
 		GitMaxRepoSizeMB:               config.GitMaxRepoSizeMB,

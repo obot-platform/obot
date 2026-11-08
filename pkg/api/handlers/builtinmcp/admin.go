@@ -27,11 +27,12 @@ type vmcpListInput struct {
 }
 
 type approveInput struct {
-	ID                 string `json:"id" jsonschema:"The request's ID."`
-	VMCPID             string `json:"vmcpID,omitempty" jsonschema:"Add the server to this existing shared vMCP. Give either this or newVMCPName."`
-	NewVMCPName        string `json:"newVMCPName,omitempty" jsonschema:"Create a vMCP with this name for the server. Give either this or vmcpID."`
-	NewVMCPDescription string `json:"newVMCPDescription,omitempty" jsonschema:"A description for the new vMCP."`
-	Reason             string `json:"reason,omitempty" jsonschema:"A note for the requester."`
+	ID                  string `json:"id" jsonschema:"The request's ID."`
+	VMCPID              string `json:"vmcpID,omitempty" jsonschema:"Add the server to this existing shared vMCP. Give either this or newVMCPName."`
+	NewVMCPName         string `json:"newVMCPName,omitempty" jsonschema:"Create a vMCP with this name for the server. Give either this or vmcpID."`
+	NewVMCPDescription  string `json:"newVMCPDescription,omitempty" jsonschema:"A description for the new vMCP."`
+	Reason              string `json:"reason,omitempty" jsonschema:"A note for the requester."`
+	DenyRequesterAccess bool   `json:"denyRequesterAccess,omitempty" jsonschema:"When adding to an existing vMCP, don't give the requester access. By default a requester who can't connect to the vMCP gets a profile for the new server alone."`
 }
 
 type denyInput struct {
@@ -131,7 +132,8 @@ func (h *Handler) adminServer(req api.Context) *mcp.Server {
 			"or a new vMCP (newVMCPName). Confirm the destination with the administrator first.",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: new(false), IdempotentHint: false},
 	}, func(_ context.Context, _ *mcp.CallToolRequest, in approveInput) (*mcp.CallToolResult, any, error) {
-		approval := types.MCPServerRequestApproval{VMCPID: strings.TrimSpace(in.VMCPID), Reason: in.Reason}
+		grant := !in.DenyRequesterAccess
+		approval := types.MCPServerRequestApproval{VMCPID: strings.TrimSpace(in.VMCPID), Reason: in.Reason, GrantRequesterAccess: &grant}
 		if name := strings.TrimSpace(in.NewVMCPName); name != "" {
 			approval.NewVMCP = &types.MCPServerRequestNewVMCP{DisplayName: name, Description: in.NewVMCPDescription}
 		}
@@ -157,6 +159,8 @@ func (h *Handler) adminServer(req api.Context) *mcp.Server {
 		}
 		return jsonResult(map[string]any{"request": h.view(request), "message": "Denied."})
 	})
+
+	h.addInsightTools(s, req)
 
 	// Administrators can search too.
 	mcp.AddTool(s, &mcp.Tool{

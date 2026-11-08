@@ -86,6 +86,7 @@
 	"nav_sessions": "Sessions",
 	"nav_policies": "Policies",
 	"nav_approvals": "Approvals",
+	"nav_ai": "AI",
 	"nav_server_requests": "Server Requests",
 	"nav_approvals_pending": "{count} pending approvals",
 	"nav_skills": "Skills",

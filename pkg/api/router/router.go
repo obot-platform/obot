@@ -758,7 +758,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// MCP Gateway Endpoints. Obot serves its built-in MCP servers itself; every other ID is
 	// proxied.
-	builtinMCP := builtinmcp.New(mcpServerRequests, services.AccessControlRuleHelper, services.ServerURL)
+	builtinMCP := builtinmcp.New(mcpServerRequests, services.AccessControlRuleHelper, prov, services.ServerURL)
 	mcpConnect := func(req api.Context) error {
 		if system.IsBuiltinMCPID(req.PathValue("mcp_id")) {
 			return builtinMCP.Serve(req)
@@ -766,6 +766,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		return mcpGateway.Proxy(req)
 	}
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpConnect)
+	// Obot AI chats with the tools of the built-in servers, as the signed-in user.
+	mux.HandleFunc("POST /api/ai/chat", builtinmcp.NewAssistant(builtinMCP, services.AssistantModel).Chat)
 	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
 	// This is a special path for internal MCP composite requests.
 	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)

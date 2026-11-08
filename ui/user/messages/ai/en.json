@@ -1,0 +1,19 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"ai_title": "Obot AI",
+	"ai_intro_admin": "Ask about cost, security and compliance, operations or adoption. Obot AI uses Obot's own tools with your permissions and asks before changing anything.",
+	"ai_intro_user": "Ask what MCP servers you can use, or ask for one Obot doesn't have yet.",
+	"ai_placeholder": "Ask Obot AI…",
+	"ai_send": "Send",
+	"ai_thinking": "Working…",
+	"ai_new_chat": "New chat",
+	"ai_steps": "Used {count} tools",
+	"ai_step_failed": "failed",
+	"ai_suggestion_briefing": "Give me a briefing across cost, security, operations and adoption for the last 7 days.",
+	"ai_suggestion_cost": "Where is our LLM spend going, and how could we lower it?",
+	"ai_suggestion_security": "Is anything risky happening with our agents right now?",
+	"ai_suggestion_requests": "Which MCP server requests are waiting for me?",
+	"ai_suggestion_find": "What MCP servers can I use for web research?",
+	"ai_suggestion_my_requests": "Where do my MCP server requests stand?",
+	"ai_error": "Obot AI couldn't answer: {error}"
+}

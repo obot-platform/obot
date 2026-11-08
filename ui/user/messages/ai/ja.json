@@ -1,0 +1,19 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"ai_title": "Obot AI",
+	"ai_intro_admin": "コスト、セキュリティとコンプライアンス、運用、導入状況について質問できます。Obot AI はあなたの権限で Obot のツールを使い、変更を加える前に確認します。",
+	"ai_intro_user": "利用できる MCP サーバーを質問したり、Obot にまだないサーバーをリクエストしたりできます。",
+	"ai_placeholder": "Obot AI に質問…",
+	"ai_send": "送信",
+	"ai_thinking": "処理中…",
+	"ai_new_chat": "新しいチャット",
+	"ai_steps": "{count} 個のツールを使用",
+	"ai_step_failed": "失敗",
+	"ai_suggestion_briefing": "過去 7 日間のコスト、セキュリティ、運用、導入状況をまとめて教えてください。",
+	"ai_suggestion_cost": "LLM の費用は何に使われていて、どうすれば削減できますか？",
+	"ai_suggestion_security": "エージェントで今リスクのある動きはありますか？",
+	"ai_suggestion_requests": "私の対応を待っている MCP サーバーリクエストはどれですか？",
+	"ai_suggestion_find": "Web リサーチに使える MCP サーバーは何ですか？",
+	"ai_suggestion_my_requests": "私の MCP サーバーリクエストの状況を教えてください。",
+	"ai_error": "Obot AI は回答できませんでした: {error}"
+}

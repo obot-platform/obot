@@ -1,0 +1,19 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"ai_title": "Obot AI",
+	"ai_intro_admin": "可以询问成本、安全与合规、运维或采用情况。Obot AI 会以你的权限使用 Obot 自己的工具，并在做出任何更改前先征求确认。",
+	"ai_intro_user": "可以询问你能使用哪些 MCP 服务器，或请求 Obot 尚未提供的服务器。",
+	"ai_placeholder": "向 Obot AI 提问…",
+	"ai_send": "发送",
+	"ai_thinking": "处理中…",
+	"ai_new_chat": "新对话",
+	"ai_steps": "使用了 {count} 个工具",
+	"ai_step_failed": "失败",
+	"ai_suggestion_briefing": "请汇总过去 7 天的成本、安全、运维和采用情况。",
+	"ai_suggestion_cost": "我们的 LLM 支出花在了哪里，如何降低？",
+	"ai_suggestion_security": "我们的代理现在有任何风险活动吗？",
+	"ai_suggestion_requests": "有哪些 MCP 服务器请求在等我处理？",
+	"ai_suggestion_find": "有哪些 MCP 服务器可以用于网络调研？",
+	"ai_suggestion_my_requests": "我的 MCP 服务器请求进展如何？",
+	"ai_error": "Obot AI 无法回答：{error}"
+}

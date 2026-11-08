@@ -86,6 +86,7 @@
 	"nav_sessions": "会话",
 	"nav_policies": "策略",
 	"nav_approvals": "审批",
+	"nav_ai": "AI",
 	"nav_server_requests": "服务器请求",
 	"nav_approvals_pending": "{count} 个待审批",
 	"nav_skills": "技能",

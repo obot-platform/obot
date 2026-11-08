@@ -354,6 +354,9 @@ var (
 			"POST /api/mcp-server-requests",
 			"GET /api/mcp-server-requests/{request_id}",
 
+			// Obot AI acts with the caller's own permissions.
+			"POST /api/ai/chat",
+
 			// Allow authenticated users to read servers and entries from MCP catalogs.
 			// Filtering is handled in the handler.
 			"GET /api/all-mcps/entries",

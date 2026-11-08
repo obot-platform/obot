@@ -21,13 +21,15 @@ import (
 )
 
 type Handler struct {
-	requests  *handlers.MCPServerRequestHandler
-	acrHelper *accesscontrolrule.Helper
-	serverURL string
+	requests   *handlers.MCPServerRequestHandler
+	acrHelper  *accesscontrolrule.Helper
+	supervisor SupervisorAsker
+	serverURL  string
 }
 
-func New(requests *handlers.MCPServerRequestHandler, acrHelper *accesscontrolrule.Helper, serverURL string) *Handler {
-	return &Handler{requests: requests, acrHelper: acrHelper, serverURL: strings.TrimSuffix(serverURL, "/")}
+// New returns the handler for Obot's built-in MCP servers. supervisor may be nil.
+func New(requests *handlers.MCPServerRequestHandler, acrHelper *accesscontrolrule.Helper, supervisor SupervisorAsker, serverURL string) *Handler {
+	return &Handler{requests: requests, acrHelper: acrHelper, supervisor: supervisor, serverURL: strings.TrimSuffix(serverURL, "/")}
 }
 
 // Serve answers an MCP request for one of the built-in servers.

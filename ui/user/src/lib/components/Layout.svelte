@@ -104,6 +104,7 @@
 		Activity,
 		Inbox,
 		Shield,
+		Sparkles,
 		Tags
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
@@ -251,6 +252,8 @@
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	let routes = $derived([
+		// Obot AI is the front door: it can answer for and act on everything below.
+		{ id: 'ai', icon: Sparkles, label: m.nav_ai(), href: '/ai' },
 		// Supervision is the daily workflow. Infrastructure supports it below.
 		...(profile.current.hasAdminAccess?.()
 			? [

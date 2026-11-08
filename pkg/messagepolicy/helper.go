@@ -21,6 +21,12 @@ type completionEngine interface {
 	ChatCompletion(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error)
 }
 
+// structuredCompletionEngine is implemented by gateways that accept request parameters,
+// such as response_format.
+type structuredCompletionEngine interface {
+	ChatCompletionWithParams(context.Context, string, []schemas.ChatMessage, *schemas.ChatParameters) (*schemas.BifrostChatResponse, error)
+}
+
 // Helper evaluates natural-language policies with an LLM judge: the LLM judge guardrail,
 // which message policies became.
 type Helper struct {
@@ -86,12 +92,6 @@ func (h *Helper) complete(ctx context.Context, resolved *resolvedModel, system, 
 	return responseText(resp)
 }
 
-// structuredCompletionEngine is implemented by gateways that accept request parameters,
-// such as response_format.
-type structuredCompletionEngine interface {
-	ChatCompletionWithParams(context.Context, string, []schemas.ChatMessage, *schemas.ChatParameters) (*schemas.BifrostChatResponse, error)
-}
-
 // resolveNamedModel resolves a model name as Complete documents it.
 func (h *Helper) resolveNamedModel(ctx context.Context, model string) (*resolvedModel, error) {
 	switch model {
@@ -121,4 +121,30 @@ func (h *Helper) resolveNamedModel(ctx context.Context, model string) (*resolved
 		}
 	}
 	return &resolvedModel{targetModel: target}, nil
+}
+
+// ChatTurn sends one turn of a tool-using conversation through the LLM gateway and returns
+// the assistant's message, which may call tools, and the gateway model that answered. model
+// is resolved as Complete documents.
+func (h *Helper) ChatTurn(ctx context.Context, model string, messages []schemas.ChatMessage, tools []schemas.ChatTool) (*schemas.ChatMessage, string, error) {
+	resolved, err := h.resolveNamedModel(ctx, model)
+	if err != nil {
+		return nil, "", err
+	}
+	structured, ok := h.llmGateway.(structuredCompletionEngine)
+	if !ok {
+		return nil, "", errors.New("the LLM gateway does not support tool calls")
+	}
+	var params *schemas.ChatParameters
+	if len(tools) > 0 {
+		params = &schemas.ChatParameters{Tools: tools}
+	}
+	resp, err := structured.ChatCompletionWithParams(ctx, resolved.targetModel, messages, params)
+	if err != nil {
+		return nil, resolved.targetModel, fmt.Errorf("LLM call failed: %w", err)
+	}
+	if resp == nil || len(resp.Choices) == 0 || resp.Choices[0].Message == nil {
+		return nil, resolved.targetModel, errors.New("LLM call returned no message")
+	}
+	return resp.Choices[0].Message, resolved.targetModel, nil
 }

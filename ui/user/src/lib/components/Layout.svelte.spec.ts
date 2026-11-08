@@ -245,8 +245,10 @@ describe('Layout.svelte', () => {
 		it('puts the Supervisor dashboard and workflows first, with pending approvals visible', async () => {
 			mockPending(3);
 			await renderLayout([Group.ADMIN]);
+			// Obot AI leads, then the Supervisor's workflows.
+			await expect.element(page.getByCSS('a.sidebar-link').first()).toHaveAttribute('href', '/ai');
 			await expect
-				.element(page.getByCSS('a.sidebar-link').first())
+				.element(page.getByCSS('a.sidebar-link').nth(1))
 				.toHaveAttribute('href', '/supervision');
 			await expect
 				.element(page.getByRole('link', { name: 'Dashboard', exact: true }))
@@ -260,6 +262,16 @@ describe('Layout.svelte', () => {
 			await expect
 				.element(page.getByRole('link', { name: /Approvals.*3 pending approvals/ }))
 				.toHaveAttribute('href', '/approvals');
+		});
+
+		it('gives basic users Obot AI too', async () => {
+			await renderLayout([Group.USER]);
+			await expect
+				.element(page.getByRole('link', { name: 'AI', exact: true }))
+				.toHaveAttribute('href', '/ai');
+			await expect
+				.element(page.getByRole('link', { name: 'Dashboard', exact: true }))
+				.not.toBeInTheDocument();
 		});
 
 		it('falls back to the approvals list when there is no status endpoint', async () => {
