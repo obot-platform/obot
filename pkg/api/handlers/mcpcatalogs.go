@@ -339,23 +339,34 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
+
+	entry, err := h.CreateCatalogEntry(req, catalogName, workspaceID, manifest)
+	if err != nil {
+		return err
+	}
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
+}
+
+// CreateCatalogEntry validates and stores a new entry in a catalog or a workspace. The
+// caller has checked that the scope exists.
+func (h *MCPCatalogHandler) CreateCatalogEntry(req api.Context, catalogName, workspaceID string, manifest types.MCPServerCatalogEntryManifest) (v1.MCPServerCatalogEntry, error) {
 	mcpcatalog.NormalizeManifest(&manifest)
 	if err := h.prepareOpenAPIEntry(req.Context(), &manifest); err != nil {
-		return types.NewErrBadRequest("failed to prepare OpenAPI entry: %v", err)
+		return v1.MCPServerCatalogEntry{}, types.NewErrBadRequest("failed to prepare OpenAPI entry: %v", err)
 	}
 	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
-		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+		return v1.MCPServerCatalogEntry{}, types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
-		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+		return v1.MCPServerCatalogEntry{}, types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	// UI-created catalog entries are never git-managed, but multi-user catalog
 	// entries may still define secretBinding as part of their shared template.
 	if err := mcp.ValidateSecretBindingsCatalogEntry(manifest, false, req.UserIsAdmin(), h.mcpBackend); err != nil {
-		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+		return v1.MCPServerCatalogEntry{}, types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := mcp.ValidateTemplateReferencesCatalogEntry(manifest); err != nil {
-		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+		return v1.MCPServerCatalogEntry{}, types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
 	// The entry's name is not known until it is created, so its static configuration is stored
@@ -363,7 +374,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	manifest.StaticConfigurationRevision = ""
 	staticConfiguration, err := mcp.ExtractStaticConfiguration(manifest.Config, nil, false)
 	if err != nil {
-		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+		return v1.MCPServerCatalogEntry{}, types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
 	cleanName := normalizeMCPCatalogEntryName(manifest.Name)
@@ -387,16 +398,16 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	}
 
 	if err := req.Create(&entry); err != nil {
-		return fmt.Errorf("failed to create entry: %w", err)
+		return v1.MCPServerCatalogEntry{}, fmt.Errorf("failed to create entry: %w", err)
 	}
 
 	if len(staticConfiguration) > 0 {
 		if err := publishEntryStaticConfiguration(req, &entry, staticConfiguration); err != nil {
-			return errors.Join(err, req.Delete(&entry))
+			return v1.MCPServerCatalogEntry{}, errors.Join(err, req.Delete(&entry))
 		}
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntry(entry))
+	return entry, nil
 }
 
 // publishEntryStaticConfiguration stores static configuration for a newly created entry and

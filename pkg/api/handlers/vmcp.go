@@ -159,6 +159,19 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	}
 	personalServer := !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal"
 
+	vmcp, err := h.CreateVMCP(req, manifest, personalServer)
+	if err != nil {
+		return err
+	}
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
+	if err != nil {
+		return err
+	}
+	return req.WriteCreated(convertVMCPForInstance(req, vmcp, instance))
+}
+
+// CreateVMCP validates and stores a new vMCP; a personal vMCP belongs to the caller.
+func (h *VMCPHandler) CreateVMCP(req api.Context, manifest types.VMCPManifest, personalServer bool) (v1.VMCP, error) {
 	manifest.Default(personalServer)
 	var userID string
 	if personalServer {
@@ -166,18 +179,18 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	}
 
 	if err := h.loadComponentSnapshots(req, &manifest, userID, nil, true); err != nil {
-		return err
+		return v1.VMCP{}, err
 	}
 
 	if err := manifest.Validate(); err != nil {
-		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+		return v1.VMCP{}, types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 	if err := h.validateConfigurationSecretBindings(req, manifest, userID); err != nil {
-		return err
+		return v1.VMCP{}, err
 	}
 
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
-		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+		return v1.VMCP{}, types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, nil)
@@ -198,7 +211,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		}
 		return nil
 	}); err != nil {
-		return err
+		return v1.VMCP{}, err
 	}
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
@@ -206,7 +219,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		Secrets: staticConfiguration,
 	}); err != nil {
 		cleanupErr := req.Delete(&vmcp)
-		return errors.Join(fmt.Errorf("failed to store VMCP static configuration: %w", err), cleanupErr)
+		return v1.VMCP{}, errors.Join(fmt.Errorf("failed to store VMCP static configuration: %w", err), cleanupErr)
 	}
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := req.Get(&vmcp, vmcp.Name); err != nil {
@@ -216,13 +229,9 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		return req.Update(&vmcp)
 	}); err != nil {
 		cleanupErr := req.Delete(&vmcp)
-		return errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
+		return v1.VMCP{}, errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
 	}
-	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
-	if err != nil {
-		return err
-	}
-	return req.WriteCreated(convertVMCPForInstance(req, vmcp, instance))
+	return vmcp, nil
 }
 
 func (h *VMCPHandler) Update(req api.Context) error {
@@ -231,13 +240,25 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
 
-	if vmcp.Spec.SourceURL != "" {
-		return types.NewErrBadRequest("catalog synced vMCP %s cannot be updated via API", vmcp.Name)
-	}
-
 	var manifest types.VMCPManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
+	}
+
+	if err := h.UpdateVMCP(req, &vmcp, manifest); err != nil {
+		return err
+	}
+	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
+	if err != nil {
+		return err
+	}
+	return req.Write(convertVMCPForInstance(req, vmcp, instance))
+}
+
+// UpdateVMCP validates and stores a new manifest for vmcp.
+func (h *VMCPHandler) UpdateVMCP(req api.Context, vmcp *v1.VMCP, manifest types.VMCPManifest) error {
+	if vmcp.Spec.SourceURL != "" {
+		return types.NewErrBadRequest("catalog synced vMCP %s cannot be updated via API", vmcp.Name)
 	}
 
 	manifest.Default(vmcp.Spec.UserID != "")
@@ -258,7 +279,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	previousSubjects := groupref.VMCPProfileSubjects(vmcp.Spec.Manifest)
 
 	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
-	credentialName := vmcpconfig.StaticConfigurationCredentialName(&vmcp)
+	credentialName := vmcpconfig.StaticConfigurationCredentialName(vmcp)
 
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, credentialName)
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
@@ -268,31 +289,27 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
 	vmcp.Spec.Manifest = manifest
 	if vmcp.Spec.StaticConfigurationCredentialName != "" {
-		vmcpconfig.VersionStaticConfiguration(&vmcp, staticConfiguration)
+		vmcpconfig.VersionStaticConfiguration(vmcp, staticConfiguration)
 	} else {
-		vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
+		vmcpconfig.SetStaticConfigurationHashes(vmcp, staticConfiguration)
 	}
 
 	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), previousSubjects, func() error {
 		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 			Context: credentialContext,
-			Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),
+			Name:    vmcpconfig.StaticConfigurationCredentialName(vmcp),
 			Secrets: staticConfiguration,
 		}); err != nil {
 			return fmt.Errorf("failed to store VMCP static configuration: %w", err)
 		}
-		if err := req.Update(&vmcp); err != nil {
+		if err := req.Update(vmcp); err != nil {
 			return fmt.Errorf("failed to update VMCP: %w", err)
 		}
 		return nil
 	}); err != nil {
 		return err
 	}
-	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
-	if err != nil {
-		return err
-	}
-	return req.Write(convertVMCPForInstance(req, vmcp, instance))
+	return nil
 }
 
 // TriggerUpdate adopts current catalog snapshots in one resource update. It does
