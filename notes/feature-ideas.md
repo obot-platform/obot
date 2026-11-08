@@ -1,6 +1,6 @@
 # Feature ideas: after the provenance rework is working
 
-Recorded 2026-11-08 from Craig. Only the first idea has been started; see its status note.
+Recorded 2026-11-08 from Craig. Status as of the end of 2026-11-08 is noted under each idea.
 
 ## 1. Built-in MCP servers: one for users, one for admins
 
@@ -29,6 +29,12 @@ admin server should do (self-configuration).
   may need an agent running inside Obot.
 
 ## 2. Top-level "AI" chat in the UI (the "Uber agent")
+
+**Status:** first version built. **AI** is the first nav item. It is an agent over the built-in
+admin (or user) MCP server's tools, connected in-process and running as the signed-in user with
+the `llm` alias. The admin server gained `llm_usage`, `adoption_summary`, `ask_supervisor` and
+`list_claude_sessions` for the four focus areas. Next: Kubernetes-level operations tools, and
+tools that change Obot's configuration.
 - Add a top-level **AI** item with an AI icon to the left nav. It opens a chat.
 - The chat can drive all of Obot: answer questions about what is happening, pull data, and change
   configuration.
@@ -40,6 +46,9 @@ admin server should do (self-configuration).
 - The overall framing: the system is about **AI enablement in a governed place**.
 
 ## 3. AI data tagger (smaller; extends existing work)
+
+**Status:** done. The real-time sample rate already existed. Added a batch mode (in-memory
+queue, interval, "tag now") and a settings panel on the Labels page.
 - An AI looks at data flowing through the system and decides how to tag it.
 - Two modes: in real time, or in batches on an interval.
 - A **sample rate** for real-time mode, setting how often the tagger checks traffic.
@@ -47,6 +56,8 @@ admin server should do (self-configuration).
   content tagger`). Start from that.
 
 ## 4. Discover the apps an org uses and recommend MCP servers (Vanta-style)
+
+**Status:** researched; see `research-app-discovery.md`. Not built.
 - Vanta, used here for SOC 2, connects to the identity provider and from there finds all of the
   company's app integrations. Research how they do it. (The name Craig gave, "Ontra", is likely a
   mistranscription of the IdP, such as Okta.)
