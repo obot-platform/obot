@@ -1,6 +1,6 @@
 # Feature ideas: after the provenance rework is working
 
-Recorded 2026-11-08 from Craig. None of these have been started.
+Recorded 2026-11-08 from Craig. Only the first idea has been started; see its status note.
 
 ## 1. Built-in MCP servers: one for users, one for admins
 
