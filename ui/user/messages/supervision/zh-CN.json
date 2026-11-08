@@ -478,5 +478,6 @@
 	"supervision_tagging_saved": "已保存内容标注器设置",
 	"supervision_tagging_queue": "有 {queued} 项等待下一批处理",
 	"supervision_tagging_last_run": "上一批（{time}）标注了 {tagged} 项",
-	"supervision_tagging_run_now": "立即标注队列"
+	"supervision_tagging_run_now": "立即标注队列",
+	"supervision_tagging_running": "正在标注队列…"
 }

@@ -25,6 +25,7 @@
 	let status = $state<ContentTaggingStatus>();
 	let error = $state('');
 	let busy = $state(false);
+	let flushing = $state(false);
 	let canEdit = $derived(!!profile.current.isAdmin?.());
 
 	const modes: { value: ContentTaggingMode; label: () => string }[] = [
@@ -74,6 +75,7 @@
 
 	async function runNow() {
 		busy = true;
+		flushing = true;
 		error = '';
 		try {
 			status = await flushContentTagging();
@@ -81,6 +83,7 @@
 			error = parseErrorContent(e).message;
 		} finally {
 			busy = false;
+			flushing = false;
 		}
 	}
 </script>
@@ -153,7 +156,9 @@
 				{#if tagging.mode === 'batch' && status}
 					<div class="text-muted-content flex flex-wrap items-center gap-3 text-sm" role="status">
 						<span>{m.supervision_tagging_queue({ queued: status.queued })}</span>
-						{#if status.lastRun}
+						{#if flushing}
+							<span class="animate-pulse">{m.supervision_tagging_running()}</span>
+						{:else if status.lastRun}
 							<span>
 								{m.supervision_tagging_last_run({
 									time: formatTimeAgo(status.lastRun).relativeTime,

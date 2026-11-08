@@ -24,8 +24,9 @@ function mockSettings(saved = vi.fn(), flushed = vi.fn()) {
 			saved(body);
 			return HttpResponse.json(body);
 		}),
-		http.post('/api/provenance/content-tagging/flush', () => {
+		http.post('/api/provenance/content-tagging/flush', async () => {
 			flushed();
+			await new Promise((r) => setTimeout(r, 300));
 			return HttpResponse.json({ queued: 0, lastRun: new Date().toISOString(), lastTagged: 3 });
 		})
 	);
@@ -70,6 +71,7 @@ describe('ContentTaggingSettings', () => {
 		await expect.element(page.getByText('4 items waiting for the next batch')).toBeInTheDocument();
 		await page.getByRole('button', { name: 'Tag the queue now' }).click();
 
+		await expect.element(page.getByText('Tagging the queue…')).toBeInTheDocument();
 		await vi.waitFor(() => expect(flushed).toHaveBeenCalled());
 		await expect.element(page.getByText(/tagged 3 items/)).toBeInTheDocument();
 	});
