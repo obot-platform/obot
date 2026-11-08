@@ -10,6 +10,9 @@ const (
 	MCPServerRequestStatePending  MCPServerRequestState = "pending"
 	MCPServerRequestStateApproved MCPServerRequestState = "approved"
 	MCPServerRequestStateDenied   MCPServerRequestState = "denied"
+
+	// shortDescriptionLimit is the catalog's limit on a short description, in characters.
+	shortDescriptionLimit = 160
 )
 
 // MCPServerRequestState is where a request to add an MCP server stands.
@@ -135,12 +138,18 @@ func (m MCPServerRequestManifest) CatalogEntryManifest() MCPServerCatalogEntryMa
 	return manifest
 }
 
+// firstLine is the first line of s, shortened at a word to fit a short description.
 func firstLine(s string) string {
 	s, _, _ = strings.Cut(strings.TrimSpace(s), "\n")
-	if len(s) > 200 {
-		s = s[:200]
+	runes := []rune(strings.TrimSpace(s))
+	if len(runes) <= shortDescriptionLimit {
+		return string(runes)
 	}
-	return s
+	cut := string(runes[:shortDescriptionLimit-1])
+	if i := strings.LastIndex(cut, " "); i > shortDescriptionLimit/2 {
+		cut = cut[:i]
+	}
+	return strings.TrimRight(cut, " ,;:.-") + "…"
 }
 
 type MCPServerRequest struct {

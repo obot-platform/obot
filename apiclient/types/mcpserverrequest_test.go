@@ -1,6 +1,9 @@
 package types
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestMCPServerRequestManifestValidate(t *testing.T) {
 	tests := []struct {
@@ -143,5 +146,23 @@ func TestMCPServerRequestRemoteConfigUsesHeaders(t *testing.T) {
 	}
 	if err := entry.ValidateConfig(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFirstLineFitsShortDescription(t *testing.T) {
+	long := strings.Repeat("Prisma manages Postgres databases, ", 10)
+	got := firstLine(long + "\nsecond line")
+	if n := len([]rune(got)); n > shortDescriptionLimit {
+		t.Fatalf("short description has %d characters", n)
+	}
+	if !strings.HasSuffix(got, "…") || strings.Contains(got, "second") {
+		t.Fatalf("unexpected short description %q", got)
+	}
+	if got := firstLine("  Short.  "); got != "Short." {
+		t.Fatalf("got %q", got)
+	}
+	entry := MCPServerRequestManifest{Name: "x", Description: long, Runtime: RuntimeRemote, RemoteURL: "https://x.example/mcp"}.CatalogEntryManifest()
+	if n := len([]rune(entry.ShortDescription)); n > shortDescriptionLimit {
+		t.Fatalf("catalog short description has %d characters", n)
 	}
 }
