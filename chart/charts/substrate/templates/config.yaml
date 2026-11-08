@@ -40,8 +40,11 @@ data:
   ATE_API_POSTGRES_READ_WRITE_ROLE: {{ $postgresRole | quote }}
   ATE_API_POSTGRES_OWNER_ROLE: {{ $postgresRole | quote }}
   {{- if not .Values.postgres.dsn }}
-  ATE_API_POSTGRES_READ_WRITE_CONNECTION_STRING: postgresql://postgres@postgres.ate-system.svc:5432/atepg?sslmode=verify-full&sslrootcert=/run/servicedns.podcert.ate.dev/trust-bundle.pem&sslcert=/run/podidentity.podcert.ate.dev/credential-bundle.pem&sslkey=/run/podidentity.podcert.ate.dev/credential-bundle.pem
-  ATE_API_POSTGRES_OWNER_CONNECTION_STRING: postgresql://postgres@postgres.ate-system.svc:5432/atepg?sslmode=verify-full&sslrootcert=/run/servicedns.podcert.ate.dev/trust-bundle.pem&sslcert=/run/podidentity.podcert.ate.dev/credential-bundle.pem&sslkey=/run/podidentity.podcert.ate.dev/credential-bundle.pem
+  # The bundled server's pod certificate is Ed25519-signed, which has no tls-server-end-point
+  # hash, so SCRAM channel binding can't be negotiated and PostgreSQL rejects the login as a
+  # downgrade. The connection is already mutually authenticated TLS with verify-full.
+  ATE_API_POSTGRES_READ_WRITE_CONNECTION_STRING: postgresql://postgres@postgres.ate-system.svc:5432/atepg?sslmode=verify-full&sslrootcert=/run/servicedns.podcert.ate.dev/trust-bundle.pem&sslcert=/run/podidentity.podcert.ate.dev/credential-bundle.pem&sslkey=/run/podidentity.podcert.ate.dev/credential-bundle.pem&channel_binding=disable
+  ATE_API_POSTGRES_OWNER_CONNECTION_STRING: postgresql://postgres@postgres.ate-system.svc:5432/atepg?sslmode=verify-full&sslrootcert=/run/servicedns.podcert.ate.dev/trust-bundle.pem&sslcert=/run/podidentity.podcert.ate.dev/credential-bundle.pem&sslkey=/run/podidentity.podcert.ate.dev/credential-bundle.pem&channel_binding=disable
   {{- end }}
 {{- if .Values.postgres.dsn }}
 ---
