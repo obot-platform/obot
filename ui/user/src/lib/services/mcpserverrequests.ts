@@ -46,6 +46,7 @@ export interface MCPServerRequest {
 export interface MCPServerRequestApproval {
 	vmcpID?: string;
 	newVMCP?: { displayName: string; description?: string };
+	grantRequesterAccess?: boolean;
 	reason?: string;
 }
 

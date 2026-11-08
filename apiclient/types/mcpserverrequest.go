@@ -180,7 +180,10 @@ type MCPServerRequestApproval struct {
 	NewVMCP *MCPServerRequestNewVMCP `json:"newVMCP,omitempty"`
 	// Manifest overrides the catalog entry derived from the request.
 	Manifest *MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
-	Reason   string                         `json:"reason,omitempty"`
+	// GrantRequesterAccess, when adding to an existing vMCP, gives the requester a profile for
+	// the new server alone if no profile lets them connect. Nil means true.
+	GrantRequesterAccess *bool  `json:"grantRequesterAccess,omitempty"`
+	Reason               string `json:"reason,omitempty"`
 }
 
 func (a MCPServerRequestApproval) Validate() error {

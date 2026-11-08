@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -204,6 +205,68 @@ func (h *MCPServerRequestHandler) GetRequest(req api.Context, id string) (types.
 	return h.withAccess(req, convertMCPServerRequest(request)), nil
 }
 
+// requesterInfo is the requester as authorization sees them, or nil if they can't be found.
+func (h *MCPServerRequestHandler) requesterInfo(req api.Context, id string) kuser.Info {
+	uid, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		return nil
+	}
+	info, err := req.GatewayClient.UserInfoByID(req.Context(), uint(uid))
+	if err != nil {
+		return nil
+	}
+	return info
+}
+
+// uniqueComponentName returns name, or name with a numeric suffix if a component already
+// uses it.
+func uniqueComponentName(components []types.VMCPComponent, name string) string {
+	taken := func(n string) bool {
+		return slices.ContainsFunc(components, func(c types.VMCPComponent) bool { return c.Name == n })
+	}
+	candidate := name
+	for i := 2; taken(candidate); i++ {
+		candidate = fmt.Sprintf("%s-%d", name, i)
+	}
+	return candidate
+}
+
+// grantRequester adds the component named componentName to the requester's own profile,
+// creating the profile if needed.
+func grantRequester(manifest *types.VMCPManifest, spec v1.MCPServerRequestSpec, componentName string) {
+	var componentID string
+	for _, c := range manifest.Components {
+		if c.Name == componentName {
+			componentID = c.ID
+		}
+	}
+	if componentID == "" {
+		return
+	}
+	subject := types.Subject{Type: types.SubjectTypeUser, ID: spec.RequesterID}
+	for i := range manifest.Profiles {
+		p := &manifest.Profiles[i]
+		if len(p.Subjects) == 1 && p.Subjects[0] == subject && !p.Permissions.AllowAllComponents {
+			if p.Permissions.AllowedComponents == nil {
+				p.Permissions.AllowedComponents = map[string]types.VMCPComponentSet{}
+			}
+			p.Permissions.AllowedComponents[componentID] = types.VMCPComponentSet{}
+			return
+		}
+	}
+	name := "Requested by " + cmpOr(spec.RequesterEmail, spec.RequesterName, spec.RequesterID)
+	for i := 2; slices.ContainsFunc(manifest.Profiles, func(p types.VMCPProfile) bool { return p.Name == name }); i++ {
+		name = fmt.Sprintf("Requested by %s (%d)", cmpOr(spec.RequesterEmail, spec.RequesterName, spec.RequesterID), i)
+	}
+	manifest.Profiles = append(manifest.Profiles, types.VMCPProfile{
+		Name:     name,
+		Subjects: []types.Subject{subject},
+		Permissions: types.VMCPProfilePermissions{
+			AllowedComponents: map[string]types.VMCPComponentSet{componentID: {}},
+		},
+	})
+}
+
 // withAccess reports whether the requester can connect to the vMCP an approved request
 // added the server to.
 func (h *MCPServerRequestHandler) withAccess(req api.Context, request types.MCPServerRequest) types.MCPServerRequest {
@@ -214,12 +277,8 @@ func (h *MCPServerRequestHandler) withAccess(req api.Context, request types.MCPS
 	if err := req.Get(&vmcp, request.VMCPID); err != nil {
 		return request
 	}
-	uid, err := strconv.ParseUint(request.RequesterID, 10, 64)
-	if err != nil {
-		return request
-	}
-	requester, err := req.GatewayClient.UserInfoByID(req.Context(), uint(uid))
-	if err != nil {
+	requester := h.requesterInfo(req, request.RequesterID)
+	if requester == nil {
 		return request
 	}
 	canConnect := authz.UserCanConnectVMCP(requester, &vmcp)
@@ -340,17 +399,38 @@ func (h *MCPServerRequestHandler) ApproveRequest(req api.Context, id string, app
 		}
 		vmcpID = vmcp.Name
 	} else {
+		grant := approval.GrantRequesterAccess == nil || *approval.GrantRequesterAccess
+		requester := h.requesterInfo(req, request.Spec.RequesterID)
+		var addedName string
 		if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 			if err := req.Get(&target, approval.VMCPID); err != nil {
 				return err
 			}
 			vmcpManifest := *target.Spec.Manifest.DeepCopy()
-			vmcpManifest.Components = append(vmcpManifest.Components, component)
+			added := component
+			added.Name = uniqueComponentName(vmcpManifest.Components, component.Name)
+			addedName = added.Name
+			vmcpManifest.Components = append(vmcpManifest.Components, added)
 			return h.vmcps.UpdateVMCP(req, &target, vmcpManifest)
 		}); err != nil {
 			return types.MCPServerRequest{}, removeEntry(err)
 		}
 		vmcpID = target.Name
+		if grant && requester != nil && !authz.UserCanConnectVMCP(requester, &target) {
+			// The update assigned the new component its ID. Grant the requester that component
+			// alone, in a profile of their own, so nothing else in the vMCP opens up to them. The
+			// server is in the vMCP either way, so a failure here is reported, not undone.
+			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				if err := req.Get(&target, approval.VMCPID); err != nil {
+					return err
+				}
+				vmcpManifest := *target.Spec.Manifest.DeepCopy()
+				grantRequester(&vmcpManifest, request.Spec, addedName)
+				return h.vmcps.UpdateVMCP(req, &target, vmcpManifest)
+			}); err != nil {
+				slog.Error("Failed to grant the requester access to an approved MCP server", "request", request.Name, "vmcp", vmcpID, "error", err)
+			}
+		}
 	}
 
 	if err := h.setStatus(req, request.Name, func(status *v1.MCPServerRequestStatus) error {

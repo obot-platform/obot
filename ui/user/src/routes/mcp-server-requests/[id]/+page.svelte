@@ -36,6 +36,7 @@
 	let newDescription = $state('');
 	let note = $state('');
 	let denyReason = $state('');
+	let grantRequester = $state(true);
 	let vmcpName = $state('');
 
 	async function loadVMCPName(id?: string) {
@@ -83,7 +84,7 @@
 		try {
 			const decided = await approveMCPServerRequest(request.id, {
 				...(destination === 'existing'
-					? { vmcpID }
+					? { vmcpID, grantRequesterAccess: grantRequester }
 					: { newVMCP: { displayName: newName.trim(), description: newDescription.trim() } }),
 				reason: note.trim() || undefined
 			});
@@ -261,6 +262,10 @@
 										</option>
 									{/each}
 								</select>
+							</label>
+							<label class="ml-6 flex items-center gap-2 text-sm">
+								<input type="checkbox" bind:checked={grantRequester} />
+								{m.server_requests_grant_requester()}
 							</label>
 						{/if}
 						{#if sharedVMCPs.length === 0}

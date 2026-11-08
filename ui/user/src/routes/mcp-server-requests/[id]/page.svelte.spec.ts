@@ -93,7 +93,11 @@ describe('Server request', () => {
 		await page.getByRole('button', { name: 'Approve' }).click();
 
 		await vi.waitFor(() =>
-			expect(approved).toHaveBeenCalledWith({ vmcpID: 'vmcp1eng', reason: 'Welcome aboard' })
+			expect(approved).toHaveBeenCalledWith({
+				vmcpID: 'vmcp1eng',
+				grantRequesterAccess: true,
+				reason: 'Welcome aboard'
+			})
 		);
 		await expect
 			.element(page.getByText(/Added to the catalog and to Engineering/))

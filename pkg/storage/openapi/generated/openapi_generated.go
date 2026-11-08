@@ -10008,6 +10008,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerRequestApproval(ref comm
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
+					"grantRequesterAccess": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GrantRequesterAccess, when adding to an existing vMCP, gives the requester a profile for the new server alone if no profile lets them connect. Nil means true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"reason": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
