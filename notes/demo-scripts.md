@@ -98,6 +98,30 @@ Answers take 10 to 30 seconds. Cost shows $0 because no LLM gateway traffic has 
 yet. To fill it, send traffic through the LLM gateway (for example, Claude Code pointed at the
 gateway).
 
+### Demo 2b: Widgets in Obot AI's answers (video 2c)
+
+**Tested**, with the real `openai/gpt-5.4`.
+
+Obot AI can place live views from Obot into its answers. The model writes a small
+` ```obot-widget ` block, and the page renders the same components the rest of Obot uses. They
+load their data with the viewer's own permissions.
+
+| Widget | Shows | Ask, for example |
+|---|---|---|
+| `approvals` | Held agent actions (the Supervisor's recommendation, Approve and Deny) and pending MCP server requests (Add to a vMCP, Approve, Deny) | "What needs my approval right now?" |
+| `session` | A session's risk, labels and counters, and its live event stream, with the Supervisor's lines for held or blocked steps | "Show me dev@obot.local's most recent session and what it did." |
+| `sessions` | A list of sessions | "Which sessions are riskiest this week?" |
+| `mcp_server_request` | One request; administrators can decide it in place | "Show me the Figma request." |
+
+To have something pending:
+1. As `dev`, request a server: `~/ui-check/api.sh dev POST /mcp-server-requests '{"name":"Figma","runtime":"remote","remoteURL":"https://mcp.figma.com/mcp","reason":"…"}'`.
+2. Enable the **Hold DeepWiki repository reads** policy (Policies). It's off by default, because
+   it holds the DeepWiki reads demo 4 uses.
+3. Have dev's agent call DeepWiki's `read_wiki_contents` through Research Tools.
+
+Then, as owner, ask "What needs my approval right now?". You click the buttons. The model never
+approves from a widget, and approving through its tools still needs you to ask in words.
+
 ## Demo 3: Claude Environments on your cluster (video 3)
 
 **Tested**, with the "Craigs Demo" environment.

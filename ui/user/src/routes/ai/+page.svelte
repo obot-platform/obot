@@ -1,8 +1,8 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
+	import AIAnswer from '$lib/components/ai/AIAnswer.svelte';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
-	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { streamChatWithAI, type AIEvent, type AIMessage, type AIStep } from '$lib/services/ai';
 	import { profile } from '$lib/stores';
 	import {
@@ -49,6 +49,7 @@
 		adoption_summary: m.ai_tool_adoption_summary,
 		ask_supervisor: m.ai_tool_ask_supervisor,
 		list_claude_sessions: m.ai_tool_list_claude_sessions,
+		list_agent_sessions: m.ai_tool_list_agent_sessions,
 		search_mcp_servers: m.ai_tool_search_mcp_servers,
 		list_mcp_server_requests: m.ai_tool_list_mcp_server_requests,
 		get_mcp_server_request: m.ai_tool_get_mcp_server_request,
@@ -242,9 +243,11 @@
 								</ul>
 							</details>
 						{/if}
-						<div class="milkdown-content">
-							{@html toHTMLFromMarkdownWithNewTabLinks(turn.content)}
-						</div>
+						{#if turn.error}
+							<p>{turn.content}</p>
+						{:else}
+							<AIAnswer content={turn.content} />
+						{/if}
 					</article>
 				{/if}
 			{/each}
@@ -281,9 +284,7 @@
 						</ul>
 					{/if}
 					{#if live.text}
-						<div class="milkdown-content">
-							{@html toHTMLFromMarkdownWithNewTabLinks(live.text)}
-						</div>
+						<AIAnswer content={live.text} />
 					{:else if waiting}
 						<p class="text-muted-content animate-pulse" role="status">
 							{thinkingWords[thinkingIndex]()}

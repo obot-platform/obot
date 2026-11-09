@@ -12,13 +12,16 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/provenance"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// SupervisorAsker answers questions about what agents are doing from the session graph.
+// SupervisorAsker answers questions about what agents are doing from the session graph, and
+// lists its sessions.
 type SupervisorAsker interface {
 	AskSupervisor(ctx context.Context, question, sessionID string) (answer, model string, err error)
+	ListAgentSessions(ctx context.Context, q provenance.SessionQuery) ([]provenance.Session, int64, error)
 }
 
 type daysInput struct {
@@ -28,6 +31,15 @@ type daysInput struct {
 type supervisorInput struct {
 	Question  string `json:"question" jsonschema:"The question about agent activity, risk or policy."`
 	SessionID string `json:"sessionID,omitempty" jsonschema:"A provenance session ID to focus on."`
+}
+
+type agentSessionsInput struct {
+	Query   string `json:"query,omitempty" jsonschema:"Text to match in the session's title, user, agent or latest activity."`
+	User    string `json:"user,omitempty" jsonschema:"Only this user's sessions, by email or user ID."`
+	MinRisk int    `json:"minRisk,omitempty" jsonschema:"Only sessions at or above this risk, 0 to 100."`
+	Open    bool   `json:"open,omitempty" jsonschema:"Only sessions that have not ended."`
+	SortBy  string `json:"sortBy,omitempty" jsonschema:"last_activity_at (the default), started_at or risk. Always newest or riskiest first."`
+	Limit   int    `json:"limit,omitempty" jsonschema:"How many sessions to return. Defaults to 10, at most 50."`
 }
 
 type sessionsInput struct {
@@ -156,6 +168,18 @@ func (h *Handler) addInsightTools(s *mcp.Server, req api.Context) {
 		})
 	}
 
+	if h.supervisor != nil {
+		mcp.AddTool(s, &mcp.Tool{
+			Name: "list_agent_sessions",
+			Description: "List agent sessions the Supervisor has recorded across surfaces (LLM gateway, MCP gateway, " +
+				"devices, egress, Claude environments), with their user, risk, labels and counters. Session IDs " +
+				"from here can be shown as widgets.",
+			Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
+		}, func(ctx context.Context, _ *mcp.CallToolRequest, in agentSessionsInput) (*mcp.CallToolResult, any, error) {
+			return h.listAgentSessions(ctx, in)
+		})
+	}
+
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "list_claude_sessions",
 		Description: "List Claude environment sessions running on Obot's infrastructure, with their user, state and repositories.",
@@ -196,4 +220,72 @@ func (h *Handler) userLabel(ctx context.Context, req api.Context, id string) str
 		return cmpOr(u.Email, u.Username, id)
 	}
 	return id
+}
+
+func (h *Handler) listAgentSessions(ctx context.Context, in agentSessionsInput) (*mcp.CallToolResult, any, error) {
+	limit := in.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	limit = min(limit, 50)
+	sortBy := in.SortBy
+	switch sortBy {
+	case "", "last_activity_at", "started_at", "risk":
+	default:
+		sortBy = ""
+	}
+	q := provenance.SessionQuery{
+		Query:    strings.TrimSpace(in.Query),
+		MinRisk:  min(max(in.MinRisk, 0), 100),
+		Limit:    limit,
+		SortBy:   sortBy,
+		SortDesc: true,
+	}
+	if in.Open {
+		q.Open = &in.Open
+	}
+	// Sessions carry the user's email, which the text query matches; anything else is a user ID.
+	email := ""
+	if user := strings.TrimSpace(in.User); strings.Contains(user, "@") {
+		email = strings.ToLower(user)
+		if q.Query == "" {
+			q.Query = email
+		}
+	} else {
+		q.UserID = user
+	}
+	sessions, total, err := h.supervisor.ListAgentSessions(ctx, q)
+	if err != nil {
+		return toolError(err)
+	}
+	out := make([]map[string]any, 0, len(sessions))
+	for _, s := range sessions {
+		if email != "" && !strings.EqualFold(s.Email, email) {
+			continue
+		}
+		out = append(out, map[string]any{
+			"id":             s.ID,
+			"title":          s.Title,
+			"user":           cmpOr(s.Email, s.UserID),
+			"agent":          s.Agent,
+			"risk":           s.State.Risk,
+			"labels":         s.State.Labels,
+			"surfaces":       s.State.Surfaces,
+			"events":         s.State.Events,
+			"toolCalls":      s.State.ToolCalls,
+			"denied":         s.State.Denied,
+			"approvals":      s.State.Approvals,
+			"startedAt":      s.StartedAt.UTC().Format(time.RFC3339),
+			"lastActivityAt": s.LastActivityAt.UTC().Format(time.RFC3339),
+			"open":           s.EndedAt == nil,
+			"killed":         s.State.Killed,
+			"latest":         s.State.LastSummary,
+			"url":            h.serverURL + "/sessions/" + s.ID,
+		})
+	}
+	return jsonResult(map[string]any{
+		"sessions": out,
+		"total":    total,
+		"display":  "In Obot AI's chat, show these with a sessions widget (or a session widget for one) instead of listing their fields.",
+	})
 }

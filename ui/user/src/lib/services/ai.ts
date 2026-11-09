@@ -102,3 +102,80 @@ export async function streamChatWithAI(
 	if (!result) throw new Error('the answer ended early');
 	return result;
 }
+
+/**
+ * A live view Obot AI can place in an answer. It writes one as a fenced `obot-widget` block
+ * holding JSON; the page renders the matching component, which loads its data with the viewer's
+ * own permissions.
+ */
+export type AIWidget =
+	| { type: 'session'; sessionId: string }
+	| { type: 'sessions'; sessionIds: string[] }
+	| { type: 'mcp_server_request'; requestId: string }
+	| { type: 'approvals' };
+
+export type AISegment =
+	| { kind: 'markdown'; text: string }
+	| { kind: 'widget'; widget: AIWidget }
+	/** A widget the model is still writing, or one that could not be read. */
+	| { kind: 'pending' }
+	| { kind: 'invalid'; source: string };
+
+const WIDGET_FENCE = '```obot-widget';
+
+/** Splits an answer into markdown and widgets. An unterminated widget block is still being written. */
+export function splitAnswer(content: string): AISegment[] {
+	const out: AISegment[] = [];
+	let rest = content;
+	while (rest) {
+		const start = rest.indexOf(WIDGET_FENCE);
+		if (start < 0) {
+			out.push({ kind: 'markdown', text: rest });
+			break;
+		}
+		if (start > 0) out.push({ kind: 'markdown', text: rest.slice(0, start) });
+		const body = rest.slice(start + WIDGET_FENCE.length);
+		const end = body.indexOf('```');
+		if (end < 0) {
+			out.push({ kind: 'pending' });
+			break;
+		}
+		out.push(parseWidget(body.slice(0, end)));
+		rest = body.slice(end + 3);
+	}
+	return out.filter((s) => s.kind !== 'markdown' || s.text.trim() !== '');
+}
+
+function parseWidget(source: string): AISegment {
+	try {
+		const w = JSON.parse(source.trim()) as Record<string, unknown>;
+		const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+		switch (w.type) {
+			case 'session':
+			case 'session_timeline': {
+				const sessionId = str(w.sessionId);
+				if (sessionId) return { kind: 'widget', widget: { type: 'session', sessionId } };
+				break;
+			}
+			case 'sessions': {
+				const ids = Array.isArray(w.sessionIds) ? w.sessionIds.map(str).filter((id) => !!id) : [];
+				if (ids.length)
+					return {
+						kind: 'widget',
+						widget: { type: 'sessions', sessionIds: (ids as string[]).slice(0, 20) }
+					};
+				break;
+			}
+			case 'approvals':
+				return { kind: 'widget', widget: { type: 'approvals' } };
+			case 'mcp_server_request': {
+				const requestId = str(w.requestId);
+				if (requestId) return { kind: 'widget', widget: { type: 'mcp_server_request', requestId } };
+				break;
+			}
+		}
+	} catch {
+		// Falls through to invalid.
+	}
+	return { kind: 'invalid', source: source.trim() };
+}

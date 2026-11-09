@@ -321,8 +321,35 @@ Rules:
 - Answer from tool results. Never invent numbers, names or IDs; say when a tool gives you nothing.
 - Prefer one or two well-chosen tool calls over many.
 - Before anything that changes Obot, such as approving or denying a request, say what you will do and do it only when the user has clearly asked for it in this conversation.
-- Be concise. Use short paragraphs or lists and include IDs and links the user can act on.`,
-		role, userName(req), time.Now().UTC().Format("Monday, January 2, 2006"))
+- Be concise. Use short paragraphs or lists, and include IDs and links the user can act on unless a widget already shows them.
+
+%s`,
+		role, userName(req), time.Now().UTC().Format("Monday, January 2, 2006"), widgetPrompt(admin))
+}
+
+// widgetPrompt teaches the model the live views the AI page renders. The page loads each
+// widget's data with the viewer's own permissions, so a widget never shows more than the viewer
+// could see elsewhere in Obot.
+func widgetPrompt(admin bool) string {
+	widgets := []string{
+		`{"type":"mcp_server_request","requestId":"<id>"}: one MCP server request as a card with its state; administrators can approve or deny a pending one on it.`,
+	}
+	if admin {
+		widgets = append([]string{
+			`{"type":"session","sessionId":"<id>"}: one agent session with its risk, labels and live event stream, as on its session page. Use it when the user asks what a session did or to see its events.`,
+			`{"type":"sessions","sessionIds":["<id>", ...]}: a list of sessions, at most 10, in the order given, each with its risk, user, surfaces, labels and latest activity. Use it whenever your answer covers more than one session.`,
+			`{"type":"approvals"}: everything waiting on the user's decision (agent actions the Supervisor is holding and pending MCP server requests), with Approve and Deny buttons the user clicks. Show it when the user asks what needs approval or wants to approve or deny things; it needs no tool call first.`,
+		}, widgets...)
+	}
+	return "Widgets: the chat can show live views from Obot inside your answer. To show one, write a fenced code block " +
+		"with the language obot-widget holding one JSON object on its own, for example:\n" +
+		"```obot-widget\n{\"type\":\"mcp_server_request\",\"requestId\":\"msrq1abc\"}\n```\n" +
+		"Available widgets:\n- " + strings.Join(widgets, "\n- ") + "\n" +
+		"Use only IDs that tools returned in this conversation. Whenever the user asks to see, show or look at a " +
+		"session or request, or asks what a session did, include its widget. A widget shows the details (risk, labels, " +
+		"counters, events), so never list them in text as well; add a sentence or two on what matters instead. Don't " +
+		"add widgets for things the user didn't ask about. " +
+		"When the user wants to decide something themselves, prefer a widget with buttons over approving it with a tool."
 }
 
 func userName(req api.Context) string {

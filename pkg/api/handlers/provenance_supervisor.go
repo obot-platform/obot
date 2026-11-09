@@ -1086,3 +1086,13 @@ func truncateText(s string, n int) string {
 	}
 	return s[:cut] + "…"
 }
+
+// ListAgentSessions lists sessions from the session graph, without their fingerprints, for
+// callers outside the HTTP API such as Obot's own assistant.
+func (h *ProvenanceHandler) ListAgentSessions(ctx context.Context, q provenance.SessionQuery) ([]provenance.Session, int64, error) {
+	sessions, total, err := h.engine.Store().ListSessions(ctx, q)
+	if err != nil {
+		return nil, 0, err
+	}
+	return stripSessions(sessions), total, nil
+}
