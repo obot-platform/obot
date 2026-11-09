@@ -248,6 +248,18 @@
 	let dragPointerX = 0;
 	let dragPointerY = 0;
 	let dragScrollFrame = 0;
+	// A full-width widget changes row height as soon as the preview moves, which slides a
+	// different row under the cursor. Wait until the pointer has traveled and then rested
+	// before following it, and keep that preview until the pointer travels again.
+	const previewDwellMs = 120;
+	const previewTravelPx = 28;
+	const cardGutterPx = 24;
+	let previewTimer = 0;
+	let appliedKey = '';
+	let heldKey = '';
+	let anchorX = 0;
+	let anchorY = 0;
+	let anchorScroll = 0;
 	const editingLayout = $derived(draft ?? dashboardLayout);
 	const placedWidgets = $derived(placedWidgetIds(editingLayout.rows));
 	const individualToolResponses = $derived(
@@ -294,9 +306,59 @@
 		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 	}
 
+	function coversPointer(node: HTMLElement, x: number, y: number, gutter = 0): boolean {
+		const rect = node.getBoundingClientRect();
+		return x >= rect.left - gutter && x <= rect.right && y >= rect.top && y <= rect.bottom;
+	}
+
 	function nodeArea(node: HTMLElement): number {
 		const rect = node.getBoundingClientRect();
 		return rect.width * rect.height;
+	}
+
+	function targetKey(action: DropTarget | null): string {
+		if (!action) return '';
+		const path = action.path.join('.');
+		return action.kind === 'slot' ? `slot:${path}:${action.index}` : `row:${path}:${action.index}`;
+	}
+
+	type RowBand = { index: number; top: number; bottom: number; nodes: HTMLElement[] };
+
+	function rowBands(box: HTMLElement): RowBand[] {
+		const bands = new Map<number, RowBand>();
+		for (const node of box.querySelectorAll(
+			'[data-dashboard-card], [data-dashboard-header], [data-dashboard-box]'
+		)) {
+			if (!(node instanceof HTMLElement)) continue;
+			if (node.parentElement?.closest('[data-dashboard-box]') !== box) continue;
+			const index = node.hasAttribute('data-dashboard-box')
+				? (parsePath(node.dataset.boxPath).at(-1) ?? 0)
+				: Number(node.dataset.row);
+			const rect = node.getBoundingClientRect();
+			const band = bands.get(index);
+			if (!band) {
+				bands.set(index, { index, top: rect.top, bottom: rect.bottom, nodes: [node] });
+				continue;
+			}
+			band.top = Math.min(band.top, rect.top);
+			band.bottom = Math.max(band.bottom, rect.bottom);
+			band.nodes.push(node);
+		}
+		return [...bands.values()].sort((a, b) => a.top - b.top || a.index - b.index);
+	}
+
+	function closestNode(nodes: HTMLElement[], x: number): HTMLElement | null {
+		let best: HTMLElement | null = null;
+		let bestDist = Number.POSITIVE_INFINITY;
+		for (const node of nodes) {
+			const rect = node.getBoundingClientRect();
+			const dist = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
+			if (dist < bestDist) {
+				best = node;
+				bestDist = dist;
+			}
+		}
+		return best;
 	}
 
 	function actionFor(
@@ -304,7 +366,7 @@
 		x: number,
 		y: number,
 		kind: DragSubject['kind']
-	): DropTarget {
+	): DropTarget | null {
 		const rect = node.getBoundingClientRect();
 		if (node.hasAttribute('data-dashboard-card')) {
 			const parent = parsePath(node.dataset.parent);
@@ -334,30 +396,63 @@
 				index: y < rect.top + rect.height / 2 ? row : row + 1
 			};
 		}
-		const path = parsePath(node.dataset.boxPath);
-		const count = Number(node.dataset.childCount ?? '0');
-		return { kind: 'new-row', path, index: y < rect.top + rect.height * 0.35 ? 0 : count };
+		return actionForBox(node, x, y, kind);
 	}
 
-	function actionAt(x: number, y: number, subject: DragSubject): DropTarget | null {
-		const dragged = draggedNode();
-		const candidates = [
+	function actionForBox(
+		box: HTMLElement,
+		x: number,
+		y: number,
+		kind: DragSubject['kind']
+	): DropTarget | null {
+		const path = parsePath(box.dataset.boxPath);
+		const bands = rowBands(box);
+		if (bands.length === 0) return { kind: 'new-row', path, index: 0 };
+		const first = bands[0];
+		const last = bands[bands.length - 1];
+		if (y <= first.top) return { kind: 'new-row', path, index: first.index };
+		if (y >= last.bottom) return { kind: 'new-row', path, index: last.index + 1 };
+		for (let i = 0; i < bands.length; i++) {
+			const band = bands[i];
+			const above = i === 0 ? Number.NEGATIVE_INFINITY : (bands[i - 1].bottom + band.top) / 2;
+			const below =
+				i === bands.length - 1 ? Number.POSITIVE_INFINITY : (band.bottom + bands[i + 1].top) / 2;
+			if (y < above || y > below) continue;
+			const node = closestNode(band.nodes, x);
+			if (!node || node === draggedNode()) return null;
+			return actionFor(node, x, y, kind);
+		}
+		return { kind: 'new-row', path, index: last.index + 1 };
+	}
+
+	function hitNodes(): HTMLElement[] {
+		return [
 			...document.querySelectorAll(
 				'[data-dashboard-card], [data-dashboard-header], [data-dashboard-box]'
 			)
 		].filter(
 			(node): node is HTMLElement =>
-				node instanceof HTMLElement && node !== dragged && !node.closest('[data-drag-clone]')
+				node instanceof HTMLElement && !node.closest('[data-drag-clone]')
 		);
-		const hit = candidates
-			.filter((node) => !node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
+	}
+
+	function actionAt(x: number, y: number, subject: DragSubject): DropTarget | null {
+		const dragged = draggedNode();
+		if (dragged && coversPointer(dragged, x, y, cardGutterPx)) return null;
+		const nodes = hitNodes().filter((node) => node !== dragged);
+		const cards = nodes.filter((node) => !node.hasAttribute('data-dashboard-box'));
+		const hit = cards
+			.filter((node) => pointInside(node, x, y))
 			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
 		if (hit) return actionFor(hit, x, y, subject.kind);
-		if (dragged && pointInside(dragged, x, y)) return null;
-		const box = candidates
+		const beside = cards
+			.filter((node) => coversPointer(node, x, y, cardGutterPx))
+			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
+		if (beside) return actionFor(beside, x, y, subject.kind);
+		const box = nodes
 			.filter((node) => node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
 			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
-		return box ? actionFor(box, x, y, subject.kind) : null;
+		return box ? actionForBox(box, x, y, subject.kind) : null;
 	}
 
 	function clearDragClone() {
@@ -432,14 +527,65 @@
 		return null;
 	}
 
+	function travelFromAnchor(): number {
+		const scrolled = (dashboardScroller()?.scrollTop ?? 0) - anchorScroll;
+		return Math.hypot(dragPointerX - anchorX, dragPointerY - anchorY + scrolled);
+	}
+
+	function rememberAnchor() {
+		anchorX = dragPointerX;
+		anchorY = dragPointerY;
+		anchorScroll = dashboardScroller()?.scrollTop ?? 0;
+	}
+
+	function clearPreviewTimer() {
+		if (!previewTimer || typeof clearTimeout === 'undefined') return;
+		clearTimeout(previewTimer);
+		previewTimer = 0;
+	}
+
+	function applyPreview(action: DropTarget) {
+		if (!dragging) return;
+		const layout = draft ?? dashboardLayout;
+		const next = moveSubject(layout, dragging, action);
+		if (JSON.stringify(next.rows) !== JSON.stringify(layout.rows)) draft = next;
+		appliedKey = targetKey(action);
+		heldKey = appliedKey;
+		rememberAnchor();
+	}
+
 	function placeDraggedAtPointer() {
 		if (!dragging) return;
 		moveDragClone(dragPointerX, dragPointerY);
 		const action = actionAt(dragPointerX, dragPointerY, dragging);
-		if (!action) return;
-		const layout = draft ?? dashboardLayout;
-		const next = moveSubject(layout, dragging, action);
-		if (JSON.stringify(next.rows) !== JSON.stringify(layout.rows)) draft = next;
+		const key = targetKey(action);
+		if (!action || key === appliedKey) {
+			clearPreviewTimer();
+			heldKey = key;
+			return;
+		}
+		if (travelFromAnchor() < previewTravelPx) {
+			clearPreviewTimer();
+			return;
+		}
+		if (key === heldKey) return;
+		heldKey = key;
+		clearPreviewTimer();
+		previewTimer = window.setTimeout(() => {
+			previewTimer = 0;
+			if (!dragging || heldKey !== key || travelFromAnchor() < previewTravelPx) return;
+			const latest = actionAt(dragPointerX, dragPointerY, dragging);
+			if (!latest || targetKey(latest) !== key) return;
+			applyPreview(latest);
+		}, previewDwellMs);
+	}
+
+	function commitPreview() {
+		clearPreviewTimer();
+		if (!dragging || travelFromAnchor() < previewTravelPx) return;
+		const action = actionAt(dragPointerX, dragPointerY, dragging);
+		if (!action || targetKey(action) === appliedKey) return;
+		applyPreview(action);
 	}
 
 	function stopDragAutoScroll() {
@@ -483,6 +629,7 @@
 
 	function detachDragListeners() {
 		stopDragAutoScroll();
+		clearPreviewTimer();
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('pointermove', onPointerMove);
 		window.removeEventListener('pointerup', onPointerUp);
@@ -492,6 +639,7 @@
 	}
 
 	function finishDrag(commit: boolean) {
+		if (commit) commitPreview();
 		if (!dragging && !draft) {
 			detachDragListeners();
 			return;
@@ -501,6 +649,8 @@
 		dragging = null;
 		draft = null;
 		dragOrigin = null;
+		appliedKey = '';
+		heldKey = '';
 		detachDragListeners();
 		if (commit && next && origin && JSON.stringify(next.rows) !== origin) applyLayout(next);
 	}
@@ -527,6 +677,11 @@
 		dragging = subject;
 		dragOrigin = JSON.stringify((draft ?? dashboardLayout).rows);
 		draft = null;
+		dragPointerX = event.clientX;
+		dragPointerY = event.clientY;
+		appliedKey = '';
+		heldKey = '';
+		rememberAnchor();
 		window.addEventListener('pointermove', onPointerMove);
 		window.addEventListener('pointerup', onPointerUp);
 		window.addEventListener('pointercancel', onPointerCancel);
