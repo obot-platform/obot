@@ -16,7 +16,16 @@ export const WIDGET_IDS = [
 	'device-scan-timeline',
 	'token-usage',
 	'popular-tools',
-	'tool-response-time'
+	'tool-response-time',
+	'model-stats',
+	'llm-requests',
+	'spend-by-provider',
+	'top-models',
+	'most-frequent-tool-calls',
+	'tool-individual-response-time',
+	'tool-call-errors',
+	'tool-call-errors-by-server',
+	'most-active-users'
 ] as const;
 
 export type WidgetId = (typeof WIDGET_IDS)[number];
@@ -39,16 +48,32 @@ export const DEVICE_STAT_IDS = [
 
 export type DeviceStatId = (typeof DEVICE_STAT_IDS)[number];
 
+export const MODEL_STAT_IDS = ['total', 'input', 'output', 'cached-input', 'spend'] as const;
+
+export type ModelStatId = (typeof MODEL_STAT_IDS)[number];
+
 export type WidgetPlacement = {
 	id: WidgetId;
 	hideWhenEmpty: boolean;
+};
+
+export const HEADER_VISIBILITIES = ['always', 'device-scans', 'mcp-stats', 'llm-stats'] as const;
+
+export type HeaderVisibility = (typeof HEADER_VISIBILITIES)[number];
+
+const headerVisibilitySet = new Set<string>(HEADER_VISIBILITIES);
+
+export type HeaderAvailability = {
+	deviceScans: boolean;
+	mcpStats: boolean;
+	llmStats: boolean;
 };
 
 export type HeaderRow = {
 	kind: 'header';
 	id: string;
 	text: string;
-	onlyWithDeviceScans: boolean;
+	visibility: HeaderVisibility;
 };
 
 export type WidgetRow = {
@@ -68,6 +93,7 @@ export type DashboardConfig = {
 	rows: DashboardRow[];
 	platformStats: PlatformStatId[];
 	deviceStats: DeviceStatId[];
+	modelStats: ModelStatId[];
 };
 
 export type DashboardViewer = {
@@ -102,6 +128,15 @@ export type DashboardSignals = {
 	tokenLoading: boolean;
 	totalTokens: number;
 	totalSpend: number;
+	modelTiles: { loading: boolean; value: number }[];
+	requestStatsLoading: boolean;
+	requestCount: number;
+	providerSpendCount: number;
+	topModelCount: number;
+	individualResponseCount: number;
+	toolErrorCount: number;
+	serverErrorCount: number;
+	activeUserCount: number;
 };
 
 const ADMIN_ONLY = new Set<WidgetId>([
@@ -113,7 +148,12 @@ const ADMIN_ONLY = new Set<WidgetId>([
 	'device-clients',
 	'top-device-mcps',
 	'device-scan-timeline',
-	'token-usage'
+	'token-usage',
+	'model-stats',
+	'llm-requests',
+	'spend-by-provider',
+	'top-models',
+	'most-active-users'
 ]);
 
 const INVENTORY_WIDGETS = new Set<WidgetId>([
@@ -148,13 +188,13 @@ export function factoryConfig(viewer: DashboardViewer): DashboardConfig {
 		? [
 				widgetRow(['platform-stats']),
 				boxRow('box-mcp-servers', [
-					headerRow('header-mcp-servers', m.dashboard_section_mcp_servers(), false),
+					headerRow('header-mcp-servers', m.dashboard_section_mcp_servers(), 'always'),
 					widgetRow(['server-activity', 'top-servers-used']),
 					widgetRow(['most-deployed', 'popular-tools', 'tool-response-time']),
 					widgetRow(['token-usage'])
 				]),
 				boxRow('box-inventory', [
-					headerRow('header-inventory', m.dashboard_section_inventory(), true),
+					headerRow('header-inventory', m.dashboard_section_inventory(), 'device-scans'),
 					widgetRow(['device-scan-stats']),
 					widgetRow(['device-clients', 'top-device-mcps', 'top-device-skills']),
 					widgetRow(['device-scan-timeline'])
@@ -164,7 +204,8 @@ export function factoryConfig(viewer: DashboardViewer): DashboardConfig {
 	return {
 		rows,
 		platformStats: [...PLATFORM_STAT_IDS],
-		deviceStats: [...DEVICE_STAT_IDS]
+		deviceStats: [...DEVICE_STAT_IDS],
+		modelStats: [...MODEL_STAT_IDS]
 	};
 }
 
@@ -182,7 +223,8 @@ export function projectConfig(config: DashboardConfig, viewer: DashboardViewer):
 	return {
 		rows: projectRows(config.rows, available, seen),
 		platformStats: visibleStatIds(config.platformStats, PLATFORM_STAT_IDS),
-		deviceStats: visibleStatIds(config.deviceStats, DEVICE_STAT_IDS)
+		deviceStats: visibleStatIds(config.deviceStats, DEVICE_STAT_IDS),
+		modelStats: visibleStatIds(config.modelStats, MODEL_STAT_IDS)
 	};
 }
 
@@ -196,13 +238,15 @@ export function parseDashboardConfig(value: string | null): DashboardConfig | nu
 			rows?: unknown;
 			platformStats?: unknown;
 			deviceStats?: unknown;
+			modelStats?: unknown;
 		};
 		const rows = normalizeRows(record.rows);
 		if (!rows) return null;
 		return {
 			rows,
 			platformStats: normalizeStatIds(record.platformStats, PLATFORM_STAT_IDS),
-			deviceStats: normalizeStatIds(record.deviceStats, DEVICE_STAT_IDS)
+			deviceStats: normalizeStatIds(record.deviceStats, DEVICE_STAT_IDS),
+			modelStats: normalizeStatIds(record.modelStats, MODEL_STAT_IDS)
 		};
 	} catch {
 		return null;
@@ -212,9 +256,36 @@ export function parseDashboardConfig(value: string | null): DashboardConfig | nu
 export function rowsForRender(
 	config: DashboardConfig,
 	statuses: Partial<Record<WidgetId, WidgetStatus>>,
-	hasDeviceScans = true
+	availability: HeaderAvailability = {
+		deviceScans: true,
+		mcpStats: true,
+		llmStats: true
+	}
 ): DashboardRow[] {
-	return renderRows(config.rows, statuses, hasDeviceScans);
+	return renderRows(config.rows, statuses, availability);
+}
+
+export function headerVisible(row: HeaderRow, availability: HeaderAvailability): boolean {
+	switch (row.visibility) {
+		case 'device-scans':
+			return availability.deviceScans;
+		case 'mcp-stats':
+			return availability.mcpStats;
+		case 'llm-stats':
+			return availability.llmStats;
+		default:
+			return true;
+	}
+}
+
+function headerVisibilityFrom(record: {
+	visibility?: unknown;
+	onlyWithDeviceScans?: unknown;
+}): HeaderVisibility {
+	if (typeof record.visibility === 'string' && headerVisibilitySet.has(record.visibility)) {
+		return record.visibility as HeaderVisibility;
+	}
+	return record.onlyWithDeviceScans === true ? 'device-scans' : 'always';
 }
 
 export function isHiddenBecauseEmpty(
@@ -275,6 +346,39 @@ export function widgetStatuses(signals: DashboardSignals): Partial<Record<Widget
 		'tool-response-time': {
 			loading: signals.toolUsageLoading,
 			empty: signals.responseTimeCount === 0
+		},
+		'model-stats': statCardStatus(signals.modelTiles),
+		'llm-requests': {
+			loading: signals.requestStatsLoading,
+			empty: signals.requestCount === 0
+		},
+		'spend-by-provider': {
+			loading: signals.requestStatsLoading,
+			empty: signals.providerSpendCount === 0
+		},
+		'top-models': {
+			loading: signals.requestStatsLoading,
+			empty: signals.topModelCount === 0
+		},
+		'most-frequent-tool-calls': {
+			loading: signals.toolUsageLoading,
+			empty: signals.popularToolCount === 0
+		},
+		'tool-individual-response-time': {
+			loading: signals.toolUsageLoading,
+			empty: signals.individualResponseCount === 0
+		},
+		'tool-call-errors': {
+			loading: signals.toolUsageLoading,
+			empty: signals.toolErrorCount === 0
+		},
+		'tool-call-errors-by-server': {
+			loading: signals.toolUsageLoading,
+			empty: signals.serverErrorCount === 0
+		},
+		'most-active-users': {
+			loading: signals.toolUsageLoading,
+			empty: signals.activeUserCount === 0
 		}
 	};
 }
@@ -310,7 +414,7 @@ export function insertHeader(
 		kind: 'header',
 		id: createHeaderId(),
 		text,
-		onlyWithDeviceScans: false
+		visibility: 'always'
 	});
 }
 
@@ -341,15 +445,15 @@ export function removeBox(config: DashboardConfig, id: string): DashboardConfig 
 	return { ...config, rows: stripRow(config.rows, (row) => row.kind === 'box' && row.id === id) };
 }
 
-export function setHeaderOnlyWithDeviceScans(
+export function setHeaderVisibility(
 	config: DashboardConfig,
 	id: string,
-	onlyWithDeviceScans: boolean
+	visibility: HeaderVisibility
 ): DashboardConfig {
 	return {
 		...config,
 		rows: mapRows(config.rows, (row) =>
-			row.kind === 'header' && row.id === id ? { ...row, onlyWithDeviceScans } : row
+			row.kind === 'header' && row.id === id ? { ...row, visibility } : row
 		)
 	};
 }
@@ -487,6 +591,13 @@ export function togglePlatformStat(config: DashboardConfig, id: PlatformStatId):
 	return { ...config, platformStats: visibleStatIds(next, PLATFORM_STAT_IDS) };
 }
 
+export function toggleModelStat(config: DashboardConfig, id: ModelStatId): DashboardConfig {
+	const next = config.modelStats.includes(id)
+		? config.modelStats.filter((statId) => statId !== id)
+		: [...config.modelStats, id];
+	return { ...config, modelStats: visibleStatIds(next, MODEL_STAT_IDS) };
+}
+
 export function toggleDeviceStat(config: DashboardConfig, id: DeviceStatId): DashboardConfig {
 	const next = config.deviceStats.includes(id)
 		? config.deviceStats.filter((statId) => statId !== id)
@@ -503,7 +614,8 @@ export function commitLayout(
 	return {
 		rows: commitRows(previous.rows, nextVisible.rows, available),
 		platformStats: visibleStatIds(nextVisible.platformStats, PLATFORM_STAT_IDS),
-		deviceStats: visibleStatIds(nextVisible.deviceStats, DEVICE_STAT_IDS)
+		deviceStats: visibleStatIds(nextVisible.deviceStats, DEVICE_STAT_IDS),
+		modelStats: visibleStatIds(nextVisible.modelStats, MODEL_STAT_IDS)
 	};
 }
 
@@ -515,8 +627,8 @@ function widgetRow(ids: readonly WidgetId[]): WidgetRow {
 	return { kind: 'widgets', items: ids.map(placementFor) };
 }
 
-function headerRow(id: string, text: string, onlyWithDeviceScans: boolean): HeaderRow {
-	return { kind: 'header', id, text, onlyWithDeviceScans };
+function headerRow(id: string, text: string, visibility: HeaderVisibility): HeaderRow {
+	return { kind: 'header', id, text, visibility };
 }
 
 function boxRow(id: string, rows: DashboardRow[]): BoxRow {
@@ -573,15 +685,15 @@ function projectRows(
 function renderRows(
 	rows: DashboardRow[],
 	statuses: Partial<Record<WidgetId, WidgetStatus>>,
-	hasDeviceScans: boolean
+	availability: HeaderAvailability
 ): DashboardRow[] {
 	return rows.flatMap((row): DashboardRow[] => {
 		if (row.kind === 'header') {
-			if (row.onlyWithDeviceScans && !hasDeviceScans) return [];
+			if (!headerVisible(row, availability)) return [];
 			return [row];
 		}
 		if (row.kind === 'box') {
-			const nested = renderRows(row.rows, statuses, hasDeviceScans);
+			const nested = renderRows(row.rows, statuses, availability);
 			if (nested.length === 0 && row.rows.length > 0) return [];
 			return [{ ...row, rows: nested }];
 		}
@@ -821,6 +933,7 @@ function normalizeRows(
 			text?: unknown;
 			items?: unknown;
 			rows?: unknown;
+			visibility?: unknown;
 			onlyWithDeviceScans?: unknown;
 		};
 		if (record.kind === 'box') {
@@ -840,7 +953,7 @@ function normalizeRows(
 				kind: 'header',
 				id,
 				text: typeof record.text === 'string' ? record.text : '',
-				onlyWithDeviceScans: record.onlyWithDeviceScans === true
+				visibility: headerVisibilityFrom(record)
 			});
 			continue;
 		}

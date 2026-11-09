@@ -4,15 +4,17 @@
 	import { m } from '$lib/i18n';
 	import {
 		DEVICE_STAT_IDS,
+		MODEL_STAT_IDS,
 		PLATFORM_STAT_IDS,
 		removeWidget,
 		setHideWhenEmpty,
 		toggleDeviceStat,
+		toggleModelStat,
 		togglePlatformStat,
 		type DashboardConfig,
 		type WidgetPlacement
 	} from '../dashboardLayout';
-	import { deviceStatLabel, platformStatLabel, widgetLabel } from './labels';
+	import { deviceStatLabel, modelStatLabel, platformStatLabel, widgetLabel } from './labels';
 	import { EllipsisVertical, GripVertical, XIcon } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -121,6 +123,18 @@
 										onchange={() => onChange(togglePlatformStat(config, statId))}
 									/>
 									{platformStatLabel(statId)}
+								</label>
+							{/each}
+						{:else if placement.id === 'model-stats'}
+							{#each MODEL_STAT_IDS as statId (statId)}
+								<label class="flex items-center gap-2 text-xs m-2">
+									<input
+										type="checkbox"
+										class="checkbox checkbox-xs checked:checkbox-primary"
+										checked={config.modelStats.includes(statId)}
+										onchange={() => onChange(toggleModelStat(config, statId))}
+									/>
+									{modelStatLabel(statId)}
 								</label>
 							{/each}
 						{:else if placement.id === 'device-scan-stats'}

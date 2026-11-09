@@ -53,7 +53,12 @@
 	"dashboard_box": "상자",
 	"dashboard_header": "제목",
 	"dashboard_header_placeholder": "섹션 제목",
+	"dashboard_header_always_show": "항상 표시",
 	"dashboard_header_only_with_scans": "디바이스 스캔이 있을 때만 표시",
+	"dashboard_header_only_with_mcp_stats": "MCP 통계가 있을 때만 표시",
+	"dashboard_header_only_with_llm_stats": "LLM 통계가 있을 때만 표시",
 	"dashboard_section_mcp_servers": "MCP 서버",
-	"dashboard_section_inventory": "인벤토리"
+	"dashboard_section_inventory": "인벤토리",
+	"dashboard_model_stats": "모델 통계",
+	"dashboard_top_models": "상위 모델"
 }

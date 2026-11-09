@@ -53,7 +53,12 @@
 	"dashboard_box": "Box",
 	"dashboard_header": "Header",
 	"dashboard_header_placeholder": "Section heading",
+	"dashboard_header_always_show": "Always show",
 	"dashboard_header_only_with_scans": "Only show when device scans exist",
+	"dashboard_header_only_with_mcp_stats": "Only show when MCP stats exist",
+	"dashboard_header_only_with_llm_stats": "Only show when LLM stats exist",
 	"dashboard_section_mcp_servers": "MCP Servers",
-	"dashboard_section_inventory": "Inventory"
+	"dashboard_section_inventory": "Inventory",
+	"dashboard_model_stats": "Model Stats",
+	"dashboard_top_models": "Top Models"
 }

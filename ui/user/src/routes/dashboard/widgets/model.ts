@@ -1,12 +1,24 @@
 import type { DeviceScanTopBucket } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
+import type {
+	IndividualToolResponseRow,
+	MostActiveUserRow,
+	ToolCallErrorRow,
+	ToolCallErrorsByServerRow
+} from '$lib/components/admin/usage/utils';
 import type { DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
-import type { MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+import type {
+	MCPCatalogEntry,
+	MCPCatalogServer,
+	OrgUser,
+	TokenUsageStats,
+	TotalTokenUsage
+} from '$lib/services';
 import type {
 	AvgToolCallResponseTimeRow,
 	TopServerUsageRow,
 	TopToolCallRow
 } from '$lib/services/dashboard/types';
-import type { DeviceStatId, PlatformStatId } from '../dashboardLayout';
+import type { DeviceStatId, ModelStatId, PlatformStatId } from '../dashboardLayout';
 import type { Component } from 'svelte';
 
 export type DashboardStatTile<Id extends string> = {
@@ -46,6 +58,16 @@ export type DashboardWidgetModel = {
 	topToolCalls: TopToolCallRow[];
 	maxToolsToShow: number;
 	avgToolCallResponseTime: AvgToolCallResponseTimeRow[];
+	individualToolResponses: IndividualToolResponseRow[];
+	toolCallErrors: ToolCallErrorRow[];
+	toolCallErrorsByServer: ToolCallErrorsByServerRow[];
+	mostActiveUsers: MostActiveUserRow[];
+	users: OrgUser[];
+	loadingTokens: boolean;
+	totalTokenUsage?: TotalTokenUsage;
+	modelStats: ModelStatId[];
+	loadingTokenUsageStats: boolean;
+	tokenUsageStats?: TokenUsageStats;
 	loadingDeviceScanStats: boolean;
 	deviceScanSkillBuckets: DeviceScanTopBucket[];
 	totalDeviceScanSkillGroups: number;

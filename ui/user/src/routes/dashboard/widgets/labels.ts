@@ -1,5 +1,5 @@
 import { m } from '$lib/i18n';
-import type { DeviceStatId, PlatformStatId, WidgetId } from '../dashboardLayout';
+import type { DeviceStatId, ModelStatId, PlatformStatId, WidgetId } from '../dashboardLayout';
 
 export function widgetLabel(id: WidgetId): string {
 	switch (id) {
@@ -27,6 +27,24 @@ export function widgetLabel(id: WidgetId): string {
 			return m.dashboard_recently_popular_tools();
 		case 'tool-response-time':
 			return m.dashboard_tool_call_avg_response_time();
+		case 'model-stats':
+			return m.dashboard_model_stats();
+		case 'llm-requests':
+			return m.audit_usage_usage_requests_over_time();
+		case 'spend-by-provider':
+			return m.audit_usage_usage_spend_by_provider();
+		case 'top-models':
+			return m.dashboard_top_models();
+		case 'most-frequent-tool-calls':
+			return m.audit_usage_usage_most_frequent_tool_calls();
+		case 'tool-individual-response-time':
+			return m.audit_usage_usage_individual_response_time();
+		case 'tool-call-errors':
+			return m.audit_usage_usage_tool_call_errors();
+		case 'tool-call-errors-by-server':
+			return m.audit_usage_usage_errors_by_server();
+		case 'most-active-users':
+			return m.audit_usage_usage_most_active_users();
 	}
 }
 
@@ -40,6 +58,21 @@ export function platformStatLabel(id: PlatformStatId): string {
 			return m.dashboard_total_tokens();
 		case 'total-spend':
 			return m.dashboard_total_spend();
+	}
+}
+
+export function modelStatLabel(id: ModelStatId): string {
+	switch (id) {
+		case 'total':
+			return m.core_total_label();
+		case 'input':
+			return m.core_col_input();
+		case 'output':
+			return m.core_col_output();
+		case 'cached-input':
+			return m.audit_usage_usage_cached_input();
+		case 'spend':
+			return m.core_spend();
 	}
 }
 

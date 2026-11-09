@@ -1,9 +1,11 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { m } from '$lib/i18n';
+	import HeaderVisibilityOptions from './HeaderVisibilityOptions.svelte';
 	import {
 		DEVICE_STAT_IDS,
 		MAX_WIDGETS_PER_ROW,
+		MODEL_STAT_IDS,
 		PLATFORM_STAT_IDS,
 		appendBox,
 		appendHeader,
@@ -16,16 +18,21 @@
 		removeBox,
 		removeHeader,
 		removeWidget,
-		setHeaderOnlyWithDeviceScans,
 		setHeaderText,
 		setHideWhenEmpty,
 		toggleDeviceStat,
+		toggleModelStat,
 		togglePlatformStat,
 		type DashboardConfig,
 		type DashboardRow,
 		type WidgetId
 	} from './dashboardLayout';
-	import { deviceStatLabel, platformStatLabel, widgetLabel } from './widgets/labels';
+	import {
+		deviceStatLabel,
+		modelStatLabel,
+		platformStatLabel,
+		widgetLabel
+	} from './widgets/labels';
 	import { GripVertical, X } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -561,20 +568,13 @@
 						<X class="size-4" />
 					</button>
 				</div>
-				<label class="mt-3 flex items-center gap-2 text-xs">
-					<input
-						type="checkbox"
-						class="checkbox checkbox-xs checked:checkbox-primary"
-						checked={row.onlyWithDeviceScans}
-						aria-label="{m.dashboard_header_only_with_scans()}: {row.text || m.dashboard_header()}"
-						onchange={(event) => {
-							const target = event.currentTarget;
-							if (!(target instanceof HTMLInputElement)) return;
-							stage(setHeaderOnlyWithDeviceScans(editing, row.id, target.checked));
-						}}
-					/>
-					{m.dashboard_header_only_with_scans()}
-				</label>
+				<HeaderVisibilityOptions
+					class="mt-2"
+					{row}
+					config={editing}
+					onChange={stage}
+					scope="configure"
+				/>
 			</div>
 		{:else}
 			<div
@@ -637,6 +637,20 @@
 									</label>
 								{/each}
 							</div>
+						{:else if placement.id === 'model-stats'}
+							<div class="mt-3 flex flex-col gap-1">
+								{#each MODEL_STAT_IDS as statId (statId)}
+									<label class="flex items-center gap-2 text-xs">
+										<input
+											type="checkbox"
+											class="checkbox checkbox-xs checked:checkbox-primary"
+											checked={editing.modelStats.includes(statId)}
+											onchange={() => stage(toggleModelStat(editing, statId))}
+										/>
+										{modelStatLabel(statId)}
+									</label>
+								{/each}
+							</div>
 						{:else if placement.id === 'device-scan-stats'}
 							<div class="mt-3 flex flex-col gap-1">
 								{#each DEVICE_STAT_IDS as statId (statId)}
@@ -655,7 +669,9 @@
 						<label
 							class={twMerge(
 								'flex items-center gap-2 text-xs',
-								placement.id === 'platform-stats' || placement.id === 'device-scan-stats'
+								placement.id === 'platform-stats' ||
+									placement.id === 'device-scan-stats' ||
+									placement.id === 'model-stats'
 									? 'mt-1'
 									: 'mt-3'
 							)}

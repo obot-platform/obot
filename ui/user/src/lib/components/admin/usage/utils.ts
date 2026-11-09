@@ -65,3 +65,113 @@ export function transformAvgToolCallResponseTime(stats: McpAuditLogUsageStats | 
 		}))
 		.sort((a, b) => b.averageResponseTimeMs - a.averageResponseTimeMs);
 }
+
+export type IndividualToolResponseRow = {
+	toolName: string;
+	processingTimeMs: number;
+	serverDisplayName: string;
+};
+
+export function transformIndividualToolResponseTimes(
+	stats: McpAuditLogUsageStats | undefined
+): IndividualToolResponseRow[] {
+	const rows: IndividualToolResponseRow[] = [];
+	for (const server of stats?.items ?? []) {
+		for (const call of server.toolCalls ?? []) {
+			for (const [itemIndex, item] of (call.items ?? []).entries()) {
+				rows.push({
+					toolName: `${server.mcpServerDisplayName}.${server.mcpID}.${itemIndex}.${call.toolName}`,
+					processingTimeMs: item.processingTimeMs,
+					serverDisplayName: server.mcpServerDisplayName
+				});
+			}
+		}
+	}
+	return rows.sort((a, b) => b.processingTimeMs - a.processingTimeMs);
+}
+
+export type ToolCallErrorRow = {
+	toolName: string;
+	errorCount: number;
+	serverDisplayName: string;
+};
+
+export function transformToolCallErrors(
+	stats: McpAuditLogUsageStats | undefined
+): ToolCallErrorRow[] {
+	const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
+	for (const server of stats?.items ?? []) {
+		for (const call of server.toolCalls ?? []) {
+			const key = `${server.mcpServerDisplayName}.${call.toolName}`;
+			let count = 0;
+			for (const item of call.items ?? []) {
+				if (item.error || item.responseStatus >= 400) count++;
+			}
+			if (count > 0) {
+				const existing = errorCounts.get(key) ?? {
+					errorCount: 0,
+					serverDisplayName: server.mcpServerDisplayName
+				};
+				existing.errorCount += count;
+				errorCounts.set(key, existing);
+			}
+		}
+	}
+	return Array.from(errorCounts.entries())
+		.filter(([, entry]) => entry.errorCount > 0)
+		.map(([toolName, { errorCount, serverDisplayName }]) => ({
+			toolName,
+			errorCount,
+			serverDisplayName
+		}))
+		.sort((a, b) => b.errorCount - a.errorCount);
+}
+
+export type ToolCallErrorsByServerRow = {
+	serverName: string;
+	errorCount: number;
+};
+
+export function transformToolCallErrorsByServer(
+	stats: McpAuditLogUsageStats | undefined
+): ToolCallErrorsByServerRow[] {
+	const errorCounts = new Map<string, number>();
+	for (const server of stats?.items ?? []) {
+		let count = 0;
+		for (const call of server.toolCalls ?? []) {
+			for (const item of call.items ?? []) {
+				if (item.error || item.responseStatus >= 400) count++;
+			}
+		}
+		if (count > 0) {
+			errorCounts.set(
+				server.mcpServerDisplayName,
+				(errorCounts.get(server.mcpServerDisplayName) ?? 0) + count
+			);
+		}
+	}
+	return Array.from(errorCounts.entries())
+		.map(([serverName, errorCount]) => ({ serverName, errorCount }))
+		.sort((a, b) => b.errorCount - a.errorCount);
+}
+
+export type MostActiveUserRow = {
+	userId: string;
+	callCount: number;
+};
+
+export function transformMostActiveUsers(
+	stats: McpAuditLogUsageStats | undefined
+): MostActiveUserRow[] {
+	const userCounts = new Map<string, number>();
+	for (const server of stats?.items ?? []) {
+		for (const call of server.toolCalls ?? []) {
+			for (const item of call.items ?? []) {
+				userCounts.set(item.userID, (userCounts.get(item.userID) ?? 0) + 1);
+			}
+		}
+	}
+	return Array.from(userCounts.entries())
+		.map(([userId, callCount]) => ({ userId, callCount }))
+		.sort((a, b) => b.callCount - a.callCount);
+}

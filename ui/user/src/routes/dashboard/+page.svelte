@@ -4,6 +4,12 @@
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
+	import {
+		transformIndividualToolResponseTimes,
+		transformMostActiveUsers,
+		transformToolCallErrors,
+		transformToolCallErrorsByServer
+	} from '$lib/components/admin/usage/utils';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
@@ -16,14 +22,11 @@
 		type DeviceScanStats,
 		type DeviceSkillStat,
 		type MCPCatalogServer,
+		type McpAuditLogUsageStats,
 		type OrgUser,
+		type TokenUsageStats,
 		type TotalTokenUsage
 	} from '$lib/services';
-	import type {
-		AvgToolCallResponseTimeRow,
-		TopServerUsageRow,
-		TopToolCallRow
-	} from '$lib/services/dashboard/types';
 	import {
 		avgToolCallResponseTimeFromStats,
 		compileServerAndEntries,
@@ -37,12 +40,14 @@
 	import {
 		DASHBOARD_LAYOUT_KEY,
 		DEVICE_STAT_IDS,
+		MODEL_STAT_IDS,
 		PLATFORM_STAT_IDS,
 		availableWidgets,
 		colSpanClass,
 		commitLayout,
 		factoryConfig,
 		type WidgetId,
+		headerVisible,
 		isHiddenBecauseEmpty,
 		moveHeader,
 		parseDashboardConfig,
@@ -55,6 +60,7 @@
 		type DashboardRow,
 		type DeviceStatId,
 		type DropTarget,
+		type ModelStatId,
 		type PlatformStatId,
 		type WidgetPlacement
 	} from './dashboardLayout';
@@ -80,15 +86,24 @@
 
 	let { data } = $props();
 	let hasDeviceScans = $derived(data?.hasDeviceScans ?? false);
+	let hasMcpStats = $derived(data?.hasMcpStats ?? false);
+	let hasLlmStats = $derived(data?.hasLlmStats ?? false);
+	const headerAvailability = $derived({
+		deviceScans: hasDeviceScans,
+		mcpStats: hasMcpStats,
+		llmStats: hasLlmStats
+	});
 	let loading = $state(true);
 	let loadingToolUsage = $state(true);
 	let loadingDeviceScanStats = $state(true);
 	let loadingTokens = $state(true);
+	let loadingTokenUsageStats = $state(true);
 
 	let configureDashboardDialog = $state<ReturnType<typeof ConfigureDashboard>>();
 
 	let usersData = $state<OrgUser[]>([]);
 	let totalTokensData = $state<TotalTokenUsage>();
+	let tokenUsageStats = $state<TokenUsageStats>();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
 	const isAdmin = $derived(Boolean(profile.current.hasAdminAccess?.()));
@@ -102,9 +117,14 @@
 		return projectConfig(storedLayout.current, viewer);
 	});
 
-	let topToolCalls = $state<TopToolCallRow[]>([]);
-	let topServerUsage = $state<TopServerUsageRow[]>([]);
-	let avgToolCallResponseTime = $state<AvgToolCallResponseTimeRow[]>([]);
+	let mcpUsageStats = $state<McpAuditLogUsageStats>();
+	const topToolCalls = $derived(topToolCallsFromStats(mcpUsageStats));
+	const topServerUsage = $derived(topServersFromStats(mcpUsageStats));
+	const avgToolCallResponseTime = $derived(avgToolCallResponseTimeFromStats(mcpUsageStats));
+	const individualToolResponses = $derived(transformIndividualToolResponseTimes(mcpUsageStats));
+	const toolCallErrors = $derived(transformToolCallErrors(mcpUsageStats));
+	const toolCallErrorsByServer = $derived(transformToolCallErrorsByServer(mcpUsageStats));
+	const mostActiveUsers = $derived(transformMostActiveUsers(mcpUsageStats));
 	let deviceScanStats = $state<DeviceScanStats | null>(null);
 	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
 	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
@@ -112,7 +132,9 @@
 	const { startTime: initialStart, endTime: initialEnd } = getTimeRangeFilter({ days: 30 });
 	let end = $state(initialEnd);
 	let start = $state(initialStart);
-	const rangeBusy = $derived(loadingToolUsage || loadingTokens || loadingDeviceScanStats);
+	const rangeBusy = $derived(
+		loadingToolUsage || loadingTokens || loadingTokenUsageStats || loadingDeviceScanStats
+	);
 	let rangeRequest = 0;
 
 	let monthlyActiveUsers = $derived(
@@ -172,7 +194,12 @@
 	let dragClone: HTMLElement | null = null;
 	let dragOffsetX = 0;
 	let dragOffsetY = 0;
+	let dragPointerX = 0;
+	let dragPointerY = 0;
+	let dragScrollFrame = 0;
 	const editingLayout = $derived(draft ?? dashboardLayout);
+	const DRAG_SCROLL_EDGE = 64;
+	const DRAG_SCROLL_MAX = 16;
 
 	function updateLayout(next: DashboardConfig) {
 		applyLayout(next);
@@ -180,7 +207,7 @@
 	}
 
 	function showRow(row: DashboardRow): boolean {
-		if (row.kind === 'header') return !(row.onlyWithDeviceScans && !hasDeviceScans);
+		if (row.kind === 'header') return headerVisible(row, headerAvailability);
 		if (row.kind === 'box') {
 			if (row.rows.length === 0) return true;
 			return row.rows.some(showRow);
@@ -338,6 +365,74 @@
 		dragClone.style.top = `${y - dragOffsetY}px`;
 	}
 
+	function dashboardScroller(): HTMLElement | null {
+		if (typeof document === 'undefined') return null;
+		const anchor = document.querySelector(
+			'[data-dashboard-card], [data-dashboard-header], [data-dashboard-box]'
+		);
+		let current = anchor?.parentElement ?? null;
+		while (current) {
+			const overflowY = getComputedStyle(current).overflowY;
+			if (
+				(overflowY === 'auto' || overflowY === 'scroll') &&
+				current.scrollHeight > current.clientHeight + 1
+			) {
+				return current;
+			}
+			current = current.parentElement;
+		}
+		return null;
+	}
+
+	function dragScrollDelta(y: number): { scroller: HTMLElement; delta: number } | null {
+		const scroller = dashboardScroller();
+		if (!scroller) return null;
+		const remaining = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
+		if (remaining <= 1) return null;
+		const bottom = Math.min(scroller.getBoundingClientRect().bottom, window.innerHeight);
+		const intoEdge = bottom - y;
+		if (intoEdge >= DRAG_SCROLL_EDGE || intoEdge < -8) return null;
+		const depth = Math.min(1, (DRAG_SCROLL_EDGE - intoEdge) / DRAG_SCROLL_EDGE);
+		return {
+			scroller,
+			delta: Math.min(remaining, Math.max(1, Math.round(depth * DRAG_SCROLL_MAX)))
+		};
+	}
+
+	function placeDraggedAtPointer() {
+		if (!dragging) return;
+		moveDragClone(dragPointerX, dragPointerY);
+		const action = actionAt(dragPointerX, dragPointerY, dragging);
+		if (!action) return;
+		const layout = draft ?? dashboardLayout;
+		const next = moveSubject(layout, dragging, action);
+		if (JSON.stringify(next.rows) !== JSON.stringify(layout.rows)) draft = next;
+	}
+
+	function stopDragAutoScroll() {
+		if (!dragScrollFrame || typeof cancelAnimationFrame === 'undefined') return;
+		cancelAnimationFrame(dragScrollFrame);
+		dragScrollFrame = 0;
+	}
+
+	function tickDragAutoScroll() {
+		dragScrollFrame = 0;
+		if (!dragging) return;
+		const step = dragScrollDelta(dragPointerY);
+		if (!step) return;
+		step.scroller.scrollTop += step.delta;
+		placeDraggedAtPointer();
+		dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
+	}
+
+	function syncDragAutoScroll() {
+		if (!dragScrollDelta(dragPointerY)) {
+			stopDragAutoScroll();
+			return;
+		}
+		if (!dragScrollFrame) dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
+	}
+
 	function moveSubject(layout: DashboardConfig, subject: DragSubject, action: DropTarget) {
 		if (subject.kind === 'widget') return placeWidget(layout, subject.id, action);
 		if (action.kind !== 'new-row') return layout;
@@ -346,15 +441,14 @@
 
 	function onPointerMove(event: PointerEvent) {
 		if (!dragging) return;
-		moveDragClone(event.clientX, event.clientY);
-		const action = actionAt(event.clientX, event.clientY, dragging);
-		if (!action) return;
-		const layout = draft ?? dashboardLayout;
-		const next = moveSubject(layout, dragging, action);
-		if (JSON.stringify(next.rows) !== JSON.stringify(layout.rows)) draft = next;
+		dragPointerX = event.clientX;
+		dragPointerY = event.clientY;
+		placeDraggedAtPointer();
+		syncDragAutoScroll();
 	}
 
 	function detachDragListeners() {
+		stopDragAutoScroll();
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('pointermove', onPointerMove);
 		window.removeEventListener('pointerup', onPointerUp);
@@ -427,9 +521,7 @@
 					...stats,
 					items: statsToUse
 				};
-				topToolCalls = topToolCallsFromStats(adjustedStats);
-				topServerUsage = topServersFromStats(adjustedStats);
-				avgToolCallResponseTime = avgToolCallResponseTimeFromStats(adjustedStats);
+				mcpUsageStats = adjustedStats;
 			})
 			.catch((error) => {
 				if (request !== rangeRequest || error?.name === 'AbortError') return;
@@ -441,12 +533,14 @@
 
 		if (!profile.current.hasAdminAccess?.()) {
 			loadingTokens = false;
+			loadingTokenUsageStats = false;
 			loadingDeviceScanStats = false;
 			return;
 		}
 
 		loadingDeviceScanStats = true;
 		loadingTokens = true;
+		loadingTokenUsageStats = true;
 
 		AdminService.getDeviceScanStats({
 			start: rangeStart.toISOString(),
@@ -475,6 +569,19 @@
 			})
 			.finally(() => {
 				if (request === rangeRequest) loadingTokens = false;
+			});
+
+		AdminService.getTokenUsageStats({ start: rangeStart, end: rangeEnd })
+			.then((stats) => {
+				if (request !== rangeRequest) return;
+				tokenUsageStats = stats;
+			})
+			.catch((error) => {
+				if (request !== rangeRequest || error?.name === 'AbortError') return;
+				errors.append(error);
+			})
+			.finally(() => {
+				if (request === rangeRequest) loadingTokenUsageStats = false;
 			});
 	}
 
@@ -617,6 +724,15 @@
 		}
 	]);
 
+	const visibleModelStats = $derived(visibleStatIds(dashboardLayout.modelStats, MODEL_STAT_IDS));
+	const modelStatValue = $derived<Record<ModelStatId, number>>({
+		total: totalTokensData?.totalTokens ?? 0,
+		input: totalTokensData?.inputTokens ?? 0,
+		output: totalTokensData?.outputTokens ?? 0,
+		'cached-input':
+			(totalTokensData?.cacheReadTokens ?? 0) + (totalTokensData?.cacheWriteTokens ?? 0),
+		spend: totalTokensData?.totalSpend ?? 0
+	});
 	const visiblePlatformTiles = $derived(
 		platformStatTiles.filter((tile) =>
 			visibleStatIds(dashboardLayout.platformStats, PLATFORM_STAT_IDS).includes(tile.id)
@@ -647,10 +763,26 @@
 			scanCount: deviceScanTimelineRows.length,
 			tokenLoading: loadingTokens,
 			totalTokens: totalTokensData?.totalTokens ?? 0,
-			totalSpend: totalTokensData?.totalSpend ?? 0
+			totalSpend: totalTokensData?.totalSpend ?? 0,
+			modelTiles: visibleModelStats.map((id) => ({
+				loading: loadingTokens,
+				value: modelStatValue[id]
+			})),
+			requestStatsLoading: loadingTokenUsageStats,
+			requestCount: tokenUsageStats?.totals.requests ?? 0,
+			providerSpendCount: (tokenUsageStats?.providers ?? []).filter(
+				(provider) => provider.totalSpend > 0
+			).length,
+			topModelCount:
+				(tokenUsageStats?.topModelsByRequests?.length ?? 0) +
+				(tokenUsageStats?.topModelsBySpend?.length ?? 0),
+			individualResponseCount: individualToolResponses.length,
+			toolErrorCount: toolCallErrors.length,
+			serverErrorCount: toolCallErrorsByServer.length,
+			activeUserCount: mostActiveUsers.length
 		})
 	);
-	const renderedRows = $derived(rowsForRender(editingLayout, statuses, hasDeviceScans));
+	const renderedRows = $derived(rowsForRender(editingLayout, statuses, headerAvailability));
 	const emptyWidgets = $derived(
 		(
 			Object.entries(statuses) as [WidgetId, { loading: boolean; empty: boolean } | undefined][]
@@ -676,6 +808,16 @@
 		topToolCalls,
 		maxToolsToShow,
 		avgToolCallResponseTime,
+		individualToolResponses,
+		toolCallErrors,
+		toolCallErrorsByServer,
+		mostActiveUsers,
+		users: usersData,
+		loadingTokens,
+		totalTokenUsage: totalTokensData,
+		modelStats: visibleModelStats,
+		loadingTokenUsageStats,
+		tokenUsageStats,
 		loadingDeviceScanStats,
 		deviceScanSkillBuckets,
 		totalDeviceScanSkillGroups,

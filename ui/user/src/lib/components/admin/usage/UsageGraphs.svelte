@@ -24,6 +24,10 @@
 	import type { SupportedStateFilter } from './types';
 	import {
 		transformAvgToolCallResponseTime,
+		transformIndividualToolResponseTimes,
+		transformMostActiveUsers,
+		transformToolCallErrors,
+		transformToolCallErrorsByServer,
 		transformTopServerUsage,
 		transformTopToolCalls
 	} from './utils';
@@ -47,7 +51,7 @@
 		tooltip: string;
 		formatXLabel?: (x: string | number) => string;
 		formatTooltipText?: (data: Record<string, string | number>) => string;
-		transform: (stats?: McpAuditLogUsageStats) => Array<Record<string, string | number>>;
+		transform: (stats?: McpAuditLogUsageStats) => object[];
 	};
 
 	let { mcpId, mcpServerCatalogEntryName, mcpServerDisplayName }: Props = $props();
@@ -199,7 +203,7 @@
 	let listUsageStats = $state<Promise<McpAuditLogUsageStats>>();
 	let graphPageSize = $state(10);
 	let graphPages = $state<Record<string, number>>({});
-	let graphData = $derived<Record<string, Record<string, string | number>[]>>({});
+	let graphData = $derived<Record<string, object[]>>({});
 	let graphTotals = $derived<Record<string, number>>({});
 	let showFilters = $state(false);
 	let rightSidebar = $state<HTMLDivElement>();
@@ -262,21 +266,7 @@
 			},
 			formatTooltipText: (data) =>
 				`${(data.processingTimeMs as number).toFixed(2)}ms • ${data.serverDisplayName}`,
-			transform: (stats) => {
-				const rows = [];
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						for (const [itemIndex, item] of (call.items ?? []).entries()) {
-							rows.push({
-								toolName: `${s.mcpServerDisplayName}.${s.mcpID}.${itemIndex}.${call.toolName}`,
-								processingTimeMs: item.processingTimeMs,
-								serverDisplayName: s.mcpServerDisplayName
-							});
-						}
-					}
-				}
-				return rows.sort((a, b) => b.processingTimeMs - a.processingTimeMs);
-			}
+			transform: transformIndividualToolResponseTimes
 		},
 		{
 			id: graphConfigIds.toolCallErrors,
@@ -294,35 +284,7 @@
 					count: data.errorCount,
 					name: data.serverDisplayName
 				}),
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const errorCounts = new Map<string, { errorCount: number; serverDisplayName: string }>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						const key = `${s.mcpServerDisplayName}.${call.toolName}`;
-						let count = 0;
-						for (const item of call.items ?? []) {
-							if (item.error || item.responseStatus >= 400) count++;
-						}
-						if (count > 0) {
-							const existing = errorCounts.get(key) ?? {
-								errorCount: 0,
-								serverDisplayName: s.mcpServerDisplayName
-							};
-							existing.errorCount += count;
-							errorCounts.set(key, existing);
-						}
-					}
-				}
-				return Array.from(errorCounts.entries())
-					.filter(([_, { errorCount }]) => errorCount > 0)
-					.map(([toolName, { errorCount, serverDisplayName }]) => ({
-						toolName,
-						errorCount,
-						serverDisplayName
-					}))
-					.sort((a, b) => b.errorCount - a.errorCount);
-			}
+			transform: transformToolCallErrors
 		},
 		{
 			id: graphConfigIds.toolCallErrorsByServer,
@@ -331,27 +293,7 @@
 			yKey: 'errorCount',
 			tooltip: m.audit_usage_usage_unit_errors(),
 			formatXLabel: (d) => String(d),
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const errorCounts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					let count = 0;
-					for (const call of s.toolCalls ?? []) {
-						for (const item of call.items ?? []) {
-							if (item.error || item.responseStatus >= 400) count++;
-						}
-					}
-					if (count > 0) {
-						errorCounts.set(
-							s.mcpServerDisplayName,
-							(errorCounts.get(s.mcpServerDisplayName) ?? 0) + count
-						);
-					}
-				}
-				return Array.from(errorCounts.entries())
-					.map(([serverName, errorCount]) => ({ serverName, errorCount }))
-					.sort((a, b) => b.errorCount - a.errorCount);
-			}
+			transform: transformToolCallErrorsByServer
 		},
 		{
 			id: graphConfigIds.mostActiveUsers,
@@ -370,21 +312,7 @@
 				const user = usersAsArray.find((u) => u.id === userId);
 				return withDisabledMarker(userDisplayName(user), user);
 			},
-			transform: (stats) => {
-				// eslint-disable-next-line svelte/prefer-svelte-reactivity
-				const userCounts = new Map<string, number>();
-				for (const s of stats?.items ?? []) {
-					for (const call of s.toolCalls ?? []) {
-						for (const item of call.items ?? []) {
-							const count = userCounts.get(item.userID) ?? 0;
-							userCounts.set(item.userID, count + 1);
-						}
-					}
-				}
-				return Array.from(userCounts.entries())
-					.map(([userId, callCount]) => ({ userId, callCount }))
-					.sort((a, b) => b.callCount - a.callCount);
-			}
+			transform: transformMostActiveUsers
 		}
 	];
 
@@ -451,7 +379,7 @@
 
 	async function updateGraphs() {
 		const stats = await listUsageStats;
-		const data: Record<string, Record<string, string | number>[]> = {};
+		const data: Record<string, object[]> = {};
 		const totals: Record<string, number> = {};
 
 		for (const cfg of filteredGraphConfigs) {
@@ -616,7 +544,7 @@
 					<div class="p-4">
 						{#if paginated.length > 0}
 							<HorizontalBarList
-								data={paginated}
+								data={paginated as Record<string, string | number>[]}
 								labelKey={cfg.xKey}
 								valueKey={cfg.yKey}
 								formatLabel={cfg.formatXLabel}

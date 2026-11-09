@@ -53,7 +53,12 @@
 	"dashboard_box": "ボックス",
 	"dashboard_header": "見出し",
 	"dashboard_header_placeholder": "セクションの見出し",
+	"dashboard_header_always_show": "常に表示",
 	"dashboard_header_only_with_scans": "デバイススキャンがあるときだけ表示",
+	"dashboard_header_only_with_mcp_stats": "MCP の統計があるときだけ表示",
+	"dashboard_header_only_with_llm_stats": "LLM の統計があるときだけ表示",
 	"dashboard_section_mcp_servers": "MCP サーバー",
-	"dashboard_section_inventory": "インベントリ"
+	"dashboard_section_inventory": "インベントリ",
+	"dashboard_model_stats": "モデルの統計",
+	"dashboard_top_models": "上位モデル"
 }

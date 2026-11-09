@@ -1,4 +1,5 @@
 import {
+	MODEL_STAT_IDS,
 	PLATFORM_STAT_IDS,
 	appendBox,
 	appendHeader,
@@ -17,6 +18,7 @@ import {
 	rowsForRender,
 	setHeaderText,
 	setHideWhenEmpty,
+	toggleModelStat,
 	togglePlatformStat,
 	widgetStatuses,
 	type DashboardRow,
@@ -76,6 +78,15 @@ function signals(overrides: Partial<DashboardSignals> = {}): DashboardSignals {
 		tokenLoading: false,
 		totalTokens: 1,
 		totalSpend: 1,
+		modelTiles: [{ loading: false, value: 1 }],
+		requestStatsLoading: false,
+		requestCount: 1,
+		providerSpendCount: 1,
+		topModelCount: 1,
+		individualResponseCount: 1,
+		toolErrorCount: 1,
+		serverErrorCount: 1,
+		activeUserCount: 1,
 		...overrides
 	};
 }
@@ -116,11 +127,11 @@ describe('dashboard layout', () => {
 		expect(layout.rows[2]).toMatchObject({ kind: 'box' });
 		expect(layout.rows[1].kind === 'box' ? layout.rows[1].rows[0] : null).toMatchObject({
 			text: 'MCP Servers',
-			onlyWithDeviceScans: false
+			visibility: 'always'
 		});
 		expect(layout.rows[2].kind === 'box' ? layout.rows[2].rows[0] : null).toMatchObject({
 			text: 'Inventory',
-			onlyWithDeviceScans: true
+			visibility: 'device-scans'
 		});
 		expect(
 			placements(layout.rows)
@@ -133,6 +144,7 @@ describe('dashboard layout', () => {
 				.every((placement) => !placement.hideWhenEmpty)
 		).toBe(true);
 		expect(layout.platformStats).toEqual([...PLATFORM_STAT_IDS]);
+		expect(layout.modelStats).toEqual([...MODEL_STAT_IDS]);
 	});
 
 	it('gives power users the shared usage widgets', () => {
@@ -143,8 +155,38 @@ describe('dashboard layout', () => {
 		expect(availableWidgets({ isAdmin: false })).toEqual([
 			'top-servers-used',
 			'popular-tools',
-			'tool-response-time'
+			'tool-response-time',
+			'most-frequent-tool-calls',
+			'tool-individual-response-time',
+			'tool-call-errors',
+			'tool-call-errors-by-server'
 		]);
+	});
+
+	it('offers usage graphs without placing them in the factory layout', () => {
+		const usageWidgets = [
+			'model-stats',
+			'llm-requests',
+			'spend-by-provider',
+			'top-models',
+			'most-frequent-tool-calls',
+			'tool-individual-response-time',
+			'tool-call-errors',
+			'tool-call-errors-by-server',
+			'most-active-users'
+		];
+		const placed = placements(factoryConfig({ isAdmin: true }).rows).map(
+			(placement) => placement.id
+		);
+
+		for (const id of usageWidgets) expect(placed).not.toContain(id);
+		expect(availableWidgets({ isAdmin: true })).toEqual(expect.arrayContaining(usageWidgets));
+		expect(availableWidgets({ isAdmin: false })).not.toContain('model-stats');
+		expect(availableWidgets({ isAdmin: false })).not.toContain('most-active-users');
+		const powerPlaced = placements(factoryConfig({ isAdmin: false }).rows).map(
+			(placement) => placement.id
+		);
+		for (const id of usageWidgets) expect(powerPlaced).not.toContain(id);
 	});
 
 	it('falls back when stored layout cannot be read', () => {
@@ -170,6 +212,7 @@ describe('dashboard layout', () => {
 			}
 		]);
 		expect(parsed?.platformStats).toEqual([...PLATFORM_STAT_IDS]);
+		expect(parsed?.modelStats).toEqual([...MODEL_STAT_IDS]);
 	});
 
 	it('keeps an explicit hide-on-empty flag and reads the previous show-when-empty flag', () => {
@@ -183,6 +226,7 @@ describe('dashboard layout', () => {
 
 		expect(parsed?.platformStats).toEqual(['total-spend']);
 		expect(parsed?.deviceStats).toEqual([]);
+		expect(parsed?.modelStats).toEqual([...MODEL_STAT_IDS]);
 		expect(parsed?.rows[0]).toMatchObject({
 			kind: 'widgets',
 			items: [{ id: 'popular-tools', hideWhenEmpty: true }]
@@ -225,7 +269,7 @@ describe('dashboard layout', () => {
 					skillCount: 0
 				})
 			),
-			true
+			{ deviceScans: true, mcpStats: true, llmStats: true }
 		);
 		const inventoryRow = findWidgetRow(rendered, 'device-clients');
 
@@ -246,7 +290,7 @@ describe('dashboard layout', () => {
 		const withoutScans = rowsForRender(
 			layout,
 			widgetStatuses(signals({ clientCount: 1, mcpCount: 1, skillCount: 1, scanCount: 1 })),
-			false
+			{ deviceScans: false, mcpStats: true, llmStats: true }
 		);
 		expect(
 			hasRow(withoutScans, (row) => row.kind === 'header' && row.id === 'header-inventory')
@@ -254,6 +298,44 @@ describe('dashboard layout', () => {
 		expect(
 			hasRow(withoutScans, (row) => row.kind === 'header' && row.id === 'header-mcp-servers')
 		).toBe(true);
+	});
+
+	it('reads a stored device-scan header and shows a header for one condition', () => {
+		const parsed = parseDashboardConfig(
+			JSON.stringify({
+				rows: [
+					{ kind: 'header', id: 'legacy', text: 'Inventory', onlyWithDeviceScans: true },
+					{ kind: 'header', id: 'open', text: 'Always' },
+					{ kind: 'header', id: 'models', text: 'Models', visibility: 'llm-stats' },
+					{ kind: 'header', id: 'tools', text: 'Tools', visibility: 'mcp-stats' },
+					{
+						kind: 'header',
+						id: 'unknown',
+						text: 'Unknown',
+						visibility: 'nope',
+						onlyWithDeviceScans: true
+					}
+				]
+			})
+		);
+
+		expect(parsed?.rows).toMatchObject([
+			{ id: 'legacy', visibility: 'device-scans' },
+			{ id: 'open', visibility: 'always' },
+			{ id: 'models', visibility: 'llm-stats' },
+			{ id: 'tools', visibility: 'mcp-stats' },
+			{ id: 'unknown', visibility: 'device-scans' }
+		]);
+
+		const rendered = rowsForRender(parsed!, widgetStatuses(signals()), {
+			deviceScans: false,
+			mcpStats: true,
+			llmStats: false
+		});
+		expect(rendered.flatMap((row) => (row.kind === 'header' ? [row.id] : []))).toEqual([
+			'open',
+			'tools'
+		]);
 	});
 
 	it('keeps a loading widget mounted', () => {
@@ -331,6 +413,10 @@ describe('dashboard layout', () => {
 		const hidden = togglePlatformStat(factoryConfig({ isAdmin: true }), 'total-users');
 		expect(hidden.platformStats).toEqual(['monthly-active-users', 'total-tokens', 'total-spend']);
 		expect(togglePlatformStat(hidden, 'total-users').platformStats).toEqual([...PLATFORM_STAT_IDS]);
+
+		const hiddenModel = toggleModelStat(factoryConfig({ isAdmin: true }), 'input');
+		expect(hiddenModel.modelStats).toEqual(['total', 'output', 'cached-input', 'spend']);
+		expect(toggleModelStat(hiddenModel, 'input').modelStats).toEqual([...MODEL_STAT_IDS]);
 	});
 
 	it('preserves widgets the viewer cannot see when saving', () => {
@@ -410,8 +496,8 @@ describe('dashboard layout', () => {
 
 		const stored = parseDashboardConfig(JSON.stringify(named));
 		expect(stored?.rows.filter((row) => row.kind === 'header')).toEqual([
-			{ kind: 'header', id: headerIds[0], text: 'Usage', onlyWithDeviceScans: false },
-			{ kind: 'header', id: headerIds[1], text: 'Tools', onlyWithDeviceScans: false }
+			{ kind: 'header', id: headerIds[0], text: 'Usage', visibility: 'always' },
+			{ kind: 'header', id: headerIds[1], text: 'Tools', visibility: 'always' }
 		]);
 	});
 });

@@ -53,7 +53,12 @@
 	"dashboard_box": "方框",
 	"dashboard_header": "标题",
 	"dashboard_header_placeholder": "分区标题",
+	"dashboard_header_always_show": "始终显示",
 	"dashboard_header_only_with_scans": "仅在存在设备扫描时显示",
+	"dashboard_header_only_with_mcp_stats": "仅在存在 MCP 统计时显示",
+	"dashboard_header_only_with_llm_stats": "仅在存在 LLM 统计时显示",
 	"dashboard_section_mcp_servers": "MCP 服务器",
-	"dashboard_section_inventory": "资产"
+	"dashboard_section_inventory": "资产",
+	"dashboard_model_stats": "模型统计",
+	"dashboard_top_models": "热门模型"
 }

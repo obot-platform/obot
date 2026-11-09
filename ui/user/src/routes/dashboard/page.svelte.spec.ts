@@ -34,9 +34,15 @@ function hoursBetween(url: string, startKey: string, endKey: string) {
 	return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
 }
 
-async function renderDashboard(groups: string[], hasDeviceScans = false) {
+async function renderDashboard(
+	groups: string[],
+	hasDeviceScans = false,
+	stats: { hasMcpStats?: boolean; hasLlmStats?: boolean } = {}
+) {
 	const data = await preparePageData<PageData>({
 		hasDeviceScans,
+		hasMcpStats: stats.hasMcpStats ?? false,
+		hasLlmStats: stats.hasLlmStats ?? false,
 		profile: createMockProfile(groups)
 	});
 	return render(DashboardPage, { data });
@@ -214,12 +220,22 @@ describe('Dashboard layout', () => {
 
 		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
 		await expect
-			.element(page.getByRole('checkbox', { name: 'Only show when device scans exist: Inventory' }))
+			.element(page.getByRole('radio', { name: 'Only show when device scans exist: Inventory' }))
 			.toBeChecked();
 		await expect
-			.element(
-				page.getByRole('checkbox', { name: 'Only show when device scans exist: MCP Servers' })
-			)
+			.element(page.getByRole('radio', { name: 'Always show: Inventory' }))
+			.not.toBeChecked();
+		await expect
+			.element(page.getByRole('radio', { name: 'Only show when MCP stats exist: Inventory' }))
+			.not.toBeChecked();
+		await expect
+			.element(page.getByRole('radio', { name: 'Only show when LLM stats exist: Inventory' }))
+			.not.toBeChecked();
+		await expect
+			.element(page.getByRole('radio', { name: 'Always show: MCP Servers' }))
+			.toBeChecked();
+		await expect
+			.element(page.getByRole('radio', { name: 'Only show when device scans exist: MCP Servers' }))
 			.not.toBeChecked();
 
 		withoutScans.unmount();
@@ -388,6 +404,55 @@ describe('Dashboard layout', () => {
 		await expect.element(again.nth(1)).toHaveAttribute('data-widget-id', 'server-activity');
 	});
 
+	it('scrolls downward while a drag is held at the bottom of the overflow', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		const main = page.getByRole('main');
+		const mainEl = await main.element();
+		mainEl.style.height = '320px';
+		mainEl.style.maxHeight = '320px';
+		expect(mainEl.scrollHeight).toBeGreaterThan(mainEl.clientHeight + 40);
+
+		await main.getByCSS('[data-widget-id="platform-stats"]').hover();
+		const grip = main.getByRole('button', { name: 'Drag On Platform' });
+		await expect.element(grip).toBeVisible();
+		const body = await page.getByCSS('body').element();
+		(await grip.element()).dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+		);
+
+		const rect = mainEl.getBoundingClientRect();
+		const held = mainEl.scrollTop;
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.top + rect.height / 2
+			})
+		);
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(mainEl.scrollTop).toBe(held);
+
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.bottom - 2
+			})
+		);
+		await vi.waitFor(() => {
+			expect(mainEl.scrollTop).toBeGreaterThan(held + 24);
+		});
+
+		const scrolling = mainEl.scrollTop;
+		body.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(mainEl.scrollTop).toBe(scrolling);
+		await expect.element(page.getByCSS('[data-drag-clone]')).not.toBeInTheDocument();
+	});
+
 	it('drops a widget beside the only widget in a row', async () => {
 		mockDashboardApis();
 		await renderDashboard([Group.ADMIN], false);
@@ -472,15 +537,66 @@ describe('Dashboard layout', () => {
 		await expect
 			.element(main.getByRole('button', { name: 'Row actions: MCP Servers' }))
 			.toBeVisible();
-		const scansOnly = page.getByRole('checkbox', {
+		const scansOnly = page.getByRole('radio', {
 			name: 'Only show when device scans exist: MCP Servers'
 		});
 		await expect.element(scansOnly).not.toBeChecked();
+		await expect
+			.element(page.getByRole('radio', { name: 'Always show: MCP Servers' }))
+			.toBeChecked();
 		await scansOnly.click();
 
 		await expect
 			.element(main.getByRole('heading', { name: 'MCP Servers', exact: true }))
 			.not.toBeInTheDocument();
+	});
+
+	it('shows a header for one stats source at a time', async () => {
+		mockDashboardApis();
+		const withoutStats = await renderDashboard([Group.ADMIN], true);
+		const main = page.getByRole('main');
+
+		await main.getByRole('heading', { name: 'MCP Servers', exact: true }).hover();
+		await main.getByRole('button', { name: 'Row actions: MCP Servers' }).click();
+		await page.getByRole('radio', { name: 'Only show when MCP stats exist: MCP Servers' }).click();
+		await expect
+			.element(main.getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.not.toBeInTheDocument();
+
+		withoutStats.unmount();
+		const withMcp = await renderDashboard([Group.ADMIN], true, { hasMcpStats: true });
+		await expect
+			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.toBeVisible();
+
+		await page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }).hover();
+		await page.getByRole('button', { name: 'Row actions: MCP Servers' }).click();
+		await page.getByRole('radio', { name: 'Only show when LLM stats exist: MCP Servers' }).click();
+		await expect
+			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.not.toBeInTheDocument();
+
+		withMcp.unmount();
+		const withLlm = await renderDashboard([Group.ADMIN], true, { hasLlmStats: true });
+		await expect
+			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.toBeVisible();
+
+		withLlm.unmount();
+		await renderDashboard([Group.ADMIN], true, { hasMcpStats: true });
+		await expect
+			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		await page.getByRole('radio', { name: 'Always show: MCP Servers' }).click();
+		await expect
+			.element(page.getByRole('radio', { name: 'Only show when LLM stats exist: MCP Servers' }))
+			.not.toBeChecked();
+		await page.getByRole('button', { name: 'Save' }).click();
+		await expect
+			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.toBeVisible();
 	});
 
 	it('adds more than one header, each on its own row', async () => {
@@ -547,8 +663,211 @@ describe('Dashboard layout', () => {
 
 		await expect.element(page.getByText('Server Activity')).not.toBeInTheDocument();
 		await expect.element(page.getByText('Token Usage')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Model Stats')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Most Active Users')).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Most Frequent Tool Calls' }))
+			.toBeVisible();
 		await expect
 			.element(page.getByRole('heading', { name: /Recently Popular Tools/ }))
 			.toBeVisible();
+	});
+
+	it('keeps usage graphs out of the default layout and adds them from the catalog', async () => {
+		mockDashboardApis();
+		worker.use(
+			http.get('/api/mcp-stats', () =>
+				HttpResponse.json({
+					items: [
+						{
+							mcpID: 'srv-1',
+							mcpServerInstanceName: 'inst',
+							mcpServerName: 'github',
+							mcpServerDisplayName: 'GitHub',
+							toolCalls: [
+								{
+									toolName: 'search',
+									callCount: 4,
+									items: [
+										{
+											createdAt: '2026-10-01T00:00:00Z',
+											userID: 'user-1',
+											processingTimeMs: 120.4,
+											responseStatus: 500,
+											error: 'boom'
+										}
+									]
+								}
+							]
+						}
+					],
+					timeStart: '',
+					timeEnd: '',
+					totalCalls: 4,
+					uniqueUsers: 1
+				})
+			),
+			http.get('/api/total-token-usage', () =>
+				HttpResponse.json({
+					totalTokens: 1000,
+					inputTokens: 600,
+					outputTokens: 300,
+					cacheReadTokens: 40,
+					cacheWriteTokens: 60,
+					totalSpend: 1.25
+				})
+			),
+			http.get('/api/token-usage-stats', () =>
+				HttpResponse.json({
+					start: '2026-10-01T00:00:00Z',
+					end: '2026-10-08T00:00:00Z',
+					bucketSeconds: 3600,
+					totals: {
+						requests: 4,
+						successes: 3,
+						fallbacks: 1,
+						avgDurationMs: 250,
+						inputTokens: 10,
+						outputTokens: 5,
+						totalTokens: 15,
+						totalSpend: 1.5
+					},
+					buckets: [
+						{
+							time: '2026-10-01T00:00:00Z',
+							requests: 4,
+							successes: 3,
+							fallbacks: 1,
+							avgDurationMs: 250,
+							inputTokens: 10,
+							outputTokens: 5,
+							totalTokens: 15,
+							totalSpend: 1.5
+						}
+					],
+					providers: [
+						{
+							provider: 'anthropic',
+							requests: 4,
+							successes: 3,
+							fallbacks: 1,
+							avgDurationMs: 250,
+							inputTokens: 10,
+							outputTokens: 5,
+							totalTokens: 15,
+							totalSpend: 1.5
+						}
+					],
+					topModelsByRequests: [
+						{
+							model: 'openai/gpt-5',
+							provider: 'openai',
+							requests: 4,
+							successes: 3,
+							fallbacks: 0,
+							avgDurationMs: 250,
+							inputTokens: 10,
+							outputTokens: 5,
+							totalTokens: 15,
+							totalSpend: 0.25
+						}
+					],
+					topModelsBySpend: []
+				})
+			)
+		);
+
+		await renderDashboard([Group.ADMIN], false);
+		const main = page.getByRole('main');
+
+		await expect.element(main.getByRole('heading', { name: 'On Platform' })).toBeVisible();
+		await expect
+			.element(main.getByRole('heading', { name: 'Model Stats' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(main.getByRole('heading', { name: 'Most Frequent Tool Calls' }))
+			.not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		await expect.element(page.getByRole('button', { name: 'Add Model Stats' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Requests' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Spend by Provider' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Top Models' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Tool Call Individual Response Time' }))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Tool Call Errors' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Tool Call Errors by Server' }))
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Most Active Users' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Add Most Frequently Used Servers' }))
+			.not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Add Model Stats' }).click();
+		await page.getByRole('button', { name: 'Add Most Frequent Tool Calls' }).click();
+		await page.getByRole('button', { name: 'Add Spend by Provider' }).click();
+		await page.getByRole('button', { name: 'Add Top Models' }).click();
+		await page.getByRole('button', { name: 'Save' }).click();
+
+		await expect.element(main.getByRole('heading', { name: 'Model Stats' })).toBeVisible();
+		await expect.element(main.getByText('Cached Input')).toBeVisible();
+		await expect
+			.element(main.getByRole('heading', { name: 'Most Frequent Tool Calls' }))
+			.toBeVisible();
+		await expect
+			.element(
+				main.getByCSS('[data-widget-id="most-frequent-tool-calls"]').getByText('search', {
+					exact: true
+				})
+			)
+			.toBeVisible();
+		await expect.element(main.getByRole('heading', { name: 'Spend by Provider' })).toBeVisible();
+		await expect.element(main.getByText('Anthropic')).toBeVisible();
+		await expect.element(main.getByRole('heading', { name: 'Top Models' })).toBeVisible();
+		await expect.element(main.getByRole('cell', { name: 'openai/gpt-5' })).toBeVisible();
+	});
+
+	it('lets an admin choose which model stats to show', async () => {
+		mockDashboardApis();
+		worker.use(
+			http.get('/api/total-token-usage', () =>
+				HttpResponse.json({
+					totalTokens: 1000,
+					inputTokens: 600,
+					outputTokens: 300,
+					cacheReadTokens: 40,
+					cacheWriteTokens: 60,
+					totalSpend: 1.25
+				})
+			)
+		);
+
+		const first = await renderDashboard([Group.ADMIN], false);
+		const main = page.getByRole('main');
+
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		await page.getByRole('button', { name: 'Add Model Stats' }).click();
+		await page.getByRole('checkbox', { name: 'Input', exact: true }).click();
+		await page.getByRole('button', { name: 'Save' }).click();
+
+		const card = main.getByCSS('[data-widget-id="model-stats"]');
+		await expect.element(card.getByText('Total', { exact: true })).toBeVisible();
+		await expect.element(card.getByText('Output', { exact: true })).toBeVisible();
+		await expect.element(card.getByText('Cached Input')).toBeVisible();
+		await expect.element(card.getByText('Spend', { exact: true })).toBeVisible();
+		await expect.element(card.getByText('Input', { exact: true })).not.toBeInTheDocument();
+
+		await card.hover();
+		await main.getByRole('button', { name: 'Row actions: Model Stats' }).click();
+		await page.getByRole('checkbox', { name: 'Input', exact: true }).click();
+		await expect.element(card.getByText('Input', { exact: true })).toBeVisible();
+
+		first.unmount();
+		await renderDashboard([Group.ADMIN], false);
+		const again = page.getByRole('main').getByCSS('[data-widget-id="model-stats"]');
+		await expect.element(again.getByText('Input', { exact: true })).toBeVisible();
+		await expect.element(again.getByText('1,000')).toBeVisible();
 	});
 });

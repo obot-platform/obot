@@ -1,11 +1,8 @@
 <script lang="ts">
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { m } from '$lib/i18n';
-	import {
-		setHeaderOnlyWithDeviceScans,
-		type DashboardConfig,
-		type HeaderRow
-	} from './dashboardLayout';
+	import HeaderVisibilityOptions from './HeaderVisibilityOptions.svelte';
+	import type { DashboardConfig, HeaderRow } from './dashboardLayout';
 	import { EllipsisVertical, GripVertical } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -81,20 +78,7 @@
 				{#if open}
 					<span class="hidden" use:holdMenuOpen></span>
 					<div role="presentation" onclick={keepMenuOpen} onpointerdown={keepMenuOpen}>
-						<label class="flex items-center gap-2 px-1 py-1 text-xs">
-							<input
-								type="checkbox"
-								class="checkbox checkbox-xs checked:checkbox-primary"
-								checked={row.onlyWithDeviceScans}
-								aria-label="{m.dashboard_header_only_with_scans()}: {name}"
-								onchange={(event) => {
-									const target = event.currentTarget;
-									if (!(target instanceof HTMLInputElement)) return;
-									onChange(setHeaderOnlyWithDeviceScans(config, row.id, target.checked));
-								}}
-							/>
-							{m.dashboard_header_only_with_scans()}
-						</label>
+						<HeaderVisibilityOptions {row} {config} {onChange} scope="header-menu" />
 					</div>
 				{/if}
 			{/snippet}
