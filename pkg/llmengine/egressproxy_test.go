@@ -262,6 +262,183 @@ func TestApplyEgressProxyPreservesConcurrentEdits(t *testing.T) {
 	}
 }
 
+func TestApplyEgressProxyMantleEndpoint(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		endpoint      string
+		baseURL       string
+		region        *schemas.SecretVar
+		noProxy       string
+		missingConfig bool
+		wantTarget    string
+		wantProxy     bool
+	}{
+		{
+			name:       "regional exclusion does not bypass override",
+			endpoint:   "mantle.internal",
+			region:     schemas.NewSecretVar("eu-west-1"),
+			noProxy:    "bedrock-mantle.eu-west-1.api.aws",
+			wantTarget: "https://mantle.internal",
+			wantProxy:  true,
+		},
+		{
+			name:       "override exclusion bypasses regional host",
+			endpoint:   "mantle.internal",
+			noProxy:    "mantle.internal",
+			wantTarget: "https://mantle.internal",
+		},
+		{
+			name:       "HTTPS URL with whitespace path and custom port",
+			endpoint:   " https://mantle.internal:8443/ignored/path/ ",
+			noProxy:    "mantle.internal:8443",
+			wantTarget: "https://mantle.internal:8443",
+		},
+		{
+			name:       "bare custom port is retained",
+			endpoint:   "mantle.internal:8443",
+			noProxy:    "mantle.internal:443",
+			wantTarget: "https://mantle.internal:8443",
+			wantProxy:  true,
+		},
+		{
+			name:       "pasted HTTP uses HTTPS proxy even on port 80",
+			endpoint:   "http://mantle.internal:80/path",
+			wantTarget: "https://mantle.internal:80",
+			wantProxy:  true,
+		},
+		{
+			name:       "pasted HTTP uses HTTPS default port for exclusion",
+			endpoint:   "http://mantle.internal/path/",
+			noProxy:    "mantle.internal:443",
+			wantTarget: "https://mantle.internal",
+		},
+		{
+			name:       "generic base URL exclusion does not bypass override",
+			endpoint:   "mantle.internal",
+			baseURL:    "http://ignored.invalid",
+			noProxy:    "ignored.invalid",
+			wantTarget: "https://mantle.internal",
+			wantProxy:  true,
+		},
+		{
+			name:       "no override uses key region",
+			region:     schemas.NewSecretVar("eu-west-1"),
+			noProxy:    "bedrock-mantle.eu-west-1.api.aws",
+			wantTarget: "https://bedrock-mantle.eu-west-1.api.aws",
+		},
+		{
+			name:       "empty override uses key region",
+			endpoint:   " https:// ",
+			region:     schemas.NewSecretVar("eu-west-1"),
+			noProxy:    "bedrock-mantle.eu-west-1.api.aws",
+			wantTarget: "https://bedrock-mantle.eu-west-1.api.aws",
+		},
+		{
+			name:      "nil region keeps required proxy",
+			noProxy:   "bedrock-mantle.us-east-1.api.aws",
+			wantProxy: true,
+		},
+		{
+			name:      "empty region keeps required proxy",
+			region:    schemas.NewSecretVar(""),
+			noProxy:   "bedrock-mantle.us-east-1.api.aws",
+			wantProxy: true,
+		},
+		{
+			name:          "API key without cloud config keeps required proxy",
+			noProxy:       "bedrock-mantle.us-east-1.api.aws",
+			missingConfig: true,
+			wantProxy:     true,
+		},
+	} {
+		for _, initial := range []string{"unset", "inherited", "administrator"} {
+			t.Run(tc.name+"/"+initial, func(t *testing.T) {
+				cfg := &httpproxy.Config{
+					HTTPProxy:  "http://http-only.invalid:8080",
+					HTTPSProxy: "http://egress.invalid:3128",
+					NoProxy:    tc.noProxy,
+				}
+				p := llmcoreclient.Provider{
+					Config: schemas.ProviderConfig{
+						NetworkConfig: schemas.NetworkConfig{BaseURL: tc.baseURL},
+					},
+					Keys: []schemas.Key{{
+						ID:    "mantle",
+						Value: *schemas.NewSecretVar("key"),
+						BedrockMantleKeyConfig: &schemas.BedrockMantleKeyConfig{
+							Region: tc.region,
+							Endpoints: &schemas.BedrockEndpoints{
+								Mantle: schemas.NewSecretVar(tc.endpoint),
+							},
+						},
+					}},
+				}
+				if tc.endpoint == "" {
+					p.Keys[0].BedrockMantleKeyConfig.Endpoints = nil
+				}
+				if tc.missingConfig {
+					p.Keys[0].BedrockMantleKeyConfig = nil
+				}
+
+				var want *schemas.ProxyConfig
+				wantChanged := tc.wantProxy
+				if tc.wantProxy {
+					want = &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar(cfg.HTTPSProxy)}
+				}
+				switch initial {
+				case "inherited":
+					p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar(cfg.HTTPSProxy)}
+					wantChanged = !tc.wantProxy
+					if !tc.wantProxy {
+						want = &schemas.ProxyConfig{Type: schemas.NoProxy}
+					}
+				case "administrator":
+					want = &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar("http://admin.invalid:3128")}
+					p.Config.ProxyConfig = want
+					wantChanged = false
+				}
+
+				before := p
+				require.Equal(t, wantChanged, applyProviderEgressProxy("bedrock_mantle", &p, cfg))
+				before.Config.ProxyConfig = want
+				require.Equal(t, before, p, "only the proxy configuration may change")
+				if tc.wantTarget != "" {
+					require.Equal(t, tc.wantTarget, providerEgressTarget("bedrock_mantle", &p))
+				}
+				require.False(t, applyProviderEgressProxy("bedrock_mantle", &p, cfg), "single-key proxy selection must be idempotent")
+			})
+		}
+	}
+}
+
+func TestApplyEgressProxyEndpointPrecedence(t *testing.T) {
+	for _, family := range []string{"azure", "bedrock_mantle", "generic-responses"} {
+		t.Run(family, func(t *testing.T) {
+			p := llmcoreclient.Provider{
+				Config: schemas.ProviderConfig{
+					NetworkConfig: schemas.NetworkConfig{BaseURL: "https://custom.internal"},
+				},
+				Keys: []schemas.Key{{
+					AzureKeyConfig: &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar("https://cloud.invalid")},
+					BedrockMantleKeyConfig: &schemas.BedrockMantleKeyConfig{
+						Endpoints: &schemas.BedrockEndpoints{Mantle: schemas.NewSecretVar("cloud.invalid")},
+					},
+				}},
+			}
+			cfg := &httpproxy.Config{
+				HTTPSProxy: "http://egress.invalid:3128",
+				NoProxy:    "custom.internal",
+			}
+			require.Equal(t, family != "generic-responses", applyProviderEgressProxy(family, &p, cfg))
+			if family == "generic-responses" {
+				require.Nil(t, p.Config.ProxyConfig, "custom providers must continue to use their network base URL")
+			} else {
+				require.Equal(t, cfg.HTTPSProxy, p.Config.ProxyConfig.URL.GetValue())
+			}
+		})
+	}
+}
+
 func TestApplyEgressProxyCloudPoolSecondKey(t *testing.T) {
 	for _, tc := range []struct {
 		name   string

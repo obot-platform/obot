@@ -164,19 +164,30 @@ func cloudPoolSupportsEnvProxy(name string, keys []schemas.Key) bool {
 }
 
 func providerEgressTarget(name string, p *llmcoreclient.Provider) string {
-	if target := p.Config.NetworkConfig.BaseURL; target != "" {
-		return target
-	}
-	// Imported cloud providers have one key. Their hosts live in key settings,
-	// rather than network_config, and must be used when evaluating NO_PROXY.
+	// Single-key cloud providers use key destinations and ignore the generic network base URL.
 	if len(p.Keys) == 1 {
 		key := p.Keys[0]
 		if name == "azure" && key.AzureKeyConfig != nil {
 			return key.AzureKeyConfig.Endpoint.GetValue()
 		}
-		if name == "bedrock_mantle" && key.BedrockMantleKeyConfig != nil {
-			return "https://bedrock-mantle." + key.BedrockMantleKeyConfig.Region.GetValue() + ".api.aws"
+		if name == "bedrock_mantle" {
+			region := ""
+			if cfg := key.BedrockMantleKeyConfig; cfg != nil {
+				if cfg.Endpoints != nil {
+					if host := schemas.NormalizeEndpointHost(cfg.Endpoints.Mantle); host != "" {
+						// Mantle always uses HTTPS, even for overrides pasted with an HTTP scheme.
+						return "https://" + host
+					}
+				}
+				region = cfg.Region.GetValue()
+			}
+			// Do not guess an unknown region: model/alias overrides can make a default-host
+			// NO_PROXY exemption unsafe for this provider.
+			return "https://bedrock-mantle." + region + ".api.aws"
 		}
+	}
+	if target := p.Config.NetworkConfig.BaseURL; target != "" {
+		return target
 	}
 	if target := defaultProviderURLs[name]; target != "" {
 		return target
