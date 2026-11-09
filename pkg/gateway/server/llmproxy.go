@@ -100,12 +100,6 @@ type trackerDialectBackend interface {
 	trackerDialect(routeDialect llmtypes.Dialect) llmtypes.Dialect
 }
 
-// modelResolvingBackend is implemented by backends with an additional way to resolve a
-// model reference that the standard lookup did not find. A nil model means no match.
-type modelResolvingBackend interface {
-	resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error)
-}
-
 // extraModelAuthorizingBackend is implemented by backends whose requests can name models
 // besides the primary one (such as fallbacks), each of which must be authorized.
 type extraModelAuthorizingBackend interface {
@@ -482,7 +476,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 
 	targetModel := extractModelFromBody(body)
 	if targetModel == "" {
-		if _, gated := l.backend.(modelResolvingBackend); gated && !isModelsListRequest(req.Request) {
+		if _, gated := l.backend.(*bifrostProviderBackend); gated && !isModelsListRequest(req.Request) {
 			// Backends that can reach any model authorize every request by the model it
 			// names, so a request that names none cannot be authorized.
 			return types2.NewErrBadRequest("a model is required")
@@ -491,14 +485,11 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if targetModel != "" {
 		audit.setModel(modelProvider.Name, "", targetModel)
 
-		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
+		var model *v1.Model
 		if b, ok := l.backend.(*bifrostProviderBackend); ok {
 			model, err = b.resolveRequestModel(l, req, targetModel)
-		}
-		if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-			if fallback, fallbackErr := resolver.resolveModel(l, req.User, scopedLegacyReference(req.Context(), targetModel)); fallbackErr == nil && fallback != nil {
-				model, err = fallback, nil
-			}
+		} else {
+			model, err = l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
 		}
 		if apierrors.IsNotFound(err) {
 			return types2.NewErrNotFound("model %q is not available through this endpoint", targetModel)

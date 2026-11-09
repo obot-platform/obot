@@ -60,14 +60,22 @@ func (b *bifrostProviderBackend) resolveRequestModel(l *llmProviderProxy, req ap
 	if mapped != "" {
 		reference = mapped
 	}
-	model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
+	scope := llmengine.LegacyProviderScope(req.Context())
+	var model *v1.Model
+	if scope != "" && strings.Contains(reference, "/") {
+		// A native ID may contain slashes and even match another provider's qualified target.
+		model, err = b.resolveModel(l, req.User, scope+"/"+reference)
+	}
+	if model == nil && (err == nil || apierrors.IsNotFound(err)) {
+		model, err = l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
+	}
 	if apierrors.IsNotFound(err) {
 		model, err = b.resolveModel(l, req.User, scopedLegacyReference(req.Context(), reference))
 	}
 	if err != nil {
 		return nil, err
 	}
-	if scope := llmengine.LegacyProviderScope(req.Context()); scope != "" && !strings.HasPrefix(model.Spec.Manifest.TargetModel, scope+"/") {
+	if scope != "" && !strings.HasPrefix(model.Spec.Manifest.TargetModel, scope+"/") {
 		return nil, types.NewErrBadRequest("model is not available through this legacy provider; use /api/llm-proxy/v1 for other providers")
 	}
 	return model, nil

@@ -506,6 +506,10 @@ func (a *gatewayAttempts) lastRefused() bool {
 func (a *gatewayAttempts) checkAttempt(b *bifrostProviderBackend, l *llmProviderProxy, apiReq api.Context, requested *v1.Model) guardrails.AttemptCheck {
 	return func(_ context.Context, attempt guardrails.Attempt) error {
 		reference := attempt.Model
+		scope := llmengine.LegacyProviderScope(apiReq.Context())
+		if scope != "" && !strings.HasPrefix(reference, scope+"/") {
+			return &guardrails.AttemptError{Status: http.StatusBadRequest, Type: "permission_denied", Message: "model is not available through this legacy provider"}
+		}
 		if a.subscription && !strings.HasPrefix(reference, "anthropic/") {
 			// The engine would send the caller's subscription token with this attempt, and only
 			// Anthropic may receive it: a routing rule or fallback can't carry it elsewhere,
@@ -515,14 +519,22 @@ func (a *gatewayAttempts) checkAttempt(b *bifrostProviderBackend, l *llmProvider
 		model := requested
 		if requested == nil || reference != requested.Spec.Manifest.TargetModel {
 			// The requested model was checked before the request was sent.
+			resolveReq := apiReq
+			if scope != "" {
+				// Engine attempts already name concrete targets; native-name precedence could authorize a different model.
+				resolveReq.Request = apiReq.WithContext(llmengine.WithLegacyProviderScope(apiReq.Context(), ""))
+			}
 			var err error
-			if model, err = b.authorizeModel(l, apiReq, reference, "model"); err != nil {
+			if model, err = b.authorizeModel(l, resolveReq, reference, "model"); err != nil {
 				if httpErr, ok := errors.AsType[*types2.ErrHTTP](err); ok {
 					// The gateway reports the message with its own status.
 					return &guardrails.AttemptError{Status: httpErr.Code, Type: "permission_denied", Message: httpErr.Message}
 				}
 				return err
 			}
+		}
+		if scope != "" && !strings.HasPrefix(model.Spec.Manifest.TargetModel, scope+"/") {
+			return &guardrails.AttemptError{Status: http.StatusBadRequest, Type: "permission_denied", Message: "model is not available through this legacy provider"}
 		}
 		if a.subscription && attempt.Subscription {
 			a.lock.Lock()

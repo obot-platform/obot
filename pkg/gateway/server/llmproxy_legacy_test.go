@@ -16,6 +16,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/nah/pkg/backend"
 	types "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -107,6 +108,10 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 		lock.Lock()
 		requests = append(requests, struct{ path, query, key, model string }{path: r.URL.Path, query: r.URL.RawQuery, key: r.Header.Get("Authorization"), model: req.Model})
 		lock.Unlock()
+		if strings.HasSuffix(r.URL.Path, "/responses") {
+			_, _ = io.WriteString(w, `{"id":"r1","object":"response","status":"completed","model":"`+req.Model+`","output":[{"id":"msg1","type":"message","role":"assistant","status":"completed","content":[{"type":"output_text","text":"hello","annotations":[]}]}],"usage":{"input_tokens":2,"output_tokens":1,"total_tokens":3}}`)
+			return
+		}
 		if req.Stream {
 			w.Header().Set("Content-Type", "text/event-stream")
 			_, _ = io.WriteString(w, "data: {\"id\":\"c1\",\"object\":\"chat.completion.chunk\",\"model\":\"gpt-test\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":1,\"total_tokens\":3}}\n\ndata: [DONE]\n\n")
@@ -132,6 +137,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	status, err := engine.MigrationStatus(ctx)
 	require.NoError(t, err)
 	status.Mappings["m1-old-openai"] = "m1-openai"
+	status.Mappings["m1-old-generic"] = "m1-generic-qwen"
 	migration, err := json.Marshal(status)
 	require.NoError(t, err)
 	require.NoError(t, store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
@@ -273,6 +279,300 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("slash-containing native IDs", func(t *testing.T) {
+		for _, tc := range []struct {
+			id     string
+			target string
+		}{
+			{
+				id:     "m1-generic-qwen",
+				target: "generic-responses/Qwen/Qwen3-32B",
+			},
+			{
+				id:     "m1-openai-qwen",
+				target: "openai/Qwen/Qwen3-32B",
+			},
+			{
+				id:     "m1-generic-nested",
+				target: "generic-responses/team/family/model",
+			},
+			{
+				id:     "m1-generic-collision",
+				target: "generic-responses/openai/gpt-test",
+			},
+			{
+				id:     "m1-generic-dated",
+				target: "generic-responses/team/model-20261101",
+			},
+			{
+				id:     "m1-generic-alias-collision",
+				target: "generic-responses/llm",
+			},
+		} {
+			model := &v1.Model{Namespace: system.DefaultNamespace, Name: tc.id, Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+				ModelProvider: system.LLMGatewayModelProvider,
+				TargetModel:   tc.target,
+				Active:        true,
+				Usage:         types.ModelUsageLLM,
+				Dialect:       string(llmtypes.DialectOpenAIResponses),
+			}}}
+			require.NoError(t, storageClient.Create(ctx, model))
+			gvk, err := storageClient.GroupVersionKindFor(model)
+			require.NoError(t, err)
+			require.NoError(t, back.informers[gvk].GetIndexer().Add(model))
+		}
+		defaultAlias := &v1.DefaultModelAlias{Name: "default-llm", Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{
+			Alias: "llm",
+			Model: "m1-generic-qwen",
+		}}}
+		require.NoError(t, storageClient.Create(ctx, defaultAlias))
+		require.NoError(t, storageClient.Create(ctx, &v1.Alias{Name: alias.KeyFromScopeID("Model", "llm"), Spec: v1.AliasSpec{
+			TargetKind: "DefaultModelAlias",
+			TargetName: defaultAlias.Name,
+		}}))
+		for _, tc := range []struct {
+			name      string
+			route     string
+			reference string
+			wantModel string
+			wantKey   string
+		}{
+			{
+				name:      "native slash name",
+				route:     "generic-responses/v1",
+				reference: "Qwen/Qwen3-32B",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "same native name in another provider",
+				route:     "openai/v1",
+				reference: "Qwen/Qwen3-32B",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-openai-key",
+			},
+			{
+				name:      "multiple native slashes",
+				route:     "generic-responses/v1",
+				reference: "team/family/model",
+				wantModel: "team/family/model",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "native name precedes other provider target",
+				route:     "generic-responses/v1",
+				reference: "openai/gpt-test",
+				wantModel: "openai/gpt-test",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "explicit same-provider name",
+				route:     "generic-responses/v1",
+				reference: "generic-responses/Qwen/Qwen3-32B",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "canonical qualified name",
+				route:     "v1",
+				reference: "openai/gpt-test",
+				wantModel: "gpt-test",
+				wantKey:   "recreated-openai-key",
+			},
+			{
+				name:      "resource ID",
+				route:     "generic-responses/v1",
+				reference: "m1-generic-qwen",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "saved alias",
+				route:     "generic-responses/v1",
+				reference: "llm",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "mapped old resource ID",
+				route:     "generic-responses/v1",
+				reference: "m1-old-generic",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "canonical qualified slash name",
+				route:     "v1",
+				reference: "generic-responses/Qwen/Qwen3-32B",
+				wantModel: "Qwen/Qwen3-32B",
+				wantKey:   "recreated-generic-responses-key",
+			},
+			{
+				name:      "undated native alias",
+				route:     "generic-responses/v1",
+				reference: "team/model",
+				wantModel: "team/model-20261101",
+				wantKey:   "recreated-generic-responses-key",
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				body, err := json.Marshal(map[string]any{"model": tc.reference, "input": "hi"})
+				require.NoError(t, err)
+				rec := httptest.NewRecorder()
+				mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+tc.route+"/responses", strings.NewReader(string(body))))
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+				lock.Lock()
+				got := requests[len(requests)-1]
+				lock.Unlock()
+				require.Equal(t, "/v1/responses", got.path)
+				require.Equal(t, "Bearer "+tc.wantKey, got.key)
+				require.Equal(t, tc.wantModel, got.model)
+			})
+		}
+
+		for _, tc := range []struct {
+			name      string
+			reference string
+			userID    string
+			wantCode  int
+		}{
+			{
+				name:      "cross-provider primary",
+				reference: "openai/Qwen/Qwen3-32B",
+				userID:    "7",
+				wantCode:  http.StatusBadRequest,
+			},
+			{
+				name:      "cross-provider mapped resource",
+				reference: "m1-old-openai",
+				userID:    "7",
+				wantCode:  http.StatusBadRequest,
+			},
+			{
+				name:      "cross-provider alias",
+				reference: "llm",
+				userID:    "7",
+				wantCode:  http.StatusBadRequest,
+			},
+			{
+				name:      "unknown native name",
+				reference: "unknown/family/model",
+				userID:    "7",
+				wantCode:  http.StatusNotFound,
+			},
+			{
+				name:      "native name without permission",
+				reference: "Qwen/Qwen3-32B",
+				userID:    "8",
+				wantCode:  http.StatusForbidden,
+			},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				mux.user = &kuser.DefaultInfo{UID: tc.userID}
+				defer func() { mux.user = &kuser.DefaultInfo{UID: "7"} }()
+				body, err := json.Marshal(map[string]any{"model": tc.reference, "input": "hi"})
+				require.NoError(t, err)
+				route := "generic-responses"
+				if tc.name == "cross-provider alias" {
+					route = "openai"
+				}
+				lock.Lock()
+				before := len(requests)
+				lock.Unlock()
+				rec := httptest.NewRecorder()
+				mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+route+"/v1/responses", strings.NewReader(string(body))))
+				require.Equal(t, tc.wantCode, rec.Code, rec.Body.String())
+				lock.Lock()
+				defer lock.Unlock()
+				require.Len(t, requests, before, "a refused model must not reach inference")
+			})
+		}
+
+		b := &bifrostProviderBackend{engine: engine}
+		l := s.newBifrostLLMProviderProxy()
+		req := api.Context{Request: httptest.NewRequest(http.MethodPost, "/", nil).WithContext(llmengine.WithLegacyProviderScope(ctx, "generic-responses")), Storage: storageClient, GatewayClient: g, User: mux.user}
+		t.Run("native fallback", func(t *testing.T) {
+			body, err := b.authorizeExtraModels(l, req, []byte(`{"fallbacks":["Qwen/Qwen3-32B","team/family/model","openai/gpt-test"]}`))
+			require.NoError(t, err)
+			var got struct {
+				Fallbacks []string `json:"fallbacks"`
+			}
+			require.NoError(t, json.Unmarshal(body, &got))
+			require.Equal(t, []string{"generic-responses/Qwen/Qwen3-32B", "generic-responses/team/family/model", "generic-responses/openai/gpt-test"}, got.Fallbacks)
+		})
+		t.Run("cross-provider slash fallback", func(t *testing.T) {
+			_, err := b.authorizeExtraModels(l, req, []byte(`{"fallbacks":["openai/Qwen/Qwen3-32B"]}`))
+			require.Error(t, err)
+		})
+		t.Run("denied native fallback", func(t *testing.T) {
+			deniedReq := req
+			deniedReq.User = &kuser.DefaultInfo{UID: "8"}
+			body, err := b.authorizeExtraModels(l, deniedReq, []byte(`{"fallbacks":["Qwen/Qwen3-32B"]}`))
+			require.NoError(t, err)
+			require.JSONEq(t, `{"fallbacks":[]}`, string(body))
+		})
+		t.Run("cross-provider concrete routing collision", func(t *testing.T) {
+			attempts := &gatewayAttempts{budgets: map[string][]string{}}
+			err := attempts.checkAttempt(b, l, req, nil)(ctx, guardrails.Attempt{Model: "openai/gpt-test"})
+			require.Error(t, err, "engine targets must not be reinterpreted as native names")
+			require.Empty(t, attempts.admitted)
+		})
+		t.Run("concrete routing permissions", func(t *testing.T) {
+			// This native ID collides with a concrete target inside the same provider.
+			shadow := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-generic-shadow", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+				ModelProvider: system.LLMGatewayModelProvider,
+				TargetModel:   "generic-responses/generic-responses/Qwen/Qwen3-32B",
+				Active:        true,
+				Usage:         types.ModelUsageLLM,
+			}}}
+			require.NoError(t, storageClient.Create(ctx, shadow))
+			gvk, err := storageClient.GroupVersionKindFor(shadow)
+			require.NoError(t, err)
+			require.NoError(t, back.informers[gvk].GetIndexer().Add(shadow))
+			restricted := &v1.ModelAccessPolicy{Namespace: system.DefaultNamespace, Name: "restricted", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "9"}},
+				Models:   []types.ModelResource{{ID: "m1-generic-qwen"}, {ID: "m1-openai"}},
+			}}}
+			gvk, err = storageClient.GroupVersionKindFor(restricted)
+			require.NoError(t, err)
+			require.NoError(t, back.informers[gvk].GetIndexer().Add(restricted))
+			restrictedReq := req
+			restrictedReq.User = &kuser.DefaultInfo{UID: "9"}
+			attempts := &gatewayAttempts{budgets: map[string][]string{}}
+			check := attempts.checkAttempt(b, l, restrictedReq, nil)
+			require.NoError(t, check(ctx, guardrails.Attempt{Model: "generic-responses/Qwen/Qwen3-32B"}))
+			require.Equal(t, "generic-responses/Qwen/Qwen3-32B", attempts.admitted)
+			require.Error(t, check(ctx, guardrails.Attempt{Model: shadow.Spec.Manifest.TargetModel}))
+
+			// Access to the other provider's target must not grant this native collision.
+			_, err = b.authorizeModel(l, restrictedReq, "openai/gpt-test", "model")
+			var httpErr *types.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			require.Equal(t, http.StatusForbidden, httpErr.Code)
+		})
+		t.Run("stale mapping cannot retry an unscoped name", func(t *testing.T) {
+			require.NoError(t, store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+				var status llmengine.MigrationStatus
+				if err := json.Unmarshal(settings["legacy-provider-migration"], &status); err != nil {
+					return err
+				}
+				status.Mappings["openai/gpt-test"] = "m1-missing"
+				status.Mappings["generic-responses/team/family/model"] = "m1-openai"
+				body, err := json.Marshal(status)
+				settings["legacy-provider-migration"] = body
+				return err
+			}))
+			before := len(requests)
+			rec := httptest.NewRecorder()
+			mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/responses", strings.NewReader(`{"model":"openai/gpt-test","input":"hi"}`)))
+			require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
+			require.Len(t, requests, before)
+			attempts := &gatewayAttempts{budgets: map[string][]string{}}
+			require.Error(t, attempts.checkAttempt(b, l, req, nil)(ctx, guardrails.Attempt{Model: "generic-responses/team/family/model"}))
+			require.Empty(t, attempts.admitted, "a mapping must not authorize an out-of-scope concrete model")
+		})
+	})
 
 	before := len(requests)
 	// Fallbacks and routing rules must obey the same scope as the initial model.
