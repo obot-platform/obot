@@ -399,6 +399,19 @@ func TestMigrationDoesNotRecreateDeletedImportedProvider(t *testing.T) {
 		_, err = e.store.GetProvider(ctx, "openai")
 		require.True(t, apierrors.IsNotFound(err))
 	}
+
+	manual := llmcoreclient.Provider{Keys: []schemas.Key{{ID: "manual", Name: "manual", Value: *schemas.NewSecretVar("current-key")}}}
+	require.NoError(t, e.store.CreateProvider(ctx, "openai", manual))
+	results, err := e.ImportLegacyModelProviders(ctx, nil, g)
+	require.NoError(t, err)
+	require.Equal(t, "blocked", results[0].Status)
+	p, err := e.store.GetProvider(ctx, "openai")
+	require.NoError(t, err)
+	require.Equal(t, "current-key", p.Keys[0].Value.GetValue())
+	require.Nil(t, p.Migration)
+	sources, err := e.migratedSources(ctx)
+	require.NoError(t, err)
+	require.Empty(t, sources, "a recreated provider must not authorize migration cleanup")
 }
 func TestMigrationReportsUnsupportedSources(t *testing.T) {
 	e, ctx := startTestEngine(t)

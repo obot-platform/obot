@@ -109,11 +109,11 @@ func TestMigrationSharedPool(t *testing.T) {
 			results, err := recovered.ImportLegacyModelProviders(ctx, nil, g)
 			require.NoError(t, err)
 			require.Len(t, results, 2)
+			sources, err := recovered.migratedSources(ctx)
+			require.NoError(t, err)
 			for _, result := range results {
 				require.Equal(t, "imported", result.Status)
-				provider, err := recovered.LegacyGatewayProvider(ctx, result.ModelProvider)
-				require.NoError(t, err)
-				require.Equal(t, tc.family, provider, "both legacy routes resolve to the automatic pool")
+				require.Equal(t, tc.family, sources[result.ModelProvider], "both recovered imports must remain eligible for migration cleanup")
 			}
 			p, err := store.GetProvider(ctx, tc.family)
 			require.NoError(t, err)

@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/net/http/httpproxy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -324,26 +323,10 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 	})
 }
 
-// LegacyGatewayProvider binds a former route to its imported provider pool.
-func (e *Engine) LegacyGatewayProvider(ctx context.Context, source string) (string, error) {
-	sources, err := e.migratedSources(ctx)
-	if err != nil {
-		return "", err
-	}
-	if p := sources[source]; p != "" {
-		return p, nil
-	}
-	// New installations may use the retained first-party URLs without an import.
-	if source == system.OpenAIModelProvider || source == system.AnthropicModelProvider {
-		s, err := e.MigrationStatus(ctx)
-		if err != nil {
-			return "", err
-		}
-		if _, existed := s.Sources[source]; !existed {
-			return legacyImportPlans[source].provider, nil
-		}
-	}
-	return "", &apierrors.StatusError{ErrStatus: metav1.Status{Code: 410, Message: "this legacy configuration needs attention in Models / Providers; configure a gateway provider manually"}}
+// LegacyGatewayProvider maps a former route to its current provider independently
+// of import provenance, which is only evidence for migration recovery and cleanup.
+func LegacyGatewayProvider(source string) string {
+	return legacyImportPlans[source].provider
 }
 
 func (e *Engine) MigratedReference(ctx context.Context, reference string) (string, error) {

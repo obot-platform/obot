@@ -44,10 +44,12 @@ The first time the new version starts, Obot moves your configuration to the gate
 | --- | --- |
 | `/api/llm-proxy/v1` | Serves every model in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Use this for new setups. |
 | `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic`, `/api/llm-proxy/generic-responses` | Supported inference and model-listing requests retain their URLs. Bare model names resolve within the original provider. |
-| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported Mantle paths, including `anthropic/v1/messages` and `openai/v1/responses`, are adapted to the imported Mantle pool. |
-| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the imported Azure pool. |
+| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported Mantle paths, including `anthropic/v1/messages` and `openai/v1/responses`, are adapted to the current `bedrock_mantle` provider pool. |
+| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the current `azure` provider pool. |
 
-Existing client base URLs can remain unchanged for these supported operations. Old model resource IDs continue to resolve through saved migration mappings. Azure and Bedrock variants share their imported family's pool. A configuration requiring manual setup returns HTTP 410 with instructions to review **Models → Providers**. Unsupported operations also return HTTP 410; inference requests are not redirected.
+Existing client base URLs can remain unchanged for these supported operations. Each retained route uses its corresponding current gateway provider and keys, including providers configured manually or deleted and recreated under **Models → Providers**. No migration record or separate binding is required. Azure and Bedrock variants share their family's pool. Model access policies, audit logging and provider boundaries still apply; these routes cannot select or list another provider's models. Unconfigured providers return normal gateway errors. Unsupported operations return HTTP 410; inference requests are not redirected.
+
+Old model resource IDs continue to resolve through saved migration mappings. Import provenance is used for safe import recovery and source cleanup, independently of route availability. Manually recreating a provider restores supported requests on its retained URLs but does not mark its legacy source records safe to delete.
 
 :::warning Deprecated provider endpoints
 All legacy provider endpoints listed above are deprecated and will be removed in a future release. They remain available temporarily for migration compatibility. Update existing clients and use `/api/llm-proxy/v1` for new setups, with provider-qualified model names such as `bedrock_mantle/claude-sonnet-4-5`. See [Connecting clients](./connect-clients.md).

@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	types "github.com/obot-platform/obot/apiclient/types"
@@ -99,14 +98,8 @@ func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
 	// Legacy provider routes are planned for deprecation in the next non-patch release.
 	// New clients should use /api/llm-proxy/v1.
 	for prefix, source := range legacyProxySources {
+		provider := llmengine.LegacyGatewayProvider(source)
 		mux.HandleFunc("/api/llm-proxy/"+prefix+"/{path...}", func(req api.Context) error {
-			provider, err := s.llmGateway.LegacyGatewayProvider(req.Context(), source)
-			if err != nil {
-				if ae, ok := errors.AsType[*apierrors.StatusError](err); ok {
-					return types.NewErrHTTP(int(ae.ErrStatus.Code), ae.ErrStatus.Message)
-				}
-				return err
-			}
 			normalized, err := normalizeLegacyProxyPath(prefix, req.PathValue("path"))
 			if err != nil {
 				return err

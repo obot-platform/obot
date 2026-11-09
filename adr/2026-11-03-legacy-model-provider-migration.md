@@ -25,7 +25,7 @@ When both variants of a cloud family are configured, automatically import them a
 
 Reconciliation runs on startup and gateway resource events on every replica. Cross-resource visibility is eventually consistent: temporary gaps preserve source data, and retries converge. Only verified imports with discovered target models can move references and remove source records. Copy administrator edits once, persist compatibility mappings, then update references before cleanup.
 
-Retained proxy routes normalize supported v0.27 request paths and bind model resolution and listings to the imported provider pool. They use the existing gateway policy, metering and audit pipeline. Requests for unsupported configurations or imports needing manual setup return actionable errors.
+Retained proxy routes normalize supported v0.27 request paths and scope model resolution and listings to the corresponding current gateway provider: `openai`, `anthropic`, `generic-responses`, `azure` or `bedrock_mantle`. Both authentication variants of each cloud family use the same provider pool. Route availability is independent of migration outcomes and provenance, so manually configured and deleted-then-recreated providers use their current keys without a separate binding. Provenance remains evidence only for safe import recovery and source cleanup. These routes use the existing gateway policy, metering and audit pipeline and reject cross-provider models. Unconfigured providers return normal gateway errors; unsupported operations return HTTP 410. The retained provider endpoints are deprecated and will be removed in a future release; new clients should use `/api/llm-proxy/v1`.
 
 ## Consequences
 

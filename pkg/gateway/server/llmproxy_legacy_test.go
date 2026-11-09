@@ -13,6 +13,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/nah/pkg/backend"
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -228,6 +229,51 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 		require.Equal(t, route+"/gpt-test", listing.Data[0].ID)
 	}
 
+	for _, state := range []string{"manual", "recreated"} {
+		t.Run(state+" provider without provenance", func(t *testing.T) {
+			require.NoError(t, store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+				if state == "manual" {
+					delete(settings, "legacy-provider-migration")
+				} else {
+					// Recreating a provider must work even with a stale imported outcome.
+					settings["legacy-provider-migration"] = migration
+				}
+				return nil
+			}))
+			for _, provider := range []string{"openai", "generic-responses"} {
+				p, err := store.GetProvider(ctx, provider)
+				require.NoError(t, err)
+				p.Migration = nil
+				key := state + "-" + provider + "-key"
+				p.Keys = []schemas.Key{{ID: "manual", Name: "manual", Value: *schemas.NewSecretVar(key), Models: schemas.WhiteList{"*"}, Weight: 1}}
+				require.NoError(t, store.DeleteProvider(ctx, provider))
+				require.NoError(t, store.CreateProvider(ctx, provider, p))
+				_, err = engine.Sync(ctx)
+				require.NoError(t, err)
+
+				rec := httptest.NewRecorder()
+				mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+provider+"/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[{"role":"user","content":"hi"}]}`)))
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+				lock.Lock()
+				got := requests[len(requests)-1]
+				lock.Unlock()
+				require.Equal(t, "Bearer "+key, got.key, "legacy requests must use the current provider's keys")
+
+				rec = httptest.NewRecorder()
+				mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/llm-proxy/"+provider+"/v1/models", nil))
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+				var listing struct {
+					Data []struct {
+						ID string `json:"id"`
+					} `json:"data"`
+				}
+				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &listing))
+				require.Len(t, listing.Data, 1)
+				require.Equal(t, provider+"/gpt-test", listing.Data[0].ID)
+			}
+		})
+	}
+
 	before := len(requests)
 	// Fallbacks and routing rules must obey the same scope as the initial model.
 	t.Run("cross-provider fallback", func(t *testing.T) {
@@ -247,7 +293,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	})
 	unconfigured := httptest.NewRecorder()
 	mux.mux.ServeHTTP(unconfigured, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/azure/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[]}`)))
-	require.Equal(t, http.StatusGone, unconfigured.Code, "a standard gateway status error must retain its HTTP code")
+	require.Equal(t, http.StatusNotFound, unconfigured.Code, "an unconfigured provider must use the normal gateway model error")
 	denied := httptest.NewRecorder()
 	mux.mux.ServeHTTP(denied, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/openai/v1/chat/completions", strings.NewReader(`{"model":"generic-responses/gpt-test","messages":[]}`)))
 	require.Equal(t, http.StatusBadRequest, denied.Code)
@@ -264,6 +310,54 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	var body struct{ Data []any }
 	require.NoError(t, json.Unmarshal(listing.Body.Bytes(), &body))
 	require.Empty(t, body.Data, "model listing must retain access-policy filtering")
+}
+
+func TestLegacyProxyProviderMapping(t *testing.T) {
+	for _, tc := range []struct {
+		prefix   string
+		provider string
+	}{
+		{
+			prefix:   "openai",
+			provider: "openai",
+		},
+		{
+			prefix:   "anthropic",
+			provider: "anthropic",
+		},
+		{
+			prefix:   "generic-responses",
+			provider: "generic-responses",
+		},
+		{
+			prefix:   "azure",
+			provider: "azure",
+		},
+		{
+			prefix:   "azure-entra",
+			provider: "azure",
+		},
+		{
+			prefix:   "aws-bedrock",
+			provider: "bedrock_mantle",
+		},
+		{
+			prefix:   "aws-bedrock-api-key",
+			provider: "bedrock_mantle",
+		},
+	} {
+		t.Run(tc.prefix, func(t *testing.T) {
+			require.Equal(t, tc.provider, llmengine.LegacyGatewayProvider(legacyProxySources[tc.prefix]))
+
+			// Unsupported operations stay gone even without an engine or migration state.
+			mux := &legacyTestMux{mux: http.NewServeMux()}
+			s := &Server{}
+			s.addLLMProxyRoutes(mux)
+			rec := httptest.NewRecorder()
+			mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+tc.prefix+"/v1/images/generations", nil))
+			require.Equal(t, http.StatusGone, rec.Code, rec.Body.String())
+		})
+	}
 }
 
 func TestLegacyProxyPathNormalization(t *testing.T) {
