@@ -49,7 +49,9 @@ The first time the new version starts, Obot moves your configuration to the gate
 
 Existing client base URLs can remain unchanged for these supported operations. Old model resource IDs continue to resolve through saved migration mappings. Azure and Bedrock variants share their imported family's pool. A configuration requiring manual setup returns HTTP 410 with instructions to review **Models → Providers**. Unsupported operations also return HTTP 410; inference requests are not redirected.
 
-All retained legacy routes are planned for deprecation in the next non-patch release. For new client setups use `/api/llm-proxy/v1` and provider-qualified model names, such as `bedrock_mantle/claude-sonnet-4-5`. See [Connecting clients](./connect-clients.md).
+:::warning Deprecated provider endpoints
+All legacy provider endpoints listed above are deprecated and will be removed in a future release. They remain available temporarily for migration compatibility. Update existing clients and use `/api/llm-proxy/v1` for new setups, with provider-qualified model names such as `bedrock_mantle/claude-sonnet-4-5`. See [Connecting clients](./connect-clients.md).
+:::
 
 ## Other changes {#other-changes}
 
