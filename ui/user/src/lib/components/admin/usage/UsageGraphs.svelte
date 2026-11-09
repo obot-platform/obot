@@ -14,6 +14,7 @@
 		type UsageStatsFilters
 	} from '$lib/services';
 	import profile from '$lib/stores/profile.svelte';
+	import { getTimeRangeFilter } from '$lib/time';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, isBasicUser, withDisabledMarker } from '$lib/utils';
 	import HorizontalBarList from '../../graph/HorizontalBarList.svelte';
@@ -27,7 +28,7 @@
 		transformTopToolCalls
 	} from './utils';
 	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from '@lucide/svelte';
-	import { endOfDay, isBefore, set, subDays } from 'date-fns';
+	import { endOfDay } from 'date-fns';
 	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { fade, slide } from 'svelte/transition';
@@ -179,35 +180,12 @@
 		return { ...clone, ...propsFilters, ...enforcedFilters };
 	});
 
-	let timeRangeFilters = $derived.by(() => {
-		const { start_time, end_time } = searchParamFilters;
-
-		const endTime = set(new Date(end_time || new Date()), { milliseconds: 0, seconds: 59 });
-
-		const getStartTime = (date: typeof start_time) => {
-			const parsedStartTime = set(new Date(date ? date : Date.now()), {
-				milliseconds: 0,
-				seconds: 0
-			});
-
-			if (date) {
-				// Ensure start time is not after end time
-				if (isBefore(parsedStartTime, endTime)) {
-					return parsedStartTime;
-				}
-			}
-
-			// Return 7 days before end time
-			return subDays(endTime, 7);
-		};
-
-		const startTime = getStartTime(start_time);
-
-		return {
-			startTime,
-			endTime
-		};
-	});
+	let timeRangeFilters = $derived(
+		getTimeRangeFilter({
+			start_time: searchParamFilters.start_time,
+			end_time: searchParamFilters.end_time
+		})
+	);
 
 	let filters = $derived({
 		...searchParamFilters,

@@ -31,6 +31,7 @@
 		topToolCallsFromStats
 	} from '$lib/services/dashboard/utils';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { getTimeRangeFilter } from '$lib/time';
 	import ConfigureDashboard from './ConfigureDashboard.svelte';
 	import HeaderBar from './HeaderBar.svelte';
 	import {
@@ -73,8 +74,8 @@
 		Server,
 		Users
 	} from '@lucide/svelte';
-	import { isWithinInterval, subMonths } from 'date-fns';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { isWithinInterval } from 'date-fns';
+	import { onDestroy, onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
@@ -108,9 +109,9 @@
 	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
 	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
 
-	const initialEnd = new Date();
-	let end = $state(untrack(() => initialEnd));
-	let start = $state(untrack(() => subMonths(initialEnd, 1)));
+	const { startTime: initialStart, endTime: initialEnd } = getTimeRangeFilter({ days: 30 });
+	let end = $state(initialEnd);
+	let start = $state(initialStart);
 	const rangeBusy = $derived(loadingToolUsage || loadingTokens || loadingDeviceScanStats);
 	let rangeRequest = 0;
 

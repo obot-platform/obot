@@ -99,7 +99,7 @@ describe('Dashboard date range', () => {
 		expect(hoursBetween(tokenUsage.mock.calls[0][0], 'start', 'end')).toBeGreaterThan(24 * 27);
 
 		const catalogCalls = catalogServers.mock.calls.length;
-		const rangeButton = page.getByRole('button', { name: /1mo/ });
+		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
 		await expect.element(rangeButton).toBeEnabled();
 		await rangeButton.click();
 		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
@@ -140,7 +140,7 @@ describe('Dashboard date range', () => {
 		await renderDashboard([Group.POWERUSER]);
 
 		await vi.waitFor(() => expect(mcpStats).toHaveBeenCalled());
-		const rangeButton = page.getByRole('button', { name: /1mo/ });
+		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
 		await expect.element(rangeButton).toBeEnabled();
 		await rangeButton.click();
 		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
