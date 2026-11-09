@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/net/http/httpproxy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -66,7 +67,13 @@ func (e *Engine) MigrationStatus(ctx context.Context) (MigrationStatus, error) {
 }
 
 func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStatus) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return e.store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		s, err := decodeMigration(settings)
 		if err != nil {
 			return err
@@ -85,19 +92,34 @@ func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStat
 // ImportLegacyModelProviders reconciles independent provider aggregates. No write
 // callback performs I/O, and no cross-resource transaction is assumed.
 func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Client, g *gateway.Client) ([]LegacyImportResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	// Startup and leader resource queues share this lock through fresh reads and retries.
+	// Keep it separate from syncMu: runtime application must not wait on migration I/O.
+	e.importMu.Lock()
+	defer e.importMu.Unlock()
+	// A call queued by a former leader may be canceled before admission.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
 	var results []LegacyImportResult
-	// Each attempt reloads outcomes and provider provenance. Partial imports are
-	// idempotent, so concurrent replicas can resume without overwriting manual edits.
-	err := retry.OnError(retry.DefaultRetry, func(err error) bool {
-		return apierrors.IsConflict(err) || apierrors.IsAlreadyExists(err)
-	}, func() error {
+	var lastErr error
+	// Conflicts across processes still reload outcomes and aggregate provenance.
+	err := wait.ExponentialBackoffWithContext(ctx, retry.DefaultRetry, func(ctx context.Context) (bool, error) {
 		if err := ctx.Err(); err != nil {
-			return err
+			return false, err
 		}
-		var err error
-		results, err = e.importLegacyModelProviders(ctx, c, g)
-		return err
+		results, lastErr = e.importLegacyModelProviders(ctx, c, g)
+		if apierrors.IsConflict(lastErr) || apierrors.IsAlreadyExists(lastErr) {
+			return false, nil
+		}
+		return lastErr == nil, lastErr
 	})
+	if wait.Interrupted(err) && ctx.Err() == nil {
+		err = lastErr
+	}
 	return results, err
 }
 
@@ -179,8 +201,20 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 	}
 	var results []LegacyImportResult
 	var importErrors []error
+	reconciled := map[string]LegacyImportResult{}
 	for _, name := range slices.Sorted(maps.Keys(entries)) {
+		if result, ok := reconciled[name]; ok {
+			results = append(results, result)
+			continue
+		}
+		if err := ctx.Err(); err != nil {
+			return results, err
+		}
 		plan := legacyImportPlans[name]
+		names := groups[plan.provider]
+		if entryUnsupported(name) {
+			names = []string{name}
+		}
 		result := LegacyImportResult{ModelProvider: name, GatewayProvider: plan.provider}
 		switch {
 		case entryUnsupported(name):
@@ -199,7 +233,6 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 				}
 			}
 		default:
-			names := groups[plan.provider]
 			completed := slices.ContainsFunc(names, func(source string) bool { return state.Sources[source].Imported })
 			var err error
 			result.Status, result.Message, err = e.importLegacySources(ctx, names, secrets, deployments, completed)
@@ -207,16 +240,23 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 				importErrors = append(importErrors, fmt.Errorf("import legacy provider %s: %w", name, err))
 			}
 		}
+		// Commit the whole family's outcomes together, before any later source can
+		// observe completion. Imported stays sticky even when a deleted pool is blocked.
 		if err := e.mutateMigration(ctx, func(s *MigrationStatus) error {
-			current := s.Sources[name]
-			current.Status, current.Message = result.Status, result.Message
-			if result.Status == "imported" {
-				current.Imported = true
+			for _, source := range names {
+				current := s.Sources[source]
+				current.Status, current.Message = result.Status, result.Message
+				if result.Status == "imported" {
+					current.Imported = true
+				}
+				s.Sources[source] = current
 			}
-			s.Sources[name] = current
 			return nil
 		}); err != nil {
 			return results, err
+		}
+		for _, source := range names {
+			reconciled[source] = LegacyImportResult{ModelProvider: source, GatewayProvider: plan.provider, Status: result.Status, Message: result.Message}
 		}
 		results = append(results, result)
 	}
@@ -442,6 +482,9 @@ func (e *Engine) importLegacySources(ctx context.Context, names []string, secret
 			}
 		}
 		if err == nil {
+			if err := ctx.Err(); err != nil {
+				return "error", "provider import canceled", err
+			}
 			p.Migration = &provenance
 			applyProviderEgressProxy(plan.provider, &p, proxy)
 			err = e.store.CreateProvider(ctx, plan.provider, p)

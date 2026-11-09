@@ -52,13 +52,15 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 			continue
 		}
 		updated := false
-		err := e.mutation(ctx, func(ctx context.Context) error {
-			// The listing supplies names only. Recompute from the latest aggregate
-			// and edit only its proxy so intervening admin changes are preserved.
-			return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
-				updated = applyProviderEgressProxy(name, current, cfg)
-				return nil
-			})
+		// Environment reconciliation belongs to the leader, so retain cancellation
+		// rather than using the detached context of an accepted administrative write.
+		if ctx.Err() != nil {
+			return changed
+		}
+		// Recompute from the latest aggregate so intervening admin edits survive.
+		err := e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
+			updated = applyProviderEgressProxy(name, current, cfg)
+			return nil
 		})
 		if err != nil {
 			slog.Warn("failed to update the egress proxy for an LLM gateway provider", "provider", name, "error", err)

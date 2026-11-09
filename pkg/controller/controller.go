@@ -53,6 +53,7 @@ func New(services *services.Services) (*Controller, error) {
 
 	c.setupRoutes()
 	c.setupEveryReplicaRoutes()
+	c.setupLLMGatewayConfigRoutes(c.services.BifrostEngine)
 	c.setupLocalK8sRoutes()
 
 	services.Router.PosStart(c.PostStart)
@@ -191,6 +192,8 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	// notifications, and a peer that was not sending them leaves the cache up to a
 	// poll interval behind. Have every watch list again before acting on it.
 	c.services.StorageDB.Refresh()
+	// Startup imports and periodic model writes stop when this leadership ends.
+	go c.services.BifrostEngine.RunStartupTasks(ctx, client, c.services.GatewayClient)
 	if c.services.Substrate != nil {
 		handler := &agentinstance.Handler{Substrate: c.services.Substrate, Gateway: c.services.GatewayClient}
 		go handler.RunMaintenance(ctx, client)
@@ -688,7 +691,5 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 		}
 	}
 
-	storage := c.services.StorageClient
-	go c.services.BifrostEngine.RunStartupTasks(ctx, storage, c.services.GatewayClient)
 	return nil
 }

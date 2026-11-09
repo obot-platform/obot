@@ -56,6 +56,7 @@ type Engine struct {
 	startOnce        sync.Once
 	stopOnce         sync.Once
 	shutdownDone     chan struct{}
+	importMu         sync.Mutex
 	syncMu           sync.Mutex
 	appliedMigration json.RawMessage
 	appliedPricing   json.RawMessage

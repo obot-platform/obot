@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -10,37 +11,46 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
-// setupLLMGatewayConfigRoutes activates resource reconciliation for the core runtime.
-// The legacy transport uses its reload mechanism; cutover calls this helper when
-// the service engine implements the core lifecycle interface.
+type legacyGatewayConfigSync struct {
+	llmgatewayconfig.Engine
+	controller *Controller
+}
+
+// setupLLMGatewayConfigRoutes applies runtime state on every replica. Only the
+// elected router imports legacy resources; both handlers coalesce overlapping events.
 func (c *Controller) setupLLMGatewayConfigRoutes(engine llmgatewayconfig.Engine) {
-	if c.services.EveryReplicaRouter == nil {
-		return
+	if c.services.EveryReplicaRouter != nil {
+		registerLLMGatewayConfigRoutes(c.services.EveryReplicaRouter, llmgatewayconfig.New(engine).Reconcile)
 	}
-	configSync := llmgatewayconfig.New(engine)
-	reconcile := func(req router.Request, resp router.Response) error {
-		if !engine.Ready() {
-			return configSync.Reconcile(req, resp)
-		}
-		// Apply successfully imported resources even when another import fails;
-		// join both errors so failed imports and runtime application remain retryable.
-		var importErr error
-		if c.services.GatewayClient != nil {
-			_, importErr = c.services.BifrostEngine.ImportLegacyModelProviders(req.Ctx, c.services.StorageClient, c.services.GatewayClient)
-		}
-		return errors.Join(importErr, configSync.Reconcile(req, resp))
+	if c.services.Router != nil {
+		leaderSync := &legacyGatewayConfigSync{Engine: engine, controller: c}
+		registerLLMGatewayConfigRoutes(c.services.Router, llmgatewayconfig.New(leaderSync).Reconcile)
 	}
-	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayProvider{}).
+}
+
+func (s *legacyGatewayConfigSync) Sync(ctx context.Context) (bool, error) {
+	c := s.controller
+	var importErr error
+	if c.services.GatewayClient != nil {
+		_, importErr = c.services.BifrostEngine.ImportLegacyModelProviders(ctx, c.services.StorageClient, c.services.GatewayClient)
+	}
+	// Apply independent successes even when another family fails; retry both errors.
+	changed, syncErr := s.Engine.Sync(ctx)
+	return changed, errors.Join(importErr, syncErr)
+}
+
+func registerLLMGatewayConfigRoutes(r *router.Router, reconcile router.HandlerFunc) {
+	r.Type(&v1.LLMGatewayProvider{}).
 		Namespace(system.DefaultNamespace).
 		IncludeRemoved().
 		HandlerFunc(reconcile)
-	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayRoutingRule{}).
+	r.Type(&v1.LLMGatewayRoutingRule{}).
 		Namespace(system.DefaultNamespace).
 		IncludeRemoved().
 		HandlerFunc(reconcile)
 	// Global settings use only the default singleton. Providers and rules have
 	// independent names, so their watches remain unfiltered.
-	c.services.EveryReplicaRouter.Type(&v1.LLMGatewayConfig{}).
+	r.Type(&v1.LLMGatewayConfig{}).
 		Namespace(system.DefaultNamespace).
 		Name(system.LLMGatewayConfigName).
 		IncludeRemoved().

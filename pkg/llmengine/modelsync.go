@@ -51,6 +51,9 @@ func envConfigured(provider string) string {
 // resource while it syncs, so a conflicting write is retried against the latest version.
 func TriggerModelSync(ctx context.Context, c kclient.Client) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		var mp v1.ModelProvider
 		if err := c.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.LLMGatewayModelProvider}, &mp); err != nil {
 			return err
@@ -63,6 +66,9 @@ func TriggerModelSync(ctx context.Context, c kclient.Client) error {
 		} else {
 			delete(mp.Annotations, v1.ModelProviderSyncAnnotation)
 		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return c.Update(ctx, &mp)
 	})
 }
@@ -74,6 +80,9 @@ func TriggerModelSync(ctx context.Context, c kclient.Client) error {
 func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) bool {
 	changed := false
 	for _, p := range envProviders {
+		if ctx.Err() != nil {
+			return changed
+		}
 		value := os.Getenv(p.envVar)
 		if value == "" {
 			continue
@@ -129,6 +138,9 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 					err = update(&provider)
 				}
 				if err == nil {
+					if err := ctx.Err(); err != nil {
+						return err
+					}
 					err = e.store.CreateProvider(ctx, p.provider, provider)
 				}
 				if apierrors.IsAlreadyExists(err) {
@@ -144,6 +156,9 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 		slog.Info("configured an LLM gateway provider from the environment", "provider", p.provider, "envVar", p.envVar)
 		changed = true
 		if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), mp); err != nil {
 				return err
 			}
@@ -151,6 +166,9 @@ func (e *Engine) importEnvProviders(ctx context.Context, c kclient.Client, mp *v
 				mp.Annotations = map[string]string{}
 			}
 			mp.Annotations[annotation] = hash
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			return c.Update(ctx, mp)
 		}); err != nil {
 			slog.Warn("failed to record the LLM gateway provider configured from the environment", "provider", p.provider, "error", err)
@@ -178,7 +196,8 @@ func LegacyImportDone(mp *v1.ModelProvider) bool {
 	return mp.Annotations[legacyImportAnnotation] != ""
 }
 
-// RunStartupTasks imports legacy credentials, configures environment keys and periodically refreshes models.
+// RunStartupTasks imports credentials and refreshes models for this leadership term.
+// Every write keeps the leader context so a canceled former leader cannot resume startup.
 func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) {
 	if err := e.Wait(ctx); err != nil {
 		return
@@ -186,6 +205,9 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 
 	var mp v1.ModelProvider
 	for {
+		if ctx.Err() != nil {
+			return
+		}
 		err := c.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.LLMGatewayModelProvider}, &mp)
 		if err == nil {
 			break
@@ -198,7 +220,7 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 	}
 
 	changed, _ := e.startupChanges(ctx, c, gatewayClient, &mp)()
-	if changed {
+	if changed && ctx.Err() == nil {
 		if _, err := e.Sync(ctx); err != nil {
 			slog.Warn("LLM gateway startup sync failed", "error", err)
 		}
@@ -208,6 +230,9 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 	ticker := time.NewTicker(15 * time.Minute)
 	defer ticker.Stop()
 	for {
+		if ctx.Err() != nil {
+			return
+		}
 		if err := TriggerModelSync(ctx, c); err != nil {
 			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
 		}
@@ -224,6 +249,9 @@ func (e *Engine) RunStartupTasks(ctx context.Context, c kclient.Client, gatewayC
 func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client, mp *v1.ModelProvider) func() (bool, bool) {
 	return func() (bool, bool) {
 		changed := false
+		if ctx.Err() != nil {
+			return false, false
+		}
 		{
 			results, err := e.ImportLegacyModelProviders(ctx, c, gatewayClient)
 			changed = slices.ContainsFunc(results, func(r LegacyImportResult) bool { return r.Status == "imported" })
@@ -235,6 +263,9 @@ func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayCl
 				slog.Info("LLM gateway legacy provider import", "modelProvider", r.ModelProvider, "gatewayProvider", r.GatewayProvider, "status", r.Status, "message", r.Message)
 				failed = failed || (r.Status != "imported" && r.Status != "environment")
 			}
+			if ctx.Err() != nil {
+				return changed, false
+			}
 			// Only record the import once it fully succeeded, so a failure is retried next start.
 			if !failed {
 				if err := recordLegacyImport(ctx, c, mp); err != nil {
@@ -245,6 +276,9 @@ func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayCl
 
 		if e.importEnvProviders(ctx, c, mp) {
 			changed = true
+		}
+		if ctx.Err() != nil {
+			return changed, false
 		}
 		if e.ApplyEgressProxy(ctx) {
 			changed = true
@@ -259,6 +293,9 @@ func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayCl
 // start imports again.
 func recordLegacyImport(ctx context.Context, c kclient.Client, mp *v1.ModelProvider) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := c.Get(ctx, kclient.ObjectKeyFromObject(mp), mp); err != nil {
 			return err
 		}
@@ -266,6 +303,9 @@ func recordLegacyImport(ctx context.Context, c kclient.Client, mp *v1.ModelProvi
 			mp.Annotations = map[string]string{}
 		}
 		mp.Annotations[legacyImportAnnotation] = "true"
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return c.Update(ctx, mp)
 	})
 }
