@@ -116,4 +116,63 @@ describe('ProvidersView migration results', () => {
 			.element(page.getByText('Some legacy model providers need attention.'))
 			.not.toBeInTheDocument();
 	}, 5000);
+	it.each(['error', 'pending'] as const)(
+		'preserves the last %s snapshot and keeps polling after a transient fetch failure',
+		async (status) => {
+			let reads = 0;
+			let imported = false;
+			let release!: () => void;
+			// Hold reconciliation so the retained warning can be checked before success clears it.
+			const reconciled = new Promise<void>((resolve) => (release = resolve));
+			const providers = vi.fn(() =>
+				HttpResponse.json({ providers: imported ? [{ name: 'bedrock_mantle' }] : [] })
+			);
+			worker.use(
+				http.get('/api/llm-gateway/admin/providers', providers),
+				http.get('/api/llm-gateway/migration', async () => {
+					reads++;
+					if (reads === 1) {
+						return HttpResponse.json({
+							sources: { iam: { name: 'AWS Bedrock', provider: 'bedrock_mantle', status } }
+						});
+					}
+					if (reads === 2) {
+						return status === 'error'
+							? new HttpResponse(null, { status: 500 })
+							: HttpResponse.error();
+					}
+					await reconciled;
+					imported = true;
+					return HttpResponse.json({
+						sources: { iam: { provider: 'bedrock_mantle', status: 'imported' } }
+					});
+				})
+			);
+			const { unmount } = await render(ProvidersView);
+			const warning = page.getByText('Some legacy model providers need attention.');
+			try {
+				await expect.element(page.getByText('No providers configured')).toBeVisible();
+				await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(2), { timeout: 3500 });
+				if (status === 'error') {
+					await expect.element(warning).toBeVisible();
+					await expect
+						.element(page.getByText('AWS Bedrock: The import failed.', { exact: false }))
+						.toBeVisible();
+				} else {
+					await expect.element(warning).not.toBeInTheDocument();
+				}
+				await vi.waitFor(() => expect(reads).toBe(3), { timeout: 3500 });
+				release();
+				await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+				await expect.element(warning).not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('button', { name: 'Review migration' }))
+					.not.toBeInTheDocument();
+			} finally {
+				release();
+				await unmount();
+			}
+		},
+		8000
+	);
 });

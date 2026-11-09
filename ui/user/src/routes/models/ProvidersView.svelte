@@ -68,7 +68,8 @@
 		if (showLoading) loading = true;
 		try {
 			status = await getStatus();
-			if (!readonly) migration = await getMigration().catch(() => undefined);
+			// Keep warnings and polling active through transient status fetch failures.
+			if (!readonly) migration = await getMigration().catch(() => migration);
 			onReadyChange?.(!!status.ready);
 			if (!status.ready) return;
 			providers = (await listProviders()).sort((a, b) => a.name.localeCompare(b.name));
