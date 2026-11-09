@@ -8,24 +8,20 @@
 		transformIndividualToolResponseTimes,
 		transformMostActiveUsers,
 		transformToolCallErrors,
-		transformToolCallErrorsByServer
+		transformToolCallErrorsByServer,
+		mcpUsageCounts
 	} from '$lib/components/admin/usage/utils';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		AdminService,
 		UserService,
 		type DeviceClientStat,
 		type DeviceMCPServerStat,
-		type DeviceScanStats,
 		type DeviceSkillStat,
 		type MCPCatalogServer,
-		type McpAuditLogUsageStats,
-		type OrgUser,
-		type TokenUsageStats,
-		type TotalTokenUsage
+		type OrgUser
 	} from '$lib/services';
 	import {
 		avgToolCallResponseTimeFromStats,
@@ -37,32 +33,30 @@
 	import { getTimeRangeFilter } from '$lib/time';
 	import ConfigureDashboard from './ConfigureDashboard.svelte';
 	import HeaderBar from './HeaderBar.svelte';
+	import { ownedLayoutStore, trackProbe, trackRangeDataset } from './dashboardData.svelte';
 	import {
-		DASHBOARD_LAYOUT_KEY,
-		DEVICE_STAT_IDS,
-		MODEL_STAT_IDS,
-		PLATFORM_STAT_IDS,
 		availableWidgets,
+		buildGridCells,
 		colSpanClass,
 		commitLayout,
 		factoryConfig,
 		type WidgetId,
-		headerVisible,
-		isHiddenBecauseEmpty,
 		moveHeader,
-		parseDashboardConfig,
 		placeWidget,
 		projectConfig,
+		hasRenderedContent,
+		headerVisibilities,
+		hasLlmUsage,
+		neededDatasets,
+		placedWidgetIds,
 		rowsForRender,
-		visibleStatIds,
 		widgetStatuses,
 		type DashboardConfig,
-		type DashboardRow,
 		type DeviceStatId,
 		type DropTarget,
+		type GridCell,
 		type ModelStatId,
-		type PlatformStatId,
-		type WidgetPlacement
+		type PlatformStatId
 	} from './dashboardLayout';
 	import { dragScrollDelta } from './dragScroll';
 	import DashboardWidget from './widgets/DashboardWidget.svelte';
@@ -87,46 +81,103 @@
 
 	let { data } = $props();
 	let hasDeviceScans = $derived(data?.hasDeviceScans ?? false);
-	let hasMcpStats = $derived(data?.hasMcpStats ?? false);
-	let hasLlmStats = $derived(data?.hasLlmStats ?? false);
-	const headerAvailability = $derived({
-		deviceScans: hasDeviceScans,
-		mcpStats: hasMcpStats,
-		llmStats: hasLlmStats
-	});
 	let loading = $state(true);
-	let loadingToolUsage = $state(true);
-	let loadingDeviceScanStats = $state(true);
-	let loadingTokens = $state(true);
-	let loadingTokenUsageStats = $state(true);
 
 	let configureDashboardDialog = $state<ReturnType<typeof ConfigureDashboard>>();
 
 	let usersData = $state<OrgUser[]>([]);
-	let totalTokensData = $state<TotalTokenUsage>();
-	let tokenUsageStats = $state<TokenUsageStats>();
+
+	const range = () => ({ start, end });
+	const mcpUsage = trackRangeDataset({
+		enabled: () => layoutReady && neededData.has('mcp-usage'),
+		range,
+		fetch: async (rangeStart, rangeEnd, signal) => {
+			const stats = await UserService.listMcpAuditLogUsageStats(
+				{ start_time: rangeStart.toISOString(), end_time: rangeEnd.toISOString() },
+				{ signal }
+			);
+			const items = (stats.items ?? []).filter(
+				(s) =>
+					!s.mcpID.startsWith('sms1') &&
+					!s.mcpServerDisplayName.startsWith('nba1') &&
+					!s.mcpServerDisplayName.startsWith('Obot ')
+			);
+			return { ...stats, items };
+		}
+	});
+	const deviceScans = trackRangeDataset({
+		enabled: () => layoutReady && isAdmin && neededData.has('device-scans'),
+		range,
+		fetch: (rangeStart, rangeEnd, signal) =>
+			AdminService.getDeviceScanStats(
+				{ start: rangeStart.toISOString(), end: rangeEnd.toISOString() },
+				{ signal }
+			)
+	});
+	const tokenTotals = trackRangeDataset({
+		enabled: () => layoutReady && isAdmin && neededData.has('token-totals'),
+		range,
+		fetch: (rangeStart, rangeEnd, signal) =>
+			AdminService.listTotalTokenUsage({ start: rangeStart, end: rangeEnd }, { signal })
+	});
+	const tokenStats = trackRangeDataset({
+		enabled: () => layoutReady && isAdmin && neededData.has('token-stats'),
+		range,
+		fetch: (rangeStart, rangeEnd, signal) =>
+			AdminService.getTokenUsageStats({ start: rangeStart, end: rangeEnd }, {}, { signal })
+	});
+	const mcpUsageStats = $derived(mcpUsage.data);
+	const deviceScanStats = $derived(deviceScans.data);
+	const totalTokensData = $derived(tokenTotals.data);
+	const tokenUsageStats = $derived(tokenStats.data);
+	const loadingToolUsage = $derived(mcpUsage.loading);
+	const loadingDeviceScanStats = $derived(deviceScans.loading);
+	const loadingTokens = $derived(tokenTotals.loading);
+	const loadingTokenUsageStats = $derived(tokenStats.loading);
+
+	const mcpProbe = trackProbe({
+		enabled: () => layoutReady && usedVisibilities.has('mcp-stats'),
+		retryKey: range,
+		check: async (signal) =>
+			(
+				await UserService.listAuditLogs(
+					{ event_type: 'mcp_call', limit: 1 },
+					{ signal, dontLogErrors: true }
+				)
+			).total > 0
+	});
+	const llmProbe = trackProbe({
+		enabled: () => layoutReady && isAdmin && usedVisibilities.has('llm-stats'),
+		retryKey: range,
+		check: async (signal) =>
+			hasLlmUsage(
+				await AdminService.listTotalTokenUsage(
+					{ start: new Date(0), end: new Date() },
+					{ signal, dontLogErrors: true }
+				)
+			)
+	});
+	const headerAvailability = $derived({
+		deviceScans: hasDeviceScans,
+		mcpStats: mcpProbe.value,
+		llmStats: llmProbe.value
+	});
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
 	const isAdmin = $derived(Boolean(profile.current.hasAdminAccess?.()));
 	const viewer = $derived({ isAdmin });
 
-	const storedLayout = localState<DashboardConfig | null>(DASHBOARD_LAYOUT_KEY, null, {
-		parse: parseDashboardConfig
-	});
+	const storedLayout = ownedLayoutStore(() => profile.current.id);
+	const layoutReady = $derived(storedLayout.isReady);
 	const dashboardLayout = $derived.by(() => {
 		if (!storedLayout.isReady || storedLayout.current == null) return factoryConfig(viewer);
 		return projectConfig(storedLayout.current, viewer);
 	});
 
-	let mcpUsageStats = $state<McpAuditLogUsageStats>();
 	const topToolCalls = $derived(topToolCallsFromStats(mcpUsageStats));
 	const topServerUsage = $derived(topServersFromStats(mcpUsageStats));
 	const avgToolCallResponseTime = $derived(avgToolCallResponseTimeFromStats(mcpUsageStats));
-	const individualToolResponses = $derived(transformIndividualToolResponseTimes(mcpUsageStats));
-	const toolCallErrors = $derived(transformToolCallErrors(mcpUsageStats));
-	const toolCallErrorsByServer = $derived(transformToolCallErrorsByServer(mcpUsageStats));
-	const mostActiveUsers = $derived(transformMostActiveUsers(mcpUsageStats));
-	let deviceScanStats = $state<DeviceScanStats | null>(null);
+	const mcpCounts = $derived(mcpUsageCounts(mcpUsageStats));
 	let maxToolsToShow = $derived(hasDeviceScans ? 3 : 5);
 	let maxServersToShow = $derived(hasDeviceScans ? 10 : 12);
 
@@ -134,11 +185,10 @@
 	let end = $state(initialEnd);
 	let start = $state(initialStart);
 	const rangeBusy = $derived(
-		loadingToolUsage || loadingTokens || loadingTokenUsageStats || loadingDeviceScanStats
+		mcpUsage.busy || tokenTotals.busy || tokenStats.busy || deviceScans.busy
 	);
-	let rangeRequest = 0;
 
-	let monthlyActiveUsers = $derived(
+	let activeUsers = $derived(
 		usersData.filter(
 			(user) => user.lastActiveDay && isWithinInterval(new Date(user.lastActiveDay), { start, end })
 		).length
@@ -199,25 +249,27 @@
 	let dragPointerY = 0;
 	let dragScrollFrame = 0;
 	const editingLayout = $derived(draft ?? dashboardLayout);
+	const placedWidgets = $derived(placedWidgetIds(editingLayout.rows));
+	const individualToolResponses = $derived(
+		placedWidgets.has('tool-individual-response-time')
+			? transformIndividualToolResponseTimes(mcpUsageStats)
+			: []
+	);
+	const toolCallErrors = $derived(
+		placedWidgets.has('tool-call-errors') ? transformToolCallErrors(mcpUsageStats) : []
+	);
+	const toolCallErrorsByServer = $derived(
+		placedWidgets.has('tool-call-errors-by-server')
+			? transformToolCallErrorsByServer(mcpUsageStats)
+			: []
+	);
+	const mostActiveUsers = $derived(
+		placedWidgets.has('most-active-users') ? transformMostActiveUsers(mcpUsageStats) : []
+	);
 
 	function updateLayout(next: DashboardConfig) {
 		applyLayout(next);
 		if (dragging) draft = next;
-	}
-
-	function showRow(row: DashboardRow): boolean {
-		if (row.kind === 'header') return headerVisible(row, headerAvailability);
-		if (row.kind === 'box') {
-			if (row.rows.length === 0) return true;
-			return row.rows.some(showRow);
-		}
-		return row.items.some((item) => !isHiddenBecauseEmpty(item, statuses[item.id]));
-	}
-
-	function visiblePlacements(items: WidgetPlacement[]) {
-		return items.flatMap((item, index) =>
-			isHiddenBecauseEmpty(item, statuses[item.id]) ? [] : [{ item, index }]
-		);
 	}
 
 	function parsePath(value: string | undefined): number[] {
@@ -483,93 +535,12 @@
 
 	onDestroy(detachDragListeners);
 
-	function loadRangeDatasets(rangeStart: Date, rangeEnd: Date) {
-		const request = ++rangeRequest;
-		loadingToolUsage = true;
-
-		UserService.listMcpAuditLogUsageStats({
-			start_time: rangeStart.toISOString(),
-			end_time: rangeEnd.toISOString()
-		})
-			.then((stats) => {
-				if (request !== rangeRequest) return;
-				const statsToUse = (stats.items ?? []).filter(
-					(s) =>
-						!s.mcpID.startsWith('sms1') &&
-						!s.mcpServerDisplayName.startsWith('nba1') &&
-						!s.mcpServerDisplayName.startsWith('Obot ')
-				);
-				const adjustedStats = {
-					...stats,
-					items: statsToUse
-				};
-				mcpUsageStats = adjustedStats;
-			})
-			.catch((error) => {
-				if (request !== rangeRequest || error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				if (request === rangeRequest) loadingToolUsage = false;
-			});
-
-		if (!profile.current.hasAdminAccess?.()) {
-			loadingTokens = false;
-			loadingTokenUsageStats = false;
-			loadingDeviceScanStats = false;
-			return;
-		}
-
-		loadingDeviceScanStats = true;
-		loadingTokens = true;
-		loadingTokenUsageStats = true;
-
-		AdminService.getDeviceScanStats({
-			start: rangeStart.toISOString(),
-			end: rangeEnd.toISOString()
-		})
-			.then((stats) => {
-				if (request !== rangeRequest) return;
-				deviceScanStats = stats;
-			})
-			.catch((error) => {
-				if (request !== rangeRequest || error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				if (request === rangeRequest) loadingDeviceScanStats = false;
-			});
-
-		AdminService.listTotalTokenUsage({ start: rangeStart, end: rangeEnd })
-			.then((tokens) => {
-				if (request !== rangeRequest) return;
-				totalTokensData = tokens;
-			})
-			.catch((error) => {
-				if (request !== rangeRequest || error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				if (request === rangeRequest) loadingTokens = false;
-			});
-
-		AdminService.getTokenUsageStats({ start: rangeStart, end: rangeEnd })
-			.then((stats) => {
-				if (request !== rangeRequest) return;
-				tokenUsageStats = stats;
-			})
-			.catch((error) => {
-				if (request !== rangeRequest || error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				if (request === rangeRequest) loadingTokenUsageStats = false;
-			});
-	}
-
-	$effect(() => {
-		loadRangeDatasets(start, end);
-	});
+	const neededData = $derived(neededDatasets(dashboardLayout));
+	const usedVisibilities = $derived(headerVisibilities(dashboardLayout.rows));
+	const probesPending = $derived(
+		(usedVisibilities.has('mcp-stats') && !mcpProbe.settled) ||
+			(isAdmin && usedVisibilities.has('llm-stats') && !llmProbe.settled)
+	);
 
 	onMount(() => {
 		if (!profile.current.hasAdminAccess?.()) {
@@ -606,10 +577,10 @@
 			seeMore: '/identity-access?view=users'
 		},
 		{
-			id: 'monthly-active-users',
-			label: platformStatLabel('monthly-active-users'),
+			id: 'active-users',
+			label: platformStatLabel('active-users'),
 			loading,
-			value: monthlyActiveUsers,
+			value: activeUsers,
 			icon: Activity,
 			seeMore: '/identity-access?view=users'
 		},
@@ -706,7 +677,7 @@
 		}
 	]);
 
-	const visibleModelStats = $derived(visibleStatIds(dashboardLayout.modelStats, MODEL_STAT_IDS));
+	const visibleModelStats = $derived(dashboardLayout.modelStats);
 	const modelStatValue = $derived<Record<ModelStatId, number>>({
 		total: totalTokensData?.totalTokens ?? 0,
 		input: totalTokensData?.inputTokens ?? 0,
@@ -716,14 +687,10 @@
 		spend: totalTokensData?.totalSpend ?? 0
 	});
 	const visiblePlatformTiles = $derived(
-		platformStatTiles.filter((tile) =>
-			visibleStatIds(dashboardLayout.platformStats, PLATFORM_STAT_IDS).includes(tile.id)
-		)
+		platformStatTiles.filter((tile) => dashboardLayout.platformStats.includes(tile.id))
 	);
 	const visibleDeviceTiles = $derived(
-		deviceScanTiles.filter((tile) =>
-			visibleStatIds(dashboardLayout.deviceStats, DEVICE_STAT_IDS).includes(tile.id)
-		)
+		deviceScanTiles.filter((tile) => dashboardLayout.deviceStats.includes(tile.id))
 	);
 	const serverLoading = $derived(serverAndEntries.loading || loading);
 	const statuses = $derived(
@@ -758,13 +725,17 @@
 			topModelCount:
 				(tokenUsageStats?.topModelsByRequests?.length ?? 0) +
 				(tokenUsageStats?.topModelsBySpend?.length ?? 0),
-			individualResponseCount: individualToolResponses.length,
-			toolErrorCount: toolCallErrors.length,
-			serverErrorCount: toolCallErrorsByServer.length,
-			activeUserCount: mostActiveUsers.length
+			individualResponseCount: mcpCounts.individualResponses,
+			toolErrorCount: mcpCounts.toolErrors,
+			serverErrorCount: mcpCounts.serverErrors,
+			activeUserCount: mcpCounts.activeUsers
 		})
 	);
-	const renderedRows = $derived(rowsForRender(editingLayout, statuses, headerAvailability));
+	// Built once per change of layout, statuses, or header availability (not per render pass).
+	const gridCells = $derived(buildGridCells(editingLayout.rows, statuses, headerAvailability));
+	const hasContent = $derived(
+		hasRenderedContent(rowsForRender(editingLayout, statuses, headerAvailability))
+	);
 	const emptyWidgets = $derived(
 		(
 			Object.entries(statuses) as [WidgetId, { loading: boolean; empty: boolean } | undefined][]
@@ -812,59 +783,49 @@
 	});
 </script>
 
-{#snippet dashboardRows(rows: DashboardRow[], parent: number[])}
-	{#each rows as row, rowIndex (row.kind === 'widgets' ? row.items
-				.map((placement) => placement.id)
-				.join('|') : row.id)}
-		{#if row.kind === 'box'}
-			{#if showRow(row)}
-				<div
-					class="@container border-base-300 bg-base-100/35 dark:bg-base-300/35 col-span-12 rounded-xl border px-3 py-3"
-					data-dashboard-box
-					data-box-path={[...parent, rowIndex].join('-')}
-					data-child-count={row.rows.length}
-				>
-					<div class="grid grid-cols-12 gap-4">
-						{@render dashboardRows(row.rows, [...parent, rowIndex])}
-					</div>
+{#snippet dashboardRows(cells: GridCell[], parent: number[])}
+	{#each cells as cell (cell.key)}
+		{#if cell.kind === 'box'}
+			<div
+				class="@container border-base-300 bg-base-100/35 dark:bg-base-300/35 col-span-12 rounded-xl border px-3 py-3"
+				data-dashboard-box
+				data-box-path={[...parent, cell.rowIndex].join('-')}
+				data-child-count={cell.row.rows.length}
+			>
+				<div class="grid grid-cols-12 gap-4">
+					{@render dashboardRows(cell.children, [...parent, cell.rowIndex])}
 				</div>
-			{/if}
-		{:else if row.kind === 'header'}
-			{#if row.text.trim() && showRow(row)}
-				<HeaderBar
-					{row}
-					parent={parent.join('-')}
-					{rowIndex}
-					config={editingLayout}
-					dragging={dragging?.kind === 'header' && dragging.id === row.id}
-					onChange={updateLayout}
-					onDragStart={(event) => beginDrag(event, { kind: 'header', id: row.id })}
-				/>
-			{/if}
+			</div>
+		{:else if cell.kind === 'header'}
+			<HeaderBar
+				row={cell.row}
+				parent={parent.join('-')}
+				rowIndex={cell.rowIndex}
+				config={editingLayout}
+				dragging={dragging?.kind === 'header' && dragging.id === cell.row.id}
+				onChange={updateLayout}
+				onDragStart={(event) => beginDrag(event, { kind: 'header', id: cell.row.id })}
+			/>
 		{:else}
-			{@const visible = visiblePlacements(row.items)}
-			{#if visible.length > 0}
-				{#each visible as placement (placement.item.id)}
-					<div
-						class={twMerge('h-full min-w-0', colSpanClass(visible.length))}
-						data-dashboard-card
-						data-widget-id={placement.item.id}
-						data-parent={parent.join('-')}
-						data-row={rowIndex}
-						data-index={placement.index}
-					>
-						<WidgetFrame
-							placement={placement.item}
-							config={editingLayout}
-							dragging={dragging?.kind === 'widget' && dragging.id === placement.item.id}
-							onChange={updateLayout}
-							onDragStart={(event) => beginDrag(event, { kind: 'widget', id: placement.item.id })}
-						>
-							<DashboardWidget id={placement.item.id} model={widgetModel} />
-						</WidgetFrame>
-					</div>
-				{/each}
-			{/if}
+			<div
+				class={twMerge('h-full min-w-0', colSpanClass(cell.rowSize))}
+				data-dashboard-card
+				data-widget-id={cell.placement.id}
+				data-parent={parent.join('-')}
+				data-row={cell.rowIndex}
+				data-index={cell.index}
+			>
+				<WidgetFrame
+					placement={cell.placement}
+					config={editingLayout}
+					loading={statuses[cell.placement.id]?.loading ?? false}
+					dragging={dragging?.kind === 'widget' && dragging.id === cell.placement.id}
+					onChange={updateLayout}
+					onDragStart={(event) => beginDrag(event, { kind: 'widget', id: cell.placement.id })}
+				>
+					<DashboardWidget id={cell.placement.id} model={widgetModel} />
+				</WidgetFrame>
+			</div>
 		{/if}
 	{/each}
 {/snippet}
@@ -890,7 +851,9 @@
 		/>
 	{/snippet}
 	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
-		{#if renderedRows.length === 0}
+		{#if !hasContent && probesPending}
+			<!-- Header checks still running: wait instead of flashing the empty state. -->
+		{:else if !hasContent}
 			<div class="col-span-12 flex flex-col items-center gap-3 py-16 text-center">
 				<LayoutDashboard class="text-muted-content size-24 opacity-50" />
 				<p class="text-muted-content text-sm font-light">{m.dashboard_configure_empty()}</p>
@@ -903,7 +866,7 @@
 				</button>
 			</div>
 		{:else}
-			{@render dashboardRows(editingLayout.rows, [])}
+			{@render dashboardRows(gridCells, [])}
 		{/if}
 	</div>
 </Layout>

@@ -1,8 +1,16 @@
 import { Group } from '$lib/services';
+import { errors } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import DashboardPage from './+page.svelte';
+import {
+	appendHeader,
+	dashboardLayoutKey,
+	factoryConfig,
+	setHeaderVisibility
+} from './dashboardLayout';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -34,15 +42,32 @@ function hoursBetween(url: string, startKey: string, endKey: string) {
 	return (end.getTime() - start.getTime()) / (1000 * 60 * 60);
 }
 
+function isAllTimeRequest(url: string) {
+	const start = new Date(new URL(url).searchParams.get('start') ?? '');
+	return start.getTime() < 24 * 60 * 60 * 1000;
+}
+
 async function renderDashboard(
 	groups: string[],
 	hasDeviceScans = false,
 	stats: { hasMcpStats?: boolean; hasLlmStats?: boolean } = {}
 ) {
+	// The page probes MCP/LLM stats lazily, only when a header is set to show conditionally.
+	// Passing stats overrides the probe responses; otherwise a test's own handlers apply.
+	if (stats.hasMcpStats !== undefined || stats.hasLlmStats !== undefined) {
+		worker.use(
+			http.get('/api/mcp-audit-logs', () =>
+				HttpResponse.json({ items: [], total: stats.hasMcpStats ? 1 : 0, limit: 1, offset: 0 })
+			),
+			http.get('/api/total-token-usage', ({ request }) => {
+				// Only answer the all-time probe; range requests fall through to the other handlers.
+				if (!isAllTimeRequest(request.url)) return;
+				return HttpResponse.json({ totalTokens: stats.hasLlmStats ? 1 : 0, totalSpend: 0 });
+			})
+		);
+	}
 	const data = await preparePageData<PageData>({
 		hasDeviceScans,
-		hasMcpStats: stats.hasMcpStats ?? false,
-		hasLlmStats: stats.hasLlmStats ?? false,
 		profile: createMockProfile(groups)
 	});
 	return render(DashboardPage, { data });
@@ -165,7 +190,10 @@ function mockDashboardApis() {
 		http.get('/api/mcp-stats', () => HttpResponse.json(emptyUsageStats)),
 		http.get('/api/devices/scan-stats', () => HttpResponse.json(emptyScanStats)),
 		http.get('/api/total-token-usage', () => HttpResponse.json({ totalTokens: 0, totalSpend: 0 })),
-		http.get('/api/token-usage', () => HttpResponse.json({ items: [] }))
+		http.get('/api/token-usage', () => HttpResponse.json({ items: [] })),
+		http.get('/api/mcp-audit-logs', () =>
+			HttpResponse.json({ items: [], total: 0, limit: 1, offset: 0 })
+		)
 	);
 }
 
@@ -1221,5 +1249,221 @@ describe('Dashboard layout', () => {
 		const again = page.getByRole('main').getByCSS('[data-widget-id="model-stats"]');
 		await expect.element(again.getByText('Input', { exact: true })).toBeVisible();
 		await expect.element(again.getByText('1,000')).toBeVisible();
+	});
+});
+
+describe('Dashboard data loading', () => {
+	it('only fetches range datasets that a placed widget uses', async () => {
+		const scanStats = vi.fn();
+		const tokenStats = vi.fn();
+		mockDashboardApis();
+		worker.use(
+			http.get('/api/devices/scan-stats', () => {
+				scanStats();
+				return HttpResponse.json(emptyScanStats);
+			}),
+			http.get('/api/token-usage-stats', () => {
+				tokenStats();
+				return HttpResponse.json({});
+			})
+		);
+
+		await renderDashboard([Group.ADMIN], true);
+
+		// The admin default layout places device-scan widgets but no LLM request widgets.
+		await vi.waitFor(() => expect(scanStats).toHaveBeenCalled());
+		await expect.element(page.getByRole('button', { name: /Last 30 Days/ })).toBeEnabled();
+		expect(tokenStats).not.toHaveBeenCalled();
+	});
+
+	it('disables drag and the widget menu until the widget finishes loading', async () => {
+		mockDashboardApis();
+		let release: () => void = () => {};
+		const released = new Promise<void>((resolve) => (release = resolve));
+		worker.use(
+			http.get('/api/mcp-stats', async () => {
+				await released;
+				return HttpResponse.json(emptyUsageStats);
+			})
+		);
+
+		await renderDashboard([Group.POWERUSER]);
+		const main = page.getByRole('main');
+		const menu = main.getByRole('button', { name: 'Row actions: Recently Popular Tools' });
+		const grip = main.getByRole('button', { name: 'Drag Recently Popular Tools' });
+
+		// Popular Tools keeps its title (and list skeleton) while loading.
+		await expect.element(menu).toBeDisabled();
+		await expect.element(grip).toBeDisabled();
+
+		release();
+		await expect.element(menu).toBeEnabled();
+		await expect.element(grip).toBeEnabled();
+	});
+
+	it('does not apply a layout saved by another user', async () => {
+		mockDashboardApis();
+		const otherLayout = appendHeader(factoryConfig({ isAdmin: true }), 'Someone else');
+		localStorage.setItem(dashboardLayoutKey('another-user'), JSON.stringify(otherLayout));
+
+		const other = await renderDashboard([Group.ADMIN], true);
+		await expect
+			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Someone else', exact: true }))
+			.not.toBeInTheDocument();
+
+		other.unmount();
+		localStorage.setItem(dashboardLayoutKey(getProfileResponse.id), JSON.stringify(otherLayout));
+		await renderDashboard([Group.ADMIN], true);
+		await expect
+			.element(page.getByRole('heading', { name: 'Someone else', exact: true }))
+			.toBeVisible();
+	});
+
+	it('retries a failed header check on the next range change', async () => {
+		mockDashboardApis();
+		let probeCalls = 0;
+		worker.use(
+			http.get('/api/mcp-audit-logs', () => {
+				probeCalls += 1;
+				if (probeCalls === 1) return new HttpResponse(null, { status: 500 });
+				return HttpResponse.json({ items: [], total: 1, limit: 1, offset: 0 });
+			})
+		);
+		const layout = setHeaderVisibility(
+			factoryConfig({ isAdmin: true }),
+			'header-mcp-servers',
+			'mcp-stats'
+		);
+		localStorage.setItem(dashboardLayoutKey(getProfileResponse.id), JSON.stringify(layout));
+
+		await renderDashboard([Group.ADMIN], true);
+		const main = page.getByRole('main');
+		await vi.waitFor(() => expect(probeCalls).toBe(1));
+		await expect
+			.element(main.getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.not.toBeInTheDocument();
+
+		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
+		await expect.element(rangeButton).toBeEnabled();
+		await rangeButton.click();
+		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
+
+		await expect
+			.element(main.getByRole('heading', { name: 'MCP Servers', exact: true }))
+			.toBeVisible();
+		expect(probeCalls).toBe(2);
+	});
+
+	it('clears the previous range when a range fetch fails', async () => {
+		mockDashboardApis();
+		let statsCalls = 0;
+		worker.use(
+			http.get('/api/mcp-stats', () => {
+				statsCalls += 1;
+				if (statsCalls > 1) return new HttpResponse(null, { status: 500 });
+				return HttpResponse.json({
+					...emptyUsageStats,
+					totalCalls: 3,
+					items: [
+						{
+							mcpID: 'ms1stale',
+							mcpServerInstanceName: '',
+							mcpServerName: 'stale',
+							mcpServerDisplayName: 'Stale Server',
+							toolCalls: [{ toolName: 'search', callCount: 3, items: [] }]
+						}
+					]
+				});
+			})
+		);
+
+		await renderDashboard([Group.POWERUSER]);
+		const main = page.getByRole('main');
+		await expect.element(main.getByText('Stale Server').first()).toBeVisible();
+
+		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
+		await expect.element(rangeButton).toBeEnabled();
+		await rangeButton.click();
+		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
+
+		await vi.waitFor(() => expect(statsCalls).toBe(2));
+		await expect.element(main.getByText('Stale Server')).not.toBeInTheDocument();
+		// The HTTP client reports the failure; the page must not report it a second time.
+		expect(errors.items.filter((error) => error.message.includes('/mcp-stats'))).toHaveLength(1);
+	});
+
+	it('reuses data for the current range when a widget is removed and added back', async () => {
+		mockDashboardApis();
+		const statsCalls = vi.fn();
+		worker.use(
+			http.get('/api/mcp-stats', () => {
+				statsCalls();
+				return HttpResponse.json(emptyUsageStats);
+			})
+		);
+		const layout = { ...factoryConfig({ isAdmin: false }), rows: [] };
+		localStorage.setItem(
+			dashboardLayoutKey(getProfileResponse.id),
+			JSON.stringify({
+				...layout,
+				rows: [{ kind: 'widgets', items: [{ id: 'popular-tools', hideWhenEmpty: false }] }]
+			})
+		);
+
+		await renderDashboard([Group.POWERUSER]);
+		const main = page.getByRole('main');
+		await vi.waitFor(() => expect(statsCalls).toHaveBeenCalledTimes(1));
+
+		await main.getByCSS('[data-widget-id="popular-tools"]').hover();
+		await main.getByRole('button', { name: 'Row actions: Recently Popular Tools' }).click();
+		await page.getByRole('button', { name: 'Remove Recently Popular Tools' }).click();
+		// Removing the only widget shows the empty state, which has its own customize button.
+		await page.getByRole('button', { name: 'Customize Dashboard' }).first().click();
+		await page.getByRole('button', { name: 'Add Recently Popular Tools' }).click();
+		await page.getByRole('button', { name: 'Save' }).click();
+
+		await expect
+			.element(main.getByRole('heading', { name: /Recently Popular Tools/ }))
+			.toBeVisible();
+		expect(statsCalls).toHaveBeenCalledTimes(1);
+	});
+
+	it('waits for the saved layout before fetching range data', async () => {
+		mockDashboardApis();
+		const scanStats = vi.fn();
+		const tokenTotals = vi.fn();
+		const mcpStats = vi.fn();
+		worker.use(
+			http.get('/api/devices/scan-stats', () => {
+				scanStats();
+				return HttpResponse.json(emptyScanStats);
+			}),
+			http.get('/api/total-token-usage', () => {
+				tokenTotals();
+				return HttpResponse.json({ totalTokens: 0, totalSpend: 0 });
+			}),
+			http.get('/api/mcp-stats', () => {
+				mcpStats();
+				return HttpResponse.json(emptyUsageStats);
+			})
+		);
+		localStorage.setItem(
+			dashboardLayoutKey(getProfileResponse.id),
+			JSON.stringify({
+				...factoryConfig({ isAdmin: true }),
+				rows: [{ kind: 'widgets', items: [{ id: 'most-active-users', hideWhenEmpty: false }] }]
+			})
+		);
+
+		await renderDashboard([Group.ADMIN], true);
+
+		await vi.waitFor(() => expect(mcpStats).toHaveBeenCalledTimes(1));
+		await expect.element(page.getByRole('button', { name: /Last 30 Days/ })).toBeEnabled();
+		// The admin default layout would need device scans and token totals; the saved one doesn't.
+		expect(scanStats).not.toHaveBeenCalled();
+		expect(tokenTotals).not.toHaveBeenCalled();
 	});
 });

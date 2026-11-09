@@ -47,15 +47,14 @@
 	function deploymentStatusLabel(status: string) {
 		return deploymentStatusLabels[status]?.() ?? status;
 	}
+
+	const minHeight = $derived(hasDeviceScans ? 'min-h-64' : 'min-h-96');
 </script>
 
 {#if loading}
-	<Skeleton type="card" class="h-full min-h-96 w-full" />
+	<Skeleton type="card" class={twMerge('h-full w-full', minHeight)} />
 {:else}
-	<div
-		in:fade={{ duration: 150 }}
-		class={twMerge('paper h-full gap-0 p-0', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
-	>
+	<div in:fade={{ duration: 150 }} class={twMerge('paper h-full gap-0 p-0', minHeight)}>
 		<GraphTitle title={m.dashboard_server_activity()} element="h4" />
 		<div class="flex flex-col gap-4 px-6 py-4">
 			{#if deploymentStatusBreakdown.length > 0 || totalServers > 0}

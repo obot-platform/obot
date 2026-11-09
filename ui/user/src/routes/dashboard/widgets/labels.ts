@@ -1,5 +1,5 @@
 import { m } from '$lib/i18n';
-import type { DeviceStatId, ModelStatId, PlatformStatId, WidgetId } from '../dashboardLayout';
+import type { DeviceStatId, PlatformStatId, WidgetId } from '../dashboardLayout';
 
 export function widgetLabel(id: WidgetId): string {
 	switch (id) {
@@ -52,8 +52,8 @@ export function platformStatLabel(id: PlatformStatId): string {
 	switch (id) {
 		case 'total-users':
 			return m.dashboard_total_users();
-		case 'monthly-active-users':
-			return m.dashboard_monthly_active_users();
+		case 'active-users':
+			return m.dashboard_active_users();
 		case 'total-tokens':
 			return m.dashboard_total_tokens();
 		case 'total-spend':
@@ -61,20 +61,7 @@ export function platformStatLabel(id: PlatformStatId): string {
 	}
 }
 
-export function modelStatLabel(id: ModelStatId): string {
-	switch (id) {
-		case 'total':
-			return m.core_total_label();
-		case 'input':
-			return m.core_col_input();
-		case 'output':
-			return m.core_col_output();
-		case 'cached-input':
-			return m.audit_usage_usage_cached_input();
-		case 'spend':
-			return m.core_spend();
-	}
-}
+export { modelStatLabel } from '$lib/components/admin/token-usage/utils';
 
 export function deviceStatLabel(id: DeviceStatId): string {
 	switch (id) {

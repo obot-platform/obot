@@ -1,6 +1,13 @@
+import { MODEL_STAT_IDS, type ModelStatId } from '$lib/components/admin/token-usage/constants';
 import { m } from '$lib/i18n';
+import type { TotalTokenUsage } from '$lib/services';
 
 export const DASHBOARD_LAYOUT_KEY = '@obot/dashboard/layout';
+
+/** Saved layouts are per user, so accounts sharing a browser don't overwrite each other's layout. */
+export function dashboardLayoutKey(userId: string): string {
+	return `${DASHBOARD_LAYOUT_KEY}/${userId}`;
+}
 
 export const MAX_WIDGETS_PER_ROW = 4;
 
@@ -32,7 +39,7 @@ export type WidgetId = (typeof WIDGET_IDS)[number];
 
 export const PLATFORM_STAT_IDS = [
 	'total-users',
-	'monthly-active-users',
+	'active-users',
 	'total-tokens',
 	'total-spend'
 ] as const;
@@ -48,9 +55,7 @@ export const DEVICE_STAT_IDS = [
 
 export type DeviceStatId = (typeof DEVICE_STAT_IDS)[number];
 
-export const MODEL_STAT_IDS = ['total', 'input', 'output', 'cached-input', 'spend'] as const;
-
-export type ModelStatId = (typeof MODEL_STAT_IDS)[number];
+export { MODEL_STAT_IDS, type ModelStatId };
 
 export type WidgetPlacement = {
 	id: WidgetId;
@@ -265,6 +270,80 @@ export function rowsForRender(
 	return renderRows(config.rows, statuses, availability);
 }
 
+export function hasRenderedContent(rows: DashboardRow[]): boolean {
+	return rows.some((row) => {
+		if (row.kind === 'header') return row.text.trim().length > 0;
+		if (row.kind === 'box') return hasRenderedContent(row.rows);
+		return row.items.length > 0;
+	});
+}
+
+/** Visibility modes used by any header in the layout, including inside boxes. */
+export function headerVisibilities(
+	rows: DashboardRow[],
+	found = new Set<HeaderVisibility>()
+): Set<HeaderVisibility> {
+	for (const row of rows) {
+		if (row.kind === 'header') found.add(row.visibility);
+		else if (row.kind === 'box') headerVisibilities(row.rows, found);
+	}
+	return found;
+}
+
+/** Range-backed datasets the dashboard fetches; each is only fetched when a placed widget uses it. */
+export type DashboardDataset = 'mcp-usage' | 'device-scans' | 'token-totals' | 'token-stats';
+
+const DATASET_WIDGETS: Record<DashboardDataset, readonly WidgetId[]> = {
+	'mcp-usage': [
+		'top-servers-used',
+		'popular-tools',
+		'tool-response-time',
+		'most-frequent-tool-calls',
+		'tool-individual-response-time',
+		'tool-call-errors',
+		'tool-call-errors-by-server',
+		'most-active-users'
+	],
+	'device-scans': [
+		'device-scan-stats',
+		'top-device-skills',
+		'device-clients',
+		'top-device-mcps',
+		'device-scan-timeline'
+	],
+	// token-usage renders its own timeline but its hide-when-empty status reads these totals.
+	'token-totals': ['model-stats', 'token-usage'],
+	'token-stats': ['llm-requests', 'spend-by-provider', 'top-models']
+};
+
+const TOKEN_PLATFORM_STATS: readonly PlatformStatId[] = ['total-tokens', 'total-spend'];
+
+export function neededDatasets(config: DashboardConfig): Set<DashboardDataset> {
+	const placed = placedWidgetIds(config.rows);
+	const needed = new Set<DashboardDataset>();
+	for (const [dataset, widgets] of Object.entries(DATASET_WIDGETS) as [
+		DashboardDataset,
+		readonly WidgetId[]
+	][]) {
+		if (widgets.some((id) => placed.has(id))) needed.add(dataset);
+	}
+	if (
+		placed.has('platform-stats') &&
+		config.platformStats.some((id) => TOKEN_PLATFORM_STATS.includes(id))
+	) {
+		needed.add('token-totals');
+	}
+	return needed;
+}
+
+export function placedWidgetIds(rows: DashboardRow[], ids = new Set<WidgetId>()): Set<WidgetId> {
+	for (const row of rows) {
+		if (row.kind === 'widgets') for (const placement of row.items) ids.add(placement.id);
+		else if (row.kind === 'box') placedWidgetIds(row.rows, ids);
+	}
+	return ids;
+}
+
 export function headerVisible(row: HeaderRow, availability: HeaderAvailability): boolean {
 	switch (row.visibility) {
 		case 'device-scans':
@@ -286,6 +365,91 @@ function headerVisibilityFrom(record: {
 		return record.visibility as HeaderVisibility;
 	}
 	return record.onlyWithDeviceScans === true ? 'device-scans' : 'always';
+}
+
+/**
+ * Whether a row renders on the dashboard. The page grid (buildGridCells) and rowsForRender both
+ * use it, so the rendered rows agree. A box with no children still renders as a drop target, but
+ * hasRenderedContent does not count it: a dashboard of only empty boxes shows the empty state.
+ */
+export function rowVisible(
+	row: DashboardRow,
+	statuses: Partial<Record<WidgetId, WidgetStatus>>,
+	availability: HeaderAvailability
+): boolean {
+	if (row.kind === 'header') {
+		return row.text.trim().length > 0 && headerVisible(row, availability);
+	}
+	if (row.kind === 'box') {
+		return (
+			row.rows.length === 0 || row.rows.some((child) => rowVisible(child, statuses, availability))
+		);
+	}
+	return visibleItems(row.items, statuses).length > 0;
+}
+
+export type GridCell =
+	| { kind: 'box'; key: string; rowIndex: number; row: BoxRow; children: GridCell[] }
+	| { kind: 'header'; key: string; rowIndex: number; row: HeaderRow }
+	| {
+			kind: 'widget';
+			key: string;
+			rowIndex: number;
+			index: number;
+			rowSize: number;
+			placement: WidgetPlacement;
+	  };
+
+/**
+ * The dashboard grid as flat cells per grid level, keyed by widget, header, or box id. Widget rows
+ * have no wrapper element, so cards keep their component when a drag changes their row. Built in
+ * one pass: a box child is visible exactly when it produces cells, matching rowVisible.
+ */
+export function buildGridCells(
+	rows: DashboardRow[],
+	statuses: Partial<Record<WidgetId, WidgetStatus>>,
+	availability: HeaderAvailability
+): GridCell[] {
+	return rows.flatMap((row, rowIndex): GridCell[] => {
+		if (row.kind === 'box') {
+			const children = buildGridCells(row.rows, statuses, availability);
+			if (row.rows.length > 0 && children.length === 0) return [];
+			return [{ kind: 'box', key: `box:${row.id}`, rowIndex, row, children }];
+		}
+		if (row.kind === 'header') {
+			if (!rowVisible(row, statuses, availability)) return [];
+			return [{ kind: 'header', key: `header:${row.id}`, rowIndex, row }];
+		}
+		const visible = visibleItems(row.items, statuses);
+		return visible.map(({ item, index }) => ({
+			kind: 'widget',
+			key: `widget:${item.id}`,
+			rowIndex,
+			index,
+			rowSize: visible.length,
+			placement: item
+		}));
+	});
+}
+
+/** True when an all-time LLM total shows any usage; drives 'llm-stats' header visibility. */
+export function hasLlmUsage(totals: TotalTokenUsage): boolean {
+	return (
+		totals.totalTokens > 0 ||
+		(totals.inputTokens ?? 0) > 0 ||
+		(totals.outputTokens ?? 0) > 0 ||
+		(totals.totalSpend ?? 0) > 0
+	);
+}
+
+/** Placements that show in a widget row, with their index in the stored row (for drop targets). */
+export function visibleItems(
+	items: WidgetPlacement[],
+	statuses: Partial<Record<WidgetId, WidgetStatus>>
+): { item: WidgetPlacement; index: number }[] {
+	return items.flatMap((item, index) =>
+		isHiddenBecauseEmpty(item, statuses[item.id]) ? [] : [{ item, index }]
+	);
 }
 
 export function isHiddenBecauseEmpty(
@@ -311,6 +475,7 @@ export function colSpanClass(count: number): string {
 
 export function statCardStatus(tiles: { loading: boolean; value: number }[]): WidgetStatus {
 	if (tiles.some((tile) => tile.loading)) return { loading: true, empty: false };
+	// No stats selected is the user's choice, not missing data: keep showing the card.
 	if (tiles.length === 0) return { loading: false, empty: false };
 	return { loading: false, empty: tiles.every((tile) => tile.value === 0) };
 }
@@ -688,19 +853,14 @@ function renderRows(
 	availability: HeaderAvailability
 ): DashboardRow[] {
 	return rows.flatMap((row): DashboardRow[] => {
-		if (row.kind === 'header') {
-			if (!headerVisible(row, availability)) return [];
-			return [row];
-		}
+		if (!rowVisible(row, statuses, availability)) return [];
+		if (row.kind === 'header') return [row];
 		if (row.kind === 'box') {
-			const nested = renderRows(row.rows, statuses, availability);
-			if (nested.length === 0 && row.rows.length > 0) return [];
-			return [{ ...row, rows: nested }];
+			return [{ ...row, rows: renderRows(row.rows, statuses, availability) }];
 		}
-		const items = row.items.filter(
-			(placement) => !isHiddenBecauseEmpty(placement, statuses[placement.id])
-		);
-		return items.length > 0 ? [{ kind: 'widgets' as const, items }] : [];
+		return [
+			{ kind: 'widgets' as const, items: visibleItems(row.items, statuses).map((v) => v.item) }
+		];
 	});
 }
 
@@ -869,10 +1029,87 @@ function moveMatchedRow(
 	return { ...config, rows: insertRowAt(removed, adjusted.parent, adjusted.index, row) };
 }
 
-function hiddenPlacements(row: DashboardRow, available: Set<WidgetId>): WidgetPlacement[] {
-	return row.kind === 'widgets'
-		? row.items.filter((placement) => !available.has(placement.id))
-		: [];
+type HiddenAnchors = {
+	// Hidden widgets that shared a row with this visible widget.
+	joined: Map<WidgetId, WidgetPlacement[]>;
+	// Hidden-only rows that came right after this key (scope start, header, box, or widget).
+	after: Map<string, WidgetPlacement[][]>;
+};
+
+const scopeStartKey = (boxId?: string) => (boxId ? `start:${boxId}` : 'start:');
+const headerKey = (id: string) => `header:${id}`;
+const boxKey = (id: string) => `box:${id}`;
+const widgetKey = (id: WidgetId) => `widget:${id}`;
+
+function collectHiddenAnchors(
+	rows: DashboardRow[],
+	available: Set<WidgetId>,
+	anchors: HiddenAnchors,
+	scopeKey: string
+): void {
+	let lastKey = scopeKey;
+	for (const row of rows) {
+		if (row.kind === 'header') {
+			lastKey = headerKey(row.id);
+		} else if (row.kind === 'box') {
+			collectHiddenAnchors(row.rows, available, anchors, scopeStartKey(row.id));
+			lastKey = boxKey(row.id);
+		} else {
+			const visible = row.items.filter((placement) => available.has(placement.id));
+			const hidden = row.items.filter((placement) => !available.has(placement.id));
+			if (visible.length > 0) {
+				if (hidden.length > 0) anchors.joined.set(visible[0].id, hidden);
+				lastKey = widgetKey(visible[0].id);
+			} else if (hidden.length > 0) {
+				const list = anchors.after.get(lastKey) ?? [];
+				list.push(hidden);
+				anchors.after.set(lastKey, list);
+			}
+		}
+	}
+}
+
+function restoreHiddenRows(
+	rows: DashboardRow[],
+	anchors: HiddenAnchors,
+	scopeKey: string
+): DashboardRow[] {
+	const takeAfter = (key: string): DashboardRow[] => {
+		const list = anchors.after.get(key);
+		if (!list) return [];
+		anchors.after.delete(key);
+		return list.map((items) => ({ kind: 'widgets' as const, items }));
+	};
+
+	const out: DashboardRow[] = takeAfter(scopeKey);
+	for (const row of rows) {
+		if (row.kind === 'header') {
+			out.push(row, ...takeAfter(headerKey(row.id)));
+			continue;
+		}
+		if (row.kind === 'box') {
+			out.push(
+				{ ...row, rows: restoreHiddenRows(row.rows, anchors, scopeStartKey(row.id)) },
+				...takeAfter(boxKey(row.id))
+			);
+			continue;
+		}
+		const joined = row.items.flatMap((placement) => {
+			const hidden = anchors.joined.get(placement.id) ?? [];
+			anchors.joined.delete(placement.id);
+			return hidden;
+		});
+		if (row.items.length + joined.length <= MAX_WIDGETS_PER_ROW) {
+			out.push({ ...row, items: [...row.items, ...joined] });
+		} else {
+			out.push(row);
+			for (let index = 0; index < joined.length; index += MAX_WIDGETS_PER_ROW) {
+				out.push({ kind: 'widgets', items: joined.slice(index, index + MAX_WIDGETS_PER_ROW) });
+			}
+		}
+		for (const placement of row.items) out.push(...takeAfter(widgetKey(placement.id)));
+	}
+	return out;
 }
 
 function commitRows(
@@ -880,27 +1117,12 @@ function commitRows(
 	next: DashboardRow[],
 	available: Set<WidgetId>
 ): DashboardRow[] {
-	const rows = next.map((row, index) => {
-		const prior = previous[index];
-		if (row.kind === 'header') return row;
-		if (row.kind === 'box') {
-			return {
-				...row,
-				rows: commitRows(prior?.kind === 'box' ? prior.rows : [], row.rows, available)
-			};
-		}
-		const hidden = prior ? hiddenPlacements(prior, available) : [];
-		return { ...row, items: [...row.items, ...hidden] };
-	});
-	for (let index = next.length; index < previous.length; index += 1) {
-		const prior = previous[index];
-		if (prior.kind === 'widgets') {
-			const hidden = hiddenPlacements(prior, available);
-			if (hidden.length > 0) rows.push({ kind: 'widgets', items: hidden });
-		} else if (prior.kind === 'box') {
-			const kept = commitRows(prior.rows, [], available);
-			if (kept.length > 0) rows.push({ ...prior, rows: kept });
-		}
+	const anchors: HiddenAnchors = { joined: new Map(), after: new Map() };
+	collectHiddenAnchors(previous, available, anchors, scopeStartKey());
+	const rows = restoreHiddenRows(next, anchors, scopeStartKey());
+	for (const hidden of anchors.joined.values()) rows.push({ kind: 'widgets', items: hidden });
+	for (const list of anchors.after.values()) {
+		for (const items of list) rows.push({ kind: 'widgets', items });
 	}
 	return rows.filter((row) => row.kind !== 'widgets' || row.items.length > 0);
 }

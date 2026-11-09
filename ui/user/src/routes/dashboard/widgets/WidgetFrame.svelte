@@ -23,12 +23,22 @@
 		placement: WidgetPlacement;
 		config: DashboardConfig;
 		dragging?: boolean;
+		/** The widget's data is still loading: drag and the widget menu stay disabled until it loads. */
+		loading?: boolean;
 		onChange: (config: DashboardConfig) => void;
 		onDragStart: (event: PointerEvent) => void;
 		children: Snippet;
 	};
 
-	let { placement, config, dragging = false, onChange, onDragStart, children }: Props = $props();
+	let {
+		placement,
+		config,
+		dragging = false,
+		loading = false,
+		onChange,
+		onDragStart,
+		children
+	}: Props = $props();
 	const label = $derived(widgetLabel(placement.id));
 	let menuOpen = $state(false);
 	const controlsVisible = $derived(menuOpen || dragging);
@@ -66,10 +76,15 @@
 			type="button"
 			class={twMerge(
 				'border-base-200 dark:border-base-400 bg-base-100 text-muted-content dark:bg-base-200 absolute top-1.5 left-0 z-20 flex h-8 w-5 -translate-x-full cursor-grab items-center justify-center rounded-l-md border dark:border-r-0  opacity-0 transition-[transform,opacity] duration-200 ease-out pointer-events-none touch-none group-hover:pointer-events-auto group-hover:-translate-x-full group-hover:opacity-100',
-				controlsVisible && 'pointer-events-auto opacity-100'
+				controlsVisible && 'pointer-events-auto opacity-100',
+				loading && 'cursor-not-allowed group-hover:opacity-50'
 			)}
 			aria-label="{m.dashboard_drag()} {label}"
-			onpointerdown={onDragStart}
+			disabled={loading}
+			onpointerdown={(event) => {
+				if (loading) return;
+				onDragStart(event);
+			}}
 		>
 			<GripVertical class="size-3.5" />
 		</button>
@@ -93,6 +108,7 @@
 			icon={menuIcon}
 			placement="bottom-end"
 			ariaLabel="{m.core_row_actions()}: {label}"
+			disabled={loading}
 			onClick={() => (menuOpen = true)}
 		>
 			{#snippet children({ open })}

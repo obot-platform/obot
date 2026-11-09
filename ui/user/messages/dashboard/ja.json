@@ -8,7 +8,7 @@
 	"dashboard_entry_type_hosted_multi": "ホスト型（マルチテナント）",
 	"dashboard_entry_type_hosted_single": "ホスト型（シングルテナント）",
 	"dashboard_entry_type_remote": "リモート",
-	"dashboard_monthly_active_users": "月間アクティブユーザー",
+	"dashboard_active_users": "アクティブユーザー",
 	"dashboard_most_deployed_servers": "デプロイ数の多いサーバー",
 	"dashboard_no_clients_observed": "まだクライアントは検出されていません。",
 	"dashboard_no_mcp_servers_observed": "まだ MCP サーバーは検出されていません。",

@@ -8,9 +8,9 @@
 	import TokenUsageSpendByProvider from '$lib/components/admin/token-usage/TokenUsageSpendByProvider.svelte';
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import TokenUsageTopModels from '$lib/components/admin/token-usage/TokenUsageTopModels.svelte';
+	import { usageUserDisplayName } from '$lib/components/admin/usage/utils';
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import { m } from '$lib/i18n';
-	import type { OrgUser } from '$lib/services';
 	import { withDisabledMarker } from '$lib/utils';
 	import type { WidgetId } from '../dashboardLayout';
 	import DeviceScanStats from './DeviceScanStats.svelte';
@@ -45,14 +45,7 @@
 
 	function activeUserLabel(userId: string) {
 		const user = model.users.find((entry) => entry.id === userId);
-		return withDisabledMarker(userDisplayName(user), user);
-	}
-
-	function userDisplayName(user?: OrgUser) {
-		if (!user) return m.core_unknown();
-		let display = user.originalEmail || user.email || user.id || m.core_unknown();
-		if (user.deletedAt) display = m.audit_usage_usage_deleted_user({ name: display });
-		return display;
+		return withDisabledMarker(usageUserDisplayName(user), user);
 	}
 </script>
 
@@ -214,7 +207,8 @@
 		labelKey="toolName"
 		valueKey="processingTimeMs"
 		formatLabel={toolNameTail}
-		formatTooltipText={(row) => `${row.processingTimeMs.toFixed(2)}ms • ${row.serverDisplayName}`}
+		formatTooltipText={(row) =>
+			`${m.audit_usage_usage_latency_ms({ ms: row.processingTimeMs.toFixed(2) })} • ${row.serverDisplayName}`}
 	/>
 {:else if id === 'tool-call-errors'}
 	<UsageBarCard

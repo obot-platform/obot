@@ -21,7 +21,14 @@
 		tooltipPlacement?: Placement;
 	};
 
-	let { start, end, disabled = false, onChange, classes, tooltipPlacement }: Props = $props();
+	let {
+		start,
+		end,
+		disabled = false,
+		onChange,
+		classes,
+		tooltipPlacement = 'top-end'
+	}: Props = $props();
 
 	let open = $state(false);
 	const today = new Date();

@@ -29,7 +29,8 @@
 		transformToolCallErrors,
 		transformToolCallErrorsByServer,
 		transformTopServerUsage,
-		transformTopToolCalls
+		transformTopToolCalls,
+		usageUserDisplayName
 	} from './utils';
 	import { ChevronsLeft, ChevronsRight, Funnel, ChartBarDecreasing, X } from '@lucide/svelte';
 	import { endOfDay } from 'date-fns';
@@ -305,12 +306,12 @@
 				const user = usersAsArray.find((u) => u.id === data.userId);
 				return m.audit_usage_usage_tooltip_calls({
 					count: data.callCount,
-					name: userDisplayName(user)
+					name: usageUserDisplayName(user)
 				});
 			},
 			formatXLabel: (userId) => {
 				const user = usersAsArray.find((u) => u.id === userId);
-				return withDisabledMarker(userDisplayName(user), user);
+				return withDisabledMarker(usageUserDisplayName(user), user);
 			},
 			transform: transformMostActiveUsers
 		}
@@ -363,18 +364,6 @@
 			: UserService.listMcpAuditLogUsageStats({
 					...filters
 				});
-	}
-
-	function userDisplayName(user?: OrgUser): string {
-		if (!user) {
-			return m.core_unknown();
-		}
-
-		let display = user.originalEmail || user.email || user.id || m.core_unknown();
-		if (user.deletedAt) {
-			display = m.audit_usage_usage_deleted_user({ name: display });
-		}
-		return display;
 	}
 
 	async function updateGraphs() {

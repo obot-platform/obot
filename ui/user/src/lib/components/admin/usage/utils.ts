@@ -1,4 +1,13 @@
-import type { McpAuditLogUsageStats } from '$lib/services';
+import { m } from '$lib/i18n';
+import type { McpAuditLogUsageStats, OrgUser } from '$lib/services';
+import type { McpUsageCounts } from './types';
+
+/** Display name for a user in usage stats; marks deleted users. */
+export function usageUserDisplayName(user?: OrgUser): string {
+	if (!user) return m.core_unknown();
+	const display = user.originalEmail || user.email || user.id || m.core_unknown();
+	return user.deletedAt ? m.audit_usage_usage_deleted_user({ name: display }) : display;
+}
 
 export function transformTopToolCalls(stats: McpAuditLogUsageStats | undefined) {
 	const counts = new Map<string, { count: number; serverDisplayName: string }>();
@@ -174,4 +183,29 @@ export function transformMostActiveUsers(
 	return Array.from(userCounts.entries())
 		.map(([userId, callCount]) => ({ userId, callCount }))
 		.sort((a, b) => b.callCount - a.callCount);
+}
+
+export function mcpUsageCounts(stats: McpAuditLogUsageStats | undefined): McpUsageCounts {
+	let individualResponses = 0;
+	const errorTools = new Set<string>();
+	const errorServers = new Set<string>();
+	const users = new Set<string>();
+	for (const server of stats?.items ?? []) {
+		for (const call of server.toolCalls ?? []) {
+			for (const item of call.items ?? []) {
+				individualResponses++;
+				users.add(item.userID);
+				if (item.error || item.responseStatus >= 400) {
+					errorTools.add(`${server.mcpServerDisplayName}.${call.toolName}`);
+					errorServers.add(server.mcpServerDisplayName);
+				}
+			}
+		}
+	}
+	return {
+		individualResponses,
+		toolErrors: errorTools.size,
+		serverErrors: errorServers.size,
+		activeUsers: users.size
+	};
 }

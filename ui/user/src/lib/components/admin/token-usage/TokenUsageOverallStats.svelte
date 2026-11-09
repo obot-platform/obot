@@ -1,19 +1,18 @@
 <script lang="ts">
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
-	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { TotalTokenUsage } from '$lib/services';
+	import { MODEL_STAT_IDS, type ModelStatId } from './constants';
 	import { formatTokenUsageUSD as formatUSD } from './tokenUsageTimeline';
+	import { modelStatLabel } from './utils';
 	import { twMerge } from 'tailwind-merge';
-
-	type StatId = 'total' | 'input' | 'output' | 'cached-input' | 'spend';
 
 	type Props = {
 		title: string;
 		loading: boolean;
 		totals?: TotalTokenUsage;
 		// When omitted, every stat is shown. The dashboard passes the selected subset.
-		visible?: readonly StatId[];
+		visible?: readonly ModelStatId[];
 		class?: string;
 	};
 
@@ -21,16 +20,20 @@
 
 	const items = $derived.by(() => {
 		const cachedInput = (totals?.cacheReadTokens ?? 0) + (totals?.cacheWriteTokens ?? 0);
-		const all: { id: StatId; label: string; value: number; spend?: boolean }[] = [
-			{ id: 'total', label: m.core_total_label(), value: totals?.totalTokens ?? 0 },
-			{ id: 'input', label: m.core_col_input(), value: totals?.inputTokens ?? 0 },
-			{ id: 'output', label: m.core_col_output(), value: totals?.outputTokens ?? 0 },
-			{ id: 'cached-input', label: m.audit_usage_usage_cached_input(), value: cachedInput },
-			{ id: 'spend', label: m.core_spend(), value: totals?.totalSpend ?? 0, spend: true }
-		];
-		if (!visible) return all;
-		const chosen = new Set<string>(visible);
-		return all.filter((item) => chosen.has(item.id));
+		const values: Record<ModelStatId, number> = {
+			total: totals?.totalTokens ?? 0,
+			input: totals?.inputTokens ?? 0,
+			output: totals?.outputTokens ?? 0,
+			'cached-input': cachedInput,
+			spend: totals?.totalSpend ?? 0
+		};
+		const chosen = visible ? new Set<ModelStatId>(visible) : undefined;
+		return MODEL_STAT_IDS.filter((id) => !chosen || chosen.has(id)).map((id) => ({
+			id,
+			label: modelStatLabel(id),
+			value: values[id],
+			spend: id === 'spend'
+		}));
 	});
 </script>
 

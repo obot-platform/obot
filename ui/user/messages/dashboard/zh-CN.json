@@ -8,7 +8,7 @@
 	"dashboard_entry_type_hosted_multi": "托管（多租户）",
 	"dashboard_entry_type_hosted_single": "托管（单租户）",
 	"dashboard_entry_type_remote": "远程",
-	"dashboard_monthly_active_users": "月活跃用户",
+	"dashboard_active_users": "活跃用户",
 	"dashboard_most_deployed_servers": "部署最多的服务器",
 	"dashboard_no_clients_observed": "尚未发现客户端。",
 	"dashboard_no_mcp_servers_observed": "尚未发现 MCP 服务器。",

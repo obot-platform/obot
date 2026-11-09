@@ -658,7 +658,7 @@ export async function deleteDeviceScan(id: number | string): Promise<void> {
 
 export async function getDeviceScanStats(
 	range?: { start?: string; end?: string },
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<DeviceScanStats> {
 	const queryString = buildQueryString(range ?? {});
 	return (await doGet(
@@ -2144,7 +2144,7 @@ function unwrapTokenUsageList(response: unknown): TokenUsage[] {
 
 export async function listTotalTokenUsage(
 	timeRange: TokenUsageTimeRange,
-	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
 ) {
 	const queryString = tokenUsageQueryString(timeRange);
 	const response = await doGet(`/total-token-usage?${queryString}`, opts);

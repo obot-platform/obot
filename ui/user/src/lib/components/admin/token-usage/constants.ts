@@ -158,3 +158,7 @@ export function usageSubViewSortByForView(
 
 	return sortBy;
 }
+
+export const MODEL_STAT_IDS = ['total', 'input', 'output', 'cached-input', 'spend'] as const;
+
+export type ModelStatId = (typeof MODEL_STAT_IDS)[number];
