@@ -597,7 +597,7 @@ func applyUnifiedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB 
 func mcpOutcomeStatusPredicate(status string) string {
 	switch types2.AuditLogOutcomeStatus(status) {
 	case types2.AuditLogOutcomeStatusSuccess:
-		return "response_status BETWEEN 1 AND 399"
+		return "(response_status BETWEEN 1 AND 399 AND (error IS NULL OR error = ''))"
 	case types2.AuditLogOutcomeStatusDenied:
 		return "response_status IN (401, 403)"
 	case types2.AuditLogOutcomeStatusTimeout:
