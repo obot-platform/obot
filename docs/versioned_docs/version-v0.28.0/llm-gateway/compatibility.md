@@ -4,7 +4,7 @@ title: "API compatibility"
 
 ## Supported endpoints and formats {#supported-endpoints-and-formats}
 
-The gateway serves every model at one base URL, `https://<your-obot-host>/api/llm-proxy/v1`, in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Any format works with any model, so Claude Code can use GPT models and the OpenAI SDK can use Claude.
+The gateway serves every model at one base URL, `https://<your-obot-host>/api/llm-proxy`, in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Any format works with any model, so Claude Code can use GPT models and the OpenAI SDK can use Claude.
 
 | Endpoint | Format |
 | --- | --- |
