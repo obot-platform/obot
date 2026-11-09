@@ -302,7 +302,28 @@ func TestSharedAzurePoolEgressHonorsNoProxy(t *testing.T) {
 }
 
 func TestMigrationAzurePoolsRetainDeploymentNamesAndReferences(t *testing.T) {
-	e, ctx := startTestEngine(t)
+	ctx := t.Context()
+	var failAfterCommit, failReload bool
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+			if _, ok := obj.(*v1.LLMGatewayConfig); ok && failReload {
+				return errors.New("mapping reload failed")
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+			err := c.Update(ctx, obj, opts...)
+			if _, ok := obj.(*v1.LLMGatewayConfig); ok && err == nil && failAfterCommit {
+				failAfterCommit, failReload = false, true
+			}
+			return err
+		},
+	}).Build()
+	store, err := llmcoreclient.New(storage, plaintextConfigCodec{})
+	require.NoError(t, err)
+	e := New()
+	require.NoError(t, e.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	g := migrationCredentials(t)
 	putLegacy(t, g, system.AzureModelProvider, azureSecrets("https://one.openai.azure.com"))
 	putLegacy(t, g, system.AzureEntraModelProvider, map[string]string{
@@ -317,8 +338,21 @@ func TestMigrationAzurePoolsRetainDeploymentNamesAndReferences(t *testing.T) {
 	entraTarget := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-entra-target", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.LLMGatewayModelProvider, TargetModel: "azure/entra-deployment", Active: true}}}
 	alias := &v1.DefaultModelAlias{Namespace: system.DefaultNamespace, Name: "llm", Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: old.Name}}}
 	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(old, entra, target, entraTarget, alias).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Delete: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.DeleteOption) error {
+				if model, ok := obj.(*v1.Model); ok {
+					state, err := e.MigrationStatus(ctx)
+					require.NoError(t, err)
+					require.NotEmpty(t, state.Mappings[model.Name], "mapping must be durable before cleanup")
+					mapped, err := e.MigratedReference(ctx, model.Name)
+					require.NoError(t, err)
+					require.Equal(t, state.Mappings[model.Name], mapped, "local requests must resolve before source deletion")
+				}
+				return c.Delete(ctx, obj, opts...)
+			},
+		}).
 		WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string { return []string{o.(*v1.Model).Spec.Manifest.ModelProvider} }).Build()
-	_, err := e.ImportLegacyModelProviders(ctx, c, g)
+	_, err = e.ImportLegacyModelProviders(ctx, c, g)
 	require.NoError(t, err)
 	p, err := e.store.GetProvider(ctx, "azure")
 	require.NoError(t, err)
@@ -334,6 +368,16 @@ func TestMigrationAzurePoolsRetainDeploymentNamesAndReferences(t *testing.T) {
 	listed, err := e.listGatewayModels(ctx, schemas.Azure, true)
 	require.NoError(t, err)
 	require.Len(t, listed, 2, "both imported keys must advertise their configured deployments")
+	failAfterCommit = true
+	require.ErrorContains(t, e.MigrateLegacyModels(ctx, c), "mapping reload failed")
+	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(old), &v1.Model{}))
+	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(entra), &v1.Model{}))
+	failReload = false
+	state, err := e.MigrationStatus(ctx)
+	require.NoError(t, err)
+	require.Equal(t, target.Name, state.Mappings[old.Name], "a failed reload leaves the durable mapping for retry")
+	_, err = e.Sync(ctx)
+	require.NoError(t, err)
 	require.NoError(t, e.MigrateLegacyModels(ctx, c))
 	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(old), &v1.Model{})))
 	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(entra), &v1.Model{})))

@@ -1,6 +1,7 @@
 package llmengine
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -319,7 +320,13 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 	// evidence that an imported provider serves a model.
 	discovered := e.availability.discoveredModels()
 	return migrateLegacyModels(ctx, c, sources, discovered, func(mapping map[string]string) error {
-		return e.mutateMigration(ctx, func(s *MigrationStatus) error { maps.Copy(s.Mappings, mapping); return nil })
+		if err := e.mutateMigration(ctx, func(s *MigrationStatus) error { maps.Copy(s.Mappings, mapping); return nil }); err != nil {
+			return err
+		}
+		// Apply the committed mappings before cleanup can remove their source models.
+		// Reload through serialized Sync so an overlapping reconciliation cannot regress them.
+		_, err := e.Sync(ctx)
+		return err
 	})
 }
 
@@ -329,12 +336,29 @@ func LegacyGatewayProvider(source string) string {
 	return legacyImportPlans[source].provider
 }
 
-func (e *Engine) MigratedReference(ctx context.Context, reference string) (string, error) {
-	s, err := e.MigrationStatus(ctx)
-	if err != nil {
-		return "", err
+// syncMigrationMappings runs under syncMu so older configuration reads cannot
+// publish after newer ones. Failed decoding leaves the accepted snapshot intact.
+func (e *Engine) syncMigrationMappings() error {
+	raw := e.core.Load().Setting(migrationSetting)
+	if bytes.Equal(raw, e.appliedMigration) {
+		return nil
 	}
-	return s.Mappings[strings.TrimSpace(reference)], nil
+	s, err := decodeMigration(map[string]json.RawMessage{migrationSetting: raw})
+	if err != nil {
+		return fmt.Errorf("legacy model mappings: %w", err)
+	}
+	// Decoding owns this map; published snapshots are never mutated.
+	mappings := s.Mappings
+	e.migratedMappings.Store(&mappings)
+	e.appliedMigration = raw
+	return nil
+}
+
+func (e *Engine) MigratedReference(_ context.Context, reference string) (string, error) {
+	if mappings := e.migratedMappings.Load(); mappings != nil {
+		return (*mappings)[strings.TrimSpace(reference)], nil
+	}
+	return "", nil
 }
 
 func WithLegacyProviderScope(ctx context.Context, provider string) context.Context {

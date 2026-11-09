@@ -45,6 +45,7 @@ type syncFailure struct{ err error }
 type Engine struct {
 	metrics          *gatewayMetrics
 	syncFailure      atomic.Pointer[syncFailure]
+	migratedMappings atomic.Pointer[map[string]string]
 	discovery        azureDiscovery
 	availability     *modelAvailability
 	core             atomic.Pointer[llmcore.Engine]
@@ -56,6 +57,7 @@ type Engine struct {
 	stopOnce         sync.Once
 	shutdownDone     chan struct{}
 	syncMu           sync.Mutex
+	appliedMigration json.RawMessage
 	appliedPricing   json.RawMessage
 	pricingApplied   bool
 	opts             Options
@@ -141,7 +143,7 @@ func (e *Engine) Start(ctx context.Context, opts Options) error {
 		// pricing initialization with any concurrent model-discovery synchronization.
 		e.syncMu.Lock()
 		e.core.Store(engine)
-		if err = errors.Join(engine.Err(), e.syncPricing()); err != nil {
+		if err = errors.Join(engine.Err(), e.syncPricing(), e.syncMigrationMappings()); err != nil {
 			e.syncFailure.Store(&syncFailure{err: err})
 			slog.Warn("LLM gateway configuration application will retry", "error", err)
 		}
@@ -164,7 +166,9 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 	changed, err := engine.Sync(ctx)
-	err = errors.Join(err, e.syncPricing())
+	// Core retains applied settings on read failure, but advances them despite
+	// independent provider errors. Compatibility follows those applied settings.
+	err = errors.Join(err, e.syncPricing(), e.syncMigrationMappings())
 	if err != nil {
 		e.syncFailure.Store(&syncFailure{err: err})
 	} else {

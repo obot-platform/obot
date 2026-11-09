@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -37,6 +38,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 type legacyTestCodec struct{}
@@ -126,7 +128,19 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	} {
 		require.NoError(t, g.UpsertCredential(ctx, gatewaytypes.Credential{Context: name, Name: name, Secrets: secrets}))
 	}
-	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(llmengine.ModelProviderResource()).Build()
+	var settingsReads atomic.Int64
+	var failSettingsRead atomic.Bool
+	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(llmengine.ModelProviderResource()).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+			if _, ok := obj.(*v1.LLMGatewayConfig); ok {
+				settingsReads.Add(1)
+				if failSettingsRead.Load() {
+					return errors.New("request must use applied migration mappings")
+				}
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	}).Build()
 	store, err := llmcoreclient.New(storageClient, legacyTestCodec{})
 	require.NoError(t, err)
 	engine := llmengine.New()
@@ -206,6 +220,9 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			before := settingsReads.Load()
+			failSettingsRead.Store(true)
+			defer failSettingsRead.Store(false)
 			body, _ := json.Marshal(map[string]any{"model": tc.model, "stream": tc.stream, "messages": []any{map[string]any{"role": "user", "content": "hi"}}})
 			req := httptest.NewRequest(http.MethodPost, tc.path+"?client=test", strings.NewReader(string(body)))
 			req.Header.Set("Authorization", "Bearer client-secret")
@@ -219,6 +236,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			require.Equal(t, "/v1/chat/completions", got.path)
 			require.Equal(t, tc.key, got.key)
 			require.Equal(t, "gpt-test", got.model)
+			require.Equal(t, before, settingsReads.Load(), "canonical and legacy requests must not read settings")
 		})
 	}
 	for _, route := range []string{"openai", "generic-responses"} {
@@ -563,6 +581,8 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 				settings["legacy-provider-migration"] = body
 				return err
 			}))
+			_, err = engine.Sync(ctx)
+			require.NoError(t, err)
 			before := len(requests)
 			rec := httptest.NewRecorder()
 			mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/responses", strings.NewReader(`{"model":"openai/gpt-test","input":"hi"}`)))
@@ -577,12 +597,19 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	before := len(requests)
 	// Fallbacks and routing rules must obey the same scope as the initial model.
 	t.Run("cross-provider fallback", func(t *testing.T) {
+		beforeReads := settingsReads.Load()
+		failSettingsRead.Store(true)
+		defer failSettingsRead.Store(false)
 		rec := httptest.NewRecorder()
 		mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/openai/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[],"fallbacks":["generic-responses/gpt-test"]}`)))
 		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 		require.Len(t, requests, before, "an out-of-scope fallback must be rejected before inference")
+		require.Equal(t, beforeReads, settingsReads.Load())
 	})
 	t.Run("cross-provider routing attempt", func(t *testing.T) {
+		beforeReads := settingsReads.Load()
+		failSettingsRead.Store(true)
+		defer failSettingsRead.Store(false)
 		b := &bifrostProviderBackend{engine: engine}
 		l := s.newBifrostLLMProviderProxy()
 		req := api.Context{Request: httptest.NewRequest(http.MethodPost, "/", nil).WithContext(llmengine.WithLegacyProviderScope(ctx, "openai")), Storage: storageClient, GatewayClient: g, User: mux.user}
@@ -590,6 +617,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 		err := attempts.checkAttempt(b, l, req, nil)(ctx, guardrails.Attempt{Model: "generic-responses/gpt-test"})
 		require.Error(t, err, "a routing rule must not send a legacy request to another provider")
 		require.Empty(t, attempts.admitted)
+		require.Equal(t, beforeReads, settingsReads.Load())
 	})
 	unconfigured := httptest.NewRecorder()
 	mux.mux.ServeHTTP(unconfigured, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/azure/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[]}`)))
