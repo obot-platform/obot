@@ -10,6 +10,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -58,6 +59,15 @@ func (b *bifrostProviderBackend) resolveRequestModel(l *llmProviderProxy, req ap
 		return nil, err
 	}
 	if mapped != "" {
+		// Sources can survive migration cleanup; their deactivation still governs explicit old-ID requests.
+		var source v1.Model
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: strings.TrimSpace(reference)}, &source); err == nil {
+			if !source.Spec.Manifest.Active {
+				return nil, types.NewErrNotFound("model %q is not available through this endpoint", reference)
+			}
+		} else if !apierrors.IsNotFound(err) {
+			return nil, err
+		}
 		reference = mapped
 	}
 	scope := llmengine.LegacyProviderScope(req.Context())

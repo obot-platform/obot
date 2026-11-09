@@ -130,8 +130,16 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	}
 	var settingsReads atomic.Int64
 	var failSettingsRead atomic.Bool
+	var sourceReads atomic.Int64
+	var failSourceRead atomic.Bool
 	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(llmengine.ModelProviderResource()).WithInterceptorFuncs(interceptor.Funcs{
 		Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+			if _, ok := obj.(*v1.Model); ok && key.Name == "m1-old-openai" {
+				sourceReads.Add(1)
+				if failSourceRead.Load() {
+					return errors.New("retained source read failed")
+				}
+			}
 			if _, ok := obj.(*v1.LLMGatewayConfig); ok {
 				settingsReads.Add(1)
 				if failSettingsRead.Load() {
@@ -239,6 +247,137 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			require.Equal(t, before, settingsReads.Load(), "canonical and legacy requests must not read settings")
 		})
 	}
+	t.Run("retained mapped source", func(t *testing.T) {
+		source := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-old-openai", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+			ModelProvider: system.OpenAIModelProvider,
+			TargetModel:   "gpt-test",
+			Active:        true,
+		}}}
+		require.NoError(t, storageClient.Create(ctx, source))
+		var target v1.Model
+		require.NoError(t, storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "m1-openai"}, &target))
+		beforeSettings := settingsReads.Load()
+		failSettingsRead.Store(true)
+		defer failSettingsRead.Store(false)
+		defer failSourceRead.Store(false)
+
+		// Change only the retained source; the mapping stays cached throughout these requests.
+		for _, state := range []struct {
+			name       string
+			active     bool
+			deleted    bool
+			readError  bool
+			wantStatus int
+		}{
+			{
+				name:       "active",
+				active:     true,
+				wantStatus: http.StatusOK,
+			},
+			{
+				name:       "deactivated",
+				wantStatus: http.StatusNotFound,
+			},
+			{
+				name:       "reactivated",
+				active:     true,
+				wantStatus: http.StatusOK,
+			},
+			{
+				name:       "deleted",
+				deleted:    true,
+				wantStatus: http.StatusOK,
+			},
+			{
+				name:       "read failure",
+				readError:  true,
+				wantStatus: http.StatusInternalServerError,
+			},
+		} {
+			t.Run(state.name, func(t *testing.T) {
+				if state.deleted {
+					require.NoError(t, storageClient.Delete(ctx, source))
+				} else if !state.readError {
+					source.Spec.Manifest.Active = state.active
+					require.NoError(t, storageClient.Update(ctx, source))
+				}
+				failSourceRead.Store(state.readError)
+
+				for _, route := range []string{"openai/v1", "v1"} {
+					for _, tc := range []struct {
+						name      string
+						reference string
+						fallback  string
+						mapped    bool
+					}{
+						{
+							name:      "old ID",
+							reference: source.Name,
+							mapped:    true,
+						},
+						{
+							name:      "padded old ID",
+							reference: " \t" + source.Name + "\n ",
+							mapped:    true,
+						},
+						{
+							name:      "gateway target ID",
+							reference: target.Name,
+						},
+						{
+							name:      "native target name",
+							reference: "openai/gpt-test",
+						},
+						{
+							name:      "mapped fallback",
+							reference: target.Name,
+							fallback:  source.Name,
+							mapped:    true,
+						},
+					} {
+						t.Run(route+"/"+tc.name, func(t *testing.T) {
+							wantStatus := http.StatusOK
+							var wantReads int64
+							if tc.mapped {
+								wantStatus = state.wantStatus
+								wantReads = 1
+							}
+							if tc.fallback != "" && wantStatus != http.StatusOK {
+								wantStatus = http.StatusBadRequest
+							}
+							beforeReads := sourceReads.Load()
+							lock.Lock()
+							before := len(requests)
+							lock.Unlock()
+							payload := map[string]any{"model": tc.reference, "messages": []any{map[string]any{"role": "user", "content": "hi"}}}
+							if tc.fallback != "" {
+								payload["fallbacks"] = []string{tc.fallback}
+							}
+							body, err := json.Marshal(payload)
+							require.NoError(t, err)
+							rec := httptest.NewRecorder()
+							mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+route+"/chat/completions", strings.NewReader(string(body))))
+							wantDispatches := 0
+							if wantStatus == http.StatusOK {
+								wantDispatches = 1
+								require.Contains(t, rec.Body.String(), "hello")
+							}
+							lock.Lock()
+							gotDispatches := len(requests) - before
+							lock.Unlock()
+							require.Equal(t, wantDispatches, gotDispatches, "upstream inference calls; HTTP %d: %s", rec.Code, rec.Body.String())
+							require.Equal(t, wantStatus, rec.Code, rec.Body.String())
+							require.Equal(t, wantReads, sourceReads.Load()-beforeReads, "only mapped IDs read the retained source")
+						})
+					}
+				}
+				var currentTarget v1.Model
+				require.NoError(t, storageClient.Get(ctx, kclient.ObjectKeyFromObject(&target), &currentTarget))
+				require.Equal(t, target, currentTarget, "source changes must not mutate the gateway target")
+			})
+		}
+		require.Equal(t, beforeSettings, settingsReads.Load(), "requests must use the cached mapping")
+	})
 	for _, route := range []string{"openai", "generic-responses"} {
 		rec := httptest.NewRecorder()
 		mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/llm-proxy/"+route+"/v1/models", nil))
