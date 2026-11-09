@@ -352,6 +352,314 @@ describe('Dashboard layout', () => {
 		const previews = page.getByCSS('[data-layout-row="0"] [data-drag-preview]');
 		await expect.element(previews.first()).toHaveTextContent('Device Scans');
 		await expect.element(previews.nth(1)).toHaveTextContent('On Platform');
+
+		const paletteItem = await dialog.getByText('Model Stats', { exact: true }).element();
+		paletteItem.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+		);
+		const paletteClone = await page.getByCSS('[data-drag-clone]').element();
+		expect(paletteClone.textContent).toContain('Model Stats');
+		expect(paletteClone.textContent).not.toContain('Add');
+		expect(paletteClone.querySelector('button')).toBeNull();
+		body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+	});
+
+	it('shrinks the drag clone and shows a half-opacity preview in the drop slot', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		const dialog = page.getByRole('dialog');
+		const body = await page.getByCSS('body').element();
+		const item = await dialog.getByText('Model Stats', { exact: true }).element();
+		item.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+		);
+
+		const row = await dialog.getByCSS('[data-layout-row="0"]').element();
+		const rect = row.getBoundingClientRect();
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.top + rect.height / 2
+			})
+		);
+
+		await vi.waitFor(
+			async () => {
+				const ghost = await page.getByCSS('[data-drag-settled]').element();
+				const slot = await dialog.getByCSS('[data-drop-active="true"]').element();
+				expect(ghost.textContent).toContain('Model Stats');
+				expect(ghost.classList.contains('mr-3')).toBe(true);
+				expect(getComputedStyle(ghost).opacity).toBe('0.65');
+				expect(getComputedStyle(slot).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+			},
+			{ timeout: 80, interval: 10 }
+		);
+		const between = await dialog.getByCSS('[data-drop-slot="1"]').element();
+		between.scrollIntoView({ block: 'center' });
+		const betweenRect = between.getBoundingClientRect();
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: betweenRect.left + betweenRect.width / 2,
+				clientY: betweenRect.top + betweenRect.height / 2
+			})
+		);
+		await vi.waitFor(async () => {
+			const ghost = await page.getByCSS('[data-drag-settled]').element();
+			expect(ghost.classList.contains('my-3')).toBe(true);
+		});
+		const boxStart = dialog.getByCSS('[data-layout-box]').first();
+		const startSlot = (await boxStart.element()).querySelector(':scope > [data-drop-slot]');
+		if (!(startSlot instanceof HTMLElement)) throw new Error('missing box start slot');
+		startSlot.scrollIntoView({ block: 'center' });
+		const startRect = startSlot.getBoundingClientRect();
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: startRect.left + startRect.width / 2,
+				clientY: startRect.top + startRect.height / 2
+			})
+		);
+		await vi.waitFor(async () => {
+			const ghost = await page.getByCSS('[data-drag-settled]').element();
+			expect(ghost.classList.contains('my-3')).toBe(true);
+		});
+		const box = await dialog.getByCSS('[data-layout-box]').first().element();
+		const endSlot = box.lastElementChild;
+		if (!(endSlot instanceof HTMLElement)) throw new Error('missing box end slot');
+		endSlot.scrollIntoView({ block: 'center' });
+		const endRect = endSlot.getBoundingClientRect();
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: endRect.left + endRect.width / 2,
+				clientY: endRect.top + endRect.height / 2
+			})
+		);
+		await vi.waitFor(async () => {
+			const ghost = await page.getByCSS('[data-drag-settled]').element();
+			expect(ghost.classList.contains('mt-3')).toBe(true);
+		});
+		const layoutEnd = await dialog
+			.getByCSS('[data-layout-scroll] > [data-drop-slot]')
+			.last()
+			.element();
+		layoutEnd.scrollIntoView({ block: 'center' });
+		const layoutEndRect = layoutEnd.getBoundingClientRect();
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: layoutEndRect.left + layoutEndRect.width / 2,
+				clientY: layoutEndRect.top + layoutEndRect.height / 2
+			})
+		);
+		await vi.waitFor(async () => {
+			const ghost = await page.getByCSS('[data-drag-settled]').element();
+			expect(ghost.classList.contains('mt-3')).toBe(true);
+		});
+		await vi.waitFor(async () => {
+			const clone = await page.getByCSS('[data-drag-clone]').element();
+			expect(getComputedStyle(clone).transform).toBe('matrix(0, 0, 0, 0, 0, 0)');
+		});
+
+		body.dispatchEvent(
+			new PointerEvent('pointermove', { bubbles: true, cancelable: true, clientX: 4, clientY: 4 })
+		);
+		await expect.element(page.getByCSS('[data-drag-settled]')).not.toBeInTheDocument();
+		await vi.waitFor(async () => {
+			const clone = await page.getByCSS('[data-drag-clone]').element();
+			expect(getComputedStyle(clone).opacity).toBe('1');
+		});
+		body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+	});
+
+	async function dropPaletteWidgetAt(name: string, clientX: number, clientY: number) {
+		const dialog = page.getByRole('dialog');
+		const item = await dialog.getByText(name, { exact: true }).element();
+		const body = await page.getByCSS('body').element();
+		item.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+		);
+		body.dispatchEvent(
+			new PointerEvent('pointermove', { bubbles: true, cancelable: true, clientX, clientY })
+		);
+		body.dispatchEvent(
+			new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX, clientY })
+		);
+	}
+
+	it('renders a drop slot before and after each box', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		const dialog = page.getByRole('dialog');
+		const boxes = await dialog.getByCSS('[data-layout-box]').elements();
+		expect(boxes.length).toBeGreaterThan(1);
+
+		for (const box of boxes) {
+			const location = box.getAttribute('data-box-location');
+			expect(box.previousElementSibling?.getAttribute('data-drop-slot')).toBeTruthy();
+			expect(box.nextElementSibling?.getAttribute('data-drop-slot')).toBeTruthy();
+			expect(box.querySelector(':scope > [data-drop-slot]')?.getAttribute('data-drop-slot')).toBe(
+				`${location}-0`
+			);
+			expect(box.lastElementChild?.getAttribute('data-drop-slot')).toBe(
+				`${location}-${box.getAttribute('data-child-count')}`
+			);
+		}
+
+		const platform = await dialog.getByCSS('[data-layout-row="0"]').element();
+		expect(platform.nextElementSibling?.getAttribute('data-drop-slot')).toBe('1');
+		expect(platform.nextElementSibling?.nextElementSibling?.hasAttribute('data-layout-box')).toBe(
+			true
+		);
+		expect(boxes[0].nextElementSibling?.nextElementSibling).toBe(boxes[1]);
+	});
+
+	it('drops a widget between On Platform and the first box', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		const dialog = page.getByRole('dialog');
+		const row = await dialog.getByCSS('[data-layout-row="0"]').element();
+		const rect = row.getBoundingClientRect();
+
+		await dropPaletteWidgetAt('Model Stats', rect.left + rect.width / 2, rect.bottom - 4);
+
+		await expect
+			.element(dialog.getByCSS('[data-layout-row="0"]').getByText('Model Stats'))
+			.not.toBeInTheDocument();
+		await expect
+			.element(dialog.getByCSS('[data-layout-row="1"]').getByText('Model Stats'))
+			.toBeVisible();
+		await expect
+			.element(dialog.getByCSS('[data-layout-box]').first())
+			.toHaveAttribute('data-box-location', '2');
+	});
+
+	it('drops a widget at the beginning and end of a box', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		const dialog = page.getByRole('dialog');
+		const header = await dialog.getByCSS('[data-layout-header]').first().element();
+		header.scrollIntoView({ block: 'center' });
+		const headerRect = header.getBoundingClientRect();
+
+		await dropPaletteWidgetAt('Model Stats', headerRect.left + 24, headerRect.top + 4);
+
+		await expect
+			.element(dialog.getByCSS('[data-layout-row="1-0"]').getByText('Model Stats'))
+			.toBeVisible();
+
+		const box = await dialog.getByCSS('[data-layout-box]').last().element();
+		const location = box.getAttribute('data-box-location');
+		const count = box.getAttribute('data-child-count');
+		box.scrollIntoView({ block: 'end' });
+		const boxRect = box.getBoundingClientRect();
+		await dropPaletteWidgetAt('Top Models', boxRect.left + boxRect.width / 2, boxRect.bottom - 6);
+
+		await expect
+			.element(dialog.getByCSS(`[data-layout-row="${location}-${count}"]`).getByText('Top Models'))
+			.toBeVisible();
+		await expect
+			.element(dialog.getByCSS('[data-layout-box]').last())
+			.toHaveAttribute('data-box-location', location ?? '');
+	});
+
+	it('drops a widget between two boxes', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+		const dialog = page.getByRole('dialog');
+		const title = dialog.getByRole('button', { name: 'Drag Box' }).nth(1);
+		const titleEl = await title.element();
+		titleEl.scrollIntoView({ block: 'center' });
+		const rect = titleEl.getBoundingClientRect();
+
+		await dropPaletteWidgetAt(
+			'Model Stats',
+			rect.left + rect.width / 2,
+			rect.top + rect.height / 2
+		);
+
+		await expect
+			.element(dialog.getByCSS('[data-layout-row="2"]').getByText('Model Stats'))
+			.toBeVisible();
+		await expect
+			.element(dialog.getByCSS('[data-layout-box]').nth(0))
+			.toHaveAttribute('data-box-location', '1');
+		await expect
+			.element(dialog.getByCSS('[data-layout-box]').nth(1))
+			.toHaveAttribute('data-box-location', '3');
+	});
+
+	it('scrolls a configure column up and down while a drag is held at its edge', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		await page.getByRole('button', { name: 'Customize Dashboard' }).click();
+
+		const dialog = page.getByRole('dialog');
+		const scroller = await dialog.getByCSS('[data-layout-scroll]').element();
+		scroller.style.minHeight = '0';
+		scroller.style.height = '220px';
+		scroller.style.maxHeight = '220px';
+		scroller.style.flexGrow = '0';
+		const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+		expect(maxScroll).toBeGreaterThan(40);
+
+		const handle = dialog.getByRole('button', { name: 'Drag On Platform' });
+		await expect.element(handle).toBeVisible();
+		const body = await page.getByCSS('body').element();
+		(await handle.element()).dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+		);
+
+		scroller.scrollTop = Math.round(maxScroll / 2);
+		const rect = scroller.getBoundingClientRect();
+		const held = scroller.scrollTop;
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.bottom - 2
+			})
+		);
+		await vi.waitFor(() => {
+			expect(scroller.scrollTop).toBeGreaterThan(held + 24);
+		});
+		const downward = scroller.scrollTop;
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(scroller.scrollTop).toBeGreaterThan(downward);
+
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.top + 4
+			})
+		);
+		await vi.waitFor(() => {
+			expect(scroller.scrollTop).toBeLessThan(downward - 24);
+		});
+		const upward = scroller.scrollTop;
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(scroller.scrollTop).toBeLessThan(upward);
+
+		const stoppedAt = scroller.scrollTop;
+		body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(scroller.scrollTop).toBe(stoppedAt);
+		await expect.element(page.getByCSS('[data-drag-clone]')).not.toBeInTheDocument();
 	});
 
 	it('moves a widget in the page grid while dragging and keeps that place', async () => {
@@ -450,6 +758,50 @@ describe('Dashboard layout', () => {
 		body.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
 		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 		expect(mainEl.scrollTop).toBe(scrolling);
+		await expect.element(page.getByCSS('[data-drag-clone]')).not.toBeInTheDocument();
+	});
+
+	it('scrolls upward while a drag is held at the top of the overflow', async () => {
+		mockDashboardApis();
+		await renderDashboard([Group.ADMIN], false);
+		const main = page.getByRole('main');
+		const mainEl = await main.element();
+		mainEl.style.height = '320px';
+		mainEl.style.maxHeight = '320px';
+		const maxScroll = mainEl.scrollHeight - mainEl.clientHeight;
+		expect(maxScroll).toBeGreaterThan(40);
+
+		await main.getByCSS('[data-widget-id="platform-stats"]').hover();
+		const grip = main.getByRole('button', { name: 'Drag On Platform' });
+		await expect.element(grip).toBeVisible();
+		const body = await page.getByCSS('body').element();
+		(await grip.element()).dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+		);
+
+		mainEl.scrollTop = Math.round(maxScroll / 2);
+		const rect = mainEl.getBoundingClientRect();
+		const held = mainEl.scrollTop;
+		const headerBottom = mainEl.firstElementChild?.getBoundingClientRect().bottom ?? rect.top;
+		body.dispatchEvent(
+			new PointerEvent('pointermove', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: headerBottom + 4
+			})
+		);
+		await vi.waitFor(() => {
+			expect(mainEl.scrollTop).toBeLessThan(held - 24);
+		});
+
+		const scrolling = mainEl.scrollTop;
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(mainEl.scrollTop).toBeLessThan(scrolling);
+		const stoppedAt = mainEl.scrollTop;
+		body.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+		await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		expect(mainEl.scrollTop).toBe(stoppedAt);
 		await expect.element(page.getByCSS('[data-drag-clone]')).not.toBeInTheDocument();
 	});
 

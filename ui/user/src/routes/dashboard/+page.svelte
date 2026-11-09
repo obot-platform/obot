@@ -64,6 +64,7 @@
 		type PlatformStatId,
 		type WidgetPlacement
 	} from './dashboardLayout';
+	import { dragScrollDelta } from './dragScroll';
 	import DashboardWidget from './widgets/DashboardWidget.svelte';
 	import WidgetFrame from './widgets/WidgetFrame.svelte';
 	import { deviceStatLabel, platformStatLabel } from './widgets/labels';
@@ -198,8 +199,6 @@
 	let dragPointerY = 0;
 	let dragScrollFrame = 0;
 	const editingLayout = $derived(draft ?? dashboardLayout);
-	const DRAG_SCROLL_EDGE = 64;
-	const DRAG_SCROLL_MAX = 16;
 
 	function updateLayout(next: DashboardConfig) {
 		applyLayout(next);
@@ -259,7 +258,6 @@
 			const parent = parsePath(node.dataset.parent);
 			const row = Number(node.dataset.row);
 			const index = Number(node.dataset.index);
-			// A thin strip only. The rest of a card, including a row with one widget, drops beside it.
 			const edgeBand = Math.min(16, rect.height * 0.12);
 			const edge = y < rect.top + edgeBand || y > rect.bottom - edgeBand;
 			if (kind === 'header' || edge) {
@@ -303,8 +301,6 @@
 			.filter((node) => !node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
 			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
 		if (hit) return actionFor(hit, x, y, subject.kind);
-		// The placeholder fills its cell. Stay put until the pointer reaches another card,
-		// instead of treating the box behind that cell as a new row.
 		if (dragged && pointInside(dragged, x, y)) return null;
 		const box = candidates
 			.filter((node) => node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
@@ -384,21 +380,6 @@
 		return null;
 	}
 
-	function dragScrollDelta(y: number): { scroller: HTMLElement; delta: number } | null {
-		const scroller = dashboardScroller();
-		if (!scroller) return null;
-		const remaining = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop;
-		if (remaining <= 1) return null;
-		const bottom = Math.min(scroller.getBoundingClientRect().bottom, window.innerHeight);
-		const intoEdge = bottom - y;
-		if (intoEdge >= DRAG_SCROLL_EDGE || intoEdge < -8) return null;
-		const depth = Math.min(1, (DRAG_SCROLL_EDGE - intoEdge) / DRAG_SCROLL_EDGE);
-		return {
-			scroller,
-			delta: Math.min(remaining, Math.max(1, Math.round(depth * DRAG_SCROLL_MAX)))
-		};
-	}
-
 	function placeDraggedAtPointer() {
 		if (!dragging) return;
 		moveDragClone(dragPointerX, dragPointerY);
@@ -418,15 +399,16 @@
 	function tickDragAutoScroll() {
 		dragScrollFrame = 0;
 		if (!dragging) return;
-		const step = dragScrollDelta(dragPointerY);
-		if (!step) return;
-		step.scroller.scrollTop += step.delta;
+		const scroller = dashboardScroller();
+		const delta = dragScrollDelta(scroller, dragPointerY);
+		if (!delta || !scroller) return;
+		scroller.scrollTop += delta;
 		placeDraggedAtPointer();
 		dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
 	}
 
 	function syncDragAutoScroll() {
-		if (!dragScrollDelta(dragPointerY)) {
+		if (!dragScrollDelta(dashboardScroller(), dragPointerY)) {
 			stopDragAutoScroll();
 			return;
 		}
