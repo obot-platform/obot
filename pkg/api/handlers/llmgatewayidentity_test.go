@@ -289,3 +289,44 @@ func TestIsAnthropicProvider(t *testing.T) {
 		})
 	}
 }
+
+func TestIsOpenAIProvider(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		provider string
+		body     string
+		want     bool
+	}{
+		{
+			name:     "updating the provider ignores the body name",
+			provider: "OpEnAi",
+			body:     `{"provider":"anthropic"}`,
+			want:     true,
+		},
+		{
+			name: "creating with mixed case",
+			body: `{"PrOvIdEr":"OPENAI"}`,
+			want: true,
+		},
+		{
+			name: "creating with duplicate field spellings",
+			body: `{"provider":"other","PROVIDER":"openai"}`,
+			want: true,
+		},
+		{
+			name:     "another provider ignores the body name",
+			provider: "anthropic",
+			body:     `{"provider":"openai"}`,
+		},
+		{
+			name: "a custom OpenAI provider",
+			body: `{"provider":"openai-proxy","custom_provider_config":{"base_provider_type":"openai"}}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isOpenAIProvider(tc.provider, []byte(tc.body)); got != tc.want {
+				t.Fatalf("isOpenAIProvider = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

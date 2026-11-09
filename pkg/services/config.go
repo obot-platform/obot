@@ -996,7 +996,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				},
 				ClaudeSubscriptions: func(ctx context.Context) (bool, error) {
 					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
-					return settings.SubscriptionPassthrough, err
+					return settings.ClaudeSubscriptionPassthrough, err
 				},
 			})
 		}()

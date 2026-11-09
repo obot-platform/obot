@@ -590,18 +590,12 @@ func (b *bifrostProviderBackend) authorizeExtraModels(l *llmProviderProxy, req a
 	return sjson.SetBytes(body, "fallbacks", resolved)
 }
 
-// isAnthropicOAuthBearer reports whether an Authorization header carries an Anthropic OAuth
-// access token, which Claude Code sends when signed in with a Claude subscription.
-func isAnthropicOAuthBearer(header string) bool {
-	return strings.HasPrefix(strings.ToLower(header), "bearer sk-ant-oat")
-}
-
 // stripCallerCredentials keeps only an enabled subscription's upstream credential,
 // for its matching provider. The Obot API key and caller engine overrides are always removed.
 func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPassthrough bool) bool {
 	codex := llmtypes.IsCodexSubscription(req.Header)
 	matches := model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "anthropic/") &&
-		isAnthropicOAuthBearer(req.Header.Get("Authorization"))
+		llmtypes.IsClaudeSubscription(req.Header)
 	if codex {
 		matches = model == nil && isModelsListRequest(req) || model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "openai/")
 	}
@@ -628,12 +622,12 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 	settings := b.settings.get(ctx, gatewayClient)
 	codex := llmtypes.IsCodexSubscription(req.Header)
 	provider := "anthropic"
-	allowSubscription := settings.SubscriptionPassthrough
+	allowSubscription := settings.ClaudeSubscriptionPassthrough
 	if codex {
 		provider = "openai"
 		allowSubscription = settings.CodexSubscriptionPassthrough
 	}
-	subscriptionToken := isAnthropicOAuthBearer(req.Header.Get("Authorization")) || codex
+	subscriptionToken := llmtypes.IsClaudeSubscription(req.Header) || codex
 	if allowSubscription && subscriptionToken {
 		// Keep Claude's admission policy; core validates both providers under their lifetime gates.
 		allowSubscription = provider == "openai" || b.engine.AnthropicIsDirect(ctx)

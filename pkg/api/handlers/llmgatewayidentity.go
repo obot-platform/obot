@@ -216,3 +216,10 @@ func isAnthropicProvider(provider string, body []byte) bool {
 		return strings.EqualFold(name, "anthropic")
 	})
 }
+
+// isOpenAIProvider identifies the provider that receives Codex subscription tokens.
+func isOpenAIProvider(provider string, body []byte) bool {
+	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
+		return strings.EqualFold(name, "openai")
+	})
+}
