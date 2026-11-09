@@ -358,6 +358,18 @@ func (sm *SessionManager) CloseClient(server ServerConfig, clientScope string) {
 	}
 }
 
+// CloseClientInstance closes the acquired client without evicting a replacement
+// installed by an overlapping request for the same server and scope.
+func (sm *SessionManager) CloseClientInstance(server ServerConfig, clientScope string, client *Client) {
+	if sessions, ok := sm.sessions.Load(server.MCPServerName); ok {
+		if clientSessions, ok := sessions.(*sync.Map); ok {
+			clientSessions.CompareAndDelete(clientID(server, clientScope), client)
+		}
+	}
+	_ = client.Close()
+	_ = client.Wait()
+}
+
 // LaunchServer will ensure that the server is deployed
 func (sm *SessionManager) LaunchServer(ctx context.Context, serverConfig ServerConfig) (ServerConfig, error) {
 	return sm.ensureDeployment(ctx, serverConfig)

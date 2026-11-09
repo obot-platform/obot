@@ -314,6 +314,10 @@ func newRecordingMCPAuthChecker(oauthURL string) *recordingMCPAuthChecker {
 	return &recordingMCPAuthChecker{oauthURL: oauthURL}
 }
 
+func (c *recordingMCPAuthChecker) CheckForMCPToolAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, authRequestID string) (string, error) {
+	return c.CheckForMCPAuth(req, server, config, userID, mcpID, authRequestID)
+}
+
 func (c *recordingMCPAuthChecker) CheckForMCPAuth(_ api.Context, server v1.MCPServer, config mcp.ServerConfig, _, _, _ string) (string, error) {
 	c.server = server
 	c.config = config

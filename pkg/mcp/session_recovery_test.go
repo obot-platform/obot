@@ -911,3 +911,36 @@ func TestSessionTransport(t *testing.T) {
 		})
 	}
 }
+
+// A late OAuth challenge lets a follow-up request replace the cached client
+// before the first request finishes and releases its connection.
+func TestCloseClientInstancePreservesReplacement(t *testing.T) {
+	f := newRecoveryTestServer(t, false)
+	first := f.client(t, oauthCheckClientScope)
+	first.jwt = nil
+	second := f.client(t, oauthCheckClientScope)
+	if first == second {
+		t.Fatal("expected a replacement client")
+	}
+
+	f.manager.CloseClientInstance(f.config, oauthCheckClientScope, first)
+	sessions, _ := f.manager.sessions.Load(f.config.MCPServerName)
+	cached, ok := sessions.(*sync.Map).Load(clientID(f.config, oauthCheckClientScope))
+	if !ok || cached != second {
+		t.Fatal("cleanup evicted the replacement client")
+	}
+	if err := second.Ping(t.Context(), nil); err != nil {
+		t.Fatalf("cleanup closed the replacement client: %v", err)
+	}
+	if err := first.Ping(t.Context(), nil); !errors.Is(err, gomcp.ErrConnectionClosed) {
+		t.Fatalf("released client is still usable: %v", err)
+	}
+
+	f.manager.CloseClientInstance(f.config, oauthCheckClientScope, second)
+	if _, ok := sessions.(*sync.Map).Load(clientID(f.config, oauthCheckClientScope)); ok {
+		t.Fatal("cleanup did not evict its own cached client")
+	}
+	if err := second.Ping(t.Context(), nil); !errors.Is(err, gomcp.ErrConnectionClosed) {
+		t.Fatalf("cached client is still usable after cleanup: %v", err)
+	}
+}
