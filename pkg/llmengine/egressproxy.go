@@ -79,7 +79,11 @@ func applyProviderEgressProxy(name string, p *llmcoreclient.Provider, cfg *httpp
 		return false
 	}
 	if len(p.Keys) > 1 && (name == "azure" || name == "bedrock_mantle") {
-		if pc := p.Config.ProxyConfig; pc != nil && pc.Type != schemas.NoProxy {
+		if pc := p.Config.ProxyConfig; pc != nil && pc.Type != schemas.NoProxy && !isEgressProxy(pc, cfg) {
+			return false
+		}
+		// shortcut: Bifrost guesses inference schemes by port; retain fixed proxies until it uses actual schemes.
+		if isEgressProxy(p.Config.ProxyConfig, cfg) && !cloudPoolSupportsEnvProxy(name, p.Keys) {
 			return false
 		}
 		// Shared pools need proxy selection and NO_PROXY evaluated for each destination.
@@ -111,6 +115,54 @@ func applyProviderEgressProxy(name string, p *llmcoreclient.Provider, cfg *httpp
 	return true
 }
 
+func cloudPoolSupportsEnvProxy(name string, keys []schemas.Key) bool {
+	var targets []string
+	for _, key := range keys {
+		if name == "azure" {
+			if key.AzureKeyConfig == nil {
+				return false
+			}
+			targets = append(targets, key.AzureKeyConfig.Endpoint.GetValue())
+			// Aliases can send this key's credentials to a different Azure endpoint.
+			for _, alias := range key.Aliases {
+				if alias.AzureAliasCfg != nil && alias.Endpoint.GetValue() != "" {
+					targets = append(targets, alias.Endpoint.GetValue())
+				}
+			}
+		} else {
+			if key.BedrockMantleKeyConfig == nil {
+				return false
+			}
+			cfg := key.BedrockMantleKeyConfig
+			host := ""
+			if cfg.Endpoints != nil {
+				host = schemas.NormalizeEndpointHost(cfg.Endpoints.Mantle)
+			}
+			if host == "" {
+				if cfg.Region.GetValue() == "" {
+					return false
+				}
+				host = "bedrock-mantle." + cfg.Region.GetValue() + ".api.aws"
+			}
+			// Mantle always uses HTTPS, including overrides pasted with an HTTP scheme.
+			targets = append(targets, "https://"+host)
+		}
+	}
+	for _, target := range targets {
+		u, err := url.Parse(target)
+		if err != nil || u.Hostname() == "" || strings.HasSuffix(u.Host, ":") {
+			return false
+		}
+		// With no explicit port fasthttp uses the scheme's default port.
+		if (u.Scheme != "http" && u.Scheme != "https") ||
+			(u.Scheme == "https" && u.Port() != "" && u.Port() != "443") ||
+			(u.Scheme == "http" && u.Port() == "443") {
+			return false
+		}
+	}
+	return true
+}
+
 func providerEgressTarget(name string, p *llmcoreclient.Provider) string {
 	if target := p.Config.NetworkConfig.BaseURL; target != "" {
 		return target
@@ -135,7 +187,11 @@ func providerEgressTarget(name string, p *llmcoreclient.Provider) string {
 // isEgressProxy compares the stored credential value, not a redacted listing,
 // so unrelated administrator proxies cannot match by their masked prefix/suffix.
 func isEgressProxy(pc *schemas.ProxyConfig, cfg *httpproxy.Config) bool {
-	if pc == nil {
+	if pc == nil || (pc.Type != schemas.HTTPProxy && pc.Type != schemas.Socks5Proxy) {
+		return false
+	}
+	// Environment inheritance sets only Type and URL; other options belong to the administrator.
+	if pc.Username != nil || pc.Password != nil || pc.CACertPEM != nil || pc.NoProxy != "" || pc.SkipTLSVerify {
 		return false
 	}
 	configured := pc.URL.GetValue()

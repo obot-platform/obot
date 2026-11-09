@@ -267,19 +267,43 @@ func TestSharedAzurePoolEgressHonorsNoProxy(t *testing.T) {
 	p := llmcoreclient.Provider{}
 	p.Config.CheckAndSetDefaults()
 	p.Config.NetworkConfig.MaxRetries = 0
-	for id, endpoint := range map[string]string{"proxied": "http://pool-proxied.invalid", "direct": "http://10.1.2.3"} {
+	for _, key := range []struct {
+		id       string
+		endpoint string
+	}{
+		{
+			id:       "proxied",
+			endpoint: "http://pool-proxied.invalid",
+		},
+		{
+			id:       "direct",
+			endpoint: "http://10.1.2.3",
+		},
+	} {
 		p.Keys = append(p.Keys, schemas.Key{
-			ID:             id,
-			Name:           id,
+			ID:             key.id,
+			Name:           key.id,
 			Value:          *schemas.NewSecretVar("key"),
 			Models:         schemas.WhiteList{"*"},
 			Weight:         1,
-			AzureKeyConfig: &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar(endpoint)},
+			AzureKeyConfig: &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar(key.endpoint)},
 		})
 	}
+	secondKey := p.Keys[1]
+	p.Keys = p.Keys[:1]
 	require.NoError(t, e.store.CreateProvider(ctx, "azure", p))
 	require.True(t, e.ApplyEgressProxy(ctx))
-	_, err := e.Sync(ctx)
+	stored, err := e.store.GetProvider(ctx, "azure")
+	require.NoError(t, err)
+	require.Equal(t, schemas.HTTPProxy, stored.Config.ProxyConfig.Type)
+	require.Equal(t, proxy.URL, stored.Config.ProxyConfig.URL.GetValue())
+	require.NoError(t, e.store.MutateProvider(ctx, "azure", func(p *llmcoreclient.Provider) error {
+		p.Keys = append(p.Keys, secondKey)
+		return nil
+	}))
+	require.True(t, e.ApplyEgressProxy(ctx))
+	require.False(t, e.ApplyEgressProxy(ctx))
+	_, err = e.Sync(ctx)
 	require.NoError(t, err)
 	for _, id := range []string{"proxied", "direct"} {
 		bctx, cancel := schemas.NewBifrostContextWithCancel(ctx)
