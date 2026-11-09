@@ -4,9 +4,11 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		effectLabel,
+		listApprovals,
 		listSessionEvents,
 		modeLabel,
 		supervisorLine,
+		type ApprovalStatus,
 		type ProvenanceEvent
 	} from '$lib/services/provenance';
 	import { userDeviceSettings } from '$lib/stores';
@@ -37,6 +39,18 @@
 	let loading = $state(true);
 	let error = $state('');
 	let expanded = new SvelteSet<string>();
+	// Where each of the session's approvals stands now. An event's decision is fixed when the
+	// action was held; the approval it created moves on to approved, denied or expired.
+	let approvalStatuses = $state<Record<string, ApprovalStatus>>({});
+
+	async function loadApprovals() {
+		try {
+			const resp = await listApprovals({ sessionId, limit: 500 }, { dontLogErrors: true });
+			approvalStatuses = Object.fromEntries((resp.items ?? []).map((a) => [a.id, a.status]));
+		} catch {
+			// Without them the pills show the decision as it was made.
+		}
+	}
 
 	export async function load(reset = true) {
 		loading = true;
@@ -57,10 +71,14 @@
 		}
 	}
 
-	onMount(() => load());
+	onMount(() => {
+		load();
+		loadApprovals();
+	});
 
 	/** Reloads what is already shown without resetting pagination or showing a spinner. */
 	export async function refresh() {
+		loadApprovals();
 		try {
 			const resp = await listSessionEvents(
 				sessionId,
@@ -157,7 +175,12 @@
 								{m.supervision_session_event_honeytoken()}
 							</span>
 						{/if}
-						<DecisionPill decision={event.decision} />
+						<DecisionPill
+							decision={event.decision}
+							approvalStatus={event.decision?.approvalID
+								? approvalStatuses[event.decision.approvalID]
+								: undefined}
+						/>
 						{#if details}
 							<button
 								type="button"

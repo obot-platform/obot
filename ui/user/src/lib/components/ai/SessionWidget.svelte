@@ -63,9 +63,9 @@
 					</a>
 					{#if live}
 						<span
-							class="flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-700 dark:text-green-300"
+							class="flex items-center gap-1 rounded-full bg-success/15 text-success px-2 py-0.5 text-xs"
 						>
-							<span class="size-1.5 animate-pulse rounded-full bg-green-500"></span>
+							<span class="size-1.5 animate-pulse rounded-full bg-success"></span>
 							{m.ai_widget_live()}
 						</span>
 					{/if}

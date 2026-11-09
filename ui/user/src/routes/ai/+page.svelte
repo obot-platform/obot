@@ -115,9 +115,46 @@
 		}
 	});
 
+	// The page scrolls in the layout's main column, not in the conversation. Keep it pinned to
+	// the bottom while an answer streams and widgets load, unless the reader scrolled up.
+	const STICK_THRESHOLD_PX = 80;
+	let pinned = true;
+
+	function scrollParent(el: HTMLElement | undefined): HTMLElement | undefined {
+		for (let p = el?.parentElement; p; p = p.parentElement) {
+			const overflow = getComputedStyle(p).overflowY;
+			if (overflow === 'auto' || overflow === 'scroll') return p;
+		}
+		return undefined;
+	}
+
+	function toBottom(behavior: 'auto' | 'smooth' = 'auto') {
+		const parent = scrollParent(scroller);
+		parent?.scrollTo({ top: parent.scrollHeight, behavior });
+	}
+
+	$effect(() => {
+		const parent = scrollParent(scroller);
+		if (!parent || !scroller) return;
+		const onScroll = () => {
+			pinned = parent.scrollHeight - parent.scrollTop - parent.clientHeight < STICK_THRESHOLD_PX;
+		};
+		const observer = new ResizeObserver(() => {
+			if (pinned) toBottom();
+		});
+		observer.observe(scroller);
+		parent.addEventListener('scroll', onScroll, { passive: true });
+		return () => {
+			observer.disconnect();
+			parent.removeEventListener('scroll', onScroll);
+		};
+	});
+
+	/** Scrolls to the end now, for the reader's own actions such as sending a question. */
 	async function scrollToEnd() {
 		await tick();
-		scroller?.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+		pinned = true;
+		toBottom('smooth');
 	}
 
 	function onEvent(event: AIEvent) {
@@ -140,7 +177,6 @@
 				live.text += event.text;
 				break;
 		}
-		scrollToEnd();
 	}
 
 	async function send(text = input) {
@@ -169,7 +205,6 @@
 		} finally {
 			busy = false;
 			live = undefined;
-			scrollToEnd();
 		}
 	}
 
@@ -191,8 +226,8 @@
 </svelte:head>
 
 <Layout title={m.ai_title()} rightNavActions={navActions}>
-	<div class="flex h-full min-h-[60vh] flex-col gap-4 pb-4">
-		<div bind:this={scroller} class="flex flex-1 flex-col gap-4 overflow-y-auto" aria-live="polite">
+	<div class="flex min-h-[calc(100svh-9rem)] flex-col gap-4">
+		<div bind:this={scroller} class="flex flex-1 flex-col gap-4 pb-2" aria-live="polite">
 			{#if turns.length === 0}
 				<div class="mt-8 flex flex-col items-center gap-4 text-center">
 					<Sparkles class="text-primary size-12" />
@@ -269,7 +304,7 @@
 									{:else if step.state === 'error'}
 										<TriangleAlert class="size-3.5 text-red-500" />
 									{:else}
-										<Check class="size-3.5 text-green-600" />
+										<Check class="size-3.5 text-success" />
 									{/if}
 									<span>{toolLabel(step.tool)}</span>
 									<span class="sr-only">
@@ -295,7 +330,7 @@
 		</div>
 
 		<form
-			class="dark:bg-base-200 bg-base-100 flex items-end gap-2 rounded-2xl p-2 shadow-sm"
+			class="dark:bg-base-200 bg-base-100 sticky bottom-4 z-10 mb-4 flex items-end gap-2 rounded-2xl p-2 shadow-md"
 			onsubmit={(e) => {
 				e.preventDefault();
 				send();

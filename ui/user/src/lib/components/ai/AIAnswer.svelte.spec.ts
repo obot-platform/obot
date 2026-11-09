@@ -114,9 +114,7 @@ describe('AIAnswer', () => {
 
 	it('shows a request without decision buttons to a basic user', async () => {
 		worker.use(http.get('/api/mcp-server-requests/msrq1abc', () => HttpResponse.json(request)));
-		await renderAnswer(widget({ type: 'mcp_server_request', requestId: 'msrq1abc' }), [
-			Group.BASIC
-		]);
+		await renderAnswer(widget({ type: 'mcp_server_request', requestId: 'msrq1abc' }), [Group.USER]);
 
 		await expect.element(page.getByText('Mux')).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Approve' })).not.toBeInTheDocument();

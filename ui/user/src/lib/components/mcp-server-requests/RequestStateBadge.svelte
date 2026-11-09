@@ -10,8 +10,8 @@
 		denied: m.server_requests_state_denied
 	};
 	const styles: Record<MCPServerRequestState, string> = {
-		pending: 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300',
-		approved: 'bg-green-500/15 text-green-700 dark:text-green-300',
+		pending: 'bg-yellow-500/20 text-gray-800 dark:text-gray-100',
+		approved: 'bg-success/15 text-success',
 		denied: 'bg-red-500/15 text-red-700 dark:text-red-300'
 	};
 </script>

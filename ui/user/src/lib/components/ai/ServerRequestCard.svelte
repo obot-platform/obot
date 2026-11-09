@@ -77,7 +77,7 @@
 				<p class="text-sm">{request.reason}</p>
 			{/if}
 			{#if request.state === 'approved' && vmcpName}
-				<p class="text-xs text-green-700 dark:text-green-300">
+				<p class="text-xs text-success">
 					{m.ai_widget_request_added({ vmcp: vmcpName })}
 				</p>
 			{/if}

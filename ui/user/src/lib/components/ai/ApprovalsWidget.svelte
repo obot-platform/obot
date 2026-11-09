@@ -50,7 +50,7 @@
 <WidgetFrame {loading} {error}>
 	{#if empty}
 		<p class="text-muted-content flex items-center gap-2 text-sm">
-			<CircleCheck class="size-4 text-green-600" />
+			<CircleCheck class="size-4 text-success" />
 			{m.ai_widget_approvals_none()}
 		</p>
 	{/if}

@@ -479,5 +479,8 @@
 	"supervision_tagging_queue": "다음 배치를 기다리는 항목 {queued}개",
 	"supervision_tagging_last_run": "마지막 배치({time})에서 {tagged}개 항목에 태그를 지정했습니다",
 	"supervision_tagging_run_now": "지금 대기열 태그 지정",
-	"supervision_tagging_running": "대기열에 태그를 지정하는 중…"
+	"supervision_tagging_running": "대기열에 태그를 지정하는 중…",
+	"supervision_decision_approval_approved": "승인됨",
+	"supervision_decision_approval_denied": "승인 거부됨",
+	"supervision_decision_approval_expired": "승인 만료됨"
 }

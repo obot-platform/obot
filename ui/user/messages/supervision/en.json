@@ -479,5 +479,8 @@
 	"supervision_tagging_queue": "{queued} items waiting for the next batch",
 	"supervision_tagging_last_run": "Last batch {time} tagged {tagged} items",
 	"supervision_tagging_run_now": "Tag the queue now",
-	"supervision_tagging_running": "Tagging the queue…"
+	"supervision_tagging_running": "Tagging the queue…",
+	"supervision_decision_approval_approved": "Approved",
+	"supervision_decision_approval_denied": "Approval denied",
+	"supervision_decision_approval_expired": "Approval expired"
 }

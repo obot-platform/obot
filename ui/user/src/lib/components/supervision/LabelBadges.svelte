@@ -51,17 +51,22 @@
 			{@const text = originText(label)}
 			{#if text}
 				<span
-					class={twMerge('badge badge-sm badge-soft cursor-help', badgeClass(label))}
+					class={twMerge(
+						'badge badge-sm badge-soft cursor-help whitespace-nowrap',
+						badgeClass(label)
+					)}
 					use:tooltip={{ text, classes: ['whitespace-pre-line', 'max-w-xs'] }}
 				>
 					{label}
 				</span>
 			{:else}
-				<span class={twMerge('badge badge-sm badge-soft', badgeClass(label))}>{label}</span>
+				<span class={twMerge('badge badge-sm badge-soft whitespace-nowrap', badgeClass(label))}
+					>{label}</span
+				>
 			{/if}
 		{/each}
 		{#if hidden > 0}
-			<span class="badge badge-sm badge-ghost">+{hidden}</span>
+			<span class="badge badge-sm badge-ghost whitespace-nowrap">+{hidden}</span>
 		{/if}
 	</span>
 {/if}

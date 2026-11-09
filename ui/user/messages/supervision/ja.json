@@ -479,5 +479,8 @@
 	"supervision_tagging_queue": "次のバッチを待っている項目: {queued} 件",
 	"supervision_tagging_last_run": "前回のバッチ（{time}）で {tagged} 件にタグを付けました",
 	"supervision_tagging_run_now": "今すぐキューにタグを付ける",
-	"supervision_tagging_running": "キューにタグを付けています…"
+	"supervision_tagging_running": "キューにタグを付けています…",
+	"supervision_decision_approval_approved": "承認済み",
+	"supervision_decision_approval_denied": "承認が拒否されました",
+	"supervision_decision_approval_expired": "承認の期限切れ"
 }

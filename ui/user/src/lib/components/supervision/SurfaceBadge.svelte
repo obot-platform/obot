@@ -11,18 +11,21 @@
 
 	let { surface, class: klass, short = false }: Props = $props();
 
+	// Explicit colors: the theme's secondary and neutral are light grays that a soft badge
+	// renders nearly invisible. The theme defines only some Tailwind colors (see app.css), so
+	// stick to those.
 	function colorClass(s: string) {
 		switch (s) {
 			case 'llm':
-				return 'badge-primary';
+				return 'border-transparent! bg-blue-500/15! text-blue-700! dark:text-blue-300!';
 			case 'mcp':
-				return 'badge-secondary';
+				return 'border-transparent! bg-success/15! text-success!';
 			case 'device':
-				return 'badge-accent';
+				return 'border-transparent! bg-orange-500/15! text-orange-500!';
 			case 'egress':
-				return 'badge-info';
+				return 'border-transparent! bg-red-500/10! text-red-700! dark:text-red-300!';
 			case 'copilot':
-				return 'badge-neutral';
+				return 'border-transparent! bg-gray-500/15! text-gray-700! dark:text-gray-300!';
 			default:
 				return 'badge-ghost';
 		}
@@ -30,7 +33,7 @@
 </script>
 
 <span
-	class={twMerge('badge badge-sm badge-soft uppercase', colorClass(surface), klass)}
+	class={twMerge('badge badge-sm whitespace-nowrap uppercase', colorClass(surface), klass)}
 	title={surfaceLabel(surface)}
 >
 	{short ? surface : surfaceLabel(surface)}

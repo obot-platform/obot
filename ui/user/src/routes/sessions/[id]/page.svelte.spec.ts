@@ -86,6 +86,23 @@ describe('Session replay', () => {
 			.toHaveAttribute('href', '/approvals?approval=apr-1');
 	});
 
+	it("shows a held action's approval as it stands now, not as it was when held", async () => {
+		mockSession();
+		const asked = vi.fn();
+		worker.use(
+			http.get('/api/provenance/approvals', ({ request }) => {
+				asked(new URL(request.url).searchParams.get('session_id'));
+				return HttpResponse.json({ items: [{ id: 'apr-1', status: 'approved' }], total: 1 });
+			})
+		);
+		await renderPage();
+
+		const timeline = page.getByRole('list', { name: 'Timeline' });
+		await expect.element(timeline.getByText('Approved', { exact: true })).toBeInTheDocument();
+		await expect.element(timeline.getByText('Approval pending')).not.toBeInTheDocument();
+		expect(asked).toHaveBeenCalledWith('ses-risky');
+	});
+
 	it('shows the Supervisor commentary with concerns', async () => {
 		mockSession();
 		await renderPage();
