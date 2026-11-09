@@ -647,14 +647,7 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 	authorizationServerMetadata := discovery.AuthorizationServerMetadata
 	protectedResourceMetadata := discovery.ProtectedResourceMetadata
 
-	if authorizationServerMetadata.ClientIDMetadataDocumentSupported && o.clientIDMetadataDocument != "" {
-		slog.Info("using oauth client ID metadata document", "server", serverName, "client_id", o.clientIDMetadataDocument)
-		return clientRegistrationResponse{
-			ClientID: o.clientIDMetadataDocument,
-		}, false, nil
-	}
-
-	// Before trying to register a client, check if there is a static client configuration.
+	// Prefer configured static credentials: CIMD support does not guarantee the upstream accepts our document URL.
 	var (
 		clientInfo clientRegistrationResponse
 		lookupErr  error
@@ -676,7 +669,14 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 			"has_client_secret", clientInfo.ClientSecret != "")
 	}
 
-	// If we didn't get a result from the lookup, register a client dynamically.
+	if authorizationServerMetadata.ClientIDMetadataDocumentSupported && o.clientIDMetadataDocument != "" {
+		slog.Info("using oauth client ID metadata document", "server", serverName, "client_id", o.clientIDMetadataDocument)
+		return clientRegistrationResponse{
+			ClientID: o.clientIDMetadataDocument,
+		}, false, nil
+	}
+
+	// Without static credentials or CIMD, register a client dynamically.
 	clientInfo, err := registerOAuthClient(ctx, o.httpClient, serverName, authorizationServerMetadata, discovery.ClientRegistration)
 	if err != nil {
 		slog.Warn("oauth dynamic client registration failed",
