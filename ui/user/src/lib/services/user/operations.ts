@@ -816,10 +816,9 @@ export async function resolveGroups(
 	async function worker() {
 		while (next < batches.length) {
 			const index = next++;
-			pages[index] = (await doGet(
-				`/groups?${buildQueryString({ ids: batches[index] })}`,
-				opts
-			)) as OrgGroupPage;
+			// One id parameter per group keeps an ID that contains a comma, such as an LDAP DN, whole.
+			const query = batches[index].map((id) => `id=${encodeURIComponent(id)}`).join('&');
+			pages[index] = (await doGet(`/groups?${query}`, opts)) as OrgGroupPage;
 		}
 	}
 

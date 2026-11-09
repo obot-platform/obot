@@ -492,8 +492,11 @@ func (c *Client) resolveAuthGroupsFromProvider(ctx context.Context, authProvider
 		return nil, fmt.Errorf("failed to parse auth provider URL for group resolution: %w", err)
 	}
 
+	// Each ID goes in its own id parameter, which keeps an ID containing a comma, such as an LDAP
+	// DN, whole. The comma-separated ids parameter is sent too, for providers that predate id.
 	q := u.Query()
 	q.Set("ids", strings.Join(ids, ","))
+	q["id"] = ids
 	u.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)

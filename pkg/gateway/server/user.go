@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -424,10 +425,12 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	return apiContext.Write(types.ConvertUser(existingUser, ""))
 }
 
-// GET /api/groups?name=&limit=&cursor=&ids=
+// GET /api/groups?name=&limit=&cursor=&id=&ids=
 // Returns one page of the auth provider's groups, optionally filtered by name. Paging is by opaque
 // cursor: the response carries the position of the next page, or nothing when there are no more.
-// Passing ids instead resolves those specific group IDs to their display names.
+// Passing id, once per group ID, instead resolves those specific group IDs to their display names.
+// The older ids, a comma-separated list, is still accepted but cannot carry an ID that contains a
+// comma, such as an LDAP DN.
 func (s *Server) listAuthGroups(apiContext api.Context) error {
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
 	if name == "" || namespace == "" {
@@ -444,12 +447,9 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		return fmt.Errorf("failed to get auth provider URL: %w", err)
 	}
 
-	if rawIDs := query.Get("ids"); rawIDs != "" {
-		ids, err := splitGroupIDs(rawIDs)
-		if err != nil {
-			return types2.NewErrHTTP(http.StatusBadRequest, err.Error())
-		}
-
+	if ids, ok, err := groupIDsFromQuery(query); err != nil {
+		return types2.NewErrHTTP(http.StatusBadRequest, err.Error())
+	} else if ok {
 		groups, err := apiContext.GatewayClient.ResolveAuthGroups(apiContext.Context(), providerURL.String(), namespace, name, ids)
 		if err != nil {
 			return fmt.Errorf("failed to resolve auth groups: %w", err)
@@ -500,10 +500,31 @@ func parseGroupListParams(query url.Values) (limit int, cursor string) {
 	return min(limit, client.MaxGroupPageSize), query.Get("cursor")
 }
 
+// groupIDsFromQuery returns the group IDs a request asks to resolve, and whether it asks for any.
+// It reads the repeated id parameter, which carries each ID whole, and falls back to the
+// comma-separated ids parameter. An id parameter with only blank values counts as absent, as an
+// empty ids does.
+func groupIDsFromQuery(query url.Values) ([]string, bool, error) {
+	if values := query["id"]; slices.ContainsFunc(values, func(v string) bool { return strings.TrimSpace(v) != "" }) {
+		ids, err := uniqueGroupIDs(values)
+		return ids, true, err
+	}
+	if raw := query.Get("ids"); raw != "" {
+		ids, err := splitGroupIDs(raw)
+		return ids, true, err
+	}
+	return nil, false, nil
+}
+
 // splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.
 // IDs are returned in the order they first appear in raw.
 func splitGroupIDs(raw string) ([]string, error) {
-	parts := strings.Split(raw, ",")
+	return uniqueGroupIDs(strings.Split(raw, ","))
+}
+
+// uniqueGroupIDs trims the given group IDs and drops blanks and duplicates, keeping the order in
+// which they first appear.
+func uniqueGroupIDs(parts []string) ([]string, error) {
 	if len(parts) > maxGroupIDsPerRequest {
 		return nil, fmt.Errorf("too many group ids: %d, limit is %d", len(parts), maxGroupIDsPerRequest)
 	}

@@ -138,6 +138,87 @@ func TestSplitGroupIDs(t *testing.T) {
 	}
 }
 
+func TestGroupIDsFromQuery(t *testing.T) {
+	tests := []struct {
+		name   string
+		query  url.Values
+		want   []string
+		wantOK bool
+	}{
+		{
+			name:   "neither parameter",
+			query:  url.Values{"name": {"eng"}},
+			wantOK: false,
+		},
+		{
+			name: "repeated id keeps commas inside an ID",
+			query: url.Values{"id": {
+				"pingfederate/cn=Admins,ou=Groups,dc=example,dc=com",
+				"pingfederate/cn=Devs,ou=Groups,dc=example,dc=com",
+			}},
+			want: []string{
+				"pingfederate/cn=Admins,ou=Groups,dc=example,dc=com",
+				"pingfederate/cn=Devs,ou=Groups,dc=example,dc=com",
+			},
+			wantOK: true,
+		},
+		{
+			name:   "repeated id trims and drops blanks and duplicates",
+			query:  url.Values{"id": {" entra/a ", "", "entra/b", "entra/a"}},
+			want:   []string{"entra/a", "entra/b"},
+			wantOK: true,
+		},
+		{
+			name:   "ids is split at commas",
+			query:  url.Values{"ids": {"entra/a,entra/b"}},
+			want:   []string{"entra/a", "entra/b"},
+			wantOK: true,
+		},
+		{
+			name:   "blank id values count as absent",
+			query:  url.Values{"id": {"", " "}, "ids": {"entra/a,entra/b"}},
+			want:   []string{"entra/a", "entra/b"},
+			wantOK: true,
+		},
+		{
+			name:   "only blank id values and no ids",
+			query:  url.Values{"id": {""}},
+			wantOK: false,
+		},
+		{
+			name:   "id is preferred over ids",
+			query:  url.Values{"id": {"entra/a,b"}, "ids": {"entra/a,b"}},
+			want:   []string{"entra/a,b"},
+			wantOK: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok, err := groupIDsFromQuery(tt.query)
+			if err != nil {
+				t.Fatalf("groupIDsFromQuery() error = %v", err)
+			}
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if strings.Join(got, "|") != strings.Join(tt.want, "|") {
+				t.Errorf("ids = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroupIDsFromQueryRejectsAnOversizedBatch(t *testing.T) {
+	query := url.Values{}
+	for i := range maxGroupIDsPerRequest + 1 {
+		query.Add("id", fmt.Sprintf("entra/%d", i))
+	}
+	if _, _, err := groupIDsFromQuery(query); err == nil {
+		t.Error("expected an error for a batch over the limit")
+	}
+}
+
 func TestSplitGroupIDsRejectsAnOversizedBatch(t *testing.T) {
 	ids := make([]string, 0, maxGroupIDsPerRequest+1)
 	for i := range maxGroupIDsPerRequest + 1 {

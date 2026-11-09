@@ -841,9 +841,9 @@ describe('VMcpProfiles.svelte', () => {
 		const group = { id: 'entra/engineering-oid', name: 'Platform Engineering' };
 		worker.use(
 			http.get('/api/groups', ({ request }) => {
-				const ids = new URL(request.url).searchParams.get('ids') ?? '';
+				const ids = new URL(request.url).searchParams.getAll('id');
 				return HttpResponse.json({
-					items: ids.split(',').includes(group.id) ? [group] : []
+					items: ids.includes(group.id) ? [group] : []
 				});
 			})
 		);
@@ -866,7 +866,7 @@ describe('VMcpProfiles.svelte', () => {
 		worker.use(
 			http.get('/api/groups', ({ request }) => {
 				const url = new URL(request.url);
-				if (url.searchParams.get('ids')) {
+				if (url.searchParams.has('id')) {
 					return HttpResponse.json({ items: [group] });
 				}
 				if (url.searchParams.get('name')) {

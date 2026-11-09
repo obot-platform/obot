@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -565,6 +567,49 @@ func TestResolveAuthGroupsFallsBackToTheProvider(t *testing.T) {
 	}
 	if len(stub.requests[0]) != 1 || stub.requests[0][0] != "entra/9999" {
 		t.Errorf("asked the provider for %v, want only the uncached id", stub.requests[0])
+	}
+}
+
+// Each ID goes to the provider whole in its own id parameter, so an ID containing a comma, such as
+// an LDAP DN, survives the trip. The comma-separated ids parameter is still sent for providers that
+// predate id.
+func TestResolveAuthGroupsSendsEachIDWhole(t *testing.T) {
+	c := newTestClient(t)
+
+	ids := []string{
+		"entra/cn=Admins,ou=Groups,dc=example,dc=com",
+		"entra/cn=Devs,ou=Groups,dc=example,dc=com",
+		"entra/plain",
+	}
+	var query url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.Query()
+		items := make([]auth.GroupInfo, 0, len(query["id"]))
+		for _, id := range query["id"] {
+			items = append(items, auth.GroupInfo{ID: id, Name: "Directory " + id})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	t.Cleanup(srv.Close)
+
+	resolved, err := c.ResolveAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ids)
+	if err != nil {
+		t.Fatalf("ResolveAuthGroups() error = %v", err)
+	}
+
+	if got := query["id"]; !slices.Equal(got, ids) {
+		t.Errorf("id parameters = %q, want each ID whole: %q", got, ids)
+	}
+	if got := query.Get("ids"); got != strings.Join(ids, ",") {
+		t.Errorf("ids parameter = %q, want the comma-joined IDs", got)
+	}
+	if len(resolved) != len(ids) {
+		t.Fatalf("got %d groups, want %d", len(resolved), len(ids))
+	}
+	for i, id := range ids {
+		if resolved[i].ID != id || resolved[i].Name != "Directory "+id {
+			t.Errorf("group %d = %+v, want %q named by the provider", i, resolved[i], id)
+		}
 	}
 }
 

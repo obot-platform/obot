@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 interface FetchRecorder {
 	fetch: typeof fetch;
-	/** The `ids` parameter of every request, in dispatch order. */
+	/** The `id` parameters of every request, in dispatch order. */
 	batches: string[][];
 	peakConcurrency: number;
 }
@@ -19,7 +19,7 @@ function recordingFetch(options: { unknown?: string[]; delayMs?: number } = {}):
 	let inFlight = 0;
 
 	recorder.fetch = (async (url: string) => {
-		const ids = (new URL(url).searchParams.get('ids') ?? '').split(',').filter(Boolean);
+		const ids = new URL(url).searchParams.getAll('id');
 		recorder.batches!.push(ids);
 
 		inFlight++;
@@ -103,6 +103,21 @@ describe('resolveGroups', () => {
 		const ids = idsOfLength(250);
 		const resolved = await resolveGroups(ids, { fetch: slowFirst });
 
+		expect(resolved.map((group) => group.id)).toEqual(ids);
+	});
+
+	it('sends each id whole, commas included', async () => {
+		// Groups from an LDAP directory are named by DNs, which contain commas; a comma-joined list
+		// could not tell which commas separate ids.
+		const recorder = recordingFetch();
+		const ids = [
+			'pingfederate/cn=Admins,ou=Groups,dc=example,dc=com',
+			'pingfederate/cn=Devs,ou=Groups,dc=example,dc=com'
+		];
+
+		const resolved = await resolveGroups(ids, { fetch: recorder.fetch });
+
+		expect(recorder.batches).toEqual([ids]);
 		expect(resolved.map((group) => group.id)).toEqual(ids);
 	});
 
