@@ -147,10 +147,24 @@ func TestMigrationRepairsEgressProxyAndPreservesExplicitSettings(t *testing.T) {
 		proxy   *schemas.ProxyConfig
 		noProxy string
 		want    *schemas.ProxyConfig
+		aliases bool
 	}{
 		{
 			name: "repair a previously imported provider",
 			want: &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar("http://egress.invalid:3128")},
+		},
+		{
+			name:    "alias needs proxy despite excluded default",
+			noProxy: ".openai.azure.com",
+			want:    &schemas.ProxyConfig{Type: schemas.EnvProxy},
+			aliases: true,
+		},
+		{
+			name:    "excluded alias replaces inherited fixed proxy",
+			proxy:   &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar("http://egress.invalid:3128")},
+			noProxy: "alias.invalid",
+			want:    &schemas.ProxyConfig{Type: schemas.EnvProxy},
+			aliases: true,
 		},
 		{
 			name:    "leave an excluded endpoint direct",
@@ -184,9 +198,13 @@ func TestMigrationRepairsEgressProxyAndPreservesExplicitSettings(t *testing.T) {
 			require.NoError(t, err)
 			before.Config.ProxyConfig = tc.proxy
 			before.Config.NetworkConfig.DefaultRequestTimeoutInSeconds = 123
+			if tc.aliases {
+				before.Keys[0].Aliases = schemas.KeyAliases{"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar("https://alias.invalid")}}}
+			}
 			require.NoError(t, e.store.MutateProvider(ctx, "azure", func(provider *llmcoreclient.Provider) error {
 				provider.Config.ProxyConfig = before.Config.ProxyConfig
 				provider.Config.NetworkConfig.DefaultRequestTimeoutInSeconds = before.Config.NetworkConfig.DefaultRequestTimeoutInSeconds
+				provider.Keys[0].Aliases = before.Keys[0].Aliases
 				return nil
 			}))
 			t.Setenv("HTTP_PROXY", "")

@@ -13,11 +13,14 @@ import (
 	"testing"
 	"time"
 
+	bifrostcore "github.com/maximhq/bifrost/core"
+	providerutils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
+	"github.com/valyala/fasthttp"
 	"golang.org/x/net/http/httpproxy"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -439,6 +442,159 @@ func TestApplyEgressProxyEndpointPrecedence(t *testing.T) {
 	}
 }
 
+func TestApplyEgressProxyAzureAliasRouting(t *testing.T) {
+	for _, tc := range []struct {
+		scheme   string
+		port     string
+		proxyEnv string
+	}{
+		{
+			scheme:   "http",
+			port:     "80",
+			proxyEnv: "HTTP_PROXY",
+		},
+		{
+			scheme:   "https",
+			port:     "443",
+			proxyEnv: "HTTPS_PROXY",
+		},
+	} {
+		for _, excluded := range []string{"10.0.0.1", "10.0.0.2"} {
+			for _, inherited := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/NO_PROXY_%s/inherited_%t", tc.scheme, excluded, inherited), func(t *testing.T) {
+					var connects atomic.Int32
+					proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.Method != http.MethodConnect || r.Host == excluded+":"+tc.port {
+							t.Errorf("unexpected proxy request: %s %s", r.Method, r.Host)
+						}
+						connects.Add(1)
+						w.WriteHeader(http.StatusBadGateway)
+					}))
+					t.Cleanup(proxy.Close)
+					for _, name := range []string{"HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "NO_PROXY", "no_proxy", "REQUEST_METHOD"} {
+						t.Setenv(name, "")
+					}
+					t.Setenv(tc.proxyEnv, proxy.URL)
+					t.Setenv("NO_PROXY", excluded)
+					p := llmcoreclient.Provider{
+						Config: schemas.ProviderConfig{
+							NetworkConfig: schemas.NetworkConfig{DefaultRequestTimeoutInSeconds: 123},
+						},
+						Keys: []schemas.Key{{
+							ID:             "key",
+							Value:          *schemas.NewSecretVar("secret"),
+							AzureKeyConfig: &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar(tc.scheme + "://10.0.0.1")},
+							Aliases: schemas.KeyAliases{
+								"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar(tc.scheme + "://10.0.0.2")}},
+							},
+						}},
+					}
+					if inherited {
+						p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar(proxy.URL)}
+					}
+					want := p
+					want.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.EnvProxy}
+					changed := applyProviderEgressProxy("azure", &p, httpproxy.FromEnvironment())
+					client := providerutils.ConfigureProxy(&fasthttp.Client{ReadTimeout: time.Second}, p.Config.ProxyConfig, bifrostcore.NewDefaultLogger(schemas.LogLevelError))
+					providerutils.ConfigureDialer(client, false)
+					// Private IP literals need no DNS; direct attempts must hit Bifrost's guard, while proxied attempts reach only the local rejecting fixture.
+					for _, host := range []string{"10.0.0.1", "10.0.0.2"} {
+						before := connects.Load()
+						conn, err := client.Dial(host + ":" + tc.port)
+						if conn != nil {
+							require.NoError(t, conn.Close())
+						}
+						if host == excluded {
+							require.ErrorContains(t, err, "connection to private IP "+host+" is not allowed")
+							require.Equal(t, before, connects.Load())
+						} else {
+							require.ErrorContains(t, err, "502")
+							require.Equal(t, before+1, connects.Load(), "the other destination must reach the environment proxy")
+						}
+					}
+					require.True(t, changed)
+					require.Equal(t, want, p, "only the proxy may change")
+					require.False(t, applyProviderEgressProxy("azure", &p, httpproxy.FromEnvironment()), "alias routing must be idempotent")
+				})
+			}
+		}
+	}
+}
+
+func TestApplyEgressProxyAzureAliasCustomPort(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		endpoint string
+		alias    string
+	}{
+		{
+			name:     "custom default port",
+			endpoint: "https://cloud.invalid:8443",
+			alias:    "https://alias.invalid",
+		},
+		{
+			name:     "custom alias port",
+			endpoint: "https://cloud.invalid",
+			alias:    "https://alias.invalid:8443",
+		},
+	} {
+		for _, noProxy := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/NoProxy_%t", tc.name, noProxy), func(t *testing.T) {
+				cfg := &httpproxy.Config{HTTPSProxy: "http://egress.invalid:3128"}
+				p := llmcoreclient.Provider{Keys: []schemas.Key{{
+					AzureKeyConfig: &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar(tc.endpoint)},
+					Aliases:        schemas.KeyAliases{"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar(tc.alias)}}},
+				}}}
+				var original *schemas.ProxyConfig
+				if noProxy {
+					original = &schemas.ProxyConfig{Type: schemas.NoProxy}
+				}
+				p.Config.ProxyConfig = original
+				want := p
+				want.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar(cfg.HTTPSProxy)}
+				require.True(t, applyProviderEgressProxy("azure", &p, cfg))
+				require.Equal(t, want, p, "fresh unsafe aliases must retain single-key fixed routing")
+				require.False(t, applyProviderEgressProxy("azure", &p, cfg))
+				cfg.NoProxy = "cloud.invalid"
+				require.True(t, applyProviderEgressProxy("azure", &p, cfg), "an excluded default must remove the inherited fixed proxy despite unsafe aliases")
+				require.Equal(t, &schemas.ProxyConfig{Type: schemas.NoProxy}, p.Config.ProxyConfig)
+				p.Config.ProxyConfig = original
+				require.False(t, applyProviderEgressProxy("azure", &p, cfg), "the existing default endpoint exemption must still apply")
+				require.Same(t, original, p.Config.ProxyConfig)
+			})
+		}
+	}
+}
+
+func TestApplyEgressProxyAzureAliasFallbacks(t *testing.T) {
+	for name, aliases := range map[string]schemas.KeyAliases{
+		"no aliases":         nil,
+		"no Azure override":  {"alias": {ModelID: "deployment"}},
+		"nil endpoint":       {"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{}}},
+		"empty endpoint":     {"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar("")}}},
+		"multiple endpoints": {"empty": {}, "first": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar("https://first.invalid")}}, "second": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar("https://second.invalid")}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cfg := &httpproxy.Config{HTTPSProxy: "http://egress.invalid:3128"}
+			p := llmcoreclient.Provider{Keys: []schemas.Key{{
+				AzureKeyConfig: &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar("https://cloud.invalid")},
+				Aliases:        aliases,
+			}}}
+			before := testJSON(t, p)
+			require.False(t, applyProviderEgressProxy("azure", &p, &httpproxy.Config{}), "no environment proxy must leave aliases unchanged")
+			require.JSONEq(t, string(before), string(testJSON(t, p)))
+			require.True(t, applyProviderEgressProxy("azure", &p, cfg))
+			if name == "multiple endpoints" {
+				require.Equal(t, schemas.EnvProxy, p.Config.ProxyConfig.Type)
+			} else {
+				require.Equal(t, schemas.HTTPProxy, p.Config.ProxyConfig.Type)
+				require.Equal(t, cfg.HTTPSProxy, p.Config.ProxyConfig.URL.GetValue())
+			}
+			require.False(t, applyProviderEgressProxy("azure", &p, cfg))
+		})
+	}
+}
+
 func TestApplyEgressProxyCloudPoolSecondKey(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -516,12 +672,13 @@ func TestApplyEgressProxyCloudPoolSecondKey(t *testing.T) {
 
 func TestApplyEgressProxyCloudPoolEndpointSchemes(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		family   string
-		endpoint string
-		alias    string
-		missing  bool
-		wantEnv  bool
+		name          string
+		family        string
+		endpoint      string
+		alias         string
+		missing       bool
+		wantEnv       bool
+		singleNoProxy bool
 	}{
 		{
 			name:     "Azure HTTPS custom port",
@@ -529,9 +686,10 @@ func TestApplyEgressProxyCloudPoolEndpointSchemes(t *testing.T) {
 			endpoint: "https://cloud.invalid:8443",
 		},
 		{
-			name:     "Azure HTTP on 443",
-			family:   "azure",
-			endpoint: "http://cloud.invalid:443",
+			name:          "Azure HTTP on 443",
+			family:        "azure",
+			endpoint:      "http://cloud.invalid:443",
+			singleNoProxy: true,
 		},
 		{
 			name:     "Azure explicit HTTPS port",
@@ -557,9 +715,10 @@ func TestApplyEgressProxyCloudPoolEndpointSchemes(t *testing.T) {
 			endpoint: "https://cloud.invalid:bad",
 		},
 		{
-			name:     "Azure endpoint without scheme",
-			family:   "azure",
-			endpoint: "cloud.invalid:8443",
+			name:          "Azure endpoint without scheme",
+			family:        "azure",
+			endpoint:      "cloud.invalid:8443",
+			singleNoProxy: true,
 		},
 		{
 			name:     "Azure unavailable endpoint port",
@@ -567,8 +726,9 @@ func TestApplyEgressProxyCloudPoolEndpointSchemes(t *testing.T) {
 			endpoint: "https://cloud.invalid:",
 		},
 		{
-			name:   "Azure missing endpoint",
-			family: "azure",
+			name:          "Azure missing endpoint",
+			family:        "azure",
+			singleNoProxy: true,
 		},
 		{
 			name:    "Azure missing key config",
@@ -580,6 +740,12 @@ func TestApplyEgressProxyCloudPoolEndpointSchemes(t *testing.T) {
 			family:   "azure",
 			endpoint: "https://cloud.invalid",
 			alias:    "https://alias.invalid:8443",
+		},
+		{
+			name:     "Azure alias unsupported scheme",
+			family:   "azure",
+			endpoint: "https://cloud.invalid",
+			alias:    "ftp://alias.invalid",
 		},
 		{
 			name:     "Azure safe alias",
@@ -620,46 +786,62 @@ func TestApplyEgressProxyCloudPoolEndpointSchemes(t *testing.T) {
 			missing: true,
 		},
 	} {
-		for _, keyIndex := range []int{0, 1} {
-			t.Run(fmt.Sprintf("%s/key%d", tc.name, keyIndex), func(t *testing.T) {
-				cfg := &httpproxy.Config{HTTPSProxy: "http://egress.invalid:3128"}
-				proxy := &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar(cfg.HTTPSProxy)}
-				p := llmcoreclient.Provider{
-					Config: schemas.ProviderConfig{ProxyConfig: proxy},
-					Keys:   make([]schemas.Key, 2),
-				}
-				for i := range p.Keys {
+		for _, keyCount := range []int{1, 2} {
+			if keyCount == 1 && tc.family != "azure" {
+				continue
+			}
+			for keyIndex := range keyCount {
+				t.Run(fmt.Sprintf("%s/%d_keys/key%d", tc.name, keyCount, keyIndex), func(t *testing.T) {
+					cfg := &httpproxy.Config{HTTPSProxy: "http://egress.invalid:3128"}
+					proxy := &schemas.ProxyConfig{Type: schemas.HTTPProxy, URL: schemas.NewSecretVar(cfg.HTTPSProxy)}
+					p := llmcoreclient.Provider{
+						Config: schemas.ProviderConfig{ProxyConfig: proxy},
+						Keys:   make([]schemas.Key, keyCount),
+					}
+					for i := range p.Keys {
+						if tc.family == "azure" {
+							p.Keys[i].AzureKeyConfig = &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar("https://safe.invalid")}
+							p.Keys[i].Aliases = schemas.KeyAliases{
+								"safe": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar("https://safe-alias.invalid")}},
+							}
+						} else {
+							p.Keys[i].BedrockMantleKeyConfig = &schemas.BedrockMantleKeyConfig{Region: schemas.NewSecretVar("us-east-1")}
+						}
+					}
+					key := &p.Keys[keyIndex]
 					if tc.family == "azure" {
-						p.Keys[i].AzureKeyConfig = &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar("https://safe.invalid")}
+						key.AzureKeyConfig.Endpoint = *schemas.NewSecretVar(tc.endpoint)
+						if tc.alias != "" {
+							key.Aliases["alias"] = schemas.AliasConfig{AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar(tc.alias)}}
+						}
 					} else {
-						p.Keys[i].BedrockMantleKeyConfig = &schemas.BedrockMantleKeyConfig{Region: schemas.NewSecretVar("us-east-1")}
+						key.BedrockMantleKeyConfig.Endpoints = &schemas.BedrockEndpoints{Mantle: schemas.NewSecretVar(tc.endpoint)}
 					}
-				}
-				key := &p.Keys[keyIndex]
-				if tc.family == "azure" {
-					key.AzureKeyConfig.Endpoint = *schemas.NewSecretVar(tc.endpoint)
-					if tc.alias != "" {
-						key.Aliases = schemas.KeyAliases{"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar(tc.alias)}}}
+					if tc.missing {
+						key.AzureKeyConfig = nil
+						key.BedrockMantleKeyConfig = nil
 					}
-				} else {
-					key.BedrockMantleKeyConfig.Endpoints = &schemas.BedrockEndpoints{Mantle: schemas.NewSecretVar(tc.endpoint)}
-				}
-				if tc.missing {
-					key.AzureKeyConfig = nil
-					key.BedrockMantleKeyConfig = nil
-				}
-				before := testJSON(t, p)
-				require.Equal(t, tc.wantEnv, applyProviderEgressProxy(tc.family, &p, cfg))
-				if tc.wantEnv {
-					require.Equal(t, schemas.EnvProxy, p.Config.ProxyConfig.Type)
-				} else {
-					require.Same(t, proxy, p.Config.ProxyConfig)
-					require.JSONEq(t, string(before), string(testJSON(t, p)), "retention must leave the entire aggregate unchanged")
-				}
-				require.False(t, applyProviderEgressProxy(tc.family, &p, cfg), "retention and conversion must be idempotent")
-				p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.EnvProxy}
-				require.False(t, applyProviderEgressProxy(tc.family, &p, cfg), "existing EnvProxy must remain unchanged even on unsafe endpoints")
-			})
+					before := testJSON(t, p)
+					wantNoProxy := keyCount == 1 && tc.singleNoProxy
+					require.Equal(t, tc.wantEnv || wantNoProxy, applyProviderEgressProxy(tc.family, &p, cfg))
+					if tc.wantEnv {
+						require.Equal(t, schemas.EnvProxy, p.Config.ProxyConfig.Type)
+					} else if wantNoProxy {
+						require.Equal(t, &schemas.ProxyConfig{Type: schemas.NoProxy}, p.Config.ProxyConfig)
+					} else {
+						require.Same(t, proxy, p.Config.ProxyConfig)
+						require.JSONEq(t, string(before), string(testJSON(t, p)), "retention must leave the entire aggregate unchanged")
+					}
+					require.False(t, applyProviderEgressProxy(tc.family, &p, cfg), "retention and conversion must be idempotent")
+					p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.EnvProxy}
+					require.False(t, applyProviderEgressProxy(tc.family, &p, cfg), "existing EnvProxy must remain unchanged even on unsafe endpoints")
+					if keyCount > 1 {
+						p.Config.ProxyConfig = nil
+						require.True(t, applyProviderEgressProxy(tc.family, &p, cfg), "initial multi-key pools must retain environment routing even on unsafe endpoints")
+						require.Equal(t, schemas.EnvProxy, p.Config.ProxyConfig.Type)
+					}
+				})
+			}
 		}
 	}
 }
@@ -866,6 +1048,10 @@ func TestApplyEgressProxyPreservesExplicitProxySettings(t *testing.T) {
 					p := llmcoreclient.Provider{
 						Config: schemas.ProviderConfig{ProxyConfig: &proxy},
 						Keys:   make([]schemas.Key, keyCount),
+					}
+					if family == "azure" {
+						p.Keys[0].AzureKeyConfig = &schemas.AzureKeyConfig{Endpoint: *schemas.NewSecretVar("https://cloud.invalid")}
+						p.Keys[0].Aliases = schemas.KeyAliases{"alias": {AzureAliasCfg: &schemas.AzureAliasCfg{Endpoint: schemas.NewSecretVar("https://alias.invalid")}}}
 					}
 					cfg := &httpproxy.Config{
 						HTTPSProxy: environmentProxy,

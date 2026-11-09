@@ -80,7 +80,17 @@ func applyProviderEgressProxy(name string, p *llmcoreclient.Provider, cfg *httpp
 	if cfg.HTTPSProxy == "" && cfg.HTTPProxy == "" {
 		return false
 	}
-	if len(p.Keys) > 1 && (name == "azure" || name == "bedrock_mantle") {
+	multipleDestinations := len(p.Keys) > 1 && (name == "azure" || name == "bedrock_mantle")
+	if name == "azure" && len(p.Keys) == 1 {
+		for _, alias := range p.Keys[0].Aliases {
+			if alias.AzureAliasCfg != nil && alias.Endpoint.GetValue() != "" {
+				// Bifrost infers schemes by port; unsupported alias schemes/ports retain the original single-key routing.
+				multipleDestinations = cloudPoolSupportsEnvProxy(name, p.Keys)
+				break
+			}
+		}
+	}
+	if multipleDestinations {
 		if pc := p.Config.ProxyConfig; pc != nil && pc.Type != schemas.NoProxy && !isEgressProxy(pc, cfg) {
 			return false
 		}
@@ -88,7 +98,7 @@ func applyProviderEgressProxy(name string, p *llmcoreclient.Provider, cfg *httpp
 		if isEgressProxy(p.Config.ProxyConfig, cfg) && !cloudPoolSupportsEnvProxy(name, p.Keys) {
 			return false
 		}
-		// Shared pools need proxy selection and NO_PROXY evaluated for each destination.
+		// Cloud keys and Azure alias endpoints need proxy selection and NO_PROXY evaluated for each destination.
 		p.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.EnvProxy}
 		return true
 	}
