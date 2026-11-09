@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/apiclient/types"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -298,4 +299,50 @@ func TestSharedAzurePoolEgressHonorsNoProxy(t *testing.T) {
 		}
 		require.Equal(t, int32(1), requests.Load(), "NO_PROXY must bypass the proxy for the second key")
 	}
+}
+
+func TestMigrationAzurePoolsRetainDeploymentNamesAndReferences(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	g := migrationCredentials(t)
+	putLegacy(t, g, system.AzureModelProvider, azureSecrets("https://one.openai.azure.com"))
+	putLegacy(t, g, system.AzureEntraModelProvider, map[string]string{
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_ENDPOINT":      "https://two.services.ai.azure.com",
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_ID":     "client",
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_SECRET": "secret",
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_TENANT_ID":     "tenant",
+	})
+	old := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-api", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.AzureModelProvider, TargetModel: "api-deployment", Active: false, Alias: "custom"}}}
+	entra := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-entra", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.AzureEntraModelProvider, TargetModel: "entra-deployment", Active: true}}}
+	target := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-target", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.LLMGatewayModelProvider, TargetModel: "azure/api-deployment", Active: true}}}
+	entraTarget := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-entra-target", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.LLMGatewayModelProvider, TargetModel: "azure/entra-deployment", Active: true}}}
+	alias := &v1.DefaultModelAlias{Namespace: system.DefaultNamespace, Name: "llm", Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: old.Name}}}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(old, entra, target, entraTarget, alias).
+		WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string { return []string{o.(*v1.Model).Spec.Manifest.ModelProvider} }).Build()
+	_, err := e.ImportLegacyModelProviders(ctx, c, g)
+	require.NoError(t, err)
+	p, err := e.store.GetProvider(ctx, "azure")
+	require.NoError(t, err)
+	for _, key := range p.Keys {
+		if key.ID == "imported-"+system.AzureModelProvider {
+			require.Equal(t, schemas.WhiteList{"api-deployment"}, key.Models)
+		} else {
+			require.Equal(t, schemas.WhiteList{"entra-deployment"}, key.Models)
+		}
+	}
+	_, err = e.Sync(ctx)
+	require.NoError(t, err)
+	listed, err := e.listGatewayModels(ctx, schemas.Azure, true)
+	require.NoError(t, err)
+	require.Len(t, listed, 2, "both imported keys must advertise their configured deployments")
+	require.NoError(t, e.MigrateLegacyModels(ctx, c))
+	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(old), &v1.Model{})))
+	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(entra), &v1.Model{})))
+	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
+	require.False(t, target.Spec.Manifest.Active)
+	require.Equal(t, "custom", target.Spec.Manifest.Alias)
+	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(alias), alias))
+	require.Equal(t, target.Name, alias.Spec.Manifest.Model)
+	mapped, err := e.MigratedReference(ctx, entra.Name)
+	require.NoError(t, err)
+	require.Equal(t, entraTarget.Name, mapped)
 }

@@ -411,6 +411,12 @@ export function catalogEntry(id: string): ProviderCatalogEntry | undefined {
 	return {
 		...entry,
 		id,
+		authenticationMethods: entry.authenticationMethods?.map((method) => ({
+			...method,
+			paths: method.paths.map((path) =>
+				path.replace('bedrock_key_config.', 'bedrock_mantle_key_config.')
+			)
+		})),
 		keyFields: entry.keyFields.map((field) => ({
 			...field,
 			path: field.path.replace('bedrock_key_config.', 'bedrock_mantle_key_config.')

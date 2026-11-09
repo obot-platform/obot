@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -16,10 +18,12 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/guardrails"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/modeldata"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -124,6 +128,15 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	_, err = engine.ImportLegacyModelProviders(ctx, storageClient, g)
 	require.NoError(t, err)
+	status, err := engine.MigrationStatus(ctx)
+	require.NoError(t, err)
+	status.Mappings["m1-old-openai"] = "m1-openai"
+	migration, err := json.Marshal(status)
+	require.NoError(t, err)
+	require.NoError(t, store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+		settings["legacy-provider-migration"] = migration
+		return nil
+	}))
 	for _, provider := range []string{"openai", "generic-responses"} {
 		require.NoError(t, store.MutateProvider(ctx, provider, func(p *llmcoreclient.Provider) error {
 			body, _ := json.Marshal(map[string]any{"base_url": up.URL, "allow_private_network": true})
@@ -157,6 +170,12 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			name:  "old OpenAI",
 			path:  "/api/llm-proxy/openai/v1/chat/completions",
 			model: "gpt-test",
+			key:   "Bearer openai-key",
+		},
+		{
+			name:  "mapped old model ID",
+			path:  "/api/llm-proxy/openai/v1/chat/completions",
+			model: "m1-old-openai",
 			key:   "Bearer openai-key",
 		},
 		{
@@ -210,6 +229,22 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	}
 
 	before := len(requests)
+	// Fallbacks and routing rules must obey the same scope as the initial model.
+	t.Run("cross-provider fallback", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/openai/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[],"fallbacks":["generic-responses/gpt-test"]}`)))
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+		require.Len(t, requests, before, "an out-of-scope fallback must be rejected before inference")
+	})
+	t.Run("cross-provider routing attempt", func(t *testing.T) {
+		b := &bifrostProviderBackend{engine: engine}
+		l := s.newBifrostLLMProviderProxy()
+		req := api.Context{Request: httptest.NewRequest(http.MethodPost, "/", nil).WithContext(llmengine.WithLegacyProviderScope(ctx, "openai")), Storage: storageClient, GatewayClient: g, User: mux.user}
+		attempts := &gatewayAttempts{budgets: map[string][]string{}}
+		err := attempts.checkAttempt(b, l, req, nil)(ctx, guardrails.Attempt{Model: "generic-responses/gpt-test"})
+		require.Error(t, err, "a routing rule must not send a legacy request to another provider")
+		require.Empty(t, attempts.admitted)
+	})
 	unconfigured := httptest.NewRecorder()
 	mux.mux.ServeHTTP(unconfigured, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/azure/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[]}`)))
 	require.Equal(t, http.StatusGone, unconfigured.Code, "a standard gateway status error must retain its HTTP code")
@@ -223,6 +258,12 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	mux.mux.ServeHTTP(denied, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[]}`)))
 	require.Equal(t, http.StatusForbidden, denied.Code)
 	require.Len(t, requests, before)
+	listing := httptest.NewRecorder()
+	mux.mux.ServeHTTP(listing, httptest.NewRequest(http.MethodGet, "/api/llm-proxy/openai/v1/models", nil))
+	require.Equal(t, http.StatusOK, listing.Code, listing.Body.String())
+	var body struct{ Data []any }
+	require.NoError(t, json.Unmarshal(listing.Body.Bytes(), &body))
+	require.Empty(t, body.Data, "model listing must retain access-policy filtering")
 }
 
 func TestLegacyProxyPathNormalization(t *testing.T) {
@@ -261,4 +302,28 @@ func TestLegacyProxyPathNormalization(t *testing.T) {
 	}
 	_, err := normalizeLegacyProxyPath("aws-bedrock", "v1/images/generations")
 	require.Error(t, err)
+}
+
+func TestLegacyProxySubscriptionListingRetainsProviderScope(t *testing.T) {
+	ctx := t.Context()
+	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	store, err := llmcoreclient.New(storageClient, legacyTestCodec{})
+	require.NoError(t, err)
+	dataDir := t.TempDir()
+	path, _ := modeldata.Paths(dataDir)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0750))
+	require.NoError(t, os.WriteFile(path, []byte(`{"claude-test":{"provider":"anthropic","mode":"chat"}}`), 0600))
+	engine := llmengine.New()
+	require.NoError(t, engine.Start(ctx, llmengine.Options{
+		Store:               store,
+		DataDir:             dataDir,
+		ClaudeSubscriptions: func(context.Context) (bool, error) { return true, nil },
+	}))
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	_, err = engine.CreateProvider(ctx, json.RawMessage(`{"provider":"anthropic"}`))
+	require.NoError(t, err)
+	b := &bifrostProviderBackend{engine: engine}
+	require.Len(t, b.unlistedModels(ctx), 1, "the canonical route must retain subscription discovery")
+	require.Len(t, b.unlistedModels(llmengine.WithLegacyProviderScope(ctx, "anthropic")), 1)
+	require.Empty(t, b.unlistedModels(llmengine.WithLegacyProviderScope(ctx, "openai")), "a scoped listing must not append another provider's subscription models")
 }

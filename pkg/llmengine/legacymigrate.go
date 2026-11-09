@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -85,7 +86,8 @@ func migrateLegacyModels(ctx context.Context, c kclient.Client, sources map[stri
 		if _, ok := migrated[m.Name]; !ok {
 			continue
 		}
-		if err := c.Delete(ctx, m); err != nil && !apierrors.IsNotFound(err) {
+		// Reject edits or same-name replacements since the source snapshot was copied.
+		if err := c.Delete(ctx, m, kclient.Preconditions{UID: &m.UID, ResourceVersion: &m.ResourceVersion}); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete legacy model %s: %w", m.Name, err)
 		}
 	}
@@ -117,17 +119,22 @@ func gatewayModelFor(gatewayByTarget map[string]*v1.Model, provider, id string) 
 	return latest, latest != nil
 }
 
-// carryModelEdits copies administrators' edits of a legacy model to its gateway model, once:
-// the legacy model is deleted after migration.
+// carryModelEdits copies a source snapshot once. A changed source stays available
+// for manual reconciliation instead of replaying edits over an administrator's target changes.
 func carryModelEdits(ctx context.Context, c kclient.Client, legacy, target *v1.Model) error {
 	const annotation = "obot.ai/legacy-model-edits"
-	var applied []string
+	var applied map[string]string
 	if raw := target.Annotations[annotation]; raw != "" {
 		if err := json.Unmarshal([]byte(raw), &applied); err != nil {
 			return err
 		}
 	}
-	if slices.Contains(applied, legacy.Name) {
+	// Status updates are harmless; source identity and manifest changes require review.
+	fingerprint := string(legacy.UID) + "/" + hash.String(legacy.Spec.Manifest)
+	if previous, ok := applied[legacy.Name]; ok {
+		if previous != fingerprint {
+			return fmt.Errorf("legacy model %s changed after its edits were copied to %s; reconcile the source and target manually before removing the source", legacy.Name, target.Name)
+		}
 		return nil
 	}
 	if !legacy.Spec.Manifest.Active && target.Spec.Manifest.Active {
@@ -139,7 +146,10 @@ func carryModelEdits(ctx context.Context, c kclient.Client, legacy, target *v1.M
 	if legacy.Spec.Manifest.OverrideCost != nil && target.Spec.Manifest.OverrideCost == nil {
 		target.Spec.Manifest.OverrideCost = legacy.Spec.Manifest.OverrideCost
 	}
-	applied = append(applied, legacy.Name)
+	if applied == nil {
+		applied = map[string]string{}
+	}
+	applied[legacy.Name] = fingerprint
 	raw, err := json.Marshal(applied)
 	if err != nil {
 		return err
@@ -201,7 +211,7 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 				add(m)
 				continue
 			}
-			if qualified := qualifyLegacyPattern(m, legacy, sources); len(qualified) > 0 {
+			if qualified := qualifyLegacyPattern(m, legacy, sources, migrated); len(qualified) > 0 {
 				// Keep the original grant for source models not yet migrated.
 				for _, old := range legacy {
 					if m.MatchesTargetModel(old.Spec.Manifest.TargetModel) && migrated[old.Name] == "" {
@@ -232,9 +242,9 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 
 // qualifyLegacyPattern returns the gateway forms of a wildcard suffix pattern written for
 // legacy models' provider-native names: the pattern with the gateway provider's prefix, for
-// each provider whose legacy models it matches. It returns nothing for other model resources,
-// and for patterns that match no legacy model.
-func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model, sources map[string]string) []types.ModelResource {
+// each provider whose migrated legacy models it matches. An imported credential alone
+// must not widen a grant before the provider discovers a matching target model.
+func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model, sources, migrated map[string]string) []types.ModelResource {
 	prefix, ok := m.IsWildcardSuffix()
 	if !ok || strings.Contains(prefix, "/") {
 		return nil
@@ -242,7 +252,7 @@ func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model, sources map
 	var qualified []types.ModelResource
 	for _, l := range legacy {
 		provider, ok := sources[l.Spec.Manifest.ModelProvider]
-		if !ok || !m.MatchesTargetModel(l.Spec.Manifest.TargetModel) {
+		if !ok || migrated[l.Name] == "" || !m.MatchesTargetModel(l.Spec.Manifest.TargetModel) {
 			continue
 		}
 		q := types.ModelResource{ID: provider + "/" + prefix + "*"}

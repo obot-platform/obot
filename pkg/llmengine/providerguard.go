@@ -270,13 +270,17 @@ func checkProviderAddresses(ctx context.Context, fields map[string]json.RawMessa
 // metadata addresses never are. Host names are resolved, and every address they resolve to
 // is checked.
 func checkDestination(ctx context.Context, what, address string, allowPrivate bool) error {
-	err := safehttp.ValidateURL(ctx, address, safehttp.Options{
+	// Report only the parsed host: URL credentials and parser errors can contain secrets.
+	u, err := url.Parse(address)
+	if err != nil || u.Hostname() == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return types.NewErrBadRequest("invalid %s: invalid URL", what)
+	}
+	err = safehttp.ValidateURL(ctx, address, safehttp.Options{
 		BlockLoopback:  !allowPrivate,
 		BlockPrivateIP: !allowPrivate,
 		BlockLinkLocal: true,
 	})
 	if err == nil {
-		u, _ := url.Parse(address)
 		if ip := net.ParseIP(u.Hostname()); ip == nil || !ip.IsUnspecified() {
 			return nil
 		}
@@ -285,11 +289,15 @@ func checkDestination(ctx context.Context, what, address string, allowPrivate bo
 	var blocked *safehttp.BlockedAddressError
 	switch {
 	case errors.As(err, &blocked) && (blocked.Reason == "loopback" || blocked.Reason == "private"):
-		return types.NewErrBadRequest("invalid %s %s: %s is a %s network address, which needs Allow private network addresses", what, address, blocked.IP, blocked.Reason)
+		return types.NewErrBadRequest("invalid %s %s: %s is a %s network address, which needs Allow private network addresses", what, u.Hostname(), blocked.IP, blocked.Reason)
 	case errors.As(err, &blocked):
-		return types.NewErrBadRequest("invalid %s %s: %s is a %s address, which can't be used", what, address, blocked.IP, blocked.Reason)
+		return types.NewErrBadRequest("invalid %s %s: %s is a %s address, which can't be used", what, u.Hostname(), blocked.IP, blocked.Reason)
 	default:
-		return types.NewErrBadRequest("invalid %s %s: %v", what, address, err)
+		var netErr net.Error
+		if errors.As(err, &netErr) && netErr.Timeout() {
+			return types.NewErrBadRequest("invalid %s %s: destination lookup timeout", what, u.Hostname())
+		}
+		return types.NewErrBadRequest("invalid %s %s: could not resolve destination", what, u.Hostname())
 	}
 }
 

@@ -49,6 +49,8 @@ func (m *modelAvailability) PreLLMHook(ctx *schemas.BifrostContext, req *schemas
 			provider := req.ListModelsRequest.Provider
 			if isAzureProvider(cfg, provider) {
 				models, _ := m.engine.azureDeploymentModels(cfg, provider)
+				// Azure deployment configuration/ARM snapshots are its authoritative listing.
+				m.recordDiscovered(provider, models)
 
 				return req, &schemas.LLMPluginShortCircuit{Response: &schemas.BifrostResponse{
 					ListModelsResponse: &schemas.BifrostListModelsResponse{Data: models},
@@ -78,23 +80,12 @@ func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schem
 	if marshalErr == nil {
 		readBedrockAvailability(raw, statuses)
 	}
+	// Core's bundled fallback catalog cannot authorize legacy cleanup.
+	if provider != "" && marshalErr == nil && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		m.recordDiscovered(provider, resp.ListModelsResponse.Data)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	// Core may answer a failed live poll from its bundled catalog. Such a
-	// response has no raw provider response and cannot authorize legacy cleanup.
-	if provider != "" && marshalErr == nil && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
-		if m.discovered == nil {
-			m.discovered = map[string]bool{}
-		}
-		for id := range m.discovered {
-			if strings.HasPrefix(id, string(provider)+"/") {
-				delete(m.discovered, id)
-			}
-		}
-		for _, model := range resp.ListModelsResponse.Data {
-			m.discovered[model.ID] = true
-		}
-	}
 
 	for id, unavailable := range statuses {
 		m.unavailable[string(provider)+"/"+id] = unavailable
@@ -108,6 +99,22 @@ func (m *modelAvailability) PostLLMHook(ctx *schemas.BifrostContext, resp *schem
 		m.unavailable[model.ID] = model.IsDeprecated || statuses[id]
 	}
 	return resp, err, nil
+}
+
+func (m *modelAvailability) recordDiscovered(provider schemas.ModelProvider, models []schemas.Model) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.discovered == nil {
+		m.discovered = map[string]bool{}
+	}
+	for id := range m.discovered {
+		if strings.HasPrefix(id, string(provider)+"/") {
+			delete(m.discovered, id)
+		}
+	}
+	for _, model := range models {
+		m.discovered[model.ID] = true
+	}
 }
 
 func (m *modelAvailability) isUnavailable(id string) bool {

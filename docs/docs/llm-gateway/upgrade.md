@@ -30,7 +30,7 @@ The first time the new version starts, Obot moves your configuration to the gate
 
    When both variants of Bedrock or Azure are configured, Obot automatically imports both as separate keys of the same gateway provider. Each key keeps its credentials, Azure endpoint or Bedrock region. Both keys are validated and saved together; interrupted reconciliation does not add duplicate keys.
 
-   **Pooling changes routing.** Requests, including retries, can use either configuration for the same model. Both keys initially allow every model. Legacy routes and migrated model references also use the pool; they no longer choose the original account, endpoint or region. Review each key's allowed models after upgrading. The gateway currently supports one instance of each of these cloud providers; named cloud instances are not part of this upgrade.
+   **Pooling changes routing.** Requests, including retries, can use either configuration for the same model. Bedrock keys initially allow every model. Azure keys retain deployment names from the legacy model records; if none are available, configure deployment names or Azure account discovery under **Models → Providers**. Legacy routes and migrated model references also use the pool; they no longer choose the original account, endpoint or region. Review each key's allowed models after upgrading. The gateway currently supports one instance of each of these cloud providers; named cloud instances are not part of this upgrade.
 
    A gateway provider that already exists is preserved and reported as needing manual attention. When `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` is set, the environment key retains precedence over the stored legacy credential. Provider settings, keys and import provenance are saved together as one Obot resource. Interrupted imports resume through resource reconciliation without adding duplicate keys.
 
@@ -49,7 +49,7 @@ The first time the new version starts, Obot moves your configuration to the gate
 
 Existing client base URLs can remain unchanged for these supported operations. Old model resource IDs continue to resolve through saved migration mappings. Azure and Bedrock variants share their imported family's pool. A configuration requiring manual setup returns HTTP 410 with instructions to review **Models → Providers**. Unsupported operations also return HTTP 410; inference requests are not redirected.
 
-For new client setups use `/api/llm-proxy/v1` and provider-qualified model names, such as `bedrock_mantle/claude-sonnet-4-5`. See [Connecting clients](./connect-clients.md).
+All retained legacy routes are planned for deprecation in the next non-patch release. For new client setups use `/api/llm-proxy/v1` and provider-qualified model names, such as `bedrock_mantle/claude-sonnet-4-5`. See [Connecting clients](./connect-clients.md).
 
 ## Other changes {#other-changes}
 

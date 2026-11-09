@@ -140,6 +140,12 @@ func TestKeyGuardUsesAcceptedDeadlineWhileResolverBlocked(t *testing.T) {
 	previousResolver := net.DefaultResolver
 	t.Cleanup(func() { net.DefaultResolver = previousResolver })
 
+	// Go's process-wide DNS config owns a channel; initialize it outside synctest
+	// so later fixture lookups don't access a bubble-owned channel.
+	resolver := &net.Resolver{PreferGo: true, Dial: testKeyDNS}
+	_, err = resolver.LookupIPAddr(t.Context(), "before-synctest.invalid")
+	require.NoError(t, err)
+
 	synctest.Test(t, func(t *testing.T) {
 		release := make(chan struct{})
 		defer func() {
@@ -179,4 +185,8 @@ func TestKeyGuardUsesAcceptedDeadlineWhileResolverBlocked(t *testing.T) {
 	provider, err := e.store.GetProvider(t.Context(), "azure")
 	require.NoError(t, err)
 	require.Empty(t, provider.Keys, "timed-out validation must not persist a key")
+
+	// Real-time DNS fixtures must still work after the fake-clock bubble exits.
+	_, err = resolver.LookupIPAddr(t.Context(), "after-synctest.invalid")
+	require.NoError(t, err)
 }

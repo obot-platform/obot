@@ -29,7 +29,7 @@ Retained proxy routes normalize supported v0.27 request paths and bind model res
 
 ## Consequences
 
-Cloud variants migrate without an administrator selection. Their keys initially allow every model, so administrators should review the pool's allowed models. Invalid imports and existing gateway providers can require manual setup. Retained source records are recovery material, not a running legacy backend. Named cloud-instance support and migration of unreleased gateway stores are outside this change. Rolling back still requires a pre-upgrade database backup.
+Cloud variants migrate without an administrator selection. Bedrock keys initially allow every model; Azure keys retain legacy deployment names for the gateway's explicit deployment listing. Administrators should review the pool's allowed models. Invalid imports and existing gateway providers can require manual setup. Retained source records are recovery material, not a running legacy backend. Named cloud-instance support and migration of unreleased gateway stores are outside this change. Rolling back still requires a pre-upgrade database backup.
 
 ## References
 

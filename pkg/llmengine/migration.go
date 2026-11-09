@@ -30,6 +30,7 @@ type MigrationStatus struct {
 	Sources  map[string]MigrationSource `json:"sources"`
 	Mappings map[string]string          `json:"mappings"`
 }
+
 type MigrationSource struct {
 	Imported bool   `json:"imported,omitempty"`
 	Name     string `json:"name"`
@@ -55,6 +56,7 @@ func decodeMigration(settings map[string]json.RawMessage) (MigrationStatus, erro
 	}
 	return s, nil
 }
+
 func (e *Engine) MigrationStatus(ctx context.Context) (MigrationStatus, error) {
 	settings, err := e.store.GetSettings(ctx)
 	if err != nil {
@@ -62,6 +64,7 @@ func (e *Engine) MigrationStatus(ctx context.Context) (MigrationStatus, error) {
 	}
 	return decodeMigration(settings)
 }
+
 func (e *Engine) mutateMigration(ctx context.Context, change func(*MigrationStatus) error) error {
 	return e.store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
 		s, err := decodeMigration(settings)
@@ -101,18 +104,20 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Client, g *gateway.Client) ([]LegacyImportResult, error) {
 	secrets := map[string]map[string]string{}
 	entries := map[string]MigrationSource{}
+	readErrors := map[string]error{}
+	deployments := map[string][]string{}
 	for _, name := range slices.Sorted(maps.Keys(legacyImportPlans)) {
 		cred, err := g.RevealCredential(ctx, []string{name, system.GenericModelProviderCredentialContext}, name)
 		var missing gateway.CredentialNotFoundError
 		if errors.As(err, &missing) || (err == nil && len(cred.Secrets) == 0) {
 			continue
 		}
+		entries[name] = MigrationSource{Name: legacySourceName(name), Provider: legacyImportPlans[name].provider, Status: "pending"}
 		if err != nil {
-			return nil, fmt.Errorf("read legacy credential %s: %w", name, err)
+			readErrors[name] = err
+			continue
 		}
 		secrets[name] = cred.Secrets
-		entry := MigrationSource{Name: legacySourceName(name), Provider: legacyImportPlans[name].provider, Status: "pending"}
-		entries[name] = entry
 	}
 	if c != nil {
 		var models v1.ModelList
@@ -133,6 +138,9 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 		}
 		for _, m := range models.Items {
 			source := m.Spec.Manifest.ModelProvider
+			if legacyImportPlans[source].provider == "azure" && m.Spec.Manifest.TargetModel != "" {
+				deployments[source] = append(deployments[source], m.Spec.Manifest.TargetModel)
+			}
 			if source == system.LLMGatewayModelProvider || source == system.ModelProxyModelProvider {
 				continue
 			}
@@ -181,11 +189,20 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 		case envConfigured(plan.provider) != "":
 			result.Status = "environment"
 			result.Message = "configured from the server environment"
+		case slices.ContainsFunc(groups[plan.provider], func(source string) bool { return readErrors[source] != nil }):
+			// A family is atomic, but an unreadable family must not block independent imports.
+			result.Status = "error"
+			result.Message = "legacy credential could not be read; check server logs; reconciliation will retry"
+			for _, source := range groups[plan.provider] {
+				if err := readErrors[source]; err != nil {
+					importErrors = append(importErrors, fmt.Errorf("read legacy credential %s: %w", source, err))
+				}
+			}
 		default:
 			names := groups[plan.provider]
 			completed := slices.ContainsFunc(names, func(source string) bool { return state.Sources[source].Imported })
 			var err error
-			result.Status, result.Message, err = e.importLegacySources(ctx, names, secrets, completed)
+			result.Status, result.Message, err = e.importLegacySources(ctx, names, secrets, deployments, completed)
 			if err != nil {
 				importErrors = append(importErrors, fmt.Errorf("import legacy provider %s: %w", name, err))
 			}
@@ -340,12 +357,14 @@ func (e *Engine) MigratedReference(ctx context.Context, reference string) (strin
 func WithLegacyProviderScope(ctx context.Context, provider string) context.Context {
 	return context.WithValue(ctx, legacyProviderScopeKey{}, provider)
 }
+
 func LegacyProviderScope(ctx context.Context) string {
 	value, _ := ctx.Value(legacyProviderScopeKey{}).(string)
 	return value
 }
 
 func entryUnsupported(name string) bool { _, supported := legacyImportPlans[name]; return !supported }
+
 func legacySourceName(name string) string {
 	switch name {
 	case system.OpenAIModelProvider:
@@ -369,7 +388,7 @@ func legacySourceName(name string) string {
 
 // A completed import is never recreated after an administrator removes it.
 // A missing outcome, however, can be recovered from the aggregate's provenance.
-func (e *Engine) importLegacySources(ctx context.Context, names []string, secrets map[string]map[string]string, completed bool) (string, string, error) {
+func (e *Engine) importLegacySources(ctx context.Context, names []string, secrets map[string]map[string]string, deployments map[string][]string, completed bool) (string, string, error) {
 	name := names[0]
 	plan := legacyImportPlans[name]
 	provenance := llmcoreclient.ProviderMigration{Source: name}
@@ -387,6 +406,10 @@ func (e *Engine) importLegacySources(ctx context.Context, names []string, secret
 			candidate, err = legacyAggregate(ctx, source, secrets[source])
 			if err != nil {
 				break
+			}
+			// Azure lists explicit deployment names; a wildcard cannot discover them.
+			if plan.provider == "azure" && len(deployments[source]) > 0 {
+				candidate.Keys[0].Models = schemas.WhiteList(slices.Compact(slices.Sorted(slices.Values(deployments[source]))))
 			}
 			if i == 0 {
 				p = candidate

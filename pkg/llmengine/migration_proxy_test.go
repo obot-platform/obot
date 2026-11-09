@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/apiclient/types"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -122,7 +123,9 @@ func TestMigratedAzureUsesEgressProxyWithoutRestart(t *testing.T) {
 	t.Setenv("no_proxy", "")
 	g := migrationCredentials(t)
 	putLegacy(t, g, system.AzureModelProvider, azureSecrets("http://azure-migration.invalid"))
-	_, err := e.ImportLegacyModelProviders(ctx, nil, g)
+	legacy := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-azure", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.AzureModelProvider, TargetModel: "gpt-4o", Active: true}}}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(legacy).Build()
+	_, err := e.ImportLegacyModelProviders(ctx, c, g)
 	require.NoError(t, err)
 	_, err = e.Sync(ctx)
 	require.NoError(t, err)
@@ -133,7 +136,7 @@ func TestMigratedAzureUsesEgressProxyWithoutRestart(t *testing.T) {
 	require.NoError(t, testInference(ctx, t, e, http.MethodPost, "/v1/chat/completions", map[string]any{"model": "azure/gpt-4o", "messages": []any{map[string]any{"role": "user", "content": "hello"}}}, &response))
 	mu.Lock()
 	defer mu.Unlock()
-	require.Contains(t, paths, "/openai/v1/models")
+	require.NotContains(t, paths, "/openai/v1/models", "Azure lists configured deployments without polling the offerings endpoint")
 	require.Contains(t, paths, "/openai/v1/chat/completions")
 	require.Contains(t, response["choices"].([]any)[0].(map[string]any)["message"].(map[string]any)["content"], "proxied")
 }

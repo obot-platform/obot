@@ -28,6 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -35,6 +37,10 @@ import (
 
 type failingMigrationCodec struct {
 	plaintextConfigCodec
+	fail bool
+}
+
+type legacyCredentialTransformer struct {
 	fail bool
 }
 
@@ -214,6 +220,63 @@ func TestMigrationRetriesResourceFailure(t *testing.T) {
 	require.Equal(t, "imported", results[0].Status)
 }
 
+func (*legacyCredentialTransformer) TransformToStorage(_ context.Context, data []byte, _ value.Context) ([]byte, error) {
+	return data, nil
+}
+
+func (t *legacyCredentialTransformer) TransformFromStorage(_ context.Context, data []byte, dataCtx value.Context) ([]byte, bool, error) {
+	if t.fail && strings.HasPrefix(string(dataCtx.AuthenticatedData()), system.AzureEntraModelProvider+"///") {
+		return nil, false, errors.New("injected credential read failure")
+	}
+	return data, false, nil
+}
+
+func TestMigrationCredentialReadFailureDoesNotBlockOtherProviders(t *testing.T) {
+	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
+	e, ctx := startTestEngine(t)
+	storage, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	db, err := gatewaydb.New(storage.DB.DB, storage.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate())
+	transformer := &legacyCredentialTransformer{fail: true}
+	g := gatewayclient.New(ctx, db, nil, &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			{Group: "obot.obot.ai", Resource: "credentials"}: transformer,
+		},
+	}, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { _ = g.Close() })
+	putLegacy(t, g, system.OpenAIModelProvider, map[string]string{"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "key"})
+	putLegacy(t, g, system.AzureModelProvider, azureSecrets("https://one.openai.azure.com"))
+	putLegacy(t, g, system.AzureEntraModelProvider, map[string]string{
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_ENDPOINT":      "https://two.services.ai.azure.com",
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_ID":     "client",
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_SECRET": "secret",
+		"OBOT_AZURE_ENTRA_MODEL_PROVIDER_TENANT_ID":     "tenant",
+	})
+	migrationDNS(t)
+	_, err = e.ImportLegacyModelProviders(ctx, nil, g)
+	require.ErrorContains(t, err, "injected credential read failure")
+	p, err := e.store.GetProvider(ctx, "openai")
+	require.NoError(t, err, "an unreadable Azure credential must not block OpenAI")
+	require.Len(t, p.Keys, 1)
+	_, err = e.store.GetProvider(ctx, "azure")
+	require.True(t, apierrors.IsNotFound(err), "an unreadable family member must not leave a partial pool")
+	status, err := e.MigrationStatus(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "error", status.Sources[system.AzureEntraModelProvider].Status)
+
+	transformer.fail = false
+	_, err = e.ImportLegacyModelProviders(ctx, nil, g)
+	require.NoError(t, err)
+	p, err = e.store.GetProvider(ctx, "azure")
+	require.NoError(t, err)
+	require.Len(t, p.Keys, 2)
+	status, err = e.MigrationStatus(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "imported", status.Sources[system.AzureEntraModelProvider].Status)
+}
+
 func TestMigrationSettingsConflictPreservesOtherSettings(t *testing.T) {
 	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
 	g := migrationCredentials(t)
@@ -298,6 +361,27 @@ func TestMigrationDoesNotMoveUnverifiedWildcardGrants(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(models[2]), models[2]))
 	require.True(t, models[2].Spec.Manifest.Active, "unverified inactive source must not disable the gateway target")
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(models[1]), models[1]))
+}
+
+func TestMigrationWaitsForDiscoveryBeforeQualifyingWildcardGrants(t *testing.T) {
+	ns := system.DefaultNamespace
+	old := &v1.Model{Namespace: ns, Name: "m1-legacy", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.OpenAIModelProvider, TargetModel: "gpt-5", Active: true}}}
+	target := &v1.Model{Namespace: ns, Name: "m1-target", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.LLMGatewayModelProvider, TargetModel: "openai/gpt-5", Active: true}}}
+	policy := &v1.ModelAccessPolicy{Namespace: ns, Name: "policy", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{Models: []types.ModelResource{{ID: "gpt*"}}}}}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(old, target, policy).
+		WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string {
+			return []string{o.(*v1.Model).Spec.Manifest.ModelProvider}
+		}).Build()
+	sources := map[string]string{system.OpenAIModelProvider: "openai"}
+	save := func(map[string]string) error { return nil }
+	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]bool{}, save))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, []types.ModelResource{{ID: "gpt*"}}, policy.Spec.Manifest.Models, "an undiscovered target must not gain a gateway grant")
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(old), &v1.Model{}))
+
+	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]bool{target.Spec.Manifest.TargetModel: true}, save))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, []types.ModelResource{{ID: "openai/gpt*"}}, policy.Spec.Manifest.Models)
 }
 
 func TestMigrationDoesNotRecreateDeletedImportedProvider(t *testing.T) {

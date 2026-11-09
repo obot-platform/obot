@@ -29,7 +29,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -315,6 +314,10 @@ func (b *bifrostProviderBackend) unlistedModels(ctx context.Context) []llmengine
 	if !b.engine.Ready() {
 		return nil
 	}
+	// Synthetic subscription entries must retain the provider scope of legacy listings.
+	if scope := llmengine.LegacyProviderScope(ctx); scope != "" && scope != "anthropic" {
+		return nil
+	}
 	return b.engine.ClaudeSubscriptionModels(ctx)
 }
 
@@ -382,10 +385,8 @@ func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, user kuser.In
 // authorizeModel resolves a model the gateway may serve a request with and checks that the
 // caller may use it. what names the model in errors, such as "fallback model".
 func (b *bifrostProviderBackend) authorizeModel(l *llmProviderProxy, req api.Context, reference, what string) (*v1.Model, error) {
-	model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
-	if apierrors.IsNotFound(err) {
-		model, err = b.resolveModel(l, req.User, reference)
-	}
+	// Fallbacks and routing attempts retain the legacy route's provider boundary.
+	model, err := b.resolveRequestModel(l, req, reference)
 	if err != nil || model == nil || model.Spec.Manifest.ModelProvider != system.LLMGatewayModelProvider {
 		return nil, types2.NewErrBadRequest("%s %q is not available through this endpoint", what, reference)
 	}
