@@ -269,7 +269,13 @@ func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model, sources, mi
 		if !ok || migrated[l.Name] == "" || !m.MatchesTargetModel(l.Spec.Manifest.TargetModel) {
 			continue
 		}
-		q := types.ModelResource{ID: provider + "/" + prefix + "*"}
+		qualifiedPrefix := prefix
+		if !strings.HasPrefix(l.Spec.Manifest.TargetModel, prefix) {
+			// Retain the native namespace when matching skipped its first segment.
+			namespace, _, _ := strings.Cut(l.Spec.Manifest.TargetModel, "/")
+			qualifiedPrefix = namespace + "/" + prefix
+		}
+		q := types.ModelResource{ID: provider + "/" + qualifiedPrefix + "*"}
 		if !slices.Contains(qualified, q) {
 			qualified = append(qualified, q)
 		}
