@@ -252,25 +252,24 @@ func (e *Engine) startupChanges(ctx context.Context, c kclient.Client, gatewayCl
 		if ctx.Err() != nil {
 			return false, false
 		}
-		{
-			results, err := e.ImportLegacyModelProviders(ctx, c, gatewayClient)
-			changed = slices.ContainsFunc(results, func(r LegacyImportResult) bool { return r.Status == "imported" })
-			failed := err != nil
-			if err != nil {
-				slog.Warn("failed to import legacy model providers into the LLM gateway", "error", err)
-			}
-			for _, r := range results {
-				slog.Info("LLM gateway legacy provider import", "modelProvider", r.ModelProvider, "gatewayProvider", r.GatewayProvider, "status", r.Status, "message", r.Message)
-				failed = failed || (r.Status != "imported" && r.Status != "environment")
-			}
-			if ctx.Err() != nil {
-				return changed, false
-			}
-			// Only record the import once it fully succeeded, so a failure is retried next start.
-			if !failed {
-				if err := recordLegacyImport(ctx, c, mp); err != nil {
-					slog.Warn("failed to record LLM gateway legacy import", "error", err)
-				}
+
+		results, err := e.ImportLegacyModelProviders(ctx, c, gatewayClient)
+		changed = slices.ContainsFunc(results, func(r LegacyImportResult) bool { return r.Status == "imported" })
+		failed := err != nil
+		if err != nil {
+			slog.Warn("failed to import legacy model providers into the LLM gateway", "error", err)
+		}
+		for _, r := range results {
+			slog.Info("LLM gateway legacy provider import", "modelProvider", r.ModelProvider, "gatewayProvider", r.GatewayProvider, "status", r.Status, "message", r.Message)
+			failed = failed || (r.Status != "imported" && r.Status != "environment")
+		}
+		if ctx.Err() != nil {
+			return changed, false
+		}
+		// Only record the import once it fully succeeded, so a failure is retried next start.
+		if !failed {
+			if err := recordLegacyImport(ctx, c, mp); err != nil {
+				slog.Warn("failed to record LLM gateway legacy import", "error", err)
 			}
 		}
 
