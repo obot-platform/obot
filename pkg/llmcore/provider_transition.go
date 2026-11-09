@@ -35,6 +35,9 @@ func (*providerTransitionPlugin) PreRequestHook(*schemas.BifrostContext, *schema
 }
 
 func (p *providerTransitionPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	if req.ListModelsRequest != nil {
+		ctx.SetValue(modelListingConfigKey{}, true)
+	}
 	// Recheck after trusted plugins have had their opportunity to rewrite the attempt.
 	if denied := prepareSubscription(ctx, req, p.account); denied != nil {
 		return req, denied, nil

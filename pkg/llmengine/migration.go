@@ -391,7 +391,7 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 	}
 	// Subscription entries and core's failed-poll catalog fallbacks are not
 	// evidence that an imported provider serves a model.
-	discovered := e.availability.discoveredModels()
+	discovered := e.availability.discoveredModels(loaded.Config)
 	err = migrateLegacyModels(ctx, c, sources, discovered, func(mapping map[string]string) error {
 		if err := e.mutateMigration(ctx, func(s *MigrationStatus) error { maps.Copy(s.Mappings, mapping); return nil }); err != nil {
 			return err
@@ -399,6 +399,12 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 		// Apply the committed mappings before cleanup can remove their source models.
 		// Reload through serialized Sync so an overlapping reconciliation cannot regress them.
 		_, syncErr := e.Sync(ctx)
+		// Sync may have read a snapshot before a concurrent write. Reload before
+		// taking syncMu so resource I/O does not hold the publication check lock.
+		current, err := e.store.Load(ctx)
+		if err != nil {
+			return errors.Join(syncErr, err)
+		}
 		e.syncMu.Lock()
 		defer e.syncMu.Unlock()
 		// Cached entries can survive a failed decode of newer core settings.
@@ -414,9 +420,22 @@ func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) erro
 				return errors.Join(syncErr, fmt.Errorf("legacy model mapping %s to %s was not published", source, target))
 			}
 		}
+		// Recheck evidence before releasing references and source records.
+		fresh := e.availability.discoveredModels(current.Config)
 		for _, provider := range sources {
-			if !core.ProviderApplied(schemas.ModelProvider(provider), loaded.Config) {
+			name := schemas.ModelProvider(provider)
+			if !core.ProviderApplied(name, loaded.Config) {
 				return errors.Join(syncErr, fmt.Errorf("legacy target provider %s is no longer applied", provider))
+			}
+			if modelDiscoveryConfig(current.Config, name) != modelDiscoveryConfig(loaded.Config, name) {
+				return fmt.Errorf("legacy target provider %s configuration changed before cleanup", provider)
+			}
+			for id := range discovered {
+				if strings.HasPrefix(id, provider+"/") {
+					if _, ok := fresh[id]; !ok {
+						return fmt.Errorf("legacy target model %s is no longer discovered", id)
+					}
+				}
 			}
 		}
 		return nil

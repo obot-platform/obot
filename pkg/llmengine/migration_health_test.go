@@ -2,9 +2,19 @@ package llmengine
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	tables "github.com/maximhq/bifrost/framework/configstore/tables"
@@ -20,8 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-// Use real import provenance and adapter reconciliation; discovery is a local successful poll snapshot.
-func migrationHealthFixture(t *testing.T, hooks interceptor.Funcs) (*Engine, kclient.Client) {
+// Use real import provenance, reconciliation and local provider listings.
+func migrationHealthFixture(t *testing.T, hooks interceptor.Funcs, plugins ...schemas.LLMPlugin) (*Engine, kclient.Client) {
 	t.Helper()
 	var e *Engine
 	hooks.Delete = func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.DeleteOption) error {
@@ -42,9 +52,14 @@ func migrationHealthFixture(t *testing.T, hooks interceptor.Funcs) (*Engine, kcl
 	store, err := llmcoreclient.New(c, plaintextConfigCodec{})
 	require.NoError(t, err)
 	e = New()
+	var lastPlugin schemas.LLMPlugin
+	if len(plugins) > 0 {
+		lastPlugin = plugins[0]
+	}
 	require.NoError(t, e.Start(t.Context(), Options{
-		Store:   store,
-		DataDir: t.TempDir(),
+		Store:      store,
+		DataDir:    t.TempDir(),
+		LastPlugin: lastPlugin,
 	}))
 	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
 	g := migrationCredentials(t)
@@ -104,12 +119,29 @@ func migrationHealthFixture(t *testing.T, hooks interceptor.Funcs) (*Engine, kcl
 			}
 			require.NoError(t, c.Create(t.Context(), obj))
 		}
-		e.availability.recordDiscovered(schemas.ModelProvider(provider), []schemas.Model{{ID: provider + "/" + provider}})
 	}
 	_, err = e.ImportLegacyModelProviders(t.Context(), c, g)
 	require.NoError(t, err)
+	for _, provider := range []string{"openai", "anthropic"} {
+		up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"data":[{"id":"` + provider + `","type":"model"}],"has_more":false}`))
+		}))
+		t.Cleanup(up.Close)
+		require.NoError(t, e.store.MutateProvider(t.Context(), provider, func(p *llmcoreclient.Provider) error {
+			p.Config.NetworkConfig.BaseURL = up.URL
+			p.Config.NetworkConfig.AllowPrivateNetwork = true
+			p.Config.NetworkConfig.MaxRetries = 0
+			p.Config.ProxyConfig = nil
+			return nil
+		}))
+	}
 	_, err = e.Sync(t.Context())
 	require.NoError(t, err)
+	for _, provider := range []schemas.ModelProvider{schemas.OpenAI, schemas.Anthropic} {
+		_, err = e.gatewayModels(t.Context(), provider)
+		require.NoError(t, err)
+	}
 	return e, c
 }
 
@@ -308,6 +340,10 @@ func TestMigrationProviderChangesDuringPublication(t *testing.T) {
 			false: "successful replacement",
 			true:  "failed replacement",
 		}[invalid], func(t *testing.T) {
+			up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte(`{"data":[{"id":"openai"}]}`))
+			}))
+			t.Cleanup(up.Close)
 			armed := false
 			var e *Engine
 			e, c := migrationHealthFixture(t, interceptor.Funcs{
@@ -316,7 +352,7 @@ func TestMigrationProviderChangesDuringPublication(t *testing.T) {
 					if _, ok := obj.(*v1.LLMGatewayConfig); ok && err == nil && armed {
 						armed = false
 						require.NoError(t, e.store.MutateProvider(ctx, "openai", func(p *llmcoreclient.Provider) error {
-							p.Config.NetworkConfig.BaseURL = "https://replacement.example"
+							p.Config.NetworkConfig.BaseURL = up.URL
 							if invalid {
 								p.Config.ConcurrencyAndBufferSize.Concurrency = -1
 							}
@@ -344,6 +380,11 @@ func TestMigrationProviderChangesDuringPublication(t *testing.T) {
 				_, err = e.Sync(t.Context())
 				require.NoError(t, err)
 			}
+			require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+			assertMigrationHealthSource(t, c, "openai", false)
+			assertMigrationHealthSource(t, c, "anthropic", true)
+			_, err = e.gatewayModels(t.Context(), schemas.OpenAI)
+			require.NoError(t, err)
 			require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
 			assertMigrationHealthSource(t, c, "openai", true)
 			assertMigrationHealthSource(t, c, "anthropic", true)
@@ -420,4 +461,185 @@ func TestMigrationRequiresExpectedPublication(t *testing.T) {
 			assertMigrationHealthSource(t, c, "anthropic", true)
 		})
 	}
+}
+
+func TestMigrationRequiresDiscoveryForAppliedConfiguration(t *testing.T) {
+	e, c := migrationHealthFixture(t, interceptor.Funcs{})
+	var fail atomic.Bool
+	fail.Store(true)
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if fail.Load() {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"error":{"message":"listing unavailable"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":"openai"}]}`))
+	}))
+	t.Cleanup(up.Close)
+	require.NoError(t, e.store.MutateProvider(t.Context(), "openai", func(p *llmcoreclient.Provider) error {
+		p.Config.NetworkConfig.BaseURL = up.URL
+		p.Keys[0].Value = *schemas.NewSecretVar("rotated-key")
+		return nil
+	}))
+	_, err := e.Sync(t.Context())
+	require.NoError(t, err)
+	cfg, err := e.config(t.Context())
+	require.NoError(t, err)
+	require.True(t, e.core.Load().ProviderApplied(schemas.OpenAI, cfg))
+	_, err = e.gatewayModels(t.Context(), schemas.OpenAI)
+	require.Error(t, err)
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", false)
+	assertMigrationHealthSource(t, c, "anthropic", true)
+	fail.Store(false)
+	_, err = e.gatewayModels(t.Context(), schemas.OpenAI)
+	require.NoError(t, err)
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", true)
+}
+
+func TestMigrationConfigChangesAfterSyncSnapshot(t *testing.T) {
+	armed, afterSave := false, false
+	var e *Engine
+	e, c := migrationHealthFixture(t, interceptor.Funcs{
+		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+			err := c.Update(ctx, obj, opts...)
+			if _, ok := obj.(*v1.LLMGatewayConfig); ok && err == nil && armed {
+				armed, afterSave = false, true
+			}
+			return err
+		},
+		List: func(ctx context.Context, c kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+			err := c.List(ctx, list, opts...)
+			if _, ok := list.(*v1.LLMGatewayProviderList); ok && err == nil && afterSave {
+				afterSave = false
+				// Sync has captured A; the persisted desired keys advance to B before it returns.
+				require.NoError(t, e.store.MutateProvider(ctx, "openai", func(p *llmcoreclient.Provider) error {
+					p.Keys[0].Value = *schemas.NewSecretVar("after-sync-snapshot")
+					return nil
+				}))
+			}
+			return err
+		},
+	})
+	armed = true
+	require.ErrorContains(t, e.MigrateLegacyModels(t.Context(), c), "configuration changed")
+	assertMigrationHealthSource(t, c, "openai", false)
+	assertMigrationHealthSource(t, c, "anthropic", false)
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", false)
+	assertMigrationHealthSource(t, c, "anthropic", true)
+	_, err := e.gatewayModels(t.Context(), schemas.OpenAI)
+	require.NoError(t, err)
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", true)
+}
+
+func TestMigrationDiscoveryChangesDuringPublication(t *testing.T) {
+	armed := false
+	var empty atomic.Bool
+	var e *Engine
+	e, c := migrationHealthFixture(t, interceptor.Funcs{
+		Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+			err := c.Update(ctx, obj, opts...)
+			if _, ok := obj.(*v1.LLMGatewayConfig); ok && err == nil && armed {
+				armed = false
+				empty.Store(true)
+				require.Nil(t, directDiscoveryListing(ctx, e))
+			}
+			return err
+		},
+	})
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if empty.Load() {
+			_, _ = w.Write([]byte(`{"data":[]}`))
+		} else {
+			_, _ = w.Write([]byte(`{"data":[{"id":"openai"}]}`))
+		}
+	}))
+	t.Cleanup(up.Close)
+	require.NoError(t, e.store.MutateProvider(t.Context(), "openai", func(p *llmcoreclient.Provider) error {
+		p.Config.NetworkConfig.BaseURL = up.URL
+		return nil
+	}))
+	_, err := e.Sync(t.Context())
+	require.NoError(t, err)
+	require.Nil(t, directDiscoveryListing(t.Context(), e))
+	armed = true
+	require.ErrorContains(t, e.MigrateLegacyModels(t.Context(), c), "no longer discovered")
+	assertMigrationHealthSource(t, c, "openai", false)
+	assertMigrationHealthSource(t, c, "anthropic", false)
+	empty.Store(false)
+	require.Nil(t, directDiscoveryListing(t.Context(), e))
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", true)
+	assertMigrationHealthSource(t, c, "anthropic", true)
+}
+
+func TestMigrationRequiresDiscoveryForResolvedProviderCA(t *testing.T) {
+	e, c := migrationHealthFixture(t, interceptor.Funcs{})
+	var listings atomic.Int32
+	up := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		listings.Add(1)
+		_, _ = w.Write([]byte(`{"data":[{"id":"openai"}]}`))
+	}))
+	t.Cleanup(up.Close)
+	trusted := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: up.Certificate().Raw}))
+	private, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber:          big.NewInt(99),
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+		KeyUsage:              x509.KeyUsageCertSign,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, template, template, &private.PublicKey, private)
+	require.NoError(t, err)
+	untrusted := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+	const caEnv = "OBOT_DISCOVERY_PROVIDER_CA"
+	t.Setenv(caEnv, trusted)
+	require.NoError(t, e.store.MutateProvider(t.Context(), "openai", func(p *llmcoreclient.Provider) error {
+		p.Config.NetworkConfig.BaseURL = up.URL
+		p.Config.NetworkConfig.CACertPEM = schemas.NewSecretVar("env." + caEnv)
+		return nil
+	}))
+	_, err = e.Sync(t.Context())
+	require.NoError(t, err)
+	_, err = e.gatewayModels(t.Context(), schemas.OpenAI)
+	require.NoError(t, err)
+	cfgA, err := e.config(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, trusted, cfgA.Providers[schemas.OpenAI].NetworkConfig.CACertPEM.GetValue())
+	require.Contains(t, e.availability.discoveredModels(cfgA), "openai/openai")
+	require.EqualValues(t, 1, listings.Load())
+
+	// Resolve the same stored reference to a valid CA that cannot trust this upstream.
+	t.Setenv(caEnv, untrusted)
+	_, err = e.Sync(t.Context())
+	require.NoError(t, err)
+	cfgB, err := e.config(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, untrusted, cfgB.Providers[schemas.OpenAI].NetworkConfig.CACertPEM.GetValue())
+	require.True(t, e.core.Load().ProviderApplied(schemas.OpenAI, cfgB))
+	_, err = e.gatewayModels(t.Context(), schemas.OpenAI)
+	require.Error(t, err, "the incorrect CA must fail a real TLS listing")
+	require.EqualValues(t, 1, listings.Load(), "TLS verification must fail before the HTTP handler")
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", false)
+	assertMigrationHealthSource(t, c, "anthropic", true)
+
+	// A new trusted bundle differs from both earlier inputs and needs its own successful poll.
+	t.Setenv(caEnv, trusted+untrusted)
+	_, err = e.Sync(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", false)
+	_, err = e.gatewayModels(t.Context(), schemas.OpenAI)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, listings.Load(), "the new trusted bundle allows a real provider response")
+	require.NoError(t, e.MigrateLegacyModels(t.Context(), c))
+	assertMigrationHealthSource(t, c, "openai", true)
 }

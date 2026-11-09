@@ -92,12 +92,16 @@ func (a *account) GetConfiguredProviders() ([]schemas.ModelProvider, error) {
 	return slices.Collect(maps.Keys(a.config.Load().Providers)), nil
 }
 
-func (a *account) GetKeysForProvider(_ context.Context, provider schemas.ModelProvider) ([]schemas.Key, error) {
+func (a *account) GetKeysForProvider(ctx context.Context, provider schemas.ModelProvider) ([]schemas.Key, error) {
 	if _, blocked := a.transitioning.Load(provider); blocked {
 		return nil, fmt.Errorf("provider %s is being reconfigured", provider)
 	}
 
 	cfg := a.config.Load()
+	if bctx, ok := ctx.(*schemas.BifrostContext); ok && bctx.Value(modelListingConfigKey{}) != nil {
+		// Publish the exact snapshot supplying these keys, without reloading at completion.
+		bctx.SetValue(modelListingConfigKey{}, cfg)
+	}
 	keys := cfg.Keys[provider]
 	pc := cfg.Providers[provider]
 	azure := provider == schemas.Azure || (pc.CustomProviderConfig != nil && pc.CustomProviderConfig.BaseProviderType == schemas.Azure)

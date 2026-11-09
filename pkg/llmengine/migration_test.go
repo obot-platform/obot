@@ -510,7 +510,9 @@ func TestMigrationDiscoveryRejectsCoreCatalogFallback(t *testing.T) {
 	require.NoError(t, testMutation(ctx, e, nil)(e.CreateKey(ctx, "anthropic", testJSON(t, map[string]any{"name": "test", "value": "key"}))))
 	_, err := e.ListModels(ctx)
 	require.NoError(t, err)
-	require.Empty(t, e.availability.discoveredModels(), "catalog fallback must not count as a successful provider listing")
+	cfg, err := e.config(ctx)
+	require.NoError(t, err)
+	require.Empty(t, e.availability.discoveredModels(cfg), "catalog fallback must not count as a successful provider listing")
 	// Use a second upstream to supply a real response, without changing the source's protocol.
 	live := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -520,5 +522,7 @@ func TestMigrationDiscoveryRejectsCoreCatalogFallback(t *testing.T) {
 	require.NoError(t, e.store.MutateProvider(ctx, "anthropic", func(p *llmcoreclient.Provider) error { p.Config.NetworkConfig.BaseURL = live.URL; return nil }))
 	_, err = e.ListModels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, map[string]struct{}{"anthropic/claude-haiku-4-5-20251001": {}}, e.availability.discoveredModels())
+	cfg, err = e.config(ctx)
+	require.NoError(t, err)
+	require.Equal(t, map[string]struct{}{"anthropic/claude-haiku-4-5-20251001": {}}, e.availability.discoveredModels(cfg))
 }
