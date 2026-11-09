@@ -20,7 +20,7 @@ type modelAvailability struct {
 	mu          sync.RWMutex
 	unavailable map[string]bool
 	engine      *Engine
-	discovered  map[string]bool
+	discovered  map[string]struct{}
 }
 
 type modelAvailabilityProviderKey struct{}
@@ -105,7 +105,7 @@ func (m *modelAvailability) recordDiscovered(provider schemas.ModelProvider, mod
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.discovered == nil {
-		m.discovered = map[string]bool{}
+		m.discovered = map[string]struct{}{}
 	}
 	for id := range m.discovered {
 		if strings.HasPrefix(id, string(provider)+"/") {
@@ -113,7 +113,7 @@ func (m *modelAvailability) recordDiscovered(provider schemas.ModelProvider, mod
 		}
 	}
 	for _, model := range models {
-		m.discovered[model.ID] = true
+		m.discovered[model.ID] = struct{}{}
 	}
 }
 
@@ -123,10 +123,10 @@ func (m *modelAvailability) isUnavailable(id string) bool {
 	return m.unavailable[id]
 }
 
-func (m *modelAvailability) discoveredModels() map[string]bool {
+func (m *modelAvailability) discoveredModels() map[string]struct{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	result := map[string]bool{}
+	result := map[string]struct{}{}
 	maps.Copy(result, m.discovered)
 	return result
 }

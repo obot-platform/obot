@@ -95,7 +95,7 @@ func TestMigrationNativeSlashWildcards(t *testing.T) {
 				TargetModel:   "anthropic/claude-sonnet",
 			}}}
 			objects := []kclient.Object{policy, existing}
-			discovered := map[string]bool{}
+			discovered := map[string]struct{}{}
 			wantMappings := map[string]string{}
 			// Two matching models must yield one provider form.
 			for _, suffix := range []string{"", "-extra"} {
@@ -109,7 +109,7 @@ func TestMigrationNativeSlashWildcards(t *testing.T) {
 				}}}
 				objects = append(objects, legacy, target)
 				if !tc.undiscovered {
-					discovered[target.Spec.Manifest.TargetModel] = true
+					discovered[target.Spec.Manifest.TargetModel] = struct{}{}
 				}
 				if tc.wantMigrated {
 					wantMappings[legacy.Name] = target.Name

@@ -20,7 +20,7 @@ import (
 // migrateLegacyModels moves only verified source models with discovered gateway
 // equivalents. Compatibility mappings commit before reference updates and cleanup;
 // unmatched source records remain available for recovery and manual setup.
-func migrateLegacyModels(ctx context.Context, c kclient.Client, sources map[string]string, discovered map[string]bool, saveMappings func(map[string]string) error) error {
+func migrateLegacyModels(ctx context.Context, c kclient.Client, sources map[string]string, discovered map[string]struct{}, saveMappings func(map[string]string) error) error {
 	var models v1.ModelList
 	if err := c.List(ctx, &models, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
@@ -31,7 +31,8 @@ func migrateLegacyModels(ctx context.Context, c kclient.Client, sources map[stri
 		m := &models.Items[i]
 		switch m.Spec.Manifest.ModelProvider {
 		case system.LLMGatewayModelProvider:
-			if discovered == nil || discovered[m.Spec.Manifest.TargetModel] {
+			_, found := discovered[m.Spec.Manifest.TargetModel]
+			if discovered == nil || found {
 				gatewayByTarget[m.Spec.Manifest.TargetModel] = m
 			}
 		case system.ModelProxyModelProvider:

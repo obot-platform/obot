@@ -399,12 +399,12 @@ func TestMigrationWaitsForDiscoveryBeforeQualifyingWildcardGrants(t *testing.T) 
 		}).Build()
 	sources := map[string]string{system.OpenAIModelProvider: "openai"}
 	save := func(map[string]string) error { return nil }
-	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]bool{}, save))
+	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]struct{}{}, save))
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
 	require.Equal(t, []types.ModelResource{{ID: "gpt*"}}, policy.Spec.Manifest.Models, "an undiscovered target must not gain a gateway grant")
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(old), &v1.Model{}))
 
-	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]bool{target.Spec.Manifest.TargetModel: true}, save))
+	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]struct{}{target.Spec.Manifest.TargetModel: {}}, save))
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
 	require.Equal(t, []types.ModelResource{{ID: "openai/gpt*"}}, policy.Spec.Manifest.Models)
 }
@@ -486,11 +486,11 @@ func TestMigrationWaitsForProviderDiscoveryBeforeUsingSubscriptionModels(t *test
 	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(old, catalog, dated, alias).WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string { return []string{o.(*v1.Model).Spec.Manifest.ModelProvider} }).Build()
 	sources := map[string]string{system.AnthropicModelProvider: "anthropic"}
 	save := func(map[string]string) error { return nil }
-	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]bool{}, save))
+	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]struct{}{}, save))
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(old), &v1.Model{}))
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(alias), alias))
 	require.Equal(t, old.Name, alias.Spec.Manifest.Model)
-	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]bool{dated.Spec.Manifest.TargetModel: true}, save))
+	require.NoError(t, migrateLegacyModels(t.Context(), c, sources, map[string]struct{}{dated.Spec.Manifest.TargetModel: {}}, save))
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(alias), alias))
 	require.Equal(t, dated.Name, alias.Spec.Manifest.Model, "a synthetic exact name must not beat the provider's discovered dated version")
 }
@@ -520,5 +520,5 @@ func TestMigrationDiscoveryRejectsCoreCatalogFallback(t *testing.T) {
 	require.NoError(t, e.store.MutateProvider(ctx, "anthropic", func(p *llmcoreclient.Provider) error { p.Config.NetworkConfig.BaseURL = live.URL; return nil }))
 	_, err = e.ListModels(ctx)
 	require.NoError(t, err)
-	require.Equal(t, map[string]bool{"anthropic/claude-haiku-4-5-20251001": true}, e.availability.discoveredModels())
+	require.Equal(t, map[string]struct{}{"anthropic/claude-haiku-4-5-20251001": {}}, e.availability.discoveredModels())
 }
