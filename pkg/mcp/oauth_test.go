@@ -246,10 +246,7 @@ func (l *oauthTestClientCredLookup) Lookup(context.Context) (string, string, err
 }
 
 func TestResolveClientInfoUsesClientIDMetadataDocument(t *testing.T) {
-	lookup := &oauthTestClientCredLookup{
-		clientID:     "static-client-id",
-		clientSecret: "static-client-secret",
-	}
+	lookup := &oauthTestClientCredLookup{}
 	o := &oauth{
 		clientIDMetadataDocument: "https://client.example/oauth-client-metadata.json",
 		clientLookup:             lookup,
@@ -267,7 +264,7 @@ func TestResolveClientInfoUsesClientIDMetadataDocument(t *testing.T) {
 	require.Equal(t, o.clientIDMetadataDocument, clientInfo.ClientID)
 	require.Empty(t, clientInfo.ClientSecret)
 	require.False(t, staticClient)
-	require.Zero(t, lookup.calls)
+	require.Equal(t, 1, lookup.calls)
 }
 
 func TestResolveClientInfoUsesStaticClientLookup(t *testing.T) {
@@ -275,13 +272,18 @@ func TestResolveClientInfoUsesStaticClientLookup(t *testing.T) {
 		clientID:     "static-client-id",
 		clientSecret: "static-client-secret",
 	}
-	o := &oauth{clientLookup: lookup}
+	o := &oauth{
+		clientLookup:             lookup,
+		clientIDMetadataDocument: "https://client.example/oauth-client-metadata.json",
+	}
 
 	clientInfo, staticClient, err := o.resolveClientInfo(t.Context(), "test-server", oauthMetadataDiscovery{
 		ProtectedResourceMetadata: protectedResourceMetadata{
 			AuthorizationServers: []string{"https://issuer.example"},
 		},
-		AuthorizationServerMetadata: AuthorizationServerMetadata{},
+		AuthorizationServerMetadata: AuthorizationServerMetadata{
+			ClientIDMetadataDocumentSupported: true,
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, lookup.clientID, clientInfo.ClientID)
@@ -292,13 +294,18 @@ func TestResolveClientInfoUsesStaticClientLookup(t *testing.T) {
 
 func TestResolveClientInfoUsesPublicStaticClientLookup(t *testing.T) {
 	lookup := &oauthTestClientCredLookup{clientID: "public-client-id"}
-	o := &oauth{clientLookup: lookup}
+	o := &oauth{
+		clientLookup:             lookup,
+		clientIDMetadataDocument: "https://client.example/oauth-client-metadata.json",
+	}
 
 	clientInfo, staticClient, err := o.resolveClientInfo(t.Context(), "test-server", oauthMetadataDiscovery{
 		ProtectedResourceMetadata: protectedResourceMetadata{
 			AuthorizationServers: []string{"https://issuer.example"},
 		},
-		AuthorizationServerMetadata: AuthorizationServerMetadata{},
+		AuthorizationServerMetadata: AuthorizationServerMetadata{
+			ClientIDMetadataDocumentSupported: true,
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, lookup.clientID, clientInfo.ClientID)
