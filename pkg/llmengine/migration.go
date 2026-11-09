@@ -237,15 +237,19 @@ func legacyAggregate(ctx context.Context, name string, secrets map[string]string
 	case system.AzureModelProvider:
 		required = append(required, "_MODEL_PROVIDER_ENDPOINT")
 	case system.GenericResponsesModelProvider:
-		required = append(required, "_MODEL_PROVIDER_BASE_URL")
+		required = []string{"_MODEL_PROVIDER_BASE_URL"}
 	}
 	for _, suffix := range required {
 		if secretWithSuffix(secrets, suffix) == "" {
 			return llmcoreclient.Provider{}, fmt.Errorf("missing %s", suffix)
 		}
 	}
-	plainTextSecrets(key)
-	key["id"], key["name"], key["models"], key["weight"] = "imported-"+name, "imported-"+name, []string{"*"}, 1
+	var keyPayloads []map[string]any
+	if key != nil {
+		plainTextSecrets(key)
+		key["id"], key["name"], key["models"], key["weight"] = "imported-"+name, "imported-"+name, []string{"*"}, 1
+		keyPayloads = append(keyPayloads, key)
+	}
 	ApplyProviderDefaults(body)
 	var pc schemas.ProviderConfig
 	raw, err := json.Marshal(body)
@@ -257,25 +261,33 @@ func legacyAggregate(ctx context.Context, name string, secrets map[string]string
 		return llmcoreclient.Provider{}, err
 	}
 	// Imports must pass the same destination checks as administrative provider/key writes.
-	if err = checkProviderAddresses(ctx, fields, []map[string]any{key}); err != nil {
+	if err = checkProviderAddresses(ctx, fields, keyPayloads); err != nil {
 		return llmcoreclient.Provider{}, err
 	}
 	if err = json.Unmarshal(raw, &pc); err != nil {
 		return llmcoreclient.Provider{}, err
 	}
+	// Version stripping can turn invalid legacy values such as "/v1" into an empty destination.
+	if name == system.GenericResponsesModelProvider && pc.NetworkConfig.BaseURL == "" {
+		return llmcoreclient.Provider{}, fmt.Errorf("invalid base URL: empty destination")
+	}
 	pc.CheckAndSetDefaults()
 	if err = validateProvider(schemas.ModelProvider(plan.provider), pc); err != nil {
 		return llmcoreclient.Provider{}, err
 	}
-	var k schemas.Key
-	raw, err = json.Marshal(key)
-	if err != nil {
-		return llmcoreclient.Provider{}, err
+	var keys []schemas.Key
+	if key != nil {
+		var k schemas.Key
+		raw, err = json.Marshal(key)
+		if err != nil {
+			return llmcoreclient.Provider{}, err
+		}
+		if err = json.Unmarshal(raw, &k); err != nil {
+			return llmcoreclient.Provider{}, err
+		}
+		keys = append(keys, k)
 	}
-	if err = json.Unmarshal(raw, &k); err != nil {
-		return llmcoreclient.Provider{}, err
-	}
-	return llmcoreclient.Provider{Config: pc, Keys: []schemas.Key{k}, Migration: &llmcoreclient.ProviderMigration{Source: name}}, nil
+	return llmcoreclient.Provider{Config: pc, Keys: keys, Migration: &llmcoreclient.ProviderMigration{Source: name}}, nil
 }
 
 // migratedSources verifies aggregates rather than trusting a global completion
@@ -297,7 +309,12 @@ func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error)
 		if err != nil {
 			return nil, err
 		}
-		if entry.Status == "imported" && p.Migration != nil && len(p.Keys) > 0 && (p.Migration.Source == name ||
+		// Only the Generic Responses import has an explicit supported keyless form.
+		// Other missing-key providers must not authorize model migration or cleanup.
+		custom := p.Config.CustomProviderConfig
+		keylessGeneric := name == system.GenericResponsesModelProvider && entry.Provider == legacyImportPlans[name].provider &&
+			p.Migration != nil && p.Migration.Source == name && custom != nil && custom.IsKeyLess && custom.BaseProviderType == schemas.OpenAI
+		if entry.Status == "imported" && p.Migration != nil && (len(p.Keys) > 0 || keylessGeneric) && (p.Migration.Source == name ||
 			p.Migration.Source == entry.Provider) {
 			approved[name] = entry.Provider
 		}

@@ -23,12 +23,17 @@ var (
 		system.GenericResponsesModelProvider: {
 			provider: "generic-responses",
 			build: func(s map[string]string) (map[string]any, map[string]any) {
-				return map[string]any{
-					"custom_provider_config": map[string]any{"base_provider_type": "openai"},
+				custom := map[string]any{"base_provider_type": "openai"}
+				body := map[string]any{
+					"custom_provider_config": custom,
 					"network_config":         map[string]any{"base_url": gatewayBaseURL(secretWithSuffix(s, "_MODEL_PROVIDER_BASE_URL")), "default_request_timeout_in_seconds": 300},
-				}, map[string]any{
-					"value": secretWithSuffix(s, "_MODEL_PROVIDER_API_KEY"),
 				}
+				if value := secretWithSuffix(s, "_MODEL_PROVIDER_API_KEY"); value != "" {
+					return body, map[string]any{"value": value}
+				}
+				// Legacy Generic Responses allowed unauthenticated endpoints; use the supported keyless schema.
+				custom["is_key_less"] = true
+				return body, nil
 			},
 		},
 		system.AmazonBedrockModelProvider: {

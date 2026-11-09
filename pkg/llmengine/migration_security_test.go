@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -27,7 +28,22 @@ func TestMigrationDestinationErrorsKeepCredentialsSafe(t *testing.T) {
 	for _, value := range []string{user, password, token, fragment} {
 		sensitive = append(sensitive, url.QueryEscape(value), url.PathEscape(value))
 	}
-	for _, provider := range []string{system.GenericResponsesModelProvider, system.AzureModelProvider} {
+	for _, source := range []struct {
+		provider string
+		keyless  bool
+	}{
+		{
+			provider: system.GenericResponsesModelProvider,
+		},
+		{
+			provider: system.GenericResponsesModelProvider,
+			keyless:  true,
+		},
+		{
+			provider: system.AzureModelProvider,
+		},
+	} {
+		provider := source.provider
 		for _, destination := range []struct {
 			name   string
 			host   string
@@ -71,7 +87,7 @@ func TestMigrationDestinationErrorsKeepCredentialsSafe(t *testing.T) {
 				reason: "invalid URL",
 			},
 		} {
-			t.Run(provider+"/"+destination.name, func(t *testing.T) {
+			t.Run(provider+"/"+map[bool]string{true: "keyless/", false: "keyed/"}[source.keyless]+destination.name, func(t *testing.T) {
 				e, ctx := startTestEngine(t)
 				g := migrationCredentials(t)
 				if strings.HasPrefix(destination.name, "DNS") {
@@ -97,6 +113,9 @@ func TestMigrationDestinationErrorsKeepCredentialsSafe(t *testing.T) {
 					config = map[string]any{"network_config": map[string]any{"base_url": address}}
 					keys = nil
 				}
+				if source.keyless {
+					delete(secrets, "OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_API_KEY")
+				}
 				putLegacy(t, g, provider, secrets)
 				putLegacy(t, g, system.OpenAIModelProvider, map[string]string{"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "independent-key"})
 
@@ -105,7 +124,9 @@ func TestMigrationDestinationErrorsKeepCredentialsSafe(t *testing.T) {
 				require.Contains(t, importErr.Error(), provider)
 				require.Contains(t, importErr.Error(), field)
 				require.Contains(t, importErr.Error(), destination.reason)
-				_, err := e.store.GetProvider(ctx, "openai")
+				_, err := e.store.GetProvider(ctx, LegacyGatewayProvider(provider))
+				require.True(t, apierrors.IsNotFound(err), "rejected imports must not persist a provider")
+				_, err = e.store.GetProvider(ctx, "openai")
 				require.NoError(t, err, "a rejected destination must not block independent imports")
 
 				var logs bytes.Buffer
