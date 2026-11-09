@@ -63,6 +63,9 @@ func TestInvalidProviderQueuesRecover(t *testing.T) {
 					require.ErrorContains(t, engine.Err(), field)
 					require.Nil(t, engine.Client().GetProviderByKey("queue-invalid"))
 				}
+				desired, err := store.Load(t.Context())
+				require.NoError(t, err)
+				require.False(t, engine.ProviderApplied("queue-invalid", desired.Config))
 
 				for range 2 {
 					changed, err := engine.Sync(t.Context())
@@ -73,6 +76,8 @@ func TestInvalidProviderQueuesRecover(t *testing.T) {
 					require.Equal(t, http.StatusServiceUnavailable, response.Code, response.Body.String())
 					require.Equal(t, http.StatusOK, call("queue-healthy").Code)
 					require.Same(t, healthy, engine.Client().GetProviderByKey("queue-healthy"))
+					require.False(t, engine.ProviderApplied("queue-invalid", desired.Config))
+					require.True(t, engine.ProviderApplied("queue-healthy", desired.Config))
 				}
 
 				expected := []string{"Bearer healthy-secret", "Bearer healthy-secret"}
@@ -91,6 +96,9 @@ func TestInvalidProviderQueuesRecover(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, changed)
 				require.NoError(t, engine.Err())
+				desired, err = store.Load(t.Context())
+				require.NoError(t, err)
+				require.True(t, engine.ProviderApplied("queue-invalid", desired.Config))
 				require.Equal(t, http.StatusOK, call("queue-invalid").Code, "zero queue sizes use upstream defaults")
 				require.Equal(t, []string{"Bearer new-secret"}, newRecorder.snapshot())
 				require.Same(t, healthy, engine.Client().GetProviderByKey("queue-healthy"))

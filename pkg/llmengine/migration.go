@@ -332,12 +332,15 @@ func legacyAggregate(ctx context.Context, name string, secrets map[string]string
 
 // migratedSources verifies aggregates rather than trusting a global completion
 // annotation or a separately written outcome. Failed sources stay put.
+// A nil map means global migration state could not be read; otherwise verified
+// sources remain usable alongside per-source errors.
 func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error) {
 	s, err := e.MigrationStatus(ctx)
 	if err != nil {
 		return nil, err
 	}
 	approved := map[string]string{}
+	var sourceErrors []error
 	for name, entry := range s.Sources {
 		if entry.Status != "imported" && entry.Status != "environment" {
 			continue
@@ -347,7 +350,8 @@ func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error)
 			continue
 		}
 		if err != nil {
-			return nil, err
+			sourceErrors = append(sourceErrors, fmt.Errorf("legacy source %s: %w", name, err))
+			continue
 		}
 		// Only the Generic Responses import has an explicit supported keyless form.
 		// Other missing-key providers must not authorize model migration or cleanup.
@@ -362,29 +366,62 @@ func (e *Engine) migratedSources(ctx context.Context) (map[string]string, error)
 			approved[name] = entry.Provider
 		}
 	}
-	return approved, nil
+	return approved, errors.Join(sourceErrors...)
 }
 
 func (e *Engine) MigrateLegacyModels(ctx context.Context, c kclient.Client) error {
-	if e.Err() != nil {
+	core := e.core.Load()
+	if !e.Ready() || core == nil {
 		return nil
-	} // Wait until desired resources have applied successfully.
-	sources, err := e.migratedSources(ctx)
+	}
+	sources, sourceErr := e.migratedSources(ctx)
+	if sources == nil {
+		return sourceErr
+	}
+	// Verify provenance before capturing desired state; configured names and stale
+	// discovery alone do not prove this replica can serve an imported provider.
+	loaded, err := e.store.Load(ctx)
 	if err != nil {
-		return err
+		return errors.Join(sourceErr, err)
+	}
+	for source, provider := range sources {
+		if !core.ProviderApplied(schemas.ModelProvider(provider), loaded.Config) {
+			delete(sources, source)
+		}
 	}
 	// Subscription entries and core's failed-poll catalog fallbacks are not
 	// evidence that an imported provider serves a model.
 	discovered := e.availability.discoveredModels()
-	return migrateLegacyModels(ctx, c, sources, discovered, func(mapping map[string]string) error {
+	err = migrateLegacyModels(ctx, c, sources, discovered, func(mapping map[string]string) error {
 		if err := e.mutateMigration(ctx, func(s *MigrationStatus) error { maps.Copy(s.Mappings, mapping); return nil }); err != nil {
 			return err
 		}
 		// Apply the committed mappings before cleanup can remove their source models.
 		// Reload through serialized Sync so an overlapping reconciliation cannot regress them.
-		_, err := e.Sync(ctx)
-		return err
+		_, syncErr := e.Sync(ctx)
+		e.syncMu.Lock()
+		defer e.syncMu.Unlock()
+		// Cached entries can survive a failed decode of newer core settings.
+		// Validate publication and provider state under the adapter's Sync lock.
+		if !bytes.Equal(e.appliedMigration, core.Setting(migrationSetting)) {
+			return errors.Join(syncErr, errors.New("legacy model mappings: current snapshot was not published"))
+		}
+		// Cleanup needs these mappings published, even when an unrelated provider
+		// failed Sync. Cached mappings cannot authorize cleanup after a blocking load.
+		published := e.migratedMappings.Load()
+		for source, target := range mapping {
+			if published == nil || (*published)[source] != target {
+				return errors.Join(syncErr, fmt.Errorf("legacy model mapping %s to %s was not published", source, target))
+			}
+		}
+		for _, provider := range sources {
+			if !core.ProviderApplied(schemas.ModelProvider(provider), loaded.Config) {
+				return errors.Join(syncErr, fmt.Errorf("legacy target provider %s is no longer applied", provider))
+			}
+		}
+		return nil
 	})
+	return errors.Join(sourceErr, err)
 }
 
 // LegacyGatewayProvider maps a former route to its current provider independently

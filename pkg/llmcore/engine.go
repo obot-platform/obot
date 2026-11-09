@@ -69,6 +69,8 @@ type Engine struct {
 	// syncErr includes load/application failures and non-retryable routing diagnostics,
 	// even when healthy providers can serve requests.
 	syncErr error
+	// A blocking load leaves old inputs live; they cannot authorize migration cleanup.
+	loadBlocked bool
 	// applied is the configuration last applied.
 	applied llmcoreclient.Config
 	// A proxy change may apply to only some providers before Sync fails. Track
@@ -328,9 +330,11 @@ func (e *Engine) Sync(ctx context.Context) (bool, error) {
 	loaded, err := e.store.Load(ctx)
 	if err != nil {
 		// A blocking read cannot safely replace any part of the running configuration.
+		e.loadBlocked = true
 		e.syncErr = err
 		return false, err
 	}
+	e.loadBlocked = false
 	// Unreadable aggregates are omitted from Config. Applying that view removes
 	// their runtime providers and keys while still advancing healthy changes.
 	changed, applyErr := e.apply(ctx, loaded.Config)
@@ -347,6 +351,30 @@ func (e *Engine) Err() error {
 	e.syncLock.Lock()
 	defer e.syncLock.Unlock()
 	return e.syncErr
+}
+
+// ProviderApplied reports whether this replica successfully applied a provider's
+// desired runtime and live request inputs, independently of unrelated diagnostics.
+func (e *Engine) ProviderApplied(name schemas.ModelProvider, desired llmcoreclient.Config) bool {
+	e.syncLock.Lock()
+	defer e.syncLock.Unlock()
+	if e.stopped || e.loadBlocked || e.client == nil || e.account == nil {
+		return false
+	}
+	if _, pending := e.account.transitioning.Load(name); pending {
+		return false
+	}
+	pc, wanted := desired.Providers[name]
+	applied, exists := e.applied.Providers[name]
+	if !wanted || !exists || !reflect.DeepEqual(applied, pc) ||
+		!reflect.DeepEqual(e.appliedProxy[name], ProviderProxy(pc, desired.Settings["proxy"])) {
+		return false
+	}
+	// Partial application metadata can lag live credentials and Azure discovery.
+	live := e.account.config.Load()
+	return live != nil && reflect.DeepEqual(live.Keys[name], desired.Keys[name]) &&
+		reflect.DeepEqual(live.AzureAccounts[name], desired.AzureAccounts[name]) &&
+		reflect.DeepEqual(live.AzureDiscoveries[name], desired.AzureDiscoveries[name])
 }
 
 func providerLoadErrors(diagnostics []llmcoreclient.ProviderLoadError) error {

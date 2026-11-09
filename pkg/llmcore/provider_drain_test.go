@@ -106,6 +106,10 @@ func testLongStreamRetirement(t *testing.T, action string) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("Sync waited indefinitely for the held-open stream")
 	}
+	desired, err := store.Load(t.Context())
+	require.NoError(t, err)
+	require.False(t, engine.ProviderApplied("paired", desired.Config), "unfinished drains are not applied")
+	require.True(t, engine.ProviderApplied("unrelated", desired.Config))
 	require.Equal(t, int64(7<<20), engine.MaxRequestBodyBytes())
 	unrelatedCtx, unrelatedCancel := schemas.NewBifrostContextWithCancel(t.Context())
 	defer unrelatedCancel()
