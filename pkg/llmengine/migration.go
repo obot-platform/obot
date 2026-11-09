@@ -521,6 +521,14 @@ func (e *Engine) importLegacySources(ctx context.Context, names []string, secret
 		if completed {
 			return "blocked", "the imported gateway provider was removed; configure it manually to resume", nil
 		}
+		// v0.28's AWS card creates bedrock; retained credentials must not create a second AWS pool.
+		if plan.provider == "bedrock_mantle" {
+			if _, err := e.store.GetProvider(ctx, "bedrock"); err == nil {
+				return "blocked", "existing Bedrock configuration was preserved; legacy credentials were not imported", nil
+			} else if !apierrors.IsNotFound(err) {
+				return "error", "could not check existing Bedrock configuration; reconciliation will retry", err
+			}
+		}
 		for i, source := range names {
 			var candidate llmcoreclient.Provider
 			candidate, err = legacyAggregate(ctx, source, secrets[source])

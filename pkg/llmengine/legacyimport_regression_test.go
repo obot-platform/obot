@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	types "github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -189,4 +190,90 @@ func TestLegacyImportCloudProvidersPoolKeys(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, providers, schemas.BedrockMantle, "reconciliation activates the imported pool")
 	require.Contains(t, providers, schemas.Azure)
+}
+
+func TestLegacyAWSImportPreservesExistingBedrock(t *testing.T) {
+	ctx := t.Context()
+	source := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-legacy-aws", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.AmazonBedrockAPIKeyModelProvider, TargetModel: "claude-sonnet-4-5", Active: true}}}
+	provider := &v1.ModelProvider{Namespace: system.DefaultNamespace, Name: system.AmazonBedrockAPIKeyModelProvider}
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(source, provider).WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(obj kclient.Object) []string { return []string{obj.(*v1.Model).Spec.Manifest.ModelProvider} }).Build()
+	store, err := llmcoreclient.New(c, plaintextConfigCodec{})
+	require.NoError(t, err)
+	e := New()
+	require.NoError(t, e.Start(ctx, Options{Store: store, DataDir: t.TempDir()}))
+	t.Cleanup(func() { require.NoError(t, e.Shutdown(context.Background())) })
+	gateway := legacyImportGateway(t, map[string]map[string]string{
+		system.AmazonBedrockAPIKeyModelProvider: {"OBOT_AWS_BEDROCK_API_KEY_MODEL_PROVIDER_API_KEY": "legacy-key"},
+	})
+	var current llmcoreclient.Provider
+	require.NoError(t, json.Unmarshal([]byte(`{"config":{"network_config":{"default_request_timeout_in_seconds":71}},"keys":[{"id":"intentional","name":"current","value":"current-key","models":["anthropic.claude-test"],"weight":1,"bedrock_key_config":{"region":"us-west-2"}}]}`), &current))
+	require.NoError(t, e.store.CreateProvider(ctx, "bedrock", current))
+	before, err := e.store.GetProvider(ctx, "bedrock")
+	require.NoError(t, err)
+	for range 2 {
+		results, err := e.ImportLegacyModelProviders(ctx, c, gateway)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		require.Equal(t, "blocked", results[0].Status)
+		require.Contains(t, results[0].Message, "existing")
+		after, err := e.store.GetProvider(ctx, "bedrock")
+		require.NoError(t, err)
+		require.Equal(t, before, after)
+		require.NoError(t, e.MigrateLegacyModels(ctx, c))
+		var retained v1.Model
+		require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(source), &retained))
+		require.Equal(t, source.Spec, retained.Spec)
+		var retainedProvider v1.ModelProvider
+		require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(provider), &retainedProvider))
+		_, err = e.store.GetProvider(ctx, "bedrock_mantle")
+		require.True(t, apierrors.IsNotFound(err))
+		status, err := e.MigrationStatus(ctx)
+		require.NoError(t, err)
+		require.False(t, status.Sources[system.AmazonBedrockAPIKeyModelProvider].Imported)
+		sources, err := e.migratedSources(ctx)
+		require.NoError(t, err)
+		require.NotContains(t, sources, system.AmazonBedrockAPIKeyModelProvider, "unverified current keys cannot authorize cleanup")
+		cred, err := gateway.RevealCredential(ctx, []string{system.AmazonBedrockAPIKeyModelProvider}, system.AmazonBedrockAPIKeyModelProvider)
+		require.NoError(t, err)
+		require.Equal(t, "legacy-key", cred.Secrets["OBOT_AWS_BEDROCK_API_KEY_MODEL_PROVIDER_API_KEY"])
+	}
+
+	t.Run("unreadable current configuration is an error", func(t *testing.T) {
+		var providers v1.LLMGatewayProviderList
+		require.NoError(t, c.List(ctx, &providers))
+		require.Len(t, providers.Items, 1)
+		providers.Items[0].Spec.Payload = "invalid JSON"
+		require.NoError(t, c.Update(ctx, &providers.Items[0]))
+		results, err := e.ImportLegacyModelProviders(ctx, c, gateway)
+		require.Error(t, err)
+		require.Len(t, results, 1)
+		require.Equal(t, "error", results[0].Status)
+		_, err = e.store.GetProvider(ctx, "bedrock_mantle")
+		require.True(t, apierrors.IsNotFound(err))
+	})
+}
+
+func TestLegacyAWSImportKeepsExistingMantle(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	g := legacyImportGateway(t, map[string]map[string]string{system.AmazonBedrockAPIKeyModelProvider: {"OBOT_AWS_MODEL_PROVIDER_API_KEY": "legacy-key"}})
+	results, err := e.ImportLegacyModelProviders(ctx, nil, g)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "imported", results[0].Status)
+	mantle, err := e.store.GetProvider(ctx, "bedrock_mantle")
+	require.NoError(t, err)
+	require.NoError(t, e.store.CreateProvider(ctx, "bedrock", llmcoreclient.Provider{}))
+	for range 2 {
+		results, err = e.ImportLegacyModelProviders(ctx, nil, g)
+		require.NoError(t, err)
+		require.Len(t, results, 1)
+		require.Equal(t, "imported", results[0].Status)
+		after, err := e.store.GetProvider(ctx, "bedrock_mantle")
+		require.NoError(t, err)
+		require.Equal(t, mantle, after)
+		normal, err := e.store.GetProvider(ctx, "bedrock")
+		require.NoError(t, err)
+		require.Nil(t, normal.Migration)
+		require.Empty(t, normal.Keys)
+	}
 }

@@ -64,14 +64,15 @@ func TestMigrationCompletedPoolDeletion(t *testing.T) {
 			for name, secrets := range tc.secrets {
 				putLegacy(t, g, name, secrets)
 			}
-			creates, familyReads, outcomes := 0, 0, 0
+			creates, outcomes := 0, 0
+			providerReads := map[kclient.ObjectKey]int{}
 			deleted := false
 			var persisted MigrationStatus
 			var store *llmcoreclient.Client
 			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithInterceptorFuncs(interceptor.Funcs{
 				Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
 					if _, ok := obj.(*v1.LLMGatewayProvider); ok {
-						familyReads++
+						providerReads[key]++
 					}
 					return c.Get(ctx, key, obj, opts...)
 				},
@@ -120,7 +121,9 @@ func TestMigrationCompletedPoolDeletion(t *testing.T) {
 				require.True(t, persisted.Sources[name].Imported, "all family outcomes must be committed together")
 				require.Equal(t, "imported", persisted.Sources[name].Status)
 			}
-			require.Equal(t, 1, familyReads, "each family must reconcile once per attempt")
+			for key, reads := range providerReads {
+				require.Equal(t, 1, reads, "each provider, including the AWS conflict check, must be read once per attempt: %v", key)
+			}
 			require.Equal(t, 1, outcomes)
 			for _, result := range results {
 				require.Equal(t, "imported", result.Status)

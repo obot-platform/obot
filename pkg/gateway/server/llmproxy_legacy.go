@@ -2,8 +2,11 @@ package server
 
 import (
 	"context"
+	"net/http"
+	"slices"
 	"strings"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/llmengine"
@@ -83,12 +86,35 @@ func (b *bifrostProviderBackend) resolveRequestModel(l *llmProviderProxy, req ap
 		model, err = b.resolveModel(l, req.User, scopedLegacyReference(req.Context(), reference))
 	}
 	if err != nil {
+		if apierrors.IsNotFound(err) && (scope == "bedrock" || scope == "bedrock_mantle") {
+			return nil, types.NewErrHTTP(http.StatusGone, "model is not available through this legacy AWS provider; use /api/llm-proxy/v1 with the appropriate model")
+		}
 		return nil, err
 	}
 	if scope != "" && !strings.HasPrefix(model.Spec.Manifest.TargetModel, scope+"/") {
 		return nil, types.NewErrBadRequest("model is not available through this legacy provider; use /api/llm-proxy/v1 for other providers")
 	}
 	return model, nil
+}
+
+func (s *Server) legacyAWSProvider() (string, error) {
+	if s.llmGateway == nil || !s.llmGateway.Ready() {
+		return "", types.NewErrHTTP(http.StatusServiceUnavailable, "the LLM gateway is unavailable")
+	}
+	providers, err := s.llmGateway.Client().GetConfiguredProviders()
+	if err != nil {
+		return "", err
+	}
+	// Prefer existing v0.28 configuration; import targets do not determine request routing.
+	for _, provider := range []schemas.ModelProvider{schemas.Bedrock, schemas.BedrockMantle} {
+		if slices.Contains(providers, provider) {
+			return string(provider), nil
+		}
+	}
+	if err := s.llmGateway.Err(); err != nil {
+		return "", err
+	}
+	return "", types.NewErrHTTP(http.StatusGone, "no AWS provider is configured for this legacy route; use /api/llm-proxy/v1 with a configured model")
 }
 
 func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
@@ -116,11 +142,17 @@ func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
 	// Legacy provider routes are planned for deprecation in the next non-patch release.
 	// New clients should use /api/llm-proxy/v1.
 	for prefix, source := range legacyProxySources {
-		provider := llmengine.LegacyGatewayProvider(source)
 		mux.HandleFunc("/api/llm-proxy/"+prefix+"/{path...}", func(req api.Context) error {
 			normalized, err := normalizeLegacyProxyPath(prefix, req.PathValue("path"))
 			if err != nil {
 				return err
+			}
+			provider := llmengine.LegacyGatewayProvider(source)
+			if prefix == "aws-bedrock" || prefix == "aws-bedrock-api-key" {
+				provider, err = s.legacyAWSProvider()
+				if err != nil {
+					return err
+				}
 			}
 			req.SetPathValue("path", normalized)
 			req.Request = req.WithContext(llmengine.WithLegacyProviderScope(req.Context(), provider))
