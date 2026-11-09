@@ -1,0 +1,86 @@
+name: Meta
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'feat/*'
+    paths:
+      - .claude/**
+      - adr/**
+      - '*.md'
+      - .github/workflows/meta.yml
+
+jobs:
+  # Branch protection requires checks named lint and build, and go.yml,
+  # test.yaml and test-docker-build.yml skip changes that only touch these paths.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate skill frontmatter
+        # Parse the frontmatter as YAML (Ruby and its YAML library ship with
+        # the runner image) and require name and description to be non-empty strings.
+        run: |
+          ruby - <<'RUBY'
+          require "yaml"
+
+          files = Dir.glob(".claude/skills/*/SKILL.md").sort
+          if files.empty?
+            puts "No skills found under .claude/skills."
+            exit 0
+          end
+
+          failed = false
+          files.each do |f|
+            text = File.read(f).gsub("\r\n", "\n")
+            match = text.match(/\A---\n(.*?)^---[ \t]*$/m)
+            unless match
+              puts "::error file=#{f}::#{f} must start with YAML frontmatter between --- lines."
+              failed = true
+              next
+            end
+
+            begin
+              meta = YAML.safe_load(match[1])
+            rescue Psych::Exception => e
+              puts "::error file=#{f}::#{f} frontmatter is not valid YAML: #{e.message}"
+              failed = true
+              next
+            end
+
+            unless meta.is_a?(Hash)
+              puts "::error file=#{f}::#{f} frontmatter must be a YAML mapping."
+              failed = true
+              next
+            end
+
+            %w[name description].each do |key|
+              value = meta[key]
+              unless value.is_a?(String) && !value.strip.empty?
+                puts "::error file=#{f}::#{f} frontmatter must set '#{key}' to a non-empty string."
+                failed = true
+              end
+            end
+          end
+
+          exit 1 if failed
+          puts "All #{files.size} skill files have valid frontmatter."
+          RUBY
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # This job exists only to satisfy the required build check for PRs that
+      # skip the Go and Docker workflows because they only touch these paths.
+      - name: Nothing to build
+        run: echo "No build required for skill, ADR, or top-level Markdown changes."
