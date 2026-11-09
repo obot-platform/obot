@@ -161,12 +161,15 @@ func TestMigrationDoesNotOverwriteExistingProvider(t *testing.T) {
 	g := migrationCredentials(t)
 	putLegacy(t, g, system.OpenAIModelProvider, map[string]string{"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "legacy"})
 	require.NoError(t, e.store.CreateProvider(ctx, "openai", llmcoreclient.Provider{Keys: []schemas.Key{{ID: "manual", Name: "manual", Value: *schemas.NewSecretVar("manual")}}}))
+	before, err := e.store.GetProvider(ctx, "openai")
+	require.NoError(t, err)
 	results, err := e.ImportLegacyModelProviders(ctx, nil, g)
 	require.NoError(t, err)
 	require.Equal(t, "blocked", results[0].Status)
 	p, err := e.store.GetProvider(ctx, "openai")
 	require.NoError(t, err)
 	require.Equal(t, "manual", p.Keys[0].Value.GetValue())
+	require.Equal(t, before, p, "migration must preserve the entire manually configured provider")
 	require.Nil(t, p.Migration)
 	sources, err := e.migratedSources(ctx)
 	require.NoError(t, err)
@@ -307,7 +310,14 @@ func TestMigrationSettingsConflictPreservesOtherSettings(t *testing.T) {
 
 func TestMigrationReferenceRecoveryPreservesLaterEdits(t *testing.T) {
 	ns := system.DefaultNamespace
-	legacy := &v1.Model{Namespace: ns, Name: "m1-old", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.OpenAIModelProvider, TargetModel: "gpt-5", Active: false, Alias: "custom"}}}
+	legacy := &v1.Model{Namespace: ns, Name: "m1-old", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+		ModelProvider: system.OpenAIModelProvider,
+		TargetModel:   "gpt-5",
+		Active:        false,
+		Alias:         "custom",
+		DisplayName:   "Our GPT",
+		Usage:         types.ModelUsageEmbedding,
+	}}}
 	target := &v1.Model{Namespace: ns, Name: "m1-new", Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: system.LLMGatewayModelProvider, TargetModel: "openai/gpt-5", Active: true}}}
 	alias := &v1.DefaultModelAlias{Namespace: ns, Name: "llm", Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: legacy.Name}}}
 	failDelete := true
@@ -326,9 +336,14 @@ func TestMigrationReferenceRecoveryPreservesLaterEdits(t *testing.T) {
 	require.Equal(t, legacy.Name, got.Spec.Manifest.Model)
 	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
 	require.False(t, target.Spec.Manifest.Active)
+	require.Equal(t, "Our GPT", target.Spec.Manifest.DisplayName)
+	require.Equal(t, types.ModelUsageEmbedding, target.Spec.Manifest.Usage)
+
 	// An administrator changes the target after its edits committed but before cleanup.
 	target.Spec.Manifest.Active = true
 	target.Spec.Manifest.Alias = "new-choice"
+	target.Spec.Manifest.DisplayName = "Later target name"
+	target.Spec.Manifest.Usage = types.ModelUsageOther
 	require.NoError(t, c.Update(ctx, target))
 	mappings := map[string]string{}
 	save := func(m map[string]string) error {
@@ -339,10 +354,20 @@ func TestMigrationReferenceRecoveryPreservesLaterEdits(t *testing.T) {
 	require.Equal(t, target.Name, mappings[legacy.Name])
 	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(alias), got))
 	require.Equal(t, target.Name, got.Spec.Manifest.Model)
+	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
+	require.Equal(t, "Later target name", target.Spec.Manifest.DisplayName)
+	require.Equal(t, types.ModelUsageOther, target.Spec.Manifest.Usage)
+
+	// Clearing fields is also a later choice; retry must not fill them again.
+	target.Spec.Manifest.DisplayName = ""
+	target.Spec.Manifest.Usage = ""
+	require.NoError(t, c.Update(ctx, target))
 	require.NoError(t, migrateLegacyModels(ctx, c, sources, nil, save))
 	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
 	require.True(t, target.Spec.Manifest.Active)
 	require.Equal(t, "new-choice", target.Spec.Manifest.Alias)
+	require.Empty(t, target.Spec.Manifest.DisplayName)
+	require.Empty(t, target.Spec.Manifest.Usage)
 	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{})))
 }
 

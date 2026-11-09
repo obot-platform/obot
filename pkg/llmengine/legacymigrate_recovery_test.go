@@ -39,6 +39,14 @@ func TestMigrationReferenceRecoveryPreservesNewerSourceEdits(t *testing.T) {
 			name: "cost override",
 			edit: func(m *types.ModelManifest) { m.OverrideCost = &types.ModelCost{Input: 3} },
 		},
+		{
+			name: "display name",
+			edit: func(m *types.ModelManifest) { m.DisplayName = "New source name" },
+		},
+		{
+			name: "usage",
+			edit: func(m *types.ModelManifest) { m.Usage = types.ModelUsageEmbedding },
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := t.Context()
@@ -59,6 +67,8 @@ func TestMigrationReferenceRecoveryPreservesNewerSourceEdits(t *testing.T) {
 			require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
 			target.Spec.Manifest.Alias = "later-target-alias"
 			target.Spec.Manifest.OverrideCost = &types.ModelCost{Input: 9}
+			target.Spec.Manifest.DisplayName = "Later target name"
+			target.Spec.Manifest.Usage = types.ModelUsageOther
 			require.NoError(t, c.Update(ctx, target))
 			laterSource, laterTarget := legacy.DeepCopy(), target.DeepCopy()
 			for range 2 {

@@ -10,6 +10,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	kfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -174,4 +175,127 @@ func TestMigrateLegacyModels(t *testing.T) {
 			t.Errorf("model provider %s should be kept", name)
 		}
 	}
+}
+
+func TestMigrateLegacyModelsDisplayNameAndUsage(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		sourceName      string
+		sourceUsage     types.ModelUsage
+		targetName      string
+		targetUsage     types.ModelUsage
+		wantDisplayName string
+		wantUsage       types.ModelUsage
+	}{
+		{
+			name:            "fill both empty fields",
+			sourceName:      "Our GPT",
+			sourceUsage:     types.ModelUsageEmbedding,
+			wantDisplayName: "Our GPT",
+			wantUsage:       types.ModelUsageEmbedding,
+		},
+		{
+			name:            "fill only empty display name",
+			sourceName:      "Our GPT",
+			sourceUsage:     types.ModelUsageEmbedding,
+			targetUsage:     types.ModelUsageLLM,
+			wantDisplayName: "Our GPT",
+			wantUsage:       types.ModelUsageLLM,
+		},
+		{
+			name:            "fill only empty usage",
+			sourceName:      "Our GPT",
+			sourceUsage:     types.ModelUsageEmbedding,
+			targetName:      "  Gateway GPT  ",
+			wantDisplayName: "  Gateway GPT  ",
+			wantUsage:       types.ModelUsageEmbedding,
+		},
+		{
+			name:            "gateway discovery defaults win conflicts",
+			sourceName:      "Our GPT",
+			sourceUsage:     types.ModelUsageEmbedding,
+			targetName:      "gpt-5",
+			targetUsage:     types.ModelUsageLLM,
+			wantDisplayName: "gpt-5",
+			wantUsage:       types.ModelUsageLLM,
+		},
+		{
+			name:            "matching values",
+			sourceName:      "Our GPT",
+			sourceUsage:     types.ModelUsageEmbedding,
+			targetName:      "Our GPT",
+			targetUsage:     types.ModelUsageEmbedding,
+			wantDisplayName: "Our GPT",
+			wantUsage:       types.ModelUsageEmbedding,
+		},
+		{
+			name: "empty source and target",
+		},
+		{
+			name:            "empty source keeps gateway values",
+			targetName:      "Gateway GPT",
+			targetUsage:     types.ModelUsageLLM,
+			wantDisplayName: "Gateway GPT",
+			wantUsage:       types.ModelUsageLLM,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
+			legacy := &v1.Model{Namespace: system.DefaultNamespace, Name: "legacy", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+				ModelProvider: system.OpenAIModelProvider,
+				TargetModel:   "gpt-5",
+				DisplayName:   tc.sourceName,
+				Usage:         tc.sourceUsage,
+			}}}
+			target := &v1.Model{Namespace: system.DefaultNamespace, Name: "gateway", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+				ModelProvider: system.LLMGatewayModelProvider,
+				TargetModel:   "openai/gpt-5",
+				DisplayName:   tc.targetName,
+				Usage:         tc.targetUsage,
+			}}}
+			c := kfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(legacy, target).Build()
+			sources := map[string]string{system.OpenAIModelProvider: "openai"}
+			require.NoError(t, migrateLegacyModels(ctx, c, sources, nil, func(mapping map[string]string) error {
+				require.Equal(t, target.Name, mapping[legacy.Name])
+				require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
+				require.Equal(t, tc.wantDisplayName, target.Spec.Manifest.DisplayName)
+				require.Equal(t, tc.wantUsage, target.Spec.Manifest.Usage)
+				require.NotEmpty(t, target.Annotations["obot.ai/legacy-model-edits"])
+				require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{}), "copy must precede source cleanup")
+				return nil
+			}))
+			require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{})))
+		})
+	}
+}
+
+func TestMigrateLegacyModelsMultipleSourcesKeepNonemptyFields(t *testing.T) {
+	ctx := t.Context()
+	legacy := &v1.Model{Namespace: system.DefaultNamespace, Name: "legacy", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+		ModelProvider: system.AzureModelProvider,
+		TargetModel:   "gpt-5",
+		DisplayName:   "First source",
+		Usage:         types.ModelUsageEmbedding,
+	}}}
+	target := &v1.Model{Namespace: system.DefaultNamespace, Name: "gateway", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+		ModelProvider: system.LLMGatewayModelProvider,
+		TargetModel:   "azure/gpt-5",
+	}}}
+	c := kfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(legacy, target).Build()
+	sources := map[string]string{system.AzureModelProvider: "azure", system.AzureEntraModelProvider: "azure"}
+	save := func(map[string]string) error { return nil }
+	require.NoError(t, migrateLegacyModels(ctx, c, sources, nil, save))
+
+	second := &v1.Model{Namespace: system.DefaultNamespace, Name: "second", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+		ModelProvider: system.AzureEntraModelProvider,
+		TargetModel:   "gpt-5",
+		DisplayName:   "Second source",
+		Usage:         types.ModelUsageLLM,
+	}}}
+	require.NoError(t, c.Create(ctx, second))
+	require.NoError(t, migrateLegacyModels(ctx, c, sources, nil, save))
+	require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(target), target))
+	require.Equal(t, "First source", target.Spec.Manifest.DisplayName)
+	require.Equal(t, types.ModelUsageEmbedding, target.Spec.Manifest.Usage)
+	require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(second), &v1.Model{})))
 }

@@ -140,6 +140,15 @@ func carryModelEdits(ctx context.Context, c kclient.Client, legacy, target *v1.M
 	if !legacy.Spec.Manifest.Active && target.Spec.Manifest.Active {
 		target.Spec.Manifest.Active = false
 	}
+
+	// Existing gateway values reflect the current setup, including discovery defaults.
+	if legacy.Spec.Manifest.DisplayName != "" && target.Spec.Manifest.DisplayName == "" {
+		target.Spec.Manifest.DisplayName = legacy.Spec.Manifest.DisplayName
+	}
+	if legacy.Spec.Manifest.Usage != "" && target.Spec.Manifest.Usage == "" {
+		target.Spec.Manifest.Usage = legacy.Spec.Manifest.Usage
+	}
+
 	if legacy.Spec.Manifest.Alias != "" && target.Spec.Manifest.Alias == "" {
 		target.Spec.Manifest.Alias = legacy.Spec.Manifest.Alias
 	}
