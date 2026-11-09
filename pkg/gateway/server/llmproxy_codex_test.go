@@ -133,7 +133,7 @@ func TestPublicCodexRecording(t *testing.T) {
 	}
 	// Disabled passthrough cannot silently fall back to configured-key billing.
 	proxy.backend = &bifrostProviderBackend{engine: engine}
-	require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{SubscriptionPassthrough: true}))
+	require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: true}))
 	r := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil)
 	r.SetPathValue("path", "v1/models")
 	r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")

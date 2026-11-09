@@ -393,7 +393,7 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 	storage := newFakeStorage(t, llmengine.ModelProviderResource())
 	h, store := newAdminTestHandler(t, storage)
 	gateway := newHandlerTestGateway(t)
-	require.NoError(t, gateway.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{SubscriptionPassthrough: true, CodexSubscriptionPassthrough: true}))
+	require.NoError(t, gateway.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: true, CodexSubscriptionPassthrough: true}))
 	for _, provider := range []string{"azure", "anthropic", "openai"} {
 		_, err := h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"`+provider+`"}`))
 		require.NoError(t, err)
@@ -460,7 +460,7 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	settings, err := gateway.GetLLMGatewaySettings(t.Context())
 	require.NoError(t, err)
-	require.False(t, settings.SubscriptionPassthrough)
+	require.False(t, settings.ClaudeSubscriptionPassthrough)
 	require.True(t, settings.CodexSubscriptionPassthrough)
 	response = httptest.NewRecorder()
 	mux.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/openai", nil))
