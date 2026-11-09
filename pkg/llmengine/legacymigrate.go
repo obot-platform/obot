@@ -221,6 +221,10 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 				continue
 			}
 			if qualified := qualifyLegacyPattern(m, legacy, sources, migrated); len(qualified) > 0 {
+				// A slash pattern may grant both a native source and an existing gateway target.
+				if strings.Contains(m.ID, "/") {
+					add(m)
+				}
 				// Keep the original grant for source models not yet migrated.
 				for _, old := range legacy {
 					if m.MatchesTargetModel(old.Spec.Manifest.TargetModel) && migrated[old.Name] == "" {
@@ -255,7 +259,7 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 // must not widen a grant before the provider discovers a matching target model.
 func qualifyLegacyPattern(m types.ModelResource, legacy []*v1.Model, sources, migrated map[string]string) []types.ModelResource {
 	prefix, ok := m.IsWildcardSuffix()
-	if !ok || strings.Contains(prefix, "/") {
+	if !ok {
 		return nil
 	}
 	var qualified []types.ModelResource
