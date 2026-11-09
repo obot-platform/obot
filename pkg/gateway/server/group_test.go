@@ -75,56 +75,61 @@ func TestParseGroupListParams(t *testing.T) {
 	}
 }
 
-func TestSplitGroupIDs(t *testing.T) {
+func TestUniqueGroupIDs(t *testing.T) {
 	tests := []struct {
 		name string
-		raw  string
+		ids  []string
 		want []string
 	}{
 		{
 			name: "single",
-			raw:  "entra/a",
+			ids:  []string{"entra/a"},
 			want: []string{"entra/a"},
 		},
 		{
 			name: "multiple",
-			raw:  "entra/a,entra/b",
+			ids:  []string{"entra/a", "entra/b"},
 			want: []string{"entra/a", "entra/b"},
 		},
 		{
 			name: "trims whitespace",
-			raw:  " entra/a , entra/b ",
+			ids:  []string{" entra/a ", " entra/b "},
 			want: []string{"entra/a", "entra/b"},
 		},
 		{
 			name: "drops blanks",
-			raw:  "entra/a,,entra/b,",
+			ids:  []string{"entra/a", "", "entra/b", ""},
 			want: []string{"entra/a", "entra/b"},
 		},
 		{
 			name: "drops duplicates",
-			raw:  "entra/a,entra/b,entra/a",
+			ids:  []string{"entra/a", "entra/b", "entra/a"},
 			want: []string{"entra/a", "entra/b"},
 		},
 		{
 			// Deduplication keeps the first occurrence, so the result follows input
 			// order rather than sorted order.
 			name: "keeps input order when deduplicating",
-			raw:  "entra/b,entra/a,entra/b",
+			ids:  []string{"entra/b", "entra/a", "entra/b"},
 			want: []string{"entra/b", "entra/a"},
 		},
 		{
+			name: "keeps commas inside an ID",
+			ids:  []string{"pingfederate/cn=Admins,ou=Groups,dc=example,dc=com"},
+			want: []string{"pingfederate/cn=Admins,ou=Groups,dc=example,dc=com"},
+		},
+		{
 			name: "all blank",
-			raw:  ",,,",
+			ids:  []string{"", "", "", ""},
 			want: []string{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := splitGroupIDs(tt.raw)
+			got, err := uniqueGroupIDs(tt.ids)
 			if err != nil {
-				t.Fatalf("splitGroupIDs() error = %v", err)
+				t.Fatalf("uniqueGroupIDs() error = %v", err)
 			}
 			if len(got) != len(tt.want) {
 				t.Fatalf("len = %d, want %d (%v)", len(got), len(tt.want), got)
@@ -169,27 +174,9 @@ func TestGroupIDsFromQuery(t *testing.T) {
 			wantOK: true,
 		},
 		{
-			name:   "ids is split at commas",
-			query:  url.Values{"ids": {"entra/a,entra/b"}},
-			want:   []string{"entra/a", "entra/b"},
-			wantOK: true,
-		},
-		{
-			name:   "blank id values count as absent",
-			query:  url.Values{"id": {"", " "}, "ids": {"entra/a,entra/b"}},
-			want:   []string{"entra/a", "entra/b"},
-			wantOK: true,
-		},
-		{
-			name:   "only blank id values and no ids",
-			query:  url.Values{"id": {""}},
+			name:   "only blank id values count as absent",
+			query:  url.Values{"id": {"", " "}},
 			wantOK: false,
-		},
-		{
-			name:   "id is preferred over ids",
-			query:  url.Values{"id": {"entra/a,b"}, "ids": {"entra/a,b"}},
-			want:   []string{"entra/a,b"},
-			wantOK: true,
 		},
 	}
 
@@ -209,6 +196,21 @@ func TestGroupIDsFromQuery(t *testing.T) {
 	}
 }
 
+// The comma-separated ids parameter is rejected, with or without id beside it: splitting it would
+// break a group ID that contains commas, such as an LDAP DN.
+func TestGroupIDsFromQueryRejectsIDs(t *testing.T) {
+	for _, query := range []url.Values{
+		{"ids": {"entra/a,entra/b"}},
+		{"ids": {"pingfederate/cn=Admins,ou=Groups,dc=example,dc=com"}},
+		{"ids": {""}},
+		{"ids": {"entra/a"}, "id": {"entra/a"}},
+	} {
+		if _, _, err := groupIDsFromQuery(query); err == nil || !strings.Contains(err.Error(), "id parameter") {
+			t.Errorf("groupIDsFromQuery(%v) error = %v, want one that names the id parameter", query, err)
+		}
+	}
+}
+
 func TestGroupIDsFromQueryRejectsAnOversizedBatch(t *testing.T) {
 	query := url.Values{}
 	for i := range maxGroupIDsPerRequest + 1 {
@@ -219,7 +221,7 @@ func TestGroupIDsFromQueryRejectsAnOversizedBatch(t *testing.T) {
 	}
 }
 
-func TestSplitGroupIDsRejectsAnOversizedBatch(t *testing.T) {
+func TestUniqueGroupIDsRejectsAnOversizedBatch(t *testing.T) {
 	ids := make([]string, 0, maxGroupIDsPerRequest+1)
 	for i := range maxGroupIDsPerRequest + 1 {
 		ids = append(ids, fmt.Sprintf("entra/%d", i))
@@ -227,20 +229,20 @@ func TestSplitGroupIDsRejectsAnOversizedBatch(t *testing.T) {
 
 	// Silently answering for the first N would leave the caller rendering raw IDs for the rest with
 	// nothing to say why, so the caller has to chunk instead.
-	if _, err := splitGroupIDs(strings.Join(ids, ",")); err == nil {
+	if _, err := uniqueGroupIDs(ids); err == nil {
 		t.Error("expected an error for a batch over the limit")
 	}
 }
 
-func TestSplitGroupIDsAcceptsAFullBatch(t *testing.T) {
+func TestUniqueGroupIDsAcceptsAFullBatch(t *testing.T) {
 	ids := make([]string, 0, maxGroupIDsPerRequest)
 	for i := range maxGroupIDsPerRequest {
 		ids = append(ids, fmt.Sprintf("entra/%d", i))
 	}
 
-	got, err := splitGroupIDs(strings.Join(ids, ","))
+	got, err := uniqueGroupIDs(ids)
 	if err != nil {
-		t.Fatalf("splitGroupIDs() error = %v", err)
+		t.Fatalf("uniqueGroupIDs() error = %v", err)
 	}
 	if len(got) != maxGroupIDsPerRequest {
 		t.Errorf("len = %d, want %d", len(got), maxGroupIDsPerRequest)

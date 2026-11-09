@@ -425,12 +425,10 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	return apiContext.Write(types.ConvertUser(existingUser, ""))
 }
 
-// GET /api/groups?name=&limit=&cursor=&id=&ids=
+// GET /api/groups?name=&limit=&cursor=&id=
 // Returns one page of the auth provider's groups, optionally filtered by name. Paging is by opaque
 // cursor: the response carries the position of the next page, or nothing when there are no more.
 // Passing id, once per group ID, instead resolves those specific group IDs to their display names.
-// The older ids, a comma-separated list, is still accepted but cannot carry an ID that contains a
-// comma, such as an LDAP DN.
 func (s *Server) listAuthGroups(apiContext api.Context) error {
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
 	if name == "" || namespace == "" {
@@ -500,26 +498,21 @@ func parseGroupListParams(query url.Values) (limit int, cursor string) {
 	return min(limit, client.MaxGroupPageSize), query.Get("cursor")
 }
 
-// groupIDsFromQuery returns the group IDs a request asks to resolve, and whether it asks for any.
-// It reads the repeated id parameter, which carries each ID whole, and falls back to the
-// comma-separated ids parameter. An id parameter with only blank values counts as absent, as an
-// empty ids does.
+// groupIDsFromQuery returns the group IDs a request asks to resolve, from the repeated id
+// parameter, and whether it asks for any. An id parameter with only blank values counts as absent.
+//
+// The comma-separated ids parameter that this endpoint used to take is rejected rather than read: a
+// group ID can contain commas, as an LDAP DN does, so splitting the list would break such IDs into
+// pieces, and the provider could answer for a truncated ID that would then be cached as a group.
 func groupIDsFromQuery(query url.Values) ([]string, bool, error) {
+	if query.Has("ids") {
+		return nil, false, errors.New("the ids parameter is no longer supported: pass each group ID in its own id parameter")
+	}
 	if values := query["id"]; slices.ContainsFunc(values, func(v string) bool { return strings.TrimSpace(v) != "" }) {
 		ids, err := uniqueGroupIDs(values)
 		return ids, true, err
 	}
-	if raw := query.Get("ids"); raw != "" {
-		ids, err := splitGroupIDs(raw)
-		return ids, true, err
-	}
 	return nil, false, nil
-}
-
-// splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.
-// IDs are returned in the order they first appear in raw.
-func splitGroupIDs(raw string) ([]string, error) {
-	return uniqueGroupIDs(strings.Split(raw, ","))
 }
 
 // uniqueGroupIDs trims the given group IDs and drops blanks and duplicates, keeping the order in
