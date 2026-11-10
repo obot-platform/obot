@@ -1,11 +1,17 @@
+import { Group } from '$lib/services';
 import { profile } from '$lib/stores';
 import { createMockProfile } from '../../tests/helpers/pageData';
+import { getGatewayStatusResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import ProvidersView from './ProvidersView.svelte';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+// Shared setup caps long timeouts; keep these waits longer than the real polling interval.
+const realSetTimeout = window.setTimeout.bind(window);
+const waitForPoll = () => new Promise<void>((resolve) => realSetTimeout(resolve, 2200));
 
 beforeEach(() => {
 	profile.initialize(createMockProfile());
@@ -33,6 +39,98 @@ beforeEach(() => {
 });
 
 describe('ProvidersView migration results', () => {
+	it('retries initial fetch failures, shows recovered results and stops after completion', async () => {
+		let reads = 0;
+		worker.use(
+			http.get('/api/llm-gateway/admin/providers', () =>
+				HttpResponse.json({ providers: reads >= 3 ? [{ name: 'bedrock_mantle' }] : [] })
+			),
+			http.get('/api/llm-gateway/migration', () => {
+				reads++;
+				if (reads === 1) return new HttpResponse(null, { status: 500 });
+				if (reads === 2) return HttpResponse.error();
+				return HttpResponse.json({
+					sources: {
+						iam: {
+							name: 'AWS Bedrock',
+							provider: 'bedrock_mantle',
+							status: reads === 3 ? 'error' : 'imported'
+						}
+					}
+				});
+			})
+		);
+		render(ProvidersView);
+		await expect.element(page.getByText('No providers configured')).toBeVisible();
+		await vi.waitFor(() => expect(reads).toBe(3), { timeout: 5500 });
+		await expect
+			.element(page.getByText('AWS Bedrock: The import failed.', { exact: false }))
+			.toBeVisible();
+		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+		await vi.waitFor(() => expect(reads).toBe(4), { timeout: 3500 });
+		await expect
+			.element(page.getByText('Some legacy model providers need attention.'))
+			.not.toBeInTheDocument();
+		await waitForPoll();
+		expect(reads).toBe(4);
+	}, 12000);
+	it('does not poll after a successful empty snapshot', async () => {
+		const migration = vi.fn(() => HttpResponse.json({ sources: {} }));
+		worker.use(http.get('/api/llm-gateway/migration', migration));
+		render(ProvidersView);
+		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+		await waitForPoll();
+		expect(migration).toHaveBeenCalledTimes(1);
+	}, 5000);
+	it('does not request migration status for readonly users, including on polling ticks', async () => {
+		profile.initialize(createMockProfile([Group.AUDITOR]));
+		const migration = vi.fn(() => new HttpResponse(null, { status: 500 }));
+		worker.use(http.get('/api/llm-gateway/migration', migration));
+		render(ProvidersView);
+		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+		await waitForPoll();
+		expect(migration).not.toHaveBeenCalled();
+	}, 5000);
+	it('waits for initial and polling loads, then stops requests after unmount', async () => {
+		let reads = 0;
+		let releaseInitial!: () => void;
+		let releaseRetry!: () => void;
+		const initial = new Promise<void>((resolve) => (releaseInitial = resolve));
+		const retry = new Promise<void>((resolve) => (releaseRetry = resolve));
+		const status = vi.fn(() => HttpResponse.json(getGatewayStatusResponse));
+		const providers = vi.fn(() => HttpResponse.json({ providers: [] }));
+		worker.use(
+			http.get('/api/llm-gateway/status', status),
+			http.get('/api/llm-gateway/admin/providers', providers),
+			http.get('/api/llm-gateway/migration', async () => {
+				reads++;
+				await (reads === 1 ? initial : retry);
+				return new HttpResponse(null, { status: 500 });
+			})
+		);
+		const { unmount } = await render(ProvidersView);
+		try {
+			await vi.waitFor(() => expect(reads).toBe(1));
+			await waitForPoll();
+			expect(reads).toBe(1);
+			expect(status).toHaveBeenCalledTimes(1);
+			releaseInitial();
+			await expect.element(page.getByText('No providers configured')).toBeVisible();
+			await vi.waitFor(() => expect(reads).toBe(2), { timeout: 3500 });
+			await waitForPoll();
+			expect(reads).toBe(2);
+			expect(status).toHaveBeenCalledTimes(2);
+		} finally {
+			await unmount();
+			releaseInitial();
+			releaseRetry();
+		}
+		// Let the outstanding load finish before checking that no new requests start.
+		await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(2));
+		await waitForPoll();
+		expect(reads).toBe(2);
+		expect(status).toHaveBeenCalledTimes(2);
+	}, 14000);
 	it('does not show a migration warning for a completed automatic pool', async () => {
 		render(ProvidersView);
 		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();

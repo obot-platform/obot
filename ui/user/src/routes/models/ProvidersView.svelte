@@ -134,13 +134,15 @@
 
 	onMount(() => {
 		void load();
-		// Refresh while automatic imports are pending or retrying.
+		// Retry unknown snapshots after fetch failures as well as pending or failed imports.
 		let refreshing = false;
 		const timer = window.setInterval(async () => {
-			const applying = Object.values(migration?.sources ?? {}).some(
-				(source) => source.status === 'pending' || source.status === 'error'
-			);
-			if (!applying || refreshing) return;
+			const applying =
+				!migration ||
+				Object.values(migration?.sources ?? {}).some(
+					(source) => source.status === 'pending' || source.status === 'error'
+				);
+			if (readonly || loading || !applying || refreshing) return;
 			refreshing = true;
 			try {
 				await load(false);
