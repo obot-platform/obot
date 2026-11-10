@@ -21,7 +21,7 @@
 	import ToolResponseTime from './ToolResponseTime.svelte';
 	import TopServersUsed from './TopServersUsed.svelte';
 	import UsageBarCard from './UsageBarCard.svelte';
-	import type { DashboardWidgetModel } from './model';
+	import type { DashboardWidgetModel } from './types';
 	import { fade } from 'svelte/transition';
 
 	type Props = {
@@ -90,7 +90,6 @@
 	{:else}
 		<div class="h-full min-h-0" in:fade={{ duration: 150 }}>
 			<DeviceScanDonutCard
-				legendOnBottom
 				title={m.dashboard_device_clients()}
 				buckets={model.deviceScanClientBuckets}
 				totalGroups={model.totalDeviceScanClientGroups}
@@ -105,7 +104,6 @@
 	{:else}
 		<div class="h-full min-h-0" in:fade={{ duration: 150 }}>
 			<DeviceScanDonutCard
-				legendOnBottom
 				title={m.dashboard_top_device_mcp_servers()}
 				buckets={model.deviceScanMcpBuckets}
 				totalGroups={model.totalDeviceScanMcpGroups}

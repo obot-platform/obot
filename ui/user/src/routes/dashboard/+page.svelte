@@ -58,11 +58,11 @@
 		type ModelStatId,
 		type PlatformStatId
 	} from './dashboardLayout';
-	import { dragScrollDelta } from './dragScroll';
+	import { createDragAnchor, dragScrollDelta } from './dragScroll';
 	import DashboardWidget from './widgets/DashboardWidget.svelte';
 	import WidgetFrame from './widgets/WidgetFrame.svelte';
 	import { deviceStatLabel, platformStatLabel } from './widgets/labels';
-	import type { DashboardStatTile, PopularServer } from './widgets/model';
+	import type { DashboardStatTile, PopularServer } from './widgets/types';
 	import {
 		Activity,
 		CircleDollarSign,
@@ -248,18 +248,13 @@
 	let dragPointerX = 0;
 	let dragPointerY = 0;
 	let dragScrollFrame = 0;
-	// A full-width widget changes row height as soon as the preview moves, which slides a
-	// different row under the cursor. Wait until the pointer has traveled and then rested
-	// before following it, and keep that preview until the pointer travels again.
 	const previewDwellMs = 120;
 	const previewTravelPx = 28;
 	const cardGutterPx = 24;
 	let previewTimer = 0;
 	let appliedKey = '';
 	let heldKey = '';
-	let anchorX = 0;
-	let anchorY = 0;
-	let anchorScroll = 0;
+	const dragAnchor = createDragAnchor(() => dashboardScroller()?.scrollTop ?? 0);
 	const editingLayout = $derived(draft ?? dashboardLayout);
 	const placedWidgets = $derived(placedWidgetIds(editingLayout.rows));
 	const individualToolResponses = $derived(
@@ -529,14 +524,11 @@
 	}
 
 	function travelFromAnchor(): number {
-		const scrolled = (dashboardScroller()?.scrollTop ?? 0) - anchorScroll;
-		return Math.hypot(dragPointerX - anchorX, dragPointerY - anchorY + scrolled);
+		return dragAnchor.travel(dragPointerX, dragPointerY);
 	}
 
 	function rememberAnchor() {
-		anchorX = dragPointerX;
-		anchorY = dragPointerY;
-		anchorScroll = dashboardScroller()?.scrollTop ?? 0;
+		dragAnchor.remember(dragPointerX, dragPointerY);
 	}
 
 	function clearPreviewTimer() {
@@ -656,8 +648,6 @@
 		heldKey = '';
 		detachDragListeners();
 		if (commit && next && origin && JSON.stringify(next.rows) !== origin) applyLayout(next);
-		// Committing the preview reflows the grid after the pointer is released. Put the
-		// scroller back so that reflow does not jump the page the user was dragging through.
 		if (!scroller) return;
 		const restore = () => {
 			scroller.scrollTop = scrollTop;

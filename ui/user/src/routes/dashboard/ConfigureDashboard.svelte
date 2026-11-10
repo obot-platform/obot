@@ -28,7 +28,7 @@
 		type DashboardRow,
 		type WidgetId
 	} from './dashboardLayout';
-	import { dragScrollDelta } from './dragScroll';
+	import { createDragAnchor, dragScrollDelta } from './dragScroll';
 	import {
 		deviceStatLabel,
 		modelStatLabel,
@@ -65,6 +65,7 @@
 	let dragPointerX = 0;
 	let dragPointerY = 0;
 	let dragScrollFrame = 0;
+	let layoutScroller = $state<HTMLElement>();
 
 	function copyConfig(value: DashboardConfig): DashboardConfig {
 		return $state.snapshot(value);
@@ -116,12 +117,7 @@
 	let pendingDrop: PendingDrop | null = null;
 	let ghostReady = $state(false);
 	const SETTLED_MS = 160;
-	// The settled preview replaces the thin slot that accepted it. Ignore a new hit until the
-	// pointer leaves that preview, or moves, so the slot cannot flicker in and out under the cursor.
 	const dropHoldPx = 8;
-	let dropAnchorX = 0;
-	let dropAnchorY = 0;
-	let dropAnchorScroll = 0;
 
 	function clearDragPreview() {
 		dragPreview?.remove();
@@ -146,19 +142,23 @@
 	}
 
 	function layoutScrollTop(): number {
-		const node = document.querySelector('[data-layout-scroll]');
-		return node instanceof HTMLElement ? node.scrollTop : 0;
+		let total = 0;
+		let current: HTMLElement | null = layoutScroller ?? null;
+		while (current) {
+			total += current.scrollTop;
+			current = current.parentElement;
+		}
+		return total;
 	}
 
+	const dropAnchor = createDragAnchor(layoutScrollTop);
+
 	function rememberAnchor() {
-		dropAnchorX = dragPointerX;
-		dropAnchorY = dragPointerY;
-		dropAnchorScroll = layoutScrollTop();
+		dropAnchor.remember(dragPointerX, dragPointerY);
 	}
 
 	function dropTravel(): number {
-		const scrolled = layoutScrollTop() - dropAnchorScroll;
-		return Math.hypot(dragPointerX - dropAnchorX, dragPointerY - dropAnchorY + scrolled);
+		return dropAnchor.travel(dragPointerX, dragPointerY);
 	}
 
 	function boxWithMargin(node: HTMLElement): DOMRect {
@@ -396,7 +396,8 @@
 		const betweenRows = index > 0 && index < rows.length;
 		const boxStart = insideBox && index === 0;
 		if (betweenRows || boxStart) return 'my-3 mx-3';
-		if (index === rows.length) return 'mt-3';
+		if (index === rows.length) return 'mt-3 mx-3';
+		if (index === 0) return 'mb-3 mx-3';
 		return '';
 	}
 
@@ -698,6 +699,7 @@
 			</div>
 			<div
 				data-layout-scroll
+				bind:this={layoutScroller}
 				class="flex min-h-80 flex-col grow gap-1 overflow-y-auto default-scrollbar-thin rounded-b-xl rounded-t-none bg-base-200 dark:bg-base-100/50 p-3"
 			>
 				{#if editing.rows.length === 0}
@@ -1017,6 +1019,7 @@
 				/>
 			</div>
 		{:else}
+			{@const endKey = `${locationKey([...parent, rowIndex])}-${row.items.length}`}
 			{#if rowIndex === 0 || rows[rowIndex - 1].kind !== 'box'}
 				{@render rowDropSlot(parent, rowIndex)}
 			{/if}
@@ -1139,22 +1142,19 @@
 						</label>
 					</div>
 				{/each}
-				{#if true}
-					{@const endKey = `${locationKey([...parent, rowIndex])}-${row.items.length}`}
-					<div
-						role="presentation"
-						data-drop-slot={endKey}
-						data-drop-active={dropKey === `slot-${endKey}` ? 'true' : undefined}
-						class={twMerge(
-							'w-2 shrink-0 rounded transition-colors',
-							dropKey === `slot-${endKey}` && !slotGhost(endKey) && 'bg-primary/50'
-						)}
-					></div>
-					{#if slotGhost(endKey)}
-						{@const preview = dragPreviewModel()}
-						{#if preview?.kind === 'widget'}
-							{@render settledWidget(preview.id, preview.label, 'mr-3')}
-						{/if}
+				<div
+					role="presentation"
+					data-drop-slot={endKey}
+					data-drop-active={dropKey === `slot-${endKey}` ? 'true' : undefined}
+					class={twMerge(
+						'w-2 shrink-0 rounded transition-colors',
+						dropKey === `slot-${endKey}` && !slotGhost(endKey) && 'bg-primary/50'
+					)}
+				></div>
+				{#if slotGhost(endKey)}
+					{@const preview = dragPreviewModel()}
+					{#if preview?.kind === 'widget'}
+						{@render settledWidget(preview.id, preview.label, 'mr-3')}
 					{/if}
 				{/if}
 			</div>

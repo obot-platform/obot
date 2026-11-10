@@ -38,3 +38,24 @@ export function dragScrollDelta(scroller: HTMLElement | null, y: number): number
 	if (upward && downward) return fromTop <= fromBottom ? upward : downward;
 	return upward || downward;
 }
+
+export interface DragAnchor {
+	remember(x: number, y: number): void;
+	travel(x: number, y: number): number;
+}
+
+export function createDragAnchor(scrollTop: () => number): DragAnchor {
+	let anchorX = 0;
+	let anchorY = 0;
+	let anchorScroll = 0;
+	return {
+		remember(x, y) {
+			anchorX = x;
+			anchorY = y;
+			anchorScroll = scrollTop();
+		},
+		travel(x, y) {
+			return Math.hypot(x - anchorX, y - anchorY + (scrollTop() - anchorScroll));
+		}
+	};
+}

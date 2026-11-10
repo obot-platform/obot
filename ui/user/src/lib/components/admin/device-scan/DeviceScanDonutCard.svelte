@@ -18,7 +18,6 @@
 		totalGroups: number;
 		emptyMsg: string;
 		topN?: number;
-		legendOnBottom?: boolean;
 		class?: string;
 		classes?: {
 			graph?: string;
@@ -33,12 +32,11 @@
 		emptyMsg,
 		classes,
 		topN = DEVICE_SCAN_TOP_N,
-		class: klass,
-		legendOnBottom = false
+		class: klass
 	}: Props = $props();
 </script>
 
-<div class={twMerge('paper flex h-full min-w-0 flex-col gap-2 p-0', klass)}>
+<div class={twMerge('paper flex h-full min-w-0 flex-col gap-2 p-0 @container/donutcard', klass)}>
 	<GraphTitle {title} element="h4">
 		{#snippet rightContent()}
 			{#if totalGroups > topN}
@@ -59,12 +57,7 @@
 		{#if buckets.length === 0}
 			<p class="text-muted-content py-8 text-center text-sm font-light">{emptyMsg}</p>
 		{:else}
-			<div
-				class={twMerge(
-					'flex min-w-0 flex-col items-center gap-4',
-					!legendOnBottom && 'sm:flex-row'
-				)}
-			>
+			<div class="flex min-w-0 flex-col items-center gap-4 @lg/donutcard:flex-row">
 				<div class={twMerge('h-56 w-56 shrink-0', classes?.graphContainer)}>
 					<DonutGraph
 						class={twMerge('h-56 w-56', classes?.graph)}
