@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strconv"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -244,11 +244,11 @@ func (sm *SessionManager) waitForVMCPInstanceConfiguration(ctx context.Context, 
 	if vmcp.Spec.UserID == "" && sm.gatewayClient != nil {
 		// The controller evaluates shared vMCP profiles with the stored user, whose
 		// groups can differ from the requester's.
-		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+		owner, err := principal.Parse(instance.Spec.UserID)
 		if err != nil {
 			return nil, fmt.Errorf("invalid VMCP instance user ID: %w", err)
 		}
-		stored, err := sm.gatewayClient.UserInfoByID(ctx, uint(id))
+		stored, err := sm.gatewayClient.IdentityInfo(ctx, owner)
 		if err != nil {
 			return nil, fmt.Errorf("resolve VMCP instance user: %w", err)
 		}

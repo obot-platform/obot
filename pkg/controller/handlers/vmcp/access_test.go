@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -132,12 +133,12 @@ func TestPruneUnauthorizedComponents(t *testing.T) {
 			}
 			handler := Handler{
 				acrHelper: accesscontrolrule.NewAccessControlRuleHelper(indexer, client),
-				userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
+				userInfo: func(_ context.Context, p principal.Principal) (kuser.Info, error) {
 					if tc.shared {
 						t.Fatal("shared VMCP should not look up user access")
 					}
-					if id != 1 {
-						t.Fatalf("looked up user %d, want owner 1", id)
+					if p != principal.User(1) {
+						t.Fatalf("looked up %q, want owner 1", p)
 					}
 					if tc.userError {
 						return nil, errors.New("user lookup failed")

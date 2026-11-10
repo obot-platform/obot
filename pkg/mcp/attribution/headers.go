@@ -125,13 +125,18 @@ func selectedIDPUserID(ctx context.Context, reader IdentityReader, selected []ty
 	if !selectedID {
 		return "", nil
 	}
-	userID, err := strconv.ParseUint(caller.GetUID(), 10, 64)
+	// Only users have IdP identities.
+	p, err := principal.Parse(caller.GetUID())
 	if err != nil {
+		return "", nil
+	}
+	userID, ok := p.UserID()
+	if !ok {
 		return "", nil
 	}
 	providerName := cmp.Or(caller.GetExtra()["auth_provider_name"]...)
 	providerNamespace := cmp.Or(caller.GetExtra()["auth_provider_namespace"]...)
-	identities, err := reader.FindIdentitiesForUserAndProvider(ctx, uint(userID), providerName, providerNamespace)
+	identities, err := reader.FindIdentitiesForUserAndProvider(ctx, userID, providerName, providerNamespace)
 	if err != nil {
 		return "", fmt.Errorf("resolve IdP user ID: %w", err)
 	}

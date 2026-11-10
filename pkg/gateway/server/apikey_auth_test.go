@@ -167,3 +167,29 @@ func TestAPIKeyAuthenticatorReadsObotAPIKeyHeaderOnlyOnTheLLMProxy(t *testing.T)
 		}
 	}
 }
+
+func TestAPIKeyAuthenticatorRecordsTheUserKind(t *testing.T) {
+	_, client := newTokenRequestTestServer(t)
+	keyOwner, err := client.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{
+		ProviderUsername: "kim",
+		ProviderUserID:   "kim",
+		Email:            "kim@example.com",
+	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := client.CreateAPIKey(t.Context(), keyOwner.ID, "CLI token", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	req.Header.Set("Authorization", "Bearer "+created.Key)
+
+	response, ok, err := NewAPIKeyAuthenticator(client).AuthenticateRequest(req)
+	if err != nil || !ok || response == nil || response.User == nil {
+		t.Fatalf("authenticate = %v, %v; want the key to authenticate", ok, err)
+	}
+	if got, ok := principal.FromUserInfo(response.User); !ok || got != principal.User(keyOwner.ID) {
+		t.Fatalf("FromUserInfo() = %#v, %v; want %#v", got, ok, principal.User(keyOwner.ID))
+	}
+}

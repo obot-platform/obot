@@ -277,6 +277,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":              schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                        schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                    schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.PrincipalRef":                              schema_obot_platform_obot_apiclient_types_PrincipalRef(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsent":                   schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsentUpdate":             schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProviderConfigurationParameter":            schema_obot_platform_obot_apiclient_types_ProviderConfigurationParameter(ref),
@@ -14015,6 +14016,35 @@ func schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref common
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_PrincipalRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PrincipalRef identifies a user or an agent in API responses and audit records.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the decimal ID of the user or of the agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "id"},
+			},
+		},
 	}
 }
 

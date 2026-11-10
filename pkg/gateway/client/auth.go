@@ -103,7 +103,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	extra["auth_provider_groups"] = authGroupIDs
 	// The admission check denies the request unless the user is active. The status comes from the user row that
 	// EnsureIdentity just read, and replaces anything the auth provider supplied.
-	principal.RecordUserStatus(extra, gatewayUser.Status())
+	principal.RecordPrincipal(extra, principal.KindUser, gatewayUser.Status())
 
 	// Resolve effective role by merging individual + group roles
 	effectiveRole, err := u.client.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs)

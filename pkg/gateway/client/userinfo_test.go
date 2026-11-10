@@ -5,7 +5,9 @@ import (
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestUserInfoByIDEffectiveRole(t *testing.T) {
@@ -37,4 +39,30 @@ func TestUserInfoByIDEffectiveRole(t *testing.T) {
 	info, err = c.UserInfoByID(t.Context(), u.ID)
 	require.ErrorContains(t, err, "failed to resolve effective role")
 	require.Nil(t, info)
+}
+
+func TestIdentityInfo(t *testing.T) {
+	c := newTestClient(t)
+	u := &types.User{Username: "alice", Email: "alice@example.com", Role: apitypes.RoleBasic}
+	require.NoError(t, c.db.WithContext(t.Context()).Create(u).Error)
+
+	want, err := c.UserInfoByID(t.Context(), u.ID)
+	require.NoError(t, err)
+	info, err := c.IdentityInfo(t.Context(), principal.User(u.ID))
+	require.NoError(t, err)
+	require.Equal(t, want, info)
+	got, ok := principal.FromUserInfo(info)
+	require.True(t, ok)
+	require.Equal(t, principal.User(u.ID), got)
+
+	_, err = c.IdentityInfo(t.Context(), principal.User(u.ID+1))
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+
+	// Agents are not stored yet, so no agent is found.
+	info, err = c.IdentityInfo(t.Context(), principal.Agent(u.ID))
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.Nil(t, info)
+
+	_, err = c.IdentityInfo(t.Context(), principal.Principal{})
+	require.Error(t, err)
 }

@@ -109,7 +109,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	if authProviderGroups != nil {
 		extra["auth_provider_groups"] = authProviderGroups
 	}
-	principal.RecordUserStatus(extra, u.Status())
+	principal.RecordPrincipal(extra, principal.KindUser, u.Status())
 
 	return &authenticator.Response{
 		User: &user.DefaultInfo{

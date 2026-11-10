@@ -39,15 +39,17 @@ func (n *NoAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response
 		return nil, false, err
 	}
 
+	extra := map[string][]string{
+		"obot_groups": gatewayUser.Role.Groups(),
+	}
+	principal.RecordPrincipal(extra, principal.KindUser, gatewayUser.Status())
+
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   "nobody",
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: gatewayUser.Role.Groups(),
-			Extra: map[string][]string{
-				"obot_groups":             gatewayUser.Role.Groups(),
-				principal.UserStatusExtra: {string(gatewayUser.Status())},
-			},
+			Extra:  extra,
 		},
 	}, true, nil
 }

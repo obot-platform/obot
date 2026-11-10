@@ -12,6 +12,9 @@ const (
 	// from the gateway database. Code must use RecordUserStatus and
 	// UserStatus instead of this key.
 	UserStatusExtra = "obot_user_status"
+	// KindExtra carries the kind of identity a principal acts for, as its authenticator determined it. Code must use
+	// RecordKind and FromUserInfo instead of this key.
+	KindExtra = "obot_principal_kind"
 )
 
 type admittedPrincipalKey struct{}
@@ -20,6 +23,19 @@ type admittedPrincipalKey struct{}
 // already in extra, so that no auth provider can supply one.
 func RecordUserStatus(extra map[string][]string, status types.UserStatus) {
 	extra[UserStatusExtra] = []string{string(status)}
+}
+
+// RecordKind records the kind of identity a principal acts for. It always replaces any value already in extra, so
+// that no auth provider can supply one.
+func RecordKind(extra map[string][]string, kind Kind) {
+	extra[KindExtra] = []string{string(kind)}
+}
+
+// RecordPrincipal records the kind of identity a principal acts for and its lifecycle status, as every authenticator
+// of users and agents must (RecordKind and RecordUserStatus).
+func RecordPrincipal(extra map[string][]string, kind Kind, status types.UserStatus) {
+	RecordKind(extra, kind)
+	RecordUserStatus(extra, status)
 }
 
 // UserStatus returns the lifecycle status recorded on a principal, and whether its authenticator recorded one.

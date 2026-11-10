@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -12,6 +11,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -134,11 +134,11 @@ func (*VMCPInstanceHandler) Update(req api.Context) error {
 	}
 	selectionUser := req.User
 	if instance.Spec.UserID != req.User.GetUID() && len(manifest.ComponentSet) > 0 {
-		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+		ownerID, err := principal.Parse(instance.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("invalid VMCP instance user ID: %w", err)
 		}
-		owner, err := req.GatewayClient.UserInfoByID(req.Context(), uint(id))
+		owner, err := req.GatewayClient.IdentityInfo(req.Context(), ownerID)
 		if err != nil {
 			return err
 		}

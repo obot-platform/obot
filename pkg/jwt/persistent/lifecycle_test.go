@@ -248,3 +248,36 @@ func TestNewTokenTrustsTheAdmittedPrincipal(t *testing.T) {
 	_, isDenied := errors.AsType[*client.UserAccessDeniedError](err)
 	require.True(t, isDenied, "error = %v, want a denial", err)
 }
+
+func TestAuthenticateRequestRecordsTheUserKind(t *testing.T) {
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
+	user := createLifecycleTestUser(t, gatewayClient, "carol", types.RoleBasic)
+
+	for _, tt := range []struct {
+		name   string
+		userID uint
+	}{
+		{
+			name:   "existing user",
+			userID: user.ID,
+		},
+		{
+			name:   "missing user",
+			userID: 4242,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req, _ := authenticateToken(t, tokenService, TokenContext{
+				UserID:     fmt.Sprint(tt.userID),
+				UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
+			})
+
+			response, ok, err := tokenService.AuthenticateRequest(req)
+			require.NoError(t, err)
+			require.True(t, ok)
+			got, ok := principal.FromUserInfo(response.User)
+			require.True(t, ok)
+			assert.Equal(t, principal.User(tt.userID), got)
+		})
+	}
+}

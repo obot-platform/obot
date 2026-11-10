@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -116,9 +115,10 @@ func isNonUserPrincipal(u user.Info) bool {
 
 // admissionUserID returns the ID of the user a principal acts for, for error reporting, or 0 if it has none.
 func admissionUserID(u user.Info) uint {
-	id, err := strconv.ParseUint(u.GetUID(), 10, 0)
+	p, err := principal.Parse(u.GetUID())
 	if err != nil {
 		return 0
 	}
-	return uint(id)
+	id, _ := p.UserID()
+	return id
 }

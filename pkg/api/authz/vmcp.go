@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -25,11 +25,15 @@ func CheckVMCPComponentAccess(ctx context.Context, u kuser.Info, ownerID string,
 	if ownerID != u.GetUID() {
 		// Administrators can manage another user's personal vMCP, but its catalog
 		// access must follow the owner, not the administrator performing the edit.
-		id, err := strconv.ParseUint(ownerID, 10, 64)
+		owner, err := principal.Parse(ownerID)
 		if err != nil {
 			return fmt.Errorf("invalid VMCP owner ID %q: %w", ownerID, err)
 		}
-		u, err = userInfo(ctx, uint(id))
+		userID, ok := owner.UserID()
+		if !ok {
+			return fmt.Errorf("invalid VMCP owner ID %q: personal VMCPs are owned by users", ownerID)
+		}
+		u, err = userInfo(ctx, userID)
 		if err != nil {
 			return fmt.Errorf("get VMCP owner %q: %w", ownerID, err)
 		}

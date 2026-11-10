@@ -7,13 +7,13 @@ import (
 	"log/slog"
 	"reflect"
 	"slices"
-	"strconv"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -26,14 +26,14 @@ import (
 
 type Handler struct {
 	revealCredential func(context.Context, []string, string) (gatewaytypes.Credential, error)
-	userInfo         func(context.Context, uint) (kuser.Info, error)
+	userInfo         func(context.Context, principal.Principal) (kuser.Info, error)
 }
 
 func New(gatewayClient *gateway.Client) *Handler {
 	handler := &Handler{}
 	if gatewayClient != nil {
 		handler.revealCredential = gatewayClient.RevealCredential
-		handler.userInfo = gatewayClient.UserInfoByID
+		handler.userInfo = gatewayClient.IdentityInfo
 	}
 	return handler
 }
@@ -68,12 +68,12 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 		return err
 	}
 
-	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+	owner, err := principal.Parse(instance.Spec.UserID)
 	if err != nil {
 		return fmt.Errorf("invalid VMCP instance user ID: %w", err)
 	}
 
-	u, err := h.userInfo(req.Ctx, uint(id))
+	u, err := h.userInfo(req.Ctx, owner)
 	if err != nil {
 		return err
 	}
@@ -142,12 +142,12 @@ func (h *Handler) instanceUser(req router.Request, vmcp v1.VMCP, instance v1.VMC
 		return nil, err
 	}
 
-	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+	owner, err := principal.Parse(instance.Spec.UserID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid VMCP instance user ID: %w", err)
 	}
 
-	return h.userInfo(req.Ctx, uint(id))
+	return h.userInfo(req.Ctx, owner)
 }
 
 // SyncUserConfigurationHash records the current instance credential without

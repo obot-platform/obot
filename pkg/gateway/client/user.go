@@ -173,17 +173,37 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 		return nil, err
 	}
 
+	extra := map[string][]string{
+		"obot_groups":          u.Role.Groups(),
+		"auth_provider_groups": groupIDs,
+		"email":                {u.Email},
+	}
+	principal.RecordPrincipal(extra, principal.KindUser, u.Status())
+
 	return &kuser.DefaultInfo{
 		Name:   u.Username,
 		UID:    fmt.Sprintf("%d", u.ID),
 		Groups: u.Role.Groups(),
-		Extra: map[string][]string{
-			"obot_groups":             u.Role.Groups(),
-			"auth_provider_groups":    groupIDs,
-			"email":                   {u.Email},
-			principal.UserStatusExtra: {string(u.Status())},
-		},
+		Extra:  extra,
 	}, nil
+}
+
+// IdentityInfo loads the current identity of a stored owner, for evaluating access as that owner. For a user it is
+// UserInfoByID: groups, role groups and lifecycle status. Agents are not stored yet, so for an agent it returns an
+// error that wraps gorm.ErrRecordNotFound.
+func (c *Client) IdentityInfo(ctx context.Context, p principal.Principal) (kuser.Info, error) {
+	switch p.Kind {
+	case principal.KindUser:
+		id, ok := p.UserID()
+		if !ok {
+			return nil, fmt.Errorf("invalid user principal ID %q", p.ID)
+		}
+		return c.UserInfoByID(ctx, id)
+	case principal.KindAgent:
+		return nil, fmt.Errorf("agent %s: %w", p.ID, gorm.ErrRecordNotFound)
+	default:
+		return nil, fmt.Errorf("unknown principal kind %q", p.Kind)
+	}
 }
 
 // getUserAndGroupIDs fetches a user and their group memberships.

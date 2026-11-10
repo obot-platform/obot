@@ -1524,3 +1524,38 @@ func TestSignInOfDeletedUserIsRefusedUntilCleanup(t *testing.T) {
 		t.Fatalf("sign-up after cleanup returned the deleted user %d", user.ID)
 	}
 }
+
+func TestUserDecoratorRecordsTheUserKindOverAnyProviderValue(t *testing.T) {
+	c := newLifecycleTestClient(t)
+	user := createLifecycleTestUser(t, c, "ursula", lifecycleTestProvider)
+
+	decorator := NewUserDecorator(
+		authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
+			return &authenticator.Response{
+				User: &kuser.DefaultInfo{
+					Name: "ursula",
+					UID:  "00u-ursula",
+					Extra: map[string][]string{
+						"email":                   {"ursula@example.com"},
+						"auth_provider_name":      {lifecycleTestProvider.Name},
+						"auth_provider_namespace": {lifecycleTestProvider.Namespace},
+						// An auth provider must not be able to choose the kind of principal.
+						principal.KindExtra: {string(principal.KindAgent)},
+					},
+				},
+			}, true, nil
+		}),
+		c,
+		entitlementsFunc(func(context.Context) (apitypes.Entitlements, error) {
+			return apitypes.Entitlements{}, nil
+		}),
+	)
+
+	resp, ok, err := decorator.AuthenticateRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	if err != nil || !ok {
+		t.Fatalf("authenticate = %v, %v; want a principal", ok, err)
+	}
+	if got, ok := principal.FromUserInfo(resp.User); !ok || got != principal.User(user.ID) {
+		t.Fatalf("FromUserInfo() = %#v, %v; want %#v", got, ok, principal.User(user.ID))
+	}
+}

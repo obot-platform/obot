@@ -239,26 +239,32 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	groups := tokenContext.UserGroups
 	extra["obot_groups"] = slices.Clone(groups)
 
-	if userID, err := strconv.ParseUint(tokenContext.UserID, 10, 64); err == nil {
-		// Read the user and their auth provider groups in one transaction. The role is recomputed from them on every
-		// use, so an old token cannot keep a removed group's role, and the user's lifecycle status comes from the
-		// same read.
-		gatewayUser, authGroupIDs, err := t.gatewayClient.UserByIDWithEffectiveRole(req.Context(), uint(userID))
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// The token outlived its user. The admission check denies it.
-			principal.RecordUserStatus(extra, apitypes.UserStatusDeleted)
-		} else if err != nil {
-			return nil, false, &client.UserAccessLookupError{
-				UserID: uint(userID),
-				Err:    err,
-			}
-		} else {
-			extra["auth_provider_groups"] = authGroupIDs
-			extra["obot_groups"] = gatewayUser.Role.RoleGroups()
-			principal.RecordUserStatus(extra, gatewayUser.Status())
+	// Tokens for anything other than a user are not authenticated here.
+	owner, err := principal.Parse(tokenContext.UserID)
+	if err != nil {
+		return nil, false, nil
+	}
+	userID, ok := owner.UserID()
+	if !ok {
+		return nil, false, nil
+	}
+
+	// Read the user and their auth provider groups in one transaction. The role is recomputed from them on every
+	// use, so an old token cannot keep a removed group's role, and the user's lifecycle status comes from the
+	// same read. IdentityInfo is not used because this principal carries only role groups in obot_groups.
+	gatewayUser, authGroupIDs, err := t.gatewayClient.UserByIDWithEffectiveRole(req.Context(), userID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// The token outlived its user. The admission check denies it.
+		principal.RecordPrincipal(extra, principal.KindUser, apitypes.UserStatusDeleted)
+	} else if err != nil {
+		return nil, false, &client.UserAccessLookupError{
+			UserID: userID,
+			Err:    err,
 		}
 	} else {
-		return nil, false, nil
+		extra["auth_provider_groups"] = authGroupIDs
+		extra["obot_groups"] = gatewayUser.Role.RoleGroups()
+		principal.RecordPrincipal(extra, principal.KindUser, gatewayUser.Status())
 	}
 
 	return &authenticator.Response{
@@ -391,9 +397,13 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 	// mints for that user is not checked again.
 	if t.gatewayClient != nil {
 		ownerID := context.UserID
-		if userID, err := strconv.ParseUint(ownerID, 10, 64); err == nil && !principal.AdmittedActiveUser(ctx, ownerID) {
-			if err := t.gatewayClient.CheckCredentialOwner(ctx, uint(userID)); err != nil {
-				return nil, "", err
+		// Only users have a lifecycle status to check. Tokens for other owners, such as system principals, are
+		// issued as before.
+		if owner, err := principal.Parse(ownerID); err == nil {
+			if userID, ok := owner.UserID(); ok && !principal.AdmittedActiveUser(ctx, ownerID) {
+				if err := t.gatewayClient.CheckCredentialOwner(ctx, userID); err != nil {
+					return nil, "", err
+				}
 			}
 		}
 	}

@@ -66,9 +66,9 @@ func TestCheckVMCPComponentAccessUsesOwner(t *testing.T) {
 			})
 			lookedUp := false
 			err := CheckVMCPComponentAccess(t.Context(), &user.DefaultInfo{UID: "1", Groups: []string{types.GroupAdmin}}, tc.ownerID, entry, authorizer.acrHelper,
-				func(_ context.Context, id uint) (user.Info, error) {
+				func(_ context.Context, ownerID uint) (user.Info, error) {
 					lookedUp = true
-					require.Equal(t, uint(2), id)
+					require.Equal(t, uint(2), ownerID)
 					return &user.DefaultInfo{UID: "2"}, nil
 				})
 			if tc.wantError != "" {
