@@ -460,6 +460,8 @@ Under **Applications > OAuth > OpenID Connect Policy Management**, use a policy 
 
 Release `sub` and the name attributes in the userinfo response, as PingFederate does by default (**Include in UserInfo**): Obot reads users' display names from userinfo only. `email` and `groups` may be released in the ID token, the userinfo response, or both.
 
+Map `email` and `groups` from the same directory lookup, the same attribute source in the policy. When PingFederate can't reach that directory, it still answers, without the attributes it would have read there. Obot recognizes a refreshed session without an email as such a failure: it keeps the user's groups and ends the session, and the user signs in again once the directory is back. If `groups` came from a different source than `email`, that source failing would go unnoticed, and users would lose their groups until their next refresh after it recovers.
+
 Enable **Return ID Token on Refresh Grant** in the policy. It is required: Obot reads a session's groups from its ID token, so it ends a session that PingFederate refreshes without a new one, and the user must sign in again.
 
 Obot refreshes a session once it is older than **Token Refresh Duration** (default 1 hour). Keep that shorter than the **Token Lifetime** of the client's access token manager, which defaults to 120 minutes. If access tokens expire before Obot refreshes them, updates to users' display names fail until the next refresh. PingFederate's refresh token rolling needs no change: parallel requests from one browser refresh the session once.
