@@ -333,7 +333,22 @@ func legacyAggregate(ctx context.Context, name string, secrets map[string]string
 		}
 		keys = append(keys, k)
 	}
-	return llmcoreclient.Provider{Config: pc, Keys: keys, Migration: &llmcoreclient.ProviderMigration{Source: name}}, nil
+	provider := llmcoreclient.Provider{Config: pc, Keys: keys, Migration: &llmcoreclient.ProviderMigration{Source: name}}
+	if name == system.AzureEntraModelProvider {
+		account := llmcoreclient.AzureAccount{
+			SubscriptionID: secretWithSuffix(secrets, "_MODEL_PROVIDER_SUBSCRIPTION_ID"),
+			ResourceGroup:  secretWithSuffix(secrets, "_MODEL_PROVIDER_RESOURCE_GROUP"),
+			AccountName:    secretWithSuffix(secrets, "_MODEL_PROVIDER_RESOURCE_NAME"),
+		}
+		// Older sources without account metadata retain their explicit deployment policies.
+		if account != (llmcoreclient.AzureAccount{}) {
+			if err := validateAzureDiscovery(keys[0], account); err != nil {
+				return llmcoreclient.Provider{}, err
+			}
+			provider.AzureAccounts = map[string]llmcoreclient.AzureAccount{keys[0].ID: account}
+		}
+	}
+	return provider, nil
 }
 
 // migratedSources verifies aggregates rather than trusting a global completion
@@ -549,6 +564,11 @@ func (e *Engine) importLegacySources(ctx context.Context, names []string, secret
 				p = candidate
 			} else {
 				p.Keys = append(p.Keys, candidate.Keys...)
+				if p.AzureAccounts == nil {
+					p.AzureAccounts = candidate.AzureAccounts
+				} else {
+					maps.Copy(p.AzureAccounts, candidate.AzureAccounts)
+				}
 			}
 		}
 		if err == nil {
