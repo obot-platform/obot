@@ -59,3 +59,141 @@ export function createDragAnchor(scrollTop: () => number): DragAnchor {
 		}
 	};
 }
+
+/** Nearest element, starting at `from`, that scrolls vertically and has overflow to scroll. */
+export function scrollableAncestor(from: Element | null | undefined): HTMLElement | null {
+	let current = from ?? null;
+	while (current instanceof HTMLElement) {
+		const overflowY = getComputedStyle(current).overflowY;
+		if (
+			(overflowY === 'auto' || overflowY === 'scroll') &&
+			current.scrollHeight > current.clientHeight + 1
+		) {
+			return current;
+		}
+		current = current.parentElement;
+	}
+	return null;
+}
+
+export function floatDragClone(
+	clone: HTMLElement,
+	style: { zIndex: string; maxWidth: string; opacity: string }
+) {
+	clone.setAttribute('aria-hidden', 'true');
+	clone.setAttribute('data-drag-clone', '');
+	clone.style.position = 'fixed';
+	clone.style.margin = '0';
+	clone.style.width = 'max-content';
+	clone.style.maxWidth = style.maxWidth;
+	clone.style.opacity = style.opacity;
+	clone.style.pointerEvents = 'none';
+	clone.style.zIndex = style.zIndex;
+}
+
+export interface DragSessionOptions {
+	/** The element to auto-scroll while the pointer is near its top or bottom edge. */
+	scroller: (x: number, y: number) => HTMLElement | null;
+	/** Runs after each pointer move and after each auto-scroll step. */
+	onMove: (x: number, y: number) => void;
+	/** Runs on pointerup with its coordinates; x and y keep the last pointermove position. */
+	onDrop: (x: number, y: number) => void;
+	/** Runs on pointercancel or Escape. */
+	onCancel: () => void;
+}
+
+export interface DragSession {
+	readonly active: boolean;
+	readonly x: number;
+	readonly y: number;
+	start(x: number, y: number): void;
+	stop(): void;
+}
+
+export function createDragSession(options: DragSessionOptions): DragSession {
+	let active = false;
+	let x = 0;
+	let y = 0;
+	let frame = 0;
+
+	function stopScroll() {
+		if (!frame || typeof cancelAnimationFrame === 'undefined') return;
+		cancelAnimationFrame(frame);
+		frame = 0;
+	}
+
+	function tick() {
+		frame = 0;
+		if (!active) return;
+		const scroller = options.scroller(x, y);
+		const delta = dragScrollDelta(scroller, y);
+		if (!delta || !scroller) return;
+		scroller.scrollTop += delta;
+		options.onMove(x, y);
+		frame = requestAnimationFrame(tick);
+	}
+
+	function syncScroll() {
+		if (!dragScrollDelta(options.scroller(x, y), y)) {
+			stopScroll();
+			return;
+		}
+		if (!frame) frame = requestAnimationFrame(tick);
+	}
+
+	function onPointerMove(event: PointerEvent) {
+		if (!active) return;
+		x = event.clientX;
+		y = event.clientY;
+		options.onMove(x, y);
+		syncScroll();
+	}
+
+	function onPointerUp(event: PointerEvent) {
+		if (!active) return;
+		options.onDrop(event.clientX, event.clientY);
+	}
+
+	function onPointerCancel() {
+		if (active) options.onCancel();
+	}
+
+	function onKeyDown(event: KeyboardEvent) {
+		if (!active || event.key !== 'Escape') return;
+		event.preventDefault();
+		options.onCancel();
+	}
+
+	function stop() {
+		active = false;
+		stopScroll();
+		if (typeof window === 'undefined') return;
+		window.removeEventListener('pointermove', onPointerMove);
+		window.removeEventListener('pointerup', onPointerUp);
+		window.removeEventListener('pointercancel', onPointerCancel);
+		window.removeEventListener('keydown', onKeyDown);
+	}
+
+	return {
+		get active() {
+			return active;
+		},
+		get x() {
+			return x;
+		},
+		get y() {
+			return y;
+		},
+		start(startX, startY) {
+			stop();
+			active = true;
+			x = startX;
+			y = startY;
+			window.addEventListener('pointermove', onPointerMove);
+			window.addEventListener('pointerup', onPointerUp);
+			window.addEventListener('pointercancel', onPointerCancel);
+			window.addEventListener('keydown', onKeyDown);
+		},
+		stop
+	};
+}

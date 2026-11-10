@@ -11,14 +11,19 @@
 		appendHeader,
 		appendWidget,
 		defaultHideWhenEmpty,
+		findHeader,
+		findPlacement,
 		insertBox,
 		insertHeader,
 		moveBox,
 		moveHeader,
 		placeWidget,
+		placedWidgetIds,
 		removeBox,
 		removeHeader,
 		removeWidget,
+		rowAt,
+		rowsAt,
 		setHeaderText,
 		setHideWhenEmpty,
 		toggleDeviceStat,
@@ -28,7 +33,12 @@
 		type DashboardRow,
 		type WidgetId
 	} from './dashboardLayout';
-	import { createDragAnchor, dragScrollDelta } from './dragScroll';
+	import {
+		createDragAnchor,
+		createDragSession,
+		floatDragClone,
+		scrollableAncestor
+	} from './dragScroll';
 	import {
 		deviceStatLabel,
 		modelStatLabel,
@@ -62,9 +72,8 @@
 	let dragging = $state<DragSubject | null>(null);
 	let dropKey = $state<string | null>(null);
 	let dragPreview: HTMLElement | null = null;
-	let dragPointerX = 0;
-	let dragPointerY = 0;
-	let dragScrollFrame = 0;
+	let pointerX = 0;
+	let pointerY = 0;
 	let layoutScroller = $state<HTMLElement>();
 
 	function copyConfig(value: DashboardConfig): DashboardConfig {
@@ -75,7 +84,7 @@
 	let resetPending = false;
 	const editing = $derived(draft ?? config);
 
-	const placed = $derived(new Set(placedIds(editing.rows)));
+	const placed = $derived(placedWidgetIds(editing.rows));
 	const palette = $derived(available.filter((id) => !placed.has(id)));
 
 	function stage(next: DashboardConfig) {
@@ -152,13 +161,27 @@
 	}
 
 	const dropAnchor = createDragAnchor(layoutScrollTop);
+	const drag = createDragSession({
+		scroller: (x, y) =>
+			typeof document === 'undefined' ? null : scrollableAncestor(document.elementFromPoint(x, y)),
+		onMove: (x, y) => {
+			moveDragPreview(x, y);
+			highlightAt(x, y);
+		},
+		onDrop: (x, y) => {
+			highlightAt(x, y);
+			applyPendingDrop();
+			endDrag();
+		},
+		onCancel: () => endDrag()
+	});
 
 	function rememberAnchor() {
-		dropAnchor.remember(dragPointerX, dragPointerY);
+		dropAnchor.remember(pointerX, pointerY);
 	}
 
 	function dropTravel(): number {
-		return dropAnchor.travel(dragPointerX, dragPointerY);
+		return dropAnchor.travel(pointerX, pointerY);
 	}
 
 	function boxWithMargin(node: HTMLElement): DOMRect {
@@ -216,7 +239,7 @@
 			ghostReady = false;
 			if (dragging) {
 				settleClone(false);
-				moveDragPreview(dragPointerX, dragPointerY);
+				moveDragPreview(pointerX, pointerY);
 			}
 			return;
 		}
@@ -225,34 +248,11 @@
 	}
 
 	function headerText(id: string): string {
-		const walk = (rows: DashboardRow[]): string | undefined => {
-			for (const row of rows) {
-				if (row.kind === 'header' && row.id === id) return row.text;
-				if (row.kind === 'box') {
-					const nested = walk(row.rows);
-					if (nested !== undefined) return nested;
-				}
-			}
-			return undefined;
-		};
-		return walk(editing.rows) ?? '';
+		return findHeader(editing.rows, id)?.text ?? '';
 	}
 
 	function previewHideWhenEmpty(id: WidgetId): boolean {
-		const walk = (rows: DashboardRow[]): boolean | undefined => {
-			for (const row of rows) {
-				if (row.kind === 'widgets') {
-					const found = row.items.find((item) => item.id === id);
-					if (found) return found.hideWhenEmpty;
-				}
-				if (row.kind === 'box') {
-					const nested = walk(row.rows);
-					if (nested !== undefined) return nested;
-				}
-			}
-			return undefined;
-		};
-		return walk(editing.rows) ?? defaultHideWhenEmpty(id);
+		return findPlacement(editing.rows, id)?.hideWhenEmpty ?? defaultHideWhenEmpty(id);
 	}
 
 	function dragPreviewModel():
@@ -289,16 +289,8 @@
 		if (!(preview instanceof HTMLElement)) return;
 
 		clearDragPreview();
-		preview.setAttribute('aria-hidden', 'true');
-		preview.setAttribute('data-drag-clone', '');
-		preview.style.position = 'fixed';
-		preview.style.zIndex = '10000';
-		preview.style.width = 'max-content';
-		preview.style.maxWidth = 'none';
-		preview.style.margin = '0';
-		preview.style.opacity = '1';
+		floatDragClone(preview, { zIndex: '10000', maxWidth: 'none', opacity: '1' });
 		preview.style.visibility = 'visible';
-		preview.style.pointerEvents = 'none';
 		preview.style.transformOrigin = 'center';
 		preview.style.transform = 'scale(1)';
 		preview.classList.remove('min-w-0', 'flex-1');
@@ -319,15 +311,6 @@
 		moveDragPreview(x, y);
 	}
 
-	function detachDragListeners() {
-		stopDragAutoScroll();
-		if (typeof window === 'undefined') return;
-		window.removeEventListener('pointermove', onPointerMove);
-		window.removeEventListener('pointerup', onPointerUp);
-		window.removeEventListener('pointercancel', onPointerCancel);
-		window.removeEventListener('keydown', onDragKeyDown);
-	}
-
 	function beginDrag(event: PointerEvent, subject: DragSubject) {
 		if (event.button !== 0) return;
 		const current = event.currentTarget;
@@ -339,16 +322,13 @@
 		}
 		event.preventDefault();
 		dragging = subject;
-		dragPointerX = event.clientX;
-		dragPointerY = event.clientY;
+		pointerX = event.clientX;
+		pointerY = event.clientY;
+		drag.start(event.clientX, event.clientY);
 		clearPendingDrop();
 		rememberAnchor();
 		setGrabbingCursor(true);
 		mountDragPreview(current, event.clientX, event.clientY);
-		window.addEventListener('pointermove', onPointerMove);
-		window.addEventListener('pointerup', onPointerUp);
-		window.addEventListener('pointercancel', onPointerCancel);
-		window.addEventListener('keydown', onDragKeyDown);
 	}
 
 	function endDrag() {
@@ -357,41 +337,11 @@
 		clearPendingDrop();
 		clearDragPreview();
 		setGrabbingCursor(false);
-		detachDragListeners();
-	}
-
-	function placedIds(rows: DashboardRow[]): WidgetId[] {
-		return rows.flatMap((row) => {
-			if (row.kind === 'widgets') return row.items.map((placement) => placement.id);
-			if (row.kind === 'box') return placedIds(row.rows);
-			return [];
-		});
-	}
-
-	function rowAt(path: number[]): DashboardRow | undefined {
-		let rows = editing.rows;
-		for (let depth = 0; depth < path.length; depth += 1) {
-			const row = rows[path[depth]];
-			if (!row) return undefined;
-			if (depth === path.length - 1) return row;
-			if (row.kind !== 'box') return undefined;
-			rows = row.rows;
-		}
-		return undefined;
-	}
-
-	function rowsAt(parent: number[]): DashboardRow[] {
-		let rows = editing.rows;
-		for (const index of parent) {
-			const row = rows[index];
-			if (row?.kind !== 'box') return [];
-			rows = row.rows;
-		}
-		return rows;
+		drag.stop();
 	}
 
 	function gapPreviewSpacing(parent: number[], index: number): string {
-		const rows = rowsAt(parent);
+		const rows = rowsAt(editing.rows, parent) ?? [];
 		const insideBox = parent.length > 0;
 		const betweenRows = index > 0 && index < rows.length;
 		const boxStart = insideBox && index === 0;
@@ -407,7 +357,7 @@
 
 	function rowAccepts(parent: number[], rowIndex: number) {
 		const subject = dragging;
-		const row = rowAt([...parent, rowIndex]);
+		const row = rowAt(editing.rows, [...parent, rowIndex]);
 		if (!row || row.kind !== 'widgets' || !subject || subject.kind !== 'widget') return false;
 		return (
 			row.items.some((placement) => placement.id === subject.id) ||
@@ -551,8 +501,8 @@
 
 	function highlightAt(x: number, y: number) {
 		if (typeof document === 'undefined') return;
-		dragPointerX = x;
-		dragPointerY = y;
+		pointerX = x;
+		pointerY = y;
 		if (dropKey && (stillInsideCurrentDrop(x, y) || dropTravel() < dropHoldPx)) return;
 		const node = document.elementFromPoint(x, y);
 		const target = node instanceof Element ? node : null;
@@ -607,75 +557,6 @@
 				index: drop.index
 			})
 		);
-	}
-
-	function scrollerAt(x: number, y: number): HTMLElement | null {
-		if (typeof document === 'undefined') return null;
-		const hit = document.elementFromPoint(x, y);
-		let current = hit instanceof Element ? hit : null;
-		while (current instanceof HTMLElement) {
-			const overflowY = getComputedStyle(current).overflowY;
-			if (
-				(overflowY === 'auto' || overflowY === 'scroll') &&
-				current.scrollHeight > current.clientHeight + 1
-			) {
-				return current;
-			}
-			current = current.parentElement;
-		}
-		return null;
-	}
-
-	function stopDragAutoScroll() {
-		if (!dragScrollFrame || typeof cancelAnimationFrame === 'undefined') return;
-		cancelAnimationFrame(dragScrollFrame);
-		dragScrollFrame = 0;
-	}
-
-	function tickDragAutoScroll() {
-		dragScrollFrame = 0;
-		if (!dragging) return;
-		const scroller = scrollerAt(dragPointerX, dragPointerY);
-		const delta = dragScrollDelta(scroller, dragPointerY);
-		if (!delta || !scroller) return;
-		scroller.scrollTop += delta;
-		moveDragPreview(dragPointerX, dragPointerY);
-		highlightAt(dragPointerX, dragPointerY);
-		dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
-	}
-
-	function syncDragAutoScroll() {
-		if (!dragScrollDelta(scrollerAt(dragPointerX, dragPointerY), dragPointerY)) {
-			stopDragAutoScroll();
-			return;
-		}
-		if (!dragScrollFrame) dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
-	}
-
-	function onPointerMove(event: PointerEvent) {
-		if (!dragging) return;
-		dragPointerX = event.clientX;
-		dragPointerY = event.clientY;
-		moveDragPreview(event.clientX, event.clientY);
-		highlightAt(event.clientX, event.clientY);
-		syncDragAutoScroll();
-	}
-
-	function onPointerUp(event: PointerEvent) {
-		if (!dragging) return;
-		highlightAt(event.clientX, event.clientY);
-		applyPendingDrop();
-		endDrag();
-	}
-
-	function onPointerCancel() {
-		endDrag();
-	}
-
-	function onDragKeyDown(event: KeyboardEvent) {
-		if (event.key !== 'Escape') return;
-		event.preventDefault();
-		endDrag();
 	}
 
 	onDestroy(endDrag);

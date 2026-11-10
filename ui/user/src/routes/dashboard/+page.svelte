@@ -44,12 +44,11 @@
 		moveHeader,
 		placeWidget,
 		projectConfig,
-		hasRenderedContent,
+		hasGridContent,
 		headerVisibilities,
 		hasLlmUsage,
 		neededDatasets,
 		placedWidgetIds,
-		rowsForRender,
 		widgetStatuses,
 		type DashboardConfig,
 		type DeviceStatId,
@@ -58,7 +57,12 @@
 		type ModelStatId,
 		type PlatformStatId
 	} from './dashboardLayout';
-	import { createDragAnchor, dragScrollDelta } from './dragScroll';
+	import {
+		createDragAnchor,
+		createDragSession,
+		floatDragClone,
+		scrollableAncestor
+	} from './dragScroll';
 	import DashboardWidget from './widgets/DashboardWidget.svelte';
 	import WidgetFrame from './widgets/WidgetFrame.svelte';
 	import { deviceStatLabel, platformStatLabel } from './widgets/labels';
@@ -245,9 +249,6 @@
 	let dragClone: HTMLElement | null = null;
 	let dragOffsetX = 0;
 	let dragOffsetY = 0;
-	let dragPointerX = 0;
-	let dragPointerY = 0;
-	let dragScrollFrame = 0;
 	const previewDwellMs = 120;
 	const previewTravelPx = 28;
 	const cardGutterPx = 24;
@@ -255,6 +256,12 @@
 	let appliedKey = '';
 	let heldKey = '';
 	const dragAnchor = createDragAnchor(() => dashboardScroller()?.scrollTop ?? 0);
+	const drag = createDragSession({
+		scroller: () => dashboardScroller(),
+		onMove: () => placeDraggedAtPointer(),
+		onDrop: () => finishDrag(true),
+		onCancel: () => finishDrag(false)
+	});
 	const editingLayout = $derived(draft ?? dashboardLayout);
 	const placedWidgets = $derived(placedWidgetIds(editingLayout.rows));
 	const individualToolResponses = $derived(
@@ -296,19 +303,44 @@
 		return null;
 	}
 
-	function pointInside(node: HTMLElement, x: number, y: number): boolean {
-		const rect = node.getBoundingClientRect();
+	type Probe = { dragged: HTMLElement | null; rect: (node: HTMLElement) => DOMRect };
+
+	function createProbe(): Probe {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const rects = new Map<HTMLElement, DOMRect>();
+		return {
+			dragged: draggedNode(),
+			rect(node) {
+				let rect = rects.get(node);
+				if (!rect) {
+					rect = node.getBoundingClientRect();
+					rects.set(node, rect);
+				}
+				return rect;
+			}
+		};
+	}
+
+	function pointInside(rect: DOMRect, x: number, y: number): boolean {
 		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 	}
 
-	function coversPointer(node: HTMLElement, x: number, y: number, gutter = 0): boolean {
-		const rect = node.getBoundingClientRect();
+	function coversPointer(rect: DOMRect, x: number, y: number, gutter = 0): boolean {
 		return x >= rect.left - gutter && x <= rect.right && y >= rect.top && y <= rect.bottom;
 	}
 
-	function nodeArea(node: HTMLElement): number {
-		const rect = node.getBoundingClientRect();
-		return rect.width * rect.height;
+	function smallest(nodes: HTMLElement[], probe: Probe): HTMLElement | undefined {
+		let best: HTMLElement | undefined;
+		let bestArea = Number.POSITIVE_INFINITY;
+		for (const node of nodes) {
+			const rect = probe.rect(node);
+			const area = rect.width * rect.height;
+			if (area < bestArea) {
+				best = node;
+				bestArea = area;
+			}
+		}
+		return best;
 	}
 
 	function targetKey(action: DropTarget | null): string {
@@ -319,7 +351,7 @@
 
 	type RowBand = { index: number; top: number; bottom: number; nodes: HTMLElement[] };
 
-	function rowBands(box: HTMLElement): RowBand[] {
+	function rowBands(box: HTMLElement, probe: Probe): RowBand[] {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const bands = new Map<number, RowBand>();
 		for (const node of box.querySelectorAll(
@@ -330,7 +362,7 @@
 			const index = node.hasAttribute('data-dashboard-box')
 				? (parsePath(node.dataset.boxPath).at(-1) ?? 0)
 				: Number(node.dataset.row);
-			const rect = node.getBoundingClientRect();
+			const rect = probe.rect(node);
 			const band = bands.get(index);
 			if (!band) {
 				bands.set(index, { index, top: rect.top, bottom: rect.bottom, nodes: [node] });
@@ -343,11 +375,11 @@
 		return [...bands.values()].sort((a, b) => a.top - b.top || a.index - b.index);
 	}
 
-	function closestNode(nodes: HTMLElement[], x: number): HTMLElement | null {
+	function closestNode(nodes: HTMLElement[], x: number, probe: Probe): HTMLElement | null {
 		let best: HTMLElement | null = null;
 		let bestDist = Number.POSITIVE_INFINITY;
 		for (const node of nodes) {
-			const rect = node.getBoundingClientRect();
+			const rect = probe.rect(node);
 			const dist = x < rect.left ? rect.left - x : x > rect.right ? x - rect.right : 0;
 			if (dist < bestDist) {
 				best = node;
@@ -361,9 +393,10 @@
 		node: HTMLElement,
 		x: number,
 		y: number,
-		kind: DragSubject['kind']
+		kind: DragSubject['kind'],
+		probe: Probe
 	): DropTarget | null {
-		const rect = node.getBoundingClientRect();
+		const rect = probe.rect(node);
 		if (node.hasAttribute('data-dashboard-card')) {
 			const parent = parsePath(node.dataset.parent);
 			const row = Number(node.dataset.row);
@@ -392,17 +425,18 @@
 				index: y < rect.top + rect.height / 2 ? row : row + 1
 			};
 		}
-		return actionForBox(node, x, y, kind);
+		return actionForBox(node, x, y, kind, probe);
 	}
 
 	function actionForBox(
 		box: HTMLElement,
 		x: number,
 		y: number,
-		kind: DragSubject['kind']
+		kind: DragSubject['kind'],
+		probe: Probe
 	): DropTarget | null {
 		const path = parsePath(box.dataset.boxPath);
-		const bands = rowBands(box);
+		const bands = rowBands(box, probe);
 		if (bands.length === 0) return { kind: 'new-row', path, index: 0 };
 		const first = bands[0];
 		const last = bands[bands.length - 1];
@@ -414,9 +448,9 @@
 			const below =
 				i === bands.length - 1 ? Number.POSITIVE_INFINITY : (band.bottom + bands[i + 1].top) / 2;
 			if (y < above || y > below) continue;
-			const node = closestNode(band.nodes, x);
-			if (!node || node === draggedNode()) return null;
-			return actionFor(node, x, y, kind);
+			const node = closestNode(band.nodes, x, probe);
+			if (!node || node === probe.dragged) return null;
+			return actionFor(node, x, y, kind, probe);
 		}
 		return { kind: 'new-row', path, index: last.index + 1 };
 	}
@@ -433,22 +467,28 @@
 	}
 
 	function actionAt(x: number, y: number, subject: DragSubject): DropTarget | null {
-		const dragged = draggedNode();
-		if (dragged && coversPointer(dragged, x, y, cardGutterPx)) return null;
+		const probe = createProbe();
+		const dragged = probe.dragged;
+		if (dragged && coversPointer(probe.rect(dragged), x, y, cardGutterPx)) return null;
 		const nodes = hitNodes().filter((node) => node !== dragged);
 		const cards = nodes.filter((node) => !node.hasAttribute('data-dashboard-box'));
-		const hit = cards
-			.filter((node) => pointInside(node, x, y))
-			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
-		if (hit) return actionFor(hit, x, y, subject.kind);
-		const beside = cards
-			.filter((node) => coversPointer(node, x, y, cardGutterPx))
-			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
-		if (beside) return actionFor(beside, x, y, subject.kind);
-		const box = nodes
-			.filter((node) => node.hasAttribute('data-dashboard-box') && pointInside(node, x, y))
-			.sort((a, b) => nodeArea(a) - nodeArea(b))[0];
-		return box ? actionForBox(box, x, y, subject.kind) : null;
+		const hit = smallest(
+			cards.filter((node) => pointInside(probe.rect(node), x, y)),
+			probe
+		);
+		if (hit) return actionFor(hit, x, y, subject.kind, probe);
+		const beside = smallest(
+			cards.filter((node) => coversPointer(probe.rect(node), x, y, cardGutterPx)),
+			probe
+		);
+		if (beside) return actionFor(beside, x, y, subject.kind, probe);
+		const box = smallest(
+			nodes.filter(
+				(node) => node.hasAttribute('data-dashboard-box') && pointInside(probe.rect(node), x, y)
+			),
+			probe
+		);
+		return box ? actionForBox(box, x, y, subject.kind, probe) : null;
 	}
 
 	function clearDragClone() {
@@ -471,18 +511,10 @@
 
 		clearDragClone();
 		clone.textContent = anchor.textContent?.trim() ?? '';
-		clone.setAttribute('aria-hidden', 'true');
-		clone.setAttribute('data-drag-clone', '');
 		clone.className = source.hasAttribute('data-dashboard-header')
 			? 'bg-base-100 dark:bg-base-300 border-base-300 rounded-md border px-3 py-2 text-lg font-semibold shadow-xl'
 			: 'bg-base-100 dark:bg-base-300 border-base-300 rounded-md border px-3 py-2 text-xs font-medium tracking-wider uppercase shadow-xl';
-		clone.style.position = 'fixed';
-		clone.style.margin = '0';
-		clone.style.width = 'max-content';
-		clone.style.maxWidth = '420px';
-		clone.style.pointerEvents = 'none';
-		clone.style.zIndex = '70';
-		clone.style.opacity = '0.95';
+		floatDragClone(clone, { zIndex: '70', maxWidth: '420px', opacity: '0.95' });
 		document.body.appendChild(clone);
 		const cloneRect = clone.getBoundingClientRect();
 		dragOffsetX = Math.min(
@@ -493,9 +525,8 @@
 			Math.max(event.clientY - rect.top, 0),
 			Math.max(cloneRect.height - 8, 0)
 		);
-		clone.style.left = `${event.clientX - dragOffsetX}px`;
-		clone.style.top = `${event.clientY - dragOffsetY}px`;
 		dragClone = clone;
+		moveDragClone(event.clientX, event.clientY);
 	}
 
 	function moveDragClone(x: number, y: number) {
@@ -509,26 +540,15 @@
 		const anchor = document.querySelector(
 			'[data-dashboard-card], [data-dashboard-header], [data-dashboard-box]'
 		);
-		let current = anchor?.parentElement ?? null;
-		while (current) {
-			const overflowY = getComputedStyle(current).overflowY;
-			if (
-				(overflowY === 'auto' || overflowY === 'scroll') &&
-				current.scrollHeight > current.clientHeight + 1
-			) {
-				return current;
-			}
-			current = current.parentElement;
-		}
-		return null;
+		return scrollableAncestor(anchor?.parentElement);
 	}
 
 	function travelFromAnchor(): number {
-		return dragAnchor.travel(dragPointerX, dragPointerY);
+		return dragAnchor.travel(drag.x, drag.y);
 	}
 
 	function rememberAnchor() {
-		dragAnchor.remember(dragPointerX, dragPointerY);
+		dragAnchor.remember(drag.x, drag.y);
 	}
 
 	function clearPreviewTimer() {
@@ -549,8 +569,8 @@
 
 	function placeDraggedAtPointer() {
 		if (!dragging) return;
-		moveDragClone(dragPointerX, dragPointerY);
-		const action = actionAt(dragPointerX, dragPointerY, dragging);
+		moveDragClone(drag.x, drag.y);
+		const action = actionAt(drag.x, drag.y, dragging);
 		const key = targetKey(action);
 		if (!action || key === appliedKey) {
 			clearPreviewTimer();
@@ -567,7 +587,7 @@
 		previewTimer = window.setTimeout(() => {
 			previewTimer = 0;
 			if (!dragging || heldKey !== key || travelFromAnchor() < previewTravelPx) return;
-			const latest = actionAt(dragPointerX, dragPointerY, dragging);
+			const latest = actionAt(drag.x, drag.y, dragging);
 			if (!latest || targetKey(latest) !== key) return;
 			applyPreview(latest);
 		}, previewDwellMs);
@@ -576,34 +596,9 @@
 	function commitPreview() {
 		clearPreviewTimer();
 		if (!dragging || travelFromAnchor() < previewTravelPx) return;
-		const action = actionAt(dragPointerX, dragPointerY, dragging);
+		const action = actionAt(drag.x, drag.y, dragging);
 		if (!action || targetKey(action) === appliedKey) return;
 		applyPreview(action);
-	}
-
-	function stopDragAutoScroll() {
-		if (!dragScrollFrame || typeof cancelAnimationFrame === 'undefined') return;
-		cancelAnimationFrame(dragScrollFrame);
-		dragScrollFrame = 0;
-	}
-
-	function tickDragAutoScroll() {
-		dragScrollFrame = 0;
-		if (!dragging) return;
-		const scroller = dashboardScroller();
-		const delta = dragScrollDelta(scroller, dragPointerY);
-		if (!delta || !scroller) return;
-		scroller.scrollTop += delta;
-		placeDraggedAtPointer();
-		dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
-	}
-
-	function syncDragAutoScroll() {
-		if (!dragScrollDelta(dashboardScroller(), dragPointerY)) {
-			stopDragAutoScroll();
-			return;
-		}
-		if (!dragScrollFrame) dragScrollFrame = requestAnimationFrame(tickDragAutoScroll);
 	}
 
 	function moveSubject(layout: DashboardConfig, subject: DragSubject, action: DropTarget) {
@@ -612,22 +607,9 @@
 		return moveHeader(layout, subject.id, action.index, action.path);
 	}
 
-	function onPointerMove(event: PointerEvent) {
-		if (!dragging) return;
-		dragPointerX = event.clientX;
-		dragPointerY = event.clientY;
-		placeDraggedAtPointer();
-		syncDragAutoScroll();
-	}
-
 	function detachDragListeners() {
-		stopDragAutoScroll();
+		drag.stop();
 		clearPreviewTimer();
-		if (typeof window === 'undefined') return;
-		window.removeEventListener('pointermove', onPointerMove);
-		window.removeEventListener('pointerup', onPointerUp);
-		window.removeEventListener('pointercancel', onPointerCancel);
-		window.removeEventListener('keydown', onKeyDown);
 		clearDragClone();
 	}
 
@@ -660,20 +642,6 @@
 		});
 	}
 
-	function onPointerUp() {
-		finishDrag(true);
-	}
-
-	function onPointerCancel() {
-		finishDrag(false);
-	}
-
-	function onKeyDown(event: KeyboardEvent) {
-		if (event.key !== 'Escape') return;
-		event.preventDefault();
-		finishDrag(false);
-	}
-
 	function beginDrag(event: PointerEvent, subject: DragSubject) {
 		if (event.button !== 0) return;
 		event.preventDefault();
@@ -682,15 +650,10 @@
 		dragging = subject;
 		dragOrigin = JSON.stringify((draft ?? dashboardLayout).rows);
 		draft = null;
-		dragPointerX = event.clientX;
-		dragPointerY = event.clientY;
 		appliedKey = '';
 		heldKey = '';
+		drag.start(event.clientX, event.clientY);
 		rememberAnchor();
-		window.addEventListener('pointermove', onPointerMove);
-		window.addEventListener('pointerup', onPointerUp);
-		window.addEventListener('pointercancel', onPointerCancel);
-		window.addEventListener('keydown', onKeyDown);
 	}
 
 	onDestroy(detachDragListeners);
@@ -893,9 +856,7 @@
 	);
 	// Built once per change of layout, statuses, or header availability (not per render pass).
 	const gridCells = $derived(buildGridCells(editingLayout.rows, statuses, headerAvailability));
-	const hasContent = $derived(
-		hasRenderedContent(rowsForRender(editingLayout, statuses, headerAvailability))
-	);
+	const hasContent = $derived(hasGridContent(gridCells));
 	const emptyWidgets = $derived(
 		(
 			Object.entries(statuses) as [WidgetId, { loading: boolean; empty: boolean } | undefined][]

@@ -278,6 +278,24 @@ export function hasRenderedContent(rows: DashboardRow[]): boolean {
 	});
 }
 
+/** Same answer as hasRenderedContent(rowsForRender(...)), read from cells already built. */
+export function hasGridContent(cells: GridCell[]): boolean {
+	return cells.some((cell) => cell.kind !== 'box' || hasGridContent(cell.children));
+}
+
+export function findHeader(rows: DashboardRow[], id: string): HeaderRow | undefined {
+	const path = findPath(rows, (row) => row.kind === 'header' && row.id === id);
+	const row = path && rowAt(rows, path);
+	return row?.kind === 'header' ? row : undefined;
+}
+
+export function findPlacement(rows: DashboardRow[], id: WidgetId): WidgetPlacement | undefined {
+	const found = findWidget(rows, id);
+	if (!found) return undefined;
+	const row = rowAt(rows, found.path);
+	return row?.kind === 'widgets' ? row.items[found.index] : undefined;
+}
+
 /** Visibility modes used by any header in the layout, including inside boxes. */
 export function headerVisibilities(
 	rows: DashboardRow[],
@@ -892,7 +910,8 @@ function mapRows(
 	});
 }
 
-function rowsAt(rows: DashboardRow[], path: number[]): DashboardRow[] | undefined {
+/** The row list at a box path ([] is the top level); undefined when the path is not a box. */
+export function rowsAt(rows: DashboardRow[], path: number[]): DashboardRow[] | undefined {
 	let current = rows;
 	for (const index of path) {
 		const row = current[index];
@@ -902,7 +921,7 @@ function rowsAt(rows: DashboardRow[], path: number[]): DashboardRow[] | undefine
 	return current;
 }
 
-function rowAt(rows: DashboardRow[], path: number[]): DashboardRow | undefined {
+export function rowAt(rows: DashboardRow[], path: number[]): DashboardRow | undefined {
 	if (path.length === 0) return undefined;
 	return rowsAt(rows, path.slice(0, -1))?.[path[path.length - 1]];
 }
