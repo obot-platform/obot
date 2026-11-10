@@ -137,11 +137,11 @@
 	onMount(() => {
 		// The HTTP client reports errors; automatic loads can retry on the next polling tick.
 		void load().catch(() => {});
-		// Retry unknown snapshots after fetch failures as well as pending or failed imports.
+		// Readiness can precede initial import reconciliation; wait for its persisted outcomes.
 		let refreshing = false;
 		const timer = window.setInterval(async () => {
 			const applying =
-				!migration ||
+				migration?.initialized !== true ||
 				Object.values(migration?.sources ?? {}).some(
 					(source) => source.status === 'pending' || source.status === 'error'
 				);

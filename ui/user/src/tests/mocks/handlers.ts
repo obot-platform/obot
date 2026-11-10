@@ -90,7 +90,9 @@ export const handlers = [
 	),
 	http.get('/api/mcp-audit-logs/filter-options/:filter', () => HttpResponse.json({ options: [] })),
 	http.get('/api/me', () => HttpResponse.json(data.getProfileResponse)),
-	http.get('/api/llm-gateway/migration', () => HttpResponse.json({ sources: {}, mappings: {} })),
+	http.get('/api/llm-gateway/migration', () =>
+		HttpResponse.json({ initialized: true, sources: {}, mappings: {} })
+	),
 	http.get('/api/llm-gateway/status', () => HttpResponse.json(data.getGatewayStatusResponse)),
 	http.get('/api/llm-gateway/settings', () =>
 		HttpResponse.json({ subscriptionPassthrough: false })

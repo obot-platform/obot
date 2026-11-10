@@ -29,6 +29,7 @@ beforeEach(() => {
 		),
 		http.get('/api/llm-gateway/migration', () =>
 			HttpResponse.json({
+				initialized: true,
 				sources: {
 					iam: { provider: 'bedrock_mantle', status: 'imported' },
 					api: { provider: 'bedrock_mantle', status: 'imported' }
@@ -39,11 +40,100 @@ beforeEach(() => {
 });
 
 describe('ProvidersView migration results', () => {
+	it.each([
+		{ initialized: false, status: 'error' },
+		{ initialized: false, status: 'pending' },
+		{ initialized: undefined, status: 'error' },
+		{ initialized: undefined, status: 'pending' }
+	])(
+		'polls an initial $initialized snapshot through $status and refreshes imported providers',
+		async ({ initialized, status: sourceStatus }) => {
+			let reads = 0;
+			const status = vi.fn(() => HttpResponse.json(getGatewayStatusResponse));
+			const migration = vi.fn(() => {
+				reads++;
+				return HttpResponse.json({
+					initialized: reads === 1 ? initialized : true,
+					sources:
+						reads === 1
+							? {}
+							: {
+									iam: {
+										name: 'AWS Bedrock',
+										provider: 'bedrock_mantle',
+										status: reads === 2 ? sourceStatus : 'imported'
+									}
+								}
+				});
+			});
+			const providers = vi.fn(() =>
+				HttpResponse.json({ providers: reads < 3 ? [] : [{ name: 'bedrock_mantle' }] })
+			);
+			const keys = vi.fn(() => HttpResponse.json({ keys: [{ id: 'iam', name: 'imported-iam' }] }));
+			worker.use(
+				http.get('/api/llm-gateway/status', status),
+				http.get('/api/llm-gateway/migration', migration),
+				http.get('/api/llm-gateway/admin/providers', providers),
+				http.get('/api/llm-gateway/admin/providers/:provider/keys', keys)
+			);
+			render(ProvidersView);
+			const warning = page.getByText('Some legacy model providers need attention.');
+			await expect.element(page.getByText('No providers configured')).toBeVisible();
+			expect(migration).toHaveBeenCalledOnce();
+			expect(keys).not.toHaveBeenCalled();
+			await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(2), { timeout: 3500 });
+			if (sourceStatus === 'error') {
+				await expect.element(warning).toBeVisible();
+				await expect
+					.element(page.getByText('AWS Bedrock: The import failed.', { exact: false }))
+					.toBeVisible();
+			} else {
+				await expect.element(warning).not.toBeInTheDocument();
+			}
+			await expect
+				.element(page.getByText('1 key', { exact: true }), { timeout: 3500 })
+				.toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Modify', exact: true })).toBeVisible();
+			expect(
+				page.getByRole('heading', { name: 'AWS Bedrock', exact: true }).elements()
+			).toHaveLength(1);
+			await expect.element(page.getByText('No providers configured')).not.toBeInTheDocument();
+			await expect.element(warning).not.toBeInTheDocument();
+			await waitForPoll();
+			expect(status).toHaveBeenCalledTimes(3);
+			expect(migration).toHaveBeenCalledTimes(3);
+			expect(providers).toHaveBeenCalledTimes(3);
+			expect(keys).toHaveBeenCalledOnce();
+		},
+		9000
+	);
+	it.each([false, undefined])(
+		'polls an initial %s empty snapshot until enumeration explicitly completes',
+		async (initialized) => {
+			let reads = 0;
+			const migration = vi.fn(() =>
+				HttpResponse.json({ initialized: ++reads === 1 ? initialized : true, sources: {} })
+			);
+			const providers = vi.fn(() => HttpResponse.json({ providers: [] }));
+			worker.use(
+				http.get('/api/llm-gateway/migration', migration),
+				http.get('/api/llm-gateway/admin/providers', providers)
+			);
+			render(ProvidersView);
+			await expect.element(page.getByText('No providers configured')).toBeVisible();
+			await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(2), { timeout: 3500 });
+			await waitForPoll();
+			expect(migration).toHaveBeenCalledTimes(2);
+			expect(providers).toHaveBeenCalledTimes(2);
+		},
+		7000
+	);
 	it.each(['imported', 'empty'] as const)(
 		'retries the provider refresh before accepting an initial %s snapshot',
 		async (snapshot) => {
 			const migration = vi.fn(() =>
 				HttpResponse.json({
+					initialized: true,
 					sources:
 						snapshot === 'empty' ? {} : { iam: { provider: 'bedrock_mantle', status: 'imported' } }
 				})
@@ -95,6 +185,7 @@ describe('ProvidersView migration results', () => {
 				http.get('/api/llm-gateway/migration', () => {
 					reads++;
 					return HttpResponse.json({
+						initialized: true,
 						sources: {
 							iam: {
 								name: 'AWS Bedrock',
@@ -164,7 +255,7 @@ describe('ProvidersView migration results', () => {
 			reads++;
 			return HttpResponse.json({ ...getGatewayStatusResponse, ready: reads > 1 });
 		});
-		const migration = vi.fn(() => HttpResponse.json({ sources: {} }));
+		const migration = vi.fn(() => HttpResponse.json({ initialized: true, sources: {} }));
 		const providers = vi.fn(() => HttpResponse.json({ providers: [{ name: 'bedrock_mantle' }] }));
 		worker.use(
 			http.get('/api/llm-gateway/status', status),
@@ -192,6 +283,7 @@ describe('ProvidersView migration results', () => {
 				if (reads === 1) return new HttpResponse(null, { status: 500 });
 				if (reads === 2) return HttpResponse.error();
 				return HttpResponse.json({
+					initialized: true,
 					sources: {
 						iam: {
 							name: 'AWS Bedrock',
@@ -217,13 +309,34 @@ describe('ProvidersView migration results', () => {
 		expect(reads).toBe(4);
 	}, 12000);
 	it('does not poll after a successful empty snapshot', async () => {
-		const migration = vi.fn(() => HttpResponse.json({ sources: {} }));
+		const migration = vi.fn(() => HttpResponse.json({ initialized: true, sources: {} }));
 		worker.use(http.get('/api/llm-gateway/migration', migration));
 		render(ProvidersView);
 		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
 		await waitForPoll();
 		expect(migration).toHaveBeenCalledTimes(1);
 	}, 5000);
+	it.each(['blocked', 'unsupported'])(
+		'keeps initialized %s warnings visible without polling',
+		async (status) => {
+			const migration = vi.fn(() =>
+				HttpResponse.json({
+					initialized: true,
+					sources: { old: { name: 'Legacy source', provider: 'openai', status } }
+				})
+			);
+			worker.use(http.get('/api/llm-gateway/migration', migration));
+			render(ProvidersView);
+			await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByText('Some legacy model providers need attention.'))
+				.toBeVisible();
+			await expect.element(page.getByText('Legacy source:', { exact: false })).toBeVisible();
+			await waitForPoll();
+			expect(migration).toHaveBeenCalledOnce();
+		},
+		5000
+	);
 	it('does not request migration status for readonly users, including on polling ticks', async () => {
 		profile.initialize(createMockProfile([Group.AUDITOR]));
 		const migration = vi.fn(() => new HttpResponse(null, { status: 500 }));
@@ -297,6 +410,7 @@ describe('ProvidersView migration results', () => {
 		worker.use(
 			http.get('/api/llm-gateway/migration', () =>
 				HttpResponse.json({
+					initialized: true,
 					sources: {
 						iam: { provider: 'bedrock_mantle', status: 'pending' },
 						api: { provider: 'bedrock_mantle', status: 'pending' }
@@ -317,6 +431,7 @@ describe('ProvidersView migration results', () => {
 		worker.use(
 			http.get('/api/llm-gateway/migration', () =>
 				HttpResponse.json({
+					initialized: true,
 					sources: {
 						openai: { name: 'OpenAI', provider: 'openai', status: 'error' }
 					}
@@ -340,6 +455,7 @@ describe('ProvidersView migration results', () => {
 			http.get('/api/llm-gateway/migration', () => {
 				reads++;
 				return HttpResponse.json({
+					initialized: true,
 					sources: {
 						iam: { provider: 'bedrock_mantle', status: reads === 1 ? 'error' : 'imported' },
 						api: { provider: 'bedrock_mantle', status: reads === 1 ? 'error' : 'imported' }
@@ -373,6 +489,7 @@ describe('ProvidersView migration results', () => {
 					reads++;
 					if (reads === 1) {
 						return HttpResponse.json({
+							initialized: true,
 							sources: { iam: { name: 'AWS Bedrock', provider: 'bedrock_mantle', status } }
 						});
 					}
@@ -384,6 +501,7 @@ describe('ProvidersView migration results', () => {
 					await reconciled;
 					imported = true;
 					return HttpResponse.json({
+						initialized: true,
 						sources: { iam: { provider: 'bedrock_mantle', status: 'imported' } }
 					});
 				})

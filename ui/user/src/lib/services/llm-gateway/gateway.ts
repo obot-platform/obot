@@ -432,6 +432,8 @@ export interface MigrationSource {
 	message?: string;
 }
 export interface MigrationStatus {
+	// Older servers omit this field; their snapshots remain unknown until explicitly initialized.
+	initialized?: boolean;
 	sources: Record<string, MigrationSource>;
 	mappings: Record<string, string>;
 }

@@ -28,8 +28,10 @@ const (
 
 // MigrationStatus contains only migration outcomes and compatibility mappings, never credentials.
 type MigrationStatus struct {
-	Sources  map[string]MigrationSource `json:"sources"`
-	Mappings map[string]string          `json:"mappings"`
+	// Initialized means the initial reconciliation committed all outcomes, even with no sources.
+	Initialized bool                       `json:"initialized"`
+	Sources     map[string]MigrationSource `json:"sources"`
+	Mappings    map[string]string          `json:"mappings"`
 }
 
 type MigrationSource struct {
@@ -260,7 +262,11 @@ func (e *Engine) importLegacyModelProviders(ctx context.Context, c kclient.Clien
 		}
 		results = append(results, result)
 	}
-	return results, errors.Join(importErrors...)
+	err = e.mutateMigration(ctx, func(s *MigrationStatus) error {
+		s.Initialized = true
+		return nil
+	})
+	return results, errors.Join(append(importErrors, err)...)
 }
 
 func legacyAggregate(ctx context.Context, name string, secrets map[string]string) (llmcoreclient.Provider, error) {

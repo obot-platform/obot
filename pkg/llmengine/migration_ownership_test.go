@@ -195,7 +195,7 @@ func TestMigrationQueuedImportRereadsCompletion(t *testing.T) {
 						if err != nil {
 							return err
 						}
-						if state.Sources[system.OpenAIModelProvider].Imported {
+						if state.Initialized && state.Sources[system.OpenAIModelProvider].Imported {
 							pause.Do(func() {
 								close(persisted)
 								select {
@@ -310,6 +310,7 @@ func TestStartupTasksStopAtLeadershipCancellation(t *testing.T) {
 	e := start()
 	e.RunStartupTasks(ctx, storage, g)
 	require.ErrorIs(t, ctx.Err(), context.Canceled)
+	requireMigrationInitialized(t, e, false)
 	require.Zero(t, writesAfterCancellation)
 	require.Zero(t, modelWrites, "old leadership must not record completion or trigger model sync after cancellation")
 	_, err = store.GetProvider(t.Context(), "openai")
@@ -323,6 +324,7 @@ func TestStartupTasksStopAtLeadershipCancellation(t *testing.T) {
 	recovered := start()
 	recovered.RunStartupTasks(ctx, storage, g)
 	require.ErrorIs(t, ctx.Err(), context.Canceled)
+	requireMigrationInitialized(t, recovered, true)
 	require.Zero(t, writesAfterCancellation)
 	require.Positive(t, modelWrites)
 	p, err := store.GetProvider(t.Context(), "openai")
