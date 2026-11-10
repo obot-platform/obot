@@ -73,7 +73,7 @@ type llmResponseWriter struct {
 	// unlisted returns the models a model listing response must include although the
 	// upstream didn't list them.
 	unlisted func(ctx context.Context) []llmengine.ListedModel
-	// keepListedModel checks that a scoped native ID selects its advertised target.
+	// keepListedModel checks that a scoped native ID selects an accessible record for its advertised target.
 	keepListedModel func(string) (bool, error)
 	// clientHeader is the header of the response to the client, which Obot's API server
 	// has already added to.
@@ -595,22 +595,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 	if b, ok := l.backend.(*bifrostProviderBackend); ok && isModelsListRequest(req.Request) {
 		if scope := llmengine.LegacyProviderScope(req.Context()); scope != "" {
-			output.keepListedModel = func(native string) (bool, error) {
-				// Saved aliases, resource names and migration mappings keep inference precedence.
-				model, err := b.resolveRequestModel(l, req, native)
-				if err != nil {
-					// Known unusable references are omitted; storage/helper failures fail the list.
-					_, unavailable := errors.AsType[*modelaccesspolicy.ModelReferenceUnavailableError](err)
-					if apierrors.IsNotFound(err) || unavailable {
-						return false, nil
-					}
-					if e, ok := errors.AsType[*types2.ErrHTTP](err); ok && (e.Code == http.StatusBadRequest || e.Code == http.StatusNotFound || e.Code == http.StatusGone) {
-						return false, nil
-					}
-					return false, err
-				}
-				return model != nil && model.Spec.Manifest.ModelProvider == system.LLMGatewayModelProvider && model.Spec.Manifest.TargetModel == scope+"/"+native, nil
-			}
+			output.keepListedModel = b.scopedListingFilter(l, req, scope)
 		}
 	}
 

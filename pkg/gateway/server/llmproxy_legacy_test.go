@@ -15,6 +15,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/nah/pkg/backend"
@@ -36,6 +37,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -102,7 +104,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/models") {
-			_, _ = io.WriteString(w, `{"data":[{"id":"gpt-test","object":"model","created":17,"owned_by":"fixture"},{"id":"Qwen/Qwen3-32B","object":"model"},{"id":"generic-responses/Qwen/Qwen3-32B","object":"model"},{"id":"team/family/model","object":"model"},{"id":"openai/gpt-test","object":"model"},{"id":"anthropic/claude-test","object":"model"},{"id":"claude-test","object":"model"},{"id":"llm","object":"model"},{"id":"m1-generic-qwen","object":"model"},{"id":"m1-native-resource","object":"model"},{"id":"m1-old-generic","object":"model"},{"id":"m1-old-native","object":"model"},{"id":"m1-old-missing","object":"model"},{"id":"m1-old-inactive","object":"model"}],"object":"list"}`)
+			_, _ = io.WriteString(w, `{"data":[{"id":"gpt-test","object":"model","created":17,"owned_by":"fixture"},{"id":"Qwen/Qwen3-32B","object":"model"},{"id":"generic-responses/Qwen/Qwen3-32B","object":"model"},{"id":"team/family/model","object":"model"},{"id":"openai/gpt-test","object":"model"},{"id":"anthropic/claude-test","object":"model"},{"id":"claude-test","object":"model"},{"id":"llm","object":"model"},{"id":"m1-generic-qwen","object":"model"},{"id":"m1-native-resource","object":"model"},{"id":"m1-old-generic","object":"model"},{"id":"m1-old-native","object":"model"},{"id":"m1-old-missing","object":"model"},{"id":"m1-old-inactive","object":"model"},{"id":"bare-target","object":"model"},{"id":"fresh-alias","object":"model"}],"object":"list"}`)
 			return
 		}
 		body, _ := io.ReadAll(r.Body)
@@ -490,6 +492,10 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 				id:     "m1-generic-alias-collision",
 				target: "generic-responses/llm",
 			},
+			{
+				id:     "m1-generic-alias-denied",
+				target: "generic-responses/llm",
+			},
 		} {
 			model := &v1.Model{Namespace: system.DefaultNamespace, Name: tc.id, Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 				ModelProvider: system.LLMGatewayModelProvider,
@@ -498,6 +504,10 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 				Usage:         types.ModelUsageLLM,
 				Dialect:       string(llmtypes.DialectOpenAIResponses),
 			}}}
+			if tc.id == "m1-generic-alias-collision" {
+				// Qualified target lookup keeps selecting the permitted record, independently of the alias.
+				model.CreationTimestamp = metav1.NewTime(time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC))
+			}
 			require.NoError(t, storageClient.Create(ctx, model))
 			gvk, err := storageClient.GroupVersionKindFor(model)
 			require.NoError(t, err)
@@ -540,6 +550,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 				wantModel      string
 				failRead       bool
 				failTargetRead bool
+				grantDuplicate bool
 			}{
 				{
 					name:      "authorized different target",
@@ -558,6 +569,35 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 					name:      "same target alias",
 					aliasTo:   "m1-generic-alias-collision",
 					user:      "7",
+					listed:    true,
+					wantCode:  http.StatusOK,
+					wantModel: "llm",
+				},
+				{
+					name:     "denied duplicate selected by alias",
+					aliasTo:  "m1-generic-alias-denied",
+					user:     "11",
+					wantCode: http.StatusForbidden,
+				},
+				{
+					name:           "duplicate granted on next request",
+					aliasTo:        "m1-generic-alias-denied",
+					user:           "11",
+					listed:         true,
+					wantCode:       http.StatusOK,
+					wantModel:      "llm",
+					grantDuplicate: true,
+				},
+				{
+					name:     "duplicate grant revoked on next request",
+					aliasTo:  "m1-generic-alias-denied",
+					user:     "11",
+					wantCode: http.StatusForbidden,
+				},
+				{
+					name:      "permitted duplicate selected by alias",
+					aliasTo:   "m1-generic-alias-collision",
+					user:      "11",
 					listed:    true,
 					wantCode:  http.StatusOK,
 					wantModel: "llm",
@@ -604,6 +644,11 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			} {
 				for _, anthropic := range []bool{false, true} {
 					t.Run(fmt.Sprintf("%s/anthropic=%v", tc.name, anthropic), func(t *testing.T) {
+						policy.Spec.Manifest.Models = []types.ModelResource{{ID: "m1-generic-alias-collision"}}
+						if tc.grantDuplicate {
+							policy.Spec.Manifest.Models = append(policy.Spec.Manifest.Models, types.ModelResource{ID: "m1-generic-alias-denied"})
+						}
+						require.NoError(t, back.informers[gvk].GetIndexer().Update(policy))
 						defaultAlias.Spec.Manifest.Model = tc.aliasTo
 						require.NoError(t, storageClient.Update(ctx, defaultAlias))
 						mux.user = &kuser.DefaultInfo{UID: tc.user}
@@ -626,9 +671,16 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 							assert.Equal(t, tc.listed, slices.Contains(ids, "llm"), rec.Body.String())
 							if tc.user == "7" {
 								require.Contains(t, ids, "Qwen/Qwen3-32B", "omit the shadowed entry without replacing the real target")
+							} else if tc.listed {
+								assert.Equal(t, []string{"llm"}, ids)
 							} else {
 								assert.Empty(t, ids, "neither the shadowed entry nor unauthorized alias target may appear")
 							}
+						}
+						if tc.aliasTo == "m1-generic-alias-denied" {
+							selected, err := helper.ResolveModelReference(ctx, storageClient, system.DefaultNamespace, system.LLMGatewayModelProvider, "llm")
+							require.NoError(t, err)
+							require.Equal(t, tc.aliasTo, selected.Name, "alias must select the named record, not its permitted duplicate")
 						}
 						payload := map[string]any{"model": "llm", "input": "hi"}
 						operation := "responses"
@@ -683,6 +735,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 				status.Mappings["m1-old-native"] = "m1-listed-migration-same"
 				status.Mappings["m1-old-missing"] = "m1-missing-listing"
 				status.Mappings["m1-old-inactive"] = "m1-generic-qwen"
+				status.Mappings["team/family/model"] = "m1-generic-qwen"
 				body, err := json.Marshal(status)
 				settings["legacy-provider-migration"] = body
 				return err
@@ -754,7 +807,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 					mux.mux.ServeHTTP(rec, req)
 					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 					ids := modelDataIDs(rec.Body.String())
-					for _, hidden := range []string{"m1-generic-qwen", "m1-old-generic", "m1-old-missing", "m1-old-inactive"} {
+					for _, hidden := range []string{"m1-generic-qwen", "m1-old-generic", "m1-old-missing", "m1-old-inactive", "team/family/model"} {
 						require.NotContains(t, ids, hidden)
 					}
 					for _, native := range []string{"m1-native-resource", "m1-old-native"} {
@@ -775,6 +828,83 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 					require.Equal(t, http.StatusBadGateway, rec.Code, rec.Body.String())
 					require.Contains(t, rec.Body.String(), "failed to prepare gateway response")
 				})
+			}
+		})
+		t.Run("bare reference collision freshness", func(t *testing.T) {
+			var exact *v1.Model
+			for _, target := range []string{"generic-responses/bare-target", "bare-target", "generic-responses/fresh-alias"} {
+				model := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-bare-" + strings.ReplaceAll(target, "/", "-"), Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+					ModelProvider: system.LLMGatewayModelProvider,
+					TargetModel:   target,
+					Active:        true,
+					Usage:         types.ModelUsageLLM,
+				}}}
+				require.NoError(t, storageClient.Create(ctx, model))
+				gvk, err := storageClient.GroupVersionKindFor(model)
+				require.NoError(t, err)
+				require.NoError(t, back.informers[gvk].GetIndexer().Add(model))
+				t.Cleanup(func() {
+					require.NoError(t, back.informers[gvk].GetIndexer().Delete(model))
+					require.NoError(t, storageClient.Delete(ctx, model))
+				})
+				if target == "bare-target" {
+					exact = model
+				}
+			}
+			gvk, err := storageClient.GroupVersionKindFor(exact)
+			require.NoError(t, err)
+			for _, active := range []bool{true, false, true} {
+				exact = exact.DeepCopy()
+				exact.Spec.Manifest.Active = active
+				require.NoError(t, storageClient.Update(ctx, exact))
+				require.NoError(t, back.informers[gvk].GetIndexer().Update(exact))
+				for _, anthropic := range []bool{false, true} {
+					req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/generic-responses/v1/models", nil)
+					if anthropic {
+						req.Header.Set("anthropic-version", "2023-06-01")
+					}
+					rec := httptest.NewRecorder()
+					mux.mux.ServeHTTP(rec, req)
+					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+					require.Equal(t, !active, slices.Contains(modelDataIDs(rec.Body.String()), "bare-target"), "only an active unqualified gateway target intercepts the scoped native name")
+				}
+				lock.Lock()
+				before := len(requests)
+				lock.Unlock()
+				rec := httptest.NewRecorder()
+				mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/responses", strings.NewReader(`{"model":"bare-target","input":"hi"}`)))
+				if active {
+					require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+					lock.Lock()
+					dispatches := len(requests) - before
+					lock.Unlock()
+					require.Zero(t, dispatches)
+				} else {
+					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+				}
+			}
+			saved := &v1.Alias{Name: alias.KeyFromScopeID("Model", "fresh-alias"), Spec: v1.AliasSpec{
+				TargetKind:      "Model",
+				TargetNamespace: system.DefaultNamespace,
+				TargetName:      "m1-generic-qwen",
+			}}
+			t.Cleanup(func() { require.NoError(t, kclient.IgnoreNotFound(storageClient.Delete(ctx, saved))) })
+			for i, present := range []bool{false, true, false} {
+				if present {
+					require.NoError(t, storageClient.Create(ctx, saved))
+				} else if i > 0 {
+					require.NoError(t, storageClient.Delete(ctx, saved))
+				}
+				for _, anthropic := range []bool{false, true} {
+					req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/generic-responses/v1/models", nil)
+					if anthropic {
+						req.Header.Set("anthropic-version", "2023-06-01")
+					}
+					rec := httptest.NewRecorder()
+					mux.mux.ServeHTTP(rec, req)
+					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+					require.Equal(t, !present, slices.Contains(modelDataIDs(rec.Body.String()), "fresh-alias"), "new and deleted alias keys must be visible on the next listing")
+				}
 			}
 		})
 		for _, tc := range []struct {
