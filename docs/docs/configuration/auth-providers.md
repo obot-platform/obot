@@ -438,6 +438,10 @@ PingFederate has no API for listing groups, so Obot records the groups each user
 
 #### Setup {#pingfederate-setup}
 
+**Define the scopes**
+
+Obot requests the `openid`, `profile`, and `email` scopes. PingFederate defines only `openid` by default, and rejects a sign-in that requests a scope it doesn't know. Under **System > OAuth Settings > Scope Management**, add `profile` and `email` as common scopes if they aren't already defined.
+
 **Create the OAuth client**
 
 1. In PingFederate, go to **Applications > OAuth > Clients** and add a client for Obot.
@@ -445,7 +449,8 @@ PingFederate has no API for listing groups, so Obot records the groups each user
 3. Set **Redirect URIs** to the callback URL shown in Obot.
 4. Under **Allowed Grant Types**, select **Authorization Code** and **Refresh Token**.
 5. You can enable **Require Proof Key for Code Exchange (PKCE)**. Obot always uses PKCE.
-6. Select the OpenID Connect policy described below.
+6. Enable **Bypass Authorization Approval**, so that PingFederate doesn't ask users to approve Obot's access when they sign in.
+7. Select the OpenID Connect policy described below.
 
 **Set up the OpenID Connect policy**
 
