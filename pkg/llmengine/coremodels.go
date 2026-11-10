@@ -99,7 +99,8 @@ func (e *Engine) serveModels(w http.ResponseWriter, r *http.Request) {
 	if anthropic {
 		provider = schemas.Anthropic
 	}
-	if scope := LegacyProviderScope(r.Context()); scope != "" {
+	scope := LegacyProviderScope(r.Context())
+	if scope != "" {
 		provider = schemas.ModelProvider(scope)
 	}
 	models, err := e.gatewayModels(r.Context(), provider)
@@ -118,6 +119,12 @@ func (e *Engine) serveModels(w http.ResponseWriter, r *http.Request) {
 		}
 		adminJSON(w, 200, map[string]any{"data": data, "has_more": false})
 		return
+	}
+	if scope != "" {
+		// Scoped clients round-trip native IDs through the legacy native-first resolver.
+		for i := range models {
+			models[i].ID = strings.TrimPrefix(models[i].ID, scope+"/")
+		}
 	}
 	adminJSON(w, 200, map[string]any{"object": "list", "data": models})
 }

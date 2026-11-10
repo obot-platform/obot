@@ -33,11 +33,20 @@ type Helper struct {
 	mapIndexer, dmaIndexer, modelIndexer gocache.Indexer
 }
 
+// ModelReferenceUnavailableError identifies an inactive model or unconfigured saved alias.
+type ModelReferenceUnavailableError struct {
+	message string
+}
+
 // modelGrants resolves the models that model access policies grant, from one snapshot of the
 // eligible models and default model aliases.
 type modelGrants struct {
 	aliasModels    map[string]string
 	eligibleModels map[string]*v1.Model
+}
+
+func (e *ModelReferenceUnavailableError) Error() string {
+	return e.message
 }
 
 func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
@@ -340,7 +349,7 @@ func (h *Helper) ResolveModelReference(ctx context.Context, client kclient.Clien
 	switch resolved := resolved.(type) {
 	case *v1.DefaultModelAlias:
 		if resolved.Spec.Manifest.Model == "" {
-			return nil, fmt.Errorf("default model alias %q is not configured", reference)
+			return nil, &ModelReferenceUnavailableError{message: fmt.Sprintf("default model alias %q is not configured", reference)}
 		}
 		model = new(v1.Model)
 		if err := alias.Get(ctx, client, model, namespace, resolved.Spec.Manifest.Model); err != nil {
@@ -354,7 +363,7 @@ func (h *Helper) ResolveModelReference(ctx context.Context, client kclient.Clien
 		return h.resolveTargetModel(provider, reference)
 	}
 	if !model.Spec.Manifest.Active {
-		return nil, fmt.Errorf("model %q is not active", model.Spec.Manifest.Name)
+		return nil, &ModelReferenceUnavailableError{message: fmt.Sprintf("model %q is not active", model.Spec.Manifest.Name)}
 	}
 
 	return model, nil

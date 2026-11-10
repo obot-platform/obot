@@ -73,6 +73,8 @@ type llmResponseWriter struct {
 	// unlisted returns the models a model listing response must include although the
 	// upstream didn't list them.
 	unlisted func(ctx context.Context) []llmengine.ListedModel
+	// keepListedModel checks that a scoped native ID selects its advertised target.
+	keepListedModel func(string) (bool, error)
 	// clientHeader is the header of the response to the client, which Obot's API server
 	// has already added to.
 	clientHeader http.Header
@@ -198,24 +200,34 @@ func (r *llmResponseWriter) prepareUnary(resp *http.Response) error {
 				return err
 			}
 		}
-		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, string(r.routeDialect))
+		dialect := string(r.routeDialect)
+		if r.modelProvider == system.LLMGatewayModelProvider {
+			// The gateway translates every model into each supported API dialect.
+			dialect = ""
+		}
+		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, dialect)
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
 		if r.modelProvider == system.LLMGatewayModelProvider {
-			// The gateway's Anthropic-format model list uses bare model IDs, which the
-			// gateway also accepts in requests, so allow the bare form of each target too.
-			for target := range maps.Clone(allowedTargetModels) {
-				if scope := llmengine.LegacyProviderScope(resp.Request.Context()); scope != "" && !strings.HasPrefix(target, scope+"/") {
-					delete(allowedTargetModels, target)
-					continue
-				}
-				if _, bare, ok := strings.Cut(target, "/"); ok {
-					allowedTargetModels[bare] = true
+			scope := llmengine.LegacyProviderScope(resp.Request.Context())
+			if scope == "" && r.routeDialect == llmtypes.DialectAnthropicMessages {
+				// The unscoped Anthropic-format engine listing selects Anthropic upstream.
+				scope = "anthropic"
+			}
+			if scope != "" {
+				// Filter qualified targets before projecting native IDs. Mixing both forms
+				// can grant a different model whose native ID equals an allowed target.
+				targets := maps.Clone(allowedTargetModels)
+				clear(allowedTargetModels)
+				for target := range targets {
+					if native, ok := strings.CutPrefix(target, scope+"/"); ok {
+						allowedTargetModels[native] = true
+					}
 				}
 			}
 		}
-		if err := filterModelListResponse(resp, allowedTargetModels, allowAllModels); err != nil {
+		if err := filterModelListResponse(resp, allowedTargetModels, allowAllModels, r.keepListedModel); err != nil {
 			return err
 		}
 		return nil
@@ -282,16 +294,14 @@ func servedModelChange(header http.Header, requested string, resolve func(string
 // {"data": [{"id": ...}, ...]} envelope, so the same filtering applies to both
 // passthroughs. Surviving entries are kept as their exact upstream bytes — no
 // map[string]any round-trip that would reorder object keys or reformat numbers.
-// The body is copied up front and restored, so any failure (or an unrecognized
-// payload) just forwards the original response untouched.
-func filterModelListResponse(resp *http.Response, allowedTargetModels map[string]bool, allowAllModels bool) error {
-	if resp.StatusCode != http.StatusOK || allowAllModels {
+// Unrecognized payloads and rewrite failures forward the original body untouched.
+// Read and keepModel errors propagate so discovery cannot hide resolver/storage failures.
+func filterModelListResponse(resp *http.Response, allowedTargetModels map[string]bool, allowAllModels bool, keepModel func(string) (bool, error)) error {
+	if resp.StatusCode != http.StatusOK || (allowAllModels && keepModel == nil) {
 		return nil
 	}
 
-	// copyBody restores resp.Body, so every early return below forwards the
-	// original response unchanged; we only swap in the filtered body once it's
-	// fully built.
+	// copyBody restores resp.Body; replace it only after filtering succeeds.
 	body, err := copyBody(&resp.Body)
 	if err != nil {
 		return err
@@ -306,11 +316,25 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
 	var kept []string
 	data.ForEach(func(_, entry gjson.Result) bool {
-		if allowedTargetModels[entry.Get("id").String()] {
+		id := entry.Get("id").String()
+		if allowAllModels || allowedTargetModels[id] {
+			if keepModel != nil {
+				var keep bool
+				keep, err = keepModel(id)
+				if err != nil {
+					return false
+				}
+				if !keep {
+					return true
+				}
+			}
 			kept = append(kept, entry.Raw)
 		}
 		return true
 	})
+	if err != nil {
+		return err
+	}
 
 	out, err := sjson.SetRawBytes(body, "data", []byte("["+strings.Join(kept, ",")+"]"))
 	if err != nil {
@@ -568,6 +592,26 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 	if lister, ok := l.backend.(modelListingBackend); ok && isModelsListRequest(req.Request) {
 		output.unlisted = lister.unlistedModels
+	}
+	if b, ok := l.backend.(*bifrostProviderBackend); ok && isModelsListRequest(req.Request) {
+		if scope := llmengine.LegacyProviderScope(req.Context()); scope != "" {
+			output.keepListedModel = func(native string) (bool, error) {
+				// Saved aliases, resource names and migration mappings keep inference precedence.
+				model, err := b.resolveRequestModel(l, req, native)
+				if err != nil {
+					// Known unusable references are omitted; storage/helper failures fail the list.
+					_, unavailable := errors.AsType[*modelaccesspolicy.ModelReferenceUnavailableError](err)
+					if apierrors.IsNotFound(err) || unavailable {
+						return false, nil
+					}
+					if e, ok := errors.AsType[*types2.ErrHTTP](err); ok && (e.Code == http.StatusBadRequest || e.Code == http.StatusNotFound || e.Code == http.StatusGone) {
+						return false, nil
+					}
+					return false, err
+				}
+				return model != nil && model.Spec.Manifest.ModelProvider == system.LLMGatewayModelProvider && model.Spec.Manifest.TargetModel == scope+"/"+native, nil
+			}
+		}
 	}
 
 	// Preserve route identity for policy/audit while composing the engine handler

@@ -240,7 +240,7 @@ func TestLegacyAWSCurrentProvider(t *testing.T) {
 					} else {
 						require.NotEmpty(t, out.Data, "%s/%s user %s body %s", prefix, protocol, user, rec.Body.String())
 						for _, m := range out.Data {
-							require.Contains(t, m.ID, "anthropic.claude-test")
+							require.Equal(t, "anthropic.claude-test", m.ID)
 							require.NotContains(t, m.ID, "bedrock_mantle/")
 						}
 					}

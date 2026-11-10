@@ -649,6 +649,7 @@ func TestAddListedModels(t *testing.T) {
 	}
 	tests := []struct {
 		name      string
+		scope     string
 		anthropic bool
 		status    int
 		body      string
@@ -676,6 +677,13 @@ func TestAddListedModels(t *testing.T) {
 			wantIDs: []string{"openai/gpt-5", "anthropic/claude-haiku-4-5", "anthropic/claude-sonnet-4-5"},
 		},
 		{
+			name:    "scoped OpenAI format keeps native IDs and deduplicates",
+			scope:   "anthropic",
+			status:  http.StatusOK,
+			body:    `{"object":"list","data":[{"id":"claude-haiku-4-5","object":"model","created":1,"owned_by":"anthropic"}]}`,
+			wantIDs: []string{"claude-haiku-4-5", "claude-sonnet-4-5"},
+		},
+		{
 			name:      "not on a page that has more after it",
 			anthropic: true,
 			status:    http.StatusOK,
@@ -691,7 +699,8 @@ func TestAddListedModels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resp := &http.Response{StatusCode: tt.status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(tt.body))}
+			req := httptest.NewRequest(http.MethodGet, "/v1/models", nil).WithContext(llmengine.WithLegacyProviderScope(t.Context(), tt.scope))
+			resp := &http.Response{StatusCode: tt.status, Header: http.Header{}, Request: req, Body: io.NopCloser(strings.NewReader(tt.body))}
 			if err := addListedModels(resp, subscriptionModels, tt.anthropic); err != nil {
 				t.Fatal(err)
 			}

@@ -2,7 +2,6 @@ package alias
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -53,7 +52,8 @@ func Get(ctx context.Context, c kclient.Client, obj v1.Aliasable, namespace, nam
 	if err := c.Get(ctx, router.Key("", KeyFromScopeID(GetScope(gvk, obj), name)), &alias); apierrors.IsNotFound(err) {
 		return errLookup
 	} else if err != nil {
-		return errors.Join(errLookup, err)
+		// Wrap the alias lookup fault so a prior NotFound cannot trigger fallback.
+		return fmt.Errorf("%v\n%w", errLookup, err)
 	} else if alias.Spec.TargetKind != gvk.Kind {
 		return errLookup
 	}

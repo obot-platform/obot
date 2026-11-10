@@ -86,3 +86,35 @@ func TestResolveModelReference(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveModelReferenceUnavailable(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		aliasTo string
+		want    string
+	}{
+		{
+			name:    "inactive model",
+			aliasTo: "m1-inactive",
+			want:    `model "Inactive" is not active`,
+		},
+		{
+			name: "unconfigured alias",
+			want: `default model alias "llm" is not configured`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			model := newModel("m1-inactive", "provider", "target", false)
+			model.Spec.Manifest.Name = "Inactive"
+			client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(model,
+				&v1.DefaultModelAlias{Name: "default-llm", Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: tc.aliasTo}}},
+				&v1.Alias{Name: alias.KeyFromScopeID("Model", "llm"), Spec: v1.AliasSpec{TargetKind: "DefaultModelAlias", TargetName: "default-llm"}},
+			).Build()
+			helper := newModelHelper(t, []*v1.Model{model})
+			_, err := helper.ResolveModelReference(t.Context(), client, "default", "provider", "llm")
+			var unavailable *ModelReferenceUnavailableError
+			require.ErrorAs(t, err, &unavailable)
+			require.EqualError(t, err, tc.want)
+		})
+	}
+}

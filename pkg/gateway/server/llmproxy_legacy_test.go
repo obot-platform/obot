@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -31,7 +33,9 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -98,7 +102,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/models") {
-			_, _ = io.WriteString(w, `{"data":[{"id":"gpt-test","object":"model"}],"object":"list"}`)
+			_, _ = io.WriteString(w, `{"data":[{"id":"gpt-test","object":"model","created":17,"owned_by":"fixture"},{"id":"Qwen/Qwen3-32B","object":"model"},{"id":"generic-responses/Qwen/Qwen3-32B","object":"model"},{"id":"team/family/model","object":"model"},{"id":"openai/gpt-test","object":"model"},{"id":"anthropic/claude-test","object":"model"},{"id":"claude-test","object":"model"},{"id":"llm","object":"model"},{"id":"m1-generic-qwen","object":"model"},{"id":"m1-native-resource","object":"model"},{"id":"m1-old-generic","object":"model"},{"id":"m1-old-native","object":"model"},{"id":"m1-old-missing","object":"model"},{"id":"m1-old-inactive","object":"model"}],"object":"list"}`)
 			return
 		}
 		body, _ := io.ReadAll(r.Body)
@@ -132,8 +136,20 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 	var failSettingsRead atomic.Bool
 	var sourceReads atomic.Int64
 	var failSourceRead atomic.Bool
+	var failAliasRead atomic.Bool
+	var failTargetAliasRead atomic.Bool
+	var failListingSourceRead atomic.Bool
 	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(llmengine.ModelProviderResource()).WithInterceptorFuncs(interceptor.Funcs{
 		Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+			if _, ok := obj.(*v1.Alias); ok && key.Name == alias.KeyFromScopeID("Model", "m1-missing-alias-target") && failTargetAliasRead.Load() {
+				return errors.New("second-hop alias storage failed")
+			}
+			if _, ok := obj.(*v1.Model); ok && key.Name == "m1-old-inactive" && failListingSourceRead.Load() {
+				return errors.New("listing migration source storage failed")
+			}
+			if _, ok := obj.(*v1.Alias); ok && key.Name == alias.KeyFromScopeID("Model", "llm") && failAliasRead.Load() {
+				return errors.New("saved reference storage failed")
+			}
 			if _, ok := obj.(*v1.Model); ok && key.Name == "m1-old-openai" {
 				sourceReads.Add(1)
 				if failSourceRead.Load() {
@@ -389,7 +405,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 		}
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &listing))
 		require.Len(t, listing.Data, 1)
-		require.Equal(t, route+"/gpt-test", listing.Data[0].ID)
+		assert.Equal(t, "gpt-test", listing.Data[0].ID)
 	}
 
 	for _, state := range []string{"manual", "recreated"} {
@@ -432,7 +448,7 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 				}
 				require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &listing))
 				require.Len(t, listing.Data, 1)
-				require.Equal(t, provider+"/gpt-test", listing.Data[0].ID)
+				assert.Equal(t, "gpt-test", listing.Data[0].ID)
 			}
 		})
 	}
@@ -453,6 +469,14 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			{
 				id:     "m1-generic-nested",
 				target: "generic-responses/team/family/model",
+			},
+			{
+				id:     "m1-generic-anthropic",
+				target: "generic-responses/anthropic/claude-test",
+			},
+			{
+				id:     "m1-anthropic",
+				target: "anthropic/claude-test",
 			},
 			{
 				id:     "m1-generic-collision",
@@ -488,6 +512,271 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			TargetKind: "DefaultModelAlias",
 			TargetName: defaultAlias.Name,
 		}}))
+		t.Run("saved alias listing collisions", func(t *testing.T) {
+			var inactive v1.Model
+			require.NoError(t, storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "m1-generic-qwen"}, &inactive))
+			inactive.Name = "m1-inactive-alias-target"
+			inactive.ResourceVersion = ""
+			inactive.Spec.Manifest.Active = false
+			require.NoError(t, storageClient.Create(ctx, &inactive))
+			policy := &v1.ModelAccessPolicy{Namespace: system.DefaultNamespace, Name: "native-only", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "11"}},
+				Models:   []types.ModelResource{{ID: "m1-generic-alias-collision"}},
+			}}}
+			gvk, err := storageClient.GroupVersionKindFor(policy)
+			require.NoError(t, err)
+			require.NoError(t, back.informers[gvk].GetIndexer().Add(policy))
+			defer func() {
+				mux.user = &kuser.DefaultInfo{UID: "7"}
+				defaultAlias.Spec.Manifest.Model = "m1-generic-qwen"
+				require.NoError(t, storageClient.Update(ctx, defaultAlias))
+			}()
+			for _, tc := range []struct {
+				name           string
+				aliasTo        string
+				user           string
+				listed         bool
+				wantCode       int
+				wantModel      string
+				failRead       bool
+				failTargetRead bool
+			}{
+				{
+					name:      "authorized different target",
+					aliasTo:   "m1-generic-qwen",
+					user:      "7",
+					wantCode:  http.StatusOK,
+					wantModel: "Qwen/Qwen3-32B",
+				},
+				{
+					name:     "unauthorized shadow",
+					aliasTo:  "m1-generic-qwen",
+					user:     "11",
+					wantCode: http.StatusForbidden,
+				},
+				{
+					name:      "same target alias",
+					aliasTo:   "m1-generic-alias-collision",
+					user:      "7",
+					listed:    true,
+					wantCode:  http.StatusOK,
+					wantModel: "llm",
+				},
+				{
+					name:     "inactive shadow",
+					aliasTo:  inactive.Name,
+					user:     "7",
+					wantCode: http.StatusInternalServerError,
+				},
+				{
+					name:     "unconfigured alias",
+					user:     "7",
+					wantCode: http.StatusInternalServerError,
+				},
+				{
+					name:     "other provider shadow",
+					aliasTo:  "m1-openai-qwen",
+					user:     "7",
+					wantCode: http.StatusBadRequest,
+				},
+				{
+					name:     "storage failure remains an error",
+					aliasTo:  "m1-generic-qwen",
+					user:     "7",
+					wantCode: http.StatusInternalServerError,
+					failRead: true,
+				},
+				{
+					name:      "missing alias target retains native fallback",
+					aliasTo:   "m1-missing-alias-target",
+					user:      "7",
+					listed:    true,
+					wantCode:  http.StatusOK,
+					wantModel: "llm",
+				},
+				{
+					name:           "missing alias target second-hop storage failure",
+					aliasTo:        "m1-missing-alias-target",
+					user:           "7",
+					wantCode:       http.StatusInternalServerError,
+					failTargetRead: true,
+				},
+			} {
+				for _, anthropic := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/anthropic=%v", tc.name, anthropic), func(t *testing.T) {
+						defaultAlias.Spec.Manifest.Model = tc.aliasTo
+						require.NoError(t, storageClient.Update(ctx, defaultAlias))
+						mux.user = &kuser.DefaultInfo{UID: tc.user}
+						failAliasRead.Store(tc.failRead)
+						defer failAliasRead.Store(false)
+						failTargetAliasRead.Store(tc.failTargetRead)
+						defer failTargetAliasRead.Store(false)
+						req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/generic-responses/v1/models", nil)
+						if anthropic {
+							req.Header.Set("anthropic-version", "2023-06-01")
+						}
+						rec := httptest.NewRecorder()
+						mux.mux.ServeHTTP(rec, req)
+						if tc.failRead || tc.failTargetRead {
+							require.Equal(t, http.StatusBadGateway, rec.Code, rec.Body.String())
+							require.Contains(t, rec.Body.String(), "failed to prepare gateway response")
+						} else {
+							require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+							ids := modelDataIDs(rec.Body.String())
+							assert.Equal(t, tc.listed, slices.Contains(ids, "llm"), rec.Body.String())
+							if tc.user == "7" {
+								require.Contains(t, ids, "Qwen/Qwen3-32B", "omit the shadowed entry without replacing the real target")
+							} else {
+								assert.Empty(t, ids, "neither the shadowed entry nor unauthorized alias target may appear")
+							}
+						}
+						payload := map[string]any{"model": "llm", "input": "hi"}
+						operation := "responses"
+						if anthropic {
+							operation = "messages"
+							payload = map[string]any{"model": "llm", "max_tokens": 16, "messages": []any{map[string]any{"role": "user", "content": "hi"}}}
+						}
+						body, err := json.Marshal(payload)
+						require.NoError(t, err)
+						lock.Lock()
+						before := len(requests)
+						lock.Unlock()
+						rec = httptest.NewRecorder()
+						mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/"+operation, strings.NewReader(string(body))))
+						require.Equal(t, tc.wantCode, rec.Code, rec.Body.String())
+						if tc.failTargetRead {
+							require.Contains(t, rec.Body.String(), "second-hop alias storage failed")
+						}
+						lock.Lock()
+						got := slices.Clone(requests[before:])
+						lock.Unlock()
+						if tc.wantCode == http.StatusOK {
+							require.Len(t, got, 1)
+							require.Equal(t, tc.wantModel, got[0].model)
+						} else {
+							require.Empty(t, got)
+						}
+						// Unified qualified IDs bypass the scoped listing check and keep their meaning.
+						rec = httptest.NewRecorder()
+						mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil))
+						require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+						require.Contains(t, modelDataIDs(rec.Body.String()), "generic-responses/llm")
+						rec = httptest.NewRecorder()
+						mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", strings.NewReader(`{"model":"generic-responses/llm","input":"hi"}`)))
+						require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+						lock.Lock()
+						wireModel := requests[len(requests)-1].model
+						lock.Unlock()
+						require.Equal(t, "llm", wireModel)
+					})
+				}
+			}
+		})
+		t.Run("saved resource and migration listing collisions", func(t *testing.T) {
+			var original json.RawMessage
+			require.NoError(t, store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+				original = slices.Clone(settings["legacy-provider-migration"])
+				var status llmengine.MigrationStatus
+				if err := json.Unmarshal(original, &status); err != nil {
+					return err
+				}
+				status.Mappings["m1-old-native"] = "m1-listed-migration-same"
+				status.Mappings["m1-old-missing"] = "m1-missing-listing"
+				status.Mappings["m1-old-inactive"] = "m1-generic-qwen"
+				body, err := json.Marshal(status)
+				settings["legacy-provider-migration"] = body
+				return err
+			}))
+			_, err := engine.Sync(ctx)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, store.MutateSettings(ctx, func(settings map[string]json.RawMessage) error {
+					settings["legacy-provider-migration"] = original
+					return nil
+				}))
+				_, err := engine.Sync(ctx)
+				require.NoError(t, err)
+			})
+			for _, tc := range []struct {
+				id     string
+				native string
+			}{
+				{
+					id:     "m1-listed-resource-shadow",
+					native: "m1-generic-qwen",
+				},
+				{
+					id:     "m1-native-resource",
+					native: "m1-native-resource",
+				},
+				{
+					id:     "m1-listed-migration-shadow",
+					native: "m1-old-generic",
+				},
+				{
+					id:     "m1-listed-migration-same",
+					native: "m1-old-native",
+				},
+				{
+					id:     "m1-listed-migration-missing",
+					native: "m1-old-missing",
+				},
+				{
+					id:     "m1-listed-migration-inactive",
+					native: "m1-old-inactive",
+				},
+			} {
+				model := &v1.Model{Namespace: system.DefaultNamespace, Name: tc.id, Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+					ModelProvider: system.LLMGatewayModelProvider,
+					TargetModel:   "generic-responses/" + tc.native,
+					Active:        true,
+					Usage:         types.ModelUsageLLM,
+				}}}
+				require.NoError(t, storageClient.Create(ctx, model))
+				gvk, err := storageClient.GroupVersionKindFor(model)
+				require.NoError(t, err)
+				require.NoError(t, back.informers[gvk].GetIndexer().Add(model))
+				t.Cleanup(func() {
+					require.NoError(t, back.informers[gvk].GetIndexer().Delete(model))
+					require.NoError(t, storageClient.Delete(ctx, model))
+				})
+			}
+			source := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-old-inactive", Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: false}}}
+			require.NoError(t, storageClient.Create(ctx, source))
+			t.Cleanup(func() { require.NoError(t, storageClient.Delete(ctx, source)) })
+			for _, anthropic := range []bool{false, true} {
+				t.Run(fmt.Sprintf("anthropic=%v", anthropic), func(t *testing.T) {
+					req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/generic-responses/v1/models", nil)
+					if anthropic {
+						req.Header.Set("anthropic-version", "2023-06-01")
+					}
+					rec := httptest.NewRecorder()
+					mux.mux.ServeHTTP(rec, req)
+					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+					ids := modelDataIDs(rec.Body.String())
+					for _, hidden := range []string{"m1-generic-qwen", "m1-old-generic", "m1-old-missing", "m1-old-inactive"} {
+						require.NotContains(t, ids, hidden)
+					}
+					for _, native := range []string{"m1-native-resource", "m1-old-native"} {
+						require.Contains(t, ids, native)
+						rec := httptest.NewRecorder()
+						body := `{"model":"` + native + `","max_tokens":16,"messages":[{"role":"user","content":"hi"}]}`
+						mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/messages", strings.NewReader(body)))
+						require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+						lock.Lock()
+						wire := requests[len(requests)-1].model
+						lock.Unlock()
+						require.Equal(t, native, wire)
+					}
+					failListingSourceRead.Store(true)
+					defer failListingSourceRead.Store(false)
+					rec = httptest.NewRecorder()
+					mux.mux.ServeHTTP(rec, req)
+					require.Equal(t, http.StatusBadGateway, rec.Code, rec.Body.String())
+					require.Contains(t, rec.Body.String(), "failed to prepare gateway response")
+				})
+			}
+		})
 		for _, tc := range []struct {
 			name      string
 			route     string
@@ -694,6 +983,105 @@ func TestLegacyProxyRoutesPreserveProviderAndProtocol(t *testing.T) {
 			gvk, err = storageClient.GroupVersionKindFor(restricted)
 			require.NoError(t, err)
 			require.NoError(t, back.informers[gvk].GetIndexer().Add(restricted))
+			t.Run("listed native IDs round trip", func(t *testing.T) {
+				shadowOnly := restricted.DeepCopy()
+				shadowOnly.Name = "shadow-only"
+				shadowOnly.Spec.Manifest.Subjects = []types.Subject{{Type: types.SubjectTypeUser, ID: "10"}}
+				shadowOnly.Spec.Manifest.Models = []types.ModelResource{{ID: shadow.Name}}
+				require.NoError(t, back.informers[gvk].GetIndexer().Add(shadowOnly))
+				defer func() { mux.user = &kuser.DefaultInfo{UID: "7"} }()
+				for _, tc := range []struct {
+					name string
+					user string
+					want []string
+				}{
+					{
+						name: "first only",
+						user: "9",
+						want: []string{"Qwen/Qwen3-32B"},
+					},
+					{
+						name: "second only",
+						user: "10",
+						want: []string{"generic-responses/Qwen/Qwen3-32B"},
+					},
+					{
+						name: "both and other native slash names",
+						user: "7",
+						want: []string{"gpt-test", "Qwen/Qwen3-32B", "generic-responses/Qwen/Qwen3-32B", "team/family/model", "openai/gpt-test", "anthropic/claude-test"},
+					},
+					{
+						name: "no permission",
+						user: "8",
+					},
+				} {
+					for _, anthropic := range []bool{false, true} {
+						t.Run(fmt.Sprintf("%s/anthropic=%v", tc.name, anthropic), func(t *testing.T) {
+							mux.user = &kuser.DefaultInfo{UID: tc.user}
+							req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/generic-responses/v1/models", nil)
+							if anthropic {
+								req.Header.Set("anthropic-version", "2023-06-01")
+							}
+							rec := httptest.NewRecorder()
+							mux.mux.ServeHTTP(rec, req)
+							require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+							ids := modelDataIDs(rec.Body.String())
+							assert.ElementsMatch(t, tc.want, ids, rec.Body.String())
+							if !anthropic && tc.user == "7" {
+								require.Equal(t, int64(17), gjson.Get(rec.Body.String(), `data.#(id=="gpt-test").created`).Int())
+								require.Equal(t, "fixture", gjson.Get(rec.Body.String(), `data.#(id=="gpt-test").owned_by`).String())
+							}
+							for _, id := range ids {
+								payload := map[string]any{"model": id, "input": "hi"}
+								operation := "responses"
+								if anthropic {
+									operation = "messages"
+									payload = map[string]any{"model": id, "max_tokens": 16, "messages": []any{map[string]any{"role": "user", "content": "hi"}}}
+								}
+								body, err := json.Marshal(payload)
+								require.NoError(t, err)
+								rec := httptest.NewRecorder()
+								mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/"+operation, strings.NewReader(string(body))))
+								require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+								lock.Lock()
+								got := requests[len(requests)-1]
+								lock.Unlock()
+								require.Equal(t, id, got.model, "listed native ID must select its own wire model")
+							}
+							if tc.user == "9" {
+								// Explicit slash inputs still prefer the native shadow, even when denied.
+								lock.Lock()
+								before := len(requests)
+								lock.Unlock()
+								rec := httptest.NewRecorder()
+								mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/generic-responses/v1/responses", strings.NewReader(`{"model":"generic-responses/Qwen/Qwen3-32B","input":"hi"}`)))
+								require.Equal(t, http.StatusForbidden, rec.Code, rec.Body.String())
+								lock.Lock()
+								dispatches := len(requests) - before
+								lock.Unlock()
+								require.Zero(t, dispatches)
+							}
+						})
+					}
+				}
+				mux.user = &kuser.DefaultInfo{UID: "7"}
+				rec := httptest.NewRecorder()
+				mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil))
+				require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+				ids := modelDataIDs(rec.Body.String())
+				for _, id := range []string{"generic-responses/Qwen/Qwen3-32B", shadow.Spec.Manifest.TargetModel} {
+					require.Contains(t, ids, id)
+					body, err := json.Marshal(map[string]any{"model": id, "input": "hi"})
+					require.NoError(t, err)
+					rec := httptest.NewRecorder()
+					mux.mux.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", strings.NewReader(string(body))))
+					require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+					lock.Lock()
+					got := requests[len(requests)-1]
+					lock.Unlock()
+					require.Equal(t, strings.TrimPrefix(id, "generic-responses/"), got.model)
+				}
+			})
 			restrictedReq := req
 			restrictedReq.User = &kuser.DefaultInfo{UID: "9"}
 			attempts := &gatewayAttempts{budgets: map[string][]string{}}
@@ -887,4 +1275,55 @@ func TestLegacyProxySubscriptionListingRetainsProviderScope(t *testing.T) {
 	require.Len(t, b.unlistedModels(ctx), 1, "the canonical route must retain subscription discovery")
 	require.Len(t, b.unlistedModels(llmengine.WithLegacyProviderScope(ctx, "anthropic")), 1)
 	require.Empty(t, b.unlistedModels(llmengine.WithLegacyProviderScope(ctx, "openai")), "a scoped listing must not append another provider's subscription models")
+	back := &legacyTestBackend{client: storageClient, informers: map[schema.GroupVersionKind]cache.SharedIndexInformer{}}
+	helper, err := modelaccesspolicy.NewHelper(ctx, back)
+	require.NoError(t, err)
+	model := &v1.Model{Namespace: system.DefaultNamespace, Name: "m1-subscription", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+		ModelProvider: system.LLMGatewayModelProvider,
+		TargetModel:   "anthropic/claude-test",
+		Active:        true,
+		Usage:         types.ModelUsageLLM,
+		Dialect:       string(llmtypes.DialectAnthropicMessages),
+	}}}
+	gvk, err := storageClient.GroupVersionKindFor(model)
+	require.NoError(t, err)
+	require.NoError(t, back.informers[gvk].GetIndexer().Add(model))
+	policy := &v1.ModelAccessPolicy{Namespace: system.DefaultNamespace, Name: "policy", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+		Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}},
+		Models:   []types.ModelResource{{ID: model.Name}},
+	}}}
+	gvk, err = storageClient.GroupVersionKindFor(policy)
+	require.NoError(t, err)
+	require.NoError(t, back.informers[gvk].GetIndexer().Add(policy))
+	for _, route := range []string{"anthropic/v1", "v1"} {
+		for _, anthropic := range []bool{false, true} {
+			for _, user := range []string{"7", "8"} {
+				t.Run(fmt.Sprintf("%s/anthropic=%v/user=%s", route, anthropic, user), func(t *testing.T) {
+					req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/"+route+"/models", nil)
+					req.SetPathValue("path", "v1/models")
+					if route == "anthropic/v1" {
+						req = req.WithContext(llmengine.WithLegacyProviderScope(ctx, "anthropic"))
+					}
+					r := &llmResponseWriter{mapHelper: helper, modelProvider: system.LLMGatewayModelProvider, user: &kuser.DefaultInfo{UID: user}, unlisted: b.unlistedModels}
+					if anthropic {
+						r.routeDialect = llmtypes.DialectAnthropicMessages
+					}
+					// A successful empty page must still filter subscription additions by access.
+					resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Request: req, Body: io.NopCloser(strings.NewReader(`{"data":[],"has_more":false}`))}
+					require.NoError(t, r.prepareUnary(resp))
+					body, err := io.ReadAll(resp.Body)
+					require.NoError(t, err)
+					if user == "8" {
+						require.Empty(t, modelDataIDs(string(body)), "synthetic entries must be filtered by access")
+					} else {
+						id := "claude-test"
+						if route == "v1" && !anthropic {
+							id = "anthropic/" + id
+						}
+						require.Equal(t, []string{id}, modelDataIDs(string(body)))
+					}
+				})
+			}
+		}
+	}
 }

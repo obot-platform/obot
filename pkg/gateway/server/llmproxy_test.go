@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -119,7 +121,7 @@ func runModelListFilter(t *testing.T, statusCode int, allowAll bool, allowed map
 		Request: &http.Request{URL: &url.URL{Path: "/v1/models"}},
 	}
 
-	if err := filterModelListResponse(resp, allowed, allowAll); err != nil {
+	if err := filterModelListResponse(resp, allowed, allowAll, nil); err != nil {
 		t.Fatalf("filterModelListResponse() error = %v", err)
 	}
 
@@ -128,6 +130,62 @@ func runModelListFilter(t *testing.T, statusCode int, allowAll bool, allowed map
 		t.Fatalf("read response body: %v", err)
 	}
 	return resp, string(out)
+}
+
+func TestFilterModelListResponseReferenceCheck(t *testing.T) {
+	const body = `{"data":[{"id":"llm","created":17},{"id":"Qwen/Qwen3-32B","detail":1e4}],"has_more":false,"first_id":"llm","last_id":"llm","metadata":"retained"}`
+	for _, tc := range []struct {
+		name   string
+		status int
+		fail   bool
+	}{
+		{
+			name:   "omission preserves entries metadata and cursors",
+			status: http.StatusOK,
+		},
+		{
+			name:   "resolver failure propagates",
+			status: http.StatusOK,
+			fail:   true,
+		},
+		{
+			name:   "provider error bypasses resolver",
+			status: http.StatusBadGateway,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			failure := errors.New("reference storage failed")
+			calls := 0
+			resp := &http.Response{StatusCode: tc.status, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}
+			err := filterModelListResponse(resp, nil, true, func(id string) (bool, error) {
+				calls++
+				if tc.fail {
+					return false, failure
+				}
+				return id != "llm", nil
+			})
+			if tc.fail {
+				require.ErrorIs(t, err, failure)
+			} else {
+				require.NoError(t, err)
+			}
+			out, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			if tc.fail || tc.status != http.StatusOK {
+				require.Equal(t, body, string(out))
+			} else {
+				require.Equal(t, []string{"Qwen/Qwen3-32B"}, modelDataIDs(string(out)))
+				assertEntriesPreserved(t, body, string(out), []string{"Qwen/Qwen3-32B"})
+				require.Equal(t, "retained", gjson.GetBytes(out, "metadata").String())
+				id := "Qwen/Qwen3-32B"
+				assertCursor(t, string(out), "first_id", &id)
+				assertCursor(t, string(out), "last_id", &id)
+			}
+			if tc.status != http.StatusOK {
+				require.Zero(t, calls)
+			}
+		})
+	}
 }
 
 func modelDataIDs(body string) []string {

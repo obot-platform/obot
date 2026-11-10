@@ -348,6 +348,10 @@ func addListedModels(resp *http.Response, models []llmengine.ListedModel, anthro
 			entry = map[string]any{"type": "model", "id": id, "display_name": m.Name, "created_at": "1970-01-01T00:00:00Z"}
 		} else {
 			id = m.ID
+			// Legacy OpenAI-format listings use native IDs, including subscription additions.
+			if scope := llmengine.LegacyProviderScope(resp.Request.Context()); scope != "" {
+				id = strings.TrimPrefix(id, scope+"/")
+			}
 			entry = map[string]any{"id": id, "object": "model", "created": 0, "owned_by": provider}
 		}
 		if listed[id] {
