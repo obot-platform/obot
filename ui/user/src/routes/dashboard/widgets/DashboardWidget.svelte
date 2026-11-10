@@ -11,8 +11,8 @@
 	import { usageUserDisplayName } from '$lib/components/admin/usage/utils';
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import { m } from '$lib/i18n';
+	import type { WidgetId } from '$lib/services/dashboard/layout';
 	import { withDisabledMarker } from '$lib/utils';
-	import type { WidgetId } from '../dashboardLayout';
 	import DeviceScanStats from './DeviceScanStats.svelte';
 	import MostDeployedServers from './MostDeployedServers.svelte';
 	import PlatformStats from './PlatformStats.svelte';

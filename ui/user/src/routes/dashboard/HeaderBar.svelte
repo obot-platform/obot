@@ -1,8 +1,8 @@
 <script lang="ts">
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { m } from '$lib/i18n';
+	import type { DashboardConfig, HeaderRow } from '$lib/services/dashboard/layout';
 	import HeaderVisibilityOptions from './HeaderVisibilityOptions.svelte';
-	import type { DashboardConfig, HeaderRow } from './dashboardLayout';
 	import { EllipsisVertical, GripVertical } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 

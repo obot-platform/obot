@@ -36,7 +36,7 @@ import {
 	type DashboardSignals,
 	type WidgetId,
 	type WidgetPlacement
-} from './dashboardLayout';
+} from './layout';
 import { describe, expect, it } from 'vitest';
 
 function ids(rows: DashboardRow[]): unknown[] {

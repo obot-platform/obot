@@ -13,12 +13,12 @@ import type {
 	TokenUsageStats,
 	TotalTokenUsage
 } from '$lib/services';
+import type { DeviceStatId, ModelStatId, PlatformStatId } from '$lib/services/dashboard/layout';
 import type {
 	AvgToolCallResponseTimeRow,
 	TopServerUsageRow,
 	TopToolCallRow
 } from '$lib/services/dashboard/types';
-import type { DeviceStatId, ModelStatId, PlatformStatId } from '../dashboardLayout';
 import type { Component } from 'svelte';
 
 export type DashboardStatTile<Id extends string> = {

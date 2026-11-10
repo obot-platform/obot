@@ -1,8 +1,8 @@
 <script lang="ts">
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import { m } from '$lib/i18n';
+	import type { DeviceStatId } from '$lib/services/dashboard/layout';
 	import { resolve } from '$lib/url';
-	import type { DeviceStatId } from '../dashboardLayout';
 	import StatValue from './StatValue.svelte';
 	import type { Component } from 'svelte';
 	import { twMerge } from 'tailwind-merge';

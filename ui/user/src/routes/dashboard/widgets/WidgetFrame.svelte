@@ -13,7 +13,7 @@
 		togglePlatformStat,
 		type DashboardConfig,
 		type WidgetPlacement
-	} from '../dashboardLayout';
+	} from '$lib/services/dashboard/layout';
 	import { deviceStatLabel, modelStatLabel, platformStatLabel, widgetLabel } from './labels';
 	import { EllipsisVertical, GripVertical, XIcon } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';

@@ -6,7 +6,7 @@
 		type DashboardConfig,
 		type HeaderRow,
 		type HeaderVisibility
-	} from './dashboardLayout';
+	} from '$lib/services/dashboard/layout';
 	import { twMerge } from 'tailwind-merge';
 
 	type Props = {

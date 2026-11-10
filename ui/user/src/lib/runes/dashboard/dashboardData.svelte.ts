@@ -1,5 +1,9 @@
 import { localState } from '$lib/runes/localState.svelte';
-import { dashboardLayoutKey, parseDashboardConfig, type DashboardConfig } from './dashboardLayout';
+import {
+	dashboardLayoutKey,
+	parseDashboardConfig,
+	type DashboardConfig
+} from '$lib/services/dashboard/layout';
 
 // Rune-based helpers for the dashboard page. Each must be called while the page component
 // initializes, because they register effects.

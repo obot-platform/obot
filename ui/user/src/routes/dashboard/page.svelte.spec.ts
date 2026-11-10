@@ -1,16 +1,16 @@
 import { Group } from '$lib/services';
+import {
+	appendHeader,
+	dashboardLayoutKey,
+	factoryConfig,
+	setHeaderVisibility
+} from '$lib/services/dashboard/layout';
 import { errors } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import DashboardPage from './+page.svelte';
-import {
-	appendHeader,
-	dashboardLayoutKey,
-	factoryConfig,
-	setHeaderVisibility
-} from './dashboardLayout';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';

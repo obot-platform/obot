@@ -1,5 +1,5 @@
 import { m } from '$lib/i18n';
-import type { DeviceStatId, PlatformStatId, WidgetId } from '../dashboardLayout';
+import type { DeviceStatId, PlatformStatId, WidgetId } from '$lib/services/dashboard/layout';
 
 export function widgetLabel(id: WidgetId): string {
 	switch (id) {
