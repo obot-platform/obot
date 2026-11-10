@@ -402,6 +402,27 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		if deletedConn != nil {
 			slog.Info("Deleted the SCIM connection of an unstaged auth provider", "authProvider", authProvider.Name, "connection", deletedConn.ConnectionID)
 		}
+		// The verification sign-in ran through the staged provider, which may have created its tables and recorded the
+		// signed-in user's groups. They are dropped before the staged credential, so that a retry after a failure
+		// still finds the staging and drops them again. A switch interrupted after promoting the staged credential
+		// leaves the provider with an active credential of its own as well as the staged one; its tables then hold the
+		// live sessions and groups, and stay. The provider's own credential decides, not which provider the dispatcher
+		// reports as configured, which may still be the outgoing one, and an error keeps the tables.
+		active, err := h.hasActiveCredential(ctx, authProvider)
+		if err != nil {
+			return err
+		}
+		if !active {
+			staged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+			if err != nil {
+				return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
+			}
+			if staged {
+				if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
+					return err
+				}
+			}
+		}
 		deleted, err := h.gatewayClient.DeleteCredential(ctx, system.ReplacementAuthProviderCredentialContext, authProvider.Name)
 		if err != nil {
 			return fmt.Errorf("discard staged configuration for auth provider %q: %w", authProvider.Name, err)
@@ -568,7 +589,7 @@ func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Cl
 			return fmt.Errorf("delete local auth sessions: %w", err)
 		}
 	}
-	if err := dropAuthProviderSessionTables(authProvider, h.postgresDSN); err != nil {
+	if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
 		return err
 	}
 
@@ -642,7 +663,7 @@ func markAuthProviderCleanupReady(ctx context.Context, client kclient.Client, cl
 	return nil
 }
 
-func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN string) error {
+func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) error {
 	if postgresDSN == "" || authProvider.Spec.PostgresTablePrefix == "" {
 		return nil
 	}
@@ -662,6 +683,13 @@ func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN str
 	}
 	if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
 		return fmt.Errorf("drop auth provider session locks table: %w", err)
+	}
+	// Providers whose identity provider has no directory API, such as PingFederate, record the groups they see at
+	// sign-in in these tables. Memberships reference users, so they are dropped first.
+	for _, table := range []string{"directory_memberships", "directory_users"} {
+		if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + table + ";").Error; err != nil {
+			return fmt.Errorf("drop auth provider %s table: %w", table, err)
+		}
 	}
 	return nil
 }

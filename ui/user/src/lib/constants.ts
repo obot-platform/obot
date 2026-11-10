@@ -59,6 +59,7 @@ export const CommonAuthProviderIds = {
 	AUTH0: 'auth0-auth-provider',
 	JUMPCLOUD: 'jumpcloud-auth-provider',
 	KEYCLOAK: 'keycloak-auth-provider',
+	PINGFEDERATE: 'pingfederate-auth-provider',
 	LOCAL: 'local-auth-provider'
 } as const;
 
