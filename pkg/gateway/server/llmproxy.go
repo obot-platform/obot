@@ -218,8 +218,8 @@ func (r *llmResponseWriter) prepareUnary(resp *http.Response) error {
 			if scope != "" {
 				// Filter qualified targets before projecting native IDs. Mixing both forms
 				// can grant a different model whose native ID equals an allowed target.
-				targets := maps.Clone(allowedTargetModels)
-				clear(allowedTargetModels)
+				targets := allowedTargetModels
+				allowedTargetModels = make(map[string]bool, len(targets))
 				for target := range targets {
 					if native, ok := strings.CutPrefix(target, scope+"/"); ok {
 						allowedTargetModels[native] = true
