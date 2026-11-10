@@ -74,7 +74,7 @@ func waitForProviderConfigurationChange(req api.Context, change *v1.ProviderConf
 		return types.NewErrHTTP(
 			cmp.Or(settled.Status.ErrorCode, http.StatusBadRequest),
 			apiMessage(req, "provider_change_failed", "detail",
-				i18n.Resolve(providerResponseLocale(req), settled.Status.Error)),
+				i18n.Resolve(req.Locale(), settled.Status.Error)),
 		)
 	}
 	return nil

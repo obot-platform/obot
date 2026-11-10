@@ -119,23 +119,11 @@
 			if (users.length !== 1 || users[0].email.toLowerCase() !== submitted) throw err;
 			await showSignIn(users);
 		}
-		return true;
 	}
 
-	async function handleOwnerCreated(userCount: number, email?: string) {
+	async function handleOwnerCreated(userCount: number) {
 		if (userCount <= 0) return;
-		await showSignIn(
-			email
-				? [
-						{
-							id: 'created',
-							email,
-							created: new Date().toISOString(),
-							requirePasswordChange: false
-						}
-					]
-				: await AdminService.listLocalAuthUsers()
-		);
+		await showSignIn(await AdminService.listLocalAuthUsers());
 	}
 
 	async function showSignIn(users: LocalAuthUser[]) {

@@ -96,7 +96,7 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 	bootstrap := req.User.GetName() == system.BootstrapName
 	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange), bootstrap)
 	if err != nil {
-		return localauth.CreateUserHTTPError(err, providerResponseLocale(req))
+		return localauth.CreateUserHTTPError(err, req.Locale())
 	}
 
 	return req.Write(LocalAuthUser{
@@ -131,7 +131,7 @@ func (h *LocalAuthHandler) SetPassword(req api.Context) error {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return types.NewErrNotFound("%s", apiMessage(req, "local_user_not_found"))
 	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-		return types.NewErrBadRequest("%s", invalid.Localized(providerResponseLocale(req)))
+		return types.NewErrBadRequest("%s", invalid.Localized(req.Locale()))
 	} else if err != nil {
 		return fmt.Errorf("failed to set password for local auth user: %w", err)
 	}
@@ -200,7 +200,7 @@ func (h *LocalAuthHandler) ChangePassword(req api.Context) error {
 	}
 	if err := h.provider.ChangePassword(req.Context(), localUser.ID, body.Password, hash.String(cookie.Value)); err != nil {
 		if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-			return types.NewErrBadRequest("%s", invalid.Localized(providerResponseLocale(req)))
+			return types.NewErrBadRequest("%s", invalid.Localized(req.Locale()))
 		} else if errors.Is(err, gorm.ErrRecordNotFound) {
 			return types.NewErrHTTP(http.StatusConflict, apiMessage(req, "local_password_completed"))
 		}

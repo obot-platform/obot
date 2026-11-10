@@ -57,7 +57,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	tokenRequest := &gwtypes.TokenRequest{
 		ID:                    tokenID,
 		Purpose:               gwtypes.TokenRequestPurposeSetup,
-		CompletionRedirectURL: fmt.Sprintf("%s/setup/oauth-complete", req.APIBaseURL),
+		CompletionRedirectURL: req.APIBaseURL + oauthCompletePath,
 		RequestExpiresAt:      time.Now().Add(15 * time.Minute),
 	}
 

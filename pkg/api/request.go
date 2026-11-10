@@ -15,6 +15,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -60,6 +61,13 @@ type (
 		MaxBytes int64
 	}
 )
+
+func (r *Context) Locale() string {
+	if r.Request == nil {
+		return "en"
+	}
+	return i18n.FromContext(r.Request.Context())
+}
 
 func (r *Context) IsStreamRequested() bool {
 	return r.Accepts("text/event-stream")

@@ -559,12 +559,20 @@ func TestSetupLocalOwnerSignsInAndCompletesSetup(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, httpErr.Code)
 }
 
+func TestSetupLocalOwnerAcceptsProxiedOrigin(t *testing.T) {
+	f := newLocalSetupFixture(t)
+
+	// The Vite dev server proxies /api with changeOrigin, so Origin and Host differ.
+	recorder, err := f.createLocalOwnerFrom(t, system.BootstrapName, "owner@example.com", "http://localhost:5174", "application/json")
+	require.NoError(t, err)
+	require.Len(t, recorder.Result().Cookies(), 1)
+}
+
 func TestSetupLocalOwnerGuards(t *testing.T) {
 	for _, test := range []struct {
 		name          string
 		caller        string
 		configured    string
-		origin        string
 		contentType   string
 		existingUser  bool
 		wantCode      int
@@ -578,15 +586,7 @@ func TestSetupLocalOwnerGuards(t *testing.T) {
 			wantUserCount: 0,
 		},
 		{
-			name:          "cross-origin request",
-			caller:        system.BootstrapName,
-			configured:    system.LocalAuthProvider,
-			origin:        "https://attacker.example.net",
-			wantCode:      http.StatusForbidden,
-			wantUserCount: 0,
-		},
-		{
-			name:          "non-JSON request without origin",
+			name:          "non-JSON request",
 			caller:        system.BootstrapName,
 			configured:    system.LocalAuthProvider,
 			contentType:   "text/plain",
@@ -620,7 +620,7 @@ func TestSetupLocalOwnerGuards(t *testing.T) {
 			if contentType == "" {
 				contentType = "application/json"
 			}
-			recorder, err := f.createLocalOwnerFrom(t, test.caller, "owner@example.com", test.origin, contentType)
+			recorder, err := f.createLocalOwnerFrom(t, test.caller, "owner@example.com", "", contentType)
 			var httpErr *apitypes.ErrHTTP
 			require.ErrorAs(t, err, &httpErr)
 			require.Equal(t, test.wantCode, httpErr.Code)

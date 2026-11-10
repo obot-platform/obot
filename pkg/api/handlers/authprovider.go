@@ -84,7 +84,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	locale := providerResponseLocale(req)
+	locale := req.Locale()
 	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus, params, locale))
 }
 
@@ -235,7 +235,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		statuses[index] = *authProviderStatus
 		parameters[index] = params
 	}
-	locale := providerResponseLocale(req)
+	locale := req.Locale()
 	for index, a := range authProviders.Items {
 		resp = append(resp, ap.convertAuthProvider(a, statuses[index], parameters[index], locale))
 	}
@@ -358,9 +358,9 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 		if len(residual.Groups) > 0 || residual.MembershipCount > 0 {
 			return types.NewErrHTTP(http.StatusConflict, (&scimsetup.ResidualGroupDataError{
 				AuthProviderName:        authProvider.Name,
-				AuthProviderDisplayName: cmp.Or(i18n.Resolve(providerResponseLocale(req), authProvider.Spec.Name), authProvider.Name),
+				AuthProviderDisplayName: cmp.Or(i18n.Resolve(req.Locale(), authProvider.Spec.Name), authProvider.Name),
 				Data:                    *residual,
-				Locale:                  providerResponseLocale(req),
+				Locale:                  req.Locale(),
 			}).Error())
 		}
 	}

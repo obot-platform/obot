@@ -30,7 +30,7 @@ async function submitForm() {
 
 describe('LocalAuthInitialUserForm', () => {
 	it('stays disabled when a custom createUser takes over', async () => {
-		const createUser = vi.fn(async () => true);
+		const createUser = vi.fn(async () => {});
 		render(LocalAuthInitialUserForm, { provider, onConfigure: vi.fn(), createUser });
 
 		await submitForm();
@@ -39,16 +39,5 @@ describe('LocalAuthInitialUserForm', () => {
 			expect(createUser).toHaveBeenCalledWith('ada@example.com', validPassword)
 		);
 		await expect.element(page.getByLabelText('Email', { exact: true })).toBeDisabled();
-	});
-
-	it('re-enables the form when a custom createUser does not take over', async () => {
-		const createUser = vi.fn(async () => false);
-		render(LocalAuthInitialUserForm, { provider, onConfigure: vi.fn(), createUser });
-
-		await submitForm();
-
-		await vi.waitFor(() => expect(createUser).toHaveBeenCalledOnce());
-		await expect.element(page.getByLabelText('Email', { exact: true })).toBeEnabled();
-		await expect.element(page.getByRole('button', { name: 'Continue', exact: true })).toBeEnabled();
 	});
 });

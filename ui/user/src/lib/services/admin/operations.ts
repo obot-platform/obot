@@ -1773,7 +1773,7 @@ export async function initiateTempLogin(authProviderName: string, authProviderNa
  * to `redirectUrl` to finish setup.
  */
 export async function createSetupLocalOwner(email: string, password: string) {
-	return (await doPost('/setup/local-owner', { email, password })) as {
+	return (await doPost('/setup/local-owner', { email, password }, { dontLogErrors: true })) as {
 		email: string;
 		redirectUrl: string;
 	};

@@ -41,14 +41,6 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 		return err
 	}
 
-	// The bootstrap credential is a cookie, so refuse cross-site requests that would otherwise
-	// create the owner account with a password chosen by another site.
-	if !localauth.SameOrigin(req.Request) {
-		slog.Warn("Rejected cross-origin initial local owner creation")
-		return types.NewErrHTTP(http.StatusForbidden, localized(req, "local_login_cross_origin"))
-	}
-	// SameOrigin allows requests without Origin or Referer, so also require a JSON body: a
-	// cross-site form or simple request cannot send one without a CORS preflight.
 	if mediaType, _, _ := mime.ParseMediaType(req.Request.Header.Get("Content-Type")); mediaType != "application/json" {
 		return types.NewErrHTTP(http.StatusUnsupportedMediaType, localized(req, "local_json_required"))
 	}
@@ -72,7 +64,7 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 
 	user, err := h.localAuth.CreateUser(req.Context(), body.Email, body.Password, false, true)
 	if err != nil {
-		return localauth.CreateUserHTTPError(err, requestLocale(req))
+		return localauth.CreateUserHTTPError(err, req.Locale())
 	}
 
 	token, expiresAt, err := h.localAuth.StartSession(req.Context(), user.ID)

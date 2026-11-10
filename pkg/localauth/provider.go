@@ -142,7 +142,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	// Reject cross-origin logins. Browsers always send Origin on POST, so this blocks login CSRF
 	// without requiring the login form to carry a token.
-	if !SameOrigin(r) {
+	if !sameOrigin(r) {
 		http.Error(w, i18n.Text(locale, "local_login_cross_origin"), http.StatusForbidden)
 		return
 	}
@@ -382,10 +382,9 @@ func (p *Provider) secureCookies() bool {
 	return strings.HasPrefix(p.serverURL, "https://")
 }
 
-// SameOrigin reports whether a request's Origin (or Referer) matches its Host. Browsers always send
-// Origin on cross-origin POSTs, so rejecting a mismatch blocks cookie-authenticated CSRF without a
-// token. Requests with neither header are treated as same-origin.
-func SameOrigin(r *http.Request) bool {
+// sameOrigin reports whether the request was initiated by the page it claims to come from.
+// Requests without an Origin or Referer (curl, tests) are allowed: CSRF requires a browser.
+func sameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		origin = r.Header.Get("Referer")

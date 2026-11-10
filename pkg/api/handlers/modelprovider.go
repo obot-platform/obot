@@ -37,7 +37,7 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	locale := providerResponseLocale(req)
+	locale := req.Locale()
 	return req.Write(mp.convertModelProvider(modelProvider, *mps, locale))
 }
 
@@ -50,7 +50,7 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	}
 
 	resp := make([]types.ModelProvider, 0, len(modelProviders.Items))
-	locale := providerResponseLocale(req)
+	locale := req.Locale()
 	for _, modelProvider := range modelProviders.Items {
 		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.entitlementProvider)
 		if err != nil {
@@ -76,7 +76,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 
 	if !mps.Configured {
 		return types.NewErrBadRequest("%s", apiMessage(req, "model_not_configured",
-			"provider", i18n.Resolve(providerResponseLocale(req), modelProvider.Spec.Name),
+			"provider", i18n.Resolve(req.Locale(), modelProvider.Spec.Name),
 			"parameters", strings.Join(mps.MissingConfigurationParameters, ", ")))
 	}
 
@@ -93,7 +93,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return fmt.Errorf("failed to sync models for model provider %q: %w", modelProvider.Name, err)
 	}
 
-	locale := providerResponseLocale(req)
+	locale := req.Locale()
 	return req.Write(mp.convertModelProvider(modelProvider, *mps, locale))
 }
 

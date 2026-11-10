@@ -12,13 +12,6 @@ func providerLocale(header string) string {
 	return i18n.Locale(header)
 }
 
-func providerResponseLocale(req api.Context) string {
-	if req.Request == nil {
-		return "en"
-	}
-	return i18n.FromContext(req.Context())
-}
-
 func apiMessage(req api.Context, key string, values ...string) string {
 	if len(values)%2 != 0 {
 		panic("API message arguments must be key/value pairs")
@@ -27,7 +20,7 @@ func apiMessage(req api.Context, key string, values ...string) string {
 	for i := 0; i < len(values); i += 2 {
 		args[values[i]] = values[i+1]
 	}
-	return i18n.Message(providerResponseLocale(req), key, args)
+	return i18n.Message(req.Locale(), key, args)
 }
 
 func localizeProviderMetadata(metadata *types.CommonProviderMetadata, locale string) {

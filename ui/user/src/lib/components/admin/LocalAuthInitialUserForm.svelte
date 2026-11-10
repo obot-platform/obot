@@ -22,7 +22,7 @@
 		readonly?: boolean;
 		onConfigure: (form: Record<string, string>) => Promise<string | undefined>;
 		onCreated?: (userCount: number, email?: string) => void;
-		createUser?: (email: string, password: string) => Promise<boolean>;
+		createUser?: (email: string, password: string) => Promise<void>;
 		additionalActions?: Snippet;
 	}
 
@@ -105,10 +105,7 @@
 			}
 
 			if (createUser) {
-				// Leave the form disabled only while the handler takes over.
-				if (!(await createUser(email, initialPassword))) {
-					saving = false;
-				}
+				await createUser(email, initialPassword);
 				return;
 			}
 

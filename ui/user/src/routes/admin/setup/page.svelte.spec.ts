@@ -2,6 +2,7 @@ import { CommonAuthProviderIds, LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/cons
 import * as navigation from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider, LocalAuthUser } from '$lib/services/admin/types';
+import { errors } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { initiateTempLoginResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
@@ -244,6 +245,25 @@ describe('Setup page', () => {
 			.not.toBeInTheDocument();
 		expect(initiateTempLogin).not.toHaveBeenCalled();
 		expect(navigation.navigateTo).not.toHaveBeenCalled();
+	});
+
+	it('reports owner creation errors inline without a global error', async () => {
+		errors.items = [];
+		mockSetupApis();
+		worker.use(
+			http.post(
+				'/api/setup/local-owner',
+				() => new HttpResponse('email is not allowed', { status: 400 })
+			)
+		);
+		await renderSetupPage({ splashSeen: true, eulaAccepted: true, localProvider: localConfigured });
+
+		await completeOwnerForm();
+
+		await expect
+			.element(page.getByRole('alert').filter({ hasText: 'email is not allowed' }).first())
+			.toBeVisible();
+		expect(errors.items).toHaveLength(0);
 	});
 
 	it('keeps the owner form with an error when the owner could not be created', async () => {

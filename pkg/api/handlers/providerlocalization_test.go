@@ -40,12 +40,14 @@ func TestProviderLocale(t *testing.T) {
 	}
 }
 
-func TestProviderResponseLocaleFromContext(t *testing.T) {
+func TestContextLocale(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/model-providers", nil)
 	request = request.WithContext(i18n.WithLocale(request.Context(), "ko"))
-	locale := providerResponseLocale(api.Context{Request: request})
-	if locale != "ko" {
+	if locale := (&api.Context{Request: request}).Locale(); locale != "ko" {
 		t.Fatalf("locale = %q, want ko", locale)
+	}
+	if locale := (&api.Context{}).Locale(); locale != "en" {
+		t.Fatalf("locale without request = %q, want en", locale)
 	}
 }
 

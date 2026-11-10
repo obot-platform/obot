@@ -75,7 +75,7 @@ func (a *AvailableModelsHandler) ListForModelProvider(req api.Context) error {
 
 	if len(modelProvider.Status.MissingConfigurationParameters) != 0 {
 		return types.NewErrBadRequest("%s", apiMessage(req, "model_not_configured",
-			"provider", i18n.Resolve(providerResponseLocale(req), modelProvider.Spec.Name),
+			"provider", i18n.Resolve(req.Locale(), modelProvider.Spec.Name),
 			"parameters", strings.Join(modelProvider.Status.MissingConfigurationParameters, ", ")))
 	}
 
