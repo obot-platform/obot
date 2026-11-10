@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/bootstrap"
+	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
@@ -20,13 +21,15 @@ type Handler struct {
 	serverURL          string
 	bootstrapEnabler   *bootstrap.Bootstrap
 	authProviderGetter configuredAuthProviderGetter
+	localAuth          *localauth.Provider
 }
 
-func NewHandler(serverURL string, bootstrapEnabler *bootstrap.Bootstrap, authProviderGetter configuredAuthProviderGetter) *Handler {
+func NewHandler(serverURL string, bootstrapEnabler *bootstrap.Bootstrap, authProviderGetter configuredAuthProviderGetter, localAuth *localauth.Provider) *Handler {
 	return &Handler{
 		serverURL:          serverURL,
 		bootstrapEnabler:   bootstrapEnabler,
 		authProviderGetter: authProviderGetter,
+		localAuth:          localAuth,
 	}
 }
 

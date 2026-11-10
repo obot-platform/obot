@@ -1768,6 +1768,17 @@ export async function initiateTempLogin(authProviderName: string, authProviderNa
 	return response;
 }
 
+/**
+ * Creates the initial local owner during setup and signs this browser in as that account. Navigate
+ * to `redirectUrl` to finish setup.
+ */
+export async function createSetupLocalOwner(email: string, password: string) {
+	return (await doPost('/setup/local-owner', { email, password })) as {
+		email: string;
+		redirectUrl: string;
+	};
+}
+
 export async function getTempUser() {
 	const response = (await doGet('/setup/temp-user')) as TempUser;
 	return response;

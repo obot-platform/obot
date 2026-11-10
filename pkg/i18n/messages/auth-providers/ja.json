@@ -62,6 +62,7 @@
   "setup_cancelled_user": "{email} の一時ログインを取り消しました",
   "local_login_invalid_form": "無効なフォームです",
   "local_login_cross_origin": "異なるオリジンからのログインは許可されていません",
+  "local_json_required": "リクエスト本文は JSON である必要があります",
   "local_login_credentials_required": "メールアドレスとパスワードを入力してください。",
   "local_login_throttled": "ログインの失敗回数が多すぎます。しばらくしてからもう一度お試しください。",
   "local_login_incorrect_credentials": "メールアドレスまたはパスワードが正しくありません。",

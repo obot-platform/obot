@@ -7,10 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/mail"
 	"strings"
 	"time"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -37,6 +39,24 @@ func (e InvalidUserError) Localized(locale string) string {
 		return e.message
 	}
 	return i18n.Message(locale, e.key, e.args)
+}
+
+// CreateUserHTTPError converts an error from CreateUser into the error an API handler returns,
+// localizing the ones that are the caller's fault. It returns nil for a nil error.
+func CreateUserHTTPError(err error, locale string) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, client.ErrBootstrapLocalAuthUserLimit) {
+		return apitypes.NewErrHTTP(http.StatusConflict, i18n.Message(locale, "local_bootstrap_limit", nil))
+	}
+	if errors.Is(err, client.ErrLocalAuthUserExists) {
+		return apitypes.NewErrBadRequest("%s", i18n.Message(locale, "local_user_exists", nil))
+	}
+	if invalid, ok := errors.AsType[InvalidUserError](err); ok {
+		return apitypes.NewErrBadRequest("%s", invalid.Localized(locale))
+	}
+	return fmt.Errorf("failed to create local auth user: %w", err)
 }
 
 func (p *Provider) Users(ctx context.Context) ([]types.LocalAuthUser, error) {

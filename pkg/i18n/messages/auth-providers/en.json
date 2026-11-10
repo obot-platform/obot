@@ -62,6 +62,7 @@
   "setup_cancelled_user": "Temporary login for {email} cancelled",
   "local_login_invalid_form": "invalid form",
   "local_login_cross_origin": "cross-origin login is not allowed",
+  "local_json_required": "request body must be JSON",
   "local_login_credentials_required": "Enter your email and password.",
   "local_login_throttled": "Too many failed login attempts. Try again later.",
   "local_login_incorrect_credentials": "Incorrect email or password.",

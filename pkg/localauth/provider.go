@@ -142,7 +142,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	// Reject cross-origin logins. Browsers always send Origin on POST, so this blocks login CSRF
 	// without requiring the login form to carry a token.
-	if !sameOrigin(r) {
+	if !SameOrigin(r) {
 		http.Error(w, i18n.Text(locale, "local_login_cross_origin"), http.StatusForbidden)
 		return
 	}
@@ -194,15 +194,8 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	p.throttle.succeeded(email)
 
-	token, err := generateToken()
+	token, expiresAt, err := p.StartSession(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to generate session token", "error", err)
-		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
-		return
-	}
-
-	expiresAt := time.Now().Add(sessionDuration)
-	if err := p.gatewayClient.CreateLocalAuthSession(r.Context(), hash.String(token), user.ID, expiresAt); err != nil {
 		slog.Error("failed to create local auth session", "error", err)
 		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
@@ -216,6 +209,21 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, rd, http.StatusFound)
 }
 
+// StartSession creates a new session for the given local user and returns its bearer token. The
+// caller is responsible for having authenticated the user, and for delivering the token with
+// SetSessionCookie.
+func (p *Provider) StartSession(ctx context.Context, userID uint) (string, time.Time, error) {
+	token, expiresAt, err := newSessionToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+
+	if err := p.gatewayClient.CreateLocalAuthSession(ctx, hash.String(token), userID, expiresAt); err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to create local auth session: %w", err)
+	}
+	return token, expiresAt, nil
+}
+
 // ActivateInitialOwner validates a setup token and starts a restricted session for the account it
 // was bound to. The token stays reusable until password completion or expiry, and an invalid one
 // tells the caller nothing about the account.
@@ -224,15 +232,23 @@ func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) 
 		return "", time.Time{}, gorm.ErrRecordNotFound
 	}
 
-	token, err := generateToken()
+	token, expiresAt, err := newSessionToken()
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	expiresAt := time.Now().Add(sessionDuration)
 	if _, err := p.gatewayClient.ActivateLocalAuthUser(ctx, hash.String(setupToken), hash.String(token), expiresAt); err != nil {
 		return "", time.Time{}, err
 	}
 	return token, expiresAt, nil
+}
+
+// newSessionToken returns a fresh session token and the time a session started now expires.
+func newSessionToken() (string, time.Time, error) {
+	token, err := generateToken()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to generate session token: %w", err)
+	}
+	return token, time.Now().Add(sessionDuration), nil
 }
 
 func (p *Provider) SetSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
@@ -366,9 +382,10 @@ func (p *Provider) secureCookies() bool {
 	return strings.HasPrefix(p.serverURL, "https://")
 }
 
-// sameOrigin reports whether the request was initiated by the page it claims to come from.
-// Requests without an Origin or Referer (curl, tests) are allowed: CSRF requires a browser.
-func sameOrigin(r *http.Request) bool {
+// SameOrigin reports whether a request's Origin (or Referer) matches its Host. Browsers always send
+// Origin on cross-origin POSTs, so rejecting a mismatch blocks cookie-authenticated CSRF without a
+// token. Requests with neither header are treated as same-origin.
+func SameOrigin(r *http.Request) bool {
 	origin := r.Header.Get("Origin")
 	if origin == "" {
 		origin = r.Header.Get("Referer")

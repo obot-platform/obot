@@ -22,10 +22,12 @@
 		readonly?: boolean;
 		onConfigure: (form: Record<string, string>) => Promise<string | undefined>;
 		onCreated?: (userCount: number, email?: string) => void;
+		createUser?: (email: string, password: string) => Promise<boolean>;
 		additionalActions?: Snippet;
 	}
 
-	const { provider, readonly, onConfigure, onCreated, additionalActions }: Props = $props();
+	const { provider, readonly, onConfigure, onCreated, createUser, additionalActions }: Props =
+		$props();
 
 	let configuring = $state(false);
 	let configError = $state<string>();
@@ -99,6 +101,14 @@
 		try {
 			if (!(await ensureConfigured())) {
 				saving = false;
+				return;
+			}
+
+			if (createUser) {
+				// Leave the form disabled only while the handler takes over.
+				if (!(await createUser(email, initialPassword))) {
+					saving = false;
+				}
 				return;
 			}
 

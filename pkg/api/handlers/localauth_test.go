@@ -90,7 +90,7 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 		storage:   storageClient,
 		provider:  provider,
 		handler:   NewLocalAuthHandler(provider),
-		setup:     setup.NewHandler("https://obot.example.com", boot, getter),
+		setup:     setup.NewHandler("https://obot.example.com", boot, getter, provider),
 		bootstrap: boot,
 		getter:    getter,
 	}
@@ -484,6 +484,151 @@ func TestLocalAuthSetupPromotionGuards(t *testing.T) {
 			user, err := f.gateway.UserByID(t.Context(), req.User.GetUID())
 			require.NoError(t, err)
 			require.False(t, user.Role.HasRole(apitypes.RoleOwner))
+		})
+	}
+}
+
+func (f *localSetupFixture) createLocalOwner(t *testing.T, caller, email string) (*httptest.ResponseRecorder, error) {
+	t.Helper()
+	return f.createLocalOwnerFrom(t, caller, email, "", "application/json")
+}
+
+func (f *localSetupFixture) createLocalOwnerFrom(t *testing.T, caller, email, origin, contentType string) (*httptest.ResponseRecorder, error) {
+	t.Helper()
+
+	body, err := json.Marshal(setup.CreateLocalOwnerRequest{
+		Email:    email,
+		Password: localSetupPassword,
+	})
+	require.NoError(t, err)
+
+	request := httptest.NewRequest(http.MethodPost, "/api/setup/local-owner", strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", contentType)
+	if origin != "" {
+		request.Header.Set("Origin", origin)
+	}
+
+	recorder := httptest.NewRecorder()
+	return recorder, f.setup.CreateLocalOwner(api.Context{
+		Request:        request,
+		ResponseWriter: recorder,
+		GatewayClient:  f.gateway,
+		User:           &kuser.DefaultInfo{Name: caller},
+		APIBaseURL:     "https://obot.example.com/api",
+	})
+}
+
+func TestSetupLocalOwnerSignsInAndCompletesSetup(t *testing.T) {
+	f := newLocalSetupFixture(t)
+
+	recorder, err := f.createLocalOwner(t, system.BootstrapName, "Owner@Example.com")
+	require.NoError(t, err)
+
+	var response setup.CreateLocalOwnerResponse
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, "owner@example.com", response.Email)
+	require.Equal(t, "https://obot.example.com/api/setup/oauth-complete", response.RedirectURL)
+
+	cookies := recorder.Result().Cookies()
+	require.Len(t, cookies, 1)
+	cookie := cookies[0]
+	require.Equal(t, auth.ObotAccessTokenCookie, cookie.Name)
+	require.True(t, cookie.HttpOnly)
+	require.True(t, cookie.Secure)
+
+	_, localUser, err := f.gateway.LocalAuthSession(t.Context(), hash.String(cookie.Value))
+	require.NoError(t, err)
+	require.Equal(t, "owner@example.com", localUser.Email)
+	require.False(t, localUser.RequirePasswordChange)
+
+	req := f.identity(t, "owner@example.com", system.LocalAuthProvider, apitypes.RoleBasic)
+	req.AddCookie(cookie)
+	req.AddCookie(&http.Cookie{Name: bootstrap.ObotBootstrapCookie, Value: "test-bootstrap-token"})
+	require.NoError(t, f.setup.OAuthComplete(req))
+	result := req.ResponseWriter.(*httptest.ResponseRecorder).Result()
+	require.Equal(t, "/admin", result.Header.Get("Location"))
+
+	user, err := f.gateway.UserByID(t.Context(), req.User.GetUID())
+	require.NoError(t, err)
+	require.True(t, user.Role.HasRole(apitypes.RoleOwner))
+
+	// Setup is finished, so the endpoint can no longer be used to mint sessions.
+	_, err = f.createLocalOwner(t, system.BootstrapName, "other@example.com")
+	var httpErr *apitypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	require.Equal(t, http.StatusNotFound, httpErr.Code)
+}
+
+func TestSetupLocalOwnerGuards(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		caller        string
+		configured    string
+		origin        string
+		contentType   string
+		existingUser  bool
+		wantCode      int
+		wantUserCount int
+	}{
+		{
+			name:          "non-bootstrap caller",
+			caller:        "someone@example.com",
+			configured:    system.LocalAuthProvider,
+			wantCode:      http.StatusForbidden,
+			wantUserCount: 0,
+		},
+		{
+			name:          "cross-origin request",
+			caller:        system.BootstrapName,
+			configured:    system.LocalAuthProvider,
+			origin:        "https://attacker.example.net",
+			wantCode:      http.StatusForbidden,
+			wantUserCount: 0,
+		},
+		{
+			name:          "non-JSON request without origin",
+			caller:        system.BootstrapName,
+			configured:    system.LocalAuthProvider,
+			contentType:   "text/plain",
+			wantCode:      http.StatusUnsupportedMediaType,
+			wantUserCount: 0,
+		},
+		{
+			name:          "local provider is not configured",
+			caller:        system.BootstrapName,
+			configured:    "google-auth-provider",
+			wantCode:      http.StatusForbidden,
+			wantUserCount: 0,
+		},
+		{
+			name:          "initial local user already exists",
+			caller:        system.BootstrapName,
+			configured:    system.LocalAuthProvider,
+			existingUser:  true,
+			wantCode:      http.StatusConflict,
+			wantUserCount: 1,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			f := newLocalSetupFixture(t)
+			f.getter.name = test.configured
+			if test.existingUser {
+				require.NoError(t, f.create(t, system.BootstrapName, "first@example.com", false))
+			}
+
+			contentType := test.contentType
+			if contentType == "" {
+				contentType = "application/json"
+			}
+			recorder, err := f.createLocalOwnerFrom(t, test.caller, "owner@example.com", test.origin, contentType)
+			var httpErr *apitypes.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			require.Equal(t, test.wantCode, httpErr.Code)
+			require.Empty(t, recorder.Result().Cookies())
+
+			users, err := f.gateway.LocalAuthUsers(t.Context())
+			require.NoError(t, err)
+			require.Len(t, users, test.wantUserCount)
 		})
 	}
 }

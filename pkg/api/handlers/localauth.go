@@ -95,14 +95,8 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 
 	bootstrap := req.User.GetName() == system.BootstrapName
 	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange), bootstrap)
-	if errors.Is(err, gateway.ErrBootstrapLocalAuthUserLimit) {
-		return types.NewErrHTTP(http.StatusConflict, apiMessage(req, "local_bootstrap_limit"))
-	} else if errors.Is(err, gateway.ErrLocalAuthUserExists) {
-		return types.NewErrBadRequest("%s", apiMessage(req, "local_user_exists"))
-	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-		return types.NewErrBadRequest("%s", invalid.Localized(providerResponseLocale(req)))
-	} else if err != nil {
-		return fmt.Errorf("failed to create local auth user: %w", err)
+	if err != nil {
+		return localauth.CreateUserHTTPError(err, providerResponseLocale(req))
 	}
 
 	return req.Write(LocalAuthUser{

@@ -7,6 +7,7 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { navigateTo } from '$lib/navigation';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { errors, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -108,20 +109,37 @@
 		}
 	}
 
+	async function createOwnerAndSignIn(email: string, password: string) {
+		try {
+			const { redirectUrl } = await AdminService.createSetupLocalOwner(email, password);
+			navigateTo(redirectUrl);
+		} catch (err) {
+			const users = await AdminService.listLocalAuthUsers().catch(() => []);
+			const submitted = email.trim().toLowerCase();
+			if (users.length !== 1 || users[0].email.toLowerCase() !== submitted) throw err;
+			await showSignIn(users);
+		}
+		return true;
+	}
+
 	async function handleOwnerCreated(userCount: number, email?: string) {
 		if (userCount <= 0) return;
-		if (email) {
-			localUsers = [
-				{
-					id: 'created',
-					email,
-					created: new Date().toISOString(),
-					requirePasswordChange: false
-				}
-			];
-		} else {
-			localUsers = await AdminService.listLocalAuthUsers();
-		}
+		await showSignIn(
+			email
+				? [
+						{
+							id: 'created',
+							email,
+							created: new Date().toISOString(),
+							requirePasswordChange: false
+						}
+					]
+				: await AdminService.listLocalAuthUsers()
+		);
+	}
+
+	async function showSignIn(users: LocalAuthUser[]) {
+		localUsers = users;
 		step = 'signin';
 		await prepareSignIn();
 	}
@@ -156,6 +174,7 @@
 							provider={localProvider}
 							onConfigure={handleLocalAuthConfigure}
 							onCreated={handleOwnerCreated}
+							createUser={createOwnerAndSignIn}
 						/>
 					</div>
 				{:else}

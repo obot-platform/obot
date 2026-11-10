@@ -62,6 +62,7 @@
   "setup_cancelled_user": "已取消 {email} 的临时登录",
   "local_login_invalid_form": "表单无效",
   "local_login_cross_origin": "不允许跨源登录",
+  "local_json_required": "请求正文必须是 JSON",
   "local_login_credentials_required": "请输入您的邮箱和密码。",
   "local_login_throttled": "登录失败次数过多。请稍后重试。",
   "local_login_incorrect_credentials": "邮箱或密码不正确。",
