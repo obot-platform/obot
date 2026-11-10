@@ -116,6 +116,12 @@
 	let pendingDrop: PendingDrop | null = null;
 	let ghostReady = $state(false);
 	const SETTLED_MS = 160;
+	// The settled preview replaces the thin slot that accepted it. Ignore a new hit until the
+	// pointer leaves that preview, or moves, so the slot cannot flicker in and out under the cursor.
+	const dropHoldPx = 8;
+	let dropAnchorX = 0;
+	let dropAnchorY = 0;
+	let dropAnchorScroll = 0;
 
 	function clearDragPreview() {
 		dragPreview?.remove();
@@ -133,12 +139,66 @@
 		syncSettledPreview();
 	}
 
+	function dropStorageKey(next: PendingDrop): string {
+		return next.kind === 'gap'
+			? `gap-${locationKey([...next.parent, next.index])}`
+			: `slot-${locationKey([...next.parent, next.rowIndex])}-${next.index}`;
+	}
+
+	function layoutScrollTop(): number {
+		const node = document.querySelector('[data-layout-scroll]');
+		return node instanceof HTMLElement ? node.scrollTop : 0;
+	}
+
+	function rememberAnchor() {
+		dropAnchorX = dragPointerX;
+		dropAnchorY = dragPointerY;
+		dropAnchorScroll = layoutScrollTop();
+	}
+
+	function dropTravel(): number {
+		const scrolled = layoutScrollTop() - dropAnchorScroll;
+		return Math.hypot(dragPointerX - dropAnchorX, dragPointerY - dropAnchorY + scrolled);
+	}
+
+	function boxWithMargin(node: HTMLElement): DOMRect {
+		const rect = node.getBoundingClientRect();
+		const style = getComputedStyle(node);
+		const top = Number.parseFloat(style.marginTop) || 0;
+		const right = Number.parseFloat(style.marginRight) || 0;
+		const bottom = Number.parseFloat(style.marginBottom) || 0;
+		const left = Number.parseFloat(style.marginLeft) || 0;
+		return new DOMRect(
+			rect.left - left,
+			rect.top - top,
+			rect.width + left + right,
+			rect.height + top + bottom
+		);
+	}
+
+	function rectContains(rect: DOMRect, x: number, y: number, pad = 0): boolean {
+		return (
+			x >= rect.left - pad && x <= rect.right + pad && y >= rect.top - pad && y <= rect.bottom + pad
+		);
+	}
+
+	function stillInsideCurrentDrop(x: number, y: number): boolean {
+		if (!dropKey || typeof document === 'undefined') return false;
+		const id = dropKey.slice(dropKey.indexOf('-') + 1);
+		const slot = document.querySelector(`[data-drop-slot="${CSS.escape(id)}"]`);
+		if (slot instanceof HTMLElement && rectContains(boxWithMargin(slot), x, y, 4)) return true;
+		for (const ghost of document.querySelectorAll('[data-drag-settled]')) {
+			if (ghost instanceof HTMLElement && rectContains(boxWithMargin(ghost), x, y, 4)) return true;
+		}
+		return false;
+	}
+
 	function rememberDrop(next: PendingDrop) {
+		const key = dropStorageKey(next);
+		if (key === dropKey) return;
 		pendingDrop = next;
-		dropKey =
-			next.kind === 'gap'
-				? `gap-${locationKey([...next.parent, next.index])}`
-				: `slot-${locationKey([...next.parent, next.rowIndex])}-${next.index}`;
+		dropKey = key;
+		rememberAnchor();
 		syncSettledPreview();
 	}
 
@@ -216,13 +276,6 @@
 		return ghostReady && dropKey === `slot-${key}`;
 	}
 
-	function pointerInSettledPreview(x: number, y: number) {
-		const ghost = document.querySelector('[data-drag-settled]');
-		if (!(ghost instanceof HTMLElement)) return false;
-		const rect = ghost.getBoundingClientRect();
-		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-	}
-
 	function moveDragPreview(x: number, y: number) {
 		if (!dragPreview) return;
 		dragPreview.style.left = `${x - 14}px`;
@@ -286,7 +339,10 @@
 		}
 		event.preventDefault();
 		dragging = subject;
+		dragPointerX = event.clientX;
+		dragPointerY = event.clientY;
 		clearPendingDrop();
+		rememberAnchor();
 		setGrabbingCursor(true);
 		mountDragPreview(current, event.clientX, event.clientY);
 		window.addEventListener('pointermove', onPointerMove);
@@ -494,7 +550,9 @@
 
 	function highlightAt(x: number, y: number) {
 		if (typeof document === 'undefined') return;
-		if (pointerInSettledPreview(x, y)) return;
+		dragPointerX = x;
+		dragPointerY = y;
+		if (dropKey && (stillInsideCurrentDrop(x, y) || dropTravel() < dropHoldPx)) return;
 		const node = document.elementFromPoint(x, y);
 		const target = node instanceof Element ? node : null;
 		const gap = target?.closest('[data-layout-gap]');

@@ -325,6 +325,7 @@
 	type RowBand = { index: number; top: number; bottom: number; nodes: HTMLElement[] };
 
 	function rowBands(box: HTMLElement): RowBand[] {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const bands = new Map<number, RowBand>();
 		for (const node of box.querySelectorAll(
 			'[data-dashboard-card], [data-dashboard-header], [data-dashboard-box]'
@@ -639,6 +640,8 @@
 	}
 
 	function finishDrag(commit: boolean) {
+		const scroller = dashboardScroller();
+		const scrollTop = scroller?.scrollTop ?? 0;
 		if (commit) commitPreview();
 		if (!dragging && !draft) {
 			detachDragListeners();
@@ -653,6 +656,18 @@
 		heldKey = '';
 		detachDragListeners();
 		if (commit && next && origin && JSON.stringify(next.rows) !== origin) applyLayout(next);
+		// Committing the preview reflows the grid after the pointer is released. Put the
+		// scroller back so that reflow does not jump the page the user was dragging through.
+		if (!scroller) return;
+		const restore = () => {
+			scroller.scrollTop = scrollTop;
+		};
+		restore();
+		if (typeof requestAnimationFrame === 'undefined') return;
+		requestAnimationFrame(() => {
+			restore();
+			requestAnimationFrame(restore);
+		});
 	}
 
 	function onPointerUp() {
