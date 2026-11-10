@@ -245,8 +245,7 @@ func TestProfileRefreshSchedule(t *testing.T) {
 	})
 }
 
-// TestProfileRefreshDisplayNameByProvider pins down which auth providers' "name" profile field becomes the user's
-// display name.
+// TestProfileRefreshDisplayNameByProvider pins down which providers' "name" becomes the display name.
 func TestProfileRefreshDisplayNameByProvider(t *testing.T) {
 	tests := []struct {
 		name            string

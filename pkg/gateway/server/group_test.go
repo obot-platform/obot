@@ -196,8 +196,7 @@ func TestGroupIDsFromQuery(t *testing.T) {
 	}
 }
 
-// The comma-separated ids parameter is rejected, with or without id beside it: splitting it would
-// break a group ID that contains commas, such as an LDAP DN.
+// ids is rejected, even beside id: splitting it would break IDs with commas.
 func TestGroupIDsFromQueryRejectsIDs(t *testing.T) {
 	for _, query := range []url.Values{
 		{"ids": {"entra/a,entra/b"}},

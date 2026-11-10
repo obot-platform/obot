@@ -498,12 +498,8 @@ func parseGroupListParams(query url.Values) (limit int, cursor string) {
 	return min(limit, client.MaxGroupPageSize), query.Get("cursor")
 }
 
-// groupIDsFromQuery returns the group IDs a request asks to resolve, from the repeated id
-// parameter, and whether it asks for any. An id parameter with only blank values counts as absent.
-//
-// The comma-separated ids parameter that this endpoint used to take is rejected rather than read: a
-// group ID can contain commas, as an LDAP DN does, so splitting the list would break such IDs into
-// pieces, and the provider could answer for a truncated ID that would then be cached as a group.
+// groupIDsFromQuery returns the IDs in the repeated id parameter, and whether there are any.
+// The old comma-separated ids is rejected: splitting it breaks IDs with commas, such as LDAP DNs.
 func groupIDsFromQuery(query url.Values) ([]string, bool, error) {
 	if query.Has("ids") {
 		return nil, false, errors.New("the ids parameter is no longer supported: pass each group ID in its own id parameter")
@@ -515,8 +511,7 @@ func groupIDsFromQuery(query url.Values) ([]string, bool, error) {
 	return nil, false, nil
 }
 
-// uniqueGroupIDs trims the given group IDs and drops blanks and duplicates, keeping the order in
-// which they first appear.
+// uniqueGroupIDs trims IDs and drops blanks and duplicates, keeping their order.
 func uniqueGroupIDs(parts []string) ([]string, error) {
 	if len(parts) > maxGroupIDsPerRequest {
 		return nil, fmt.Errorf("too many group ids: %d, limit is %d", len(parts), maxGroupIDsPerRequest)

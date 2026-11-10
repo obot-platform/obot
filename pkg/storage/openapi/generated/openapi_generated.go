@@ -2596,7 +2596,7 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.R
 					},
 					"postgresTables": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PostgresTables names the tables the provider creates in Obot's database besides its session tables, each as a suffix of PostgresTablePrefix. Obot drops them with the session tables when the provider is deconfigured. A suffix may contain only lowercase letters, digits, and underscores.",
+							Description: "PostgresTables are suffixes of PostgresTablePrefix naming the provider's tables besides its session tables, which Obot drops on deconfigure. Lowercase letters, digits, and underscores only.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -20398,7 +20398,7 @@ func schema_storage_apis_obotobotai_v1_AuthProviderSpec(ref common.ReferenceCall
 					},
 					"postgresTables": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PostgresTables names the tables the provider creates in Obot's database besides its session tables, each as a suffix of PostgresTablePrefix. Obot drops them with the session tables when the provider is deconfigured. A suffix may contain only lowercase letters, digits, and underscores.",
+							Description: "PostgresTables are suffixes of PostgresTablePrefix naming the provider's tables besides its session tables, which Obot drops on deconfigure. Lowercase letters, digits, and underscores only.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

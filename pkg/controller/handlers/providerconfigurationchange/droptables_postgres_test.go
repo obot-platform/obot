@@ -15,8 +15,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-// TestDropAuthProviderTables checks that deconfiguring an auth provider drops its session tables and the tables its
-// manifest declares, and nothing else. It needs OBOT_TEST_POSTGRES_DSN.
+// TestDropAuthProviderTables needs OBOT_TEST_POSTGRES_DSN.
 func TestDropAuthProviderTables(t *testing.T) {
 	dsn := os.Getenv("OBOT_TEST_POSTGRES_DSN")
 	if dsn == "" {
@@ -58,8 +57,7 @@ func TestDropAuthProviderTables(t *testing.T) {
 	require.NoError(t, dropAuthProviderTables(authProvider, dsn))
 }
 
-// TestDropAuthProviderTablesRejectsInvalidNames checks that a declared table outside the provider's namespace is
-// refused before anything is dropped.
+// An invalid declared table is refused before anything is dropped.
 func TestDropAuthProviderTablesRejectsInvalidNames(t *testing.T) {
 	authProvider := v1.AuthProvider{
 		Spec: v1.AuthProviderSpec{

@@ -107,8 +107,7 @@ describe('resolveGroups', () => {
 	});
 
 	it('sends each id whole, commas included', async () => {
-		// Groups from an LDAP directory are named by DNs, which contain commas; a comma-joined list
-		// could not tell which commas separate ids.
+		// LDAP DNs contain commas.
 		const recorder = recordingFetch();
 		const ids = [
 			'pingfederate/cn=Admins,ou=Groups,dc=example,dc=com',

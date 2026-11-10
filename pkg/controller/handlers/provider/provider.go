@@ -206,9 +206,8 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 	return objs
 }
 
-// PostgresTableNames validates an auth provider's postgresTablePrefix and returns the full names of its
-// postgresTables, which Obot drops when the provider is deconfigured. Registries are trusted, so this guards against
-// mistakes, not against a prefix that names Obot's own tables.
+// PostgresTableNames validates a manifest's postgresTablePrefix and returns its postgresTables' full names. It
+// guards against mistakes; registries are trusted.
 func PostgresTableNames(manifest types.AuthProviderManifest) ([]string, error) {
 	if manifest.PostgresTablePrefix == "" {
 		if len(manifest.PostgresTables) > 0 {
@@ -233,9 +232,8 @@ func PostgresTableNames(manifest types.AuthProviderManifest) ([]string, error) {
 	return names, nil
 }
 
-// validateDistinctAuthProviderPostgresTablePrefixes rejects auth providers whose Postgres table prefixes are equal or
-// one starts the other, since the tables of one would then be named in the other's namespace, and deconfiguring one
-// could drop the other's.
+// validateDistinctAuthProviderPostgresTablePrefixes rejects overlapping prefixes, so deconfiguring one provider
+// cannot drop another's tables.
 func validateDistinctAuthProviderPostgresTablePrefixes(objs []kclient.Object) error {
 	type owner struct{ provider, prefix string }
 	var owners []owner

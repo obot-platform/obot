@@ -492,10 +492,8 @@ func (c *Client) resolveAuthGroupsFromProvider(ctx context.Context, authProvider
 		return nil, fmt.Errorf("failed to parse auth provider URL for group resolution: %w", err)
 	}
 
-	// Each ID goes in its own id parameter, which keeps an ID containing a comma, such as an LDAP
-	// DN, whole; the PingFederate provider reads only id. The comma-separated ids parameter is sent
-	// too, because every other provider reads only ids (authcommon.ParseGroupIDs in
-	// enterprise-providers).
+	// id keeps an ID with commas, such as an LDAP DN, whole; PingFederate reads it. The other
+	// providers read only ids (authcommon.ParseGroupIDs).
 	q := u.Query()
 	q.Set("ids", strings.Join(ids, ","))
 	q["id"] = ids

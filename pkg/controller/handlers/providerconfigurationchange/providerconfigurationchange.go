@@ -403,9 +403,8 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		if deletedConn != nil {
 			slog.Info("Deleted the SCIM connection of an unstaged auth provider", "authProvider", authProvider.Name, "connection", deletedConn.ConnectionID)
 		}
-		// The verification sign-in ran the staged provider, which may have created its tables and filled them, for
-		// example with the groups it saw. Drop them, unless the provider also has settings of its own in use. Like the
-		// SCIM connection, they go before the staged configuration, so that a retry after a failure still finds it.
+		// The verification sign-in may have filled the staged provider's tables. Drop them unless it is also active,
+		// before the staged configuration, so a retry still finds it.
 		staged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
 		if err != nil {
 			return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
@@ -549,8 +548,7 @@ func (h *Handler) hasActiveCredential(ctx context.Context, authProvider v1.AuthP
 }
 
 func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Client, authProvider v1.AuthProvider) error {
-	// Check the tables to drop before anything is deleted, so that a manifest that names invalid tables cannot leave
-	// the provider half deconfigured.
+	// Check before deleting anything, so invalid tables cannot leave the provider half deconfigured.
 	if _, err := authProviderTableNames(authProvider); err != nil {
 		return err
 	}
@@ -665,8 +663,7 @@ func markAuthProviderCleanupReady(ctx context.Context, client kclient.Client, cl
 	return nil
 }
 
-// dropAuthProviderTables drops the tables an auth provider keeps in Obot's database: oauth2-proxy's session tables,
-// and any others the provider declares in its manifest's postgresTables.
+// dropAuthProviderTables drops an auth provider's tables in Obot's database.
 func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) error {
 	if postgresDSN == "" || authProvider.Spec.PostgresTablePrefix == "" {
 		return nil
@@ -693,9 +690,7 @@ func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) er
 	return nil
 }
 
-// authProviderTableNames returns the tables an auth provider keeps in Obot's database: oauth2-proxy's session tables,
-// and any others its manifest declares in postgresTables. It fails when the manifest's prefix or tables are invalid,
-// which registry loading already rejects.
+// authProviderTableNames returns an auth provider's session tables and its manifest's postgresTables.
 func authProviderTableNames(authProvider v1.AuthProvider) ([]string, error) {
 	if authProvider.Spec.PostgresTablePrefix == "" {
 		return nil, nil

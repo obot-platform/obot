@@ -570,9 +570,7 @@ func TestResolveAuthGroupsFallsBackToTheProvider(t *testing.T) {
 	}
 }
 
-// Each ID goes to the provider whole in its own id parameter, so an ID containing a comma, such as
-// an LDAP DN, survives the trip. The comma-separated ids parameter is still sent, unchanged, because
-// every provider but PingFederate reads only ids.
+// Each ID goes whole in id, and ids is still sent unchanged for the other providers.
 func TestResolveAuthGroupsSendsEachIDWhole(t *testing.T) {
 	c := newTestClient(t)
 
