@@ -488,7 +488,7 @@ A group appears in Obot once one of its members has signed in, and stops appeari
 A user's groups are recorded when they sign in and each time Obot refreshes their tokens. **Token Refresh Duration** controls how often that happens; the default is 1 hour. Obot then applies them within about 10 minutes.
 
 :::important
-Removing a user from a group in PingFederate takes effect in Obot only after their next token refresh or sign-in, and a user who doesn't sign in again keeps the groups recorded at their last sign-in. To revoke access at once, delete the user in Obot, which ends their sessions: if they can still sign in, Obot records their current groups when they do. Alternatively, remove the group's role assignment.
+Removing a user from a group in PingFederate takes effect in Obot only after their next token refresh or sign-in, and a user who doesn't sign in again keeps the groups recorded at their last sign-in. There is no way to apply a group change sooner; a shorter **Token Refresh Duration** shortens the delay. To withdraw what a group grants before then, remove the group's role assignment in Obot, which affects every member of the group.
 :::
 
 ### Auth0
