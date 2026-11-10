@@ -133,13 +133,13 @@ func (s *Server) addLLMProxyRoutes(mux proxyRouteRegistrar) {
 	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ws", anthropic.agentProxyWebSocket)
 
 	// Subscription-backed, model-free Anthropic requests also retain their old URL.
-	// These legacy URLs are planned for deprecation in the next non-patch release.
+	// These legacy URLs are planned for deprecation in an upcoming non-patch release.
 	mux.HandleFunc("/api/llm-proxy/anthropic/v1/files", anthropic.files)
 	mux.HandleFunc("/api/llm-proxy/anthropic/v1/files/{path...}", anthropic.files)
 	mux.HandleFunc("GET /api/llm-proxy/anthropic/v1/code/agent-proxy/ca-cert", anthropic.agentProxyCACert)
 	mux.HandleFunc("GET /api/llm-proxy/anthropic/v1/code/agent-proxy/ws", anthropic.agentProxyWebSocket)
 
-	// Legacy provider routes are planned for deprecation in the next non-patch release.
+	// Legacy provider routes are planned for deprecation in an upcoming non-patch release.
 	// New clients should use /api/llm-proxy/v1.
 	for prefix, source := range legacyProxySources {
 		mux.HandleFunc("/api/llm-proxy/"+prefix+"/{path...}", func(req api.Context) error {
