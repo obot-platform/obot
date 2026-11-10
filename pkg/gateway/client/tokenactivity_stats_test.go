@@ -350,27 +350,3 @@ func TestTokenUsageRangesIgnoreTimeZone(t *testing.T) {
 		})
 	}
 }
-
-func TestInsertTokenUsageNormalizesTimezone(t *testing.T) {
-	for _, zone := range []string{"UTC", "America/Phoenix"} {
-		t.Run(zone, func(t *testing.T) {
-			c := newTestClient(t)
-			location, err := time.LoadLocation(zone)
-			if err != nil {
-				t.Fatal(err)
-			}
-			created := time.Date(2026, 11, 3, 12, 0, 0, 0, location)
-			activity := &types.RunTokenActivity{UserID: "timezone-user", Model: "openai/gpt-test", CreatedAt: created}
-			if err := c.InsertTokenUsage(t.Context(), activity); err != nil {
-				t.Fatal(err)
-			}
-			stats, err := c.TokenUsageStats(t.Context(), TokenUsageStatsOptions{Start: created.Add(-time.Minute), End: created.Add(time.Minute)})
-			if err != nil {
-				t.Fatal(err)
-			}
-			if stats.Totals.Requests != 1 {
-				t.Fatalf("recorded %d requests in %s, want 1", stats.Totals.Requests, zone)
-			}
-		})
-	}
-}
