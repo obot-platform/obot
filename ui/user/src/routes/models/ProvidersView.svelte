@@ -69,7 +69,7 @@
 		try {
 			status = await getStatus();
 			// Keep warnings and polling active through transient status fetch failures.
-			if (!readonly) migration = await getMigration().catch(() => migration);
+			const nextMigration = readonly ? migration : await getMigration().catch(() => migration);
 			onReadyChange?.(!!status.ready);
 			if (!status.ready) return;
 			providers = (await listProviders()).sort((a, b) => a.name.localeCompare(b.name));
@@ -84,6 +84,8 @@
 					? true
 					: false;
 			}
+			// Terminal snapshots stop polling, so accept them only after the provider refresh succeeds.
+			migration = nextMigration;
 		} finally {
 			loading = false;
 		}
@@ -133,7 +135,8 @@
 	}
 
 	onMount(() => {
-		void load();
+		// The HTTP client reports errors; automatic loads can retry on the next polling tick.
+		void load().catch(() => {});
 		// Retry unknown snapshots after fetch failures as well as pending or failed imports.
 		let refreshing = false;
 		const timer = window.setInterval(async () => {
@@ -145,7 +148,7 @@
 			if (readonly || loading || !applying || refreshing) return;
 			refreshing = true;
 			try {
-				await load(false);
+				await load(false).catch(() => {});
 			} finally {
 				refreshing = false;
 			}

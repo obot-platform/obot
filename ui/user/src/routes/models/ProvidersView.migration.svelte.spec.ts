@@ -39,6 +39,148 @@ beforeEach(() => {
 });
 
 describe('ProvidersView migration results', () => {
+	it.each(['imported', 'empty'] as const)(
+		'retries the provider refresh before accepting an initial %s snapshot',
+		async (snapshot) => {
+			const migration = vi.fn(() =>
+				HttpResponse.json({
+					sources:
+						snapshot === 'empty' ? {} : { iam: { provider: 'bedrock_mantle', status: 'imported' } }
+				})
+			);
+			let requests = 0;
+			const providers = vi.fn(() => {
+				requests++;
+				return requests === 1
+					? new HttpResponse(null, { status: 500 })
+					: HttpResponse.json({ providers: [{ name: 'bedrock_mantle' }] });
+			});
+			worker.use(
+				http.get('/api/llm-gateway/migration', migration),
+				http.get('/api/llm-gateway/admin/providers', providers)
+			);
+			render(ProvidersView);
+			await expect.element(page.getByText('No providers configured')).toBeVisible();
+			await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(2), { timeout: 3500 });
+			await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Modify', exact: true })).toBeVisible();
+			expect(
+				page.getByRole('heading', { name: 'AWS Bedrock', exact: true }).elements()
+			).toHaveLength(1);
+			await expect.element(page.getByText('No providers configured')).not.toBeInTheDocument();
+			await waitForPoll();
+			expect(migration).toHaveBeenCalledTimes(2);
+			expect(providers).toHaveBeenCalledTimes(2);
+		},
+		7000
+	);
+	it.each(['error', 'pending'] as const)(
+		'keeps the previous %s snapshot through provider refresh failures until recovery',
+		async (status) => {
+			let reads = 0;
+			let requests = 0;
+			let release!: () => void;
+			// Hold the successful provider refresh across a tick to check the in-flight guard.
+			const refreshed = new Promise<void>((resolve) => (release = resolve));
+			const providers = vi.fn(async () => {
+				requests++;
+				if (requests === 1) return HttpResponse.json({ providers: [{ name: 'openai' }] });
+				if (requests === 2) return new HttpResponse(null, { status: 500 });
+				if (requests === 3) return HttpResponse.error();
+				await refreshed;
+				return HttpResponse.json({ providers: [{ name: 'bedrock_mantle' }] });
+			});
+			worker.use(
+				http.get('/api/llm-gateway/admin/providers', providers),
+				http.get('/api/llm-gateway/migration', () => {
+					reads++;
+					return HttpResponse.json({
+						sources: {
+							iam: {
+								name: 'AWS Bedrock',
+								provider: 'bedrock_mantle',
+								status: reads === 1 ? status : 'imported'
+							}
+						}
+					});
+				})
+			);
+			const { unmount } = await render(ProvidersView);
+			const warning = page.getByText('Some legacy model providers need attention.');
+			try {
+				await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+				await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(2), { timeout: 3500 });
+				if (status === 'error') {
+					await expect.element(warning).toBeVisible();
+					await expect
+						.element(page.getByText('AWS Bedrock: The import failed.', { exact: false }))
+						.toBeVisible();
+				} else {
+					await expect.element(warning).not.toBeInTheDocument();
+				}
+				await vi.waitFor(() => expect(providers).toHaveBeenCalledTimes(4), { timeout: 5500 });
+				await expect
+					.element(page.getByRole('heading', { name: 'OpenAI', exact: true }))
+					.toBeVisible();
+				await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+				await waitForPoll();
+				expect(providers).toHaveBeenCalledTimes(4);
+				expect(reads).toBe(4);
+				if (status === 'error') await expect.element(warning).toBeVisible();
+				release();
+				await expect
+					.element(
+						page
+							.getByCSS('div.rounded-lg')
+							.filter({ hasText: 'AWS Bedrock' })
+							.getByText('2 keys', { exact: true })
+					)
+					.toBeVisible();
+				await expect
+					.element(
+						page
+							.getByCSS('div.rounded-lg')
+							.filter({ hasText: 'OpenAI' })
+							.getByRole('button', { name: 'Modify', exact: true })
+					)
+					.not.toBeInTheDocument();
+				await expect.element(warning).not.toBeInTheDocument();
+				await waitForPoll();
+				expect(providers).toHaveBeenCalledTimes(4);
+				expect(reads).toBe(4);
+			} finally {
+				release();
+				await unmount();
+			}
+			await waitForPoll();
+			expect(providers).toHaveBeenCalledTimes(4);
+			expect(reads).toBe(4);
+		},
+		16000
+	);
+	it('waits until the gateway is ready and providers refresh before accepting a terminal snapshot', async () => {
+		let reads = 0;
+		const status = vi.fn(() => {
+			reads++;
+			return HttpResponse.json({ ...getGatewayStatusResponse, ready: reads > 1 });
+		});
+		const migration = vi.fn(() => HttpResponse.json({ sources: {} }));
+		const providers = vi.fn(() => HttpResponse.json({ providers: [{ name: 'bedrock_mantle' }] }));
+		worker.use(
+			http.get('/api/llm-gateway/status', status),
+			http.get('/api/llm-gateway/migration', migration),
+			http.get('/api/llm-gateway/admin/providers', providers)
+		);
+		render(ProvidersView);
+		await expect.element(page.getByText('The LLM gateway is starting…')).toBeVisible();
+		expect(providers).not.toHaveBeenCalled();
+		await vi.waitFor(() => expect(providers).toHaveBeenCalledOnce(), { timeout: 3500 });
+		await expect.element(page.getByText('2 keys', { exact: true })).toBeVisible();
+		await waitForPoll();
+		expect(status).toHaveBeenCalledTimes(2);
+		expect(migration).toHaveBeenCalledTimes(2);
+		expect(providers).toHaveBeenCalledOnce();
+	}, 7000);
 	it('retries initial fetch failures, shows recovered results and stops after completion', async () => {
 		let reads = 0;
 		worker.use(
