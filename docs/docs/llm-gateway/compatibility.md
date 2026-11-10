@@ -17,7 +17,23 @@ Model names are `provider/model`, for example `openai/gpt-4.1`, `anthropic/claud
 
 Errors come back in the request's API format: Anthropic's error JSON for `/v1/messages` and for Anthropic clients (which send `anthropic-version`), and OpenAI's otherwise, so SDKs report them as they would the provider's own. This includes Obot's own refusals, such as HTTP 401 for a missing or invalid key, 403 for a model you may not use, and 404 for a model that isn't available.
 
-The earlier `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` routes still work. Other per-provider routes are removed and return HTTP 410. See [Client routes](./upgrade.md#client-routes).
+## Deprecated provider endpoints {#deprecated-provider-endpoints}
+
+Use `/api/llm-proxy/v1` for new setups. Migrate existing clients to this endpoint with provider-qualified model names. The following provider base URLs retain supported inference and model-listing operations, but are deprecated and will be removed in a future release.
+
+| Provider base URL | Current gateway provider |
+| --- | --- |
+| `/api/llm-proxy/openai` | `openai` |
+| `/api/llm-proxy/anthropic` | `anthropic` |
+| `/api/llm-proxy/generic-responses` | `generic-responses` |
+| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | `bedrock` when configured, otherwise `bedrock_mantle` |
+| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | `azure` |
+
+Supported paths are `v1/chat/completions`, `v1/responses`, `v1/responses/input_tokens`, `v1/messages`, `v1/messages/count_tokens`, `v1/embeddings` (subject to the limitation above) and `v1/models`; paths without the `v1/` prefix also work. AWS routes also accept paths such as `anthropic/v1/messages` and `openai/v1/responses`, and Azure routes accept `openai/v1/models`. Unsupported operations return HTTP 410 with guidance to use the unified endpoint; these URLs do not restore every legacy operation.
+
+Each route uses its corresponding current gateway provider and keys, including manually configured or recreated providers, independently of migration records. Azure and Bedrock authentication variants share their family's pool. Bare model names resolve within that provider, and model lists return accessible provider-native IDs that can be used on the same URL. Cross-provider model references are rejected with guidance to use `/api/llm-proxy/v1`. Model access policies, audit logging and budgets still apply; inference requests are not redirected.
+
+AWS provider selection is refreshed on each request and prefers `bedrock` even when both adapters are configured. Model IDs are not converted between adapters, and failed inference does not retry against the other adapter. Missing AWS providers and unresolved AWS models return HTTP 410 with guidance to use `/api/llm-proxy/v1` and an appropriate model. Other unconfigured providers return normal gateway errors; authorization, budget and service failures keep their normal errors.
 
 ## Limitations {#limitations}
 

@@ -100,7 +100,9 @@ The *Daily token limit* budget's limits come from `OBOT_SERVER_DAILY_USER_INPUT_
 
 ## Upgrades and Migration
 
-When upgrading from a version that used model providers, policies that named a model provider's model are re-pointed to the LLM gateway model for the same upstream model. See [Upgrading from model providers](../llm-gateway/upgrade.md). Wildcard patterns written for earlier versions matched provider-native IDs, such as `claude-haiku-4-5*`. They're replaced with the provider-qualified form, such as `anthropic/claude-haiku-4-5*`, for each provider whose models they matched. A pattern that matched no model is left as it was; add the provider to it yourself.
+Starting in **v0.28.1**, when upgrading from v0.27 model providers, policies that named a model provider's model are re-pointed to the LLM gateway model for the same upstream model. See [Upgrading from v0.27](../llm-gateway/upgrade.md). Wildcard patterns written for earlier versions matched provider-native IDs, such as `claude-haiku-4-5*`. They're replaced with the provider-qualified form, such as `anthropic/claude-haiku-4-5*`, for each provider whose models they matched. A pattern that matched no model is left as it was; add the provider to it yourself.
+
+Automatic migration does not replace access review. Follow the [postmigration checklist in Upgrading from v0.27](../llm-gateway/upgrade.md#postmigration-checklist) to review users and groups, explicit model grants and wildcard patterns, and test both allowed and denied requests as ordinary users.
 
 ## Managing Profiles
 

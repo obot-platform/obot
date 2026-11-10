@@ -27,7 +27,7 @@ The alias must point to an active model, and the caller must have access to that
 
 ## The endpoint or request format is rejected
 
-Check the client's base URL against the example on **LLM Gateway**. The gateway serves the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats at one base URL for every model. Requests to a former per-provider route other than OpenAI and Anthropic get `410 Gone` with the new URL.
+Check the client's base URL against the example on **LLM Gateway**. The gateway serves the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats at one base URL for every model. In v0.28.0, legacy routes other than OpenAI and Anthropic returned `410 Gone`. Starting in v0.28.1, supported operations on these routes are restored. Deprecated provider routes retain [supported inference and model-listing paths](./compatibility.md#deprecated-provider-endpoints). A `410 Gone` can indicate an unsupported legacy operation, a missing AWS provider or an unresolved AWS model. Use `/api/llm-proxy/v1` with the appropriate provider-qualified model. AWS legacy routes prefer `bedrock` over `bedrock_mantle`; they do not convert model IDs or retry across adapters.
 
 For client-specific settings and known limits, see [Using with Claude Code](./connect-clients.md#using-with-claude-code), [Using with Codex](./connect-clients.md#using-with-codex) and [API compatibility](./compatibility.md#limitations).
 

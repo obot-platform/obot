@@ -168,11 +168,6 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
-					"id": "llm-gateway/upgrade",
-					"label": "Upgrading from model providers"
-				},
-				{
-					"type": "doc",
 					"id": "llm-gateway/troubleshooting",
 					"label": "Troubleshooting"
 				}
