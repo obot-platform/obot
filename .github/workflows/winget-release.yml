@@ -16,6 +16,9 @@ on:
         required: true
         type: string
 
+concurrency:
+  group: winget-release-${{ inputs.tag }}
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -28,12 +31,17 @@ jobs:
             echo "::error::Invalid tag: expected a stable release tag like v0.27.0"
             exit 1
           fi
-  winget-release:
+  winget-sync:
     needs: validate
+    uses: ./.github/workflows/winget-sync.yml
+    secrets:
+      WINGET_GH_TOKEN: ${{ secrets.WINGET_GH_TOKEN }}
+  winget-release:
+    needs: winget-sync
     runs-on: windows-latest
     concurrency:
-      group: winget-release-${{ inputs.tag }}
-      cancel-in-progress: false
+      group: winget-sync
+      queue: max
     env:
       TAG: ${{ inputs.tag }}
     steps:

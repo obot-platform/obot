@@ -1,0 +1,30 @@
+name: winget-sync
+
+on:
+  workflow_call:
+    secrets:
+      WINGET_GH_TOKEN:
+        required: true
+  workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *'
+      timezone: America/New_York
+
+concurrency:
+  group: winget-sync
+  queue: max
+
+permissions: {}
+
+jobs:
+  winget-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Sync fork with upstream
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_GH_TOKEN }}
+        run: >-
+          gh repo sync acorn-io-bot/winget-pkgs
+          --source microsoft/winget-pkgs
+          --branch master
