@@ -392,7 +392,7 @@ func (c *Client) createSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 	}
 
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 
 	return user, nil
@@ -527,7 +527,7 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 	}
 
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 
 	return user, nil
@@ -596,7 +596,7 @@ func (c *Client) DeleteSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 		return 0, err
 	}
 
-	c.kickUserLifecycleDelivery()
+	c.kickLifecycleEventDelivery()
 	c.requestUsageRecount(ctx)
 	return userID, nil
 }

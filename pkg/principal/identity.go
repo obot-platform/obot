@@ -66,7 +66,18 @@ func (p Principal) String() string {
 // UserID returns the ID of the user the principal is. It reports false for agents, so code that needs a user must
 // reject them explicitly.
 func (p Principal) UserID() (uint, bool) {
-	if p.Kind != KindUser {
+	return p.idOf(KindUser)
+}
+
+// AgentID returns the ID of the agent the principal is. It reports false for users, so code that needs an agent must
+// reject them explicitly.
+func (p Principal) AgentID() (uint, bool) {
+	return p.idOf(KindAgent)
+}
+
+// idOf returns the principal's ID if it is of kind and the ID is a decimal number.
+func (p Principal) idOf(kind Kind) (uint, bool) {
+	if p.Kind != kind {
 		return 0, false
 	}
 	id, err := strconv.ParseUint(p.ID, 10, 0)

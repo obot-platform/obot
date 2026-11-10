@@ -1,0 +1,347 @@
+package client
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"strings"
+	"time"
+
+	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	// agentMetadataColumns are the agent columns that UpdateAgent writes.
+	agentMetadataColumns = []string{"display_name", "description", "owner_user_ids"}
+)
+
+// agentLifecycleKey is what the agent lifecycle events delivered together share.
+type agentLifecycleKey struct {
+	agentID   uint
+	eventType types.AgentLifecycleEventType
+}
+
+// CreateAgent creates an active agent with the metadata and creator of agent, and returns it. Nothing else of agent
+// is written: the new agent gets a new ID, and is never created disabled or deleted.
+func (c *Client) CreateAgent(ctx context.Context, agent types.Agent) (*types.Agent, error) {
+	created := &types.Agent{
+		DisplayName:   agent.DisplayName,
+		Description:   agent.Description,
+		OwnerUserIDs:  agent.OwnerUserIDs,
+		CreatorUserID: agent.CreatorUserID,
+	}
+	if err := validateAgentMetadata(*created); err != nil {
+		return nil, err
+	}
+	if err := c.db.WithContext(ctx).Create(created).Error; err != nil {
+		return nil, fmt.Errorf("failed to create agent: %w", err)
+	}
+	return created, nil
+}
+
+// GetAgent returns the agent with id. A deleted agent is gorm.ErrRecordNotFound.
+func (c *Client) GetAgent(ctx context.Context, id uint) (*types.Agent, error) {
+	agent := new(types.Agent)
+	if err := c.db.WithContext(ctx).Where("id = ?", id).First(agent).Error; err != nil {
+		return nil, err
+	}
+	return agent, nil
+}
+
+// ListAgents returns the agents in the order they were created. Deleted agents are left out unless includeDeleted is
+// set.
+func (c *Client) ListAgents(ctx context.Context, includeDeleted bool) ([]types.Agent, error) {
+	tx := c.db.WithContext(ctx)
+	if includeDeleted {
+		tx = tx.Unscoped()
+	}
+	var agents []types.Agent
+	if err := tx.Order("id").Find(&agents).Error; err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+	return agents, nil
+}
+
+// UpdateAgent replaces the metadata of the agent with agent.ID with that of agent, and returns the agent. Nothing else
+// of agent is written, so it can neither change the agent's lifecycle nor its creator. A deleted or missing agent is
+// gorm.ErrRecordNotFound.
+func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Agent, error) {
+	if err := validateAgentMetadata(agent); err != nil {
+		return nil, err
+	}
+
+	var updated *types.Agent
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		if updated, err = lockAgent(tx, agent.ID); err != nil {
+			return err
+		}
+		updated.DisplayName = agent.DisplayName
+		updated.Description = agent.Description
+		updated.OwnerUserIDs = agent.OwnerUserIDs
+
+		// Select writes the metadata even where it is now empty, which a struct update skips. Omit is redundant with
+		// it, and keeps the lifecycle columns out should the selection ever grow.
+		if err := tx.Select(agentMetadataColumns).Omit(types.AgentLifecycleColumns...).Updates(updated).Error; err != nil {
+			return fmt.Errorf("failed to update agent %d: %w", agent.ID, err)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return updated, nil
+}
+
+// DisableAgent denies an agent access, and records why. Disabling a disabled agent only updates the reason. A deleted
+// or missing agent is gorm.ErrRecordNotFound.
+func (c *Client) DisableAgent(ctx context.Context, id uint, reason string) (*types.Agent, error) {
+	return c.changeAgentLifecycle(ctx, func(tx *gorm.DB) (*types.Agent, bool, error) {
+		return disableAgentTx(tx, id, reason)
+	})
+}
+
+// EnableAgent restores the access of a disabled agent. Enabling an agent that is not disabled changes nothing. A
+// deleted or missing agent is gorm.ErrRecordNotFound.
+func (c *Client) EnableAgent(ctx context.Context, id uint) (*types.Agent, error) {
+	return c.changeAgentLifecycle(ctx, func(tx *gorm.DB) (*types.Agent, bool, error) {
+		return enableAgentTx(tx, id)
+	})
+}
+
+// DeleteAgent deletes an agent and revokes its API keys. The agent's row is kept, so that audit history can still
+// show it, and the controller removes what it owns. A deleted or missing agent is gorm.ErrRecordNotFound.
+func (c *Client) DeleteAgent(ctx context.Context, id uint) error {
+	_, err := c.changeAgentLifecycle(ctx, func(tx *gorm.DB) (*types.Agent, bool, error) {
+		agent, err := deleteAgentTx(tx, id)
+		return agent, err == nil, err
+	})
+	return err
+}
+
+// AgentStatus reads an agent's current lifecycle status. An agent with no row is reported as deleted.
+func (c *Client) AgentStatus(ctx context.Context, id uint) (types2.UserStatus, error) {
+	var agent types.Agent
+	if err := c.db.WithContext(ctx).Unscoped().Select("id", "deleted_at", "disabled_at").Where("id = ?", id).Take(&agent).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		return types2.UserStatusDeleted, nil
+	} else if err != nil {
+		return "", fmt.Errorf("failed to check the status of agent %d: %w", id, err)
+	}
+	return agent.Status(), nil
+}
+
+// changeAgentLifecycle runs change in a transaction of its own, and kicks lifecycle delivery after the commit when
+// change reports that it recorded a lifecycle event.
+func (c *Client) changeAgentLifecycle(ctx context.Context, change func(tx *gorm.DB) (*types.Agent, bool, error)) (*types.Agent, error) {
+	var (
+		agent   *types.Agent
+		changed bool
+	)
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		agent, changed, err = change(tx)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	if changed {
+		c.kickLifecycleEventDelivery()
+	}
+	return agent, nil
+}
+
+// disableAgentTx disables an agent within tx, and reports whether the agent lost access, in which case it recorded a
+// disabled event. The caller must kick lifecycle delivery after committing when it reports a change.
+func disableAgentTx(tx *gorm.DB, id uint, reason string) (*types.Agent, bool, error) {
+	agent, err := lockAgent(tx, id)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if agent.DisabledAt != nil {
+		if agent.DisabledReason != reason {
+			// Access is unchanged, so only the reason is updated, and there is nothing to deliver.
+			if err := tx.Model(agent).UpdateColumn("disabled_reason", reason).Error; err != nil {
+				return nil, false, fmt.Errorf("failed to update the disable reason of agent %d: %w", id, err)
+			}
+			agent.DisabledReason = reason
+		}
+		return agent, false, nil
+	}
+
+	now := time.Now()
+	if err := tx.Model(agent).UpdateColumns(map[string]any{
+		"disabled_at":     now,
+		"disabled_reason": reason,
+	}).Error; err != nil {
+		return nil, false, fmt.Errorf("failed to disable agent %d: %w", id, err)
+	}
+	if err := recordAgentLifecycleEvent(tx, id, types.AgentLifecycleEventDisabled); err != nil {
+		return nil, false, err
+	}
+
+	agent.DisabledAt = &now
+	agent.DisabledReason = reason
+	return agent, true, nil
+}
+
+// enableAgentTx enables a disabled agent within tx, and reports whether the agent regained access, in which case it
+// recorded an enabled event. The caller must kick lifecycle delivery after committing when it reports a change.
+func enableAgentTx(tx *gorm.DB, id uint) (*types.Agent, bool, error) {
+	agent, err := lockAgent(tx, id)
+	if err != nil {
+		return nil, false, err
+	}
+	if agent.DisabledAt == nil {
+		return agent, false, nil
+	}
+
+	// Explicit columns, because struct updates skip the zero values that mark an agent as enabled.
+	if err := tx.Model(agent).UpdateColumns(map[string]any{
+		"disabled_at":     nil,
+		"disabled_reason": "",
+	}).Error; err != nil {
+		return nil, false, fmt.Errorf("failed to enable agent %d: %w", id, err)
+	}
+	if err := recordAgentLifecycleEvent(tx, id, types.AgentLifecycleEventEnabled); err != nil {
+		return nil, false, err
+	}
+
+	agent.DisabledAt = nil
+	agent.DisabledReason = ""
+	return agent, true, nil
+}
+
+// deleteAgentTx deletes an agent within tx, revokes its API keys, and records a deleted event. The caller must kick
+// lifecycle delivery after committing.
+func deleteAgentTx(tx *gorm.DB, id uint) (*types.Agent, error) {
+	agent, err := lockAgent(tx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := revokeAgentAPIKeysTx(tx, id); err != nil {
+		return nil, err
+	}
+	// A soft delete, because the agent has a gorm.DeletedAt: the row stays for audit history.
+	if err := tx.Delete(agent).Error; err != nil {
+		return nil, fmt.Errorf("failed to delete agent %d: %w", id, err)
+	}
+	if err := recordAgentLifecycleEvent(tx, id, types.AgentLifecycleEventDeleted); err != nil {
+		return nil, err
+	}
+	return agent, nil
+}
+
+// revokeAgentAPIKeysTx revokes, within tx, every API key of an agent that is being deleted, so that none of them
+// works once the deletion commits. Agents have no API keys yet, so there is nothing to revoke. The agent API keys of
+// agent identities spec 03 replace this with the revocation of their keys (RevokeAllAgentAPIKeys).
+func revokeAgentAPIKeysTx(*gorm.DB, uint) error {
+	return nil
+}
+
+// lockAgent loads and locks an agent within tx. A deleted or missing agent is gorm.ErrRecordNotFound.
+func lockAgent(tx *gorm.DB, id uint) (*types.Agent, error) {
+	agent := new(types.Agent)
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(agent).Error; err != nil {
+		return nil, err
+	}
+	return agent, nil
+}
+
+func validateAgentMetadata(agent types.Agent) error {
+	if strings.TrimSpace(agent.DisplayName) == "" {
+		return errors.New("agent display name is required")
+	}
+	return nil
+}
+
+// recordAgentLifecycleEvent records, within tx, a lifecycle change of an agent that must be delivered once tx
+// commits.
+func recordAgentLifecycleEvent(tx *gorm.DB, agentID uint, eventType types.AgentLifecycleEventType) error {
+	if err := tx.Create(&types.AgentLifecycleEvent{
+		AgentID: agentID,
+		Type:    eventType,
+	}).Error; err != nil {
+		return fmt.Errorf("failed to record the %s event of agent %d: %w", eventType, agentID, err)
+	}
+	return nil
+}
+
+// agentLifecycleOutbox returns the outbox of agent lifecycle events.
+func (c *Client) agentLifecycleOutbox() lifecycleOutbox[types.AgentLifecycleEvent, agentLifecycleKey] {
+	return lifecycleOutbox[types.AgentLifecycleEvent, agentLifecycleKey]{
+		db:   c.db,
+		name: "agent lifecycle",
+		id: func(event types.AgentLifecycleEvent) uint {
+			return event.ID
+		},
+		key: func(event types.AgentLifecycleEvent) agentLifecycleKey {
+			return agentLifecycleKey{
+				agentID:   event.AgentID,
+				eventType: event.Type,
+			}
+		},
+		deliverer: func(context.Context) func(context.Context, types.AgentLifecycleEvent) error {
+			return c.deliverAgentLifecycleEvent
+		},
+		logAttrs: func(event types.AgentLifecycleEvent) []any {
+			return []any{"agentID", event.AgentID, "type", event.Type}
+		},
+	}
+}
+
+// deliverAgentLifecycleEvents delivers the pending agent lifecycle events and prunes old delivered ones.
+func (c *Client) deliverAgentLifecycleEvents(ctx context.Context) error {
+	return c.agentLifecycleOutbox().deliver(ctx)
+}
+
+// deliverAgentLifecycleEvent creates the AgentIdentityChange or AgentIdentityDelete that tells the controller about
+// an agent's lifecycle change. Its name comes from the event, so a repeated delivery creates nothing new while it
+// exists, and its handler must tolerate a repeat if it does.
+func (c *Client) deliverAgentLifecycleEvent(ctx context.Context, event types.AgentLifecycleEvent) error {
+	var obj kclient.Object
+	switch event.Type {
+	case types.AgentLifecycleEventDisabled, types.AgentLifecycleEventEnabled:
+		obj = &v1.AgentIdentityChange{
+			Name:      agentLifecycleObjectName(system.AgentIdentityChangePrefix, event.ID),
+			Namespace: system.DefaultNamespace,
+			Spec: v1.AgentIdentityChangeSpec{
+				AgentID: event.AgentID,
+			},
+		}
+	case types.AgentLifecycleEventDeleted:
+		obj = &v1.AgentIdentityDelete{
+			Name:      agentLifecycleObjectName(system.AgentIdentityDeletePrefix, event.ID),
+			Namespace: system.DefaultNamespace,
+			Spec: v1.AgentIdentityDeleteSpec{
+				AgentID: event.AgentID,
+			},
+		}
+	default:
+		return fmt.Errorf("unknown agent lifecycle event type %q", event.Type)
+	}
+
+	if err := c.storageClient.Create(ctx, obj); apierrors.IsAlreadyExists(err) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("failed to deliver the %s event of agent %d: %w", event.Type, event.AgentID, err)
+	}
+	if event.Type == types.AgentLifecycleEventDeleted {
+		slog.Info("Scheduled agent cleanup after deletion", "agentID", event.AgentID)
+	}
+	return nil
+}
+
+// agentLifecycleObjectName names the controller object delivered for an agent outbox event. The name cannot collide
+// with one generated from the same prefix, whose random suffix never contains a vowel.
+func agentLifecycleObjectName(prefix string, eventID uint) string {
+	return fmt.Sprintf("%sagent-lifecycle-%d", prefix, eventID)
+}

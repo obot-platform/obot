@@ -12,6 +12,8 @@ const (
 	DefaultModelAliasPrefix       = "dma1"
 	DeviceEnrollmentPrefix        = "ode1"
 	UserDeletePrefix              = "ud1"
+	AgentIdentityChangePrefix     = "aic1"
+	AgentIdentityDeletePrefix     = "aid1"
 	AuthProviderCleanupPrefix     = "apc1"
 	ProviderChangePrefix          = "pcc1"
 	UserRoleChangePrefix          = "urc1"

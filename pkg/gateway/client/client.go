@@ -123,7 +123,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 
 	c.startAuditLoops(ctx, auditLogPersistenceInterval)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runUserLifecycleEventDelivery(ctx)
+	go c.runLifecycleEventDelivery(ctx)
 	return c
 }
 

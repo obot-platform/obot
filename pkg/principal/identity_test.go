@@ -74,22 +74,22 @@ func TestParseRejectsInvalidEncodings(t *testing.T) {
 	}
 }
 
-func TestPrincipalUserID(t *testing.T) {
+func TestPrincipalIDs(t *testing.T) {
 	for _, tt := range []struct {
-		name      string
-		principal Principal
-		wantID    uint
-		wantUser  bool
+		name        string
+		principal   Principal
+		wantUserID  uint
+		wantAgentID uint
 	}{
 		{
-			name:      "user",
-			principal: User(5),
-			wantID:    5,
-			wantUser:  true,
+			name:       "user",
+			principal:  User(5),
+			wantUserID: 5,
 		},
 		{
-			name:      "agent",
-			principal: Agent(5),
+			name:        "agent",
+			principal:   Agent(5),
+			wantAgentID: 5,
 		},
 		{
 			name: "zero principal",
@@ -101,11 +101,20 @@ func TestPrincipalUserID(t *testing.T) {
 				ID:   "abc",
 			},
 		},
+		{
+			name: "agent with a malformed ID",
+			principal: Principal{
+				Kind: KindAgent,
+				ID:   "abc",
+			},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			id, ok := tt.principal.UserID()
-			if id != tt.wantID || ok != tt.wantUser {
-				t.Fatalf("UserID() = %d, %v; want %d, %v", id, ok, tt.wantID, tt.wantUser)
+			if id, ok := tt.principal.UserID(); id != tt.wantUserID || ok != (tt.wantUserID != 0) {
+				t.Fatalf("UserID() = %d, %v; want %d", id, ok, tt.wantUserID)
+			}
+			if id, ok := tt.principal.AgentID(); id != tt.wantAgentID || ok != (tt.wantAgentID != 0) {
+				t.Fatalf("AgentID() = %d, %v; want %d", id, ok, tt.wantAgentID)
 			}
 		})
 	}

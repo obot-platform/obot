@@ -12,6 +12,7 @@ import (
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -21,25 +22,48 @@ import (
 )
 
 const (
-	userLifecycleDeliveryInterval  = 10 * time.Second
-	userLifecycleDeliveryBatchSize = 100
-	// userLifecycleClaimDuration is how long a replica holds an event it is delivering. A failed delivery keeps
-	// its claim, so this is also the delay before the event is retried.
-	userLifecycleClaimDuration = time.Minute
-	// userLifecycleRetention is how long delivered events are kept for troubleshooting.
-	userLifecycleRetention = 7 * 24 * time.Hour
+	lifecycleDeliveryInterval  = 10 * time.Second
+	lifecycleDeliveryBatchSize = 100
+	// lifecycleClaimDuration is how long a replica holds an event it is delivering. A failed delivery keeps its
+	// claim, so this is also the delay before the event is retried.
+	lifecycleClaimDuration = time.Minute
+	// lifecycleRetention is how long delivered events are kept for troubleshooting.
+	lifecycleRetention = 7 * 24 * time.Hour
 
 	// AccountNotActiveMessage is what a user denied access by their lifecycle status is told. It does not reveal
 	// the reason, which only administrators see.
 	AccountNotActiveMessage = "You are not authorized to access this application. Contact your administrator."
 )
 
-// userLifecycleDelivery delivers the events of one type for one user in a batch at once: a user in many changed
-// groups needs one reconcile, not one per group.
-type userLifecycleDelivery struct {
-	// event is the first of the events. A reconcile event records that the user left a group if any of them does.
-	event types.UserLifecycleEvent
+// lifecycleDelivery delivers the events of a batch that share a key at once: a user in many changed groups needs
+// one reconcile, not one per group.
+type lifecycleDelivery[E any] struct {
+	// event is the first of the events, with the later ones merged into it.
+	event E
 	ids   []uint
+}
+
+// lifecycleOutbox is an outbox table of lifecycle events, E, and what delivering them takes. Every outbox shares the
+// claims, retries, coalescing, and pruning of the delivery loop, so that a fix to one is a fix to all. Events that
+// share a key, K, in a batch are delivered once.
+type lifecycleOutbox[E any, K comparable] struct {
+	db *db.DB
+	// name names the events in errors and logs, such as "user lifecycle".
+	name string
+	id   func(E) uint
+	key  func(E) K
+	// merge folds a later event into the first event with the same key. Nil keeps the first event as it is.
+	merge func(first *E, later E)
+	// deliverer returns the function that delivers the events of one batch, which can share work across them.
+	deliverer func(ctx context.Context) func(context.Context, E) error
+	// logAttrs returns the attributes, after the event IDs, that a failed delivery is logged with.
+	logAttrs func(E) []any
+}
+
+// userLifecycleKey is what the user lifecycle events delivered together share.
+type userLifecycleKey struct {
+	userID    uint
+	eventType types.UserLifecycleEventType
 }
 
 // AuthProviderRef identifies an auth provider.
@@ -336,28 +360,32 @@ func recordUserReconcileEvent(tx *gorm.DB, userID uint, groupsRemoved bool) erro
 	return nil
 }
 
-// kickUserLifecycleDelivery asks the delivery loop to deliver new lifecycle events now instead of at its next tick.
-// It never blocks.
-func (c *Client) kickUserLifecycleDelivery() {
+// kickLifecycleEventDelivery asks the delivery loop to deliver new lifecycle events, of users and agents, now
+// instead of at its next tick. It never blocks.
+func (c *Client) kickLifecycleEventDelivery() {
 	select {
 	case c.kickLifecycleDelivery <- struct{}{}:
 	default:
 	}
 }
 
-// runUserLifecycleEventDelivery delivers lifecycle events from the outbox until ctx is done. Every replica runs it.
+// runLifecycleEventDelivery delivers lifecycle events from the outboxes until ctx is done. Every replica runs it.
 // Claims keep replicas from usually delivering the same event, and delivery is idempotent when they do.
-func (c *Client) runUserLifecycleEventDelivery(ctx context.Context) {
+func (c *Client) runLifecycleEventDelivery(ctx context.Context) {
 	if c.storageClient == nil {
 		return
 	}
 
-	ticker := time.NewTicker(userLifecycleDeliveryInterval)
+	ticker := time.NewTicker(lifecycleDeliveryInterval)
 	defer ticker.Stop()
 
 	for {
+		// The outboxes are independent, so a failure to deliver one never holds up the other.
 		if err := c.deliverUserLifecycleEvents(ctx); err != nil && ctx.Err() == nil {
 			slog.Error("Failed to deliver user lifecycle events", "error", err)
+		}
+		if err := c.deliverAgentLifecycleEvents(ctx); err != nil && ctx.Err() == nil {
+			slog.Error("Failed to deliver agent lifecycle events", "error", err)
 		}
 
 		select {
@@ -369,12 +397,48 @@ func (c *Client) runUserLifecycleEventDelivery(ctx context.Context) {
 	}
 }
 
-// deliverUserLifecycleEvents delivers the pending outbox events, batch after batch, until a batch comes back short,
-// then prunes old delivered events. A group change of thousands of members records as many events, and a kick only
-// says that there is something to deliver, so the batches are delivered without waiting for the next tick.
+// userLifecycleOutbox returns the outbox of user lifecycle events.
+func (c *Client) userLifecycleOutbox() lifecycleOutbox[types.UserLifecycleEvent, userLifecycleKey] {
+	return lifecycleOutbox[types.UserLifecycleEvent, userLifecycleKey]{
+		db:   c.db,
+		name: "user lifecycle",
+		id: func(event types.UserLifecycleEvent) uint {
+			return event.ID
+		},
+		key: func(event types.UserLifecycleEvent) userLifecycleKey {
+			return userLifecycleKey{
+				userID:    event.UserID,
+				eventType: event.Type,
+			}
+		},
+		// A reconcile event records that the user left a group if any of them does.
+		merge: func(first *types.UserLifecycleEvent, later types.UserLifecycleEvent) {
+			first.GroupsRemoved = first.GroupsRemoved || later.GroupsRemoved
+		},
+		deliverer: func(ctx context.Context) func(context.Context, types.UserLifecycleEvent) error {
+			// The OAuth tokens are listed once for the batch, and only if a disabled user needs theirs deleted.
+			oauthTokens := c.listOAuthTokensOnce(ctx)
+			return func(ctx context.Context, event types.UserLifecycleEvent) error {
+				return c.deliverUserLifecycleEvent(ctx, event, oauthTokens)
+			}
+		},
+		logAttrs: func(event types.UserLifecycleEvent) []any {
+			return []any{"userID", event.UserID, "type", event.Type}
+		},
+	}
+}
+
+// deliverUserLifecycleEvents delivers the pending user lifecycle events and prunes old delivered ones.
 func (c *Client) deliverUserLifecycleEvents(ctx context.Context) error {
+	return c.userLifecycleOutbox().deliver(ctx)
+}
+
+// deliver delivers the pending outbox events, batch after batch, until a batch comes back short, then prunes old
+// delivered events. A group change of thousands of members records as many events, and a kick only says that there
+// is something to deliver, so the batches are delivered without waiting for the next tick.
+func (o lifecycleOutbox[E, K]) deliver(ctx context.Context) error {
 	for {
-		full, err := c.deliverUserLifecycleEventBatch(ctx)
+		full, err := o.deliverBatch(ctx)
 		if err != nil {
 			return err
 		}
@@ -383,43 +447,42 @@ func (c *Client) deliverUserLifecycleEvents(ctx context.Context) error {
 		}
 	}
 
-	if err := c.db.WithContext(ctx).
-		Where("delivered_at IS NOT NULL AND delivered_at < ?", time.Now().Add(-userLifecycleRetention)).
-		Delete(new(types.UserLifecycleEvent)).Error; err != nil {
-		return fmt.Errorf("failed to prune delivered user lifecycle events: %w", err)
+	if err := o.db.WithContext(ctx).
+		Where("delivered_at IS NOT NULL AND delivered_at < ?", time.Now().Add(-lifecycleRetention)).
+		Delete(new(E)).Error; err != nil {
+		return fmt.Errorf("failed to prune delivered %s events: %w", o.name, err)
 	}
 	return nil
 }
 
-// deliverUserLifecycleEventBatch delivers one batch of pending outbox events, oldest first, and reports whether the
-// batch was full, so more events may be pending. A failed event is retried once its claim expires.
-func (c *Client) deliverUserLifecycleEventBatch(ctx context.Context) (bool, error) {
+// deliverBatch delivers one batch of pending outbox events, oldest first, and reports whether the batch was full, so
+// more events may be pending. A failed event is retried once its claim expires.
+func (o lifecycleOutbox[E, K]) deliverBatch(ctx context.Context) (bool, error) {
 	now := time.Now()
 
 	var ids []uint
-	if err := c.db.WithContext(ctx).Model(new(types.UserLifecycleEvent)).
+	if err := o.db.WithContext(ctx).Model(new(E)).
 		Where("delivered_at IS NULL AND (claimed_until IS NULL OR claimed_until < ?)", now).
 		Order("id").
-		Limit(userLifecycleDeliveryBatchSize).
+		Limit(lifecycleDeliveryBatchSize).
 		Pluck("id", &ids).Error; err != nil {
-		return false, fmt.Errorf("failed to list user lifecycle events: %w", err)
+		return false, fmt.Errorf("failed to list %s events: %w", o.name, err)
 	}
 	if len(ids) == 0 {
 		return false, nil
 	}
 
-	events, err := c.claimUserLifecycleEvents(ctx, ids, now)
+	events, err := o.claim(ctx, ids, now)
 	if err != nil {
 		return false, err
 	}
 
-	// The OAuth tokens are listed once for the batch, and only if a disabled user needs theirs deleted.
-	oauthTokens := c.listOAuthTokensOnce(ctx)
+	deliverEvent := o.deliverer(ctx)
 
 	var delivered []uint
-	for _, delivery := range coalesceUserLifecycleEvents(events) {
-		if err := c.deliverUserLifecycleEvent(ctx, delivery.event, oauthTokens); err != nil {
-			if updateErr := c.db.WithContext(ctx).Model(new(types.UserLifecycleEvent)).
+	for _, delivery := range o.coalesce(events) {
+		if err := deliverEvent(ctx, delivery.event); err != nil {
+			if updateErr := o.db.WithContext(ctx).Model(new(E)).
 				Where("id IN ?", delivery.ids).
 				UpdateColumns(map[string]any{
 					"attempts":   gorm.Expr("attempts + 1"),
@@ -427,39 +490,64 @@ func (c *Client) deliverUserLifecycleEventBatch(ctx context.Context) (bool, erro
 				}).Error; updateErr != nil {
 				return false, errors.Join(err, updateErr)
 			}
-			slog.Warn("Failed to deliver user lifecycle event", "eventIDs", delivery.ids, "userID", delivery.event.UserID, "type", delivery.event.Type, "error", err)
+			attrs := append([]any{"eventIDs", delivery.ids}, o.logAttrs(delivery.event)...)
+			slog.Warn("Failed to deliver "+o.name+" event", append(attrs, "error", err)...)
 			continue
 		}
 		delivered = append(delivered, delivery.ids...)
 	}
 
 	if len(delivered) > 0 {
-		if err := c.db.WithContext(ctx).Model(new(types.UserLifecycleEvent)).
+		if err := o.db.WithContext(ctx).Model(new(E)).
 			Where("id IN ?", delivered).
 			UpdateColumns(map[string]any{
 				"delivered_at": time.Now(),
 				"last_error":   "",
 			}).Error; err != nil {
-			return false, fmt.Errorf("failed to mark user lifecycle events delivered: %w", err)
+			return false, fmt.Errorf("failed to mark %s events delivered: %w", o.name, err)
 		}
 	}
 
-	return len(ids) == userLifecycleDeliveryBatchSize, nil
+	return len(ids) == lifecycleDeliveryBatchSize, nil
 }
 
-// claimUserLifecycleEvents claims the undelivered events with ids for this replica in one statement, and returns
-// them, oldest first. The events that another replica claimed in the meantime are left out.
-func (c *Client) claimUserLifecycleEvents(ctx context.Context, ids []uint, now time.Time) ([]types.UserLifecycleEvent, error) {
-	var events []types.UserLifecycleEvent
-	if err := c.db.WithContext(ctx).Model(&events).Clauses(clause.Returning{}).
+// claim claims the undelivered events with ids for this replica in one statement, and returns them, oldest first.
+// The events that another replica claimed in the meantime are left out.
+func (o lifecycleOutbox[E, K]) claim(ctx context.Context, ids []uint, now time.Time) ([]E, error) {
+	var events []E
+	if err := o.db.WithContext(ctx).Model(&events).Clauses(clause.Returning{}).
 		Where("id IN ? AND delivered_at IS NULL AND (claimed_until IS NULL OR claimed_until < ?)", ids, now).
-		UpdateColumn("claimed_until", now.Add(userLifecycleClaimDuration)).Error; err != nil {
-		return nil, fmt.Errorf("failed to claim user lifecycle events: %w", err)
+		UpdateColumn("claimed_until", now.Add(lifecycleClaimDuration)).Error; err != nil {
+		return nil, fmt.Errorf("failed to claim %s events: %w", o.name, err)
 	}
-	slices.SortFunc(events, func(a, b types.UserLifecycleEvent) int {
-		return cmp.Compare(a.ID, b.ID)
+	slices.SortFunc(events, func(a, b E) int {
+		return cmp.Compare(o.id(a), o.id(b))
 	})
 	return events, nil
+}
+
+// coalesce groups events, in the order of their IDs, into one delivery for each key.
+func (o lifecycleOutbox[E, K]) coalesce(events []E) []lifecycleDelivery[E] {
+	var (
+		deliveries = make([]lifecycleDelivery[E], 0, len(events))
+		index      = make(map[K]int, len(events))
+	)
+	for _, event := range events {
+		k := o.key(event)
+		if i, ok := index[k]; ok {
+			deliveries[i].ids = append(deliveries[i].ids, o.id(event))
+			if o.merge != nil {
+				o.merge(&deliveries[i].event, event)
+			}
+			continue
+		}
+		index[k] = len(deliveries)
+		deliveries = append(deliveries, lifecycleDelivery[E]{
+			event: event,
+			ids:   []uint{o.id(event)},
+		})
+	}
+	return deliveries
 }
 
 // listOAuthTokensOnce returns a function that lists every OAuth token the first time it is called, and returns the
@@ -472,36 +560,6 @@ func (c *Client) listOAuthTokensOnce(ctx context.Context) func() ([]v1.OAuthToke
 		}
 		return tokens.Items, nil
 	})
-}
-
-// coalesceUserLifecycleEvents groups events, in the order of their IDs, into one delivery for each user and type.
-func coalesceUserLifecycleEvents(events []types.UserLifecycleEvent) []userLifecycleDelivery {
-	type key struct {
-		userID    uint
-		eventType types.UserLifecycleEventType
-	}
-
-	var (
-		deliveries = make([]userLifecycleDelivery, 0, len(events))
-		index      = make(map[key]int, len(events))
-	)
-	for _, event := range events {
-		k := key{
-			userID:    event.UserID,
-			eventType: event.Type,
-		}
-		if i, ok := index[k]; ok {
-			deliveries[i].ids = append(deliveries[i].ids, event.ID)
-			deliveries[i].event.GroupsRemoved = deliveries[i].event.GroupsRemoved || event.GroupsRemoved
-			continue
-		}
-		index[k] = len(deliveries)
-		deliveries = append(deliveries, userLifecycleDelivery{
-			event: event,
-			ids:   []uint{event.ID},
-		})
-	}
-	return deliveries
 }
 
 func (c *Client) deliverUserLifecycleEvent(ctx context.Context, event types.UserLifecycleEvent, oauthTokens func() ([]v1.OAuthToken, error)) error {

@@ -198,6 +198,8 @@ func (db *DB) AutoMigrate() (err error) {
 		types.LocalAuthSession{},
 		types.EnforcementDecisionLog{},
 		types.UserLifecycleEvent{},
+		types.Agent{},
+		types.AgentLifecycleEvent{},
 		types.SCIMConnection{},
 		types.SCIMUserBinding{},
 		types.SCIMGroupBinding{},

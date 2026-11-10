@@ -95,6 +95,10 @@ func (c *Controller) setupRoutes() {
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
 
+	// Agent identity lifecycle changes
+	root.Type(&v1.AgentIdentityChange{}).HandlerFunc(cleanup.DeleteAgentIdentityEvent)
+	root.Type(&v1.AgentIdentityDelete{}).HandlerFunc(cleanup.DeleteAgentIdentityEvent)
+
 	// Auth Provider Cleanup
 	root.Type(&v1.AuthProviderCleanup{}).HandlerFunc(authProviderCleanup.Cleanup)
 

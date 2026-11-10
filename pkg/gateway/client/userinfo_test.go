@@ -58,11 +58,64 @@ func TestIdentityInfo(t *testing.T) {
 	_, err = c.IdentityInfo(t.Context(), principal.User(u.ID+1))
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 
-	// Agents are not stored yet, so no agent is found.
+	// No agent has the user's ID, so none is found.
 	info, err = c.IdentityInfo(t.Context(), principal.Agent(u.ID))
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	require.Nil(t, info)
 
 	_, err = c.IdentityInfo(t.Context(), principal.Principal{})
 	require.Error(t, err)
+}
+
+func TestIdentityInfoOfAnAgent(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	agent, err := c.CreateAgent(ctx, types.Agent{
+		DisplayName: "builder",
+	})
+	require.NoError(t, err)
+	p := principal.Agent(agent.ID)
+
+	for _, step := range []struct {
+		name       string
+		change     func() error
+		wantStatus apitypes.UserStatus
+	}{
+		{
+			name:       "active",
+			change:     func() error { return nil },
+			wantStatus: apitypes.UserStatusActive,
+		},
+		{
+			name: "disabled",
+			change: func() error {
+				_, err := c.DisableAgent(ctx, agent.ID, "rotating keys")
+				return err
+			},
+			wantStatus: apitypes.UserStatusDisabled,
+		},
+	} {
+		require.NoError(t, step.change(), step.name)
+
+		info, err := c.IdentityInfo(ctx, p)
+		require.NoError(t, err, step.name)
+		require.Equal(t, "agent:"+p.ID, info.GetUID(), step.name)
+		require.Equal(t, info.GetUID(), info.GetName(), step.name)
+		require.Empty(t, info.GetGroups(), step.name)
+		got, ok := principal.FromUserInfo(info)
+		require.True(t, ok, step.name)
+		require.Equal(t, p, got, step.name)
+		status, recorded := principal.UserStatus(info)
+		require.True(t, recorded, step.name)
+		require.Equal(t, step.wantStatus, status, step.name)
+	}
+
+	// A deleted agent is not found, as a deleted user is not.
+	require.NoError(t, c.DeleteAgent(ctx, agent.ID))
+	info, err := c.IdentityInfo(ctx, p)
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.Nil(t, info)
+
+	_, err = c.IdentityInfo(ctx, principal.Agent(agent.ID+1))
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
 }

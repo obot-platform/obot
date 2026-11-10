@@ -110,7 +110,7 @@ func disableUser(t *testing.T, c *Client, provider AuthProviderRef, userID uint,
 		return nil, err
 	}
 	if changed {
-		c.kickUserLifecycleDelivery()
+		c.kickLifecycleEventDelivery()
 	}
 	return user, c.decryptUser(t.Context(), user)
 }
@@ -660,11 +660,11 @@ func TestLifecycleEventClaimsAreExclusive(t *testing.T) {
 	event := lifecycleEvents(t, c, user.ID)[0]
 
 	now := time.Now()
-	claimed, err := c.claimUserLifecycleEvents(ctx, []uint{event.ID}, now)
+	claimed, err := c.userLifecycleOutbox().claim(ctx, []uint{event.ID}, now)
 	if err != nil || len(claimed) != 1 || claimed[0].ID != event.ID {
 		t.Fatalf("first claim = %+v, %v; want the event claimed", claimed, err)
 	}
-	claimed, err = c.claimUserLifecycleEvents(ctx, []uint{event.ID}, now)
+	claimed, err = c.userLifecycleOutbox().claim(ctx, []uint{event.ID}, now)
 	if err != nil || len(claimed) != 0 {
 		t.Fatalf("second claim = %+v, %v; want refused", claimed, err)
 	}

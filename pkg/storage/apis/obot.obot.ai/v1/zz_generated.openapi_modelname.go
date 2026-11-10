@@ -21,6 +21,36 @@ func (in AccessControlRuleSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentIdentityChange) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentIdentityChange"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentIdentityChangeList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentIdentityChangeList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentIdentityChangeSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentIdentityChangeSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentIdentityDelete) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentIdentityDelete"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentIdentityDeleteList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentIdentityDeleteList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentIdentityDeleteSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentIdentityDeleteSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AgentInstance) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentInstance"
 }
