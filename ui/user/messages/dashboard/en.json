@@ -9,7 +9,6 @@
 	"dashboard_entry_type_hosted_single": "Hosted (Single-tenant)",
 	"dashboard_entry_type_remote": "Remote",
 	"dashboard_active_users": "Active Users",
-	"dashboard_monthly_active_users": "Monthly Active Users",
 	"dashboard_most_deployed_servers": "Most Deployed Servers",
 	"dashboard_no_clients_observed": "No clients observed yet.",
 	"dashboard_no_mcp_servers_observed": "No MCP servers observed yet.",

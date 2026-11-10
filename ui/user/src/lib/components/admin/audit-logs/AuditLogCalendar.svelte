@@ -13,6 +13,8 @@
 		start: Date;
 		end: Date;
 		disabled?: boolean;
+		disableCustomRange?: boolean;
+		disableSubDayRanges?: boolean;
 		onChange: (range: DateRange) => void;
 		classes?: {
 			input?: string;
@@ -25,6 +27,8 @@
 		start,
 		end,
 		disabled = false,
+		disableCustomRange = false,
+		disableSubDayRanges = false,
 		onChange,
 		classes,
 		tooltipPlacement = 'top-end'
@@ -35,6 +39,7 @@
 
 	const actions = [
 		{
+			subDay: true,
 			label: m.audit_usage_exports_calendar_last_hour(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
@@ -46,6 +51,7 @@
 			}
 		},
 		{
+			subDay: true,
 			label: m.audit_usage_exports_calendar_last_6_hours(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
@@ -106,6 +112,10 @@
 			}
 		}
 	];
+
+	const visibleActions = $derived(
+		actions.filter((action) => !disableSubDayRanges || !action.subDay)
+	);
 
 	const quickActionsPopover = popover({
 		placement: 'bottom-start',
@@ -190,7 +200,7 @@
 				</div>
 
 				<div class="flex w-full min-w-36 flex-col">
-					{#each actions as action (action.label)}
+					{#each visibleActions as action (action.label)}
 						<button
 							type="button"
 							class="hover:bg-base-400/25 h-12 w-full min-w-max px-4 py-2 text-center last:border-b-transparent md:h-10 md:text-start"
@@ -207,7 +217,9 @@
 	<Calendar
 		compact
 		class={twMerge(
-			'dark:border-base-400 hover:bg-base-100 dark:hover:bg-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm',
+			'dark:border-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm',
+			!disableCustomRange && 'hover:bg-base-100 dark:hover:bg-base-400',
+			disableCustomRange && !disabled && 'disabled:opacity-100',
 			classes?.calendar
 		)}
 		initialValue={{
@@ -216,7 +228,7 @@
 		}}
 		{start}
 		{end}
-		{disabled}
+		disabled={disabled || disableCustomRange}
 		{onChange}
 		maxDate={today}
 	/>

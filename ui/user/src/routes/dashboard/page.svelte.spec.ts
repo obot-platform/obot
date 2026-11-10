@@ -74,6 +74,43 @@ async function renderDashboard(
 }
 
 describe('Dashboard date range', () => {
+	it('updates active users when the selected preset changes', async () => {
+		mockDashboardApis();
+		const recentDay = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+		const oldDay = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+		worker.use(
+			http.get('/api/users', () =>
+				HttpResponse.json({
+					items: [
+						{ id: 'recent', lastActiveDay: recentDay },
+						{ id: 'old', lastActiveDay: oldDay },
+						{ id: 'never' }
+					]
+				})
+			)
+		);
+		await renderDashboard([Group.ADMIN]);
+		await expect
+			.element(page.getByRole('link', { name: 'Active Users 1', exact: true }))
+			.toBeVisible();
+		await page.getByRole('button', { name: /Last 30 Days/ }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Last Hour', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Last 6 Hours', exact: true }))
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Last 24 Hour', exact: true }).click();
+		await expect
+			.element(page.getByRole('link', { name: 'Active Users 0', exact: true }))
+			.toBeVisible();
+		await page.getByRole('button', { name: /Last 24 Hours/ }).click();
+		await page.getByRole('button', { name: 'Last 30 Days', exact: true }).click();
+		await expect
+			.element(page.getByRole('link', { name: 'Active Users 1', exact: true }))
+			.toBeVisible();
+	});
+
 	it('refetches range-backed datasets when the calendar range changes', async () => {
 		const mcpStats = vi.fn();
 		const scanStats = vi.fn();
@@ -94,7 +131,7 @@ describe('Dashboard date range', () => {
 				totalTokens(request.url);
 				const hours = hoursBetween(request.url, 'start', 'end');
 				return HttpResponse.json({
-					totalTokens: hours < 2 ? 42 : 1000,
+					totalTokens: hours < 25 ? 42 : 1000,
 					totalSpend: 0
 				});
 			}),
@@ -133,17 +170,20 @@ describe('Dashboard date range', () => {
 		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
 		await expect.element(rangeButton).toBeEnabled();
 		await rangeButton.click();
-		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
+		await page.getByRole('button', { name: 'Last 24 Hour', exact: true }).click();
 
-		await expect.element(page.getByRole('button', { name: /Last Hour/ })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: /Last 24 Hours/ })).toBeVisible();
 		await vi.waitFor(() => {
 			expect(mcpStats.mock.calls.length).toBeGreaterThan(1);
-			expect(hoursBetween(mcpStats.mock.lastCall?.[0], 'start_time', 'end_time')).toBeCloseTo(1, 1);
+			expect(hoursBetween(mcpStats.mock.lastCall?.[0], 'start_time', 'end_time')).toBeCloseTo(
+				24,
+				1
+			);
 		});
 
-		expect(hoursBetween(scanStats.mock.lastCall?.[0], 'start', 'end')).toBeCloseTo(1, 1);
-		expect(hoursBetween(totalTokens.mock.lastCall?.[0], 'start', 'end')).toBeCloseTo(1, 1);
-		expect(hoursBetween(tokenUsage.mock.lastCall?.[0], 'start', 'end')).toBeCloseTo(1, 1);
+		expect(hoursBetween(scanStats.mock.lastCall?.[0], 'start', 'end')).toBeCloseTo(24, 1);
+		expect(hoursBetween(totalTokens.mock.lastCall?.[0], 'start', 'end')).toBeCloseTo(24, 1);
+		expect(hoursBetween(tokenUsage.mock.lastCall?.[0], 'start', 'end')).toBeCloseTo(24, 1);
 		expect(catalogServers.mock.calls.length).toBe(catalogCalls);
 		await expect.element(page.getByText('42', { exact: true })).toBeVisible();
 	});
@@ -174,11 +214,14 @@ describe('Dashboard date range', () => {
 		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
 		await expect.element(rangeButton).toBeEnabled();
 		await rangeButton.click();
-		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
+		await page.getByRole('button', { name: 'Last 24 Hour', exact: true }).click();
 
 		await vi.waitFor(() => {
 			expect(mcpStats.mock.calls.length).toBeGreaterThan(1);
-			expect(hoursBetween(mcpStats.mock.lastCall?.[0], 'start_time', 'end_time')).toBeCloseTo(1, 1);
+			expect(hoursBetween(mcpStats.mock.lastCall?.[0], 'start_time', 'end_time')).toBeCloseTo(
+				24,
+				1
+			);
 		});
 		expect(scanStats).not.toHaveBeenCalled();
 		expect(totalTokens).not.toHaveBeenCalled();
@@ -1349,7 +1392,7 @@ describe('Dashboard data loading', () => {
 		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
 		await expect.element(rangeButton).toBeEnabled();
 		await rangeButton.click();
-		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
+		await page.getByRole('button', { name: 'Last 24 Hour', exact: true }).click();
 
 		await expect
 			.element(main.getByRole('heading', { name: 'MCP Servers', exact: true }))
@@ -1387,7 +1430,7 @@ describe('Dashboard data loading', () => {
 		const rangeButton = page.getByRole('button', { name: /Last 30 Days/ });
 		await expect.element(rangeButton).toBeEnabled();
 		await rangeButton.click();
-		await page.getByRole('button', { name: 'Last Hour', exact: true }).click();
+		await page.getByRole('button', { name: 'Last 24 Hour', exact: true }).click();
 
 		await vi.waitFor(() => expect(statsCalls).toBe(2));
 		await expect.element(main.getByText('Stale Server')).not.toBeInTheDocument();

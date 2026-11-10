@@ -190,9 +190,7 @@
 
 	let activeUsers = $derived(
 		usersData.filter(
-			(user) =>
-				user.lastActiveDay &&
-				isWithinInterval(new Date(user.lastActiveDay), { start: initialStart, end: initialEnd })
+			(user) => user.lastActiveDay && isWithinInterval(new Date(user.lastActiveDay), { start, end })
 		).length
 	);
 
@@ -563,6 +561,19 @@
 
 <Layout title={m.nav_dashboard()} classes={{ childrenContainer: 'max-w-none', container: '' }}>
 	{#snippet rightNavActions()}
+		<AuditLogCalendar
+			{start}
+			{end}
+			disabled={rangeBusy}
+			disableCustomRange
+			disableSubDayRanges
+			onChange={handleDateRangeChange}
+			classes={{
+				input: 'bg-base-300 hover:bg-base-300 shadow-inner',
+				calendar: 'bg-base-300 shadow-none! border not-dark:border-base-300!'
+			}}
+			tooltipPlacement="bottom"
+		/>
 		<IconButton
 			tooltip={{ text: m.dashboard_configure(), placement: 'left' }}
 			onclick={() => configureDashboardDialog?.open()}
@@ -570,16 +581,6 @@
 		>
 			<Columns3Cog class="size-6" />
 		</IconButton>
-		<AuditLogCalendar
-			{start}
-			{end}
-			disabled={rangeBusy}
-			onChange={handleDateRangeChange}
-			classes={{
-				input: 'bg-base-300 hover:bg-base-300 shadow-inner',
-				calendar: 'bg-base-300 shadow-none! border not-dark:border-base-300!'
-			}}
-		/>
 	{/snippet}
 	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
 		{#if !hasContent && probesPending}
