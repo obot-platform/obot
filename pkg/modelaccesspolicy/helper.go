@@ -121,13 +121,14 @@ func NewHelper(ctx context.Context, backend backend.Backend) (*Helper, error) {
 // - A ModelAccessPolicy references a group the user belongs to and includes the model (or uses wildcard model selector)
 func (h *Helper) UserHasAccessToModel(user kuser.Info, modelID string) (bool, error) {
 	allowedModels, allowAll, err := h.GetUserAllowedModels(user)
-	return allowAll || allowedModels[modelID], err
+	_, allowed := allowedModels[modelID]
+	return allowAll || allowed, err
 }
 
-// GetUserAllowedModels returns the model IDs that a user can access.
+// GetUserAllowedModels returns the set of model IDs that a user can access.
 // Model access policies only grant models with an allowed usage, including when
 // a policy contains a wildcard or suffix selector.
-func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, error) {
+func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]struct{}, bool, error) {
 	policies, err := h.UserPolicies(user)
 	if err != nil {
 		return nil, false, err
@@ -135,7 +136,7 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 
 	var (
 		grants        = h.newModelGrants()
-		allowedModels = make(map[string]bool)
+		allowedModels = make(map[string]struct{})
 	)
 	for _, policy := range policies {
 		grants.addPolicyModels(policy, allowedModels)
@@ -146,8 +147,8 @@ func (h *Helper) GetUserAllowedModels(user kuser.Info) (map[string]bool, bool, e
 
 // PolicyAllowedModels returns the model IDs a single model access policy (gateway profile)
 // grants, evaluated as GetUserAllowedModels evaluates each of a user's policies.
-func (h *Helper) PolicyAllowedModels(policy *v1.ModelAccessPolicy) map[string]bool {
-	allowed := make(map[string]bool)
+func (h *Helper) PolicyAllowedModels(policy *v1.ModelAccessPolicy) map[string]struct{} {
+	allowed := make(map[string]struct{})
 	h.newModelGrants().addPolicyModels(policy, allowed)
 	return allowed
 }
@@ -166,9 +167,9 @@ func (h *Helper) UserProfileIDsForModel(user kuser.Info, modelID string) ([]stri
 		ids    []string
 	)
 	for _, policy := range policies {
-		allowed := make(map[string]bool)
+		allowed := make(map[string]struct{})
 		grants.addPolicyModels(policy, allowed)
-		if allowed[modelID] {
+		if _, ok := allowed[modelID]; ok {
 			ids = append(ids, policy.Name)
 		}
 	}
@@ -191,16 +192,16 @@ func (h *Helper) newModelGrants() *modelGrants {
 }
 
 // addPolicyModels adds the models policy grants to allowed.
-func (g *modelGrants) addPolicyModels(policy *v1.ModelAccessPolicy, allowed map[string]bool) {
+func (g *modelGrants) addPolicyModels(policy *v1.ModelAccessPolicy, allowed map[string]struct{}) {
 	for _, resource := range policy.Spec.Manifest.Models {
 		g.addModel(resource, allowed)
 	}
 }
 
-func (g *modelGrants) addModel(resource types.ModelResource, allowed map[string]bool) {
+func (g *modelGrants) addModel(resource types.ModelResource, allowed map[string]struct{}) {
 	if resource.IsWildcard() {
 		for modelID := range g.eligibleModels {
-			allowed[modelID] = true
+			allowed[modelID] = struct{}{}
 		}
 		return
 	}
@@ -216,14 +217,14 @@ func (g *modelGrants) addModel(resource types.ModelResource, allowed map[string]
 	} else if _, isPattern := resource.IsWildcardSuffix(); isPattern {
 		for id, model := range g.eligibleModels {
 			if resource.MatchesTargetModel(model.Spec.Manifest.TargetModel) {
-				allowed[id] = true
+				allowed[id] = struct{}{}
 			}
 		}
 		return
 	}
 
 	if system.IsModelID(modelID) && g.eligibleModels[modelID] != nil {
-		allowed[modelID] = true
+		allowed[modelID] = struct{}{}
 	}
 }
 
@@ -321,7 +322,7 @@ func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider, dialect s
 		if !ok || (dialect != "" && m.Spec.Manifest.Dialect != dialect) {
 			continue
 		}
-		if allowAll || allowedModels[m.Name] {
+		if _, ok := allowedModels[m.Name]; allowAll || ok {
 			allowed[m.Spec.Manifest.TargetModel] = true
 		}
 	}

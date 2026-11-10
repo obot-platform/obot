@@ -31,7 +31,7 @@ func (a *ModelHandler) List(req api.Context) error {
 
 	var (
 		allowAll      = req.URL.Query().Get("all") == "true" && (req.UserIsAdmin() || req.UserIsAuditor())
-		allowedModels map[string]bool
+		allowedModels map[string]struct{}
 		err           error
 	)
 
@@ -56,7 +56,7 @@ func (a *ModelHandler) List(req api.Context) error {
 
 	respList := make([]types.Model, 0, len(modelList.Items))
 	for _, model := range modelList.Items {
-		if !allowAll && !allowedModels[model.Name] {
+		if _, ok := allowedModels[model.Name]; !allowAll && !ok {
 			// Skip models the user is not allowed to access
 			continue
 		}

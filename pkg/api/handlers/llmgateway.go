@@ -441,7 +441,7 @@ func (h *LLMGatewayHandler) requireBudgetProfile(req api.Context, budget *gatewa
 	granted := h.mapHelper.PolicyAllowedModels(profile)
 	var missing []string
 	for _, model := range budget.Models {
-		if !granted[model] {
+		if _, ok := granted[model]; !ok {
 			missing = append(missing, model)
 		}
 	}

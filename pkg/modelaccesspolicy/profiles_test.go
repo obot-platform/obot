@@ -260,22 +260,22 @@ func TestPolicyAllowedModels(t *testing.T) {
 	tests := []struct {
 		name   string
 		policy *v1.ModelAccessPolicy
-		want   map[string]bool
+		want   map[string]struct{}
 	}{
 		{
 			name:   "specific models",
 			policy: profileGranting("p", everyone, "m1-model-a"),
-			want:   map[string]bool{"m1-model-a": true},
+			want:   map[string]struct{}{"m1-model-a": {}},
 		},
 		{
 			name:   "every model",
 			policy: profileGranting("p", everyone, "*"),
-			want:   map[string]bool{"m1-model-a": true, "m1-model-b": true},
+			want:   map[string]struct{}{"m1-model-a": {}, "m1-model-b": {}},
 		},
 		{
 			name:   "no models",
 			policy: profileGranting("p", everyone),
-			want:   map[string]bool{},
+			want:   map[string]struct{}{},
 		},
 	}
 	for _, tt := range tests {

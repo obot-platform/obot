@@ -21,7 +21,7 @@ import (
 func (b *bifrostProviderBackend) scopedListingFilter(l *llmProviderProxy, req api.Context, scope string) func(string) (bool, error) {
 	var (
 		references, aliasKeys map[string]struct{}
-		allowedModels         map[string]bool
+		allowedModels         map[string]struct{}
 		allowAll              bool
 	)
 	return func(native string) (bool, error) {
@@ -81,8 +81,12 @@ func (b *bifrostProviderBackend) scopedListingFilter(l *llmProviderProxy, req ap
 			}
 			return false, err
 		}
+		if model == nil {
+			return false, nil
+		}
+		_, allowed := allowedModels[model.Name]
 		// Duplicate targets can have different grants; check the record actually selected.
-		return model != nil && model.Spec.Manifest.ModelProvider == system.LLMGatewayModelProvider &&
-			model.Spec.Manifest.TargetModel == scope+"/"+native && (allowAll || allowedModels[model.Name]), nil
+		return model.Spec.Manifest.ModelProvider == system.LLMGatewayModelProvider &&
+			model.Spec.Manifest.TargetModel == scope+"/"+native && (allowAll || allowed), nil
 	}
 }
