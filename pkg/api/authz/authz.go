@@ -35,6 +35,7 @@ var (
 		"GET /tunnel/composite/register/{key}",
 	)
 	tunnelPeerResources = newPathMatcher("GET /tunnel/peer")
+	adminOnlyResources  = newPathMatcher("GET /api/llm-gateway/migration")
 
 	adminAndOwnerRules = []string{
 		"/api/registry-settings",
@@ -486,9 +487,6 @@ func IsMCPRegistryRequest(req *http.Request) bool {
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
-	if req.URL.Path == "/api/llm-gateway/migration" {
-		return slices.Contains(userInfo.GetGroups(), types.GroupAdmin) || slices.Contains(userInfo.GetGroups(), types.GroupOwner)
-	}
 	// The SCIM endpoint serves only a SCIM connection's principal, and that principal nothing else. There is at most
 	// one connection, so the path does not name it.
 	isSCIM := req.URL.Path == strings.TrimSuffix(scimPathPrefix, "/") || strings.HasPrefix(req.URL.Path, scimPathPrefix)
@@ -524,6 +522,11 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 	if slices.Contains(userInfo.GetGroups(), types.GroupTunnelBridge) {
 		_, ok := tunnelBridgeResources.Match(req)
 		return ok
+	}
+
+	// Restrict migration status before the auditor's broad gateway GET grant.
+	if _, ok := adminOnlyResources.Match(req); ok {
+		return slices.Contains(userInfo.GetGroups(), types.GroupAdmin)
 	}
 
 	// Internal principals have already been restricted above. Anonymous grants

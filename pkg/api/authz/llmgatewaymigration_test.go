@@ -35,10 +35,34 @@ func TestLLMGatewayMigrationAuthorization(t *testing.T) {
 			name: "basic",
 			role: types.RoleBasic,
 		},
+		{
+			name: "power user",
+			role: types.RolePowerUser,
+		},
+		{
+			name: "power user plus",
+			role: types.RolePowerUserPlus,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			u := &user.DefaultInfo{Name: tc.name, Groups: tc.role.Groups()}
-			require.Equal(t, tc.allowed, a.Authorize(httptest.NewRequest(http.MethodGet, "/api/llm-gateway/migration", nil), u))
+			for _, method := range []string{http.MethodGet, http.MethodHead} {
+				for _, path := range []string{"/api/llm-gateway/migration", "/api/llm-gateway/%6digration"} {
+					require.Equal(t, tc.allowed, a.Authorize(httptest.NewRequest(method, path, nil), u), "%s %s", method, path)
+				}
+			}
+		})
+	}
+
+	t.Run("auditor can still read ordinary gateway resources", func(t *testing.T) {
+		u := &user.DefaultInfo{Groups: types.RoleAuditor.Groups()}
+		require.True(t, a.Authorize(httptest.NewRequest(http.MethodGet, "/api/llm-gateway/providers", nil), u))
+	})
+
+	for _, group := range []string{types.GroupSCIM, types.GroupTunnel, types.GroupTunnelPeer, types.GroupTunnelBridge} {
+		t.Run(group, func(t *testing.T) {
+			u := &user.DefaultInfo{UID: "internal", Groups: append(types.RoleAdmin.Groups(), group)}
+			require.False(t, a.Authorize(httptest.NewRequest(http.MethodGet, "/api/llm-gateway/migration", nil), u))
 		})
 	}
 }
