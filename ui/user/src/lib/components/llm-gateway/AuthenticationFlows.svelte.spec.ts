@@ -135,9 +135,13 @@ describe('provider authentication', () => {
 
 		it(`${provider}: edits masked credentials, switches methods, and resets on reopening`, async () => {
 			const saved = vi.fn();
+			// Hold the response so request receipt cannot imply that the client finished saving.
+			let releaseSave!: () => void;
+			const saveResponse = new Promise<void>((resolve) => (releaseSave = resolve));
 			worker.use(
 				http.put('/api/llm-gateway/admin/providers/:provider/keys/:id', async ({ request }) => {
 					saved(await request.json());
+					await saveResponse;
 					return HttpResponse.json({ id: 'key' });
 				})
 			);
@@ -180,9 +184,15 @@ describe('provider authentication', () => {
 			}
 			const submit = dialog.getByRole('button', { name: 'Save', exact: true });
 			await expect.element(submit).toBeEnabled();
-			await submit.click();
-			await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+			try {
+				await submit.click();
+				await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+			} finally {
+				releaseSave();
+			}
 			expect(saved.mock.calls[0][0]).toMatchObject({ value: '' });
+			// The request spy fires before the save response closes the dialog.
+			await expect.element(dialog).not.toBeInTheDocument();
 			component.open(key);
 			await dialog.getByRole('radio', { name: 'API Key', exact: true }).click();
 			await expect.element(submit).toBeDisabled();
@@ -198,6 +208,7 @@ describe('provider authentication', () => {
 			expect(
 				saved.mock.calls[1][0][aws ? 'bedrock_key_config' : 'azure_key_config']
 			).toHaveProperty(aws ? 'access_key' : 'client_id', '');
+			await expect.element(dialog).not.toBeInTheDocument();
 			component.open();
 			await expect
 				.element(dialog.getByRole('radio', { name: 'API Key', exact: true }))
