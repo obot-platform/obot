@@ -7,9 +7,11 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/sethvargo/go-limiter"
 	"github.com/sethvargo/go-limiter/memorystore"
@@ -44,7 +46,8 @@ type Options struct {
 // - Authenticated requests are tracked by user ID or name.
 // - SCIM connection requests are tracked by connection ID, at the authenticated rate.
 // - Unauthenticated requests are tracked by IP address.
-// - Admins and internal tunnel bridge and peer requests are exempt from rate limiting.
+// - Admins and internal tunnel bridge and peer requests are exempt from rate limiting, and so
+// are a vMCP's loopback requests to the MCP IDs its composite token is scoped to.
 type RateLimiter struct {
 	unauthenticatedStore limiter.Store
 	authenticatedStore   limiter.Store
@@ -82,6 +85,15 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 		slices.Contains(groups, types.GroupTunnelBridge) ||
 		slices.Contains(groups, types.GroupTunnelPeer) {
 		// Admins and internal tunnel bridge and peer requests are exempt from rate limiting.
+		return nil
+	}
+
+	// So is a vMCP's loopback to its own components: the client's request to the vMCP was
+	// already limited, and one cold connect fans out to several requests per component, so
+	// charging them to the user lets a large vMCP exhaust the user's own limit. The exemption
+	// covers only an MCP connect path the composite token is scoped to; the same token on any
+	// other route, or for another MCP ID, is limited like the user.
+	if mcpID := mcpConnectID(req.URL.Path); mcpID != "" && authz.IsCompositeMCPRequest(u, mcpID) {
 		return nil
 	}
 
@@ -129,6 +141,18 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 	}
 
 	return nil
+}
+
+// mcpConnectID returns the MCP ID an MCP connect path targets, or "" for any other path.
+// The rate limit applies before routing, so it reads the ID from the path itself.
+func mcpConnectID(path string) string {
+	for _, prefix := range []string{"/mcp-connect/", "/mcp-connect-composite/"} {
+		if rest, ok := strings.CutPrefix(path, prefix); ok {
+			id, _, _ := strings.Cut(rest, "/")
+			return id
+		}
+	}
+	return ""
 }
 
 // ClearHeaders removes the rate limit headers ApplyLimit set, for a response that refuses the
