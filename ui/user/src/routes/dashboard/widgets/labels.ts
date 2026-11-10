@@ -53,7 +53,7 @@ export function platformStatLabel(id: PlatformStatId): string {
 		case 'total-users':
 			return m.dashboard_total_users();
 		case 'active-users':
-			return m.dashboard_active_users();
+			return m.dashboard_monthly_active_users();
 		case 'total-tokens':
 			return m.dashboard_total_tokens();
 		case 'total-spend':

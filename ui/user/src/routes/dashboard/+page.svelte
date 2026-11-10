@@ -190,7 +190,9 @@
 
 	let activeUsers = $derived(
 		usersData.filter(
-			(user) => user.lastActiveDay && isWithinInterval(new Date(user.lastActiveDay), { start, end })
+			(user) =>
+				user.lastActiveDay &&
+				isWithinInterval(new Date(user.lastActiveDay), { start: initialStart, end: initialEnd })
 		).length
 	);
 

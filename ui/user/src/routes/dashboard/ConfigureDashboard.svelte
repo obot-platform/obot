@@ -170,7 +170,7 @@
 				class="flex flex-col grow gap-2 rounded-xl rounded-t-none bg-base-200 dark:bg-base-100/50 p-3 overflow-y-auto default-scrollbar-thin"
 			>
 				<li
-					class="group flex cursor-grab items-center justify-between gap-2 rounded-lg bg-base-100 px-3 py-2 dark:bg-base-300"
+					class="group flex cursor-grab touch-none items-center justify-between gap-2 rounded-lg bg-base-100 px-3 py-2 dark:bg-base-300"
 					data-drag-preview
 					data-palette-header
 					onpointerdown={(event) => layoutDrag.begin(event, { kind: 'new-header' })}
@@ -191,7 +191,7 @@
 					</button>
 				</li>
 				<li
-					class="group flex cursor-grab items-center justify-between gap-2 rounded-lg bg-base-100 px-3 py-2 dark:bg-base-300"
+					class="group flex cursor-grab touch-none items-center justify-between gap-2 rounded-lg bg-base-100 px-3 py-2 dark:bg-base-300"
 					data-drag-preview
 					data-palette-box
 					onpointerdown={(event) => layoutDrag.begin(event, { kind: 'new-box' })}
@@ -214,7 +214,7 @@
 				{#each palette as id (id)}
 					{@const label = widgetLabel(id)}
 					<li
-						class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-base-100 dark:bg-base-300 cursor-grab group"
+						class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-base-100 dark:bg-base-300 cursor-grab touch-none group"
 						data-drag-preview
 						onpointerdown={(event) => layoutDrag.begin(event, { kind: 'widget', id })}
 						out:fade={{ duration: 100 }}
@@ -401,7 +401,7 @@
 				<div class="mb-1 flex items-center gap-2">
 					<button
 						type="button"
-						class="text-muted-content hover:text-base-content flex shrink-0 cursor-grab items-center gap-2"
+						class="text-muted-content hover:text-base-content flex shrink-0 cursor-grab touch-none items-center gap-2"
 						data-drag-preview
 						aria-label="{m.dashboard_drag()} {m.dashboard_box()}"
 						onpointerdown={(event) => layoutDrag.begin(event, { kind: 'box', id: row.id })}
@@ -434,7 +434,7 @@
 				<div class="flex items-center gap-2">
 					<button
 						type="button"
-						class="text-muted-content hover:text-base-content flex shrink-0 cursor-grab items-center"
+						class="text-muted-content hover:text-base-content flex shrink-0 cursor-grab touch-none items-center"
 						data-drag-preview
 						aria-label="{m.dashboard_drag()} {row.text || m.dashboard_header()}"
 						onpointerdown={(event) => layoutDrag.begin(event, { kind: 'header', id: row.id })}
@@ -503,7 +503,7 @@
 						<div class="flex items-start justify-between gap-2">
 							<button
 								type="button"
-								class="mt-0.5 flex min-w-0 flex-1 cursor-grab items-center gap-2 text-left group"
+								class="mt-0.5 flex min-w-0 flex-1 cursor-grab touch-none items-center gap-2 text-left group"
 								data-drag-preview
 								aria-label="{m.dashboard_drag()} {label}"
 								onpointerdown={(event) =>

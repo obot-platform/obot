@@ -9,6 +9,7 @@
 	"dashboard_entry_type_hosted_single": "호스팅 (단일 테넌트)",
 	"dashboard_entry_type_remote": "원격",
 	"dashboard_active_users": "활성 사용자",
+	"dashboard_monthly_active_users": "월간 활성 사용자",
 	"dashboard_most_deployed_servers": "가장 많이 배포된 서버",
 	"dashboard_no_clients_observed": "아직 감지된 클라이언트가 없습니다.",
 	"dashboard_no_mcp_servers_observed": "아직 감지된 MCP 서버가 없습니다.",
