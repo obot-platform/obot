@@ -576,6 +576,8 @@ In **Identity & Access > Auth Providers**, configure **PingFederate**:
 | Groups Delimiter (optional) | Set only when PingFederate sends groups as one delimited string instead of a list. |
 | Known Groups (optional) | Group names, one per line, exactly as PingFederate releases them. Commas belong to the name, as in an LDAP DN. |
 
+A claim field can name a nested claim as a dotted path, such as `profile.groups`. A claim whose own name contains the dots takes precedence.
+
 Obot verifies the ID token's issuer, audience, signature, and nonce, and always uses PKCE. These checks can't be turned off. Obot rejects a sign-in whose ID token has `email_verified: false`. PingFederate usually omits that claim, and a token without it is accepted. The Issuer URL and the authorization, token, JWKS, and userinfo endpoints in PingFederate's discovery document must use HTTPS, except on a loopback host such as `localhost`.
 
 Changes to the Issuer URL of the active provider take effect immediately. If PingFederate can't be reached or reports a different issuer, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
@@ -589,6 +591,12 @@ Obot sees a group once one of its members signs in. To assign a role to a group 
 Obot updates a user's groups when they sign in and when their session refreshes, as set by **Token Refresh Duration**. At each refresh, Obot asks PingFederate's userinfo endpoint for the user's current groups, so a change in PingFederate takes effect without the user signing in again.
 
 When Obot uses PostgreSQL, as a deployment with several replicas must, every replica shares the users' groups and the groups seen at sign-in through two tables in Obot's database, `pingfederate_user_groups` and `pingfederate_seen_groups`. Obot drops them, with the provider's session tables, when you deconfigure PingFederate, switch to another provider, or discard a staged switch to PingFederate. Without PostgreSQL, Obot keeps them in memory.
+
+#### Sessions {#pingfederate-sessions}
+
+Obot identifies each user by the `sub` claim, and checks each session's email against PingFederate's userinfo endpoint. If a user's email changes in PingFederate, their session ends at its next refresh, and they sign in again with the new email.
+
+While userinfo is unreachable, users can't sign in. A signed-in user keeps working if userinfo confirmed their identity in the last 24 hours on the replica that serves them, through session refreshes too when refreshes return no ID token, which is PingFederate's default. Other requests fail until userinfo is back. When the policy's attribute source, such as an LDAP directory, fails, PingFederate's userinfo answers with only `sub`. Obot keeps users' groups rather than emptying them. Because PingFederate answers the same way for a user removed from the directory, signed-in users keep working through such answers for up to two **Token Refresh Durations** after userinfo last confirmed them. Obot records groups only from userinfo answers that also carry the email or `preferred_username`, so release one of them in **User Info** too.
 
 #### Troubleshooting {#pingfederate-troubleshooting}
 
