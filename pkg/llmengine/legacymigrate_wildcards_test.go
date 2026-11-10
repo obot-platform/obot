@@ -3,6 +3,7 @@ package llmengine
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -358,5 +359,154 @@ func TestMigrationNativeSlashWildcardPolicyFailureKeepsSource(t *testing.T) {
 			}
 			require.Equal(t, want, policy.Spec.Manifest.Models)
 		})
+	}
+}
+
+func TestMigrationBareWildcardPreservesExistingGatewayMatches(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		existing []string
+		want     []types.ModelResource
+		denied   []string
+	}{
+		{
+			name: "undiscovered providers and duplicate families",
+			existing: []string{
+				"anthropic/claude-test",
+				"anthropic/claude-test-extra",
+				"bedrock/claude-test",
+				"generic-responses/claude-extra",
+				"openai/gpt-test",
+				"other/Claude-test",
+			},
+			want: []types.ModelResource{
+				{ID: "generic-responses/claude*"},
+				{ID: "anthropic/claude*"},
+				{ID: "bedrock/claude*"},
+			},
+			denied: []string{
+				"unverified/claude-test",
+				"undiscovered/claude-test",
+				"openai/claude-test",
+				"proxy/claude-test",
+				"generic-responses/gpt-test",
+			},
+		},
+		{
+			name:     "bare prefix directly matches gateway provider",
+			existing: []string{"claude-host/other-model", "anthropic/claude-test"},
+			want: []types.ModelResource{
+				{ID: "claude*"},
+				{ID: "generic-responses/claude*"},
+				{ID: "anthropic/claude*"},
+			},
+			denied: []string{"other/gpt-test", "generic-responses/gpt-test"},
+		},
+	} {
+		for _, failFirst := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/retry=%t", tc.name, failFirst), func(t *testing.T) {
+				ctx := t.Context()
+				ns := system.DefaultNamespace
+				legacy := &v1.Model{Namespace: ns, Name: "m1-old", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+					ModelProvider: system.GenericResponsesModelProvider,
+					TargetModel:   "claude-test",
+					Active:        true,
+				}}}
+				target := &v1.Model{Namespace: ns, Name: "m1-new", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+					ModelProvider: system.LLMGatewayModelProvider,
+					TargetModel:   "generic-responses/claude-test",
+					Active:        true,
+				}}}
+				policy := &v1.ModelAccessPolicy{Namespace: ns, Name: "policy", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+					Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "u1"}},
+					Models:   []types.ModelResource{{ID: "claude*"}, {ID: legacy.Name}, {ID: "obot://llm"}},
+				}}}
+				provider := &v1.ModelProvider{Namespace: ns, Name: system.GenericResponsesModelProvider}
+				objects := []kclient.Object{legacy, target, policy, provider,
+					&v1.Model{Namespace: ns, Name: "m1-proxy", Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+						ModelProvider: system.ModelProxyModelProvider,
+						TargetModel:   "proxy/claude-test",
+					}}},
+				}
+				var existing []*v1.Model
+				for i, upstream := range tc.existing {
+					m := &v1.Model{Namespace: ns, Name: fmt.Sprintf("m1-existing-%d", i), Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+						ModelProvider: system.LLMGatewayModelProvider,
+						TargetModel:   upstream,
+						Active:        true,
+						DisplayName:   "Administrator's model",
+						Alias:         "custom-alias",
+						OverrideCost:  &types.ModelCost{Input: 7},
+					}}}
+					existing = append(existing, m)
+					objects = append(objects, m)
+				}
+				saved := false
+				fail := failFirst
+				c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).
+					WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string {
+						return []string{o.(*v1.Model).Spec.Manifest.ModelProvider}
+					}).WithInterceptorFuncs(interceptor.Funcs{Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+					if _, ok := obj.(*v1.ModelAccessPolicy); ok {
+						require.True(t, saved, "mappings must persist before policy updates")
+						require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{}), "source must survive until references commit")
+						if fail {
+							return errors.New("injected policy failure")
+						}
+					}
+					return c.Update(ctx, obj, opts...)
+				}}).Build()
+				// Only the imported Generic Responses model is discovery evidence.
+				discovered := map[string]struct{}{target.Spec.Manifest.TargetModel: {}}
+				sources := map[string]string{
+					system.GenericResponsesModelProvider: "generic-responses",
+					"undiscovered-source":                "undiscovered",
+				}
+				save := func(mapping map[string]string) error {
+					if len(mapping) > 0 {
+						require.Equal(t, map[string]string{legacy.Name: target.Name}, mapping)
+					}
+					saved = true
+					return nil
+				}
+				if failFirst {
+					require.ErrorContains(t, migrateLegacyModels(ctx, c, sources, discovered, save), "injected policy failure")
+					require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{}))
+					require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(provider), &v1.ModelProvider{}))
+					got := &v1.ModelAccessPolicy{}
+					require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(policy), got))
+					require.Equal(t, policy.Spec, got.Spec)
+					fail = false
+				}
+				require.NoError(t, migrateLegacyModels(ctx, c, sources, discovered, save))
+				require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(legacy), &v1.Model{})))
+				require.True(t, apierrors.IsNotFound(c.Get(ctx, kclient.ObjectKeyFromObject(provider), &v1.ModelProvider{})))
+				require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(policy), policy))
+				require.NoError(t, policy.Spec.Manifest.Validate())
+				// Evaluate effective target access after cleanup with the policy helper's matcher.
+				for _, m := range append(existing, target) {
+					upstream := m.Spec.Manifest.TargetModel
+					want := (types.ModelResource{ID: "claude*"}).MatchesTargetModel(upstream)
+					for _, candidate := range []string{upstream, upstream + "-future"} {
+						got := slices.ContainsFunc(policy.Spec.Manifest.Models, func(grant types.ModelResource) bool { return grant.MatchesTargetModel(candidate) })
+						require.Equal(t, want, got, "effective access to %s", candidate)
+					}
+				}
+				for _, upstream := range tc.denied {
+					require.False(t, slices.ContainsFunc(policy.Spec.Manifest.Models, func(grant types.ModelResource) bool { return grant.MatchesTargetModel(upstream) }), "must not grant %s", upstream)
+				}
+				want := append(slices.Clone(tc.want), types.ModelResource{ID: target.Name}, types.ModelResource{ID: "obot://llm"})
+				require.ElementsMatch(t, want, policy.Spec.Manifest.Models)
+				for _, original := range existing {
+					got := &v1.Model{}
+					require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(original), got))
+					require.Equal(t, original, got, "existing gateway configuration must remain unchanged")
+				}
+				grants := slices.Clone(policy.Spec.Manifest.Models)
+				require.NoError(t, migrateLegacyModels(ctx, c, sources, discovered, save))
+				require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(policy), policy))
+				require.Equal(t, grants, policy.Spec.Manifest.Models, "retry must not duplicate qualifiers")
+			})
+		}
 	}
 }

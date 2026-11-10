@@ -78,7 +78,7 @@ func migrateLegacyModels(ctx context.Context, c kclient.Client, sources map[stri
 	if err := saveMappings(migrated); err != nil {
 		return err
 	}
-	_, err := repointModelReferences(ctx, c, migrated, legacy, sources)
+	_, err := repointModelReferences(ctx, c, migrated, legacy, models.Items, sources)
 	if err != nil {
 		return err
 	}
@@ -178,8 +178,9 @@ func carryModelEdits(ctx context.Context, c kclient.Client, legacy, target *v1.M
 // migrated legacy models to their gateway models. Wildcard suffix patterns written for legacy
 // models' provider-native names, such as "claude-haiku-4-5*", get the gateway's provider
 // prefix, such as "anthropic/claude-haiku-4-5*", for each provider whose legacy models they
-// matched. It returns the models still referred to.
-func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[string]string, legacy []*v1.Model, sources map[string]string) (map[string]bool, error) {
+// matched, while preserving grants to existing gateway models in the full initial snapshot.
+// It returns the models still referred to.
+func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[string]string, legacy []*v1.Model, modelSnapshot []v1.Model, sources map[string]string) (map[string]bool, error) {
 	referenced := map[string]bool{}
 
 	var aliases v1.DefaultModelAliasList
@@ -235,6 +236,22 @@ func repointModelReferences(ctx context.Context, c kclient.Client, migrated map[
 				}
 				for _, q := range qualified {
 					add(q)
+				}
+				if !strings.Contains(m.ID, "/") {
+					// Existing gateway grants survive even when those models were not discovered for migration.
+					prefix, _ := m.IsWildcardSuffix()
+					for _, existing := range modelSnapshot {
+						if existing.Spec.Manifest.ModelProvider != system.LLMGatewayModelProvider || !m.MatchesTargetModel(existing.Spec.Manifest.TargetModel) {
+							continue
+						}
+						if strings.HasPrefix(existing.Spec.Manifest.TargetModel, prefix) {
+							// A prefix matching the provider itself cannot be qualified again.
+							add(m)
+							continue
+						}
+						provider, _, _ := strings.Cut(existing.Spec.Manifest.TargetModel, "/")
+						add(types.ModelResource{ID: provider + "/" + m.ID})
+					}
 				}
 				changed = true
 				continue
