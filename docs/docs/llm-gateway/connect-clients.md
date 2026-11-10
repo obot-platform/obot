@@ -4,7 +4,9 @@ title: Connect clients and applications
 
 Every client reaches every model through the same gateway base URL, `https://<your-obot-host>/api/llm-proxy/v1`, and authenticates with an Obot API key. On the **Connect** tab of the [LLM Gateway page](./how-it-works.md#the-models-page), select a client's card to get ready-to-copy configuration for it, filled in with your Obot URL and the model you pick.
 
+:::warning Deprecated provider endpoints
 Existing clients using provider-specific base URLs should migrate to `/api/llm-proxy/v1` and provider-qualified model names. [Old provider endpoints](./compatibility.md#deprecated-provider-endpoints) remain available for supported operations, but are deprecated and will be removed in a future release.
+:::
 
 ## Getting your API key {#getting-your-api-key}
 
