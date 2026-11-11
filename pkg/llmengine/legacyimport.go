@@ -11,9 +11,12 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -99,116 +102,157 @@ var (
 	}
 )
 
-// LegacyImportResult reports what ImportLegacyProviders did for each legacy provider.
-type LegacyImportResult struct {
-	ModelProvider   string `json:"modelProvider"`
-	GatewayProvider string `json:"gatewayProvider,omitempty"`
-	Status          string `json:"status"`
-	Message         string `json:"message,omitempty"`
-}
-
 type legacyImportPlan struct {
 	provider string
 	build    func(secrets map[string]string) (provider map[string]any, key map[string]any)
 }
 
-// ImportLegacyModelProviders copies the credentials of configured legacy model providers
-// into the gateway, so an existing installation can switch over without re-entering keys.
-// Providers the gateway already has are left alone, and so are those configured from the
-// environment (see importEnvProviders). Two legacy providers that map to the same
-// gateway provider (the Bedrock or Azure variants) become two keys of one provider.
-func (engine *Engine) ImportLegacyModelProviders(ctx context.Context, _ kclient.Client, gatewayClient *gateway.Client) ([]LegacyImportResult, error) {
-	existing, err := engine.ListProviders(ctx)
-	if err != nil {
-		return nil, err
+// ImportLegacyModelProviders imports each provider family once, without changing models or references.
+func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) error {
+	families := map[string][]string{}
+	for source, plan := range legacyImportPlans {
+		families[plan.provider] = append(families[plan.provider], source)
 	}
-	// Import callers may discover models immediately; a failed apply is retried by controllers.
-	defer func() {
-		if _, err := engine.Sync(ctx); err != nil {
-			slog.Warn("gateway import saved; reconciliation will retry", "error", err)
-		}
-	}()
-
-	have := map[string]bool{}
-	for _, p := range existing {
-		have[string(p.Name)] = true
-	}
-	// Gateway providers this import created, which more legacy providers may add keys to.
-	created := map[string]bool{}
-
-	var results []LegacyImportResult
-	for _, name := range slices.Sorted(maps.Keys(legacyImportPlans)) {
-		plan := legacyImportPlans[name]
-		result := LegacyImportResult{ModelProvider: name, GatewayProvider: plan.provider}
-
-		cred, err := gatewayClient.RevealCredential(ctx, []string{name, system.GenericModelProviderCredentialContext}, name)
-		if errors.As(err, &gateway.CredentialNotFoundError{}) || (err == nil && len(cred.Secrets) == 0) {
-			// Not configured; nothing to report.
-			continue
-		} else if err != nil {
-			return nil, fmt.Errorf("failed to read credential for %s: %w", name, err)
-		}
-
-		// Earlier versions replaced the provider's stored credential with the variable's value on
-		// every start, so the variable's key is the one to keep, and importing the stored
-		// credential too would give the provider a second key for it.
-		if envVar := envConfigured(plan.provider); envVar != "" {
-			result.Status = "skipped"
-			result.Message = "the provider is configured from the " + envVar + " environment variable instead"
-			results = append(results, result)
-			continue
-		}
-		if have[plan.provider] && !created[plan.provider] {
-			result.Status = "skipped"
-			result.Message = "a gateway provider with this name already exists"
-			results = append(results, result)
-			continue
-		}
-
-		providerBody, key := plan.build(cred.Secrets)
-		// Send credentials as explicit plain-text values so Bifrost never interprets a stored
-		// secret that happens to start with "env." or "vault." as a reference to resolve.
-		plainTextSecrets(key)
-		var keyBody []byte
-		if key != nil {
-			key["name"] = "imported-" + name
-			if _, ok := key["models"]; !ok {
-				key["models"] = []string{"*"}
+	var failures []error
+	for _, family := range slices.Sorted(maps.Keys(families)) {
+		sources := families[family]
+		slices.Sort(sources)
+		err := gatewayClient.MigrateKinmIfNotRun(ctx, "llm_gateway_legacy_provider_"+family, func() error {
+			if envConfigured(family) != "" {
+				return nil
 			}
-			key["weight"] = 1
-			keyBody, _ = json.Marshal(key)
+			existing := []string{family}
+			if family == "bedrock" {
+				existing = append(existing, "bedrock_mantle")
+			}
+			for _, name := range existing {
+				if _, err := e.store.GetProvider(ctx, name); err == nil {
+					// Existing configuration wins: complete this family without merging legacy keys; other families still run.
+					return nil
+				} else if !apierrors.IsNotFound(err) {
+					return fmt.Errorf("read gateway provider %s", name)
+				}
+			}
+			secrets := map[string]map[string]string{}
+			for _, source := range sources {
+				cred, err := gatewayClient.RevealCredential(ctx, []string{source, system.GenericModelProviderCredentialContext}, source)
+				if errors.As(err, &gateway.CredentialNotFoundError{}) {
+					continue
+				}
+				if err != nil {
+					return fmt.Errorf("read legacy credentials for %s", source)
+				}
+				if len(cred.Secrets) > 0 {
+					secrets[source] = cred.Secrets
+				}
+			}
+			if len(secrets) == 0 {
+				return nil
+			}
+			var models v1.ModelList
+			// Azure's API-key mode needs explicit deployment names, not a provider offerings list.
+			if c != nil && family == "azure" {
+				if err := c.List(ctx, &models, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+					return err
+				}
+			}
+			candidate, err := e.legacyAggregate(ctx, family, secrets, models.Items)
+			if err != nil {
+				return fmt.Errorf("invalid legacy %s configuration; review credentials, endpoint and deployment settings", family)
+			}
+			// Validate every key before the one create; a concurrent administrator's provider wins intact.
+			if err := e.store.CreateProvider(ctx, family, candidate); err != nil {
+				if apierrors.IsAlreadyExists(err) {
+					return nil
+				}
+				return fmt.Errorf("save imported provider %s", family)
+			}
+			slog.Info("imported legacy provider configuration", "provider", family)
+			// shortcut: create and completion are separate writes, use a receipt if deletion during interrupted upgrades must be distinguished.
+			return nil
+		})
+		if err != nil {
+			failures = append(failures, fmt.Errorf("import %s: %w", family, err))
 		}
-		if !created[plan.provider] {
-			providerBody["provider"] = plan.provider
-			ApplyProviderDefaults(providerBody)
-			raw, _ := json.Marshal(providerBody)
-			// Create the validated aggregate once; rollback could delete a concurrent writer's keys.
-			_, err = changeProvider(ctx, engine, "", http.MethodPost, raw, false, func(ctx context.Context, cfg *llmcoreclient.Config, body []byte) (ProviderResponse, error) {
-				provider, err := createProvider(ctx, cfg, body)
-				if err == nil && keyBody != nil {
-					_, err = engine.applyKey(ctx, cfg, plan.provider, "", http.MethodPost, keyBody)
-					if err != nil {
-						err = fmt.Errorf("adding the provider's key failed: %w", err)
+	}
+	return errors.Join(failures...)
+}
+
+func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map[string]map[string]string, models []v1.Model) (llmcoreclient.Provider, error) {
+	cfg := llmcoreclient.Config{
+		Providers:     map[schemas.ModelProvider]schemas.ProviderConfig{},
+		Keys:          map[schemas.ModelProvider][]schemas.Key{},
+		AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{},
+	}
+	deployments := map[string][]string{}
+	for _, m := range models {
+		if m.Spec.Manifest.TargetModel != "" {
+			deployments[m.Spec.Manifest.ModelProvider] = append(deployments[m.Spec.Manifest.ModelProvider], m.Spec.Manifest.TargetModel)
+		}
+	}
+	for i, source := range slices.Sorted(maps.Keys(sources)) {
+		secrets := sources[source]
+		body, key := legacyImportPlans[source].build(secrets)
+		if i == 0 {
+			body["provider"] = family
+			if family == "generic-responses" {
+				if secretWithSuffix(secrets, "_MODEL_PROVIDER_BASE_URL") == "" {
+					return llmcoreclient.Provider{}, fmt.Errorf("missing base URL")
+				}
+				body["custom_provider_config"].(map[string]any)["is_key_less"] = secretWithSuffix(secrets, "_MODEL_PROVIDER_API_KEY") == ""
+			}
+			raw, err := json.Marshal(body)
+			if err != nil {
+				return llmcoreclient.Provider{}, err
+			}
+			guarded, err := e.GuardProviderChange(ctx, http.MethodPost, "providers", raw, false)
+			if err != nil {
+				return llmcoreclient.Provider{}, err
+			}
+			if _, err = createProvider(ctx, &cfg, guarded.Body); err != nil {
+				return llmcoreclient.Provider{}, err
+			}
+		}
+		key["name"], key["weight"], key["models"] = "imported-"+source, 1, []string{"*"}
+		if family == "azure" {
+			names := deployments[source]
+			slices.Sort(names)
+			if len(names) > 0 {
+				key["models"] = slices.Compact(names)
+			}
+			if source == system.AzureEntraModelProvider {
+				for field, suffix := range map[string]string{"azure_subscription_id": "_MODEL_PROVIDER_SUBSCRIPTION_ID", "azure_resource_group": "_MODEL_PROVIDER_RESOURCE_GROUP", "azure_account_name": "_MODEL_PROVIDER_RESOURCE_NAME"} {
+					if value := secretWithSuffix(secrets, suffix); value != "" {
+						key[field] = value
 					}
 				}
-				return provider, err
-			})
-		} else if keyBody != nil {
-			if _, err = engine.CreateKey(ctx, plan.provider, keyBody); err != nil {
-				err = fmt.Errorf("adding the provider's key failed: %w", err)
+			}
+			if secretWithSuffix(secrets, "_MODEL_PROVIDER_ENDPOINT") == "" {
+				return llmcoreclient.Provider{}, fmt.Errorf("missing endpoint")
 			}
 		}
-		if err != nil {
-			result.Status = "error"
-			result.Message = err.Error()
-			results = append(results, result)
-			continue
+		if source != system.GenericResponsesModelProvider && source != system.AzureEntraModelProvider && source != system.AmazonBedrockModelProvider && secretWithSuffix(secrets, "_MODEL_PROVIDER_API_KEY") == "" {
+			return llmcoreclient.Provider{}, fmt.Errorf("missing key")
 		}
-		have[plan.provider], created[plan.provider] = true, true
-		result.Status = "imported"
-		results = append(results, result)
+		if source == system.AzureEntraModelProvider {
+			for _, suffix := range []string{"_MODEL_PROVIDER_CLIENT_ID", "_MODEL_PROVIDER_CLIENT_SECRET", "_MODEL_PROVIDER_TENANT_ID"} {
+				if secretWithSuffix(secrets, suffix) == "" {
+					return llmcoreclient.Provider{}, fmt.Errorf("missing Entra credentials")
+				}
+			}
+		}
+		plainTextSecrets(key)
+		raw, err := json.Marshal(key)
+		if err != nil {
+			return llmcoreclient.Provider{}, err
+		}
+		if _, err = e.applyKey(ctx, &cfg, family, "", http.MethodPost, raw); err != nil {
+			return llmcoreclient.Provider{}, err
+		}
 	}
-	return results, nil
+	name := schemas.ModelProvider(family)
+	provider := llmcoreclient.Provider{Config: cfg.Providers[name], Keys: cfg.Keys[name], AzureAccounts: cfg.AzureAccounts[name]}
+	return provider, nil
 }
 
 // gatewayBaseURL converts a legacy OpenAI-compatible provider's base URL, which included the
