@@ -19,8 +19,16 @@ var (
 
 func celEnv(target string) (*cel.Env, error) {
 	envOnce.Do(func() {
+		// Every target sees who the request is for:
+		//   - user.id is the caller's storage encoding: a user's decimal ID, or "agent:<id>" for an agent. Budgets
+		//     count usage against the same value.
+		//   - user.groups are the caller's auth provider groups. An agent has none.
+		//   - principal.kind is "user" or "agent", and principal.id the bare decimal ID of that user or agent, so
+		//     principal.kind == "agent" tells agents apart without parsing user.id. Both are "" for a caller that is
+		//     not a principal. principal.id alone does not identify a caller: a user and an agent can share it.
 		common := []cel.EnvOption{
 			cel.Variable("user", cel.MapType(cel.StringType, cel.DynType)),
+			cel.Variable("principal", cel.MapType(cel.StringType, cel.StringType)),
 			cel.Variable("headers", cel.MapType(cel.StringType, cel.StringType)),
 		}
 		llm, err := cel.NewEnv(append(common,
@@ -90,8 +98,9 @@ func conditionVars(target string, identity Identity, vars map[string]any) map[st
 		groups = append(groups, g)
 	}
 	out := map[string]any{
-		"user":    map[string]any{"id": identity.UserID, "groups": groups},
-		"headers": map[string]string{},
+		"user":      map[string]any{"id": identity.UserID, "groups": groups},
+		"principal": map[string]string{"kind": string(identity.Principal.Kind), "id": identity.Principal.ID},
+		"headers":   map[string]string{},
 	}
 	if target == types.GuardrailTargetMCP {
 		out["mcp_server"] = ""

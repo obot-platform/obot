@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 	"maps"
+	"os"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 )
 
 func TestParseLLMGatewayBudgetWindow(t *testing.T) {
@@ -592,5 +595,159 @@ func TestLLMGatewayBudgetExceededMessage(t *testing.T) {
 				t.Fatalf("got %q, want it to contain %q", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestLLMGatewayBudgetsCountPerPrincipal checks that per-user budgets count usage per principal: an agent and the user
+// with its numeric ID have counters of their own, and the user's counter is keyed by their bare ID as it always was,
+// so usage recorded before agents existed still counts against them.
+func TestLLMGatewayBudgetsCountPerPrincipal(t *testing.T) {
+	testLLMGatewayBudgetsCountPerPrincipal(t, newTestClient(t))
+}
+
+// TestLLMGatewayBudgetsCountPerPrincipalPostgres runs TestLLMGatewayBudgetsCountPerPrincipal and
+// TestUserTokenLimitsApplyOnlyToUsers against PostgreSQL, whose users table has an integer ID that an agent's
+// "agent:<id>" never compares with. Set OBOT_TEST_POSTGRES_DSN to run it.
+func TestLLMGatewayBudgetsCountPerPrincipalPostgres(t *testing.T) {
+	dsn := os.Getenv(postgresUserLimitTestDSNEnv)
+	if dsn == "" {
+		t.Skipf("set %s to a PostgreSQL URL whose user can create schemas", postgresUserLimitTestDSNEnv)
+	}
+	newClient := func(t *testing.T) *Client {
+		t.Helper()
+		admin := newPostgresUserLimitTestDB(t, dsn)
+		schema := "obot_budget_principal_" + strings.ReplaceAll(uuid.New().String(), "-", "")
+		if err := admin.WithContext(t.Context()).Exec("CREATE SCHEMA " + schema).Error; err != nil {
+			t.Fatalf("creating isolated PostgreSQL schema: %v", err)
+		}
+		t.Cleanup(func() {
+			if err := admin.WithContext(context.Background()).Exec("DROP SCHEMA " + schema + " CASCADE").Error; err != nil {
+				t.Errorf("dropping isolated PostgreSQL schema: %v", err)
+			}
+		})
+		database := newPostgresUserLimitTestDB(t, postgresUserLimitTestDSN(t, dsn, schema))
+		if err := database.WithContext(t.Context()).AutoMigrate(&types.User{}, &types.LLMGatewayBudget{}, &types.LLMGatewayBudgetUsage{}); err != nil {
+			t.Fatalf("migrating budget tables: %v", err)
+		}
+		return &Client{db: database}
+	}
+	t.Run("per principal", func(t *testing.T) {
+		testLLMGatewayBudgetsCountPerPrincipal(t, newClient(t))
+	})
+	t.Run("user token limits", func(t *testing.T) {
+		testUserTokenLimitsApplyOnlyToUsers(t, newClient(t))
+	})
+}
+
+func testLLMGatewayBudgetsCountPerPrincipal(t *testing.T, c *Client) {
+	t.Helper()
+	ctx := t.Context()
+
+	budget := &types.LLMGatewayBudget{
+		Name:    "Two requests each",
+		Enabled: true,
+		PerUser: true,
+		Limits: []types.LLMGatewayBudgetLimit{
+			{
+				Metric: types.LLMGatewayBudgetMetricRequests,
+				Amount: 2,
+				Window: "1d",
+			},
+		},
+		ProfileID: "everyone",
+	}
+	if err := c.CreateLLMGatewayBudget(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+	user, agent := principal.User(7).String(), principal.Agent(7).String()
+	if user != "7" {
+		t.Fatalf("a user's principal must be stored as their bare ID, as usage rows always were, got %q", user)
+	}
+
+	usage := types.TokenUsage{InputTokens: 1, OutputTokens: 1, TotalTokens: 2}
+	for range 2 {
+		if err := c.RecordLLMGatewayBudgetUsage(ctx, []string{budget.ID}, user, "m1-gpt", usage); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var exceeded *LLMGatewayBudgetExceeded
+	if err := c.CheckLLMGatewayBudgets(ctx, []types.LLMGatewayBudget{*budget}, user); !errors.As(err, &exceeded) {
+		t.Fatalf("user 7 used their two requests, so their budget must be exhausted, got %v", err)
+	}
+	if err := c.CheckLLMGatewayBudgets(ctx, []types.LLMGatewayBudget{*budget}, agent); err != nil {
+		t.Fatalf("user 7's usage must not count against agent 7: %v", err)
+	}
+
+	if err := c.RecordLLMGatewayBudgetUsage(ctx, []string{budget.ID}, agent, "m1-gpt", usage); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.CheckLLMGatewayBudgets(ctx, []types.LLMGatewayBudget{*budget}, agent); err != nil {
+		t.Fatalf("agent 7 used one of its two requests: %v", err)
+	}
+
+	report, err := c.LLMGatewayBudgetUsageReport(ctx, budget)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byOwner := map[string]float64{}
+	for _, e := range report {
+		byOwner[e.UserID] = e.Used[0]
+	}
+	if !maps.Equal(byOwner, map[string]float64{user: 2, agent: 1}) {
+		t.Fatalf("usage report = %v, want 2 for %s and 1 for %s", byOwner, user, agent)
+	}
+}
+
+// TestUserTokenLimitsApplyOnlyToUsers checks that a budget's UserTokenLimits apply a user's personal daily token
+// limits to that user, and never to an agent, even the one with the user's numeric ID: the agent gets the budget's
+// own limits.
+func TestUserTokenLimitsApplyOnlyToUsers(t *testing.T) {
+	testUserTokenLimitsApplyOnlyToUsers(t, newTestClient(t))
+}
+
+func testUserTokenLimitsApplyOnlyToUsers(t *testing.T, c *Client) {
+	t.Helper()
+	ctx := t.Context()
+
+	if err := c.db.WithContext(ctx).Create(&types.User{
+		ID:                    7,
+		Username:              "seven",
+		HashedUsername:        "seven",
+		DailyInputTokensLimit: 100,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	budget := &types.LLMGatewayBudget{
+		Name:            "Daily token limit",
+		Enabled:         true,
+		PerUser:         true,
+		UserTokenLimits: true,
+		Limits: []types.LLMGatewayBudgetLimit{
+			{
+				Metric: types.LLMGatewayBudgetMetricInputTokens,
+				Amount: 10,
+				Window: "1d",
+			},
+		},
+		ProfileID: "everyone",
+	}
+	if err := c.CreateLLMGatewayBudget(ctx, budget); err != nil {
+		t.Fatal(err)
+	}
+
+	usage := types.TokenUsage{InputTokens: 50, TotalTokens: 50}
+	for _, owner := range []principal.Principal{principal.User(7), principal.Agent(7)} {
+		if err := c.RecordLLMGatewayBudgetUsage(ctx, []string{budget.ID}, owner.String(), "m1-gpt", usage); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := c.CheckLLMGatewayBudgets(ctx, []types.LLMGatewayBudget{*budget}, principal.User(7).String()); err != nil {
+		t.Fatalf("user 7's personal limit of 100 input tokens replaces the budget's 10, so 50 fit: %v", err)
+	}
+	var exceeded *LLMGatewayBudgetExceeded
+	err := c.CheckLLMGatewayBudgets(ctx, []types.LLMGatewayBudget{*budget}, principal.Agent(7).String())
+	if !errors.As(err, &exceeded) || exceeded.Limit.Amount != 10 {
+		t.Fatalf("agent 7 must get the budget's own limit of 10 input tokens, not user 7's, got %v", err)
 	}
 }

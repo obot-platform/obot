@@ -74,11 +74,23 @@ type jsonText struct {
 // caller is an admin or owner.
 //
 // The identity carries the caller's principal when its authenticator recorded one (principal.FromUserInfo), and the
-// zero Principal otherwise; guardrail filter subjects are matched against it. UserID stays the caller's UID, which is
-// "agent:<id>" for an agent.
+// zero Principal otherwise; guardrail filter subjects are matched against it. UserID is the principal's storage
+// encoding (Principal.String): a user's decimal ID, which is their UID as before, or "agent:<id>" for an agent. A
+// caller that is not a principal keeps its UID.
+//
+// An agent has no role and no groups: whatever its user info carries, its identity has no groups and it is never an
+// admin, so no budget that exempts admins exempts it. This covers any caller that claims to be an agent
+// (principal.ClaimsAgent), including a malformed one, rather than reading such a caller as a user.
 func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Identity, bool, error) {
-	caller, _ := principal.FromUserInfo(user)
-	return Identity{UserID: user.GetUID(), Principal: caller, Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
+	userID := user.GetUID()
+	caller, ok := principal.FromUserInfo(user)
+	if ok {
+		userID = caller.String()
+	}
+	if principal.ClaimsAgent(user) {
+		return Identity{UserID: userID, Principal: caller}, false, nil
+	}
+	return Identity{UserID: userID, Principal: caller, Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
 }
 
 // filterSubjects returns the policy subjects that a guardrail filter's subjects name callers as. Everyone and the legacy

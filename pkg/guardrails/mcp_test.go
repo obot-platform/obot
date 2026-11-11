@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -233,6 +234,11 @@ func TestResolveIdentityRecordsThePrincipal(t *testing.T) {
 			user: withKind("agent:5", principal.KindUser, nil),
 			want: Identity{UserID: "agent:5"},
 		},
+		{
+			name: "agent whose user info carries groups",
+			user: withKind("agent:5", principal.KindAgent, map[string][]string{"auth_provider_groups": {"eng"}}),
+			want: Identity{UserID: "agent:5", Principal: principal.Agent(5)},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got, _, err := ResolveIdentity(t.Context(), nil, tt.user)
@@ -291,6 +297,27 @@ func TestResolveIdentityAdmin(t *testing.T) {
 			name: "LLM-only API key of a basic user",
 			user: &kuser.DefaultInfo{UID: "4", Groups: []string{apitypes.GroupLLM}, Extra: map[string][]string{
 				"obot_groups": {apitypes.GroupBasic},
+			}},
+			admin: false,
+		},
+		{
+			name:  "agent",
+			user:  gateway.AgentUserInfo(&types.Agent{ID: 1}, []string{apitypes.GroupLLM, apitypes.GroupAuthenticated}, nil),
+			admin: false,
+		},
+		{
+			// An agent has no role. Whatever groups its user info carries, it is never an admin, so budgets that
+			// exempt admins never exempt it.
+			name: "agent whose user info carries an admin's groups",
+			user: gateway.AgentUserInfo(&types.Agent{ID: 1}, append([]string{apitypes.GroupLLM}, apitypes.RoleOwner.Groups()...), map[string][]string{
+				"obot_groups": {apitypes.GroupAdmin, apitypes.GroupOwner},
+			}),
+			admin: false,
+		},
+		{
+			name: "agent UID with an admin's groups but no recorded kind",
+			user: &kuser.DefaultInfo{UID: "agent:1", Groups: []string{apitypes.GroupAdmin}, Extra: map[string][]string{
+				"obot_groups": {apitypes.GroupAdmin},
 			}},
 			admin: false,
 		},

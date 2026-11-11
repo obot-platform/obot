@@ -86,7 +86,8 @@ type gatewayAttempts struct {
 	// Foreign attempts are refused; admitted subscription attempts spend no budgets.
 	subscriptionProvider string
 	// identity is who the request is for, with the gateway profiles that apply to them, and
-	// isAdmin whether they are an administrator, which some budgets exempt.
+	// isAdmin whether they are an administrator, which some budgets exempt. Budgets count usage
+	// against identity.UserID, the caller's principal; an agent is never an administrator.
 	identity guardrails.Identity
 	isAdmin  bool
 
@@ -390,6 +391,8 @@ func (a *gatewayAttempts) paidBySubscription() bool {
 
 func (a *gatewayAttempts) release() { a.unbind() }
 
+func (a *gatewayAttempts) budgetOwner() string { return a.identity.UserID }
+
 // recordDetections keeps what a stage's guardrail policies did to the request. The input is
 // checked again for every model the gateway tries, and the last check is the one that held.
 func (a *gatewayAttempts) recordDetections(stage string, detections []guardrails.Detection) {
@@ -650,13 +653,15 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 // counted exactly across replicas. A request is admitted while its budgets have room and its
 // usage is recorded when it finishes, so requests running at the same time can together go
 // past a limit. profileIDs are the caller's profiles that grant the model; only their budgets
-// apply.
-func admit(ctx context.Context, gatewayClient *client.Client, userID string, profileIDs []string, isAdmin bool, model *v1.Model) ([]string, error) {
+// apply. owner is the storage encoding of the caller's principal (guardrails.Identity.UserID),
+// which per-user budgets count usage against: per-user budgets are per principal, so each
+// agent has its own counter.
+func admit(ctx context.Context, gatewayClient *client.Client, owner string, profileIDs []string, isAdmin bool, model *v1.Model) ([]string, error) {
 	budgets, err := gatewayClient.LLMGatewayBudgetsForUser(ctx, profileIDs, isAdmin, model.Name)
 	if err != nil {
 		return nil, err
 	}
-	if err := gatewayClient.CheckLLMGatewayBudgets(ctx, budgets, userID); err != nil {
+	if err := gatewayClient.CheckLLMGatewayBudgets(ctx, budgets, owner); err != nil {
 		return nil, err
 	}
 	ids := make([]string, 0, len(budgets))
@@ -666,8 +671,9 @@ func admit(ctx context.Context, gatewayClient *client.Client, userID string, pro
 	return ids, nil
 }
 
-// gatewayIdentity resolves whose guardrails apply to a request: the caller, and
-// the gateway profiles that apply to them.
+// gatewayIdentity resolves whose guardrails and budgets apply to a request: the caller, and
+// the gateway profiles that apply to them. For an agent, that is its "agent:<id>" principal, no
+// groups, the profiles whose subjects match the agent, and never an administrator.
 func (l *llmProviderProxy) gatewayIdentity(user kuser.Info) (guardrails.Identity, bool, error) {
 	identity, isAdmin, err := guardrails.ResolveIdentity(context.Background(), nil, user)
 	if err != nil {

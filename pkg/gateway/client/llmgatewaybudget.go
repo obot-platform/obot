@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"gorm.io/gorm"
 )
 
@@ -303,23 +304,26 @@ func (c *Client) budgetUsageSince(ctx context.Context, budgetID, userID string, 
 	return totals, q.Scan(&totals).Error
 }
 
-// CheckLLMGatewayBudgets reports the first limit among the given budgets that the user has
-// already reached. Usage is counted per user for per-user budgets and across everyone for
-// shared ones.
-func (c *Client) CheckLLMGatewayBudgets(ctx context.Context, budgets []types.LLMGatewayBudget, userID string) error {
+// CheckLLMGatewayBudgets reports the first limit among the given budgets that the caller has
+// already reached. owner is the storage encoding of the caller's principal
+// (principal.Principal.String): a user's decimal ID, or "agent:<id>" for an agent. Usage is
+// counted per principal for per-user budgets, so an agent and the user with its numeric ID
+// count separately, and across everyone for shared ones.
+//
+// A budget with UserTokenLimits applies a user's personal daily token limits. Those are
+// settings of a user, so they never apply to an agent, which gets the budget's own limits.
+func (c *Client) CheckLLMGatewayBudgets(ctx context.Context, budgets []types.LLMGatewayBudget, owner string) error {
 	now := time.Now()
 	var user *types.User
 	for _, b := range budgets {
 		scopeUser := ""
 		if b.PerUser {
-			scopeUser = userID
+			scopeUser = owner
 		}
 		limits := b.Limits
 		if b.PerUser && b.UserTokenLimits {
 			if user == nil {
-				if user, _ = c.UserByID(ctx, userID); user == nil {
-					user = &types.User{}
-				}
+				user = c.tokenLimitsUser(ctx, owner)
 			}
 			limits = withUserTokenLimits(limits, user)
 		}
@@ -344,6 +348,21 @@ func (c *Client) CheckLLMGatewayBudgets(ctx context.Context, budgets []types.LLM
 		}
 	}
 	return nil
+}
+
+// tokenLimitsUser returns the user whose personal daily token limits apply to owner's
+// requests. An owner that is not a user, such as an agent, has none: the returned empty user
+// leaves a budget's limits as they are (withUserTokenLimits), as does a user that can't be
+// loaded.
+func (c *Client) tokenLimitsUser(ctx context.Context, owner string) *types.User {
+	if p, err := principal.Parse(owner); err == nil {
+		if _, ok := p.UserID(); ok {
+			if user, _ := c.UserByID(ctx, p.ID); user != nil {
+				return user
+			}
+		}
+	}
+	return &types.User{}
 }
 
 // withUserTokenLimits applies a user's personal daily token limits to a budget's input and

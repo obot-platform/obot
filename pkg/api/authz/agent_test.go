@@ -3,6 +3,8 @@ package authz
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -428,6 +430,26 @@ var (
 			ui:     true,
 		},
 	}
+
+	// agentSkillRoutes are the skill GET routes an agent's key with the Skills scope reaches.
+	agentSkillRoutes = []agentTestRoute{
+		{
+			method: http.MethodGet,
+			path:   "/api/skills",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/skills/" + agentTestSkill,
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/skills/" + agentTestSkill + "/download",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/skills/" + agentTestSkill + "/preview",
+		},
+	}
 )
 
 type agentTestRoute struct {
@@ -552,71 +574,86 @@ func TestAgentRouteReachability(t *testing.T) {
 	}
 }
 
-// TestAgentRoutesFollowKeyScopes checks that an agent reaches each route only with the scope that grants it. In
-// particular, a key without an MCP scope connects to no vMCP, not even one the agent is granted: an empty
-// authorized_mcp_ids restricts nothing, so the key is kept out only because it has no GroupMCP.
+// TestAgentRoutesFollowKeyScopes checks that an agent reaches each route only with the scope that grants it, and needs
+// no other scope for it. In particular, a key without an MCP scope connects to no vMCP, not even one the agent is
+// granted: an empty authorized_mcp_ids restricts nothing, so the key is kept out only because it has no GroupMCP. And a
+// key without the Skills scope reaches no skill route, although a skill access rule grants every skill to everyone.
 func TestAgentRoutesFollowKeyScopes(t *testing.T) {
 	authorizer := newAgentTestAuthorizer(t)
-	llm := agentTestRoute{
-		method: http.MethodPost,
-		path:   "/api/llm-proxy/v1/messages",
-	}
-	skills := agentTestRoute{
-		method: http.MethodGet,
-		path:   "/api/skills/" + agentTestSkill,
-	}
+	llmRoutes := slices.DeleteFunc(slices.Clone(agentReachableRoutes), func(route agentTestRoute) bool {
+		return !strings.HasPrefix(route.path, "/api/llm-proxy/")
+	})
 	connect := agentTestRoute{
 		method: http.MethodPost,
 		path:   "/mcp-connect/" + agentTestVMCP,
 	}
 
 	for _, tt := range []struct {
-		name   string
-		scopes gatewaytypes.APIKeyScopes
-		want   map[agentTestRoute]bool
+		name        string
+		scopes      gatewaytypes.APIKeyScopes
+		wantLLM     bool
+		wantSkills  bool
+		wantConnect bool
 	}{
 		{
 			name: "LLM proxy only",
 			scopes: gatewaytypes.APIKeyScopes{
 				CanAccessLLMProxy: true,
 			},
-			want: map[agentTestRoute]bool{
-				llm: true,
-			},
+			wantLLM: true,
 		},
 		{
 			name: "Skills only",
 			scopes: gatewaytypes.APIKeyScopes{
 				CanAccessSkills: true,
 			},
-			want: map[agentTestRoute]bool{
-				skills: true,
+			wantSkills: true,
+		},
+		{
+			name: "LLM proxy and Skills",
+			scopes: gatewaytypes.APIKeyScopes{
+				CanAccessLLMProxy: true,
+				CanAccessSkills:   true,
 			},
+			wantLLM:    true,
+			wantSkills: true,
 		},
 		{
 			name: "the granted vMCP",
 			scopes: gatewaytypes.APIKeyScopes{
 				MCPServerIDs: []string{agentTestVMCP},
 			},
-			want: map[agentTestRoute]bool{
-				connect: true,
-			},
+			wantConnect: true,
 		},
 		{
 			name: "another vMCP",
 			scopes: gatewaytypes.APIKeyScopes{
 				MCPServerIDs: []string{"vmcp1other"},
 			},
-			want: map[agentTestRoute]bool{},
+		},
+		{
+			name: "LLM proxy and every vMCP",
+			scopes: gatewaytypes.APIKeyScopes{
+				CanAccessLLMProxy: true,
+				MCPServerIDs:      []string{"*"},
+			},
+			wantLLM:     true,
+			wantConnect: true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := agentKeyPrincipal(tt.scopes)
-			for _, route := range []agentTestRoute{llm, skills, connect} {
-				if got := authorizer.Authorize(agentTestRequest(route), agent); got != tt.want[route] {
-					t.Errorf("%s %s: authorized = %v, want %v", route.method, route.path, got, tt.want[route])
+			check := func(routes []agentTestRoute, want bool) {
+				t.Helper()
+				for _, route := range routes {
+					if got := authorizer.Authorize(agentTestRequest(route), agent); got != want {
+						t.Errorf("%s %s: authorized = %v, want %v", route.method, route.path, got, want)
+					}
 				}
 			}
+			check(llmRoutes, tt.wantLLM)
+			check(agentSkillRoutes, tt.wantSkills)
+			check([]agentTestRoute{connect}, tt.wantConnect)
 		})
 	}
 }
@@ -820,5 +857,158 @@ func TestAgentsDoNotConnectToSystemMCPServers(t *testing.T) {
 	}
 	if authorizer.Authorize(req(), agent) {
 		t.Fatal("the agent reached a system MCP server")
+	}
+}
+
+// TestSkillAdminBypassNeverAppliesToAgents checks that the administrator and auditor bypass of skill access rules
+// never applies to an agent, even one marked as either: only the rules that match the agent grant it a skill. The
+// bypass still applies to users.
+func TestSkillAdminBypassNeverAppliesToAgents(t *testing.T) {
+	skill := &v1.Skill{
+		Name:      agentTestSkill,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.SkillSpec{
+			RepoID: "repo-1",
+		},
+		Status: v1.SkillStatus{
+			Valid: true,
+		},
+	}
+	storage := newMCPIDIsAuthorizedTestStorage(skill)
+	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, skillaccessrule.Indexers())
+	// The skill is granted to user 7 only, never to agent 7.
+	if err := indexer.Add(&v1.SkillAccessRule{
+		Name:      "user-7",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.SkillAccessRuleSpec{
+			Manifest: types.SkillAccessRuleManifest{
+				Subjects: []types.Subject{
+					{
+						Type: types.SubjectTypeUser,
+						ID:   "7",
+					},
+				},
+				Resources: []types.SkillResource{
+					{
+						Type: types.SkillResourceTypeSkill,
+						ID:   agentTestSkill,
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, skillaccessrule.NewHelper(indexer), nil)
+
+	agent := agentKeyPrincipal(gatewaytypes.APIKeyScopes{
+		CanAccessSkills: true,
+	})
+	userExtra := map[string][]string{}
+	principal.RecordKind(userExtra, principal.KindUser)
+	otherUser := &user.DefaultInfo{
+		Name:  "admin",
+		UID:   "9",
+		Extra: userExtra,
+	}
+
+	for _, tt := range []struct {
+		name string
+		user User
+		want bool
+	}{
+		{
+			name: "agent",
+			user: User{
+				Info: agent,
+			},
+			want: false,
+		},
+		{
+			name: "agent marked as an administrator",
+			user: User{
+				Info:           agent,
+				IsAdmin:        true,
+				CanReadAsAdmin: true,
+			},
+			want: false,
+		},
+		{
+			name: "agent marked as an auditor",
+			user: User{
+				Info:      agent,
+				IsAuditor: true,
+			},
+			want: false,
+		},
+		{
+			name: "agent marked as a read-only administrator",
+			user: User{
+				Info:           agent,
+				CanReadAsAdmin: true,
+			},
+			want: false,
+		},
+		{
+			name: "agent marked as the owner and an administrator",
+			user: User{
+				Info:           agent,
+				IsAdmin:        true,
+				CanReadAsAdmin: true,
+				IsOwner:        true,
+			},
+			want: false,
+		},
+		{
+			name: "administrator no rule grants the skill",
+			user: User{
+				Info:           otherUser,
+				IsAdmin:        true,
+				CanReadAsAdmin: true,
+			},
+			want: true,
+		},
+		{
+			name: "read-only administrator no rule grants the skill",
+			user: User{
+				Info:           otherUser,
+				CanReadAsAdmin: true,
+			},
+			want: true,
+		},
+		{
+			name: "auditor no rule grants the skill",
+			user: User{
+				Info:      otherUser,
+				IsAuditor: true,
+			},
+			want: true,
+		},
+		{
+			name: "user no rule grants the skill",
+			user: User{
+				Info: otherUser,
+			},
+			want: false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/skills/"+agentTestSkill, nil)
+			got, err := authorizer.checkSkill(req, &Resources{SkillID: agentTestSkill}, tt.user)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("checkSkill = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	// Through the authorizer, an agent's principal is never marked as an administrator, read-only administrator or
+	// auditor, and the rule for user 7 does not grant agent 7 the skill.
+	for _, route := range agentSkillRoutes[1:] {
+		if authorizer.Authorize(agentTestRequest(route), agent) {
+			t.Errorf("%s %s: the agent reached a skill no rule grants it", route.method, route.path)
+		}
 	}
 }

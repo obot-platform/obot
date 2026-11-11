@@ -21,6 +21,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/gitcredential"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -94,7 +95,7 @@ func (h *SkillHandler) List(req api.Context) error {
 		return err
 	}
 
-	includeInvalid := req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true"
+	includeInvalid := allSkillsRequested(req)
 	query := strings.ToLower(strings.TrimSpace(req.URL.Query().Get("q")))
 	filtered := make([]types.Skill, 0, len(items))
 	for _, item := range items {
@@ -196,6 +197,16 @@ func (h *SkillHandler) Download(req api.Context) error {
 	return zipSkillDirectory(skillDir, req.ResponseWriter)
 }
 
+// allSkillsRequested reports whether an administrator (or owner) or auditor asked, with ?all=true, to list every skill,
+// regardless of skill access rules and including invalid skills. An agent has no role, so ?all=true is ignored for an
+// agent, whatever groups its user info carries: it lists only the valid skills that its access rules grant.
+func allSkillsRequested(req api.Context) bool {
+	if principal.ClaimsAgent(req.User) {
+		return false
+	}
+	return req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true"
+}
+
 func (h *SkillHandler) getAccessibleSkill(req api.Context, id string) (*v1.Skill, error) {
 	var skill v1.Skill
 	if err := req.Get(&skill, id); err != nil {
@@ -214,7 +225,7 @@ func (h *SkillHandler) listAccessibleSkills(req api.Context, repoID string) ([]v
 		return nil, err
 	}
 	// Allow admins/owners/auditors to bypass skill access scope with ?all=true
-	if !allowAll && req.UserCanViewAdmin() && req.URL.Query().Get("all") == "true" {
+	if !allowAll && allSkillsRequested(req) {
 		allowAll = true
 	}
 

@@ -176,6 +176,15 @@ func (p *directFixture) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bif
 
 func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Context) {
 	t.Helper()
+	model := &v1.Model{Name: "m1-test", Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, TargetModel: "openai/test", ModelProvider: system.LLMGatewayModelProvider, Usage: types.ModelUsageLLM}}}
+	policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: model.Name}}}}}
+	return directProxyWith(t, plugin, []*v1.Model{model}, []*v1.ModelAccessPolicy{policy})
+}
+
+// directProxyWith returns a proxy of a running gateway engine whose access helper knows models and policies, and a
+// request context for user 7.
+func directProxyWith(t *testing.T, plugin *directFixture, models []*v1.Model, policies []*v1.ModelAccessPolicy) (*llmProviderProxy, api.Context) {
+	t.Helper()
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
 	store, err := llmcoreclient.New(storage, directCodec{})
 	require.NoError(t, err)
@@ -186,11 +195,13 @@ func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Co
 	b := &directAccessBackend{storage: storage, informers: map[string]cache.SharedIndexInformer{}}
 	helper, err := modelaccesspolicy.NewHelper(t.Context(), b)
 	require.NoError(t, err)
-	model := &v1.Model{Name: "m1-test", Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, TargetModel: "openai/test", ModelProvider: system.LLMGatewayModelProvider, Usage: types.ModelUsageLLM}}}
-	require.NoError(t, storage.Create(t.Context(), model))
-	require.NoError(t, b.informers["Model"].GetIndexer().Add(model))
-	policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: model.Name}}}}}
-	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
+	for _, model := range models {
+		require.NoError(t, storage.Create(t.Context(), model))
+		require.NoError(t, b.informers["Model"].GetIndexer().Add(model))
+	}
+	for _, policy := range policies {
+		require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
+	}
 	c := newUsageTestClient(t)
 	return &llmProviderProxy{backend: &bifrostProviderBackend{engine: engine}, mapHelper: helper, modelProvider: &v1.ModelProvider{Name: system.LLMGatewayModelProvider, Namespace: system.DefaultNamespace}}, api.Context{Storage: storage, GatewayClient: c, User: principaltest.AsUser(&user.DefaultInfo{UID: "7"})}
 }

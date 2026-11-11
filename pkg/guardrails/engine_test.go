@@ -10,8 +10,10 @@ import (
 	"testing"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -246,6 +248,86 @@ func TestCompileCondition(t *testing.T) {
 	}
 	if _, err := CompileCondition(types.GuardrailTargetLLM, `model`); err == nil {
 		t.Fatal("non-boolean conditions must be rejected")
+	}
+}
+
+// TestConditionsSeeTheCallersPrincipal checks what conditions see of the caller: user.id is the storage encoding of
+// its principal ("agent:<id>" for an agent), and principal.kind and principal.id its kind and bare ID.
+func TestConditionsSeeTheCallersPrincipal(t *testing.T) {
+	resolve := func(u kuser.Info) Identity {
+		identity, _, err := ResolveIdentity(t.Context(), nil, u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return identity
+	}
+	userExtra := map[string][]string{"auth_provider_groups": {"eng"}}
+	principal.RecordKind(userExtra, principal.KindUser)
+	user := resolve(&kuser.DefaultInfo{UID: "7", Extra: userExtra})
+	agent := resolve(gateway.AgentUserInfo(&types.Agent{ID: 7}, []string{apitypes.GroupLLM}, nil))
+	unknown := resolve(&kuser.DefaultInfo{UID: "system"})
+
+	tests := []struct {
+		name     string
+		identity Identity
+		expr     string
+		want     bool
+	}{
+		{
+			name:     "an agent's user.id is its encoded ID",
+			identity: agent,
+			expr:     `user.id == "agent:7"`,
+			want:     true,
+		},
+		{
+			name:     "an agent's principal",
+			identity: agent,
+			expr:     `principal.kind == "agent" && principal.id == "7"`,
+			want:     true,
+		},
+		{
+			name:     "an agent has no groups",
+			identity: agent,
+			expr:     `size(user.groups) == 0`,
+			want:     true,
+		},
+		{
+			name:     "a user's user.id is their ID, as before",
+			identity: user,
+			expr:     `user.id == "7" && "eng" in user.groups`,
+			want:     true,
+		},
+		{
+			name:     "a user's principal",
+			identity: user,
+			expr:     `principal.kind == "user" && principal.id == "7"`,
+			want:     true,
+		},
+		{
+			name:     "the user with an agent's numeric ID is not that agent",
+			identity: user,
+			expr:     `principal.kind == "agent"`,
+			want:     false,
+		},
+		{
+			name:     "a caller that is not a principal has an empty one",
+			identity: unknown,
+			expr:     `principal.kind == "" && principal.id == "" && user.id == "system"`,
+			want:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, target := range []string{types.GuardrailTargetLLM, types.GuardrailTargetMCP} {
+				got, err := evalCondition(target, tt.expr, tt.identity, nil)
+				if err != nil {
+					t.Fatalf("%s: %v", target, err)
+				}
+				if got != tt.want {
+					t.Errorf("%s: %s = %v, want %v", target, tt.expr, got, tt.want)
+				}
+			}
+		})
 	}
 }
 
