@@ -1,0 +1,20 @@
+# OpenAPIWorkerResolver
+
+TLC reached 19 states and 22 steps. The chart draws 9 states and 8 arrows.
+The view hides 4 steps, so the chart does not draw them.
+
+## ExactCallerCredentialOnly breaks
+The shortest path has 7 steps:
+0. Request received
+1. the platform identifies the caller: Caller authenticated
+2. the request names an instance: Instance selected
+3. instance ownership and profile pass: Published snapshot loaded
+4. the published snapshot and original tool are loaded: Operation checked
+5. tool authorization passes: Credential context checked
+6. a valid credential is found for the exact instance: Caller credential ready
+7. the request is sent to the worker: Sent to worker
+
+## Rules that hold
+TypeOK, NoDeadlock, CHECK_DEADLOCK
+
+Wrote /Users/echo/orca/workspaces/obot/openapi-shared-worker/docs/plans/openapi-workers/review-evidence/r01-formal-rerun-20261109T184839/f02/docs/plans/openapi-workers/formal/statechart-broken

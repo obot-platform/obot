@@ -1,0 +1,79 @@
+---
+title: "OpenAPI Compose deployment lifecycle"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: Broken
+    lg1: Serving
+    lg2: Upgrade
+    lg3: Provisioning
+    lg4: Breaks OpenAPITrafficGated or PlannedRollRetainsCapacity
+    lg5: Path to the OpenAPITrafficGated or PlannedRollRetainsCapacity bug
+  }
+  class lg0 pink
+  class lg1 teal
+  class lg2 purple
+  class lg3 blue
+  class lg4 breaks
+  class lg5 bugPath
+  s0: Provisioning shared network
+  s1: Unsafe traffic admitted
+  s2: Provisioning Obot dependencies
+  s3: Provisioning service authentication
+  s4: Provisioning Obot
+  s5: Provisioning Workers
+  s6: Both stacks ready, traffic closed
+  s7: OpenAPI traffic admitted
+  s8: Rolling upgrade, capacity retained
+  s9: Rolling upgrade, capacity lost
+  [*] --> s0
+  s0 --> s1: an OpenAPI request is admitted after every gate holds
+  s0 --> s2: operator creates the explicit shared network
+  s1 --> s0: the OpenAPI request completes
+  s2 --> s0: the shared network disappears
+  s2 --> s2: PostgreSQL starts
+  s2 --> s3: PostgreSQL passes readiness
+  s3 --> s3: service certificates are staged
+  s3 --> s4: the service CA becomes trusted
+  s4 --> s3: service authentication is withdrawn
+  s4 --> s4: an Obot replica starts
+  s4 --> s5: the Obot replica passes readiness
+  s5 --> s5: a Worker starts on the trusted shared network
+  s5 --> s6: the Worker passes readiness
+  s5 --> s1: an OpenAPI request is admitted after every gate holds
+  s6 --> s6: a Worker starts on the trusted shared network or the Worker passes readiness
+  s6 --> s7: an OpenAPI request is admitted after every gate holds
+  s1 --> s5: the OpenAPI request completes
+  s1 --> s7: the Worker passes readiness or the Obot replica passes readiness
+  s7 --> s6: the OpenAPI request completes
+  s6 --> s8: a one-at-a-time Obot upgrade starts or a one-at-a-time Worker upgrade starts
+  s8 --> s6: the upgraded replica is healthy again
+  s8 --> s9: the Obot replica drains while another serves
+  s8 --> s7: an OpenAPI request is admitted after every gate holds
+  s9 --> s1: an OpenAPI request is admitted after every gate holds
+  s7 --> s8: the OpenAPI request completes
+  s7 --> s1: the Obot replica drains while another serves
+  s1 --> s9: the OpenAPI request completes
+  s9 --> s8: the Obot replica passes readiness
+  classDef breaks fill:#ffecee,stroke:#e72e3b,stroke-width:2.5px,color:#cd2834
+  class s0 blue
+  class s0 bugPath
+  class s1 pink
+  class s1 breaks
+  class s1 bugPath
+  class s2 blue
+  class s2 bugPath
+  class s3 blue
+  class s3 bugPath
+  class s4 blue
+  class s4 bugPath
+  class s5 blue
+  class s5 bugPath
+  class s6 blue
+  class s6 bugPath
+  class s7 teal
+  class s8 purple
+  class s8 bugPath
+  class s9 pink
+  class s9 breaks
+  class s9 bugPath
