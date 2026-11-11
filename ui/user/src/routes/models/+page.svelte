@@ -159,7 +159,7 @@
 {/snippet}
 
 {#snippet connect()}
-	<ModelsView />
+	<ModelsView apiKeys={data.apiKeys} />
 {/snippet}
 
 {#snippet providers()}

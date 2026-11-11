@@ -1,6 +1,6 @@
 import type { Model } from '$lib/services';
 import GatewayConnect from './GatewayConnect.svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -58,6 +58,31 @@ describe('GatewayConnect', () => {
 		// No setup is shown until a client is picked.
 		await expect
 			.element(page.getByText('export ANTHROPIC_BASE_URL', { exact: false }))
+			.not.toBeInTheDocument();
+	});
+
+	it('filters the client list by name and description', async () => {
+		render(GatewayConnect, { obotURL });
+		const search = page.getByPlaceholder('Search clients...');
+
+		await search.fill('curl');
+		await expect.element(page.getByRole('button', { name: 'curl', exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Claude Code', exact: true }))
+			.not.toBeInTheDocument();
+
+		await search.fill('JetBrains');
+		await expect.element(page.getByRole('button', { name: 'Cline', exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'curl', exact: true }))
+			.not.toBeInTheDocument();
+
+		await search.fill('no-such-client');
+		await expect
+			.element(page.getByText('No clients match "no-such-client".'), { timeout: 2000 })
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Cline', exact: true }))
 			.not.toBeInTheDocument();
 	});
 
@@ -467,6 +492,100 @@ describe('GatewayConnect', () => {
 				})
 			)
 			.toBeVisible();
+	});
+
+	it('uses a generated access token in place of the Obot CLI login command', async () => {
+		const token = 'ok1-generated';
+		render(GatewayConnect, { obotURL, models, accessToken: token });
+
+		await openClient('Claude Code');
+		await expect
+			.element(page.getByText(`export ANTHROPIC_AUTH_TOKEN="${token}"`, { exact: false }))
+			.toBeInTheDocument();
+		await expect.element(page.getByText(token, { exact: true })).toHaveClass(/bg-primary\/25/);
+		await expect
+			.element(page.getByText('obot login --url', { exact: false }))
+			.not.toBeInTheDocument();
+	});
+
+	it('lets an existing identity key toggle the snippet between the CLI command and a placeholder', async () => {
+		render(GatewayConnect, { obotURL, hasValidIdentityApiKeys: true });
+
+		await openClient('Claude Code');
+		const dialog = page.getByRole('dialog');
+		const command = '$(obot login --url https://obot.example.com --scope llm --print-token)';
+
+		await expect
+			.element(dialog.getByText('[REPLACE_WITH_ACCESS_KEY]', { exact: true }))
+			.toBeVisible();
+		await expect
+			.element(
+				dialog.getByText(
+					'Supply your existing agent identity API key for ANTHROPIC_AUTH_TOKEN or generate a new one.',
+					{ exact: true }
+				)
+			)
+			.toBeVisible();
+
+		await dialog.getByRole('button', { name: 'CLI', exact: true }).click();
+		await expect.element(dialog.getByText(command, { exact: true })).toBeVisible();
+		await expect
+			.element(dialog.getByText('[REPLACE_WITH_ACCESS_KEY]', { exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(
+				dialog.getByText(
+					'Supply your existing agent identity API key for ANTHROPIC_AUTH_TOKEN or generate a new one.',
+					{ exact: true }
+				)
+			)
+			.not.toBeInTheDocument();
+
+		await dialog.getByRole('button', { name: 'Key', exact: true }).click();
+		await expect
+			.element(dialog.getByText('[REPLACE_WITH_ACCESS_KEY]', { exact: true }))
+			.toBeVisible();
+	});
+
+	it('asks the page to create a token from the existing-key notice', async () => {
+		const onGenerateToken = vi.fn();
+		render(GatewayConnect, { obotURL, hasValidIdentityApiKeys: true, onGenerateToken });
+
+		await openClient('Claude Code');
+		await page.getByRole('dialog').getByRole('button', { name: 'Generate New Key' }).click();
+
+		expect(onGenerateToken).toHaveBeenCalledOnce();
+	});
+
+	it('keeps a generated token in place when an identity key already exists', async () => {
+		const token = 'ok1-generated';
+		render(GatewayConnect, { obotURL, accessToken: token, hasValidIdentityApiKeys: true });
+
+		await openClient('Codex CLI');
+		const dialog = page.getByRole('dialog');
+		await expect
+			.element(dialog.getByText(`export OBOT_API_KEY="${token}"`, { exact: false }))
+			.toBeInTheDocument();
+		await expect
+			.element(dialog.getByRole('button', { name: 'Key', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(dialog.getByText('Supply your existing agent identity API key', { exact: false }))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the generated token where Cline asks for the login command', async () => {
+		const token = 'ok1-generated';
+		render(GatewayConnect, { obotURL, models, accessToken: token });
+
+		await openClient('Cline');
+		const dialog = page.getByRole('dialog');
+		await expect.element(dialog.getByText('Your API key')).toBeVisible();
+		await expect.element(dialog.getByText('API Key: copy the key below.')).toBeVisible();
+		await expect.element(dialog.getByText(token, { exact: true }).first()).toBeVisible();
+		await expect
+			.element(dialog.getByText('obot login --url', { exact: false }))
+			.not.toBeInTheDocument();
 	});
 
 	it('shows curl requests for all three API formats', async () => {

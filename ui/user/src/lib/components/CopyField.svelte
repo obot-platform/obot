@@ -9,6 +9,8 @@
 		label?: string;
 		id: string;
 		preContent?: Snippet;
+		/** Replaces the plain code text, for example to embed a control in a snippet. Copy still uses `value`. */
+		codeContent?: Snippet;
 		class?: string;
 		classes?: {
 			inputLabel?: string;
@@ -23,6 +25,7 @@
 		label,
 		id,
 		preContent,
+		codeContent,
 		class: klass,
 		classes,
 		variant = 'default'
@@ -104,6 +107,7 @@
 		</div>
 	{/if}
 	{#if variant === 'code'}
+		<!-- prettier-ignore -->
 		<pre
 			bind:this={codeEl}
 			{id}
@@ -111,7 +115,7 @@
 			class={twMerge(
 				'm-0 w-full overflow-x-auto font-mono text-xs whitespace-pre-wrap break-all bg-inherit',
 				classes?.input
-			)}><code class="font-mono text-xs">{value ?? ''}</code></pre>
+			)}><code class="font-mono text-xs">{#if codeContent}{@render codeContent()}{:else}{value ?? ''}{/if}</code></pre>
 	{:else}
 		<input
 			onmousedown={() => copyButton?.copy()}

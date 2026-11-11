@@ -102,7 +102,6 @@
 	"auth_setup_learn_more": "了解详情",
 	"auth_setup_local_unavailable": "本地身份验证提供商不可用。",
 	"auth_setup_next_step_owner_setup": "下一步：设置所有者",
-	"auth_setup_page_title": "设置",
 	"auth_setup_share_usage_data": "共享产品使用数据",
 	"auth_setup_share_usage_help": "共享使用数据以帮助改进 Obot。",
 	"auth_setup_sign_in_as": "以 {email} 身份登录",

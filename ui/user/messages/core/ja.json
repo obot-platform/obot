@@ -179,6 +179,7 @@
 	"core_select_more_options": "他 {count} 件 — 入力して絞り込んでください",
 	"core_select_summary_more": "{first}、{second}、他 {count} 件",
 	"core_select_time": "時刻を選択",
+	"core_setup": "セットアップ",
 	"core_show_all_items": "すべての項目を表示",
 	"core_show_all_legend_items": "凡例をすべて表示",
 	"core_show_less": "表示を減らす",

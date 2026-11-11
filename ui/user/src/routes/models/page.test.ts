@@ -1,9 +1,9 @@
-import { AdminService, Group, type Model } from '$lib/services';
+import { AdminService, ApiKeysService, Group, type APIKey, type Model } from '$lib/services';
 import { createMockProfile, createPageData } from '../../tests/helpers/pageData';
 import { load as legacyAdminLoad } from '../admin/model-providers/+page';
 import { load } from './+page';
 import { isRedirect } from '@sveltejs/kit';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 function loadModels(search: string, groups = [Group.ADMIN], models: Model[] = []) {
 	return load({
@@ -23,7 +23,23 @@ async function redirectOf(run: () => unknown) {
 	throw new Error('load did not redirect');
 }
 
+const llmKey: APIKey = {
+	id: 1,
+	userId: 1,
+	name: 'LLM Gateway Access Token',
+	canAccessAPI: false,
+	canAccessLLMProxy: true,
+	canAccessSkills: false,
+	canAccessDeviceScans: false,
+	createdAt: '2026-01-01T00:00:00.000Z'
+};
+
 describe('Models page loader', () => {
+	beforeEach(() => {
+		vi.spyOn(ApiKeysService, 'listAllApiKeys').mockResolvedValue([]);
+		vi.spyOn(ApiKeysService, 'listApiKeys').mockResolvedValue([]);
+	});
+
 	afterEach(() => vi.restoreAllMocks());
 
 	it('sends the old model providers tab to the Providers tab, keeping other params', async () => {
@@ -66,6 +82,32 @@ describe('Models page loader', () => {
 			const result = await loadModels(search, [Group.USER], [gatewayModel, otherModel]);
 			expect(result).toMatchObject({ models: [gatewayModel], hasAdminAccess: false });
 		}
+	});
+
+	it('loads identity API keys on the Connect tab', async () => {
+		vi.mocked(ApiKeysService.listAllApiKeys).mockResolvedValue([llmKey]);
+
+		const admin = await loadModels('?view=connect');
+
+		expect(ApiKeysService.listAllApiKeys).toHaveBeenCalledOnce();
+		expect(ApiKeysService.listApiKeys).not.toHaveBeenCalled();
+		expect(admin).toMatchObject({ apiKeys: [llmKey] });
+
+		vi.mocked(ApiKeysService.listAllApiKeys).mockClear();
+		vi.mocked(ApiKeysService.listApiKeys).mockResolvedValue([llmKey]);
+
+		const user = await loadModels('?view=connect', [Group.USER]);
+
+		expect(ApiKeysService.listApiKeys).toHaveBeenCalledOnce();
+		expect(ApiKeysService.listAllApiKeys).not.toHaveBeenCalled();
+		expect(user).toMatchObject({ apiKeys: [llmKey] });
+	});
+
+	it('does not load identity API keys off the Connect tab', async () => {
+		await loadModels('?view=providers');
+
+		expect(ApiKeysService.listAllApiKeys).not.toHaveBeenCalled();
+		expect(ApiKeysService.listApiKeys).not.toHaveBeenCalled();
 	});
 
 	it('does not load model providers on the Providers tab', async () => {

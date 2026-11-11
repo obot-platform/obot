@@ -1,7 +1,9 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import ApiKeyRevealNotice from '$lib/components/agent-auth-scope/ApiKeyRevealNotice.svelte';
 	import {
 		gatewayModelNames,
 		groupGatewayModels
@@ -9,8 +11,10 @@
 	import LLMGatewayCodeBlock from '$lib/components/llm-gateway/LLMGatewayCodeBlock.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
+	import Loading from '$lib/icons/Loading.svelte';
 	import type { Model } from '$lib/services';
 	import type { SnippetBlock } from '$lib/services/llm-gateway/types';
+	import { resolve } from '$lib/url';
 	import { Terminal } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -20,6 +24,10 @@
 		models?: Model[];
 		// Whether an administrator allows Claude subscriptions through the gateway.
 		subscriptionPassthrough?: boolean;
+		accessToken?: string;
+		hasValidIdentityApiKeys?: boolean;
+		creatingToken?: boolean;
+		onGenerateToken?: () => void;
 		class?: string;
 	}
 
@@ -27,6 +35,10 @@
 		obotURL,
 		models = [],
 		subscriptionPassthrough = false,
+		accessToken = '',
+		hasValidIdentityApiKeys = false,
+		creatingToken = false,
+		onGenerateToken,
 		class: klass = ''
 	}: Props = $props();
 
@@ -62,8 +74,21 @@
 			return undefined;
 		}
 	});
-	let loginCommand = $derived(`obot login --url ${obotURL} --scope llm --print-token`);
-	let token = $derived(`$(${loginCommand})`);
+	let cliLoginCommand = $derived(`obot login --url ${obotURL} --scope llm --print-token`);
+	const ACCESS_KEY_PLACEHOLDER = '[REPLACE_WITH_ACCESS_KEY]';
+	// A generated token stands in for the command that would print one.
+	let loginCommand = $derived(accessToken || cliLoginCommand);
+	// With an existing identity key and no newly generated token, the snippet can show either
+	// the CLI command that prints a key or a placeholder for a key the user already has.
+	let showTokenChoice = $derived(!accessToken);
+	let useAccessKeyPlaceholder = $state(false);
+	let token = $derived(
+		accessToken ||
+			(showTokenChoice && useAccessKeyPlaceholder
+				? ACCESS_KEY_PLACEHOLDER
+				: `$(${cliLoginCommand})`)
+	);
+	let tokenSlot = $derived(showTokenChoice || accessToken ? token : '');
 	// The models a chat example can use: embedding and image models can't answer a message.
 	let chatModels = $derived.by(() => {
 		const chat = models.filter(
@@ -221,13 +246,56 @@
 	];
 
 	let selectedClient = $derived(clients.find((c) => c.id === selected));
+	let clientQuery = $state('');
+	let revealTokenInDialog = $state(false);
+	let visibleClients = $derived.by(() => {
+		const query = clientQuery.trim().toLowerCase();
+		if (!query) return clients;
+		return clients.filter(
+			(client) =>
+				client.label.toLowerCase().includes(query) ||
+				client.description.toLowerCase().includes(query)
+		);
+	});
 
 	function open(client: Client) {
 		selected = client;
 		selectedTab = 0;
 		picked = {};
+		useAccessKeyPlaceholder = true;
+		revealTokenInDialog = false;
 		dialog?.open();
 	}
+
+	function generateFromDialog() {
+		revealTokenInDialog = true;
+		onGenerateToken?.();
+	}
+
+	// The name the selected client uses for the gateway credential.
+	let authVariable = $derived.by(() => {
+		switch (selected) {
+			case 'claude-code':
+				return subscriptionPassthrough && selectedTab === 0
+					? 'X-Obot-Api-Key'
+					: 'ANTHROPIC_AUTH_TOKEN';
+			case 'anthropic-sdk':
+				return 'ANTHROPIC_AUTH_TOKEN';
+			case 'openai-sdk':
+			case 'goose':
+			case 'open-webui':
+				return 'OPENAI_API_KEY';
+			case 'codex':
+			case 'google-adk':
+			case 'vercel-ai-sdk':
+			case 'opencode':
+				return 'OBOT_API_KEY';
+			case 'curl':
+				return 'Authorization';
+			default:
+				return 'API key';
+		}
+	});
 
 	// Claude Code 2.1.129 and later can list the gateway's models in its /model picker.
 	const claudeCodeDiscovery = [
@@ -259,7 +327,11 @@
 				return [
 					{ text: m.models_connect_cline_step_provider() },
 					{ text: m.models_connect_step_base_url(), value: `${baseURL}/v1` },
-					{ text: m.models_connect_step_api_key() },
+					{
+						text: accessToken
+							? m.models_connect_step_api_key_generated()
+							: m.models_connect_step_api_key()
+					},
 					{ text: m.models_connect_cline_step_model(), value: model }
 				];
 			case 'open-webui':
@@ -275,7 +347,11 @@
 								noteValue: `${baseURL}/v1`
 							}
 						: { text: m.models_connect_open_webui_step_url(), value: `${baseURL}/v1` },
-					{ text: m.models_connect_step_api_key() },
+					{
+						text: accessToken
+							? m.models_connect_step_api_key_generated()
+							: m.models_connect_step_api_key()
+					},
 					{ text: m.models_connect_open_webui_step_model(), value: model }
 				];
 			default:
@@ -284,7 +360,7 @@
 	});
 
 	let apiKeyBlock = $derived<ConnectBlock>({
-		title: m.models_connect_print_api_key(),
+		title: accessToken ? m.models_connect_your_api_key() : m.models_connect_print_api_key(),
 		language: 'bash',
 		code: loginCommand
 	});
@@ -303,8 +379,7 @@
 						...claudeCodeDiscovery,
 						...claudeCodeModelLines(pickedModel('claude-code')),
 						'claude'
-					].join('\n'),
-					minHeight: 280
+					].join('\n')
 				};
 				if (!subscriptionPassthrough) {
 					return [apiKey];
@@ -563,17 +638,21 @@
 	let minBlockHeight = $derived(Math.max(...tabBlocks.map((block) => block.minHeight || 0)));
 </script>
 
-<div class={twMerge('flex flex-col gap-3 @container', klass)}>
-	<div
-		class="grid grid-cols-1 gap-3 @md:grid-cols-2 @2xl:grid-cols-3 @4xl:grid-cols-4 @6xl:grid-cols-5"
-	>
-		{#each clients as client (client.id)}
-			<button
-				class="dark:bg-base-200 dark:border-base-400 bg-base-100 hover:border-primary flex items-start gap-3 rounded-lg border border-transparent p-4 text-left shadow-sm transition-colors"
-				aria-labelledby="gateway-client-{client.id}-label"
-				aria-describedby="gateway-client-{client.id}-description"
-				onclick={() => open(client.id)}
-			>
+<div class={twMerge('flex flex-col gap-2 @container', klass)}>
+	<Search
+		class="bg-base-100 dark:bg-base-200 dark:border-base-400 dark:border"
+		value={clientQuery}
+		placeholder={m.models_connect_search_clients()}
+		onChange={(value) => (clientQuery = value)}
+	/>
+	{#each visibleClients as client (client.id)}
+		<button
+			class="group dark:bg-base-200 dark:border-base-400 bg-base-100 hover:border-primary flex items-center justify-between gap-3 rounded-lg border border-transparent p-4 text-left shadow-sm transition-colors"
+			aria-labelledby="gateway-client-{client.id}-label"
+			aria-describedby="gateway-client-{client.id}-description"
+			onclick={() => open(client.id)}
+		>
+			<div class="flex items-start gap-3">
 				<div
 					class="bg-base-200 dark:bg-base-400 flex size-10 shrink-0 items-center justify-center rounded-md p-2"
 				>
@@ -595,9 +674,18 @@
 						>{client.description}</span
 					>
 				</div>
-			</button>
-		{/each}
-	</div>
+			</div>
+			<div
+				class="btn rounded-md border border-base-300 dark:border-base-400 bg-primary/10 font-mono text-[10px] uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content not-disabled:group-hover:bg-primary not-disabled:group-hover:text-primary-content"
+			>
+				{m.core_setup()}
+			</div>
+		</button>
+	{:else}
+		<p class="text-muted-content text-xs">
+			{m.models_connect_no_clients_match({ search: clientQuery.trim() })}
+		</p>
+	{/each}
 </div>
 
 {#snippet modelPicker(key: PickerKey)}
@@ -635,7 +723,7 @@
 				<div
 					id="gateway-connect-tabs"
 					role="tablist"
-					class="tabs tabs-box tabs-sm mb-1 flex w-fit items-center mb-4"
+					class="tabs tabs-box tabs-sm flex w-fit items-center mb-4"
 				>
 					{#each tabBlocks as block, i (`${selected}-${i}`)}
 						<button
@@ -656,12 +744,15 @@
 						in:fade={{ duration: PAGE_TRANSITION_DURATION }}
 						style={minBlockHeight ? `min-height: ${minBlockHeight}px` : undefined}
 					>
-						<LLMGatewayCodeBlock {block} id={`${selected}-${i}-tabblock`}>
+						<LLMGatewayCodeBlock {block} id={`${selected}-${i}-tabblock`} {tokenSlot}>
 							{@render modelPicker(block.picker ?? 'model')}
 							<div class="divider my-2"></div>
 							{#if steps.length > 0}
 								{@render connectSteps()}
 							{/if}
+							{#snippet tokenSlotContent()}
+								{@render tokenMark()}
+							{/snippet}
 						</LLMGatewayCodeBlock>
 					</div>
 				{/if}
@@ -679,12 +770,101 @@
 
 			<div class="flex flex-col gap-2">
 				{#each codeBlocks as block, i (`${selected}-${i}-codeblock`)}
-					<LLMGatewayCodeBlock {block} id={`${selected}-${i}-codeblock`} />
+					<LLMGatewayCodeBlock {block} id={`${selected}-${i}-codeblock`} {tokenSlot}>
+						{#snippet tokenSlotContent()}
+							{@render tokenMark()}
+						{/snippet}
+					</LLMGatewayCodeBlock>
 				{/each}
 			</div>
+
+			{#if revealTokenInDialog && accessToken}
+				<div class="divider my-2"></div>
+				<ApiKeyRevealNotice
+					keyValue={accessToken}
+					id="llm-gateway-connect-access-token"
+					class="gap-3 mt-2"
+				/>
+			{:else if showTokenChoice}
+				<div class="divider my-2"></div>
+				{#if useAccessKeyPlaceholder}
+					<div class="notification-info text-xs">
+						<div class="flex items-center justify-between gap-8">
+							<p>
+								{m.models_connect_existing_key_notice({ variable: authVariable })}
+							</p>
+							<button
+								type="button"
+								class="btn btn-xs btn-primary shrink-0"
+								disabled={creatingToken}
+								onclick={generateFromDialog}
+							>
+								{#if creatingToken}
+									<Loading class="size-4 text-primary-content" />
+								{/if}
+								{hasValidIdentityApiKeys
+									? m.models_gateway_generate_new_key()
+									: m.models_gateway_generate_token()}
+							</button>
+						</div>
+					</div>
+				{:else}
+					<div class="flex flex-col gap-1">
+						<p class="text-xs font-light">
+							{m.models_gateway_cli_install_prefix()}<a
+								href={resolve('/install-cli')}
+								target="_blank"
+								class="text-link">{m.models_gateway_cli_install_link()}</a
+							>{m.models_gateway_cli_install_suffix()}
+						</p>
+					</div>
+				{/if}
+			{/if}
 		</div>
 	</div>
 </ResponsiveDialog>
+
+{#snippet tokenMark()}
+	{#if showTokenChoice}
+		{@render tokenChoice()}
+	{:else}
+		<span class="box-decoration-clone rounded-xs bg-primary/25 px-0.5">{token}</span>
+	{/if}
+{/snippet}
+
+{#snippet tokenChoice()}
+	<span class="box-decoration-clone inline rounded break-normal wrap-break-word">
+		<span class="inline">{token}</span>
+		<span
+			class="inline-flex whitespace-nowrap gap-0.5 rounded-sm bg-primary/15 p-0.5 align-baseline"
+			role="group"
+			aria-label={m.models_connect_token_choice()}
+		>
+			<button
+				type="button"
+				class={twMerge(
+					'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
+					useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
+				)}
+				aria-pressed={useAccessKeyPlaceholder}
+				onclick={() => (useAccessKeyPlaceholder = true)}
+			>
+				{m.models_connect_token_key()}
+			</button>
+			<button
+				type="button"
+				class={twMerge(
+					'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
+					!useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
+				)}
+				aria-pressed={!useAccessKeyPlaceholder}
+				onclick={() => (useAccessKeyPlaceholder = false)}
+			>
+				{m.models_connect_token_cli()}
+			</button>
+		</span>
+	</span>
+{/snippet}
 
 {#snippet connectSteps()}
 	{#if steps.length > 0}

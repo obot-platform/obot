@@ -102,7 +102,6 @@
 	"auth_setup_learn_more": "詳細",
 	"auth_setup_local_unavailable": "ローカル認証プロバイダーを利用できません。",
 	"auth_setup_next_step_owner_setup": "次のステップ：オーナーの設定",
-	"auth_setup_page_title": "セットアップ",
 	"auth_setup_share_usage_data": "製品の使用状況データを共有する",
 	"auth_setup_share_usage_help": "使用状況データを共有して Obot の改善にご協力ください。",
 	"auth_setup_sign_in_as": "{email} としてサインイン",

@@ -1,6 +1,6 @@
 import { browser } from '$app/env';
 import { handleRouteError } from '$lib/errors';
-import { UserService, type Model } from '$lib/services';
+import { ApiKeysService, UserService, type APIKey, type Model } from '$lib/services';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -34,15 +34,22 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 			: 'connect';
 
 	let models: Model[] = [];
+	let apiKeys: APIKey[] = [];
 
 	if (view === 'connect') {
 		try {
-			const response =
+			// Admins can list every identity key. Other users can list only their own.
+			const [response, keys] = await Promise.all([
 				browser && accessibleModels.initialized && accessibleModels.current.length > 0
 					? accessibleModels.current
-					: (initialModels ?? (await UserService.listModels({ fetch })));
+					: (initialModels ?? UserService.listModels({ fetch })),
+				hasAdminAccess
+					? ApiKeysService.listAllApiKeys({ fetch })
+					: ApiKeysService.listApiKeys({ fetch })
+			]);
 
 			models = filterAccessibleModels(response ?? []);
+			apiKeys = keys;
 
 			if (browser) {
 				accessibleModels.set(models);
@@ -54,6 +61,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 
 	return {
 		models,
+		apiKeys,
 		hasAdminAccess
 	};
 };

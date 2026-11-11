@@ -10,9 +10,22 @@
 		class?: string;
 		/** Shown between the title and the code, such as a control that changes the code. */
 		children?: Snippet;
+		tokenSlot?: string;
+		tokenSlotContent?: Snippet;
 	}
 
-	let { id, block, class: clazz = '', children }: Props = $props();
+	let {
+		id,
+		block,
+		class: clazz = '',
+		children,
+		tokenSlot = '',
+		tokenSlotContent
+	}: Props = $props();
+
+	let codeParts = $derived(
+		tokenSlot && block.code.includes(tokenSlot) ? block.code.split(tokenSlot) : null
+	);
 </script>
 
 <div class={twMerge('flex flex-col gap-1', clazz)}>
@@ -23,5 +36,9 @@
 			{block.title}
 		</div>
 	{/if}
-	<CopyField id={`${id}-copy-field`} variant="code" value={block.code} />
+	<!-- Keep this on one line so the snippet does not insert whitespace into the code block. -->
+	<!-- prettier-ignore -->
+	<CopyField id={`${id}-copy-field`} variant="code" value={block.code}>
+		{#snippet codeContent()}{#if codeParts}{#each codeParts as part, i (i)}{part}{#if i < codeParts.length - 1}{@render tokenSlotContent?.()}{/if}{/each}{:else}{block.code}{/if}{/snippet}
+	</CopyField>
 </div>

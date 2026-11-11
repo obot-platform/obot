@@ -1,9 +1,11 @@
-import type { Model } from '$lib/services';
+import type { APIKey, Model } from '$lib/services';
 import { Group } from '$lib/services';
 import accessibleModels from '$lib/stores/accessibleModels.svelte';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { worker } from '../../tests/mocks/worker';
 import ModelsView from './ModelsView.svelte';
-import { describe, expect, it } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -47,18 +49,34 @@ const legacyAnthropicModel = model({
 	dialect: 'AnthropicMessages'
 });
 
-async function renderModelsView(models: Model[], groups = [Group.ADMIN]) {
+function llmKey(overrides: Partial<APIKey> = {}): APIKey {
+	return {
+		id: 1,
+		userId: 1,
+		name: 'Agent Identity API Key',
+		canAccessAPI: false,
+		canAccessLLMProxy: true,
+		canAccessSkills: false,
+		canAccessDeviceScans: false,
+		createdAt: '2026-01-01T00:00:00.000Z',
+		...overrides
+	};
+}
+
+async function renderModelsView(models: Model[], groups = [Group.ADMIN], apiKeys: APIKey[] = []) {
 	await preparePageData({ profile: createMockProfile(groups) });
 	// The store is a module singleton shared by every test in this file.
 	accessibleModels.set(models);
-	return render(ModelsView);
+	return render(ModelsView, { apiKeys });
 }
 
 describe('ModelsView', () => {
 	it('shows an LLM gateway section with its models and client setup', async () => {
 		await renderModelsView(gatewayModels);
 
-		await expect.element(page.getByRole('heading', { name: 'LLM Gateway' })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'LLM Gateway', exact: true }))
+			.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: '2 models available', exact: true }))
 			.toBeInTheDocument();
@@ -155,6 +173,142 @@ describe('ModelsView', () => {
 			.element(page.getByRole('heading', { name: 'LLM Gateway' }))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Claude Code' })).not.toBeInTheDocument();
+	});
+
+	it('creates an LLM-scoped token and uses it in client setup', async () => {
+		const created = vi.fn();
+		const token = 'ok1-1-1-secret';
+		worker.use(
+			http.post('/api/api-keys', async ({ request }) => {
+				created(await request.json());
+				return HttpResponse.json({
+					id: 1,
+					userId: 1,
+					name: 'Agent Identity API Key',
+					canAccessAPI: false,
+					canAccessLLMProxy: true,
+					canAccessSkills: false,
+					canAccessDeviceScans: false,
+					createdAt: '2026-11-11T00:00:00Z',
+					mcpServerIds: [],
+					key: token
+				});
+			})
+		);
+		await renderModelsView(gatewayModels);
+
+		await page.getByRole('button', { name: 'Generate Key' }).click();
+
+		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
+		expect(created).toHaveBeenCalledWith({
+			name: 'Agent Identity API Key',
+			mcpServerIds: [],
+			canAccessLLMProxy: true
+		});
+		await expect.element(page.getByText('Save this key now')).toBeVisible();
+		await expect
+			.element(
+				page.getByText('This is the only time you will be able to see this API key', {
+					exact: false
+				})
+			)
+			.toBeVisible();
+		await expect.element(page.getByCSS('#llm-gateway-access-token')).toHaveValue(token);
+
+		await page.getByRole('button', { name: 'Claude Code' }).click();
+		await expect
+			.element(page.getByText(`export ANTHROPIC_AUTH_TOKEN="${token}"`, { exact: false }))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('obot login --url', { exact: false }))
+			.not.toBeInTheDocument();
+	});
+
+	it('shows the Obot CLI login command', async () => {
+		await renderModelsView(gatewayModels);
+
+		await expect
+			.element(page.getByCSS('#llm-gateway-login-command'))
+			.toHaveValue(`obot login --url ${window.location.origin} --scope llm --print-token`);
+	});
+
+	it('creates a token from the client setup notice when a key already exists', async () => {
+		const created = vi.fn();
+		const token = 'ok1-from-dialog';
+		worker.use(
+			http.post('/api/api-keys', async ({ request }) => {
+				created(await request.json());
+				return HttpResponse.json({
+					id: 4,
+					userId: 1,
+					name: 'Agent Identity API Key',
+					canAccessAPI: false,
+					canAccessLLMProxy: true,
+					canAccessSkills: false,
+					canAccessDeviceScans: false,
+					createdAt: '2026-11-11T00:00:00Z',
+					mcpServerIds: [],
+					key: token
+				});
+			})
+		);
+		await renderModelsView(gatewayModels, [Group.ADMIN], [llmKey()]);
+
+		await page.getByRole('button', { name: 'Claude Code' }).click();
+		await page.getByRole('dialog').getByRole('button', { name: 'Generate New Key' }).click();
+
+		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
+		expect(created).toHaveBeenCalledWith({
+			name: 'Agent Identity API Key',
+			mcpServerIds: [],
+			canAccessLLMProxy: true
+		});
+		await expect
+			.element(page.getByText(`export ANTHROPIC_AUTH_TOKEN="${token}"`, { exact: false }))
+			.toBeVisible();
+		await expect
+			.element(page.getByText('[REPLACE_WITH_ACCESS_KEY]', { exact: true }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('dialog').getByText('Save this key now')).toBeVisible();
+
+		document.querySelector('dialog[open]')?.close();
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Claude Code' }).click();
+		await expect
+			.element(page.getByRole('dialog').getByText('Save this key now'))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText('Save this key now')).toBeVisible();
+	});
+
+	it('notes an existing unexpired LLM identity key', async () => {
+		await renderModelsView(
+			gatewayModels,
+			[Group.ADMIN],
+			[
+				llmKey({ expiresAt: '2000-01-01T00:00:00.000Z' }),
+				llmKey({ id: 2, canAccessLLMProxy: false }),
+				llmKey({ id: 3, expiresAt: '2999-01-01T00:00:00.000Z' })
+			]
+		);
+
+		await expect
+			.element(page.getByText('Existing Identity Access Keys Found').last())
+			.toBeVisible();
+	});
+
+	it('ignores expired and non-LLM identity keys', async () => {
+		await renderModelsView(
+			gatewayModels,
+			[Group.ADMIN],
+			[
+				llmKey({ expiresAt: '2000-01-01T00:00:00.000Z' }),
+				llmKey({ id: 2, canAccessLLMProxy: false, expiresAt: '2999-01-01T00:00:00.000Z' })
+			]
+		);
+
+		await expect
+			.element(page.getByText('Existing Identity Access Keys Found'))
+			.not.toBeInTheDocument();
 	});
 
 	it('asks an administrator to add a provider without gateway models', async () => {
