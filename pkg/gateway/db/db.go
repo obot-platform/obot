@@ -224,6 +224,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop legacy local-agent audit log columns: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_unused_mcp_audit_log_indexes", dropUnusedMCPAuditLogIndexes); err != nil {
+		return fmt.Errorf("failed to drop unused mcp_audit_log indexes: %w", err)
+	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_user_impersonation_role", removeUserImpersonationRole); err != nil {
 		return fmt.Errorf("failed to remove the user impersonation role: %w", err)
 	}
