@@ -56,6 +56,39 @@ type MCPServerCatalogEntryStatus struct {
 	// StaticConfigurationRevision is the static configuration revision whose superseded revisions
 	// have been deleted.
 	StaticConfigurationRevision string `json:"staticConfigurationRevision,omitempty"`
+	// OpenAPISourceDrift is the read-only result of the latest automatic probe
+	// that re-imported this OpenAPI entry's Source and compared it with the
+	// stored snapshot. Detection never changes the snapshot; adopting reported
+	// changes always requires the explicit save-and-republish flow.
+	OpenAPISourceDrift *OpenAPISourceDriftStatus `json:"openapiSourceDrift,omitempty"`
+}
+
+// OpenAPISourceDriftStatus reports upstream schema drift for OpenAPI entries.
+// It is informational only; nothing is auto-applied.
+type OpenAPISourceDriftStatus struct {
+	// Detected is true when the probed source compiles to a different
+	// operation set or operation signatures than the stored snapshot.
+	Detected bool `json:"detected,omitempty"`
+	// LastProbedAt is when the probe last completed, successfully or not.
+	LastProbedAt metav1.Time `json:"lastProbedAt,omitempty"`
+	// NextProbeAt is when the next periodic probe is due.
+	NextProbeAt metav1.Time `json:"nextProbeAt,omitempty"`
+	// SnapshotDigest is the SHA-256 of the stored normalized snapshot bytes.
+	SnapshotDigest string `json:"snapshotDigest,omitempty"`
+	// SourceDigest is the SHA-256 of the freshly fetched normalized schema.
+	SourceDigest string `json:"sourceDigest,omitempty"`
+	// AddedOperations lists operation keys ("METHOD /path") present in the
+	// source but not the snapshot. Bounded by the schema size limit.
+	AddedOperations []string `json:"addedOperations,omitempty"`
+	// RemovedOperations lists operation keys present in the snapshot but not
+	// the source, i.e. upstream interfaces that no longer exist.
+	RemovedOperations []string `json:"removedOperations,omitempty"`
+	// ChangedOperations lists operation keys whose parameter, body, schema, or
+	// metadata signature differs between snapshot and source.
+	ChangedOperations []string `json:"changedOperations,omitempty"`
+	// ProbeError is the bounded error message when the last probe failed
+	// (fetch failure, parse failure, or compile failure). Empty on success.
+	ProbeError string `json:"probeError,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

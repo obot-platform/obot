@@ -1,0 +1,49 @@
+---
+title: "P03 API proxy request authorization"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: platform processing
+    lg1: platform rejection
+    lg2: business
+    lg3: Breaks ExecutionRequiresUniqueRoute or ExecutionRequiresWhitelist in some cases
+    lg4: Path to the ExecutionRequiresUniqueRoute or ExecutionRequiresWhitelist bug
+  }
+  class lg0 blue
+  class lg1 orange
+  class lg2 purple
+  class lg3 mayBreak
+  class lg4 bugPath
+  s0: Ready for next request
+  s1: Raw path and query parsed
+  s2: Rejected: no unique route
+  s3: One operation uniquely matched
+  s4: Business request executed
+  s5: Rejected: operation disabled
+  s6: Operation whitelist passed
+  [*] --> s0
+  s0 --> s1: a caller sends the proxy request
+  s1 --> s3: one raw template wins [when static precedence makes it unique]
+  s1 --> s2: the proxy rejects the request [when no route is unique]
+  s2 --> s0: the proxy records the result and takes the next request
+  s2 --> s4: the broken variant executes one of the ambiguous routes
+  s3 --> s5: the proxy rejects the operation [when any whitelist layer disables it]
+  s3 --> s4: the broken variant skips the whitelist
+  s3 --> s6: overrides, profile, and instance all allow the operation
+  s4 --> s0: the proxy records the result and takes the next request
+  s5 --> s0: the proxy records the result and takes the next request
+  s6 --> s4: the proxy executes with raw path and query preserved
+  classDef mayBreak fill:#fff3e6,stroke:#e8730c,stroke-width:2.5px,color:#b85a06
+  class s0 blue
+  class s0 bugPath
+  class s1 blue
+  class s1 bugPath
+  class s2 orange
+  class s2 bugPath
+  class s3 blue
+  class s3 bugPath
+  class s4 purple
+  class s4 mayBreak
+  class s4 bugPath
+  class s5 orange
+  class s6 blue

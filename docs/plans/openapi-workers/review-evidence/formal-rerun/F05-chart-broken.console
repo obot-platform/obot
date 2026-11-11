@@ -1,0 +1,31 @@
+# ComposeLifecycle
+
+TLC reached 64 states and 158 steps. The chart draws 10 states and 28 arrows.
+The chart does not draw 61 steps that stay in one chart state.
+
+## OpenAPITrafficGated breaks
+The shortest path has 1 step:
+0. Provisioning shared network
+1. an OpenAPI request is admitted after every gate holds: Unsafe traffic admitted
+
+## PlannedRollRetainsCapacity breaks
+The shortest path has 13 steps:
+0. Provisioning shared network
+1. operator creates the explicit shared network: Provisioning Obot dependencies
+2. PostgreSQL starts: Provisioning Obot dependencies
+3. PostgreSQL passes readiness: Provisioning service authentication
+4. service certificates are staged: Provisioning service authentication
+5. the service CA becomes trusted: Provisioning Obot
+6. an Obot replica starts: Provisioning Obot
+7. the Obot replica passes readiness: Provisioning Workers
+8. a Worker starts on the trusted shared network: Provisioning Workers
+9. the Worker passes readiness: Both stacks ready, traffic closed
+10. a Worker starts on the trusted shared network: Both stacks ready, traffic closed
+11. the Worker passes readiness: Both stacks ready, traffic closed
+12. a one-at-a-time Obot upgrade starts: Rolling upgrade, capacity retained
+13. the Obot replica drains while another serves: Rolling upgrade, capacity lost
+
+## Rules that hold
+TypeOK, NoDeadlock, CHECK_DEADLOCK
+
+Wrote docs/plans/openapi-workers/review-evidence/formal-rerun/F05-chart-broken

@@ -1,0 +1,42 @@
+---
+title: "OpenAPI Compose deployment lifecycle"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: Serving
+    lg1: Upgrade
+    lg2: Provisioning
+  }
+  class lg0 teal
+  class lg1 purple
+  class lg2 blue
+  s0: Provisioning shared network
+  s1: Provisioning Obot dependencies
+  s2: Provisioning service authentication
+  s3: Provisioning Obot
+  s4: Provisioning Workers
+  s5: Both stacks ready, traffic closed
+  s6: OpenAPI traffic admitted
+  s7: Rolling upgrade, capacity retained
+  [*] --> s0
+  s0 --> s1: operator creates the explicit shared network
+  s1 --> s0: the shared network disappears
+  s1 --> s2: PostgreSQL passes readiness
+  s2 --> s3: the service CA becomes trusted
+  s3 --> s2: service authentication is withdrawn
+  s3 --> s4: the Obot replica passes readiness
+  s4 --> s5: the Worker passes readiness
+  s5 --> s6: an OpenAPI request is admitted after every gate holds
+  s5 --> s7: a one-at-a-time Obot upgrade starts or a one-at-a-time Worker upgrade starts
+  s6 --> s5: the OpenAPI request completes
+  s7 --> s5: the upgraded replica is healthy again
+  s7 --> s6: an OpenAPI request is admitted after every gate holds
+  s6 --> s7: the OpenAPI request completes
+  class s0 blue
+  class s1 blue
+  class s2 blue
+  class s3 blue
+  class s4 blue
+  class s5 blue
+  class s6 teal
+  class s7 purple

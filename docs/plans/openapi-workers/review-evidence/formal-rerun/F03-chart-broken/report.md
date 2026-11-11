@@ -1,0 +1,20 @@
+# OpenAPIHTTPProxyChartBroken
+
+TLC reached 20 states and 35 steps. The chart draws 7 states and 11 arrows.
+
+## ExecutionRequiresUniqueRoute breaks
+The shortest path has 3 steps:
+0. Ready for next request
+1. a caller sends the proxy request: Raw path and query parsed
+2. the proxy rejects the request [when no route is unique]: Rejected: no unique route
+3. the broken variant executes one of the ambiguous routes: Business request executed
+
+## ExecutionRequiresWhitelist breaks
+The shortest path has 3 steps:
+0. Ready for next request
+1. a caller sends the proxy request: Raw path and query parsed
+2. one raw template wins [when static precedence makes it unique]: One operation uniquely matched
+3. the broken variant skips the whitelist: Business request executed
+
+## Rules that hold
+RawRequestSemanticsPreservedOnExecution, RejectionNeverCallsUpstream, NoDeadlock

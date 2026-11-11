@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/openapi"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -25,9 +26,17 @@ type credentialClient interface {
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
-// Handler handles operations for MCP server catalog entries
+// openapiImporter is the narrow capability the drift probe needs: a
+// credential-free, SSRF-protected schema importer.
+type openapiImporter interface {
+	Import(ctx context.Context, config types.OpenAPIRuntimeConfig) (*openapi.Result, error)
+}
+
+// Handler owns catalog entry reconciliation handlers.
 type Handler struct {
 	gatewayClient *gclient.Client
+	// OpenAPIImporter enables periodic source drift probing when set.
+	OpenAPIImporter openapiImporter
 }
 
 // NewHandler creates a new Handler with the given gateway client.

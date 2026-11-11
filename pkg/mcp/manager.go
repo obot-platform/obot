@@ -154,6 +154,12 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 		}
 
 		backend = dockerBackend
+	case RuntimeBackendOpenAPIWorker:
+		fixedBackend, err := newFixedOpenAPIWorkerBackend(ctx, devMode, obotStorageClient, gatewayClient)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize OpenAPI Worker backend: %w", err)
+		}
+		backend = fixedBackend
 	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
 		if localK8sConfig == nil {
 			return nil, fmt.Errorf("use of Kubernetes backend requested but no local K8s config available")

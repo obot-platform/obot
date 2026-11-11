@@ -272,6 +272,24 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		PowerUserID:               powerUserID,
 		NeedsUpdate:               entry.Status.NeedsUpdate,
 		OAuthCredentialConfigured: entry.Status.OAuthCredentialConfigured,
+		OpenAPISourceDrift:        convertOpenAPISourceDrift(entry.Status.OpenAPISourceDrift),
+	}
+}
+
+func convertOpenAPISourceDrift(drift *v1.OpenAPISourceDriftStatus) *types.MCPServerCatalogEntryOpenAPIDrift {
+	if drift == nil {
+		return nil
+	}
+	return &types.MCPServerCatalogEntryOpenAPIDrift{
+		Detected:          drift.Detected,
+		LastProbedAt:      v1.NewTime(&drift.LastProbedAt),
+		NextProbeAt:       v1.NewTime(&drift.NextProbeAt),
+		SnapshotDigest:    drift.SnapshotDigest,
+		SourceDigest:      drift.SourceDigest,
+		AddedOperations:   drift.AddedOperations,
+		RemovedOperations: drift.RemovedOperations,
+		ChangedOperations: drift.ChangedOperations,
+		ProbeError:        drift.ProbeError,
 	}
 }
 
