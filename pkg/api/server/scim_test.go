@@ -165,7 +165,7 @@ func newSCIMServerTest(t *testing.T, authenticatedRateLimit int) *scimServerTest
 	chain := authn.NewAdmissionCheck(union.NewFailOnError(
 		scim.NewAuthenticator(gateway),
 		union.NewFailOnError(users, authn.Anonymous{}),
-	))
+	), nil)
 
 	logger := &recordingAuditLogger{}
 	s := &Server{

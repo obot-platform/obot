@@ -35,7 +35,7 @@ type requestGatewayClient interface {
 }
 
 type licenseEntitlementProvider interface {
-	Entitlements(context.Context) ([]string, error)
+	Entitlements(context.Context) (clienttypes.Entitlements, error)
 }
 
 // buildRequest constructs a telemetry payload, failing when required installation metadata cannot be loaded.
@@ -55,7 +55,7 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 	if err != nil {
 		return clienttypes.ProductTelemetryRequest{}, fmt.Errorf("get product telemetry distribution: %w", err)
 	}
-	distribution := license.GetDistributionFromEntitlements(entitlements)
+	distribution := distribution(entitlements)
 
 	reportedAt := time.Now().UTC()
 	dayEnd := reportedAt.Truncate(24 * time.Hour)
@@ -70,6 +70,20 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 		CurrentVersion:   version.Get().String(),
 		Metrics:          &metrics,
 	}, nil
+}
+
+// distribution returns the product distribution the entitlements represent.
+func distribution(entitlements clienttypes.Entitlements) clienttypes.ProductTelemetryDistribution {
+	switch {
+	case entitlements.Cloud:
+		return clienttypes.ProductTelemetryDistributionCloud
+	case entitlements.Enterprise:
+		return clienttypes.ProductTelemetryDistributionEnterprise
+	case entitlements.Community:
+		return clienttypes.ProductTelemetryDistributionRegistered
+	default:
+		return clienttypes.ProductTelemetryDistributionUnregistered
+	}
 }
 
 // collectMetrics gathers usage and inventory metrics, leaving fields nil when their source is unavailable.

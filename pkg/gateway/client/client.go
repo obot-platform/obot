@@ -72,16 +72,20 @@ type Client struct {
 	serviceAccountCacheTTL    time.Duration
 	deviceCreationLock        sync.Mutex
 	auditLogCleanupInterval   time.Duration
+	auditLogRetentionDays     int
+	llmAuditLogRetentionDays  int
 	auditLogDeleteBatchSize   int
 	deviceScanCleanupInterval time.Duration
+	deviceScanRetentionDays   int
 	deviceScanDeleteBatchSize int
 	mcpOAuthTokenTrigger      func(context.Context, string) error
 	groupRefresh              singleflight.Group
 	groupCooldown             groupRefreshCooldown
 	kickLifecycleDelivery     chan struct{}
-	// claudeProvisionGateSlot admits one caller at a time to WithClaudeProvisionLock.
-	claudeProvisionGateOnce sync.Once
-	claudeProvisionGateSlot chan struct{}
+	// lockGates admit one caller in this process at a time to each lock taken with withGate.
+	lockGates sync.Map
+	// startOnce keeps StartCleanups from starting the cleanups more than once.
+	startOnce sync.Once
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
@@ -107,21 +111,31 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		llmAuditBatchSize:         defaultLLMAuditLogBatchSize,
 		llmAuditEnabled:           llmAuditEnabled,
 		auditLogCleanupInterval:   defaultAuditLogCleanupInterval,
+		auditLogRetentionDays:     auditLogRetentionDays,
+		llmAuditLogRetentionDays:  llmAuditLogRetentionDays,
 		auditLogDeleteBatchSize:   defaultAuditLogDeleteBatchSize,
 		deviceScanCleanupInterval: defaultDeviceScanCleanupInterval,
+		deviceScanRetentionDays:   deviceScanRetentionDays,
 		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
 		kickLifecycleDelivery:     make(chan struct{}, 1),
 	}
 
 	c.startAuditLoops(ctx, auditLogPersistenceInterval)
-	go c.runPendingStateCleanup(ctx)
-	go c.runTokenCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
-	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	go c.runUserLifecycleEventDelivery(ctx)
-	go c.runSCIMGroupDeletionMarkExpiry(ctx)
 	return c
+}
+
+// StartCleanups starts the loops that delete expired and retained data from the database. Only one replica needs to
+// run them, so the controller starts them once this replica is elected leader. Calling it again does nothing.
+func (c *Client) StartCleanups(ctx context.Context, entitlements EntitlementProvider) {
+	c.startOnce.Do(func() {
+		go c.runPendingStateCleanup(ctx)
+		go c.runTokenCleanup(ctx)
+		go c.runRetentionCleanup(ctx, entitlements)
+		go c.runDeviceScanCleanup(ctx, c.deviceScanRetentionDays)
+		go c.runSCIMGroupDeletionMarkExpiry(ctx)
+	})
 }
 
 func (c *Client) Close() error {

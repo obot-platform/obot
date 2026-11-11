@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -332,6 +333,7 @@ func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
 	if err := req.List(&instances, kclient.MatchingFields{"spec.manifest.vmcpID": vmcp.Name}); err != nil {
 		return err
 	}
+	var refusal string
 	for i := range instances.Items {
 		instance := &instances.Items[i]
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -347,9 +349,17 @@ func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
 			}
 			return err
 		})
+		if refused, ok := mcp.ComputeLimitRefusal(err); ok {
+			// Keep releasing the others. This connection keeps its snapshot until there's room.
+			refusal = refused
+			continue
+		}
 		if err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to update VMCP instance %q: %w", instance.Name, err)
 		}
+	}
+	if refusal != "" {
+		return types.NewErrHTTP(http.StatusPaymentRequired, "The vMCP was updated, but some of its connections keep their current versions. "+refusal)
 	}
 	return nil
 }

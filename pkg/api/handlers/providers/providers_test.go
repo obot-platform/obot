@@ -43,12 +43,12 @@ func TestAuthProviderStatus(t *testing.T) {
 					},
 				},
 				nil,
-				[]string{"ENTITLEMENT"},
+				[]string{license.EnterpriseAuthProvidersEntitlement},
 			),
 			cred: map[string]string{"API_KEY": "secret"},
 			want: types.CommonProviderStatus{
 				Configured:          true,
-				MissingEntitlements: []string{"ENTITLEMENT"},
+				EntitlementsMissing: true,
 			},
 		},
 		{
@@ -236,14 +236,14 @@ func TestModelProviderStatus(t *testing.T) {
 					},
 				},
 				nil,
-				[]string{"ENTITLEMENT"},
+				[]string{license.EnterpriseAuthProvidersEntitlement},
 				2,
 			),
 			cred: map[string]string{"API_KEY": "secret"},
 			want: types.ModelProviderStatus{
 				CommonProviderStatus: types.CommonProviderStatus{
 					Configured:          true,
-					MissingEntitlements: []string{"ENTITLEMENT"},
+					EntitlementsMissing: true,
 				},
 				ModelsBackPopulated: new(true),
 			},

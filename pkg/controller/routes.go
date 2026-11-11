@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
+	"github.com/obot-platform/obot/pkg/controller/handlers/subscription"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/vmcpinstance"
@@ -42,8 +43,8 @@ func (c *Controller) setupRoutes() {
 		root.Type(&v1.AgentInstance{}).HandlerFunc(agents.Reconcile)
 	}
 
-	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
-	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.PostgresDSN, c.services.StorageClient)
+	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.EntitlementProvider, c.services.ProviderRegistryPaths)
+	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.EntitlementProvider, c.services.PostgresDSN, c.services.StorageClient)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)
@@ -100,6 +101,14 @@ func (c *Controller) setupRoutes() {
 	// Provider Configuration Changes
 	root.Type(&v1.ProviderConfigurationChange{}).HandlerFunc(providerConfigurationChanges.Reconcile)
 
+	// Subscription and EntitlementUsage, when the environment is billed
+	if c.services.BillingProvider != nil {
+		subscriptions := subscription.New(c.services.BillingProvider.Client, c.services.GatewayClient)
+		subscriptionRoute := root.Type(&v1.Subscription{}).Namespace(system.DefaultNamespace).Name(system.SubscriptionName)
+		subscriptionRoute.IncludeRemoved().HandlerFunc(subscriptions.Sync)
+		subscriptionRoute.HandlerFunc(subscriptions.EnsureOverLimitSince)
+		root.Type(&v1.EntitlementUsage{}).Namespace(system.DefaultNamespace).Name(system.EntitlementUsageName).IncludeRemoved().HandlerFunc(subscriptions.CountUsage)
+	}
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 
 	// MDMAssetSource

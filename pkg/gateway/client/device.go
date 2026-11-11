@@ -29,11 +29,6 @@ type DeviceLimit struct {
 	Unlimited bool
 }
 
-// DeviceLimitProvider resolves the current license-derived device limit.
-type DeviceLimitProvider interface {
-	DeviceLimit(context.Context) (DeviceLimit, error)
-}
-
 // DeviceEnrollment is the input to enrolling (or re-enrolling) a device.
 // PublicKey is DER SubjectPublicKeyInfo (PKIX) of the device identity key.
 type DeviceEnrollment struct {
@@ -43,6 +38,14 @@ type DeviceEnrollment struct {
 	Hostname           string
 	OS                 string
 	OSVersion          string
+}
+
+// NewDeviceLimit returns the limit an entitlement's device count sets. nil is unlimited.
+func NewDeviceLimit(limit *int64) DeviceLimit {
+	if limit == nil {
+		return DeviceLimit{Unlimited: true}
+	}
+	return DeviceLimit{Maximum: *limit}
 }
 
 // EnrollDevice registers a device's identity key trust-on-first-use and returns

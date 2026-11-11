@@ -22,23 +22,32 @@ type UserLimit struct {
 	Unlimited bool
 }
 
-// UserLimitProvider resolves the current license-derived user limit.
-type UserLimitProvider interface {
-	UserLimit(context.Context) (UserLimit, error)
+// EntitlementProvider provides what the environment may do: its features and limits. The Keygen license is one, and
+// in a billed environment the obot-billing subscription is.
+type EntitlementProvider interface {
+	Entitlements(context.Context) (types2.Entitlements, error)
 }
 
 type UserDecorator struct {
-	next              authenticator.Request
-	client            *Client
-	userLimitProvider UserLimitProvider
+	next         authenticator.Request
+	client       *Client
+	entitlements EntitlementProvider
 }
 
-func NewUserDecorator(next authenticator.Request, client *Client, userLimitProvider UserLimitProvider) *UserDecorator {
+func NewUserDecorator(next authenticator.Request, client *Client, entitlements EntitlementProvider) *UserDecorator {
 	return &UserDecorator{
-		next:              next,
-		client:            client,
-		userLimitProvider: userLimitProvider,
+		next:         next,
+		client:       client,
+		entitlements: entitlements,
 	}
+}
+
+// NewUserLimit returns the limit an entitlement's user count sets. nil is unlimited.
+func NewUserLimit(limit *int64) UserLimit {
+	if limit == nil {
+		return UserLimit{Unlimited: true}
+	}
+	return UserLimit{Maximum: *limit}
 }
 
 func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -116,14 +125,9 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 }
 
 func (u UserDecorator) resolveUserLimit(ctx context.Context) (UserLimit, error) {
-	userLimit, err := u.userLimitProvider.UserLimit(ctx)
+	granted, err := u.entitlements.Entitlements(ctx)
 	if err != nil {
 		return UserLimit{}, fmt.Errorf("failed to resolve user limit: %w", err)
 	}
-
-	if !userLimit.Unlimited && userLimit.Maximum <= 0 {
-		return UserLimit{}, fmt.Errorf("invalid user limit %d", userLimit.Maximum)
-	}
-
-	return userLimit, nil
+	return NewUserLimit(granted.Users), nil
 }
