@@ -215,17 +215,23 @@ func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map
 		}
 		key["name"], key["weight"], key["models"] = "imported-"+source, 1, []string{"*"}
 		if family == "azure" {
-			names := deployments[source]
-			slices.Sort(names)
-			if len(names) > 0 {
-				key["models"] = slices.Compact(names)
-			}
+			automatic := false
 			if source == system.AzureEntraModelProvider {
 				for field, suffix := range map[string]string{"azure_subscription_id": "_MODEL_PROVIDER_SUBSCRIPTION_ID", "azure_resource_group": "_MODEL_PROVIDER_RESOURCE_GROUP", "azure_account_name": "_MODEL_PROVIDER_RESOURCE_NAME"} {
 					if value := secretWithSuffix(secrets, suffix); value != "" {
 						key[field] = value
+						automatic = true
 					}
 				}
+			}
+			// Entra account metadata enables automatic deployment discovery. Keep "*" so
+			// its results aren't filtered down to the old inventory, hiding future deployments.
+			// API-key and manual Entra keys need retained deployment names instead;
+			// Profiles still determine which of these models each user may access.
+			names := deployments[source]
+			slices.Sort(names)
+			if !automatic && len(names) > 0 {
+				key["models"] = slices.Compact(names)
 			}
 			if secretWithSuffix(secrets, "_MODEL_PROVIDER_ENDPOINT") == "" {
 				return llmcoreclient.Provider{}, fmt.Errorf("missing endpoint")

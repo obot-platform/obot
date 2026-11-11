@@ -405,6 +405,66 @@ func TestLegacyImportReadsAzureDeploymentsWithoutChangingSources(t *testing.T) {
 	require.Equal(t, source.Spec, after.Spec)
 }
 
+func TestLegacyAzureImportPreservesDeploymentDiscoveryMode(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		source    string
+		automatic bool
+		want      []string
+	}{
+		{
+			name:      "automatic Entra includes newly discovered deployments",
+			source:    system.AzureEntraModelProvider,
+			automatic: true,
+			want:      []string{"azure/my-deployment", "azure/new-deployment"},
+		},
+		{
+			name:   "manual Entra retains explicit deployments",
+			source: system.AzureEntraModelProvider,
+			want:   []string{"azure/my-deployment"},
+		},
+		{
+			name:   "API key retains explicit deployments",
+			source: system.AzureModelProvider,
+			want:   []string{"azure/my-deployment"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, ctx := startTestEngine(t)
+			secrets := map[string]string{"OBOT_AZURE_MODEL_PROVIDER_ENDPOINT": "https://account.openai.azure.com"}
+			if tc.source == system.AzureEntraModelProvider {
+				secrets["OBOT_AZURE_MODEL_PROVIDER_CLIENT_ID"] = "client"
+				secrets["OBOT_AZURE_MODEL_PROVIDER_CLIENT_SECRET"] = "secret"
+				secrets["OBOT_AZURE_MODEL_PROVIDER_TENANT_ID"] = "tenant"
+			} else {
+				secrets["OBOT_AZURE_MODEL_PROVIDER_API_KEY"] = "api-key"
+			}
+			if tc.automatic {
+				secrets["OBOT_AZURE_MODEL_PROVIDER_SUBSCRIPTION_ID"] = "subscription"
+				secrets["OBOT_AZURE_MODEL_PROVIDER_RESOURCE_GROUP"] = "group"
+				secrets["OBOT_AZURE_MODEL_PROVIDER_RESOURCE_NAME"] = "account"
+			}
+			gateway := legacyImportGateway(t, map[string]map[string]string{tc.source: secrets})
+			source := migrationModel("m1-legacy-deployment", tc.source, "my-deployment")
+			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(source).Build()
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, storage, gateway))
+			mockAzureDiscovery(t, e, func(*http.Request) (*http.Response, error) {
+				return azureResponse(http.StatusOK, "my-deployment", "new-deployment"), nil
+			})
+			require.NoError(t, e.RefreshAzureDeployments(ctx))
+			cfg, err := e.config(ctx)
+			require.NoError(t, err)
+			models, azure := e.azureDeploymentModels(cfg, schemas.Azure)
+			require.True(t, azure)
+			var ids []string
+			for _, model := range models {
+				ids = append(ids, model.ID)
+			}
+			require.Equal(t, tc.want, ids)
+		})
+	}
+}
+
 func TestLegacyImportPreservesExistingDestinationBeforeValidatingSource(t *testing.T) {
 	for _, name := range []string{"bedrock", "bedrock_mantle"} {
 		t.Run(name, func(t *testing.T) {
