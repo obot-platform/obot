@@ -36,6 +36,9 @@ var (
 // dropUnusedMCPAuditLogIndexes drops the indexes that were removed from the MCPAuditLog model.
 // AutoMigrate creates indexes but never drops them, so databases created by earlier versions keep
 // paying to maintain them on every audit log write until they are dropped here.
+//
+// It checks for each index and only drops the ones that exist, so it is safe to run on every
+// startup. That matters because an earlier version's AutoMigrate creates them again.
 func dropUnusedMCPAuditLogIndexes(tx *gorm.DB) error {
 	migrator := tx.Migrator()
 	if !migrator.HasTable(&types.MCPAuditLog{}) {

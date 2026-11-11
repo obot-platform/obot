@@ -34,7 +34,8 @@ func testDropUnusedMCPAuditLogIndexes(t *testing.T, database *DB, tx *gorm.DB) {
 		}
 	}
 
-	// Recreate them as an earlier version would have left them.
+	// Recreate them as an earlier version would have left them. This is also what happens when a
+	// replica on an earlier version restarts after they were dropped.
 	for _, index := range unusedMCPAuditLogIndexes {
 		column := strings.TrimPrefix(index, "idx_mcp_audit_logs_")
 		if err := tx.Exec("CREATE INDEX " + index + " ON mcp_audit_logs (" + column + ")").Error; err != nil {
@@ -42,10 +43,10 @@ func testDropUnusedMCPAuditLogIndexes(t *testing.T, database *DB, tx *gorm.DB) {
 		}
 	}
 
-	// Running twice shows the migration is a no-op once the indexes are gone.
+	// The next startup drops them. Running twice shows it is a no-op once the indexes are gone.
 	for range 2 {
-		if err := dropUnusedMCPAuditLogIndexes(tx); err != nil {
-			t.Fatalf("dropUnusedMCPAuditLogIndexes() error = %v", err)
+		if err := database.AutoMigrate(); err != nil {
+			t.Fatalf("failed to migrate gateway database: %v", err)
 		}
 	}
 
@@ -53,6 +54,17 @@ func testDropUnusedMCPAuditLogIndexes(t *testing.T, database *DB, tx *gorm.DB) {
 		if migrator.HasIndex(&types.MCPAuditLog{}, index) {
 			t.Errorf("%s still exists", index)
 		}
+	}
+
+	// Only one coming back, in any later startup, is dropped as well.
+	if err := tx.Exec("CREATE INDEX idx_mcp_audit_logs_turn_id ON mcp_audit_logs (turn_id)").Error; err != nil {
+		t.Fatalf("failed to create idx_mcp_audit_logs_turn_id: %v", err)
+	}
+	if err := database.AutoMigrate(); err != nil {
+		t.Fatalf("failed to migrate gateway database: %v", err)
+	}
+	if migrator.HasIndex(&types.MCPAuditLog{}, "idx_mcp_audit_logs_turn_id") {
+		t.Error("idx_mcp_audit_logs_turn_id still exists after it was created again")
 	}
 	// The indexes that queries rely on must survive.
 	for _, index := range []string{

@@ -224,7 +224,9 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop legacy local-agent audit log columns: %w", err)
 	}
 
-	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_unused_mcp_audit_log_indexes", dropUnusedMCPAuditLogIndexes); err != nil {
+	// This runs on every startup rather than once: during a rolling upgrade, a replica on an
+	// earlier version can restart after the indexes were dropped and create them again.
+	if err = dropUnusedMCPAuditLogIndexes(tx); err != nil {
 		return fmt.Errorf("failed to drop unused mcp_audit_log indexes: %w", err)
 	}
 
