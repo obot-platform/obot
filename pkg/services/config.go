@@ -876,78 +876,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	if err = skillAccessRuleInformer.AddIndexers(map[string]gocache.IndexFunc{
-		skillaccessrule.SkillIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.SkillResourceTypeSkill {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.RepositoryIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.SkillResourceTypeSkillRepository {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.ResourceSelectorIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, resource := range rule.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.SkillResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.UserIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeUser {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.GroupIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.ObotGroupIDIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeObotGroup {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-		skillaccessrule.SubjectSelectorIndex: func(obj any) ([]string, error) {
-			rule := obj.(*v1.SkillAccessRule)
-			var results []string
-			for _, subject := range rule.Spec.Manifest.Subjects {
-				if subject.Type == apiclienttypes.SubjectTypeSelector {
-					results = append(results, subject.ID)
-				}
-			}
-			return results, nil
-		},
-	}); err != nil {
+	if err = skillAccessRuleInformer.AddIndexers(skillaccessrule.Indexers()); err != nil {
 		return nil, err
 	}
 

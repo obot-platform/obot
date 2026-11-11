@@ -1,14 +1,38 @@
 package vmcp
 
 import (
+	"maps"
 	"reflect"
 	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjects"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
+
+// userInfo returns the principal of the user with uid, as an authenticator records it.
+func userInfo(uid string, extra map[string][]string) *kuser.DefaultInfo {
+	extra = maps.Clone(extra)
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordKind(extra, principal.KindUser)
+	return &kuser.DefaultInfo{UID: uid, Extra: extra}
+}
+
+// agentInfo returns the principal of the agent with id, as its authenticator records it.
+func agentInfo(id uint, extra map[string][]string) *kuser.DefaultInfo {
+	extra = maps.Clone(extra)
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordKind(extra, principal.KindAgent)
+	uid := principal.Agent(id).String()
+	return &kuser.DefaultInfo{Name: uid, UID: uid, Extra: extra}
+}
 
 func TestAllowedToolsUnionsAllMatchingProfiles(t *testing.T) {
 	tool := func(componentID, name string) types.VMCPToolReference {
@@ -17,11 +41,8 @@ func TestAllowedToolsUnionsAllMatchingProfiles(t *testing.T) {
 	components := func(componentID string, names ...string) map[string]types.VMCPComponentSet {
 		return map[string]types.VMCPComponentSet{componentID: {AllowedTools: names}}
 	}
-	u := &kuser.DefaultInfo{
-		UID:    "1",
-		Groups: []string{"role"},
-		Extra:  map[string][]string{"obot_groups": {"owner"}, "auth_provider_groups": {"team"}},
-	}
+	u := userInfo("1", map[string][]string{"obot_groups": {"owner"}, "auth_provider_groups": {"team"}})
+	u.Groups = []string{"role"}
 	profiles := []types.VMCPProfile{
 		{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}},
 		{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "role"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"role": {AllowedTools: []string{"tool"}}}}},
@@ -62,7 +83,7 @@ func TestAllowedToolsUnionsAllMatchingProfiles(t *testing.T) {
 }
 
 func TestComponentWildcardSelections(t *testing.T) {
-	u := &kuser.DefaultInfo{UID: "1"}
+	u := userInfo("1", nil)
 	profiles := []types.VMCPProfile{{
 		Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
 		Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"gmail": {}, "everything": {AllowedTools: []string{"echo"}}}},
@@ -91,7 +112,7 @@ func TestComponentWildcardSelections(t *testing.T) {
 }
 
 func TestEnabledComponents(t *testing.T) {
-	u := &kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}}
+	u := userInfo("1", map[string][]string{"obot_groups": {"team"}})
 	components := []types.VMCPComponent{{ID: "one"}, {ID: "two"}, {ID: "three"}}
 	profile := func(subject types.Subject, permissions types.VMCPProfilePermissions) types.VMCPProfile {
 		return types.VMCPProfile{Subjects: []types.Subject{subject}, Permissions: permissions}
@@ -155,7 +176,7 @@ func TestEnabledComponents(t *testing.T) {
 }
 
 func TestInstanceGrant(t *testing.T) {
-	u := &kuser.DefaultInfo{UID: "1"}
+	u := userInfo("1", nil)
 	selection := map[string]types.VMCPComponentSet{"one": {AllowedTools: []string{"echo"}}}
 	profiles := []types.VMCPProfile{{
 		Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
@@ -204,6 +225,88 @@ func TestInstanceGrant(t *testing.T) {
 			instance := v1.VMCPInstance{Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{ComponentSet: tt.selection}}}
 			if got := InstanceGrant(u, vmcp, instance); !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("InstanceGrant() = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMatchingProfileStrengths(t *testing.T) {
+	profile := func(name string, s ...types.Subject) types.VMCPProfile {
+		return types.VMCPProfile{Name: name, Subjects: s}
+	}
+	profiles := []types.VMCPProfile{
+		profile("everyone", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		profile("users", types.Subject{Type: types.SubjectTypeUser, ID: "*"}),
+		profile("agents", types.Subject{Type: types.SubjectTypeAgent, ID: "*"}),
+		profile("user-5", types.Subject{Type: types.SubjectTypeUser, ID: "5"}),
+		profile("agent-5", types.Subject{Type: types.SubjectTypeAgent, ID: "5"}),
+		profile("team", types.Subject{Type: types.SubjectTypeGroup, ID: "team"}),
+		profile("admins", types.Subject{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}),
+		profile("mixed", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}, types.Subject{Type: types.SubjectTypeAgent, ID: "5"}),
+	}
+	groups := map[string][]string{"auth_provider_groups": {"team"}, "obot_groups": {types.GroupAdmin}}
+
+	for _, tt := range []struct {
+		name string
+		u    kuser.Info
+		want map[string]subjects.Match
+	}{
+		{
+			name: "user 5 in groups",
+			u:    userInfo("5", groups),
+			want: map[string]subjects.Match{
+				"everyone": subjects.MatchWildcardAll,
+				"users":    subjects.MatchWildcardKind,
+				"user-5":   subjects.MatchExplicit,
+				"team":     subjects.MatchGroup,
+				"admins":   subjects.MatchGroup,
+				"mixed":    subjects.MatchWildcardAll,
+			},
+		},
+		{
+			name: "agent 5 never matches user subjects or groups",
+			u:    agentInfo(5, groups),
+			want: map[string]subjects.Match{
+				"everyone": subjects.MatchWildcardAll,
+				"agents":   subjects.MatchWildcardKind,
+				"agent-5":  subjects.MatchExplicit,
+				"mixed":    subjects.MatchExplicit,
+			},
+		},
+		{
+			name: "agent 6 matches only the wildcards",
+			u:    agentInfo(6, nil),
+			want: map[string]subjects.Match{
+				"everyone": subjects.MatchWildcardAll,
+				"agents":   subjects.MatchWildcardKind,
+				"mixed":    subjects.MatchWildcardAll,
+			},
+		},
+		{
+			name: "principal without a kind matches nothing",
+			u:    &kuser.DefaultInfo{UID: "5", Extra: groups},
+			want: map[string]subjects.Match{},
+		},
+		{
+			name: "agent UID recorded as a user matches nothing",
+			u:    userInfo("agent:5", groups),
+			want: map[string]subjects.Match{},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := map[string]subjects.Match{}
+			for _, match := range MatchingProfileStrengths(tt.u, profiles) {
+				got[match.Profile.Name] = match.Match
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("MatchingProfileStrengths() = %v, want %v", got, tt.want)
+			}
+			var names []string
+			for _, p := range MatchingProfiles(tt.u, profiles) {
+				names = append(names, p.Name)
+			}
+			if len(names) != len(tt.want) {
+				t.Fatalf("MatchingProfiles() = %v, want the %d profiles of MatchingProfileStrengths", names, len(tt.want))
 			}
 		})
 	}

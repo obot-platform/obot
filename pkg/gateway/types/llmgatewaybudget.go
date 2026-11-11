@@ -5,11 +5,6 @@ import (
 )
 
 const (
-	// Subject types of MCP guardrail filters.
-	LLMGatewayBudgetSubjectUser     = "user"
-	LLMGatewayBudgetSubjectGroup    = "group"
-	LLMGatewayBudgetSubjectEveryone = "everyone"
-
 	// LLM gateway budget limit metrics.
 	LLMGatewayBudgetMetricSpend        = "spend"
 	LLMGatewayBudgetMetricTokens       = "tokens"

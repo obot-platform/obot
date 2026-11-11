@@ -30,9 +30,12 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateResponse":                 schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyList":                           schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentity":                             schema_obot_platform_obot_apiclient_types_AgentIdentity(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccess":                       schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityDisableRequest":               schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityList":                         schema_obot_platform_obot_apiclient_types_AgentIdentityList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityManifest":                     schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess":                 schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess":            schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
@@ -1278,6 +1281,69 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.Referenc
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityAccess is what the policies that can name agents grant an agent: the vMCP profiles, model access policies and skill access rules whose subjects match it, and how each matches. A policy that several of its subjects match is listed once, with its most specific match. It lists grants of a disabled agent too, which apply again once it is enabled. Whether the agent can use them, such as whether a vMCP is ready for it, is not part of it.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID is the decimal ID of the agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpProfiles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPProfiles are the matching profiles of shared vMCPs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess"),
+									},
+								},
+							},
+						},
+					},
+					"modelAccessPolicies": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ModelAccessPolicies are the matching model access policies (LLM gateway profiles).",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+					"skillAccessRules": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SkillAccessRules are the matching skill access rules.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"agentID", "vmcpProfiles", "modelAccessPolicies", "skillAccessRules"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess", "github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -1362,6 +1428,81 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.
 					},
 				},
 				Required: []string{"displayName"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityPolicyAccess is a model access policy or skill access rule whose subjects match an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"match": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "match"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityVMCPProfileAccess is a vMCP profile whose subjects match an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profileName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"match": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"vmcpID", "profileName", "match"},
 			},
 		},
 	}
@@ -8948,7 +9089,7 @@ func schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterConfig(ref comm
 					},
 					"subjects": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Subjects limits the filter to users and groups. Empty means everyone.",
+							Description: "Subjects limits the filter to users, agents and groups. Empty means everyone.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -8986,7 +9127,7 @@ func schema_obot_platform_obot_apiclient_types_MCPGuardrailFilterSubject(ref com
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MCPGuardrailFilterSubject is a user, a group or everyone.",
+				Description: "MCPGuardrailFilterSubject is a user, an agent, a group or everyone. See the MCPGuardrailSubject constants.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"type": {

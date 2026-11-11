@@ -83,3 +83,48 @@ components:
 	require.NoError(t, err)
 	require.True(t, manifest.ToolSearch)
 }
+
+func TestDecodeVMCPManifestAgentSubjects(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		subject   string
+		wantError bool
+	}{
+		{
+			name:    "every agent",
+			subject: `{type: agent, id: "*"}`,
+		},
+		{
+			name:    "everyone",
+			subject: `{type: selector, id: "*"}`,
+		},
+		{
+			name:    "every user",
+			subject: `{type: user, id: "*"}`,
+		},
+		{
+			name:      "one agent",
+			subject:   `{type: agent, id: "7"}`,
+			wantError: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := DecodeVMCPManifest([]byte(`type: vmcp
+displayName: Agents
+components:
+- id: files
+  name: Files
+  mcpServerCatalogEntryKey: files
+profiles:
+- name: agents
+  subjects:
+  - ` + tt.subject + `
+`))
+			if tt.wantError {
+				require.ErrorContains(t, err, "cannot name an agent")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

@@ -104,6 +104,8 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure app preferences: %w", err)
 	}
 
+	warnUserWildcardSubjects(ctx, c.services.StorageClient)
+
 	if err := addCatalogIDToAccessControlRules(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to add catalog ID to access control rules: %w", err)
 	}

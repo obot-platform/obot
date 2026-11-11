@@ -14,6 +14,7 @@ import (
 	aliascontroller "github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -59,13 +60,13 @@ func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testi
 		Namespace: system.DefaultNamespace,
 		Name:      "explicit",
 		Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
-			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "explicit-user"}},
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
 			Models:   []types.ModelResource{{ID: source.Name}},
 		}},
 	}
 	wildcard := explicit.DeepCopy()
 	wildcard.Name = "wildcard"
-	wildcard.Spec.Manifest.Subjects[0].ID = "wildcard-user"
+	wildcard.Spec.Manifest.Subjects[0].ID = "2"
 	wildcard.Spec.Manifest.Models[0].ID = "claude-*"
 	nativeBinding := &v1.Alias{
 		Name: alias.KeyFromScopeID("Model", source.Spec.Manifest.Alias),
@@ -99,17 +100,17 @@ func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testi
 		reference string
 		allowed   bool
 	}{
-		{name: "explicit grant with native name", principal: "explicit-user", reference: "claude-sonnet-4-5", allowed: true},
-		{name: "explicit grant with qualified name", principal: "explicit-user", reference: target.Spec.Manifest.TargetModel, allowed: true},
-		{name: "migrated default", principal: "explicit-user", reference: "llm", allowed: true},
-		{name: "native wildcard retains its meaning", principal: "wildcard-user", reference: "claude-sonnet-4-5", allowed: true},
-		{name: "other user denied", principal: "other-user", reference: "claude-sonnet-4-5"},
-		{name: "ungranted model denied", principal: "explicit-user", reference: "gpt-5"},
-		{name: "wildcard does not grant GPT", principal: "wildcard-user", reference: "gpt-5"},
-		{name: "no old ID mapping", principal: "explicit-user", reference: source.Name},
+		{name: "explicit grant with native name", principal: "1", reference: "claude-sonnet-4-5", allowed: true},
+		{name: "explicit grant with qualified name", principal: "1", reference: target.Spec.Manifest.TargetModel, allowed: true},
+		{name: "migrated default", principal: "1", reference: "llm", allowed: true},
+		{name: "native wildcard retains its meaning", principal: "2", reference: "claude-sonnet-4-5", allowed: true},
+		{name: "other user denied", principal: "3", reference: "claude-sonnet-4-5"},
+		{name: "ungranted model denied", principal: "1", reference: "gpt-5"},
+		{name: "wildcard does not grant GPT", principal: "2", reference: "gpt-5"},
+		{name: "no old ID mapping", principal: "1", reference: source.Name},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			req := api.Context{Storage: c, User: &user.DefaultInfo{UID: tc.principal}, Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil)}
+			req := api.Context{Storage: c, User: principaltest.AsUser(&user.DefaultInfo{UID: tc.principal}), Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil)}
 			model, err := backend.authorizeModel(proxy, req, tc.reference, "model")
 			if tc.allowed {
 				require.NoError(t, err)
@@ -119,7 +120,7 @@ func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testi
 			}
 		})
 	}
-	allowed, _, err := helper.GetUserAllowedModels(&user.DefaultInfo{UID: "wildcard-user"})
+	allowed, _, err := helper.GetUserAllowedModels(principaltest.AsUser(&user.DefaultInfo{UID: "2"}))
 	require.NoError(t, err)
 	require.True(t, allowed[target.Name])
 	require.False(t, allowed[source.Name], "retained models must not appear as usable models")

@@ -12,8 +12,11 @@ import (
 	"sync"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/subjects"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -28,7 +31,15 @@ var (
 
 // Identity is who a request is made for.
 type Identity struct {
+	// UserID is the storage encoding of the caller (principal.Principal.String): a user's decimal ID, or
+	// "agent:<id>" for an agent. It is what budgets count usage against and what CEL conditions see as user.id.
 	UserID string
+	// Principal is the caller's kind and ID, as its authenticator recorded them (principal.FromUserInfo). It is the
+	// zero Principal for a caller without a recorded kind, which MCP guardrail filter subjects other than everyone
+	// never match. Subjects are matched against it, never against UserID, so that a user and an agent that share a
+	// numeric ID never match each other's subjects.
+	Principal principal.Principal
+	// Groups are the caller's auth provider groups. An agent has none.
 	Groups []string
 	// ProfileIDs are the gateway profiles that apply to the caller. LLM policies apply through
 	// them.
@@ -272,20 +283,24 @@ func appliesTo(policy types.GuardrailPolicy, identity Identity) bool {
 	return subjectsMatch(policy.Subjects, identity)
 }
 
-func subjectsMatch(subjects []types.GuardrailPolicySubject, identity Identity) bool {
-	if len(subjects) == 0 {
+// subjectsMatch reports whether an MCP guardrail filter's subjects include the caller. Empty subjects are everyone.
+//
+// Subjects are policy subjects, as filterSubjects converts them, and mean what they mean in vMCP profiles
+// (pkg/subjects): the selector wildcard (everyone) is every caller,
+// user "*" every user, agent "*" every agent, a user or agent subject the one with that ID and kind, and a group
+// subject the users in that auth provider group, never an agent. Filters restrict rather than grant, so a caller
+// without a recorded kind still matches everyone, and empty subjects, though nothing else
+// (subjects.EvaluateRestriction): unlike a grant, a filter must not be escaped by a caller it cannot identify.
+func subjectsMatch(policySubjects []types2.Subject, identity Identity) bool {
+	if len(policySubjects) == 0 {
 		return true
 	}
-	return slices.ContainsFunc(subjects, func(s types.GuardrailPolicySubject) bool {
-		switch s.Type {
-		case types.LLMGatewayBudgetSubjectEveryone, "selector":
-			return true
-		case types.LLMGatewayBudgetSubjectUser:
-			return s.ID == identity.UserID
-		case types.LLMGatewayBudgetSubjectGroup:
-			return slices.Contains(identity.Groups, s.ID)
-		}
-		return false
+	groups := subjects.Groups{AuthProvider: make(map[string]struct{}, len(identity.Groups))}
+	for _, g := range identity.Groups {
+		groups.AuthProvider[g] = struct{}{}
+	}
+	return slices.ContainsFunc(policySubjects, func(s types2.Subject) bool {
+		return subjects.EvaluateRestriction(s, identity.Principal, groups) != subjects.NoMatch
 	})
 }
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -60,60 +61,66 @@ func TestSkillRouteAuthorization(t *testing.T) {
 			name:   "skills-scoped user can access skills list",
 			method: http.MethodGet,
 			path:   "/api/skills",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				Name:   "key-user",
+				UID:    "1",
 				Groups: []string{types.GroupSkills, types.GroupAuthenticated},
-			},
+			}),
 			allowed: true,
 		},
 		{
 			name:   "skills-scoped user can access skill detail",
 			method: http.MethodGet,
 			path:   "/api/skills/some-skill-id",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				Name:   "key-user",
+				UID:    "1",
 				Groups: []string{types.GroupSkills, types.GroupAuthenticated},
-			},
+			}),
 			allowed: true,
 		},
 		{
 			name:   "skills-scoped user can download skill",
 			method: http.MethodGet,
 			path:   "/api/skills/some-skill-id/download",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				Name:   "key-user",
+				UID:    "1",
 				Groups: []string{types.GroupSkills, types.GroupAuthenticated},
-			},
+			}),
 			allowed: true,
 		},
 		{
 			name:   "skills-scoped user can preview skill",
 			method: http.MethodGet,
 			path:   "/api/skills/some-skill-id/preview",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				Name:   "key-user",
+				UID:    "1",
 				Groups: []string{types.GroupSkills, types.GroupAuthenticated},
-			},
+			}),
 			allowed: true,
 		},
 		{
 			name:   "MCP-scoped user cannot access skills list",
 			method: http.MethodGet,
 			path:   "/api/skills",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				Name:   "key-user",
+				UID:    "1",
 				Groups: []string{types.GroupMCP, types.GroupAuthenticated},
-			},
+			}),
 			allowed: false,
 		},
 		{
 			name:   "skills-scoped user cannot POST skills",
 			method: http.MethodPost,
 			path:   "/api/skills",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				Name:   "key-user",
+				UID:    "1",
 				Groups: []string{types.GroupSkills, types.GroupAuthenticated},
-			},
+			}),
 			allowed: false,
 		},
 		{
@@ -243,7 +250,7 @@ func TestSkillGetAuthorizationUsesAccessRules(t *testing.T) {
 			Namespace: system.DefaultNamespace,
 			Spec: v1.SkillAccessRuleSpec{
 				Manifest: types.SkillAccessRuleManifest{
-					Subjects:  []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}},
+					Subjects:  []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
 					Resources: []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}},
 				},
 			},
@@ -257,12 +264,12 @@ func TestSkillGetAuthorizationUsesAccessRules(t *testing.T) {
 	}{
 		{
 			name:    "allowed by matching skill access rule",
-			user:    skillUser("user1"),
+			user:    skillUser("1"),
 			allowed: true,
 		},
 		{
 			name:    "denied without matching skill access rule",
-			user:    skillUser("user2"),
+			user:    skillUser("2"),
 			allowed: false,
 		},
 	} {
@@ -359,9 +366,9 @@ func newSkillAccessRuleTestAuthorizer(t *testing.T, skill *v1.Skill, rules ...*v
 }
 
 func skillUser(uid string) user.Info {
-	return &user.DefaultInfo{
+	return principaltest.AsUser(&user.DefaultInfo{
 		Name:   uid,
 		UID:    uid,
 		Groups: []string{types.GroupSkills, types.GroupAuthenticated},
-	}
+	})
 }

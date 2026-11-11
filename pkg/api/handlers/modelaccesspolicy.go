@@ -67,7 +67,7 @@ func (*ModelAccessPolicyHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := writeNewGroupSubjects(req, manifest.Subjects, nil, func() error {
+	if err := writeNewSubjects(req, manifest.Subjects, nil, func() error {
 		if err := req.Create(&policy); err != nil {
 			return fmt.Errorf("failed to create model access policy: %w", err)
 		}
@@ -93,7 +93,7 @@ func (*ModelAccessPolicyHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to get model access policy: %v", err)
 	}
 
-	if err := writeNewGroupSubjects(req, manifest.Subjects, existing.Spec.Manifest.Subjects, func() error {
+	if err := writeNewSubjects(req, manifest.Subjects, existing.Spec.Manifest.Subjects, func() error {
 		existing.Spec.Manifest = manifest
 		if err := req.Update(&existing); err != nil {
 			return fmt.Errorf("failed to update model access policy: %w", err)

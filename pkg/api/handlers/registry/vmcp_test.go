@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -51,15 +52,17 @@ func (s *registryTestStorage) List(ctx context.Context, list kclient.ObjectList,
 func TestRegistryVMCPVisibility(t *testing.T) {
 	definitions := []*v1.VMCP{
 		registryDefinition("vmcp1public", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
-		registryDefinition("vmcp1personal", "user-1", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
-		registryDefinition("vmcp1otherpersonal", "user-2", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
-		registryDefinition("vmcp1user", "", types.Subject{Type: types.SubjectTypeUser, ID: "user-1"}),
+		registryDefinition("vmcp1personal", "1", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		registryDefinition("vmcp1otherpersonal", "2", types.Subject{Type: types.SubjectTypeSelector, ID: "*"}),
+		registryDefinition("vmcp1user", "", types.Subject{Type: types.SubjectTypeUser, ID: "1"}),
 		registryDefinition("vmcp1obotgroup", "", types.Subject{Type: types.SubjectTypeObotGroup, ID: "engineering"}),
 		registryDefinition("vmcp1idpgroup", "", types.Subject{Type: types.SubjectTypeGroup, ID: "developers"}),
 		registryDefinition("vmcp1admin", "", types.Subject{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}),
 		registryDefinition("vmcp1closed", ""),
 		registryDefinition("vmcp1anonymoususer", "", types.Subject{Type: types.SubjectTypeUser, ID: "anonymous"}),
 		registryDefinition("vmcp1anonymousgroup", "", types.Subject{Type: types.SubjectTypeGroup, ID: "everyone"}),
+		// The user wildcard (users:*) names every user, so every authenticated user sees it, but anonymous discovery
+		// publishes only the selector wildcard.
 		registryDefinition("vmcp1userstar", "", types.Subject{Type: types.SubjectTypeUser, ID: "*"}),
 	}
 	objects := make([]kclient.Object, 0, len(definitions))
@@ -78,56 +81,56 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 		},
 		{
 			name: "anonymous identity and groups cannot grant private access",
-			user: &user.DefaultInfo{
+			user: principaltest.AsUser(&user.DefaultInfo{
 				UID:    "anonymous",
 				Groups: []string{authz.UnauthenticatedGroup},
 				Extra:  map[string][]string{"auth_provider_groups": {"everyone"}},
-			},
+			}),
 			want: []string{"vmcp1public"},
 		},
 		{
 			name: "identity without authenticated group cannot grant private access",
-			user: &user.DefaultInfo{
-				UID: "user-1",
-			},
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID: "1",
+			}),
 			want: []string{"vmcp1public"},
 		},
 		{
 			name: "authenticated personal and user profiles",
-			user: &user.DefaultInfo{
-				UID:    "user-1",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "1",
 				Groups: []string{types.GroupAuthenticated},
-			},
-			want: []string{"vmcp1personal", "vmcp1public", "vmcp1user"},
+			}),
+			want: []string{"vmcp1personal", "vmcp1public", "vmcp1user", "vmcp1userstar"},
 		},
 		{
 			name: "Obot and identity provider groups",
-			user: &user.DefaultInfo{
-				UID:    "user-3",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "3",
 				Groups: []string{types.GroupAuthenticated},
 				Extra: map[string][]string{
 					"obot_groups":          {"engineering"},
 					"auth_provider_groups": {"developers"},
 				},
-			},
-			want: []string{"vmcp1idpgroup", "vmcp1obotgroup", "vmcp1public"},
+			}),
+			want: []string{"vmcp1idpgroup", "vmcp1obotgroup", "vmcp1public", "vmcp1userstar"},
 		},
 		{
 			name: "revoked group membership",
-			user: &user.DefaultInfo{
-				UID:    "user-3",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "3",
 				Groups: []string{types.GroupAuthenticated},
-			},
-			want: []string{"vmcp1public"},
+			}),
+			want: []string{"vmcp1public", "vmcp1userstar"},
 		},
 		{
 			name: "admin must match consumption profiles",
-			user: &user.DefaultInfo{
-				UID:    "admin",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "4",
 				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
 				Extra:  map[string][]string{"obot_groups": {types.GroupAdmin}},
-			},
-			want: []string{"vmcp1admin", "vmcp1public"},
+			}),
+			want: []string{"vmcp1admin", "vmcp1public", "vmcp1userstar"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -170,7 +173,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 func TestRegistryOnlyPublishesDefinitions(t *testing.T) {
 	definition := registryDefinition("vmcp1public", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
 	definition.Spec.LegacySlug = "ms1migrated"
-	personal := registryDefinition("vmcp1private", "user-1")
+	personal := registryDefinition("vmcp1private", "1")
 	personal.Spec.LegacySlug = "ms1privatealias"
 	storage := newRegistryTestStorage(
 		definition,
@@ -178,7 +181,7 @@ func TestRegistryOnlyPublishesDefinitions(t *testing.T) {
 		&v1.VMCPInstance{
 			ObjectMeta: registryObjectMeta("vmcpi1connection"),
 			Spec: v1.VMCPInstanceSpec{
-				UserID:     "user-1",
+				UserID:     "1",
 				LegacySlug: "ms1connectionalias",
 				Manifest:   types.VMCPInstanceManifest{VMCPID: definition.Name},
 			},
@@ -186,7 +189,7 @@ func TestRegistryOnlyPublishesDefinitions(t *testing.T) {
 		&v1.VMCPInstance{
 			ObjectMeta: registryObjectMeta("vmcpi1secondconnection"),
 			Spec: v1.VMCPInstanceSpec{
-				UserID:   "user-2",
+				UserID:   "2",
 				Manifest: types.VMCPInstanceManifest{VMCPID: definition.Name},
 			},
 		},
@@ -200,7 +203,7 @@ func TestRegistryOnlyPublishesDefinitions(t *testing.T) {
 			},
 		},
 	)
-	for _, u := range []user.Info{nil, &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAuthenticated}}} {
+	for _, u := range []user.Info{nil, principaltest.AsUser(&user.DefaultInfo{UID: "1", Groups: []string{types.GroupAuthenticated}})} {
 		response := registryRequest(t, storage, u, "/v0.1/servers")
 		var list types.RegistryServerList
 		decodeRegistryResponse(t, response, &list)
@@ -383,7 +386,7 @@ func TestRegistryExcludesEmptyDefinitions(t *testing.T) {
 	draft.Spec.LegacySlug = "ms1draft"
 	empty := registryDefinition("vmcp1empty", "", types.Subject{Type: types.SubjectTypeSelector, ID: "*"})
 	empty.Spec.Manifest.Components = []types.VMCPComponent{}
-	personal := registryDefinition("vmcp1personal", "user-1")
+	personal := registryDefinition("vmcp1personal", "1")
 	personal.Spec.Manifest.Components = nil
 	storage := newRegistryTestStorage(ready, draft, empty, personal)
 	for _, tc := range []struct {
@@ -395,17 +398,17 @@ func TestRegistryExcludesEmptyDefinitions(t *testing.T) {
 		},
 		{
 			name: "authenticated",
-			user: &user.DefaultInfo{
-				UID:    "user-1",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "1",
 				Groups: []string{types.GroupAuthenticated},
-			},
+			}),
 		},
 		{
 			name: "admin",
-			user: &user.DefaultInfo{
-				UID:    "user-1",
+			user: principaltest.AsUser(&user.DefaultInfo{
+				UID:    "1",
 				Groups: []string{types.GroupAdmin, types.GroupAuthenticated},
-			},
+			}),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

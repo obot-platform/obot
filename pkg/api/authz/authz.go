@@ -338,6 +338,7 @@ var (
 		// a prefix, so that a new one is classified when it is added.
 		"GET /api/agents",
 		"GET /api/agents/{agent_id}",
+		"GET /api/agents/{agent_id}/access",
 		"GET /api/agents/{agent_id}/api-keys",
 		"GET /api/agents/{agent_id}/api-keys/{key_id}",
 	}

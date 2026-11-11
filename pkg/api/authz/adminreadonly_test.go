@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -122,7 +123,7 @@ func TestAdminReadonlyRulesAreReads(t *testing.T) {
 func TestAdminReadonlyRulesCoverAdminReads(t *testing.T) {
 	admin := rulesFromStatic(map[string][]string{types.GroupAdmin: adminAndOwnerRules})[0].mux
 	authorizer := newVMCPTestAuthorizer()
-	readonly := &user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()}
+	readonly := principaltest.AsUser(&user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()})
 
 	for _, route := range routerRoutes(t) {
 		if route.method != http.MethodGet {
@@ -205,8 +206,8 @@ func TestAdminReadonlyCannotMutate(t *testing.T) {
 
 	for _, pair := range pairs {
 		t.Run(pair.name, func(t *testing.T) {
-			readonly := &user.DefaultInfo{Name: "readonly", UID: "1", Groups: pair.readonly.Groups()}
-			baseline := &user.DefaultInfo{Name: "baseline", UID: "1", Groups: pair.baseline.Groups()}
+			readonly := principaltest.AsUser(&user.DefaultInfo{Name: "readonly", UID: "1", Groups: pair.readonly.Groups()})
+			baseline := principaltest.AsUser(&user.DefaultInfo{Name: "baseline", UID: "1", Groups: pair.baseline.Groups()})
 			for _, route := range routerRoutes(t) {
 				if route.method == http.MethodGet {
 					continue
@@ -336,7 +337,7 @@ func TestAdminReadonlyConnectionReadsFollowUserAccess(t *testing.T) {
 		Spec:       v1.VMCPSpec{UserID: "owner"},
 	}
 	authorizer := newVMCPTestAuthorizer(sharedWith("vmcp-shared-mine", "1"), sharedWith("vmcp-shared-other", "2"), personal)
-	readonly := &user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()}
+	readonly := principaltest.AsUser(&user.DefaultInfo{Name: "admin-readonly", UID: "1", Groups: (types.RoleBasic | types.RoleAdminReadonly).Groups()})
 
 	tests := []struct {
 		name    string

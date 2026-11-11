@@ -377,9 +377,15 @@ func (m VMCPManifest) Validate() error {
 			return fmt.Errorf("profile %q must have at least one subject", profile.Name)
 		}
 		for _, subject := range profile.Subjects {
-			if err := subject.Validate(); err != nil {
+			if err := subject.ValidateFor(PolicySystemVMCPProfile); err != nil {
 				return fmt.Errorf("profile %q has invalid subject: %w", profile.Name, err)
 			}
+		}
+		// Profiles have never required a wildcard to be their only subject, and existing ones may combine the selector
+		// wildcard with other subjects, so only the rules among wildcards apply here. The rules across a vMCP's
+		// profiles are separate.
+		if err := validateWildcardSubjects(profile.Subjects); err != nil {
+			return fmt.Errorf("profile %q has invalid subjects: %w", profile.Name, err)
 		}
 	}
 

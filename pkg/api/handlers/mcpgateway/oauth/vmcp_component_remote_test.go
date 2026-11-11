@@ -11,6 +11,7 @@ import (
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -135,10 +136,10 @@ func TestVMCPReconnectDoesNotReuseSharedServerTokens(t *testing.T) {
 		}
 		req := vmcpComponentRequest(storage, instance.Name, component.Name)
 		req.GatewayClient = gateway
-		_, config, err := manager.ServerForAction(t.Context(), connection.Name, &kuser.DefaultInfo{UID: "42"})
+		_, config, err := manager.ServerForAction(t.Context(), connection.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "42"}))
 		require.NoError(t, err)
 		require.Equal(t, connection.Name, config.MCPServerInstanceID, "gateway must select the connection's token")
-		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, &kuser.DefaultInfo{UID: "42"})
+		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "42"}))
 		require.NoError(t, err)
 		for _, check := range []func() error{
 			func() error { return h.checkVMCPComponentAuth(req) },
@@ -218,7 +219,7 @@ func TestVMCPAuthSkipsDisabledComponents(t *testing.T) {
 
 	checks := func(t *testing.T) {
 		t.Helper()
-		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, &kuser.DefaultInfo{UID: "42"})
+		aggregate, aggregateConfig, err := manager.ServerForAction(t.Context(), instance.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "42"}))
 		require.NoError(t, err)
 		recorder := httptest.NewRecorder()
 		req.ResponseWriter = recorder
@@ -270,7 +271,7 @@ func (c *vmcpOAuthInitialEventsClient) Watch(ctx context.Context, list kclient.O
 // performs for an instance without saved configuration. Call it again after
 // changing the vMCP's components or profiles.
 func syncedVMCPInstance(instance *v1.VMCPInstance, vmcp *v1.VMCP) *v1.VMCPInstance {
-	enabled := vmcpconfig.EnabledComponents(&kuser.DefaultInfo{UID: instance.Spec.UserID}, *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance))
+	enabled := vmcpconfig.EnabledComponents(principaltest.AsUser(&kuser.DefaultInfo{UID: instance.Spec.UserID}), *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance))
 	instance.Status.ConfigurationCheckHash = vmcpconfig.ConfigurationCheckHash(enabled, "")
 	return instance
 }

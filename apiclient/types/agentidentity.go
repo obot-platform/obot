@@ -82,3 +82,45 @@ type AgentAPIKeyCreateResponse struct {
 	// Key is the full API key. It is only ever shown in this response.
 	Key string `json:"key"`
 }
+
+// SubjectMatch is how a policy's subjects name an identity.
+type SubjectMatch string
+
+const (
+	// SubjectMatchExplicit is a subject that names the identity itself, such as {agent, "7"}.
+	SubjectMatchExplicit SubjectMatch = "explicit"
+	// SubjectMatchKindWildcard is the wildcard of the identity's kind: agents:* ({agent, "*"}) for an agent.
+	SubjectMatchKindWildcard SubjectMatch = "kindWildcard"
+	// SubjectMatchWildcard is the wildcard for everyone, subjects:* ({selector, "*"}).
+	SubjectMatchWildcard SubjectMatch = "wildcard"
+)
+
+// AgentIdentityAccess is what the policies that can name agents grant an agent: the vMCP profiles, model access
+// policies and skill access rules whose subjects match it, and how each matches. A policy that several of its
+// subjects match is listed once, with its most specific match. It lists grants of a disabled agent too, which apply
+// again once it is enabled. Whether the agent can use them, such as whether a vMCP is ready for it, is not part of it.
+type AgentIdentityAccess struct {
+	// AgentID is the decimal ID of the agent.
+	AgentID string `json:"agentID"`
+	// VMCPProfiles are the matching profiles of shared vMCPs.
+	VMCPProfiles []AgentIdentityVMCPProfileAccess `json:"vmcpProfiles"`
+	// ModelAccessPolicies are the matching model access policies (LLM gateway profiles).
+	ModelAccessPolicies []AgentIdentityPolicyAccess `json:"modelAccessPolicies"`
+	// SkillAccessRules are the matching skill access rules.
+	SkillAccessRules []AgentIdentityPolicyAccess `json:"skillAccessRules"`
+}
+
+// AgentIdentityVMCPProfileAccess is a vMCP profile whose subjects match an agent.
+type AgentIdentityVMCPProfileAccess struct {
+	VMCPID          string       `json:"vmcpID"`
+	VMCPDisplayName string       `json:"vmcpDisplayName,omitempty"`
+	ProfileName     string       `json:"profileName"`
+	Match           SubjectMatch `json:"match"`
+}
+
+// AgentIdentityPolicyAccess is a model access policy or skill access rule whose subjects match an agent.
+type AgentIdentityPolicyAccess struct {
+	ID          string       `json:"id"`
+	DisplayName string       `json:"displayName,omitempty"`
+	Match       SubjectMatch `json:"match"`
+}

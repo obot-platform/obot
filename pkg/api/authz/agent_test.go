@@ -480,17 +480,7 @@ func newAgentTestAuthorizer(t *testing.T) *Authorizer {
 	}
 	storage := newMCPIDIsAuthorizedTestStorage(vmcp, skill, systemServer)
 
-	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		skillaccessrule.ResourceSelectorIndex: func(obj any) ([]string, error) {
-			var results []string
-			for _, resource := range obj.(*v1.SkillAccessRule).Spec.Manifest.Resources {
-				if resource.Type == types.SkillResourceTypeSelector {
-					results = append(results, resource.ID)
-				}
-			}
-			return results, nil
-		},
-	})
+	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, skillaccessrule.Indexers())
 	if err := indexer.Add(&v1.SkillAccessRule{
 		Name:      "allow-all",
 		Namespace: system.DefaultNamespace,

@@ -3,6 +3,7 @@ package mcp
 import (
 	"testing"
 
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -27,7 +28,7 @@ func TestCatalogEntryConnectionDoesNotSelectOrCreateServer(t *testing.T) {
 				}))
 			}
 			manager := &SessionManager{storageClient: client}
-			_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), entry.Name, &kuser.DefaultInfo{UID: "7"})
+			_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), entry.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}))
 			require.ErrorContains(t, err, "invalid MCP connection ID")
 			var servers v1.MCPServerList
 			require.NoError(t, client.List(t.Context(), &servers))

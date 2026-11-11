@@ -5,13 +5,14 @@ import (
 
 	api "github.com/obot-platform/obot/apiclient/types"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestEnvironmentProfiles(t *testing.T) {
-	user := &kuser.DefaultInfo{UID: "2", Extra: map[string][]string{"auth_provider_groups": {"engineering"}}}
+	user := principaltest.AsUser(&kuser.DefaultInfo{UID: "2", Extra: map[string][]string{"auth_provider_groups": {"engineering"}}})
 	environment := gt.ClaudeEnvironment{
 		Runtime: gt.ClaudeRuntime{Resources: gt.ClaudeResources{ActorCPU: "1", ActorMemory: "2Gi", IdleTimeoutMinutes: 5, SessionRetentionDays: 30}},
 		Profiles: []gt.ClaudeEnvironmentProfile{
@@ -42,12 +43,12 @@ func TestEnvironmentProfiles(t *testing.T) {
 	environment.Profiles = []gt.ClaudeEnvironmentProfile{{Name: manifest.Profiles[0].Name, Subjects: manifest.Profiles[0].Subjects}}
 	_, err = ResolveEnvironment(user, &environment)
 	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
-	_, err = ResolveEnvironment(&kuser.DefaultInfo{Extra: map[string][]string{"obot_groups": {api.GroupAdmin}}}, &environment)
+	_, err = ResolveEnvironment(principaltest.AsUser(&kuser.DefaultInfo{UID: "4", Extra: map[string][]string{"obot_groups": {api.GroupAdmin}}}), &environment)
 	require.NoError(t, err)
 }
 
 func TestProfileEgressAddsAccess(t *testing.T) {
-	user := &kuser.DefaultInfo{UID: "2"}
+	user := principaltest.AsUser(&kuser.DefaultInfo{UID: "2"})
 	environment := gt.ClaudeEnvironment{
 		Runtime: gt.ClaudeRuntime{EgressHosts: []string{"base.example.com"}},
 		Profiles: []gt.ClaudeEnvironmentProfile{
@@ -96,7 +97,7 @@ func TestProfileEgressAddsAccess(t *testing.T) {
 }
 
 func TestEgressSecretProfilePrecedence(t *testing.T) {
-	user := &kuser.DefaultInfo{UID: "2"}
+	user := principaltest.AsUser(&kuser.DefaultInfo{UID: "2"})
 	environment := gt.ClaudeEnvironment{
 		EgressSecrets: []gt.ClaudeEgressSecret{{ID: "env", Hostname: "api.example.com", Header: "authorization", Value: "env"}},
 		Profiles: []gt.ClaudeEnvironmentProfile{

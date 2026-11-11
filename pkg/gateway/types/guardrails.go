@@ -3,6 +3,8 @@ package types
 import (
 	"encoding/json"
 	"time"
+
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 )
 
 const (
@@ -56,15 +58,9 @@ type GuardrailPolicy struct {
 	GuardrailIDs []string `gorm:"serializer:json" json:"guardrailIDs"`
 	// ProfileID is the gateway profile (a model access policy) the policy belongs to.
 	ProfileID string `gorm:"type:text;index" json:"profileID"`
-	// Subjects limit an MCP guardrail filter's policy to users and groups. They aren't stored:
+	// Subjects limit an MCP guardrail filter's policy to users, agents and groups. They aren't stored:
 	// stored policies apply through their profile.
-	Subjects []GuardrailPolicySubject `gorm:"-" json:"-"`
-}
-
-// GuardrailPolicySubject limits an MCP guardrail filter to a user, a group or everyone.
-type GuardrailPolicySubject struct {
-	Type string `json:"type"`
-	ID   string `json:"id,omitempty"`
+	Subjects []apitypes.Subject `gorm:"-" json:"-"`
 }
 
 // Guardrail configures one checker. Sensitive settings are kept in the encrypted

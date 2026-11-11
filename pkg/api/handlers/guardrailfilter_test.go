@@ -149,6 +149,27 @@ func TestValidateGuardrailFilter(t *testing.T) {
 			wantErr: "need an id",
 		},
 		{
+			name: "agent subjects name an agent by its decimal ID",
+			config: types.MCPGuardrailFilterConfig{
+				GuardrailIDs: []string{"pii"},
+				Action:       types.MCPGuardrailActionBlock,
+				Subjects:     []types.MCPGuardrailFilterSubject{{Type: types.MCPGuardrailSubjectAgent, ID: "agent:7"}},
+			},
+			wantErr: "agent subject ID must be",
+		},
+		{
+			name: "the user and agent wildcards together are everyone",
+			config: types.MCPGuardrailFilterConfig{
+				GuardrailIDs: []string{"pii"},
+				Action:       types.MCPGuardrailActionBlock,
+				Subjects: []types.MCPGuardrailFilterSubject{
+					{Type: types.MCPGuardrailSubjectUser, ID: "*"},
+					{Type: types.MCPGuardrailSubjectAgent, ID: "*"},
+				},
+			},
+			wantErr: "use the everyone subject",
+		},
+		{
 			name: "subject types are known",
 			config: types.MCPGuardrailFilterConfig{
 				GuardrailIDs: []string{"pii"},

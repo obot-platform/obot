@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -21,7 +22,7 @@ import (
 
 const (
 	vmcpOAuthID        = "vmcp1oauth"
-	vmcpOAuthUserID    = "user-oauth"
+	vmcpOAuthUserID    = "1001"
 	vmcpOAuthInstance  = "vmcpi1-user-oauth-vmcp1oauth"
 	vmcpOAuthComponent = "ms1-vmcp-oauth-component"
 )
@@ -150,7 +151,7 @@ func (f vmcpOAuthFixture) request(ctx context.Context) api.Context {
 	return api.Context{
 		Request:        request,
 		Storage:        f.storage,
-		User:           &user.DefaultInfo{Name: vmcpOAuthUserID, UID: vmcpOAuthUserID},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: vmcpOAuthUserID, UID: vmcpOAuthUserID}),
 		ResponseWriter: httptest.NewRecorder(),
 	}
 }

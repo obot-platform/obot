@@ -10,6 +10,7 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -27,7 +28,7 @@ func TestCreateAPIKeyScopedToVMCP(t *testing.T) {
 			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodPost, "/api/api-keys", createAPIKeyRequest{
 				Name:         "vMCP key",
 				MCPServerIDs: []string{vmcp.Name},
-			}, &user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": {"team"}}})
+			}, principaltest.AsUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": {"team"}}}))
 			ctx.Storage = fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).Build()
 			err := s.createAPIKey(ctx)
 			if (err == nil) != allowed {
@@ -47,7 +48,7 @@ func TestDeleteAPIKeyEndpointRevokesAndRetainsTheKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userInfo := &user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}}
+	userInfo := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}})
 	ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodDelete, "/api/api-keys/"+strconv.FormatUint(uint64(created.ID), 10), nil, userInfo)
 	ctx.SetPathValue("id", strconv.FormatUint(uint64(created.ID), 10))
 	if err := s.revokeAPIKey(ctx); err != nil {
@@ -112,7 +113,7 @@ func TestAdminAPIKeyListFiltersByOwnerKind(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userInfo := &user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}}
+	userInfo := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}})
 	for _, tt := range []struct {
 		name       string
 		path       string
@@ -189,7 +190,7 @@ func TestAPIKeyListEndpointsHideRevokedKeysUnlessRequested(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userInfo := &user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}}
+	userInfo := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}})
 	for _, tt := range []struct {
 		name         string
 		path         string

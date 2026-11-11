@@ -44,6 +44,15 @@ func referencingObjects(target string) []kclient.Object {
 			Type: types.SubjectTypeObotGroup,
 			ID:   target,
 		},
+		// Agent subjects are not group references, even one whose ID is a group's.
+		{
+			Type: types.SubjectTypeAgent,
+			ID:   "7",
+		},
+		{
+			Type: types.SubjectTypeAgent,
+			ID:   target,
+		},
 	}
 
 	return []kclient.Object{
@@ -233,7 +242,7 @@ func TestRemoveGroupSubjectsChangesOnlyAccessPolicies(t *testing.T) {
 	if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: "other", Name: "elsewhere"}, &elsewhere); err != nil {
 		t.Fatal(err)
 	}
-	if len(elsewhere.Spec.Manifest.Subjects) != 4 {
+	if len(elsewhere.Spec.Manifest.Subjects) != 6 {
 		t.Fatalf("a policy in another namespace was changed: %v", elsewhere.Spec.Manifest.Subjects)
 	}
 }

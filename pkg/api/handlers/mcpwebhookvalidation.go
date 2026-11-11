@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/groupref"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -102,7 +103,7 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		},
 	}
 
-	if err := writeNewGroupIDs(req, guardrailFilterGroups(manifest), nil, func() error {
+	if err := writeNewSubjects(req, guardrailFilterSubjects(manifest), nil, func() error {
 		if err := req.Create(&webhookValidation); err != nil {
 			return fmt.Errorf("failed to create mcp webhook validation: %w", err)
 		}
@@ -154,7 +155,13 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		manifest.Secret = ""
 	}
 
-	previousGroups := guardrailFilterGroups(webhookValidation.Spec.Manifest)
+	// The agent subjects are checked here, before the credential is written, rather than by writeNewSubjects. Only
+	// agents the filter did not name already are looked up, so a deleted agent it still names does not block an
+	// unrelated edit.
+	subjects, previousSubjects := guardrailFilterSubjects(manifest), guardrailFilterSubjects(webhookValidation.Spec.Manifest)
+	if err := checkNewAgentSubjects(req, subjects, previousSubjects); err != nil {
+		return err
+	}
 	webhookValidation.Spec.Manifest = manifest
 
 	if secretCred != nil {
@@ -174,7 +181,7 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		secretCred = cred.Secrets
 	}
 
-	if err := writeNewGroupIDs(req, guardrailFilterGroups(manifest), previousGroups, func() error {
+	if err := groupref.WriteNewSubjects(req.Context(), req.GatewayClient, req.Storage, subjects, previousSubjects, func() error {
 		if err := req.Update(&webhookValidation); err != nil {
 			return fmt.Errorf("failed to update mcp webhook validation: %w", err)
 		}
@@ -668,16 +675,10 @@ func validateGuardrailFilter(ctx context.Context, store guardrailGetter, m *type
 			return fmt.Errorf("invalid guardrail condition: %v", err)
 		}
 	}
-	for _, s := range g.Subjects {
-		switch s.Type {
-		case types.MCPGuardrailSubjectEveryone:
-		case types.MCPGuardrailSubjectUser, types.MCPGuardrailSubjectGroup:
-			if s.ID == "" {
-				return fmt.Errorf("guardrail %s subjects need an id", s.Type)
-			}
-		default:
-			return fmt.Errorf("guardrail subject type must be user, group or everyone")
-		}
+	// Subjects name callers as a vMCP profile's do, agents included. Whether a named agent exists is checked when the
+	// filter is saved (checkNewAgentSubjects), since this has no gateway client.
+	if err := types.ValidateMCPGuardrailFilterSubjects(g.Subjects); err != nil {
+		return err
 	}
 
 	if len(g.GuardrailIDs) == 0 {

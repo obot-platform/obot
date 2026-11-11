@@ -216,6 +216,13 @@ func (h *ClaudeRunnerHandler) validateEnvironment(req api.Context, environment *
 	if environment.Profiles != nil {
 		manifest.Profiles = []types.VMCPProfile{}
 		for _, profile := range environment.Profiles {
+			// Profiles are validated as vMCP profiles, which accept agent subjects, but hosted Claude sessions belong to
+			// users, so an agent subject here could never match anyone.
+			for _, subject := range profile.Subjects {
+				if subject.Type == types.SubjectTypeAgent {
+					return types.NewErrBadRequest("profile %q: agent subjects are not supported in Claude environments", profile.Name)
+				}
+			}
 			manifest.Profiles = append(manifest.Profiles, types.VMCPProfile{Name: profile.Name, Subjects: profile.Subjects})
 		}
 	}

@@ -13,6 +13,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -163,7 +164,7 @@ func TestDeleteUnauthorized(t *testing.T) {
 				if tc.userError {
 					return nil, errors.New("lookup failed")
 				}
-				return &kuser.DefaultInfo{UID: "1", Extra: tc.extra}, nil
+				return principaltest.AsUser(&kuser.DefaultInfo{UID: "1", Extra: tc.extra}), nil
 			}}
 			for range 2 {
 				err := handler.DeleteUnauthorized(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil)
@@ -197,7 +198,7 @@ func TestReconcileToolSelection(t *testing.T) {
 		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo", "revoked"}}}},
 	}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
-	u := &kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}}
+	u := principaltest.AsUser(&kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}})
 	handler := &Handler{userInfo: func(context.Context, principal.Principal) (kuser.Info, error) { return u, nil }}
 	req := router.Request{Ctx: t.Context(), Client: client, Object: instance}
 	for _, want := range []map[string]types.VMCPComponentSet{{"everything": {AllowedTools: []string{"echo"}}}, {}, {}} {
@@ -213,8 +214,10 @@ func TestReconcileToolSelection(t *testing.T) {
 		// Losing the group removes the last tool. Regaining it must not restore selection.
 		if len(u.Extra["obot_groups"]) > 0 {
 			u.Extra = nil
+			principaltest.AsUser(u)
 		} else {
 			u.Extra = map[string][]string{"obot_groups": {"team"}}
+			principaltest.AsUser(u)
 		}
 		data, err := json.Marshal(instance)
 		if err != nil {
@@ -247,7 +250,7 @@ func TestReconcileToolSelectionKeepsOwnerSelection(t *testing.T) {
 	}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	handler := &Handler{userInfo: func(context.Context, principal.Principal) (kuser.Info, error) {
-		return &kuser.DefaultInfo{UID: "1"}, nil
+		return principaltest.AsUser(&kuser.DefaultInfo{UID: "1"}), nil
 	}}
 	if err := handler.ReconcileToolSelection(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil); err != nil {
 		t.Fatal(err)
@@ -282,7 +285,7 @@ func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllComponents(t *te
 	}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	handler := &Handler{userInfo: func(context.Context, principal.Principal) (kuser.Info, error) {
-		return &kuser.DefaultInfo{UID: "1"}, nil
+		return principaltest.AsUser(&kuser.DefaultInfo{UID: "1"}), nil
 	}}
 	if err := handler.ReconcileToolSelection(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil); err != nil {
 		t.Fatal(err)
@@ -355,7 +358,7 @@ func TestSyncUserConfigurationHash(t *testing.T) {
 	userKey := vmcpconfig.ConfigurationKey("component-one", "HEADER")
 	reveals := 0
 	handler := &Handler{
-		userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"}),
+		userInfo: staticUserInfo(principaltest.AsUser(&kuser.DefaultInfo{UID: "1"})),
 		revealCredential: func(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
 			reveals++
 			if len(contexts) != 1 || contexts[0] != vmcpconfig.InstanceConfigurationCredentialContext(instance.Name) {
@@ -441,7 +444,7 @@ func TestSyncUserConfigurationHashUsesEmptyConfigurationWhenCredentialIsMissing(
 		WithObjects(vmcp, instance), instance.Spec.UserID).
 		Build()
 	handler := &Handler{
-		userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"}),
+		userInfo: staticUserInfo(principaltest.AsUser(&kuser.DefaultInfo{UID: "1"})),
 		revealCredential: func(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
 			return gatewaytypes.Credential{}, gateway.CredentialNotFoundError{
 				Contexts: contexts,
@@ -878,10 +881,10 @@ func TestEnsureMCPServersProfileAccessLifecycle(t *testing.T) {
 				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
 					return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
 				}), instance.Spec.UserID).Build()
-			u := &kuser.DefaultInfo{
+			u := principaltest.AsUser(&kuser.DefaultInfo{
 				UID:   "1",
 				Extra: map[string][]string{tc.extraKey: {tc.subjectID}},
-			}
+			})
 			lookups := 0
 			handler := &Handler{userInfo: func(_ context.Context, owner principal.Principal) (kuser.Info, error) {
 				require.Equal(t, principal.User(1), owner)
@@ -930,6 +933,7 @@ func TestEnsureMCPServersProfileAccessLifecycle(t *testing.T) {
 			otherServerBefore := otherServer.DeepCopy()
 
 			u.Extra = nil
+			principaltest.AsUser(u)
 			for range 2 {
 				reconcile()
 				require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&revokedServer), &revokedServer))
@@ -943,6 +947,7 @@ func TestEnsureMCPServersProfileAccessLifecycle(t *testing.T) {
 			require.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(&revokedServer), &v1.MCPServer{})))
 
 			u.Extra = map[string][]string{tc.extraKey: {tc.subjectID}}
+			principaltest.AsUser(u)
 			reconcile()
 			var restored v1.MCPServer
 			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&revokedServer), &restored))
@@ -1061,7 +1066,7 @@ func TestEnsureMCPServersComponentGrants(t *testing.T) {
 			handler := &Handler{userInfo: func(_ context.Context, owner principal.Principal) (kuser.Info, error) {
 				require.False(t, tc.personal, "personal parents must not look up user info")
 				require.Equal(t, principal.User(1), owner)
-				return &kuser.DefaultInfo{UID: "1"}, nil
+				return principaltest.AsUser(&kuser.DefaultInfo{UID: "1"}), nil
 			}}
 			req := router.Request{
 				Ctx:    t.Context(),
@@ -1301,7 +1306,7 @@ func TestEnsureMCPServersValidationAndOwnership(t *testing.T) {
 				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
 					return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
 				}), instance.Spec.UserID).Build()
-			handler := &Handler{userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"})}
+			handler := &Handler{userInfo: staticUserInfo(principaltest.AsUser(&kuser.DefaultInfo{UID: "1"}))}
 			before := server.DeepCopy()
 
 			err = handler.EnsureMCPServers(router.Request{

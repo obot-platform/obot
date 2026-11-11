@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
@@ -35,7 +36,7 @@ func TestInstanceConfigurationStatus(t *testing.T) {
 			}
 			return gatewaytypes.Credential{Secrets: values}, nil
 		},
-		userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"}),
+		userInfo: staticUserInfo(principaltest.AsUser(&kuser.DefaultInfo{UID: "1"})),
 	}
 	req := router.Request{Ctx: t.Context(), Client: client, Object: instance}
 	if err := handler.SyncUserConfigurationHash(req, nil); err != nil {
@@ -96,7 +97,7 @@ func TestInstanceConfigurationStatusIgnoresDisabledComponents(t *testing.T) {
 	}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, instance).WithStatusSubresource(instance), instance.Spec.UserID).Build()
-	u := &kuser.DefaultInfo{UID: "1"}
+	u := principaltest.AsUser(&kuser.DefaultInfo{UID: "1"})
 	handler := &Handler{
 		revealCredential: func(context.Context, []string, string) (gatewaytypes.Credential, error) {
 			return gatewaytypes.Credential{}, gateway.CredentialNotFoundError{}
@@ -127,6 +128,7 @@ func TestInstanceConfigurationStatusIgnoresDisabledComponents(t *testing.T) {
 		t.Fatalf("profile for another group changed missing configuration: %+v", instance.Status)
 	}
 	u.Extra = map[string][]string{"obot_groups": {"team"}}
+	principaltest.AsUser(u)
 	if err := handler.SyncUserConfigurationHash(req, nil); err != nil {
 		t.Fatal(err)
 	}

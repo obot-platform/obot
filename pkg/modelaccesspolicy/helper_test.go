@@ -1,10 +1,12 @@
 package modelaccesspolicy
 
 import (
+	"maps"
 	"testing"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -197,7 +199,7 @@ func TestResolveUpstreamModelName(t *testing.T) {
 func TestGetUserAllowedTargetModels(t *testing.T) {
 	const (
 		provider = "llm-gateway-model-provider"
-		userID   = "u1"
+		userID   = "1"
 	)
 
 	// userPolicy grants the given model IDs to userID.
@@ -371,7 +373,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newModelHelper(t, tt.models, tt.policies...)
 
-			got, allowAll, err := h.GetUserAllowedTargetModels(&kuser.DefaultInfo{Name: userID, UID: userID}, provider, tt.dialect)
+			got, allowAll, err := h.GetUserAllowedTargetModels(testUser(userID, nil), provider, tt.dialect)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantAllowAll, allowAll)
 			assert.Equal(t, tt.want, got)
@@ -380,7 +382,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 }
 
 func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
-	const userID = "u1"
+	const userID = "1"
 
 	models := []*v1.Model{
 		newModel("m1-anthropic-claude-haiku", "llm-gateway-model-provider", "anthropic/claude-haiku-4-5-20251001", true),
@@ -397,7 +399,7 @@ func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
 	}
 
 	h := newModelHelper(t, models, policy)
-	user := &kuser.DefaultInfo{Name: userID, UID: userID}
+	user := testUser(userID, nil)
 
 	for modelID, want := range map[string]bool{
 		// The pattern grants matching models from every provider
@@ -424,15 +426,36 @@ func TestObotGroupSubjectGrantsModelAccess(t *testing.T) {
 			}},
 		},
 	)
-	admin := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"obot_groups": {"admin"}}}
+	admin := testUser("1", map[string][]string{"obot_groups": {"admin"}})
 	got, err := h.UserHasAccessToModel(admin, modelID)
 	require.NoError(t, err)
 	assert.True(t, got)
 
-	idp := &kuser.DefaultInfo{UID: "user1", Extra: map[string][]string{"auth_provider_groups": {"admin"}}}
+	idp := testUser("1", map[string][]string{"auth_provider_groups": {"admin"}})
 	got, err = h.UserHasAccessToModel(idp, modelID)
 	require.NoError(t, err)
 	assert.False(t, got)
+}
+
+// testUser returns the principal of the user with uid, as an authenticator records it.
+func testUser(uid string, extra map[string][]string) *kuser.DefaultInfo {
+	extra = maps.Clone(extra)
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordKind(extra, principal.KindUser)
+	return &kuser.DefaultInfo{Name: uid, UID: uid, Extra: extra}
+}
+
+// testAgent returns the principal of the agent with id, as its authenticator records it.
+func testAgent(id uint, extra map[string][]string) *kuser.DefaultInfo {
+	extra = maps.Clone(extra)
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordKind(extra, principal.KindAgent)
+	uid := principal.Agent(id).String()
+	return &kuser.DefaultInfo{Name: uid, UID: uid, Extra: extra}
 }
 
 // newModelHelper returns a Helper whose model and policy indexers are populated,
@@ -447,12 +470,7 @@ func newModelHelper(t *testing.T, models []*v1.Model, policies ...*v1.ModelAcces
 		require.NoError(t, modelIndexer.Add(m))
 	}
 
-	mapIndexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
-		mapUserIndex:      mapSubjectIndexFunc(types2.SubjectTypeUser),
-		mapGroupIndex:     mapSubjectIndexFunc(types2.SubjectTypeGroup),
-		mapObotGroupIndex: mapSubjectIndexFunc(types2.SubjectTypeObotGroup),
-		mapSelectorIndex:  mapSubjectIndexFunc(types2.SubjectTypeSelector),
-	})
+	mapIndexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, mapIndexers())
 	for _, p := range policies {
 		require.NoError(t, mapIndexer.Add(p))
 	}
@@ -508,12 +526,12 @@ func TestRetainedLegacyModelsCannotBeGrantedByAnySelector(t *testing.T) {
 				Name:      "policy",
 				Namespace: "default",
 				Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
-					Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: "user"}},
+					Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: "1"}},
 					Models:   []types2.ModelResource{{ID: id}},
 				}},
 			}
 			helper := newModelHelper(t, []*v1.Model{legacy, target}, policy)
-			allowed, _, err := helper.GetUserAllowedModels(&kuser.DefaultInfo{UID: "user"})
+			allowed, _, err := helper.GetUserAllowedModels(testUser("1", nil))
 			require.NoError(t, err)
 			require.False(t, allowed[legacy.Name])
 			require.Equal(t, id != legacy.Name, allowed[target.Name])

@@ -72,8 +72,30 @@ type jsonText struct {
 
 // ResolveIdentity resolves whose budgets and guardrails apply to a request, and whether the
 // caller is an admin or owner.
+//
+// The identity carries the caller's principal when its authenticator recorded one (principal.FromUserInfo), and the
+// zero Principal otherwise; guardrail filter subjects are matched against it. UserID stays the caller's UID, which is
+// "agent:<id>" for an agent.
 func ResolveIdentity(_ context.Context, _ *gateway.Client, user kuser.Info) (Identity, bool, error) {
-	return Identity{UserID: user.GetUID(), Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
+	caller, _ := principal.FromUserInfo(user)
+	return Identity{UserID: user.GetUID(), Principal: caller, Groups: user.GetExtra()["auth_provider_groups"]}, principal.IsAdminOrOwner(user), nil
+}
+
+// filterSubjects returns the policy subjects that a guardrail filter's subjects name callers as. Everyone and the legacy
+// selector are the selector wildcard, whatever their ID, as they always have been. An unknown type becomes the zero
+// subject, which names no one: it is kept, so that a filter with only unknown subjects does not become one for
+// everyone.
+func filterSubjects(filterSubjects []types2.MCPGuardrailFilterSubject) []types2.Subject {
+	policySubjects := make([]types2.Subject, 0, len(filterSubjects))
+	for _, s := range filterSubjects {
+		if s.Type == "selector" {
+			policySubjects = append(policySubjects, types2.Subject{Type: types2.SubjectTypeSelector, ID: types2.SubjectWildcardID})
+			continue
+		}
+		subject, _ := s.Subject()
+		policySubjects = append(policySubjects, subject)
+	}
+	return policySubjects
 }
 
 // filterPolicy converts a guardrail filter into a policy. A guardrail that doesn't exist fails
@@ -93,10 +115,6 @@ func filterPolicy(f MCPFilter, guardrails map[string]*compiledGuardrail) *compil
 		// it was removed, blocks rather than letting findings through unnoticed.
 		action = types2.MCPGuardrailActionBlock
 	}
-	subjects := make([]types.GuardrailPolicySubject, 0, len(c.Subjects))
-	for _, s := range c.Subjects {
-		subjects = append(subjects, types.GuardrailPolicySubject{Type: s.Type, ID: s.ID})
-	}
 	r := &compiledPolicy{
 		policy: types.GuardrailPolicy{
 			ID:           f.ID,
@@ -110,7 +128,7 @@ func filterPolicy(f MCPFilter, guardrails map[string]*compiledGuardrail) *compil
 			FailClosed:   c.FailClosed,
 			BlockMessage: c.BlockMessage,
 			GuardrailIDs: c.GuardrailIDs,
-			Subjects:     subjects,
+			Subjects:     filterSubjects(c.Subjects),
 		},
 		allRedact: true,
 	}

@@ -15,6 +15,7 @@ var (
 	agentAdminReads = []string{
 		"/api/agents",
 		"/api/agents/7",
+		"/api/agents/7/access",
 		"/api/agents/7/api-keys",
 		"/api/agents/7/api-keys/1",
 	}

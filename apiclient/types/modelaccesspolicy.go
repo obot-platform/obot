@@ -41,24 +41,8 @@ type ModelResource struct {
 type ModelAccessPolicyList List[ModelAccessPolicy]
 
 func (m ModelAccessPolicyManifest) Validate() error {
-	if len(m.Subjects) == 0 {
-		return fmt.Errorf("at least one subject is required")
-	}
-
-	subjects := make(map[Subject]struct{}, len(m.Subjects))
-	for _, subject := range m.Subjects {
-		if err := subject.Validate(); err != nil {
-			return fmt.Errorf("invalid subject: %w", err)
-		}
-
-		if subject.ID == "*" && len(m.Subjects) > 1 {
-			return fmt.Errorf("wildcard subject (*) must be the only subject")
-		}
-
-		if _, ok := subjects[subject]; ok {
-			return fmt.Errorf("duplicate subject: %s/%s", subject.Type, subject.ID)
-		}
-		subjects[subject] = struct{}{}
+	if err := validatePolicySubjects(PolicySystemModelAccess, m.Subjects); err != nil {
+		return err
 	}
 
 	models := make(map[ModelResource]struct{}, len(m.Models))

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -32,10 +33,11 @@ func TestMCPConnectAllowsMigratedVMCPAliases(t *testing.T) {
 			storage := newMCPIDIsAuthorizedTestStorage(target, entry)
 			authorizer := &Authorizer{cache: storage, uncached: storage}
 			for _, scope := range []string{"", target.Name, legacyID, "*", "vmcp1other"} {
-				u := &user.DefaultInfo{UID: "7"}
+				extra := map[string][]string{}
 				if scope != "" {
-					u.Extra = map[string][]string{"authorized_mcp_ids": {scope}}
+					extra["authorized_mcp_ids"] = []string{scope}
 				}
+				u := principaltest.AsUser(&user.DefaultInfo{UID: "7", Extra: extra})
 				allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+legacyID, nil), &Resources{MCPID: legacyID}, newUser(u))
 				if err != nil || allowed != (scope != "vmcp1other") {
 					t.Fatalf("scope=%s: allowed=%v error=%v", scope, allowed, err)
@@ -45,7 +47,7 @@ func TestMCPConnectAllowsMigratedVMCPAliases(t *testing.T) {
 			if err := storage.Update(t.Context(), target); err != nil {
 				t.Fatal(err)
 			}
-			allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+legacyID, nil), &Resources{MCPID: legacyID}, newUser(&user.DefaultInfo{UID: "7"}))
+			allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+legacyID, nil), &Resources{MCPID: legacyID}, newUser(principaltest.AsUser(&user.DefaultInfo{UID: "7"})))
 			if err != nil || allowed {
 				t.Fatalf("revoked profile: allowed=%v error=%v", allowed, err)
 			}
@@ -122,7 +124,7 @@ func TestMigratedVMCPScopes(t *testing.T) {
 		})
 	}
 	for _, id := range []string{vmcp.Spec.LegacySlug, first.Spec.LegacySlug, second.Spec.LegacySlug, second.Name, component.Name} {
-		allowed, err := CheckMCPIDAccess(t.Context(), storage, nil, &user.DefaultInfo{UID: "7"}, id)
+		allowed, err := CheckMCPIDAccess(t.Context(), storage, nil, principaltest.AsUser(&user.DefaultInfo{UID: "7"}), id)
 		if err != nil || allowed != (id != component.Name) {
 			t.Fatalf("owner access to %s: allowed=%v error=%v", id, allowed, err)
 		}
@@ -134,7 +136,7 @@ func TestMigratedVMCPScopes(t *testing.T) {
 	if err := storage.Update(t.Context(), vmcp); err != nil {
 		t.Fatal(err)
 	}
-	if allowed, err := CheckMCPIDAccess(t.Context(), storage, nil, &user.DefaultInfo{UID: "7"}, second.Spec.LegacySlug); err != nil || allowed {
+	if allowed, err := CheckMCPIDAccess(t.Context(), storage, nil, principaltest.AsUser(&user.DefaultInfo{UID: "7"}), second.Spec.LegacySlug); err != nil || allowed {
 		t.Fatalf("revoked profile allowed=%v error=%v", allowed, err)
 	}
 }

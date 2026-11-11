@@ -9,6 +9,7 @@ import (
 	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ import (
 type users struct{}
 
 func (users) IdentityInfo(context.Context, principal.Principal) (kuser.Info, error) {
-	return &kuser.DefaultInfo{UID: "7"}, nil
+	return principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}), nil
 }
 
 // Compute is counted from vMCPs and their instances before any server exists, so it has to add up to what the

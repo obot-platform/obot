@@ -30,6 +30,7 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -191,7 +192,7 @@ func directProxy(t *testing.T, plugin *directFixture) (*llmProviderProxy, api.Co
 	policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: model.Name}}}}}
 	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
 	c := newUsageTestClient(t)
-	return &llmProviderProxy{backend: &bifrostProviderBackend{engine: engine}, mapHelper: helper, modelProvider: &v1.ModelProvider{Name: system.LLMGatewayModelProvider, Namespace: system.DefaultNamespace}}, api.Context{Storage: storage, GatewayClient: c, User: &user.DefaultInfo{UID: "7"}}
+	return &llmProviderProxy{backend: &bifrostProviderBackend{engine: engine}, mapHelper: helper, modelProvider: &v1.ModelProvider{Name: system.LLMGatewayModelProvider, Namespace: system.DefaultNamespace}}, api.Context{Storage: storage, GatewayClient: c, User: principaltest.AsUser(&user.DefaultInfo{UID: "7"})}
 }
 
 func (w *notifyingWriter) FlushError() error {
@@ -289,7 +290,7 @@ func TestDirectUnaryPreparationErrorDialect(t *testing.T) {
 				req.Header.Set("Anthropic-Version", "2023-06-01")
 			}
 			w := httptest.NewRecorder()
-			out := &llmResponseWriter{w: w, request: req, header: make(http.Header), cancel: func() {}, mapHelper: helper, user: &user.DefaultInfo{UID: "7"}}
+			out := &llmResponseWriter{w: w, request: req, header: make(http.Header), cancel: func() {}, mapHelper: helper, user: principaltest.AsUser(&user.DefaultInfo{UID: "7"})}
 			_, err = out.Write([]byte(`{"data":[]}`))
 			require.NoError(t, err)
 			out.finish()
@@ -500,7 +501,7 @@ func TestDirectMountedFlushFailure(t *testing.T) {
 			limiter, err := ratelimiter.New(ratelimiter.Options{AuthenticatedRateLimit: 100, UnauthenticatedRateLimit: 100})
 			require.NoError(t, err)
 			// LLM scope authorizes the fixture; the anonymous marker skips unrelated activity writes.
-			principal := &user.DefaultInfo{UID: "7", Groups: []string{types.GroupLLM, authz.UnauthenticatedGroup}}
+			principal := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{types.GroupLLM, authz.UnauthenticatedGroup}})
 			authentication := authn.NewAuthenticator(authenticator.RequestFunc(func(*http.Request) (*authenticator.Response, bool, error) {
 				return &authenticator.Response{User: principal}, true, nil
 			}))

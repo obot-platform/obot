@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -131,6 +132,6 @@ func vmcpComponentRequest(storage storage.Client, vmcpID, componentID string) ap
 		ResponseWriter: httptest.NewRecorder(),
 		Request:        request,
 		Storage:        storage,
-		User:           &user.DefaultInfo{Name: "user", UID: "42", Groups: []string{types.GroupAuthenticated}},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: "user", UID: "42", Groups: []string{types.GroupAuthenticated}}),
 	}
 }

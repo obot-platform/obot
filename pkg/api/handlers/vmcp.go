@@ -201,7 +201,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 			CreatorUserID: req.User.GetUID(),
 		},
 	}
-	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), nil, func() error {
+	if err := writeNewSubjects(req, groupref.VMCPProfileSubjects(manifest), nil, func() error {
 		if err := req.Create(&vmcp); err != nil {
 			return fmt.Errorf("failed to create VMCP: %w", err)
 		}
@@ -285,7 +285,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
 	}
 
-	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), previousSubjects, func() error {
+	if err := writeNewSubjects(req, groupref.VMCPProfileSubjects(manifest), previousSubjects, func() error {
 		if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 			Context: credentialContext,
 			Name:    vmcpconfig.StaticConfigurationCredentialName(&vmcp),

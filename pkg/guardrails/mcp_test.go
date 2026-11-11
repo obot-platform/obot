@@ -3,11 +3,14 @@ package guardrails
 import (
 	"encoding/json"
 	"errors"
+	"maps"
+	"reflect"
 	"strings"
 	"testing"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -174,13 +177,72 @@ func TestMCPFilterSubjects(t *testing.T) {
 	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectGroup, ID: "eng"}}
 	msg := MCPMessage{Method: MCPMethodToolsCall, Name: "send", Stage: StageInput, Params: json.RawMessage(`{"name":"send","arguments":{"a":"` + leakedKey + `"}}`)}
 
-	msg.Identity = Identity{UserID: "u", Groups: []string{"sales"}}
+	msg.Identity = Identity{UserID: "5", Principal: principal.User(5), Groups: []string{"sales"}}
 	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
 		t.Fatalf("filter applied to a user outside its subjects: %+v", d)
 	}
 	msg.Identity.Groups = []string{"eng"}
 	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
 		t.Fatalf("filter should block its subjects: %+v", d)
+	}
+
+	// A group never names an agent, and the agent wildcard does.
+	msg.Identity = Identity{UserID: "agent:5", Principal: principal.Agent(5), Groups: []string{"eng"}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); d.Applied {
+		t.Fatalf("a group filter applied to an agent: %+v", d)
+	}
+	f.Config.Subjects = []apitypes.MCPGuardrailFilterSubject{{Type: apitypes.MCPGuardrailSubjectAgent, ID: "*"}}
+	if d := e.CheckMCPFilter(t.Context(), f, msg); !d.Blocked {
+		t.Fatalf("an agent filter should block an agent: %+v", d)
+	}
+}
+
+func TestResolveIdentityRecordsThePrincipal(t *testing.T) {
+	withKind := func(uid string, kind principal.Kind, extra map[string][]string) kuser.Info {
+		extra = maps.Clone(extra)
+		if extra == nil {
+			extra = map[string][]string{}
+		}
+		if kind != "" {
+			principal.RecordKind(extra, kind)
+		}
+		return &kuser.DefaultInfo{UID: uid, Extra: extra}
+	}
+	for _, tt := range []struct {
+		name string
+		user kuser.Info
+		want Identity
+	}{
+		{
+			name: "user",
+			user: withKind("5", principal.KindUser, map[string][]string{"auth_provider_groups": {"eng"}}),
+			want: Identity{UserID: "5", Principal: principal.User(5), Groups: []string{"eng"}},
+		},
+		{
+			name: "agent",
+			user: withKind("agent:5", principal.KindAgent, nil),
+			want: Identity{UserID: "agent:5", Principal: principal.Agent(5)},
+		},
+		{
+			name: "no recorded kind",
+			user: withKind("5", "", map[string][]string{"auth_provider_groups": {"eng"}}),
+			want: Identity{UserID: "5", Groups: []string{"eng"}},
+		},
+		{
+			name: "agent UID recorded as a user",
+			user: withKind("agent:5", principal.KindUser, nil),
+			want: Identity{UserID: "agent:5"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _, err := ResolveIdentity(t.Context(), nil, tt.user)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("ResolveIdentity() = %+v, want %+v", got, tt.want)
+			}
+		})
 	}
 }
 

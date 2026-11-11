@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/openapi"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/subjectgroups"
@@ -1349,16 +1350,21 @@ func (h *Handler) getUserInfoForAccessControl(ctx context.Context, userID string
 		return nil, fmt.Errorf("failed to resolve effective user role: %w", err)
 	}
 
+	extra := map[string][]string{
+		// Omit the auth provider namespace and name since groupIDs may include groups from multiple auth providers.
+		"auth_provider_groups": groupIDs,
+		"obot_groups":          effectiveRole.Groups(),
+	}
+	// Record the kind, as the authenticators of users do, so that this principal is read as the user it is
+	// (principal.FromUserInfo) wherever it is evaluated, rather than as no one.
+	principal.RecordKind(extra, principal.KindUser)
+
 	return &userInfo{
 		Info: &kuser.DefaultInfo{
 			Name:   gatewayUser.Username,
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: effectiveRole.Groups(),
-			Extra: map[string][]string{
-				// Omit the auth provider namespace and name since groupIDs may include groups from multiple auth providers.
-				"auth_provider_groups": groupIDs,
-				"obot_groups":          effectiveRole.Groups(),
-			},
+			Extra:  extra,
 		},
 		role: effectiveRole,
 	}, nil

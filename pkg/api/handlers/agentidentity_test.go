@@ -43,7 +43,7 @@ type agentIdentityFixture struct {
 	t       *testing.T
 	handler http.Handler
 	gateway *gclient.Client
-	storage kclient.Client
+	storage kclient.WithWatch
 	db      *gorm.DB
 	// routes are the patterns of the routes the handler registers.
 	routes []string
@@ -638,7 +638,7 @@ func TestAgentIdentityRoutesAreUnavailableWithoutTheFeature(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newAgentIdentityFixture(t, tt.enabled, tt.authEnabled)
-			require.Len(t, f.routes, 11)
+			require.Len(t, f.routes, 12)
 
 			for _, pattern := range f.routes {
 				method, path, _ := strings.Cut(pattern, " ")
@@ -661,7 +661,7 @@ func TestAgentIdentityRoutesAreUnavailableWithoutTheFeature(t *testing.T) {
 // owners reach all of them, auditors only the reads, and no other user, no owner of an agent, and no agent does.
 func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
 	f := newAgentIdentityFixture(t, true, true)
-	require.Len(t, f.routes, 11)
+	require.Len(t, f.routes, 12)
 	authorizer := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 
 	// An agent with every scope its key can have.

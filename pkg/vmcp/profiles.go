@@ -6,8 +6,16 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjects"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
+
+// ProfileMatch is a vMCP profile that names a caller, and how strongly its subjects do.
+type ProfileMatch struct {
+	Profile types.VMCPProfile
+	// Match is the strongest match of the profile's subjects (subjects.Caller.Best). It is never subjects.NoMatch.
+	Match subjects.Match
+}
 
 // PruneRemovedComponentProfiles removes grants only for components that were
 // actually removed, leaving unrelated invalid references for validation.
@@ -22,21 +30,28 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 	}
 }
 
-// MatchingProfiles uses both Obot and authentication-provider groups.
-func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
-	obotGroups := u.GetExtra()["obot_groups"]
-	idpGroups := u.GetExtra()["auth_provider_groups"]
-	var matching []types.VMCPProfile
+// MatchingProfileStrengths returns the profiles whose subjects name u, in order, with how strongly each does. Users
+// match their user ID, users:*, subjects:*, and their auth provider and Obot groups; agents match their agent ID,
+// agents:* and subjects:* only. A caller that is not a well-formed user or agent principal matches no profile.
+func MatchingProfileStrengths(u kuser.Info, profiles []types.VMCPProfile) []ProfileMatch {
+	caller, ok := subjects.CallerFromUserInfo(u)
+	if !ok {
+		return nil
+	}
+	var matching []ProfileMatch
 	for _, profile := range profiles {
-		for _, subject := range profile.Subjects {
-			if (subject.Type == types.SubjectTypeSelector && subject.ID == "*") ||
-				(subject.Type == types.SubjectTypeUser && subject.ID == u.GetUID()) ||
-				(subject.Type == types.SubjectTypeObotGroup && slices.Contains(obotGroups, subject.ID)) ||
-				(subject.Type == types.SubjectTypeGroup && slices.Contains(idpGroups, subject.ID)) {
-				matching = append(matching, profile)
-				break
-			}
+		if match := caller.Best(profile.Subjects); match != subjects.NoMatch {
+			matching = append(matching, ProfileMatch{Profile: profile, Match: match})
 		}
+	}
+	return matching
+}
+
+// MatchingProfiles returns the profiles whose subjects name u, in order, as MatchingProfileStrengths does.
+func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
+	var matching []types.VMCPProfile
+	for _, match := range MatchingProfileStrengths(u, profiles) {
+		matching = append(matching, match.Profile)
 	}
 	return matching
 }

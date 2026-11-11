@@ -14,6 +14,7 @@ import (
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
@@ -77,10 +78,10 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 			return
 		}
 		id := strings.TrimPrefix(r.URL.Path, "/mcp-connect/")
-		allowed, err := authz.UserCanConnectToMCP(r.Context(), storage, nil, &user.DefaultInfo{
+		allowed, err := authz.UserCanConnectToMCP(r.Context(), storage, nil, principaltest.AsUser(&user.DefaultInfo{
 			UID: claims.UserID, Groups: claims.UserGroups,
 			Extra: map[string][]string{"authorized_mcp_ids": {claims.MCPID}},
-		}, id)
+		}), id)
 		if err != nil || !allowed {
 			http.Error(w, "component connection denied", http.StatusForbidden)
 			return
@@ -97,7 +98,7 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 		remoteURLValidationConfig: RemoteMCPURLValidationConfig{AllowLocalhostMCP: true},
 	}
 	t.Cleanup(sm.Close)
-	server, config, err := sm.ServerForAction(t.Context(), connection.Name, &user.DefaultInfo{UID: "7"})
+	server, config, err := sm.ServerForAction(t.Context(), connection.Name, principaltest.AsUser(&user.DefaultInfo{UID: "7"}))
 	require.NoError(t, err)
 	require.Equal(t, backing.Name, server.Name)
 	require.Equal(t, backing.Name, config.MCPServerName)
@@ -108,7 +109,7 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 	require.Equal(t, "hello", tools[0].Name)
 
 	// Actions on the shared server itself use the caller's connection, because the gateway rejects the server's ID.
-	server, config, err = sm.ServerForAction(t.Context(), backing.Name, &user.DefaultInfo{UID: "7"})
+	server, config, err = sm.ServerForAction(t.Context(), backing.Name, principaltest.AsUser(&user.DefaultInfo{UID: "7"}))
 	require.NoError(t, err)
 	require.Equal(t, backing.Name, server.Name)
 	require.Equal(t, connection.Name, config.MCPServerInstanceID)
@@ -116,10 +117,10 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, tools, 1)
 
-	_, _, err = sm.ServerForAction(t.Context(), backing.Name, &user.DefaultInfo{UID: "8"})
+	_, _, err = sm.ServerForAction(t.Context(), backing.Name, principaltest.AsUser(&user.DefaultInfo{UID: "8"}))
 	require.ErrorContains(t, err, "connect to vMCP")
 
-	admin := &user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": types.RoleAdmin.Groups()}}
+	admin := principaltest.AsUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": types.RoleAdmin.Groups()}})
 	// The caller supplies the full identity; building the config needs no user lookup.
 	sm.gatewayClient = nil
 	parent.Spec.Manifest.Profiles[0].Subjects = []types.Subject{{Type: types.SubjectTypeObotGroup, ID: types.GroupAdmin}}

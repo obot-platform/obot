@@ -16,6 +16,7 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageServices "github.com/obot-platform/obot/pkg/storage/services"
@@ -55,7 +56,7 @@ type vmcpActionInitialEventsClient struct {
 func TestLaunchServerVMCPUsesDeclaredComponentsOnly(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1launch"
-		userID      = "user-launch"
+		userID      = "2001"
 		componentID = "component-a"
 	)
 	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, false)
@@ -75,7 +76,7 @@ func TestLaunchServerVMCPUsesDeclaredComponentsOnly(t *testing.T) {
 func TestCheckOAuthVMCPChecksDeclaredRemoteComponents(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1oauth"
-		userID      = "user-oauth"
+		userID      = "2002"
 		componentID = "component-a"
 	)
 	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, true)
@@ -97,7 +98,7 @@ func TestCheckOAuthVMCPChecksDeclaredRemoteComponents(t *testing.T) {
 func TestGetOAuthURLVMCPResolvesAggregateConfiguration(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1oauth-url"
-		userID      = "user-oauth-url"
+		userID      = "2003"
 		componentID = "component-a"
 	)
 	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, false)
@@ -132,7 +133,7 @@ func TestGetOAuthURLVMCPResolvesAggregateConfiguration(t *testing.T) {
 func TestClearOAuthCredentialsVMCPUsesDeclaredRemoteComponents(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1clear-oauth"
-		userID      = "user-clear-oauth"
+		userID      = "2004"
 		componentID = "component-a"
 	)
 	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, false)
@@ -160,7 +161,7 @@ func TestClearOAuthCredentialsVMCPUsesDeclaredRemoteComponents(t *testing.T) {
 func TestClearOAuthCredentialsVMCPComponentOnlyClearsThatComponent(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1clear-component-oauth"
-		userID      = "user-clear-component-oauth"
+		userID      = "2005"
 		componentID = "component-a"
 		otherID     = "component-b"
 	)
@@ -241,7 +242,7 @@ func TestClearOAuthCredentialsVMCPComponentOnlyClearsThatComponent(t *testing.T)
 func TestClearOAuthCredentialsVMCPComponentClearsTokenFromPreviousURL(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1clear-moved-oauth"
-		userID      = "user-clear-moved-oauth"
+		userID      = "2006"
 		componentID = "component-a"
 	)
 	vmcp, instance, component, unrelated := vmcpActionObjects(vmcpID, userID, componentID, false)
@@ -390,7 +391,7 @@ func vmcpActionObjects(vmcpID, userID, componentID string, staticOAuth bool) (*v
 // performs for an instance without saved configuration. Call it again after
 // changing the vMCP's components.
 func syncedVMCPInstance(instance *v1.VMCPInstance, vmcp *v1.VMCP) *v1.VMCPInstance {
-	enabled := vmcpconfig.EnabledComponents(&kuser.DefaultInfo{UID: instance.Spec.UserID}, *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance))
+	enabled := vmcpconfig.EnabledComponents(principaltest.AsUser(&kuser.DefaultInfo{UID: instance.Spec.UserID}), *vmcp, vmcpconfig.ComponentsForInstance(*vmcp, *instance))
 	instance.Status.ConfigurationCheckHash = vmcpconfig.ConfigurationCheckHash(enabled, "")
 	return instance
 }
@@ -566,12 +567,12 @@ func TestSharedVMCPConnectionsPreserveSameUserConfiguration(t *testing.T) {
 	var previousScope string
 	for _, i := range []int{0, 1, 0} {
 		instance := []*v1.VMCPInstance{first, second}[i]
-		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, &kuser.DefaultInfo{UID: instance.Spec.UserID})
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: instance.Spec.UserID}))
 		require.NoError(t, err)
 		require.Equal(t, instance.Name, cfg.MCPServerName)
 		require.Equal(t, connections[i].Name, cfg.Components[0].ConnectID())
 		require.Equal(t, system.LocalMCPConnectURL(connections[i].Name, 8080), mcp.MMMCPConfig(cfg, nil).Servers[0].URL)
-		id, resolved, componentConfig, err := manager.ServerForActionWithConnectID(t.Context(), connections[i].Name, &kuser.DefaultInfo{UID: instance.Spec.UserID})
+		id, resolved, componentConfig, err := manager.ServerForActionWithConnectID(t.Context(), connections[i].Name, principaltest.AsUser(&kuser.DefaultInfo{UID: instance.Spec.UserID}))
 		require.NoError(t, err)
 		require.Equal(t, connections[i].Name, id)
 		require.Equal(t, server.Name, resolved.Name)
@@ -582,7 +583,7 @@ func TestSharedVMCPConnectionsPreserveSameUserConfiguration(t *testing.T) {
 		}
 		previousScope = componentConfig.Scope
 	}
-	_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), connections[0].Name, &kuser.DefaultInfo{UID: "other"})
+	_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), connections[0].Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "other"}))
 	require.Error(t, err)
 
 	// Revoking the policy must remove projected secrets, including values cached in Config.

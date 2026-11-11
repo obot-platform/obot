@@ -12,6 +12,7 @@ import (
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -31,13 +32,13 @@ func TestVMCPConsentTargetUsesSelectedInstance(t *testing.T) {
 		Name:              "vmcpi1oldest",
 		Namespace:         system.DefaultNamespace,
 		CreationTimestamp: metav1.Unix(1, 0),
-		Spec:              v1.VMCPInstanceSpec{UserID: "user", LegacySlug: "ms1oldest", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+		Spec:              v1.VMCPInstanceSpec{UserID: "1", LegacySlug: "ms1oldest", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
 	}
 	selected := &v1.VMCPInstance{
 		Name:              "vmcpi1selected",
 		Namespace:         system.DefaultNamespace,
 		CreationTimestamp: metav1.Unix(2, 0),
-		Spec:              v1.VMCPInstanceSpec{UserID: "user", LegacySlug: "ms1selected", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+		Spec:              v1.VMCPInstanceSpec{UserID: "1", LegacySlug: "ms1selected", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
 	}
 	storage := vmcpConsentStorage(vmcp, oldest, selected)
 	req := vmcpConsentRequest(storage, nil)
@@ -67,12 +68,12 @@ func TestVMCPConsentTargetChecksAccessBeforeCreatingInstance(t *testing.T) {
 		},
 		{
 			name:    "owned personal vMCP",
-			ownerID: "user",
+			ownerID: "1",
 			allowed: true,
 		},
 		{
 			name:      "shared vMCP with a matching profile",
-			subjectID: "user",
+			subjectID: "1",
 			allowed:   true,
 		},
 	} {
@@ -203,7 +204,7 @@ func vmcpConsentConfigurationTarget() (*v1.VMCP, *v1.VMCPInstance) {
 	}, &v1.VMCPInstance{
 		Name:      "vmcpi1selected",
 		Namespace: system.DefaultNamespace,
-		Spec:      v1.VMCPInstanceSpec{UserID: "user", Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1shared"}},
+		Spec:      v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1shared"}},
 	}
 }
 
@@ -227,7 +228,7 @@ func vmcpConsentRequest(storage storage.Client, gatewayClient *gatewayclient.Cli
 		Request:        httptest.NewRequest(http.MethodGet, "/oauth/consent", nil),
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
-		User:           &user.DefaultInfo{Name: "user", UID: "user", Groups: []string{types.GroupAuthenticated}},
+		User:           principaltest.AsUser(&user.DefaultInfo{Name: "user", UID: "1", Groups: []string{types.GroupAuthenticated}}),
 	}
 }
 

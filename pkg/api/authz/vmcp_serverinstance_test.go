@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -86,7 +87,7 @@ func TestVMCPComponentConnectionAuthorization(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			u := newUser(&user.DefaultInfo{UID: tc.userID, Groups: tc.groups, Extra: map[string][]string{"authorized_mcp_ids": {tc.scope}}})
+			u := newUser(principaltest.AsUser(&user.DefaultInfo{UID: tc.userID, Groups: tc.groups, Extra: map[string][]string{"authorized_mcp_ids": {tc.scope}}}))
 			allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+tc.id, nil), &Resources{MCPID: tc.id}, u)
 			if tc.allowed {
 				require.NoError(t, err)
@@ -94,7 +95,7 @@ func TestVMCPComponentConnectionAuthorization(t *testing.T) {
 			require.Equal(t, tc.allowed, allowed)
 		})
 	}
-	u := &user.DefaultInfo{UID: "7", Groups: []string{types.GroupCompositeMCP}, Extra: map[string][]string{"authorized_mcp_ids": {connection.Name}}}
+	u := principaltest.AsUser(&user.DefaultInfo{UID: "7", Groups: []string{types.GroupCompositeMCP}, Extra: map[string][]string{"authorized_mcp_ids": {connection.Name}}})
 	vmcp.Spec.Manifest.Profiles = nil
 	require.NoError(t, storage.Update(t.Context(), vmcp))
 	allowed, err := CheckMCPIDAccess(t.Context(), storage, nil, u, connection.Name)

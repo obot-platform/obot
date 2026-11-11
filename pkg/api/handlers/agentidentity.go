@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -16,6 +17,8 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/subjects"
 	"gorm.io/gorm"
 )
 
@@ -42,12 +45,12 @@ func NewAgentIdentityHandler(enabled, authEnabled bool) *AgentIdentityHandler {
 }
 
 // RegisterRoutes registers the routes of the admin API with handle. Their authorization is in pkg/api/authz: they are
-// the admin routes under /api/agents, and none of them is on the allowlist of agents. GET /api/agents/{agent_id}/access
-// is not served yet; it comes with the policy subjects of agents.
+// the admin routes under /api/agents, and none of them is on the allowlist of agents.
 func (h *AgentIdentityHandler) RegisterRoutes(handle func(pattern string, f api.HandlerFunc)) {
 	handle("GET /api/agents", h.List)
 	handle("POST /api/agents", h.Create)
 	handle("GET /api/agents/{agent_id}", h.Get)
+	handle("GET /api/agents/{agent_id}/access", h.Access)
 	handle("PUT /api/agents/{agent_id}", h.Update)
 	handle("DELETE /api/agents/{agent_id}", h.Delete)
 	handle("POST /api/agents/{agent_id}/disable", h.Disable)
@@ -138,6 +141,98 @@ func (h *AgentIdentityHandler) Get(req api.Context) error {
 		return err
 	}
 	return h.writeAgent(req, agent)
+}
+
+// Access returns the vMCP profiles, model access policies and skill access rules whose subjects match an agent, and
+// how each matches, as the policy matchers evaluate the agent (pkg/subjects). An agent matches only its own ID, the
+// agent wildcard and the wildcard for everyone, never a user or group subject, so no groups are evaluated.
+func (h *AgentIdentityHandler) Access(req api.Context) error {
+	agent, err := h.agent(req)
+	if err != nil {
+		return err
+	}
+	caller := subjects.Caller{Principal: principal.Agent(agent.ID)}
+
+	access := types.AgentIdentityAccess{
+		AgentID:             strconv.FormatUint(uint64(agent.ID), 10),
+		VMCPProfiles:        []types.AgentIdentityVMCPProfileAccess{},
+		ModelAccessPolicies: []types.AgentIdentityPolicyAccess{},
+		SkillAccessRules:    []types.AgentIdentityPolicyAccess{},
+	}
+
+	var vmcps v1.VMCPList
+	if err := req.List(&vmcps); err != nil {
+		return fmt.Errorf("failed to list vMCPs: %w", err)
+	}
+	slices.SortFunc(vmcps.Items, func(a, b v1.VMCP) int { return strings.Compare(a.Name, b.Name) })
+	for _, vmcp := range vmcps.Items {
+		// A personal vMCP grants only its owner, through no profile, and one being deleted grants no one.
+		if vmcp.IsPersonal() || !vmcp.DeletionTimestamp.IsZero() {
+			continue
+		}
+		for _, profile := range vmcp.Spec.Manifest.Profiles {
+			if match, ok := agentSubjectMatch(caller.Best(profile.Subjects)); ok {
+				access.VMCPProfiles = append(access.VMCPProfiles, types.AgentIdentityVMCPProfileAccess{
+					VMCPID:          vmcp.Name,
+					VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
+					ProfileName:     profile.Name,
+					Match:           match,
+				})
+			}
+		}
+	}
+
+	var policies v1.ModelAccessPolicyList
+	if err := req.List(&policies); err != nil {
+		return fmt.Errorf("failed to list model access policies: %w", err)
+	}
+	slices.SortFunc(policies.Items, func(a, b v1.ModelAccessPolicy) int { return strings.Compare(a.Name, b.Name) })
+	for _, policy := range policies.Items {
+		if !policy.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if match, ok := agentSubjectMatch(caller.Best(policy.Spec.Manifest.Subjects)); ok {
+			access.ModelAccessPolicies = append(access.ModelAccessPolicies, types.AgentIdentityPolicyAccess{
+				ID:          policy.Name,
+				DisplayName: policy.Spec.Manifest.DisplayName,
+				Match:       match,
+			})
+		}
+	}
+
+	var rules v1.SkillAccessRuleList
+	if err := req.List(&rules); err != nil {
+		return fmt.Errorf("failed to list skill access rules: %w", err)
+	}
+	slices.SortFunc(rules.Items, func(a, b v1.SkillAccessRule) int { return strings.Compare(a.Name, b.Name) })
+	for _, rule := range rules.Items {
+		if !rule.DeletionTimestamp.IsZero() {
+			continue
+		}
+		if match, ok := agentSubjectMatch(caller.Best(rule.Spec.Manifest.Subjects)); ok {
+			access.SkillAccessRules = append(access.SkillAccessRules, types.AgentIdentityPolicyAccess{
+				ID:          rule.Name,
+				DisplayName: rule.Spec.Manifest.DisplayName,
+				Match:       match,
+			})
+		}
+	}
+
+	return req.Write(access)
+}
+
+// agentSubjectMatch returns how a policy whose strongest match of an agent is match names the agent, and false if it
+// does not name it. An agent is in no group, so a group match is not one of an agent's, and is reported as none.
+func agentSubjectMatch(match subjects.Match) (types.SubjectMatch, bool) {
+	switch match {
+	case subjects.MatchExplicit:
+		return types.SubjectMatchExplicit, true
+	case subjects.MatchWildcardKind:
+		return types.SubjectMatchKindWildcard, true
+	case subjects.MatchWildcardAll:
+		return types.SubjectMatchWildcard, true
+	}
+	return "", false
 }
 
 // Update replaces the metadata of an agent. It changes nothing else: an agent is disabled and deleted by their own
