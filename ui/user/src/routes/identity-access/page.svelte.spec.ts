@@ -63,7 +63,7 @@ const oktaProvider: AuthProvider = {
 	port: 0,
 	configured: false,
 	missingConfigurationParameters: [],
-	missingEntitlements: [],
+	entitlementsMissing: false,
 	namespace: 'default',
 	requiredConfigurationParameters: [
 		{
@@ -108,7 +108,7 @@ const oneLoginProvider: AuthProvider = {
 	port: 0,
 	configured: false,
 	missingConfigurationParameters: [],
-	missingEntitlements: [],
+	entitlementsMissing: false,
 	namespace: 'default',
 	requiredConfigurationParameters: [
 		{
@@ -152,7 +152,7 @@ const entraSCIMProvider: AuthProvider = {
 	...entraProvider,
 	configured: false,
 	missingConfigurationParameters: [],
-	missingEntitlements: [],
+	entitlementsMissing: false,
 	optionalConfigurationParameters: [
 		...(entraProvider.optionalConfigurationParameters ?? []),
 		{
@@ -256,7 +256,7 @@ const localProvider: AuthProvider = {
 	port: 0,
 	configured: false,
 	missingConfigurationParameters: [],
-	missingEntitlements: [],
+	entitlementsMissing: false,
 	namespace: 'default'
 };
 
@@ -560,7 +560,7 @@ describe('Identity & Access Page', () => {
 				name: 'Keycloak',
 				configured: false,
 				missingConfigurationParameters: [],
-				missingEntitlements: [],
+				entitlementsMissing: false,
 				requiredConfigurationParameters: [
 					{ name: issuerParameter, friendlyName: 'Realm Issuer URL' },
 					{ name: 'OBOT_KEYCLOAK_AUTH_PROVIDER_CLIENT_ID', friendlyName: 'Client ID' },
@@ -1050,7 +1050,7 @@ describe('Identity & Access Page', () => {
 					id: CommonAuthProviderIds.LOCAL,
 					name: 'Local',
 					configured: true,
-					missingEntitlements: []
+					entitlementsMissing: false
 				};
 				worker.use(
 					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
@@ -1100,7 +1100,7 @@ describe('Identity & Access Page', () => {
 					id: CommonAuthProviderIds.LOCAL,
 					name: 'Local',
 					configured: true,
-					missingEntitlements: []
+					entitlementsMissing: false
 				};
 				errors.items = [];
 				worker.use(
@@ -1158,7 +1158,7 @@ describe('Identity & Access Page', () => {
 					id: CommonAuthProviderIds.LOCAL,
 					name: 'Local',
 					configured: true,
-					missingEntitlements: []
+					entitlementsMissing: false
 				};
 				worker.use(
 					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
@@ -1613,12 +1613,12 @@ describe('Identity & Access Page', () => {
 				id: CommonAuthProviderIds.LOCAL,
 				name: 'Local',
 				configured: true,
-				missingEntitlements: []
+				entitlementsMissing: false
 			};
 			const stagedGoogle: AuthProvider = {
 				...googleProvider,
 				staged: true,
-				missingEntitlements: []
+				entitlementsMissing: false
 			};
 			const verifiedGoogle: AuthProvider = { ...stagedGoogle, verifiedEmail: 'owner@example.com' };
 
@@ -1753,7 +1753,7 @@ describe('Identity & Access Page', () => {
 				const googleActive: AuthProvider = {
 					...googleProvider,
 					configured: true,
-					missingEntitlements: []
+					entitlementsMissing: false
 				};
 				const stagedLocal: AuthProvider = {
 					...googleProvider,
@@ -1761,7 +1761,7 @@ describe('Identity & Access Page', () => {
 					name: 'Local',
 					configured: false,
 					staged: true,
-					missingEntitlements: []
+					entitlementsMissing: false
 				};
 
 				await renderAsOwner([googleActive, stagedLocal]);

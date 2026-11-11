@@ -1,3 +1,4 @@
+import { createHttpError } from '$lib/errors';
 import { m } from '$lib/i18n';
 import { AdminService, type MCPCatalogEntry, type MCPConfig } from '$lib/services';
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
@@ -72,6 +73,24 @@ async function openAdvanced() {
 }
 
 describe('VMcpComponentConfigurationDialog.svelte', () => {
+	it('shows why the step after configuration failed', async () => {
+		await preparePageData();
+		const reason =
+			"There isn't room on the plan's hosted MCP server memory for this. Free some up, or ask an owner to change the plan.";
+		const onNext = vi.fn().mockRejectedValue(createHttpError(402, '/vmcps', reason));
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(
+			configurableEntry({ config: [field({ key: 'REGION', name: 'Region', value: 'us-east-1' })] }),
+			{ errorMessage: m.vmcps_failed_to_create() }
+		);
+
+		await page.getByRole('button', { name: 'Next' }).click();
+
+		await expect
+			.element(page.getByRole('alert'))
+			.toHaveTextContent(`Failed to create vMCP. ${reason}`);
+	});
+
 	it('lets non-administrator editors select the override', async () => {
 		await preparePageData({ profile: createMockProfile([]) });
 		const onNext = vi.fn();

@@ -70,6 +70,7 @@
 	"mcps_capacity_active_deployments": "Active Deployments",
 	"mcps_capacity_cpu_requested": "CPU Requested",
 	"mcps_capacity_memory_requested": "Memory Requested",
+	"mcps_capacity_plan_tooltip": "Maximums from this environment's plan",
 	"mcps_capacity_quota_tooltip": "Maximums based on resource quotas",
 	"mcps_capacity_title": "MCP Requested Resources",
 	"mcps_catalog_add_to_vmcp": "Add to vMCP",

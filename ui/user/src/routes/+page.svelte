@@ -7,6 +7,7 @@
 	let { data }: PageProps = $props();
 	let { authProviders, loggedIn } = $derived(data);
 	let accountInactive = $derived(data.profile?.accountInactive ?? false);
+	let environmentRestricted = $derived(data.profile?.environmentRestricted ?? false);
 	let overrideRedirect = $state<string | null>(null);
 
 	let rd = $derived.by(() => {
@@ -56,6 +57,10 @@
 				{#if accountInactive}
 					<p class="notification-error w-sm p-3 text-center text-sm" role="alert">
 						{m.login_account_inactive()}
+					</p>
+				{:else if environmentRestricted}
+					<p class="notification-error w-sm p-3 text-center text-sm" role="alert">
+						{m.login_environment_restricted()}
 					</p>
 				{/if}
 

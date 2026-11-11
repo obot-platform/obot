@@ -61,8 +61,10 @@
 			const authProviderViolations = version.current.licenseEntitlementViolations.filter(
 				(violation) => violation.type === 'authProvider'
 			);
-			for (const authProvider of authProviderViolations) {
-				await AdminService.deconfigureAuthProvider(authProvider.name);
+			for (const { name } of authProviderViolations) {
+				if (name) {
+					await AdminService.deconfigureAuthProvider(name);
+				}
 			}
 
 			reloadPage();
