@@ -282,9 +282,6 @@ config:
   # config.OBOT_SERVER_FORCE_DYNAMIC_CLIENT -- Force Dynamic Client Registration when Obot authenticates to remote MCP servers, even when the authorization server supports Client ID Metadata Documents. Defaults to false.
   OBOT_SERVER_FORCE_DYNAMIC_CLIENT: false
 
-  # config.OBOT_SERVER_MCPSERVER_SEARCH_IMAGE -- The container image to use for the MCP server search functionality.
-  OBOT_SERVER_MCPSERVER_SEARCH_IMAGE: ""
-
   # config.OBOT_SERVER_MDM_ASSET_SOURCE -- URL to the MDM assets tar archive.
   OBOT_SERVER_MDM_ASSET_SOURCE: ""
 

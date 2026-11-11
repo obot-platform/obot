@@ -43,9 +43,9 @@ const (
 )
 
 type Options struct {
-	MCPOpenAPIImage                   string   `usage:"Container image for the hosted OpenAPI runtime" default:"ghcr.io/obot-platform/mcp-images/openapi-mcp:v0.27.2"`
-	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.26.2"`
-	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.26.2"`
+	MCPOpenAPIImage                   string   `usage:"Container image for the hosted OpenAPI runtime" default:"ghcr.io/obot-platform/mcp-images/openapi-mcp:v0.28.0"`
+	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.28.0"`
+	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.28.0"`
 	MCPNamespace                      string   `usage:"The namespace to use for MCP containers" default:"obot-mcp"`
 	MCPClusterDomain                  string   `usage:"The cluster domain to use for MCP containers" default:"cluster.local"`
 	DisallowLocalhostMCP              bool     `usage:"Disallow MCP containers from connecting to localhost" default:"true"`
