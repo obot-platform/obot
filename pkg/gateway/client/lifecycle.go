@@ -33,6 +33,9 @@ const (
 	// AccountNotActiveMessage is what a user denied access by their lifecycle status is told. It does not reveal
 	// the reason, which only administrators see.
 	AccountNotActiveMessage = "You are not authorized to access this application. Contact your administrator."
+	// AgentNotActiveMessage is what a credential of an agent denied access by its lifecycle status is told. Like
+	// AccountNotActiveMessage, it does not reveal the reason.
+	AgentNotActiveMessage = "This agent is not authorized to access this application. Contact your administrator."
 )
 
 // lifecycleDelivery delivers the events of a batch that share a key at once: a user in many changed groups needs
@@ -85,6 +88,21 @@ type UserAccessLookupError struct {
 	Err    error
 }
 
+// AgentAccessDeniedError reports that an agent may not access Obot because it is disabled, deleted, or missing. It
+// is the agent's counterpart of UserAccessDeniedError: an agent and a user can share a numeric ID, so a denial
+// always says which kind of principal it is for.
+type AgentAccessDeniedError struct {
+	AgentID uint
+	Status  types2.UserStatus
+}
+
+// AgentAccessLookupError reports that an agent's lifecycle status could not be determined. Callers must deny access,
+// and must not fall back to another credential or to anonymous access.
+type AgentAccessLookupError struct {
+	AgentID uint
+	Err     error
+}
+
 // UserDeletedError reports a lifecycle change for a deleted user. Deleted users stay deleted.
 type UserDeletedError struct {
 	UserID uint
@@ -118,6 +136,23 @@ func (e *UserAccessLookupError) Error() string {
 }
 
 func (e *UserAccessLookupError) Unwrap() error {
+	return e.Err
+}
+
+func (e *AgentAccessDeniedError) Error() string {
+	return fmt.Sprintf("agent %d is %s", e.AgentID, e.Status)
+}
+
+// HTTPError returns the response for a request denied by this error.
+func (e *AgentAccessDeniedError) HTTPError() *types2.ErrHTTP {
+	return types2.NewErrHTTP(http.StatusForbidden, AgentNotActiveMessage)
+}
+
+func (e *AgentAccessLookupError) Error() string {
+	return fmt.Sprintf("failed to check the status of agent %d: %v", e.AgentID, e.Err)
+}
+
+func (e *AgentAccessLookupError) Unwrap() error {
 	return e.Err
 }
 

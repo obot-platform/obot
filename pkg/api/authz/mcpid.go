@@ -104,6 +104,9 @@ func userCanConnectToResolvedMCP(ctx context.Context, client kclient.Client, acr
 		return false, err
 	}
 
+	// An empty authorized_mcp_ids restricts nothing, as for a browser session, which carries none. An agent's
+	// credential always names what it may connect to, and authorizeAgent refuses an agent with an empty one before it
+	// gets here.
 	if authorizedMCPIDs := user.GetExtra()["authorized_mcp_ids"]; len(authorizedMCPIDs) > 0 {
 		return mcpIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), connection, resources)
 	}

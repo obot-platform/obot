@@ -172,6 +172,10 @@ func TestFromUserInfo(t *testing.T) {
 			user: marked("agent:9", KindUser),
 		},
 		{
+			name: "malformed agent UID marked as an agent",
+			user: marked("agent:nine", KindAgent),
+		},
+		{
 			name: "malformed UID marked as a user",
 			user: marked("anonymous", KindUser),
 		},
@@ -223,6 +227,10 @@ func TestFromUserInfo(t *testing.T) {
 			if got != tt.want || ok != tt.wantOK {
 				t.Fatalf("FromUserInfo() = %#v, %v; want %#v, %v", got, ok, tt.want, tt.wantOK)
 			}
+			// IsAgent holds only for a well-formed agent; ClaimsAgent is the lenient check for malformed ones.
+			if got, want := IsAgent(tt.user), tt.want.Kind == KindAgent; got != want {
+				t.Fatalf("IsAgent() = %v, want %v", got, want)
+			}
 		})
 	}
 }
@@ -232,5 +240,125 @@ func TestRecordKindReplacesSuppliedValue(t *testing.T) {
 	RecordKind(extra, KindUser)
 	if got := extra[KindExtra]; len(got) != 1 || got[0] != string(KindUser) {
 		t.Fatalf("%s = %q, want [%q]", KindExtra, got, KindUser)
+	}
+}
+
+func TestClaimsAgent(t *testing.T) {
+	withKinds := func(uid string, kinds ...Kind) kuser.Info {
+		extra := map[string][]string{}
+		for _, kind := range kinds {
+			extra[KindExtra] = append(extra[KindExtra], string(kind))
+		}
+		return &kuser.DefaultInfo{
+			UID:   uid,
+			Extra: extra,
+		}
+	}
+
+	for _, tt := range []struct {
+		name string
+		user kuser.Info
+		want bool
+	}{
+		{
+			name: "agent",
+			user: withKinds("agent:7", KindAgent),
+			want: true,
+		},
+		{
+			name: "user",
+			user: withKinds("7", KindUser),
+		},
+		{
+			name: "user with no recorded kind",
+			user: withKinds("7"),
+		},
+		{
+			name: "system principal",
+			user: withKinds("system"),
+		},
+		{
+			name: "agent UID recorded as a user",
+			user: withKinds("agent:7", KindUser),
+			want: true,
+		},
+		{
+			name: "agent UID with no recorded kind",
+			user: withKinds("agent:7"),
+			want: true,
+		},
+		{
+			name: "malformed agent UID",
+			user: withKinds("agent:seven"),
+			want: true,
+		},
+		{
+			name: "user UID recorded as an agent",
+			user: withKinds("7", KindAgent),
+			want: true,
+		},
+		{
+			name: "kinds recorded more than once",
+			user: withKinds("7", KindUser, KindAgent),
+			want: true,
+		},
+		{
+			name: "nil",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ClaimsAgent(tt.user); got != tt.want {
+				t.Fatalf("ClaimsAgent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseAgent(t *testing.T) {
+	for _, tt := range []struct {
+		owner      string
+		wantID     string
+		wantOK     bool
+		wantClaims bool
+	}{
+		{
+			owner:      "agent:7",
+			wantID:     "7",
+			wantOK:     true,
+			wantClaims: true,
+		},
+		{
+			owner:      "agent:007",
+			wantID:     "7",
+			wantOK:     true,
+			wantClaims: true,
+		},
+		{
+			owner: "7",
+		},
+		{
+			owner:      "agent:seven",
+			wantClaims: true,
+		},
+		{
+			owner:      "agent:",
+			wantClaims: true,
+		},
+		{
+			owner: "user:7",
+		},
+		{
+			owner: "",
+		},
+	} {
+		t.Run(tt.owner, func(t *testing.T) {
+			id, ok := ParseAgent(tt.owner)
+			if id != tt.wantID || ok != tt.wantOK {
+				t.Fatalf("ParseAgent(%q) = %q, %v; want %q, %v", tt.owner, id, ok, tt.wantID, tt.wantOK)
+			}
+			if got := ClaimsAgentOwner(tt.owner); got != tt.wantClaims {
+				t.Fatalf("ClaimsAgentOwner(%q) = %v, want %v", tt.owner, got, tt.wantClaims)
+			}
+		})
 	}
 }

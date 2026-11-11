@@ -34,20 +34,35 @@ const (
 	maxAPIKeyNameCharacters = 512
 )
 
+var (
+	// agentTokenGroups are the only groups a token issued for an agent may carry. Tokens are only issued to agents
+	// for Obot's internal MCP connections, such as a composite vMCP's loopback to its components, and an agent has
+	// no role, so no token grants an agent any other route.
+	agentTokenGroups = []string{apitypes.GroupMCP, apitypes.GroupCompositeMCP, apitypes.GroupAuthenticated}
+)
+
 type TokenService struct {
 	lock          sync.RWMutex
 	privateKey    ed25519.PrivateKey
 	jwks          json.RawMessage
 	gatewayClient *client.Client
 	serverURL     string
+	// enableAgentIdentities lets tokens be issued to and authenticate agents. Without it, a token for an agent is
+	// neither issued nor authenticated.
+	enableAgentIdentities bool
 }
 
 type TokenContext struct {
-	Issuer                string `json:"iss"`
-	Audience              string `json:"aud"`
-	IssuedAt              Time   `json:"iat"`
-	ExpiresAt             Time   `json:"exp"`
-	UserID                string `json:"sub"`
+	Issuer    string `json:"iss"`
+	Audience  string `json:"aud"`
+	IssuedAt  Time   `json:"iat"`
+	ExpiresAt Time   `json:"exp"`
+	// UserID is the subject: the storage encoding of the principal the token is for (principal.Principal.String),
+	// a user's decimal ID or "agent:<id>".
+	UserID string `json:"sub"`
+	// PrincipalKind is the kind of the subject, which NewToken records. Tokens issued before it was recorded have
+	// none, and are users'. A token whose subject is not of this kind authenticates no one.
+	PrincipalKind         string `json:"obot_principal_kind,omitempty"`
 	UserName              string `json:"name"`
 	UserEmail             string `json:"email"`
 	OAuthScope            string `json:"scope"`
@@ -76,10 +91,13 @@ type TokenContext struct {
 	Model         string
 }
 
-func NewTokenService(serverURL string, gatewayClient *client.Client) (*TokenService, error) {
+// NewTokenService returns a service that issues and authenticates Obot's own tokens. Tokens are only issued to and
+// authenticate agents if enableAgentIdentities is set.
+func NewTokenService(serverURL string, gatewayClient *client.Client, enableAgentIdentities bool) (*TokenService, error) {
 	t := &TokenService{
-		gatewayClient: gatewayClient,
-		serverURL:     serverURL,
+		gatewayClient:         gatewayClient,
+		serverURL:             serverURL,
+		enableAgentIdentities: enableAgentIdentities,
 	}
 	return t, nil
 }
@@ -200,13 +218,64 @@ func (t TokenContext) GetSubject() (string, error) {
 	return t.UserID, nil
 }
 
+// Principal returns the principal the token is for: its subject, which must be of the kind its PrincipalKind claim
+// names. A token issued before that claim was recorded has none, and is a user's, so such a token can never
+// authenticate an agent. It reports false for a subject that is not a principal, or not of the claimed kind, so a
+// token is never read as an identity of another kind, such as the user with an agent's numeric ID.
+func (t TokenContext) Principal() (principal.Principal, bool) {
+	p, err := principal.Parse(t.UserID)
+	if err != nil {
+		return principal.Principal{}, false
+	}
+	kind := principal.Kind(t.PrincipalKind)
+	if kind == "" {
+		kind = principal.KindUser
+	}
+	if kind != p.Kind {
+		return principal.Principal{}, false
+	}
+	return p, true
+}
+
+// RequestToken returns the token a request presents: the Authorization header's bearer value, or else the X-API-Key
+// header's value.
+func RequestToken(req *http.Request) string {
+	if token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer "); token != "" {
+		return token
+	}
+	return req.Header.Get("X-API-Key")
+}
+
+// ClaimsAgentToken reports whether token is a JWT whose claims name an agent, by its subject or by its principal kind.
+// The claims are read without checking the token's signature or expiry: a token is classified by what it claims to
+// be, so that one that is forged, expired or signed with a replaced key is refused like any other agent token that
+// fails. It is the one classifier of agent tokens, for this guard and for any code that must not treat a refused agent
+// token as a user's, such as the MCP gateway's decision to withhold an interactive challenge.
+func ClaimsAgentToken(token string) bool {
+	claims, ok := unverifiedClaims(token)
+	if !ok {
+		return false
+	}
+	subject, _ := claims["sub"].(string)
+	// The principal kind claim has the name of the user info extra that records the kind once the token authenticates.
+	kind, _ := claims[principal.KindExtra].(string)
+	// The subject of an agent's token is its storage encoding, "agent:<id>" (principal.Principal.String). Its prefix
+	// is tested rather than the subject parsed, so that a malformed agent subject is classified as an agent's too.
+	return principal.IsAgentKind(kind) || principal.ClaimsAgentOwner(subject)
+}
+
+// unverifiedClaims returns the claims of token, a JWT, without checking its signature or expiry. It is only for
+// classifying a token by what it claims to be (ClaimsAgentToken), never for trusting them.
+func unverifiedClaims(token string) (jwt.MapClaims, bool) {
+	claims := jwt.MapClaims{}
+	_, _, err := jwt.NewParser().ParseUnverified(token, claims)
+	return claims, err == nil
+}
+
 func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	token := strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	token := RequestToken(req)
 	if token == "" {
-		token = req.Header.Get("X-API-Key")
-		if token == "" {
-			return nil, false, nil
-		}
+		return nil, false, nil
 	}
 
 	tokenContext, err := t.DecodeToken(req.Context(), token)
@@ -214,16 +283,20 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		return nil, false, nil
 	}
 
+	// Tokens for anything other than a user or an agent are not authenticated here.
+	owner, ok := tokenContext.Principal()
+	if !ok {
+		return nil, false, nil
+	}
+
+	// What the token itself grants, for either kind of principal.
 	extra := map[string][]string{
-		"email":                   {tokenContext.UserEmail},
-		"auth_provider_name":      {tokenContext.AuthProviderName},
-		"auth_provider_namespace": {tokenContext.AuthProviderNamespace},
-		"mcp_id":                  {tokenContext.MCPID},
-		"resource":                {tokenContext.Audience},
-		"oauthScope":              {tokenContext.OAuthScope},
-		"oauth_client_id":         {tokenContext.OAuthClientID},
-		"oauth_connection_id":     {tokenContext.OAuthConnectionID},
-		"authorized_mcp_ids":      tokenContext.AuthorizedMCPIDs,
+		"mcp_id":              {tokenContext.MCPID},
+		"resource":            {tokenContext.Audience},
+		"oauthScope":          {tokenContext.OAuthScope},
+		"oauth_client_id":     {tokenContext.OAuthClientID},
+		"oauth_connection_id": {tokenContext.OAuthConnectionID},
+		"authorized_mcp_ids":  tokenContext.AuthorizedMCPIDs,
 	}
 	if tokenContext.MCPID != "" {
 		extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], tokenContext.MCPID)
@@ -236,18 +309,22 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		extra[principal.APIKeyRawNameExtra] = []string{tokenContext.APIKeyRawName}
 	}
 
-	groups := tokenContext.UserGroups
-	extra["obot_groups"] = slices.Clone(groups)
-
-	// Tokens for anything other than a user are not authenticated here.
-	owner, err := principal.Parse(tokenContext.UserID)
-	if err != nil {
-		return nil, false, nil
+	if agentID, ok := owner.AgentID(); ok {
+		if !t.enableAgentIdentities {
+			return nil, false, nil
+		}
+		return t.authenticateAgent(req.Context(), tokenContext, agentID, extra)
 	}
 	userID, ok := owner.UserID()
 	if !ok {
 		return nil, false, nil
 	}
+
+	extra["email"] = []string{tokenContext.UserEmail}
+	extra["auth_provider_name"] = []string{tokenContext.AuthProviderName}
+	extra["auth_provider_namespace"] = []string{tokenContext.AuthProviderNamespace}
+	groups := tokenContext.UserGroups
+	extra["obot_groups"] = slices.Clone(groups)
 
 	// Read the user and their auth provider groups in one transaction. The role is recomputed from them on every
 	// use, so an old token cannot keep a removed group's role, and the user's lifecycle status comes from the
@@ -287,6 +364,30 @@ func (t *TokenService) HasLocalIssuer(token string) bool {
 	var claims jwt.RegisteredClaims
 	_, _, err := jwt.NewParser().ParseUnverified(token, &claims)
 	return err == nil && claims.Issuer != "" && claims.Issuer == t.serverURL
+}
+
+// authenticateAgent returns the principal of the agent that a token was issued for, with extra, what the token
+// grants. It is built as the API key authenticator builds an agent's (client.AgentUserInfo), from the agent's current
+// row: never with the token's name or email, and never with obot_groups or auth_provider_groups, which only users
+// have. The agent is read on every use, so a token issued before the agent was disabled or deleted is denied from its
+// next use on.
+func (t *TokenService) authenticateAgent(ctx context.Context, tokenContext *TokenContext, agentID uint, extra map[string][]string) (*authenticator.Response, bool, error) {
+	// NewToken issues agents no other group, so a token with another one was not issued by it, and is not honored.
+	if _, refused := refusedAgentTokenGroup(tokenContext.UserGroups); refused {
+		return nil, false, nil
+	}
+
+	// The agent's row is read directly, since its principal is built here with the token's groups and extra. An agent
+	// that is not active is denied here rather than left to the admission check, as the API key authenticator denies
+	// one, and so is a token that outlived its agent.
+	agent, err := t.gatewayClient.ActiveAgent(ctx, agentID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return &authenticator.Response{
+		User: client.AgentUserInfo(agent, slices.Clone([]string(tokenContext.UserGroups)), extra),
+	}, true, nil
 }
 
 func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenContext, error) {
@@ -364,6 +465,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		UserGroups:            groups,
 		Audience:              getStringClaim("aud"),
 		UserID:                getStringClaim("sub"),
+		PrincipalKind:         getStringClaim(principal.KindExtra),
 		Picture:               getStringClaim("picture"),
 		OAuthScope:            getStringClaim("scope"),
 		OAuthClientID:         getStringClaim("client_id"),
@@ -392,19 +494,29 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 		return nil, "", fmt.Errorf("audience is required")
 	}
 
-	// A token is never issued for a disabled or deleted user, including to background work acting for them. A request
-	// that the admission check let through has read the status of the user it acts for already, so a token that it
-	// mints for that user is not checked again.
-	if t.gatewayClient != nil {
-		ownerID := context.UserID
-		// Only users have a lifecycle status to check. Tokens for other owners, such as system principals, are
-		// issued as before.
-		if owner, err := principal.Parse(ownerID); err == nil {
-			if userID, ok := owner.UserID(); ok && !principal.AdmittedActiveUser(ctx, ownerID) {
-				if err := t.gatewayClient.CheckCredentialOwner(ctx, userID); err != nil {
-					return nil, "", err
-				}
-			}
+	// The token records the kind of its subject, so that it authenticates only as a principal of that kind. A
+	// subject that is not a principal, such as a system principal, has no kind, and is issued a token as before.
+	owner, parseErr := principal.Parse(context.UserID)
+	isPrincipal := parseErr == nil
+	switch {
+	case isPrincipal && context.PrincipalKind != "" && principal.Kind(context.PrincipalKind) != owner.Kind:
+		return nil, "", fmt.Errorf("token subject %q is not of kind %q", context.UserID, context.PrincipalKind)
+	case isPrincipal:
+		context.PrincipalKind = string(owner.Kind)
+	case context.PrincipalKind != "":
+		return nil, "", fmt.Errorf("token subject %q of kind %q is not a principal", context.UserID, context.PrincipalKind)
+	}
+
+	// A token is never issued for a disabled or deleted user or agent, including to background work acting for them. A
+	// request that the admission check let through has read the status of the principal it acts for already, so a
+	// token that it mints for that principal is not checked again.
+	if agentID, ok := owner.AgentID(); ok {
+		if err := t.checkAgentToken(ctx, context, agentID); err != nil {
+			return nil, "", err
+		}
+	} else if userID, ok := owner.UserID(); ok && t.gatewayClient != nil && !principal.AdmittedActiveUser(ctx, context.UserID) {
+		if err := t.gatewayClient.CheckCredentialOwner(ctx, userID); err != nil {
+			return nil, "", err
 		}
 	}
 
@@ -446,6 +558,47 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 	token := jwt.NewWithClaims(jwt.SigningMethodEdDSA, context)
 	s, err := token.SignedString(privateKey)
 	return token, s, err
+}
+
+// checkAgentToken returns an error unless a token described by tokenContext may be issued to the agent with
+// agentID: agent identities are enabled, the token grants no group that tokens are not issued to agents with, and
+// the agent is active.
+func (t *TokenService) checkAgentToken(ctx context.Context, tokenContext TokenContext, agentID uint) error {
+	if !t.enableAgentIdentities {
+		return fmt.Errorf("agent identities are not enabled, so no token is issued to agent %d", agentID)
+	}
+	if group, refused := refusedAgentTokenGroup(tokenContext.UserGroups); refused {
+		return fmt.Errorf("a token for agent %d cannot grant group %q", agentID, group)
+	}
+	if principal.AdmittedActiveUser(ctx, tokenContext.UserID) {
+		return nil
+	}
+	return t.requireActiveAgent(ctx, agentID)
+}
+
+// requireActiveAgent returns an error unless the agent with agentID is active. Unlike for a user, there is no fallback:
+// without the gateway database, the agent's status is unknown, and that is an error too.
+func (t *TokenService) requireActiveAgent(ctx context.Context, agentID uint) error {
+	if t.gatewayClient == nil {
+		return &client.AgentAccessLookupError{
+			AgentID: agentID,
+			Err:     errors.New("no gateway client to read the agent's status"),
+		}
+	}
+	_, err := t.gatewayClient.ActiveAgent(ctx, agentID)
+	return err
+}
+
+// refusedAgentTokenGroup returns the first of groups that no token issued to an agent carries (agentTokenGroups), and
+// reports false if there is none.
+func refusedAgentTokenGroup(groups []string) (string, bool) {
+	i := slices.IndexFunc(groups, func(group string) bool {
+		return !slices.Contains(agentTokenGroups, group)
+	})
+	if i < 0 {
+		return "", false
+	}
+	return groups[i], true
 }
 
 func (t *TokenService) ServeJWKS(api api.Context) error {

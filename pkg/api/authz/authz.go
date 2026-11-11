@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -660,6 +661,12 @@ func IsMCPRegistryRequest(req *http.Request) bool {
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
+	// An agent is confined to the routes agents may reach, whatever groups its principal has. This comes first, so
+	// that no rule for users, internal principals, any caller, or the UI ever applies to an agent.
+	if principal.ClaimsAgent(userInfo) {
+		return a.authorizeAgent(req, userInfo)
+	}
+
 	// The SCIM endpoint serves only a SCIM connection's principal, and that principal nothing else. There is at most
 	// one connection, so the path does not name it.
 	isSCIM := req.URL.Path == strings.TrimSuffix(scimPathPrefix, "/") || strings.HasPrefix(req.URL.Path, scimPathPrefix)

@@ -14,17 +14,26 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestCompositeLoopbackTokenRecordsCaller(t *testing.T) {
 	now := time.Now()
+	userExtra := map[string][]string{
+		"email": {"alice@example.com"},
+	}
+	principal.RecordKind(userExtra, principal.KindUser)
 
 	for _, tt := range []struct {
 		name   string
 		caller user.Info
+		// wantKind is the principal kind the token records, which NewToken derives from the subject when empty.
+		wantKind string
 	}{
 		{
 			name: "person",
@@ -36,6 +45,21 @@ func TestCompositeLoopbackTokenRecordsCaller(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "user",
+			caller: &user.DefaultInfo{
+				Name:  "alice",
+				UID:   "7",
+				Extra: userExtra,
+			},
+			wantKind: string(principal.KindUser),
+		},
+		{
+			// The agent with the user's numeric ID is recorded as itself, so the loopback authenticates as the agent.
+			name:     "agent",
+			caller:   gatewayclient.AgentUserInfo(&gatewaytypes.Agent{ID: 7, DisplayName: "nightly build"}, []string{types.GroupMCP, types.GroupAuthenticated}, nil),
+			wantKind: string(principal.KindAgent),
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got := compositeLoopbackTokenContext(tt.caller, "https://obot.example.com/mcp-connect-composite/vmcp1", "vmcp1", []string{"component"}, "vmcpi1connection", now)
@@ -43,6 +67,9 @@ func TestCompositeLoopbackTokenRecordsCaller(t *testing.T) {
 
 			if got.UserID != tt.caller.GetUID() {
 				t.Errorf("token user = %q, want the caller %q", got.UserID, tt.caller.GetUID())
+			}
+			if got.PrincipalKind != tt.wantKind {
+				t.Errorf("token principal kind = %q, want %q", got.PrincipalKind, tt.wantKind)
 			}
 		})
 	}

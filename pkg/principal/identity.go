@@ -2,6 +2,7 @@ package principal
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -90,6 +91,30 @@ func (p Principal) idOf(kind Kind) (uint, bool) {
 // Ref returns the API representation of the principal.
 func (p Principal) Ref() types.PrincipalRef {
 	return types.PrincipalRef{Kind: p.Kind, ID: p.ID}
+}
+
+// ClaimsAgent reports whether a caller presents itself as an agent in any way: its UID has the agent encoding's
+// prefix, or it records the agent kind. Unlike FromUserInfo, it is also true for a malformed principal whose UID and
+// recorded kind disagree, so that code confining agents to what they may do confines such a principal too, rather
+// than treating it as a user. Use FromUserInfo to learn which agent a caller is.
+func ClaimsAgent(u kuser.Info) bool {
+	if u == nil {
+		return false
+	}
+	return ClaimsAgentOwner(u.GetUID()) || slices.Contains(u.GetExtra()[KindExtra], string(KindAgent))
+}
+
+// ClaimsAgentOwner reports whether s, a principal's storage encoding (Principal.String) or a token's subject, presents
+// itself as an agent's: it has the agent encoding's prefix, even if what follows is not a decimal ID. It is the
+// lenient form of ParseAgent, for code that must refuse a malformed agent like any other agent.
+func ClaimsAgentOwner(s string) bool {
+	return strings.HasPrefix(s, agentPrefix)
+}
+
+// IsComponentHop reports whether u is the composite loopback reaching a component of a vMCP (types.GroupCompositeMCP),
+// which acts for the caller of the vMCP.
+func IsComponentHop(u kuser.Info) bool {
+	return u != nil && slices.Contains(u.GetGroups(), types.GroupCompositeMCP)
 }
 
 // IsAgent reports whether u is a well-formed agent principal (FromUserInfo). Code that confines callers that claim to

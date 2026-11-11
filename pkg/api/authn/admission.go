@@ -37,10 +37,11 @@ type Restriction interface {
 	Restricted(context.Context) (bool, error)
 }
 
-// AdmissionCheck denies requests made by or for users who may not access Obot: disabled, deleted, or missing
-// users, and while the environment is restricted, users who aren't admins or owners. It wraps the complete
+// AdmissionCheck denies requests made by or for users or agents who may not access Obot: disabled, deleted, or
+// missing ones, and while the environment is restricted, any who aren't admins or owners. It wraps the complete
 // authenticator chain, so it runs once per request, after authentication and before authorization, whichever
-// credential authenticated the request.
+// credential authenticated the request. Agents' authenticators record their lifecycle status as users' do, so an
+// agent is admitted by the same rule.
 type AdmissionCheck struct {
 	next        authenticator.Request
 	restriction Restriction
@@ -66,19 +67,14 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	status, recorded := principal.UserStatus(resp.User)
 	if !recorded {
 		// Principals that act for Obot itself or for a device have no status, and the restriction doesn't apply to them.
-		if isNonUserPrincipal(resp.User) {
+		// An agent is never a non-user principal: whatever groups it has, it is admitted only with a recorded status.
+		if !principal.ClaimsAgent(resp.User) && isNonUserPrincipal(resp.User) {
 			return resp, true, nil
 		}
-		return nil, false, &gclient.UserAccessLookupError{
-			UserID: admissionUserID(resp.User),
-			Err:    fmt.Errorf("the authenticator of principal %q did not report a user status", resp.User.GetName()),
-		}
+		return nil, false, accessLookupError(resp.User, fmt.Errorf("the authenticator of principal %q did not report a lifecycle status", resp.User.GetName()))
 	}
 	if status != types2.UserStatusActive {
-		return nil, false, &gclient.UserAccessDeniedError{
-			UserID: admissionUserID(resp.User),
-			Status: status,
-		}
+		return nil, false, accessDeniedError(resp.User, status)
 	}
 
 	// Check the restriction. Admins and owners keep access so they can bring usage back within the limits.
@@ -88,15 +84,46 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	restricted, err := a.restriction.Restricted(req.Context())
 	if err != nil {
 		// Like a user status that can't be read: refused as unavailable, without the details.
-		return nil, false, &gclient.UserAccessLookupError{
-			UserID: admissionUserID(resp.User),
-			Err:    fmt.Errorf("failed to check whether the environment is restricted: %w", err),
-		}
+		return nil, false, accessLookupError(resp.User, fmt.Errorf("failed to check whether the environment is restricted: %w", err))
 	}
 	if restricted {
 		return nil, false, ErrRestricted
 	}
 	return resp, true, nil
+}
+
+// accessDeniedError returns the error that denies u for its lifecycle status. It names the agent a principal acts for,
+// so that a denial of an agent is never reported as one of the user with the same numeric ID, or of user 0.
+func accessDeniedError(u user.Info, status types2.UserStatus) error {
+	// A principal that acts for no one is the zero Principal, which is reported as user 0.
+	p, _ := principal.FromUserInfo(u)
+	if agentID, ok := p.AgentID(); ok {
+		return &gclient.AgentAccessDeniedError{
+			AgentID: agentID,
+			Status:  status,
+		}
+	}
+	userID, _ := p.UserID()
+	return &gclient.UserAccessDeniedError{
+		UserID: userID,
+		Status: status,
+	}
+}
+
+// accessLookupError returns the error that refuses u because its lifecycle status is unknown.
+func accessLookupError(u user.Info, err error) error {
+	p, _ := principal.FromUserInfo(u)
+	if agentID, ok := p.AgentID(); ok {
+		return &gclient.AgentAccessLookupError{
+			AgentID: agentID,
+			Err:     err,
+		}
+	}
+	userID, _ := p.UserID()
+	return &gclient.UserAccessLookupError{
+		UserID: userID,
+		Err:    err,
+	}
 }
 
 // isNonUserPrincipal reports whether a principal acts for Obot itself or for a device rather than for a user.
@@ -111,14 +138,4 @@ func isNonUserPrincipal(u user.Info) bool {
 	// A device's principal carries device-scans, which a user's API key can carry too, so it is recognized by the
 	// device ID its authenticator records.
 	return slices.Contains(groups, types2.GroupDeviceScans) && len(u.GetExtra()["device_id"]) > 0
-}
-
-// admissionUserID returns the ID of the user a principal acts for, for error reporting, or 0 if it has none.
-func admissionUserID(u user.Info) uint {
-	p, err := principal.Parse(u.GetUID())
-	if err != nil {
-		return 0
-	}
-	id, _ := p.UserID()
-	return id
 }

@@ -107,7 +107,7 @@ func TestLifecycleExitGate(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to store JWK: %v", err)
 	}
-	tokenService, err := persistent.NewTokenService("https://obot.example.com", client)
+	tokenService, err := persistent.NewTokenService("https://obot.example.com", client, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestLifecycleExitGate(t *testing.T) {
 		union.New(
 			gatewayclient.NewUserDecorator(sessionAuthenticator{provider: provider}, client, userLimitUnlimited{}),
 			gatewayclient.NewUserDecorator(sessionAuthenticator{provider: localProvider}, client, userLimitUnlimited{}),
-			NewAPIKeyAuthenticator(client),
+			NewAPIKeyAuthenticator(client, false),
 			tokenService,
 		),
 		authn.Anonymous{},

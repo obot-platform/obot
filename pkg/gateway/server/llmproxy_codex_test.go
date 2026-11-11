@@ -86,7 +86,7 @@ func TestPublicCodexRecording(t *testing.T) {
 	_, err = engine.Sync(t.Context())
 	require.NoError(t, err)
 	_, tokenClient := newTokenRequestTestServer(t)
-	tokens, err := persistent.NewTokenService("https://obot.example.com", tokenClient)
+	tokens, err := persistent.NewTokenService("https://obot.example.com", tokenClient, false)
 	require.NoError(t, err)
 	require.NoError(t, tokens.EnsureJWK(t.Context()))
 	gateway := &Server{llmGateway: engine, tokenService: tokens}

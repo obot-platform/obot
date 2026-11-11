@@ -732,6 +732,11 @@ func compositeLoopbackTokenContext(caller user.Info, audience, mcpServerName str
 		AuthProviderName:      cmp.Or(caller.GetExtra()["auth_provider_name"]...),
 		AuthProviderNamespace: cmp.Or(caller.GetExtra()["auth_provider_namespace"]...),
 	}
+	// The subject is the caller's encoded ID, "agent:<id>" for an agent, and the token records its kind as well, so
+	// that the loopback authenticates as the same principal. NewToken refuses a kind that disagrees with the subject.
+	if p, ok := principal.FromUserInfo(caller); ok {
+		tokenContext.PrincipalKind = string(p.Kind)
+	}
 	if key, ok := principal.APIKeyAttributionFromUser(caller); ok {
 		tokenContext.APIKeyID = fmt.Sprint(key.ID)
 		tokenContext.APIKeyName = key.Name

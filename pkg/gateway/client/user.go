@@ -190,7 +190,8 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 
 // IdentityInfo loads the current identity of a stored owner, for evaluating access as that owner. For a user it is
 // UserInfoByID: groups, role groups and lifecycle status. An agent has no groups, so for an agent it is only its
-// principal and lifecycle status. A deleted or missing owner is an error that wraps gorm.ErrRecordNotFound.
+// principal and lifecycle status (AgentUserInfo). A deleted or missing owner is an error that wraps
+// gorm.ErrRecordNotFound.
 func (c *Client) IdentityInfo(ctx context.Context, p principal.Principal) (kuser.Info, error) {
 	switch p.Kind {
 	case principal.KindUser:
@@ -208,16 +209,7 @@ func (c *Client) IdentityInfo(ctx context.Context, p principal.Principal) (kuser
 		if err != nil {
 			return nil, fmt.Errorf("agent %d: %w", id, err)
 		}
-
-		extra := map[string][]string{}
-		principal.RecordKind(extra, principal.KindAgent)
-		principal.RecordUserStatus(extra, agent.Status())
-		uid := principal.Agent(agent.ID).String()
-		return &kuser.DefaultInfo{
-			Name:  uid,
-			UID:   uid,
-			Extra: extra,
-		}, nil
+		return AgentUserInfo(agent, nil, nil), nil
 	default:
 		return nil, fmt.Errorf("unknown principal kind %q", p.Kind)
 	}

@@ -108,6 +108,9 @@ func TestIdentityInfoOfAnAgent(t *testing.T) {
 		status, recorded := principal.UserStatus(info)
 		require.True(t, recorded, step.name)
 		require.Equal(t, step.wantStatus, status, step.name)
+		for _, key := range []string{"email", "obot_groups", "auth_provider_groups"} {
+			require.NotContains(t, info.GetExtra(), key, step.name)
+		}
 	}
 
 	// A deleted agent is not found, as a deleted user is not.

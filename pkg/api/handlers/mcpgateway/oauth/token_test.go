@@ -91,7 +91,7 @@ func newOAuthTokenTestServices(t *testing.T, objects ...kclient.Object) (storage
 			"JWK_KEY": base64.StdEncoding.EncodeToString(privateKey),
 		},
 	}))
-	tokenService, err := persistent.NewTokenService("https://obot.example.com", gatewayClient)
+	tokenService, err := persistent.NewTokenService("https://obot.example.com", gatewayClient, false)
 	require.NoError(t, err)
 
 	return storage, gatewayClient, tokenService
@@ -381,4 +381,41 @@ func TestOpaqueScopesEchoAndRefreshWithoutChallengeRecords(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "client", claims.OAuthClientID)
 	require.Equal(t, scopes, claims.OAuthScope)
+}
+
+// TestMCPOAuthTokensAreIssuedOnlyToUsers checks that an MCP OAuth access token is never issued with an agent, or
+// anything else that is not a user, as its subject.
+func TestMCPOAuthTokensAreIssuedOnlyToUsers(t *testing.T) {
+	for _, tt := range []struct {
+		subject string
+		wantErr bool
+	}{
+		{
+			subject: "7",
+		},
+		{
+			subject: "agent:7",
+			wantErr: true,
+		},
+		{
+			subject: "system",
+			wantErr: true,
+		},
+		{
+			subject: "",
+			wantErr: true,
+		},
+	} {
+		t.Run(tt.subject, func(t *testing.T) {
+			err := requireUserTokenSubject(tt.subject)
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			var httpErr *types.ErrHTTP
+			require.ErrorAs(t, err, &httpErr)
+			assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+			assert.Contains(t, httpErr.Message, string(ErrInvalidGrant))
+		})
+	}
 }

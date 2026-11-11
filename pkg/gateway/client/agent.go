@@ -16,6 +16,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -127,15 +128,52 @@ func (c *Client) DeleteAgent(ctx context.Context, id uint) error {
 	return err
 }
 
-// AgentStatus reads an agent's current lifecycle status. An agent with no row is reported as deleted.
-func (c *Client) AgentStatus(ctx context.Context, id uint) (types2.UserStatus, error) {
-	var agent types.Agent
-	if err := c.db.WithContext(ctx).Unscoped().Select("id", "deleted_at", "disabled_at").Where("id = ?", id).Take(&agent).Error; errors.Is(err, gorm.ErrRecordNotFound) {
-		return types2.UserStatusDeleted, nil
+// ActiveAgent returns the agent with id if it is active, for an authenticator of agents to build its principal from.
+// It is the one check of an agent's access: an agent that is disabled, deleted or missing is an
+// *AgentAccessDeniedError, and one that cannot be read, so that its access is unknown, is an *AgentAccessLookupError.
+func (c *Client) ActiveAgent(ctx context.Context, id uint) (*types.Agent, error) {
+	agent, err := c.GetAgent(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, &AgentAccessDeniedError{
+			AgentID: id,
+			Status:  types2.UserStatusDeleted,
+		}
 	} else if err != nil {
-		return "", fmt.Errorf("failed to check the status of agent %d: %w", id, err)
+		return nil, &AgentAccessLookupError{
+			AgentID: id,
+			Err:     err,
+		}
 	}
-	return agent.Status(), nil
+	if status := agent.Status(); status != types2.UserStatusActive {
+		return nil, &AgentAccessDeniedError{
+			AgentID: id,
+			Status:  status,
+		}
+	}
+	return agent, nil
+}
+
+// AgentUserInfo returns the principal of agent, as every authenticator of agents builds it. Its UID and its name are
+// both the agent's encoded ID (principal.Agent(id).String()), never a username, so that it is never mistaken for the
+// user with the same numeric ID. It records the agent kind and lifecycle status, as principal.RecordKind and
+// principal.RecordUserStatus do.
+//
+// An agent has no role and belongs to no group, so groups are only what the caller's credential grants. extra holds
+// the rest of what the credential establishes, such as its API key attribution and MCP scope; AgentUserInfo
+// replaces whatever extra holds under the keys it records, and must be given a map that no one else uses.
+func AgentUserInfo(agent *types.Agent, groups []string, extra map[string][]string) *kuser.DefaultInfo {
+	if extra == nil {
+		extra = map[string][]string{}
+	}
+	principal.RecordPrincipal(extra, principal.KindAgent, agent.Status())
+
+	uid := principal.Agent(agent.ID).String()
+	return &kuser.DefaultInfo{
+		Name:   uid,
+		UID:    uid,
+		Groups: groups,
+		Extra:  extra,
+	}
 }
 
 // changeAgentLifecycle runs change in a transaction of its own, and kicks lifecycle delivery after the commit when

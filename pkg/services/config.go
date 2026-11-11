@@ -156,6 +156,12 @@ type Config struct {
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
 
+	// EnableAgentIdentities lets agents authenticate with their own API keys (oak1-), and lets tokens be issued to
+	// them. It is hidden while agent identities are rolled out. Agents need the API key authenticator, which runs
+	// only when authentication is enabled, so without authentication agents are not supported and this has no
+	// effect.
+	EnableAgentIdentities bool `usage:"Enable agent identities, which authenticate with their own API keys; requires authentication" default:"false" hidden:"true"`
+
 	GatewayConfig
 	EncryptionConfig
 	AuditConfig
@@ -211,6 +217,11 @@ type Services struct {
 	DefaultSkillRepoRef         string
 	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
 	EgressAuditLogRetentionDays int
+
+	// EnableAgentIdentities is the server's EnableAgentIdentities option as given. Agents authenticate only when it
+	// and AuthEnabled are both set: without authentication, agents are not supported. The agent admin API (spec 05)
+	// answers 404 while it is unset, and must refuse with an explanation while AuthEnabled is unset.
+	EnableAgentIdentities bool
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -679,7 +690,15 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		postgresDSN = config.DSN
 	}
 
-	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient)
+	// Agents authenticate only with their API keys, whose authenticator runs only with authentication enabled. In the
+	// no-auth mode, every caller is an administrator, and agents are not supported: no agent key or token
+	// authenticates, whatever the option says.
+	agentIdentitiesEnabled := config.EnableAgentIdentities && config.EnableAuthentication
+	if config.EnableAgentIdentities && !config.EnableAuthentication {
+		slog.Warn("Agent identities are enabled, but authentication is disabled; agents are not supported without authentication, so their keys will not authenticate")
+	}
+
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, agentIdentitiesEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}
@@ -1026,6 +1045,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
+	gatewayOpts.EnableAgentIdentities = agentIdentitiesEnabled
 	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
@@ -1074,7 +1094,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
 		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
 		// Must come after UserDecorator since it handles its own user lookup
-		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
+		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient, agentIdentitiesEnabled))
 		// Device enrollment tokens (ode1-) and device access JWTs. Both yield
 		// non-user principals, so they must come after the UserDecorator.
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
@@ -1112,7 +1132,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			}
 		}
 	} else {
-		// "Authentication Disabled" flow
+		// "Authentication Disabled" flow. There is no API key authenticator here, so agents, which authenticate only
+		// with their API keys, are not supported, and the token service issues and authenticates no token for one
+		// (agentIdentitiesEnabled is false).
 
 		// Add gateway user info if token auth worked
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlementProvider)
@@ -1237,6 +1259,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
+		EnableAgentIdentities:        config.EnableAgentIdentities,
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

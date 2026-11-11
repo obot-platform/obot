@@ -54,7 +54,7 @@ func newLifecycleTestTokenService(t *testing.T) (*TokenService, *client.Client) 
 
 	_, privateKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
-	tokenService, err := NewTokenService(testServerURL, gatewayClient)
+	tokenService, err := NewTokenService(testServerURL, gatewayClient, false)
 	require.NoError(t, err)
 	require.NoError(t, tokenService.replaceKey(t.Context(), privateKey))
 
@@ -249,35 +249,20 @@ func TestNewTokenTrustsTheAdmittedPrincipal(t *testing.T) {
 	require.True(t, isDenied, "error = %v, want a denial", err)
 }
 
-func TestAuthenticateRequestRecordsTheUserKind(t *testing.T) {
-	tokenService, gatewayClient := newLifecycleTestTokenService(t)
-	user := createLifecycleTestUser(t, gatewayClient, "carol", types.RoleBasic)
+// TestAuthenticateRequestRecordsTheKindOfAMissingUser checks that a token that outlived its user still authenticates
+// as that user, so that the admission check's denial names the user. A user's token that authenticates is covered with
+// the other kinds (TestAuthenticateRequestNeverReadsATokenAsAnotherKind).
+func TestAuthenticateRequestRecordsTheKindOfAMissingUser(t *testing.T) {
+	tokenService, _ := newLifecycleTestTokenService(t)
+	req, _ := authenticateToken(t, tokenService, TokenContext{
+		UserID:     "4242",
+		UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
+	})
 
-	for _, tt := range []struct {
-		name   string
-		userID uint
-	}{
-		{
-			name:   "existing user",
-			userID: user.ID,
-		},
-		{
-			name:   "missing user",
-			userID: 4242,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			req, _ := authenticateToken(t, tokenService, TokenContext{
-				UserID:     fmt.Sprint(tt.userID),
-				UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
-			})
-
-			response, ok, err := tokenService.AuthenticateRequest(req)
-			require.NoError(t, err)
-			require.True(t, ok)
-			got, ok := principal.FromUserInfo(response.User)
-			require.True(t, ok)
-			assert.Equal(t, principal.User(tt.userID), got)
-		})
-	}
+	response, ok, err := tokenService.AuthenticateRequest(req)
+	require.NoError(t, err)
+	require.True(t, ok)
+	got, ok := principal.FromUserInfo(response.User)
+	require.True(t, ok)
+	assert.Equal(t, principal.User(4242), got)
 }

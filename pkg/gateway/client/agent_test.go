@@ -351,17 +351,30 @@ func TestAgentLifecycleChangesRecordOneEventEach(t *testing.T) {
 		if step.wantStatus != apitypes.UserStatusDeleted {
 			require.Equal(t, step.wantReason, stored.DisabledReason, step.name)
 		}
-		status, err := c.AgentStatus(ctx, agent.ID)
-		require.NoError(t, err, step.name)
-		require.Equal(t, step.wantStatus, status, step.name)
+		requireAgentAccess(t, c, agent.ID, step.wantStatus, step.name)
 		require.Equal(t, step.wantEvents, agentLifecycleEventTypes(agentLifecycleEvents(t, c, agent.ID)), step.name)
 		require.Equal(t, step.wantKick, kicked(c), step.name)
 	}
 
 	// An agent that never existed has no access.
-	status, err := c.AgentStatus(ctx, agent.ID+1)
-	require.NoError(t, err)
-	require.Equal(t, apitypes.UserStatusDeleted, status)
+	requireAgentAccess(t, c, agent.ID+1, apitypes.UserStatusDeleted, "missing agent")
+}
+
+// requireAgentAccess checks that ActiveAgent returns the agent with id when want is active, and otherwise denies it
+// with want.
+func requireAgentAccess(t *testing.T, c *Client, id uint, want apitypes.UserStatus, msg string) {
+	t.Helper()
+	agent, err := c.ActiveAgent(t.Context(), id)
+	if want == apitypes.UserStatusActive {
+		require.NoError(t, err, msg)
+		require.Equal(t, id, agent.ID, msg)
+		return
+	}
+	require.Nil(t, agent, msg)
+	denied, ok := errors.AsType[*AgentAccessDeniedError](err)
+	require.True(t, ok, "%s: error = %v, want a denial", msg, err)
+	require.Equal(t, id, denied.AgentID, msg)
+	require.Equal(t, want, denied.Status, msg)
 }
 
 func TestAgentLifecycleChangesRollBackWithTheirEvent(t *testing.T) {

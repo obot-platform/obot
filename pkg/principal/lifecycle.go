@@ -57,7 +57,9 @@ func WithAdmittedPrincipal(ctx context.Context, user kuser.Info) context.Context
 }
 
 // AdmittedActiveUser reports whether ctx carries an admitted principal that acts for the user with userID, and that
-// user was active when the request arrived. A principal acts for its own user.
+// user was active when the request arrived. A principal acts for its own user. userID is the storage encoding of a
+// principal (Principal.String), so this holds for an agent's encoded ID too, and a user and an agent that share a
+// numeric ID never match each other.
 func AdmittedActiveUser(ctx context.Context, userID string) bool {
 	user, _ := ctx.Value(admittedPrincipalKey{}).(kuser.Info)
 	if user == nil || userID == "" {

@@ -373,6 +373,13 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			} else if lookupErr, ok := authenticationError[*gclient.UserAccessLookupError](err); ok {
 				slog.Error("Denied request because the user's status could not be checked", "userID", lookupErr.UserID, "error", lookupErr.Err)
 				httpError(rw, "Unable to verify account status. Please try again.", http.StatusServiceUnavailable)
+			} else if denied, ok := authenticationError[*gclient.AgentAccessDeniedError](err); ok {
+				// An agent has no browser session, so there is no cookie to clear and no login page to send it to.
+				httpErr := denied.HTTPError()
+				httpError(rw, httpErr.Message, httpErr.Code)
+			} else if lookupErr, ok := authenticationError[*gclient.AgentAccessLookupError](err); ok {
+				slog.Error("Denied request because the agent's status could not be checked", "agentID", lookupErr.AgentID, "error", lookupErr.Err)
+				httpError(rw, "Unable to verify agent status. Please try again.", http.StatusServiceUnavailable)
 			} else {
 				httpError(rw, err.Error(), http.StatusUnauthorized)
 			}
@@ -422,8 +429,9 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 		if isAPI {
-			// SCIM routes are outside /api/, so a SCIM connection's requests are never recorded as user activity.
-			if authenticated {
+			// SCIM routes are outside /api/, so a SCIM connection's requests are never recorded as user activity. Nor
+			// are an agent's: daily activity counts active users, and an agent is not one.
+			if authenticated && !principal.ClaimsAgent(user) {
 				// Best effort
 				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
 					slog.Warn("Failed to add activity tracking for user", "user", user.GetName(), "error", err)
