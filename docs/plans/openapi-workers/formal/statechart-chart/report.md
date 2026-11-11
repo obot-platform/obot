@@ -1,0 +1,8 @@
+# OpenAPIBudgetLeasesChart
+
+TLC reached 257 states and 349 steps. The chart draws 8 states and 8 arrows.
+The chart does not draw 185 steps that stay in one chart state.
+The view hides 69 steps, so the chart does not draw them.
+
+## Rules that hold
+TypeOK, LeaseSafety, ConfirmedReleaseInsideLease, SnapshotRecoverySafety, NoDeadlock
