@@ -493,6 +493,9 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 				model, err = fallback, nil
 			}
 		}
+		if scope := llmengine.LegacyProvider(req.Context()); scope != "" {
+			model, err = resolveLegacyModel(l, req, targetModel, scope)
+		}
 		if apierrors.IsNotFound(err) {
 			return types2.NewErrNotFound("model %q is not available through this endpoint", targetModel)
 		}

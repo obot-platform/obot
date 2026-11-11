@@ -312,7 +312,7 @@ func (b *bifrostProviderBackend) trackerDialect(routeDialect llmtypes.Dialect) l
 // gateway's own model listing leaves out while the Anthropic provider has no enabled keys.
 // Claude Code discovers the models it offers from the model listing.
 func (b *bifrostProviderBackend) unlistedModels(ctx context.Context) []llmengine.ListedModel {
-	if !b.engine.Ready() {
+	if !b.engine.Ready() || (llmengine.LegacyProvider(ctx) != "" && llmengine.LegacyProvider(ctx) != "anthropic") {
 		return nil
 	}
 	return b.engine.ClaudeSubscriptionModels(ctx)
@@ -625,6 +625,13 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 	if allowSubscription && subscriptionToken {
 		// Checked per request, not cached, so a provider change can't redirect the token.
 		allowSubscription = b.engine.AnthropicIsDirect(ctx)
+	}
+	if scope := llmengine.LegacyProvider(ctx); scope != "" && model != nil {
+		key, err := b.engine.LegacyKey(ctx, scope)
+		if err != nil {
+			return nil, err
+		}
+		*req = *req.WithContext(llmcore.WithInitialKey(ctx, key))
 	}
 	subscription := stripCallerCredentials(req, model, allowSubscription)
 	if subscriptionToken && !subscription && model != nil {

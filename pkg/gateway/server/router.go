@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/nah/pkg/router"
-	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server"
 )
@@ -79,17 +78,7 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("/api/llm-proxy/v1/files/{path...}", anthropic.files)
 	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ca-cert", anthropic.agentProxyCACert)
 	mux.HandleFunc("GET /api/llm-proxy/v1/code/agent-proxy/ws", anthropic.agentProxyWebSocket)
-	// Clients set up for the former OpenAI and Anthropic routes speak those APIs, which the
-	// gateway serves too, so they keep working.
-	for _, prefix := range []string{"/api/llm-proxy/openai/", "/api/llm-proxy/anthropic/"} {
-		mux.HandleFunc(prefix+"{path...}", gatewayProxy.proxy)
-	}
-	// The other former per-provider routes spoke provider-specific APIs.
-	for _, prefix := range []string{"/api/llm-proxy/generic-responses/", "/api/llm-proxy/aws-bedrock/", "/api/llm-proxy/aws-bedrock-api-key/", "/api/llm-proxy/azure/", "/api/llm-proxy/azure-entra/"} {
-		mux.HandleFunc(prefix+"{path...}", func(api.Context) error {
-			return types2.NewErrHTTP(http.StatusGone, "this LLM proxy route was removed; send requests to /api/llm-proxy/v1, which serves every model in the OpenAI and Anthropic API formats")
-		})
-	}
+	s.addLegacyLLMProxyRoutes(mux, gatewayProxy, anthropic)
 
 	// API Keys for MCP server access - user's own keys
 	mux.HandleFunc("POST /api/api-keys", wrap(s.createAPIKey))

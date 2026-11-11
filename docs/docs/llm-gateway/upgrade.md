@@ -25,8 +25,8 @@ Fresh installations can configure providers and access through the gateway.
 | Route | Status |
 | --- | --- |
 | `/api/llm-proxy/v1` | Serves every model in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Use this for new setups. |
-| `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic` | Remain available through the gateway, but require configured gateway providers, models and access. Route compatibility does not migrate an existing setup. |
-| `/api/llm-proxy/generic-responses`, `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key`, `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Removed. They return HTTP 410. Point these clients at `/api/llm-proxy/v1` and use gateway model names, such as `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. |
+| `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic` | Select the corresponding gateway provider and prefer its imported legacy key. If that key is absent, the provider uses its normal key pool. Gateway models and access must be configured. |
+| `/api/llm-proxy/generic-responses`, `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key`, `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Available through the new gateway for supported operations. Azure routes select `azure`; both Bedrock routes select `bedrock`. Each route prefers its matching imported key, falling back to the provider key pool when absent. Native model names resolve within the selected provider; routing rules and fallbacks may subsequently change the target. Unsupported provider-specific operations remain unavailable. |
 
 Claude Code's Bedrock Mantle and Foundry modes pointed at the removed routes. Switch to the standard setup in [Using with Claude Code](./connect-clients.md#using-with-claude-code).
 
