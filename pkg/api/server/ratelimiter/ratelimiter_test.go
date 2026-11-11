@@ -65,6 +65,91 @@ func TestTunnelPeerIsExemptFromRateLimiting(t *testing.T) {
 	}
 }
 
+func TestCompositeLoopbackDoesNotSpendTheUsersLimit(t *testing.T) {
+	// A vMCP's loopback token: the user's identity, scoped to the vMCP and its components.
+	loopback := &user.DefaultInfo{
+		Name:   "user",
+		UID:    "42",
+		Groups: []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
+		Extra:  map[string][]string{"authorized_mcp_ids": {"vmcp1abc", "ms1abc"}},
+	}
+	direct := &user.DefaultInfo{
+		Name:   "user",
+		UID:    "42",
+		Groups: []string{types.GroupAuthenticated},
+	}
+
+	for _, tt := range []struct {
+		name    string
+		user    user.Info
+		path    string
+		limited bool
+	}{
+		{
+			name:    "loopback to a component it is scoped to",
+			user:    loopback,
+			path:    "/mcp-connect/ms1abc",
+			limited: false,
+		},
+		{
+			name:    "loopback to a subpath of a component it is scoped to",
+			user:    loopback,
+			path:    "/mcp-connect/ms1abc/messages",
+			limited: false,
+		},
+		{
+			name:    "loopback to the composite it is scoped to",
+			user:    loopback,
+			path:    "/mcp-connect-composite/vmcp1abc",
+			limited: false,
+		},
+		{
+			name:    "loopback token on an API route",
+			user:    loopback,
+			path:    "/api/mcp-servers",
+			limited: true,
+		},
+		{
+			name:    "loopback token for an MCP ID it is not scoped to",
+			user:    loopback,
+			path:    "/mcp-connect/ms1other",
+			limited: true,
+		},
+		{
+			name:    "the user's own request to the vMCP",
+			user:    direct,
+			path:    "/mcp-connect/vmcp1abc",
+			limited: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			limiter, err := New(Options{
+				UnauthenticatedRateLimit: 1,
+				AuthenticatedRateLimit:   1,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// A cold vMCP connect makes several loopback requests per component.
+			for i := range 3 {
+				response := httptest.NewRecorder()
+				err := limiter.ApplyLimit(tt.user, response, httptest.NewRequest(http.MethodPost, tt.path, nil))
+				switch {
+				case !tt.limited && err != nil:
+					t.Fatalf("request %d: ApplyLimit() error = %v, want exempt", i, err)
+				case !tt.limited && response.Header().Get(headerRateLimitLimit) != "":
+					t.Fatalf("request %d: %s = %q, want empty for an exempt request", i, headerRateLimitLimit, response.Header().Get(headerRateLimitLimit))
+				case tt.limited && i == 0 && err != nil:
+					t.Fatalf("first request: ApplyLimit() error = %v", err)
+				case tt.limited && i > 0 && err != ErrRateLimitExceeded:
+					t.Fatalf("request %d: ApplyLimit() error = %v, want %v", i, err, ErrRateLimitExceeded)
+				}
+			}
+		})
+	}
+}
+
 func TestSCIMConnectionIsLimitedByConnectionAtTheAuthenticatedRate(t *testing.T) {
 	limiter, err := New(Options{
 		UnauthenticatedRateLimit: 1,
