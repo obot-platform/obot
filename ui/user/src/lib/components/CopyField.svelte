@@ -9,7 +9,6 @@
 		label?: string;
 		id: string;
 		preContent?: Snippet;
-		/** Replaces the plain code text, for example to embed a control in a snippet. Copy still uses `value`. */
 		codeContent?: Snippet;
 		class?: string;
 		classes?: {

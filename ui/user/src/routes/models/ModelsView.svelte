@@ -2,6 +2,7 @@
 	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import CopyField from '$lib/components/CopyField.svelte';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ApiKeyRevealNotice from '$lib/components/agent-auth-scope/ApiKeyRevealNotice.svelte';
 	import GatewayConnect from '$lib/components/llm-gateway/GatewayConnect.svelte';
 	import GatewayModelsDialog, {
@@ -15,7 +16,7 @@
 	import { profile } from '$lib/stores';
 	import accessibleModels from '$lib/stores/accessibleModels.svelte';
 	import { goto } from '$lib/url';
-	import { Cpu, Plus } from '@lucide/svelte';
+	import { ChevronDown, Cpu, Plus } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 
@@ -148,18 +149,6 @@
 									</p>
 								</div>
 
-								<div class="hidden @lg:block">
-									{@render generateTokenButton()}
-								</div>
-							</div>
-
-							{#if hasValidIdentityApiKeys}
-								<div class="block @lg:hidden">
-									{@render validIdentityApiKeysNotice()}
-								</div>
-							{/if}
-
-							<div class="block @lg:hidden">
 								{@render generateTokenButton()}
 							</div>
 
@@ -170,10 +159,6 @@
 										id="llm-gateway-access-token"
 										class="gap-3"
 									/>
-								</div>
-							{:else if hasValidIdentityApiKeys}
-								<div class="hidden @lg:block">
-									{@render validIdentityApiKeysNotice()}
 								</div>
 							{/if}
 						</div>
@@ -217,34 +202,53 @@
 </div>
 
 {#snippet generateTokenButton()}
-	<button
-		type="button"
-		class="text-nowrap btn btn-primary shrink-0 text-xs @lg:w-fit w-full"
-		disabled={creatingToken}
-		onclick={generateToken}
-	>
-		{#if creatingToken}
-			<Loading class="size-4 text-primary-content" />
-		{/if}
-		{#if hasValidIdentityApiKeys}
-			{m.models_gateway_generate_new_key()}
-		{:else}
-			{m.models_gateway_generate_token()}
-		{/if}
-	</button>
-{/snippet}
-
-{#snippet validIdentityApiKeysNotice()}
-	<div class="notification-info @container">
-		<p class="mb-1 text-sm font-medium">{m.models_gateway_existing_keys_title()}</p>
-		<p class="text-xs font-light">
-			{m.models_gateway_existing_keys_description()}
-		</p>
-		<p class="mt-1 text-xs font-light @lg:mt-0">
-			{m.models_gateway_existing_keys_manage_prefix()}<a
+	{#if hasValidIdentityApiKeys || generatedToken}
+		<div class="flex">
+			<a
+				class="btn btn-secondary btn-soft btn-sm text-base-content border-base-400 shrink-0 text-no-wrap @lg:w-fit w-full rounded-r-none!"
 				href={resolve('/identity-access?view=agents')}
-				class="text-link">{m.models_gateway_existing_keys_manage_link()}</a
-			>{m.models_gateway_existing_keys_manage_suffix()}
-		</p>
-	</div>
+			>
+				Manage API Keys
+			</a>
+			<DotDotDot
+				class="btn-block btn-secondary btn-sm text-base-content btn-soft pl-2! pr-2.5! border-base-400 @lg:w-fit w-full rounded-l-none! border-l-0!"
+				placement="bottom-end"
+				classes={{
+					popover: 'w-44.5'
+				}}
+			>
+				{#snippet icon()}
+					<ChevronDown class="size-4" />
+				{/snippet}
+				{#snippet children({ toggle })}
+					<button
+						class="menu-button text-xs min-h-fit"
+						onclick={async () => {
+							await generateToken();
+							toggle(false);
+						}}
+					>
+						{#if creatingToken}
+							<Loading class="size-4 text-primary-content" />
+						{:else}
+							{m.models_gateway_generate_new_key()}
+						{/if}
+					</button>
+				{/snippet}
+			</DotDotDot>
+		</div>
+	{:else}
+		<button
+			type="button"
+			class="text-nowrap btn btn-primary shrink-0 btn-sm @lg:w-fit w-full"
+			disabled={creatingToken}
+			onclick={generateToken}
+		>
+			{#if creatingToken}
+				<Loading class="size-4 text-primary-content" />
+			{:else}
+				{m.models_gateway_generate_token()}
+			{/if}
+		</button>
+	{/if}
 {/snippet}

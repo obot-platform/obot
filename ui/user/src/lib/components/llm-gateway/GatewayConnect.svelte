@@ -76,10 +76,7 @@
 	});
 	let cliLoginCommand = $derived(`obot login --url ${obotURL} --scope llm --print-token`);
 	const ACCESS_KEY_PLACEHOLDER = '[REPLACE_WITH_ACCESS_KEY]';
-	// A generated token stands in for the command that would print one.
 	let loginCommand = $derived(accessToken || cliLoginCommand);
-	// With an existing identity key and no newly generated token, the snippet can show either
-	// the CLI command that prints a key or a placeholder for a key the user already has.
 	let showTokenChoice = $derived(!accessToken);
 	let useAccessKeyPlaceholder = $state(false);
 	let token = $derived(
@@ -88,7 +85,7 @@
 				? ACCESS_KEY_PLACEHOLDER
 				: `$(${cliLoginCommand})`)
 	);
-	let tokenSlot = $derived(showTokenChoice || accessToken ? token : '');
+	let slot = $derived(showTokenChoice || accessToken ? token : '');
 	// The models a chat example can use: embedding and image models can't answer a message.
 	let chatModels = $derived.by(() => {
 		const chat = models.filter(
@@ -272,7 +269,6 @@
 		onGenerateToken?.();
 	}
 
-	// The name the selected client uses for the gateway credential.
 	let authVariable = $derived.by(() => {
 		switch (selected) {
 			case 'claude-code':
@@ -371,6 +367,7 @@
 			case 'claude-code': {
 				const apiKey = {
 					tabTitle: m.models_connect_tab_api_key(),
+					title: m.models_connect_run_in_terminal(),
 					picker: 'claude-code' as const,
 					language: 'bash' as const,
 					code: [
@@ -422,6 +419,7 @@
 						].join('\n')
 					},
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: `export OBOT_API_KEY="${token}"\ncodex`
 					}
@@ -429,6 +427,7 @@
 			case 'openai-sdk':
 				return [
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: [
 							`export OPENAI_BASE_URL="${baseURL}/v1"`,
@@ -446,6 +445,7 @@
 			case 'anthropic-sdk':
 				return [
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: [
 							`export ANTHROPIC_BASE_URL="${baseURL}"`,
@@ -464,6 +464,7 @@
 			case 'google-adk':
 				return [
 					{
+						title: m.models_connect_install_in_terminal(),
 						language: 'bash' as const,
 						code: [
 							'pip install google-adk litellm',
@@ -492,6 +493,7 @@
 						].join('\n')
 					},
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: `export OBOT_API_KEY="${token}"\nadk run obot_agent`
 					}
@@ -499,6 +501,7 @@
 			case 'vercel-ai-sdk':
 				return [
 					{
+						title: m.models_connect_install_in_terminal(),
 						language: 'bash' as const,
 						code: 'npm install ai @ai-sdk/openai-compatible'
 					},
@@ -523,6 +526,7 @@
 						].join('\n')
 					},
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: `export OBOT_API_KEY="${token}"\nnpx tsx index.mts`
 					}
@@ -591,6 +595,7 @@
 						)
 					},
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: `export OBOT_API_KEY="${token}"\nopencode`
 					}
@@ -598,6 +603,7 @@
 			case 'goose':
 				return [
 					{
+						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
 						code: [
 							'export GOOSE_PROVIDER="openai"',
@@ -744,13 +750,18 @@
 						in:fade={{ duration: PAGE_TRANSITION_DURATION }}
 						style={minBlockHeight ? `min-height: ${minBlockHeight}px` : undefined}
 					>
-						<LLMGatewayCodeBlock {block} id={`${selected}-${i}-tabblock`} {tokenSlot}>
+						<LLMGatewayCodeBlock
+							{block}
+							id={`${selected}-${i}-tabblock`}
+							{slot}
+							actions={showTokenChoice ? tokenToggle : undefined}
+						>
 							{@render modelPicker(block.picker ?? 'model')}
 							<div class="divider my-2"></div>
 							{#if steps.length > 0}
 								{@render connectSteps()}
 							{/if}
-							{#snippet tokenSlotContent()}
+							{#snippet slotContent()}
 								{@render tokenMark()}
 							{/snippet}
 						</LLMGatewayCodeBlock>
@@ -770,8 +781,13 @@
 
 			<div class="flex flex-col gap-2">
 				{#each codeBlocks as block, i (`${selected}-${i}-codeblock`)}
-					<LLMGatewayCodeBlock {block} id={`${selected}-${i}-codeblock`} {tokenSlot}>
-						{#snippet tokenSlotContent()}
+					<LLMGatewayCodeBlock
+						{block}
+						id={`${selected}-${i}-codeblock`}
+						{slot}
+						actions={showTokenChoice ? tokenToggle : undefined}
+					>
+						{#snippet slotContent()}
 							{@render tokenMark()}
 						{/snippet}
 					</LLMGatewayCodeBlock>
@@ -826,43 +842,40 @@
 
 {#snippet tokenMark()}
 	{#if showTokenChoice}
-		{@render tokenChoice()}
+		<span class="box-decoration-clone inline rounded break-normal wrap-break-word">{token}</span>
 	{:else}
 		<span class="box-decoration-clone rounded-xs bg-primary/25 px-0.5">{token}</span>
 	{/if}
 {/snippet}
 
-{#snippet tokenChoice()}
-	<span class="box-decoration-clone inline rounded break-normal wrap-break-word">
-		<span class="inline">{token}</span>
-		<span
-			class="inline-flex whitespace-nowrap gap-0.5 rounded-sm bg-primary/15 p-0.5 align-baseline"
-			role="group"
-			aria-label={m.models_connect_token_choice()}
+{#snippet tokenToggle()}
+	<span
+		class="inline-flex gap-0.5 rounded-sm bg-primary/15 p-0.5 whitespace-nowrap"
+		role="group"
+		aria-label={m.models_connect_token_choice()}
+	>
+		<button
+			type="button"
+			class={twMerge(
+				'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
+				useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
+			)}
+			aria-pressed={useAccessKeyPlaceholder}
+			onclick={() => (useAccessKeyPlaceholder = true)}
 		>
-			<button
-				type="button"
-				class={twMerge(
-					'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
-					useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
-				)}
-				aria-pressed={useAccessKeyPlaceholder}
-				onclick={() => (useAccessKeyPlaceholder = true)}
-			>
-				{m.models_connect_token_key()}
-			</button>
-			<button
-				type="button"
-				class={twMerge(
-					'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
-					!useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
-				)}
-				aria-pressed={!useAccessKeyPlaceholder}
-				onclick={() => (useAccessKeyPlaceholder = false)}
-			>
-				{m.models_connect_token_cli()}
-			</button>
-		</span>
+			{m.models_connect_token_key()}
+		</button>
+		<button
+			type="button"
+			class={twMerge(
+				'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
+				!useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
+			)}
+			aria-pressed={!useAccessKeyPlaceholder}
+			onclick={() => (useAccessKeyPlaceholder = false)}
+		>
+			{m.models_connect_token_cli()}
+		</button>
 	</span>
 {/snippet}
 

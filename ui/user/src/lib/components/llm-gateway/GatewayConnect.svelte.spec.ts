@@ -126,6 +126,7 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('Claude Code');
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('export ANTHROPIC_BASE_URL', { exact: false }))
 			.toBeInTheDocument();
@@ -250,6 +251,7 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('Anthropic SDK');
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('model="anthropic/claude-opus-4-5"', { exact: false }))
 			.toBeInTheDocument();
@@ -340,6 +342,7 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('OpenAI SDK');
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('model="openai/gpt-4o"', { exact: false }))
 			.toBeInTheDocument();
@@ -357,7 +360,9 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('Google ADK');
+		await expect.element(page.getByText('Install in a terminal', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('obot_agent/agent.py')).toBeInTheDocument();
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(
 				page.getByText('api_base="https://obot.example.com/api/llm-proxy/v1"', { exact: false })
@@ -381,6 +386,8 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('Vercel AI SDK');
+		await expect.element(page.getByText('Install in a terminal', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(
 				page.getByText("baseURL: 'https://obot.example.com/api/llm-proxy/v1'", { exact: false })
@@ -419,6 +426,7 @@ describe('GatewayConnect', () => {
 
 		await openClient('Codex CLI');
 		await expect.element(page.getByText('~/.codex/config.toml')).toBeInTheDocument();
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('model = "openai/gpt-4o"', { exact: false }))
 			.toBeInTheDocument();
@@ -434,6 +442,7 @@ describe('GatewayConnect', () => {
 
 		await openClient('OpenCode');
 		await expect.element(page.getByText('~/.config/opencode/opencode.json')).toBeInTheDocument();
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(
 				page.getByText('"baseURL": "https://obot.example.com/api/llm-proxy/v1"', { exact: false })
@@ -456,6 +465,7 @@ describe('GatewayConnect', () => {
 		render(GatewayConnect, { obotURL, models });
 
 		await openClient('Goose');
+		await expect.element(page.getByText('Run in a terminal', { exact: true })).toBeVisible();
 		await expect
 			.element(page.getByText('export OPENAI_HOST="https://obot.example.com"', { exact: false }))
 			.toBeInTheDocument();

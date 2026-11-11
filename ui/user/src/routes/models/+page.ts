@@ -38,7 +38,6 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 
 	if (view === 'connect') {
 		try {
-			// Admins can list every identity key. Other users can list only their own.
 			const [response, keys] = await Promise.all([
 				browser && accessibleModels.initialized && accessibleModels.current.length > 0
 					? accessibleModels.current
