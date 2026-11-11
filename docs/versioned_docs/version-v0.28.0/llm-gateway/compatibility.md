@@ -17,7 +17,27 @@ Model names are `provider/model`, for example `openai/gpt-4.1`, `anthropic/claud
 
 Errors come back in the request's API format: Anthropic's error JSON for `/v1/messages` and for Anthropic clients (which send `anthropic-version`), and OpenAI's otherwise, so SDKs report them as they would the provider's own. This includes Obot's own refusals, such as HTTP 401 for a missing or invalid key, 403 for a model you may not use, and 404 for a model that isn't available.
 
-The earlier `/api/llm-proxy/openai` and `/api/llm-proxy/anthropic` routes still work. Other per-provider routes are removed and return HTTP 410. See [Client routes](./upgrade.md#client-routes).
+## Deprecated provider endpoints {#deprecated-provider-endpoints}
+
+**v0.28.1** restores the supported legacy operations described below. See [Upgrading from v0.27](./upgrade.md#client-routes) for migration guidance.
+
+Use `/api/llm-proxy/v1` for new setups. Migrate existing clients to this endpoint with provider-qualified model names. The following provider base URLs retain supported inference and model-listing operations, but are deprecated and will be removed in a future release.
+
+| Provider base URL | Current gateway provider |
+| --- | --- |
+| `/api/llm-proxy/openai` | `openai` |
+| `/api/llm-proxy/anthropic` | `anthropic` |
+| `/api/llm-proxy/generic-responses` | `generic-responses` |
+| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | `bedrock` |
+| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | `azure` |
+
+Supported paths are `v1/chat/completions`, `v1/responses`, `v1/responses/input_tokens`, `v1/messages`, `v1/messages/count_tokens` and `v1/models`; paths without the `v1/` prefix also work. AWS routes also accept paths such as `anthropic/v1/messages` and `openai/v1/responses`, and Azure routes accept `openai/v1/models`. These URLs support only the operations listed above; they do not restore every legacy operation.
+
+Each route uses its corresponding current gateway provider. It prefers the imported key for that legacy credential family; if that key is absent, it uses the provider's normal key pool. Azure and Bedrock authentication variants share a gateway provider but prefer their own imported keys. A selected key must still be enabled and support the requested model.
+
+Bare model names resolve within the selected provider, including undated Anthropic aliases. Explicit model references must also match that provider initially. Model listings are limited to accessible models from the selected provider and use the gateway's response format: OpenAI-format lists include provider-qualified IDs, while Anthropic-format lists use bare IDs.
+
+Gateway routing rules and fallbacks still apply and may change the serving model or provider after initial selection. A rule selecting a different provider clears the initial key selection; fallback attempts use their own credentials. Model access policies, audit logging, budgets and guardrails still apply; inference requests are not redirected. Both AWS legacy routes initially select `bedrock`; they do not automatically switch to `bedrock_mantle`.
 
 ## Limitations {#limitations}
 

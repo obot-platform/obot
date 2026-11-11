@@ -98,10 +98,6 @@ This ensures that once you add a provider under **LLM Gateway > Providers**, use
 
 The *Daily token limit* budget's limits come from `OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT` and `OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT`. See [Server configuration](../configuration/server-configuration.md).
 
-## Upgrades and Migration
-
-When upgrading from a version that used model providers, policies that named a model provider's model are re-pointed to the LLM gateway model for the same upstream model. See [Upgrading from model providers](../llm-gateway/upgrade.md). Wildcard patterns written for earlier versions matched provider-native IDs, such as `claude-haiku-4-5*`. They're replaced with the provider-qualified form, such as `anthropic/claude-haiku-4-5*`, for each provider whose models they matched. A pattern that matched no model is left as it was; add the provider to it yourself.
-
 ## Managing Profiles
 
 To manage profiles, go to **LLM Gateway > Profiles**.
