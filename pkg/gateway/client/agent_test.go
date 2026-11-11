@@ -126,6 +126,7 @@ func TestCreateAgentWritesOnlyMetadata(t *testing.T) {
 		DisplayName: "  ",
 	})
 	require.ErrorContains(t, err, "display name is required")
+	require.ErrorIs(t, err, ErrInvalidAgentMetadata)
 }
 
 func TestUpdateAgentWritesOnlyMetadata(t *testing.T) {
@@ -160,6 +161,7 @@ func TestUpdateAgentWritesOnlyMetadata(t *testing.T) {
 		DisplayName: "",
 	})
 	require.ErrorContains(t, err, "display name is required")
+	require.ErrorIs(t, err, ErrInvalidAgentMetadata)
 
 	require.NoError(t, c.DeleteAgent(ctx, agent.ID))
 	stale.DisplayName = "resurrected"

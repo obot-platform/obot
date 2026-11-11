@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -45,6 +46,13 @@ var (
 		"../../gateway/server/router.go",
 		"../../gateway/server/llmproxy_legacy.go",
 	}
+
+	// handlerFiles are the handlers that may register their routes with the handle function their RegisterRoutes
+	// method is given, as the admin API of agents does.
+	handlerFiles = "../handlers/*.go"
+
+	// routeRegistration matches a route registered with a mux's HandleFunc, or with such a handle function.
+	routeRegistration = regexp.MustCompile(`(?:HandleFunc|\bhandle)\("([A-Z]+) +(/api/[^"]*)"`)
 )
 
 type routerRoute struct {
@@ -57,8 +65,19 @@ type routerRoute struct {
 func routerRoutes(t *testing.T) []routerRoute {
 	t.Helper()
 
+	handlers, err := filepath.Glob(handlerFiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := slices.Clone(routerFiles)
+	for _, file := range handlers {
+		if !strings.HasSuffix(file, "_test.go") && !slices.Contains(files, file) {
+			files = append(files, file)
+		}
+	}
+
 	var src []byte
-	for _, file := range routerFiles {
+	for _, file := range files {
 		content, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatalf("failed to read router %s: %v", file, err)
@@ -70,7 +89,7 @@ func routerRoutes(t *testing.T) []routerRoute {
 		routes   []routerRoute
 		wildcard = regexp.MustCompile(`\{[^}]+\}`)
 	)
-	for _, match := range regexp.MustCompile(`HandleFunc\("([A-Z]+) +(/api/[^"]*)"`).FindAllStringSubmatch(string(src), -1) {
+	for _, match := range routeRegistration.FindAllStringSubmatch(string(src), -1) {
 		path := strings.TrimSuffix(match[2], "{$}")
 		path = wildcard.ReplaceAllStringFunc(path, func(w string) string {
 			if strings.HasSuffix(w, "...}") {

@@ -25,6 +25,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                         schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                     schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                 schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKey":                               schema_obot_platform_obot_apiclient_types_AgentAPIKey(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateRequest":                  schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateResponse":                 schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyList":                           schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentity":                             schema_obot_platform_obot_apiclient_types_AgentIdentity(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityDisableRequest":               schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityList":                         schema_obot_platform_obot_apiclient_types_AgentIdentityList(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityManifest":                     schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
@@ -901,6 +909,461 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKey(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentAPIKey is an API key of an agent, without its secret. It has its own type rather than the type of a user's key, which has the API and device scan scopes that an agent's key never has.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"agentId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID is the decimal ID of the agent the key belongs to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"canAccessSkills": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"canAccessLLMProxy": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"mcpServerIds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerIDs is always present, so that a key with no vMCPs shows an empty list rather than none.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUsedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"revokedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"id", "agentId", "name", "canAccessSkills", "canAccessLLMProxy", "mcpServerIds", "createdAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentAPIKeyCreateRequest is the body of a request to create an API key for an agent. Its scopes work as those of a user's API key do: a scope that is omitted is not granted, and the key must have at least one. An agent's key never grants access to the API or to device scans, so the request has no field for either, and a request that names one is refused.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExpiresAt is when the key stops working. A key with none does not expire.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"canAccessSkills": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"canAccessLLMProxy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"mcpServerIds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerIDs are the IDs of the vMCPs the key can connect to, or \"*\" for every vMCP the agent is granted.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentAPIKeyCreateResponse is the response to the creation of an agent's API key.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"agentId": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID is the decimal ID of the agent the key belongs to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"canAccessSkills": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"canAccessLLMProxy": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"mcpServerIds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerIDs is always present, so that a key with no vMCPs shows an empty list rather than none.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"lastUsedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"expiresAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"revokedAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Key is the full API key. It is only ever shown in this response.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"id", "agentId", "name", "canAccessSkills", "canAccessLLMProxy", "mcpServerIds", "createdAt", "key"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentAPIKey"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentAPIKey"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentity is a non-human identity that calls Obot with its own API keys. It is not a hosted agent or an agent on a device; the path of its API is /api/agents.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Metadata.ID is the decimal ID of the agent.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ownerUserIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OwnerUserIDs are the IDs of the active users who are the agent's administrative contacts. Ownership is metadata only: it grants an owner no rights over the agent.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"creatorUserID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CreatorUserID is the ID of the admin who created the agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is active, disabled, or deleted. A deleted agent is only listed with includeDeleted.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"disabledAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisabledAt and DisabledReason are set only while the agent is disabled.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"disabledReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"activeAPIKeyCount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ActiveAPIKeyCount is how many of the agent's API keys neither are revoked nor have expired. It is always present, so a zero is shown as 0.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"Metadata", "displayName", "status", "activeAPIKeyCount"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityDisableRequest is the body of a request to disable an agent.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reason is why the agent is disabled. It is optional, and is shown with the agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentity"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentIdentity"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityManifest is the metadata an admin sets on an agent identity. It is all of an agent's configuration that an admin writes: whether an agent is enabled, and what it is granted, are separate.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ownerUserIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OwnerUserIDs are the IDs of the active users who are the agent's administrative contacts. Ownership is metadata only: it grants an owner no rights over the agent.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"displayName"},
+			},
+		},
 	}
 }
 

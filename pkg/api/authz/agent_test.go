@@ -97,6 +97,39 @@ var (
 			method: http.MethodPost,
 			path:   "/api/local-auth/change-password",
 		},
+		// The admin API of agents, which no agent reaches, not even for itself.
+		{
+			method: http.MethodGet,
+			path:   "/api/agents",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agents",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/agents/7",
+		},
+		{
+			method: http.MethodPut,
+			path:   "/api/agents/7",
+		},
+		{
+			method: http.MethodDelete,
+			path:   "/api/agents/7",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agents/7/enable",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/agents/7/api-keys",
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/agents/7/api-keys",
+		},
 		// API key management, the caller's own and every user's.
 		{
 			method: http.MethodPost,

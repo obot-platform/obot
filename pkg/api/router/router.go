@@ -85,6 +85,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
+	agentIdentities := handlers.NewAgentIdentityHandler(services.EnableAgentIdentities, services.AuthEnabled)
 	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel)
 	vmcpInstances := handlers.NewVMCPInstanceHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
@@ -135,6 +136,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
+
+	// Agent identities. These are admin-only routes (see authz).
+	agentIdentities.RegisterRoutes(mux.HandleFunc)
 
 	// License
 	if services.BillingProvider != nil {

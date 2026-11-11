@@ -28,7 +28,7 @@ var (
 	// UI. Many of those handlers assume a user, often through api.Context.UserID, which is 0 for an agent, so that an
 	// agent would be read as user 0 there.
 	agentRules = rulesFromStatic(map[string][]string{
-		types.GroupLLM:    {
+		types.GroupLLM: {
 			"/api/llm-proxy/",
 		},
 		types.GroupSkills: {

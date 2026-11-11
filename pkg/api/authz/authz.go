@@ -120,6 +120,10 @@ var (
 		"/api/default-model-aliases/",
 		"/api/users",
 		"POST /api/users/{user_id}/enable",
+		// Agent identities, and their API keys. No other principal is granted these routes, and agents are confined
+		// to agentRules, so they never reach them.
+		"/api/agents",
+		"/api/agents/",
 		"GET /api/groups",
 		"/api/group-role-assignments",
 		"/api/group-role-assignments/",
@@ -330,6 +334,12 @@ var (
 		"GET /api/product-telemetry-consent",
 		"GET /api/admin-api-keys",
 		"GET /api/admin-api-keys/{id}",
+		// Agents and their API keys, which only administrators and owners change. Each read is listed, rather than
+		// a prefix, so that a new one is classified when it is added.
+		"GET /api/agents",
+		"GET /api/agents/{agent_id}",
+		"GET /api/agents/{agent_id}/api-keys",
+		"GET /api/agents/{agent_id}/api-keys/{key_id}",
 	}
 	ownerRules = []string{
 		"POST /api/license/manage",
@@ -367,6 +377,9 @@ var (
 			"GET /api/mcp-capacity",
 			"GET /api/users",
 			"GET /api/users/",
+			// Read-only, like the admin API keys, which already list the keys of agents.
+			"GET /api/agents",
+			"GET /api/agents/",
 			"GET /api/groups",
 			"GET /api/groups/",
 			"GET /api/group-role-assignments",

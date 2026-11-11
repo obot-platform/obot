@@ -21,6 +21,10 @@ import (
 )
 
 var (
+	// ErrInvalidAgentMetadata reports that CreateAgent or UpdateAgent was given metadata an agent must not have, such
+	// as no display name.
+	ErrInvalidAgentMetadata = errors.New("invalid agent metadata")
+
 	// agentMetadataColumns are the agent columns that UpdateAgent writes.
 	agentMetadataColumns = []string{"display_name", "description", "owner_user_ids"}
 )
@@ -303,7 +307,7 @@ func lockAgent(tx *gorm.DB, id uint) (*types.Agent, error) {
 
 func validateAgentMetadata(agent types.Agent) error {
 	if strings.TrimSpace(agent.DisplayName) == "" {
-		return errors.New("agent display name is required")
+		return fmt.Errorf("%w: agent display name is required", ErrInvalidAgentMetadata)
 	}
 	return nil
 }
