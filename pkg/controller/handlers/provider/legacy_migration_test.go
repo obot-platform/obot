@@ -28,7 +28,7 @@ func (migrationTestProvider) ListModels(context.Context) (*openai.ModelsList, er
 	return &openai.ModelsList{Models: []openai.Model{{ID: "openai/gpt-5.4"}}}, nil
 }
 
-func TestGatewayModelSyncPreservesLegacyConfiguration(t *testing.T) {
+func TestGatewayModelSyncMigratesReferencesAndRetainsSources(t *testing.T) {
 	mp := llmengine.ModelProviderResource()
 	// An old completion marker must not re-enable destructive cleanup.
 	mp.Annotations = map[string]string{"obot.ai/llm-gateway-legacy-import-v2": "true"}
@@ -42,7 +42,9 @@ func TestGatewayModelSyncPreservesLegacyConfiguration(t *testing.T) {
 		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 			ModelProvider: system.OpenAIModelProvider,
 			TargetModel:   "gpt-5.4",
-			Active:        true,
+			Active:        false,
+			DisplayName:   "Legacy administrator name",
+			Usage:         types.ModelUsageLLM,
 		}},
 	}
 	alias := &v1.DefaultModelAlias{
@@ -75,11 +77,31 @@ func TestGatewayModelSyncPreservesLegacyConfiguration(t *testing.T) {
 	}
 	d := dispatcher.New(nil, c, nil, nil, "", "", "")
 	d.RegisterBuiltinModelProvider(mp.Namespace, mp.Name, migrationTestProvider{})
+	// Earlier handlers compute status before back-population; marking completion must retain it.
+	mp.Status.Configured = true
 	require.NoError(t, BackPopulateModels(t.Context(), c, d, mp))
+	require.True(t, mp.Status.Configured)
 
-	for _, original := range objects {
-		got := original.DeepCopyObject().(kclient.Object)
-		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(original), got))
-		require.Equal(t, original, got)
-	}
+	targetName := modelName(mp.Name, "openai/gpt-5.4")
+	var target v1.Model
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: mp.Namespace, Name: targetName}, &target))
+	require.False(t, target.Spec.Manifest.Active)
+	require.Equal(t, "Legacy administrator name", target.Spec.Manifest.DisplayName)
+	var source v1.Model
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(legacyModel), &source))
+	require.Equal(t, legacyModel.Spec, source.Spec)
+	require.Equal(t, target.Name, source.Annotations[system.LegacyModelMigrationAnnotation])
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(legacyProvider), legacyProvider))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(alias), alias))
+	require.Equal(t, target.Name, alias.Spec.Manifest.Model)
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, target.Name, policy.Spec.Manifest.Models[0].ID)
+	// A normal resync keeps later edits, rather than replaying the retained source.
+	target.Spec.Manifest.Active = true
+	target.Spec.Manifest.DisplayName = "New administrator name"
+	require.NoError(t, c.Update(t.Context(), &target))
+	require.NoError(t, BackPopulateModels(t.Context(), c, d, mp))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(&target), &target))
+	require.True(t, target.Spec.Manifest.Active)
+	require.Equal(t, "New administrator name", target.Spec.Manifest.DisplayName)
 }

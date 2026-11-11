@@ -189,8 +189,8 @@ func TestUserProfileIDsForModel(t *testing.T) {
 		modelB = "m1-model-b"
 	)
 	models := []*v1.Model{
-		newModel(modelA, "openai-model-provider", "gpt-a", true),
-		newModel(modelB, "openai-model-provider", "gpt-b", true),
+		newModel(modelA, "llm-gateway-model-provider", "gpt-a", true),
+		newModel(modelB, "llm-gateway-model-provider", "gpt-b", true),
 	}
 	everyone := types2.Subject{Type: types2.SubjectTypeSelector, ID: "*"}
 	alice := types2.Subject{Type: types2.SubjectTypeUser, ID: "alice"}
@@ -251,8 +251,8 @@ func TestUserProfileIDsForModel(t *testing.T) {
 
 func TestPolicyAllowedModels(t *testing.T) {
 	models := []*v1.Model{
-		newModel("m1-model-a", "openai-model-provider", "gpt-a", true),
-		newModel("m1-model-b", "openai-model-provider", "gpt-b", true),
+		newModel("m1-model-a", "llm-gateway-model-provider", "gpt-a", true),
+		newModel("m1-model-b", "llm-gateway-model-provider", "gpt-b", true),
 	}
 	h := newModelHelper(t, models)
 	everyone := types2.Subject{Type: types2.SubjectTypeSelector, ID: "*"}

@@ -196,7 +196,7 @@ func TestResolveUpstreamModelName(t *testing.T) {
 
 func TestGetUserAllowedTargetModels(t *testing.T) {
 	const (
-		provider = "openai-model-provider"
+		provider = "llm-gateway-model-provider"
 		userID   = "u1"
 	)
 
@@ -383,9 +383,9 @@ func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
 	const userID = "u1"
 
 	models := []*v1.Model{
-		newModel("m1-anthropic-claude-haiku", "anthropic-model-provider", "claude-haiku-4-5-20251001", true),
-		newModel("m1-bedrock-claude-haiku", "bedrock-model-provider", "claude-haiku-4-5-20251001", true),
-		newModel("m1-anthropic-claude-opus", "anthropic-model-provider", "claude-opus-4-8", true),
+		newModel("m1-anthropic-claude-haiku", "llm-gateway-model-provider", "anthropic/claude-haiku-4-5-20251001", true),
+		newModel("m1-bedrock-claude-haiku", "llm-gateway-model-provider", "bedrock/claude-haiku-4-5-20251001", true),
+		newModel("m1-anthropic-claude-opus", "llm-gateway-model-provider", "anthropic/claude-opus-4-8", true),
 	}
 
 	policy := &v1.ModelAccessPolicy{
@@ -414,7 +414,7 @@ func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
 func TestObotGroupSubjectGrantsModelAccess(t *testing.T) {
 	const modelID = "m1-openai-gpt-4o"
 	h := newModelHelper(t,
-		[]*v1.Model{newModel(modelID, "openai-model-provider", "gpt-4o", true)},
+		[]*v1.Model{newModel(modelID, "llm-gateway-model-provider", "gpt-4o", true)},
 		&v1.ModelAccessPolicy{
 			Name:      "admin",
 			Namespace: "default",
@@ -497,4 +497,26 @@ func newModel(name, provider, targetModel string, active bool, opts ...modelOpt)
 		opt(m)
 	}
 	return m
+}
+
+func TestRetainedLegacyModelsCannotBeGrantedByAnySelector(t *testing.T) {
+	legacy := newModel("m1-legacy", "anthropic-model-provider", "claude-sonnet-4-5", true)
+	target := newModel("m1-gateway", "llm-gateway-model-provider", "anthropic/claude-sonnet-4-5", true)
+	for _, id := range []string{"*", "claude-*", legacy.Name} {
+		t.Run(id, func(t *testing.T) {
+			policy := &v1.ModelAccessPolicy{
+				Name:      "policy",
+				Namespace: "default",
+				Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
+					Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: "user"}},
+					Models:   []types2.ModelResource{{ID: id}},
+				}},
+			}
+			helper := newModelHelper(t, []*v1.Model{legacy, target}, policy)
+			allowed, _, err := helper.GetUserAllowedModels(&kuser.DefaultInfo{UID: "user"})
+			require.NoError(t, err)
+			require.False(t, allowed[legacy.Name])
+			require.Equal(t, id != legacy.Name, allowed[target.Name])
+		})
+	}
 }
