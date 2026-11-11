@@ -86,7 +86,7 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 			var activeKey gt.APIKey
 			for _, name := range []string{"a-expired", "z-active"} {
 				key := gt.APIKey{
-					UserID:            123,
+					UserID:            new(uint(123)),
 					ClaudeEnvironment: true,
 					ExpiresAt:         new(time.Now().Add(24 * time.Hour)),
 				}
@@ -112,7 +112,7 @@ func TestEnvironmentProfileValidation(t *testing.T) {
 				}
 			}
 			llmKey := gt.APIKey{
-				UserID:            123,
+				UserID:            new(uint(123)),
 				ClaudeEnvironment: true,
 				ExpiresAt:         new(time.Now().Add(24 * time.Hour)),
 			}

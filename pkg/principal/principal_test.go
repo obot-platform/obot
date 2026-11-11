@@ -39,19 +39,65 @@ func TestAPIKeyAttribution(t *testing.T) {
 }
 
 func TestNewAPIKeyAttributionResolvesDisplayName(t *testing.T) {
-	named := NewAPIKeyAttribution(42, 7, "CLI token")
-	if named.ID != 42 || named.Name != "CLI token" {
-		t.Fatalf("named attribution = %#v, want key name", named)
-	}
-
-	unnamedKey := NewAPIKeyAttribution(42, 7, "")
-	if unnamedKey.ID != 42 || unnamedKey.Name != "ok1-7-42-*****" {
-		t.Fatalf("unnamed attribution = %#v, want masked key identifier", unnamedKey)
+	for _, tt := range []struct {
+		name     string
+		owner    Principal
+		keyName  string
+		wantName string
+	}{
+		{
+			name:     "named user key",
+			owner:    User(7),
+			keyName:  "CLI token",
+			wantName: "CLI token",
+		},
+		{
+			name:     "unnamed user key",
+			owner:    User(7),
+			wantName: "ok1-7-42-*****",
+		},
+		{
+			name:     "unnamed agent key",
+			owner:    Agent(7),
+			wantName: "oak1-7-42-*****",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NewAPIKeyAttribution(42, tt.owner, tt.keyName)
+			if got.ID != 42 || got.Name != tt.wantName {
+				t.Fatalf("attribution = %#v, want ID 42 and name %q", got, tt.wantName)
+			}
+		})
 	}
 }
 
 func TestMaskedAPIKeyName(t *testing.T) {
-	if got := MaskedAPIKeyName("7", 42); got != "ok1-7-42-*****" {
-		t.Fatalf("masked API key name = %q", got)
+	for _, tt := range []struct {
+		name  string
+		owner string
+		want  string
+	}{
+		{
+			name:  "user",
+			owner: User(7).String(),
+			want:  "ok1-7-42-*****",
+		},
+		{
+			name:  "agent",
+			owner: Agent(7).String(),
+			want:  "oak1-7-42-*****",
+		},
+		{
+			// An owner that is not a principal's encoding is written as is, as it was before agents.
+			name:  "not a principal",
+			owner: "system",
+			want:  "ok1-system-42-*****",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MaskedAPIKeyName(tt.owner, 42); got != tt.want {
+				t.Fatalf("MaskedAPIKeyName(%q, 42) = %q, want %q", tt.owner, got, tt.want)
+			}
+		})
 	}
 }

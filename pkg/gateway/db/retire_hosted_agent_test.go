@@ -18,20 +18,20 @@ func TestAutoMigrateRetiresHostedAgentKeys(t *testing.T) {
 	keys := []types.APIKey{
 		{
 			ID:     1,
-			UserID: 7,
+			UserID: new(uint(7)),
 		},
 		{
 			ID:     2,
-			UserID: 7,
+			UserID: new(uint(7)),
 		},
 		{
 			ID:        3,
-			UserID:    7,
+			UserID:    new(uint(7)),
 			RevokedAt: &revokedAt,
 		},
 		{
 			ID:     4,
-			UserID: 7,
+			UserID: new(uint(7)),
 		},
 	}
 	require.NoError(t, sql.Create(&keys).Error)

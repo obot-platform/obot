@@ -454,7 +454,7 @@ func TestValidateAPIKeyReportsItsOwnersCurrentStatus(t *testing.T) {
 			t.Fatalf("owner status = %q, want %q", key.OwnerStatus, want)
 		}
 		// The key is read together with its user, and must come back whole.
-		if key.ID != created.ID || key.UserID != user.ID || !key.CanAccessAPI || !slices.Equal(key.MCPServerIDs, []string{"ms1-first", "ms1-second"}) {
+		if key.ID != created.ID || key.Owner() != principal.User(user.ID) || !key.CanAccessAPI || !slices.Equal(key.MCPServerIDs, []string{"ms1-first", "ms1-second"}) {
 			t.Fatalf("validated key = %+v, want the key as created", key)
 		}
 	}

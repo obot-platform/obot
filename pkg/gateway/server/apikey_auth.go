@@ -56,7 +56,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		}
 	}
 
-	// Check if this value uses the shared API key prefix.
+	// Check if this value uses the user API key prefix. Agent keys (oak1-) are not accepted yet.
 	if !strings.HasPrefix(authHeader, system.APIKeyPrefix+"-") {
 		return nil, false, nil
 	}
@@ -76,23 +76,28 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 			Err:    err,
 		}
 	}
+	// A key read for a user key's prefix is a user's key. Should it not be, it is not authenticated as anyone.
+	userID, ok := apiKey.Owner().UserID()
+	if !ok {
+		return nil, false, nil
+	}
 
 	// Get the user from the database
-	u, authProviderGroups, err := a.client.UserByIDWithEffectiveRole(req.Context(), apiKey.UserID)
+	u, authProviderGroups, err := a.client.UserByIDWithEffectiveRole(req.Context(), userID)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		// The key outlived its user. Deny it rather than letting the request continue as anonymous.
 		return nil, false, &client.UserAccessDeniedError{
-			UserID: apiKey.UserID,
+			UserID: userID,
 			Status: types2.UserStatusDeleted,
 		}
 	} else if err != nil {
 		return nil, false, &client.UserAccessLookupError{
-			UserID: apiKey.UserID,
+			UserID: userID,
 			Err:    err,
 		}
 	}
 
-	attribution := principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
+	attribution := principal.NewAPIKeyAttribution(apiKey.ID, principal.User(userID), apiKey.Name)
 	groups := apiKey.Groups(u)
 	if apiKey.ClaudeEnvironment {
 		groups = append(groups, types2.GroupClaudeEnvironment)

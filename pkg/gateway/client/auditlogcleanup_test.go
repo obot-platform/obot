@@ -97,7 +97,7 @@ func countLLMAuditLogs(t *testing.T, c *Client) int64 {
 func insertAPIKey(t *testing.T, c *Client, revokedAt *time.Time) {
 	t.Helper()
 	entry := types.APIKey{
-		UserID:    1,
+		UserID:    new(uint(1)),
 		Name:      "retention-test",
 		CreatedAt: time.Now().UTC().AddDate(0, 0, -200),
 		RevokedAt: revokedAt,
@@ -384,17 +384,24 @@ func TestRunRetentionCleanupKeepsAuditLogsWithoutRetention(t *testing.T) {
 			expired := now.Add(-time.Minute)
 			future := now.Add(time.Hour)
 			for range 7 {
-				if err := c.db.WithContext(t.Context()).Create(&types.APIKey{ClaudeEnvironment: true, ExpiresAt: &expired}).Error; err != nil {
+				if err := c.db.WithContext(t.Context()).Create(&types.APIKey{UserID: new(uint(1)), ClaudeEnvironment: true, ExpiresAt: &expired}).Error; err != nil {
 					t.Fatal(err)
 				}
 			}
 			for _, key := range []types.APIKey{
 				{
+					UserID:            new(uint(1)),
 					ClaudeEnvironment: true,
 					ExpiresAt:         &future,
 				},
-				{ClaudeEnvironment: true},
-				{ExpiresAt: &expired},
+				{
+					UserID:            new(uint(1)),
+					ClaudeEnvironment: true,
+				},
+				{
+					UserID:    new(uint(1)),
+					ExpiresAt: &expired,
+				},
 			} {
 				if err := c.db.WithContext(t.Context()).Create(&key).Error; err != nil {
 					t.Fatal(err)
@@ -511,6 +518,7 @@ func TestCleanupRetainedDataSkipsAPIKeysWhenAuditCleanupFails(t *testing.T) {
 
 	c = newTestClient(t)
 	if err := c.db.WithContext(t.Context()).Create(&types.APIKey{
+		UserID:            new(uint(1)),
 		ClaudeEnvironment: true,
 		ExpiresAt:         &oldRevocation,
 	}).Error; err != nil {

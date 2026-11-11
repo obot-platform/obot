@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 )
 
 func TestValidatedAPIKeyCacheHit(t *testing.T) {
@@ -16,7 +17,7 @@ func TestValidatedAPIKeyCacheHit(t *testing.T) {
 	}
 
 	now := time.Now()
-	want := &types.APIKey{UserID: 7, Name: "cache-key"}
+	want := &types.APIKey{UserID: new(uint(7)), Name: "cache-key"}
 
 	c.putValidatedAPIKeyInCache("ok1-7-1-secret", want, now)
 
@@ -24,7 +25,7 @@ func TestValidatedAPIKeyCacheHit(t *testing.T) {
 	if !ok {
 		t.Fatal("expected cache hit")
 	}
-	if got.UserID != want.UserID || got.Name != want.Name {
+	if got.Owner() != want.Owner() || got.Name != want.Name {
 		t.Fatalf("unexpected cached value: %+v", got)
 	}
 }
@@ -38,7 +39,7 @@ func TestValidatedAPIKeyCacheExpires(t *testing.T) {
 	}
 
 	now := time.Now()
-	c.putValidatedAPIKeyInCache("ok1-7-1-secret", &types.APIKey{ID: 1, UserID: 7}, now)
+	c.putValidatedAPIKeyInCache("ok1-7-1-secret", &types.APIKey{ID: 1, UserID: new(uint(7))}, now)
 
 	if _, ok := c.getValidatedAPIKeyFromCache("ok1-7-1-secret", now.Add(2*time.Second)); ok {
 		t.Fatal("expected expired cache entry to miss")
@@ -54,8 +55,8 @@ func TestInvalidateValidatedAPIKeysByID(t *testing.T) {
 	}
 
 	now := time.Now()
-	c.putValidatedAPIKeyInCache("ok1-7-1-secret", &types.APIKey{ID: 1, UserID: 7}, now)
-	c.putValidatedAPIKeyInCache("ok1-7-2-secret", &types.APIKey{ID: 2, UserID: 7}, now)
+	c.putValidatedAPIKeyInCache("ok1-7-1-secret", &types.APIKey{ID: 1, UserID: new(uint(7))}, now)
+	c.putValidatedAPIKeyInCache("ok1-7-2-secret", &types.APIKey{ID: 2, UserID: new(uint(7))}, now)
 
 	c.invalidateValidatedAPIKeysByID(1)
 
@@ -80,12 +81,12 @@ func TestPruneExpiredValidatedAPIKeys(t *testing.T) {
 	activeKey := "ok1-7-2-secret"
 
 	c.apiKeyCache[apiKeyCacheFingerprint(expiredKey)] = apiKeyValidationCacheEntry{
-		apiKey:    types.APIKey{ID: 1, UserID: 7},
+		apiKey:    types.APIKey{ID: 1, UserID: new(uint(7))},
 		expiresAt: now.Add(-time.Second),
 		keyID:     1,
 	}
 
-	c.putValidatedAPIKeyInCache(activeKey, &types.APIKey{ID: 2, UserID: 7}, now)
+	c.putValidatedAPIKeyInCache(activeKey, &types.APIKey{ID: 2, UserID: new(uint(7))}, now)
 	c.pruneExpiredValidatedAPIKeys(now)
 
 	if _, ok := c.apiKeyCache[apiKeyCacheFingerprint(expiredKey)]; ok {
@@ -108,7 +109,7 @@ func TestValidatedAPIKeyCacheReturnsDeepCopy(t *testing.T) {
 
 	original := &types.APIKey{
 		ID:           1,
-		UserID:       7,
+		UserID:       new(uint(7)),
 		Name:         "cache-key",
 		MCPServerIDs: []string{"server-a"},
 		LastUsedAt:   &lastUsedAt,
@@ -126,8 +127,12 @@ func TestValidatedAPIKeyCacheReturnsDeepCopy(t *testing.T) {
 	got.MCPServerIDs[0] = "mutated"
 	*got.LastUsedAt = got.LastUsedAt.Add(time.Minute)
 	*got.ExpiresAt = got.ExpiresAt.Add(time.Minute)
+	*got.UserID = 8
 
 	cached := c.apiKeyCache[apiKeyCacheFingerprint("ok1-7-1-secret")].apiKey
+	if cached.Owner() != principal.User(7) {
+		t.Fatal("expected cached owner to be isolated from returned value")
+	}
 	if cached.MCPServerIDs[0] != "server-a" {
 		t.Fatal("expected cached MCPServerIDs to be isolated from returned value")
 	}

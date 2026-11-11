@@ -313,7 +313,7 @@ func TestLocalAgentAuditLogSubmitAPIKeyAttribution(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-			attribution := principal.NewAPIKeyAttribution(42, 7, tt.apiKeyName)
+			attribution := principal.NewAPIKeyAttribution(42, principal.User(7), tt.apiKeyName)
 			events := []types.LocalAgentToolCallAuditLogInput{
 				validLocalAgentAuditLogInput(time.Now().UTC(), "entry-1", types.AuditLogOutcomeStatusSuccess),
 				validLocalAgentAuditLogInput(time.Now().UTC(), "entry-2", types.AuditLogOutcomeStatusSuccess),

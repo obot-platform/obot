@@ -170,3 +170,29 @@ func TestAPIKeyWebhookDeniesInactiveUsers(t *testing.T) {
 		t.Fatalf("webhook response for a disabled user = %+v, want denied as not active", response)
 	}
 }
+
+func TestAPIKeyWebhookDeniesAgentKeys(t *testing.T) {
+	s, client := newTokenRequestTestServer(t)
+	ctx := t.Context()
+	agent, err := client.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "nightly build"})
+	if err != nil {
+		t.Fatalf("failed to create agent: %v", err)
+	}
+	created, err := client.CreateAgentAPIKey(ctx, agent.ID, gatewaytypes.AgentAPIKeyCreateRequest{Name: "nightly", MCPServerIDs: []string{"*"}})
+	if err != nil {
+		t.Fatalf("failed to create agent API key: %v", err)
+	}
+
+	apiContext, recorder := newTokenRequestAPIContext(t, client, http.MethodPost, "/api/api-keys/auth", apiKeyAuthRequest{
+		ValidateOnly: true,
+	}, nil)
+	apiContext.Request.Header.Set("Authorization", "Bearer "+created.Key)
+	if err := s.authenticateAPIKey(apiContext); err != nil {
+		t.Fatalf("failed to authenticate API key: %v", err)
+	}
+	var response apiKeyAuthResponse
+	decodeTokenRequestResponse(t, recorder, &response)
+	if response.Allowed || response.Subject != "" {
+		t.Fatalf("webhook response for an agent key = %+v, want denied", response)
+	}
+}

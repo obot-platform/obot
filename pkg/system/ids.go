@@ -42,6 +42,7 @@ const (
 	ModelAccessPolicyPrefix       = "map1"
 	MessagePolicyPrefix           = "mp1"
 	APIKeyPrefix                  = "ok1"
+	AgentAPIKeyPrefix             = "oak1"
 
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"
 	ProviderSyncName       = "provider-sync"

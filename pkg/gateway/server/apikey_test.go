@@ -2,7 +2,9 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -92,6 +94,84 @@ func TestAdminDeleteAPIKeyEndpointRevokesAndRetainsTheKey(t *testing.T) {
 	}
 	if retained.RevokedAt == nil {
 		t.Fatalf("admin DELETE endpoint did not retain a revoked API key: %+v", retained)
+	}
+}
+
+func TestAdminAPIKeyListFiltersByOwnerKind(t *testing.T) {
+	s, gatewayClient := newTokenRequestTestServer(t)
+	userKey, err := gatewayClient.CreateAPIKey(t.Context(), 7, "user key", "", nil, types.APIKeyScopes{CanAccessAPI: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent, err := gatewayClient.CreateAgent(t.Context(), types.Agent{DisplayName: "agent"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	agentKey, err := gatewayClient.CreateAgentAPIKey(t.Context(), agent.ID, types.AgentAPIKeyCreateRequest{Name: "agent key", MCPServerIDs: []string{"*"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	userInfo := &user.DefaultInfo{UID: "7", Groups: []string{clienttypes.GroupAuthenticated}}
+	for _, tt := range []struct {
+		name       string
+		path       string
+		wantKeyIDs []uint
+		wantStatus int
+	}{
+		{
+			name:       "no kind lists every key",
+			path:       "/api/admin-api-keys",
+			wantKeyIDs: []uint{userKey.ID, agentKey.ID},
+		},
+		{
+			name:       "user kind",
+			path:       "/api/admin-api-keys?kind=user",
+			wantKeyIDs: []uint{userKey.ID},
+		},
+		{
+			name:       "agent kind",
+			path:       "/api/admin-api-keys?kind=agent",
+			wantKeyIDs: []uint{agentKey.ID},
+		},
+		{
+			name:       "invalid kind",
+			path:       "/api/admin-api-keys?kind=device",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "empty kind",
+			path:       "/api/admin-api-keys?kind=",
+			wantStatus: http.StatusBadRequest,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodGet, tt.path, nil, userInfo)
+			err := s.listAllAPIKeys(ctx)
+			if tt.wantStatus != 0 {
+				var httpErr *clienttypes.ErrHTTP
+				if !errors.As(err, &httpErr) || httpErr.Code != tt.wantStatus {
+					t.Fatalf("err = %v, want HTTP %d", err, tt.wantStatus)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var response struct {
+				Items []types.APIKey `json:"items"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			var gotKeyIDs []uint
+			for _, key := range response.Items {
+				gotKeyIDs = append(gotKeyIDs, key.ID)
+			}
+			if !slices.Equal(slices.Sorted(slices.Values(gotKeyIDs)), slices.Sorted(slices.Values(tt.wantKeyIDs))) {
+				t.Fatalf("key IDs = %v, want %v", gotKeyIDs, tt.wantKeyIDs)
+			}
+		})
 	}
 }
 

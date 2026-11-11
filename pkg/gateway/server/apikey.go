@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -202,11 +203,25 @@ func (s *Server) revokeAPIKey(apiContext api.Context) error {
 
 // Admin endpoints for managing any user's API keys
 
-// listAllAPIKeys lists all API keys in the system (admin/owner only).
+// listAllAPIKeys lists all API keys in the system (admin/owner only). The optional kind query parameter, user or
+// agent, limits the list to the keys of that kind of owner.
 func (s *Server) listAllAPIKeys(apiContext api.Context) error {
-	showRevoked, _ := strconv.ParseBool(apiContext.Request.URL.Query().Get("show_revoked"))
+	query := apiContext.URL.Query()
+	showRevoked, _ := strconv.ParseBool(query.Get("show_revoked"))
+
+	var ownerKind principal.Kind
+	if query.Has("kind") {
+		switch kind := principal.Kind(query.Get("kind")); kind {
+		case principal.KindUser, principal.KindAgent:
+			ownerKind = kind
+		default:
+			return types2.NewErrBadRequest("invalid kind %q: must be %q or %q", kind, principal.KindUser, principal.KindAgent)
+		}
+	}
+
 	keys, err := apiContext.GatewayClient.ListAllAPIKeys(apiContext.Context(), client.APIKeyListOptions{
 		ShowRevoked: showRevoked,
+		OwnerKind:   ownerKind,
 	})
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to list API keys: %v", err))
@@ -287,18 +302,27 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 			Reason:  "invalid or expired API key",
 		})
 	}
+	// The prefix check admits only user keys; an agent's key is never answered for as a user.
+	userID, ok := apiKey.Owner().UserID()
+	if !ok {
+		slog.Info("Denied API key auth request", "reason", "invalid_api_key_owner", "mcpID", req.MCPID)
+		return apiContext.Write(apiKeyAuthResponse{
+			Allowed: false,
+			Reason:  "invalid or expired API key",
+		})
+	}
 
 	// Get user info
-	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(apiKey.UserID), 10))
+	user, err := apiContext.GatewayClient.UserByID(apiContext.Context(), strconv.FormatUint(uint64(userID), 10))
 	if err != nil {
-		slog.Info("Denied API key auth request", "reason", "user_not_found", "keyUserID", apiKey.UserID, "mcpID", req.MCPID)
+		slog.Info("Denied API key auth request", "reason", "user_not_found", "keyUserID", userID, "mcpID", req.MCPID)
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "user not found",
 		})
 	}
 	if status := user.Status(); status != types2.UserStatusActive {
-		slog.Info("Denied API key auth request", "reason", "user_not_active", "keyUserID", apiKey.UserID, "status", status, "mcpID", req.MCPID)
+		slog.Info("Denied API key auth request", "reason", "user_not_active", "keyUserID", userID, "status", status, "mcpID", req.MCPID)
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,
 			Reason:  "user is not active",
@@ -307,9 +331,9 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
 	if !req.ValidateOnly && !system.IsWebhookSystemMCPServerID(req.MCPID) {
-		hasAccess, err := authz.MCPIDIsAuthorized(apiContext.Context(), apiContext.Storage, apiKey.MCPServerIDs, strconv.FormatUint(uint64(apiKey.UserID), 10), req.MCPID)
+		hasAccess, err := authz.MCPIDIsAuthorized(apiContext.Context(), apiContext.Storage, apiKey.MCPServerIDs, strconv.FormatUint(uint64(userID), 10), req.MCPID)
 		if !hasAccess || err != nil {
-			slog.Info("Denied API key auth request", "reason", "api_key_scope_mismatch", "keyUserID", apiKey.UserID, "mcpID", req.MCPID)
+			slog.Info("Denied API key auth request", "reason", "api_key_scope_mismatch", "keyUserID", userID, "mcpID", req.MCPID)
 			return apiContext.Write(apiKeyAuthResponse{
 				Allowed: false,
 				Reason:  "API key does not have access to this MCP server",
@@ -317,7 +341,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		}
 	}
 
-	slog.Debug("Authorized API key request", "keyUserID", apiKey.UserID, "mcpID", req.MCPID, "wildcardScope", hasWildcard, "validateOnly", req.ValidateOnly)
+	slog.Debug("Authorized API key request", "keyUserID", userID, "mcpID", req.MCPID, "wildcardScope", hasWildcard, "validateOnly", req.ValidateOnly)
 
 	// Update key's last used time
 	if keyErr := apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey); keyErr != nil {
@@ -327,7 +351,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	return apiContext.Write(apiKeyAuthResponse{
 		Allowed:           true,
 		Scopes:            apiKey.APIKeyScopes,
-		Subject:           fmt.Sprintf("%d", apiKey.UserID),
+		Subject:           fmt.Sprintf("%d", userID),
 		Name:              user.DisplayName,
 		PreferredUsername: user.Username,
 		Email:             user.Email,

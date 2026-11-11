@@ -10,6 +10,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -241,9 +242,15 @@ func deleteAgentTx(tx *gorm.DB, id uint) (*types.Agent, error) {
 }
 
 // revokeAgentAPIKeysTx revokes, within tx, every API key of an agent that is being deleted, so that none of them
-// works once the deletion commits. Agents have no API keys yet, so there is nothing to revoke. The agent API keys of
-// agent identities spec 03 replace this with the revocation of their keys (RevokeAllAgentAPIKeys).
-func revokeAgentAPIKeysTx(*gorm.DB, uint) error {
+// works once the deletion commits. Keys that are already revoked keep their revocation time. No cached validation
+// needs invalidating: a cache hit reads the key's revocation again, so a revoked key is refused at once on every
+// replica.
+func revokeAgentAPIKeysTx(tx *gorm.DB, agentID uint) error {
+	if err := whereAPIKeyOwner(tx.Model(&types.APIKey{}), principal.Agent(agentID)).
+		Where("revoked_at IS NULL").
+		Update("revoked_at", time.Now().UTC()).Error; err != nil {
+		return fmt.Errorf("failed to revoke the API keys of agent %d: %w", agentID, err)
+	}
 	return nil
 }
 

@@ -198,8 +198,9 @@ func refreshEnvironmentCredentials(req api.Context, environment *gt.ClaudeEnviro
 			if _, err := req.GatewayClient.DeleteCredential(req.Context(), "substrate-agent", instance.Name); err != nil {
 				return err
 			}
-		} else if key.ExpiresAt != nil && key.ExpiresAt.After(time.Now()) {
-			if _, err := req.GatewayClient.EnsureClaudeCredential(req.Context(), key.UserID, instance.Name, effective.MCPServerIDs, *key.ExpiresAt); err != nil {
+		} else if userID, ok := key.Owner().UserID(); ok && key.ExpiresAt != nil && key.ExpiresAt.After(time.Now()) {
+			// Claude session keys are issued to users only, so a key of any other owner is never renewed.
+			if _, err := req.GatewayClient.EnsureClaudeCredential(req.Context(), userID, instance.Name, effective.MCPServerIDs, *key.ExpiresAt); err != nil {
 				return err
 			}
 		}

@@ -7,6 +7,7 @@ import (
 
 	api "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -37,7 +38,7 @@ func TestClaudeTagServiceUser(t *testing.T) {
 	require.NoError(t, err)
 	key, err := c.ValidateAPIKey(ctx, credential.Secrets["key"])
 	require.NoError(t, err)
-	require.Equal(t, user.ID, key.UserID)
+	require.Equal(t, principal.User(user.ID), key.Owner())
 	require.Equal(t, []string{"vmcp_test"}, key.MCPServerIDs)
 
 	// An active session can renew after retention cleanup removes its expired key.
@@ -61,6 +62,7 @@ func TestClaudeTagServiceUser(t *testing.T) {
 		Where("id IN ?", []uint{renewed.ID, current.ID}).Update("expires_at", time.Now().Add(-time.Minute)).Error)
 	c.auditLogDeleteBatchSize = 1
 	require.NoError(t, c.db.WithContext(ctx).Create(&types.APIKey{
+		UserID:            &user.ID,
 		ClaudeEnvironment: true,
 		ExpiresAt:         new(time.Now().Add(-time.Minute)),
 	}).Error)

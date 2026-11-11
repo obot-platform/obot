@@ -748,21 +748,33 @@ func (h *AuditLogHandler) attributeMCPAuditLogAPIKey(ctx context.Context, auditL
 		return nil
 	}
 
-	ownerUserID, keyID, err := gateway.ParseRedactedAPIKey(mcpFields.APIKey)
+	ownerKind, ownerID, keyID, err := gateway.ParseRedactedAPIKey(mcpFields.APIKey)
 	if err != nil {
 		return nil
 	}
 
-	apiKey, err := h.gatewayClient.GetAPIKey(ctx, ownerUserID, keyID)
+	// The key is looked up as a key of the owner its prefix names, so an agent's key is never attributed to the
+	// user with the same ID, or the other way around.
+	var (
+		owner  principal.Principal
+		apiKey *gatewaytypes.APIKey
+	)
+	if ownerKind == principal.KindAgent {
+		owner = principal.Agent(ownerID)
+		apiKey, err = h.gatewayClient.GetAgentAPIKey(ctx, ownerID, keyID)
+	} else {
+		owner = principal.User(ownerID)
+		apiKey, err = h.gatewayClient.GetAPIKey(ctx, ownerID, keyID)
+	}
 	var attribution principal.APIKeyAttribution
 	if err == nil {
-		attribution = principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
+		attribution = principal.NewAPIKeyAttribution(apiKey.ID, owner, apiKey.Name)
 	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// Older keys may no longer have metadata. Preserve the stable ID and
 		// safe display fallback anyway.
-		attribution = principal.NewAPIKeyAttribution(keyID, ownerUserID, "")
+		attribution = principal.NewAPIKeyAttribution(keyID, owner, "")
 	} else {
-		return fmt.Errorf("get API key %d for user %d: %w", keyID, ownerUserID, err)
+		return fmt.Errorf("get API key %d for %s %d: %w", keyID, ownerKind, ownerID, err)
 	}
 
 	auditLog.APIKeyID = &attribution.ID

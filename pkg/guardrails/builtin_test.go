@@ -142,6 +142,20 @@ func TestSecretsDetection(t *testing.T) {
 			name: "a URL assigned to a secret-looking name",
 			text: "password_reset_url = https://example.com/reset",
 		},
+		{
+			name: "Obot user API key",
+			text: "use ok1-7-42-" + value + " to connect",
+			want: []string{"OBOT_API_KEY=ok1-7-42-" + value},
+		},
+		{
+			name: "Obot agent API key",
+			text: "use oak1-7-42-" + value + " to connect",
+			want: []string{"OBOT_API_KEY=oak1-7-42-" + value},
+		},
+		{
+			name: "masked Obot API key",
+			text: "key oak1-7-42-***** was revoked",
+		},
 	}
 	c := &secretsChecker{generic: true, minEntropy: 3.5}
 	for _, tt := range tests {
