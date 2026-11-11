@@ -1,5 +1,6 @@
 import asyncio
 import ipaddress
+import socket
 from typing import AsyncIterator, Iterator
 from typing import Awaitable, Callable
 
@@ -36,7 +37,7 @@ class PinnedTransport(httpx.AsyncBaseTransport):
             except ValueError:
                 if self.resolver is None:
                     loop = asyncio.get_running_loop()
-                    infos = await loop.getaddrinfo(host, port, type=asyncio.SocketKind.SOCK_STREAM)
+                    infos = await loop.getaddrinfo(host, port, type=socket.SOCK_STREAM)
                     answers = list(dict.fromkeys(info[4][0] for info in infos))
                 else:
                     answers = list(dict.fromkeys(await self.resolver(host, port)))

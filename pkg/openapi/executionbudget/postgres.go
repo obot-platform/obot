@@ -12,20 +12,12 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-type scopeKey struct {
-	Scope   string
-	KeyHash string
-}
-
 func (manager *Manager) enqueue(ctx context.Context, request AcquireRequest, requestID, releaseToken string, waitDeadline time.Time) (types.OpenAPIExecutionRequest, error) {
+	if err := manager.ensureRuntimeState(ctx, request.Identity, request.ObotInstanceID); err != nil {
+		return types.OpenAPIExecutionRequest{}, err
+	}
 	var result types.OpenAPIExecutionRequest
 	err := manager.transaction(ctx, func(tx *gorm.DB) error {
-		if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&types.OpenAPIBudgetState{
-			Scope: types.OpenAPIBudgetScopeOperation, KeyHash: request.Identity.BudgetKeyHash,
-			LastAdmittedAt: time.Now().UTC(), ObotInstanceID: request.ObotInstanceID,
-		}).Error; err != nil {
-			return err
-		}
 		if err := lockBudgetScopes(tx, request.Identity.BudgetKeyHash); err != nil {
 			return err
 		}
@@ -73,8 +65,6 @@ func (manager *Manager) enqueue(ctx context.Context, request AcquireRequest, req
 }
 
 func (manager *Manager) AdmitOne(ctx context.Context) (bool, error) {
-	manager.admitMu.Lock()
-	defer manager.admitMu.Unlock()
 	candidates, err := manager.runtimeCandidates(ctx)
 	if err != nil || len(candidates) == 0 {
 		return false, err
@@ -150,8 +140,15 @@ func (manager *Manager) runtimeCandidates(ctx context.Context) ([]types.OpenAPIB
 	var states []types.OpenAPIBudgetState
 	err := manager.db.WithContext(ctx).
 		Where("scope = ? AND waiting_count > 0", types.OpenAPIBudgetScopeOperation).
-		Order("last_admitted_at, id").Limit(manager.config.PlatformMaxWaiting).Find(&states).Error
+		Order("last_admitted_at, id").Limit(int(manager.config.PlatformMaxWaiting)).Find(&states).Error
 	return states, err
+}
+
+func (manager *Manager) ensureRuntimeState(ctx context.Context, identity BudgetIdentity, obotInstanceID string) error {
+	return manager.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&types.OpenAPIBudgetState{
+		Scope: types.OpenAPIBudgetScopeOperation, KeyHash: identity.BudgetKeyHash,
+		LastAdmittedAt: time.Now().UTC(), ObotInstanceID: obotInstanceID,
+	}).Error
 }
 
 func (manager *Manager) operationBudget(tx *gorm.DB, identity BudgetIdentity) (string, types.OpenAPIOperationBudget, error) {
@@ -178,9 +175,7 @@ func (manager *Manager) poolLimit(pool string) int {
 }
 
 func (manager *Manager) transaction(ctx context.Context, operation func(*gorm.DB) error) error {
-	transactionCtx, cancel := context.WithTimeout(ctx, manager.config.TransactionTimeout)
-	defer cancel()
-	tx := manager.db.WithContext(transactionCtx).Begin()
+	tx := manager.db.WithContext(ctx).Begin()
 	if tx.Error != nil {
 		return fmt.Errorf("%w: %v", ErrStorageUnavailable, tx.Error)
 	}
@@ -194,9 +189,9 @@ func (manager *Manager) transaction(ctx context.Context, operation func(*gorm.DB
 	return nil
 }
 
-func lockedRequest(tx *gorm.DB, requestID string) (types.OpenAPIExecutionRequest, error) {
+func (manager *Manager) lockedRequest(ctx context.Context, requestID string) (types.OpenAPIExecutionRequest, error) {
 	var request types.OpenAPIExecutionRequest
-	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+	err := manager.db.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("request_id = ?", requestID).First(&request).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return request, ErrLeaseNotFound
@@ -302,3 +297,8 @@ func poolFromHash(value string) string {
 }
 
 func hashText(value string) string { return hash.String(value) }
+
+type scopeKey struct {
+	Scope   string
+	KeyHash string
+}

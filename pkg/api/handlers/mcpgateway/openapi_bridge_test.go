@@ -27,7 +27,7 @@ func TestOpenAPIBridgeResponsesAreJSONOnly(t *testing.T) {
 	require.True(t, handled)
 	require.Equal(t, http.StatusOK, initializeResponse.Code)
 	require.Equal(t, "application/json", initializeResponse.Header().Get("Content-Type"))
-	require.JSONEq(t, `{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{"name":"Obot OpenAPI Worker Bridge","version":"1.0"}}}`, initializeResponse.Body.String())
+	require.JSONEq(t, `{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-06-18","capabilities":{"tools":{}},"serverInfo":{"name":"Obot OpenAPI Worker Bridge","version":"1.0"}}}`, initializeResponse.Body.String())
 
 	list, listResponse := bridgeRequest(t, http.MethodPost, "2", "tools/list", `{}`)
 	_, err = handler.handleOpenAPIWorkerBridge(list, bridgeServer(), bridgeConfig())
@@ -69,6 +69,21 @@ func TestOpenAPIBridgeToolsCallUsesExecutor(t *testing.T) {
 	require.Equal(t, "user-1", executor.executePrincipal.UserID())
 	require.Equal(t, "GET /items/{id}", executor.invocation.OperationKey)
 	require.JSONEq(t, `{"id":"42"}`, string(executor.invocation.ToolInput))
+}
+
+func TestOpenAPIToolNameIsValidMCPIdentifier(t *testing.T) {
+	require.Equal(t, "getItem", openAPIToolName(openapiworker.OperationDescription{
+		OperationKey:   "GET /items/{id}",
+		LegacyToolName: "getItem",
+		DisplayName:    "Get item",
+	}))
+	require.Equal(t, "get_item", openAPIToolName(openapiworker.OperationDescription{
+		OperationKey: "GET /items/{id}",
+		DisplayName:  "get item",
+	}))
+	require.Equal(t, "GET_items_id", openAPIToolName(openapiworker.OperationDescription{
+		OperationKey: "GET /items/{id}",
+	}))
 }
 
 func bridgeRequest(t *testing.T, method, id, rpcMethod, params string) (api.Context, *httptest.ResponseRecorder) {

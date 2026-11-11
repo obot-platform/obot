@@ -34,6 +34,13 @@ func TestRealI01PythonWorkerDescribeAndExecute(t *testing.T) {
 		case observedHeaders <- r.Header.Clone():
 		default:
 		}
+		if r.Header.Get("Authorization") == "Bearer user-two" {
+			w.Header().Set("Content-Type", "application/json")
+			w.Header().Set("X-Business", "denied")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"ok":false}`))
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Business", "accepted")
 		_, _ = w.Write([]byte(`{"ok":true}`))
@@ -76,6 +83,7 @@ func TestRealI01PythonWorkerDescribeAndExecute(t *testing.T) {
 	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.OpenAPIConfig.BaseURL = upstream.URL
 	resolver := openapiworker.NewResolver(storage, newCredentialStore(), nil)
 	executor := openapiworker.NewWorkerExecutor(resolver, workerClient)
+	executor.ConfigureBudgetManager(testBudgetManager{})
 	ctx, principal, err := openapiworker.NewPrincipalContext(t.Context(), userInfo("1", nil))
 	require.NoError(t, err)
 
@@ -106,4 +114,20 @@ func TestRealI01PythonWorkerDescribeAndExecute(t *testing.T) {
 	require.Empty(t, observed.Get("X-API-Key"))
 	require.Empty(t, observed.Get("X-Obot-Trace"))
 	require.Equal(t, "eyJvayI6dHJ1ZX0=", result.BodyBase64)
+
+	ctxTwo, principalTwo, err := openapiworker.NewPrincipalContext(t.Context(), userInfo("2", nil))
+	require.NoError(t, err)
+	resultTwo, err := executor.Execute(ctxTwo, principalTwo, openapiworker.Invocation{
+		Reference:    reference("connection-2"),
+		OperationKey: "GET /items/{id}",
+		InputKind:    openapiworker.InputKindTool,
+		ToolInput:    []byte(`{"id":"42","Authorization":"caller"}`),
+		Deadline:     time.Now().Add(25 * time.Second),
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusForbidden, resultTwo.Status)
+	require.Equal(t, "eyJvayI6ZmFsc2V9", resultTwo.BodyBase64)
+	require.Len(t, observedHeaders, 1)
+	observedTwo := <-observedHeaders
+	require.Equal(t, "Bearer user-two", observedTwo.Get("Authorization"))
 }

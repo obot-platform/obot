@@ -60,7 +60,7 @@ func (manager *Manager) ReclaimExpired(ctx context.Context) (int, error) {
 				}
 			}
 		}
-		return cleanupExcessTerminalRequests(tx, manager.config.MaxTerminalRequests)
+		return nil
 	})
 	return reclaimed, err
 }
@@ -75,46 +75,46 @@ func (manager *Manager) CleanupTerminal(ctx context.Context) (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
-func reconcileAndCleanupState(tx *gorm.DB, request types.OpenAPIExecutionRequest, maxTerminal int64) error {
-	if err := reconcileScopeCounts(tx, []scopeKey{
-		{Scope: types.OpenAPIBudgetScopePlatform, KeyHash: ""},
-		{Scope: types.OpenAPIBudgetScopePool, KeyHash: hashText(request.Pool)},
-		{Scope: types.OpenAPIBudgetScopeOperation, KeyHash: request.BudgetKeyHash},
-	}); err != nil {
-		return err
-	}
-	var nonterminal int64
-	if err := tx.Model(&types.OpenAPIExecutionRequest{}).
-		Where("budget_key_hash = ? AND state IN ?", request.BudgetKeyHash, []string{
-			types.OpenAPIRequestStateWaiting, types.OpenAPIRequestStateActive,
-		}).Count(&nonterminal).Error; err != nil {
-		return err
-	}
-	if nonterminal == 0 {
-		if err := tx.Where("scope = ? AND key_hash = ?", types.OpenAPIBudgetScopeOperation, request.BudgetKeyHash).
-			Delete(&types.OpenAPIBudgetState{}).Error; err != nil {
+func (manager *Manager) reconcileAndCleanup(ctx context.Context, request types.OpenAPIExecutionRequest) error {
+	return manager.transaction(ctx, func(tx *gorm.DB) error {
+		if err := reconcileScopeCounts(tx, []scopeKey{
+			{Scope: types.OpenAPIBudgetScopePlatform, KeyHash: ""},
+			{Scope: types.OpenAPIBudgetScopePool, KeyHash: hashText(request.Pool)},
+			{Scope: types.OpenAPIBudgetScopeOperation, KeyHash: request.BudgetKeyHash},
+		}); err != nil {
 			return err
 		}
-	}
-	return cleanupExcessTerminalRequests(tx, maxTerminal)
-}
-
-func cleanupExcessTerminalRequests(tx *gorm.DB, maxTerminal int64) error {
-	var terminal int64
-	if err := tx.Model(&types.OpenAPIExecutionRequest{}).Where("state IN ?", []string{
-		types.OpenAPIRequestStateCompleted, types.OpenAPIRequestStateCancelled,
-		types.OpenAPIRequestStateExpired, types.OpenAPIRequestStateFailed,
-	}).Count(&terminal).Error; err != nil {
-		return err
-	}
-	if terminal <= maxTerminal {
+		var nonterminal int64
+		if err := tx.Model(&types.OpenAPIExecutionRequest{}).
+			Where("budget_key_hash = ? AND state IN ?", request.BudgetKeyHash, []string{
+				types.OpenAPIRequestStateWaiting, types.OpenAPIRequestStateActive,
+			}).Count(&nonterminal).Error; err != nil {
+			return err
+		}
+		if nonterminal == 0 {
+			if err := tx.Where("scope = ? AND key_hash = ?", types.OpenAPIBudgetScopeOperation, request.BudgetKeyHash).
+				Delete(&types.OpenAPIBudgetState{}).Error; err != nil {
+				return err
+			}
+		}
+		var terminal int64
+		if err := tx.Model(&types.OpenAPIExecutionRequest{}).Where("state IN ?", []string{
+			types.OpenAPIRequestStateCompleted, types.OpenAPIRequestStateCancelled,
+			types.OpenAPIRequestStateExpired, types.OpenAPIRequestStateFailed,
+		}).Count(&terminal).Error; err != nil {
+			return err
+		}
+		if terminal > manager.config.MaxTerminalRequests {
+			if err := tx.Where("id IN (?)", tx.Model(&types.OpenAPIExecutionRequest{}).
+				Select("id").Where("state IN ?", []string{
+				types.OpenAPIRequestStateCompleted, types.OpenAPIRequestStateCancelled,
+				types.OpenAPIRequestStateExpired, types.OpenAPIRequestStateFailed,
+			}).Order("finished_at, id").Limit(int(terminal-manager.config.MaxTerminalRequests))).Delete(&types.OpenAPIExecutionRequest{}).Error; err != nil {
+				return err
+			}
+		}
 		return nil
-	}
-	return tx.Where("id IN (?)", tx.Model(&types.OpenAPIExecutionRequest{}).
-		Select("id").Where("state IN ?", []string{
-		types.OpenAPIRequestStateCompleted, types.OpenAPIRequestStateCancelled,
-		types.OpenAPIRequestStateExpired, types.OpenAPIRequestStateFailed,
-	}).Order("finished_at, id").Limit(int(terminal-maxTerminal))).Delete(&types.OpenAPIExecutionRequest{}).Error
+	})
 }
 
 func (manager *Manager) ReconcileAll(ctx context.Context) error {

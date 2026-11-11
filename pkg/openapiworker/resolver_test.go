@@ -13,6 +13,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/openapi/executionbudget"
 	openapiworker "github.com/obot-platform/obot/pkg/openapiworker"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -116,6 +117,7 @@ func TestExecutorSendsExactCredentialOnlyToWorker(t *testing.T) {
 	defer client.Close()
 	resolver := openapiworker.NewResolver(newResolverStorage(), newCredentialStore(), nil)
 	executor := openapiworker.NewWorkerExecutor(resolver, client)
+	executor.ConfigureBudgetManager(testBudgetManager{})
 	ctx, principal, _ := openapiworker.NewPrincipalContext(t.Context(), userInfo("1", nil))
 
 	lease := testLease(25 * time.Second)
@@ -130,6 +132,8 @@ func TestExecutorSendsExactCredentialOnlyToWorker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusTeapot, result.Status)
 	require.Equal(t, "Bearer user-one", executeRequest.Credentials["Authorization"])
+	require.Equal(t, "test-lease", executeRequest.Lease.LeaseID)
+	require.Equal(t, "test-budget-key", executeRequest.Lease.BudgetKeyHash)
 	require.Equal(t, openapiworker.InputKindTool, executeRequest.Input.Kind)
 	require.JSONEq(t, `{"id":"42"}`, string(executeRequest.Input.Parameters))
 	require.NotEmpty(t, executeRequest.Snapshot)
@@ -157,6 +161,7 @@ func TestExecutorRejectsInvalidOperationWithoutWorkerExecute(t *testing.T) {
 	defer client.Close()
 	resolver := openapiworker.NewResolver(newResolverStorage(), newCredentialStore(), nil)
 	executor := openapiworker.NewWorkerExecutor(resolver, client)
+	executor.ConfigureBudgetManager(testBudgetManager{})
 	ctx, principal, _ := openapiworker.NewPrincipalContext(t.Context(), userInfo("1", nil))
 	lease := testLease(25 * time.Second)
 
@@ -192,10 +197,10 @@ func testLease(duration time.Duration) openapiworker.Lease {
 	}
 	return openapiworker.Lease{
 		LeaseID: "lease-1", LeaseIssuedAtUnixMs: now - 10,
-		LeaseDeadlineUnixMs: now + remaining - 6000,
-		FenceDeadlineUnixMs: now + remaining - 12000,
+		LeaseDeadlineUnixMs: now + remaining,
+		FenceDeadlineUnixMs: now + remaining - 10000,
 		DispatchedAtUnixMs:  now, BudgetKeyHash: strings.Repeat("a", 64),
-		ClockSkewLimitMs: 5000, FencingMarginMs: 6000,
+		ClockSkewLimitMs: 5000, FencingMarginMs: 10000,
 	}
 }
 
@@ -231,7 +236,7 @@ func newResolverStorage() *fakeStorage {
 					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 				}},
 			},
-			ComponentCatalogReferences: map[string]string{"component": "source.example.test::api"},
+			ComponentCatalogReferences: map[string]string{"component": "https://source.example.test/catalog.json::api"},
 		},
 	}
 	storage := &fakeStorage{objects: map[string]kclient.Object{
@@ -239,8 +244,10 @@ func newResolverStorage() *fakeStorage {
 		"server":                          openAPIServer("vmcp", ""),
 		"vmcp-instance-1":                 vmcpInstance("1"),
 		"vmcp-instance-2":                 vmcpInstance("1"),
+		"vmcp-instance-user-2":            vmcpInstance("2"),
 		"vmcp-instance-unauthorized-tool": vmcpInstance("1"),
 		"connection-1":                    connection("1", "vmcp-instance-1"),
+		"connection-2":                    connection("2", "vmcp-instance-user-2"),
 		"connection-1-missing":            connection("1", "vmcp-instance-2"),
 		"connection-1-unauthorized-tool":  connection("1", "vmcp-instance-unauthorized-tool"),
 	}}
@@ -270,6 +277,29 @@ func component(disabled bool) types.VMCPComponent {
 		}},
 		ToolOverrides: overrides,
 	}
+}
+
+type testBudgetManager struct{}
+
+func (testBudgetManager) Acquire(_ context.Context, request executionbudget.AcquireRequest) (executionbudget.Acquisition, error) {
+	now := time.Now().UTC()
+	return executionbudget.Acquisition{
+		Context: executionbudget.BudgetContext{
+			LeaseID:        "test-lease",
+			LeaseIssuedAt:  now.Add(-time.Second),
+			LeaseDeadline:  request.Deadline.UTC(),
+			FenceDeadline:  request.Deadline.Add(-2 * time.Second).UTC(),
+			DispatchedAt:   now,
+			BudgetKeyHash:  "test-budget-key",
+			ClockSkewLimit: time.Second,
+			FencingMargin:  2 * time.Second,
+		},
+		ReleaseToken: "test-release-token",
+	}, nil
+}
+
+func (testBudgetManager) Release(context.Context, string, string, executionbudget.Outcome) error {
+	return nil
 }
 
 func openAPIServer(vmcpID, vmcpInstanceID string) *v1.MCPServer {
@@ -339,9 +369,12 @@ func (fakeCredentials) RevealCredential(_ context.Context, contexts []string, _ 
 		return gatewaytypes.Credential{}, gorm.ErrRecordNotFound
 	}
 	switch contexts[0] {
-	case "1-connection-1", "1-connection-1-missing", "1-connection-1-unauthorized-tool":
+	case "1-connection-1", "1-connection-1-missing", "1-connection-1-unauthorized-tool", "2-connection-2":
 		if contexts[0] == "1-connection-1-missing" {
 			return gatewaytypes.Credential{}, gorm.ErrRecordNotFound
+		}
+		if contexts[0] == "2-connection-2" {
+			return gatewaytypes.Credential{Secrets: map[string]string{"Authorization": "user-two"}}, nil
 		}
 		return gatewaytypes.Credential{Secrets: map[string]string{"Authorization": "user-one"}}, nil
 	default:

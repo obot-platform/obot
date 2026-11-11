@@ -37,6 +37,30 @@ Create an [agent authorization scope](../functionality/agent-auth-scopes.md) wit
 
 The authorization-scope guide includes [VS Code](../functionality/agent-auth-scopes.md#vs-code), [Agno](../functionality/agent-auth-scopes.md#agno), and [LangChain](../functionality/agent-auth-scopes.md#langchain) examples. Keep keys in client-supported secret storage rather than source control.
 
+## Direct OpenAPI HTTP calls
+
+Applications that cannot use MCP can call a published OpenAPI component directly:
+
+```text
+METHOD /api-proxy/{vmcp-id}/{component-id}/{operation-path}
+```
+
+Open the vMCP and select **HTTP API docs** to review the read-only base path, methods, path templates, parameters, and required business authorization. The page does not expose business credentials or send a business request.
+
+A machine-readable OpenAPI 3.1 contract is also available at:
+
+```text
+GET /api-proxy/{vmcp-id}/{component-id}/openapi.json
+```
+
+The contract describes the caller-visible server URL, operations, parameters, and `X-API-Key` authentication. It does not expose business credentials or internal execution metadata.
+
+Use a platform API key scoped to that vMCP and send it as `X-API-Key: <key>`. Do not send caller-supplied business credential headers; Obot enforces the platform credential policy before dispatch and strips platform authentication, cookies, and proxy headers.
+
+The proxy preserves the raw operation path and query bytes, request and response headers, business status code, and response body. A business `403` or `404` is returned as that business response, not rewritten as an Obot platform error. Obot errors instead use JSON with an `X-Obot-Error-Code` header.
+
+The proxy does not support Server-Sent Events. Request bodies are limited to 1 MiB and responses to 8 MiB. Publishing a new vMCP snapshot can change the operation contract; update the application only after reviewing the new documentation.
+
 ## Verify
 
 ### Test a tool in Obot

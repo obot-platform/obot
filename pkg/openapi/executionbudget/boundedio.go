@@ -1,41 +1,15 @@
 package executionbudget
 
 import (
-	"compress/flate"
-	"compress/gzip"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
-	"strings"
 )
 
 type LimitedReader struct {
 	reader io.Reader
 	limit  int64
 	read   int64
-}
-
-type BoundedUpstreamReader struct {
-	source  *LimitedReader
-	decoder io.Reader
-	output  *LimitedReader
-	closer  io.Closer
-}
-
-type LimitedWriter struct {
-	writer io.Writer
-	limit  int64
-	wrote  int64
-}
-
-type MCPContent struct {
-	Type       string `json:"type"`
-	Data       string `json:"data"`
-	MimeType   string `json:"mimeType"`
-	StatusCode int    `json:"statusCode"`
-	ByteLength int64  `json:"byteLength"`
-	Truncated  bool   `json:"truncated"`
 }
 
 func LimitReader(reader io.Reader, limit int64) *LimitedReader {
@@ -48,44 +22,6 @@ func LimitRequestBody(reader io.Reader, limit int64) *LimitedReader {
 
 func LimitUpstreamBody(reader io.Reader, limit int64) *LimitedReader {
 	return LimitReader(reader, limit)
-}
-
-func LimitUpstreamBodyWithEncoding(reader io.Reader, contentEncoding string, compressedLimit, decompressedLimit int64) (*BoundedUpstreamReader, error) {
-	if compressedLimit <= 0 || decompressedLimit <= 0 {
-		return nil, ErrLimitExceeded
-	}
-	source := LimitReader(reader, compressedLimit)
-	bounded := &BoundedUpstreamReader{source: source}
-	switch strings.ToLower(strings.TrimSpace(contentEncoding)) {
-	case "", "identity":
-		bounded.decoder = source
-	case "gzip":
-		gzipReader, err := gzip.NewReader(source)
-		if err != nil {
-			return nil, err
-		}
-		bounded.decoder = gzipReader
-		bounded.closer = gzipReader
-	case "deflate":
-		deflateReader := flate.NewReader(source)
-		bounded.decoder = deflateReader
-		bounded.closer = deflateReader
-	default:
-		return nil, ErrUnsupportedContentEncoding
-	}
-	bounded.output = LimitReader(bounded.decoder, decompressedLimit)
-	return bounded, nil
-}
-
-func (reader *BoundedUpstreamReader) Read(output []byte) (int, error) {
-	return reader.output.Read(output)
-}
-
-func (reader *BoundedUpstreamReader) Close() error {
-	if reader.closer == nil {
-		return nil
-	}
-	return reader.closer.Close()
 }
 
 func (reader *LimitedReader) Read(output []byte) (int, error) {
@@ -107,13 +43,16 @@ func (reader *LimitedReader) Read(output []byte) (int, error) {
 	}
 	count, err := reader.reader.Read(output)
 	reader.read += int64(count)
-	if count > 0 && reader.read > reader.limit {
-		return count, fmt.Errorf("%w after %d bytes", ErrLimitExceeded, reader.limit)
-	}
 	return count, err
 }
 
 func (reader *LimitedReader) BytesRead() int64 { return reader.read }
+
+type LimitedWriter struct {
+	writer io.Writer
+	limit  int64
+	wrote  int64
+}
 
 func LimitHTTPResponse(writer io.Writer, limit int64) *LimitedWriter {
 	return &LimitedWriter{writer: writer, limit: limit}
@@ -138,15 +77,21 @@ func LimitWorkerEnvelope(reader io.Reader, rawLimit int64) *LimitedReader {
 	return LimitReader(reader, Base64EnvelopeLimit(rawLimit))
 }
 
+type MCPContent struct {
+	Type       string `json:"type"`
+	Data       string `json:"data"`
+	MimeType   string `json:"mimeType"`
+	StatusCode int    `json:"statusCode"`
+	ByteLength int64  `json:"byteLength"`
+	Truncated  bool   `json:"truncated"`
+}
+
 func ToBoundedMCPContent(reader io.Reader, contentType string, statusCode int, rawLimit int64) (MCPContent, error) {
 	if rawLimit < 0 || Base64EnvelopeLimit(rawLimit) > Base64EnvelopeLimit(32*1024*1024) {
 		return MCPContent{}, ErrLimitExceeded
 	}
 	body, err := io.ReadAll(LimitReader(reader, rawLimit))
 	if err != nil {
-		if errors.Is(err, ErrLimitExceeded) {
-			return MCPContent{}, ErrMCPContentTooLarge
-		}
 		return MCPContent{}, err
 	}
 	return MCPContent{

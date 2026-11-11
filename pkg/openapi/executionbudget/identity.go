@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"unicode"
 
 	"golang.org/x/net/idna"
 	"golang.org/x/text/unicode/norm"
@@ -69,7 +70,7 @@ func canonicalCatalogReference(reference CatalogReference) (string, error) {
 		return "", err
 	}
 	parsed, err := url.Parse(reference.SourceURL)
-	if err != nil || parsed.Host == "" {
+	if err != nil || parsed.EscapedPath() == "" {
 		return "", fmt.Errorf("%w: invalid source URL", ErrBudgetIdentityUnavailable)
 	}
 	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
@@ -99,7 +100,14 @@ func canonicalEntryKey(value string) (string, error) {
 	if entryKey == "" || strings.ContainsAny(entryKey, "\r\n") || strings.Contains(entryKey, "::") {
 		return "", fmt.Errorf("%w: invalid catalog entry key", ErrBudgetIdentityUnavailable)
 	}
-	return entryKey, nil
+	var normalized []rune
+	for _, char := range entryKey {
+		if unicode.Is(unicode.Mn, char) {
+			continue
+		}
+		normalized = append(normalized, char)
+	}
+	return string(normalized), nil
 }
 
 func canonicalHost(value string) (string, error) {
@@ -117,11 +125,10 @@ func canonicalPath(value string) string {
 	segments := strings.Split(value, "/")
 	var output []string
 	for _, segment := range segments {
-		segment = canonicalPathSegment(segment)
-		if strings.EqualFold(segment, ".") || segment == "" {
+		if segment == "." || segment == "" {
 			continue
 		}
-		if strings.EqualFold(segment, "..") {
+		if segment == ".." {
 			if len(output) > 0 {
 				output = output[:len(output)-1]
 			}
@@ -133,70 +140,6 @@ func canonicalPath(value string) string {
 		return ""
 	}
 	return strings.Join(output, "/")
-}
-
-func canonicalPathSegment(value string) string {
-	decoded := make([]byte, 0, len(value))
-	for index := 0; index < len(value); {
-		char := value[index]
-		if char != '%' {
-			decoded = append(decoded, char)
-			index++
-			continue
-		}
-		if index+2 >= len(value) || !isHexDigit(value[index+1]) || !isHexDigit(value[index+2]) {
-			return value
-		}
-		byteValue := hexByteValue(value[index+1])<<4 | hexByteValue(value[index+2])
-		if isUnreserved(byteValue) {
-			decoded = append(decoded, byteValue)
-		} else {
-			decoded = append(decoded, '%', upperHexDigit(byteValue>>4), upperHexDigit(byteValue&0x0f))
-		}
-		index += 3
-	}
-
-	encoded := make([]byte, 0, len(decoded))
-	for _, byteValue := range decoded {
-		if isPathAllowed(byteValue) {
-			encoded = append(encoded, byteValue)
-			continue
-		}
-		encoded = append(encoded, '%', upperHexDigit(byteValue>>4), upperHexDigit(byteValue&0x0f))
-	}
-	return string(encoded)
-}
-
-func isHexDigit(char byte) bool {
-	return char >= '0' && char <= '9' || char >= 'a' && char <= 'f' || char >= 'A' && char <= 'F'
-}
-
-func hexByteValue(char byte) byte {
-	switch {
-	case char >= '0' && char <= '9':
-		return char - '0'
-	case char >= 'a' && char <= 'f':
-		return char - 'a' + 10
-	default:
-		return char - 'A' + 10
-	}
-}
-
-func upperHexDigit(value byte) byte {
-	if value < 10 {
-		return '0' + value
-	}
-	return 'A' + value - 10
-}
-
-func isUnreserved(value byte) bool {
-	return value >= 'A' && value <= 'Z' || value >= 'a' && value <= 'z' ||
-		value >= '0' && value <= '9' || value == '-' || value == '.' || value == '_' || value == '~'
-}
-
-func isPathAllowed(value byte) bool {
-	return isUnreserved(value) || value == '/' || value == ':' || value == '@' ||
-		strings.IndexByte("!$&'()*+,;=", value) >= 0
 }
 
 func hashPrefixed(prefix, value string) string {

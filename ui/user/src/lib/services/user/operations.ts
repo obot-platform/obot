@@ -66,6 +66,7 @@ import {
 	type VMCPInstance,
 	type VMCPManifest,
 	type VMCPConfiguration,
+	type VMCPAPIProxyDocumentation,
 	type Skill,
 	type ConnectorAccessRequest
 } from './types';
@@ -135,6 +136,13 @@ export async function revealVMCP(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<VMCPConfiguration> {
 	return (await doPost(`/vmcps/${id}/reveal`, {}, opts)) as VMCPConfiguration;
+}
+
+export async function getVMCPAPIProxyDocumentation(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal }
+): Promise<VMCPAPIProxyDocumentation> {
+	return (await doGet(`/vmcps/${id}/api-proxy`, opts)) as VMCPAPIProxyDocumentation;
 }
 
 export async function updateVMCP(

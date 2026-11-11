@@ -6,39 +6,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 )
 
-var (
-	OutcomeWaitingCancelled        = Outcome{Code: "waiting_cancelled"}
-	OutcomePreUpstreamCancelled    = Outcome{Code: "pre_upstream_cancelled", Retryable: true}
-	OutcomePreUpstreamRejected     = Outcome{Code: "pre_upstream_rejected"}
-	OutcomeSnapshotRequired        = Outcome{Code: "snapshot_required", RetainLease: true}
-	OutcomeSnapshotRecoveryFailed  = Outcome{Code: "snapshot_recovery_failed"}
-	OutcomeCompileFailed           = Outcome{Code: "compile_failed"}
-	OutcomeCancelledBeforeUpstream = Outcome{Code: "cancelled_before_upstream", Retryable: true}
-	OutcomeBusinessResult          = Outcome{Code: "business_result", UpstreamAttempted: true, BusinessResult: true}
-	OutcomeUncertainDeadline       = Outcome{Code: "uncertain_deadline", UpstreamAttempted: true}
-	OutcomeUncertainCancel         = Outcome{Code: "uncertain_cancel", UpstreamAttempted: true}
-	OutcomeTransportUnknown        = Outcome{Code: "transport_unknown", UpstreamAttempted: true}
-	OutcomeWorkerLost              = Outcome{Code: "worker_lost", UpstreamAttempted: true}
-	OutcomeResponseLimitUncertain  = Outcome{Code: "response_limit_uncertain", UpstreamAttempted: true}
-	OutcomeObotLost                = Outcome{Code: "obot_lost", UpstreamAttempted: true}
-)
-
 type BudgetContext struct {
-	LeaseID             string `json:"leaseID"`
-	LeaseIssuedAtUnixMs int64  `json:"leaseIssuedAtUnixMs"`
-	LeaseDeadlineUnixMs int64  `json:"leaseDeadlineUnixMs"`
-	FenceDeadlineUnixMs int64  `json:"fenceDeadlineUnixMs"`
-	DispatchedAtUnixMs  int64  `json:"dispatchedAtUnixMs"`
-	BudgetKeyHash       string `json:"budgetKeyHash"`
-	ClockSkewLimitMs    int64  `json:"clockSkewLimitMs"`
-	FencingMarginMs     int64  `json:"fencingMarginMs"`
+	LeaseID        string        `json:"leaseID"`
+	LeaseIssuedAt  time.Time     `json:"leaseIssuedAtUnixMs"`
+	LeaseDeadline  time.Time     `json:"leaseDeadlineUnixMs"`
+	FenceDeadline  time.Time     `json:"fenceDeadlineUnixMs"`
+	DispatchedAt   time.Time     `json:"dispatchedAtUnixMs"`
+	BudgetKeyHash  string        `json:"budgetKeyHash"`
+	ClockSkewLimit time.Duration `json:"clockSkewLimitMs"`
+	FencingMargin  time.Duration `json:"fencingMarginMs"`
 }
 
 type AcquireRequest struct {
@@ -57,23 +39,37 @@ type Outcome struct {
 	Code              string
 	UpstreamAttempted bool
 	BusinessResult    bool
-	RetainLease       bool
 	ResponseBytes     int64
 	Retryable         bool
 }
 
+var (
+	OutcomeWaitingCancelled        = Outcome{Code: "waiting_cancelled"}
+	OutcomePreUpstreamCancelled    = Outcome{Code: "pre_upstream_cancelled", Retryable: true}
+	OutcomePreUpstreamRejected     = Outcome{Code: "pre_upstream_rejected"}
+	OutcomeSnapshotRecoveryFailed  = Outcome{Code: "snapshot_recovery_failed"}
+	OutcomeCompileFailed           = Outcome{Code: "compile_failed"}
+	OutcomeCancelledBeforeUpstream = Outcome{Code: "cancelled_before_upstream", Retryable: true}
+	OutcomeBusinessResult          = Outcome{Code: "business_result", UpstreamAttempted: true, BusinessResult: true}
+	OutcomeUncertainDeadline       = Outcome{Code: "uncertain_deadline", UpstreamAttempted: true}
+	OutcomeUncertainCancel         = Outcome{Code: "uncertain_cancel", UpstreamAttempted: true}
+	OutcomeTransportUnknown        = Outcome{Code: "transport_unknown", UpstreamAttempted: true}
+	OutcomeWorkerLost              = Outcome{Code: "worker_lost", UpstreamAttempted: true}
+	OutcomeResponseLimitUncertain  = Outcome{Code: "response_limit_uncertain", UpstreamAttempted: true}
+	OutcomeObotLost                = Outcome{Code: "obot_lost", UpstreamAttempted: true}
+)
+
 type Manager struct {
-	db      *gorm.DB
-	config  Config
-	stop    chan struct{}
-	admitMu sync.Mutex
+	db     *gorm.DB
+	config Config
+	stop   chan struct{}
 }
 
 func NewManager(db *gorm.DB, config Config) (*Manager, error) {
 	if db == nil {
 		return nil, ErrStorageUnavailable
 	}
-	if db.Name() != "postgres" {
+	if db.Dialector.Name() != "postgres" {
 		return nil, fmt.Errorf("%w: PostgreSQL is required", ErrStorageUnavailable)
 	}
 	if err := config.Validate(); err != nil {
@@ -172,89 +168,74 @@ func (manager *Manager) waitResult(ctx context.Context, requestID, token string)
 	}
 	return Acquisition{
 		Context: BudgetContext{
-			LeaseID:             request.RequestID,
-			LeaseIssuedAtUnixMs: request.AdmittedAt.UTC().UnixMilli(),
-			LeaseDeadlineUnixMs: request.Deadline.UTC().UnixMilli(),
-			FenceDeadlineUnixMs: request.Deadline.Add(-manager.config.FencingMargin).UTC().UnixMilli(),
-			DispatchedAtUnixMs:  time.Now().UTC().UnixMilli(),
-			BudgetKeyHash:       request.BudgetKeyHash,
-			ClockSkewLimitMs:    (manager.config.FencingMargin / 2).Milliseconds(),
-			FencingMarginMs:     manager.config.FencingMargin.Milliseconds(),
+			LeaseID:        request.RequestID,
+			LeaseIssuedAt:  request.AdmittedAt.UTC(),
+			LeaseDeadline:  request.Deadline.UTC(),
+			FenceDeadline:  request.Deadline.Add(-manager.config.FencingMargin).UTC(),
+			DispatchedAt:   time.Now().UTC(),
+			BudgetKeyHash:  request.BudgetKeyHash,
+			ClockSkewLimit: manager.config.FencingMargin / 2,
+			FencingMargin:  manager.config.FencingMargin,
 		},
 		ReleaseToken: token,
 	}, request, nil
 }
 
 func (manager *Manager) Release(ctx context.Context, leaseID, releaseToken string, outcome Outcome) error {
-	return manager.transaction(ctx, func(tx *gorm.DB) error {
-		request, err := lockedRequest(tx, leaseID)
-		if err != nil {
-			return err
-		}
-		if request.ReleaseTokenHash != hashReleaseToken(releaseToken) {
-			return ErrInvalidReleaseToken
-		}
-		if request.State != types.OpenAPIRequestStateActive {
-			return nil
-		}
-		if outcome.RetainLease {
-			return nil
-		}
-		if !outcomeAllowsImmediateRelease(outcome) {
-			return ErrUncertainOutcome
-		}
-		finishedAt := time.Now().UTC()
-		var state string
-		switch {
-		case outcome.BusinessResult:
-			state = types.OpenAPIRequestStateCompleted
-		case outcome.Retryable:
-			state = types.OpenAPIRequestStateCancelled
-		default:
-			state = types.OpenAPIRequestStateFailed
-		}
-		result := tx.Model(&types.OpenAPIExecutionRequest{}).
-			Where("id = ? AND state = ?", request.ID, types.OpenAPIRequestStateActive).
-			Updates(map[string]any{
-				"state": state, "finished_at": finishedAt, "outcome_code": outcome.Code,
-				"response_bytes": outcome.ResponseBytes, "retryable": outcome.Retryable,
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return nil
-		}
-		return reconcileAndCleanupState(tx, request, manager.config.MaxTerminalRequests)
-	})
+	if !outcomeAllowsImmediateRelease(outcome) {
+		return ErrUncertainOutcome
+	}
+	request, err := manager.lockedRequest(ctx, leaseID)
+	if err != nil {
+		return err
+	}
+	if request.ReleaseTokenHash != hashReleaseToken(releaseToken) {
+		return ErrInvalidReleaseToken
+	}
+	if request.State != types.OpenAPIRequestStateActive {
+		return nil
+	}
+	finishedAt := time.Now().UTC()
+	state := types.OpenAPIRequestStateCompleted
+	switch {
+	case outcome.BusinessResult:
+		state = types.OpenAPIRequestStateCompleted
+	case outcome.Retryable:
+		state = types.OpenAPIRequestStateCancelled
+	default:
+		state = types.OpenAPIRequestStateFailed
+	}
+	if err = manager.db.WithContext(ctx).Model(&types.OpenAPIExecutionRequest{}).
+		Where("id = ? AND state = ?", request.ID, types.OpenAPIRequestStateActive).
+		Updates(map[string]any{
+			"state": state, "finished_at": finishedAt, "outcome_code": outcome.Code,
+			"response_bytes": outcome.ResponseBytes, "retryable": outcome.Retryable,
+		}).Error; err != nil {
+		return err
+	}
+	return manager.reconcileAndCleanup(ctx, request)
 }
 
 func (manager *Manager) CancelWaiting(ctx context.Context, requestID, releaseToken string) error {
-	return manager.transaction(ctx, func(tx *gorm.DB) error {
-		request, err := lockedRequest(tx, requestID)
-		if err != nil {
-			return err
-		}
-		if request.ReleaseTokenHash != hashReleaseToken(releaseToken) {
-			return ErrInvalidReleaseToken
-		}
-		if request.State != types.OpenAPIRequestStateWaiting {
-			return nil
-		}
-		result := tx.Model(&types.OpenAPIExecutionRequest{}).
-			Where("id = ? AND state = ?", request.ID, types.OpenAPIRequestStateWaiting).
-			Updates(map[string]any{
-				"state": types.OpenAPIRequestStateCancelled, "finished_at": time.Now().UTC(),
-				"outcome_code": OutcomeWaitingCancelled.Code,
-			})
-		if result.Error != nil {
-			return result.Error
-		}
-		if result.RowsAffected == 0 {
-			return nil
-		}
-		return reconcileAndCleanupState(tx, request, manager.config.MaxTerminalRequests)
-	})
+	request, err := manager.lockedRequest(ctx, requestID)
+	if err != nil {
+		return err
+	}
+	if request.ReleaseTokenHash != hashReleaseToken(releaseToken) {
+		return ErrInvalidReleaseToken
+	}
+	if request.State != types.OpenAPIRequestStateWaiting {
+		return nil
+	}
+	if err = manager.db.WithContext(ctx).Model(&types.OpenAPIExecutionRequest{}).
+		Where("id = ? AND state = ?", request.ID, types.OpenAPIRequestStateWaiting).
+		Updates(map[string]any{
+			"state": types.OpenAPIRequestStateCancelled, "finished_at": time.Now().UTC(),
+			"outcome_code": OutcomeWaitingCancelled.Code,
+		}).Error; err != nil {
+		return err
+	}
+	return manager.reconcileAndCleanup(ctx, request)
 }
 
 func outcomeAllowsImmediateRelease(outcome Outcome) bool {

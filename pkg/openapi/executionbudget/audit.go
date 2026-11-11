@@ -16,19 +16,7 @@ type AuditCapture struct {
 	Truncated         bool              `json:"truncated"`
 }
 
-type AuditLimits struct {
-	HeaderLimit int64
-	BodyLimit   int64
-}
-
 func CaptureBoundedAudit(header http.Header, body io.Reader, sensitiveNames []string, limit int64) (AuditCapture, error) {
-	return CaptureBoundedAuditWithLimits(header, body, sensitiveNames, AuditLimits{
-		HeaderLimit: DefaultHeaderLimit,
-		BodyLimit:   limit,
-	})
-}
-
-func CaptureBoundedAuditWithLimits(header http.Header, body io.Reader, sensitiveNames []string, limits AuditLimits) (AuditCapture, error) {
 	sensitive := make(map[string]struct{}, len(sensitiveNames))
 	for _, name := range sensitiveNames {
 		sensitive[textproto.CanonicalMIMEHeaderKey(strings.TrimSpace(name))] = struct{}{}
@@ -58,25 +46,17 @@ func CaptureBoundedAuditWithLimits(header http.Header, body io.Reader, sensitive
 		capture.Headers[name] = header.Get(name)
 	}
 
-	var serializedHeaders int64
-	for name, value := range capture.Headers {
-		serializedHeaders += int64(len(name)) + int64(len(value)) + 2
-	}
-	if serializedHeaders > limits.HeaderLimit {
-		return AuditCapture{}, ErrLimitExceeded
-	}
-
-	if limits.BodyLimit == 0 {
+	if limit == 0 {
 		return capture, nil
 	}
-	reader := LimitReader(body, limits.BodyLimit+1)
+	reader := LimitReader(body, limit+1)
 	data, err := io.ReadAll(reader)
-	if err != nil && len(data) <= int(limits.BodyLimit) {
+	if err != nil && len(data) <= int(limit) {
 		return capture, err
 	}
 	capture.OriginalBodyBytes = reader.BytesRead()
-	if capture.OriginalBodyBytes > limits.BodyLimit {
-		capture.Body = data[:limits.BodyLimit]
+	if capture.OriginalBodyBytes > limit {
+		capture.Body = data[:limit]
 		capture.Truncated = true
 	} else {
 		capture.Body = data

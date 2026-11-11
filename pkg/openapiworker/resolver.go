@@ -47,6 +47,8 @@ func NewResolver(storage ObjectGetter, credentials CredentialRevealer, users Use
 type ResolvedDescription struct {
 	Reference       Reference              `json:"reference"`
 	BudgetSourceID  string                 `json:"budgetSourceID"`
+	BudgetSourceURL string                 `json:"budgetSourceURL"`
+	BudgetEntryKey  string                 `json:"budgetEntryKey"`
 	SchemaDigest    string                 `json:"schemaDigest"`
 	ExecutionDigest string                 `json:"executionDigest"`
 	Operations      []OperationDescription `json:"operations"`
@@ -122,24 +124,27 @@ func (r *Resolver) resolve(ctx context.Context, principal PrincipalContext, refe
 	for _, operation := range manifest.Operations {
 		if toolEnabled(operation.LegacyToolName, selected.ToolOverrides) && vmcpaccess.ToolGranted(grant, types.VMCPToolReference{ComponentID: selected.ID, Name: operation.LegacyToolName}) {
 			operations = append(operations, OperationDescription{
-				OperationKey:   operation.OperationKey,
-				LegacyToolName: operation.LegacyToolName,
-				Method:         operation.Method,
-				PathTemplate:   operation.PathTemplate,
-				DisplayName:    displayName(operation, selected.ToolOverrides),
-				Description:    operation.Description,
-				InputSchema:    operationInputSchema(operation),
-				Parameters:     append([]Parameter(nil), operation.Parameters...),
+				OperationKey:      operation.OperationKey,
+				LegacyToolName:    operation.LegacyToolName,
+				Method:            operation.Method,
+				PathTemplate:      operation.PathTemplate,
+				DisplayName:       displayName(operation, selected.ToolOverrides),
+				Description:       operation.Description,
+				InputSchema:       operationInputSchema(operation),
+				Parameters:        append([]Parameter(nil), operation.Parameters...),
+				RequestMediaTypes: append([]string(nil), operation.RequestMediaTypes...),
 			})
 		}
 	}
-	budgetSourceID, err := budgetSourceID(*vmcp, selected)
+	budgetSourceID, budgetSourceURL, budgetEntryKey, err := budgetSourceIdentity(*vmcp, selected)
 	if err != nil {
 		return resolvedExecution{}, err
 	}
 	description := ResolvedDescription{
 		Reference:       reference,
 		BudgetSourceID:  budgetSourceID,
+		BudgetSourceURL: budgetSourceURL,
+		BudgetEntryKey:  budgetEntryKey,
 		SchemaDigest:    manifest.SchemaDigest,
 		ExecutionDigest: executionDigest,
 		Operations:      operations,
@@ -380,17 +385,29 @@ func operationInputSchema(operation Operation) json.RawMessage {
 	return encoded
 }
 
-func budgetSourceID(vmcp v1.VMCP, component types.VMCPComponent) (string, error) {
+func budgetSourceIdentity(vmcp v1.VMCP, component types.VMCPComponent) (string, string, string, error) {
 	reference := vmcp.Spec.ComponentCatalogReferences[component.ID]
 	if reference == "" {
 		if vmcp.Spec.AdoptionSourceURL != "" && vmcp.Spec.AdoptionEntryKey != "" {
 			reference = vmcp.Spec.AdoptionSourceURL + "::" + vmcp.Spec.AdoptionEntryKey
 		} else {
-			return "", NewError(ErrorCodeBudgetIdentityUnavailable, "budget source identity is unavailable")
+			return "", "", "", NewError(ErrorCodeBudgetIdentityUnavailable, "budget source identity is unavailable")
 		}
 	}
+	sourceURL, entryKey, err := splitCatalogReference(reference)
+	if err != nil {
+		return "", "", "", err
+	}
 	sum := sha256.Sum256([]byte("obot-openapi-budget-source-v1\x00" + reference))
-	return hex.EncodeToString(sum[:]), nil
+	return hex.EncodeToString(sum[:]), sourceURL, entryKey, nil
+}
+
+func splitCatalogReference(reference string) (string, string, error) {
+	sourceURL, entryKey, found := strings.Cut(reference, "::")
+	if !found || strings.TrimSpace(sourceURL) == "" || strings.TrimSpace(entryKey) == "" {
+		return "", "", NewError(ErrorCodeBudgetIdentityUnavailable, "budget catalog reference is invalid")
+	}
+	return sourceURL, entryKey, nil
 }
 
 func hidden(err error) error {

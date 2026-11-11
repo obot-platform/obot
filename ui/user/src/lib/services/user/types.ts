@@ -742,6 +742,39 @@ export interface VMCPConfiguration {
 	components: Record<string, Record<string, string>>;
 }
 
+export interface VMCPAPIProxyParameter {
+	name: string;
+	in: string;
+	required?: boolean;
+	schema?: Record<string, unknown>;
+}
+
+export interface VMCPAPIProxyOperation {
+	operationKey: string;
+	legacyToolName: string;
+	displayName: string;
+	description?: string;
+	method: string;
+	pathTemplate: string;
+	parameters?: VMCPAPIProxyParameter[];
+	requestMediaTypes?: string[];
+	businessAuthRequired: boolean;
+	example: string;
+}
+
+export interface VMCPAPIProxyComponent {
+	id: string;
+	displayName: string;
+	basePath: string;
+	executionDigest: string;
+	operations: VMCPAPIProxyOperation[];
+}
+
+export interface VMCPAPIProxyDocumentation {
+	vmcpID: string;
+	components: VMCPAPIProxyComponent[];
+}
+
 export interface VMCPInstanceManifest {
 	// Null or omitted follows the current grant; an empty map selects no tools.
 	componentSet?: Record<string, VMCPComponentSet> | null;

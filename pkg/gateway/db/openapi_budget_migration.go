@@ -1,7 +1,6 @@
 package db
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -11,16 +10,8 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var (
-	errUnsupportedBudgetDatabase = errors.New("OpenAPI budgets require PostgreSQL or explicit SQLite development mode")
-)
-
 func AutoMigrateOpenAPIBudgets(tx *gorm.DB) error {
-	dialect := tx.Name()
-	if dialect != "postgres" && dialect != "sqlite" {
-		return errUnsupportedBudgetDatabase
-	}
-	if dialect == "sqlite" {
+	if tx.Dialector.Name() != "postgres" {
 		if err := tx.AutoMigrate(
 			&types.OpenAPIBudgetLimit{},
 			&types.OpenAPIOperationBudget{},
@@ -49,7 +40,7 @@ func migratePostgresOpenAPIBudgets(tx *gorm.DB) error {
 		return fmt.Errorf("failed to migrate OpenAPI budget tables: %w", err)
 	}
 
-	if tx.Name() != "postgres" {
+	if tx.Dialector.Name() != "postgres" {
 		return nil
 	}
 

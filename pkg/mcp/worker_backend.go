@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"io"
+	neturl "net/url"
 	"os"
 	"strings"
 
@@ -13,9 +14,10 @@ import (
 )
 
 type fixedOpenAPIWorkerBackend struct {
-	validationOptions ValidationOptions
-	executor          openapiworker.Executor
-	client            *openapiworker.Client
+	obotInternalBaseURL string
+	validationOptions   ValidationOptions
+	executor            openapiworker.Executor
+	client              *openapiworker.Client
 }
 
 func newFixedOpenAPIWorkerBackend(_ context.Context, devMode bool, storageClient kclient.WithWatch, gatewayClient *client.Client) (*fixedOpenAPIWorkerBackend, error) {
@@ -34,6 +36,7 @@ func newFixedOpenAPIWorkerBackend(_ context.Context, devMode bool, storageClient
 	}
 	resolver := openapiworker.NewResolver(storageClient, gatewayClient, gatewayClient)
 	return &fixedOpenAPIWorkerBackend{
+		obotInternalBaseURL: strings.TrimSpace(os.Getenv("MCPOpenAPIWorkerObotInternalURL")),
 		validationOptions: ValidationOptions{
 			DevMode:                      devMode,
 			RemoteMCPURLValidationConfig: remoteConfigFromEnvironment(),
@@ -86,11 +89,40 @@ func (b *fixedOpenAPIWorkerBackend) shutdownServer(context.Context, string, bool
 }
 
 func (b *fixedOpenAPIWorkerBackend) transformObotHostname(value string) string {
-	return value
+	if b.obotInternalBaseURL == "" || value == "" {
+		return value
+	}
+
+	parsed, err := neturl.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return value
+	}
+	base, err := neturl.Parse(b.obotInternalBaseURL)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return value
+	}
+
+	parsed.Scheme = base.Scheme
+	parsed.Host = base.Host
+	parsed.User = nil
+	return parsed.String()
 }
 
 func (b *fixedOpenAPIWorkerBackend) remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string) {
-	return globalConfig, nil
+	if b.obotInternalBaseURL == "" {
+		return b.validationOptions.RemoteMCPURLValidationConfig, nil
+	}
+	base, err := neturl.Parse(b.obotInternalBaseURL)
+	if err != nil || base.Host == "" {
+		return b.validationOptions.RemoteMCPURLValidationConfig, nil
+	}
+	allowedHosts := []string{base.Host}
+	for _, host := range strings.Split(os.Getenv("MCPOpenAPIWorkerAllowedHosts"), ",") {
+		if host = strings.TrimSpace(host); host != "" {
+			allowedHosts = append(allowedHosts, host)
+		}
+	}
+	return b.validationOptions.RemoteMCPURLValidationConfig, allowedHosts
 }
 
 func (b *fixedOpenAPIWorkerBackend) notSupported(feature string) error {
@@ -106,6 +138,19 @@ func (sm *SessionManager) OpenAPIWorkerExecutor() openapiworker.Executor {
 		return nil
 	}
 	return backend.executor
+}
+
+func (sm *SessionManager) SetOpenAPIBudgetManager(manager openapiworker.BudgetManager) {
+	if sm == nil || sm.backend == nil {
+		return
+	}
+	backend, ok := sm.backend.(*fixedOpenAPIWorkerBackend)
+	if !ok {
+		return
+	}
+	if executor, ok := backend.executor.(*openapiworker.WorkerExecutor); ok {
+		executor.ConfigureBudgetManager(manager)
+	}
 }
 
 func (sm *SessionManager) CloseOpenAPIWorkerClient() {

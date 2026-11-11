@@ -30,7 +30,6 @@ type Config struct {
 	MaxTerminalRequests        int64
 	MaxOperationConfigurations int64
 	AdmissionInterval          time.Duration
-	TransactionTimeout         time.Duration
 	RequestBodyLimit           int64
 	UpstreamBodyLimit          int64
 	HeaderLimit                int64
@@ -53,7 +52,6 @@ func DefaultConfig() Config {
 		MaxTerminalRequests:        50000,
 		MaxOperationConfigurations: 4096,
 		AdmissionInterval:          20 * time.Millisecond,
-		TransactionTimeout:         250 * time.Millisecond,
 		RequestBodyLimit:           DefaultRequestBodyLimit,
 		UpstreamBodyLimit:          DefaultUpstreamBodyLimit,
 		HeaderLimit:                DefaultHeaderLimit,
@@ -78,10 +76,6 @@ func (config Config) Validate() error {
 	if config.PlatformMaxInFlight > 128 || config.PlatformMaxWaiting > 1024 {
 		return fmt.Errorf("%w: platform limits exceed hard cap", ErrInvalidConfiguration)
 	}
-	if config.DefaultPoolMaxInFlight > config.PlatformMaxInFlight ||
-		config.DedicatedPoolMaxInFlight > config.PlatformMaxInFlight {
-		return fmt.Errorf("%w: pool limits exceed platform capacity", ErrInvalidConfiguration)
-	}
 	if config.DefaultOperationInFlight > config.DefaultPoolMaxInFlight || config.DefaultOperationWaiting > 16 {
 		return fmt.Errorf("%w: default operation limits exceed pool or hard cap", ErrInvalidConfiguration)
 	}
@@ -97,7 +91,6 @@ func (config Config) Validate() error {
 		{"reclaimGrace", config.ReclaimGrace, 250 * time.Millisecond, 5 * time.Second},
 		{"terminalRetention", config.TerminalRetention, time.Minute, 24 * time.Hour},
 		{"admissionInterval", config.AdmissionInterval, time.Millisecond, time.Second},
-		{"transactionTimeout", config.TransactionTimeout, 50 * time.Millisecond, 2 * time.Second},
 	}
 	for _, duration := range durations {
 		if duration.value < duration.min || duration.value > duration.max {

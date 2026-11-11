@@ -149,14 +149,15 @@ type DescribeRequest struct {
 }
 
 type OperationDescription struct {
-	OperationKey   string          `json:"operationKey"`
-	LegacyToolName string          `json:"legacyToolName"`
-	Method         string          `json:"method"`
-	PathTemplate   string          `json:"pathTemplate"`
-	DisplayName    string          `json:"displayName"`
-	Description    string          `json:"description,omitempty"`
-	InputSchema    json.RawMessage `json:"inputSchema,omitempty"`
-	Parameters     []Parameter     `json:"parameters,omitempty"`
+	OperationKey      string          `json:"operationKey"`
+	LegacyToolName    string          `json:"legacyToolName"`
+	Method            string          `json:"method"`
+	PathTemplate      string          `json:"pathTemplate"`
+	DisplayName       string          `json:"displayName"`
+	Description       string          `json:"description,omitempty"`
+	InputSchema       json.RawMessage `json:"inputSchema,omitempty"`
+	Parameters        []Parameter     `json:"parameters,omitempty"`
+	RequestMediaTypes []string        `json:"requestMediaTypes,omitempty"`
 }
 
 type DescribeResponse struct {

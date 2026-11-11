@@ -12,6 +12,8 @@ func TestFixedOpenAPIWorkerBackendCapabilityBoundaries(t *testing.T) {
 	worker := httptest.NewServer(nil)
 	defer worker.Close()
 	t.Setenv("MCPOpenAPIWorkerURL", worker.URL)
+	t.Setenv("MCPOpenAPIWorkerObotInternalURL", "http://obot:8080")
+	t.Setenv("MCPOpenAPIWorkerAllowedHosts", " business.example.test:443 ,,out.example.test ")
 
 	backend, err := newFixedOpenAPIWorkerBackend(t.Context(), true, nil, nil)
 	require.NoError(t, err)
@@ -32,6 +34,17 @@ func TestFixedOpenAPIWorkerBackendCapabilityBoundaries(t *testing.T) {
 	var unsupported *ErrNotSupportedByBackend
 	require.ErrorAs(t, err, &unsupported)
 	require.Equal(t, RuntimeBackendOpenAPIWorker, unsupported.Backend)
+
+	remoteConfig, allowedHosts := backend.remoteConfig(RemoteMCPURLValidationConfig{})
+	require.False(t, remoteConfig.AllowLocalhostMCP)
+	require.False(t, remoteConfig.AllowPrivateIPMCP)
+	require.False(t, remoteConfig.AllowLinkLocalMCP)
+	require.Equal(t, []string{"obot:8080", "business.example.test:443", "out.example.test"}, allowedHosts)
+	require.Equal(
+		t,
+		"http://obot:8080/mcp-connect-composite/vmcp1",
+		backend.transformObotHostname("https://obot.example.test/mcp-connect-composite/vmcp1"),
+	)
 
 	require.Error(t, backend.deployServer(t.Context(), dynamic))
 	require.Error(t, backend.restartServer(t.Context(), dynamic))

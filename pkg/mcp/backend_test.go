@@ -94,6 +94,22 @@ func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
 	}
 }
 
+func TestMMMCPConfigKeepsUnrestrictedVMCPToolsNil(t *testing.T) {
+	config := MMMCPConfig(ServerConfig{
+		Runtime:              types.RuntimeVMCP,
+		MCPServerName:        "vmcp-server",
+		MCPServerDisplayName: "VMCP Server",
+		Components: []ComponentServer{{
+			DisplayName: "openapi",
+			URL:         "http://127.0.0.1:8080/mcp-connect/openapi",
+		}},
+	}, nil)
+
+	if len(config.Servers) != 1 || config.Servers[0].Tools != nil {
+		t.Fatalf("unrestricted component tools = %#v, want nil", config.Servers)
+	}
+}
+
 func TestMMMCPConfigServerNameFallsBackToName(t *testing.T) {
 	config := MMMCPConfig(ServerConfig{
 		MCPServerName: "fallback-server",

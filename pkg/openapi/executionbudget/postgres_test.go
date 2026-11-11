@@ -15,6 +15,7 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +24,6 @@ func TestOpenAPIBudgetPostgresLifecycle(t *testing.T) {
 	config := DefaultConfig()
 	config.PlatformMaxInFlight = 2
 	config.DefaultPoolMaxInFlight = 2
-	config.DedicatedPoolMaxInFlight = 2
 	config.DefaultOperationInFlight = 1
 	config.AdmissionInterval = time.Millisecond
 	manager, err := NewManager(db, config)
@@ -64,16 +64,6 @@ func TestOpenAPIBudgetPostgresLifecycle(t *testing.T) {
 	}
 	if err = manager.Release(ctx, first.Context.LeaseID, first.ReleaseToken, OutcomeTransportUnknown); !errors.Is(err, ErrUncertainOutcome) {
 		t.Fatalf("uncertain transport must not immediately release: %v", err)
-	}
-	if err = manager.Release(ctx, first.Context.LeaseID, first.ReleaseToken, OutcomeSnapshotRequired); err != nil {
-		t.Fatalf("snapshot miss must retain the active lease: %v", err)
-	}
-	var retainedRequest types.OpenAPIExecutionRequest
-	if err = db.Where("request_id = ?", first.Context.LeaseID).Take(&retainedRequest).Error; err != nil {
-		t.Fatal(err)
-	}
-	if retainedRequest.State != types.OpenAPIRequestStateActive {
-		t.Fatalf("snapshot miss changed lease state: %s", retainedRequest.State)
 	}
 	if err = manager.Release(ctx, first.Context.LeaseID, "wrong", OutcomeBusinessResult); !errors.Is(err, ErrInvalidReleaseToken) {
 		t.Fatalf("expected release-token rejection, got %v", err)
@@ -119,7 +109,6 @@ func TestOpenAPIBudgetPostgresFairnessAndCrossOperationLimits(t *testing.T) {
 	config.PlatformMaxInFlight = 1
 	config.PlatformMaxWaiting = 3
 	config.DefaultPoolMaxInFlight = 1
-	config.DedicatedPoolMaxInFlight = 1
 	config.DefaultOperationInFlight = 1
 	config.DefaultOperationWaiting = 2
 	manager, err := NewManager(db, config)
@@ -200,7 +189,6 @@ func TestOpenAPIBudgetPostgresConcurrentAcquireRespectsLimit(t *testing.T) {
 	config := DefaultConfig()
 	config.PlatformMaxInFlight = 2
 	config.DefaultPoolMaxInFlight = 2
-	config.DedicatedPoolMaxInFlight = 2
 	config.DefaultOperationInFlight = 2
 	config.DefaultOperationWaiting = 8
 	config.AdmissionInterval = time.Millisecond
@@ -241,6 +229,44 @@ func TestOpenAPIBudgetPostgresConcurrentAcquireRespectsLimit(t *testing.T) {
 	if succeeded < 2 || succeeded+queuedOut != callers {
 		t.Fatalf("unexpected acquisition distribution: succeeded=%d queuedOut=%d", succeeded, queuedOut)
 	}
+}
+
+func TestOpenAPIBudgetPostgresCrossManagerGlobalLimit(t *testing.T) {
+	db := isolatedPostgres(t)
+	config := DefaultConfig()
+	config.PlatformMaxInFlight = 2
+	config.DefaultPoolMaxInFlight = 2
+	config.DefaultOperationInFlight = 2
+	config.DefaultOperationWaiting = 1
+	config.AdmissionInterval = time.Millisecond
+	identity := budgetIdentityForPath(t, "cross-manager")
+
+	first, err := NewManager(db, config)
+	require.NoError(t, err)
+	second, err := NewManager(db, config)
+	require.NoError(t, err)
+	third, err := NewManager(db, config)
+	require.NoError(t, err)
+
+	firstLease, err := first.Acquire(t.Context(), AcquireRequest{
+		Identity: identity, Deadline: time.Now().Add(3 * time.Second), ObotInstanceID: "obot-replica-1",
+	})
+	require.NoError(t, err)
+	defer func() {
+		_ = first.Release(context.Background(), firstLease.Context.LeaseID, firstLease.ReleaseToken, OutcomeBusinessResult)
+	}()
+	secondLease, err := second.Acquire(t.Context(), AcquireRequest{
+		Identity: identity, Deadline: time.Now().Add(3 * time.Second), ObotInstanceID: "obot-replica-2",
+	})
+	require.NoError(t, err)
+	defer func() {
+		_ = second.Release(context.Background(), secondLease.Context.LeaseID, secondLease.ReleaseToken, OutcomeBusinessResult)
+	}()
+
+	_, err = third.Acquire(t.Context(), AcquireRequest{
+		Identity: identity, Deadline: time.Now().Add(20 * time.Millisecond), ObotInstanceID: "obot-replica-3",
+	})
+	require.ErrorIs(t, err, ErrWaitDeadlineExceeded)
 }
 
 func isolatedPostgres(t *testing.T) *gorm.DB {

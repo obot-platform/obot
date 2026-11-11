@@ -7,6 +7,7 @@ import (
 
 type HeaderPolicy struct {
 	Name        string
+	Required    bool
 	Forwardable bool
 	Sensitive   bool
 	Credential  bool

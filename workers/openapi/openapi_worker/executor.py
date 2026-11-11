@@ -26,8 +26,10 @@ def validate_lease(lease: object, deadline: int) -> float:
             raise ValueError
     except (KeyError, TypeError, ValueError) as exc:
         raise WorkerError("lease_invalid", "worker lease fields are invalid") from exc
-    if margin <= skew or fence_deadline != lease_deadline - margin or not issued <= dispatched < fence_deadline or fence_deadline < deadline:
+    if margin <= skew or fence_deadline != lease_deadline - margin or not issued <= dispatched < fence_deadline:
         raise WorkerError("lease_invalid", "worker lease is expired or invalid")
+    if fence_deadline < deadline:
+        raise WorkerError("lease_invalid", f"worker lease deadline is before the request deadline: {fence_deadline=} {deadline=}")
     if abs(int(time.time() * 1000) - dispatched) > skew:
         raise WorkerError("lease_invalid", "worker clock skew exceeds lease limit")
     return time.monotonic() + max(0.0, (deadline - int(time.time() * 1000)) / 1000)

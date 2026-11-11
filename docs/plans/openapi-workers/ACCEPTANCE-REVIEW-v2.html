@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAPI Workers v2 验收审阅包</title>
+  <style>
+    :root {
+      --ink: #16212b;
+      --muted: #5e6d7a;
+      --line: #d9e1e8;
+      --bg: #eef3f6;
+      --card: #ffffff;
+      --blue: #1467b8;
+      --blue-dark: #0b4a86;
+      --green: #157f56;
+      --green-bg: #e8f7ef;
+      --amber: #96620a;
+      --amber-bg: #fff5dd;
+      --red: #ab2b3c;
+      --red-bg: #fdeef0;
+      --code: #eff3f7;
+      --violet: #6d4fc4;
+      --violet-bg: #f0ebfd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header.hero {
+      color: white;
+      background: linear-gradient(125deg, #0b3866 0%, #1467b8 52%, #6d4fc4 100%);
+      padding: 44px min(6vw, 72px) 38px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 11px;
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(30px, 5vw, 49px);
+      line-height: 1.15;
+      letter-spacing: -.035px;
+    }
+    .subtitle { max-width: 960px; color: rgba(255,255,255,.91); font-size: 17px; }
+    .verdict-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 27px;
+    }
+    .verdict {
+      border-radius: 12px;
+      padding: 13px 16px;
+      background: rgba(255,255,255,.13);
+      border: 1px solid rgba(255,255,255,.28);
+    }
+    .verdict strong { display: block; font-size: 19px; margin-bottom: 2px; }
+    main {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 30px min(4vw, 48px) 80px;
+    }
+    nav.toc {
+      position: sticky;
+      top: 12px;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255,255,255,.91);
+      box-shadow: 0 8px 26px rgba(24,47,70,.08);
+      backdrop-filter: blur(8px);
+    }
+    nav.toc a {
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    nav.toc a:hover { background: #e7f1f8; text-decoration: none; }
+    section { margin-top: 34px; scroll-margin-top: 86px; }
+    h2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 17px;
+      font-size: 24px;
+      letter-spacing: -.02em;
+    }
+    h2::before {
+      content: "";
+      width: 6px;
+      height: 24px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, var(--blue), #6d4fc4);
+      flex: 0 0 auto;
+    }
+    h3 { margin: 0 0 10px; font-size: 17px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 3px 14px rgba(21,49,74,.04);
+    }
+    p { margin: 8px 0; }
+    .pill {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .pass { color: var(--green); background: var(--green-bg); }
+    .pending { color: var(--amber); background: var(--amber-bg); }
+    .failed { color: var(--red); background: var(--red-bg); }
+    .blue { color: var(--blue); background: #e7f1f8; }
+    .violet { color: var(--violet); background: var(--violet-bg); }
+    code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: .9em; background: var(--code); padding: 1px 5px; border-radius: 5px; }
+    .code, .terminal {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 13px;
+      background: #0f1a26;
+      color: #d8e6f4;
+      border-radius: 10px;
+      padding: 13px 16px;
+      overflow-x: auto;
+      white-space: pre;
+      margin: 10px 0;
+    }
+    .grid { display: grid; gap: 12px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(200px, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(170px, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(150px, 1fr)); }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: #fbfdfe;
+      text-align: center;
+    }
+    .metric b { display: block; font-size: 26px; color: var(--blue-dark); }
+    .metric span { color: var(--muted); font-size: 13px; }
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f2f8fd;
+      padding: 10px 14px;
+      border-radius: 0 10px 10px 0;
+      font-size: 14px;
+      color: #33526e;
+    }
+    .note.warning { border-left-color: var(--amber); background: var(--amber-bg); color: #6f4d0d; }
+    .timeline { display: grid; gap: 18px; }
+    .card.step { display: grid; grid-template-columns: 56px 1fr; gap: 16px; align-items: start; }
+    .step-number {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 18px; color: white;
+      background: linear-gradient(135deg, var(--blue), #20a3a0);
+      box-shadow: 0 5px 14px rgba(20,103,184,.32);
+    }
+    .step.v2 .step-number { background: linear-gradient(135deg, var(--violet), var(--blue)); box-shadow: 0 5px 14px rgba(109,79,196,.32); }
+    .step-body { background: #f9fbfc; border: 1px solid var(--line); border-radius: 12px; padding: 13px; }
+    .step-body h3 { margin-top: 0; }
+    figure { margin: 12px 0 0; }
+    figure img {
+      width: 100%;
+      height: auto;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      display: block;
+      cursor: zoom-in;
+    }
+    figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; text-align: center; }
+    .shot-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .architecture { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .architecture > div { border: 1px solid var(--line); border-radius: 13px; padding: 16px; background: var(--card); }
+    .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin: 10px 0; }
+    .node {
+      padding: 5px 11px; border-radius: 8px;
+      border: 1px solid var(--line); background: #f4f8fb; font-size: 13px; font-weight: 600;
+    }
+    .node.good { border-color: #bfe5d2; background: var(--green-bg); color: var(--green); }
+    .node.problem { border-color: #ecc8b0; background: #fdf1e7; color: #a05018; }
+    .arrow { color: var(--muted); font-weight: 700; }
+    ul.comparison { margin: 8px 0 0; padding-left: 20px; color: #38506a; font-size: 14px; }
+    ul.comparison li { margin: 4px 0; }
+    .story-grid { display: grid; grid-template-columns: repeat(2, minmax(320px, 1fr)); gap: 14px; margin-top: 14px; }
+    .story { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .story h3 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .story .id { font-family: ui-monospace, Menlo, monospace; font-size: 13px; color: var(--violet); background: var(--violet-bg); border-radius: 6px; padding: 2px 8px; }
+    .scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: 14px; }
+    th { text-align: left; padding: 10px 13px; background: #f1f6fa; color: #33526e; font-size: 13px; letter-spacing: .02em; }
+    td { padding: 10px 13px; border-top: 1px solid var(--line); vertical-align: top; }
+    tbody tr:hover td { background: #f8fbfd; }
+    .lightbox {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(9,15,23,.93);
+      display: none; align-items: center; justify-content: center;
+      padding: 28px; cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 100%; max-height: 100%; border-radius: 10px; }
+    footer { text-align: center; color: var(--muted); font-size: 13.5px; padding: 26px 16px 40px; }
+    @media (max-width: 900px) {
+      .card.step { grid-template-columns: 44px 1fr; }
+      .story-grid, .architecture, .grid.four, .grid.three, .grid.two, .shot-pair { grid-template-columns: 1fr; }
+      .verdict-strip { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="hero">
+  <span class="eyebrow">v2-acceptance-r1 · 2026-11-11 · OpenAPI Workers 增量验收</span>
+  <h1>OpenAPI Workers v2 验收审阅包</h1>
+  <p class="subtitle">Obot 统一授权、预算与审计，多个无状态 OpenAPI Worker 通过 mTLS 执行 OpenAPI operation。<br>
+  v2 在 v1 主线之上交付三项运营能力：<strong>Worker 运维看板（/metrics）</strong>、<strong>上游 schema 漂移自动探测（只探测不生效）</strong>、<strong>MCP / HTTP 双出口业务级审计</strong>，并修复 /usage 布局与两个 Worker 环境缺陷。</p>
+  <div class="verdict-strip">
+    <div class="verdict"><strong>本地 / 用户验收：可验收</strong>v1 主线全部继续有效；v2 四步增量均有真实链路证据与数据库互证。</div>
+    <div class="verdict"><strong>生产验收：NOT READY</strong>真实企业授权、生产 Namespace、TLS 轮换、故障注入、真实看板接线仍待补。</div>
+  </div>
+</header>
+
+<main>
+  <nav class="toc">
+    <a href="#summary">PR 摘要</a>
+    <a href="#lifecycle">v1 主线 11 步</a>
+    <a href="#v2line">v2 增量主线</a>
+    <a href="#stories">用户故事</a>
+    <a href="#environment">本地环境</a>
+    <a href="#verification">验证矩阵</a>
+    <a href="#changes">功能变更</a>
+    <a href="#gaps">剩余缺口</a>
+    <a href="#fixes">验收前修复</a>
+  </nav>
+
+  <section id="summary">
+    <h2>PR 摘要</h2>
+    <div class="grid four">
+      <div class="metric"><b>11 + 4</b><span>端到端审批步骤</span></div>
+      <div class="metric"><b>17</b><span>主线真实截图</span></div>
+      <div class="metric"><b>3</b><span>v2 轮真实调用审计落库</span></div>
+      <div class="metric"><b>30s</b><span>漂移探测周期（生产 6h 可配）</span></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <p>v1 将 OpenAPI 执行改为「Obot 统一授权 / 预算 / 租约 + 无状态 mTLS Worker」。v2 在此之上补齐运营面：Worker 自带 Prometheus 指标端点；catalog entry 周期性只读探测上游 schema 漂移并报告在 status（永不自动生效，采纳走管理员显式重新保存）；MCP <code>tools/call</code> 与 <code>/api-proxy</code> 两条出口新增业务级审计（operation、业务状态码、32 KiB 有界脱敏出入参），失败调用不再伪装成功。</p>
+      <div class="grid three" style="margin-top:12px">
+        <div><h3>新增 (v2)</h3><p>Worker <code>/metrics</code>、漂移探测 controller + status 字段、bridge 业务审计、<code>http/proxy</code> 出口审计、审计 JSON-RPC error 标记。</p></div>
+        <div><h3>修复 (v2)</h3><p>/usage 布局脱离（h-dvh 裁切）、Worker 误拒 dev http baseURL、egress hosts 环境变量未读取、compose 预构建镜像不更新。</p></div>
+        <div><h3>保持</h3><p>v1 全部能力、现有 vMCP / MCP / 目录 / 凭证存储 / UI 入口不变；Worker 仍无状态、无 Docker socket、无集群管理员依赖。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="lifecycle">
+    <h2>端到端审批主线 · v1（继续有效）</h2>
+    <div class="card">
+      <p>按真实使用顺序：先证明原有能力不回退，再从 FastAPI OpenAPI 源头进入 Obot，完成管理员录入、市场上架、最终用户发现 MCP 工具、授权调用和普通 HTTP 调用，最后审阅架构与扩缩容。以下 13 张截图与结论来自 v1 验收，代码回归确认仍然成立。</p>
+      <div class="note warning">证据边界：本地 Compose 关闭认证且当前登录身份为 Owner/Admin。Admin 市场页会显示未上架条目，因此不能用同一 Admin 市场页证明普通用户添加前后差异；本页用发布开关与目录元数据作为管理员操作证据，真实非 Admin 用户市场可见性列入缺口（GAP-07）。</div>
+    </div>
+    <div class="timeline" style="margin-top:16px">
+      <article class="card step">
+        <div class="step-number">0</div>
+        <div class="step-body">
+          <h3>回归基线：原有 Obot 不变差</h3>
+          <p>用户仍能看到仪表板、市场、vMCP、MCP 服务器、技能、审计日志等原有导航；既有 vMCP/MCP 能力保留。</p>
+          <span class="pill pass">PASS</span>
+        </div>
+        <figure><img src="evidence/STORY-01-DASHBOARD.png" alt="原有 Obot 仪表板截图" loading="lazy"><figcaption>真实页面：/dashboard</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">1</div>
+        <div class="step-body">
+          <h3>源头：FastAPI OpenAPI 文档</h3>
+          <p>业务方先提供标准 OpenAPI。页面展示 <code>GET /items/{item_id}</code>、必填 path 参数、query 参数和响应契约。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-01-FASTAPI-DOCS.png" alt="FastAPI Swagger 文档截图" loading="lazy"><figcaption>FastAPI /docs：GET /items/{item_id}</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">2</div>
+        <div class="step-body">
+          <h3>授权定义：Authorization Header</h3>
+          <p>schema 声明 <code>Authorization</code> 为业务凭证 Header；Obot 侧平台 Key 与业务 Authorization 分离，注入由平台按用户实例完成。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-02-FASTAPI-AUTH.png" alt="FastAPI Authorization 安全定义截图" loading="lazy"><figcaption>Name: Authorization · In: header</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">3</div>
+        <div class="step-body">
+          <h3>管理员导入：上传 OpenAPI Schema</h3>
+          <p>管理员在目录创建页导入 schema，预览 base URL 与建议的 Authorization 配置。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-03-ADMIN-IMPORT.png" alt="管理员导入 FastAPI OpenAPI 截图" loading="lazy"><figcaption>已上传 schema · base URL · Authorization</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">4</div>
+        <div class="step-body">
+          <h3>管理员保存：形成托管 API 组件</h3>
+          <p>保存生成目录条目与授权配置，快照由 Source 重新导入生成并固定。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-04-ADMIN-SAVED.png" alt="管理员保存后的 API 详情截图" loading="lazy"><figcaption>目录条目与授权配置</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">5</div>
+        <div class="step-body">
+          <h3>管理员发布开关：OFF / ON</h3>
+          <p>市场上架开关切换，目录元数据 <code>marketPublished</code> 从 false 到 true。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <div class="shot-pair">
+          <figure><img src="evidence/LIFECYCLE-05-PUBLISH-OFF.png" alt="市场上架开关关闭截图" loading="lazy"><figcaption>发布开关 OFF</figcaption></figure>
+          <figure><img src="evidence/LIFECYCLE-05-PUBLISH-ON.png" alt="市场上架开关开启截图" loading="lazy"><figcaption>发布开关 ON · metadata=true</figcaption></figure>
+        </div>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">6</div>
+        <div class="step-body">
+          <h3>最终用户：发现可用 MCP 工具</h3>
+          <p>MCP Inspector <code>tools/list</code> 返回非空工具列表（bridge capabilities 声明 tools）。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-06-MCP-TOOLS.png" alt="vMCP 工具列表截图" loading="lazy"><figcaption>MCP Inspector：tools/list 非空</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">7</div>
+        <div class="step-body">
+          <h3>最终用户：授权调用成功</h3>
+          <p><code>tools/call</code> 走 bridge → Worker → 业务 API，返回真实业务结果。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-07-MCP-CALL.png" alt="MCP 工具调用成功截图" loading="lazy"><figcaption>MCP tools/call：成功 · HTTP 200</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">8</div>
+        <div class="step-body">
+          <h3>普通应用：人读文档与机器可读 OpenAPI</h3>
+          <p>UI 文档弹窗展示 base path、参数与业务认证要求；<code>/api-proxy/.../openapi.json</code> 返回标准 OpenAPI 3.1 契约，仅含调用方可见字段。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <div class="shot-pair">
+          <figure><img src="evidence/LIFECYCLE-08-API-DOCS.png" alt="HTTP API 文档截图" loading="lazy"><figcaption>UI 文档：base path · GET</figcaption></figure>
+          <figure><img src="evidence/LIFECYCLE-08-OPENAPI-JSON.png" alt="标准 openapi.json 响应截图" loading="lazy"><figcaption>标准 OpenAPI 3.1 JSON</figcaption></figure>
+        </div>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">9</div>
+        <div class="step-body">
+          <h3>普通应用：真实 HTTP 调用</h3>
+          <p>应用直接 <code>GET /api-proxy/{vmcp}/{component}/items/42</code>，返回业务 JSON。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-09-HTTP-CALL.png" alt="HTTP API 真实调用响应截图" loading="lazy"><figcaption>api-proxy 实际响应</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">10</div>
+        <div class="step-body">
+          <h3>架构与横向扩容</h3>
+          <p>隔离 K3s 中 Obot 与 Worker 均以无状态 Deployment 运行，Worker 2 → 3 → 2 扩缩容全部 rollout 成功，无持久卷。</p>
+          <span class="pill pass">Scale PASS</span>
+          <div class="terminal">openapi-worker Deployment replicas: 2 → 3 → 2
+rollout: PASS · final pods: Running · persistent volumes: none</div>
+        </div>
+        <figure><img src="evidence/LOCAL-COMPOSE-UI.png" alt="本地 Compose UI 截图" loading="lazy"><figcaption>本地栈：1 Obot + 2 Worker + PostgreSQL</figcaption></figure>
+      </article>
+    </div>
+  </section>
+
+  <section id="v2line">
+    <h2>v2 增量主线 · 4 步</h2>
+    <div class="card">
+      <p>v2 增量按用户实际提出的三项要求组织：Worker 接运维看板、上游变化可探测但不生效、MCP 调用审计做好；加上验收中发现并修复的 /usage 布局问题。全部在真实 Compose 栈（新镜像 Obot <code>3b5422df</code> / Worker <code>bf5528dc</code>）上执行，合成上游 v1↔v2 可切换。</p>
+      <div class="note">探测周期验收使用 30s 加速间隔（<code>MCPOpenAPIDriftProbeInterval</code>）；生产默认 6h，机制由 RetryAfter 调度与单测保证（GAP-08）。</div>
+    </div>
+    <div class="timeline" style="margin-top:16px">
+      <article class="card step v2">
+        <div class="step-number">V1</div>
+        <div class="step-body">
+          <h3>Worker 接入运维看板</h3>
+          <p>同一 mTLS 监听新增 <code>GET /metrics</code>（Prometheus 文本格式 v0.0.4，零新依赖）：缓存水位 / 编译计数 / 请求时延 / 上游结果分布 / 快照生命周期事件。标签基数固定（路由、错误码、状态类），requestID / digest / URL / 凭证永不成为标签。</p>
+          <p><span class="pill pass">mTLS 抓取 200</span> <span class="pill pass">计数精确 5/5</span> <span class="pill pass">无证书握手即拒</span> <span class="pill pass">无泄漏断言</span></p>
+        </div>
+        <figure><img src="evidence/WORKER-METRICS.png" alt="Worker /metrics 真实输出截图" loading="lazy"><figcaption>真实 mTLS 抓取：注入 5× healthz/readyz 后计数器精确显示 5/5</figcaption></figure>
+      </article>
+
+      <article class="card step v2">
+        <div class="step-number">V2</div>
+        <div class="step-body">
+          <h3>上游 schema 漂移自动探测（只探测，不自动生效）</h3>
+          <p>leader 上的 controller 周期性用与保存流程相同的无凭证 SSRF 安全 Importer 重新拉取 Source，把两侧 schema 编译成 canonical operation manifest 后精确 diff，结果写入 entry status 的 <code>openAPISourceDrift</code>。上游 v1↔v2 切换后一个周期内命中：</p>
+          <div class="terminal">addedOperations:   ["POST /removed"]
+removedOperations: ["GET /added"]
+changedOperations: ["GET /items/{item_id}"]   （参数类型 string→integer）
+snapshotDigest:    不变 —— 探测不改快照</div>
+          <p>采纳走既有显式流程：管理员重新保存 entry → 快照切换为新 schema → 再探 clean。探测失败记录有界 <code>probeError</code> 并退避重试，不阻塞其他 handler。</p>
+          <p><span class="pill pass">命中分类精确</span> <span class="pill pass">快照不动</span> <span class="pill pass">显式采纳闭环</span></p>
+        </div>
+        <figure><img src="evidence/DRIFT-DETECTED-API.png" alt="漂移探测命中的真实 API 响应截图" loading="lazy"><figcaption>真实 Obot API 响应：detected=true · 三类清单 · 双侧 digest</figcaption></figure>
+      </article>
+
+      <article class="card step v2">
+        <div class="step-number">V3</div>
+        <div class="step-body">
+          <h3>MCP 调用审计闭环（真实会话实证）</h3>
+          <p>真实 MCP 会话（initialize → tools/list → tools/call）全链路打通后查库验证三层审计：聚合层记 JSON-RPC 协议语义；<strong>新增 bridge 层记业务执行</strong>（operation、业务状态码、32 KiB 有界脱敏出入参、组件身份）；<strong>新增 <code>http/proxy</code> 出口审计</strong>。失败调用不再伪装成功：</p>
+          <div class="terminal">-- 库中实证（mcp_audit_logs）--
+id=26 tools/call getItem        mcp_id=vmcp1f72ql   status=200        ← 聚合协议层
+id=27 tools/call getItem        display=Drift Acceptance API  status=200 ← bridge 业务层（新增）
+id=23 tools/call nonexistent    error='jsonrpc error -32602: unknown tool "nonexistent"' ← 失败不再记成功
+id=28 http/proxy GET /items/{item_id}  status=200  30ms  bounded body ← HTTP 出口（新增）
+
+-- Worker metrics 互证 --
+openapi_worker_requests_total{route="execute",outcome="ok"} 1
+openapi_worker_upstream_results_total{status_class="2xx",outcome="completed"} 1</div>
+          <p><span class="pill pass">三层落库</span> <span class="pill pass">失败标记</span> <span class="pill pass">指标互证</span></p>
+        </div>
+      </article>
+
+      <article class="card step v2">
+        <div class="step-number">V4</div>
+        <div class="step-body">
+          <h3>/usage 用量页布局修复 + 数据互证</h3>
+          <p><code>McpUsageView</code> 的 <code>h-dvh</code>（视口高）嵌在应用壳 <code>h-svh</code> 滚动容器内导致内容裁切。修复后完整可滚（docScrollH 1482 &gt; viewport 800），页面展示的正是上一步审计产生的<strong>真实调用统计</strong>：getItem 计数、nonexistent 错误面板、vMCP 与组件双行服务器分布 —— 审计链路与用量页数据互相印证。</p>
+          <p><span class="pill pass">布局修复</span> <span class="pill pass">pnpm check 0/0</span> <span class="pill pass">spec 通过</span></p>
+        </div>
+        <figure><img src="evidence/USAGE-PAGE-FIXED.png" alt="修复后的 /usage 页面截图" loading="lazy"><figcaption>真实页面：本轮审计数据驱动的用量统计</figcaption></figure>
+      </article>
+    </div>
+  </section>
+
+  <section id="stories">
+    <h2>v2 用户故事</h2>
+    <p class="note">v1 用户故事 US-01 至 US-08 见 <a href="ACCEPTANCE-REVIEW-v1.md">v1 包</a>，全部继续有效。以下为 v2 增量故事。</p>
+    <div class="story-grid">
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-09</span><span class="pill pass">PASS</span></h3>
+          <p><strong>运维：把 Worker 接入运维看板。</strong></p>
+          <p>预期：<code>/metrics</code> mTLS 200、格式正确、计数与注入流量精确相等、无敏感标签。</p>
+          <p><span class="pill blue">截图 + 自动化证据</span></p>
+        </div>
+        <figure><img src="evidence/WORKER-METRICS.png" alt="Worker 指标截图" loading="lazy"><figcaption>WORKER-METRICS.png · OPS-ACCEPTANCE.md A1–A6</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-10</span><span class="pill pass">PASS</span></h3>
+          <p><strong>管理员：上游变化自动探测，但绝不自动生效。</strong></p>
+          <p>预期：三类变化精确分类；探测后快照 digest 不变；显式重新保存后采纳并回 clean。</p>
+          <p><span class="pill blue">截图 + 状态断言</span></p>
+        </div>
+        <figure><img src="evidence/DRIFT-DETECTED-API.png" alt="漂移命中截图" loading="lazy"><figcaption>DRIFT-DETECTED-API.png · OPS-ACCEPTANCE.md B1–B9</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-11</span><span class="pill pass">PASS</span></h3>
+          <p><strong>审计员：MCP tools/call 业务执行可审计。</strong></p>
+          <p>预期：库中存在 bridge 层条目，含 operation、业务状态码、有界脱敏出入参、组件身份。</p>
+          <p><span class="pill blue">数据库实证</span></p>
+        </div>
+        <figure><img src="evidence/AUDIT-LOGS-PAGE.png" alt="审计日志页截图" loading="lazy"><figcaption>AUDIT-E2E-ACCEPTANCE.md F1 · 审计 UI 渲染上述条目</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-12</span><span class="pill pass">PASS</span></h3>
+          <p><strong>审计员：/api-proxy 每次业务调用可审计。</strong></p>
+          <p>预期：<code>http/proxy</code> 条目含 operationKey、业务 status、有界 body、耗时。</p>
+          <p><span class="pill blue">数据库实证 + 单测 ×4</span></p>
+        </div>
+        <figure><img src="evidence/AUDIT-LOGS-PAGE.png" alt="审计日志页截图" loading="lazy"><figcaption>AUDIT-E2E-ACCEPTANCE.md F3 · id=28 · 30ms</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-13</span><span class="pill pass">PASS</span></h3>
+          <p><strong>审计员：失败的调用不能伪装成功。</strong></p>
+          <p>预期：JSON-RPC error 写入审计 error 字段（修复前 200 + 空 error）。</p>
+          <p><span class="pill blue">数据库实证</span></p>
+        </div>
+        <figure><img src="evidence/AUDIT-LOGS-PAGE.png" alt="审计日志页截图" loading="lazy"><figcaption>AUDIT-E2E-ACCEPTANCE.md F2 · jsonrpc error -32602</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-14</span><span class="pill pass">PASS</span></h3>
+          <p><strong>用户：/usage 用量页在全局布局内正常展示。</strong></p>
+          <p>预期：内容完整可滚、不裁切；页面数据来自真实审计记录。</p>
+          <p><span class="pill blue">截图 + 布局度量</span></p>
+        </div>
+        <figure><img src="evidence/USAGE-PAGE-FIXED.png" alt="用量页截图" loading="lazy"><figcaption>USAGE-PAGE-FIXED.png · docScrollH 1482 &gt; viewport 800</figcaption></figure>
+      </article>
+    </div>
+  </section>
+
+  <section id="environment">
+    <h2>本地验收环境（v2 轮）</h2>
+    <div class="card">
+      <div class="grid three">
+        <div><h3>运行拓扑</h3><p>1 Obot（<code>3b5422df</code>）+ 2 Worker（<code>bf5528dc</code>）+ 1 PostgreSQL；Compose 栈验证后已清理。</p></div>
+        <div><h3>合成上游</h3><p><code>host.docker.internal:18081</code>，手写 v1/v2 schema，<code>/__set_version</code> 切换；v1 与 v2 覆盖加 / 删 / 改三类漂移。</p></div>
+        <div><h3>验证链路</h3><p>Drift Acceptance API entry → Audit Acceptance vMCP → 真实 MCP 会话 → 聚合 → bridge → mTLS Worker → 上游。</p></div>
+      </div>
+      <h3 style="margin-top:18px">关键配置</h3>
+      <div class="code">MCPRuntimeBackend=openapi-worker
+MCPOpenAPIDriftProbeInterval=30s        # 生产默认 6h
+OPENAPI_WORKER_ALLOW_LOCAL_TEST_EGRESS=1  # 本地 http 上游 + http baseURL（生产禁用）
+OBOT_DEV_MODE=true                       # 本地 http schema 源（生产禁用）</div>
+      <h3 style="margin-top:18px">复跑验收</h3>
+      <p>完整流程（镜像重建坑、假上游规格、检查矩阵、截图流程、失败排查）固化为 Skill：<code>.codex/skills/obot-openapi-acceptance/SKILL.md</code>。</p>
+    </div>
+  </section>
+
+  <section id="verification">
+    <h2>主要验证矩阵</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>验证项</th><th>结果</th><th>证据层级</th></tr></thead>
+        <tbody>
+          <tr><td>v1 全部验证（Go/Python/UI/docs/formal/K8s/Compose）</td><td><span class="pill pass">PASS（继续有效）</span></td><td>见 v1 包</td></tr>
+          <tr><td>/metrics 格式 / 计数精确 / mTLS 负例 / 无泄漏</td><td><span class="pill pass">PASS</span></td><td>OPS-ACCEPTANCE A1–A6</td></tr>
+          <tr><td>漂移探测命中分类 / 不自动生效 / 显式采纳闭环</td><td><span class="pill pass">PASS</span></td><td>OPS-ACCEPTANCE B1–B9 · 真实栈</td></tr>
+          <tr><td>漂移 handler 单测（跳过 / 退避 / 失败 / 未配置）</td><td><span class="pill pass">PASS ×6</span></td><td>自动化</td></tr>
+          <tr><td>漂移 diff 单测（无变化 / 加删改 / 仅描述 / 缺输入）</td><td><span class="pill pass">PASS ×4</span></td><td>自动化</td></tr>
+          <tr><td>bridge + http/proxy 审计单测（成功 / 失败 / 截断 / nil）</td><td><span class="pill pass">PASS ×4+</span></td><td>自动化</td></tr>
+          <tr><td>真实 MCP tools/call 三场景落库（成功 / 未知工具 / HTTP）</td><td><span class="pill pass">PASS</span></td><td>数据库行 + 指标互证</td></tr>
+          <tr><td>/usage 布局修复 + spec + pnpm check</td><td><span class="pill pass">PASS</span></td><td>布局度量 + 自动化</td></tr>
+          <tr><td>05 全量回归 + 02 / 03 / 01 写集镜像同步</td><td><span class="pill pass">PASS</span></td><td>自动化</td></tr>
+          <tr><td>Worker 测试（v2 轮含 metrics / egress 增量）</td><td><span class="pill pass">28/28</span></td><td>自动化</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="changes">
+    <h2>功能与代码审阅入口</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>区域</th><th>主要路径</th><th>验收重点</th></tr></thead>
+        <tbody>
+          <tr><td>Worker 运维指标</td><td><code>workers/openapi/openapi_worker/metrics.py</code></td><td>固定标签基数、无泄漏断言、零新依赖</td></tr>
+          <tr><td>漂移探测</td><td><code>pkg/openapi/drift.go</code> · <code>.../mcpservercatalogentry/openapidrift*.go</code></td><td>只读探测、status 报告、显式采纳</td></tr>
+          <tr><td>bridge 业务审计</td><td><code>.../mcpgateway/openapi_bridge_audit.go</code></td><td>剥离 ignore 标志、组件身份、有界脱敏</td></tr>
+          <tr><td>HTTP 出口审计</td><td><code>.../apiproxy/audit.go</code></td><td>http/proxy 条目、operationKey、截断标记</td></tr>
+          <tr><td>失败标记修复</td><td><code>.../mcpgateway/proxy_audit.go</code></td><td>JSON-RPC error 写入审计 error 字段</td></tr>
+          <tr><td>/usage 布局</td><td><code>ui/user/src/routes/usage/McpUsageView.svelte</code></td><td>移除 h-dvh，滚动容器内自然高度</td></tr>
+          <tr><td>Worker egress / baseURL</td><td><code>workers/openapi/openapi_worker/{app,snapshot}.py</code></td><td>环境变量解析、test flag 下 http 放开</td></tr>
+          <tr><td>验收 Skill</td><td><code>.codex/skills/obot-openapi-acceptance/SKILL.md</code></td><td>复跑流程、镜像重建坑、失败排查表</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">v1 其余审阅入口（Python Worker / openapiworker / apiproxy / authz / 预算租约 / DB migration / UI 弹窗 / Compose / K8s）见 v1 包第 6 节，全部不变。</p>
+  </section>
+
+  <section id="gaps">
+    <h2>剩余缺口与验收边界</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ID</th><th>缺口</th><th>影响</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>GAP-01</td><td>未使用真实企业 IdP / 业务系统 / JWT</td><td>不能声明企业授权交换或生产业务安全</td><td><span class="pill pending">生产 pending</span></td></tr>
+          <tr><td>GAP-02</td><td>未部署生产 ingress / cert-manager / 镜像仓库</td><td>未验证生产 TLS、容量与发布流程</td><td><span class="pill pending">生产 pending</span></td></tr>
+          <tr><td>GAP-03</td><td>(v2) 未部署真实 Prometheus / Grafana</td><td>/metrics 兼容性由 exposition 格式与 content-type 断言，未接真实看板</td><td><span class="pill pending">部署接线 pending</span></td></tr>
+          <tr><td>GAP-04</td><td>K8s 验收在隔离 K3s，不在公司已有 Namespace</td><td>未验证公司 RBAC / 网络 / 存储策略</td><td><span class="pill pending">预发 pending</span></td></tr>
+          <tr><td>GAP-05</td><td>未在 K8s 中逐一杀死 Pod 录制完整长链路矩阵</td><td>崩溃恢复由模型与回归覆盖，生产故障注入待做</td><td><span class="pill pending">预发 pending</span></td></tr>
+          <tr><td>GAP-06</td><td>实现尚未 commit / push</td><td>无法产生真实 PR diff；当前需人工审阅 worktree</td><td><span class="pill pending">待用户确认</span></td></tr>
+          <tr><td>GAP-07</td><td>本地 auth disabled，Admin 市场页显示未上架条目</td><td>不能用当前 Admin 页面证明真实普通用户市场可见性</td><td><span class="pill pending">本地 UI 未验证</span></td></tr>
+          <tr><td>GAP-08</td><td>(v2) 漂移生产 6h 间隔未等待实测（30s 加速覆盖）</td><td>长周期调度由 RetryAfter 机制与单测保证</td><td><span class="pill pending">生产 pending</span></td></tr>
+          <tr><td>GAP-09</td><td>(v2) I04 CaptureBoundedAudit 仍无调用方</td><td>新审计写入器内联实现了等价有界捕获；合并去重是后续工作</td><td><span class="pill pending">记录在案</span></td></tr>
+          <tr><td>GAP-10</td><td>(v2) tools/call 双层审计（协议 + 业务）按设计共存</td><td>UI 分组会同时显示 vMCP 与组件行；合并视图是 UI 后续工作</td><td><span class="pill pending">记录在案</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>最终结论</h3>
+      <p><strong>本地 / 用户验收：Ready。</strong>v1 主线全部继续有效；v2 三项增量（看板 / 漂移探测 / 审计闭环）与 /usage 修复全部有真实链路证据，计数与数据库记录精确互证。</p>
+      <p><strong>生产验收：NOT READY。</strong>必须补真实企业授权、真实业务 API、生产或预发 Namespace、生产 TLS 与证书轮换、容量与故障注入、真实看板接线。</p>
+    </div>
+  </section>
+
+  <section id="fixes">
+    <h2>验收准备期发现并已修复</h2>
+    <p class="note">v1 轮 8 项（PRE-01 至 PRE-08）见 v1 包第 9 节，全部保持已修复状态。v2 轮新增 7 项：</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ID</th><th>问题</th><th>修复 / 证据</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>PRE-09</td><td>OpenAPI tools/call 业务执行零审计：组件层被 AuditLogIgnore 有意跳过、bridge 什么都不写，业务状态码 / operation 对审计不可见</td><td>新增 bridge 业务审计：剥离 ignore 标志、组件身份、32 KiB 有界脱敏出入参；库中实证 display=Drift Acceptance API status=200</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-10</td><td>JSON-RPC 失败伪装成功：unknown tool 记 200 + 空 error</td><td>解析 JSON-RPC error 写入审计 error 字段；库中实证 jsonrpc error -32602</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-11</td><td>/api-proxy 出口零审计（I04 有界采集器无调用方）</td><td>新增 http/proxy 审计 + 4 单测；库中实证 operationKey / status / 30ms</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-12</td><td>/usage 页 h-dvh 嵌在 h-svh 滚动容器内裁切内容</td><td>移除 h-dvh；实测 docScrollH 1482 &gt; viewport 800 完整可滚</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-13</td><td>Worker _validate_manifest 无条件拒 http baseURL，与 Obot dev 模式不一致 → vMCP launch snapshot_invalid</td><td>仅在 OPENAPI_WORKER_ALLOW_LOCAL_TEST_EGRESS=1 时放开 http；launch 200</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-14</td><td>compose 传 OPENAPI_WORKER_ALLOWED_EGRESS_HOSTS 但 Worker 不读（hosts 硬编码）→ transport_uncertain</td><td>Worker 解析该环境变量；metrics 实证 execute ok=1</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-15</td><td>compose 预构建镜像 tag 不随 up --build 重建 → 新代码不进容器（症状：新端点 404 / 旧行为）</td><td>验收 Skill 固化双镜像显式重建 + 二进制符号核对步骤</td><td><span class="pill pass">FIXED</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="review-path" class="card">
+    <h2>建议审阅顺序</h2>
+    <ol style="margin:8px 0 0; padding-left:22px; color:#38506a">
+      <li>过 v1 主线 11 步（步骤 0–10），确认原有能力与 v1 结论。</li>
+      <li>过 v2 增量 4 步（V1–V4）：看板 → 漂移探测 → 审计闭环 → usage 修复，每步截图与终端输出对应一条数据库 / 指标实证。</li>
+      <li>阅读 v2 用户故事（US-09–14）与验证矩阵。</li>
+      <li>核对剩余缺口（GAP-03/08/09/10 为 v2 新增）与 v2 轮修复（PRE-09–15）。</li>
+      <li>技术复核：<code>evidence/OPS-ACCEPTANCE.md</code> 与 <code>evidence/AUDIT-E2E-ACCEPTANCE.md</code>；需要 v1 细节再看 <code>evidence/I05R-VERIFICATION.md</code>。</li>
+      <li>复跑验收：按 <code>.codex/skills/obot-openapi-acceptance/SKILL.md</code>。</li>
+    </ol>
+  </section>
+</main>
+
+<div class="lightbox" id="lightbox"><img id="lightbox-img" alt=""></div>
+<footer>
+  OpenAPI Workers v2 验收审阅包 · v2-acceptance-r1 · 证据目录 <code>docs/plans/openapi-workers/evidence/</code> ·
+  历史版本 <a href="ACCEPTANCE-REVIEW-v1.html">v1</a> · <a href="ACCEPTANCE-REVIEW-v2.md">本包 Markdown 版</a>
+</footer>
+
+<script>
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+  for (const img of document.querySelectorAll('figure img')) {
+    img.addEventListener('click', () => {
+      lightboxImg.src = img.src;
+      lightbox.classList.add('open');
+    });
+  }
+  lightbox.addEventListener('click', () => lightbox.classList.remove('open'));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') lightbox.classList.remove('open'); });
+</script>
+</body>
+</html>

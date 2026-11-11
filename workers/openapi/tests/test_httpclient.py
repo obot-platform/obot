@@ -27,6 +27,22 @@ async def test_dns_all_answers_are_validated_and_connection_is_pinned():
     assert observed[0].extensions["sni_hostname"] == "business.example.test"
 
 
+async def test_default_dns_resolver_handles_hostnames():
+    observed = []
+
+    def handler(request):
+        observed.append(request)
+        return httpx.Response(200)
+
+    transport = PinnedTransport(
+        EgressPolicy(allow_private=True, allowed_hosts={"localhost"}),
+        delegate=httpx.MockTransport(handler),
+    )
+    response = await transport.handle_async_request(httpx.Request("GET", "https://localhost/items"))
+    assert response.status_code == 200
+    assert observed[0].extensions["sni_hostname"] == "localhost"
+
+
 async def test_mixed_public_private_dns_is_rejected_before_delegate():
     calls = []
 

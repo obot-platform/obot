@@ -3,12 +3,15 @@ package openapiworker
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/openapi/executionbudget"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 )
 
@@ -18,12 +21,23 @@ type Executor interface {
 }
 
 type WorkerExecutor struct {
-	resolver *Resolver
-	client   *Client
+	resolver   *Resolver
+	client     *Client
+	budgets    BudgetManager
+	instanceID string
+}
+
+type BudgetManager interface {
+	Acquire(context.Context, executionbudget.AcquireRequest) (executionbudget.Acquisition, error)
+	Release(context.Context, string, string, executionbudget.Outcome) error
 }
 
 func NewWorkerExecutor(resolver *Resolver, client *Client) *WorkerExecutor {
-	return &WorkerExecutor{resolver: resolver, client: client}
+	return &WorkerExecutor{resolver: resolver, client: client, instanceID: defaultObotInstanceID()}
+}
+
+func (e *WorkerExecutor) ConfigureBudgetManager(manager BudgetManager) {
+	e.budgets = manager
 }
 
 func (e *WorkerExecutor) Describe(ctx context.Context, principal PrincipalContext, reference Reference) (ResolvedDescription, error) {
@@ -50,9 +64,6 @@ func (e *WorkerExecutor) Execute(ctx context.Context, principal PrincipalContext
 	if invocation.OperationKey == "" {
 		return ExecutionResult{}, NewError(ErrorCodeInvalidRequest, "operation key is required")
 	}
-	if err := invocation.Budget.Lease.validate(invocation.Deadline); err != nil {
-		return ExecutionResult{}, err
-	}
 	if err := e.client.Ready(ctx); err != nil {
 		return ExecutionResult{}, err
 	}
@@ -68,8 +79,15 @@ func (e *WorkerExecutor) Execute(ctx context.Context, principal PrincipalContext
 	if operation.OperationKey != invocation.OperationKey {
 		return ExecutionResult{}, NewError(ErrorCodeOperationNotFound, "operation does not match the resolved operation")
 	}
+	lease, releaseToken, err := e.acquireBudget(ctx, resolved.description, invocation.OperationKey, invocation.Deadline)
+	if err != nil {
+		return ExecutionResult{}, err
+	}
+	invocation.Budget.Lease = lease
+	invocation.Deadline = time.UnixMilli(lease.FenceDeadlineUnixMs - 1)
 	input, credentials, err := executionInput(resolved, invocation, operation)
 	if err != nil {
+		_ = e.budgets.Release(context.WithoutCancel(ctx), lease.LeaseID, releaseToken, executionbudget.OutcomePreUpstreamRejected)
 		return ExecutionResult{}, err
 	}
 	request := ExecuteRequest{
@@ -85,11 +103,92 @@ func (e *WorkerExecutor) Execute(ctx context.Context, principal PrincipalContext
 	}
 	ctx, cancel := context.WithDeadline(ctx, invocation.Deadline)
 	defer cancel()
-	result, err := e.client.Execute(ctx, request)
-	if err != nil {
-		return ExecutionResult{}, err
+	result, executeErr := e.client.Execute(ctx, request)
+	if executeErr == nil {
+		_ = e.budgets.Release(context.WithoutCancel(ctx), lease.LeaseID, releaseToken, executionbudget.Outcome{
+			Code:              executionbudget.OutcomeBusinessResult.Code,
+			UpstreamAttempted: true,
+			BusinessResult:    true,
+			ResponseBytes:     int64(len(result.BodyBase64)),
+		})
+		return result, nil
 	}
-	return result, nil
+	if !upstreamAttempted(executeErr) {
+		_ = e.budgets.Release(context.WithoutCancel(ctx), lease.LeaseID, releaseToken, executionbudget.OutcomePreUpstreamRejected)
+	}
+	return ExecutionResult{}, executeErr
+}
+
+func (e *WorkerExecutor) acquireBudget(ctx context.Context, description ResolvedDescription, operationKey string, deadline time.Time) (Lease, string, error) {
+	if e.budgets == nil {
+		return Lease{}, "", NewError(ErrorCodeBudgetIdentityUnavailable, "OpenAPI execution budget manager is unavailable")
+	}
+	identity, err := executionbudget.ResolveBudgetIdentity(
+		[]executionbudget.CatalogReference{{SourceURL: description.BudgetSourceURL, EntryKey: description.BudgetEntryKey}},
+		nil,
+		operationKey,
+	)
+	if err != nil {
+		return Lease{}, "", budgetError(err)
+	}
+	acquisition, err := e.budgets.Acquire(ctx, executionbudget.AcquireRequest{
+		Identity:       identity,
+		OperationKey:   operationKey,
+		Deadline:       deadline,
+		ObotInstanceID: e.instanceID,
+	})
+	if err != nil {
+		return Lease{}, "", budgetError(err)
+	}
+	budgetContext := acquisition.Context
+	return Lease{
+		LeaseID:             budgetContext.LeaseID,
+		LeaseIssuedAtUnixMs: budgetContext.LeaseIssuedAt.UnixMilli(),
+		LeaseDeadlineUnixMs: budgetContext.LeaseDeadline.UnixMilli(),
+		FenceDeadlineUnixMs: budgetContext.FenceDeadline.UnixMilli(),
+		DispatchedAtUnixMs:  budgetContext.DispatchedAt.UnixMilli(),
+		BudgetKeyHash:       budgetContext.BudgetKeyHash,
+		ClockSkewLimitMs:    int64(budgetContext.ClockSkewLimit / time.Millisecond),
+		FencingMarginMs:     int64(budgetContext.FencingMargin / time.Millisecond),
+	}, acquisition.ReleaseToken, nil
+}
+
+func budgetError(err error) error {
+	switch {
+	case errors.Is(err, executionbudget.ErrQueueFull), errors.Is(err, executionbudget.ErrWaitDeadlineExceeded):
+		return NewError(ErrorCodeBudgetRejected, "OpenAPI execution budget is exhausted")
+	case errors.Is(err, executionbudget.ErrBudgetIdentityUnavailable):
+		return NewError(ErrorCodeBudgetIdentityUnavailable, "OpenAPI budget identity is unavailable")
+	default:
+		return NewError(ErrorCodeWorkerUnavailable, "OpenAPI execution budget is unavailable")
+	}
+}
+
+func upstreamAttempted(err error) bool {
+	workerErr, ok := AsError(err)
+	if !ok {
+		return true
+	}
+	switch workerErr.Code {
+	case ErrorCodePlatformUnauthenticated, ErrorCodePlatformForbidden, ErrorCodeResourceHidden,
+		ErrorCodeOperationNotFound, ErrorCodeBusinessAuthorizationRequired, ErrorCodeInvalidRequest,
+		ErrorCodeUnsupportedMediaType, ErrorCodeRequestTooLarge, ErrorCodeBudgetRejected,
+		ErrorCodeBudgetIdentityUnavailable, ErrorCodeSnapshotRequired, ErrorCodeSnapshotInvalid,
+		ErrorCodeAmbiguousOperation:
+		return false
+	default:
+		return true
+	}
+}
+
+func defaultObotInstanceID() string {
+	if value := strings.TrimSpace(os.Getenv("OBOT_INSTANCE_ID")); value != "" {
+		return value
+	}
+	if hostname, err := os.Hostname(); err == nil && hostname != "" {
+		return hostname
+	}
+	return "obot-local"
 }
 
 func (e *WorkerExecutor) authorizedOperation(resolved resolvedExecution, invocation Invocation) (Operation, error) {
