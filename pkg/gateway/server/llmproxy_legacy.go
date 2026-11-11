@@ -52,15 +52,16 @@ func (s *Server) addLegacyLLMProxyRoutes(mux proxyRouteRegistrar, proxy *llmProv
 }
 
 func resolveLegacyModel(l *llmProviderProxy, req api.Context, reference, scope string) (*v1.Model, error) {
-	// Try the scoped native spelling first: native model IDs can themselves contain slashes.
-	model, err := l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, scope+"/"+reference, func(m *v1.Model) bool {
+	usable := func(m *v1.Model) bool {
 		ok, err := l.mapHelper.UserHasAccessToModel(req.User, m.Name)
 		return err == nil && ok
-	})
+	}
+	// Try the scoped native spelling first: native model IDs can themselves contain slashes.
+	model, err := l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, scope+"/"+reference, usable)
 	if apierrors.IsNotFound(err) {
 		model, err = l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
 		if apierrors.IsNotFound(err) {
-			model, err = l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, reference, nil)
+			model, err = l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, reference, usable)
 		}
 	}
 	if err != nil {

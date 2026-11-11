@@ -41,6 +41,9 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 	target.Spec.Manifest.Alias = ""
 	target.Spec.Manifest.ModelProvider = system.LLMGatewayModelProvider
 	target.Spec.Manifest.TargetModel = "anthropic/claude-sonnet-4-5-20250929"
+	newerDenied := target.DeepCopy()
+	newerDenied.Name = "m1-gateway-sonnet-newer"
+	newerDenied.Spec.Manifest.TargetModel = "anthropic/claude-sonnet-4-5-20251001"
 	denied := target.DeepCopy()
 	denied.Name = "m1-gateway-gpt"
 	denied.Spec.Manifest.TargetModel = "openai/gpt-5"
@@ -140,12 +143,22 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 			}
 		})
 	}
+	// A newer version is discoverable, but explicit-user is granted only the older version.
+	require.NoError(t, c.Create(t.Context(), newerDenied))
+	require.NoError(t, access.informers["Model"].GetIndexer().Add(newerDenied))
 	legacyReq := api.Context{Storage: c, User: &user.DefaultInfo{UID: "explicit-user"}, Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/anthropic/v1/messages", nil)}
-	for _, reference := range []string{"claude-sonnet-4-5", target.Spec.Manifest.TargetModel, "llm"} {
+	for _, reference := range []string{"claude-sonnet-4-5", "anthropic/claude-sonnet-4-5", target.Spec.Manifest.TargetModel, "llm"} {
 		model, err := resolveLegacyModel(proxy, legacyReq, reference, "anthropic")
 		require.NoError(t, err)
 		require.Equal(t, target.Name, model.Name)
 	}
+	// An exact dated reference stays exact; it must not fall back to an older granted version.
+	model, err := resolveLegacyModel(proxy, legacyReq, newerDenied.Spec.Manifest.TargetModel, "anthropic")
+	require.NoError(t, err)
+	require.Equal(t, newerDenied.Name, model.Name)
+	hasAccess, err := helper.UserHasAccessToModel(legacyReq.User, model.Name)
+	require.NoError(t, err)
+	require.False(t, hasAccess)
 	_, err = resolveLegacyModel(proxy, legacyReq, denied.Spec.Manifest.TargetModel, "anthropic")
 	require.Error(t, err)
 	allowed, _, err := helper.GetUserAllowedModels(&user.DefaultInfo{UID: "wildcard-user"})
