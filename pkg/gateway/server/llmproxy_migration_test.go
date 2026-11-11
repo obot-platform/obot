@@ -1,23 +1,29 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
+	aliascontroller "github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testing.T) {
@@ -34,6 +40,7 @@ func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testi
 	}
 	target := source.DeepCopy()
 	target.Name = "m1-gateway-sonnet"
+	target.Spec.Manifest.Alias = ""
 	target.Spec.Manifest.ModelProvider = system.LLMGatewayModelProvider
 	target.Spec.Manifest.TargetModel = "anthropic/claude-sonnet-4-5-20250929"
 	denied := target.DeepCopy()
@@ -64,14 +71,15 @@ func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testi
 		Name: alias.KeyFromScopeID("Model", source.Spec.Manifest.Alias),
 		Spec: v1.AliasSpec{Name: source.Spec.Manifest.Alias, TargetKind: "Model", TargetNamespace: source.Namespace, TargetName: source.Name},
 	}
-	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(llmengine.ModelProviderResource(), source, dma, binding, nativeBinding, explicit, wildcard).Build()
-	err := llmengine.MigrateLegacyModels(t.Context(), c, llmengine.ModelProviderResource(), []kclient.Object{target, denied}, func() error {
-		if err := c.Create(t.Context(), target); err != nil {
-			return err
-		}
-		return c.Create(t.Context(), denied)
-	})
-	require.NoError(t, err)
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(llmengine.ModelProviderResource(), source, target, denied, dma, binding, nativeBinding, explicit, wildcard).
+		WithInterceptorFuncs(interceptor.Funcs{Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+			// Production clients unwrap the alias controller's uncached reads.
+			return c.Get(ctx, key, untriggered.Unwrap(obj).(kclient.Object), opts...)
+		}}).Build()
+	require.NoError(t, llmengine.MigrateLegacyModels(t.Context(), c, llmengine.ModelProviderResource()))
+	// Normal alias reconciliation releases retained sources' derived bindings.
+	require.NoError(t, aliascontroller.UnassignAlias(router.Request{Ctx: t.Context(), Client: c, Object: nativeBinding}, nil))
+	require.True(t, apierrors.IsNotFound(c.Get(t.Context(), kclient.ObjectKeyFromObject(nativeBinding), &v1.Alias{})))
 	access := &directAccessBackend{storage: c, informers: map[string]cache.SharedIndexInformer{}}
 	helper, err := modelaccesspolicy.NewHelper(t.Context(), access)
 	require.NoError(t, err)

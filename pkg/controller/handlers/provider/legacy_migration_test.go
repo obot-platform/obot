@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	openai "github.com/obot-platform/chat-completion-client"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 type migrationTestProvider struct{}
@@ -79,18 +81,31 @@ func TestGatewayModelSyncMigratesReferencesAndRetainsSources(t *testing.T) {
 	d.RegisterBuiltinModelProvider(mp.Namespace, mp.Name, migrationTestProvider{})
 	// Earlier handlers compute status before back-population; marking completion must retain it.
 	mp.Status.Configured = true
+	// A failed publication must leave stored references untouched for retry.
+	failing := interceptor.NewClient(c, interceptor.Funcs{Create: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.CreateOption) error {
+		if _, ok := obj.(*v1.Model); ok {
+			return fmt.Errorf("simulated publication failure")
+		}
+		return c.Create(ctx, obj, opts...)
+	}})
+	require.ErrorContains(t, BackPopulateModels(t.Context(), failing, d, mp), "simulated publication failure")
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(alias), alias))
+	require.Equal(t, legacyModel.Name, alias.Spec.Manifest.Model)
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, legacyModel.Name, policy.Spec.Manifest.Models[0].ID)
+	require.Empty(t, mp.Annotations["obot.ai/llm-gateway-model-migration-complete"])
 	require.NoError(t, BackPopulateModels(t.Context(), c, d, mp))
 	require.True(t, mp.Status.Configured)
 
 	targetName := modelName(mp.Name, "openai/gpt-5.4")
 	var target v1.Model
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: mp.Namespace, Name: targetName}, &target))
-	require.False(t, target.Spec.Manifest.Active)
-	require.Equal(t, "Legacy administrator name", target.Spec.Manifest.DisplayName)
+	require.True(t, target.Spec.Manifest.Active)
+	require.NotEqual(t, "Legacy administrator name", target.Spec.Manifest.DisplayName)
 	var source v1.Model
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(legacyModel), &source))
 	require.Equal(t, legacyModel.Spec, source.Spec)
-	require.Equal(t, target.Name, source.Annotations[system.LegacyModelMigrationAnnotation])
+	require.Equal(t, legacyModel, &source)
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(legacyProvider), legacyProvider))
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(alias), alias))
 	require.Equal(t, target.Name, alias.Spec.Manifest.Model)

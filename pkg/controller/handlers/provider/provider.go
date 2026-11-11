@@ -460,16 +460,14 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	}
 
 	// Include both resource types even when filtering leaves no desired models.
-	publish := func() error {
-		return apply.New(client).WithPruneTypes(&v1.Model{}, &v1.ModelInfo{}).Apply(ctx, modelProvider, models...)
+	if err := apply.New(client).WithPruneTypes(&v1.Model{}, &v1.ModelInfo{}).Apply(ctx, modelProvider, models...); err != nil {
+		return fmt.Errorf("failed to create models for model provider %q: %w", modelProvider.Name, err)
 	}
 	if modelProvider.Name == system.LLMGatewayModelProvider {
-		err = llmengine.MigrateLegacyModels(ctx, client, modelProvider, models, publish)
-	} else {
-		err = publish()
-	}
-	if err != nil {
-		return fmt.Errorf("failed to create models for model provider %q: %w", modelProvider.Name, err)
+		// Only published destinations may be referenced by defaults and Profiles.
+		if err := llmengine.MigrateLegacyModels(ctx, client, modelProvider); err != nil {
+			return fmt.Errorf("failed to migrate legacy model references: %w", err)
+		}
 	}
 	slog.Info("Back-populated models for model provider", "provider", modelProvider.Name, "models", len(models))
 
