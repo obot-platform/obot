@@ -209,6 +209,12 @@ func (r *llmResponseWriter) prepareUnary(resp *http.Response) error {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
 		if r.modelProvider == system.LLMGatewayModelProvider {
+			if scope := llmengine.LegacyProvider(resp.Request.Context()); scope != "" {
+				// Bare IDs can collide across providers; scope grants before dropping their prefixes.
+				maps.DeleteFunc(allowedTargetModels, func(target string, _ bool) bool {
+					return !strings.HasPrefix(target, scope+"/")
+				})
+			}
 			// The gateway's Anthropic-format model list uses bare model IDs, which the
 			// gateway also accepts in requests, so allow the bare form of each target too.
 			for target := range maps.Clone(allowedTargetModels) {

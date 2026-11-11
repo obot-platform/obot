@@ -1,13 +1,18 @@
 package server
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
+	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -146,4 +151,67 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 	allowed, _, err := helper.GetUserAllowedModels(&user.DefaultInfo{UID: "wildcard-user"})
 	require.NoError(t, err)
 	require.True(t, allowed[target.Name])
+}
+
+func TestLegacyModelListsDoNotUseOtherProvidersGrants(t *testing.T) {
+	for _, source := range []string{system.AzureModelProvider, system.AzureEntraModelProvider, system.AmazonBedrockModelProvider, system.AmazonBedrockAPIKeyModelProvider, ""} {
+		t.Run(source, func(t *testing.T) {
+			ctx := llmengine.WithLegacySource(t.Context(), source)
+			provider := llmengine.LegacyProvider(ctx)
+			if provider == "" {
+				provider = "azure"
+			}
+			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+			access := &directAccessBackend{storage: storage, informers: map[string]cache.SharedIndexInformer{}}
+			helper, err := modelaccesspolicy.NewHelper(ctx, access)
+			require.NoError(t, err)
+			for id, target := range map[string]string{
+				"m1-denied":  provider + "/shared",
+				"m1-local":   provider + "/local",
+				"m1-foreign": "anthropic/shared",
+			} {
+				model := &v1.Model{Name: id, Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+					Active:        true,
+					ModelProvider: system.LLMGatewayModelProvider,
+					TargetModel:   target,
+					Usage:         types.ModelUsageLLM,
+					Dialect:       string(llmtypes.DialectAnthropicMessages),
+				}}}
+				require.NoError(t, access.informers["Model"].GetIndexer().Add(model))
+			}
+			policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}},
+				Models:   []types.ModelResource{{ID: "m1-local"}, {ID: "m1-foreign"}},
+			}}}
+			require.NoError(t, access.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
+			for _, anthropic := range []bool{false, true} {
+				t.Run(fmt.Sprintf("anthropic=%t", anthropic), func(t *testing.T) {
+					shared, local := provider+"/shared", provider+"/local"
+					var dialect llmtypes.Dialect
+					if anthropic {
+						shared, local = "shared", "local"
+						dialect = llmtypes.DialectAnthropicMessages
+					}
+					req := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil).WithContext(ctx)
+					req.SetPathValue("path", "v1/models")
+					resp := &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     make(http.Header),
+						Request:    req,
+						Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"data":[{"id":%q},{"id":%q}]}`, shared, local))),
+					}
+					writer := &llmResponseWriter{user: &user.DefaultInfo{UID: "7"}, modelProvider: system.LLMGatewayModelProvider, routeDialect: dialect, mapHelper: helper}
+					require.NoError(t, writer.prepareUnary(resp))
+					body, err := io.ReadAll(resp.Body)
+					require.NoError(t, err)
+					want := []string{local}
+					if source == "" && anthropic {
+						// Unified Anthropic lists can include the granted foreign model's bare ID.
+						want = []string{shared, local}
+					}
+					require.Equal(t, want, modelDataIDs(string(body)))
+				})
+			}
+		})
+	}
 }
