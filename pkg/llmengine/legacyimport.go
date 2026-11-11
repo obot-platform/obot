@@ -234,6 +234,14 @@ func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map
 		if source != system.GenericResponsesModelProvider && source != system.AzureEntraModelProvider && source != system.AmazonBedrockModelProvider && secretWithSuffix(secrets, "_MODEL_PROVIDER_API_KEY") == "" {
 			return llmcoreclient.Provider{}, fmt.Errorf("missing key")
 		}
+		if source == system.AmazonBedrockModelProvider {
+			accessKey := secretWithSuffix(secrets, "_MODEL_PROVIDER_ACCESS_KEY_ID")
+			secretKey := secretWithSuffix(secrets, "_MODEL_PROVIDER_SECRET_ACCESS_KEY")
+			// Both may be absent for ambient AWS credentials, but a partial pair is invalid.
+			if (accessKey == "") != (secretKey == "") {
+				return llmcoreclient.Provider{}, fmt.Errorf("incomplete Bedrock IAM credentials")
+			}
+		}
 		if source == system.AzureEntraModelProvider {
 			for _, suffix := range []string{"_MODEL_PROVIDER_CLIENT_ID", "_MODEL_PROVIDER_CLIENT_SECRET", "_MODEL_PROVIDER_TENANT_ID"} {
 				if secretWithSuffix(secrets, suffix) == "" {

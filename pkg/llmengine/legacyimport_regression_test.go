@@ -172,6 +172,58 @@ func TestLegacyImportCreatesFamilyInOneWriteAndDoesNotReimportDeletion(t *testin
 	require.True(t, apierrors.IsNotFound(err))
 }
 
+func TestLegacyImportRejectsPartialBedrockIAMCredentialsAndRetries(t *testing.T) {
+	for _, missing := range []string{"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID", "OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY"} {
+		t.Run(missing, func(t *testing.T) {
+			e, ctx := startTestEngine(t)
+			iam := map[string]string{
+				"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID":     "access-key",
+				"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret-key",
+			}
+			value := iam[missing]
+			delete(iam, missing)
+			gateway := legacyImportGateway(t, map[string]map[string]string{
+				system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "api-key"},
+				system.AmazonBedrockModelProvider:       iam,
+			})
+			require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway), "invalid legacy bedrock configuration")
+			_, err := e.store.GetProvider(ctx, "bedrock")
+			require.True(t, apierrors.IsNotFound(err), "the valid API-key sibling must not be saved on its own")
+
+			// Re-running after correction proves the failed family was not marked complete.
+			iam[missing] = value
+			require.NoError(t, gateway.UpsertCredential(ctx, gatewaytypes.Credential{
+				Context: system.AmazonBedrockModelProvider,
+				Name:    system.AmazonBedrockModelProvider,
+				Secrets: iam,
+			}))
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+			provider, err := e.store.GetProvider(ctx, "bedrock")
+			require.NoError(t, err)
+			require.Len(t, provider.Keys, 2)
+			for _, key := range provider.Keys {
+				if key.Name == "imported-"+system.AmazonBedrockModelProvider {
+					require.Equal(t, "access-key", key.BedrockKeyConfig.AccessKey.GetValue())
+					require.Equal(t, "secret-key", key.BedrockKeyConfig.SecretKey.GetValue())
+				}
+			}
+		})
+	}
+}
+
+func TestLegacyImportAllowsBedrockIAMWithoutExplicitCredentials(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	gateway := legacyImportGateway(t, map[string]map[string]string{
+		system.AmazonBedrockModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_REGION": "us-west-2"},
+	})
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	provider, err := e.store.GetProvider(ctx, "bedrock")
+	require.NoError(t, err)
+	require.Len(t, provider.Keys, 1)
+	require.Empty(t, provider.Keys[0].BedrockKeyConfig.AccessKey.GetValue())
+	require.Empty(t, provider.Keys[0].BedrockKeyConfig.SecretKey.GetValue())
+}
+
 func TestLegacyImportGroupedProviders(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	gateway := legacyImportGateway(t, map[string]map[string]string{
