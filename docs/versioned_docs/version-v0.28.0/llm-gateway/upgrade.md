@@ -2,6 +2,10 @@
 title: "Upgrading from v0.27"
 ---
 
+:::note Companion migration change
+The provider and model-reference migration behavior described below requires [the companion migration change, #8514](https://github.com/obot-platform/obot/pull/8514). Restoring legacy URLs alone does not provide that migration behavior; the routes can also use manually configured gateway providers and model access.
+:::
+
 :::warning Upgrade directly to v0.28.1 or later
 Existing installations using model providers or the LLM gateway should upgrade directly to **v0.28.1 or later**. v0.28.0 has no migration from v0.27 model providers; the migration below requires **v0.28.1**.
 :::

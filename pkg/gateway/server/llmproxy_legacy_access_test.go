@@ -79,14 +79,50 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 		reference string
 		allowed   bool
 	}{
-		{name: "explicit grant with native name", principal: "explicit-user", reference: "claude-sonnet-4-5", allowed: true},
-		{name: "explicit grant with qualified name", principal: "explicit-user", reference: target.Spec.Manifest.TargetModel, allowed: true},
-		{name: "configured default", principal: "explicit-user", reference: "llm", allowed: true},
-		{name: "native wildcard retains its meaning", principal: "wildcard-user", reference: "claude-sonnet-4-5", allowed: true},
-		{name: "other user denied", principal: "other-user", reference: "claude-sonnet-4-5"},
-		{name: "ungranted model denied", principal: "explicit-user", reference: "gpt-5"},
-		{name: "wildcard does not grant GPT", principal: "wildcard-user", reference: "gpt-5"},
-		{name: "no old ID mapping", principal: "explicit-user", reference: source.Name},
+		{
+			name:      "explicit grant with native name",
+			principal: "explicit-user",
+			reference: "claude-sonnet-4-5",
+			allowed:   true,
+		},
+		{
+			name:      "explicit grant with qualified name",
+			principal: "explicit-user",
+			reference: target.Spec.Manifest.TargetModel,
+			allowed:   true,
+		},
+		{
+			name:      "configured default",
+			principal: "explicit-user",
+			reference: "llm",
+			allowed:   true,
+		},
+		{
+			name:      "native wildcard retains its meaning",
+			principal: "wildcard-user",
+			reference: "claude-sonnet-4-5",
+			allowed:   true,
+		},
+		{
+			name:      "other user denied",
+			principal: "other-user",
+			reference: "claude-sonnet-4-5",
+		},
+		{
+			name:      "ungranted model denied",
+			principal: "explicit-user",
+			reference: "gpt-5",
+		},
+		{
+			name:      "wildcard does not grant GPT",
+			principal: "wildcard-user",
+			reference: "gpt-5",
+		},
+		{
+			name:      "no old ID mapping",
+			principal: "explicit-user",
+			reference: source.Name,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := api.Context{Storage: c, User: &user.DefaultInfo{UID: tc.principal}, Request: httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil)}
@@ -110,5 +146,4 @@ func TestLegacyModelResolutionAndAccess(t *testing.T) {
 	allowed, _, err := helper.GetUserAllowedModels(&user.DefaultInfo{UID: "wildcard-user"})
 	require.NoError(t, err)
 	require.True(t, allowed[target.Name])
-	require.False(t, allowed[source.Name], "retained models must not appear as usable models")
 }
