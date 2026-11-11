@@ -3,6 +3,7 @@
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
 	import AddProviderDialog from '$lib/components/llm-gateway/AddProviderDialog.svelte';
+	import ConfigureProviderDialog from '$lib/components/llm-gateway/ConfigureProviderDialog.svelte';
 	import GatewayStatusBanner from '$lib/components/llm-gateway/GatewayStatusBanner.svelte';
 	import { m } from '$lib/i18n';
 	import type { BaseProvider } from '$lib/services/admin/types';
@@ -25,7 +26,6 @@
 	import { profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { success } from '$lib/stores/success';
-	import { goto } from '$lib/url';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -43,6 +43,8 @@
 	let keys = $state<Record<string, ProviderKey[]>>({});
 	let loading = $state(true);
 	let addDialog = $state<ReturnType<typeof AddProviderDialog>>();
+	let configureDialog = $state<ReturnType<typeof ConfigureProviderDialog>>();
+	let openingProvider = $state<string>();
 	let removing = $state<string>();
 	// With Claude subscriptions allowed, Anthropic works without keys of its own.
 	let subscriptionPassthrough = $state(false);
@@ -50,8 +52,8 @@
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let allKeyNames = $derived(Object.values(keys).flatMap((ks) => ks.map((k) => k.name)));
 
-	async function load() {
-		loading = true;
+	async function load(options?: { silent?: boolean }) {
+		if (!options?.silent) loading = true;
 		try {
 			status = await getStatus();
 			onReadyChange?.(!!status.ready);
@@ -69,7 +71,7 @@
 					: false;
 			}
 		} finally {
-			loading = false;
+			if (!options?.silent) loading = false;
 		}
 	}
 
@@ -112,8 +114,13 @@
 		};
 	}
 
-	function openProvider(name: string) {
-		goto(`/models/providers/${encodeURIComponent(name)}`);
+	async function openProvider(name: string) {
+		openingProvider = name;
+		try {
+			await configureDialog?.open(name);
+		} finally {
+			if (openingProvider === name) openingProvider = undefined;
+		}
 	}
 
 	onMount(load);
@@ -151,6 +158,7 @@
 						provider={card}
 						iconClass={providerIconClass(p.custom_provider_config?.base_provider_type ?? p.name)}
 						{readonly}
+						configureLoading={openingProvider === p.name}
 						onConfigure={() => openProvider(p.name)}
 						onDeconfigure={() => (removing = p.name)}
 					>
@@ -212,9 +220,23 @@
 	bind:this={addDialog}
 	configured={providers.map((p) => p.name)}
 	existingKeyNames={allKeyNames}
-	onCreated={(name) => {
+	onCreated={async (name) => {
 		adminConfigStore.setModelProviderConfigured(true);
 		success.add(m.models_providers_added({ name: providerLabel(name) }));
-		openProvider(name);
+		addDialog?.close();
+		openingProvider = name;
+		try {
+			await configureDialog?.open(name);
+		} finally {
+			if (openingProvider === name) openingProvider = undefined;
+		}
+		load({ silent: true });
+	}}
+/>
+
+<ConfigureProviderDialog
+	bind:this={configureDialog}
+	onClosed={() => {
+		load({ silent: true });
 	}}
 />

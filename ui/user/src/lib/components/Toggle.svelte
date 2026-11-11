@@ -7,6 +7,8 @@
 		labelInline?: boolean;
 		checked: boolean;
 		disabled?: boolean;
+		// Set when a parent label owns the click target, so this does not nest another label.
+		id?: string;
 		disablePortal?: boolean;
 		onChange: (checked: boolean) => void;
 		classes?: {
@@ -20,6 +22,7 @@
 		labelInline,
 		checked,
 		disabled = false,
+		id,
 		onChange,
 		classes,
 		disablePortal
@@ -35,20 +38,25 @@
 		{@render input()}
 	</label>
 {:else}
-	<label class={twMerge('text-muted-content flex items-center gap-2 text-xs', classes?.label)}>
-		<span>{label}</span>
+	<svelte:element
+		this={id ? 'div' : 'label'}
+		class={twMerge('text-muted-content flex items-center gap-2 text-xs', classes?.label)}
+	>
+		<span id={id ? `${id}-label` : undefined}>{label}</span>
 		<div class="relative flex h-4.5 w-8.25">
 			{@render input()}
 		</div>
-	</label>
+	</svelte:element>
 {/if}
 
 {#snippet input()}
 	<input
 		type="checkbox"
+		{id}
 		{checked}
 		{disabled}
 		role="switch"
+		aria-labelledby={id && labelInline ? `${id}-label` : undefined}
 		class={twMerge('toggle toggle-sm', classes?.input)}
 		onchange={(e) => {
 			e.preventDefault();

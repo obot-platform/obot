@@ -65,6 +65,10 @@
 		dialog?.open();
 	}
 
+	export function close() {
+		dialog?.close();
+	}
+
 	function reset() {
 		authenticationMethod = 'api-key';
 		values = {};

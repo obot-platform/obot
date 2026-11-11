@@ -118,7 +118,10 @@ describe('LLM gateway provider page', () => {
 		await renderProviderPage();
 
 		await page.getByRole('button', { name: 'Add Key' }).click();
-		const dialog = page.getByRole('dialog');
+		await expect
+			.element(page.getByRole('dialog', { name: 'OpenAI', exact: true }))
+			.not.toBeInTheDocument();
+		const dialog = page.getByRole('dialog', { name: 'Add Key' });
 		await expect.element(dialog.getByLabelText('Name')).toHaveValue('openai-key-2');
 		await dialog.getByPlaceholder('sk-...').fill('sk-new');
 		await dialog.getByLabelText('Allowed models').fill('gpt-4o, gpt-4.1');
@@ -134,6 +137,23 @@ describe('LLM gateway provider page', () => {
 			value: 'sk-new'
 		});
 		await vi.waitFor(() => expect(synced).toHaveBeenCalled());
+		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
+	});
+
+	it('returns to the provider after cancelling Add Key', async () => {
+		mockProvider();
+		vi.mocked(goto).mockClear();
+		await renderProviderPage();
+
+		await page.getByRole('button', { name: 'Add Key' }).click();
+		await page
+			.getByRole('dialog', { name: 'Add Key' })
+			.getByRole('button', { name: 'Cancel' })
+			.click();
+
+		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		expect(goto).not.toHaveBeenCalled();
 	});
 
 	it('edits an existing key', async () => {
@@ -148,7 +168,8 @@ describe('LLM gateway provider page', () => {
 		await renderProviderPage();
 
 		await page.getByRole('button', { name: 'Edit key' }).click();
-		const dialog = page.getByRole('dialog');
+		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
+		const dialog = page.getByRole('dialog', { name: 'Edit Key' });
 		await expect.element(dialog.getByLabelText('Name')).toHaveValue('openai-key-1');
 		await dialog.getByLabelText('Blocked models').fill('o1-pro');
 		await dialog.getByLabelText('Load-balancing weight').fill('2');
@@ -216,7 +237,7 @@ describe('LLM gateway provider page', () => {
 		);
 		await renderProviderPage();
 
-		await page.getByRole('button', { name: 'Delete provider' }).click();
+		await page.getByRole('button', { name: 'Deconfigure Provider' }).click();
 		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 
 		await vi.waitFor(() => expect(deleted).toHaveBeenCalledWith('openai'));
@@ -236,6 +257,23 @@ describe('LLM gateway provider page', () => {
 
 		await expect.element(page.getByText('This provider does not use keys.')).toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Add Key' })).not.toBeInTheDocument();
+	});
+
+	it('toggles private network access from anywhere on its card', async () => {
+		mockProvider();
+		await renderProviderPage();
+
+		const toggle = page.getByRole('switch', {
+			name: 'Allow private network addresses',
+			exact: true
+		});
+		await expect.element(toggle).not.toBeChecked();
+
+		await page.getByText(/Needed for providers on your own network/).click();
+		await expect.element(toggle).toBeChecked();
+
+		await toggle.click();
+		await expect.element(toggle).not.toBeChecked();
 	});
 
 	it('saves network settings from the sticky footer', async () => {
@@ -422,7 +460,7 @@ describe('LLM gateway provider page', () => {
 		await renderProviderPage();
 
 		await expect
-			.element(page.getByRole('main').getByRole('link', { name: 'LLM Gateway', exact: true }))
+			.element(page.getByRole('link', { name: 'LLM Gateway', exact: true }))
 			.toHaveAttribute('href', '/models?view=connect');
 		await page.getByRole('button', { name: 'Cancel' }).click();
 		expect(goto).toHaveBeenCalledWith('/models?view=providers');
@@ -438,7 +476,7 @@ describe('LLM gateway provider page', () => {
 		await expect.element(page.getByRole('button', { name: 'Edit key' })).not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Delete key' })).not.toBeInTheDocument();
 		await expect
-			.element(page.getByRole('button', { name: 'Delete provider' }))
+			.element(page.getByRole('button', { name: 'Deconfigure Provider' }))
 			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Save', exact: true }))

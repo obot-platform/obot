@@ -1,15 +1,9 @@
 import { Group } from '$lib/services';
-import { goto } from '$lib/url';
 import { worker } from '../../tests/mocks/worker';
 import { readyStatus, renderModelsTab, resetModelsTab } from './testing';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
-
-vi.mock(import('$lib/url'), async (importOriginal) => ({
-	...(await importOriginal()),
-	goto: vi.fn()
-}));
 
 const openai = {
 	name: 'openai',
@@ -32,6 +26,10 @@ function mockGateway({
 		http.get('/api/llm-gateway/admin/providers', () =>
 			HttpResponse.json({ providers, total: providers.length })
 		),
+		http.get('/api/llm-gateway/admin/providers/:name', ({ params }) => {
+			const found = providers.find((provider) => provider.name === params.name);
+			return HttpResponse.json(found ?? { ...openai, name: String(params.name) });
+		}),
 		http.get('/api/llm-gateway/admin/providers/:name/keys', () =>
 			HttpResponse.json({ keys, total: keys.length })
 		)
@@ -115,7 +113,35 @@ describe('Models providers tab', () => {
 
 		await page.getByRole('button', { name: 'Modify' }).click();
 
-		expect(goto).toHaveBeenCalledWith('/models/providers/openai');
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+	});
+
+	it('keeps Modify busy until the provider is ready to show', async () => {
+		let release = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		mockGateway();
+		worker.use(
+			http.get('/api/llm-gateway/admin/providers/:name', async () => {
+				await gate;
+				return HttpResponse.json(openai);
+			})
+		);
+		await renderProvidersPage();
+
+		const modify = page.getByRole('button', { name: 'Modify', exact: true });
+		await modify.click();
+
+		await expect.element(modify).toBeDisabled();
+		await expect.element(page.getByRole('heading', { name: 'Keys' })).not.toBeInTheDocument();
+
+		release();
+
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		await expect.element(modify).toBeEnabled();
 	});
 
 	it('does not offer legacy providers or a legacy import', async () => {
@@ -217,6 +243,8 @@ describe('Models providers tab', () => {
 		expect(keyCreated).toHaveBeenCalledWith(
 			expect.objectContaining({ name: 'groq-key-1', value: 'gsk_secret', models: ['*'] })
 		);
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/models/providers/groq'));
+		const dialog = page.getByRole('dialog', { name: 'Groq', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Add Groq' })).not.toBeInTheDocument();
 	});
 });
