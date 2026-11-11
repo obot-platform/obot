@@ -1,0 +1,264 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: obot-openapi-workers-config
+  labels:
+    app.kubernetes.io/part-of: obot
+data:
+  MCPOpenAPIWorkerURL: https://openapi-worker:8443
+  MCPOpenAPIWorkerObotInternalURL: http://obot:8080
+  MCPOpenAPIWorkerAllowedHosts: obot:8080
+  MCPOpenAPIWorkerServerCAFile: /var/run/secrets/obot-openapi/server-ca.crt
+  MCPOpenAPIWorkerClientCertFile: /var/run/secrets/obot-openapi/client.crt
+  MCPOpenAPIWorkerClientKeyFile: /var/run/secrets/obot-openapi/client.key
+  OPENAPI_WORKER_PORT: "8443"
+  OPENAPI_WORKER_TLS_CERT_FILE: /var/run/secrets/obot-openapi/server.crt
+  OPENAPI_WORKER_TLS_KEY_FILE: /var/run/secrets/obot-openapi/server.key
+  OPENAPI_WORKER_CLIENT_CA_FILE: /var/run/secrets/obot-openapi/client-ca.crt
+  UV_CACHE_DIR: /tmp/uv-cache
+---
+# Replace every value with a synthetic or deployment-specific certificate/key before use.
+# The manifest intentionally contains no PostgreSQL password or business credential.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: obot-openapi-integration
+  labels:
+    app.kubernetes.io/part-of: obot
+type: Opaque
+stringData:
+  server-ca.crt: REPLACE_WITH_WORKER_CA_CERTIFICATE
+  client-ca.crt: REPLACE_WITH_OBOT_CLIENT_CA_CERTIFICATE
+  client.crt: REPLACE_WITH_OBOT_CLIENT_CERTIFICATE
+  client.key: REPLACE_WITH_OBOT_CLIENT_PRIVATE_KEY
+  prober.crt: REPLACE_WITH_WORKER_PROBER_CERTIFICATE
+  prober.key: REPLACE_WITH_WORKER_PROBER_PRIVATE_KEY
+  server.crt: REPLACE_WITH_WORKER_CERTIFICATE
+  server.key: REPLACE_WITH_WORKER_PRIVATE_KEY
+  server-dsn: REPLACE_WITH_EXISTING_POSTGRESQL_DSN
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obot
+  labels:
+    app.kubernetes.io/name: obot
+    app.kubernetes.io/component: control-plane
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: obot
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: obot
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: obot
+          image: obot:openapi-workers-local
+          args: [server]
+          workingDir: /tmp
+          envFrom:
+            - configMapRef:
+                name: obot-openapi-workers-config
+          env:
+            - name: OBOT_SERVER_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: obot-openapi-integration
+                  key: server-dsn
+            - name: MCPRuntimeBackend
+              value: openapi-worker
+            - name: OBOT_INSTANCE_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: openapi-mtls
+              mountPath: /var/run/secrets/obot-openapi
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: openapi-mtls
+          secret:
+            secretName: obot-openapi-integration
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obot
+  labels:
+    app.kubernetes.io/name: obot
+spec:
+  selector:
+    app.kubernetes.io/name: obot
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openapi-worker
+  labels:
+    app.kubernetes.io/name: openapi-worker
+    app.kubernetes.io/component: executor
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openapi-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openapi-worker
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: worker
+          image: obot-openapi-worker:local
+          envFrom:
+            - configMapRef:
+                name: obot-openapi-workers-config
+          ports:
+            - name: https
+              containerPort: 8443
+          startupProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - 'import ssl, urllib.request; context=ssl.create_default_context(cafile="/var/run/secrets/obot-openapi/server-ca.crt"); context.load_cert_chain("/var/run/secrets/obot-openapi/prober.crt", "/var/run/secrets/obot-openapi/prober.key"); urllib.request.urlopen("https://localhost:8443/healthz", context=context, timeout=2)'
+            periodSeconds: 2
+            failureThreshold: 30
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - 'import ssl, urllib.request; context=ssl.create_default_context(cafile="/var/run/secrets/obot-openapi/server-ca.crt"); context.load_cert_chain("/var/run/secrets/obot-openapi/prober.crt", "/var/run/secrets/obot-openapi/prober.key"); urllib.request.urlopen("https://localhost:8443/readyz", context=context, timeout=2)'
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - 'import ssl, urllib.request; context=ssl.create_default_context(cafile="/var/run/secrets/obot-openapi/server-ca.crt"); context.load_cert_chain("/var/run/secrets/obot-openapi/prober.crt", "/var/run/secrets/obot-openapi/prober.key"); urllib.request.urlopen("https://localhost:8443/healthz", context=context, timeout=2)'
+            periodSeconds: 10
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            runAsUser: 10001
+            runAsGroup: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: openapi-mtls
+              mountPath: /var/run/secrets/obot-openapi
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: openapi-mtls
+          secret:
+            secretName: obot-openapi-integration
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openapi-worker
+  labels:
+    app.kubernetes.io/name: openapi-worker
+spec:
+  selector:
+    app.kubernetes.io/name: openapi-worker
+  ports:
+    - name: https
+      port: 8443
+      targetPort: https
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: obot
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: obot
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openapi-worker
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openapi-worker

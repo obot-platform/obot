@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenAPI Workers v1 验收审阅包</title>
+  <style>
+    :root {
+      --ink: #16212b;
+      --muted: #5e6d7a;
+      --line: #d9e1e8;
+      --bg: #eef3f6;
+      --card: #ffffff;
+      --blue: #1467b8;
+      --blue-dark: #0b4a86;
+      --green: #157f56;
+      --green-bg: #e8f7ef;
+      --amber: #96620a;
+      --amber-bg: #fff5dd;
+      --red: #ab2b3c;
+      --red-bg: #fdeef0;
+      --code: #eff3f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    header.hero {
+      color: white;
+      background: linear-gradient(125deg, #0b3866 0%, #1467b8 62%, #20a3a0 100%);
+      padding: 44px min(6vw, 72px) 38px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 11px;
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 999px;
+      background: rgba(255,255,255,.12);
+      font-size: 13px;
+      font-weight: 650;
+    }
+    h1 {
+      margin: 18px 0 10px;
+      font-size: clamp(30px, 5vw, 49px);
+      line-height: 1.15;
+      letter-spacing: -.035px;
+    }
+    .subtitle { max-width: 920px; color: rgba(255,255,255,.91); font-size: 17px; }
+    .verdict-strip {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 27px;
+    }
+    .verdict {
+      border-radius: 12px;
+      padding: 13px 16px;
+      background: rgba(255,255,255,.13);
+      border: 1px solid rgba(255,255,255,.28);
+    }
+    .verdict strong { display: block; font-size: 19px; margin-bottom: 2px; }
+    main {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 30px min(4vw, 48px) 80px;
+    }
+    nav.toc {
+      position: sticky;
+      top: 12px;
+      z-index: 5;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: rgba(255,255,255,.91);
+      box-shadow: 0 8px 26px rgba(24,47,70,.08);
+      backdrop-filter: blur(8px);
+    }
+    nav.toc a {
+      padding: 6px 10px;
+      border-radius: 8px;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+    }
+    nav.toc a:hover { background: #e7f1f8; text-decoration: none; }
+    section { margin-top: 34px; scroll-margin-top: 86px; }
+    h2 {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 17px;
+      font-size: 24px;
+      letter-spacing: -.02em;
+    }
+    h2::before {
+      content: "";
+      width: 6px;
+      height: 24px;
+      border-radius: 3px;
+      background: linear-gradient(180deg, var(--blue), #20a3a0);
+      flex: 0 0 auto;
+    }
+    h3 { margin: 0 0 10px; font-size: 17px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 3px 14px rgba(21,49,74,.04);
+    }
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .metric { background: var(--card); border: 1px solid var(--line); border-radius: 13px; padding: 16px; }
+    .metric b { display: block; font-size: 25px; line-height: 1.2; }
+    .metric span { color: var(--muted); font-size: 13px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      font-size: 14px;
+    }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f5f8fa; font-size: 13px; color: #405668; }
+    tr:last-child td { border-bottom: 0; }
+    .scroll { overflow-x: auto; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pass { color: var(--green); background: var(--green-bg); }
+    .pending { color: var(--amber); background: var(--amber-bg); }
+    .fail { color: var(--red); background: var(--red-bg); }
+    .blue { color: var(--blue); background: #e9f3fb; }
+    .story {
+      display: grid;
+      grid-template-columns: minmax(250px, .67fr) minmax(0, 1.33fr);
+      gap: 18px;
+    }
+    .story h3 { display: flex; justify-content: space-between; gap: 12px; }
+    .story .id { color: var(--blue); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .story p { margin: 8px 0; }
+    .evidence-label {
+      display: inline-block;
+      margin-bottom: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+    figure { margin: 0; }
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: white;
+    }
+    figure.screenshot { cursor: zoom-in; }
+    figure.screenshot img { transition: transform .16s ease, box-shadow .16s ease; }
+    figure.screenshot:hover img {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(20,58,94,.14);
+    }
+    figcaption {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .zoom-hint {
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e9f3fb;
+      color: var(--blue);
+      font-weight: 700;
+    }
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(16px, 3vw, 42px);
+      background: rgba(11, 25, 38,.88);
+      backdrop-filter: blur(3px);
+    }
+    .lightbox.open { display: flex; }
+    .lightbox-frame {
+      position: relative;
+      max-width: min(1800px, 96vw);
+      max-height: 92vh;
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+    }
+    .lightbox img {
+      max-width: min(1800px, 96vw);
+      max-height: 86vh;
+      width: auto;
+      height: auto;
+      border: 1px solid rgba(255,255,255,.4);
+      border-radius: 10px;
+      background: white;
+      box-shadow: 0 20px 60px rgba(0,0,0,.35);
+    }
+    .lightbox-caption {
+      color: rgba(255,255,255,.88);
+      font-size: 13px;
+      text-align: center;
+    }
+    .lightbox-close {
+      position: fixed;
+      top: max(16px, env(safe-area-inset-top));
+      right: max(18px, env(safe-area-inset-right));
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(255,255,255,.45);
+      border-radius: 999px;
+      color: white;
+      background: rgba(255,255,255,.13);
+      font-size: 21px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .architecture {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 15px;
+    }
+    .architecture > div {
+      border-radius: 13px;
+      border: 1px solid var(--line);
+      padding: 16px;
+      background: #f9fbfc;
+    }
+    .before { border-top: 4px solid #a1556a; }
+    .after { border-top: 4px solid var(--green); }
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin: 9px 0;
+      font-size: 13px;
+    }
+    .node {
+      padding: 6px 8px;
+      border-radius: 7px;
+      background: white;
+      border: 1px solid var(--line);
+      font-weight: 650;
+    }
+    .node.problem { border-color: #e5b8c1; color: #862c40; background: #fff7f8; }
+    .node.good { border-color: #a9dcc8; color: #0d6244; background: #f1fbf6; }
+    .arrow { color: var(--muted); font-weight: 700; }
+    .comparison { margin: 12px 0 0; padding-left: 20px; }
+    .comparison li { margin: 5px 0; }
+    .code {
+      padding: 12px;
+      border-radius: 9px;
+      background: var(--code);
+      border: 1px solid #d5dfe7;
+      color: #263646;
+      font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .note {
+      border-left: 4px solid var(--blue);
+      background: #f2f7fb;
+      border-radius: 0 10px 10px 0;
+      padding: 11px 13px;
+      color: #38536a;
+    }
+    .warning { border-left-color: var(--amber); background: var(--amber-bg); color: #6f4908; }
+    .story-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+    .timeline { display: grid; gap: 16px; }
+    .step {
+      display: grid;
+      grid-template-columns: 44px minmax(0, .52fr) minmax(0, 1.48fr);
+      gap: 15px;
+      align-items: start;
+    }
+    .step-number {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      color: white;
+      background: linear-gradient(140deg, var(--blue), #20a3a0);
+      font-weight: 800;
+    }
+    .step-body { background: #f9fbfc; border: 1px solid var(--line); border-radius: 12px; padding: 13px; }
+    .step-body h3 { margin-top: 0; }
+    .image-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .image-pair figure { min-width: 0; }
+    .terminal {
+      margin: 8px 0 0;
+      padding: 12px;
+      border-radius: 9px;
+      color: #d8f4e6;
+      background: #10231c;
+      font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    footer {
+      padding: 24px min(6vw, 72px) 42px;
+      color: var(--muted);
+      text-align: center;
+      font-size: 13px;
+    }
+    @media (max-width: 980px) {
+      .grid.three, .grid.four, .architecture, .story-grid { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 38px 1fr; }
+      .step figure { grid-column: 2; }
+      .image-pair { grid-template-columns: 1fr; }
+      .verdict-strip { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .grid.two, .story { grid-template-columns: 1fr; }
+      nav.toc { position: static; }
+    }
+    @media print {
+      body { background: white; }
+      nav.toc { display: none; }
+      .card, .metric { box-shadow: none; break-inside: avoid; }
+      section { break-before: page; }
+    }
+  </style>
+</head>
+<body>
+<header class="hero">
+  <span class="eyebrow">Orca / run_e4b29a6d58f8 / v1-acceptance-r3</span>
+  <h1>OpenAPI Workers v1 验收审阅包</h1>
+  <p class="subtitle">面向用户验收的 PR 式总览：真实本地 Compose 环境、用户故事截图、架构前后对比、验证矩阵、剩余缺口与结论。本页集中展示当前全部验收材料，可直接按顺序审阅。</p>
+  <div class="verdict-strip">
+    <div class="verdict"><strong>本地 / 用户验收：Ready</strong>核心实现、真实 E2E、隔离 K8s 扩缩容、mTLS 与形式化验证已完成。</div>
+    <div class="verdict"><strong>生产验收：NOT READY</strong>真实企业 IdP、生产业务 API、预发 Namespace、生产 TLS 与容量仍未验证。</div>
+  </div>
+</header>
+
+<main>
+  <nav class="toc" aria-label="页面导航">
+    <a href="#summary">PR 摘要</a>
+    <a href="#lifecycle">端到端主线</a>
+    <a href="#architecture">架构对比</a>
+    <a href="#stories">用户故事</a>
+    <a href="#environment">本地环境</a>
+    <a href="#verification">验证矩阵</a>
+    <a href="#changes">功能变更</a>
+    <a href="#gaps">剩余缺口</a>
+    <a href="#fixes">验收前修复</a>
+    <a href="#review-path">审阅顺序</a>
+  </nav>
+
+  <section id="summary">
+    <h2>PR 摘要</h2>
+    <div class="grid four">
+      <div class="metric"><b>11</b><span>端到端审批步骤</span></div>
+      <div class="metric"><b>13</b><span>主线真实截图</span></div>
+      <div class="metric"><b>928,529</b><span>Formal model 状态数</span></div>
+      <div class="metric"><b>2 → 3 → 2</b><span>隔离 K8s Worker 扩缩容</span></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <p>本版本将 OpenAPI 执行从“每个配置各自启动 / 连接 MCP wrapper”改为“Obot 统一授权、预算与租约，多个无状态 OpenAPI Worker 通过 mTLS 执行 OpenAPI operation”。Worker 无数据库、无 Docker socket、无必须持久化的本地状态，可按 Kubernetes Deployment 副本横向扩缩容；状态与预算继续使用现有 PostgreSQL。</p>
+      <div class="grid three" style="margin-top:12px">
+        <div><h3>新增</h3><p>Python Worker、固定 Worker 后端、HTTP API Proxy、调用文档 API/UI、跨副本 PostgreSQL 预算租约。</p></div>
+        <div><h3>强化</h3><p>精确用户/实例凭证、mTLS、raw path/query/Header/body、全局并发、SSE 拒绝、请求响应上限、审计脱敏。</p></div>
+        <div><h3>保持</h3><p>现有 vMCP / MCP 组件 / Profile / 实例 / 连接 / 目录 / 凭证存储与主要 UI 入口不变。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="lifecycle">
+    <h2>端到端审批主线</h2>
+    <div class="card">
+      <p>按真实使用顺序阅读：先证明原有能力不回退，再从 FastAPI OpenAPI 源头进入 Obot，完成管理员录入、市场上架、最终用户发现 MCP 工具、授权调用和普通 HTTP 调用，最后审阅架构与扩缩容。</p>
+      <div class="note warning">证据边界：本地 Compose 关闭认证且当前登录身份为 Owner/Admin。Admin 的市场页会显示未上架条目，因此不能用同一 Admin 市场页证明普通用户添加前后差异；本页改用发布开关与目录元数据作为管理员操作证据，真实非 Admin 用户市场可见性列入缺口。</div>
+    </div>
+    <div class="timeline" style="margin-top:16px">
+      <article class="card step">
+        <div class="step-number">0</div>
+        <div class="step-body">
+          <h3>回归基线：原有 Obot 不变差</h3>
+          <p>用户仍能看到仪表板、市场、vMCP、MCP 服务器、技能、审计日志等原有导航；既有 vMCP/MCP 能力保留。</p>
+          <span class="pill pass">PASS</span>
+        </div>
+        <figure><img src="evidence/STORY-01-DASHBOARD.png" alt="原有 Obot 仪表板截图"><figcaption>真实页面：/dashboard</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">1</div>
+        <div class="step-body">
+          <h3>源头：FastAPI OpenAPI 文档</h3>
+          <p>业务方先提供标准 OpenAPI。页面展示 `GET /items/{item_id}`、必填 path 参数、query 参数和响应契约。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-01-FASTAPI-DOCS.png" alt="FastAPI Swagger 文档截图"><figcaption>FastAPI /docs：GET /items/{item_id}</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">2</div>
+        <div class="step-body">
+          <h3>授权定义：Authorization Header</h3>
+          <p>FastAPI Security 声明 `APIKeyHeader`，位置为 Header，名称为 `Authorization`。这是后续用户凭证配置和注入依据。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-02-FASTAPI-AUTH.png" alt="FastAPI Authorization 安全定义截图"><figcaption>Name: Authorization · In: header</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">3</div>
+        <div class="step-body">
+          <h3>管理员导入：上传 OpenAPI Schema</h3>
+          <p>管理员选择「导入 OpenAPI 架构」，上传 FastAPI 生成的 `fastapi-openapi.json`。系统解析出 API 名称、base URL 和 Authorization 配置。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-03-ADMIN-IMPORT.png" alt="管理员导入 FastAPI OpenAPI 截图"><figcaption>已上传 schema · base URL · Authorization</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">4</div>
+        <div class="step-body">
+          <h3>管理员保存：形成托管 API 组件</h3>
+          <p>保存后生成 `FastAPI Items API` 目录条目，来源为 Obot 管理控制台，运行时为 OpenAPI，业务凭证由用户提供且标记敏感/必填。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-04-ADMIN-SAVED.png" alt="管理员保存后的 FastAPI API 详情截图"><figcaption>目录条目与授权配置</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">5</div>
+        <div class="step-body">
+          <h3>管理员发布开关：OFF / ON</h3>
+          <p>发布开关从 OFF 改为 ON 后，目录条目 `metadata.marketPublished` 从 `false` 变为 `true`。页面文案明确“只有已上架的连接器会出现在终端用户市场”。</p>
+          <p><span class="pill pending">边界</span> 真实非 Admin 用户市场对照未验证</p>
+          <div class="code">GET /api/mcp-catalogs/default/entries
+marketPublished: false → true
+evidence/LIFECYCLE-05-PUBLISH-STATE.md</div>
+        </div>
+        <div class="image-pair">
+          <figure><img src="evidence/LIFECYCLE-05-PUBLISH-OFF.png" alt="市场上架开关关闭截图"><figcaption>发布开关 OFF</figcaption></figure>
+          <figure><img src="evidence/LIFECYCLE-05-PUBLISH-ON.png" alt="市场上架开关开启截图"><figcaption>发布开关 ON · metadata=true</figcaption></figure>
+        </div>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">6</div>
+        <div class="step-body">
+          <h3>最终用户：发现可用 MCP 工具</h3>
+          <p>用户打开 `FastAPI Items vMCP`，检查器显示 `get_item_items__item_id__get`，输入 schema 明确 `item_id` 必填和 `include` 可选。</p>
+          <span class="pill pass">真实截图</span>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-06-MCP-TOOLS.png" alt="FastAPI vMCP 工具列表截图"><figcaption>MCP Inspector：tools/list 非空</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">7</div>
+        <div class="step-body">
+          <h3>最终用户：授权调用成功</h3>
+          <p>用户实例配置自己的业务 `Authorization` 后调用工具。Obot 按用户实例解析凭证，经 mTLS Worker 转发到 FastAPI，业务返回 HTTP 200 和真实 JSON。</p>
+          <p><span class="pill pass">HTTP 200</span></p>
+          <div class="terminal">base64(body) = {"id":"42","name":"Acceptance item","include_details":true,"source":"FastAPI"}</div>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-07-MCP-CALL.png" alt="MCP 工具调用成功截图"><figcaption>MCP tools/call：成功 · HTTP 200</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">8</div>
+        <div class="step-body">
+          <h3>普通应用：人读文档与机器可读 OpenAPI</h3>
+          <p>同一 vMCP 提供 UI 文档和标准 `openapi.json`。机器契约只暴露调用方可见的 base path、operations、参数 schema 与 `X-API-Key` 平台认证；不泄露内部凭证注入、execution digest 或平台实现细节。</p>
+          <p class="code">GET /api-proxy/vmcp1bg67z/50e128c8-6dec-4d83-8db3-c48f6a1ff164/openapi.json
+GET /api-proxy/vmcp1bg67z/50e128c8-6dec-4d83-8db3-c48f6a1ff164/items/{item_id}</p>
+        </div>
+        <div class="image-pair">
+          <figure><img src="evidence/LIFECYCLE-08-API-DOCS.png" alt="FastAPI vMCP HTTP API 文档截图"><figcaption>UI 文档：base path · GET</figcaption></figure>
+          <figure><img src="evidence/LIFECYCLE-08-OPENAPI-JSON.png" alt="标准 openapi.json 响应截图"><figcaption>标准 OpenAPI 3.1 JSON</figcaption></figure>
+        </div>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">9</div>
+        <div class="step-body">
+          <h3>普通应用：真实 HTTP 调用</h3>
+          <p>按文档调用 `/items/42?include=true`，Obot 使用当前用户实例凭证，返回 FastAPI 原始业务 JSON，不改变业务状态码和响应体。</p>
+          <div class="terminal">HTTP/1.1 200 OK
+{"id":"42","name":"Acceptance item","include_details":true,"source":"FastAPI"}</div>
+        </div>
+        <figure><img src="evidence/LIFECYCLE-09-HTTP-CALL.png" alt="HTTP API 真实调用响应截图"><figcaption>api-proxy 实际响应</figcaption></figure>
+      </article>
+
+      <article class="card step">
+        <div class="step-number">10</div>
+        <div class="step-body">
+          <h3>架构与横向扩容</h3>
+          <p>Obot 负责 Principal-aware 授权、预算和租约；Worker 无数据库、无 Docker socket、无本地持久状态；PostgreSQL 保存共享状态。隔离 K8s 已验证 Worker `2 → 3 → 2` 全部 rollout 成功。</p>
+          <span class="pill pass">Scale PASS</span>
+          <div class="terminal">openapi-worker Deployment replicas: 2 → 3 → 2
+rollout: PASS · final pods: Running · persistent volumes: none</div>
+        </div>
+        <figure><img src="evidence/LOCAL-COMPOSE-UI.png" alt="本地 Compose UI 截图"><figcaption>当前本地栈：1 Obot + 2 Worker + PostgreSQL</figcaption></figure>
+      </article>
+    </div>
+  </section>
+
+  <section id="architecture">
+    <h2>架构前后对比</h2>
+    <div class="architecture">
+      <div class="before">
+        <h3>Before：配置绑定 wrapper</h3>
+        <div class="flow"><span class="node problem">Agent / MCP client</span><span class="arrow">→</span><span class="node">Obot</span><span class="arrow">→</span><span class="node problem">Per-config wrapper</span><span class="arrow">→</span><span class="node">业务 API</span></div>
+        <ul class="comparison">
+          <li>OpenAPI wrapper 与配置绑定，不能横向复用。</li>
+          <li>普通应用没有直接 HTTP 出口。</li>
+          <li>各副本缺少统一执行预算与 stale start fence。</li>
+          <li>管理可见性与调用资格未彻底分离。</li>
+          <li>Go / Python 的 schema、path、Header、digest 语义不统一。</li>
+        </ul>
+      </div>
+      <div class="after">
+        <h3>After：无状态共享 Worker</h3>
+        <div class="flow">
+          <span class="node">Agent / MCP tools-call</span><span class="arrow">+</span><span class="node">普通应用 /api-proxy</span>
+          <span class="arrow">→</span><span class="node good">Principal-aware Obot</span><span class="arrow">→</span><span class="node good">PostgreSQL budget/lease</span>
+          <span class="arrow">→</span><span class="node good">mTLS Worker pool</span><span class="arrow">→</span><span class="node">业务 API</span>
+        </div>
+        <ul class="comparison">
+          <li>Obot 每次 Describe / Execute 实时校验用户、实例、组件、operation、凭证与 scope。</li>
+          <li>Worker 只收固定四端点 JSON 协议；业务凭证逐请求经 mTLS 传输，不落盘。</li>
+          <li>Worker 可任意重建 / 扩缩容，状态由 PostgreSQL 承载。</li>
+          <li>平台 Key 与业务 Authorization 分离，业务失败原样保留。</li>
+          <li>raw path、query、Header、body、status 与业务响应语义保留。</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note warning">架构边界：K8s 验收在隔离 K3s 完成，并已确认临时集群清理；当前本机保留的是 Docker Compose 验收栈，不依赖 K8s 控制面。</p>
+  </section>
+
+  <section id="stories">
+    <h2>补充验证故事</h2>
+    <p class="note">以下为端到端主线之外的补充回归、安全、运维和并发证据。标注“截图证据”的均为真实浏览器页面；标注“命令 / 代码 / 模型证据”的为自动化验证，不伪造截图。</p>
+    <div class="story-grid">
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-01</span><span class="pill pass">PASS</span></h3>
+          <p><strong>用户打开本地 Obot，确认主导航完整。</strong></p>
+          <p>预期：仪表板、市场、vMCP、MCP 服务器、技能、审计日志等既有入口仍可用。</p>
+          <p><span class="pill blue">截图证据</span></p>
+        </div>
+        <figure><img src="evidence/STORY-01-DASHBOARD.png" alt="本地 Obot 仪表板截图"><figcaption>真实页面：http://127.0.0.1:18080/dashboard</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-02</span><span class="pill pass">PASS</span></h3>
+          <p><strong>用户在 vMCP 列表看到真实验收资源。</strong></p>
+          <p>预期：`Acceptance Items vMCP` 显示描述、组件、连接状态与创建者。</p>
+          <p><span class="pill blue">截图证据</span></p>
+        </div>
+        <figure><img src="evidence/STORY-02-VMCP-LIST.png" alt="vMCP 列表截图"><figcaption>真实页面：/vmcps → vMCP 标签</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-03</span><span class="pill pass">PASS</span></h3>
+          <p><strong>用户打开 vMCP 详情并看到 OpenAPI 组件。</strong></p>
+          <p>预期：画布包含 vMCP 节点与 `Acceptance Items API` 组件，且提供 HTTP API 文档入口。</p>
+          <p><span class="pill blue">截图证据</span></p>
+        </div>
+        <figure><img src="evidence/STORY-03-VMCP-DETAIL.png" alt="vMCP 详情截图"><figcaption>真实页面：/vmcps/vmcp1btlfk</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-04</span><span class="pill pass">PASS</span></h3>
+          <p><strong>开发者查看只读 HTTP 调用文档。</strong></p>
+          <p>预期：显示 base path、GET operation、path/query 参数、schema 与“需要业务认证”。</p>
+          <p><span class="pill blue">截图证据</span></p>
+        </div>
+        <figure><img src="evidence/STORY-04-API-DOCS.png" alt="HTTP API 文档弹窗截图"><figcaption>真实组件弹窗：GET /items/{id}</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-05</span><span class="pill pass">PASS</span></h3>
+          <p><strong>API 消费方获取调用契约元数据。</strong></p>
+          <p>预期：文档 API 返回 canonical base path、operation、参数、example、digest 与 `businessAuthRequired=true`。</p>
+          <p><span class="pill blue">截图证据</span></p>
+        </div>
+        <figure><img src="evidence/STORY-05-API-RESPONSE.png" alt="HTTP API 文档 JSON 响应截图"><figcaption>真实响应：/api/vmcps/vmcp1btlfk/api-proxy</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-06</span><span class="pill pass">PASS</span></h3>
+          <p><strong>两个用户的业务凭证不串用。</strong></p>
+          <p>预期：user-one 收到注入的 `Bearer user-one`，业务返回 200；user-two 收到 `Bearer user-two`，业务 403 原样保留。</p>
+          <p><span class="pill blue">命令 / 代码证据</span></p>
+          <p class="code">TestRealI01PythonWorkerDescribeAndExecute
+user-one → Bearer user-one → 200 + exact JSON
+user-two → Bearer user-two → 403 + exact business body</p>
+        </div>
+        <figure><img src="evidence/REAL-VMCP-API-DOCS.png" alt="真实 vMCP API 文档截图"><figcaption>同一真实契约的组件级文档视图</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-07</span><span class="pill pass">PASS</span></h3>
+          <p><strong>运维横向扩缩 Worker，不丢业务状态。</strong></p>
+          <p>预期：Worker 2→3→2 均完成 rollout；Worker 无持久卷，状态在 PostgreSQL。</p>
+          <p><span class="pill blue">隔离 K8s 证据</span></p>
+          <p class="code">scale-up:    obot=3/3, openapi-worker=3/3 PASS
+scale-down:  obot=2/2, openapi-worker=2/2 PASS
+runtime:     temporary K3s cleaned after acceptance</p>
+        </div>
+        <figure><img src="evidence/LOCAL-COMPOSE-UI.png" alt="本地 Compose UI 截图"><figcaption>当前保留的本地验收栈首页</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-08</span><span class="pill pass">PASS</span></h3>
+          <p><strong>安全审核者验证 Worker 只接受受信 Obot。</strong></p>
+          <p>预期：有效 client cert 成功；无证书与错误证书均拒绝。</p>
+          <p><span class="pill blue">安全测试证据</span></p>
+          <p class="code">valid client certificate       PASS / health JSON
+missing client certificate    REJECTED
+untrusted client certificate  REJECTED</p>
+        </div>
+        <figure><img src="evidence/I05R-UI-BROWSER.png" alt="浏览器 UI 回归截图"><figcaption>安全链路上方的真实用户可见文档契约</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-09</span><span class="pill pass">PASS</span></h3>
+          <p><strong>平台跨副本控制并发、预算与 stale start。</strong></p>
+          <p>预期：多 Manager PostgreSQL 测试通过；full lease model 覆盖 928,529 状态，破坏性 mutation 精确失败。</p>
+          <p><span class="pill blue">模型 / 数据库证据</span></p>
+          <p class="code">PostgreSQL multi-manager tests       PASS
+formal lease model                PASS / 928,529 states
+early-release mutation            FAIL-AS-EXPECTED
+stale-start mutation              FAIL-AS-EXPECTED</p>
+        </div>
+        <figure><img src="evidence/STORY-05-API-RESPONSE.png" alt="包含执行摘要的 API 响应截图"><figcaption>文档响应中的 executionDigest 是执行预算身份的一部分</figcaption></figure>
+      </article>
+
+      <article class="card story">
+        <div>
+          <h3><span class="id">US-10</span><span class="pill pass">PASS</span></h3>
+          <p><strong>用户继续使用既有 MCP / vMCP 能力。</strong></p>
+          <p>预期：MCP JSON bridge、stateless JSON 回归通过；主要导航和 vMCP 管理入口不变。</p>
+          <p><span class="pill blue">截图 + 回归证据</span></p>
+        </div>
+        <figure><img src="evidence/STORY-03-VMCP-DETAIL.png" alt="既有 vMCP 设计器截图"><figcaption>既有 vMCP 设计器 / 检查器 / MCP 服务器侧栏仍可用</figcaption></figure>
+      </article>
+    </div>
+  </section>
+
+  <section id="environment">
+    <h2>本地验收环境</h2>
+    <div class="card">
+      <div class="grid three">
+        <div><h3>访问入口</h3><p><a href="http://127.0.0.1:18080" target="_blank" rel="noreferrer">http://127.0.0.1:18080</a><br><code>/api/healthz → ok</code></p></div>
+        <div><h3>运行拓扑</h3><p>1 Obot + 2 OpenAPI Worker + 1 PostgreSQL，Compose project：`openapi-workers-local`。</p></div>
+        <div><h3>验收数据</h3><p>`Acceptance Items API` → `Acceptance Items vMCP` → 当前用户实例 / 配置。</p></div>
+      </div>
+      <h3 style="margin-top:18px">版本确认</h3>
+      <div class="code">GET /api/version
+engine=openapi-worker
+hostingCapabilities.openAPIWorker=true
+sessionStore=db</div>
+      <h3 style="margin-top:18px">停止命令</h3>
+      <div class="code">cd /Users/echo/orca/workspaces/obot/openapi-k8s-acceptance/deploy/compose
+OBOT_POSTGRES_PASSWORD="$(cat /tmp/openapi-compose-password)" \
+  docker compose -p openapi-workers-local down</div>
+    </div>
+  </section>
+
+  <section id="verification">
+    <h2>主要验证矩阵</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>验证项</th><th>结果</th><th>证据层级</th></tr></thead>
+        <tbody>
+          <tr><td>目标 Go packages tests / vet</td><td><span class="pill pass">PASS</span></td><td>自动化</td></tr>
+          <tr><td>Python Worker 23 tests</td><td><span class="pill pass">PASS</span></td><td>自动化</td></tr>
+          <tr><td>真实 Python Worker describe / execute</td><td><span class="pill pass">PASS</span></td><td>真实进程 + TLS fake upstream</td></tr>
+          <tr><td>双用户 200 / 403 + 精确凭证</td><td><span class="pill pass">PASS</span></td><td>集成测试</td></tr>
+          <tr><td>UI browser test</td><td><span class="pill pass">PASS</span></td><td>浏览器</td></tr>
+          <tr><td>Svelte check</td><td><span class="pill pass">0 error / 0 warning</span></td><td>自动化</td></tr>
+          <tr><td>四语言 i18n key</td><td><span class="pill pass">PASS</span></td><td>自动化</td></tr>
+          <tr><td>真实浏览器截图</td><td><span class="pill pass">PASS</span></td><td>用户可见证据</td></tr>
+          <tr><td>Docusaurus typecheck / build</td><td><span class="pill pass">PASS</span></td><td>自动化</td></tr>
+          <tr><td>I02 formal baseline / broken model</td><td><span class="pill pass">PASS / expected failure</span></td><td>形式化</td></tr>
+          <tr><td>I04 formal lease model</td><td><span class="pill pass">PASS / 928,529 states</span></td><td>形式化</td></tr>
+          <tr><td>隔离 K8s 2 Obot + 2 Worker</td><td><span class="pill pass">PASS</span></td><td>隔离集群</td></tr>
+          <tr><td>Worker scale 2 → 3 → 2</td><td><span class="pill pass">PASS</span></td><td>隔离集群</td></tr>
+          <tr><td>mTLS 正例 / 无证书 / 错误证书</td><td><span class="pill pass">PASS / REJECTED / REJECTED</span></td><td>安全测试</td></tr>
+          <tr><td>K8s runtime cleanup</td><td><span class="pill pass">PASS</span></td><td>无 `openapi-k3s-acceptance` 容器</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="changes">
+    <h2>功能与代码审阅入口</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>区域</th><th>主要路径</th><th>验收重点</th></tr></thead>
+        <tbody>
+          <tr><td>Python Worker</td><td><code>workers/openapi/**</code></td><td>无状态、固定协议、23 项测试、真实进程互通</td></tr>
+          <tr><td>Go Worker 协议 / Resolver / Executor</td><td><code>pkg/openapiworker/**</code></td><td>schema、path、Header、digest 与凭证语义</td></tr>
+          <tr><td>HTTP Proxy</td><td><code>pkg/api/handlers/apiproxy/**</code></td><td>raw-prefix、唯一匹配、业务响应保留</td></tr>
+          <tr><td>专属授权</td><td><code>pkg/api/authz/apiproxy*.go</code></td><td>管理可见性与调用资格分离</td></tr>
+          <tr><td>MCP JSON bridge</td><td><code>pkg/api/handlers/mcpgateway/openapi_bridge*.go</code></td><td>MCP tools/call 与 HTTP 共用执行入口</td></tr>
+          <tr><td>预算 / 租约</td><td><code>pkg/openapi/executionbudget/**</code></td><td>跨副本并发、lease fence、stale start</td></tr>
+          <tr><td>DB migration / types</td><td><code>pkg/gateway/{db,types}/openapi_*</code></td><td>PostgreSQL 状态与迁移</td></tr>
+          <tr><td>UI 文档弹窗</td><td><code>ui/user/src/lib/components/vmcps/VMcpAPIDocumentationDialog.svelte</code></td><td>base path、参数、业务认证标识</td></tr>
+          <tr><td>Compose</td><td><code>deploy/compose/docker-compose.yml</code></td><td>当前本地验收栈</td></tr>
+          <tr><td>K8s example</td><td><code>deploy/k8s/openapi-workers.example.yaml</code></td><td>无状态 Deployment；无集群级权限与 socket</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="gaps">
+    <h2>剩余缺口与验收边界</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ID</th><th>缺口</th><th>影响</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>GAP-01</td><td>未使用真实企业 IdP / 业务系统 / JWT</td><td>不能声明企业授权交换或生产业务安全</td><td><span class="pill pending">生产 pending</span></td></tr>
+          <tr><td>GAP-02</td><td>未部署生产 ingress / cert-manager / 镜像仓库</td><td>未验证生产 TLS、容量与发布流程</td><td><span class="pill pending">生产 pending</span></td></tr>
+          <tr><td>GAP-04</td><td>K8s 验收在隔离 K3s，不在公司已有 Namespace</td><td>未验证公司 RBAC / 网络 / 存储策略</td><td><span class="pill pending">预发 pending</span></td></tr>
+          <tr><td>GAP-05</td><td>未在 K8s 中逐一杀死 Pod 录制完整长链路矩阵</td><td>崩溃恢复由模型与单元 / PostgreSQL 回归覆盖，生产故障注入待做</td><td><span class="pill pending">预发 pending</span></td></tr>
+          <tr><td>GAP-06</td><td>实现尚未 commit / push</td><td>无法产生真实 PR diff；当前需人工审阅 worktree</td><td><span class="pill pending">待用户确认</span></td></tr>
+          <tr><td>GAP-07</td><td>本地 auth disabled，且 Admin 市场页会显示未上架条目</td><td>不能用当前 Admin 页面证明真实普通用户添加前后市场可见性；需启用真实 IdP 后用非 Admin 用户复验</td><td><span class="pill pending">本地 UI 未验证</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <h3>最终结论</h3>
+      <p><strong>本地 / 用户验收：Ready。</strong>核心 Go / Python / UI / docs / formal / K8s / Compose 验证均通过；真实 Worker 进程、双用户凭证隔离、业务 403 保留、mTLS 正负例和 2→3→2 扩缩容均有证据。</p>
+      <p><strong>生产验收：NOT READY。</strong>必须补真实企业授权、真实业务 API、生产或预发 Namespace、生产 TLS 与证书轮换、容量与故障注入。</p>
+    </div>
+  </section>
+
+  <section id="fixes">
+    <h2>验收准备期发现并已修复</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>ID</th><th>问题</th><th>修复 / 证据</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>PRE-01</td><td>HTTP proxy adapter 把 `VMCPInstanceID` 误当作 Resolver connection ID，真实文档 503</td><td>改为查找当前用户、当前 VMCP instance、当前 component 的 `MCPServerInstance`；新增 `TestWorkerReferenceUsesCurrentUserConnection`</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-02</td><td>API 手工创建 VMCP 缺少预算 source reference，触发 `budget_identity_unavailable`</td><td>生成稳定内部 `sourceURL::entryKey`；目标 Go tests 通过</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-03</td><td>文档 Header policy 丢失 `Required`，UI 不显示“需要业务认证”</td><td>Adapter 映射 Required；真实 API 返回 `businessAuthRequired=true`</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-04</td><td>本地 Worker 镜像早于 Authorization credential 例外修复</td><td>重建 `obot-openapi-worker:local`；真实文档 API / UI 通过</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-05</td><td>OpenAPI MCP bridge initialize 未声明 tools capability，聚合层因此不执行 tools/list，外部看到空工具列表</td><td>initialize capabilities 增加 `tools: {}`；真实 Inspector 显示 FastAPI operation 工具</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-06</td><td>工具名优先使用含空格的 DisplayName，违反 MCP 标识符规则</td><td>优先暴露安全的 operationId，并按 MCP 规则清理标识符；新增单元测试</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-07</td><td>Worker 默认 DNS 解析误用 `asyncio.SocketKind`，域名上游触发 internal error</td><td>改为 `socket.SOCK_STREAM`；新增真实 hostname resolver 测试</td><td><span class="pill pass">FIXED</span></td></tr>
+          <tr><td>PRE-08</td><td>本地 Compose 中 vMCP 聚合回环和 FastAPI 私网地址被安全策略阻断</td><td>配置 Obot 内部服务地址与显式 allowlist，不放宽全部私网；K8s example 同步内部服务地址</td><td><span class="pill pass">FIXED</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="review-path">
+    <h2>建议审阅顺序</h2>
+    <div class="card grid two">
+      <ol class="comparison">
+        <li>先按「端到端审批主线」从 FastAPI 文档走到 MCP 调用和 HTTP 调用。</li>
+        <li>再看架构前后对比，确认无状态 Worker 与 PostgreSQL 状态边界。</li>
+        <li>检查主要验证矩阵与验收前修复记录。</li>
+        <li>阅读剩余缺口，确认“本地 Ready / 生产 NOT READY”的边界。</li>
+      </ol>
+      <div>
+        <h3>详细材料</h3>
+        <p><a href="ACCEPTANCE-REVIEW-v1.md">Markdown 验收文档</a><br><a href="evidence/I05R-VERIFICATION.md">自动化与隔离 K8s 证据</a><br><a href="IMPLEMENTATION.md">实施记录</a></p>
+        <p class="note">如需人工复核，可打开本地页面 <a href="http://127.0.0.1:18080" target="_blank" rel="noreferrer">http://127.0.0.1:18080</a>。当前栈仍在运行，供你直接验收。</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>生成时间：2026-11-10 15:39 Asia/Shanghai · Worktree：`/Users/echo/orca/workspaces/obot/openapi-k8s-acceptance` · 代码未 commit / push</footer>
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-hidden="true" aria-label="截图大图查看">
+  <div class="lightbox-frame">
+    <img id="lightbox-image" src="" alt="">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
+  <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭大图">×</button>
+</div>
+<script>
+  const lightbox = document.querySelector('#lightbox');
+  const lightboxImage = document.querySelector('#lightbox-image');
+  const lightboxCaption = document.querySelector('#lightbox-caption');
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    lightboxImage.src = '';
+    lightboxImage.alt = '';
+    lightboxCaption.textContent = '';
+  }
+
+  document.querySelectorAll('figure').forEach((figure) => {
+    figure.classList.add('screenshot');
+    const caption = figure.querySelector('figcaption');
+    if (caption && !caption.querySelector('.zoom-hint')) {
+      const hint = document.createElement('span');
+      hint.className = 'zoom-hint';
+      hint.textContent = '点击查看大图';
+      caption.appendChild(hint);
+    }
+    figure.addEventListener('click', () => {
+      const image = figure.querySelector('img');
+      if (!image) return;
+      lightboxImage.src = image.currentSrc || image.src;
+      lightboxImage.alt = image.alt;
+      lightboxCaption.textContent = figure.querySelector('figcaption')?.textContent?.trim() || image.alt;
+      lightbox.classList.add('open');
+      lightbox.setAttribute('aria-hidden', 'false');
+    });
+  });
+
+  lightbox.addEventListener('click', (event) => {
+    if (event.target !== lightboxImage) closeLightbox();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeLightbox();
+  });
+</script>
+</body>
+</html>

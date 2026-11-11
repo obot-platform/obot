@@ -25,6 +25,7 @@ const (
 	serviceUnavailableGracePeriod = 10 * time.Second
 
 	runtimeBackendDocker          = "docker"
+	RuntimeBackendOpenAPIWorker   = "openapi-worker"
 	RuntimeBackendKubernetes      = "kubernetes"
 	runtimeBackendKubernetesShort = "k8s"
 )
@@ -291,15 +292,18 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 
 		servers := make([]mmmcpconfig.Server, 0, len(server.Components))
 		for _, component := range server.Components {
-			tools := make([]mmmcpconfig.ToolOverride, 0, len(component.Tools))
-			for _, tool := range component.Tools {
-				tools = append(tools, mmmcpconfig.ToolOverride{
-					Name:                tool.Name,
-					OverrideName:        tool.OverrideName,
-					Description:         tool.Description,
-					OverrideDescription: tool.OverrideDescription,
-					Enabled:             tool.Enabled,
-				})
+			var tools []mmmcpconfig.ToolOverride
+			if component.Tools != nil {
+				tools = make([]mmmcpconfig.ToolOverride, 0, len(component.Tools))
+				for _, tool := range component.Tools {
+					tools = append(tools, mmmcpconfig.ToolOverride{
+						Name:                tool.Name,
+						OverrideName:        tool.OverrideName,
+						Description:         tool.Description,
+						OverrideDescription: tool.OverrideDescription,
+						Enabled:             tool.Enabled,
+					})
+				}
 			}
 
 			servers = append(servers, mmmcpconfig.Server{

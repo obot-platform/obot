@@ -10,6 +10,7 @@
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
 	import VMcpActions from '$lib/components/vmcps/VMcpActions.svelte';
+	import VMcpAPIDocumentationDialog from '$lib/components/vmcps/VMcpAPIDocumentationDialog.svelte';
 	import VMcpCatalogSyncedIndicator from '$lib/components/vmcps/VMcpCatalogSyncedIndicator.svelte';
 	import VMcpCreationHint from '$lib/components/vmcps/VMcpCreationHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
@@ -92,6 +93,7 @@
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
 	let refreshingTester = $state(false);
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
+	let apiDocumentationDialog = $state<ReturnType<typeof VMcpAPIDocumentationDialog>>();
 	let rightPanelEl = $state<HTMLElement>();
 	let graphCanvasEl = $state<HTMLElement>();
 	let profilesTabEl = $state<HTMLButtonElement>();
@@ -668,6 +670,13 @@
 		{title}
 		{#if selectedVMcp}
 			<VMcpCatalogSyncedIndicator vmcp={selectedVMcp} iconClass="size-5" class="size-5" />
+			<button
+				type="button"
+				class="btn btn-xs ml-2"
+				onclick={() => selectedVMcp && apiDocumentationDialog?.open(selectedVMcp)}
+			>
+				{m.vmcps_api_docs_button()}
+			</button>
 		{/if}
 	{/snippet}
 	<div
@@ -829,6 +838,10 @@
 		{/if}
 	{/snippet}
 </Layout>
+
+{#if selectedVMcp}
+	<VMcpAPIDocumentationDialog bind:this={apiDocumentationDialog} />
+{/if}
 
 {#snippet toggleSubview()}
 	<div class={twMerge('p-2 w-fit', viewType !== 'profiles' && 'absolute z-40 top-0 left-0')}>

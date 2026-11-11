@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: obot
+      POSTGRES_PASSWORD: ${OBOT_POSTGRES_PASSWORD:?set OBOT_POSTGRES_PASSWORD}
+      POSTGRES_DB: obot
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U obot -d obot"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  openapi-worker:
+    image: obot-openapi-worker:local
+    deploy:
+      replicas: 2
+    environment:
+      OPENAPI_WORKER_PORT: "8443"
+      OPENAPI_WORKER_TLS_CERT_FILE: /var/run/secrets/openapi-mtls/server.crt
+      OPENAPI_WORKER_TLS_KEY_FILE: /var/run/secrets/openapi-mtls/server.key
+      OPENAPI_WORKER_CLIENT_CA_FILE: /var/run/secrets/openapi-mtls/client-ca.crt
+      OPENAPI_WORKER_ALLOWED_EGRESS_HOSTS: host.docker.internal:18081
+      OPENAPI_WORKER_ALLOW_LOCAL_TEST_EGRESS: "1"
+      OPENAPI_WORKER_UPSTREAM_CA_FILE: /var/run/secrets/openapi-mtls/ca.crt
+      UV_CACHE_DIR: /tmp/uv-cache
+    volumes:
+      - ./runtime/mTLS:/var/run/secrets/openapi-mtls:ro
+    tmpfs:
+      - /tmp
+    stop_grace_period: 5s
+
+  obot:
+    image: obot:openapi-workers-local
+    command: [server]
+    working_dir: /tmp
+    environment:
+      OBOT_SERVER_HOSTNAME: http://127.0.0.1:18080
+      OBOT_DEV_MODE: "true"
+      OBOT_DEV_UI_PORT: "0"
+      OBOT_SERVER_DSN: postgresql://obot:${OBOT_POSTGRES_PASSWORD:?set OBOT_POSTGRES_PASSWORD}@postgres:5432/obot?sslmode=disable
+      MCPRuntimeBackend: openapi-worker
+      MCPOpenAPIDriftProbeInterval: 30s
+      MCPOpenAPIWorkerURL: https://openapi-worker:8443
+      MCPOpenAPIWorkerServerCAFile: /var/run/secrets/openapi-mtls/server-ca.crt
+      MCPOpenAPIWorkerClientCertFile: /var/run/secrets/openapi-mtls/client.crt
+      MCPOpenAPIWorkerClientKeyFile: /var/run/secrets/openapi-mtls/client.key
+      MCPOpenAPIWorkerObotInternalURL: http://obot:8080
+      MCPOpenAPIWorkerAllowedHosts: host.docker.internal:18081
+    ports:
+      - "127.0.0.1:18080:8080"
+    volumes:
+      - ./runtime/mTLS:/var/run/secrets/openapi-mtls:ro
+    tmpfs:
+      - /tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+      openapi-worker:
+        condition: service_started

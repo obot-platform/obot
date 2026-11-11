@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	apiproxy "github.com/obot-platform/obot/pkg/api/handlers/apiproxy"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
@@ -66,8 +67,9 @@ type Server struct {
 	// devUI is set when the UI is served by the Vite dev server (dev mode).
 	devUI bool
 
-	mux         *http.ServeMux
-	otelHandler http.Handler
+	mux             *http.ServeMux
+	otelHandler     http.Handler
+	apiProxyHandler http.Handler
 	// scimHandler serves the SCIM endpoint, which HandleSCIM sets.
 	scimHandler http.Handler
 }
@@ -140,6 +142,18 @@ func (s *Server) HandleSCIM(f api.HandlerFunc) {
 	}))
 }
 
+// HandleAPIProxy serves a fixed raw route before the general mux. The mux
+// decodes escaped segments, collapses duplicate slashes, and redirects dot
+// segments; all three would change the bytes represented to the business API.
+func (s *Server) HandleAPIProxy(f api.HandlerFunc) {
+	wrapped := s.Wrap(f)
+	s.apiProxyHandler = traced(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		req = req.Clone(req.Context())
+		req.Pattern = "/api-proxy/{vmcp_id}/{component_id}/{path...}"
+		wrapped(rw, req)
+	}))
+}
+
 func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 	s.HandleFunc(pattern, func(req api.Context) error {
 		f.ServeHTTP(req.ResponseWriter, req.Request)
@@ -148,6 +162,10 @@ func (s *Server) HTTPHandle(pattern string, f http.Handler) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if s.apiProxyHandler != nil && strings.HasPrefix(r.URL.EscapedPath(), "/api-proxy/") {
+		s.apiProxyHandler.ServeHTTP(w, r)
+		return
+	}
 	if s.scimHandler != nil {
 		if scim.IsSCIMPath(r.URL.Path) {
 			s.scimHandler.ServeHTTP(w, r)
@@ -186,19 +204,26 @@ func traced(h http.Handler) http.Handler {
 func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		req = req.WithContext(i18n.WithLocale(req.Context(), i18n.Locale(req.Header.Get("Accept-Language"))))
+		isAPIProxy := strings.HasPrefix(req.URL.EscapedPath(), "/api-proxy/")
 		if strings.HasPrefix(req.URL.Path, "/api/") {
 			rw.Header().Add("Vary", "Accept-Language")
 		}
 		// Ensure security headers and a sane default Content-Type.
 		// This wrapper is intentionally applied early so it covers authn/authz
 		// errors, registry endpoints, UI, static, and proxy responses.
-		rw = &headersResponseWriter{ResponseWriter: rw}
+		if !isAPIProxy {
+			rw = &headersResponseWriter{ResponseWriter: rw}
+		}
 
 		// SCIM clients understand only SCIM responses, so every failure on a SCIM route is written as one.
 		isSCIM := scim.IsSCIMPath(req.URL.Path)
 
 		user, err := s.authenticator.Authenticate(req)
 		if err != nil {
+			if isAPIProxy {
+				writeAPIProxyAuthenticationError(rw, req.Method, err)
+				return
+			}
 			if isSCIM {
 				writeSCIMAuthenticationError(rw, err)
 				return
@@ -264,6 +289,8 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 					// The user has exceeded their rate limit.
 					if isSCIM {
 						scim.WriteError(rw, http.StatusTooManyRequests, err.Error())
+					} else if isAPIProxy {
+						writeAPIProxyError(rw, req.Method, http.StatusTooManyRequests, "rate_limit_exceeded", "rate limit exceeded")
 					} else {
 						http.Error(rw, err.Error(), http.StatusTooManyRequests)
 					}
@@ -278,7 +305,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 		authenticated := !slices.Contains(user.GetGroups(), authz.UnauthenticatedGroup)
 		isAPI := strings.HasPrefix(req.URL.Path, "/api/") && req.URL.Path != "/api/healthz"
-		if isAPI || isSCIM {
+		if isAPI || isAPIProxy || isSCIM {
 			// Setup a new response writer for audit logging. Its entries never include the query string or the
 			// body, which on SCIM routes can hold identity provider data.
 			rw = &responseWriter{
@@ -295,17 +322,19 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				auditLogger: s.auditLogger,
 			}
 		}
-		if isAPI {
+		if isAPI || isAPIProxy {
 			// SCIM routes are outside /api/, so a SCIM connection's requests are never recorded as user activity.
 			if authenticated {
 				// Best effort
-				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
-					slog.Warn("Failed to add activity tracking for user", "user", user.GetName(), "error", err)
+				if s.gatewayClient != nil {
+					if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
+						slog.Warn("Failed to add activity tracking for user", "user", user.GetName(), "error", err)
+					}
 				}
 			}
 		}
 
-		if user.GetExtra()["set-cookies"] != nil {
+		if user.GetExtra()["set-cookies"] != nil && !isAPIProxy {
 			for _, setCookie := range user.GetExtra()["set-cookies"] {
 				rw.Header().Add("Set-Cookie", setCookie)
 			}
@@ -315,7 +344,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		// rejected probes stay auditable and a cookie refresh is not lost to a blocked operation.
 		if cmp.Or(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req, s.devUI) {
 			if req.Pattern != "/" {
-				http.Error(rw, "password change required", http.StatusForbidden)
+				if isAPIProxy {
+					writeAPIProxyError(rw, req.Method, http.StatusForbidden, "password_change_required", "password change required")
+				} else {
+					http.Error(rw, "password change required", http.StatusForbidden)
+				}
 			} else {
 				rd := req.URL.RequestURI()
 				http.Redirect(rw, req, "/change-password?rd="+url.QueryEscape(rd), http.StatusSeeOther)
@@ -347,15 +380,23 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			case isSCIM:
 				scim.WriteUnauthorized(rw)
 			case authenticated:
-				http.Error(rw, "forbidden", http.StatusForbidden)
+				if isAPIProxy {
+					writeAPIProxyError(rw, req.Method, http.StatusForbidden, "platform_forbidden", "forbidden")
+				} else {
+					http.Error(rw, "forbidden", http.StatusForbidden)
+				}
 			default:
-				http.Error(rw, "unauthorized", http.StatusUnauthorized)
+				if isAPIProxy {
+					writeAPIProxyError(rw, req.Method, http.StatusUnauthorized, "platform_unauthenticated", "unauthorized")
+				} else {
+					http.Error(rw, "unauthorized", http.StatusUnauthorized)
+				}
 			}
 
 			return
 		}
 
-		if strings.HasPrefix(req.URL.Path, "/api/") {
+		if !isAPIProxy && strings.HasPrefix(req.URL.Path, "/api/") {
 			rw.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0")
 			rw.Header().Set("Pragma", "no-cache")
 			rw.Header().Set("Expires", "0")
@@ -375,6 +416,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		if isSCIM {
 			writeError = func(w http.ResponseWriter, message string, code int) {
 				scim.WriteError(w, code, message)
+			}
+		} else if isAPIProxy {
+			writeError = func(w http.ResponseWriter, message string, status int) {
+				writeAPIProxyError(w, req.Method, status, "platform_error", message)
 			}
 		}
 		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
@@ -396,6 +441,20 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 // writeSCIMAuthenticationError answers a SCIM request whose authentication failed. Without any SCIM connection, the
 // endpoint is unavailable. Any other failure is Obot's, and is never reported as a bad credential.
+func writeAPIProxyAuthenticationError(rw http.ResponseWriter, method string, err error) {
+	code := "platform_unauthenticated"
+	message := "unauthorized"
+	if errors.Is(err, proxy.ErrInvalidSession) {
+		code = "invalid_session"
+		message = "invalid platform session"
+	}
+	writeAPIProxyError(rw, method, http.StatusUnauthorized, code, message)
+}
+
+func writeAPIProxyError(w http.ResponseWriter, method string, status int, code, message string) {
+	apiproxy.WriteErrorWithRequestMethod(w, method, status, code, message, "")
+}
+
 func writeSCIMAuthenticationError(rw http.ResponseWriter, err error) {
 	if _, ok := authenticationError[*scim.UnavailableError](err); ok {
 		scim.WriteUnavailable(rw, "SCIM is not enabled")

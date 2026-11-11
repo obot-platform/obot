@@ -94,6 +94,22 @@ func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
 	}
 }
 
+func TestMMMCPConfigKeepsUnrestrictedVMCPToolsNil(t *testing.T) {
+	config := MMMCPConfig(ServerConfig{
+		Runtime:              types.RuntimeVMCP,
+		MCPServerName:        "vmcp-server",
+		MCPServerDisplayName: "VMCP Server",
+		Components: []ComponentServer{{
+			DisplayName: "openapi",
+			URL:         "http://127.0.0.1:8080/mcp-connect/openapi",
+		}},
+	}, nil)
+
+	if len(config.Servers) != 1 || config.Servers[0].Tools != nil {
+		t.Fatalf("unrestricted component tools = %#v, want nil", config.Servers)
+	}
+}
+
 func TestMMMCPConfigServerNameFallsBackToName(t *testing.T) {
 	config := MMMCPConfig(ServerConfig{
 		MCPServerName: "fallback-server",
@@ -281,5 +297,28 @@ func TestMMMCPConfigDisablesNPXAudit(t *testing.T) {
 				t.Fatalf("NPM_CONFIG_AUDIT = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestOpenAPIWorkerEnsureDoesNotProbeOrFallbackToSSE(t *testing.T) {
+	var requests int
+	worker := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests++
+	}))
+	defer worker.Close()
+	t.Setenv("MCPOpenAPIWorkerURL", worker.URL)
+
+	backend, err := newFixedOpenAPIWorkerBackend(t.Context(), true, nil, nil)
+	if err != nil {
+		t.Fatalf("newFixedOpenAPIWorkerBackend() error = %v", err)
+	}
+	defer backend.client.Close()
+
+	config := ServerConfig{Runtime: types.RuntimeOpenAPI, HealthzPath: "/readyz"}
+	if _, err := backend.ensureServerDeployment(t.Context(), config); err != nil {
+		t.Fatalf("ensureServerDeployment() error = %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("fixed OpenAPI ensure made %d HTTP requests, want 0", requests)
 	}
 }

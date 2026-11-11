@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	apiproxy "github.com/obot-platform/obot/pkg/api/handlers/apiproxy"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway/oauth"
 	"github.com/obot-platform/obot/pkg/api/handlers/registry"
@@ -98,6 +99,13 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	tunnelHandler := handlers.NewTunnelHandler(services.TunnelManager)
 	mcpTunnelHandler := handlers.NewMCPTunnelHandler(services.TunnelManager)
 	k8sSettingsHandler := handlers.NewK8sSettingsHandler(services.MCPSessionManager)
+	apiProxyExecutor := apiproxy.NewWorkerExecutorAdapter(services.OpenAPIWorkerExecutor, services.StorageClient)
+	apiProxyHandler := &apiproxy.Handler{Executor: apiProxyExecutor, Audit: &apiproxy.AuditWriter{Collector: mcpAuditLogs}}
+	apiProxyDocumentation := &apiproxy.DocumentationHandler{
+		Executor:  apiProxyExecutor,
+		Storage:   services.StorageClient,
+		ServerURL: services.ServerURL,
+	}
 
 	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
 	if err != nil {
@@ -107,6 +115,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
+	services.APIServer.HandleAPIProxy((&apiproxy.RouteHandler{
+		Proxy:         apiProxyHandler,
+		Documentation: apiProxyDocumentation,
+	}).Serve)
 
 	// Tunnel management (admin/owner only).
 	// /api/tunnels gives information about the connected tunnels
@@ -160,6 +172,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Virtual MCPs
 	mux.HandleFunc("GET /api/vmcps", vmcps.List)
+	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/api-proxy", apiProxyDocumentation.Get)
 	mux.HandleFunc("POST /api/vmcps", vmcps.Create)
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}", vmcps.Get)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/launch", mcp.LaunchServer)

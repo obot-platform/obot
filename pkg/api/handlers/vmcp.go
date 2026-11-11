@@ -133,17 +133,18 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
-
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, nil)
+	catalogReferences := componentCatalogReferences(manifest.Components)
 
 	vmcp := v1.VMCP{
 		Finalizers:   []string{v1.VMCPFinalizer},
 		GenerateName: system.VMCPPrefix,
 		Namespace:    req.Namespace(),
 		Spec: v1.VMCPSpec{
-			Manifest:      manifest,
-			UserID:        userID,
-			CreatorUserID: req.User.GetUID(),
+			Manifest:                   manifest,
+			ComponentCatalogReferences: catalogReferences,
+			UserID:                     userID,
+			CreatorUserID:              req.User.GetUID(),
 		},
 	}
 	if err := writeNewGroupSubjects(req, groupref.VMCPProfileSubjects(manifest), nil, func() error {
@@ -221,6 +222,9 @@ func (h *VMCPHandler) Update(req api.Context) error {
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
 	vmcp.Spec.Manifest = manifest
+	if len(vmcp.Spec.ComponentCatalogReferences) == 0 {
+		vmcp.Spec.ComponentCatalogReferences = componentCatalogReferences(manifest.Components)
+	}
 	if vmcp.Spec.StaticConfigurationCredentialName != "" {
 		vmcpconfig.VersionStaticConfiguration(&vmcp, staticConfiguration)
 	} else {
@@ -585,6 +589,28 @@ func (*VMCPHandler) Delete(req api.Context) error {
 		Name:      vmcpID,
 		Namespace: req.Namespace(),
 	})
+}
+
+func componentCatalogReferences(components []types.VMCPComponent) map[string]string {
+	references := make(map[string]string, len(components))
+	for _, component := range components {
+		if component.ID == "" {
+			continue
+		}
+		sourceURL := ""
+		if component.CatalogEntry.Manifest.OpenAPIConfig != nil {
+			sourceURL = component.CatalogEntry.Manifest.OpenAPIConfig.Source.URL
+		}
+		if sourceURL == "" {
+			sourceURL = "https://obot.local/mcp-catalogs/" + component.MCPCatalogID + "/" + component.MCPServerCatalogEntryID
+		}
+		entryKey := component.CatalogEntry.Manifest.EntryKey
+		if entryKey == "" {
+			entryKey = component.MCPServerCatalogEntryID
+		}
+		references[component.ID] = sourceURL + "::" + entryKey
+	}
+	return references
 }
 
 func vmcpConfiguration(components []types.VMCPComponent, secrets map[string]string, policyType types.VMCPConfigurationPolicyType) types.VMCPConfiguration {

@@ -11,6 +11,16 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+func TestApplyEnvironmentOverridesOpenAPIWorkerBackend(t *testing.T) {
+	t.Setenv("MCPRuntimeBackend", "openapi-worker")
+
+	config := applyEnvironmentOverrides(Config{})
+
+	if config.MCPConfig.MCPRuntimeBackend != mcp.RuntimeBackendOpenAPIWorker {
+		t.Fatalf("expected OpenAPI Worker backend, got %q", config.MCPConfig.MCPRuntimeBackend)
+	}
+}
+
 func TestLeaderElectionRESTConfig(t *testing.T) {
 	tests := []struct {
 		name     string

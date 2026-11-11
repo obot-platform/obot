@@ -43,6 +43,8 @@ import (
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/openapi/executionbudget"
+	"github.com/obot-platform/obot/pkg/openapiworker"
 	"github.com/obot-platform/obot/pkg/otel"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/scim"
@@ -162,10 +164,12 @@ type Services struct {
 	ServerURL             string
 	// LocalServerURL is Obot's address as Obot itself can reach it, which differs
 	// from ServerURL when the public port is mapped by a Service or ingress.
-	LocalServerURL    string
-	MCPSessionManager *mcp.SessionManager
-	TunnelManager     *tunnel.Manager
-	OAuthServerConfig handlers.OAuthAuthorizationServerConfig
+	LocalServerURL        string
+	MCPSessionManager     *mcp.SessionManager
+	OpenAPIWorkerExecutor openapiworker.Executor
+	OpenAPIBudgetManager  *executionbudget.Manager
+	TunnelManager         *tunnel.Manager
+	OAuthServerConfig     handlers.OAuthAuthorizationServerConfig
 
 	// Global token storage client for MCP OAuth
 	MCPOAuthTokenStorage         mcp.GlobalTokenStore
@@ -419,6 +423,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	devPort, config := configureDevMode(config)
+	config = applyEnvironmentOverrides(config)
 
 	// Just a common mistake where you put the wrong prefix for the DSN. This seems to be inconsistent across things
 	// that use postgres
@@ -749,6 +754,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, config.DevMode, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace, tunnelManager)
 	if err != nil {
 		return nil, err
+	}
+	var openAPIBudgetManager *executionbudget.Manager
+	if mcpSessionManager.MCPRuntimeBackend() == mcp.RuntimeBackendOpenAPIWorker {
+		openAPIBudgetManager, err = executionbudget.NewManager(dbAccess.DB, executionbudget.DefaultConfig())
+		if err != nil {
+			mcpSessionManager.CloseOpenAPIWorkerClient()
+			return nil, fmt.Errorf("failed to initialize OpenAPI execution budgets: %w", err)
+		}
+		if _, err = openAPIBudgetManager.Start(ctx); err != nil {
+			mcpSessionManager.CloseOpenAPIWorkerClient()
+			return nil, fmt.Errorf("failed to start OpenAPI execution budgets: %w", err)
+		}
+		mcpSessionManager.SetOpenAPIBudgetManager(openAPIBudgetManager)
 	}
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
@@ -1096,6 +1114,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Otel:                         otel,
 		AuditLogger:                  auditLogger,
 		MCPSessionManager:            mcpSessionManager,
+		OpenAPIWorkerExecutor:        mcpSessionManager.OpenAPIWorkerExecutor(),
+		OpenAPIBudgetManager:         openAPIBudgetManager,
 		TunnelManager:                tunnelManager,
 		OAuthServerConfig:            oauthServerConfig,
 		MCPOAuthTokenStorage:         mcpOAuthTokenStorage,
@@ -1198,6 +1218,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	return svcs, nil
+}
+
+func applyEnvironmentOverrides(config Config) Config {
+	if value := strings.TrimSpace(os.Getenv("MCPRuntimeBackend")); value != "" {
+		config.MCPConfig.MCPRuntimeBackend = value
+	}
+	return config
 }
 
 func migrateGPTScriptCredentials(ctx context.Context, gatewayClient *client.Client, gatewayDB *db.DB, dsn string) error {

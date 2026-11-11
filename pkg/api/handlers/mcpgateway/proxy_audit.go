@@ -468,11 +468,28 @@ func (a *proxyAudit) recordResponse(body []byte, statusCode int, readErr error, 
 	entry := a.newResponseEntry(requestID)
 	entry.ResponseBody = jsonBody(body)
 	entry.ResponseStatus = statusCode
+	// A JSON-RPC error body means the call failed even when HTTP is 200.
+	// Without this marker a business-side failure is indistinguishable from a
+	// successful call in the audit trail.
+	if msg.Error != nil {
+		entry.Error = boundedJSONRPCError(msg.Error)
+	}
 	a.applyResponseHooks(&entry, requestID)
 	if readErr != nil && readErr != io.EOF {
 		entry.Error = readErr.Error()
 	}
 	a.submit(entry, true)
+}
+
+// boundedJSONRPCError renders a JSON-RPC error object as a bounded audit error
+// string. The message is truncated so a verbose upstream failure cannot bloat
+// the audit row.
+func boundedJSONRPCError(err *obotmcp.RPCError) string {
+	message := err.Message
+	if len(message) > 256 {
+		message = message[:256] + "…(truncated)"
+	}
+	return fmt.Sprintf("jsonrpc error %d: %s", err.Code, message)
 }
 
 func (a *proxyAudit) recordClientResponse(body []byte) {
