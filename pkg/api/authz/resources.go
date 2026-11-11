@@ -240,6 +240,9 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 }
 
 func (a *Authorizer) authorizeAPIResources(req *http.Request, user User) bool {
+	if isAPIProxyRequest(req) {
+		return a.authorizeAPIProxy(req, user)
+	}
 	for _, group := range user.GetGroups() {
 		vars, matches := a.apiResources[group].Match(req)
 		if !matches {

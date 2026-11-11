@@ -1,0 +1,36 @@
+---
+title: "P03 API proxy request authorization"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: platform processing
+    lg1: platform rejection
+    lg2: business
+  }
+  class lg0 blue
+  class lg1 orange
+  class lg2 purple
+  s0: Ready for next request
+  s1: Raw path and query parsed
+  s2: Rejected: no unique route
+  s3: One operation uniquely matched
+  s4: Rejected: operation disabled
+  s5: Operation whitelist passed
+  s6: Business request executed
+  [*] --> s0
+  s0 --> s1: a caller sends the proxy request
+  s1 --> s2: the proxy rejects the request [when no route is unique]
+  s1 --> s3: one raw template wins [when static precedence makes it unique]
+  s2 --> s0: the proxy records the result and takes the next request
+  s3 --> s4: the proxy rejects the operation [when any whitelist layer disables it]
+  s3 --> s5: overrides, profile, and instance all allow the operation
+  s4 --> s0: the proxy records the result and takes the next request
+  s5 --> s6: the proxy executes with raw path and query preserved
+  s6 --> s0: the proxy records the result and takes the next request
+  class s0 blue
+  class s1 blue
+  class s2 orange
+  class s3 blue
+  class s4 orange
+  class s5 blue
+  class s6 purple
