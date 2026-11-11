@@ -1000,12 +1000,20 @@ describe('Dashboard layout', () => {
 			.not.toBeInTheDocument();
 
 		withMcp.unmount();
-		const withLlm = await renderDashboard([Group.ADMIN], true, { hasLlmStats: true });
+		await renderDashboard([Group.ADMIN], true, { hasLlmStats: true });
 		await expect
 			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
 			.toBeVisible();
+	});
 
-		withLlm.unmount();
+	it('restores a conditional header by saving Always show in Customize Dashboard', async () => {
+		mockDashboardApis();
+		const layout = setHeaderVisibility(
+			factoryConfig({ isAdmin: true }),
+			'header-mcp-servers',
+			'llm-stats'
+		);
+		localStorage.setItem(dashboardLayoutKey(getProfileResponse.id), JSON.stringify(layout));
 		await renderDashboard([Group.ADMIN], true, { hasMcpStats: true });
 		await expect
 			.element(page.getByRole('main').getByRole('heading', { name: 'MCP Servers', exact: true }))
