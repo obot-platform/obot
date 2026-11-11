@@ -1,0 +1,74 @@
+---
+title: "Snapshot miss and one-shot execution fence"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: Cold snapshot
+    lg1: Snapshot load
+    lg2: Snapshot rejected
+    lg3: Protected execution
+    lg4: Fence bypassed
+    lg5: Breaks ExecutionEnteredAtMostOnce or NoRetryAfterUncertainOutcome or UpstreamRequiresOneSnapshotAndOneFence
+    lg6: Path to the ExecutionEnteredAtMostOnce or NoRetryAfterUncertainOutcome or UpstreamRequiresOneSnapshotAndOneFence bug
+  }
+  class lg0 blue
+  class lg1 teal
+  class lg2 tan
+  class lg3 purple
+  class lg4 orange
+  class lg5 breaks
+  class lg6 bugPath
+  s0: Request not seen
+  s1: Cold cache observed
+  s2: Caller told to send snapshot
+  s3: Snapshot compiling
+  s4: Snapshot rejected
+  s5: Compilation failed
+  s6: Snapshot ready, fence unused
+  s7: Upstream execution in flight
+  s8: Business result returned
+  s9: Transport outcome uncertain
+  s10: Execution entered again
+  s11: Business result returned after duplicate entry
+  s12: Transport outcome uncertain after duplicate entry
+  [*] --> s0
+  s0 --> s1: first execute sees the cache
+  s1 --> s2: worker asks for the snapshot
+  s2 --> s3: caller sends the snapshot once
+  s2 --> s4: caller sends an invalid snapshot
+  s3 --> s5: compilation fails
+  s3 --> s6: compiled plan becomes ready
+  s6 --> s7: worker takes the one-shot fence
+  s7 --> s7: worker starts the business API call
+  s7 --> s8: business response returns
+  s7 --> s9: transport outcome becomes uncertain
+  s8 --> s10: same request enters execution again
+  s9 --> s10: same request enters execution again
+  s10 --> s11: business response returns
+  s10 --> s12: transport outcome becomes uncertain
+  classDef breaks fill:#ffecee,stroke:#e72e3b,stroke-width:2.5px,color:#cd2834
+  class s0 blue
+  class s0 bugPath
+  class s1 blue
+  class s1 bugPath
+  class s2 blue
+  class s2 bugPath
+  class s3 teal
+  class s3 bugPath
+  class s4 tan
+  class s5 tan
+  class s6 teal
+  class s6 bugPath
+  class s7 purple
+  class s7 bugPath
+  class s8 purple
+  class s8 bugPath
+  class s9 purple
+  class s10 orange
+  class s10 breaks
+  class s10 bugPath
+  class s11 orange
+  class s11 breaks
+  class s12 orange
+  class s12 breaks
+  class s12 bugPath

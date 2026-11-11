@@ -1,0 +1,44 @@
+---
+title: "Snapshot miss and one-shot execution fence"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: Cold snapshot
+    lg1: Snapshot load
+    lg2: Snapshot rejected
+    lg3: Protected execution
+  }
+  class lg0 blue
+  class lg1 teal
+  class lg2 tan
+  class lg3 purple
+  s0: Request not seen
+  s1: Cold cache observed
+  s2: Caller told to send snapshot
+  s3: Snapshot compiling
+  s4: Snapshot rejected
+  s5: Compilation failed
+  s6: Snapshot ready, fence unused
+  s7: Upstream execution in flight
+  s8: Business result returned
+  s9: Transport outcome uncertain
+  [*] --> s0
+  s0 --> s1: first execute sees the cache
+  s1 --> s2: worker asks for the snapshot
+  s2 --> s3: caller sends the snapshot once
+  s2 --> s4: caller sends an invalid snapshot
+  s3 --> s5: compilation fails
+  s3 --> s6: compiled plan becomes ready
+  s6 --> s7: worker takes the one-shot fence
+  s7 --> s8: business response returns
+  s7 --> s9: transport outcome becomes uncertain
+  class s0 blue
+  class s1 blue
+  class s2 blue
+  class s3 teal
+  class s4 tan
+  class s5 tan
+  class s6 teal
+  class s7 purple
+  class s8 purple
+  class s9 purple

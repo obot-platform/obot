@@ -1,0 +1,9 @@
+# OpenAPIWorkerResolver
+
+TLC reached 18 states and 21 steps. The chart draws 10 states and 9 arrows.
+The view hides 4 steps, so the chart does not draw them.
+
+## Rules that hold
+ExactCallerCredentialOnly, TypeOK, NoDeadlock, CHECK_DEADLOCK
+
+Wrote /Users/echo/orca/workspaces/obot/openapi-shared-worker/docs/plans/openapi-workers/review-evidence/r01-formal-rerun-20261109T184839/f02/docs/plans/openapi-workers/formal/statechart-pass

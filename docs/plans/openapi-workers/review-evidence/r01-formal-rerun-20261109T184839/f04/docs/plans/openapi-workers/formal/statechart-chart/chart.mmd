@@ -1,0 +1,40 @@
+---
+title: "OpenAPI execution-budget lease lifecycle"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: Idle
+    lg1: Admission
+    lg2: Execution
+    lg3: Conservative hold
+    lg4: Recovery
+    lg5: Confirmed release
+  }
+  class lg0 blue
+  class lg1 purple
+  class lg2 teal
+  class lg3 orange
+  class lg4 yellow
+  class lg5 teal
+  s0: No request yet
+  s1: Bounded queue ticket waiting
+  s2: Lease held, upstream not sent
+  s3: Lease held, upstream already sent
+  s4: Confirmed result released
+  s5: Expired, quota still held
+  s6: Expired quota reclaimed
+  [*] --> s0
+  s0 --> s1: a replica takes a bounded queue ticket
+  s1 --> s2: the shared quota admits one request
+  s2 --> s3: a Worker starts the only upstream attempt before the fence
+  s3 --> s4: an observed completion releases quota inside the lease
+  s2 --> s5: time advances and a due lease expires
+  s3 --> s5: time advances and a due lease expires
+  s5 --> s6: the reclaimer releases quota after the grace period
+  class s0 blue
+  class s1 purple
+  class s2 teal
+  class s3 teal
+  class s4 teal
+  class s5 orange
+  class s6 yellow

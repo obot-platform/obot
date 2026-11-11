@@ -1,0 +1,55 @@
+---
+title: "OpenAPI Worker per-call identity and credential resolution"
+---
+stateDiagram-v2
+  state "Legend" as legend {
+    lg0: Request
+    lg1: Authorizing
+    lg2: Denied
+    lg3: Dispatched
+    lg4: Breaks ExactCallerCredentialOnly in some cases
+    lg5: Path to the ExactCallerCredentialOnly bug
+  }
+  class lg0 blue
+  class lg1 yellow
+  class lg2 purple
+  class lg3 teal
+  class lg4 mayBreak
+  class lg5 bugPath
+  s0: Request received
+  s1: Caller authenticated
+  s2: Instance selected
+  s3: Published snapshot loaded
+  s4: Instance denied
+  s5: Operation checked
+  s6: Credential context checked
+  s7: Caller credential ready
+  s8: Sent to worker
+  [*] --> s0
+  s0 --> s1: the platform identifies the caller
+  s1 --> s2: the request names an instance
+  s2 --> s3: instance ownership and profile pass
+  s2 --> s4: instance ownership or profile fails
+  s3 --> s5: the published snapshot and original tool are loaded
+  s5 --> s6: tool authorization passes
+  s6 --> s7: a valid credential is found for the exact instance
+  s7 --> s8: the request is sent to the worker
+  classDef mayBreak fill:#fff3e6,stroke:#e8730c,stroke-width:2.5px,color:#b85a06
+  class s0 blue
+  class s0 bugPath
+  class s1 blue
+  class s1 bugPath
+  class s2 yellow
+  class s2 bugPath
+  class s3 yellow
+  class s3 bugPath
+  class s4 purple
+  class s5 yellow
+  class s5 bugPath
+  class s6 yellow
+  class s6 bugPath
+  class s7 yellow
+  class s7 bugPath
+  class s8 teal
+  class s8 mayBreak
+  class s8 bugPath
