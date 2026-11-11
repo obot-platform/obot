@@ -133,6 +133,9 @@ func (db *DB) AutoMigrate() (err error) {
 	}); err != nil {
 		return fmt.Errorf("failed to migrate system MCP server configuration: %w", err)
 	}
+	if err = AutoMigrateOpenAPIBudgets(tx); err != nil {
+		return fmt.Errorf("failed to migrate OpenAPI budgets: %w", err)
+	}
 
 	if err := tx.AutoMigrate(
 		types.AuthToken{},

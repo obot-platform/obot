@@ -1,0 +1,18 @@
+# OpenAPIBudgetLeasesChartBrokenEarlyRelease
+
+TLC reached 315 states and 443 steps. The chart draws 8 states and 10 arrows.
+The chart does not draw 205 steps that stay in one chart state.
+The view hides 105 steps, so the chart does not draw them.
+
+## ConfirmedReleaseInsideLease breaks
+The shortest path has 6 steps:
+0. No request yet
+1. a replica takes a bounded queue ticket: Bounded queue ticket waiting
+2. the shared quota admits one request: Lease held, upstream not sent
+3. time advances and a due lease expires: Lease held, upstream not sent
+4. time advances and a due lease expires: Lease held, upstream not sent
+5. time advances and a due lease expires: Expired, quota still held
+6. an observed completion releases quota inside the lease: Confirmed result released
+
+## Rules that hold
+TypeOK, LeaseSafety, SnapshotRecoverySafety, NoDeadlock

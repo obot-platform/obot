@@ -1,0 +1,6 @@
+normal start 2026-11-10T02:00:58Z
+normal finish 2026-11-10T02:01:08Z
+broken-early-release start 2026-11-10T02:01:08Z
+broken-early-release finish 2026-11-10T02:01:08Z
+broken-stale-start start 2026-11-10T02:01:08Z
+broken-stale-start finish 2026-11-10T02:01:09Z
