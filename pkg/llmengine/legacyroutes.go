@@ -1,6 +1,11 @@
 package llmengine
 
-import "context"
+import (
+	"context"
+
+	"github.com/maximhq/bifrost/core/schemas"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+)
 
 type legacySourceKey struct{}
 
@@ -16,15 +21,13 @@ func LegacyProvider(ctx context.Context) string {
 
 // LegacyKey prefers the imported credential; new configurations use the normal key pool.
 func (e *Engine) LegacyKey(ctx context.Context, provider string) (string, error) {
+	if !e.Ready() {
+		return "", apierrors.NewServiceUnavailable("LLM gateway unavailable")
+	}
 	source, _ := ctx.Value(legacySourceKey{}).(string)
-	keys, err := e.ListProviderKeys(ctx, provider)
-	if err != nil {
-		return "", err
+	key, configured := e.core.Load().ProviderKeyID(schemas.ModelProvider(provider), "imported-"+source)
+	if !configured {
+		return "", missing("provider")
 	}
-	for _, key := range keys {
-		if key.Name == "imported-"+source {
-			return key.ID, nil
-		}
-	}
-	return "", nil
+	return key, nil
 }

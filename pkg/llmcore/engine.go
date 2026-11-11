@@ -554,6 +554,21 @@ func (e *Engine) Setting(name string) json.RawMessage {
 	return slices.Clone(e.account.config.Load().Settings[name])
 }
 
+// ProviderKeyID reads a key's identity from the reconciled runtime snapshot without
+// exposing credentials. The bool reports whether the provider is configured.
+func (e *Engine) ProviderKeyID(provider schemas.ModelProvider, name string) (string, bool) {
+	cfg := e.account.config.Load()
+	if _, ok := cfg.Providers[provider]; !ok {
+		return "", false
+	}
+	for _, key := range cfg.Keys[provider] {
+		if key.Name == name {
+			return key.ID, true
+		}
+	}
+	return "", true
+}
+
 // Input hooks see the original request before routing; output hooks run last in the list.
 func orderedPlugins(routing schemas.LLMPlugin, plugins []schemas.LLMPlugin) []schemas.LLMPlugin {
 	if len(plugins) == 0 {
