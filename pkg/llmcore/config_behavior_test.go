@@ -37,7 +37,46 @@ func TestEmptyProviderProxyUsesGlobalInferenceProxy(t *testing.T) {
 	}))
 	defer upstream.Close()
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The HTTP dialer may establish a CONNECT tunnel before the inference POST.
+		// CONNECT switches the connection to a tunnel; serve the inference
+		// request explicitly rather than relying on HTTP keep-alive behavior.
+		if r.Method == http.MethodConnect {
+			conn, rw, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer conn.Close()
+			_, err = rw.WriteString("HTTP/1.1 200 Connection Established\r\n\r\n")
+			if err == nil {
+				err = rw.Flush()
+			}
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			request, err := http.ReadRequest(rw.Reader)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			defer request.Body.Close()
+			if request.Method == http.MethodPost {
+				proxyCalls.Add(1)
+			}
+			response := http.Response{
+				StatusCode:    http.StatusOK,
+				ProtoMajor:    1,
+				ProtoMinor:    1,
+				Header:        http.Header{"Content-Type": {"application/json"}},
+				Body:          io.NopCloser(strings.NewReader(configTestChatResponse)),
+				ContentLength: int64(len(configTestChatResponse)),
+				Close:         true,
+			}
+			if err := response.Write(conn); err != nil {
+				t.Error(err)
+			}
+			return
+		}
 		if r.Method == http.MethodPost {
 			proxyCalls.Add(1)
 		}
