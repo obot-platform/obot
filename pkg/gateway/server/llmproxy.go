@@ -493,14 +493,16 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if targetModel != "" {
 		audit.setModel(modelProvider.Name, "", targetModel)
 
-		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
-		if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-			if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
-				model, err = fallback, nil
-			}
-		}
+		var model *v1.Model
 		if scope := llmengine.LegacyProvider(req.Context()); scope != "" {
 			model, err = resolveLegacyModel(l, req, targetModel, scope)
+		} else {
+			model, err = l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
+			if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
+				if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
+					model, err = fallback, nil
+				}
+			}
 		}
 		if apierrors.IsNotFound(err) {
 			return types2.NewErrNotFound("model %q is not available through this endpoint", targetModel)
