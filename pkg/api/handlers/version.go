@@ -85,6 +85,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"userCount":               userCount,
 		"deviceCount":             deviceCount,
 		"engine":                  engine,
+		"hostingCapabilities":     v.hostingCapabilities(engine),
 		"mcpNetworkPolicyEnabled": v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress": v.MCPDefaultDenyAllEgress,
 	}
@@ -103,6 +104,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	}
 
 	return values, nil
+}
+
+func (v *VersionHandler) hostingCapabilities(engine string) map[string]any {
+	dynamicHosting := engine == "docker" || mcp.IsKubernetesBackend(engine)
+	return map[string]any{
+		"dynamicHosting": dynamicHosting,
+		"openAPIWorker":  engine == mcp.RuntimeBackendOpenAPIWorker,
+	}
 }
 
 func (v *VersionHandler) featureValues() map[string]bool {

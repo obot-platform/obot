@@ -25,6 +25,7 @@ const (
 	serviceUnavailableGracePeriod = 10 * time.Second
 
 	runtimeBackendDocker          = "docker"
+	RuntimeBackendOpenAPIWorker   = "openapi-worker"
 	RuntimeBackendKubernetes      = "kubernetes"
 	runtimeBackendKubernetesShort = "k8s"
 )

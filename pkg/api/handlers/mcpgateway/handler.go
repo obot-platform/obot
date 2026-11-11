@@ -31,6 +31,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/openapiworker"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -62,6 +63,7 @@ type Handler struct {
 	tunnelManager             *tunnel.Manager
 	secretBindingAllowedLabel string
 	serverURL                 string
+	openAPIWorkerExecutor     openapiworker.Executor
 }
 
 // mcpResponse keeps the client response and its audit representation together.
@@ -227,6 +229,7 @@ func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, glob
 		tunnelManager:             tunnelManager,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 		serverURL:                 serverURL,
+		openAPIWorkerExecutor:     mcpSessionManager.OpenAPIWorkerExecutor(),
 	}, nil
 }
 
@@ -256,7 +259,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		return nil
 	}
 
-	serverConfig, err := h.ensureServerIsDeployed(req)
+	serverConfig, openAPIServer, err := h.ensureServerIsDeployed(req)
 	if err != nil {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
 			return nil
@@ -266,6 +269,9 @@ func (h *Handler) Proxy(req api.Context) error {
 			response.write(req.ResponseWriter, nil)
 			return nil
 		}
+		return err
+	}
+	if handled, err := h.handleOpenAPIWorkerBridge(req, openAPIServer, serverConfig); handled || err != nil {
 		return err
 	}
 
@@ -497,38 +503,40 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 	r.Out.URL.RawQuery = upstreamQuery.Encode()
 }
 
-func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, error) {
+func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, v1.MCPServer, error) {
 	mcpID := req.PathValue("mcp_id")
 
 	if system.IsSystemMCPServerID(mcpID) {
-		return h.ensureSystemServerIsDeployed(req, mcpID)
+		serverConfig, err := h.ensureSystemServerIsDeployed(req, mcpID)
+		return serverConfig, v1.MCPServer{}, err
 	}
 	if system.IsVMCPID(mcpID) || system.IsVMCPInstanceID(mcpID) {
-		return h.mcpSessionManager.ServerConfigForVMCP(req.Context(), mcpID, req.User)
+		serverConfig, err := h.mcpSessionManager.ServerConfigForVMCP(req.Context(), mcpID, req.User)
+		return serverConfig, v1.MCPServer{}, err
 	}
 
 	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), mcpID, req.User)
 	if err != nil {
-		return mcp.ServerConfig{}, fmt.Errorf("failed to get mcp server config: %w", err)
+		return mcp.ServerConfig{}, v1.MCPServer{}, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
 	if mcpServerConfig.Runtime == types.RuntimeVMCP {
 		// Legacy slugs can resolve to vMCPs, which have no deployment of their own.
-		return mcpServerConfig, nil
+		return mcpServerConfig, mcpServer, nil
 	}
 	if mcpServer.Spec.Template {
-		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
+		return mcp.ServerConfig{}, v1.MCPServer{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 	if len(missingConfig) > 0 {
 		mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
-		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
+		return mcp.ServerConfig{}, v1.MCPServer{}, errMCPServerRequiresConfiguration
 	}
 
 	mcpServerConfig, err = h.mcpSessionManager.LaunchServer(req.Context(), mcpServerConfig)
 	if err != nil {
-		return mcp.ServerConfig{}, fmt.Errorf("failed to launch mcp server: %w", err)
+		return mcp.ServerConfig{}, v1.MCPServer{}, fmt.Errorf("failed to launch mcp server: %w", err)
 	}
 
-	return mcpServerConfig, nil
+	return mcpServerConfig, mcpServer, nil
 }
 
 func mcpAuthChallenge(req api.Context) string {

@@ -26,6 +26,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/vmcpinstance"
+	"github.com/obot-platform/obot/pkg/openapi"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/substrate"
 	"github.com/obot-platform/obot/pkg/system"
@@ -56,6 +57,13 @@ func (c *Controller) setupRoutes() {
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
 	adminWorkspaceHandler := adminworkspace.New(c.services.GatewayClient)
 	mcpServerCatalogEntryHandler := mcpservercatalogentry.NewHandler(c.services.GatewayClient)
+	if c.services.MCPSessionManager != nil {
+		// Same credential-free, SSRF-protected importer the save flow uses.
+		mcpServerCatalogEntryHandler.OpenAPIImporter = openapi.NewImporter(
+			c.services.MCPSessionManager.RemoteMCPURLValidationConfig().SafeHTTPOptions(),
+			c.services.MCPSessionManager.ValidationOptions().DevMode,
+		)
+	}
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GatewayClient)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
@@ -112,6 +120,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureUserCount)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.ReconcileOAuthCredential)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.CleanupStaticConfiguration)
+	// Read-only periodic source drift probe for OpenAPI entries. Runs on the
+	// leader-elected router only; results land in status, never in the snapshot.
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.ProbeOpenAPISourceDrift)
 
 	// SystemMCPServerCatalogEntry
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)

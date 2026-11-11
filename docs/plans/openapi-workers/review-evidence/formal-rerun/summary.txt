@@ -1,0 +1,10 @@
+F01-normal rc=0 expected=pass Model checking completed. No error has been found.
+F01-broken rc=12 expected=fail Error: Invariant ExecutionEnteredAtMostOnce is violated.
+F03-normal rc=0 expected=pass Model checking completed. No error has been found.
+F03-broken rc=12 expected=fail Error: Invariant ExecutionRequiresUniqueAuthorizedMatch is violated.
+F05-normal rc=0 expected=pass Model checking completed. No error has been found.
+F05-broken rc=12 expected=fail Error: Invariant OpenAPITrafficGated is violated.
+F03-chart-normal rc=0 expected=pass breaks=
+F03-chart-broken rc=1 expected=fail breaks=## ExecutionRequiresUniqueRoute breaks;## ExecutionRequiresWhitelist breaks;
+F05-chart-normal rc=0 expected=pass breaks=
+F05-chart-broken rc=1 expected=fail breaks=## OpenAPITrafficGated breaks;## PlannedRollRetainsCapacity breaks;

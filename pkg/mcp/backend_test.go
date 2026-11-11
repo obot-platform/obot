@@ -283,3 +283,26 @@ func TestMMMCPConfigDisablesNPXAudit(t *testing.T) {
 		})
 	}
 }
+
+func TestOpenAPIWorkerEnsureDoesNotProbeOrFallbackToSSE(t *testing.T) {
+	var requests int
+	worker := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests++
+	}))
+	defer worker.Close()
+	t.Setenv("MCPOpenAPIWorkerURL", worker.URL)
+
+	backend, err := newFixedOpenAPIWorkerBackend(t.Context(), true, nil, nil)
+	if err != nil {
+		t.Fatalf("newFixedOpenAPIWorkerBackend() error = %v", err)
+	}
+	defer backend.client.Close()
+
+	config := ServerConfig{Runtime: types.RuntimeOpenAPI, HealthzPath: "/readyz"}
+	if _, err := backend.ensureServerDeployment(t.Context(), config); err != nil {
+		t.Fatalf("ensureServerDeployment() error = %v", err)
+	}
+	if requests != 0 {
+		t.Fatalf("fixed OpenAPI ensure made %d HTTP requests, want 0", requests)
+	}
+}

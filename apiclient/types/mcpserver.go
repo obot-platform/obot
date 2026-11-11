@@ -136,6 +136,23 @@ type MCPServerCatalogEntry struct {
 	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
 	OAuthCredentialConfigured bool                          `json:"oauthCredentialConfigured,omitempty"`
 	Authorized                bool                          `json:"authorized,omitempty"`
+	// OpenAPISourceDrift is the read-only result of the latest automatic
+	// source drift probe. Detection never changes the stored snapshot.
+	OpenAPISourceDrift *MCPServerCatalogEntryOpenAPIDrift `json:"openAPISourceDrift,omitempty"`
+}
+
+// MCPServerCatalogEntryOpenAPIDrift mirrors the catalog entry status block for
+// API consumers. Operation lists are bounded operation keys only.
+type MCPServerCatalogEntryOpenAPIDrift struct {
+	Detected          bool     `json:"detected,omitempty"`
+	LastProbedAt      *Time    `json:"lastProbedAt,omitempty"`
+	NextProbeAt       *Time    `json:"nextProbeAt,omitempty"`
+	SnapshotDigest    string   `json:"snapshotDigest,omitempty"`
+	SourceDigest      string   `json:"sourceDigest,omitempty"`
+	AddedOperations   []string `json:"addedOperations,omitempty"`
+	RemovedOperations []string `json:"removedOperations,omitempty"`
+	ChangedOperations []string `json:"changedOperations,omitempty"`
+	ProbeError        string   `json:"probeError,omitempty"`
 }
 
 type MCPResourceRequirements struct {
