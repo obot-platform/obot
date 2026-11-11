@@ -16,6 +16,7 @@ import (
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"golang.org/x/net/http/httpproxy"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -160,6 +161,8 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 			if err != nil {
 				return fmt.Errorf("invalid legacy %s configuration; review credentials, endpoint and deployment settings", family)
 			}
+			// Publish the environment proxy with the keys so every replica sees it before first use.
+			applyEgressProxy(family, &candidate.Config, httpproxy.FromEnvironment())
 			// Validate every key before the one create; a concurrent administrator's provider wins intact.
 			if err := e.store.CreateProvider(ctx, family, candidate); err != nil {
 				if apierrors.IsAlreadyExists(err) {

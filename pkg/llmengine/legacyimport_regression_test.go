@@ -4,7 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -469,10 +472,11 @@ func TestLegacyImportPreservesExistingDestinationBeforeValidatingSource(t *testi
 	for _, name := range []string{"bedrock", "bedrock_mantle"} {
 		t.Run(name, func(t *testing.T) {
 			e, ctx := startTestEngine(t)
+			t.Setenv("HTTPS_PROXY", "http://environment-proxy.invalid:3128")
 			gateway := legacyImportGateway(t, map[string]map[string]string{
 				system.AmazonBedrockModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID": "incomplete-credentials"},
 			})
-			_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": name, "network_config": map[string]any{"max_retries": 7}}))
+			_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": name, "network_config": map[string]any{"max_retries": 7}, "proxy_config": map[string]any{"type": "http", "url": "http://admin-proxy.invalid:8080"}}))
 			require.NoError(t, err)
 			before, err := e.store.GetProvider(ctx, name)
 			require.NoError(t, err)
@@ -486,4 +490,140 @@ func TestLegacyImportPreservesExistingDestinationBeforeValidatingSource(t *testi
 			}
 		})
 	}
+}
+
+func TestLegacyImportAfterStartupAppliesProxyBeforePublication(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		noProxy   string
+		wantProxy bool
+	}{
+		{
+			name:      "environment proxy",
+			wantProxy: true,
+		},
+		{
+			name:    "NO_PROXY bypass",
+			noProxy: "*",
+		},
+		{
+			name:      "NO_PROXY custom endpoint",
+			noProxy:   "8.8.8.8",
+			wantProxy: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(system.OpenAIAPIKeyEnvVar, "")
+			t.Setenv(system.AnthropicAPIKeyEnvVar, "")
+			e, ctx := startTestEngine(t)
+			for _, name := range []string{"HTTP_PROXY", "http_proxy", "https_proxy", "no_proxy"} {
+				t.Setenv(name, "")
+			}
+			t.Setenv("HTTPS_PROXY", "http://proxy.invalid:3128")
+			t.Setenv("NO_PROXY", tc.noProxy)
+			published := 0
+			e.store = legacyImportInterceptStore(t, interceptor.Funcs{
+				Create: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.CreateOption) error {
+					if resource, ok := obj.(*v1.LLMGatewayProvider); ok {
+						var provider llmcoreclient.Provider
+						require.NoError(t, json.Unmarshal([]byte(resource.Spec.Payload), &provider))
+						// A watcher can synchronize this aggregate as soon as Create publishes it.
+						wantProxy := tc.wantProxy
+						if resource.Spec.ID == "generic-responses" && tc.noProxy == "8.8.8.8" {
+							wantProxy = false
+						}
+						if wantProxy {
+							require.NotNil(t, provider.Config.ProxyConfig, resource.Spec.ID)
+							require.Equal(t, "http://proxy.invalid:3128", provider.Config.ProxyConfig.URL.GetValue())
+						} else {
+							require.True(t, provider.Config.ProxyConfig == nil || provider.Config.ProxyConfig.Type == schemas.NoProxy)
+						}
+						published++
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			})
+			mp := ModelProviderResource()
+			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
+			changed, _ := e.startupChanges(ctx, storage, mp)()
+			require.False(t, changed, "startup ran before any legacy providers existed")
+			gateway := legacyImportGateway(t, map[string]map[string]string{
+				system.OpenAIModelProvider:              {"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "test"},
+				system.AnthropicModelProvider:           {"OBOT_ANTHROPIC_MODEL_PROVIDER_API_KEY": "test"},
+				system.AzureModelProvider:               {"OBOT_AZURE_MODEL_PROVIDER_API_KEY": "test", "OBOT_AZURE_MODEL_PROVIDER_ENDPOINT": "https://8.8.8.8"},
+				system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "test"},
+				system.GenericResponsesModelProvider:    {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": "https://8.8.8.8/v1"},
+			})
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+			require.Equal(t, 5, published)
+		})
+	}
+}
+
+func TestLegacyImportProxyBeforeFirstDiscoveryAndInference(t *testing.T) {
+	t.Setenv(system.OpenAIAPIKeyEnvVar, "")
+	t.Setenv(system.AnthropicAPIKeyEnvVar, "")
+	e, ctx := startTestEngine(t)
+	upstream := mockOpenAI(t)
+	t.Cleanup(upstream.Close)
+	// Bifrost tunnels HTTP through CONNECT too. Always tunnel to the local mock,
+	// regardless of the requested address, so no test traffic can reach the cloud.
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect || r.Host != "8.8.8.8:80" {
+			http.Error(w, "unexpected proxy target", http.StatusBadRequest)
+			return
+		}
+		conn, err := net.Dial("tcp", upstream.Listener.Addr().String())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
+		}
+		defer conn.Close()
+		client, buffered, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer client.Close()
+		if _, err := buffered.WriteString("HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := buffered.Flush(); err != nil {
+			t.Error(err)
+			return
+		}
+		go func() { _, _ = io.Copy(conn, buffered) }()
+		_, _ = io.Copy(client, conn)
+	}))
+	t.Cleanup(proxy.Close)
+	for _, name := range []string{"HTTPS_PROXY", "http_proxy", "https_proxy", "NO_PROXY", "no_proxy"} {
+		t.Setenv(name, "")
+	}
+	t.Setenv("HTTP_PROXY", proxy.URL)
+	mp := ModelProviderResource()
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(mp).Build()
+	changed, _ := e.startupChanges(ctx, storage, mp)()
+	require.False(t, changed)
+	gateway := legacyImportGateway(t, map[string]map[string]string{
+		system.GenericResponsesModelProvider: {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": "http://8.8.8.8/v1"},
+	})
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	provider, err := e.store.GetProvider(ctx, "generic-responses")
+	require.NoError(t, err)
+	require.NotNil(t, provider.Config.ProxyConfig, "stop before network use if the import lacks its proxy")
+	require.Equal(t, proxy.URL, provider.Config.ProxyConfig.URL.GetValue())
+	// Reconcile immediately, as a provider watch does, before the post-import model-sync trigger.
+	_, err = e.Sync(ctx)
+	require.NoError(t, err)
+	models, err := e.ListModels(ctx)
+	require.NoError(t, err)
+	var ids []string
+	for _, model := range models.Models {
+		ids = append(ids, model.ID)
+	}
+	require.Contains(t, ids, "generic-responses/gpt-4o-mini")
+	code, response := do(t, e, http.MethodPost, "/v1/responses", `{"model":"generic-responses/gpt-4o-mini","input":"hi"}`)
+	require.Equal(t, http.StatusOK, code, response)
+	require.Contains(t, response, "Hello from responses")
 }

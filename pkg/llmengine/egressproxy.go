@@ -38,7 +38,6 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 	if cfg.HTTPSProxy == "" && cfg.HTTPProxy == "" {
 		return false
 	}
-	proxyFor := cfg.ProxyFunc()
 
 	providers, err := e.ListProviders(ctx)
 	if err != nil {
@@ -57,36 +56,7 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 			// The listing supplies names only. Recompute from the latest aggregate
 			// and edit only its proxy so intervening admin changes are preserved.
 			return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
-				target := current.Config.NetworkConfig.BaseURL
-				if target == "" {
-					target = defaultProviderURLs[name]
-				}
-				if target == "" {
-					target = "https://" + name + ".invalid"
-				}
-				u, err := url.Parse(target)
-				if err != nil {
-					return nil
-				}
-				proxyURL, err := proxyFor(u)
-				pc := current.Config.ProxyConfig
-				if pc != nil && pc.Type != schemas.NoProxy {
-					// Remove only our environment proxy when the current endpoint
-					// no longer needs it; an administrator's proxy is left alone.
-					if (err != nil || proxyURL == nil) && isEgressProxy(pc, cfg) {
-						current.Config.ProxyConfig = &schemas.ProxyConfig{Type: schemas.NoProxy}
-						updated = true
-					}
-					return nil
-				}
-				if err != nil || proxyURL == nil {
-					return nil
-				}
-				current.Config.ProxyConfig = &schemas.ProxyConfig{
-					Type: proxyType(proxyURL),
-					URL:  schemas.NewSecretVar(proxyURL.String()),
-				}
-				updated = true
+				updated = applyEgressProxy(name, &current.Config, cfg)
 				return nil
 			})
 		})
@@ -100,6 +70,44 @@ func (e *Engine) ApplyEgressProxy(ctx context.Context) bool {
 		}
 	}
 	return changed
+}
+
+// applyEgressProxy also accepts unpublished configurations so imports can include the
+// proxy in their first write, before resource watches start discovery or inference.
+func applyEgressProxy(name string, provider *schemas.ProviderConfig, cfg *httpproxy.Config) bool {
+	if cfg.HTTPSProxy == "" && cfg.HTTPProxy == "" {
+		return false
+	}
+	target := provider.NetworkConfig.BaseURL
+	if target == "" {
+		target = defaultProviderURLs[name]
+	}
+	if target == "" {
+		target = "https://" + name + ".invalid"
+	}
+	u, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+	proxyURL, err := cfg.ProxyFunc()(u)
+	pc := provider.ProxyConfig
+	if pc != nil && pc.Type != schemas.NoProxy {
+		// Remove only our environment proxy when the current endpoint
+		// no longer needs it; an administrator's proxy is left alone.
+		if (err != nil || proxyURL == nil) && isEgressProxy(pc, cfg) {
+			provider.ProxyConfig = &schemas.ProxyConfig{Type: schemas.NoProxy}
+			return true
+		}
+		return false
+	}
+	if err != nil || proxyURL == nil {
+		return false
+	}
+	provider.ProxyConfig = &schemas.ProxyConfig{
+		Type: proxyType(proxyURL),
+		URL:  schemas.NewSecretVar(proxyURL.String()),
+	}
+	return true
 }
 
 // isEgressProxy compares the stored credential value, not a redacted listing,
