@@ -143,14 +143,12 @@ func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.
 	return nil
 }
 
-// mcpConnectID returns the MCP ID an MCP connect path targets, or "" for any other path.
+// mcpLoopbackConnectID returns the MCP ID an MCP loopback connect path targets, or "" for any other path.
 // The rate limit applies before routing, so it reads the ID from the path itself.
-func mcpConnectID(path string) string {
-	for _, prefix := range []string{"/mcp-connect/", "/mcp-connect-composite/"} {
-		if rest, ok := strings.CutPrefix(path, prefix); ok {
-			id, _, _ := strings.Cut(rest, "/")
-			return id
-		}
+func mcpLoopbackConnectID(path string) string {
+	if rest, ok := strings.CutPrefix(path, "/mcp-connect-composite/"); ok {
+		id, _, _ := strings.Cut(rest, "/")
+		return id
 	}
 	return ""
 }
