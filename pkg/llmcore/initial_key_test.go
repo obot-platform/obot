@@ -1,6 +1,7 @@
 package llmcore
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestInitialKeyRouting(t *testing.T) {
 			p, err := newRoutingPlugin(store, logger, nil)
 			require.NoError(t, err)
 			e := &Engine{account: &account{}}
-			req := httptest.NewRequest("POST", "/v1/responses", nil).WithContext(WithInitialKey(t.Context(), "initial"))
+			req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil).WithContext(WithInitialKey(t.Context(), "initial"))
 			ctx, cancel := e.requestContext(req)
 			defer cancel()
 			require.NoError(t, p.PreRequestHook(ctx, policyRequest()))

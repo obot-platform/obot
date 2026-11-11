@@ -11,15 +11,17 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-var legacyProxySources = map[string]string{
-	"openai":              system.OpenAIModelProvider,
-	"anthropic":           system.AnthropicModelProvider,
-	"generic-responses":   system.GenericResponsesModelProvider,
-	"aws-bedrock":         system.AmazonBedrockModelProvider,
-	"aws-bedrock-api-key": system.AmazonBedrockAPIKeyModelProvider,
-	"azure":               system.AzureModelProvider,
-	"azure-entra":         system.AzureEntraModelProvider,
-}
+var (
+	legacyProxySources = map[string]string{
+		"openai":              system.OpenAIModelProvider,
+		"anthropic":           system.AnthropicModelProvider,
+		"generic-responses":   system.GenericResponsesModelProvider,
+		"aws-bedrock":         system.AmazonBedrockModelProvider,
+		"aws-bedrock-api-key": system.AmazonBedrockAPIKeyModelProvider,
+		"azure":               system.AzureModelProvider,
+		"azure-entra":         system.AzureEntraModelProvider,
+	}
+)
 
 type proxyRouteRegistrar interface{ HandleFunc(string, api.HandlerFunc) }
 

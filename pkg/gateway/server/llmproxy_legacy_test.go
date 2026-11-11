@@ -16,6 +16,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
+type legacyTestRoutes map[string]api.HandlerFunc
+
 func TestNormalizeLegacyProxyPath(t *testing.T) {
 	for _, tc := range []struct {
 		provider string
@@ -61,8 +63,6 @@ func TestNormalizeLegacyProxyPath(t *testing.T) {
 		t.Run(tc.provider, func(t *testing.T) { require.Equal(t, tc.want, normalizeLegacyProxyPath(tc.provider, tc.path)) })
 	}
 }
-
-type legacyTestRoutes map[string]api.HandlerFunc
 
 func (r legacyTestRoutes) HandleFunc(pattern string, h api.HandlerFunc) { r[pattern] = h }
 
