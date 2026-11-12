@@ -2958,6 +2958,46 @@ func schema_obot_platform_obot_apiclient_types_AuditLogScopeDetails(ref common.R
 							Format: "",
 						},
 					},
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPID is the vMCP the call was made through, and VMCPComponentID the component it reached when Obot resolved the call to one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpComponentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profileIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProfileIDs are the vMCP profiles that granted the caller its permissions, and FallbackProfileIDs those it fell back to for configuration or OAuth grants.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"fallbackProfileIDs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

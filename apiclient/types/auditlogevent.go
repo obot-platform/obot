@@ -220,6 +220,14 @@ type AuditLogDeviceDetails struct {
 type AuditLogScopeDetails struct {
 	PowerUserWorkspaceID      string `json:"powerUserWorkspaceID,omitempty"`
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
+	// VMCPID is the vMCP the call was made through, and VMCPComponentID the component it reached when Obot resolved
+	// the call to one.
+	VMCPID          string `json:"vmcpID,omitempty"`
+	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
+	// ProfileIDs are the vMCP profiles that granted the caller its permissions, and FallbackProfileIDs those it fell
+	// back to for configuration or OAuth grants.
+	ProfileIDs         []string `json:"profileIDs,omitempty"`
+	FallbackProfileIDs []string `json:"fallbackProfileIDs,omitempty"`
 }
 
 // AuditLogEnvironmentDetails contains client-reported local execution and source-control context.

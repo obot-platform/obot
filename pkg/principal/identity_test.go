@@ -362,3 +362,63 @@ func TestParseAgent(t *testing.T) {
 		})
 	}
 }
+
+func TestCallerOwner(t *testing.T) {
+	marked := func(uid string, kind Kind) kuser.Info {
+		extra := map[string][]string{}
+		RecordKind(extra, kind)
+		return &kuser.DefaultInfo{
+			UID:   uid,
+			Extra: extra,
+		}
+	}
+
+	for _, tt := range []struct {
+		name    string
+		caller  kuser.Info
+		want    string
+		wantErr bool
+	}{
+		{
+			name:   "user",
+			caller: marked("7", KindUser),
+			want:   "7",
+		},
+		{
+			// An agent's owner never collides with the user's with the same numeric ID.
+			name:   "agent",
+			caller: marked("agent:7", KindAgent),
+			want:   "agent:7",
+		},
+		{
+			name:   "caller without a recorded kind",
+			caller: &kuser.DefaultInfo{UID: "system"},
+			want:   "system",
+		},
+		{
+			name:    "malformed agent",
+			caller:  marked("7", KindAgent),
+			wantErr: true,
+		},
+		{
+			name:    "agent UID without a recorded kind",
+			caller:  &kuser.DefaultInfo{UID: "agent:7"},
+			wantErr: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := CallerOwner(tt.caller)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("CallerOwner() error = %v, want error %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Fatalf("CallerOwner() = %q, want %q", got, tt.want)
+			}
+			if !tt.wantErr {
+				if _, isAgent := ParseAgent(got); isAgent != IsAgent(tt.caller) {
+					t.Fatalf("IsAgent() disagrees with the owner %q", got)
+				}
+			}
+		})
+	}
+}

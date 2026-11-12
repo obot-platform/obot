@@ -19,7 +19,9 @@ import (
 
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
@@ -117,6 +119,34 @@ func newProxyAudit(req *http.Request, metadata map[string]string, collector prox
 	}
 
 	return audit, nil
+}
+
+// setCaller attributes the entry to the authenticated caller, the principal the gateway itself authenticated, rather
+// than only to the subject in the server's audit metadata. A caller that is not a well-formed principal keeps that
+// subject.
+func (a *proxyAudit) setCaller(caller kuser.Info) {
+	if a == nil {
+		return
+	}
+	if p, ok := principal.FromUserInfo(caller); ok {
+		a.entry.Subject = p.String()
+	}
+}
+
+// setComponent attributes the entry to the vMCP component at componentURL, when the gateway resolved the call to one.
+func (a *proxyAudit) setComponent(serverConfig obotmcp.ServerConfig, componentURL string) {
+	if a == nil || componentURL == "" {
+		return
+	}
+	for _, component := range serverConfig.Components {
+		if component.URL == componentURL && component.ComponentID != "" {
+			if a.entry.Metadata == nil {
+				a.entry.Metadata = map[string]string{}
+			}
+			a.entry.Metadata[obotmcp.AuditLogComponentID] = component.ComponentID
+			return
+		}
+	}
 }
 
 func (a *proxyAudit) setClientSession(session *v1.MCPClientSession) {

@@ -79,7 +79,8 @@ func (h *Handler) deleteProfileData(req router.Request, vmcpID string, profileID
 }
 
 // agentSelectionCondition reports whether more than one profile names every agent. Such a vMCP predates the wildcard
-// rule across profiles, so it still validates, but an agent's connection to it fails closed.
+// rule across profiles, so it still validates, but the profile an agent falls back to is ambiguous: an agent without
+// its own profile cannot connect, and one with its own profile cannot connect while it needs setup from the fallback.
 func agentSelectionCondition(manifest types.VMCPManifest) metav1.Condition {
 	profiles := manifest.AgentWildcardProfiles()
 	if len(profiles) < 2 {
@@ -98,7 +99,8 @@ func agentSelectionCondition(manifest types.VMCPManifest) metav1.Condition {
 		Type:   types.VMCPConditionAgentSelectionAmbiguous,
 		Status: metav1.ConditionTrue,
 		Reason: "MultipleAgentWildcardProfiles",
-		Message: fmt.Sprintf("Profiles %q all name every agent, with the agent wildcard or the selector wildcard (*), so agents cannot connect. "+
+		Message: fmt.Sprintf("Profiles %q all name every agent, with the agent wildcard or the selector wildcard (*), so agents without their own profile cannot connect, "+
+			"and agents with their own profile cannot use components that need configuration or OAuth from the fallback. "+
 			"Users are unaffected. Leave at most one such profile to let agents connect.", names),
 	}
 }

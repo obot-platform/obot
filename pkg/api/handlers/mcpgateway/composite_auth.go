@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/oauth2"
 )
@@ -133,7 +134,9 @@ func compositeConfig(req api.Context, serverConfig mcp.ServerConfig) (*mmmcpconf
 	}
 
 	cfg := mcp.MMMCPConfig(serverConfig, nil)
-	cfg.DeferAuthorization = authz.IsClaudeEnvironment(req.User)
+	// Deferred authorization offers sign-in links to the user of a Claude environment. No agent is one, and an agent
+	// is never offered a link.
+	cfg.DeferAuthorization = authz.IsClaudeEnvironment(req.User) && !principal.ClaimsAgent(req.User)
 
 	return cfg, nil
 }

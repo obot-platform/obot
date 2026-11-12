@@ -16,8 +16,10 @@ const (
 
 	// VMCPConditionAgentSelectionAmbiguous is true when more than one profile names every agent, through the agent
 	// wildcard (agents:*) or the selector wildcard (subjects:*). Such a vMCP predates the rule that allows at most one,
-	// and keeps working for users, but an agent connecting to it cannot be given one wildcard profile's configuration
-	// and OAuth grants, so agent selection fails closed until an administrator leaves one such profile.
+	// and keeps working for users, but an agent cannot be given one wildcard profile's configuration and OAuth grants.
+	// So until an administrator leaves one such profile, agent selection fails closed: an agent without its own
+	// profile cannot connect, and an agent with its own profile cannot connect while a component it is granted needs
+	// setup from the fallback (selection_ambiguous).
 	VMCPConditionAgentSelectionAmbiguous = "AgentSelectionAmbiguous"
 
 	VMCPConfigurationPolicyProhibited  VMCPConfigurationPolicyType = "prohibited"

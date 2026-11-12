@@ -26,6 +26,15 @@ const (
 
 	// AuditLogIgnore is a metadata field that tells the audit log persistence layer to ignore audit logs for this server
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
+
+	// AuditLogVMCPID, AuditLogComponentID, AuditLogProfiles and AuditLogFallbackProfiles are the audit metadata of a
+	// call made through a vMCP: the vMCP, the component the call reached when the gateway knows it, and the
+	// comma-separated IDs of the profiles that granted the caller its permissions and of those it fell back to for
+	// configuration or OAuth grants.
+	AuditLogVMCPID           = "vmcpID"
+	AuditLogComponentID      = "componentID"
+	AuditLogProfiles         = "profiles"
+	AuditLogFallbackProfiles = "fallbackProfiles"
 )
 
 var (
@@ -94,6 +103,8 @@ type File struct {
 }
 
 type ComponentServer struct {
+	// ComponentID is the vMCP component the server serves.
+	ComponentID         string               `json:"componentID,omitempty"`
 	MCPServerInstanceID string               `json:"mcpServerInstanceID,omitempty"`
 	DisableTools        bool                 `json:"disableTools,omitempty"`
 	Name                string               `json:"name"`

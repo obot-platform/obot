@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
@@ -38,7 +39,8 @@ func New(gatewayClient *gateway.Client) *Handler {
 	return handler
 }
 
-// DeleteUnauthorized removes shared VMCP instances whose user no longer matches any profile.
+// DeleteUnauthorized removes shared VMCP instances whose owner, a user or an agent, no longer matches any profile,
+// and the instances of deleted agents.
 func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
 
@@ -53,27 +55,19 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 		return nil
 	}
 
-	// Register a trigger so group membership changes also recheck profile access.
-	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return err
-	}
-
-	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return err
-	}
-
-	owner, err := principal.Parse(instance.Spec.UserID)
+	// Register triggers so owner changes also recheck profile access. Profile changes recheck it through the vMCP,
+	// which req.Get above watches.
+	owner, err := watchOwnerChanges(req, *instance)
 	if err != nil {
-		return fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		return err
 	}
 
 	u, err := h.userInfo(req.Ctx, owner)
+	if owner.Kind == principal.KindAgent && errors.Is(err, gorm.ErrRecordNotFound) {
+		// A deleted agent can never connect again, so its instance is removed like one whose access was revoked.
+		slog.Info("Deleting VMCPInstance of deleted agent", "instance", instance.Name, "userID", instance.Spec.UserID)
+		return kclient.IgnoreNotFound(req.Delete(instance))
+	}
 	if err != nil {
 		return err
 	}
@@ -84,6 +78,40 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 
 	slog.Info("Deleting VMCPInstance after profile access loss", "instance", instance.Name, "userID", instance.Spec.UserID)
 	return kclient.IgnoreNotFound(req.Delete(instance))
+}
+
+// watchOwnerChanges registers triggers on the lifecycle events of an instance's owner, which can change the profiles
+// the owner matches, and returns the owner. A user's groups and role change through UserGroupChange and
+// UserRoleChange. An agent has neither, but it is disabled, enabled and deleted through AgentIdentityChange and
+// AgentIdentityDelete. Events are selected by the owner's own kind, so a user's events never trigger the instance of
+// the agent with the same numeric ID, or the other way around.
+func watchOwnerChanges(req router.Request, instance v1.VMCPInstance) (principal.Principal, error) {
+	owner, err := principal.Parse(instance.Spec.UserID)
+	if err != nil {
+		return principal.Principal{}, fmt.Errorf("invalid VMCP instance user ID: %w", err)
+	}
+
+	if owner.Kind == principal.KindAgent {
+		for _, list := range []kclient.ObjectList{&v1.AgentIdentityChangeList{}, &v1.AgentIdentityDeleteList{}} {
+			if err := req.List(list, &kclient.ListOptions{
+				Namespace:     instance.Namespace,
+				FieldSelector: fields.OneTermEqualSelector("spec.agentID", owner.ID),
+			}); err != nil {
+				return principal.Principal{}, err
+			}
+		}
+		return owner, nil
+	}
+
+	for _, list := range []kclient.ObjectList{&v1.UserGroupChangeList{}, &v1.UserRoleChangeList{}} {
+		if err := req.List(list, &kclient.ListOptions{
+			Namespace:     instance.Namespace,
+			FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+		}); err != nil {
+			return principal.Principal{}, err
+		}
+	}
+	return owner, nil
 }
 
 // ReconcileToolSelection permanently removes revoked tools from explicit selections.
@@ -118,33 +146,18 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 	return req.Client.Update(req.Ctx, instance)
 }
 
-// instanceUser resolves the instance user for evaluating shared VMCP profiles.
-// Profiles depend on the user's groups and role, so changes to either retrigger
+// instanceUser resolves the instance owner, a user or an agent, for evaluating shared VMCP profiles.
+// Profiles depend on the owner's groups, role and lifecycle, so changes to any retrigger
 // the instance. Personal VMCPs do not use profiles, so they return a nil user.
 func (h *Handler) instanceUser(req router.Request, vmcp v1.VMCP, instance v1.VMCPInstance) (kuser.Info, error) {
 	if vmcp.Spec.UserID != "" {
 		return nil, nil
 	}
 
-	// Register a trigger on group list changes so we recalculate when things change.
-	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return nil, err
-	}
-
-	// Same for user role changes.
-	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
-		Namespace:     instance.Namespace,
-		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
-	}); err != nil {
-		return nil, err
-	}
-
-	owner, err := principal.Parse(instance.Spec.UserID)
+	// Register triggers on the owner's lifecycle events so we recalculate when things change.
+	owner, err := watchOwnerChanges(req, instance)
 	if err != nil {
-		return nil, fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		return nil, err
 	}
 
 	return h.userInfo(req.Ctx, owner)

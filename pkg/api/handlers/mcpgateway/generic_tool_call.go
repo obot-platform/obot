@@ -28,6 +28,9 @@ type resolvedToolCall struct {
 	name      string
 	revision  string
 	arguments json.RawMessage
+	// componentURL is the URL of the component the call resolved to, which identifies it in the composite's
+	// configuration.
+	componentURL string
 }
 
 // failedGenericToolCall carries a tool-level failure from resolution: invalid
@@ -134,7 +137,7 @@ func (h *Handler) resolveGenericToolCall(req *http.Request, cfg *mmmcpconfig.Con
 		return nil, fmt.Errorf("parse resolved generic tool call: %w", err)
 	}
 
-	return &resolvedToolCall{name: args.Name, revision: args.Revision, arguments: call.Arguments}, nil
+	return &resolvedToolCall{name: args.Name, revision: args.Revision, arguments: call.Arguments, componentURL: call.Route.Component.URL}, nil
 }
 
 // hookMessage presents a generic call to policies as the underlying tool call.

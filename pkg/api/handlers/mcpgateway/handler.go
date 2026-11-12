@@ -38,6 +38,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/version"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -278,6 +279,12 @@ func (h *Handler) Proxy(req api.Context) error {
 		if errors.Is(err, errMCPServerRequiresConfiguration) {
 			return nil
 		}
+		// An agent that is not set up for the vMCP learns why, before any MCP exchange, instead of being challenged.
+		if notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](err); ok {
+			agentReadinessResponse(notReady.Failure()).write(req.ResponseWriter, nil)
+
+			return nil
+		}
 
 		err = deploymentError(err)
 		if response := mcpJSONRPCErrorResponse(req.Request, err); response != nil {
@@ -404,6 +411,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to prepare MCP request audit log: %w", err)
 		}
+		audit.setCaller(req.User)
 
 		// Initialization starts a new session, even if the client retained a stale ID.
 		if audit != nil && audit.initialize {
@@ -469,6 +477,7 @@ func (h *Handler) Proxy(req api.Context) error {
 
 			if resolvedCall != nil && audit != nil {
 				audit.entry.CallIdentifier = resolvedCall.name
+				audit.setComponent(serverConfig, resolvedCall.componentURL)
 			}
 		}
 
@@ -563,10 +572,17 @@ func (h *Handler) Proxy(req api.Context) error {
 	ctx := context.WithValue(req.Context(), compositeAPIContextKey{}, req)
 	ctx = context.WithValue(ctx, upstreamCaptureConfigKey{}, serverConfig)
 	ctx = mmmcp.ContextWithConfig(ctx, cfg)
-	ctx = mmmcp.ContextWithConfigID(ctx, fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID))
+	ctx = mmmcp.ContextWithConfigID(ctx, compositeConfigID(serverConfig))
 	h.composite.HTTPHandler().ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 
 	return nil
+}
+
+// compositeConfigID identifies a composite's configuration to mmmcp, which keeps component sessions and discovered
+// catalogs per configuration. The connection name is the caller's own vMCP instance, and UserID is the caller's encoded
+// principal, so neither two callers nor a user and an agent with the same numeric ID ever share one.
+func compositeConfigID(serverConfig mcp.ServerConfig) string {
+	return fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID)
 }
 
 // isLoopbackHost reports whether a Host header value, with or without a port,
@@ -667,7 +683,13 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "mcpserver"}, mcpID)
 	}
 	if len(missingConfig) > 0 {
-		mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
+		if headlessCaller(req) {
+			// An agent reaches a server only as a vMCP component, through the composite loopback, and cannot enter
+			// configuration, so it is told what is missing rather than challenged.
+			agentConfigurationRequiredResponse(mcpServer.Spec.VMCPComponentID, missingConfig).write(req.ResponseWriter, nil)
+		} else {
+			mcpAuthRequiredResponse(req, true).write(req.ResponseWriter, nil)
+		}
 		return mcp.ServerConfig{}, errMCPServerRequiresConfiguration
 	}
 
@@ -704,13 +726,18 @@ func replaceMCPAuthResponse(resp *http.Response, response *mcpResponse) {
 	resp.Trailer = nil
 }
 
+// mcpAuthRequiredResponse is the 401 that starts the MCP authorization flow. A headless caller, an agent or a request
+// with an agent's credential, gets a plain 401 without a challenge: it only gets here when its credential is refused,
+// and it cannot log in.
 func mcpAuthRequiredResponse(req api.Context, requiresConfig bool) *mcpResponse {
 	message := "MCP server requires authentication"
 	if requiresConfig {
 		message = "MCP server requires configuration"
 	}
 	response := mcpTextResponse(http.StatusUnauthorized, message)
-	response.headers.Set("WWW-Authenticate", mcpAuthChallenge(req))
+	if !headlessCaller(req) {
+		response.headers.Set("WWW-Authenticate", mcpAuthChallenge(req))
+	}
 	return response
 }
 

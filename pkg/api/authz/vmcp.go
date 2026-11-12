@@ -70,11 +70,12 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string
 }
 
 // UserCanReadVMCP applies the VMCP visibility model. A personal VMCP is only
-// visible to its owner. A shared VMCP is visible to users matching at least
-// one profile; catalog access is intentionally irrelevant.
+// visible to its owner, who is always a user: an agent never owns or reads one.
+// A shared VMCP is visible to users and agents matching at least one profile;
+// catalog access is intentionally irrelevant.
 func UserCanReadVMCP(u kuser.Info, vmcp *v1.VMCP) bool {
 	if vmcp.Spec.UserID != "" {
-		return vmcp.Spec.UserID == u.GetUID()
+		return !principal.ClaimsAgent(u) && vmcp.Spec.UserID == u.GetUID()
 	}
 	return userMatchesVMCPProfile(u, vmcp.Spec.Manifest.Profiles)
 }
@@ -181,6 +182,12 @@ func (a *Authorizer) checkVMCPComponent(req *http.Request, resources *Resources,
 	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.VMCPComponentMCPID), &component); err != nil {
 		return false, err
 	}
+	// Component servers are owned by the encoded principal of their instance's owner, so compare encodings on both
+	// sides: an agent never matches a user's server with its numeric ID, or the other way around.
+	owner, err := principal.CallerOwner(u)
+	if err != nil {
+		return false, nil
+	}
 	return slices.ContainsFunc(vmcpaccess.ComponentsForInstance(*vmcp, *instance), func(candidate types.VMCPComponent) bool {
 		if candidate.ID != component.Spec.VMCPComponentID {
 			return false
@@ -188,6 +195,6 @@ func (a *Authorizer) checkVMCPComponent(req *http.Request, resources *Resources,
 		if vmcpaccess.IsMultiUser(candidate) {
 			return component.Spec.VMCPID == vmcp.Name && component.Spec.VMCPInstanceID == ""
 		}
-		return component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == u.GetUID()
+		return component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == owner
 	}), nil
 }

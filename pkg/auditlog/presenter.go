@@ -2,6 +2,7 @@ package auditlog
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	api "github.com/obot-platform/obot/apiclient/types"
@@ -115,6 +116,10 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 		Scope: &api.AuditLogScopeDetails{
 			PowerUserWorkspaceID:      mcp.PowerUserWorkspaceID,
 			MCPServerCatalogEntryName: mcp.MCPServerCatalogEntryName,
+			VMCPID:                    mcp.VMCPID,
+			VMCPComponentID:           mcp.VMCPComponentID,
+			ProfileIDs:                slices.Clone(mcp.ProfileIDs),
+			FallbackProfileIDs:        slices.Clone(mcp.FallbackProfileIDs),
 		},
 		Request: &api.AuditLogPayloadDetails{
 			Headers:     mcp.RequestHeaders,

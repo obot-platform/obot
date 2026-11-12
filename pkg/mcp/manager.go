@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/kubernetes"
@@ -111,6 +112,10 @@ type SessionManager struct {
 	tunnelManager             *tunnel.Manager
 
 	webhookHelper *WebhookHelper
+
+	// agentReadiness decides whether an agent can connect to a vMCP. Its zero value uses the default checks, which
+	// specs 12 and 13 replace with profile configuration and OAuth grants.
+	agentReadiness vmcpaccess.AgentReadinessChecks
 }
 
 type RemoteMCPURLValidationConfig struct {

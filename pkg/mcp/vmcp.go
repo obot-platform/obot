@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -22,7 +23,10 @@ import (
 // the MCPServers created by the VMCPInstance controller; the VMCP itself never
 // gets launched as a runtime.
 func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID string, user kuser.Info) (ServerConfig, error) {
-	userID := user.GetUID()
+	userID, err := principal.CallerOwner(user)
+	if err != nil {
+		return ServerConfig{}, err
+	}
 	vmcp, resolvedInstance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, vmcpID, userID)
 	if err != nil {
 		return ServerConfig{}, err
@@ -35,13 +39,18 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID string
 }
 
 func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (ServerConfig, error) {
-	userID := user.GetUID()
+	// The owner is the caller's encoded principal, so an agent ("agent:<id>") and the user with the same numeric ID
+	// get separate instances, component servers, connections and credentials, and every key of one agent shares the
+	// agent's single canonical (oldest) instance.
+	userID, err := principal.CallerOwner(user)
+	if err != nil {
+		return ServerConfig{}, err
+	}
 	if len(vmcp.Spec.Manifest.Components) == 0 {
 		return ServerConfig{}, types.NewErrBadRequest("cannot connect to a VMCP without components")
 	}
 	vmcpID := vmcp.Name
 	if instance == nil {
-		var err error
 		instance, err = vmcpaccess.FindInstance(ctx, sm.storageClient, vmcp.Namespace, vmcp.Name, userID)
 		if err != nil {
 			return ServerConfig{}, err
@@ -75,7 +84,6 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			},
 		}
 
-		var err error
 		instance, err = wait.For(ctx, sm.storageClient, instance, func(i *v1.VMCPInstance) (bool, error) {
 			return i.Status.ConfigurationCheckHash != "", nil
 		}, wait.Option{Timeout: 15 * time.Second, Create: true})
@@ -88,9 +96,21 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		return ServerConfig{}, fmt.Errorf("VMCP instance %q does not belong to VMCP %q and user %q", instance.Name, vmcpID, userID)
 	}
 
-	instance, err := sm.waitForVMCPInstanceConfiguration(ctx, vmcp, instance, user)
+	instance, err = sm.waitForVMCPInstanceConfiguration(ctx, vmcp, instance, user)
 	if err != nil {
 		return ServerConfig{}, err
+	}
+
+	// An agent cannot complete setup interactively, so it is refused with the reasons it is not ready rather than
+	// connected to a subset of its tools or challenged. Readiness is computed on every connect and never cached.
+	if principal.IsAgent(user) {
+		readiness, err := sm.agentReadiness.AgentReadiness(ctx, *vmcp, *instance, user)
+		if err != nil {
+			return ServerConfig{}, err
+		}
+		if !readiness.Ready() {
+			return ServerConfig{}, &vmcpaccess.AgentNotReadyError{Readiness: readiness}
+		}
 	}
 
 	// Components disabled for the user are omitted entirely, so users never need
@@ -177,6 +197,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			connectID = connections[component.ID]
 		}
 		components = append(components, ComponentServer{
+			ComponentID:         component.ID,
 			Name:                server.Name,
 			MCPServerInstanceID: connections[component.ID],
 			DisplayName:         component.Name,
@@ -221,8 +242,21 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			"mcpID":                vmcp.Name,
 			"mcpServerDisplayName": vmcp.Spec.Manifest.DisplayName,
 			"userID":               userID,
+			AuditLogVMCPID:         vmcp.Name,
+			AuditLogProfiles:       strings.Join(contributingProfileIDs(user, *vmcp), ","),
+			// Profiles a caller falls back to for configuration or OAuth grants arrive with specs 12 and 13.
+			AuditLogFallbackProfiles: "",
 		},
 	}, nil
+}
+
+// contributingProfileIDs returns the IDs of the profiles that grant the caller its permissions on a shared vMCP. A
+// personal vMCP has no profiles.
+func contributingProfileIDs(user kuser.Info, vmcp v1.VMCP) []string {
+	if vmcp.Spec.UserID != "" {
+		return nil
+	}
+	return vmcpaccess.ProfileIDs(types.VMCPManifest{Profiles: vmcpaccess.MatchingProfiles(user, vmcp.Spec.Manifest.Profiles)})
 }
 
 // waitForVMCPInstanceConfiguration waits for the VMCPInstance controller to process

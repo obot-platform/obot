@@ -25,6 +25,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -804,23 +805,46 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 		auditLog.APIKeyName = auditLog.Metadata[principal.APIKeyNameExtra]
 	}
 
-	mcp := auditLog.MCP()
-	if mcp == nil {
+	fields := auditLog.MCP()
+	if fields == nil {
 		return
 	}
 
-	if mcp.MCPID == "" {
-		mcp.MCPID = auditLog.Metadata["mcpID"]
+	if fields.MCPID == "" {
+		fields.MCPID = auditLog.Metadata["mcpID"]
 	}
-	if mcp.MCPServerCatalogEntryName == "" {
-		mcp.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
+	if fields.MCPServerCatalogEntryName == "" {
+		fields.MCPServerCatalogEntryName = auditLog.Metadata["mcpServerCatalogEntryName"]
 	}
-	if mcp.PowerUserWorkspaceID == "" {
-		mcp.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
+	if fields.PowerUserWorkspaceID == "" {
+		fields.PowerUserWorkspaceID = auditLog.Metadata["powerUserWorkspaceID"]
 	}
-	if mcp.MCPServerDisplayName == "" {
-		mcp.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
+	if fields.MCPServerDisplayName == "" {
+		fields.MCPServerDisplayName = auditLog.Metadata["mcpServerDisplayName"]
 	}
+	if fields.VMCPID == "" {
+		fields.VMCPID = auditLog.Metadata[mcp.AuditLogVMCPID]
+	}
+	if fields.VMCPComponentID == "" {
+		fields.VMCPComponentID = auditLog.Metadata[mcp.AuditLogComponentID]
+	}
+	if len(fields.ProfileIDs) == 0 {
+		fields.ProfileIDs = auditProfileIDs(auditLog.Metadata[mcp.AuditLogProfiles])
+	}
+	if len(fields.FallbackProfileIDs) == 0 {
+		fields.FallbackProfileIDs = auditProfileIDs(auditLog.Metadata[mcp.AuditLogFallbackProfiles])
+	}
+}
+
+// auditProfileIDs decodes the comma-separated profile IDs of audit metadata. Profile IDs never contain commas.
+func auditProfileIDs(value string) datatypes.JSONSlice[string] {
+	var ids datatypes.JSONSlice[string]
+	for id := range strings.SplitSeq(value, ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids
 }
 
 // Close releases resources owned by the handler. AuditLogHandler currently owns no independent

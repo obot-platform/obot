@@ -158,3 +158,18 @@ func FromUserInfo(u kuser.Info) (Principal, bool) {
 	}
 	return p, true
 }
+
+// CallerOwner returns the owner that a caller's vMCP instances, component servers and connections are stored under:
+// the storage encoding of its principal (Principal.String), "agent:<id>" for an agent, so that a user and an agent
+// with the same numeric ID never share one. A caller that records no principal kind, which no authenticator of users
+// or agents builds, keeps its UID as before. A caller that claims to be an agent but is not a well-formed one owns
+// nothing.
+func CallerOwner(u kuser.Info) (string, error) {
+	if p, ok := FromUserInfo(u); ok {
+		return p.String(), nil
+	}
+	if ClaimsAgent(u) {
+		return "", types.NewErrForbidden("malformed agent principal")
+	}
+	return u.GetUID(), nil
+}
