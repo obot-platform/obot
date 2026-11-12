@@ -93,6 +93,36 @@ func TestMigrationRewritesOnlyDefaultAliasesAndProfileReferences(t *testing.T) {
 	require.Equal(t, ModelProviderResource().Spec, provider.Spec)
 }
 
+func TestUnsupportedLegacyReferencesDoNotBlockCompletion(t *testing.T) {
+	for _, gatewayExists := range []bool{false, true} {
+		t.Run(fmt.Sprintf("gatewayExists=%t", gatewayExists), func(t *testing.T) {
+			unsupported := migrationModel("m1-vertex", "gemini-vertex-model-provider", "gemini-2.5-pro")
+			source := migrationModel("m1-openai", system.OpenAIModelProvider, "gpt-5")
+			target := migrationModel("m1-gateway", system.LLMGatewayModelProvider, "openai/gpt-5")
+			policy := migrationPolicy(unsupported.Name, source.Name)
+			dma := &v1.DefaultModelAlias{
+				Namespace: system.DefaultNamespace,
+				Name:      "llm",
+				Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: unsupported.Name}},
+			}
+			provider := ModelProviderResource()
+			objects := []kclient.Object{provider, unsupported, source, target, policy, dma}
+			if gatewayExists {
+				objects = append(objects, migrationModel("m1-gateway-vertex", system.LLMGatewayModelProvider, "vertex/gemini-2.5-pro"))
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+			require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+			require.Equal(t, []types.ModelResource{{ID: unsupported.Name}, {ID: target.Name}}, policy.Spec.Manifest.Models)
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+			require.Equal(t, unsupported.Name, dma.Spec.Manifest.Model)
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(unsupported), &v1.Model{}))
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(provider), provider))
+			require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation])
+		})
+	}
+}
+
 func TestMigrationRetainsUnmatchedReferencesAndRetriesAfterDiscovery(t *testing.T) {
 	source := migrationModel("m1-source", system.AzureEntraModelProvider, "deployment")
 	policy := migrationPolicy(source.Name)

@@ -63,8 +63,14 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, provider *v1.Mod
 			continue
 		}
 		plan, supported := legacyImportPlans[source.Spec.Manifest.ModelProvider]
+		if !supported {
+			// Discovery cannot supply a match for a provider with no migration plan.
+			// Keep its references for manual correction without blocking supported migrations forever.
+			slog.Warn("legacy model provider is unsupported by migration; update references manually", "provider", source.Spec.Manifest.ModelProvider, "model", source.Name)
+			continue
+		}
 		target, found := gatewayModelFor(byTarget, plan.provider, source.Spec.Manifest.TargetModel)
-		if !supported || !found || !source.DeletionTimestamp.IsZero() {
+		if !found || !source.DeletionTimestamp.IsZero() {
 			// Catalog fallback cannot prove a model is gone. Preserve the reference and
 			// retry; unreferenced legacy inventory never holds the completion gate open.
 			pending = true
