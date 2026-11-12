@@ -35,10 +35,9 @@ type AgentsList struct {
 type AgentsCreate struct {
 	PromptConfig
 
-	Name        string   `usage:"Display name of the agent (required)"`
-	Description string   `usage:"Description of the agent"`
-	Owner       []string `usage:"ID of a user who owns the agent; may be repeated"`
-	JSON        bool     `usage:"Print the agent as JSON"`
+	Name        string `usage:"Display name of the agent (required)"`
+	Description string `usage:"Description of the agent"`
+	JSON        bool   `usage:"Print the agent as JSON"`
 
 	root *Obot
 }
@@ -54,10 +53,9 @@ type AgentsGet struct {
 type AgentsUpdate struct {
 	PromptConfig
 
-	Name        string   `usage:"New display name"`
-	Description string   `usage:"New description; an empty value clears it"`
-	Owner       []string `usage:"ID of a user who owns the agent; may be repeated and replaces all owners; an empty value clears them"`
-	JSON        bool     `usage:"Print the agent as JSON"`
+	Name        string `usage:"New display name"`
+	Description string `usage:"New description; an empty value clears it"`
+	JSON        bool   `usage:"Print the agent as JSON"`
 
 	root *Obot
 }
@@ -135,7 +133,7 @@ func (a *AgentsList) Run(cmd *cobra.Command, _ []string) error {
 func (a *AgentsCreate) Customize(cmd *cobra.Command) {
 	cmd.Use = "create --name <name>"
 	cmd.Short = "Create an agent identity"
-	cmd.Example = `  obot agents create --name "CI bot" --owner 12`
+	cmd.Example = `  obot agents create --name "CI bot"`
 	cmd.Args = cobra.NoArgs
 }
 
@@ -148,9 +146,8 @@ func (a *AgentsCreate) Run(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	agent, err := client.CreateAgentIdentity(cmd.Context(), types.AgentIdentityManifest{
-		DisplayName:  a.Name,
-		Description:  a.Description,
-		OwnerUserIDs: cleanList(a.Owner),
+		DisplayName: a.Name,
+		Description: a.Description,
 	})
 	if err != nil {
 		return mapAgentsError(cmd.Context(), client, err)
@@ -185,9 +182,9 @@ func (a *AgentsUpdate) Customize(cmd *cobra.Command) {
 
 func (a *AgentsUpdate) Run(cmd *cobra.Command, args []string) error {
 	flags := cmd.Flags()
-	nameSet, descSet, ownerSet := flags.Changed("name"), flags.Changed("description"), flags.Changed("owner")
-	if !nameSet && !descSet && !ownerSet {
-		return errors.New("nothing to update: pass --name, --description or --owner")
+	nameSet, descSet := flags.Changed("name"), flags.Changed("description")
+	if !nameSet && !descSet {
+		return errors.New("nothing to update: pass --name or --description")
 	}
 	if nameSet && strings.TrimSpace(a.Name) == "" {
 		return errors.New("--name cannot be empty")
@@ -208,9 +205,6 @@ func (a *AgentsUpdate) Run(cmd *cobra.Command, args []string) error {
 	}
 	if descSet {
 		manifest.Description = a.Description
-	}
-	if ownerSet {
-		manifest.OwnerUserIDs = cleanList(a.Owner)
 	}
 
 	updated, err := client.UpdateAgentIdentity(cmd.Context(), args[0], manifest)
@@ -353,9 +347,9 @@ func dash(s string) string {
 
 func writeAgentTable(w io.Writer, agents []types.AgentIdentity) error {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "ID\tNAME\tSTATUS\tACTIVE KEYS\tOWNERS")
+	fmt.Fprintln(tw, "ID\tNAME\tSTATUS\tACTIVE KEYS")
 	for _, a := range agents {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n", a.ID, tableCell(a.DisplayName), a.Status, a.ActiveAPIKeyCount, tableCell(dash(strings.Join(a.OwnerUserIDs, ","))))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\n", a.ID, tableCell(a.DisplayName), a.Status, a.ActiveAPIKeyCount)
 	}
 	return tw.Flush()
 }
@@ -369,7 +363,6 @@ func writeAgent(w io.Writer, a *types.AgentIdentity) {
 		fmt.Fprintf(w, "Disabled at:  %s\n", formatAgentTime(a.DisabledAt))
 		fmt.Fprintf(w, "Reason:       %s\n", tableCell(dash(a.DisabledReason)))
 	}
-	fmt.Fprintf(w, "Owners:       %s\n", dash(strings.Join(a.OwnerUserIDs, ", ")))
 	fmt.Fprintf(w, "Creator:      %s\n", dash(a.CreatorUserID))
 	fmt.Fprintf(w, "Created:      %s\n", formatAgentTime(&a.Created))
 	fmt.Fprintf(w, "Active keys:  %d\n", a.ActiveAPIKeyCount)
@@ -384,12 +377,12 @@ func printAgent(cmd *cobra.Command, asJSON bool, a *types.AgentIdentity) error {
 	return nil
 }
 
-// cleanList drops blank entries, so that --owner "" yields no owners rather than one empty ID.
-func cleanList(owners []string) []string {
+// cleanList drops blank entries, so that a flag passed as "" yields no values rather than one empty value.
+func cleanList(values []string) []string {
 	var out []string
-	for _, o := range owners {
-		if o = strings.TrimSpace(o); o != "" {
-			out = append(out, o)
+	for _, v := range values {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
 		}
 	}
 	return out

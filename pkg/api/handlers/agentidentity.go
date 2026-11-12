@@ -23,8 +23,8 @@ import (
 )
 
 // AgentIdentityHandler serves the admin API of agent identities at /api/agents. The routes are admin-only, which the
-// authorizer enforces: the handler never sees an agent's principal, and gives its callers no rights of their own,
-// such as the owners of an agent, which are metadata only.
+// authorizer enforces: the handler never sees an agent's principal, and gives its callers no rights of their own over
+// an agent, not even its creator.
 //
 // The API names an agent AgentIdentity, because "agent" already means a hosted agent and an agent on a device. Agent
 // IDs and user IDs are decimal strings in the API, as users' IDs are elsewhere.
@@ -120,7 +120,7 @@ func (h *AgentIdentityHandler) Create(req api.Context) error {
 	if err := readAgentIdentityRequest(req, &manifest, false); err != nil {
 		return err
 	}
-	agent, err := agentFromManifest(req, manifest)
+	agent, err := agentFromManifest(manifest)
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (h *AgentIdentityHandler) Update(req api.Context) error {
 	if err := readAgentIdentityRequest(req, &manifest, false); err != nil {
 		return err
 	}
-	update, err := agentFromManifest(req, manifest)
+	update, err := agentFromManifest(manifest)
 	if err != nil {
 		return err
 	}
@@ -442,43 +442,15 @@ func (h *AgentIdentityHandler) writeAgent(req api.Context, agent *gtypes.Agent) 
 	return req.Write(convertAgentIdentity(*agent, countActiveAPIKeys(keys)))
 }
 
-// agentFromManifest returns the agent whose metadata manifest describes. Each owner must be an existing, active user,
-// and owners are listed once.
-func agentFromManifest(req api.Context, manifest types.AgentIdentityManifest) (gtypes.Agent, error) {
+// agentFromManifest returns the agent whose metadata manifest describes.
+func agentFromManifest(manifest types.AgentIdentityManifest) (gtypes.Agent, error) {
 	if strings.TrimSpace(manifest.DisplayName) == "" {
 		return gtypes.Agent{}, types.NewErrBadRequest("displayName is required")
 	}
 
-	var owners []uint
-	for _, ownerID := range manifest.OwnerUserIDs {
-		// Parse reads "agent:<id>" as an agent, which is not a user, so it is refused here with every other ID that
-		// is not a user's.
-		id, ok := uint(0), false
-		if p, err := principal.Parse(ownerID); err == nil {
-			id, ok = p.UserID()
-		}
-		if !ok || id == 0 {
-			return gtypes.Agent{}, types.NewErrBadRequest("invalid owner user ID %q", ownerID)
-		}
-		if slices.Contains(owners, id) {
-			continue
-		}
-		user, err := req.GatewayClient.UserByID(req.Context(), strconv.FormatUint(uint64(id), 10))
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return gtypes.Agent{}, types.NewErrBadRequest("owner user %q not found", ownerID)
-		} else if err != nil {
-			return gtypes.Agent{}, err
-		}
-		if status := user.Status(); status != types.UserStatusActive {
-			return gtypes.Agent{}, types.NewErrBadRequest("owner user %q is %s: owners must be active users", ownerID, status)
-		}
-		owners = append(owners, id)
-	}
-
 	return gtypes.Agent{
-		DisplayName:  strings.TrimSpace(manifest.DisplayName),
-		Description:  manifest.Description,
-		OwnerUserIDs: owners,
+		DisplayName: strings.TrimSpace(manifest.DisplayName),
+		Description: manifest.Description,
 	}, nil
 }
 
@@ -522,18 +494,12 @@ func agentIdentityError(err error) error {
 }
 
 func convertAgentIdentity(agent gtypes.Agent, activeAPIKeyCount int) types.AgentIdentity {
-	ownerIDs := make([]string, 0, len(agent.OwnerUserIDs))
-	for _, id := range agent.OwnerUserIDs {
-		ownerIDs = append(ownerIDs, strconv.FormatUint(uint64(id), 10))
-	}
-
 	identity := types.AgentIdentity{
 		ID:                strconv.FormatUint(uint64(agent.ID), 10),
 		Created:           *types.NewTime(agent.CreatedAt),
 		Type:              "agentidentity",
 		DisplayName:       agent.DisplayName,
 		Description:       agent.Description,
-		OwnerUserIDs:      ownerIDs,
 		Status:            agent.Status(),
 		DisabledReason:    agent.DisabledReason,
 		ActiveAPIKeyCount: activeAPIKeyCount,

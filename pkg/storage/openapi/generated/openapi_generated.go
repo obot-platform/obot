@@ -1224,20 +1224,6 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentity(ref common.Referenc
 							Format: "",
 						},
 					},
-					"ownerUserIDs": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OwnerUserIDs are the IDs of the active users who are the agent's administrative contacts. Ownership is metadata only: it grants an owner no rights over the agent.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 					"creatorUserID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CreatorUserID is the ID of the admin who created the agent.",
@@ -1411,20 +1397,6 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref common.
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
-						},
-					},
-					"ownerUserIDs": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OwnerUserIDs are the IDs of the active users who are the agent's administrative contacts. Ownership is metadata only: it grants an owner no rights over the agent.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
 						},
 					},
 				},

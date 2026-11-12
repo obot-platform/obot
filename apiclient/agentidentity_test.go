@@ -37,12 +37,12 @@ func TestAgentIdentityRequests(t *testing.T) {
 		{
 			name: "create",
 			call: func(c *Client) error {
-				_, err := c.CreateAgentIdentity(t.Context(), types.AgentIdentityManifest{DisplayName: "bot", OwnerUserIDs: []string{"1"}})
+				_, err := c.CreateAgentIdentity(t.Context(), types.AgentIdentityManifest{DisplayName: "bot", Description: "nightly"})
 				return err
 			},
 			method:   http.MethodPost,
 			path:     "/agents",
-			wantBody: `{"displayName":"bot","ownerUserIDs":["1"]}`,
+			wantBody: `{"displayName":"bot","description":"nightly"}`,
 			status:   http.StatusOK,
 			response: `{"id":"7"}`,
 		},

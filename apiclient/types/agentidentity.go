@@ -6,9 +6,6 @@ type AgentIdentityManifest struct {
 	// DisplayName names the agent for people. It is required, and need not be unique: an agent is identified by its ID.
 	DisplayName string `json:"displayName"`
 	Description string `json:"description,omitempty"`
-	// OwnerUserIDs are the IDs of the active users who are the agent's administrative contacts. Ownership is
-	// metadata only: it grants an owner no rights over the agent.
-	OwnerUserIDs []string `json:"ownerUserIDs,omitempty"`
 }
 
 // AgentIdentity is a non-human identity that calls Obot with its own API keys. It is not a hosted agent or an agent on

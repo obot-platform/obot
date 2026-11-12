@@ -28,9 +28,7 @@ type Agent struct {
 	ID          uint   `json:"id" gorm:"primaryKey;autoIncrement"`
 	DisplayName string `json:"displayName" gorm:"not null"`
 	Description string `json:"description"`
-	// OwnerUserIDs are the agent's administrative contacts. They grant nothing, and changing or deleting an owner
-	// has no effect on the agent.
-	OwnerUserIDs  []uint    `json:"ownerUserIDs" gorm:"serializer:json"`
+	// CreatorUserID is the user who created the agent. It is recorded once and never changes, and grants nothing.
 	CreatorUserID uint      `json:"creatorUserID"`
 	CreatedAt     time.Time `json:"createdAt"`
 	UpdatedAt     time.Time `json:"updatedAt"`

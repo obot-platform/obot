@@ -37,7 +37,6 @@ func createTestAgent(t *testing.T, c *Client, displayName string) *types.Agent {
 	agent, err := c.CreateAgent(t.Context(), types.Agent{
 		DisplayName:   displayName,
 		Description:   displayName + " runs the nightly build",
-		OwnerUserIDs:  []uint{1},
 		CreatorUserID: 1,
 	})
 	if err != nil {
@@ -93,7 +92,6 @@ func TestCreateAgentWritesOnlyMetadata(t *testing.T) {
 		ID:             42,
 		DisplayName:    "builder",
 		Description:    "runs builds",
-		OwnerUserIDs:   []uint{3, 4},
 		CreatorUserID:  3,
 		DisabledAt:     &now,
 		DisabledReason: "stale copy",
@@ -109,7 +107,6 @@ func TestCreateAgentWritesOnlyMetadata(t *testing.T) {
 	stored := storedAgent(t, c, agent.ID)
 	require.Equal(t, "builder", stored.DisplayName)
 	require.Equal(t, "runs builds", stored.Description)
-	require.Equal(t, []uint{3, 4}, stored.OwnerUserIDs)
 	require.Equal(t, uint(3), stored.CreatorUserID)
 	require.Equal(t, apitypes.UserStatusActive, stored.Status())
 	require.Empty(t, stored.DisabledReason)
@@ -140,7 +137,6 @@ func TestUpdateAgentWritesOnlyMetadata(t *testing.T) {
 	stale := *agent
 	stale.DisplayName = "deployer"
 	stale.Description = ""
-	stale.OwnerUserIDs = []uint{}
 	stale.CreatorUserID = 9
 	updated, err := c.UpdateAgent(ctx, stale)
 	require.NoError(t, err)
@@ -150,7 +146,6 @@ func TestUpdateAgentWritesOnlyMetadata(t *testing.T) {
 	stored := storedAgent(t, c, agent.ID)
 	require.Equal(t, "deployer", stored.DisplayName)
 	require.Empty(t, stored.Description)
-	require.Empty(t, stored.OwnerUserIDs)
 	require.Equal(t, agent.CreatorUserID, stored.CreatorUserID)
 	require.Equal(t, apitypes.UserStatusDisabled, stored.Status())
 	require.Equal(t, "rotating keys", stored.DisabledReason)

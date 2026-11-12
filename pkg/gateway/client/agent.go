@@ -26,7 +26,7 @@ var (
 	ErrInvalidAgentMetadata = errors.New("invalid agent metadata")
 
 	// agentMetadataColumns are the agent columns that UpdateAgent writes.
-	agentMetadataColumns = []string{"display_name", "description", "owner_user_ids"}
+	agentMetadataColumns = []string{"display_name", "description"}
 )
 
 // agentLifecycleKey is what the agent lifecycle events delivered together share.
@@ -41,7 +41,6 @@ func (c *Client) CreateAgent(ctx context.Context, agent types.Agent) (*types.Age
 	created := &types.Agent{
 		DisplayName:   agent.DisplayName,
 		Description:   agent.Description,
-		OwnerUserIDs:  agent.OwnerUserIDs,
 		CreatorUserID: agent.CreatorUserID,
 	}
 	if err := validateAgentMetadata(*created); err != nil {
@@ -92,7 +91,6 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 		}
 		updated.DisplayName = agent.DisplayName
 		updated.Description = agent.Description
-		updated.OwnerUserIDs = agent.OwnerUserIDs
 
 		// Select writes the metadata even where it is now empty, which a struct update skips. Omit is redundant with
 		// it, and keeps the lifecycle columns out should the selection ever grow.

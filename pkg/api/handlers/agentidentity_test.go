@@ -33,10 +33,8 @@ const (
 
 	// agentIdentityTestAdminID is the user that makes the requests of agentIdentityFixture.
 	agentIdentityTestAdminID = 1
-	// agentIdentityTestOwnerID is an active user that agents can be owned by.
-	agentIdentityTestOwnerID = 2
-	// agentIdentityTestDisabledID is a disabled user.
-	agentIdentityTestDisabledID = 3
+	// agentIdentityTestUserID is an active user who is not an admin.
+	agentIdentityTestUserID = 2
 )
 
 type agentIdentityFixture struct {
@@ -74,17 +72,12 @@ func newAgentIdentityFixture(t *testing.T, enabled, authEnabled bool) *agentIden
 	gateway := gclient.New(t.Context(), database, storage, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gateway.Close() })
 
-	disabledAt := time.Now()
 	for _, u := range []gt.User{
 		{
 			ID: agentIdentityTestAdminID,
 		},
 		{
-			ID: agentIdentityTestOwnerID,
-		},
-		{
-			ID:         agentIdentityTestDisabledID,
-			DisabledAt: &disabledAt,
+			ID: agentIdentityTestUserID,
 		},
 	} {
 		u.Username = "user" + strconv.Itoa(int(u.ID))
@@ -175,15 +168,13 @@ func TestAgentIdentityLifecycleOverHTTP(t *testing.T) {
 	f := newAgentIdentityFixture(t, true, true)
 
 	created := f.createAgent(types.AgentIdentityManifest{
-		DisplayName:  "  nightly build  ",
-		Description:  "runs at night",
-		OwnerUserIDs: []string{strconv.Itoa(agentIdentityTestOwnerID), strconv.Itoa(agentIdentityTestOwnerID)},
+		DisplayName: "  nightly build  ",
+		Description: "runs at night",
 	})
 	path := "/api/agents/" + created.ID
 	require.NotEmpty(t, created.ID)
 	require.Equal(t, "nightly build", created.DisplayName, "the display name is trimmed")
 	require.Equal(t, "runs at night", created.Description)
-	require.Equal(t, []string{"2"}, created.OwnerUserIDs, "an owner is listed once")
 	require.Equal(t, "1", created.CreatorUserID, "the creator is the calling admin")
 	require.Equal(t, types.UserStatusActive, created.Status)
 	require.Zero(t, created.ActiveAPIKeyCount)
@@ -212,7 +203,6 @@ func TestAgentIdentityLifecycleOverHTTP(t *testing.T) {
 	}, &updated)
 	require.Equal(t, "renamed", updated.DisplayName)
 	require.Empty(t, updated.Description, "an update replaces the metadata, so an omitted description is cleared")
-	require.Empty(t, updated.OwnerUserIDs)
 	require.Equal(t, "1", updated.CreatorUserID, "the creator never changes")
 	require.Equal(t, types.UserStatusDisabled, updated.Status, "an update does not enable an agent")
 	require.Equal(t, "leaked key", updated.DisabledReason)
@@ -331,32 +321,9 @@ func TestAgentIdentityValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "unknown owner",
-			body: types.AgentIdentityManifest{
-				DisplayName:  "x",
-				OwnerUserIDs: []string{"999"},
-			},
-		},
-		{
-			name: "disabled owner",
-			body: types.AgentIdentityManifest{
-				DisplayName:  "x",
-				OwnerUserIDs: []string{strconv.Itoa(agentIdentityTestDisabledID)},
-			},
-		},
-		{
-			name: "owner that is not an ID",
-			body: types.AgentIdentityManifest{
-				DisplayName:  "x",
-				OwnerUserIDs: []string{"admin"},
-			},
-		},
-		{
-			name: "owner that is an agent's principal",
-			body: types.AgentIdentityManifest{
-				DisplayName:  "x",
-				OwnerUserIDs: []string{"agent:" + agent.ID},
-			},
+			// Agents have no owners, so the field is unknown.
+			name: "owners",
+			body: `{"displayName":"x","ownerUserIDs":["2"]}`,
 		},
 		{
 			name: "unknown field",
@@ -558,7 +525,7 @@ func TestAgentAPIKeysBelongToTheirAgent(t *testing.T) {
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	other := f.createAgent(types.AgentIdentityManifest{DisplayName: "other"})
 	otherKey := f.createKey(other.ID, types.AgentAPIKeyCreateRequest{CanAccessLLMProxy: true})
-	userKey, err := f.gateway.CreateAPIKey(t.Context(), agentIdentityTestOwnerID, "user's", "", nil, gt.APIKeyScopes{CanAccessLLMProxy: true})
+	userKey, err := f.gateway.CreateAPIKey(t.Context(), agentIdentityTestUserID, "user's", "", nil, gt.APIKeyScopes{CanAccessLLMProxy: true})
 	require.NoError(t, err)
 
 	agentKeysPath := "/api/agents/" + agent.ID + "/api-keys"
@@ -658,7 +625,8 @@ func TestAgentIdentityRoutesAreUnavailableWithoutTheFeature(t *testing.T) {
 }
 
 // TestAgentIdentityRoutesAreAdminOnly checks every registered route against the authorizer of the server: admins and
-// owners reach all of them, auditors only the reads, and no other user, no owner of an agent, and no agent does.
+// owners reach all of them, auditors only the reads, and no other user, not even an agent's creator, and no agent
+// does.
 func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
 	f := newAgentIdentityFixture(t, true, true)
 	require.Len(t, f.routes, 12)
@@ -698,9 +666,9 @@ func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
 			readsOnly: true,
 		},
 		{
-			// An owner of an agent is a user like any other, and has no rights over the agent.
+			// The creator of an agent is a user like any other, and has no rights over the agent.
 			name:   "basic user",
-			user:   &user.DefaultInfo{UID: strconv.Itoa(agentIdentityTestOwnerID), Groups: types.RoleBasic.Groups()},
+			user:   &user.DefaultInfo{UID: strconv.Itoa(agentIdentityTestUserID), Groups: types.RoleBasic.Groups()},
 			denied: true,
 		},
 		{

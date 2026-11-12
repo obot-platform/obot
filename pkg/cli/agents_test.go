@@ -78,24 +78,14 @@ func TestAgentsUpdateMergesOnlyChangedFields(t *testing.T) {
 		wantBody string
 	}{
 		{
-			name:     "name only keeps description and owners",
+			name:     "name only keeps description",
 			args:     []string{"update", "7", "--name", "new"},
-			wantBody: `{"displayName":"new","description":"old desc","ownerUserIDs":["1","2"]}`,
+			wantBody: `{"displayName":"new","description":"old desc"}`,
 		},
 		{
 			name:     "empty description clears it",
 			args:     []string{"update", "7", "--description", ""},
-			wantBody: `{"displayName":"old","ownerUserIDs":["1","2"]}`,
-		},
-		{
-			name:     "empty owner clears owners",
-			args:     []string{"update", "7", "--owner", ""},
-			wantBody: `{"displayName":"old","description":"old desc"}`,
-		},
-		{
-			name:     "repeated owner replaces owners",
-			args:     []string{"update", "7", "--owner", "3", "--owner", "4"},
-			wantBody: `{"displayName":"old","description":"old desc","ownerUserIDs":["3","4"]}`,
+			wantBody: `{"displayName":"old"}`,
 		},
 	}
 	for _, tt := range tests {
@@ -104,7 +94,6 @@ func TestAgentsUpdateMergesOnlyChangedFields(t *testing.T) {
 				agent := testAgent("7")
 				agent.DisplayName = "old"
 				agent.Description = "old desc"
-				agent.OwnerUserIDs = []string{"1", "2"}
 				writeTestJSON(w, agent)
 			})
 			_, _, err := runAgents(t, server, tt.args...)
@@ -137,10 +126,10 @@ func TestAgentsCreateAndLifecycleRequests(t *testing.T) {
 	}{
 		{
 			name:       "create",
-			args:       []string{"create", "--name", "bot", "--description", "d", "--owner", "1", "--owner", "2"},
+			args:       []string{"create", "--name", "bot", "--description", "d"},
 			wantMethod: http.MethodPost,
 			wantPath:   "/api/agents",
-			wantBody:   `{"displayName":"bot","description":"d","ownerUserIDs":["1","2"]}`,
+			wantBody:   `{"displayName":"bot","description":"d"}`,
 		},
 		{
 			name:       "list include deleted",
@@ -355,7 +344,6 @@ func TestAgentsListOutput(t *testing.T) {
 	server, _ := agentsTestServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		agent := testAgent("7")
 		agent.DisplayName = "bot"
-		agent.OwnerUserIDs = []string{"1"}
 		agent.Status = types.UserStatusActive
 		agent.ActiveAPIKeyCount = 2
 		writeTestJSON(w, types.AgentIdentityList{Items: []types.AgentIdentity{agent}})
@@ -363,7 +351,7 @@ func TestAgentsListOutput(t *testing.T) {
 	stdout, _, err := runAgents(t, server, "list")
 	require.NoError(t, err)
 	require.Contains(t, stdout, "ID")
-	require.Regexp(t, `7\s+bot\s+active\s+2\s+1`, stdout)
+	require.Regexp(t, `7\s+bot\s+active\s+2\s*\n`, stdout)
 
 	stdout, _, err = runAgents(t, server, "list", "--json")
 	require.NoError(t, err)
