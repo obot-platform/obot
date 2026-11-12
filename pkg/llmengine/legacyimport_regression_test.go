@@ -211,26 +211,45 @@ func TestLegacyImportCreatesFamilyInOneWriteAndDoesNotReimportDeletion(t *testin
 	require.True(t, apierrors.IsNotFound(err))
 }
 
-func TestLegacyImportRejectsPartialBedrockIAMCredentialsAndRetries(t *testing.T) {
-	for _, missing := range []string{"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID", "OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY"} {
-		t.Run(missing, func(t *testing.T) {
+func TestLegacyImportRequiresExplicitBedrockIAMCredentialsAndRetries(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		missing []string
+	}{
+		{
+			name:    "missing access-key ID",
+			missing: []string{"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID"},
+		},
+		{
+			name:    "missing secret-access key",
+			missing: []string{"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY"},
+		},
+		{
+			name:    "both missing",
+			missing: []string{"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID", "OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			e, ctx := startTestEngine(t)
 			iam := map[string]string{
 				"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID":     "access-key",
 				"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "secret-key",
 			}
-			value := iam[missing]
-			delete(iam, missing)
+			iam["OBOT_BEDROCK_MODEL_PROVIDER_REGION"] = "us-west-2"
+			for _, field := range tc.missing {
+				delete(iam, field)
+			}
 			gateway := legacyImportGateway(t, map[string]map[string]string{
 				system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "api-key"},
 				system.AmazonBedrockModelProvider:       iam,
 			})
-			require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway), "invalid legacy bedrock configuration")
+			require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway), "requires both access-key ID and secret-access key")
 			_, err := e.store.GetProvider(ctx, "bedrock")
 			require.True(t, apierrors.IsNotFound(err), "the valid API-key sibling must not be saved on its own")
 
 			// Re-running after correction proves the failed family was not marked complete.
-			iam[missing] = value
+			iam["OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID"] = "access-key"
+			iam["OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY"] = "secret-key"
 			require.NoError(t, gateway.UpsertCredential(ctx, gatewaytypes.Credential{
 				Context: system.AmazonBedrockModelProvider,
 				Name:    system.AmazonBedrockModelProvider,
@@ -248,19 +267,6 @@ func TestLegacyImportRejectsPartialBedrockIAMCredentialsAndRetries(t *testing.T)
 			}
 		})
 	}
-}
-
-func TestLegacyImportAllowsBedrockIAMWithoutExplicitCredentials(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	gateway := legacyImportGateway(t, map[string]map[string]string{
-		system.AmazonBedrockModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_REGION": "us-west-2"},
-	})
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
-	provider, err := e.store.GetProvider(ctx, "bedrock")
-	require.NoError(t, err)
-	require.Len(t, provider.Keys, 1)
-	require.Empty(t, provider.Keys[0].BedrockKeyConfig.AccessKey.GetValue())
-	require.Empty(t, provider.Keys[0].BedrockKeyConfig.SecretKey.GetValue())
 }
 
 func TestLegacyImportGroupedProviders(t *testing.T) {

@@ -246,9 +246,9 @@ func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map
 		if source == system.AmazonBedrockModelProvider {
 			accessKey := secretWithSuffix(secrets, "_MODEL_PROVIDER_ACCESS_KEY_ID")
 			secretKey := secretWithSuffix(secrets, "_MODEL_PROVIDER_SECRET_ACCESS_KEY")
-			// Both may be absent for ambient AWS credentials, but a partial pair is invalid.
-			if (accessKey == "") != (secretKey == "") {
-				return llmcoreclient.Provider{}, fmt.Errorf("incomplete Bedrock IAM credentials")
+			// v0.27 required explicit credentials; migration must not switch to the server's AWS identity.
+			if accessKey == "" || secretKey == "" {
+				return llmcoreclient.Provider{}, fmt.Errorf("bedrock IAM import requires both access-key ID and secret-access key")
 			}
 		}
 		if source == system.AzureEntraModelProvider {
