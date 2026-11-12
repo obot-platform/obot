@@ -13,33 +13,33 @@ import (
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 )
 
-func newTestClient(t *testing.T) *Client {
-	t.Helper()
+func newTestClient(tb testing.TB) *Client {
+	tb.Helper()
 
-	return newTestClientWithDSN(t, "sqlite://:memory:")
+	return newTestClientWithDSN(tb, "sqlite://:memory:")
 }
 
-func newTestClientWithDSN(t *testing.T, dsn string) *Client {
-	t.Helper()
+func newTestClientWithDSN(tb testing.TB, dsn string) *Client {
+	tb.Helper()
 
 	services, err := sservices.New(sservices.Config{
 		DSN: dsn,
 	})
 	if err != nil {
-		t.Fatalf("failed to create storage services: %v", err)
+		tb.Fatalf("failed to create storage services: %v", err)
 	}
 
 	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	if err != nil {
-		t.Fatalf("failed to create gateway db: %v", err)
+		tb.Fatalf("failed to create gateway db: %v", err)
 	}
 	if err := db.AutoMigrate(); err != nil {
-		t.Fatalf("failed to auto-migrate: %v", err)
+		tb.Fatalf("failed to auto-migrate: %v", err)
 	}
 
 	// Unit tests flush directly without starting background persistence loops.
 	writeCtx, writeCancel := context.WithCancel(context.Background())
-	t.Cleanup(writeCancel)
+	tb.Cleanup(writeCancel)
 
 	return &Client{
 		auditWriteCtx:             writeCtx,

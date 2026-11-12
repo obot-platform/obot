@@ -2,6 +2,7 @@ package auditlog
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -217,5 +218,54 @@ func TestPresentUnknownActors(t *testing.T) {
 	local := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeLocalAgentToolCall, UserID: "reported", LocalAgentToolCallFields: &gatewaytypes.LocalAgentToolCallAuditLogFields{ActorType: api.AuditLogActorTypeUnknown}}
 	if actor := Present(local, PresentOptions{}).Actor; actor.ActorType != api.AuditLogActorTypeUnknown || actor.ID != "" {
 		t.Fatalf("unexpected unresolved actor: %#v", actor)
+	}
+}
+
+func TestPresentReportsUnavailablePayloads(t *testing.T) {
+	tests := []struct {
+		name string
+		log  gatewaytypes.MCPAuditLog
+	}{
+		{
+			name: "MCP call",
+			log: gatewaytypes.MCPAuditLog{
+				SourceType:          api.AuditLogSourceTypeMCP,
+				MCPFields:           &gatewaytypes.MCPAuditLogFields{CallType: "tools/list"},
+				UnavailablePayloads: []string{"response.body"},
+			},
+		},
+		{
+			name: "local agent tool call",
+			log: gatewaytypes.MCPAuditLog{
+				SourceType:               api.AuditLogSourceTypeLocalAgentToolCall,
+				LocalAgentToolCallFields: &gatewaytypes.LocalAgentToolCallAuditLogFields{ActionName: "Bash"},
+				UnavailablePayloads:      []string{"response.body", "rawEvent"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			detail := Present(tt.log, PresentOptions{IncludeDetails: true})
+			if detail.Details == nil || !slices.Equal(detail.Details.UnavailablePayloads, tt.log.UnavailablePayloads) {
+				t.Fatalf("unavailable payloads were not reported: %#v", detail.Details)
+			}
+			data, err := json.Marshal(detail)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(data), `"unavailablePayloads":["response.body"`) {
+				t.Fatalf("unavailable payloads missing from JSON: %s", data)
+			}
+
+			tt.log.UnavailablePayloads = nil
+			data, err = json.Marshal(Present(tt.log, PresentOptions{IncludeDetails: true}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(data), "unavailablePayloads") {
+				t.Fatalf("empty unavailable payloads should be omitted: %s", data)
+			}
+		})
 	}
 }

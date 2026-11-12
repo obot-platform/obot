@@ -1330,6 +1330,20 @@ func schema_obot_platform_obot_apiclient_types_AuditLogDetails(ref common.Refere
 							Format:  "",
 						},
 					},
+					"unavailablePayloads": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UnavailablePayloads names the payload bodies that are stored but could not be read back, for example \"response.body\" or \"rawEvent\". Those bodies are omitted from this object.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"payloadRedacted"},
 			},

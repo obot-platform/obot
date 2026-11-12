@@ -159,6 +159,9 @@ type AuditLogDetails struct {
 	RawEvent        json.RawMessage             `json:"rawEvent,omitempty"`
 	StartedAt       *Time                       `json:"startedAt,omitempty"`
 	PayloadRedacted bool                        `json:"payloadRedacted"`
+	// UnavailablePayloads names the payload bodies that are stored but could not be read back, for
+	// example "response.body" or "rawEvent". Those bodies are omitted from this object.
+	UnavailablePayloads []string `json:"unavailablePayloads,omitempty"`
 }
 
 // AuditLogTraceDetails groups identifiers that correlate an event with requests, sessions, tool

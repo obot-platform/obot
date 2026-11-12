@@ -123,6 +123,7 @@
 	"audit_usage_audit_logs_pages": "ページ",
 	"audit_usage_audit_logs_parent_target": "親の対象",
 	"audit_usage_audit_logs_payload_hidden_for_access_level": "お使いのアクセスレベルでは、ペイロードと機密性の高い環境の詳細は表示されません。",
+	"audit_usage_audit_logs_payload_unavailable": "このイベントの一部のペイロードを読み込めませんでした: {payloads}",
 	"audit_usage_audit_logs_permission_mode": "権限モード",
 	"audit_usage_audit_logs_preparing_results": "結果を準備中…",
 	"audit_usage_audit_logs_preparing_timeline": "タイムラインを準備中…",

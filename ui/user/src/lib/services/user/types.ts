@@ -197,6 +197,8 @@ export type AuditLogDetails = {
 	rawEvent?: unknown;
 	startedAt?: string;
 	payloadRedacted: boolean;
+	// Payload bodies that are stored but could not be read back, e.g. "response.body".
+	unavailablePayloads?: string[];
 };
 
 export interface AuditLogEvent {

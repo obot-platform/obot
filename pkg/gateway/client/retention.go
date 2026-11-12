@@ -52,6 +52,10 @@ func (c *Client) cleanupRetainedData(ctx context.Context, now time.Time, mcpAudi
 			if err := c.deleteOldMCPAuditLogs(ctx, now, mcpAuditLogRetentionDays); err != nil {
 				return fmt.Errorf("delete old MCP audit logs: %w", err)
 			}
+			// Bodies go after the rows that referenced them.
+			if err := c.deleteUnreferencedMCPAuditLogBodies(ctx, now, mcpAuditLogRetentionDays); err != nil {
+				return fmt.Errorf("delete unreferenced MCP audit log bodies: %w", err)
+			}
 			return nil
 		},
 		func() error {

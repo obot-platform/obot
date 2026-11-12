@@ -66,6 +66,13 @@
 					{m.audit_usage_audit_logs_payload_hidden_for_access_level()}
 				</div>
 			{:else if details}
+				{#if details.unavailablePayloads?.length}
+					<div class="bg-base-300 text-muted-content rounded-md p-3 text-xs italic">
+						{m.audit_usage_audit_logs_payload_unavailable({
+							payloads: details.unavailablePayloads.join(', ')
+						})}
+					</div>
+				{/if}
 				{#if hasBody(details.request?.body)}
 					{@render jsonBody(m.audit_usage_audit_logs_request_tool_input(), details.request?.body)}
 				{/if}
