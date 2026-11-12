@@ -1295,3 +1295,22 @@ func TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns(t *testi
 		})
 	}
 }
+
+func TestInsertLocalAgentAuditLogsDiscardsWhenDisabled(t *testing.T) {
+	c := newTestClient(t)
+	c.DisableMCPAuditLog()
+
+	log := validLocalAgentAuditLog(time.Now().UTC(), "entry-1", types2.AuditLogOutcomeStatusSuccess)
+	if err := c.InsertLocalAgentAuditLogs(t.Context(), []types.MCPAuditLog{log}); err != nil {
+		t.Fatalf("expected disabled insert to succeed, got %v", err)
+	}
+	if got := countAuditLogs(t, c); got != 0 {
+		t.Fatalf("expected no audit logs, got %d", got)
+	}
+
+	invalid := log
+	invalid.SourceType = ""
+	if err := c.InsertLocalAgentAuditLogs(t.Context(), []types.MCPAuditLog{invalid}); err == nil {
+		t.Fatal("expected invalid log to be rejected while disabled")
+	}
+}

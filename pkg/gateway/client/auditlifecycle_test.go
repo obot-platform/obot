@@ -379,3 +379,18 @@ func TestAuditCloseContextBudget(t *testing.T) {
 		})
 	}
 }
+
+func TestLogMCPAuditEntryNoopsWhenDisabled(t *testing.T) {
+	c := newTestClient(t)
+	require.True(t, c.MCPAuditLogEnabled())
+
+	c.LogMCPAuditEntry(types.MCPAuditLog{UserID: "enabled"})
+	require.Len(t, c.auditBuffer, 1)
+
+	c.DisableMCPAuditLog()
+	require.False(t, c.MCPAuditLogEnabled())
+
+	c.LogMCPAuditEntry(types.MCPAuditLog{UserID: "disabled"})
+	require.Len(t, c.auditBuffer, 1)
+	require.Equal(t, "enabled", c.auditBuffer[0].UserID)
+}

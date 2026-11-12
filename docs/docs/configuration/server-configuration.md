@@ -47,6 +47,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_LLMAUDIT_LOG_RETENTION_DAYS` | The number of days to retain LLM audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. | `90` |
 | `OBOT_SERVER_MODEL_PROXY_URL` | MCP Tester model proxy service base URL, used for generation only when the LLM gateway has no providers configured. An explicitly empty string disables generation. Custom URLs must use HTTPS; HTTP is allowed only with `OBOT_DEV_MODE=true`. | `https://model-service.obot.ai` |
 | `OBOT_SERVER_DISABLE_LLMAUDIT_LOG` | Disables collection and persistence of new LLM gateway audit logs. Existing logs remain available. | `false` |
+| `OBOT_SERVER_DISABLE_MCPAUDIT_LOG` | Disables collection and persistence of new MCP audit logs, including MCP gateway traffic and tool calls reported by local agents on managed devices. Device submissions are still accepted, but discarded. Existing logs remain available. | `false` |
 | `OBOT_SERVER_DEVICE_SCAN_RETENTION_DAYS` | The number of days to retain submitted device scans before they are automatically deleted. Set to `0` to disable automatic cleanup. | `90` |
 | `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` | The path to the default MCP catalog (accessible to all users). | - |
 | `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` | The path to the default System MCP catalog. | - |
