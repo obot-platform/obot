@@ -131,7 +131,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 					// Existing configuration wins: complete this family without merging legacy keys; other families still run.
 					return nil
 				} else if !apierrors.IsNotFound(err) {
-					return fmt.Errorf("read gateway provider %s", name)
+					return fmt.Errorf("read gateway provider %s: %w", name, err)
 				}
 			}
 			secrets := map[string]map[string]string{}
@@ -141,7 +141,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 					continue
 				}
 				if err != nil {
-					return fmt.Errorf("read legacy credentials for %s", source)
+					return fmt.Errorf("read legacy credentials for %s: %w", source, err)
 				}
 				if len(cred.Secrets) > 0 {
 					secrets[source] = cred.Secrets
@@ -159,7 +159,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 			}
 			candidate, err := e.legacyAggregate(ctx, family, secrets, models.Items)
 			if err != nil {
-				return fmt.Errorf("invalid legacy %s configuration; review credentials, endpoint and deployment settings", family)
+				return fmt.Errorf("invalid legacy %s configuration; review credentials, endpoint and deployment settings: %w", family, err)
 			}
 			// Publish the environment proxy with the keys so every replica sees it before first use.
 			applyEgressProxy(family, &candidate.Config, httpproxy.FromEnvironment())
@@ -168,7 +168,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 				if apierrors.IsAlreadyExists(err) {
 					return nil
 				}
-				return fmt.Errorf("save imported provider %s", family)
+				return fmt.Errorf("save imported provider %s: %w", family, err)
 			}
 			slog.Info("imported legacy provider configuration", "provider", family)
 			// shortcut: create and completion are separate writes, use a receipt if deletion during interrupted upgrades must be distinguished.

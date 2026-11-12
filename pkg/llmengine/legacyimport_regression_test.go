@@ -3,6 +3,7 @@ package llmengine
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -73,10 +74,45 @@ func TestLegacyImportValidatesKeyBeforeCreatingProvider(t *testing.T) {
 
 	err := e.ImportLegacyModelProviders(ctx, nil, gateway)
 	require.ErrorContains(t, err, "review credentials")
+	require.ErrorContains(t, err, "azure_key_config.endpoint")
+	require.ErrorContains(t, err, "169.254.169.254")
+	require.ErrorContains(t, err, "which can't be used")
+	require.NotContains(t, err.Error(), "legacy-secret")
 	_, err = e.store.GetProvider(ctx, "azure")
 	require.True(t, apierrors.IsNotFound(err))
 	require.Zero(t, creates, "key validation must finish before the first durable write")
 	require.Zero(t, deletes, "failed imports must never roll back by deleting a provider")
+}
+
+func TestLegacyImportPreservesStorageErrorCauses(t *testing.T) {
+	for _, operation := range []string{"read", "save"} {
+		t.Run(operation, func(t *testing.T) {
+			t.Setenv(system.OpenAIAPIKeyEnvVar, "")
+			e, ctx := startTestEngine(t)
+			gateway := legacyImportGateway(t, map[string]map[string]string{
+				system.OpenAIModelProvider: {"OBOT_OPENAI_MODEL_PROVIDER_API_KEY": "legacy-secret"},
+			})
+			cause := errors.New("storage unavailable")
+			e.store = legacyImportInterceptStore(t, interceptor.Funcs{
+				Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+					if _, ok := obj.(*v1.LLMGatewayProvider); ok && operation == "read" {
+						return cause
+					}
+					return c.Get(ctx, key, obj, opts...)
+				},
+				Create: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.CreateOption) error {
+					if _, ok := obj.(*v1.LLMGatewayProvider); ok && operation == "save" {
+						return cause
+					}
+					return c.Create(ctx, obj, opts...)
+				},
+			})
+			err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+			require.ErrorIs(t, err, cause)
+			require.ErrorContains(t, err, operation)
+			require.NotContains(t, err.Error(), "legacy-secret")
+		})
+	}
 }
 
 func legacyImportInterceptStore(t *testing.T, funcs interceptor.Funcs) *llmcoreclient.Client {
