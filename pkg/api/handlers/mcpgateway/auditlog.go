@@ -709,6 +709,9 @@ func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog,
 }
 
 func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
+	if !h.gatewayClient.MCPAuditLogEnabled() {
+		return
+	}
 	if entry.Metadata[mcp.AuditLogIgnore] == "true" || entry.CallType == "" {
 		// If the call type is empty, then this is a response to a request.
 		// The audit log will be handled elsewhere.

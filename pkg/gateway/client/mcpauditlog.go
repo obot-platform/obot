@@ -310,8 +310,10 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 // InsertLocalAgentAuditLogs persists completed local-agent tool-call audit logs.
 // Duplicate idempotency keys are treated as successful no-ops for transport retries.
+// When MCP audit logging is disabled, logs are discarded without error so
+// devices do not retry them. The submit handler validates them beforehand.
 func (c *Client) InsertLocalAgentAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
-	if len(logs) == 0 {
+	if len(logs) == 0 || !c.MCPAuditLogEnabled() {
 		return nil
 	}
 
