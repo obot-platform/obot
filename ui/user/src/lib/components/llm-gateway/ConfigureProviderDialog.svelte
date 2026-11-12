@@ -188,12 +188,9 @@
 	async function setSubscriptionPassthrough(allowed: boolean) {
 		savingSubscriptions = true;
 		try {
-			await updateSettings({
-				...(await getSettings()),
-				...(isOpenAI
-					? { codexSubscriptionPassthrough: allowed }
-					: { subscriptionPassthrough: allowed })
-			});
+			await updateSettings(
+				isOpenAI ? { codexSubscriptionPassthrough: allowed } : { subscriptionPassthrough: allowed }
+			);
 			subscriptionPassthrough = allowed;
 			success.add(
 				allowed

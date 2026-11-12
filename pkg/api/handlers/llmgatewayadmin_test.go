@@ -536,3 +536,45 @@ func TestGatewayAdminAzureRefreshReturnsPending(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, before.Config, after.Config, "the caller queues work without fetching or publishing discovery")
 }
+
+func TestGatewaySettingsPartialUpdates(t *testing.T) {
+	storage := newFakeStorage(t)
+	h := NewLLMGatewayHandler(nil, nil)
+	gateway := newHandlerTestGateway(t)
+	mux := newAdminTestServer(t, h, storage, gateway)
+	mux.HandleFunc("PUT /api/llm-gateway/settings", h.UpdateSettings)
+
+	for _, tc := range []struct {
+		body string
+		want gatewaytypes.LLMGatewaySettings
+	}{
+		{
+			body: `{"subscriptionPassthrough":true,"codexSubscriptionPassthrough":true}`,
+			want: gatewaytypes.LLMGatewaySettings{
+				ClaudeSubscriptionPassthrough: true,
+				CodexSubscriptionPassthrough:  true,
+			},
+		},
+		{
+			body: `{"subscriptionPassthrough":false}`,
+			want: gatewaytypes.LLMGatewaySettings{
+				CodexSubscriptionPassthrough: true,
+			},
+		},
+		{
+			body: `{"codexSubscriptionPassthrough":false}`,
+			want: gatewaytypes.LLMGatewaySettings{},
+		},
+	} {
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodPut, "/api/llm-gateway/settings", strings.NewReader(tc.body)))
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+
+		var returned gatewaytypes.LLMGatewaySettings
+		require.NoError(t, json.Unmarshal(response.Body.Bytes(), &returned))
+		require.Equal(t, tc.want, returned)
+		stored, err := gateway.GetLLMGatewaySettings(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, tc.want, stored)
+	}
+}

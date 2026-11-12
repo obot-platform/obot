@@ -83,6 +83,12 @@ type LLMGatewaySettings struct {
 	CodexSubscriptionPassthrough bool `json:"codexSubscriptionPassthrough"`
 }
 
+// LLMGatewaySettingsUpdate leaves omitted settings unchanged.
+type LLMGatewaySettingsUpdate struct {
+	ClaudeSubscriptionPassthrough *bool `json:"subscriptionPassthrough,omitempty"`
+	CodexSubscriptionPassthrough  *bool `json:"codexSubscriptionPassthrough,omitempty"`
+}
+
 func (LLMGatewayBudget) TableName() string {
 	return "llm_gateway_budgets"
 }

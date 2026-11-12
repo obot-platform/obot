@@ -526,7 +526,7 @@ describe('ConfigureProviderDialog', () => {
 		const saved = vi.fn();
 		worker.use(
 			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: false })
+				HttpResponse.json({ subscriptionPassthrough: false, codexSubscriptionPassthrough: true })
 			),
 			http.put('/api/llm-gateway/settings', async ({ request }) => {
 				const body = await request.json();
@@ -567,7 +567,6 @@ describe('ConfigureProviderDialog', () => {
 		await toggle.click();
 		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
 		expect(saved).toHaveBeenCalledWith({
-			subscriptionPassthrough: true,
 			codexSubscriptionPassthrough: true
 		});
 		await expect.element(toggle).toBeChecked();

@@ -33,7 +33,9 @@ export async function getSettings(opts?: Opts): Promise<LLMGatewaySettings> {
 	return (await doGet('/llm-gateway/settings', opts)) as LLMGatewaySettings;
 }
 
-export async function updateSettings(settings: LLMGatewaySettings): Promise<LLMGatewaySettings> {
+export async function updateSettings(
+	settings: Partial<LLMGatewaySettings>
+): Promise<LLMGatewaySettings> {
 	return (await doPut('/llm-gateway/settings', settings)) as LLMGatewaySettings;
 }
 

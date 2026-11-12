@@ -331,17 +331,13 @@ func triggerGatewayModelSync(req api.Context) {
 }
 
 func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
-	settings, err := req.GatewayClient.GetLLMGatewaySettings(ctx)
-	if err != nil {
-		slog.Warn("failed to read LLM gateway settings", "error", err)
-		return
-	}
+	var update gatewaytypes.LLMGatewaySettingsUpdate
 	if req.PathValue("provider") == "openai" {
-		settings.CodexSubscriptionPassthrough = false
+		update.CodexSubscriptionPassthrough = new(false)
 	} else {
-		settings.ClaudeSubscriptionPassthrough = false
+		update.ClaudeSubscriptionPassthrough = new(false)
 	}
-	if err := req.GatewayClient.SetLLMGatewaySettings(ctx, settings); err != nil {
+	if _, _, err := req.GatewayClient.UpdateLLMGatewaySettings(ctx, update); err != nil {
 		slog.Warn("failed to turn off subscriptions after removing their provider", "error", err)
 	}
 }
@@ -366,20 +362,17 @@ func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
 	return req.Write(settings)
 }
 
-// UpdateSettings replaces the LLM gateway settings Obot enforces.
+// UpdateSettings merges supplied settings, preserving omitted fields.
 func (h *LLMGatewayHandler) UpdateSettings(req api.Context) error {
-	var settings gatewaytypes.LLMGatewaySettings
-	if err := req.Read(&settings); err != nil {
+	var update gatewaytypes.LLMGatewaySettingsUpdate
+	if err := req.Read(&update); err != nil {
 		return types.NewErrBadRequest("invalid settings: %v", err)
 	}
-	previous, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
+	settings, changed, err := req.GatewayClient.UpdateLLMGatewaySettings(req.Context(), update)
 	if err != nil {
 		return err
 	}
-	if err := req.GatewayClient.SetLLMGatewaySettings(req.Context(), settings); err != nil {
-		return err
-	}
-	if previous.ClaudeSubscriptionPassthrough != settings.ClaudeSubscriptionPassthrough || previous.CodexSubscriptionPassthrough != settings.CodexSubscriptionPassthrough {
+	if changed {
 		// Subscription providers without keys list their models only while enabled.
 		if err := llmengine.TriggerModelSync(req.Context(), req.Storage); err != nil {
 			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
