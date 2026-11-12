@@ -24,6 +24,7 @@ type Handler struct {
 	userInfo    func(context.Context, principal.Principal) (kuser.Info, error)
 	acrHelper   *accesscontrolrule.Helper
 	credentials credentialClient
+	profileData vmcpconfig.ProfileDataStore
 }
 
 type credentialClient interface {
@@ -32,8 +33,8 @@ type credentialClient interface {
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
-func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper) *Handler {
-	return &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient}
+func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, profileData vmcpconfig.ProfileDataStore) *Handler {
+	return &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient, profileData: profileData}
 }
 
 // PruneUnauthorizedComponents preserves missing sources, but removes existing

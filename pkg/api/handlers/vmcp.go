@@ -34,13 +34,17 @@ type VMCPHandler struct {
 	acrHelper                 *accesscontrolrule.Helper
 	mcpBackend                string
 	secretBindingAllowedLabel string
+	// profileData holds the data stored for profiles outside the manifest, which decides whether a stored vMCP keeps
+	// its exception from the wildcard rule across profiles.
+	profileData vmcpconfig.ProfileDataStore
 }
 
-func NewVMCPHandler(acrHelper *accesscontrolrule.Helper, mcpBackend, secretBindingAllowedLabel string) *VMCPHandler {
+func NewVMCPHandler(acrHelper *accesscontrolrule.Helper, mcpBackend, secretBindingAllowedLabel string, profileData vmcpconfig.ProfileDataStore) *VMCPHandler {
 	return &VMCPHandler{
 		acrHelper:                 acrHelper,
 		mcpBackend:                mcpBackend,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		profileData:               profileData,
 	}
 }
 
@@ -145,6 +149,8 @@ func vmcpForUser(req api.Context, vmcp v1.VMCP) v1.VMCP {
 		component.ToolOverrides, _ = vmcpconfig.GrantedToolOverrides(component.ID, component.ToolOverrides, grant)
 	}
 	manifest.Profiles = vmcpconfig.MatchingProfiles(req.User, manifest.Profiles)
+	// Conditions describe the whole definition, and may name profiles this user does not see.
+	vmcp.Status.Conditions = nil
 
 	// Component statuses are keyed by name. Readiness only reflects the visible components.
 	visible := make(map[string]struct{}, len(manifest.Components))
@@ -181,11 +187,18 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+	// A new vMCP has no stored profiles to exempt.
+	if err := manifest.ValidateWildcardProfiles(); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
 	if err := h.validateConfigurationSecretBindings(req, manifest, userID); err != nil {
 		return err
 	}
 
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
+	if err := vmcpconfig.InitializeProfileIDs(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 
@@ -254,12 +267,26 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+	// Checked before ReconcileProfileIDs, which gives the profiles sent without IDs their new IDs.
+	if violation, err := vmcpconfig.CheckReplacedProfiles(req.Context(), h.profileData, vmcp.Name, vmcp.Spec.Manifest, manifest); err != nil {
+		return err
+	} else if violation != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", violation)
+	}
+	if err := vmcpconfig.ReconcileProfileIDs(vmcp.Spec.Manifest, &manifest); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
 	vmcpconfig.PruneRemovedComponentProfiles(vmcp.Spec.Manifest.Components, &manifest)
 	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components, true); err != nil {
 		return err
 	}
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
+	if violation, err := vmcpconfig.CheckWildcardProfiles(req.Context(), h.profileData, vmcp.Name, &vmcp.Spec.Manifest, manifest); err != nil {
+		return err
+	} else if violation != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", violation)
 	}
 	if err := h.validateConfigurationSecretBindings(req, manifest, vmcp.Spec.UserID); err != nil {
 		return err
@@ -351,6 +378,12 @@ func (h *VMCPHandler) TriggerUpdate(req api.Context) error {
 		}
 		if err := vmcp.Spec.Manifest.Validate(); err != nil {
 			return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+		}
+		// Adopting snapshots changes no profile, so only profile data takes away a stored vMCP's wildcard exception.
+		if violation, err := vmcpconfig.CheckWildcardProfiles(req.Context(), h.profileData, vmcp.Name, &vmcp.Spec.Manifest, vmcp.Spec.Manifest); err != nil {
+			return err
+		} else if violation != nil {
+			return types.NewErrBadRequest("invalid VMCP manifest: %v", violation)
 		}
 		for _, component := range vmcp.Spec.Manifest.Components {
 			if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {
@@ -708,6 +741,16 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 			ConnectionSnapshot: status.ConnectionSnapshot,
 		})
 	}
+	var conditions []types.VMCPCondition
+	for _, condition := range vmcp.Status.Conditions {
+		conditions = append(conditions, types.VMCPCondition{
+			Type:               condition.Type,
+			Status:             string(condition.Status),
+			Reason:             condition.Reason,
+			Message:            condition.Message,
+			LastTransitionTime: *types.NewTime(condition.LastTransitionTime.Time),
+		})
+	}
 	return types.VMCP{
 		LegacySlug:              vmcp.Spec.LegacySlug,
 		SourceURL:               vmcp.Spec.SourceURL,
@@ -720,6 +763,7 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 		Status: types.VMCPStatus{
 			Ready:      vmcp.Status.Ready,
 			Components: componentStatuses,
+			Conditions: conditions,
 		},
 	}
 }

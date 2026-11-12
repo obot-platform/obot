@@ -3,14 +3,32 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 )
 
 const (
+	// VMCPProfileIDPrefix starts every profile ID that Obot assigns, whether random (vMCPs managed through the API) or
+	// derived from the vMCP and profile names (catalog-synced and migrated vMCPs). IDs set in catalog YAML need not
+	// use it.
+	VMCPProfileIDPrefix = "vp1"
+
+	// VMCPConditionAgentSelectionAmbiguous is true when more than one profile names every agent, through the agent
+	// wildcard (agents:*) or the selector wildcard (subjects:*). Such a vMCP predates the rule that allows at most one,
+	// and keeps working for users, but an agent connecting to it cannot be given one wildcard profile's configuration
+	// and OAuth grants, so agent selection fails closed until an administrator leaves one such profile.
+	VMCPConditionAgentSelectionAmbiguous = "AgentSelectionAmbiguous"
+
 	VMCPConfigurationPolicyProhibited  VMCPConfigurationPolicyType = "prohibited"
 	VMCPConfigurationPolicyFixed       VMCPConfigurationPolicyType = "fixed"
 	VMCPConfigurationPolicyUserAllowed VMCPConfigurationPolicyType = "userAllowed"
+)
+
+var (
+	// vmcpProfileIDPattern is a DNS label, so that a profile ID is safe in URL paths, credential contexts and object
+	// names.
+	vmcpProfileIDPattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`)
 )
 
 // VMCP is a stable, optionally multi-component MCP endpoint definition.
@@ -89,6 +107,11 @@ type VMCPConfigurationPolicyType string
 // are additive. AllowAllComponents grants all tools enabled on every component
 // otherwise only the specified components and their allowed tools are granted.
 type VMCPProfile struct {
+	// ID is the profile's immutable identity, which profile configuration and OAuth grants are stored under. The API
+	// assigns it: a request keeps a profile's ID by sending it back, and a profile sent without one is a new profile,
+	// even if it has the name of a profile being removed. Catalog YAML may set it; otherwise catalog sync derives it
+	// from the vMCP and profile names, so renaming a profile in YAML without an ID makes it a new profile.
+	ID          string                 `json:"id,omitempty"`
 	Name        string                 `json:"name"`
 	Subjects    []Subject              `json:"subjects"`
 	Permissions VMCPProfilePermissions `json:"vmcpPermissions,omitempty"`
@@ -193,6 +216,18 @@ func (m VMCPManifest) ValidateComponents(components map[string]VMCPComponentSet)
 type VMCPStatus struct {
 	Ready      bool                  `json:"ready,omitempty"`
 	Components []VMCPComponentStatus `json:"components,omitempty"`
+	// Conditions report states of the vMCP as a whole, such as VMCPConditionAgentSelectionAmbiguous.
+	Conditions []VMCPCondition `json:"conditions,omitempty"`
+}
+
+// VMCPCondition is one condition of a vMCP's status.
+type VMCPCondition struct {
+	Type string `json:"type"`
+	// Status is True, False or Unknown.
+	Status             string `json:"status"`
+	Reason             string `json:"reason,omitempty"`
+	Message            string `json:"message,omitempty"`
+	LastTransitionTime Time   `json:"lastTransitionTime"`
 }
 
 type VMCPComponentStatus struct {
@@ -362,6 +397,9 @@ func (m VMCPManifest) Validate() error {
 	}
 
 	profileNames := make(map[string]struct{}, len(m.Profiles))
+	profileIDs := make(map[string]struct{}, len(m.Profiles))
+	// agentProfiles maps each explicit agent ID to the profile that names it.
+	agentProfiles := map[string]string{}
 	for _, profile := range m.Profiles {
 		if err := m.ValidateComponents(profile.Permissions.AllowedComponents); err != nil {
 			return fmt.Errorf("profile %q: %w", profile.Name, err)
@@ -373,6 +411,27 @@ func (m VMCPManifest) Validate() error {
 			return fmt.Errorf("duplicate profile name %q", profile.Name)
 		}
 		profileNames[profile.Name] = struct{}{}
+		// The ID is assigned after validation on some paths, so a profile without one is accepted here.
+		if profile.ID != "" {
+			if err := ValidateVMCPProfileID(profile.ID); err != nil {
+				return fmt.Errorf("profile %q: %w", profile.Name, err)
+			}
+			if _, ok := profileIDs[profile.ID]; ok {
+				return fmt.Errorf("duplicate profile ID %q", profile.ID)
+			}
+			profileIDs[profile.ID] = struct{}{}
+		}
+		// An agent's configuration and OAuth grants come from the one profile that names it, so no two profiles may
+		// name the same agent. No stored vMCP predates agent subjects, so this has no legacy exception.
+		for _, subject := range profile.Subjects {
+			if subject.Type != SubjectTypeAgent || subject.ID == SubjectWildcardID {
+				continue
+			}
+			if other, ok := agentProfiles[subject.ID]; ok && other != profile.Name {
+				return fmt.Errorf("agent %q is named by profiles %q and %q; an agent may be named by at most one profile", subject.ID, other, profile.Name)
+			}
+			agentProfiles[subject.ID] = profile.Name
+		}
 		if len(profile.Subjects) == 0 {
 			return fmt.Errorf("profile %q must have at least one subject", profile.Name)
 		}
@@ -390,6 +449,84 @@ func (m VMCPManifest) Validate() error {
 	}
 
 	return nil
+}
+
+// ValidateVMCPProfileID checks the format of a profile ID: a DNS label of lowercase letters, digits and hyphens, at
+// most 63 characters long, so that it is safe in URL paths, credential contexts and object names.
+func ValidateVMCPProfileID(id string) error {
+	if !vmcpProfileIDPattern.MatchString(id) {
+		return fmt.Errorf("invalid profile ID %q: use 1-63 lowercase letters, digits and hyphens, starting and ending with a letter or digit", id)
+	}
+	return nil
+}
+
+// ValidateWildcardProfiles checks the wildcards across a vMCP's profiles: either at most one profile names everyone
+// with the selector wildcard (subjects:*), or at most one names every user (users:*) and at most one every agent
+// (agents:*), and not both forms. Each profile's own wildcards are checked by Validate.
+//
+// Validate does not apply this rule, because vMCPs stored before it may break it and must keep working for users.
+// Callers apply it to new vMCPs and to changes that it does not exempt (see pkg/vmcp.CheckWildcardProfiles).
+func (m VMCPManifest) ValidateWildcardProfiles() error {
+	const mixedWildcardProfiles = "name everyone with the selector wildcard in one profile, or every user and every agent with their own wildcards, not both"
+
+	var selector, users, agents []string
+	for _, profile := range m.Profiles {
+		hasSelector, hasUsers, hasAgents := wildcardKinds(profile.Subjects)
+		if hasSelector {
+			selector = append(selector, profile.Name)
+		}
+		if hasUsers {
+			users = append(users, profile.Name)
+		}
+		if hasAgents {
+			agents = append(agents, profile.Name)
+		}
+	}
+	switch {
+	case len(selector) > 0 && len(users) > 0:
+		return fmt.Errorf("profile %q uses the selector wildcard (*) and profile %q the user wildcard: %s", selector[0], users[0], mixedWildcardProfiles)
+	case len(selector) > 0 && len(agents) > 0:
+		return fmt.Errorf("profile %q uses the selector wildcard (*) and profile %q the agent wildcard: %s", selector[0], agents[0], mixedWildcardProfiles)
+	case len(selector) > 1:
+		return fmt.Errorf("profiles %q and %q both use the selector wildcard (*); at most one profile may name everyone", selector[0], selector[1])
+	case len(users) > 1:
+		return fmt.Errorf("profiles %q and %q both use the user wildcard; at most one profile may name every user", users[0], users[1])
+	case len(agents) > 1:
+		return fmt.Errorf("profiles %q and %q both use the agent wildcard; at most one profile may name every agent", agents[0], agents[1])
+	}
+	return nil
+}
+
+// AgentWildcardProfiles returns the profiles that name every agent: those with the agent wildcard (agents:*) or the
+// selector wildcard (subjects:*). An agent that no profile names explicitly falls back to such a profile, so when there
+// is more than one, agent selection is ambiguous (VMCPConditionAgentSelectionAmbiguous) and must fail closed.
+func (m VMCPManifest) AgentWildcardProfiles() []VMCPProfile {
+	var profiles []VMCPProfile
+	for _, profile := range m.Profiles {
+		if slices.ContainsFunc(profile.Subjects, func(subject Subject) bool {
+			return subject.IsWildcard() && (subject.Type == SubjectTypeSelector || subject.Type == SubjectTypeAgent)
+		}) {
+			profiles = append(profiles, profile)
+		}
+	}
+	return profiles
+}
+
+// Profile returns the profile with id, and whether the manifest has one. An empty id names no profile.
+func (m VMCPManifest) Profile(id string) (VMCPProfile, bool) {
+	index := slices.IndexFunc(m.Profiles, func(profile VMCPProfile) bool { return profile.ID == id })
+	if id == "" || index < 0 {
+		return VMCPProfile{}, false
+	}
+	return m.Profiles[index], true
+}
+
+// IsAgentCapable reports whether the profile can apply to an agent: it names every agent (agents:*), everyone
+// (subjects:*), or an agent by ID. Only agent-capable profiles may carry profile configuration and OAuth grants.
+func (p VMCPProfile) IsAgentCapable() bool {
+	return slices.ContainsFunc(p.Subjects, func(subject Subject) bool {
+		return subject.Type == SubjectTypeAgent || subject.Type == SubjectTypeSelector && subject.ID == SubjectWildcardID
+	})
 }
 
 func (m VMCPInstanceManifest) Validate() error {

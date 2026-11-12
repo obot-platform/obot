@@ -61,9 +61,11 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 		registryDefinition("vmcp1closed", ""),
 		registryDefinition("vmcp1anonymoususer", "", types.Subject{Type: types.SubjectTypeUser, ID: "anonymous"}),
 		registryDefinition("vmcp1anonymousgroup", "", types.Subject{Type: types.SubjectTypeGroup, ID: "everyone"}),
-		// The user wildcard (users:*) names every user, so every authenticated user sees it, but anonymous discovery
-		// publishes only the selector wildcard.
+		// The user wildcard (users:*) names every user, so anonymous discovery lists it: anyone who signs in as a user
+		// can connect.
 		registryDefinition("vmcp1userstar", "", types.Subject{Type: types.SubjectTypeUser, ID: "*"}),
+		// The agent wildcard (agents:*) grants no user, so neither anonymous discovery nor a signed-in user lists it.
+		registryDefinition("vmcp1agentstar", "", types.Subject{Type: types.SubjectTypeAgent, ID: "*"}),
 	}
 	objects := make([]kclient.Object, 0, len(definitions))
 	for _, definition := range definitions {
@@ -77,7 +79,7 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 	}{
 		{
 			name: "nil anonymous user",
-			want: []string{"vmcp1public"},
+			want: []string{"vmcp1public", "vmcp1userstar"},
 		},
 		{
 			name: "anonymous identity and groups cannot grant private access",
@@ -86,14 +88,14 @@ func TestRegistryVMCPVisibility(t *testing.T) {
 				Groups: []string{authz.UnauthenticatedGroup},
 				Extra:  map[string][]string{"auth_provider_groups": {"everyone"}},
 			}),
-			want: []string{"vmcp1public"},
+			want: []string{"vmcp1public", "vmcp1userstar"},
 		},
 		{
 			name: "identity without authenticated group cannot grant private access",
 			user: principaltest.AsUser(&user.DefaultInfo{
 				UID: "1",
 			}),
-			want: []string{"vmcp1public"},
+			want: []string{"vmcp1public", "vmcp1userstar"},
 		},
 		{
 			name: "authenticated personal and user profiles",

@@ -380,6 +380,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponent":                             schema_obot_platform_obot_apiclient_types_VMCPComponent(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet":                          schema_obot_platform_obot_apiclient_types_VMCPComponentSet(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus":                       schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPCondition":                             schema_obot_platform_obot_apiclient_types_VMCPCondition(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfiguration":                         schema_obot_platform_obot_apiclient_types_VMCPConfiguration(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPolicy":                   schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPresence":                 schema_obot_platform_obot_apiclient_types_VMCPConfigurationPresence(ref),
@@ -1482,6 +1483,12 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(re
 						},
 					},
 					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"profileID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -19446,6 +19453,54 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_VMCPCondition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPCondition is one condition of a vMCP's status.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Status is True, False or Unknown.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"lastTransitionTime": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"type", "status", "lastTransitionTime"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_VMCPConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19865,6 +19920,13 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 				Description: "VMCPProfile grants access and tools to matching users and groups. Profiles are additive. AllowAllComponents grants all tools enabled on every component otherwise only the specified components and their allowed tools are granted.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the profile's immutable identity, which profile configuration and OAuth grants are stored under. The API assigns it: a request keeps a profile's ID by sending it back, and a profile sent without one is a new profile, even if it has the name of a profile being removed. Catalog YAML may set it; otherwise catalog sync derives it from the vMCP and profile names, so renaming a profile in YAML without an ID makes it a new profile.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -19956,11 +20018,24 @@ func schema_obot_platform_obot_apiclient_types_VMCPStatus(ref common.ReferenceCa
 							},
 						},
 					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions report states of the vMCP as a whole, such as VMCPConditionAgentSelectionAmbiguous.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPCondition"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus"},
+			"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus", "github.com/obot-platform/obot/apiclient/types.VMCPCondition"},
 	}
 }
 
@@ -29913,11 +29988,38 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"profileIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProfileIDs are the profile IDs the vMCP controller last observed in the manifest. A profile whose ID is here but no longer in the manifest was deleted, so the controller deletes the data stored outside the manifest for it (vmcp.ProfileDataStore) and then records the manifest's IDs. A handler that stores such data for a profile must first make sure its ID is recorded here, so that a deletion the controller has not yet observed still cleans it up.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(metav1.Condition{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1.VMCPComponentStatus{}.OpenAPIModelName()},
+			v1.VMCPComponentStatus{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
 	}
 }
 

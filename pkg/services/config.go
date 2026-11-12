@@ -69,6 +69,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/upgrade"
+	"github.com/obot-platform/obot/pkg/vmcp"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -222,6 +223,12 @@ type Services struct {
 	// and AuthEnabled are both set: without authentication, agents are not supported. The agent admin API (spec 05)
 	// answers 404 while it is unset, and must refuse with an explanation while AuthEnabled is unset.
 	EnableAgentIdentities bool
+
+	// VMCPProfileData are the stores of data kept per vMCP profile outside the manifest: profile configuration and
+	// profile OAuth grants. The vMCP controller deletes a profile's data when the profile or its vMCP is deleted, and
+	// a vMCP with any keeps no exception from the wildcard rule across profiles. Each store is appended here as it is
+	// added; with none, no profile has data.
+	VMCPProfileData vmcp.ProfileDataStores
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper

@@ -175,6 +175,7 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 				access.VMCPProfiles = append(access.VMCPProfiles, types.AgentIdentityVMCPProfileAccess{
 					VMCPID:          vmcp.Name,
 					VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
+					ProfileID:       profile.ID,
 					ProfileName:     profile.Name,
 					Match:           match,
 				})

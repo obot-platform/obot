@@ -13,6 +13,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -896,6 +897,10 @@ func TestMigrateVMCPEverythingAdminGroupsUpgrade(t *testing.T) {
 			require.NoError(t, client.List(ctx, &instances))
 			require.Len(t, vmcps.Items, 1)
 			require.Len(t, instances.Items, 1)
+			// The migration gives the profiles it creates IDs derived from the vMCP and profile names.
+			for i := range expectedProfiles {
+				expectedProfiles[i].ID = vmcp.DerivedProfileID(vmcps.Items[0].Name, expectedProfiles[i].Name)
+			}
 			require.Equal(t, expectedProfiles, vmcps.Items[0].Spec.Manifest.Profiles)
 			admin := testUserInfo("1", []string{types.GroupAdmin}, map[string][]string{"obot_groups": {types.GroupAdmin}})
 			require.Equal(t, !tc.alreadyMigrated, authz.UserCanConnectVMCP(admin, &vmcps.Items[0]))

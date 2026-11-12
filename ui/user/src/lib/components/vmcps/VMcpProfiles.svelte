@@ -26,7 +26,10 @@
 		users: AccessControlRuleSubject[];
 		resources: ProfileResource[];
 	};
-	type Profile = ProfileManifest & { id: string };
+	// id is the profile's name, which identifies it in the URL while editing. profileID is the
+	// server-assigned ID, which must be sent back on save: a profile saved without one is a new
+	// profile, without the stored data of the one it replaces.
+	type Profile = ProfileManifest & { id: string; profileID?: string };
 </script>
 
 <script lang="ts">
@@ -248,6 +251,7 @@
 		return {
 			allowAllComponents: permissions?.allowAllComponents ?? false,
 			id: manifest.name,
+			profileID: manifest.id,
 			name: manifest.name,
 			users: (manifest.subjects ?? []).map((subject) => ({ ...subject })),
 			resources: componentServers
@@ -298,6 +302,7 @@
 		if (profile.allowAllComponents) vmcpPermissions.allowAllComponents = true;
 		else vmcpPermissions.allowedComponents = allowedComponents;
 		return {
+			id: profile.profileID,
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
 			vmcpPermissions
@@ -532,7 +537,8 @@
 
 		const profile: Profile = {
 			...cloneProfile({ ...draft, name }),
-			id: name
+			id: name,
+			profileID: profiles.find((candidate) => candidate.id === editingId)?.profileID
 		};
 		const next = editingId
 			? profiles.map((candidate) => (candidate.id === editingId ? profile : candidate))
@@ -589,7 +595,12 @@
 				components: componentsWithLocalToolOverrides(latest.components ?? []),
 				profiles: next.map(profileToManifest)
 			});
-			profiles = next;
+			// Profiles added by this save get their IDs from the server.
+			profiles = next.map((profile) => ({
+				...profile,
+				profileID:
+					profile.profileID ?? updated.profiles?.find((saved) => saved.name === profile.name)?.id
+			}));
 			notifications.add(message, 'success');
 			onUpdated?.(updated);
 			return true;

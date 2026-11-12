@@ -56,8 +56,11 @@ func (h *Handler) ListServers(req api.Context) error {
 }
 
 // Registry visibility follows consumption permissions, including for administrators.
-// Anonymous discovery deliberately publishes only shared definitions with an explicit
-// wildcard profile, without interpreting anonymous user IDs or groups as grants.
+// Anonymous discovery shows a client, before it signs in, the shared definitions that every
+// user who signs in can connect to: those with a profile for everyone (subjects:*) or for every
+// user (users:*). It never interprets anonymous user IDs or groups as grants. A definition that
+// only the agent wildcard (agents:*) grants is not listed, because signing in as a user does not
+// grant it, and agents always present their API key, so they are never anonymous.
 func registryVMCPVisible(req api.Context, definition *v1.VMCP) bool {
 	// Empty drafts cannot accept connections through the advertised remote.
 	if len(definition.Spec.Manifest.Components) == 0 {
@@ -71,7 +74,7 @@ func registryVMCPVisible(req api.Context, definition *v1.VMCP) bool {
 	}
 	for _, profile := range definition.Spec.Manifest.Profiles {
 		for _, subject := range profile.Subjects {
-			if subject.Type == types.SubjectTypeSelector && subject.ID == "*" {
+			if subject.IsWildcard() && (subject.Type == types.SubjectTypeSelector || subject.Type == types.SubjectTypeUser) {
 				return true
 			}
 		}

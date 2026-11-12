@@ -58,6 +58,13 @@ type VMCPSpec struct {
 type VMCPStatus struct {
 	Ready      bool                  `json:"ready,omitempty"`
 	Components []VMCPComponentStatus `json:"components,omitempty"`
+	// ProfileIDs are the profile IDs the vMCP controller last observed in the manifest. A profile whose ID is here but
+	// no longer in the manifest was deleted, so the controller deletes the data stored outside the manifest for it
+	// (vmcp.ProfileDataStore) and then records the manifest's IDs. A handler that stores such data for a profile must
+	// first make sure its ID is recorded here, so that a deletion the controller has not yet observed still cleans it up.
+	ProfileIDs []string `json:"profileIDs,omitempty"`
+	// Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 type VMCPComponentStatus struct {

@@ -59,7 +59,7 @@ func newParseTestHandler(t *testing.T) *Handler {
 	client := gatewayclient.New(t.Context(), db, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
 
-	return New("", "", client, nil, &mcp.SessionManager{}, 0)
+	return New("", "", client, nil, &mcp.SessionManager{}, 0, nil)
 }
 
 func TestCatalogParseFailureSyncLifecycle(t *testing.T) {

@@ -690,6 +690,8 @@ export interface VMCPComponent {
 }
 
 export interface VMCPProfile {
+	// Server-assigned and immutable. Send it back to keep the profile; omit it only for a new profile.
+	id?: string;
 	name: string;
 	subjects: AccessControlRuleSubject[];
 	vmcpPermissions?: VMCPProfilePermissions;

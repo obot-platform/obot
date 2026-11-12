@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"github.com/obot-platform/obot/apiclient/types"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -5286,6 +5287,18 @@ func (in *VMCPStatus) DeepCopyInto(out *VMCPStatus) {
 	if in.Components != nil {
 		in, out := &in.Components, &out.Components
 		*out = make([]VMCPComponentStatus, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.ProfileIDs != nil {
+		in, out := &in.ProfileIDs, &out.ProfileIDs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Conditions != nil {
+		in, out := &in.Conditions, &out.Conditions
+		*out = make([]metav1.Condition, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}

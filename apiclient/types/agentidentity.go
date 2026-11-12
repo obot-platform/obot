@@ -114,6 +114,7 @@ type AgentIdentityAccess struct {
 type AgentIdentityVMCPProfileAccess struct {
 	VMCPID          string       `json:"vmcpID"`
 	VMCPDisplayName string       `json:"vmcpDisplayName,omitempty"`
+	ProfileID       string       `json:"profileID,omitempty"`
 	ProfileName     string       `json:"profileName"`
 	Match           SubjectMatch `json:"match"`
 }

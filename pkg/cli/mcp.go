@@ -285,6 +285,11 @@ func validateMCPCatalogFile(ctx context.Context, out io.Writer, path string, req
 			if err := manifest.Validate(); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", label, err))
 			}
+			// Sync exempts a vMCP stored before this rule while its profiles' subjects are unchanged, but a new
+			// deployment syncs it as a new vMCP and refuses it.
+			if err := manifest.ValidateWildcardProfiles(); err != nil {
+				errs = append(errs, fmt.Errorf("%s: %w", label, err))
+			}
 			continue
 		}
 

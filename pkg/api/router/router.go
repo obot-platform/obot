@@ -86,7 +86,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	agentIdentities := handlers.NewAgentIdentityHandler(services.EnableAgentIdentities, services.AuthEnabled)
-	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel)
+	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel, services.VMCPProfileData)
 	vmcpInstances := handlers.NewVMCPInstanceHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()

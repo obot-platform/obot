@@ -156,6 +156,9 @@ func (h *Handler) Migrate(ctx context.Context, client kclient.Client, entry *v1.
 	} else if !apierrors.IsNotFound(err) {
 		return err
 	} else {
+		// Derived IDs are the ones catalog sync gives these profiles if it adopts the vMCP, and stay the same if the
+		// migration is retried.
+		vmcp.AssignDerivedProfileIDs(target.Name, &target.Spec.Manifest)
 		if err := h.save(ctx, vmcp.StaticConfigurationCredentialContext(target.Name), static); err != nil {
 			return err
 		}

@@ -32,6 +32,7 @@ import (
 	"github.com/obot-platform/obot/pkg/subjectgroups"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/version"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -76,6 +77,8 @@ type Handler struct {
 	mcpBackend                string
 	mcpSessionManager         *mcp.SessionManager
 	openAPIImporter           openAPIImporter
+	// profileData decides whether a synced vMCP keeps its exception from the wildcard rule across profiles.
+	profileData vmcpconfig.ProfileDataStore
 }
 
 // userInfo is a wrapper around kuser.Info that includes the user's role.
@@ -88,7 +91,7 @@ type userInfo struct {
 // the controller schedules the next periodic sync once it starts.
 type discardResponse struct{}
 
-func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int) *Handler {
+func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager, maxRepoSizeMB int, profileData vmcpconfig.ProfileDataStore) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	validationOptions := mcpSessionManager.ValidationOptions()
 	safeHTTPOptions := remoteURLValidationConfig.SafeHTTPOptions()
@@ -104,6 +107,7 @@ func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gcl
 		mcpBackend:                mcpSessionManager.MCPRuntimeBackend(),
 		mcpSessionManager:         mcpSessionManager,
 		openAPIImporter:           openapi.NewImporter(safeHTTPOptions, validationOptions.DevMode),
+		profileData:               profileData,
 	}
 }
 

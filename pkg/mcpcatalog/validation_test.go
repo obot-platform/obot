@@ -128,3 +128,53 @@ profiles:
 		})
 	}
 }
+
+func TestDecodeVMCPManifestProfileIDs(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		id        string
+		wantError bool
+	}{
+		{
+			name: "no ID",
+		},
+		{
+			name: "explicit ID",
+			id:   "engineering-agents",
+		},
+		{
+			name:      "uppercase ID",
+			id:        "Engineering",
+			wantError: true,
+		},
+		{
+			name:      "ID with a slash",
+			id:        "a/b",
+			wantError: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			id := ""
+			if tt.id != "" {
+				id = "\n  id: " + tt.id
+			}
+			manifest, err := DecodeVMCPManifest([]byte(`type: vmcp
+displayName: Profiles
+components:
+- id: files
+  name: Files
+  mcpServerCatalogEntryKey: files
+profiles:
+- name: engineering` + id + `
+  subjects:
+  - {type: group, id: engineering}
+`))
+			// Decoding keeps the ID, and manifest validation, which every caller runs, checks it.
+			require.NoError(t, err)
+			require.Equal(t, tt.id, manifest.Profiles[0].ID)
+			if tt.wantError {
+				require.ErrorContains(t, manifest.Validate(), "invalid profile ID")
+			}
+		})
+	}
+}
