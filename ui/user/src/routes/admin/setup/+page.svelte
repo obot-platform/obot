@@ -128,7 +128,7 @@
 </script>
 
 <svelte:head>
-	<title>Obot | {m.auth_setup_page_title()}</title>
+	<title>Obot | {m.core_setup()}</title>
 </svelte:head>
 
 <div class="flex min-h-dvh flex-col items-center">

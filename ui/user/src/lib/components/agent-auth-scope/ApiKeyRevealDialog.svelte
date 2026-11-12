@@ -1,8 +1,8 @@
 <script lang="ts">
-	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import ApiKeyRevealNotice from '$lib/components/agent-auth-scope/ApiKeyRevealNotice.svelte';
 	import { m } from '$lib/i18n';
-	import { TriangleAlert, KeyRound, ExternalLink } from '@lucide/svelte';
+	import { ExternalLink } from '@lucide/svelte';
 
 	interface Props {
 		keyValue?: string;
@@ -34,26 +34,7 @@
 		disableClickOutside
 	>
 		<div class="flex flex-col gap-6">
-			<div class="notification-alert">
-				<div class="flex items-start gap-3">
-					<TriangleAlert class="size-5 shrink-0" />
-					<div class="flex flex-col gap-1">
-						<p class="text-sm font-medium">{m.identity_access_agents_save_this_key_now()}</p>
-						<p class="text-xs">
-							{m.identity_access_agents_api_key_only_time()}
-						</p>
-					</div>
-				</div>
-			</div>
-
-			<div class="flex flex-col gap-2">
-				<p class="text-sm font-medium">{m.identity_access_agents_your_api_key()}</p>
-				<CopyField value={keyValue} id="agent-auth-scope-key">
-					{#snippet preContent()}
-						<KeyRound class="text-muted-content size-4 shrink-0" />
-					{/snippet}
-				</CopyField>
-			</div>
+			<ApiKeyRevealNotice keyValue={keyValue ?? ''} id="agent-auth-scope-key" />
 
 			<p class="text-muted text-sm">
 				{m.identity_access_agents_learn_api_key_docs_prefix()}

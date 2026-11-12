@@ -179,6 +179,7 @@
 	"core_select_more_options": "{count}개 더 있음 — 입력하여 결과를 좁히세요",
 	"core_select_summary_more": "{first}, {second} 외 {count}개",
 	"core_select_time": "시간 선택",
+	"core_setup": "설정",
 	"core_show_all_items": "모든 항목 표시",
 	"core_show_all_legend_items": "모든 범례 항목 표시",
 	"core_show_less": "간단히 보기",
