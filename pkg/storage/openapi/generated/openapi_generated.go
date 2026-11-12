@@ -1698,6 +1698,19 @@ func schema_obot_platform_obot_apiclient_types_AuditLogAPIKeyFilterOption(ref co
 							Format:  "",
 						},
 					},
+					"agentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentID and AgentDisplayName are set instead of UserID for the key of an agent, and are those of the agent's record even after the agent is deleted.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"agentDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"revoked": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -1765,9 +1778,16 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 							Format: "",
 						},
 					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisplayName names the actor when it is an agent, from the agent's current record, also after the agent is deleted. It is empty when the agent's record cannot be found, and for other actors.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"credentialID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "CredentialID records authentication context when the actor itself is a known user.",
+							Description: "CredentialID records authentication context when the actor itself is a known user or agent.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2321,7 +2341,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"actors": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Actors matches an Obot user ID or an enrolled device ID.",
+							Description: "Actors matches an Obot user ID, an agent as \"agent:<id>\", or an enrolled device ID.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -2419,8 +2439,21 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"userIDs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Single-source filters.",
+							Description: "Single-source filters. UserIDs matches the user ID of a user, or \"agent:<id>\" for an agent. ActorKinds matches the kind of principal that made the call, \"user\" or \"agent\".",
 							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actorKinds": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -7501,9 +7534,24 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "UserID is the user's ID. It is empty for a request made by an agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"principal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Principal is the user or agent that made the request. It is set for every request that has a caller.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
+						},
+					},
+					"agentDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentDisplayName is the current display name of the agent that made the request, also after the agent is deleted.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"apiKeyID": {
@@ -7739,11 +7787,11 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"id", "createdAt", "duration", "userID", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
+				Required: []string{"id", "createdAt", "duration", "userID", "principal", "modelProvider", "modelID", "targetModel", "reasoningEffort", "requestPath", "requestMethod", "responseID", "responseStatus", "outcome", "inputTokens", "outputTokens", "requestID", "userAgent", "clientSessionID", "clientIP"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.LLMAuditGuardrailFinding", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.LLMAuditGuardrailFinding", "github.com/obot-platform/obot/apiclient/types.PrincipalRef", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -7768,6 +7816,20 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref comm
 						},
 					},
 					"userIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserIDs matches the user ID of a user, or \"agent:<id>\" for an agent. ActorKinds matches the kind of principal that made the request, \"user\" or \"agent\".",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actorKinds": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
@@ -11081,9 +11143,17 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "UserID is the user's ID. It is empty for a call made by an agent.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"principal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Principal is the user or agent that made the call.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
 					"processingTimeMs": {
@@ -11108,11 +11178,11 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 						},
 					},
 				},
-				Required: []string{"createdAt", "userID", "processingTimeMs", "responseStatus", "error"},
+				Required: []string{"createdAt", "userID", "principal", "processingTimeMs", "responseStatus", "error"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.PrincipalRef", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -18160,8 +18230,16 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "UserID is the user's ID. It is empty for usage by an agent.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"principal": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Principal is the user or agent that made the requests.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.PrincipalRef"),
 						},
 					},
 					"model": {
@@ -18299,11 +18377,11 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"date", "inputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "thinkingTokens", "totalTokens", "inputSpend", "cacheReadSpend", "cacheWriteSpend", "outputSpend", "totalSpend"},
+				Required: []string{"date", "principal", "inputTokens", "cacheReadTokens", "cacheWriteTokens", "outputTokens", "thinkingTokens", "totalTokens", "inputSpend", "cacheReadSpend", "cacheWriteSpend", "outputSpend", "totalSpend"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.PrincipalRef", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 

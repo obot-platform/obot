@@ -263,6 +263,29 @@ func TestValidateAuditLogExportFilters(t *testing.T) {
 			},
 		},
 		{
+			name: "multi-source rejects agent filters, which are drill-downs like the user filter",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				ActorKinds:  []string{"agent"},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid single-source agent filters",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+				UserIDs:     []string{"agent:7"},
+				ActorKinds:  []string{"agent"},
+			},
+		},
+		{
+			name: "valid multi-source common filter naming an agent",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				Actors:      []string{"agent:7"},
+			},
+		},
+		{
 			name: "valid local-agent filters",
 			filters: types.AuditLogExportFilters{
 				SourceTypes:    []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},

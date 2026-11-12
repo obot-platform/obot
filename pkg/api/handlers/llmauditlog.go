@@ -19,6 +19,7 @@ var (
 	llmAuditLogFilterOptions = map[string][]any{
 		"api_key_id":        nil,
 		"user_id":           {""},
+		"actor_kind":        {""},
 		"model_provider":    {""},
 		"target_model":      {""},
 		"served_provider":   {""},
@@ -117,6 +118,7 @@ func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
 		APIKeyID:           api.ParseUintList(query["api_key_id"]),
 		HideModelsRequests: hideModelsRequests,
 		UserID:             parseStringList(query, "user_id"),
+		ActorKind:          parseStringList(query, "actor_kind"),
 		ModelProvider:      parseStringList(query, "model_provider"),
 		TargetModel:        parseStringList(query, "target_model"),
 		ServedProvider:     parseStringList(query, "served_provider"),

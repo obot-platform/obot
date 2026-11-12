@@ -70,7 +70,7 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 	event.EventType = api.AuditLogEventTypeMCPCall
 	// MCPFields.APIKey is a legacy field that may contain the bearer token. Only expose the
 	// event-time, non-secret display snapshot through the normalized audit-log API.
-	event.Actor = mcpActor(log.UserID, apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName), log.APIKeyRevoked)
+	event.Actor = mcpActor(log, apiKeyDisplayName(actorOf(log), log.APIKeyID, log.APIKeyName))
 	event.Action = api.AuditLogAction{
 		Operation: mcp.CallType,
 		Name:      mcp.CallIdentifier,
@@ -134,19 +134,41 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 	}
 }
 
-func apiKeyDisplayName(userID string, apiKeyID *uint, name string) string {
-	if name == "" || userID == "" || apiKeyID == nil || strings.Contains(userID, ":") {
+// actorOf returns the principal a row is attributed to.
+func actorOf(log gatewaytypes.MCPAuditLog) gatewaytypes.Actor {
+	return gatewaytypes.Actor{PrincipalKind: log.PrincipalKind, PrincipalID: log.PrincipalID, UserID: log.UserID}
+}
+
+// apiKeyDisplayName labels an API key with its event-time name and its masked identifier. actor is the principal the
+// key belongs to; the masked identifier of an agent's key is written with the agent key prefix.
+func apiKeyDisplayName(actor gatewaytypes.Actor, apiKeyID *uint, name string) string {
+	owner := actor.Owner()
+	if name == "" || owner == "" || apiKeyID == nil {
+		return name
+	}
+	// A user ID that has a colon is not one the masked identifier can be built from.
+	if !actor.IsAgent() && strings.Contains(owner, ":") {
 		return name
 	}
 
-	maskedKey := principal.MaskedAPIKeyName(userID, *apiKeyID)
+	maskedKey := principal.MaskedAPIKeyName(owner, *apiKeyID)
 	if name == maskedKey {
 		return name
 	}
 	return fmt.Sprintf("%s (%s)", name, maskedKey)
 }
 
-func mcpActor(userID, credentialID string, apiKeyRevoked bool) api.AuditLogActor {
+func mcpActor(log gatewaytypes.MCPAuditLog, credentialID string) api.AuditLogActor {
+	userID, apiKeyRevoked := log.UserID, log.APIKeyRevoked
+	if actorOf(log).IsAgent() {
+		return api.AuditLogActor{
+			ActorType:     api.AuditLogActorTypeAgent,
+			ID:            log.PrincipalID,
+			DisplayName:   log.AgentDisplayName,
+			CredentialID:  credentialID,
+			APIKeyRevoked: apiKeyRevoked,
+		}
+	}
 	if userID != "" {
 		return api.AuditLogActor{
 			ActorType:     api.AuditLogActorTypeUser,
@@ -210,7 +232,7 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 	event.Actor = api.AuditLogActor{
 		ActorType:     local.ActorType,
 		ID:            local.ActorID,
-		CredentialID:  apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName),
+		CredentialID:  apiKeyDisplayName(actorOf(log), log.APIKeyID, log.APIKeyName),
 		APIKeyRevoked: log.APIKeyRevoked,
 	}
 	event.Action = api.AuditLogAction{

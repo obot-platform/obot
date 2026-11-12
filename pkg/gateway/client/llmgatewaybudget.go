@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	"gorm.io/gorm"
@@ -48,8 +49,11 @@ type budgetUsageTotals struct {
 // LLMGatewayBudgetUsageEntry is the usage of one user (or of everyone, for a shared
 // budget) in each limit's current window, in the same order as the budget's limits.
 type LLMGatewayBudgetUsageEntry struct {
-	UserID string    `json:"userID,omitempty"`
-	Used   []float64 `json:"used"`
+	// UserID is the storage encoding of the principal the usage is counted for: the ID of a user, or "agent:<id>" for
+	// an agent. Principal is the same, typed, and is what a reader should use.
+	UserID    string              `json:"userID,omitempty"`
+	Principal types2.PrincipalRef `json:"principal,omitzero"`
+	Used      []float64           `json:"used"`
 }
 
 func (e *LLMGatewayBudgetExceeded) Error() string {
@@ -465,6 +469,9 @@ func (c *Client) LLMGatewayBudgetUsageReport(ctx context.Context, b *types.LLMGa
 	entries := make([]LLMGatewayBudgetUsageEntry, 0, len(userIDs))
 	for _, userID := range userIDs {
 		entry := LLMGatewayBudgetUsageEntry{UserID: userID, Used: make([]float64, len(b.Limits))}
+		if p, err := principal.Parse(userID); err == nil {
+			entry.Principal = p.Ref()
+		}
 		for i, l := range b.Limits {
 			totals, err := c.budgetUsageSince(ctx, b.ID, userID, starts[i])
 			if err != nil {

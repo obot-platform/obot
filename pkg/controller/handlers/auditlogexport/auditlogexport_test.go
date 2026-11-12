@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -717,5 +718,109 @@ func TestScheduledExportRetryAndCompletionPersistence(t *testing.T) {
 				t.Fatal("durably completed export uploaded again")
 			}
 		})
+	}
+}
+
+// TestExportIncludesAgentAttribution exports the calls of an agent and of the user with its numeric ID, filtered by
+// the agent, after the agent is deleted: the export names the agent, with its display name, and not the user.
+func TestExportIncludesAgentAttribution(t *testing.T) {
+	c := newExportTestGatewayClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	agent, err := c.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "Nightly builder", CreatorUserID: 1})
+	if err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	id := strconv.FormatUint(uint64(agent.ID), 10)
+	if err := c.DeleteAgent(ctx, agent.ID); err != nil {
+		t.Fatalf("delete agent: %v", err)
+	}
+
+	for _, actor := range []gatewaytypes.Actor{
+		{PrincipalKind: "agent", PrincipalID: id},
+		{PrincipalKind: "user", UserID: id},
+	} {
+		if err := c.InsertLLMAuditLog(ctx, &gatewaytypes.LLMAuditLog{
+			ID: actor.PrincipalKind, CreatedAt: now, UserID: actor.UserID, PrincipalKind: actor.PrincipalKind, PrincipalID: actor.PrincipalID,
+		}); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+	}
+	c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+		CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP, PrincipalKind: "agent", PrincipalID: id,
+		MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: "agent-tool"},
+	})
+	c.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
+		CreatedAt: now, SourceType: types.AuditLogSourceTypeMCP, UserID: id, PrincipalKind: "user",
+		MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call", CallIdentifier: "user-tool"},
+	})
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		if _, total, err := c.GetMCPAuditLogs(ctx, gatewayclient.MCPAuditLogOptions{}); err == nil && total == 2 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("MCP audit logs were not persisted")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	mcpExport := exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		UserIDs:     []string{"agent:" + id},
+	}, false)
+	logs, _, err := c.GetMCPAuditLogs(ctx, mcpAuditLogOptionsFromExport(mcpExport, 100, 0))
+	if err != nil {
+		t.Fatalf("get MCP audit logs: %v", err)
+	}
+	data, err := formatPresentedAuditLogs(logs, auditlog.PresentOptions{IncludeDetails: true})
+	if err != nil {
+		t.Fatalf("format MCP logs: %v", err)
+	}
+	lines := splitNonEmptyLines(string(data))
+	if len(lines) != 1 {
+		t.Fatalf("MCP export of the agent has %d rows, want 1: %s", len(lines), data)
+	}
+	var event types.AuditLogEvent
+	if err := json.Unmarshal([]byte(lines[0]), &event); err != nil {
+		t.Fatalf("unmarshal exported event: %v", err)
+	}
+	if event.Actor.ActorType != types.AuditLogActorTypeAgent || event.Actor.ID != id || event.Actor.DisplayName != "Nightly builder" || event.Action.Name != "agent-tool" {
+		t.Errorf("exported MCP actor = %+v, action %+v", event.Actor, event.Action)
+	}
+
+	llmExport := &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+		Type:       types.AuditLogTypeLLM,
+		StartTime:  metav1.NewTime(now.Add(-time.Hour)),
+		EndTime:    metav1.NewTime(now.Add(time.Hour)),
+		LLMFilters: &types.LLMAuditLogExportFilters{ActorKinds: []string{"agent"}, UserIDs: []string{"agent:" + id}},
+	}}
+	llmLogs, err := (&Handler{gatewayClient: c}).llmAuditLogFetcher()(ctx, llmExport, 100, 0)
+	if err != nil {
+		t.Fatalf("get LLM audit logs: %v", err)
+	}
+	llmData, err := formatLogs(llmLogs, gatewaytypes.ConvertLLMAuditLog)
+	if err != nil {
+		t.Fatalf("format LLM logs: %v", err)
+	}
+	var llmEvent types.LLMAuditLog
+	if lines := splitNonEmptyLines(string(llmData)); len(lines) != 1 || json.Unmarshal([]byte(lines[0]), &llmEvent) != nil {
+		t.Fatalf("LLM export of the agent = %s", llmData)
+	}
+	if llmEvent.ID != "agent" || llmEvent.UserID != "" || llmEvent.AgentDisplayName != "Nightly builder" ||
+		llmEvent.Principal != (types.PrincipalRef{Kind: types.PrincipalKindAgent, ID: id}) {
+		t.Errorf("exported LLM event = %+v", llmEvent)
+	}
+}
+
+func TestExportOptionsMapActorFilters(t *testing.T) {
+	mcp := mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		UserIDs:     []string{"agent:7"},
+		ActorKinds:  []string{"agent"},
+	}, false), 100, 0)
+	if !reflect.DeepEqual(mcp.ActorKind, []string{"agent"}) || !reflect.DeepEqual(mcp.UserID, []string{"agent:7"}) {
+		t.Errorf("MCP actor filters were not mapped: %#v", mcp)
 	}
 }

@@ -121,7 +121,7 @@ type AuditLogExportFilters struct {
 	// Common cross-source filters. These resolve to the appropriate column per source and are the
 	// only filters allowed when more than one source is selected.
 
-	// Actors matches an Obot user ID or an enrolled device ID.
+	// Actors matches an Obot user ID, an agent as "agent:<id>", or an enrolled device ID.
 	Actors []string `json:"actors,omitempty"`
 	// Operations is the MCP call type; local-agent tool calls are implicitly tools/call.
 	Operations []string `json:"operations,omitempty"`
@@ -137,7 +137,10 @@ type AuditLogExportFilters struct {
 	APIKeyIDs []uint `json:"apiKeyIDs,omitempty"`
 
 	// Single-source filters.
+	// UserIDs matches the user ID of a user, or "agent:<id>" for an agent. ActorKinds matches the kind of principal
+	// that made the call, "user" or "agent".
 	UserIDs                    []string `json:"userIDs,omitempty"`
+	ActorKinds                 []string `json:"actorKinds,omitempty"`
 	MCPIDs                     []string `json:"mcpIDs,omitempty"`
 	MCPServerDisplayNames      []string `json:"mcpServerDisplayNames,omitempty"`
 	MCPServerCatalogEntryNames []string `json:"mcpServerCatalogEntryNames,omitempty"`
@@ -161,8 +164,11 @@ type AuditLogExportFilters struct {
 
 // LLMAuditLogExportFilters represents filters for LLM audit log export
 type LLMAuditLogExportFilters struct {
-	APIKeyIDs        []uint   `json:"apiKeyIDs,omitempty"`
+	APIKeyIDs []uint `json:"apiKeyIDs,omitempty"`
+	// UserIDs matches the user ID of a user, or "agent:<id>" for an agent. ActorKinds matches the kind of principal
+	// that made the request, "user" or "agent".
 	UserIDs          []string `json:"userIDs,omitempty"`
+	ActorKinds       []string `json:"actorKinds,omitempty"`
 	ModelProviders   []string `json:"modelProviders,omitempty"`
 	TargetModels     []string `json:"targetModels,omitempty"`
 	RequestPaths     []string `json:"requestPaths,omitempty"`

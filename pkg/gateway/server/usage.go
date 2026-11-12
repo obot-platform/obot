@@ -110,7 +110,8 @@ func (s *Server) totalSystemTokenUsage(apiContext api.Context) error {
 
 // tokenUsageStats summarizes LLM gateway requests over a time range: totals, a time histogram,
 // spend by provider and the top models. The users, models and API keys it covers can be
-// narrowed with user_id, model and api_key_id, each repeatable or comma-separated.
+// narrowed with user_id, actor_kind, model and api_key_id, each repeatable or comma-separated. A user_id
+// is a user's ID, or "agent:<id>" for an agent.
 func (s *Server) tokenUsageStats(apiContext api.Context) error {
 	query := apiContext.URL.Query()
 	start, end, err := parseDateRange(query.Get("start"), query.Get("end"))
@@ -122,11 +123,12 @@ func (s *Server) tokenUsageStats(apiContext api.Context) error {
 	}
 
 	stats, err := apiContext.GatewayClient.TokenUsageStats(apiContext.Context(), client.TokenUsageStatsOptions{
-		Start:     start,
-		End:       end,
-		UserIDs:   splitQueryList(query["user_id"]),
-		Models:    splitQueryList(query["model"]),
-		APIKeyIDs: api.ParseUintList(splitQueryList(query["api_key_id"])),
+		Start:      start,
+		End:        end,
+		UserIDs:    splitQueryList(query["user_id"]),
+		ActorKinds: splitQueryList(query["actor_kind"]),
+		Models:     splitQueryList(query["model"]),
+		APIKeyIDs:  api.ParseUintList(splitQueryList(query["api_key_id"])),
 	})
 	if err != nil {
 		return err

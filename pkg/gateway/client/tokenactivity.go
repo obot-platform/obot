@@ -45,7 +45,10 @@ var (
 // [Start, End] made by any of UserIDs, with any of Models and any of APIKeyIDs, when set.
 type TokenUsageStatsOptions struct {
 	Start, End time.Time
-	UserIDs    []string
+	// UserIDs are the users, or the agents as "agent:<id>", whose requests are summarized.
+	UserIDs []string
+	// ActorKinds are the kinds of principal, "user" or "agent", whose requests are summarized.
+	ActorKinds []string
 	Models     []string
 	APIKeyIDs  []uint
 }
@@ -84,16 +87,23 @@ func (c *Client) InsertTokenUsage(ctx context.Context, activity *types.RunTokenA
 	})
 }
 
-func (c *Client) TokenUsageForUser(ctx context.Context, userID string, start, end time.Time) ([]types.RunTokenActivity, error) {
+// TokenUsageForUser returns the token usage records of the principal that owner names: the ID of a user, or
+// "agent:<id>" for an agent.
+func (c *Client) TokenUsageForUser(ctx context.Context, owner string, start, end time.Time) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
-	return activities, withUsage(c.db.WithContext(ctx)).Where("user_id = ?", userID).Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).Order("created_at DESC").Find(&activities).Error
+	return activities, applyOwnerFilter(withUsage(c.db.WithContext(ctx)), []string{owner}).Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC()).Order("created_at DESC").Find(&activities).Error
 }
 
-func (c *Client) TotalTokenUsageForUser(ctx context.Context, userID string, start, end time.Time) (types.RunTokenActivity, error) {
-	activity, err := c.tokenUsageByUser(ctx, userID, start, end)
+// TotalTokenUsageForUser returns the total token usage of the principal that owner names: the ID of a user, or
+// "agent:<id>" for an agent.
+func (c *Client) TotalTokenUsageForUser(ctx context.Context, owner string, start, end time.Time) (types.RunTokenActivity, error) {
+	activity, err := c.tokenUsageByUser(ctx, owner, start, end)
 	if err != nil || len(activity) == 0 {
+		actor := types.ActorForOwner(owner)
 		return types.RunTokenActivity{
-			UserID: userID,
+			UserID:        actor.UserID,
+			PrincipalKind: actor.PrincipalKind,
+			PrincipalID:   actor.PrincipalID,
 		}, err
 	}
 
@@ -122,10 +132,12 @@ func withUsage(db *gorm.DB) *gorm.DB {
 	return db.Where("total_tokens > 0 OR outcome = ? OR outcome = '' OR outcome IS NULL", types.LLMAuditOutcomeSuccess)
 }
 
-func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end time.Time) ([]types.RunTokenActivity, error) {
+// tokenUsageByUser totals token usage per principal: one result per user, and one per agent. owner, when set, limits it
+// to the principal it names.
+func (c *Client) tokenUsageByUser(ctx context.Context, owner string, start, end time.Time) ([]types.RunTokenActivity, error) {
 	var activities []types.RunTokenActivity
 	db := c.db.WithContext(ctx).Model(new(types.RunTokenActivity)).
-		Select("user_id, "+
+		Select("user_id, principal_kind, principal_id, "+
 			"SUM(input_tokens) as input_tokens, "+
 			"SUM(cache_read_tokens) as cache_read_tokens, "+
 			"SUM(cache_write_tokens) as cache_write_tokens, "+
@@ -138,12 +150,12 @@ func (c *Client) tokenUsageByUser(ctx context.Context, userID string, start, end
 			"SUM(output_spend) as output_spend, "+
 			"SUM(total_spend) as total_spend").
 		Where("created_at >= ? AND created_at <= ?", start.UTC(), end.UTC())
-	if userID != "" {
-		db = db.Where("user_id = ?", userID)
+	if owner != "" {
+		db = applyOwnerFilter(db, []string{owner})
 	} else {
 		db = db.Where("user_id IS NOT NULL")
 	}
-	return activities, db.Group("user_id").Scan(&activities).Error
+	return activities, db.Group("user_id, principal_kind, principal_id").Scan(&activities).Error
 }
 
 func (r tokenUsageStatsRow) totals() types2.TokenUsageStatsTotals {
@@ -192,9 +204,8 @@ func (c *Client) TokenUsageStats(ctx context.Context, opts TokenUsageStatsOption
 		db := c.db.WithContext(ctx).Model(new(types.RunTokenActivity)).
 			Where("created_at >= ? AND created_at <= ?", start, end).
 			Where("user_id IS NOT NULL")
-		if len(opts.UserIDs) > 0 {
-			db = db.Where("user_id IN ?", opts.UserIDs)
-		}
+		db = applyOwnerFilter(db, opts.UserIDs)
+		db = applyActorFilters(db, opts.ActorKinds)
 		if len(opts.Models) > 0 {
 			db = db.Where("model IN ?", opts.Models)
 		}

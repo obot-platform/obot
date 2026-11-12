@@ -18,6 +18,9 @@ const (
 
 	// AuditLogActorTypeUser identifies an authenticated Obot user.
 	AuditLogActorTypeUser AuditLogActorType = "user"
+	// AuditLogActorTypeAgent identifies an agent identity, a non-human caller with its own API keys. It is not the
+	// AI agent on a device that local-agent tool-call events report: that agent is described by AuditLogAgentDetails.
+	AuditLogActorTypeAgent AuditLogActorType = "agent"
 	// AuditLogActorTypeDevice identifies an enrolled device.
 	AuditLogActorTypeDevice AuditLogActorType = "device"
 	// AuditLogActorTypeCredential is used when a redacted MCP API-key identifier is the only
@@ -100,7 +103,10 @@ type AuditLogTimestamp struct {
 type AuditLogActor struct {
 	ActorType AuditLogActorType `json:"actorType"`
 	ID        string            `json:"id,omitempty"`
-	// CredentialID records authentication context when the actor itself is a known user.
+	// DisplayName names the actor when it is an agent, from the agent's current record, also after the agent is
+	// deleted. It is empty when the agent's record cannot be found, and for other actors.
+	DisplayName string `json:"displayName,omitempty"`
+	// CredentialID records authentication context when the actor itself is a known user or agent.
 	CredentialID string `json:"credentialID,omitempty"`
 	// APIKeyRevoked reports the current lifecycle state of the API key represented by CredentialID,
 	// or by ID when ActorType is AuditLogActorTypeCredential.

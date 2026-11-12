@@ -74,6 +74,7 @@ var (
 	// defaultFilterOptions (a fixed enum); the rest resolve to distinct values across both sources.
 	unifiedFilterOptions = map[string]struct{}{
 		"actor":      {},
+		"actor_kind": {},
 		"operation":  {},
 		"mcp_server": {},
 		"tool":       {},
@@ -214,6 +215,7 @@ func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 	opts := gateway.MCPAuditLogOptions{
 		APIKeyID:                  api.ParseUintList(query["api_key_id"]),
 		UserID:                    parseMultiValueParam(query, "user_id"),
+		ActorKind:                 parseMultiValueParam(query, "actor_kind"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
 		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
 		MCPServerCatalogEntryName: parseMultiValueParam(query, "mcp_server_catalog_entry_name"),
@@ -792,6 +794,10 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 	if auditLog.SourceType == "" {
 		auditLog.SourceType = types.AuditLogSourceTypeMCP
 	}
+	// The subject arrives as the storage encoding of the caller, as the MCP server was given it, so it is decoded
+	// into the row's attribution here rather than from a UserInfo. An agent's call has no user ID.
+	actor := gatewaytypes.ActorForOwner(auditLog.UserID)
+	auditLog.UserID, auditLog.PrincipalKind, auditLog.PrincipalID = actor.UserID, actor.PrincipalKind, actor.PrincipalID
 	if apiKeyID, err := strconv.ParseUint(auditLog.Metadata[principal.APIKeyIDExtra], 10, 0); err == nil && apiKeyID > 0 {
 		id := uint(apiKeyID)
 		auditLog.APIKeyID = &id

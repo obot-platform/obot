@@ -65,10 +65,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 		requestID = uuid.New().String()
 	}
 
-	userID := ""
-	if user != nil {
-		userID = user.GetUID()
-	}
+	actor := types.ActorForCaller(user)
 	var apiKeyID *uint
 	apiKeyName := ""
 	if attribution, ok := principal.APIKeyAttributionFromUser(user); ok {
@@ -80,7 +77,9 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 		log: types.LLMAuditLog{
 			ID:             uuid.New().String(),
 			CreatedAt:      now,
-			UserID:         userID,
+			UserID:         actor.UserID,
+			PrincipalKind:  actor.PrincipalKind,
+			PrincipalID:    actor.PrincipalID,
 			APIKeyID:       apiKeyID,
 			APIKeyName:     apiKeyName,
 			RequestPath:    req.URL.Path,

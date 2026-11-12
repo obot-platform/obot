@@ -40,6 +40,17 @@ func TestParseAuditLogOptsParsesAPIKeyIDs(t *testing.T) {
 	}
 }
 
+func TestParseAuditLogOptsParsesActorFilters(t *testing.T) {
+	opts := parseAuditLogOpts(map[string][]string{
+		"actor_kind": {"agent"},
+		"actor":      {"agent:7"},
+	})
+
+	if !slices.Equal(opts.ActorKind, []string{"agent"}) || !slices.Equal(opts.Actor, []string{"agent:7"}) {
+		t.Fatalf("actor filters = kind %v, actor %v", opts.ActorKind, opts.Actor)
+	}
+}
+
 func TestAuditLogInputUnmarshalFlatMCPFields(t *testing.T) {
 	var input auditLogInput
 	if err := json.Unmarshal([]byte(`{
@@ -1065,5 +1076,121 @@ func validLocalAgentAuditLogInput(occurredAt time.Time, idempotencyKey string, s
 			Response:    types.LocalAgentToolCallAuditLogPayload{Body: json.RawMessage(`{"ok":true}`)},
 			RawEvent:    json.RawMessage(`{"native":true}`),
 		},
+	}
+}
+
+func TestConvertMCPAuditLogAttributesTheCallerByPrincipal(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		subject       string
+		wantUserID    string
+		wantKind      string
+		wantPrincipal string
+	}{
+		{
+			name:       "user",
+			subject:    "7",
+			wantUserID: "7",
+			wantKind:   "user",
+		},
+		{
+			name:          "agent has no user ID",
+			subject:       "agent:7",
+			wantKind:      "agent",
+			wantPrincipal: "7",
+		},
+		{
+			name:       "a subject that is not a principal keeps being the user ID",
+			subject:    "someone@example.com",
+			wantUserID: "someone@example.com",
+		},
+		{
+			name: "no subject",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			input := auditLogInput{Subject: tt.subject}
+
+			convertMCPAuditLog(&input)
+
+			if input.UserID != tt.wantUserID || input.PrincipalKind != tt.wantKind || input.PrincipalID != tt.wantPrincipal {
+				t.Errorf("attribution = user %q, kind %q, principal %q; want user %q, kind %q, principal %q",
+					input.UserID, input.PrincipalKind, input.PrincipalID, tt.wantUserID, tt.wantKind, tt.wantPrincipal)
+			}
+		})
+	}
+}
+
+// TestCollectMCPAuditEntryAttributesAgentCalls follows an agent's call and its response through the collector, as the
+// proxy sends them, and checks that the one row is the agent's, with its key, and not a user's.
+func TestCollectMCPAuditEntryAttributesAgentCalls(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	handler := NewAuditLogHandler(gatewayClient)
+	now := time.Now().UTC()
+
+	handler.CollectMCPProxyAuditEntry(auditlogs.MCPAuditLog{
+		Metadata:       map[string]string{"mcpID": "mcp-1", "userID": "agent:7"},
+		Subject:        "agent:7",
+		CreatedAt:      now,
+		CallType:       "tools/call",
+		CallIdentifier: "search",
+		RequestID:      "1",
+		RequestBody:    json.RawMessage(`{}`),
+	}, false, "exchange-1", "")
+	handler.CollectMCPProxyAuditEntry(auditlogs.MCPAuditLog{
+		Metadata:       map[string]string{"mcpID": "mcp-1", "userID": "agent:7"},
+		Subject:        "agent:7",
+		CreatedAt:      now.Add(time.Second),
+		CallType:       "tools/call",
+		CallIdentifier: "search",
+		RequestID:      "1",
+		ResponseBody:   json.RawMessage(`{}`),
+		ResponseStatus: 200,
+	}, true, "exchange-1", "tools/call")
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		logs, total, err := gatewayClient.GetMCPAuditLogs(t.Context(), gatewayclient.MCPAuditLogOptions{
+			UserID: []string{"agent:7"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if total == 1 && logs[0].MCP().ResponseStatus == 200 {
+			if logs[0].UserID != "" || logs[0].PrincipalKind != "agent" || logs[0].PrincipalID != "7" {
+				t.Fatalf("attribution = user %q, kind %q, principal %q", logs[0].UserID, logs[0].PrincipalKind, logs[0].PrincipalID)
+			}
+			if _, total, err := gatewayClient.GetMCPAuditLogs(t.Context(), gatewayclient.MCPAuditLogOptions{UserID: []string{"7"}}); err != nil || total != 0 {
+				t.Fatalf("the user with the agent's numeric ID has %d rows, %v; want none", total, err)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("the agent's call and response were not persisted as one row")
+}
+
+func TestLocalAgentAuditLogSubmitDoesNotAttributeAnAgentAsAUser(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	events := []types.LocalAgentToolCallAuditLogInput{
+		validLocalAgentAuditLogInput(time.Now().UTC(), "entry-1", types.AuditLogOutcomeStatusSuccess),
+	}
+	extra := map[string][]string{}
+	principal.RecordKind(extra, principal.KindAgent)
+
+	err := NewLocalAgentAuditLogHandler().Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, events, &user.DefaultInfo{
+		UID:   "agent:7",
+		Extra: extra,
+	}))
+	if err != nil {
+		t.Fatalf("submit local-agent audit logs: %v", err)
+	}
+
+	got, err := gatewayClient.GetMCPAuditLog(t.Context(), 1, true)
+	if err != nil {
+		t.Fatalf("get local-agent audit log: %v", err)
+	}
+	if got.LocalAgentToolCallFields.ActorType != types.AuditLogActorTypeUnknown || got.UserID != "" {
+		t.Errorf("reported actor = %q, user %q; want unknown and no user", got.LocalAgentToolCallFields.ActorType, got.UserID)
 	}
 }

@@ -57,6 +57,16 @@ func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	}
 }
 
+func TestParseLLMAuditLogOptsParsesActorFilters(t *testing.T) {
+	opts := parseLLMAuditLogOpts(url.Values{
+		"user_id":    {"7,agent:7"},
+		"actor_kind": {"agent"},
+	})
+	if !slices.Equal(opts.UserID, []string{"7", "agent:7"}) || !slices.Equal(opts.ActorKind, []string{"agent"}) {
+		t.Fatalf("actor filters = user %v, kind %v", opts.UserID, opts.ActorKind)
+	}
+}
+
 func TestParseLLMAuditLogOptsHideModelsRequests(t *testing.T) {
 	for _, tt := range []struct {
 		name  string

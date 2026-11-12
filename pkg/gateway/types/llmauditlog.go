@@ -19,8 +19,18 @@ type LLMAuditLog struct {
 	// UpdatedAt tracks persistence rather than the event timestamp supplied by the request.
 	UpdatedAt time.Time `gorm:"index"`
 	Duration  int64
-	UserID    string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
-	APIKeyID  *uint  `gorm:"index:idx_llm_audit_api_key_created,priority:1"`
+	// UserID is the user's ID. It is empty for an agent's request, which is attributed through PrincipalKind and
+	// PrincipalID instead; see Actor.
+	UserID string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
+	// PrincipalKind says whether a user or an agent made the request, and PrincipalID which agent. A user's row,
+	// including one from before agents existed, has no PrincipalID and reads as its UserID's user. They stay readable
+	// after an agent is deleted.
+	PrincipalKind string `gorm:"type:text;not null;default:user;index:idx_llm_audit_principal,priority:1"`
+	PrincipalID   string `gorm:"type:text;index:idx_llm_audit_principal,priority:2"`
+	// AgentDisplayName is the current display name of the agent that made the request, populated when audit logs are
+	// read, from the agent row even when the agent has been deleted. It is not part of the historical event.
+	AgentDisplayName string `gorm:"-"`
+	APIKeyID         *uint  `gorm:"index:idx_llm_audit_api_key_created,priority:1"`
 	// APIKeyRevoked is current lifecycle metadata populated when audit logs are read.
 	// It is not persisted as part of the historical event snapshot.
 	APIKeyRevoked bool `gorm:"-"`
@@ -86,6 +96,8 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		CreatedAt:         *types2.NewTime(a.CreatedAt),
 		Duration:          a.Duration,
 		UserID:            a.UserID,
+		Principal:         Actor{PrincipalKind: a.PrincipalKind, PrincipalID: a.PrincipalID, UserID: a.UserID}.Ref(),
+		AgentDisplayName:  a.AgentDisplayName,
 		APIKeyID:          a.APIKeyID,
 		APIKeyRevoked:     a.APIKeyRevoked,
 		APIKeyName:        a.APIKeyName,

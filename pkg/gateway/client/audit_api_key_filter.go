@@ -19,6 +19,7 @@ type auditLogAPIKeyOptionRow struct {
 	APIKeyID   uint
 	APIKeyName string
 	UserID     uint
+	AgentID    uint
 	Revoked    bool
 }
 
@@ -133,6 +134,7 @@ func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.D
 		Select(`audit_key_snapshots.api_key_id,
 			audit_key_snapshots.api_key_name,
 			COALESCE(api_keys.user_id, 0) AS user_id,
+			COALESCE(api_keys.agent_id, 0) AS agent_id,
 			(api_keys.revoked_at IS NOT NULL) AS revoked`).
 		Joins("LEFT JOIN api_keys ON api_keys.id = audit_key_snapshots.api_key_id").
 		Order("audit_key_snapshots.api_key_name, audit_key_snapshots.api_key_id")
@@ -142,6 +144,18 @@ func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.D
 
 	var rows []auditLogAPIKeyOptionRow
 	if err := query.Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	agentIDs := map[uint]struct{}{}
+	for _, row := range rows {
+		if row.AgentID != 0 {
+			agentIDs[row.AgentID] = struct{}{}
+		}
+	}
+	// Deleted agents are looked up too: their keys are revoked, but still appear in the history they made.
+	agentNames, err := c.agentDisplayNames(ctx, agentIDs)
+	if err != nil {
 		return nil, err
 	}
 
@@ -155,6 +169,12 @@ func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.D
 		if row.UserID != 0 {
 			option.UserID = strconv.FormatUint(uint64(row.UserID), 10)
 			option.MaskedKey = principal.MaskedAPIKeyName(option.UserID, row.APIKeyID)
+		}
+		if row.AgentID != 0 {
+			// An agent's key has no user. Its masked identifier is written with the agent's own prefix.
+			option.AgentID = strconv.FormatUint(uint64(row.AgentID), 10)
+			option.AgentDisplayName = agentNames[row.AgentID]
+			option.MaskedKey = principal.Agent(row.AgentID).MaskedAPIKeyName(row.APIKeyID)
 		}
 		options = append(options, option)
 	}

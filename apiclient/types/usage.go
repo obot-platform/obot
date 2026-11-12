@@ -3,10 +3,13 @@ package types
 type TokenUsage struct {
 	Date Time `json:"date,omitzero"`
 
-	UserID     string `json:"userID,omitempty"`
-	Model      string `json:"model,omitempty"`
-	APIKeyID   *uint  `json:"apiKeyID,omitempty"`
-	APIKeyName string `json:"apiKeyName,omitempty"`
+	// UserID is the user's ID. It is empty for usage by an agent.
+	UserID string `json:"userID,omitempty"`
+	// Principal is the user or agent that made the requests.
+	Principal  PrincipalRef `json:"principal,omitzero"`
+	Model      string       `json:"model,omitempty"`
+	APIKeyID   *uint        `json:"apiKeyID,omitempty"`
+	APIKeyName string       `json:"apiKeyName,omitempty"`
 	// Provider is the provider that served the request, which routing rules and fallbacks can
 	// make differ from the requested model's.
 	Provider string `json:"provider,omitempty"`

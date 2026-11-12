@@ -503,7 +503,8 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 	// user_id, session_id, and client_ip live on both sources' rows but are drill-down filters, so
 	// like the source-specific fields they are only offered for a single-source selection; a
 	// multi-source export uses the common Actors filter (user OR device) instead.
-	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
+	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.ActorKinds) > 0 ||
+		len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
 
 	// Common cross-source filters and single-source filters are two distinct vocabularies keyed off
 	// the source selection; they can never be combined regardless of how many sources are selected.

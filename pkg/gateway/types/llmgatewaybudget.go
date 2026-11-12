@@ -55,8 +55,10 @@ type LLMGatewayBudgetLimit struct {
 
 // LLMGatewayBudgetUsage is one request's usage counted against one budget.
 type LLMGatewayBudgetUsage struct {
-	ID           uint      `gorm:"primaryKey"`
-	BudgetID     string    `gorm:"type:text;not null;index:idx_llm_gateway_budget_usage_budget_created,priority:1;index:idx_llm_gateway_budget_usage_budget_user_created,priority:1"`
+	ID       uint   `gorm:"primaryKey"`
+	BudgetID string `gorm:"type:text;not null;index:idx_llm_gateway_budget_usage_budget_created,priority:1;index:idx_llm_gateway_budget_usage_budget_user_created,priority:1"`
+	// UserID is the storage encoding of the principal the usage is counted for ("<id>" for a user, "agent:<id>"
+	// for an agent), the key per-user budgets count by. An agent and the user with its numeric ID count separately.
 	UserID       string    `gorm:"type:text;not null;index:idx_llm_gateway_budget_usage_budget_user_created,priority:2"`
 	CreatedAt    time.Time `gorm:"index;index:idx_llm_gateway_budget_usage_budget_created,priority:2;index:idx_llm_gateway_budget_usage_budget_user_created,priority:3"`
 	Model        string    `gorm:"type:text"`
