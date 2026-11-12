@@ -147,10 +147,10 @@ func TestAPIKeyAuthenticatorReadsObotAPIKeyHeaderOnlyOnTheLLMProxy(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	authenticate := func(path string) bool {
+	authenticate := func(path, bearer string) bool {
 		t.Helper()
 		req := httptest.NewRequest(http.MethodPost, path, nil)
-		req.Header.Set("Authorization", "Bearer sk-ant-oat01-subscription")
+		req.Header.Set("Authorization", bearer)
 		req.Header.Set(HeaderObotAPIKey, created.Key)
 		_, ok, err := NewAPIKeyAuthenticator(client).AuthenticateRequest(req)
 		if err != nil {
@@ -158,10 +158,12 @@ func TestAPIKeyAuthenticatorReadsObotAPIKeyHeaderOnlyOnTheLLMProxy(t *testing.T)
 		}
 		return ok
 	}
-	if !authenticate("/api/llm-proxy/v1/messages") {
-		t.Error("X-Obot-Api-Key didn't authenticate an LLM proxy request")
-	}
-	if authenticate("/mcp-connect/ms1example") {
-		t.Error("X-Obot-Api-Key authenticated an MCP connection")
+	for _, bearer := range []string{"Bearer sk-ant-oat01-subscription", "Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.c2ln"} {
+		if !authenticate("/api/llm-proxy/v1/responses", bearer) {
+			t.Error("X-Obot-Api-Key didn't authenticate an LLM proxy request")
+		}
+		if authenticate("/mcp-connect/ms1example", bearer) {
+			t.Error("X-Obot-Api-Key authenticated an MCP connection")
+		}
 	}
 }

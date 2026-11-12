@@ -133,12 +133,14 @@ func (h *LLMGatewayHandler) validateProviderBody(req api.Context, body []byte) (
 	if err := rejectAmbientCredentialRedirects(body, providerType); err != nil {
 		return "", err
 	}
-	if isAnthropicProvider(name, body) {
+	anthropic := isAnthropicProvider(name, body)
+	openai := isOpenAIProvider(name, body)
+	if anthropic || openai {
 		settings, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
 		if err != nil {
 			return "", err
 		}
-		if settings.SubscriptionPassthrough {
+		if anthropic && settings.ClaudeSubscriptionPassthrough || openai && settings.CodexSubscriptionPassthrough {
 			if err := rejectSubscriptionRedirects(body); err != nil {
 				return "", err
 			}
@@ -330,15 +332,17 @@ func triggerGatewayModelSync(req api.Context) {
 
 func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
 	settings, err := req.GatewayClient.GetLLMGatewaySettings(ctx)
-	if err != nil || !settings.SubscriptionPassthrough {
-		if err != nil {
-			slog.Warn("failed to read LLM gateway settings", "error", err)
-		}
+	if err != nil {
+		slog.Warn("failed to read LLM gateway settings", "error", err)
 		return
 	}
-	settings.SubscriptionPassthrough = false
+	if req.PathValue("provider") == "openai" {
+		settings.CodexSubscriptionPassthrough = false
+	} else {
+		settings.ClaudeSubscriptionPassthrough = false
+	}
 	if err := req.GatewayClient.SetLLMGatewaySettings(ctx, settings); err != nil {
-		slog.Warn("failed to turn off Claude subscriptions after removing the Anthropic provider", "error", err)
+		slog.Warn("failed to turn off subscriptions after removing their provider", "error", err)
 	}
 }
 
@@ -375,9 +379,8 @@ func (h *LLMGatewayHandler) UpdateSettings(req api.Context) error {
 	if err := req.GatewayClient.SetLLMGatewaySettings(req.Context(), settings); err != nil {
 		return err
 	}
-	if previous.SubscriptionPassthrough != settings.SubscriptionPassthrough {
-		// An Anthropic provider without keys lists its models only while subscriptions are
-		// allowed.
+	if previous.ClaudeSubscriptionPassthrough != settings.ClaudeSubscriptionPassthrough || previous.CodexSubscriptionPassthrough != settings.CodexSubscriptionPassthrough {
+		// Subscription providers without keys list their models only while enabled.
 		if err := llmengine.TriggerModelSync(req.Context(), req.Storage); err != nil {
 			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
 		}

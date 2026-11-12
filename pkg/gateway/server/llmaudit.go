@@ -202,7 +202,8 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 			r.log.ServedModel = route.Model
 			r.log.ProviderKey = route.Key
 			r.log.Fallback = route.Fallback
-			r.log.ClaudeSubscription = route.Subscription
+			r.log.ClaudeSubscription = route.Subscription && route.Provider == "anthropic"
+			r.log.CodexSubscription = route.Subscription && route.Provider == "openai"
 		}
 		r.finishBody()
 		c.LogLLMAuditEntry(r.log)
@@ -276,7 +277,7 @@ func shouldRedactHeader(key string) bool {
 		"anthropic-ratelimit-tokens-reset":
 		return false
 	}
-	if k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" || k == "x-obot-machine-fingerprint" {
+	if k == "chatgpt-account-id" || k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" || k == "x-obot-machine-fingerprint" {
 		return true
 	}
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")

@@ -494,5 +494,6 @@
 	"audit_usage_egress_outcome_denied": "已拒绝",
 	"audit_usage_egress_outcome_error": "错误",
 	"audit_usage_egress_outcome_interrupted": "已中断",
-	"audit_usage_usage_unknown_provider": "未知"
+	"audit_usage_usage_unknown_provider": "未知",
+	"audit_usage_audit_logs_model_routing_codex_subscription": "用户的 ChatGPT 订阅"
 }

@@ -990,9 +990,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 				// Guardrails are part of the gateway: it doesn't serve until they're in place.
 				FirstPlugin: guardrailInput,
 				LastPlugin:  guardrailOutput,
+				CodexSubscriptions: func(ctx context.Context) (bool, error) {
+					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
+					return settings.CodexSubscriptionPassthrough, err
+				},
 				ClaudeSubscriptions: func(ctx context.Context) (bool, error) {
 					settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
-					return settings.SubscriptionPassthrough, err
+					return settings.ClaudeSubscriptionPassthrough, err
 				},
 			})
 		}()

@@ -494,5 +494,13 @@
 	"models_providers_azure_resource_help": "Optional: enter all three Azure account fields to discover deployments using Entra credentials. Requires permission to read deployments. Leave Allowed Models empty or use * to list all discovered deployments.",
 	"models_providers_azure_subscription_id": "Subscription ID",
 	"models_providers_azure_resource_group": "Resource Group",
-	"models_providers_azure_account_name": "Account Name"
+	"models_providers_azure_account_name": "Account Name",
+	"models_providers_codex_subscriptions_heading": "Codex subscriptions",
+	"models_providers_codex_subscriptions_description_prefix": "Let Codex CLI users signed in with ChatGPT use their subscription through the gateway instead of this provider’s keys. Obot still requires their Obot API key in the",
+	"models_providers_allow_codex_subscriptions": "Allow Codex subscriptions",
+	"models_providers_codex_subscriptions_allowed": "Codex subscriptions allowed.",
+	"models_providers_codex_subscriptions_turned_off": "Codex subscriptions turned off.",
+	"models_connect_codex_default": "Codex default",
+	"models_providers_codex_subscriptions_only": "Codex subscriptions only",
+	"models_connect_codex_model_note": "Only OpenAI models use your ChatGPT subscription. Codex default keeps the client’s default model."
 }

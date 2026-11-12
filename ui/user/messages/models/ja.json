@@ -494,5 +494,13 @@
 	"models_providers_azure_resource_help": "省略可能：Entra 資格情報でデプロイを検出するには Azure アカウントの3項目をすべて入力します。デプロイの読み取り権限が必要です。許可モデルを空にするか * を指定すると、検出されたすべてのデプロイを表示します。",
 	"models_providers_azure_subscription_id": "サブスクリプション ID",
 	"models_providers_azure_resource_group": "リソース グループ",
-	"models_providers_azure_account_name": "アカウント名"
+	"models_providers_azure_account_name": "アカウント名",
+	"models_providers_codex_subscriptions_heading": "Codex サブスクリプション",
+	"models_providers_codex_subscriptions_description_prefix": "ChatGPT にサインインした Codex CLI ユーザーが、このプロバイダーのキーの代わりにサブスクリプションをゲートウェイ経由で使用できるようにします。Obot API キーは引き続き次のヘッダーに必要です：",
+	"models_providers_allow_codex_subscriptions": "Codex サブスクリプションを許可",
+	"models_providers_codex_subscriptions_allowed": "Codex サブスクリプションを許可しました。",
+	"models_providers_codex_subscriptions_turned_off": "Codex サブスクリプションを無効にしました。",
+	"models_connect_codex_default": "Codex のデフォルト",
+	"models_providers_codex_subscriptions_only": "Codex サブスクリプションのみ",
+	"models_connect_codex_model_note": "ChatGPT サブスクリプションは OpenAI モデルでのみ使用できます。Codex のデフォルトはクライアントのデフォルトモデルを使用します。"
 }

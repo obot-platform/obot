@@ -374,7 +374,7 @@ func TestStripCallerCredentials(t *testing.T) {
 func TestSubscriptionAttemptsSpendNoBudget(t *testing.T) {
 	sonnet := &v1.Model{}
 	sonnet.Spec.Manifest.TargetModel = "anthropic/claude-sonnet-4-5"
-	attempts := &gatewayAttempts{budgets: map[string][]string{"stale": {"b1"}}, subscription: true}
+	attempts := &gatewayAttempts{budgets: map[string][]string{"stale": {"b1"}}, subscriptionProvider: "anthropic"}
 	// The budget lookup isn't reached: the backend and proxy are nil.
 	check := attempts.check(nil, nil, api.Context{}, sonnet)
 	if err := check(context.Background(), guardrails.Attempt{Model: sonnet.Spec.Manifest.TargetModel, Subscription: true}); err != nil {
@@ -393,7 +393,7 @@ func TestSubscriptionAttemptsSpendNoBudget(t *testing.T) {
 func TestSubscriptionRequestsStayOnAnthropic(t *testing.T) {
 	sonnet := &v1.Model{}
 	sonnet.Spec.Manifest.TargetModel = "anthropic/claude-sonnet-4-5"
-	attempts := &gatewayAttempts{budgets: map[string][]string{}, subscription: true}
+	attempts := &gatewayAttempts{budgets: map[string][]string{}, subscriptionProvider: "anthropic"}
 	check := attempts.check(nil, nil, api.Context{}, sonnet)
 	for _, routed := range []string{"my-anthropic/claude-sonnet-4-5", "openai/gpt-5-mini"} {
 		err := check(context.Background(), guardrails.Attempt{Model: routed})

@@ -719,6 +719,7 @@ export interface LLMAuditLog {
 	// claudeSubscription is true when the user's Claude subscription paid for the request, which
 	// was then served with no provider key.
 	claudeSubscription?: boolean;
+	codexSubscription?: boolean;
 	userID: string;
 }
 

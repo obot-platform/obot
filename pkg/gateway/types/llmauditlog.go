@@ -39,6 +39,7 @@ type LLMAuditLog struct {
 	ProviderKey               string `gorm:"type:text"`
 	Fallback                  bool   `gorm:"not null;default:false"`
 	ClaudeSubscription        bool   `gorm:"not null;default:false"`
+	CodexSubscription         bool   `gorm:"not null;default:false"`
 	ReasoningEffort           string `gorm:"type:text"`
 	RequestPath               string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
 	RequestMethod             string `gorm:"type:text"`
@@ -94,6 +95,7 @@ func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 		ProviderKey:        a.ProviderKey,
 		Fallback:           a.Fallback,
 		ClaudeSubscription: a.ClaudeSubscription,
+		CodexSubscription:  a.CodexSubscription,
 		ReasoningEffort:    a.ReasoningEffort,
 		RequestPath:        a.RequestPath,
 		RequestMethod:      a.RequestMethod,

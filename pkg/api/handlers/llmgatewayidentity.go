@@ -14,7 +14,7 @@ import (
 const (
 	// The reasons TLS settings are refused for a provider.
 	ambientIdentityReason = "it may authenticate with the Obot server's own cloud identity"
-	subscriptionReason    = "Claude subscriptions are allowed, and users' subscription tokens may only reach Anthropic over verified TLS"
+	subscriptionReason    = "subscriptions are allowed, and users' subscription tokens may only reach their provider over verified TLS"
 )
 
 // Some gateway providers fall back to the Obot server's own cloud identity when a key has no
@@ -56,11 +56,9 @@ func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
 	})
 }
 
-// rejectSubscriptionRedirects refuses, on the Anthropic provider while Claude subscriptions are
-// allowed, proxy settings that trust another CA or turn certificate checks off, which would let
-// a TLS-inspecting server the administrator controls read users' subscription tokens.
-// AnthropicIsDirect stops forwarding the tokens in that case anyway; this tells the
-// administrator why rather than quietly falling back to Obot's key.
+// rejectSubscriptionRedirects refuses TLS-inspecting proxy settings while a provider
+// accepts subscription tokens. Runtime admission also checks the effective destination;
+// rejecting the write gives administrators an explanation before requests fail.
 func rejectSubscriptionRedirects(body []byte) error {
 	return walkObjects(body, func(fields map[string]json.RawMessage) error {
 		for name, settings := range fields {
@@ -216,5 +214,12 @@ func providerNames(provider string, body []byte) []string {
 func isAnthropicProvider(provider string, body []byte) bool {
 	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
 		return strings.EqualFold(name, "anthropic")
+	})
+}
+
+// isOpenAIProvider identifies the provider that receives Codex subscription tokens.
+func isOpenAIProvider(provider string, body []byte) bool {
+	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
+		return strings.EqualFold(name, "openai")
 	})
 }

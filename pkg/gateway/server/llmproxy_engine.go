@@ -95,10 +95,9 @@ type gatewayRoutingContextKey struct{}
 // is checked against the caller's access and the budgets of the model it tries.
 type gatewayAttempts struct {
 	unbind func()
-	// subscription is true when the caller's Claude subscription token was kept for the
-	// gateway to forward. Attempts the gateway sends with it are paid for by the caller's
-	// subscription, not Obot's provider keys, so they don't spend budgets.
-	subscription bool
+	// subscriptionProvider is set only when the caller's credential was kept.
+	// Foreign attempts are refused; admitted subscription attempts spend no budgets.
+	subscriptionProvider string
 	// identity is who the request is for, with the gateway profiles that apply to them, and
 	// isAdmin whether they are an administrator, which some budgets exempt.
 	identity guardrails.Identity
@@ -110,7 +109,7 @@ type gatewayAttempts struct {
 	// admitted is the last attempt admitted: the model ("provider/model") that served the
 	// request when it succeeded, since the gateway tries models one at a time.
 	admitted string
-	// admittedSubscription is true when the caller's Claude subscription pays for the last
+	// admittedSubscription is true when the caller's subscription pays for the last
 	// attempt admitted.
 	admittedSubscription bool
 	// refused is true when the last attempt was refused, so no model served the request.
@@ -372,9 +371,14 @@ func addListedModels(resp *http.Response, models []llmengine.ListedModel, anthro
 // resolveModel resolves a model name that names no gateway model exactly: a bare
 // provider-native ID, or an undated alias of a dated model ID, with or without its provider.
 // When several models match, it prefers one the caller may use.
-func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error) {
+func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, req api.Context, reference string) (*v1.Model, error) {
+	// Native Codex catalog slugs name OpenAI models even when another provider
+	// exposes the same ID. Explicit aliases/resources have already been resolved.
+	if llmtypes.IsCodexSubscription(req.Request.Header) && !strings.Contains(reference, "/") {
+		reference = "openai/" + reference
+	}
 	return l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, reference, func(m *v1.Model) bool {
-		ok, err := l.mapHelper.UserHasAccessToModel(user, m.Name)
+		ok, err := l.mapHelper.UserHasAccessToModel(req.User, m.Name)
 		return err == nil && ok
 	})
 }
@@ -384,7 +388,7 @@ func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, user kuser.In
 func (b *bifrostProviderBackend) authorizeModel(l *llmProviderProxy, req api.Context, reference, what string) (*v1.Model, error) {
 	model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, system.DefaultNamespace, system.LLMGatewayModelProvider, reference)
 	if apierrors.IsNotFound(err) {
-		model, err = b.resolveModel(l, req.User, reference)
+		model, err = b.resolveModel(l, req, reference)
 	}
 	if err != nil || model == nil || model.Spec.Manifest.ModelProvider != system.LLMGatewayModelProvider {
 		return nil, types2.NewErrBadRequest("%s %q is not available through this endpoint", what, reference)
@@ -404,7 +408,7 @@ func (a *gatewayAttempts) served() (string, []string) {
 	return a.admitted, a.budgets[a.admitted]
 }
 
-// paidBySubscription reports whether the caller's Claude subscription paid for the last
+// paidBySubscription reports whether the caller's subscription paid for the last
 // attempt admitted, rather than one of the gateway's provider keys.
 func (a *gatewayAttempts) paidBySubscription() bool {
 	a.lock.Lock()
@@ -505,11 +509,10 @@ func (a *gatewayAttempts) lastRefused() bool {
 func (a *gatewayAttempts) checkAttempt(b *bifrostProviderBackend, l *llmProviderProxy, apiReq api.Context, requested *v1.Model) guardrails.AttemptCheck {
 	return func(_ context.Context, attempt guardrails.Attempt) error {
 		reference := attempt.Model
-		if a.subscription && !strings.HasPrefix(reference, "anthropic/") {
-			// The engine would send the caller's subscription token with this attempt, and only
-			// Anthropic may receive it: a routing rule or fallback can't carry it elsewhere,
-			// such as to a custom provider built on Anthropic's API.
-			return &guardrails.AttemptError{Status: http.StatusForbidden, Type: "permission_denied", Message: fmt.Sprintf("requests made with a Claude subscription can only be served by Anthropic models, not %q", reference)}
+		provider := a.subscriptionProvider
+		if a.subscriptionProvider != "" && !strings.HasPrefix(reference, provider+"/") {
+			// Reject foreign attempts before budget admission; subscriptions never spend configured keys.
+			return &guardrails.AttemptError{Status: http.StatusForbidden, Type: "permission_denied", Message: fmt.Sprintf("subscription requests can only be served by %s models, not %q", provider, reference)}
 		}
 		model := requested
 		if requested == nil || reference != requested.Spec.Manifest.TargetModel {
@@ -523,7 +526,7 @@ func (a *gatewayAttempts) checkAttempt(b *bifrostProviderBackend, l *llmProvider
 				return err
 			}
 		}
-		if a.subscription && attempt.Subscription {
+		if a.subscriptionProvider != "" && attempt.Subscription {
 			a.lock.Lock()
 			a.budgets[reference] = nil
 			a.admitted, a.admittedSubscription = reference, true
@@ -587,22 +590,18 @@ func (b *bifrostProviderBackend) authorizeExtraModels(l *llmProviderProxy, req a
 	return sjson.SetBytes(body, "fallbacks", resolved)
 }
 
-// isAnthropicOAuthBearer reports whether an Authorization header carries an Anthropic OAuth
-// access token, which Claude Code sends when signed in with a Claude subscription.
-func isAnthropicOAuthBearer(header string) bool {
-	return strings.HasPrefix(strings.ToLower(header), "bearer sk-ant-oat")
-}
-
-// stripCallerCredentials removes the caller's credentials and engine headers. A caller's
-// Claude subscription token is kept, when an admin allows it, for an Anthropic model: it is
-// then the upstream credential, which the engine forwards to Anthropic for Claude Code
-// requests instead of choosing a configured key. It reports whether the token was kept.
+// stripCallerCredentials keeps only an enabled subscription's upstream credential,
+// for its matching provider. The Obot API key and caller engine overrides are always removed.
 func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPassthrough bool) bool {
-	subscription := subscriptionPassthrough && model != nil &&
-		strings.HasPrefix(model.Spec.Manifest.TargetModel, "anthropic/") &&
-		isAnthropicOAuthBearer(req.Header.Get("Authorization"))
-	for _, h := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", guardrails.HeaderRequestToken, HeaderObotAPIKey} {
-		if subscription && h == "Authorization" {
+	codex := llmtypes.IsCodexSubscription(req.Header)
+	matches := model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "anthropic/") &&
+		llmtypes.IsClaudeSubscription(req.Header)
+	if codex {
+		matches = model == nil && isModelsListRequest(req) || model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "openai/")
+	}
+	subscription := subscriptionPassthrough && matches
+	for _, h := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", "ChatGPT-Account-ID", "OpenAI-Organization", "OpenAI-Project", guardrails.HeaderRequestToken, HeaderObotAPIKey} {
+		if subscription && (h == "Authorization" || codex && h == "ChatGPT-Account-ID") {
 			continue
 		}
 		req.Header.Del(h)
@@ -620,16 +619,23 @@ func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPass
 // the gateway's guardrail plugins who the request is for and checks each model it tries.
 func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api.Context, model *v1.Model) (gatewayRequest, error) {
 	ctx, gatewayClient, req, user := apiReq.Context(), apiReq.GatewayClient, apiReq.Request, apiReq.User
-	allowSubscription := b.settings.get(ctx, gatewayClient).SubscriptionPassthrough
-	subscriptionToken := isAnthropicOAuthBearer(req.Header.Get("Authorization"))
+	settings := b.settings.get(ctx, gatewayClient)
+	codex := llmtypes.IsCodexSubscription(req.Header)
+	provider := "anthropic"
+	allowSubscription := settings.ClaudeSubscriptionPassthrough
+	if codex {
+		provider = "openai"
+		allowSubscription = settings.CodexSubscriptionPassthrough
+	}
+	subscriptionToken := llmtypes.IsClaudeSubscription(req.Header) || codex
 	if allowSubscription && subscriptionToken {
-		// Checked per request, not cached, so a provider change can't redirect the token.
-		allowSubscription = b.engine.AnthropicIsDirect(ctx)
+		// Keep Claude's admission policy; core validates both providers under their lifetime gates.
+		allowSubscription = provider == "openai" || b.engine.AnthropicIsDirect(ctx)
 	}
 	subscription := stripCallerCredentials(req, model, allowSubscription)
-	if subscriptionToken && !subscription && model != nil {
-		// A caller signed in with a Claude subscription must not be served on Obot's keys.
-		return nil, types2.NewErrForbidden("Claude subscriptions cannot be used for model %q", model.Spec.Manifest.TargetModel)
+	if subscriptionToken && !subscription && (model != nil || codex) {
+		// Subscription requests must not silently spend configured provider keys.
+		return nil, types2.NewErrForbidden("%s subscription passthrough is disabled or unavailable for this request", provider)
 	}
 	for client, engine := range clientGatewayHeaders {
 		if v := req.Header.Get(client); v != "" {
@@ -644,7 +650,10 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 	if err != nil {
 		return nil, err
 	}
-	attempts := &gatewayAttempts{budgets: map[string][]string{}, subscription: subscription, identity: identity, isAdmin: isAdmin}
+	if !subscription {
+		provider = ""
+	}
+	attempts := &gatewayAttempts{budgets: map[string][]string{}, subscriptionProvider: provider, identity: identity, isAdmin: isAdmin}
 	token, unbind := guardrails.BindRequest(identity, guardrails.RequestHooks{
 		AttemptCheck: attempts.check(b, l, apiReq, model),
 		Detections:   attempts.recordDetections,

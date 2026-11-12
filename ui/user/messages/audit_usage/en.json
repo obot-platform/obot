@@ -494,5 +494,6 @@
 	"audit_usage_egress_outcome_denied": "Denied",
 	"audit_usage_egress_outcome_error": "Error",
 	"audit_usage_egress_outcome_interrupted": "Interrupted",
-	"audit_usage_usage_unknown_provider": "Unknown"
+	"audit_usage_usage_unknown_provider": "Unknown",
+	"audit_usage_audit_logs_model_routing_codex_subscription": "The user's ChatGPT subscription"
 }

@@ -20,6 +20,7 @@
 		models?: Model[];
 		// Whether an administrator allows Claude subscriptions through the gateway.
 		subscriptionPassthrough?: boolean;
+		codexSubscriptionPassthrough?: boolean;
 		class?: string;
 	}
 
@@ -27,6 +28,7 @@
 		obotURL,
 		models = [],
 		subscriptionPassthrough = false,
+		codexSubscriptionPassthrough = false,
 		class: klass = ''
 	}: Props = $props();
 
@@ -100,9 +102,8 @@
 			'openai/gpt-4.1'
 	);
 
-	// The model pickers in a client's setup. Claude Code has one per setup, since only Claude
-	// models use a Claude subscription; every other client has one for the whole setup.
-	type PickerKey = 'model' | 'claude-code' | 'claude-code-subscription';
+	// Subscription setups have separate pickers restricted to their own provider.
+	type PickerKey = 'model' | 'claude-code' | 'claude-code-subscription' | 'codex-subscription';
 	// Leaves the model to Claude Code, which starts with its own default.
 	const CLAUDE_CODE_DEFAULT = 'claude-code-default';
 	let picked = $state<Partial<Record<PickerKey, string>>>({});
@@ -120,6 +121,10 @@
 		model: modelOptions,
 		// Without an Anthropic provider, Claude Code needs a gateway model named.
 		'claude-code': hasAnthropic ? [claudeCodeDefaultOption, ...modelOptions] : modelOptions,
+		'codex-subscription': [
+			{ id: 'codex-default', label: m.models_connect_codex_default() },
+			...modelOptions.filter((o) => o.id.startsWith('openai/'))
+		],
 		'claude-code-subscription': [
 			claudeCodeDefaultOption,
 			...modelOptions.filter((o) => o.id.startsWith('anthropic/'))
@@ -128,7 +133,8 @@
 	let pickerDefaults = $derived<Record<PickerKey, string>>({
 		model: selected === 'anthropic-sdk' ? anthropicModel : openaiModel,
 		'claude-code': claudeCodeModel ?? CLAUDE_CODE_DEFAULT,
-		'claude-code-subscription': CLAUDE_CODE_DEFAULT
+		'claude-code-subscription': CLAUDE_CODE_DEFAULT,
+		'codex-subscription': 'codex-default'
 	});
 
 	function pickedModel(key: PickerKey) {
@@ -326,31 +332,61 @@
 					{ ...apiKey, title: m.models_connect_with_api_key() }
 				];
 			}
-			case 'codex':
+			case 'codex': {
+				const apiKey: ConnectBlock = {
+					title: '~/.codex/obot-api-key.config.toml',
+					language: 'toml' as const,
+					code: [
+						`model = "${model}"`,
+						`model_provider = "obot"`,
+						// Codex's web search is a tool OpenAI runs, so only OpenAI's models have it.
+						...(model.startsWith('openai/')
+							? []
+							: ['# Web search only works with OpenAI models', 'web_search = "disabled"']),
+						'',
+						'[model_providers.obot]',
+						'name = "Obot LLM Gateway"',
+						`base_url = "${baseURL}/v1"`,
+						'env_key = "OBOT_API_KEY"',
+						'wire_api = "responses"'
+					].join('\n')
+				};
+				// Profile files layer over the user's config; select the active tab's credential mode.
+				const profile =
+					codexSubscriptionPassthrough && selectedTab === 0 ? 'obot-subscription' : 'obot-api-key';
+				const run = {
+					language: 'bash' as const,
+					code: `export OBOT_API_KEY="${token}"\ncodex --profile ${profile}`
+				};
+				if (!codexSubscriptionPassthrough) return [apiKey, run];
+				const nativeModel = pickedModel('codex-subscription');
 				return [
 					{
-						title: '~/.codex/config.toml',
-						language: 'toml' as const,
+						tabTitle: m.models_connect_tab_subscription(),
+						title: '~/.codex/obot-subscription.config.toml',
+						picker: 'codex-subscription',
+						language: 'toml',
 						code: [
-							`model = "${model}"`,
-							`model_provider = "obot"`,
-							// Codex's web search is a tool OpenAI runs, so only OpenAI's models have it.
-							...(model.startsWith('openai/')
+							...(nativeModel === 'codex-default'
 								? []
-								: ['# Web search only works with OpenAI models', 'web_search = "disabled"']),
+								: [`model = "${nativeModel.replace(/^openai\//, '')}"`]),
+							// Profiles merge provider tables, so isolate ChatGPT auth from a main-config env_key.
+							'model_provider = "obot-subscription"',
 							'',
-							'[model_providers.obot]',
+							'[model_providers.obot-subscription]',
 							'name = "Obot LLM Gateway"',
 							`base_url = "${baseURL}/v1"`,
-							'env_key = "OBOT_API_KEY"',
-							'wire_api = "responses"'
+							`model_catalog_url = "${baseURL}/v1/models"`,
+							'requires_openai_auth = true',
+							'supports_websockets = false',
+							'wire_api = "responses"',
+							'env_http_headers = { "X-Obot-Api-Key" = "OBOT_API_KEY" }'
 						].join('\n')
 					},
-					{
-						language: 'bash' as const,
-						code: `export OBOT_API_KEY="${token}"\ncodex`
-					}
+					{ ...apiKey, tabTitle: m.models_connect_tab_api_key() },
+					run
 				];
+			}
 			case 'openai-sdk':
 				return [
 					{
@@ -619,9 +655,11 @@
 			/>
 			{#if key !== 'model'}
 				<p id="gateway-model-{key}-description" class="text-muted-content text-xs">
-					{key === 'claude-code-subscription'
-						? m.models_connect_subscription_model_note()
-						: m.models_connect_claude_code_model_note()}
+					{key === 'codex-subscription'
+						? m.models_connect_codex_model_note()
+						: key === 'claude-code-subscription'
+							? m.models_connect_subscription_model_note()
+							: m.models_connect_claude_code_model_note()}
 				</p>
 			{/if}
 		</div>
@@ -677,7 +715,12 @@
 				</div>
 			{/if}
 
-			<div class="flex flex-col gap-2">
+			<div
+				class={twMerge(
+					'flex flex-col gap-6',
+					tabBlocks.length > 0 && codeBlocks.length > 0 && 'mt-6'
+				)}
+			>
 				{#each codeBlocks as block, i (`${selected}-${i}-codeblock`)}
 					<LLMGatewayCodeBlock {block} id={`${selected}-${i}-codeblock`} />
 				{/each}

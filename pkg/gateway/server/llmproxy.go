@@ -103,7 +103,7 @@ type trackerDialectBackend interface {
 // modelResolvingBackend is implemented by backends with an additional way to resolve a
 // model reference that the standard lookup did not find. A nil model means no match.
 type modelResolvingBackend interface {
-	resolveModel(l *llmProviderProxy, user kuser.Info, reference string) (*v1.Model, error)
+	resolveModel(l *llmProviderProxy, req api.Context, reference string) (*v1.Model, error)
 }
 
 // extraModelAuthorizingBackend is implemented by backends whose requests can name models
@@ -299,8 +299,13 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 		return err
 	}
 
-	// Only rewrite a recognized {"data": [...]} list envelope.
-	data := gjson.GetBytes(body, "data")
+	// Codex catalog entries use models/slug; ordinary API lists use data/id.
+	list, id, prefix := "data", "id", ""
+	if resp.Request != nil && llmtypes.IsCodexSubscription(resp.Request.Header) {
+		// Native slugs belong only to OpenAI; a same-named foreign grant is insufficient.
+		list, id, prefix = "models", "slug", "openai/"
+	}
+	data := gjson.GetBytes(body, list)
 	if !data.IsArray() {
 		return nil
 	}
@@ -308,13 +313,13 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 	// Keep each allowed entry exactly as the provider encoded it (its raw bytes).
 	var kept []string
 	data.ForEach(func(_, entry gjson.Result) bool {
-		if allowedTargetModels[entry.Get("id").String()] {
+		if allowedTargetModels[prefix+entry.Get(id).String()] {
 			kept = append(kept, entry.Raw)
 		}
 		return true
 	})
 
-	out, err := sjson.SetRawBytes(body, "data", []byte("["+strings.Join(kept, ",")+"]"))
+	out, err := sjson.SetRawBytes(body, list, []byte("["+strings.Join(kept, ",")+"]"))
 	if err != nil {
 		return nil
 	}
@@ -489,7 +494,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 
 		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
 		if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-			if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
+			if fallback, fallbackErr := resolver.resolveModel(l, req, targetModel); fallbackErr == nil && fallback != nil {
 				model, err = fallback, nil
 			}
 		}

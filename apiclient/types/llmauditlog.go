@@ -28,6 +28,7 @@ type LLMAuditLog struct {
 	ProviderKey        string          `json:"providerKey,omitempty"`
 	Fallback           bool            `json:"fallback,omitempty"`
 	ClaudeSubscription bool            `json:"claudeSubscription,omitempty"`
+	CodexSubscription  bool            `json:"codexSubscription,omitempty"`
 	ReasoningEffort    string          `json:"reasoningEffort"`
 	RequestPath        string          `json:"requestPath"`
 	RequestMethod      string          `json:"requestMethod"`

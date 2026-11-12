@@ -3,6 +3,7 @@ package llmcore
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -34,9 +35,9 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 		go func() {
 			// Core can reroute a producer paused after hooks onto a replacement queue.
 			// Wait inside the tracked job so Sync's shared drain budget still applies.
-			if name == schemas.Anthropic {
-				e.subscriptionLifetime.Lock()
-				defer e.subscriptionLifetime.Unlock()
+			if lifetime := e.subscriptionLock(name); lifetime != nil {
+				lifetime.Lock()
+				defer lifetime.Unlock()
 			}
 			drain.err = remove(name)
 			close(drain.done)
@@ -69,4 +70,16 @@ func (e *Engine) retireProviders(ctx context.Context, providers map[schemas.Mode
 		}
 	}
 	return blocked, errs
+}
+
+// Separate readers let unrelated providers reconcile while a subscription streams.
+func (e *Engine) subscriptionLock(provider schemas.ModelProvider) *sync.RWMutex {
+	switch provider {
+	case schemas.Anthropic:
+		return &e.claudeSubscriptionLifetime
+	case schemas.OpenAI:
+		return &e.codexSubscriptionLifetime
+	default:
+		return nil
+	}
 }

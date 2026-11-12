@@ -90,7 +90,7 @@ func newAdminTestServer(t *testing.T, handler *LLMGatewayHandler, storage kclien
 func callAdminRequest(t *testing.T, handler *LLMGatewayHandler, storage kclient.WithWatch, request *http.Request) (*httptest.ResponseRecorder, error) {
 	t.Helper()
 	response := httptest.NewRecorder()
-	newAdminTestServer(t, handler, storage, nil).ServeHTTP(response, request)
+	newAdminTestServer(t, handler, storage, newHandlerTestGateway(t)).ServeHTTP(response, request)
 	if response.Code >= http.StatusBadRequest {
 		return response, types.NewErrHTTP(response.Code, response.Body.String())
 	}
@@ -393,8 +393,8 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 	storage := newFakeStorage(t, llmengine.ModelProviderResource())
 	h, store := newAdminTestHandler(t, storage)
 	gateway := newHandlerTestGateway(t)
-	require.NoError(t, gateway.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{SubscriptionPassthrough: true}))
-	for _, provider := range []string{"azure", "anthropic"} {
+	require.NoError(t, gateway.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: true, CodexSubscriptionPassthrough: true}))
+	for _, provider := range []string{"azure", "anthropic", "openai"} {
 		_, err := h.engine.CreateProvider(t.Context(), json.RawMessage(`{"provider":"`+provider+`"}`))
 		require.NoError(t, err)
 	}
@@ -428,6 +428,11 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 		},
 		{
 			method: http.MethodPut,
+			path:   "providers/openai",
+			body:   `{"proxy_config":{"skip_tls_verify":true}}`,
+		},
+		{
+			method: http.MethodPut,
 			path:   "config",
 			body:   `{"client_config":{},"Auth_Config":{"is_enabled":true}}`,
 		},
@@ -455,7 +460,14 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	settings, err := gateway.GetLLMGatewaySettings(t.Context())
 	require.NoError(t, err)
-	require.False(t, settings.SubscriptionPassthrough)
+	require.False(t, settings.ClaudeSubscriptionPassthrough)
+	require.True(t, settings.CodexSubscriptionPassthrough)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, gatewayAdminPrefix+"providers/openai", nil))
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	settings, err = gateway.GetLLMGatewaySettings(t.Context())
+	require.NoError(t, err)
+	require.False(t, settings.CodexSubscriptionPassthrough)
 	_, err = store.GetProvider(t.Context(), "anthropic")
 	require.True(t, apierrors.IsNotFound(err))
 }
