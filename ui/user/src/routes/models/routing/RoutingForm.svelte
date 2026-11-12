@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Confirm from '$lib/components/Confirm.svelte';
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
@@ -8,6 +9,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		createRoutingRule,
+		deleteRoutingRule,
 		listProviders,
 		parseFallback,
 		updateRoutingRule,
@@ -69,6 +71,7 @@
 	let targets = $state<TargetRow[]>([]);
 	let fallbacks = $state<FallbackRow[]>([]);
 	let saving = $state(false);
+	let deleting = $state(false);
 	let error = $state('');
 
 	let providerOptions = $derived(
@@ -129,6 +132,23 @@
 		}
 	});
 
+	async function remove() {
+		const id = rule?.id;
+		if (!id) return;
+		saving = true;
+		error = '';
+		try {
+			await deleteRoutingRule(id, { dontLogErrors: true });
+			deleting = false;
+			close();
+		} catch (e) {
+			error = errorMessage(e);
+			deleting = false;
+		} finally {
+			saving = false;
+		}
+	}
+
 	function close() {
 		if (onCancel) {
 			onCancel();
@@ -184,6 +204,25 @@
 		}}
 	>
 		<div class="flex flex-col gap-6">
+			{#if rule?.id}
+				<header class="flex w-full items-center justify-between gap-4">
+					<div class="flex items-center gap-2">
+						<h1 class="flex items-center gap-4 text-2xl font-semibold">
+							{name}
+						</h1>
+					</div>
+					{#if !readonly}
+						<IconButton
+							variant="danger2"
+							disabled={saving}
+							tooltip={{ text: m.models_routing_delete_rule() }}
+							onclick={() => (deleting = true)}
+						>
+							<Trash2 class="size-4" />
+						</IconButton>
+					{/if}
+				</header>
+			{/if}
 			<div class="paper">
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 					<div class="flex flex-col gap-1 md:col-span-2">
@@ -432,4 +471,12 @@
 			</div>
 		{/if}
 	</form>
+
+	<Confirm
+		msg={m.models_routing_delete_confirm({ name: name.trim() || rule?.name || '' })}
+		show={deleting}
+		loading={saving}
+		onsuccess={remove}
+		oncancel={() => (deleting = false)}
+	/>
 {/if}

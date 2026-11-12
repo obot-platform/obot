@@ -125,8 +125,11 @@ describe('Models routing tab', () => {
 			)
 			.toBeVisible();
 		await form.getByLabelText('When (CEL expression)').fill('model.startsWith("claude-")');
-		// New rules start enabled, and that can be changed before the rule exists.
-		await expect.element(form.getByRole('button', { name: 'Disable Rule' })).toBeVisible();
+		// Enable/Disable and delete are only offered once the rule has been saved.
+		await expect
+			.element(form.getByRole('button', { name: 'Disable Rule' }))
+			.not.toBeInTheDocument();
+		await expect.element(form.getByRole('button', { name: 'Delete rule' })).not.toBeInTheDocument();
 		await expect.element(form.getByText('request_type', { exact: true })).toBeInTheDocument();
 
 		// The first target defaults to the first provider with weight 1.
@@ -173,28 +176,6 @@ describe('Models routing tab', () => {
 			.element(form.getByText('Weights must add up to 1 (currently 0.50)'))
 			.toBeInTheDocument();
 		await expect.element(form.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-	});
-
-	it('saves a new rule disabled when Disable Rule is chosen first', async () => {
-		mockGateway({ rules: [] });
-		const created = vi.fn();
-		worker.use(
-			http.post('/api/llm-gateway/admin/governance/routing-rules', async ({ request }) => {
-				created(await request.json());
-				return HttpResponse.json({ rule: { id: 'new' } });
-			})
-		);
-		await renderRoutingPage();
-
-		await page.getByRole('button', { name: 'Add Rule' }).click();
-		const form = page.getByRole('form', { name: 'Add Routing Rule' });
-		await form.getByLabelText('Name').fill('Off');
-		await form.getByRole('button', { name: 'Disable Rule' }).click();
-		await expect.element(form.getByRole('button', { name: 'Enable Rule' })).toBeVisible();
-		await form.getByRole('button', { name: 'Save', exact: true }).click();
-
-		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
-		expect(created.mock.calls[0][0].enabled).toBe(false);
 	});
 
 	it('opens a rule from its row', async () => {

@@ -4,6 +4,7 @@ import { success } from '$lib/stores/success';
 import { goto } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
 import { worker } from '../../../../tests/mocks/worker';
+import type { PageData } from './$types';
 import RulePage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -44,7 +45,7 @@ function mockProviders() {
 async function renderRulePage(rule: RoutingRule = cheapRule, groups: string[] = [Group.ADMIN]) {
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 	mockProviders();
-	const data = await preparePageData({ profile: createMockProfile(groups), rule });
+	const data = await preparePageData<PageData>({ profile: createMockProfile(groups), rule });
 	return render(RulePage, { data });
 }
 
@@ -186,10 +187,44 @@ describe('Routing rule page', () => {
 		expect(goto).toHaveBeenCalledWith('/models?view=routing');
 	});
 
+	it('deletes a rule after confirmation', async () => {
+		const deleted = vi.fn();
+		worker.use(
+			http.delete('/api/llm-gateway/admin/governance/routing-rules/:id', ({ params }) => {
+				deleted(params.id);
+				return new HttpResponse(null, { status: 204 });
+			})
+		);
+		await renderRulePage();
+
+		await expect.element(form().getByRole('heading', { name: 'Cheaper GPT' })).toBeVisible();
+		await form().getByRole('button', { name: 'Delete rule' }).click();
+		await expect.element(page.getByText('Delete routing rule Cheaper GPT?')).toBeInTheDocument();
+		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+		await vi.waitFor(() => expect(deleted).toHaveBeenCalledWith('r1'));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/models?view=routing'));
+	});
+
+	it('stays on the rule when deleting fails', async () => {
+		worker.use(
+			http.delete('/api/llm-gateway/admin/governance/routing-rules/:id', () =>
+				HttpResponse.json({ error: { message: 'rule is in use' } }, { status: 409 })
+			)
+		);
+		await renderRulePage();
+
+		await form().getByRole('button', { name: 'Delete rule' }).click();
+		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+		await expect.element(page.getByText('rule is in use')).toBeInTheDocument();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
 	it('hides saving from auditors', async () => {
 		await renderRulePage(cheapRule, [Group.USER, Group.AUDITOR]);
 
-		await expect.element(page.getByRole('heading', { name: 'Cheaper GPT' })).toBeVisible();
+		await expect.element(form().getByRole('heading', { name: 'Cheaper GPT' })).toBeVisible();
 		await expect.element(form().getByLabelText('Name')).toBeDisabled();
 		await expect
 			.element(page.getByRole('button', { name: 'Save', exact: true }))
@@ -197,5 +232,6 @@ describe('Routing rule page', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Disable Rule' }))
 			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Delete rule' })).not.toBeInTheDocument();
 	});
 });
