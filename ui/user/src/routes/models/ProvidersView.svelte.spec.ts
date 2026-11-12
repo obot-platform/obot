@@ -1,9 +1,16 @@
+import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
+import { replaceState } from '$lib/url';
 import { worker } from '../../tests/mocks/worker';
 import { readyStatus, renderModelsTab, resetModelsTab } from './testing';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
+
+vi.mock(import('$lib/url'), async (importOriginal) => ({
+	...(await importOriginal()),
+	replaceState: vi.fn()
+}));
 
 const openai = {
 	name: 'openai',
@@ -115,6 +122,27 @@ describe('Models providers tab', () => {
 
 		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
 		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+	});
+
+	it('opens a linked provider when it is configured', async () => {
+		mockGateway();
+		(appPage.url as URL).searchParams.set('provider', 'openai');
+		await renderProvidersPage();
+
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		// The link is consumed, so a reload shows the list.
+		const [url] = vi.mocked(replaceState).mock.lastCall ?? [];
+		expect(new URL(String(url)).searchParams.has('provider')).toBe(false);
+	});
+
+	it('shows the list when a linked provider is not configured', async () => {
+		mockGateway();
+		(appPage.url as URL).searchParams.set('provider', 'mistral');
+		await renderProvidersPage();
+
+		await expect.element(page.getByRole('heading', { name: 'OpenAI' })).toBeInTheDocument();
+		await expect.element(page.getByRole('heading', { name: 'Keys' })).not.toBeInTheDocument();
 	});
 
 	it('keeps Modify busy until the provider is ready to show', async () => {

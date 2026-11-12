@@ -1,21 +1,14 @@
-import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
 import { CHAT_COMPLETIONS_ONLY_REQUESTS } from '$lib/services/llm-gateway/providers';
 import { errors } from '$lib/stores';
 import { success } from '$lib/stores/success';
-import { goto } from '$lib/url';
-import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
-import { worker } from '../../../../tests/mocks/worker';
-import ProviderPage from './+page.svelte';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
+import { worker } from '../../../tests/mocks/worker';
+import ConfigureProviderDialog from './ConfigureProviderDialog.svelte';
 import { http, HttpResponse } from 'msw';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
-
-vi.mock(import('$lib/url'), async (importOriginal) => ({
-	...(await importOriginal()),
-	goto: vi.fn()
-}));
 
 const openai = {
 	name: 'openai',
@@ -68,17 +61,16 @@ function mockProvider({
 	return { synced };
 }
 
+// Renders the dialog and opens the named provider, as the Providers tab does.
 async function renderProviderPage(groups: string[] = [Group.ADMIN], name = 'openai') {
-	(appPage.params as Record<string, string>).name = name;
 	await preparePageData({ profile: createMockProfile(groups) });
-	return render(ProviderPage);
+	const onClosed = vi.fn();
+	const screen = await render(ConfigureProviderDialog, { onClosed });
+	const opened = await screen.component.open(name);
+	return { ...screen, opened, onClosed };
 }
 
-afterEach(() => {
-	delete (appPage.params as Record<string, string>).name;
-});
-
-describe('LLM gateway provider page', () => {
+describe('ConfigureProviderDialog', () => {
 	it('reports a queued Azure refresh without issuing another sync request', async () => {
 		const { synced } = mockProvider({ provider: { ...openai, name: 'azure' }, keys: [] });
 		const notified = vi.spyOn(success, 'add');
@@ -142,8 +134,7 @@ describe('LLM gateway provider page', () => {
 
 	it('returns to the provider after cancelling Add Key', async () => {
 		mockProvider();
-		vi.mocked(goto).mockClear();
-		await renderProviderPage();
+		const { onClosed } = await renderProviderPage();
 
 		await page.getByRole('button', { name: 'Add Key' }).click();
 		await page
@@ -153,7 +144,7 @@ describe('LLM gateway provider page', () => {
 
 		await expect.element(page.getByRole('dialog', { name: 'OpenAI', exact: true })).toBeVisible();
 		await expect.element(page.getByRole('heading', { name: 'Keys' })).toBeVisible();
-		expect(goto).not.toHaveBeenCalled();
+		expect(onClosed).not.toHaveBeenCalled();
 	});
 
 	it('edits an existing key', async () => {
@@ -226,7 +217,7 @@ describe('LLM gateway provider page', () => {
 		expect(deleted).toHaveBeenCalledOnce();
 	});
 
-	it('deletes the provider and returns to the provider list', async () => {
+	it('deletes the provider and closes', async () => {
 		mockProvider();
 		const deleted = vi.fn();
 		worker.use(
@@ -235,13 +226,13 @@ describe('LLM gateway provider page', () => {
 				return new HttpResponse(null, { status: 204 });
 			})
 		);
-		await renderProviderPage();
+		const { onClosed } = await renderProviderPage();
 
 		await page.getByRole('button', { name: 'Deconfigure Provider' }).click();
 		await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 
 		await vi.waitFor(() => expect(deleted).toHaveBeenCalledWith('openai'));
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/models?view=providers'));
+		await vi.waitFor(() => expect(onClosed).toHaveBeenCalled());
 	});
 
 	it('does not offer keys for a keyless custom provider', async () => {
@@ -455,15 +446,58 @@ describe('LLM gateway provider page', () => {
 		);
 	});
 
-	it('links models to the Models tab and goes back to providers on cancel', async () => {
+	it('links models to the Models tab and closes on cancel', async () => {
 		mockProvider();
-		await renderProviderPage();
+		const { onClosed } = await renderProviderPage();
 
 		await expect
 			.element(page.getByRole('link', { name: 'LLM Gateway', exact: true }))
 			.toHaveAttribute('href', '/models?view=connect');
 		await page.getByRole('button', { name: 'Cancel' }).click();
-		expect(goto).toHaveBeenCalledWith('/models?view=providers');
+		await vi.waitFor(() => expect(onClosed).toHaveBeenCalled());
+	});
+
+	it('does not open a provider that cannot be loaded', async () => {
+		worker.use(
+			http.get('/api/llm-gateway/admin/providers/:name', () =>
+				HttpResponse.json({ error: 'not found' }, { status: 404 })
+			)
+		);
+		await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
+		const screen = await render(ConfigureProviderDialog, { onClosed: vi.fn() });
+
+		await expect(screen.component.open('gone')).rejects.toThrow();
+		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('suggests a key name that is free across every provider', async () => {
+		mockProvider({ keys: [] });
+		await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
+		const screen = await render(ConfigureProviderDialog, {
+			keyNamesByProvider: { 'openai-eu': ['openai-key-1'] },
+			onClosed: vi.fn()
+		});
+		await screen.component.open('openai');
+
+		await page.getByRole('button', { name: 'Add Key' }).click();
+		await expect
+			.element(page.getByRole('dialog', { name: 'Add Key' }).getByLabelText('Name'))
+			.toHaveValue('openai-key-2');
+	});
+
+	it('frees the name of a key this provider no longer has', async () => {
+		mockProvider({ keys: [] });
+		await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
+		const screen = await render(ConfigureProviderDialog, {
+			keyNamesByProvider: { openai: ['openai-key-1'] },
+			onClosed: vi.fn()
+		});
+		await screen.component.open('openai');
+
+		await page.getByRole('button', { name: 'Add Key' }).click();
+		await expect
+			.element(page.getByRole('dialog', { name: 'Add Key' }).getByLabelText('Name'))
+			.toHaveValue('openai-key-1');
 	});
 
 	it('hides key management from auditors', async () => {

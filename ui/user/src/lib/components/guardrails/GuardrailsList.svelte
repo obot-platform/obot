@@ -148,11 +148,7 @@
 {/snippet}
 
 {#if loading}
-	<Skeleton
-		type="table"
-		count={5}
-		classes={{ header: 'h-14 rounded-none', body: 'rounded-none' }}
-	/>
+	<Skeleton type="table" count={5} classes={{ header: 'h-14' }} />
 {:else if guardrails.length === 0}
 	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
 		<ShieldCheck class="text-muted-content size-24 opacity-25" />

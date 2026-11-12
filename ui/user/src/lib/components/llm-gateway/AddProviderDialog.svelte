@@ -66,10 +66,6 @@
 		dialog?.open();
 	}
 
-	export function close() {
-		dialog?.close();
-	}
-
 	function reset() {
 		authenticationMethod = 'api-key';
 		values = {};
@@ -418,7 +414,7 @@
 				<Toggle
 					label={m.models_providers_allow_private_network()}
 					labelInline
-					id="new-allow-private-help"
+					id="new-allow-private"
 					checked={allowPrivate}
 					onChange={(v) => (allowPrivate = v)}
 					classes={{

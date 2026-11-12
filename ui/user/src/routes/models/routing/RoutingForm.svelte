@@ -20,8 +20,6 @@
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
-	// A routing rule, new or saved. Enable/Disable is part of the draft, including before the
-	// rule exists, and Save writes it with the rest of the rule.
 	interface Props {
 		rule?: RoutingRule;
 		readonly?: boolean;
@@ -409,15 +407,19 @@
 		{#if !readonly}
 			<div class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 z-50 flex w-full py-4">
 				<div class="flex w-full justify-between gap-2">
-					<button
-						type="button"
-						class={twMerge('text-sm btn btn-soft', enabled ? 'btn-error' : 'btn-primary')}
-						disabled={saving}
-						use:tooltip={m.models_routing_enabled_hint()}
-						onclick={() => (enabled = !enabled)}
-					>
-						{enabled ? m.models_routing_disable() : m.models_routing_enable()}
-					</button>
+					<div>
+						{#if rule?.id}
+							<button
+								type="button"
+								class={twMerge('text-sm btn btn-soft', enabled ? 'btn-error' : 'btn-primary')}
+								disabled={saving}
+								use:tooltip={m.models_routing_enabled_hint()}
+								onclick={() => (enabled = !enabled)}
+							>
+								{enabled ? m.models_routing_disable() : m.models_routing_enable()}
+							</button>
+						{/if}
+					</div>
 					<div class="flex gap-2">
 						<button type="button" class="btn btn-secondary text-sm" onclick={close}>
 							{m.common_cancel()}

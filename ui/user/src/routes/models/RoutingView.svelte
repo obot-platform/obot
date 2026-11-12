@@ -134,7 +134,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-{#if showCreate}
+{#if showCreate && status?.ready}
 	<div in:fly|global={{ x: 100, duration }} out:fly|global={{ x: -100, duration }}>
 		<RoutingForm onCreate={() => goto(listUrl(), { replaceState: true })} />
 	</div>
@@ -192,9 +192,8 @@
 					onClearAllFilters={clearFilters}
 					onSort={setSortUrlParams}
 					{initSort}
-					onClickRow={readonly
-						? undefined
-						: (row, isCtrlClick) => openUrl(`/models/routing/${row.id}`, isCtrlClick)}
+					onClickRow={(row, isCtrlClick) =>
+						openUrl(`/models/routing/${encodeURIComponent(row.id)}`, isCtrlClick)}
 				>
 					{#snippet onRenderColumn(property, row)}
 						{#if property === 'cel_expression'}

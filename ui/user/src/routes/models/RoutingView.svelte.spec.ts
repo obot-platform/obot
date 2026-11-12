@@ -58,11 +58,12 @@ async function chooseProvider(scope: Locator, name: string, option: string) {
 // The search box syncs its query to the URL. Add Rule and row clicks navigate through goto,
 // which the specs apply onto the mocked page URL.
 vi.mock(import('$lib/url'), async (importOriginal) => {
+	const original = await importOriginal();
 	const { applyTestGoto } = await import('../../tests/helpers/navigation.svelte');
 	return {
-		...(await importOriginal()),
+		...original,
 		replaceState: vi.fn(),
-		goto: (url: string | URL) => applyTestGoto(url)
+		goto: (url: Parameters<typeof original.goto>[0]) => applyTestGoto(String(url))
 	};
 });
 
@@ -88,6 +89,17 @@ describe('Models routing tab', () => {
 		await expect
 			.element(page.getByRole('heading', { name: 'No routing rules' }))
 			.toBeInTheDocument();
+	});
+
+	it('does not show the create form from a direct link while the gateway is not ready', async () => {
+		mockGateway({ status: { ...readyStatus, ready: false } });
+		(appPage.url as URL).searchParams.set('new', 'true');
+		await renderRoutingPage();
+
+		await expect.element(page.getByText('The LLM gateway is starting…')).toBeVisible();
+		await expect
+			.element(page.getByRole('form', { name: 'Add Routing Rule' }))
+			.not.toBeInTheDocument();
 	});
 
 	it('creates a rule with the exact targets and fallbacks entered', async () => {

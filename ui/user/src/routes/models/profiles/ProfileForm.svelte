@@ -54,7 +54,11 @@
 		profileGrantedModels,
 		profileUrl
 	} from '$lib/services/llm-gateway/profiles';
-	import { accessibleModels, defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
+	import {
+		accessibleModels,
+		defaultModelAliases as defaultModelAliasesStore,
+		errors
+	} from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import {
 		convertSubjectsToTableData,
@@ -62,7 +66,7 @@
 		resolveSubjectPickerById,
 		resolveSubjects
 	} from '$lib/subjectResolver';
-	import { goto, replaceState } from '$lib/url';
+	import { goto } from '$lib/url';
 	import { Plus, Trash2, TriangleAlert, UsersRound, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 
@@ -325,14 +329,13 @@
 		try {
 			// The profile first: its budgets and applied guardrails belong to it.
 			let id = profileID;
+			const creating = !id;
 			try {
 				if (!id) {
 					const created = await AdminService.createModelAccessPolicy(draft);
 					id = created.id;
 					draft = { ...draft, ...created };
 					profileID = id;
-					// The profile exists now; if anything after this fails, the form stays on it.
-					replaceState(profileUrl(id), {});
 				} else {
 					const updated = await AdminService.updateModelAccessPolicy(id, draft);
 					draft = { ...draft, ...updated };
@@ -392,6 +395,13 @@
 			savedModelsJson = JSON.stringify(draft.models ?? []);
 			accessibleModels.refresh().catch(() => undefined);
 
+			if (failed.length && creating) {
+				// The profile exists now, so move to its page; the form remounts there and
+				// drops unsaved items, so report what failed in a toast instead.
+				errors.append(new Error([m.models_profile_create_partial(), ...failed].join('\n')));
+				await goto(profileUrl(id), { replaceState: true });
+				return;
+			}
 			if (failed.length) {
 				// What failed stays in the draft, so saving again retries just that.
 				error = m.models_profile_save_partial();
@@ -399,6 +409,7 @@
 				return;
 			}
 			success.add(m.models_profile_saved());
+			if (creating) await goto(profileUrl(id), { replaceState: true });
 		} finally {
 			saving = false;
 		}
@@ -441,7 +452,7 @@
 </script>
 
 <form
-	class="flex h-full w-full flex-col gap-6 @container"
+	class="flex h-full w-full flex-col gap-8 @container"
 	onsubmit={(e) => {
 		e.preventDefault();
 		if (!readonly && valid && !saving) void save();
@@ -457,6 +468,7 @@
 			{#if !readonly}
 				<IconButton
 					variant="danger2"
+					disabled={saving}
 					tooltip={{ text: m.models_delete_profile() }}
 					onclick={() => {
 						deleting = true;
@@ -485,7 +497,8 @@
 			m.core_users_and_groups(),
 			m.models_profile_users_description(),
 			m.core_add_user_group(),
-			() => addUserGroupDialog?.open()
+			() => addUserGroupDialog?.open(),
+			loadingUsersAndGroups
 		)}
 
 		{#if loadingUsersAndGroups}
@@ -775,7 +788,13 @@
 	{/if}
 </form>
 
-{#snippet header(title: string, description: string, btnLabel: string, onClick: () => void)}
+{#snippet header(
+	title: string,
+	description: string,
+	btnLabel: string,
+	onClick: () => void,
+	disabled = false
+)}
 	<div class="mb-3 flex items-start justify-between gap-4">
 		<div>
 			<h2 class="text-lg font-semibold">
@@ -789,7 +808,7 @@
 			<button
 				type="button"
 				class="btn btn-primary text-sm"
-				disabled={loadingUsersAndGroups || saving}
+				disabled={disabled || saving}
 				onclick={onClick}
 			>
 				<Plus class="size-4" />

@@ -148,7 +148,7 @@
 {:else}
 	<div>
 		{#if loading}
-			<Skeleton type="table" />
+			<Skeleton type="table" count={5} classes={{ header: 'h-14' }} />
 		{:else if profiles.length === 0}
 			<div class="mt-12 flex flex-col items-center justify-center text-center">
 				<div
@@ -177,7 +177,7 @@
 						value={query}
 						class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 						onChange={updateQuery}
-						placeholder={m.guardrails_search_placeholder()}
+						placeholder={m.models_profiles_search_placeholder()}
 					/>
 				</div>
 

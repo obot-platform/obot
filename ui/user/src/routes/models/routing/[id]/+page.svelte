@@ -8,7 +8,7 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	const { rule } = $derived(data);
+	let rule = $derived(data.rule);
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
@@ -22,7 +22,16 @@
 <Layout {title} showBackButton>
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		{#key rule?.id}
-			<RoutingForm {rule} {readonly} onCancel={backToList} />
+			<RoutingForm
+				{rule}
+				{readonly}
+				onCancel={backToList}
+				onUpdate={(updatedRule) => {
+					if (updatedRule && rule?.id === updatedRule?.id) {
+						rule = updatedRule;
+					}
+				}}
+			/>
 		{/key}
 	</div>
 </Layout>

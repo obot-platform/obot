@@ -1,5 +1,6 @@
 import { Group } from '$lib/services';
 import type { ModelAccessPolicy } from '$lib/services/admin/types';
+import { errors } from '$lib/stores';
 import { success } from '$lib/stores/success';
 import { goto, replaceState } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
@@ -169,8 +170,10 @@ describe('Profile form', () => {
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
 		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.'));
-		expect(goto).not.toHaveBeenCalled();
-		expect(replaceState).toHaveBeenCalledWith('/models/profiles/p-new', {});
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		expect(replaceState).not.toHaveBeenCalled();
 		await expect.element(page.getByRole('heading', { name: 'Sales' })).toBeVisible();
 		const writes = calls.mock.calls;
 		expect(writes.map(([method, path]) => `${method} ${path}`)).toEqual([
@@ -198,8 +201,9 @@ describe('Profile form', () => {
 		});
 	});
 
-	it('stays on the new profile and keeps what failed when a budget cannot be saved', async () => {
-		const { calls } = mockGateway({ failBudgetCreate: true });
+	it('moves to the created profile and reports what failed when a budget cannot be saved', async () => {
+		mockGateway({ failBudgetCreate: true });
+		errors.items = [];
 		render(ProfileForm, {});
 
 		await page.getByLabelText('Name', { exact: true }).fill('Sales');
@@ -207,24 +211,14 @@ describe('Profile form', () => {
 		await addBudget('Too much');
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-		await expect
-			.element(page.getByText('The profile was saved, but some of its budgets', { exact: false }))
-			.toBeVisible();
-		await expect.element(page.getByText('Too much: limit is too high')).toBeVisible();
-		expect(replaceState).toHaveBeenCalledWith('/models/profiles/p-new', {});
-		expect(goto).not.toHaveBeenCalled();
-		// The budget is still in the form. Saving again writes the profile and retries it.
-		await expect.element(page.getByRole('button', { name: 'Edit Too much' })).toBeVisible();
-		await expect.element(page.getByRole('heading', { name: 'Sales' })).toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Delete profile' })).toBeVisible();
-		calls.mockClear();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
+		// The profile exists, so the URL must point at it even though a budget failed.
 		await vi.waitFor(() =>
-			expect(calls.mock.calls.map(([method, path]) => `${method} ${path}`)).toEqual([
-				'PUT /api/model-access-policies/p-new',
-				'POST /api/llm-gateway/budgets'
-			])
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
 		);
+		const reported = errors.items.map((e) => e.message).join('\n');
+		expect(reported).toContain('The profile was created, but these budgets');
+		expect(reported).toContain('Too much: limit is too high');
+		errors.items = [];
 	});
 
 	it('edits and deletes budgets within the form', async () => {

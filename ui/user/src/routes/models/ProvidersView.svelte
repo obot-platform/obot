@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ProviderCard from '$lib/components/admin/ProviderCard.svelte';
@@ -26,6 +27,7 @@
 	import { profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { success } from '$lib/stores/success';
+	import { replaceState } from '$lib/url';
 	import { TriangleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -45,12 +47,16 @@
 	let addDialog = $state<ReturnType<typeof AddProviderDialog>>();
 	let configureDialog = $state<ReturnType<typeof ConfigureProviderDialog>>();
 	let openingProvider = $state<string>();
+	let openRequest = 0;
 	let removing = $state<string>();
 	// With Claude subscriptions allowed, Anthropic works without keys of its own.
 	let subscriptionPassthrough = $state(false);
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
-	let allKeyNames = $derived(Object.values(keys).flatMap((ks) => ks.map((k) => k.name)));
+	let keyNamesByProvider = $derived(
+		Object.fromEntries(Object.entries(keys).map(([p, ks]) => [p, ks.map((k) => k.name)]))
+	);
+	let allKeyNames = $derived(Object.values(keyNamesByProvider).flat());
 
 	async function load(options?: { silent?: boolean }) {
 		if (!options?.silent) loading = true;
@@ -115,15 +121,32 @@
 	}
 
 	async function openProvider(name: string) {
+		const request = ++openRequest;
 		openingProvider = name;
+		let opened = false;
 		try {
-			await configureDialog?.open(name);
-		} finally {
-			if (openingProvider === name) openingProvider = undefined;
+			opened = (await configureDialog?.open(name)) ?? false;
+		} catch {
+			// The request reports its own error.
 		}
+		if (request !== openRequest) return;
+		openingProvider = undefined;
+		if (!opened) void load({ silent: true });
 	}
 
-	onMount(load);
+	async function openLinkedProvider() {
+		const name = page.url.searchParams.get('provider');
+		if (!name) return;
+		const url = new URL(page.url.toString());
+		url.searchParams.delete('provider');
+		replaceState(url);
+		if (providers.some((p) => p.name === name)) await openProvider(name);
+	}
+
+	onMount(async () => {
+		await load();
+		await openLinkedProvider();
+	});
 </script>
 
 <div class="flex flex-col gap-8">
@@ -223,19 +246,13 @@
 	onCreated={async (name) => {
 		adminConfigStore.setModelProviderConfigured(true);
 		success.add(m.models_providers_added({ name: providerLabel(name) }));
-		addDialog?.close();
-		openingProvider = name;
-		try {
-			await configureDialog?.open(name);
-		} finally {
-			if (openingProvider === name) openingProvider = undefined;
-		}
-		load({ silent: true });
+		await openProvider(name);
 	}}
 />
 
 <ConfigureProviderDialog
 	bind:this={configureDialog}
+	{keyNamesByProvider}
 	onClosed={() => {
 		load({ silent: true });
 	}}

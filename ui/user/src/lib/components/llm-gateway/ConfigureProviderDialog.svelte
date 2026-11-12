@@ -15,7 +15,6 @@
 		getProvider,
 		getSettings,
 		listProviderKeys,
-		listProviders,
 		refreshProviderModels,
 		secretDisplay,
 		syncModels,
@@ -39,16 +38,22 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		keyNamesByProvider?: Record<string, string[]>;
 		onClosed?: () => void;
 	}
 
-	let { onClosed }: Props = $props();
+	let { keyNamesByProvider = {}, onClosed }: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let name = $state('');
 	let provider = $state<Provider>();
 	let keys = $state<ProviderKey[]>([]);
-	let allKeyNames = $state<string[]>([]);
+	let allKeyNames = $derived([
+		...new Set([
+			...Object.entries(keyNamesByProvider).flatMap(([p, names]) => (p === name ? [] : names)),
+			...keys.map((k) => k.name)
+		])
+	]);
 	let models = $state<string[]>([]);
 	let saving = $state(false);
 	let refreshing = $state(false);
@@ -106,21 +111,21 @@
 	}
 
 	// Loads the provider, then opens. Callers show their own progress until this resolves.
-	export async function open(providerName: string) {
+	export async function open(providerName: string): Promise<boolean> {
 		const id = ++requestId;
 		left = false;
 		name = providerName;
 		provider = undefined;
 		keys = [];
 		models = [];
-		allKeyNames = [];
 		confirmingBaseURLChange = false;
 		deleting = false;
 		keyToDelete = undefined;
 		await load(id);
-		if (id !== requestId || !provider) return;
+		if (id !== requestId || !provider) return false;
 		await tick();
 		dialog?.open();
+		return true;
 	}
 
 	export function close() {
@@ -199,11 +204,8 @@
 		const id = requestId;
 		const providerName = name;
 		const nextKeys = await listProviderKeys(providerName);
-		const all = await listProviders();
-		const lists = await Promise.all(all.map((p) => listProviderKeys(p.name).catch(() => [])));
 		if (id !== requestId || providerName !== name) return;
 		keys = nextKeys;
-		allKeyNames = lists.flat().map((k) => k.name);
 	}
 
 	// The model sync runs in the background and reports no completion, so reload the provider's
@@ -753,8 +755,16 @@
 	show={deleting}
 	msg={m.models_providers_delete_provider_confirm({ name: providerLabel(name) })}
 	onsuccess={async () => {
-		await deleteProvider(name);
+		const label = providerLabel(name);
+		try {
+			await deleteProvider(name);
+		} catch {
+			// The request reports its own error; stay on the provider.
+			deleting = false;
+			return;
+		}
 		deleting = false;
+		success.add(m.models_providers_removed({ name: label }));
 		dialog?.close();
 	}}
 	oncancel={() => (deleting = false)}

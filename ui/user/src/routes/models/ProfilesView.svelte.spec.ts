@@ -72,9 +72,7 @@ describe('Models profiles tab', () => {
 		mockProfiles();
 		await renderModelsTab('profiles');
 
-		await expect
-			.element(page.getByRole('cell', { name: 'Name', exact: true }))
-			.toBeInTheDocument();
+		await expect.element(page.getByRole('cell', { name: 'Name', exact: true })).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('cell', { name: 'User/Groups', exact: true }))
 			.toBeInTheDocument();
