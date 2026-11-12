@@ -1307,10 +1307,4 @@ func TestInsertLocalAgentAuditLogsDiscardsWhenDisabled(t *testing.T) {
 	if got := countAuditLogs(t, c); got != 0 {
 		t.Fatalf("expected no audit logs, got %d", got)
 	}
-
-	invalid := log
-	invalid.SourceType = ""
-	if err := c.InsertLocalAgentAuditLogs(t.Context(), []types.MCPAuditLog{invalid}); err == nil {
-		t.Fatal("expected invalid log to be rejected while disabled")
-	}
 }
