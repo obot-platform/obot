@@ -9,6 +9,7 @@ This guide is now organized into focused pages. Existing section links remain av
 - [Configure providers and models](../configuration/model-providers.md)
 - [Connect clients and applications](../llm-gateway/connect-clients.md)
 - [API compatibility](../llm-gateway/compatibility.md)
+- [Upgrading from model providers](../llm-gateway/upgrade.md)
 
 ## Overview {#overview}
 
@@ -106,21 +107,21 @@ See [Connect clients and applications](../llm-gateway/connect-clients.md#using-w
 
 See [Connect clients and applications](../llm-gateway/connect-clients.md#using-with-codex).
 
-## Gateway configuration {#upgrading-from-model-providers}
+## Upgrading from model providers {#upgrading-from-model-providers}
 
-See [LLM Gateway overview](../llm-gateway/how-it-works.md).
+See [Upgrading from model providers](../llm-gateway/upgrade.md).
 
-## Model access profiles {#what-happens-on-upgrade}
+## What happens on upgrade {#what-happens-on-upgrade}
 
-See [Profiles](./model-access-policies.md).
+See [Upgrading from model providers](../llm-gateway/upgrade.md#what-happens-on-upgrade).
 
 ## Client routes {#client-routes}
 
-See [API compatibility](../llm-gateway/compatibility.md#deprecated-provider-endpoints).
+See [Upgrading from model providers](../llm-gateway/upgrade.md#client-routes).
 
-## Gateway administration {#other-changes}
+## Other changes {#other-changes}
 
-See [LLM Gateway overview](../llm-gateway/how-it-works.md#administering-the-gateway).
+See [Upgrading from model providers](../llm-gateway/upgrade.md#other-changes).
 
 ## Limitations {#limitations}
 

@@ -98,6 +98,10 @@ This ensures that once you add a provider under **LLM Gateway > Providers**, use
 
 The *Daily token limit* budget's limits come from `OBOT_SERVER_DAILY_USER_INPUT_TOKEN_LIMIT` and `OBOT_SERVER_DAILY_USER_OUTPUT_TOKEN_LIMIT`. See [Server configuration](../configuration/server-configuration.md).
 
+## Upgrades and Migration
+
+When upgrading from v0.27 with the companion migration change, default aliases and explicit model IDs in Profiles are re-pointed to matching discovered gateway models. Profile subjects and associations remain unchanged. Wildcard patterns are not rewritten, and legacy model settings are not copied. Review users, groups, grants, defaults and pricing, then test allowed and denied requests as ordinary users. See [Upgrading from model providers](../llm-gateway/upgrade.md) for migration availability and the other upgrade changes.
+
 ## Managing Profiles
 
 To manage profiles, go to **LLM Gateway > Profiles**.
