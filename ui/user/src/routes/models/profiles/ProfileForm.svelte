@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
 	import SearchModels from '$lib/components/admin/SearchModels.svelte';
 	import SearchUsers from '$lib/components/admin/SearchUsers.svelte';
 	import SubjectName from '$lib/components/admin/SubjectName.svelte';
@@ -62,7 +63,7 @@
 		resolveSubjects
 	} from '$lib/subjectResolver';
 	import { goto, replaceState } from '$lib/url';
-	import { ArrowLeft, Plus, Trash2, TriangleAlert, UsersRound, X } from '@lucide/svelte';
+	import { Plus, Trash2, TriangleAlert, UsersRound, X } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 
 	// One form for a gateway profile: its users and groups, its models, its budgets and its applied
@@ -83,14 +84,6 @@
 	let nextKey = 0;
 	const newKey = () => `draft-${nextKey++}`;
 
-	function profileJson(p: Pick<ModelAccessPolicyManifest, 'displayName' | 'subjects' | 'models'>) {
-		return JSON.stringify({
-			displayName: p.displayName.trim(),
-			subjects: p.subjects ?? [],
-			models: p.models ?? []
-		});
-	}
-
 	let draft = $state<ModelAccessPolicyManifest>(
 		untrack(() =>
 			initial
@@ -100,7 +93,6 @@
 	);
 	// The profile's ID once it exists, and what was last saved of it.
 	let profileID = $state(untrack(() => initial?.id));
-	let savedJson = $state(untrack(() => (initial ? profileJson(initial) : '')));
 	let savedModelsJson = $state(untrack(() => JSON.stringify(initial?.models ?? [])));
 
 	let budgets = $state<Item<Budget>[]>([]);
@@ -315,14 +307,6 @@
 			.join(' · ');
 	}
 
-	let profileChanged = $derived(!profileID || profileJson(draft) !== savedJson);
-	let hasChanges = $derived(
-		profileChanged ||
-			removedBudgets.length > 0 ||
-			removedPolicies.length > 0 ||
-			budgets.some((item) => item.dirty || !item.value.id || prunedModels(item)) ||
-			policies.some((item) => item.dirty || !item.value.id)
-	);
 	let valid = $derived(
 		draft.displayName.trim().length > 0 &&
 			(draft.subjects?.length ?? 0) > 0 &&
@@ -349,11 +333,10 @@
 					profileID = id;
 					// The profile exists now; if anything after this fails, the form stays on it.
 					replaceState(profileUrl(id), {});
-				} else if (profileChanged) {
+				} else {
 					const updated = await AdminService.updateModelAccessPolicy(id, draft);
 					draft = { ...draft, ...updated };
 				}
-				savedJson = profileJson(draft);
 			} catch (e) {
 				error = errorMessage(e);
 				return;
@@ -416,7 +399,6 @@
 				return;
 			}
 			success.add(m.models_profile_saved());
-			goto(PROFILES_URL);
 		} finally {
 			saving = false;
 		}
@@ -455,73 +437,57 @@
 	let budgetBeingEdited = $derived(budgets.find((b) => b.key === editingBudget));
 	let policyBeingEdited = $derived(policies.find((p) => p.key === editingPolicy));
 
-	let title = $derived(
-		!profileID
-			? m.models_profiles_new()
-			: readonly
-				? m.models_profile_view()
-				: m.models_profile_edit()
-	);
+	let title = $derived(!profileID ? m.models_profiles_new() : draft.displayName);
 </script>
 
 <form
-	class="mx-auto flex w-full max-w-4xl flex-col gap-3 rounded-xl border border-base-300 bg-base-100 p-5 shadow-sm dark:border-base-400 dark:bg-base-300"
+	class="flex h-full w-full flex-col gap-6 @container"
 	onsubmit={(e) => {
 		e.preventDefault();
-		if (!readonly && valid && hasChanges && !saving) void save();
+		if (!readonly && valid && !saving) void save();
 	}}
 >
-	<header class="flex items-start gap-3">
-		<IconButton
-			disabled={saving}
-			tooltip={{ text: m.models_profile_back() }}
-			onclick={() => goto(PROFILES_URL)}
-		>
-			<ArrowLeft class="size-4" />
-		</IconButton>
-		<div class="min-w-0 grow">
-			<h1 class="text-md font-semibold">{title}</h1>
-			<p class="text-muted-content text-sm">{m.models_profile_form_description()}</p>
-		</div>
-		{#if profileID && !readonly}
-			<IconButton
-				variant="danger"
-				disabled={saving}
-				tooltip={{ text: m.models_delete_profile() }}
-				onclick={() => (deleting = true)}
-			>
-				<Trash2 class="size-4" />
-			</IconButton>
-		{/if}
-	</header>
-	<div class="divider my-0"></div>
+	{#if profileID}
+		<header class="flex w-full items-center justify-between gap-4">
+			<div class="flex items-center gap-2">
+				<h1 class="flex items-center gap-4 text-2xl font-semibold">
+					{title}
+				</h1>
+			</div>
+			{#if !readonly}
+				<IconButton
+					variant="danger2"
+					tooltip={{ text: m.models_delete_profile() }}
+					onclick={() => {
+						deleting = true;
+					}}
+				>
+					<Trash2 class="size-4" />
+				</IconButton>
+			{/if}
+		</header>
+	{/if}
 
-	<label class="flex flex-col gap-1 text-sm font-light" for="profile-name">
-		{m.core_name()}
-		<input
-			id="profile-name"
-			class="text-input-filled w-full"
-			bind:value={draft.displayName}
-			disabled={readonly || saving}
-		/>
-	</label>
+	<div class="paper">
+		<label class="flex flex-col gap-1 text-sm font-light" for="profile-name">
+			{m.core_name()}
+			<input
+				id="profile-name"
+				class="text-input-filled w-full"
+				bind:value={draft.displayName}
+				disabled={readonly || saving}
+			/>
+		</label>
+	</div>
 
 	<section>
-		<div class="divider mt-5 mb-3 text-sm font-semibold">{m.core_users_and_groups()}</div>
-		<div class="mb-3 flex items-start justify-between gap-3">
-			<p class="text-muted-content text-sm font-light">{m.models_profile_users_description()}</p>
-			{#if !readonly}
-				<button
-					type="button"
-					class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1 text-xs"
-					disabled={loadingUsersAndGroups || saving}
-					onclick={() => addUserGroupDialog?.open()}
-				>
-					<Plus class="size-4" />
-					{m.core_add_user_group()}
-				</button>
-			{/if}
-		</div>
+		{@render header(
+			m.core_users_and_groups(),
+			m.models_profile_users_description(),
+			m.core_add_user_group(),
+			() => addUserGroupDialog?.open()
+		)}
+
 		{#if loadingUsersAndGroups}
 			<div class="my-2 flex items-center justify-center"><Loading class="size-6" /></div>
 		{:else if subjectRows.length === 0}
@@ -531,7 +497,7 @@
 		{:else}
 			<ul class="flex flex-col">
 				{#each subjectRows as row, index (row.id)}
-					<li class="flex items-center justify-between gap-2 p-2">
+					<li class="paper flex-row justify-between gap-2 p-3">
 						<div class="flex min-w-0 items-center gap-2">
 							<div
 								class="bg-base-300 dark:bg-base-200 flex size-8 shrink-0 items-center justify-center rounded-full"
@@ -572,21 +538,12 @@
 	</section>
 
 	<section>
-		<div class="divider mt-5 mb-3 text-sm font-semibold">{m.models_title()}</div>
-		<div class="mb-3 flex items-start justify-between gap-3">
-			<p class="text-muted-content text-sm font-light">{m.models_profile_models_description()}</p>
-			{#if !readonly}
-				<button
-					type="button"
-					class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1 text-xs"
-					disabled={saving}
-					onclick={() => addModelDialog?.open()}
-				>
-					<Plus class="size-4" />
-					{m.models_access_policies_add_model()}
-				</button>
-			{/if}
-		</div>
+		{@render header(
+			m.models_title(),
+			m.models_profile_models_description(),
+			m.models_access_policies_add_model(),
+			() => addModelDialog?.open()
+		)}
 		{#if invalidModelCount > 0}
 			<div class="notification-alert mb-2 flex items-start gap-1" role="alert">
 				<TriangleAlert class="text-warning size-4 shrink-0" />
@@ -594,15 +551,15 @@
 			</div>
 		{/if}
 		{#if loadingModels && modelRows.length > 0}
-			<div class="my-2 flex items-center justify-center"><Loading class="size-6" /></div>
+			<Skeleton type="items" count={3} class="h-13" />
 		{:else if modelRows.length === 0}
 			<p class="text-muted-content pt-1 pb-3 text-center text-xs font-light italic">
 				{m.models_profile_no_models_added()}
 			</p>
 		{:else}
-			<ul class="flex flex-col">
-				{#each modelRows as row, index (row.id)}
-					<li class="flex items-center justify-between gap-2 p-2">
+			<ul class="flex flex-col gap-2">
+				{#each modelRows as row (row.id)}
+					<li class="paper flex-row justify-between gap-2 p-3">
 						<div class="flex min-w-0 flex-col">
 							<div class="flex items-center gap-2">
 								<span class={row.isPattern ? 'font-mono text-sm' : 'text-sm'}>{row.name}</span>
@@ -655,32 +612,18 @@
 							</IconButton>
 						{/if}
 					</li>
-					{#if index < modelRows.length - 1}
-						<li class="divider my-0 px-2 before:h-px after:h-px" aria-hidden="true"></li>
-					{/if}
 				{/each}
 			</ul>
 		{/if}
 	</section>
 
 	<section>
-		<div class="divider mt-5 mb-3 text-sm font-semibold">{m.models_profiles_budgets()}</div>
-		<div class="mb-3 flex items-start justify-between gap-3">
-			<p class="text-muted-content text-sm font-light">
-				{m.models_profiles_budgets_description()}
-			</p>
-			{#if !readonly}
-				<button
-					type="button"
-					class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1 text-xs"
-					disabled={saving}
-					onclick={() => openBudget('new')}
-				>
-					<Plus class="size-4" />
-					{m.models_budgets_add()}
-				</button>
-			{/if}
-		</div>
+		{@render header(
+			m.models_profiles_budgets(),
+			m.models_profiles_budgets_description(),
+			m.models_budgets_add(),
+			() => openBudget('new')
+		)}
 		{#if budgets.length > 0 && !draft.models?.length}
 			<div class="notification-alert mb-2 flex items-center gap-2 p-3 text-sm">
 				<TriangleAlert class="size-4 shrink-0" />
@@ -688,15 +631,15 @@
 			</div>
 		{/if}
 		{#if loadingItems}
-			<div class="my-2 flex items-center justify-center"><Loading class="size-6" /></div>
+			<Skeleton type="items" count={3} class="h-13" />
 		{:else if budgets.length === 0}
 			<p class="text-muted-content pt-1 pb-3 text-center text-xs font-light italic">
 				{m.models_profiles_budgets_empty()}
 			</p>
 		{:else}
-			<ul class="flex flex-col">
+			<ul class="flex flex-col gap-2">
 				{#each budgets as item, index (item.key)}
-					<li class="flex items-center justify-between gap-2 rounded-md p-2 hover:bg-base-200">
+					<li class="paper flex-row justify-between gap-2 p-3">
 						<div class="flex min-w-0 grow flex-col">
 							<button
 								type="button"
@@ -745,35 +688,23 @@
 	</section>
 
 	<section>
-		<div class="divider mt-5 mb-3 text-sm font-semibold">
-			{m.models_profiles_applied_guardrails()}
-		</div>
-		<div class="mb-3 flex items-start justify-between gap-3">
-			<p class="text-muted-content text-sm font-light">
-				{m.models_profiles_applied_guardrails_description()}
-			</p>
-			{#if !readonly}
-				<button
-					type="button"
-					class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1 text-xs"
-					disabled={saving}
-					onclick={() => openPolicy('new')}
-				>
-					<Plus class="size-4" />
-					{m.models_profiles_add_guardrail()}
-				</button>
-			{/if}
-		</div>
+		{@render header(
+			m.models_profiles_applied_guardrails(),
+			m.models_profiles_applied_guardrails_description(),
+			m.models_profiles_add_guardrail(),
+			() => openPolicy('new')
+		)}
+
 		{#if loadingItems}
-			<div class="my-2 flex items-center justify-center"><Loading class="size-6" /></div>
+			<Skeleton type="items" count={3} class="h-13" />
 		{:else if policies.length === 0}
 			<p class="text-muted-content pt-1 pb-3 text-center text-xs font-light italic">
 				{m.models_profiles_applied_guardrails_empty()}
 			</p>
 		{:else}
-			<ul class="flex flex-col">
+			<ul class="flex flex-col gap-2">
 				{#each policies as item, index (item.key)}
-					<li class="flex items-center justify-between gap-2 rounded-md p-2 hover:bg-base-200">
+					<li class="paper flex-row justify-between gap-2 p-3">
 						<button
 							type="button"
 							class="flex min-w-0 grow flex-col text-left"
@@ -826,7 +757,9 @@
 	{/if}
 
 	{#if !readonly}
-		<div class="flex justify-end gap-2 pt-2">
+		<div
+			class="bg-base-200 dark:bg-base-100 dark:text-muted-content sticky bottom-0 left-0 flex w-full justify-end gap-2 py-4 z-50"
+		>
 			<button
 				type="button"
 				class="btn btn-ghost text-sm"
@@ -835,16 +768,40 @@
 			>
 				{m.common_cancel()}
 			</button>
-			<button
-				type="submit"
-				class="btn btn-primary text-sm"
-				disabled={!valid || !hasChanges || saving}
-			>
+			<button type="submit" class="btn btn-primary text-sm min-w-19" disabled={!valid || saving}>
 				{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 			</button>
 		</div>
 	{/if}
 </form>
+
+{#snippet header(title: string, description: string, btnLabel: string, onClick: () => void)}
+	<div class="mb-3 flex items-start justify-between gap-4">
+		<div>
+			<h2 class="text-lg font-semibold">
+				{title}
+			</h2>
+			<p class="text-muted-content text-sm max-w-2xl hidden @lg:block">
+				{description}
+			</p>
+		</div>
+		{#if !readonly}
+			<button
+				type="button"
+				class="btn btn-primary text-sm"
+				disabled={loadingUsersAndGroups || saving}
+				onclick={onClick}
+			>
+				<Plus class="size-4" />
+				{btnLabel}
+			</button>
+		{/if}
+	</div>
+
+	<p class="text-muted-content text-xs mb-4 block @lg:hidden">
+		{description}
+	</p>
+{/snippet}
 
 <ResponsiveDialog
 	bind:this={budgetDialog}

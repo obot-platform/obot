@@ -14,8 +14,8 @@
 	let title = $derived(modelAccessPolicy?.displayName ?? m.models_profiles_new());
 </script>
 
-<Layout>
-	<div class="h-full w-full py-4" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
+<Layout {title} showBackButton>
+	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		{#key modelAccessPolicy?.id}
 			<ProfileForm {modelAccessPolicy} {readonly} />
 		{/key}

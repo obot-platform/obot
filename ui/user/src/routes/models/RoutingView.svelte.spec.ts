@@ -1,9 +1,16 @@
+import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
 import { worker } from '../../tests/mocks/worker';
 import { readyStatus, renderModelsTab, resetModelsTab } from './testing';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, type Locator } from 'vitest/browser';
+
+vi.mock('$app/state', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/state')>();
+	const { createAppState } = await import('../../tests/helpers/navigation.svelte');
+	return createAppState(actual);
+});
 
 const provider = (name: string) => ({
 	name,
@@ -48,11 +55,16 @@ async function chooseProvider(scope: Locator, name: string, option: string) {
 	await page.getByRole('button', { name: option, exact: true }).click();
 }
 
-// The search box syncs its query to the URL, which needs a router the specs don't have.
-vi.mock(import('$lib/url'), async (importOriginal) => ({
-	...(await importOriginal()),
-	replaceState: vi.fn()
-}));
+// The search box syncs its query to the URL. Add Rule and row clicks navigate through goto,
+// which the specs apply onto the mocked page URL.
+vi.mock(import('$lib/url'), async (importOriginal) => {
+	const { applyTestGoto } = await import('../../tests/helpers/navigation.svelte');
+	return {
+		...(await importOriginal()),
+		replaceState: vi.fn(),
+		goto: (url: string | URL) => applyTestGoto(url)
+	};
+});
 
 afterEach(resetModelsTab);
 
@@ -90,35 +102,35 @@ describe('Models routing tab', () => {
 		await renderRoutingPage();
 
 		await page.getByRole('button', { name: 'Add Rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await dialog.getByLabelText('Name').fill('Split Claude');
-		await dialog.getByLabelText('Priority').fill('3');
+		const form = page.getByRole('form', { name: 'Add Routing Rule' });
+		await form.getByLabelText('Name').fill('Split Claude');
+		await form.getByLabelText('Priority').fill('3');
 		await expect
 			.element(
-				dialog.getByText(
+				form.getByText(
 					'Lower numbers run first. Rules with equal priority have no guaranteed order; use different priorities when order matters.'
 				)
 			)
 			.toBeVisible();
-		await dialog.getByLabelText('When (CEL expression)').fill('model.startsWith("claude-")');
-		// New rules start enabled, so creating one offers no toggle.
-		await expect.element(dialog.getByRole('switch', { name: 'Enabled' })).not.toBeInTheDocument();
-		await expect.element(dialog.getByText('request_type', { exact: true })).toBeInTheDocument();
+		await form.getByLabelText('When (CEL expression)').fill('model.startsWith("claude-")');
+		// New rules start enabled, and that can be changed before the rule exists.
+		await expect.element(form.getByRole('button', { name: 'Disable Rule' })).toBeVisible();
+		await expect.element(form.getByText('request_type', { exact: true })).toBeInTheDocument();
 
 		// The first target defaults to the first provider with weight 1.
-		await dialog.getByLabelText('Target model').fill('claude-sonnet-4-5');
-		await dialog.getByLabelText('Target weight').fill('0.75');
-		await dialog.getByRole('button', { name: 'Add target' }).click();
-		await chooseProvider(dialog, 'Target provider', 'Anthropic');
-		await dialog.getByLabelText('Target weight').last().fill('0.25');
+		await form.getByLabelText('Target model').fill('claude-sonnet-4-5');
+		await form.getByLabelText('Target weight').fill('0.75');
+		await form.getByRole('button', { name: 'Add target' }).click();
+		await chooseProvider(form, 'Target provider', 'Anthropic');
+		await form.getByLabelText('Target weight').last().fill('0.25');
 
-		await dialog.getByRole('button', { name: 'Add fallback' }).click();
-		await chooseProvider(dialog, 'Fallback provider', 'Anthropic');
-		await dialog.getByLabelText('Fallback model').fill('claude-haiku-4-5');
+		await form.getByRole('button', { name: 'Add fallback' }).click();
+		await chooseProvider(form, 'Fallback provider', 'Anthropic');
+		await form.getByLabelText('Fallback model').fill('claude-haiku-4-5');
 		// A fallback without a model is dropped from the payload.
-		await dialog.getByRole('button', { name: 'Add fallback' }).click();
+		await form.getByRole('button', { name: 'Add fallback' }).click();
 
-		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+		await form.getByRole('button', { name: 'Save', exact: true }).click();
 
 		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
 		expect(created).toHaveBeenCalledWith({
@@ -141,48 +153,45 @@ describe('Models routing tab', () => {
 		await renderRoutingPage();
 
 		await page.getByRole('button', { name: 'Add Rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await dialog.getByLabelText('Name').fill('Bad weights');
-		await dialog.getByLabelText('Target weight').fill('0.5');
+		const form = page.getByRole('form', { name: 'Add Routing Rule' });
+		await form.getByLabelText('Name').fill('Bad weights');
+		await form.getByLabelText('Target weight').fill('0.5');
 
 		await expect
-			.element(dialog.getByText('Weights must add up to 1 (currently 0.50)'))
+			.element(form.getByText('Weights must add up to 1 (currently 0.50)'))
 			.toBeInTheDocument();
-		await expect.element(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await expect.element(form.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 	});
 
-	it('updates an existing rule, keeping same-provider targets and parsed fallbacks', async () => {
-		mockGateway();
-		const updated = vi.fn();
+	it('saves a new rule disabled when Disable Rule is chosen first', async () => {
+		mockGateway({ rules: [] });
+		const created = vi.fn();
 		worker.use(
-			http.put(
-				'/api/llm-gateway/admin/governance/routing-rules/:id',
-				async ({ params, request }) => {
-					updated(params.id, await request.json());
-					return HttpResponse.json({ rule: cheapRule });
-				}
-			)
+			http.post('/api/llm-gateway/admin/governance/routing-rules', async ({ request }) => {
+				created(await request.json());
+				return HttpResponse.json({ rule: { id: 'new' } });
+			})
 		);
 		await renderRoutingPage();
 
-		await page.getByRole('button', { name: 'Edit rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await expect.element(dialog.getByLabelText('Name')).toHaveValue('Cheaper GPT');
-		await dialog.getByLabelText('Priority').fill('7');
-		await dialog.getByRole('switch', { name: 'Enabled' }).click();
-		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+		await page.getByRole('button', { name: 'Add Rule' }).click();
+		const form = page.getByRole('form', { name: 'Add Routing Rule' });
+		await form.getByLabelText('Name').fill('Off');
+		await form.getByRole('button', { name: 'Disable Rule' }).click();
+		await expect.element(form.getByRole('button', { name: 'Enable Rule' })).toBeVisible();
+		await form.getByRole('button', { name: 'Save', exact: true }).click();
 
-		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
-		expect(updated).toHaveBeenCalledWith('r1', {
-			name: 'Cheaper GPT',
-			description: 'Send gpt-4o to mini',
-			enabled: false,
-			cel_expression: 'model == "gpt-4o"',
-			priority: 7,
-			scope: 'global',
-			targets: [{ provider: null, model: 'gpt-4o-mini', weight: 1 }],
-			fallbacks: [{ provider: 'anthropic', model: 'claude-sonnet-4-5' }]
-		});
+		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
+		expect(created.mock.calls[0][0].enabled).toBe(false);
+	});
+
+	it('opens a rule from its row', async () => {
+		mockGateway();
+		await renderRoutingPage();
+
+		await page.getByRole('cell', { name: 'Cheaper GPT' }).click();
+
+		expect(appPage.url.pathname).toBe('/models/routing/r1');
 	});
 
 	it('sends a time to first token timeout in milliseconds and omits empty ones', async () => {
@@ -197,22 +206,22 @@ describe('Models routing tab', () => {
 		await renderRoutingPage();
 
 		await page.getByRole('button', { name: 'Add Rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await dialog.getByLabelText('Name').fill('Fast first token');
-		await dialog.getByLabelText('Target model').fill('gpt-4o');
-		await dialog.getByLabelText('Target weight').fill('0.5');
-		await dialog.getByLabelText('Time to first token timeout').fill('2.5');
+		const form = page.getByRole('form', { name: 'Add Routing Rule' });
+		await form.getByLabelText('Name').fill('Fast first token');
+		await form.getByLabelText('Target model').fill('gpt-4o');
+		await form.getByLabelText('Target weight').fill('0.5');
+		await form.getByLabelText('Time to first token timeout').fill('2.5');
 		await expect
-			.element(dialog.getByText('only takes effect when there is a fallback', { exact: false }))
+			.element(form.getByText('only takes effect when there is a fallback', { exact: false }))
 			.toBeInTheDocument();
 		// A second target left without a timeout sends none.
-		await dialog.getByRole('button', { name: 'Add target' }).click();
-		await dialog.getByLabelText('Target weight').last().fill('0.5');
-		await dialog.getByRole('button', { name: 'Add fallback' }).click();
-		await chooseProvider(dialog, 'Fallback provider', 'Anthropic');
-		await dialog.getByLabelText('Fallback model').fill('claude-haiku-4-5');
+		await form.getByRole('button', { name: 'Add target' }).click();
+		await form.getByLabelText('Target weight').last().fill('0.5');
+		await form.getByRole('button', { name: 'Add fallback' }).click();
+		await chooseProvider(form, 'Fallback provider', 'Anthropic');
+		await form.getByLabelText('Fallback model').fill('claude-haiku-4-5');
 
-		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+		await form.getByRole('button', { name: 'Save', exact: true }).click();
 
 		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
 		expect(created.mock.calls[0][0].targets).toEqual([
@@ -226,19 +235,19 @@ describe('Models routing tab', () => {
 		await renderRoutingPage();
 
 		await page.getByRole('button', { name: 'Add Rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await dialog.getByLabelText('Name').fill('Too slow');
-		await dialog.getByLabelText('Time to first token timeout').fill('301');
+		const form = page.getByRole('form', { name: 'Add Routing Rule' });
+		await form.getByLabelText('Name').fill('Too slow');
+		await form.getByLabelText('Time to first token timeout').fill('301');
 
 		await expect
 			.element(
-				dialog.getByText('Time to first token timeouts must be between 0.001 and 300 seconds.')
+				form.getByText('Time to first token timeouts must be between 0.001 and 300 seconds.')
 			)
 			.toBeInTheDocument();
-		await expect.element(dialog.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+		await expect.element(form.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 	});
 
-	it('keeps an existing time to first token timeout and key pin when editing a rule', async () => {
+	it('shows a time to first token timeout in the target summary', async () => {
 		const rule = {
 			...cheapRule,
 			targets: [
@@ -252,75 +261,11 @@ describe('Models routing tab', () => {
 			]
 		};
 		mockGateway({ rules: [rule] });
-		const updated = vi.fn();
-		worker.use(
-			http.put(
-				'/api/llm-gateway/admin/governance/routing-rules/:id',
-				async ({ params, request }) => {
-					updated(params.id, await request.json());
-					return HttpResponse.json({ rule });
-				}
-			)
-		);
 		await renderRoutingPage();
 
 		await expect
 			.element(page.getByText('OpenAI / gpt-4o-mini (100%, 1.5s first token timeout)'))
 			.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Edit rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await expect.element(dialog.getByLabelText('Time to first token timeout')).toHaveValue(1.5);
-		await dialog.getByLabelText('Name').fill('Cheaper GPT, fast start');
-		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-
-		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
-		expect(updated.mock.calls[0][1].targets).toEqual([
-			{ provider: 'openai', model: 'gpt-4o-mini', weight: 1, key_id: 'k1', ttft_timeout_ms: 1500 }
-		]);
-	});
-
-	it('drops a cleared time to first token timeout when editing a rule', async () => {
-		const rule = {
-			...cheapRule,
-			targets: [{ provider: null, model: 'gpt-4o-mini', weight: 1, ttft_timeout_ms: 1500 }]
-		};
-		mockGateway({ rules: [rule] });
-		const updated = vi.fn();
-		worker.use(
-			http.put(
-				'/api/llm-gateway/admin/governance/routing-rules/:id',
-				async ({ params, request }) => {
-					updated(params.id, await request.json());
-					return HttpResponse.json({ rule });
-				}
-			)
-		);
-		await renderRoutingPage();
-
-		await page.getByRole('button', { name: 'Edit rule' }).click();
-		const dialog = page.getByRole('dialog');
-		await dialog.getByLabelText('Time to first token timeout').clear();
-		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
-
-		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
-		expect(updated.mock.calls[0][1].targets).toEqual([
-			{ provider: null, model: 'gpt-4o-mini', weight: 1 }
-		]);
-	});
-
-	it('shows the server error when saving fails', async () => {
-		mockGateway();
-		worker.use(
-			http.put('/api/llm-gateway/admin/governance/routing-rules/:id', () =>
-				HttpResponse.json({ error: { message: 'invalid CEL expression' } }, { status: 400 })
-			)
-		);
-		await renderRoutingPage();
-
-		await page.getByRole('button', { name: 'Edit rule' }).click();
-		await page.getByRole('dialog').getByRole('button', { name: 'Save', exact: true }).click();
-
-		await expect.element(page.getByText('invalid CEL expression')).toBeInTheDocument();
 	});
 
 	it('deletes a rule after confirmation', async () => {

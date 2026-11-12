@@ -550,7 +550,7 @@
 			)}
 		>
 			<button class="btn btn-secondary text-sm" onclick={onCancel}>{m.common_cancel()}</button>
-			<button class="btn btn-primary text-sm" disabled={!valid || saving} onclick={save}>
+			<button class="btn btn-primary text-sm min-w-19" disabled={!valid || saving} onclick={save}>
 				{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 			</button>
 		</div>

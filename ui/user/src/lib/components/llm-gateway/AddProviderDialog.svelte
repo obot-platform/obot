@@ -18,6 +18,7 @@
 		setPath,
 		type ProviderCatalogEntry
 	} from '$lib/services/llm-gateway/providers';
+	import Toggle from '../Toggle.svelte';
 	import AuthenticationMethodSelector from './AuthenticationMethodSelector.svelte';
 	import { Blocks, ChevronLeft } from '@lucide/svelte';
 
@@ -409,20 +410,25 @@
 						: m.models_providers_base_url_default_placeholder()}
 				/>
 			</div>
-			<div class="flex flex-col gap-1">
-				<label class="flex items-center gap-2 text-sm">
-					<input
-						type="checkbox"
-						class="checkbox checkbox-sm"
-						bind:checked={allowPrivate}
-						aria-describedby="new-allow-private-help"
-					/>
-					{m.models_providers_allow_private_network()}
-				</label>
-				<span id="new-allow-private-help" class="text-muted-content text-xs">
+
+			<label
+				for="new-allow-private"
+				class="border-base-400 flex flex-col gap-1 rounded-md border p-3 md:col-span-2 cursor-pointer"
+			>
+				<Toggle
+					label={m.models_providers_allow_private_network()}
+					labelInline
+					id="new-allow-private-help"
+					checked={allowPrivate}
+					onChange={(v) => (allowPrivate = v)}
+					classes={{
+						label: 'flex justify-between items-center text-base-content text-sm'
+					}}
+				/>
+				<span class="text-muted-content text-xs pr-12">
 					{m.models_providers_allow_private_network_help()}
 				</span>
-			</div>
+			</label>
 
 			{#if error}
 				<div class="notification-error rounded-md p-2 text-sm">{error}</div>

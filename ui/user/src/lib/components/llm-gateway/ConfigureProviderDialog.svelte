@@ -36,6 +36,7 @@
 	import { resolve } from '$lib/url';
 	import { Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onDestroy, tick } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onClosed?: () => void;
@@ -373,7 +374,7 @@
 					>
 				</div>
 				{#if !readonly}
-					<button class="btn btn-error btn-soft" onclick={() => (deleting = true)}>
+					<button class="btn btn-error btn-sm btn-soft" onclick={() => (deleting = true)}>
 						{m.models_providers_deconfigure_provider()}
 					</button>
 				{/if}
@@ -421,8 +422,11 @@
 							{:else if property === 'maskedValue'}
 								<span class="font-mono text-xs">{row.maskedValue}</span>
 							{:else if property === 'statusLabel'}
-								<span class={row.status === 'success' ? 'text-success' : 'text-warning'}
-									>{row.statusLabel}</span
+								<span
+									class={twMerge(
+										'badge badge-xs badge-soft',
+										row.status === 'success' ? 'badge-success' : 'badge-warning'
+									)}>{row.statusLabel}</span
 								>
 							{:else}
 								{row[property as keyof typeof row]}
@@ -548,9 +552,10 @@
 					)}
 					<label
 						for="p-allow-private"
-						class="border-base-400 flex flex-col gap-1 rounded-md border p-3 md:col-span-2 {readonly
-							? 'cursor-default'
-							: 'cursor-pointer'}"
+						class={twMerge(
+							'border-base-400 flex flex-col gap-1 rounded-md border p-3 md:col-span-2',
+							readonly ? 'cursor-default' : 'cursor-pointer'
+						)}
 					>
 						<Toggle
 							label={m.models_providers_allow_private_network()}

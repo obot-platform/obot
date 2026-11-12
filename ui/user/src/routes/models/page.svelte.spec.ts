@@ -1,3 +1,4 @@
+import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
 import { goto } from '$lib/url';
 import { worker } from '../../tests/mocks/worker';
@@ -99,10 +100,20 @@ describe('Models page', () => {
 		mockProfiles([{ id: 'p1', displayName: 'Engineering', subjects: [], models: [] }]);
 		await renderModelsTab('profiles');
 
-		await expect.element(page.getByRole('heading', { name: 'Engineering' })).toBeInTheDocument();
+		await expect.element(page.getByRole('link', { name: 'Edit Engineering' })).toBeVisible();
 		await page.getByRole('button', { name: 'Add Profile' }).first().click();
 
-		expect(goto).toHaveBeenCalledWith('/models/profiles/new');
+		expect(goto).toHaveBeenCalledWith('/models?view=profiles&new=true');
+	});
+
+	it('shows the profile form when creating a profile', async () => {
+		mockProfiles();
+		(appPage.url as URL).searchParams.set('new', 'true');
+		await renderModelsTab('profiles');
+
+		await expect.element(page.getByRole('heading', { name: 'New Profile' })).toBeVisible();
+		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add Profile' })).not.toBeInTheDocument();
 	});
 
 	it('lists the shared guardrails on the Guardrails tab, with what uses them', async () => {
