@@ -1,5 +1,5 @@
 ---
-title: "Upgrading from model providers"
+title: "Upgrading from v0.27"
 ---
 
 The [LLM gateway](./how-it-works.md) replaces the v0.27 model-provider backends. All model requests use the gateway, which cannot be turned off.
