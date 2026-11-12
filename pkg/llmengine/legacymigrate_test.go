@@ -2,162 +2,255 @@ package llmengine
 
 import (
 	"context"
-	"slices"
+	"fmt"
 	"testing"
 
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-	kfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
-func TestMigrateLegacyModels(t *testing.T) {
-	ns := system.DefaultNamespace
-	model := func(name, provider, target string, edit func(*types.ModelManifest)) *v1.Model {
-		m := &v1.Model{Namespace: ns, Name: name, Spec: v1.ModelSpec{Manifest: types.ModelManifest{ModelProvider: provider, TargetModel: target, Active: true}}}
-		if edit != nil {
-			edit(&m.Spec.Manifest)
-		}
-		return m
+func migrationModel(name, provider, target string) *v1.Model {
+	return &v1.Model{
+		Namespace: system.DefaultNamespace,
+		Name:      name,
+		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
+			ModelProvider: provider,
+			TargetModel:   target,
+			Active:        true,
+			Usage:         types.ModelUsageLLM,
+		}},
 	}
-	provider := func(name string) *v1.ModelProvider {
-		return &v1.ModelProvider{Namespace: ns, Name: name}
-	}
-	alias := func(name, modelName string) *v1.DefaultModelAlias {
-		return &v1.DefaultModelAlias{Namespace: ns, Name: name, Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: name, Model: modelName}}}
-	}
-	override := &types.ModelCost{Input: 1}
+}
 
-	objects := []kclient.Object{
-		provider(system.LLMGatewayModelProvider),
-		provider(system.OpenAIModelProvider),
-		provider(system.AnthropicModelProvider),
-		provider("ollama-model-provider"),
-		provider(system.ModelProxyModelProvider),
-		// The legacy GPT-5 was deactivated and given a cost override.
-		model("legacy-gpt5", system.OpenAIModelProvider, "gpt-5", func(m *types.ModelManifest) { m.Active = false; m.OverrideCost = override }),
-		model("legacy-mini", system.OpenAIModelProvider, "gpt-5-mini", nil),
-		model("legacy-unused", system.OpenAIModelProvider, "gpt-3.5-turbo", nil),
-		// The gateway doesn't serve this one yet, and an alias refers to it.
-		model("legacy-sonnet", system.AnthropicModelProvider, "claude-sonnet-9", nil),
-		// An undated alias the gateway lists only in its dated forms.
-		model("legacy-haiku", system.AnthropicModelProvider, "claude-haiku-4-5", nil),
-		// Its name is a prefix of the alias's dated versions, but it isn't one of them.
-		model("legacy-haiku-4", system.AnthropicModelProvider, "claude-haiku-4", nil),
-		// No import plan; nothing refers to it.
-		model("legacy-llama", "ollama-model-provider", "llama3", nil),
-		// Deactivated, and the gateway doesn't list it yet; nothing refers to it.
-		model("legacy-disabled", system.OpenAIModelProvider, "gpt-9", func(m *types.ModelManifest) { m.Active = false }),
-		model("proxy-model", system.ModelProxyModelProvider, "claude", nil),
-		model("gw-gpt5", system.LLMGatewayModelProvider, "openai/gpt-5", nil),
-		model("gw-mini", system.LLMGatewayModelProvider, "openai/gpt-5-mini", nil),
-		model("gw-haiku-old", system.LLMGatewayModelProvider, "anthropic/claude-haiku-4-5-20250101", nil),
-		model("gw-haiku", system.LLMGatewayModelProvider, "anthropic/claude-haiku-4-5-20251001", nil),
-		alias("llm", "legacy-gpt5"),
-		alias("llm-mini", "legacy-mini"),
-		alias("vision", "legacy-sonnet"),
-		alias("text-embedding", "legacy-haiku-4"),
-		alias("image-generation", "legacy-haiku"),
-		&v1.ModelAccessPolicy{Namespace: ns, Name: "map1", Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
-			Models: []types.ModelResource{
-				{ID: "legacy-gpt5"}, {ID: "gw-gpt5"}, {ID: "legacy-mini"}, {ID: "legacy-haiku"}, {ID: "obot://llm"},
-				// Patterns for provider-native names: one that matched OpenAI models, one for a
-				// provider without an import plan, and one already in gateway form.
-				{ID: "gpt-5*"}, {ID: "llama*"}, {ID: "anthropic/claude*"},
-			},
-		}}},
+func migrationPolicy(ids ...string) *v1.ModelAccessPolicy {
+	p := &v1.ModelAccessPolicy{
+		Namespace: system.DefaultNamespace,
+		Name:      "map1-profile",
+		Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
+			Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "allowed-user"}},
+		}},
 	}
-	c := kfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(objects...).
-		WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string {
-			return []string{o.(*v1.Model).Spec.Manifest.ModelProvider}
-		}).Build()
-	ctx := context.Background()
+	for _, id := range ids {
+		p.Spec.Manifest.Models = append(p.Spec.Manifest.Models, types.ModelResource{ID: id})
+	}
+	return p
+}
 
-	get := func(obj kclient.Object, name string) error {
-		return c.Get(ctx, kclient.ObjectKey{Namespace: ns, Name: name}, obj)
+// Model the controller client: wrapped scans read storage without registering dependencies.
+func migrationList(t *testing.T) func(context.Context, kclient.WithWatch, kclient.ObjectList, ...kclient.ListOption) error {
+	t.Helper()
+	return func(ctx context.Context, c kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+		require.True(t, untriggered.IsWrapped(list), "migration scans must not register controller triggers")
+		return c.List(ctx, untriggered.UnwrapList(list), opts...)
 	}
-	modelOf := func(name string) string {
-		var a v1.DefaultModelAlias
-		if err := get(&a, name); err != nil {
-			t.Fatal(err)
-		}
-		return a.Spec.Manifest.Model
-	}
-	exists := func(obj kclient.Object, name string) bool {
-		err := get(obj, name)
-		if err != nil && !apierrors.IsNotFound(err) {
-			t.Fatal(err)
-		}
-		return err == nil
-	}
+}
 
-	// Before credentials are imported, references move but nothing is deleted.
-	if err := MigrateLegacyModels(ctx, c, false); err != nil {
-		t.Fatal(err)
+func TestMigrationRewritesOnlyDefaultAliasesAndProfileReferences(t *testing.T) {
+	source := migrationModel("m1-legacy", system.AnthropicModelProvider, "claude-sonnet-4-5")
+	source.Spec.Manifest.Active = false
+	source.Spec.Manifest.Alias = "custom-claude"
+	source.Spec.Manifest.DisplayName = "Old display name"
+	source.Spec.Manifest.OverrideCost = &types.ModelCost{Input: 7}
+	dated := migrationModel("m1-dated", system.AnthropicModelProvider, "claude-sonnet-4-5-20250929")
+	unused := migrationModel("m1-unused", system.OpenAIModelProvider, "unavailable")
+	target := migrationModel("m1-gateway", system.LLMGatewayModelProvider, "anthropic/claude-sonnet-4-5-20250929")
+	policy := migrationPolicy(source.Name, dated.Name, target.Name, "obot://llm", "claude-*", "anthropic/claude-*")
+	wildcard := migrationPolicy("*")
+	wildcard.Name = "wildcard"
+	dma := &v1.DefaultModelAlias{
+		Namespace: system.DefaultNamespace,
+		Name:      "llm",
+		Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: source.Name}},
 	}
-	if got := modelOf("llm"); got != "gw-gpt5" {
-		t.Errorf("llm alias = %s, want gw-gpt5", got)
+	provider := ModelProviderResource()
+	provider.Annotations = map[string]string{"keep": "admin value"}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, dated, unused, target, policy, wildcard, dma).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+	originals := []kclient.Object{source.DeepCopy(), dated.DeepCopy(), unused.DeepCopy(), target.DeepCopy(), wildcard.DeepCopy()}
+	for _, obj := range originals {
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(obj), obj))
 	}
-	if got := modelOf("llm-mini"); got != "gw-mini" {
-		t.Errorf("llm-mini alias = %s, want gw-mini", got)
+	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+	for _, original := range originals {
+		current := original.DeepCopyObject().(kclient.Object)
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(original), current))
+		require.Equal(t, original, current, "models and wildcard-only Profiles must remain untouched")
 	}
-	if got := modelOf("image-generation"); got != "gw-haiku" {
-		t.Errorf("image-generation alias = %s, want gw-haiku, the latest dated version of the undated alias", got)
-	}
-	if got := modelOf("text-embedding"); got != "legacy-haiku-4" {
-		t.Errorf("text-embedding alias = %s, want it kept on legacy-haiku-4, which no gateway model serves", got)
-	}
-	if got := modelOf("vision"); got != "legacy-sonnet" {
-		t.Errorf("vision alias = %s, want it kept on the legacy model the gateway doesn't serve", got)
-	}
-	var policy v1.ModelAccessPolicy
-	if err := get(&policy, "map1"); err != nil {
-		t.Fatal(err)
-	}
-	var ids []string
-	for _, m := range policy.Spec.Manifest.Models {
-		ids = append(ids, m.ID)
-	}
-	if want := []string{"gw-gpt5", "gw-mini", "gw-haiku", "obot://llm", "openai/gpt-5*", "llama*", "anthropic/claude*"}; !slices.Equal(ids, want) {
-		t.Errorf("policy models = %v, want %v", ids, want)
-	}
-	var gpt5 v1.Model
-	if err := get(&gpt5, "gw-gpt5"); err != nil {
-		t.Fatal(err)
-	}
-	if gpt5.Spec.Manifest.Active || gpt5.Spec.Manifest.OverrideCost == nil {
-		t.Errorf("edits of the legacy model weren't carried over: %+v", gpt5.Spec.Manifest)
-	}
-	if !exists(&v1.Model{}, "legacy-unused") {
-		t.Error("legacy models must be kept until credentials are imported")
-	}
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, []types.ModelResource{{ID: target.Name}, {ID: "obot://llm"}, {ID: "claude-*"}, {ID: "anthropic/claude-*"}}, policy.Spec.Manifest.Models)
+	require.Equal(t, []types.Subject{{Type: types.SubjectTypeUser, ID: "allowed-user"}}, policy.Spec.Manifest.Subjects)
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+	require.Equal(t, target.Name, dma.Spec.Manifest.Model)
+	require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation], "unreferenced models must not delay completion")
+	require.Equal(t, "admin value", provider.Annotations["keep"])
+	require.Equal(t, ModelProviderResource().Spec, provider.Spec)
+}
 
-	// Once imported, migrated and unreferenced legacy models go, and then their providers.
-	if err := MigrateLegacyModels(ctx, c, true); err != nil {
-		t.Fatal(err)
+func TestUnsupportedLegacyReferencesDoNotBlockCompletion(t *testing.T) {
+	for _, gatewayExists := range []bool{false, true} {
+		t.Run(fmt.Sprintf("gatewayExists=%t", gatewayExists), func(t *testing.T) {
+			unsupported := migrationModel("m1-vertex", "gemini-vertex-model-provider", "gemini-2.5-pro")
+			source := migrationModel("m1-openai", system.OpenAIModelProvider, "gpt-5")
+			target := migrationModel("m1-gateway", system.LLMGatewayModelProvider, "openai/gpt-5")
+			policy := migrationPolicy(unsupported.Name, source.Name)
+			dma := &v1.DefaultModelAlias{
+				Namespace: system.DefaultNamespace,
+				Name:      "llm",
+				Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: unsupported.Name}},
+			}
+			provider := ModelProviderResource()
+			objects := []kclient.Object{provider, unsupported, source, target, policy, dma}
+			if gatewayExists {
+				objects = append(objects, migrationModel("m1-gateway-vertex", system.LLMGatewayModelProvider, "vertex/gemini-2.5-pro"))
+			}
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+			require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+			require.Equal(t, []types.ModelResource{{ID: unsupported.Name}, {ID: target.Name}}, policy.Spec.Manifest.Models)
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+			require.Equal(t, unsupported.Name, dma.Spec.Manifest.Model)
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(unsupported), &v1.Model{}))
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(provider), provider))
+			require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation])
+		})
 	}
-	for _, name := range []string{"legacy-gpt5", "legacy-mini", "legacy-haiku", "legacy-unused", "legacy-llama"} {
-		if exists(&v1.Model{}, name) {
-			t.Errorf("legacy model %s should be deleted", name)
-		}
+}
+
+func TestMigrationRetainsUnmatchedReferencesAndRetriesAfterDiscovery(t *testing.T) {
+	source := migrationModel("m1-source", system.AzureEntraModelProvider, "deployment")
+	policy := migrationPolicy(source.Name)
+	dma := &v1.DefaultModelAlias{
+		Namespace: system.DefaultNamespace,
+		Name:      "llm",
+		Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: source.Name}},
 	}
-	for _, name := range []string{"legacy-sonnet", "legacy-disabled", "proxy-model", "gw-gpt5"} {
-		if !exists(&v1.Model{}, name) {
-			t.Errorf("model %s should be kept", name)
-		}
+	provider := ModelProviderResource()
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, policy, dma).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+	require.Empty(t, provider.Annotations[legacyModelMigrationCompleteAnnotation])
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, source.Name, policy.Spec.Manifest.Models[0].ID)
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+	require.Equal(t, source.Name, dma.Spec.Manifest.Model)
+	target := migrationModel("m1-target", system.LLMGatewayModelProvider, "azure/deployment")
+	require.NoError(t, c.Create(t.Context(), target))
+	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, target.Name, policy.Spec.Manifest.Models[0].ID)
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+	require.Equal(t, target.Name, dma.Spec.Manifest.Model)
+	require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation])
+}
+
+func TestMigrationRetriesPartialWritesAndPreservesLaterReferenceEdits(t *testing.T) {
+	for _, failure := range []string{"policy", "completion", "conflict"} {
+		t.Run(failure, func(t *testing.T) {
+			source := migrationModel("m1-source", system.OpenAIModelProvider, "gpt-5")
+			target := migrationModel("m1-target", system.LLMGatewayModelProvider, "openai/gpt-5")
+			policy := migrationPolicy(source.Name)
+			dma := &v1.DefaultModelAlias{
+				Namespace: system.DefaultNamespace,
+				Name:      "llm",
+				Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: source.Name}},
+			}
+			provider := ModelProviderResource()
+			fail := true
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, target, policy, dma).WithInterceptorFuncs(interceptor.Funcs{
+				List: migrationList(t),
+				Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+					if _, ok := obj.(*v1.ModelAccessPolicy); ok && fail {
+						if failure == "policy" {
+							fail = false
+							return fmt.Errorf("simulated policy failure")
+						}
+						if failure == "conflict" {
+							fail = false
+							// A concurrent administrator edit advances the stored resource version.
+							var current v1.ModelAccessPolicy
+							require.NoError(t, c.Get(ctx, kclient.ObjectKeyFromObject(obj), &current))
+							current.Spec.Manifest.DisplayName = "Concurrent administrator edit"
+							require.NoError(t, c.Update(ctx, &current))
+						}
+					}
+					return c.Update(ctx, obj, opts...)
+				},
+				Patch: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, patch kclient.Patch, opts ...kclient.PatchOption) error {
+					if fail && failure == "completion" {
+						fail = false
+						return fmt.Errorf("simulated completion failure")
+					}
+					return c.Patch(ctx, obj, patch, opts...)
+				},
+			}).Build()
+			err := MigrateLegacyModels(t.Context(), c, provider)
+			if failure == "conflict" {
+				require.True(t, apierrors.IsConflict(err), "stale writes must fail rather than replace administrator edits")
+			} else {
+				require.ErrorContains(t, err, "simulated")
+			}
+			require.Empty(t, provider.Annotations[legacyModelMigrationCompleteAnnotation])
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+			require.Equal(t, target.Name, dma.Spec.Manifest.Model)
+			// An administrator changes an already migrated default before the retry.
+			other := migrationModel("m1-other", system.LLMGatewayModelProvider, "openai/gpt-other")
+			require.NoError(t, c.Create(t.Context(), other))
+			dma.Spec.Manifest.Model = other.Name
+			require.NoError(t, c.Update(t.Context(), dma))
+			// Simulate a leader change: use the provider as persisted, without process-local state.
+			provider = ModelProviderResource()
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(provider), provider))
+			require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+			require.Equal(t, other.Name, dma.Spec.Manifest.Model)
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+			require.Equal(t, target.Name, policy.Spec.Manifest.Models[0].ID)
+			if failure == "conflict" {
+				require.Equal(t, "Concurrent administrator edit", policy.Spec.Manifest.DisplayName)
+			}
+			require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation])
+		})
 	}
-	for _, name := range []string{"ollama-model-provider"} {
-		if exists(&v1.ModelProvider{}, name) {
-			t.Errorf("legacy model provider %s should be deleted", name)
-		}
+}
+
+func TestCompletedMigrationUsesLoadedProviderWithoutStorageReads(t *testing.T) {
+	provider := ModelProviderResource()
+	provider.Annotations = map[string]string{legacyModelMigrationCompleteAnnotation: "true"}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithInterceptorFuncs(interceptor.Funcs{
+		Get: func(context.Context, kclient.WithWatch, kclient.ObjectKey, kclient.Object, ...kclient.GetOption) error {
+			t.Fatal("completed migration must use the already loaded provider")
+			return nil
+		},
+		List: func(context.Context, kclient.WithWatch, kclient.ObjectList, ...kclient.ListOption) error {
+			t.Fatal("completed migration must not scan legacy records or references")
+			return nil
+		},
+	}).Build()
+	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+}
+
+func TestGatewayModelMatchStaysWithinProviderAndPrefersExactThenLatestDate(t *testing.T) {
+	exact := migrationModel("exact", system.LLMGatewayModelProvider, "anthropic/claude-sonnet-4-5")
+	old := migrationModel("old", system.LLMGatewayModelProvider, "anthropic/claude-sonnet-4-5-20250101")
+	latest := migrationModel("latest", system.LLMGatewayModelProvider, "anthropic/claude-sonnet-4-5-20250929")
+	unrelated := migrationModel("other", system.LLMGatewayModelProvider, "azure/claude-sonnet-4-5-20260101")
+	byTarget := map[string]*v1.Model{}
+	for _, m := range []*v1.Model{exact, old, latest, unrelated} {
+		byTarget[m.Spec.Manifest.TargetModel] = m
 	}
-	// OpenAI keeps the deactivated model the gateway doesn't list yet.
-	for _, name := range []string{system.OpenAIModelProvider, system.AnthropicModelProvider, system.LLMGatewayModelProvider, system.ModelProxyModelProvider} {
-		if !exists(&v1.ModelProvider{}, name) {
-			t.Errorf("model provider %s should be kept", name)
-		}
-	}
+	got, ok := gatewayModelFor(byTarget, "anthropic", "claude-sonnet-4-5")
+	require.True(t, ok)
+	require.Equal(t, exact, got)
+	delete(byTarget, exact.Spec.Manifest.TargetModel)
+	got, ok = gatewayModelFor(byTarget, "anthropic", "claude-sonnet-4-5")
+	require.True(t, ok)
+	require.Equal(t, latest, got)
+	_, ok = gatewayModelFor(byTarget, "anthropic", "claude-sonnet-4")
+	require.False(t, ok)
 }

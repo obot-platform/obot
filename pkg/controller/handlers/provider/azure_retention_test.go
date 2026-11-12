@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 // The engine tests exercise ARM transport. Here an empty upstream listing forces
@@ -44,7 +45,7 @@ func TestAzureFreshEngineControllerRetention(t *testing.T) {
 			}
 
 			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithRESTMapper(mapper).WithObjects(mp).
-				WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string { return []string{o.(*v1.Model).Spec.Manifest.ModelProvider} }).Build()
+				WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string { return []string{o.(*v1.Model).Spec.Manifest.ModelProvider} }).WithInterceptorFuncs(interceptor.Funcs{List: listControllerObjects}).Build()
 			store, err := llmcoreclient.New(storage, availabilityTestCodec{})
 			require.NoError(t, err)
 

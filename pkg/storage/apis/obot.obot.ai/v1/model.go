@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -70,6 +71,10 @@ func (m *Model) IsAssigned() bool {
 }
 
 func (m *Model) GetAliasName() string {
+	// Retain the manifest for recovery without reclaiming the gateway model's alias.
+	if system.IsLegacyModelProvider(m.Spec.Manifest.ModelProvider) {
+		return ""
+	}
 	return m.Spec.Manifest.Alias
 }
 

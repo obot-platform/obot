@@ -48,18 +48,8 @@ func TestLegacyImportLeavesEnvProviders(t *testing.T) {
 		}
 	}
 
-	results, err := e.ImportLegacyModelProviders(ctx, nil, gatewayClient)
-	if err != nil {
+	if err := e.ImportLegacyModelProviders(ctx, nil, gatewayClient, false); err != nil {
 		t.Fatal(err)
-	}
-	for _, r := range results {
-		want := "imported"
-		if r.GatewayProvider == "anthropic" {
-			want = "skipped"
-		}
-		if r.Status != want {
-			t.Errorf("%s: status %s (%s), want %s", r.ModelProvider, r.Status, r.Message, want)
-		}
 	}
 
 	mp := ModelProviderResource()

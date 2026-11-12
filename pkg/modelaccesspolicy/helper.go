@@ -171,9 +171,10 @@ func (h *Helper) newModelGrants() *modelGrants {
 		aliasModels:    h.getAliasModels(),
 		eligibleModels: make(map[string]*v1.Model),
 	}
+	// Retained legacy records are recovery data, including under wildcard grants.
 	for _, obj := range h.modelIndexer.List() {
 		model, ok := obj.(*v1.Model)
-		if !ok || !IsAllowedModelUsage(model.Spec.Manifest.Usage) {
+		if !ok || !IsAllowedModelUsage(model.Spec.Manifest.Usage) || system.IsLegacyModelProvider(model.Spec.Manifest.ModelProvider) {
 			continue
 		}
 		g.eligibleModels[model.Name] = model
