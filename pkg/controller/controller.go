@@ -197,7 +197,8 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 			slog.Warn("legacy provider import skipped because the LLM gateway did not start", "error", err)
 			return
 		}
-		if err := c.services.BifrostEngine.ImportLegacyModelProviders(ctx, client, c.services.GatewayClient); err != nil {
+		allowPrivateNetwork := c.services.MCPSessionManager.RemoteMCPURLValidationConfig().AllowPrivateIPMCP
+		if err := c.services.BifrostEngine.ImportLegacyModelProviders(ctx, client, c.services.GatewayClient, allowPrivateNetwork); err != nil {
 			slog.Warn("legacy provider import failed; failed families will retry on the next leader startup", "error", err)
 		}
 		// Initial discovery may have run before import; refresh models for all successful families.

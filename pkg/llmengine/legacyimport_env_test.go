@@ -48,7 +48,7 @@ func TestLegacyImportLeavesEnvProviders(t *testing.T) {
 		}
 	}
 
-	if err := e.ImportLegacyModelProviders(ctx, nil, gatewayClient); err != nil {
+	if err := e.ImportLegacyModelProviders(ctx, nil, gatewayClient, false); err != nil {
 		t.Fatal(err)
 	}
 

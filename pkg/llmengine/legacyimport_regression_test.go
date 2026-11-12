@@ -72,7 +72,7 @@ func TestLegacyImportValidatesKeyBeforeCreatingProvider(t *testing.T) {
 		},
 	})
 
-	err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+	err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.ErrorContains(t, err, "review credentials")
 	require.ErrorContains(t, err, "azure_key_config.endpoint")
 	require.ErrorContains(t, err, "169.254.169.254")
@@ -82,6 +82,84 @@ func TestLegacyImportValidatesKeyBeforeCreatingProvider(t *testing.T) {
 	require.True(t, apierrors.IsNotFound(err))
 	require.Zero(t, creates, "key validation must finish before the first durable write")
 	require.Zero(t, deletes, "failed imports must never roll back by deleting a provider")
+}
+
+func TestLegacyImportUsesPrivateNetworkAllowance(t *testing.T) {
+	for _, source := range []string{system.GenericResponsesModelProvider, system.AzureModelProvider} {
+		for _, tc := range []struct {
+			name         string
+			endpoint     string
+			allowPrivate bool
+			wantErr      string
+		}{
+			{
+				name:     "loopback denied",
+				endpoint: "http://127.0.0.1:11434",
+				wantErr:  "needs Allow private network addresses",
+			},
+			{
+				name:         "loopback allowed",
+				endpoint:     "http://127.0.0.1:11434",
+				allowPrivate: true,
+			},
+			{
+				name:     "private denied",
+				endpoint: "https://10.1.2.3",
+				wantErr:  "needs Allow private network addresses",
+			},
+			{
+				name:         "private allowed",
+				endpoint:     "https://10.1.2.3",
+				allowPrivate: true,
+			},
+			{
+				name:         "link-local metadata denied",
+				endpoint:     "http://169.254.169.254",
+				allowPrivate: true,
+				wantErr:      "which can't be used",
+			},
+			{
+				name:         "private metadata denied",
+				endpoint:     "http://[fd00:ec2::254]",
+				allowPrivate: true,
+				wantErr:      "which can't be used",
+			},
+			{
+				name:         "unspecified denied",
+				endpoint:     "http://0.0.0.0",
+				allowPrivate: true,
+				wantErr:      "which can't be used",
+			},
+		} {
+			t.Run(source+"/"+tc.name, func(t *testing.T) {
+				e, ctx := startTestEngine(t)
+				gateway := legacyImportGateway(t, map[string]map[string]string{
+					source: {
+						"OBOT_TEST_MODEL_PROVIDER_BASE_URL": tc.endpoint + "/v1/",
+						"OBOT_TEST_MODEL_PROVIDER_ENDPOINT": tc.endpoint,
+						"OBOT_TEST_MODEL_PROVIDER_API_KEY":  "legacy-secret",
+					},
+				})
+				err := e.ImportLegacyModelProviders(ctx, nil, gateway, tc.allowPrivate)
+				if tc.wantErr != "" {
+					require.ErrorContains(t, err, tc.wantErr)
+					_, err = e.store.GetProvider(ctx, legacyImportPlans[source].provider)
+					require.True(t, apierrors.IsNotFound(err))
+					return
+				}
+				require.NoError(t, err)
+				provider, err := e.store.GetProvider(ctx, legacyImportPlans[source].provider)
+				require.NoError(t, err)
+				require.True(t, provider.Config.NetworkConfig.AllowPrivateNetwork)
+				if source == system.GenericResponsesModelProvider {
+					require.Equal(t, tc.endpoint, provider.Config.NetworkConfig.BaseURL)
+					require.Equal(t, 300, provider.Config.NetworkConfig.DefaultRequestTimeoutInSeconds)
+				} else {
+					require.Equal(t, tc.endpoint, provider.Keys[0].AzureKeyConfig.Endpoint.GetValue())
+				}
+			})
+		}
+	}
 }
 
 func TestLegacyImportPreservesStorageErrorCauses(t *testing.T) {
@@ -107,7 +185,7 @@ func TestLegacyImportPreservesStorageErrorCauses(t *testing.T) {
 					return c.Create(ctx, obj, opts...)
 				},
 			})
-			err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+			err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 			require.ErrorIs(t, err, cause)
 			require.ErrorContains(t, err, operation)
 			require.NotContains(t, err.Error(), "legacy-secret")
@@ -161,7 +239,7 @@ func TestLegacyImportCreateConflictPreservesConcurrentProvider(t *testing.T) {
 				},
 			})
 
-			err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+			err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 			require.NoError(t, err)
 			require.True(t, injected)
 			provider, err := e.store.GetProvider(ctx, "openai")
@@ -199,12 +277,12 @@ func TestLegacyImportCreatesFamilyInOneWriteAndDoesNotReimportDeletion(t *testin
 			return c.Update(ctx, obj, opts...)
 		},
 	})
-	err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+	err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, creates)
 	require.Zero(t, updates)
 	require.NoError(t, e.store.DeleteProvider(ctx, "bedrock"))
-	err = e.ImportLegacyModelProviders(ctx, nil, gateway)
+	err = e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, creates)
 	_, err = e.store.GetProvider(ctx, "bedrock")
@@ -243,7 +321,7 @@ func TestLegacyImportRequiresExplicitBedrockIAMCredentialsAndRetries(t *testing.
 				system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "api-key"},
 				system.AmazonBedrockModelProvider:       iam,
 			})
-			require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway), "requires both access-key ID and secret-access key")
+			require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false), "requires both access-key ID and secret-access key")
 			_, err := e.store.GetProvider(ctx, "bedrock")
 			require.True(t, apierrors.IsNotFound(err), "the valid API-key sibling must not be saved on its own")
 
@@ -255,7 +333,7 @@ func TestLegacyImportRequiresExplicitBedrockIAMCredentialsAndRetries(t *testing.
 				Name:    system.AmazonBedrockModelProvider,
 				Secrets: iam,
 			}))
-			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 			provider, err := e.store.GetProvider(ctx, "bedrock")
 			require.NoError(t, err)
 			require.Len(t, provider.Keys, 2)
@@ -289,7 +367,7 @@ func TestLegacyImportGroupedProviders(t *testing.T) {
 		},
 	})
 
-	err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+	err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.NoError(t, err)
 	for _, name := range []string{"bedrock", "azure"} {
 		provider, err := e.store.GetProvider(ctx, name)
@@ -333,15 +411,15 @@ func TestLegacyImportRetriesAfterCompletionWriteFails(t *testing.T) {
 			return err
 		},
 	})
-	require.Error(t, e.ImportLegacyModelProviders(interrupted, nil, gateway))
+	require.Error(t, e.ImportLegacyModelProviders(interrupted, nil, gateway, false))
 	first, err := e.store.GetProvider(ctx, "openai")
 	require.NoError(t, err)
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 	second, err := e.store.GetProvider(ctx, "openai")
 	require.NoError(t, err)
 	require.Equal(t, first, second)
 	require.NoError(t, e.store.DeleteProvider(ctx, "openai"))
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 	_, err = e.store.GetProvider(ctx, "openai")
 	require.True(t, apierrors.IsNotFound(err))
 }
@@ -358,7 +436,7 @@ func TestAzureImportRetainsAccountMetadataAndRejectsInvalidSibling(t *testing.T)
 				credentials[system.AzureEntraModelProvider]["OBOT_AZURE_ENTRA_MODEL_PROVIDER_CLIENT_SECRET"] = ""
 			}
 			gateway := legacyImportGateway(t, credentials)
-			err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+			err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 			if invalid {
 				require.Error(t, err)
 			} else {
@@ -382,7 +460,7 @@ func TestAzureImportRetainsAccountMetadataAndRejectsInvalidSibling(t *testing.T)
 func TestLegacyKeylessGenericResponses(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	gateway := legacyImportGateway(t, map[string]map[string]string{system.GenericResponsesModelProvider: {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": "https://8.8.8.8/custom/v1/"}})
-	err := e.ImportLegacyModelProviders(ctx, nil, gateway)
+	err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.NoError(t, err)
 	provider, err := e.store.GetProvider(ctx, "generic-responses")
 	require.NoError(t, err)
@@ -399,7 +477,7 @@ func TestLegacyImportRetriesFailedFamilyWithoutReplayingCompletedFamily(t *testi
 		system.AzureModelProvider:  {"OBOT_AZURE_MODEL_PROVIDER_ENDPOINT": "https://8.8.8.8"},
 	}
 	gateway := legacyImportGateway(t, credentials)
-	require.Error(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	require.Error(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 	_, err := e.store.GetProvider(ctx, "openai")
 	require.NoError(t, err)
 	require.NoError(t, e.store.DeleteProvider(ctx, "openai"))
@@ -409,7 +487,7 @@ func TestLegacyImportRetriesFailedFamilyWithoutReplayingCompletedFamily(t *testi
 		Name:    system.AzureModelProvider,
 		Secrets: credentials[system.AzureModelProvider],
 	}))
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 	azure, err := e.store.GetProvider(ctx, "azure")
 	require.NoError(t, err)
 	require.Equal(t, "corrected", azure.Keys[0].Value.GetValue())
@@ -441,7 +519,7 @@ func TestLegacyImportReadsAzureDeploymentsWithoutChangingSources(t *testing.T) {
 			return nil
 		},
 	}).Build()
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, storage, gateway))
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, storage, gateway, false))
 	azure, err := e.store.GetProvider(ctx, "azure")
 	require.NoError(t, err)
 	require.Equal(t, schemas.WhiteList{"my-deployment"}, azure.Keys[0].Models)
@@ -492,7 +570,7 @@ func TestLegacyAzureImportPreservesDeploymentDiscoveryMode(t *testing.T) {
 			gateway := legacyImportGateway(t, map[string]map[string]string{tc.source: secrets})
 			source := migrationModel("m1-legacy-deployment", tc.source, "my-deployment")
 			storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(source).Build()
-			require.NoError(t, e.ImportLegacyModelProviders(ctx, storage, gateway))
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, storage, gateway, false))
 			mockAzureDiscovery(t, e, func(*http.Request) (*http.Response, error) {
 				return azureResponse(http.StatusOK, "my-deployment", "new-deployment"), nil
 			})
@@ -522,7 +600,7 @@ func TestLegacyImportPreservesExistingDestinationBeforeValidatingSource(t *testi
 			require.NoError(t, err)
 			before, err := e.store.GetProvider(ctx, name)
 			require.NoError(t, err)
-			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, true))
 			after, err := e.store.GetProvider(ctx, name)
 			require.NoError(t, err)
 			require.Equal(t, before, after)
@@ -596,7 +674,7 @@ func TestLegacyImportAfterStartupAppliesProxyBeforePublication(t *testing.T) {
 				system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "test"},
 				system.GenericResponsesModelProvider:    {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": "https://8.8.8.8/v1"},
 			})
-			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 			require.Equal(t, 5, published)
 		})
 	}
@@ -650,7 +728,7 @@ func TestLegacyImportProxyBeforeFirstDiscoveryAndInference(t *testing.T) {
 	gateway := legacyImportGateway(t, map[string]map[string]string{
 		system.GenericResponsesModelProvider: {"OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_BASE_URL": "http://8.8.8.8/v1"},
 	})
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway))
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
 	provider, err := e.store.GetProvider(ctx, "generic-responses")
 	require.NoError(t, err)
 	require.NotNil(t, provider.Config.ProxyConfig, "stop before network use if the import lacks its proxy")

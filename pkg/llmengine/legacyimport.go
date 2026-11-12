@@ -109,7 +109,7 @@ type legacyImportPlan struct {
 }
 
 // ImportLegacyModelProviders imports each provider family once, without changing models or references.
-func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client) error {
+func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Client, gatewayClient *gateway.Client, allowPrivateNetwork bool) error {
 	families := map[string][]string{}
 	for source, plan := range legacyImportPlans {
 		families[plan.provider] = append(families[plan.provider], source)
@@ -157,7 +157,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 					return err
 				}
 			}
-			candidate, err := e.legacyAggregate(ctx, family, secrets, models.Items)
+			candidate, err := e.legacyAggregate(ctx, family, secrets, models.Items, allowPrivateNetwork)
 			if err != nil {
 				return fmt.Errorf("invalid legacy %s configuration; review credentials, endpoint and deployment settings: %w", family, err)
 			}
@@ -181,7 +181,7 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 	return errors.Join(failures...)
 }
 
-func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map[string]map[string]string, models []v1.Model) (llmcoreclient.Provider, error) {
+func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map[string]map[string]string, models []v1.Model, allowPrivateNetwork bool) (llmcoreclient.Provider, error) {
 	cfg := llmcoreclient.Config{
 		Providers:     map[schemas.ModelProvider]schemas.ProviderConfig{},
 		Keys:          map[schemas.ModelProvider][]schemas.Key{},
@@ -203,6 +203,16 @@ func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map
 					return llmcoreclient.Provider{}, fmt.Errorf("missing base URL")
 				}
 				body["custom_provider_config"].(map[string]any)["is_key_less"] = secretWithSuffix(secrets, "_MODEL_PROVIDER_API_KEY") == ""
+			}
+			// Inherit Obot's private-IP allowance before validating provider and key endpoints.
+			// The gateway flag covers both private and loopback destinations; metadata stays blocked.
+			if allowPrivateNetwork {
+				network, _ := body["network_config"].(map[string]any)
+				if network == nil {
+					network = map[string]any{}
+				}
+				network["allow_private_network"] = true
+				body["network_config"] = network
 			}
 			raw, err := json.Marshal(body)
 			if err != nil {
