@@ -18,8 +18,8 @@ import (
 func TestLegacyCredentialFamilies(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	require.NoError(t, e.store.CreateProvider(ctx, "bedrock", llmcoreclient.Provider{Keys: []schemas.Key{
-		{ID: "iam", Name: "imported-" + system.AmazonBedrockModelProvider},
-		{ID: "api", Name: "imported-" + system.AmazonBedrockAPIKeyModelProvider},
+		{ID: "iam", Name: "imported-" + system.AmazonBedrockModelProvider, Models: schemas.WhiteList{"*"}},
+		{ID: "api", Name: "imported-" + system.AmazonBedrockAPIKeyModelProvider, Models: schemas.WhiteList{"*"}},
 	}}))
 	_, err := e.Sync(ctx)
 	require.NoError(t, err)
@@ -38,14 +38,14 @@ func TestLegacyCredentialFamilies(t *testing.T) {
 	} {
 		scoped := WithLegacySource(ctx, tc.source)
 		require.Equal(t, "bedrock", LegacyProvider(scoped))
-		key, err := e.LegacyKey(scoped, "bedrock")
+		key, err := e.LegacyKey(scoped, "bedrock/test")
 		require.NoError(t, err)
 		require.Equal(t, tc.want, key)
 	}
 	require.NoError(t, e.store.MutateProvider(ctx, "bedrock", func(p *llmcoreclient.Provider) error { p.Keys = nil; return nil }))
 	_, err = e.Sync(ctx)
 	require.NoError(t, err)
-	key, err := e.LegacyKey(WithLegacySource(ctx, system.AmazonBedrockModelProvider), "bedrock")
+	key, err := e.LegacyKey(WithLegacySource(ctx, system.AmazonBedrockModelProvider), "bedrock/test")
 	require.NoError(t, err)
 	require.Empty(t, key)
 }
@@ -74,7 +74,7 @@ func TestLegacyKeyReadsOnlyReconciledConfiguration(t *testing.T) {
 	check := func(want string) {
 		t.Helper()
 		reads = 0
-		key, err := e.LegacyKey(ctx, "openai")
+		key, err := e.LegacyKey(ctx, "openai/test")
 		require.NoError(t, err)
 		require.Equal(t, want, key)
 		require.Zero(t, reads, "request-time key lookup must not read configuration storage")
@@ -95,8 +95,8 @@ func TestLegacyKeyReadsOnlyReconciledConfiguration(t *testing.T) {
 	_, err = e.Sync(ctx)
 	require.NoError(t, err)
 	check("")
-	_, err = e.LegacyKey(ctx, "missing")
+	_, err = e.LegacyKey(WithLegacySource(ctx, system.AnthropicModelProvider), "anthropic/test")
 	require.True(t, apierrors.IsNotFound(err))
-	_, err = New().LegacyKey(ctx, "openai")
+	_, err = New().LegacyKey(ctx, "openai/test")
 	require.True(t, apierrors.IsServiceUnavailable(err))
 }

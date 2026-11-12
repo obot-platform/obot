@@ -627,7 +627,7 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 		allowSubscription = b.engine.AnthropicIsDirect(ctx)
 	}
 	if scope := llmengine.LegacyProvider(ctx); scope != "" && model != nil {
-		key, err := b.engine.LegacyKey(ctx, scope)
+		key, err := b.engine.LegacyKey(ctx, model.Spec.Manifest.TargetModel)
 		if err != nil {
 			return nil, err
 		}

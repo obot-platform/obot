@@ -554,19 +554,22 @@ func (e *Engine) Setting(name string) json.RawMessage {
 	return slices.Clone(e.account.config.Load().Settings[name])
 }
 
-// ProviderKeyID reads a key's identity from the reconciled runtime snapshot without
-// exposing credentials. The bool reports whether the provider is configured.
-func (e *Engine) ProviderKeyID(provider schemas.ModelProvider, name string) (string, bool) {
-	cfg := e.account.config.Load()
-	if _, ok := cfg.Providers[provider]; !ok {
-		return "", false
+// ProviderKeyID prefers an enabled key that supports model, using the same runtime
+// key view as inference (including Azure discovery). The bool reports provider existence.
+func (e *Engine) ProviderKeyID(ctx context.Context, provider schemas.ModelProvider, name, model string) (string, bool, error) {
+	if _, ok := e.account.config.Load().Providers[provider]; !ok {
+		return "", false, nil
 	}
-	for _, key := range cfg.Keys[provider] {
-		if key.Name == name {
-			return key.ID, true
+	keys, err := e.account.GetKeysForProvider(ctx, provider)
+	if err != nil {
+		return "", true, err
+	}
+	for _, key := range keys {
+		if key.Name == name && (key.Enabled == nil || *key.Enabled) && key.Models.IsAllowed(model) && !key.BlacklistedModels.IsBlocked(model) {
+			return key.ID, true, nil
 		}
 	}
-	return "", true
+	return "", true, nil
 }
 
 // Input hooks see the original request before routing; output hooks run last in the list.

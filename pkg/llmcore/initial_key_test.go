@@ -16,6 +16,7 @@ func TestInitialKeyRouting(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		provider string
+		model    string
 		key      string
 		want     string
 	}{
@@ -27,6 +28,16 @@ func TestInitialKeyRouting(t *testing.T) {
 			name:     "same provider",
 			provider: "openai",
 			want:     "initial",
+		},
+		{
+			name:  "other model",
+			model: "other",
+		},
+		{
+			name:  "other model with explicit key",
+			model: "other",
+			key:   "replacement",
+			want:  "replacement",
 		},
 		{
 			name:     "other provider",
@@ -43,9 +54,9 @@ func TestInitialKeyRouting(t *testing.T) {
 			logger := bifrost.NewDefaultLogger(schemas.LogLevelWarn)
 			store, err := rules.NewLocalStore(t.Context(), logger, nil)
 			require.NoError(t, err)
-			if tc.provider != "" {
+			if tc.provider != "" || tc.model != "" {
 				rule := policyRule("routed")
-				rule.Targets = []tables.TableRoutingTarget{{Provider: &tc.provider, KeyID: &tc.key, Weight: 1}}
+				rule.Targets = []tables.TableRoutingTarget{{Provider: &tc.provider, Model: &tc.model, KeyID: &tc.key, Weight: 1}}
 				require.NoError(t, store.UpsertRule(t.Context(), &rule))
 			}
 			p, err := newRoutingPlugin(store, logger, nil)

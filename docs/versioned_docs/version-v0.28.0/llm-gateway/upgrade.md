@@ -67,7 +67,7 @@ Legacy provider endpoints still support compatible operations, but are deprecate
 | `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported paths, including `anthropic/v1/messages` and `openai/v1/responses`, use the current `bedrock` provider. |
 | `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the current `azure` provider pool. |
 
-- Retained routes prefer their matching imported key. If it is absent, they use the provider's normal key pool. Model access policies, budgets, guardrails and audit logging still apply; routing rules and fallbacks can change the serving provider or model.
+- Retained routes prefer their matching imported key. If it is absent, disabled, or does not support the requested model, they use the provider's normal key pool. Model access policies, budgets, guardrails and audit logging still apply; routing rules and fallbacks can change the serving provider or model.
 - Both AWS legacy routes initially select `bedrock`. For Bedrock Mantle, use the unified endpoint with a `bedrock_mantle/` model name.
 - Unsupported legacy operations remain unavailable. Use `/api/llm-proxy/v1` with a configured provider and an accessible model for new setups.
 - See [Deprecated provider endpoints](./compatibility.md#deprecated-provider-endpoints) for operation and model-name details.

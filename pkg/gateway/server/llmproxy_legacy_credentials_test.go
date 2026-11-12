@@ -25,7 +25,7 @@ import (
 )
 
 func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
-	for _, mode := range []string{"initial", "provider rule", "provider and key rule", "fallback"} {
+	for _, mode := range []string{"initial", "disabled imported", "restricted imported", "blacklisted imported", "model rule", "provider rule", "provider and key rule", "fallback"} {
 		t.Run(mode, func(t *testing.T) {
 			type attempt struct{ path, auth string }
 			attempts := make(chan attempt, 20)
@@ -72,6 +72,10 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 			}}))
 			if strings.Contains(mode, "rule") {
 				target := tables.TableRoutingTarget{Provider: new("openai"), Model: new("destination"), Weight: 1}
+				if mode == "model rule" {
+					target.Provider = nil
+					target.Model = new("amazon.nova-other")
+				}
 				if mode == "provider and key rule" {
 					target.KeyID = new("explicit")
 				}
@@ -83,12 +87,12 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 			access := &directAccessBackend{storage: storage, informers: map[string]cache.SharedIndexInformer{}}
 			helper, err := modelaccesspolicy.NewHelper(t.Context(), access)
 			require.NoError(t, err)
-			for id, target := range map[string]string{"m1-bedrock": "bedrock/amazon.nova-test", "m1-openai": "openai/destination"} {
+			for id, target := range map[string]string{"m1-bedrock": "bedrock/amazon.nova-test", "m1-openai": "openai/destination", "m1-bedrock-other": "bedrock/amazon.nova-other"} {
 				model := &v1.Model{Name: id, Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, ModelProvider: system.LLMGatewayModelProvider, TargetModel: target, Usage: types.ModelUsageLLM}}}
 				require.NoError(t, access.informers["Model"].GetIndexer().Add(model))
 			}
 			policy := &v1.ModelAccessPolicy{Name: "profile", Namespace: system.DefaultNamespace, Spec: v1.ModelAccessPolicySpec{Manifest: types.ModelAccessPolicyManifest{
-				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: "m1-bedrock"}, {ID: "m1-openai"}},
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Models: []types.ModelResource{{ID: "m1-bedrock"}, {ID: "m1-openai"}, {ID: "m1-bedrock-other"}},
 			}}}
 			require.NoError(t, access.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
 			server := &Server{llmGateway: engine, mapHelper: helper}
@@ -107,8 +111,21 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 					require.NoError(t, store.MutateProvider(t.Context(), "bedrock", func(p *llmcoreclient.Provider) error {
 						for i := range p.Keys {
 							p.Keys[i].Weight = 1
+							p.Keys[i].Enabled = nil
+							p.Keys[i].Models = schemas.WhiteList{"*"}
+							p.Keys[i].BlacklistedModels = nil
 							if p.Keys[i].ID == keyID {
 								p.Keys[i].Weight = 0
+								switch mode {
+								case "disabled imported":
+									p.Keys[i].Enabled = new(false)
+								case "restricted imported":
+									p.Keys[i].Models = schemas.WhiteList{"another-model"}
+								case "blacklisted imported":
+									p.Keys[i].BlacklistedModels = schemas.BlackList{"amazon.nova-test"}
+								case "model rule":
+									p.Keys[i].Models = schemas.WhiteList{"amazon.nova-test"}
+								}
 							}
 						}
 						return nil
@@ -131,9 +148,13 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 					for len(attempts) > 0 {
 						recorded = append(recorded, <-attempts)
 					}
+					expectedIAM := keyID == "iam"
+					if strings.HasSuffix(mode, "imported") || mode == "model rule" {
+						expectedIAM = !expectedIAM
+					}
 					for _, a := range recorded {
 						if strings.HasPrefix(a.path, "/model/") {
-							if keyID == "iam" {
+							if expectedIAM {
 								require.Contains(t, a.auth, "AWS4-HMAC-SHA256 Credential=legacy-access-id/")
 							} else {
 								require.Equal(t, "Bearer legacy-api-token", a.auth)
@@ -146,10 +167,13 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 							require.Equal(t, want, a.auth)
 						}
 					}
-					if mode == "initial" {
+					if mode == "initial" || strings.HasSuffix(mode, "imported") || mode == "model rule" {
 						require.True(t, strings.HasPrefix(recorded[0].path, "/model/"))
 					} else {
 						require.True(t, strings.HasSuffix(recorded[len(recorded)-1].path, "/responses"))
+					}
+					if mode == "model rule" {
+						require.Contains(t, recorded[0].path, "amazon.nova-other")
 					}
 					if mode == "fallback" {
 						require.GreaterOrEqual(t, len(recorded), 2)

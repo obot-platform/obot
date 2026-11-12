@@ -135,8 +135,8 @@ func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas
 	if decision == nil {
 		return nil
 	}
-	if decision.Provider != "" && schemas.ModelProvider(decision.Provider) != provider {
-		// A key belongs to its original provider, not the rule's replacement provider.
+	if (decision.Provider != "" && schemas.ModelProvider(decision.Provider) != provider) || (decision.Model != "" && decision.Model != model) {
+		// The initial preference belongs to the original target; the rule can set its own key below.
 		ctx.SetValue(schemas.BifrostContextKeyRoutingPinnedAPIKeyID, "")
 	}
 	if decision.Provider != "" {
