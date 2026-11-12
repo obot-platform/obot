@@ -73,55 +73,58 @@ type MCPAuditLogFields struct {
 }
 
 type LocalAgentToolCallAuditLogFields struct {
+	// Only index a column that queries filter or sort on with an operator an index can serve. The
+	// free-text audit log search matches most of these columns by substring, which no B-tree index
+	// helps, and every index is maintained on each audit log write.
 	OccurredAt time.Time  `json:"occurredAt" gorm:"index"`
-	StartedAt  *time.Time `json:"startedAt,omitempty" gorm:"index"`
+	StartedAt  *time.Time `json:"startedAt,omitempty"`
 
 	// ActorType and ActorID are stamped from authenticated request context. They are never copied
 	// from the client-reported event.
-	ActorType types2.AuditLogActorType `json:"actorType" gorm:"index"`
-	ActorID   string                   `json:"actorID,omitempty" gorm:"index"`
+	ActorType types2.AuditLogActorType `json:"actorType"`
+	ActorID   string                   `json:"actorID,omitempty"`
 
 	ActionName string `json:"actionName" gorm:"index"`
 	ActionKind string `json:"actionKind,omitempty" gorm:"index"`
 
-	TargetType       types2.AuditLogTargetType `json:"targetType" gorm:"index"`
-	TargetName       string                    `json:"targetName" gorm:"index"`
-	TargetParentType types2.AuditLogTargetType `json:"targetParentType,omitempty" gorm:"index"`
+	TargetType       types2.AuditLogTargetType `json:"targetType"`
+	TargetName       string                    `json:"targetName"`
+	TargetParentType types2.AuditLogTargetType `json:"targetParentType,omitempty"`
 	TargetParentName string                    `json:"targetParentName,omitempty" gorm:"index"`
 
 	OutcomeStatus types2.AuditLogOutcomeStatus `json:"outcomeStatus" gorm:"index"`
-	OutcomeReason string                       `json:"outcomeReason,omitempty" gorm:"index"`
+	OutcomeReason string                       `json:"outcomeReason,omitempty"`
 	OutcomeError  string                       `json:"outcomeError,omitempty" gorm:"column:local_agent_error"`
 	DurationMs    int64                        `json:"durationMs,omitempty" gorm:"index"`
 
 	// IdempotencyKey deduplicates repeated submissions of the same completed audit entry.
 	IdempotencyKey string `json:"idempotencyKey" gorm:"uniqueIndex"`
 	// ToolUseID is the tool-use identifier from the agent runtime, when available.
-	ToolUseID string `json:"toolUseID,omitempty" gorm:"index"`
+	ToolUseID string `json:"toolUseID,omitempty"`
 	SessionID string `json:"sessionID,omitempty" gorm:"index"`
 	// TurnID identifies the conversation turn that produced this tool call.
-	TurnID string `json:"turnID,omitempty" gorm:"index"`
+	TurnID string `json:"turnID,omitempty"`
 
 	AgentProvider  types2.LocalAgentProvider `json:"agentProvider" gorm:"index"`
-	AgentVersion   string                    `json:"agentVersion,omitempty" gorm:"index"`
+	AgentVersion   string                    `json:"agentVersion,omitempty"`
 	CLIName        string                    `json:"cliName,omitempty"`
-	CLIVersion     string                    `json:"cliVersion" gorm:"index"`
-	Model          string                    `json:"model,omitempty" gorm:"index"`
-	ModelID        string                    `json:"modelID,omitempty" gorm:"index"`
-	PermissionMode string                    `json:"permissionMode,omitempty" gorm:"index"`
+	CLIVersion     string                    `json:"cliVersion"`
+	Model          string                    `json:"model,omitempty"`
+	ModelID        string                    `json:"modelID,omitempty"`
+	PermissionMode string                    `json:"permissionMode,omitempty"`
 
 	DeviceID           string `json:"deviceID,omitempty" gorm:"index"`
-	DeviceDeploymentID uint   `json:"deviceDeploymentID,omitempty" gorm:"index"`
+	DeviceDeploymentID uint   `json:"deviceDeploymentID,omitempty"`
 	Hostname           string `json:"hostname,omitempty"`
-	OS                 string `json:"os,omitempty" gorm:"index"`
-	Architecture       string `json:"architecture,omitempty" gorm:"index"`
+	OS                 string `json:"os,omitempty"`
+	Architecture       string `json:"architecture,omitempty"`
 	LocalUsername      string `json:"localUsername,omitempty"`
 
 	CWD               string                      `json:"cwd,omitempty"`
 	GitRoot           string                      `json:"gitRoot,omitempty"`
 	GitRemotes        datatypes.JSONSlice[string] `json:"gitRemotes,omitempty"`
 	GitBranch         string                      `json:"gitBranch,omitempty"`
-	GitCommit         string                      `json:"gitCommit,omitempty" gorm:"index"`
+	GitCommit         string                      `json:"gitCommit,omitempty"`
 	ReportedUserEmail string                      `json:"reportedUserEmail,omitempty"`
 
 	// TranscriptPath is the local path to the agent transcript, if the client reported one.
