@@ -26,12 +26,12 @@
 		</div>
 	</div>
 
-	<div class="flex flex-col gap-2">
-		<p class="text-sm font-medium">{m.identity_access_agents_your_api_key()}</p>
+	<label class="flex flex-col gap-2" for={id}>
+		<span class="text-sm font-medium">{m.identity_access_agents_your_api_key()}</span>
 		<CopyField value={keyValue} {id}>
 			{#snippet preContent()}
 				<KeyRound class="text-muted-content size-4 shrink-0" />
 			{/snippet}
 		</CopyField>
-	</div>
+	</label>
 </div>

@@ -9,14 +9,22 @@
 		block: SnippetBlock;
 		class?: string;
 		children?: Snippet;
-		slot?: string;
+		marker?: string;
 		slotContent?: Snippet;
 		actions?: Snippet;
 	}
 
-	let { id, block, class: clazz = '', children, slot = '', slotContent, actions }: Props = $props();
+	let {
+		id,
+		block,
+		class: clazz = '',
+		children,
+		marker = '',
+		slotContent,
+		actions
+	}: Props = $props();
 
-	let codeParts = $derived(slot && block.code.includes(slot) ? block.code.split(slot) : null);
+	let codeParts = $derived(marker && block.code.includes(marker) ? block.code.split(marker) : null);
 	let showActions = $derived(Boolean(codeParts && actions));
 </script>
 

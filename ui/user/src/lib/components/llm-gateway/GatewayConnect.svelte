@@ -762,7 +762,7 @@
 						<LLMGatewayCodeBlock
 							{block}
 							id={`${selected}-${i}-tabblock`}
-							slot={token}
+							marker={token}
 							actions={showApiKeyChoice ? apiKeyToggle : undefined}
 						>
 							{@render modelPicker(block.picker ?? 'model')}
@@ -793,7 +793,7 @@
 					<LLMGatewayCodeBlock
 						{block}
 						id={`${selected}-${i}-codeblock`}
-						slot={token}
+						marker={token}
 						actions={showApiKeyChoice ? apiKeyToggle : undefined}
 					>
 						{#snippet slotContent()}
