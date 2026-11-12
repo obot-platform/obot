@@ -551,6 +551,29 @@ describe('UsersView', () => {
 			await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
 		});
 
+		it.each([
+			{ name: 'an admin', groups: [Group.ADMIN], allowed: false },
+			{ name: 'an Owner', groups: [Group.OWNER, Group.ADMIN], allowed: true }
+		])('only lets an Owner delete a local user with the Auditor role: $name', async (tc) => {
+			const targetUser = orgUser({
+				id: '40',
+				email: 'auditor-user@example.com',
+				role: Role.BASIC | Role.AUDITOR,
+				effectiveRole: Role.BASIC | Role.AUDITOR,
+				groups: [Group.AUDITOR]
+			});
+			mockLocalAccounts([localAuthUser(targetUser.email, { id: '41', orgUserId: targetUser.id })]);
+			await renderUsersView([targetUser], tc.groups, { localAuthProviderAvailable: true });
+
+			await openRowActions(targetUser.email);
+			const del = page.getByRole('button', { name: 'Delete User' });
+			if (tc.allowed) {
+				await expect.element(del).toBeEnabled();
+			} else {
+				await expect.element(del).toBeDisabled();
+			}
+		});
+
 		it('hides reset and delete actions from a read-only auditor for a linked Owner account', async () => {
 			mockLocalAccounts([ownerAccount]);
 			await renderUsersView([ownerUser], [Group.AUDITOR], { localAuthProviderAvailable: true });
