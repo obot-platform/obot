@@ -788,6 +788,8 @@ export interface MCPCatalogEntryFieldManifest {
 	interpolated?: boolean;
 	prefix?: string;
 	secretBinding?: MCPSecretBinding;
+	/** Only meaningful for a 'caCertificate' usage MCPConfig entry. */
+	installCATrustStore?: boolean;
 }
 export interface RemoteRuntimeConfigAdmin {
 	localhostCallbackEnabled?: boolean;
@@ -808,7 +810,13 @@ export interface RemoteCatalogConfigAdmin {
 export interface LegacyRemoteCatalogConfigAdmin extends RemoteCatalogConfigAdmin {
 	headers?: MCPCatalogEntryFieldManifest[];
 }
-export type MCPConfigUsage = 'env' | 'header' | 'file' | 'dynamicFile' | 'interpolated';
+export type MCPConfigUsage =
+	| 'env'
+	| 'header'
+	| 'file'
+	| 'dynamicFile'
+	| 'interpolated'
+	| 'caCertificate';
 export type MCPConfig = Omit<
 	MCPCatalogEntryFieldManifest,
 	'file' | 'dynamicFile' | 'interpolated'
