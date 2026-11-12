@@ -29,6 +29,7 @@
 	import type { PaginatedResponse } from '$lib/services/http';
 	import { responsive } from '$lib/stores';
 	import profile from '$lib/stores/profile.svelte';
+	import { getTimeRangeFilter } from '$lib/time';
 	import { goto, replaceState } from '$lib/url';
 	import { getUserDisplayName, isBasicUser, withDisabledMarker } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
@@ -41,7 +42,7 @@
 		type AuditLogTimelineChartRow
 	} from './timelineUtils';
 	import { ChevronLeft, ChevronRight, Funnel, Captions } from '@lucide/svelte';
-	import { set, endOfDay, isBefore, subDays } from 'date-fns';
+	import { endOfDay } from 'date-fns';
 	import { debounce } from 'es-toolkit';
 	import type { Snippet } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -323,39 +324,14 @@
 		}
 	}
 
-	let timeRangeFilters = $derived.by(() => {
-		if (startTimeOverride && endTimeOverride) {
-			return { startTime: startTimeOverride, endTime: endTimeOverride };
-		}
-
-		const { start_time, end_time } = searchParamFilters;
-
-		const endTime = set(new Date(end_time || new Date()), { milliseconds: 0, seconds: 59 });
-
-		const getStartTime = (date: typeof start_time) => {
-			const parsedStartTime = set(new Date(date ? date : Date.now()), {
-				milliseconds: 0,
-				seconds: 0
-			});
-
-			if (date) {
-				// Ensure start time is not after end time
-				if (isBefore(parsedStartTime, endTime)) {
-					return parsedStartTime;
-				}
-			}
-
-			// Return 7 days before end time
-			return set(subDays(endTime, 7), { seconds: 0, milliseconds: 0 });
-		};
-
-		const startTime = getStartTime(start_time);
-
-		return {
-			startTime,
-			endTime
-		};
-	});
+	let timeRangeFilters = $derived(
+		getTimeRangeFilter({
+			startTime: startTimeOverride,
+			endTime: endTimeOverride,
+			start_time: searchParamFilters.start_time,
+			end_time: searchParamFilters.end_time
+		})
+	);
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 

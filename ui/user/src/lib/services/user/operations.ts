@@ -380,7 +380,10 @@ export async function listAppPreferences(opts?: { fetch?: Fetcher }) {
 
 // Audit logs
 
-export async function listAuditLogs(filters?: AuditLogURLFilters, opts?: { fetch?: Fetcher }) {
+export async function listAuditLogs(
+	filters?: AuditLogURLFilters,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
+) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(
 		`/mcp-audit-logs${queryString ? `?${queryString}` : ''}`,
@@ -411,7 +414,7 @@ export async function listAuditLogFilterOptions(
 
 export async function listMcpAuditLogUsageStats(
 	filters?: Partial<McpAuditLogUsageFilters>,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ) {
 	const queryString = buildQueryString(filters ?? {});
 	const response = (await doGet(

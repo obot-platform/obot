@@ -1,4 +1,5 @@
 import { getLocale, m } from '$lib/i18n';
+import { isBefore, set, subDays } from 'date-fns';
 
 export type TimeDisplayFormat = '12h' | '24h';
 
@@ -196,6 +197,38 @@ export function formatTimeUntil(timestamp: string | undefined): TimeAgoResult {
 	}
 
 	return { relativeTime, fullDate };
+}
+
+export function getTimeRangeFilter({
+	startTime: startTimeOverride,
+	endTime: endTimeOverride,
+	start_time,
+	end_time,
+	days = 7
+}: {
+	startTime?: Date | null;
+	endTime?: Date | null;
+	start_time?: string | null;
+	end_time?: string | null;
+	days?: number;
+} = {}): { startTime: Date; endTime: Date } {
+	if (startTimeOverride && endTimeOverride) {
+		return { startTime: startTimeOverride, endTime: endTimeOverride };
+	}
+
+	const endTime = set(new Date(end_time || new Date()), { milliseconds: 0, seconds: 59 });
+
+	const parsedStartTime = set(new Date(start_time ? start_time : Date.now()), {
+		milliseconds: 0,
+		seconds: 0
+	});
+
+	const startTime =
+		start_time && isBefore(parsedStartTime, endTime)
+			? parsedStartTime
+			: set(subDays(endTime, days), { seconds: 0, milliseconds: 0 });
+
+	return { startTime, endTime };
 }
 
 export function formatTimeRange(startTime: Date | string, endTime: Date | string): string {

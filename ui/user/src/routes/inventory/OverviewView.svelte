@@ -120,10 +120,17 @@
 		replaceState(next, {});
 	}
 
-	function onRangeChange({ start, end }: { start: Date | string; end: Date | string }) {
+	function onRangeChange({
+		start,
+		end
+	}: {
+		start: Date | null | string;
+		end: Date | null | string;
+	}) {
+		const fallbackRange = rangeFromUrl();
 		range = {
-			start: new Date(start).toISOString(),
-			end: new Date(end).toISOString()
+			start: start ? new Date(start).toISOString() : fallbackRange.start,
+			end: end ? new Date(end).toISOString() : fallbackRange.end
 		};
 		syncUrl();
 		reload();

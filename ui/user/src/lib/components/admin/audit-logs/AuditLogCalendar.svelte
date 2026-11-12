@@ -1,20 +1,45 @@
 <script lang="ts">
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import Calendar from '$lib/components/Calendar.svelte';
+	import Calendar, { type DateRange } from '$lib/components/Calendar.svelte';
 	import { m } from '$lib/i18n';
 	import { responsive } from '$lib/stores';
 	import { formatTimeRange, getTimeRangeShorthand } from '$lib/time';
+	import type { Placement } from '@floating-ui/dom';
 	import { set, startOfDay, subDays, subHours } from 'date-fns';
 	import { twMerge } from 'tailwind-merge';
 
-	let { start, end, disabled = false, onChange } = $props();
+	type Props = {
+		start: Date;
+		end: Date;
+		disabled?: boolean;
+		disableCustomRange?: boolean;
+		disableSubDayRanges?: boolean;
+		onChange: (range: DateRange) => void;
+		classes?: {
+			input?: string;
+			calendar?: string;
+		};
+		tooltipPlacement?: Placement;
+	};
+
+	let {
+		start,
+		end,
+		disabled = false,
+		disableCustomRange = false,
+		disableSubDayRanges = false,
+		onChange,
+		classes,
+		tooltipPlacement = 'top-end'
+	}: Props = $props();
 
 	let open = $state(false);
 	const today = new Date();
 
 	const actions = [
 		{
+			subDay: true,
 			label: m.audit_usage_exports_calendar_last_hour(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
@@ -26,6 +51,7 @@
 			}
 		},
 		{
+			subDay: true,
 			label: m.audit_usage_exports_calendar_last_6_hours(),
 			onpointerdown: () => {
 				end = set(new Date(), { milliseconds: 0, seconds: 59 });
@@ -87,6 +113,10 @@
 		}
 	];
 
+	const visibleActions = $derived(
+		actions.filter((action) => !disableSubDayRanges || !action.subDay)
+	);
+
 	const quickActionsPopover = popover({
 		placement: 'bottom-start',
 		offset: 4,
@@ -113,7 +143,10 @@
 <div class="flex w-full md:max-w-fit">
 	<button
 		type="button"
-		class="dark:border-base-400 dark:hover:bg-base-300/70 dark:active:bg-base-300 dark:bg-base-100 hover:bg-base-100/70 active:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 flex-1 shrink-0 items-center gap-2 truncate rounded-l-sm border border-r-0 border-transparent px-4 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50"
+		class={twMerge(
+			'dark:border-base-400 dark:hover:bg-base-300/70 dark:active:bg-base-300 dark:bg-base-100 hover:bg-base-100/70 active:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 flex-1 shrink-0 items-center gap-2 truncate rounded-l-sm border border-r-0 border-transparent px-4 text-sm shadow-sm transition-colors duration-200 disabled:opacity-50',
+			classes?.input
+		)}
 		{disabled}
 		use:refAction
 		onclick={() => {
@@ -124,7 +157,7 @@
 		{@attach (node: HTMLElement) => {
 			const response = tooltip(node, {
 				text: m.audit_usage_exports_calendar_quick_actions(),
-				placement: 'top-end',
+				placement: tooltipPlacement,
 				classes: ['z-60']
 			});
 
@@ -167,7 +200,7 @@
 				</div>
 
 				<div class="flex w-full min-w-36 flex-col">
-					{#each actions as action (action.label)}
+					{#each visibleActions as action (action.label)}
 						<button
 							type="button"
 							class="hover:bg-base-400/25 h-12 w-full min-w-max px-4 py-2 text-center last:border-b-transparent md:h-10 md:text-start"
@@ -183,14 +216,19 @@
 
 	<Calendar
 		compact
-		class="dark:border-base-400 hover:bg-base-100 dark:hover:bg-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm"
+		class={twMerge(
+			'dark:border-base-400 dark:bg-base-100 bg-base-100 relative z-40 flex min-h-12.5 shrink-0 items-center gap-2 truncate rounded-none rounded-r-sm border border-transparent px-4 text-sm shadow-sm',
+			!disableCustomRange && 'hover:bg-base-100 dark:hover:bg-base-400',
+			disableCustomRange && !disabled && 'disabled:opacity-100',
+			classes?.calendar
+		)}
 		initialValue={{
 			start: new Date(start),
 			end: end ? new Date(end) : null
 		}}
 		{start}
 		{end}
-		{disabled}
+		disabled={disabled || disableCustomRange}
 		{onChange}
 		maxDate={today}
 	/>
