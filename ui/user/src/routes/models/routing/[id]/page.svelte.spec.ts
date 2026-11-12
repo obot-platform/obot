@@ -130,7 +130,7 @@ describe('Routing rule page', () => {
 
 		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
 		expect(goto).not.toHaveBeenCalled();
-		expect(notified).toHaveBeenCalledWith('Routing rule saved.');
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.'));
 		expect(updated.mock.calls[0][1].targets).toEqual([
 			{ provider: 'openai', model: 'gpt-4o-mini', weight: 1, key_id: 'k1', ttft_timeout_ms: 1500 }
 		]);
@@ -158,7 +158,7 @@ describe('Routing rule page', () => {
 
 		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
 		expect(goto).not.toHaveBeenCalled();
-		expect(notified).toHaveBeenCalledWith('Routing rule saved.');
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.'));
 		expect(updated.mock.calls[0][1].targets).toEqual([
 			{ provider: null, model: 'gpt-4o-mini', weight: 1 }
 		]);

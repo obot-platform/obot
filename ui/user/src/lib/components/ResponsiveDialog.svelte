@@ -32,6 +32,7 @@
 		animate?: ResponsiveDialogAnimate;
 		hideClose?: boolean;
 		closeButtonLabel?: string;
+		disableCloseAction?: boolean;
 		disableClickOutside?: boolean;
 		disableEscape?: boolean;
 		disableMobileStyles?: boolean;
@@ -56,6 +57,7 @@
 		animate,
 		hideClose,
 		closeButtonLabel,
+		disableCloseAction,
 		disableClickOutside,
 		disableEscape,
 		disableMobileStyles,
@@ -81,7 +83,7 @@
 		// Just close the dialog - onClose will be called via the native onclose event.
 		// Skip if already closed so a delayed animation finish cannot start a second close
 		// that blocks the next open().
-		if (dialog?.open) {
+		if (dialog?.open && !disableCloseAction) {
 			dialog.close();
 		}
 	}
@@ -95,7 +97,7 @@
 	data-non-modal={rightPanelWidth ? 'true' : undefined}
 	use:dialogAnimation={{ type: animate }}
 	oncancel={(event) => {
-		if (disableEscape) event.preventDefault();
+		if (disableEscape || disableCloseAction) event.preventDefault();
 	}}
 	onclose={(event) => {
 		const element = event.currentTarget;
@@ -162,7 +164,7 @@
 		<button
 			type="button"
 			onclick={() => {
-				if (disableClickOutside) return;
+				if (disableClickOutside || disableCloseAction) return;
 				if (onClickOutside) {
 					onClickOutside();
 				} else {

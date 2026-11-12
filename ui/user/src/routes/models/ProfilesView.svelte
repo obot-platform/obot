@@ -71,7 +71,7 @@
 
 	let filteredRows = $derived(
 		rows.filter((r) =>
-			[r.name, r.subjectsLabel].some((v) => v?.toLowerCase().includes(query.toLowerCase()))
+			[r.name, r.subjectsTitle].some((v) => v?.toLowerCase().includes(query.toLowerCase()))
 		)
 	);
 

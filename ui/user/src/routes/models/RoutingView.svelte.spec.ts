@@ -181,10 +181,12 @@ describe('Models routing tab', () => {
 	it('opens a rule from its row', async () => {
 		mockGateway();
 		await renderRoutingPage();
+		await expect
+			.element(page.getByRole('link', { name: 'Cheaper GPT' }))
+			.toHaveAttribute('href', '/models/routing/r1');
+		await page.getByRole('cell', { name: 'model == "gpt-4o"' }).click();
 
-		await page.getByRole('cell', { name: 'Cheaper GPT' }).click();
-
-		expect(appPage.url.pathname).toBe('/models/routing/r1');
+		await vi.waitFor(() => expect(appPage.url.pathname).toBe('/models/routing/r1'));
 	});
 
 	it('sends a time to first token timeout in milliseconds and omits empty ones', async () => {

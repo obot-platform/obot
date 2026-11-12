@@ -352,6 +352,7 @@
 		header: 'p-4 pb-0'
 	}}
 	onClose={handleClose}
+	disableCloseAction={saving || deleting}
 >
 	{#if provider}
 		<div class="flex max-h-[70vh] flex-col gap-6 overflow-y-auto p-4">
@@ -675,13 +676,15 @@
 			<div
 				class="bg-base-100 dark:bg-base-300 sticky bottom-0 left-0 z-40 flex w-full justify-end gap-2 p-4"
 			>
-				<button class="btn btn-secondary text-sm" onclick={() => dialog?.close()}
-					>{m.common_cancel()}</button
+				<button
+					class="btn btn-secondary text-sm"
+					disabled={saving || deleting}
+					onclick={() => dialog?.close()}>{m.common_cancel()}</button
 				>
 				<button
 					class="btn btn-primary text-sm"
 					onclick={save}
-					disabled={saving || !!concurrencyError || !!queueSizeError}
+					disabled={saving || !!concurrencyError || !!queueSizeError || deleting}
 				>
 					{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 				</button>

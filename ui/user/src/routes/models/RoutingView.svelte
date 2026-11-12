@@ -196,7 +196,15 @@
 						openUrl(`/models/routing/${encodeURIComponent(row.id)}`, isCtrlClick)}
 				>
 					{#snippet onRenderColumn(property, row)}
-						{#if property === 'cel_expression'}
+						{#if property === 'name'}
+							<a
+								href={`/models/routing/${encodeURIComponent(row.id)}`}
+								class="text-base-content"
+								onclick={(e) => e.stopPropagation()}
+							>
+								{row.name}
+							</a>
+						{:else if property === 'cel_expression'}
 							<code class="text-xs">{row.cel_expression}</code>
 						{:else}
 							{statusDisplay(property, row[property as keyof typeof row])}
