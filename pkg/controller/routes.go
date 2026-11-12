@@ -95,9 +95,9 @@ func (c *Controller) setupRoutes() {
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
 
-	// Agent identity lifecycle changes
+	// Agent identity lifecycle: a change needs nothing beyond authentication, and a delete removes what the agent owns
 	root.Type(&v1.AgentIdentityChange{}).HandlerFunc(cleanup.DeleteAgentIdentityEvent)
-	root.Type(&v1.AgentIdentityDelete{}).HandlerFunc(cleanup.DeleteAgentIdentityEvent)
+	root.Type(&v1.AgentIdentityDelete{}).HandlerFunc(cleanup.DeletedAgent)
 
 	// Auth Provider Cleanup
 	root.Type(&v1.AuthProviderCleanup{}).HandlerFunc(authProviderCleanup.Cleanup)
