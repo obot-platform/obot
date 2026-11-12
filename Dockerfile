@@ -10,6 +10,7 @@ RUN if [ "${BASE_IMAGE}" = "cgr.dev/chainguard/wolfi-base" ]; then \
   fi
 
 FROM base AS bin
+ARG GOTOOLCHAIN=auto
 WORKDIR /app
 COPY . .
 # With MODEL_DATA_URL set, as CI sets it for the main and release images, the LLM gateway's
