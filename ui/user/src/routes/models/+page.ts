@@ -37,18 +37,15 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let apiKeys: APIKey[] = [];
 
 	if (view === 'connect') {
+		const keysPromise = ApiKeysService.listApiKeys({ fetch }).catch((): APIKey[] => []);
 		try {
-			const [response, keys] = await Promise.all([
-				browser && accessibleModels.initialized && accessibleModels.current.length > 0
-					? accessibleModels.current
-					: (initialModels ?? UserService.listModels({ fetch })),
-				hasAdminAccess
-					? ApiKeysService.listAllApiKeys({ fetch })
-					: ApiKeysService.listApiKeys({ fetch })
-			]);
+			const response = await (browser &&
+			accessibleModels.initialized &&
+			accessibleModels.current.length > 0
+				? accessibleModels.current
+				: (initialModels ?? UserService.listModels({ fetch })));
 
 			models = filterAccessibleModels(response ?? []);
-			apiKeys = keys;
 
 			if (browser) {
 				accessibleModels.set(models);
@@ -56,6 +53,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		} catch (err) {
 			handleRouteError(err, '/models', profile);
 		}
+		apiKeys = await keysPromise;
 	}
 
 	return {

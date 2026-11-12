@@ -177,7 +177,7 @@ describe('ModelsView', () => {
 
 	it('creates an LLM-scoped token and uses it in client setup', async () => {
 		const created = vi.fn();
-		const token = 'ok1-1-1-secret';
+		const apiKey = 'ok1-1-1-secret';
 		worker.use(
 			http.post('/api/api-keys', async ({ request }) => {
 				created(await request.json());
@@ -191,7 +191,7 @@ describe('ModelsView', () => {
 					canAccessDeviceScans: false,
 					createdAt: '2026-11-11T00:00:00Z',
 					mcpServerIds: [],
-					key: token
+					key: apiKey
 				});
 			})
 		);
@@ -201,7 +201,7 @@ describe('ModelsView', () => {
 
 		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
 		expect(created).toHaveBeenCalledWith({
-			name: 'Agent Identity API Key',
+			name: 'LLM Gateway API Key',
 			mcpServerIds: [],
 			canAccessLLMProxy: true
 		});
@@ -213,28 +213,64 @@ describe('ModelsView', () => {
 				})
 			)
 			.toBeVisible();
-		await expect.element(page.getByCSS('#llm-gateway-access-token')).toHaveValue(token);
+		await expect.element(page.getByCSS('#llm-gateway-api-key')).toHaveValue(apiKey);
 
 		await page.getByRole('button', { name: 'Claude Code' }).click();
+		const dialog = page.getByRole('dialog');
+		await expect.element(dialog.getByRole('textbox', { name: 'Your API Key' })).toHaveValue(apiKey);
 		await expect
-			.element(page.getByText(`export ANTHROPIC_AUTH_TOKEN="${token}"`, { exact: false }))
+			.element(
+				dialog.getByText('export ANTHROPIC_AUTH_TOKEN="[REPLACE_WITH_API_KEY]"', {
+					exact: false
+				})
+			)
 			.toBeVisible();
 		await expect
-			.element(page.getByText('obot login --url', { exact: false }))
+			.element(dialog.getByText(`ANTHROPIC_AUTH_TOKEN="${apiKey}"`, { exact: false }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(dialog.getByText('obot login --url', { exact: false }))
 			.not.toBeInTheDocument();
 	});
 
-	it('shows the Obot CLI login command', async () => {
+	it('defaults client setup to an API key placeholder and offers the Obot CLI login command', async () => {
 		await renderModelsView(gatewayModels);
 
+		await page.getByRole('button', { name: 'Claude Code' }).click();
+
 		await expect
-			.element(page.getByCSS('#llm-gateway-login-command'))
-			.toHaveValue(`obot login --url ${window.location.origin} --scope llm --print-token`);
+			.element(
+				page.getByText('export ANTHROPIC_AUTH_TOKEN="[REPLACE_WITH_API_KEY]"', { exact: false })
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByText('Supply your existing API key for', { exact: false }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('dialog').getByRole('button', { name: 'Generate Key', exact: true }))
+			.toBeVisible();
+
+		await page
+			.getByRole('group', { name: 'How to provide the access key' })
+			.first()
+			.getByRole('button', { name: 'CLI' })
+			.click();
+
+		await expect
+			.element(
+				page.getByText(`$(obot login --url ${window.location.origin} --scope llm --print-token)`, {
+					exact: false
+				})
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByText('[REPLACE_WITH_API_KEY]', { exact: false }))
+			.not.toBeInTheDocument();
 	});
 
 	it('creates a token from the client setup notice when a key already exists', async () => {
 		const created = vi.fn();
-		const token = 'ok1-from-dialog';
+		const apiKey = 'ok1-from-dialog';
 		worker.use(
 			http.post('/api/api-keys', async ({ request }) => {
 				created(await request.json());
@@ -248,7 +284,7 @@ describe('ModelsView', () => {
 					canAccessDeviceScans: false,
 					createdAt: '2026-11-11T00:00:00Z',
 					mcpServerIds: [],
-					key: token
+					key: apiKey
 				});
 			})
 		);
@@ -259,28 +295,37 @@ describe('ModelsView', () => {
 
 		await vi.waitFor(() => expect(created).toHaveBeenCalledOnce());
 		expect(created).toHaveBeenCalledWith({
-			name: 'Agent Identity API Key',
+			name: 'LLM Gateway API Key',
 			mcpServerIds: [],
 			canAccessLLMProxy: true
 		});
+		// The notice reveals the new key, so the key field stays hidden until the dialog reopens.
 		await expect
-			.element(page.getByText(`export ANTHROPIC_AUTH_TOKEN="${token}"`, { exact: false }))
+			.element(page.getByRole('dialog').getByRole('textbox', { name: 'Your API Key' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(
+				page.getByText('export ANTHROPIC_AUTH_TOKEN="[REPLACE_WITH_API_KEY]"', { exact: false })
+			)
 			.toBeVisible();
 		await expect
-			.element(page.getByText('[REPLACE_WITH_ACCESS_KEY]', { exact: true }))
+			.element(page.getByText(`ANTHROPIC_AUTH_TOKEN="${apiKey}"`, { exact: false }))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByRole('dialog').getByText('Save this key now')).toBeVisible();
 
-		document.querySelector('dialog[open]')?.close();
+		(page.getByRole('dialog').element() as HTMLDialogElement).close();
 		await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
 		await page.getByRole('button', { name: 'Claude Code' }).click();
 		await expect
 			.element(page.getByRole('dialog').getByText('Save this key now'))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByText('Save this key now')).toBeVisible();
+		await expect
+			.element(page.getByRole('dialog').getByRole('textbox', { name: 'Your API Key' }))
+			.toHaveValue(apiKey);
 	});
 
-	it('notes an existing unexpired LLM identity key', async () => {
+	it('offers key management and a new key with an existing unexpired LLM identity key', async () => {
 		await renderModelsView(
 			gatewayModels,
 			[Group.ADMIN],
@@ -291,8 +336,16 @@ describe('ModelsView', () => {
 			]
 		);
 
+		await expect.element(page.getByRole('link', { name: 'Manage API Keys' })).toBeVisible();
 		await expect
-			.element(page.getByText('Existing Identity Access Keys Found').last())
+			.element(page.getByRole('button', { name: 'Generate Key', exact: true }))
+			.not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Claude Code' }).click();
+		await expect
+			.element(
+				page.getByRole('dialog').getByRole('button', { name: 'Generate New Key', exact: true })
+			)
 			.toBeVisible();
 	});
 
@@ -307,7 +360,10 @@ describe('ModelsView', () => {
 		);
 
 		await expect
-			.element(page.getByText('Existing Identity Access Keys Found'))
+			.element(page.getByRole('button', { name: 'Generate Key', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Manage API Keys' }))
 			.not.toBeInTheDocument();
 	});
 

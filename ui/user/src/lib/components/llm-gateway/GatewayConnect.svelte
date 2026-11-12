@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
@@ -24,10 +25,10 @@
 		models?: Model[];
 		// Whether an administrator allows Claude subscriptions through the gateway.
 		subscriptionPassthrough?: boolean;
-		accessToken?: string;
+		generatedApiKey?: string;
 		hasValidIdentityApiKeys?: boolean;
-		creatingToken?: boolean;
-		onGenerateToken?: () => void;
+		creatingApiKey?: boolean;
+		onGenerateApiKey?: () => Promise<boolean>;
 		class?: string;
 	}
 
@@ -35,10 +36,10 @@
 		obotURL,
 		models = [],
 		subscriptionPassthrough = false,
-		accessToken = '',
+		generatedApiKey = '',
 		hasValidIdentityApiKeys = false,
-		creatingToken = false,
-		onGenerateToken,
+		creatingApiKey = false,
+		onGenerateApiKey,
 		class: klass = ''
 	}: Props = $props();
 
@@ -75,17 +76,12 @@
 		}
 	});
 	let cliLoginCommand = $derived(`obot login --url ${obotURL} --scope llm --print-token`);
-	const ACCESS_KEY_PLACEHOLDER = '[REPLACE_WITH_ACCESS_KEY]';
-	let loginCommand = $derived(accessToken || cliLoginCommand);
-	let showTokenChoice = $derived(!accessToken);
-	let useAccessKeyPlaceholder = $state(false);
+	const API_KEY_PLACEHOLDER = '[REPLACE_WITH_API_KEY]';
+	let showApiKeyChoice = $derived(!generatedApiKey);
+	let useApiKeyPlaceholder = $state(true);
 	let token = $derived(
-		accessToken ||
-			(showTokenChoice && useAccessKeyPlaceholder
-				? ACCESS_KEY_PLACEHOLDER
-				: `$(${cliLoginCommand})`)
+		generatedApiKey || useApiKeyPlaceholder ? API_KEY_PLACEHOLDER : `$(${cliLoginCommand})`
 	);
-	let slot = $derived(showTokenChoice || accessToken ? token : '');
 	// The models a chat example can use: embedding and image models can't answer a message.
 	let chatModels = $derived.by(() => {
 		const chat = models.filter(
@@ -244,7 +240,7 @@
 
 	let selectedClient = $derived(clients.find((c) => c.id === selected));
 	let clientQuery = $state('');
-	let revealTokenInDialog = $state(false);
+	let revealApiKeyInDialog = $state(false);
 	let visibleClients = $derived.by(() => {
 		const query = clientQuery.trim().toLowerCase();
 		if (!query) return clients;
@@ -259,39 +255,14 @@
 		selected = client;
 		selectedTab = 0;
 		picked = {};
-		useAccessKeyPlaceholder = true;
-		revealTokenInDialog = false;
+		useApiKeyPlaceholder = true;
+		revealApiKeyInDialog = false;
 		dialog?.open();
 	}
 
-	function generateFromDialog() {
-		revealTokenInDialog = true;
-		onGenerateToken?.();
+	async function generateFromDialog() {
+		revealApiKeyInDialog = (await onGenerateApiKey?.()) ?? false;
 	}
-
-	let authVariable = $derived.by(() => {
-		switch (selected) {
-			case 'claude-code':
-				return subscriptionPassthrough && selectedTab === 0
-					? 'X-Obot-Api-Key'
-					: 'ANTHROPIC_AUTH_TOKEN';
-			case 'anthropic-sdk':
-				return 'ANTHROPIC_AUTH_TOKEN';
-			case 'openai-sdk':
-			case 'goose':
-			case 'open-webui':
-				return 'OPENAI_API_KEY';
-			case 'codex':
-			case 'google-adk':
-			case 'vercel-ai-sdk':
-			case 'opencode':
-				return 'OBOT_API_KEY';
-			case 'curl':
-				return 'Authorization';
-			default:
-				return 'API key';
-		}
-	});
 
 	// Claude Code 2.1.129 and later can list the gateway's models in its /model picker.
 	const claudeCodeDiscovery = [
@@ -309,7 +280,21 @@
 		];
 	}
 
-	type ConnectBlock = SnippetBlock & { tabTitle?: string; picker?: PickerKey; minHeight?: number };
+	const AUTH = {
+		anthropic: 'ANTHROPIC_AUTH_TOKEN',
+		obotHeader: 'X-Obot-Api-Key',
+		openai: 'OPENAI_API_KEY',
+		obot: 'OBOT_API_KEY',
+		header: 'Authorization'
+	} as const;
+
+	type ConnectBlock = SnippetBlock & {
+		tabTitle?: string;
+		picker?: PickerKey;
+		minHeight?: number;
+		authVariable?: string;
+		isKey?: boolean;
+	};
 
 	// Clients set up in their own settings screens get numbered steps, each with an optional
 	// value to copy into a field.
@@ -324,7 +309,7 @@
 					{ text: m.models_connect_cline_step_provider() },
 					{ text: m.models_connect_step_base_url(), value: `${baseURL}/v1` },
 					{
-						text: accessToken
+						text: generatedApiKey
 							? m.models_connect_step_api_key_generated()
 							: m.models_connect_step_api_key()
 					},
@@ -344,7 +329,7 @@
 							}
 						: { text: m.models_connect_open_webui_step_url(), value: `${baseURL}/v1` },
 					{
-						text: accessToken
+						text: generatedApiKey
 							? m.models_connect_step_api_key_generated()
 							: m.models_connect_step_api_key()
 					},
@@ -355,13 +340,15 @@
 		}
 	});
 
+	// Prints a key with the Obot CLI. A generated key is shown below the snippets instead.
 	let apiKeyBlock = $derived<ConnectBlock>({
-		title: accessToken ? m.models_connect_your_api_key() : m.models_connect_print_api_key(),
+		title: m.models_connect_print_api_key(),
 		language: 'bash',
-		code: loginCommand
+		code: cliLoginCommand,
+		isKey: true
 	});
 
-	let blocks = $derived.by((): ConnectBlock[] => {
+	let clientBlocks = $derived.by((): ConnectBlock[] => {
 		const model = pickedModel('model');
 		switch (selected) {
 			case 'claude-code': {
@@ -370,9 +357,10 @@
 					title: m.models_connect_run_in_terminal(),
 					picker: 'claude-code' as const,
 					language: 'bash' as const,
+					authVariable: AUTH.anthropic,
 					code: [
 						`export ANTHROPIC_BASE_URL="${baseURL}"`,
-						`export ANTHROPIC_AUTH_TOKEN="${token}"`,
+						`export ${AUTH.anthropic}="${token}"`,
 						...claudeCodeDiscovery,
 						...claudeCodeModelLines(pickedModel('claude-code')),
 						'claude'
@@ -387,15 +375,16 @@
 						title: m.models_connect_with_subscription(),
 						picker: 'claude-code-subscription' as const,
 						language: 'bash' as const,
+						authVariable: AUTH.obotHeader,
 						code: [
 							`export ANTHROPIC_BASE_URL="${baseURL}"`,
-							`export ANTHROPIC_CUSTOM_HEADERS="X-Obot-Api-Key: ${token}"`,
+							`export ANTHROPIC_CUSTOM_HEADERS="${AUTH.obotHeader}: ${token}"`,
 							...claudeCodeDiscovery,
 							...claudeCodeModelLines(pickedModel('claude-code-subscription')),
 							'claude'
 						].join('\n')
 					},
-					{ ...apiKey, title: m.models_connect_with_api_key() }
+					{ ...apiKey, title: m.models_connect_with_api_key(), minHeight: 280 }
 				];
 			}
 			case 'codex':
@@ -414,14 +403,15 @@
 							'[model_providers.obot]',
 							'name = "Obot LLM Gateway"',
 							`base_url = "${baseURL}/v1"`,
-							'env_key = "OBOT_API_KEY"',
+							`env_key = "${AUTH.obot}"`,
 							'wire_api = "responses"'
 						].join('\n')
 					},
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
-						code: `export OBOT_API_KEY="${token}"\ncodex`
+						authVariable: AUTH.obot,
+						code: `export ${AUTH.obot}="${token}"\ncodex`
 					}
 				];
 			case 'openai-sdk':
@@ -429,9 +419,10 @@
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
+						authVariable: AUTH.openai,
 						code: [
 							`export OPENAI_BASE_URL="${baseURL}/v1"`,
-							`export OPENAI_API_KEY="${token}"`,
+							`export ${AUTH.openai}="${token}"`,
 							'',
 							'python - <<PY',
 							'from openai import OpenAI',
@@ -447,9 +438,10 @@
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
+						authVariable: AUTH.anthropic,
 						code: [
 							`export ANTHROPIC_BASE_URL="${baseURL}"`,
-							`export ANTHROPIC_AUTH_TOKEN="${token}"`,
+							`export ${AUTH.anthropic}="${token}"`,
 							'',
 							'python - <<PY',
 							'import anthropic',
@@ -486,7 +478,7 @@
 							'    model=LiteLlm(',
 							`        model="openai/${model}",`,
 							`        api_base="${baseURL}/v1",`,
-							'        api_key=os.environ["OBOT_API_KEY"],',
+							`        api_key=os.environ["${AUTH.obot}"],`,
 							'    ),',
 							'    instruction="You are a helpful assistant.",',
 							')'
@@ -495,7 +487,8 @@
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
-						code: `export OBOT_API_KEY="${token}"\nadk run obot_agent`
+						authVariable: AUTH.obot,
+						code: `export ${AUTH.obot}="${token}"\nadk run obot_agent`
 					}
 				];
 			case 'vercel-ai-sdk':
@@ -515,7 +508,7 @@
 							'const obot = createOpenAICompatible({',
 							"  name: 'obot',",
 							`  baseURL: '${baseURL}/v1',`,
-							'  apiKey: process.env.OBOT_API_KEY',
+							`  apiKey: process.env.${AUTH.obot}`,
 							'});',
 							'',
 							'const { text } = await generateText({',
@@ -528,7 +521,8 @@
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
-						code: `export OBOT_API_KEY="${token}"\nnpx tsx index.mts`
+						authVariable: AUTH.obot,
+						code: `export ${AUTH.obot}="${token}"\nnpx tsx index.mts`
 					}
 				];
 			case 'curl':
@@ -537,9 +531,10 @@
 						tabTitle: m.models_connect_tab_chat_completions(),
 						title: m.models_connect_chat_completions_any_model(),
 						language: 'bash' as const,
+						authVariable: AUTH.header,
 						code: [
 							`curl ${baseURL}/v1/chat/completions \\`,
-							`  -H "Authorization: Bearer ${token}" \\`,
+							`  -H "${AUTH.header}: Bearer ${token}" \\`,
 							'  -H "content-type: application/json" \\',
 							`  -d '{"model": "${model}", "messages": [{"role": "user", "content": "hello"}]}'`
 						].join('\n')
@@ -548,9 +543,10 @@
 						tabTitle: m.models_connect_tab_responses(),
 						title: m.models_connect_responses_any_model(),
 						language: 'bash' as const,
+						authVariable: AUTH.header,
 						code: [
 							`curl ${baseURL}/v1/responses \\`,
-							`  -H "Authorization: Bearer ${token}" \\`,
+							`  -H "${AUTH.header}: Bearer ${token}" \\`,
 							'  -H "content-type: application/json" \\',
 							`  -d '{"model": "${model}", "input": "hello"}'`
 						].join('\n')
@@ -559,9 +555,10 @@
 						tabTitle: m.models_connect_tab_messages(),
 						title: m.models_connect_messages_any_model(),
 						language: 'bash' as const,
+						authVariable: AUTH.header,
 						code: [
 							`curl ${baseURL}/v1/messages \\`,
-							`  -H "Authorization: Bearer ${token}" \\`,
+							`  -H "${AUTH.header}: Bearer ${token}" \\`,
 							'  -H "anthropic-version: 2023-06-01" \\',
 							'  -H "content-type: application/json" \\',
 							`  -d '{"model": "${model}", "max_tokens": 512, "messages": [{"role": "user", "content": "hello"}]}'`
@@ -584,7 +581,7 @@
 										name: 'Obot LLM Gateway',
 										options: {
 											baseURL: `${baseURL}/v1`,
-											apiKey: '{env:OBOT_API_KEY}'
+											apiKey: `{env:${AUTH.obot}}`
 										},
 										models: { [model]: { name: model } }
 									}
@@ -597,7 +594,8 @@
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
-						code: `export OBOT_API_KEY="${token}"\nopencode`
+						authVariable: AUTH.obot,
+						code: `export ${AUTH.obot}="${token}"\nopencode`
 					}
 				];
 			case 'goose':
@@ -605,12 +603,13 @@
 					{
 						title: m.models_connect_run_in_terminal(),
 						language: 'bash' as const,
+						authVariable: AUTH.openai,
 						code: [
 							'export GOOSE_PROVIDER="openai"',
 							`export GOOSE_MODEL="${model}"`,
 							`export OPENAI_HOST="${obotURL}"`,
 							'export OPENAI_BASE_PATH="api/llm-proxy/v1/chat/completions"',
-							`export OPENAI_API_KEY="${token}"`,
+							`export ${AUTH.openai}="${token}"`,
 							'goose session'
 						].join('\n')
 					}
@@ -623,12 +622,13 @@
 					{
 						title: m.models_connect_open_webui_docker(),
 						language: 'bash' as const,
+						authVariable: AUTH.openai,
 						code: [
 							...(containerObotURL ? [`# ${m.models_connect_open_webui_docker_localhost()}`] : []),
 							'docker run -d -p 3000:8080 \\',
 							...(containerObotURL ? ['  --add-host=host.docker.internal:host-gateway \\'] : []),
 							`  -e OPENAI_API_BASE_URL="${containerObotURL ? `${containerObotURL}/api/llm-proxy` : baseURL}/v1" \\`,
-							`  -e OPENAI_API_KEY="${token}" \\`,
+							`  -e ${AUTH.openai}="${token}" \\`,
 							'  -v open-webui:/app/backend/data --name open-webui --restart always \\',
 							'  ghcr.io/open-webui/open-webui:main'
 						].join('\n')
@@ -639,8 +639,17 @@
 		}
 	});
 
+	let keyRevealed = $derived(revealApiKeyInDialog && !!generatedApiKey);
+	// A generated key gets one field below the snippets, the same place for every client.
+	let blocks = $derived(
+		generatedApiKey ? clientBlocks.filter((block) => !block.isKey) : clientBlocks
+	);
 	let tabBlocks = $derived(blocks.filter((block) => block.tabTitle));
 	let codeBlocks = $derived(blocks.filter((block) => !block.tabTitle));
+	let authVariable = $derived(
+		tabBlocks[selectedTab ?? 0]?.authVariable ??
+			blocks.find((block) => block.authVariable)?.authVariable
+	);
 	let minBlockHeight = $derived(Math.max(...tabBlocks.map((block) => block.minHeight || 0)));
 </script>
 
@@ -753,8 +762,8 @@
 						<LLMGatewayCodeBlock
 							{block}
 							id={`${selected}-${i}-tabblock`}
-							{slot}
-							actions={showTokenChoice ? tokenToggle : undefined}
+							slot={token}
+							actions={showApiKeyChoice ? apiKeyToggle : undefined}
 						>
 							{@render modelPicker(block.picker ?? 'model')}
 							<div class="divider my-2"></div>
@@ -762,7 +771,7 @@
 								{@render connectSteps()}
 							{/if}
 							{#snippet slotContent()}
-								{@render tokenMark()}
+								{@render apiKeyMark()}
 							{/snippet}
 						</LLMGatewayCodeBlock>
 					</div>
@@ -784,43 +793,55 @@
 					<LLMGatewayCodeBlock
 						{block}
 						id={`${selected}-${i}-codeblock`}
-						{slot}
-						actions={showTokenChoice ? tokenToggle : undefined}
+						slot={token}
+						actions={showApiKeyChoice ? apiKeyToggle : undefined}
 					>
 						{#snippet slotContent()}
-							{@render tokenMark()}
+							{@render apiKeyMark()}
 						{/snippet}
 					</LLMGatewayCodeBlock>
 				{/each}
 			</div>
 
-			{#if revealTokenInDialog && accessToken}
+			{#if keyRevealed}
 				<div class="divider my-2"></div>
 				<ApiKeyRevealNotice
-					keyValue={accessToken}
-					id="llm-gateway-connect-access-token"
+					keyValue={generatedApiKey}
+					id="llm-gateway-connect-api-key"
 					class="gap-3 mt-2"
 				/>
-			{:else if showTokenChoice}
+			{:else if generatedApiKey}
 				<div class="divider my-2"></div>
-				{#if useAccessKeyPlaceholder}
+				<div class="flex flex-col gap-1">
+					<CopyField
+						id="llm-gateway-connect-api-key"
+						value={generatedApiKey}
+						label={m.models_connect_your_api_key()}
+						classes={{ label: 'text-xs' }}
+					/>
+				</div>
+			{:else if showApiKeyChoice}
+				<div class="divider my-2"></div>
+				{#if useApiKeyPlaceholder}
 					<div class="notification-info text-xs">
 						<div class="flex items-center justify-between gap-8">
 							<p>
-								{m.models_connect_existing_key_notice({ variable: authVariable })}
+								{authVariable
+									? m.models_connect_existing_key_notice({ variable: authVariable })
+									: m.models_connect_existing_key_notice_generic()}
 							</p>
 							<button
 								type="button"
 								class="btn btn-xs btn-primary shrink-0"
-								disabled={creatingToken}
+								disabled={creatingApiKey}
 								onclick={generateFromDialog}
 							>
-								{#if creatingToken}
+								{#if creatingApiKey}
 									<Loading class="size-4 text-primary-content" />
 								{/if}
 								{hasValidIdentityApiKeys
 									? m.models_gateway_generate_new_key()
-									: m.models_gateway_generate_token()}
+									: m.models_gateway_generate_api_key()}
 							</button>
 						</div>
 					</div>
@@ -840,41 +861,41 @@
 	</div>
 </ResponsiveDialog>
 
-{#snippet tokenMark()}
-	{#if showTokenChoice}
+{#snippet apiKeyMark()}
+	{#if showApiKeyChoice}
 		<span class="box-decoration-clone inline rounded break-normal wrap-break-word">{token}</span>
 	{:else}
 		<span class="box-decoration-clone rounded-xs bg-primary/25 px-0.5">{token}</span>
 	{/if}
 {/snippet}
 
-{#snippet tokenToggle()}
+{#snippet apiKeyToggle()}
 	<span
 		class="inline-flex gap-0.5 rounded-sm bg-primary/15 p-0.5 whitespace-nowrap"
 		role="group"
-		aria-label={m.models_connect_token_choice()}
+		aria-label={m.models_connect_api_key_choice()}
 	>
 		<button
 			type="button"
 			class={twMerge(
 				'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
-				useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
+				useApiKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
 			)}
-			aria-pressed={useAccessKeyPlaceholder}
-			onclick={() => (useAccessKeyPlaceholder = true)}
+			aria-pressed={useApiKeyPlaceholder}
+			onclick={() => (useApiKeyPlaceholder = true)}
 		>
-			{m.models_connect_token_key()}
+			{m.models_connect_api_key_option_key()}
 		</button>
 		<button
 			type="button"
 			class={twMerge(
 				'rounded-sm px-1 py-0 text-[10px] leading-4 uppercase',
-				!useAccessKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
+				!useApiKeyPlaceholder ? 'bg-primary text-primary-content' : 'text-base-content/50'
 			)}
-			aria-pressed={!useAccessKeyPlaceholder}
-			onclick={() => (useAccessKeyPlaceholder = false)}
+			aria-pressed={!useApiKeyPlaceholder}
+			onclick={() => (useApiKeyPlaceholder = false)}
 		>
-			{m.models_connect_token_cli()}
+			{m.models_connect_api_key_option_cli()}
 		</button>
 	</span>
 {/snippet}

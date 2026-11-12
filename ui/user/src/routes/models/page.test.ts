@@ -84,23 +84,32 @@ describe('Models page loader', () => {
 		}
 	});
 
-	it('loads identity API keys on the Connect tab', async () => {
-		vi.mocked(ApiKeysService.listAllApiKeys).mockResolvedValue([llmKey]);
-
-		const admin = await loadModels('?view=connect');
-
-		expect(ApiKeysService.listAllApiKeys).toHaveBeenCalledOnce();
-		expect(ApiKeysService.listApiKeys).not.toHaveBeenCalled();
-		expect(admin).toMatchObject({ apiKeys: [llmKey] });
-
-		vi.mocked(ApiKeysService.listAllApiKeys).mockClear();
+	it("loads the viewer's own identity API keys on the Connect tab, even for admins", async () => {
 		vi.mocked(ApiKeysService.listApiKeys).mockResolvedValue([llmKey]);
 
-		const user = await loadModels('?view=connect', [Group.USER]);
+		for (const groups of [[Group.ADMIN], [Group.USER]]) {
+			vi.mocked(ApiKeysService.listApiKeys).mockClear();
 
-		expect(ApiKeysService.listApiKeys).toHaveBeenCalledOnce();
+			const result = await loadModels('?view=connect', groups);
+
+			expect(ApiKeysService.listApiKeys).toHaveBeenCalledOnce();
+			expect(result).toMatchObject({ apiKeys: [llmKey] });
+		}
 		expect(ApiKeysService.listAllApiKeys).not.toHaveBeenCalled();
-		expect(user).toMatchObject({ apiKeys: [llmKey] });
+	});
+
+	it('still loads models when listing API keys fails', async () => {
+		const gatewayModel = {
+			id: 'g1',
+			active: true,
+			modelProvider: 'llm-gateway-model-provider',
+			targetModel: 'openai/gpt-4o'
+		} as Model;
+		vi.mocked(ApiKeysService.listApiKeys).mockRejectedValue(new Error('boom'));
+
+		const result = await loadModels('?view=connect', [Group.USER], [gatewayModel]);
+
+		expect(result).toMatchObject({ models: [gatewayModel], apiKeys: [] });
 	});
 
 	it('does not load identity API keys off the Connect tab', async () => {
