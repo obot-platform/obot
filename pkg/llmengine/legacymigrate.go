@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -26,11 +27,13 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, provider *v1.Mod
 		return nil
 	}
 	var aliases v1.DefaultModelAliasList
-	if err := c.List(ctx, &aliases, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+	// Migration retries follow normal model sync; scans must not leave permanent
+	// namespace-wide triggers that rerun discovery on every Profile or model edit.
+	if err := c.List(ctx, untriggered.List(&aliases), kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
 	}
 	var policies v1.ModelAccessPolicyList
-	if err := c.List(ctx, &policies, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+	if err := c.List(ctx, untriggered.List(&policies), kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
 	}
 	referenced := map[string]bool{}
@@ -43,7 +46,7 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, provider *v1.Mod
 		}
 	}
 	var models v1.ModelList
-	if err := c.List(ctx, &models, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+	if err := c.List(ctx, untriggered.List(&models), kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return err
 	}
 	byTarget := map[string]*v1.Model{}

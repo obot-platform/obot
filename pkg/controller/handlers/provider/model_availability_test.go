@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 type availabilityTestCodec struct{}
@@ -44,7 +45,7 @@ func TestGatewayModelSyncDoesNotRestoreUnavailableModels(t *testing.T) {
 		WithObjects(mp).
 		WithIndex(&v1.Model{}, "spec.manifest.modelProvider", func(o kclient.Object) []string {
 			return []string{o.(*v1.Model).Spec.Manifest.ModelProvider}
-		}).Build()
+		}).WithInterceptorFuncs(interceptor.Funcs{List: listControllerObjects}).Build()
 	var failed atomic.Bool
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if failed.Load() {

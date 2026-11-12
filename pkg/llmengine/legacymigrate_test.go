@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -43,6 +44,15 @@ func migrationPolicy(ids ...string) *v1.ModelAccessPolicy {
 	return p
 }
 
+// Model the controller client: wrapped scans read storage without registering dependencies.
+func migrationList(t *testing.T) func(context.Context, kclient.WithWatch, kclient.ObjectList, ...kclient.ListOption) error {
+	t.Helper()
+	return func(ctx context.Context, c kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+		require.True(t, untriggered.IsWrapped(list), "migration scans must not register controller triggers")
+		return c.List(ctx, untriggered.UnwrapList(list), opts...)
+	}
+}
+
 func TestMigrationRewritesOnlyDefaultAliasesAndProfileReferences(t *testing.T) {
 	source := migrationModel("m1-legacy", system.AnthropicModelProvider, "claude-sonnet-4-5")
 	source.Spec.Manifest.Active = false
@@ -62,7 +72,7 @@ func TestMigrationRewritesOnlyDefaultAliasesAndProfileReferences(t *testing.T) {
 	}
 	provider := ModelProviderResource()
 	provider.Annotations = map[string]string{"keep": "admin value"}
-	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, dated, unused, target, policy, wildcard, dma).Build()
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, dated, unused, target, policy, wildcard, dma).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
 	originals := []kclient.Object{source.DeepCopy(), dated.DeepCopy(), unused.DeepCopy(), target.DeepCopy(), wildcard.DeepCopy()}
 	for _, obj := range originals {
 		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(obj), obj))
@@ -92,7 +102,7 @@ func TestMigrationRetainsUnmatchedReferencesAndRetriesAfterDiscovery(t *testing.
 		Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: source.Name}},
 	}
 	provider := ModelProviderResource()
-	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, policy, dma).Build()
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, policy, dma).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
 	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
 	require.Empty(t, provider.Annotations[legacyModelMigrationCompleteAnnotation])
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
@@ -123,6 +133,7 @@ func TestMigrationRetriesPartialWritesAndPreservesLaterReferenceEdits(t *testing
 			provider := ModelProviderResource()
 			fail := true
 			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, target, policy, dma).WithInterceptorFuncs(interceptor.Funcs{
+				List: migrationList(t),
 				Update: func(ctx context.Context, c kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
 					if _, ok := obj.(*v1.ModelAccessPolicy); ok && fail {
 						if failure == "policy" {

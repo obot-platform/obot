@@ -75,6 +75,8 @@ func TestMigratedPoliciesAuthorizeNativeNamesAndDenyOtherUsersAndModels(t *testi
 		WithInterceptorFuncs(interceptor.Funcs{Get: func(ctx context.Context, c kclient.WithWatch, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
 			// Production clients unwrap the alias controller's uncached reads.
 			return c.Get(ctx, key, untriggered.Unwrap(obj).(kclient.Object), opts...)
+		}, List: func(ctx context.Context, c kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+			return c.List(ctx, untriggered.UnwrapList(list), opts...)
 		}}).Build()
 	require.NoError(t, llmengine.MigrateLegacyModels(t.Context(), c, llmengine.ModelProviderResource()))
 	// Normal alias reconciliation releases retained sources' derived bindings.
