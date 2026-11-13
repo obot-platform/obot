@@ -52,6 +52,12 @@ const (
 		"mode": "chat",
 		"input_cost_per_token": 1e-06,
 		"output_cost_per_token": 2e-06
+	},
+	"gpt-subscription": {
+		"provider": "openai",
+		"mode": "responses",
+		"input_cost_per_token": 1e-06,
+		"output_cost_per_token": 2e-06
 	}
 }`
 )
@@ -241,4 +247,73 @@ func TestCodexSubscriptionCatalogWithoutKeys(t *testing.T) {
 		require.Equal(t, enabled, slices.Contains(names, "openai"))
 		require.Equal(t, enabled, engine.HasUpstreamProviders(t.Context()))
 	}
+}
+
+func TestCodexSubscriptionCatalogWithAPIKey(t *testing.T) {
+	var requests atomic.Int32
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/models") {
+			http.NotFound(w, r)
+			return
+		}
+		requests.Add(1)
+		if got := r.Header.Get("Authorization"); got != "Bearer configured-key-fixture" {
+			t.Errorf("unexpected model discovery credential: %q", got)
+		}
+		_, _ = io.WriteString(w, `{"data":[{"id":"gpt-test"},{"id":"gpt-api-only"}]}`)
+	}))
+	t.Cleanup(up.Close)
+
+	var allowed atomic.Bool
+	allowed.Store(true)
+	engine := New()
+	catalog := testCatalog(t)
+	engine.catalog = func() modelCatalog { return catalog }
+	require.NoError(t, engine.Start(t.Context(), testOptions(t, Options{
+		DataDir:            t.TempDir(),
+		CodexSubscriptions: func(context.Context) (bool, error) { return allowed.Load(), nil },
+	})))
+	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
+	require.NoError(t, testMutation(t.Context(), engine, nil)(engine.CreateProvider(t.Context(), testJSON(t, map[string]any{
+		"provider": "openai",
+		"network_config": map[string]any{
+			"base_url":              up.URL,
+			"allow_private_network": true,
+		},
+	}))))
+
+	list := func() []string {
+		t.Helper()
+		models, err := engine.ListModels(t.Context())
+		require.NoError(t, err)
+		ids := make([]string, 0, len(models.Models))
+		for _, model := range models.Models {
+			ids = append(ids, model.ID)
+		}
+		return ids
+	}
+
+	require.ElementsMatch(t, []string{"openai/gpt-test", "openai/gpt-subscription"}, list())
+	require.Zero(t, requests.Load(), "background discovery must not need a subscription token")
+	require.NoError(t, testMutation(t.Context(), engine, nil)(engine.CreateKey(t.Context(), "openai", testJSON(t, map[string]any{
+		"name":   "configured",
+		"value":  "configured-key-fixture",
+		"models": []string{"*"},
+		"weight": 1,
+	}))))
+
+	// The key's nonempty API listing overlaps the catalog but omits a subscription model.
+	// Catalog additions must not enter the last-known API listing cache.
+	for _, enabled := range []bool{true, false, true} {
+		allowed.Store(enabled)
+		want := []string{"openai/gpt-test", "openai/gpt-api-only"}
+		if enabled {
+			want = append(want, "openai/gpt-subscription")
+		}
+		require.ElementsMatch(t, want, list(), "each model must appear exactly once")
+	}
+	require.Positive(t, requests.Load())
+
+	require.NoError(t, engine.DeleteProvider(t.Context(), "openai"))
+	require.Empty(t, list(), "enabling subscriptions must not restore a deleted provider's models")
 }

@@ -130,7 +130,7 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 	resp.Data = slices.DeleteFunc(resp.Data, func(model listedModel) bool { return unavailable[model.ID] })
 
 	// Added after the last known models are recorded: they aren't a listing of the provider,
-	// so they mustn't stand in for one once subscriptions are turned off or keys are added.
+	// so they mustn't stand in for one once subscriptions are turned off.
 	for _, provider := range []string{anthropicProvider, "openai"} {
 		resp.Data = append(resp.Data, e.subscriptionModels(ctx, provider)...)
 	}
@@ -279,13 +279,22 @@ func (e *Engine) withLastKnownModels(ctx context.Context, listed []listedModel) 
 	return listed
 }
 
-// subscriptionModels supplies grantable models from the catalog when a subscription
-// provider has no enabled keys. User tokens are never used for background model sync.
+// subscriptionModels supplies grantable catalog models while subscriptions are enabled.
+// OpenAI's API-key listing can omit Codex targets; Claude only needs the catalog without
+// enabled keys. User tokens are never used for background model sync.
 func (e *Engine) subscriptionModels(ctx context.Context, provider string) []listedModel {
-	if only, err := e.subscriptionsOnly(ctx, provider); err != nil {
+	if allowed, err := e.subscriptionsAllowed(ctx, provider); err != nil {
 		slog.Warn("failed to check subscription provider", "provider", provider, "error", err)
 		return nil
-	} else if !only {
+	} else if !allowed {
+		return nil
+	}
+	builtin, _, enabled, err := e.subscriptionProviderKeys(ctx, provider)
+	if err != nil {
+		slog.Warn("failed to check subscription provider keys", "provider", provider, "error", err)
+		return nil
+	}
+	if !builtin || provider != "openai" && enabled != 0 {
 		return nil
 	}
 	catalog := e.catalog()
