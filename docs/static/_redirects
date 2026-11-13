@@ -37,6 +37,8 @@
 /configuration/encryption-providers/overview/ /security/credentials/ 302
 /mcp-gateway/filters-tunnels /functionality/filters/ 302
 /mcp-gateway/filters-tunnels/ /functionality/filters/ 302
+/configuration/mcp-server-oauth-configuration /mcp-gateway/server-configuration/#static-oauth 302
+/configuration/mcp-server-oauth-configuration/ /mcp-gateway/server-configuration/#static-oauth 302
 
 # Current, unreleased documentation
 /next/configuration/user-roles /next/security/policy-coverage/ 302
@@ -71,6 +73,8 @@
 /next/configuration/encryption-providers/overview/ /next/security/credentials/ 302
 /next/mcp-gateway/filters-tunnels /next/functionality/filters/ 302
 /next/mcp-gateway/filters-tunnels/ /next/functionality/filters/ 302
+/next/configuration/mcp-server-oauth-configuration /next/mcp-gateway/server-configuration/#static-oauth 302
+/next/configuration/mcp-server-oauth-configuration/ /next/mcp-gateway/server-configuration/#static-oauth 302
 
 # Previous release with the refactored documentation
 /v0.27.0/configuration/user-roles /v0.27.0/security/policy-coverage/ 302

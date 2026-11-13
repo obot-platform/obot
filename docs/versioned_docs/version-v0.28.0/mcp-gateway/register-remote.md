@@ -7,7 +7,7 @@ Register an existing HTTP MCP endpoint when the server runs outside Obot. Obot p
 1. Open **MCP Servers**, select **Add MCP Server**, and choose **Remote Server**.
 2. Enter a name, short description, and the server's MCP URL.
 3. Configure required headers or user-supplied values. A remote service must be reachable from Obot, or through a configured [MCP tunnel](./filters-tunnels.md#mcp-tunnels-create-an-mcp-tunnel).
-4. If the provider requires a pre-registered OAuth application, enable **Static OAuth** and configure its client credentials using [MCP Server OAuth Configuration](../configuration/mcp-server-oauth-configuration.md).
+4. If the provider requires a pre-registered OAuth application, enable **Static OAuth** and configure its client credentials using [Static OAuth configuration](../mcp-gateway/server-configuration.md#static-oauth).
 5. Save the entry and review catalog access policies.
 6. Add the entry to a [vMCP](./server-types.md), configure its tools and profiles, and test the resulting connection.
 

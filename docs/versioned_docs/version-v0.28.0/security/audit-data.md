@@ -18,7 +18,15 @@ Admin and Owner can view audit metadata; sensitive gateway request/response payl
 
 Captured configuration files can contain sensitive content even when structured scan fields omit secret values. Field encryption does not protect exported objects or all metadata; configure destination storage permissions and encryption separately.
 
-Product-analytics consent is separate from update checks. See the analytics guide for what is collected and the relevant configuration controls.
+## Product analytics and consent
+
+Product analytics shares installation-wide aggregate usage with the Obot team. Reports include installation identifiers, version and runtime information, and aggregate feature counts. They do not include prompts, messages, credentials, URLs, custom MCP configuration details, or audit-log content.
+
+In the default `consent` mode, Owners and Admins choose whether to share usage in **Platform > Product Analytics**. Operators can force analytics on or off with `OBOT_SERVER_PRODUCT_ANALYTICS_MODE`. Update checks have a separate control and are not disabled by declining analytics.
+
+See [Product Analytics](../configuration/product-analytics.md) for the complete field-by-field disclosure, reporting schedule, consent modes, and update-check controls.
+
+## Audit activity
 
 The MCP Platform provides visibility into MCP and LLM gateway activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers and LLM gateway models are being used.
 

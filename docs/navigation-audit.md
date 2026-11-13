@@ -3,12 +3,16 @@
 Discussion draft, 2026-11-13, based on upstream `main` at `819ec1711`.
 This file is a maintainer note outside the published documentation tree.
 Revised after discussion: improve existing topic pages without expanding the sidebar.
-Static OAuth setup has been added to the current MCP server configuration page;
-other consolidation suggestions below remain proposals.
+Product Analytics is linked from an expanded consent section in Audit data and
+retention, with its disclosure checked against the telemetry payload. Static OAuth
+is consolidated into MCP server configuration with temporary redirects from its
+old page. MCP server egress control is now a direct child of Deploy & Operate,
+with a cross-link from the catalog page. These changes cover current and v0.28.0
+docs; other consolidation suggestions below remain proposals.
 
 ## Findings
 
-The current documentation has 112 Markdown pages. The sidebar exposes 79 unique
+At the initial audit, current documentation had 112 Markdown pages. The sidebar exposed 79 unique
 documents, counting both category landing pages and string-form entries. The
 remaining 33 pages comprise:
 
@@ -44,13 +48,15 @@ adding sidebar entries solely because an older page is absent from navigation.
 
 | Topic | Existing page to develop | Proposed treatment |
 | --- | --- | --- |
-| [Product Analytics](./docs/configuration/product-analytics.md) | **Security & Governance → Audit data and retention** | Make the privacy, consent, collected data, and opt-out explanation prominent here. The existing analytics page can remain the detailed reference while consolidation is discussed. |
-| [MCP Server OAuth Configuration](./docs/configuration/mcp-server-oauth-configuration.md) | **MCP Gateway → MCP server configuration** | Added a static OAuth section with setup steps and the vMCP connection flow to the existing page. Keep credential management detail linked for now; no new page or sidebar entry. |
-| [MCP Server Egress Control](./docs/configuration/mcp-server-egress-control.md) | **MCP Gateway → MCP server configuration** | Add an overview and a clear link to the detailed setup. Explain that enforcement restricts hosted MCP servers' outbound traffic through the Kubernetes networking provider; it is distinct from gateway request filtering and does not apply to remote servers. |
+| [Product Analytics](./docs/configuration/product-analytics.md) | **Security & Governance → Audit data and retention** | Added a consent/privacy summary here, linked to the retained detailed disclosure. Verified all six installation fields, fourteen metrics, and three built-in-server subfields; corrected the claim that server display names are sent. No new sidebar entry. |
+| [MCP Server OAuth Configuration](./docs/configuration/mcp-server-oauth-configuration.md) | **MCP Gateway → MCP server configuration** | Consolidated setup, credential status, rotation, and availability here. The old URL now redirects to this section in current and v0.28.0 docs. No new sidebar entry. v0.27.0 retains its original reference because it has no shared configuration page. |
+| [MCP Server Egress Control](./docs/configuration/mcp-server-egress-control.md) | **Deploy & Operate → MCP server egress control** | Added a direct sidebar entry after Network requirements. Linked the catalog page's per-entry `egressDomains` and `denyAllEgress` settings to the cluster prerequisites and YAML examples. Remote endpoints are outside this control. |
 | [MCP Registry API](./docs/functionality/mcp-registry-api.md) | **MCP Gateway → vMCP overview**, with the existing discovery link from **Registries & Skills → MCP Servers** | Explain programmatic discovery alongside the gateway's other capabilities and link to the API details. Keep Reference → CLI and APIs as a secondary entry point. |
 
-Only the static OAuth section is implemented in this pass. Consolidating a detail
-page later should preserve its old URL and any useful section destinations.
+Product Analytics, Static OAuth, and egress placement are implemented in this
+pass. The other fourteen substantive pages already have entry points within
+existing guides and remain for review. OAuth uses the agreed page-level 302
+behavior; old section fragments are not individually mapped.
 
 ## Other substantive pages missing from the sidebar
 
@@ -117,16 +123,18 @@ Two more compatibility pages still receive links:
   to those guides from Add remote MCP servers and Architecture → Where Obot and
   MCP servers run.
 
-The 16 pure stubs now have temporary Cloudflare Pages 302 redirects in
+The original 16 pure stubs have temporary Cloudflare Pages 302 redirects in
 `static/_redirects`, covering the latest release at the root (v0.28.0), `/next/`,
 and v0.27.0, with and without trailing slashes. Old section fragments are
 intentionally not remapped, as agreed in discussion. The redirects use each
 guide's main replacement; authentication setup goes to Configure authentication
 providers, and the combined schemas page goes to Catalog schemas; Filter schemas
 remains in the Reference navigation. MCP Servers remains available because it retains legacy
-guidance. Stub Markdown is retained for development and in-app navigation.
+guidance. Stub Markdown is retained for development and in-app navigation. The additionally
+consolidated OAuth page has equivalent 302 rules for current and v0.28.0 only,
+pointing directly to the new Static OAuth section.
 
-## Released versions
+## Released versions at the initial audit
 
 | Version | Documents | Unique sidebar documents | Absent from sidebar |
 | --- | ---: | ---: | ---: |
@@ -136,10 +144,14 @@ guidance. Stub Markdown is retained for development and in-app navigation.
 | v0.26.0 | 55 | 55 | 0 |
 | v0.25.0 | 52 | 52 | 0 |
 
-Current and v0.28.0 omit exactly the same page paths. v0.27.0 also omits the
+At the initial audit, current and v0.28.0 omitted exactly the same page paths. v0.27.0 also omitted the
 [Slack tutorial](./versioned_docs/version-v0.27.0/configuration/tutorials/slack-mcp-server.md),
 which was restored to current navigation later; its AI Judge Policies page is
-still in the sidebar. The other 32 omissions match current.
+still in the sidebar. The other 32 omissions matched current. Adding egress
+control has since increased current and v0.28.0 sidebar coverage to 80 documents,
+leaving 32 outside their sidebars: 17 redirect stubs and 15 substantive pages.
+Product Analytics is one of those 15 and now has an expanded entry point in the
+existing audit guide; the other 14 remain for review.
 
 Start implementation in current docs. Per the docs README, release snapshots
 receive corrections only when needed to avoid misleading users of that release.

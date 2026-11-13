@@ -86,6 +86,16 @@ test('Cloudflare redirects consolidated guides within their documentation versio
   await page.goto('/next/functionality/virtual-mcps/#tools-and-profiles');
   expect(new URL(page.url()).pathname).toBe('/next/mcp-gateway/server-types/');
   await expect(page.locator('article').first()).toBeVisible();
+  for (const prefix of ['', '/next']) {
+    await page.goto(`${prefix}/configuration/mcp-server-oauth-configuration/`);
+    expect(new URL(page.url()).pathname).toBe(`${prefix}/mcp-gateway/server-configuration/`);
+    expect(new URL(page.url()).hash).toBe('#static-oauth');
+    await expect(page.locator('#static-oauth')).toBeVisible();
+    await expect(page.locator('#credential-status-and-rotation')).toBeVisible();
+  }
+  // v0.27 has no shared server-configuration guide, so keep its OAuth reference.
+  const previousOAuth = await request.get('/v0.27.0/configuration/mcp-server-oauth-configuration/', { maxRedirects: 0 });
+  expect(previousOAuth.status()).toBe(200);
 });
 
 test('retained legacy MCP server sections still link to relocated procedures', async ({ page }) => {

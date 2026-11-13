@@ -13,9 +13,17 @@ Some remote MCP servers require a pre-registered OAuth application instead of dy
 3. Open **Configure OAuth Credentials**, enter the client ID and any required client secret, and save.
 4. Add the configured server to a vMCP and connect your AI client to that vMCP.
 
-To rotate the client credentials, clear the existing credentials and enter the replacement values. Users cannot connect to the upstream server until replacement credentials are configured.
+### Credential status and rotation
 
-See the [static OAuth reference](../configuration/mcp-server-oauth-configuration.md) for credential management details.
+**Configure OAuth Credentials** shows whether credentials are configured and displays the client ID. The client secret is not returned after it is saved. Public OAuth clients do not require a client secret; confidential clients do.
+
+To rotate the client credentials:
+
+1. Open **Configure OAuth Credentials** on the catalog entry.
+2. Click **Clear Credentials** and confirm.
+3. Reopen the dialog, enter the replacement client ID and any required client secret, and save.
+
+Users cannot connect to the upstream server until replacement credentials are configured. Remote catalog entries requiring static OAuth are hidden from non-admin users until their credentials are configured. Afterward, the usual access policies still determine who can use them through a vMCP.
 
 ## Caller attribution headers
 
