@@ -345,6 +345,11 @@ type VMCPProfileOAuthStatus struct {
 // component. The administrator opens AuthURL; the provider's callback stores the grant for the profile.
 type VMCPProfileOAuthAuthorization struct {
 	AuthURL string `json:"authURL"`
+	// LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is
+	// Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own
+	// machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection.
+	// Only the authorization needs the relay; agents use and refresh the grant without it.
+	LocalhostCallback bool `json:"localhostCallback,omitempty"`
 }
 
 // VMCPProfileConfigurationStatus names the configuration keys of a component that a profile can set, by whether it

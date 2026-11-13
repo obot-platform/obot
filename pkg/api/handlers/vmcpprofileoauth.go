@@ -11,7 +11,7 @@ import (
 // ProfileOAuthAuthorizer starts an administrator's authorization of a vMCP profile's OAuth grant. The MCP OAuth handler
 // factory implements it; this interface breaks an import cycle.
 type ProfileOAuthAuthorizer interface {
-	StartProfileOAuthGrant(req api.Context, vmcpID, profileID, componentID string) (string, error)
+	StartProfileOAuthGrant(req api.Context, vmcpID, profileID, componentID string) (types.VMCPProfileOAuthAuthorization, error)
 }
 
 // VMCPProfileOAuthHandler serves the routes that authorize and reset the OAuth grants a vMCP profile holds for its
@@ -44,18 +44,19 @@ func (h *VMCPProfileOAuthHandler) RegisterRoutes(handle func(pattern string, f a
 }
 
 // Authorize starts the authorization of the profile's grant for the component, and returns the URL the administrator
-// opens (types.VMCPProfileOAuthAuthorization). The grant is stored by the provider's callback, which only the
+// opens (types.VMCPProfileOAuthAuthorization), or, for a provider that only redirects to a localhost callback, the
+// local login URL that the administrator gives `obot mcp login`. The grant is stored by the provider's callback, which only the
 // administrator who started the authorization can complete. Authorizing a component that already has a grant replaces
 // the grant once the new authorization completes.
 func (h *VMCPProfileOAuthHandler) Authorize(req api.Context) error {
 	if err := agentIdentitiesAvailable(h.enabled, h.authEnabled); err != nil {
 		return err
 	}
-	authURL, err := h.authorizer.StartProfileOAuthGrant(req, req.PathValue("vmcp_id"), req.PathValue("profile_id"), req.PathValue("component_id"))
+	authorization, err := h.authorizer.StartProfileOAuthGrant(req, req.PathValue("vmcp_id"), req.PathValue("profile_id"), req.PathValue("component_id"))
 	if err != nil {
 		return err
 	}
-	return req.Write(types.VMCPProfileOAuthAuthorization{AuthURL: authURL})
+	return req.Write(authorization)
 }
 
 // Reset revokes the profile's grant for the component by deleting it. Every agent that used it is refused the

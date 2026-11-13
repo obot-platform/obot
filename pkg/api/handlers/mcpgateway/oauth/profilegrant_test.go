@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -9,18 +10,23 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
+	ssservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 	"gorm.io/gorm"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/rest"
@@ -29,15 +35,16 @@ import (
 )
 
 const (
-	profileGrantVMCP     = "vmcp1profilegrants"
-	profileGrantAgents   = "vp1agents"
-	profileGrantSeven    = "vp1seven"
-	profileGrantUsers    = "vp1users"
-	profileGrantRemote   = "remote"
-	profileGrantLocal    = "local"
-	profileGrantAccess   = "provider-access-token"
-	profileGrantRefresh  = "provider-refresh-token"
-	profileGrantCodeSent = "authorization-code"
+	profileGrantVMCP      = "vmcp1profilegrants"
+	profileGrantAgents    = "vp1agents"
+	profileGrantSeven     = "vp1seven"
+	profileGrantUsers     = "vp1users"
+	profileGrantRemote    = "remote"
+	profileGrantLocal     = "local"
+	profileGrantAccess    = "provider-access-token"
+	profileGrantRefresh   = "provider-refresh-token"
+	profileGrantCodeSent  = "authorization-code"
+	profileGrantRefreshed = "provider-refreshed-token"
 )
 
 // profileGrantProvider is a remote MCP server that requires OAuth, with its own authorization server that registers
@@ -46,6 +53,9 @@ type profileGrantProvider struct {
 	server     *httptest.Server
 	operations atomic.Int32
 	exchanges  atomic.Int32
+	refreshes  atomic.Int32
+	// redirectURI is the redirect_uri of the last code exchange.
+	redirectURI atomic.Value
 }
 
 // profileGrantFixture is a shared vMCP with a remote component that requires OAuth and a local one, with a profile for
@@ -53,11 +63,13 @@ type profileGrantProvider struct {
 type profileGrantFixture struct {
 	provider *profileGrantProvider
 	storage  kclient.WithWatch
-	gateway  *gatewayclient.Client
-	grants   *vmcpconfig.ProfileOAuthGrantStore
-	factory  *MCPOAuthHandlerFactory
-	handler  *handler
-	key      kclient.ObjectKey
+	// db is the gateway's database, for a test to age a pending authorization.
+	db      *gorm.DB
+	gateway *gatewayclient.Client
+	grants  *vmcpconfig.ProfileOAuthGrantStore
+	factory *MCPOAuthHandlerFactory
+	handler *handler
+	key     kclient.ObjectKey
 }
 
 func newProfileGrantProvider(t *testing.T) *profileGrantProvider {
@@ -100,7 +112,21 @@ func newProfileGrantProvider(t *testing.T) *profileGrantProvider {
 			}))
 		case "/token":
 			require.NoError(t, r.ParseForm())
+			if r.Form.Get("grant_type") == "refresh_token" {
+				// A refresh needs no redirect, so none is sent, and no callback is ever reached.
+				require.Equal(t, profileGrantRefresh, r.Form.Get("refresh_token"))
+				require.Empty(t, r.Form.Get("redirect_uri"))
+				p.refreshes.Add(1)
+				require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+					"access_token":  profileGrantRefreshed,
+					"refresh_token": profileGrantRefresh,
+					"token_type":    "Bearer",
+					"expires_in":    3600,
+				}))
+				return
+			}
 			require.Equal(t, profileGrantCodeSent, r.Form.Get("code"))
+			p.redirectURI.Store(r.Form.Get("redirect_uri"))
 			p.exchanges.Add(1)
 			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
 				"access_token":  profileGrantAccess,
@@ -149,7 +175,13 @@ func newProfileGrantFixture(t *testing.T) *profileGrantFixture {
 		},
 	}}}
 	storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(&v1.VMCP{}).WithObjects(vmcp).Build()
-	gateway := vmcpConsentGateway(t)
+	services, err := ssservices.New(ssservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gateway := gatewayclient.New(t.Context(), database, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { require.NoError(t, gateway.Close()) })
 	tokens := mcp.NewGlobalTokenStore(gateway)
 	manager, err := mcp.NewSessionManager(t.Context(), false, false, tokens, nil, "http://obot.example", 8080,
 		mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
@@ -162,6 +194,7 @@ func newProfileGrantFixture(t *testing.T) *profileGrantFixture {
 	return &profileGrantFixture{
 		provider: provider,
 		storage:  storage,
+		db:       services.DB.DB,
 		gateway:  gateway,
 		grants:   grants,
 		factory:  factory,
@@ -193,11 +226,12 @@ func (f *profileGrantFixture) request(caller kuser.Info, method, target string) 
 func (f *profileGrantFixture) start(t *testing.T, caller kuser.Info, profileID, componentID string) (string, error) {
 	t.Helper()
 	req, _ := f.request(caller, http.MethodPost, "/api/vmcps/"+f.key.Name+"/profiles/"+profileID+"/components/"+componentID+"/oauth")
-	authURL, err := f.factory.StartProfileOAuthGrant(req, f.key.Name, profileID, componentID)
+	authorization, err := f.factory.StartProfileOAuthGrant(req, f.key.Name, profileID, componentID)
 	if err != nil {
 		return "", err
 	}
-	parsed, err := url.Parse(authURL)
+	require.False(t, authorization.LocalhostCallback)
+	parsed, err := url.Parse(authorization.AuthURL)
 	require.NoError(t, err)
 	require.Equal(t, f.provider.server.URL+"/authorize", parsed.Scheme+"://"+parsed.Host+parsed.Path)
 	require.Equal(t, system.MCPOAuthCallbackURL("http://obot.example"), parsed.Query().Get("redirect_uri"))
@@ -391,12 +425,6 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 	requireErrHTTP(t, err, http.StatusBadRequest)
 	require.True(t, strings.Contains(err.Error(), "configure the profile first"), err.Error())
 	require.True(t, strings.Contains(err.Error(), "__url"), err.Error())
-
-	// A component that authorizes through a localhost callback stays refused.
-	f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true})
-	_, err = f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
-	requireErrHTTP(t, err, http.StatusBadRequest)
-	require.True(t, strings.Contains(err.Error(), "localhost callback"), err.Error())
 }
 
 // setRemote replaces how the fixture's remote component reaches its upstream.
@@ -529,4 +557,183 @@ func profileGrantAgent(id uint) kuser.Info {
 	principal.RecordKind(extra, principal.KindAgent)
 	uid := principal.Agent(id).String()
 	return &kuser.DefaultInfo{Name: uid, UID: uid, Groups: []string{types.GroupMCP, types.GroupAuthenticated}, Extra: extra}
+}
+
+// startRelay starts, as caller, the authorization of a profile's grant for the fixture's remote component, whose
+// provider only redirects to a localhost callback. It returns the response and the state of the pending attempt.
+func (f *profileGrantFixture) startRelay(t *testing.T, caller kuser.Info, profileID string) (types.VMCPProfileOAuthAuthorization, string, error) {
+	t.Helper()
+	req, _ := f.request(caller, http.MethodPost, "/api/vmcps/"+f.key.Name+"/profiles/"+profileID+"/components/"+profileGrantRemote+"/oauth")
+	authorization, err := f.factory.StartProfileOAuthGrant(req, f.key.Name, profileID, profileGrantRemote)
+	if err != nil {
+		return authorization, "", err
+	}
+	login, err := url.Parse(authorization.AuthURL)
+	require.NoError(t, err)
+	state, ok := strings.CutPrefix(login.Path, "/oauth/mcp/login/")
+	require.True(t, ok, "authorization URL %s is not the local login URL", authorization.AuthURL)
+	return authorization, state, nil
+}
+
+// readRelay reads the attempt as `obot mcp login` does, without any credential.
+func (f *profileGrantFixture) readRelay(t *testing.T, state string) (types.MCPLocalLogin, string) {
+	t.Helper()
+	req, recorder := f.request(&kuser.DefaultInfo{UID: "anonymous", Name: "anonymous"}, http.MethodGet, "/oauth/mcp/login/"+state)
+	req.SetPathValue("state", state)
+	require.NoError(t, f.handler.localLogin(req))
+	var login types.MCPLocalLogin
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &login))
+	return login, recorder.Body.String()
+}
+
+// TestProfileOAuthGrantThroughTheLocalhostRelay authorizes the grant of a component whose provider only redirects to a
+// localhost callback, through the same relay as a user's own connection: the start returns the local login URL, `obot
+// mcp login` reads the attempt and relays the provider's callback to Obot in the administrator's browser, and the
+// grant is stored for the profile. Only the initiating administrator completes it, once, and the grant is then
+// refreshed like any other, with no redirect.
+func TestProfileOAuthGrantThroughTheLocalhostRelay(t *testing.T) {
+	f := newProfileGrantFixture(t)
+	f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true, LocalhostCallbackPath: "/relay/callback"})
+
+	authorization, state, err := f.startRelay(t, administrator("1"), profileGrantAgents)
+	require.NoError(t, err)
+	require.True(t, authorization.LocalhostCallback)
+	require.True(t, strings.HasPrefix(authorization.AuthURL, "http://obot.example/oauth/mcp/login/"), authorization.AuthURL)
+	require.True(t, strings.HasPrefix(state, localLoginStatePrefix), state)
+	require.Zero(t, f.provider.operations.Load(), "an authorization ran an MCP operation")
+
+	// The attempt is the profile's, bound to its administrator, with the relay's loopback-only redirect.
+	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+	require.NoError(t, err)
+	owner, mcpID := principal.ProfileGrant(f.key.Name, profileGrantAgents), vmcpconfig.ProfileOAuthGrantMCPID(f.key.Name, profileGrantRemote)
+	require.Equal(t, owner, pending.UserID)
+	require.Equal(t, "1", pending.GrantInitiatorUserID)
+	require.True(t, localLoginState(pending))
+	redirect, err := url.Parse(pending.RedirectURL)
+	require.NoError(t, err)
+	require.Equal(t, "localhost", redirect.Hostname())
+	require.Equal(t, "/relay/callback", redirect.Path)
+
+	// The relay reads the attempt without a credential, and learns nothing but where to send the administrator.
+	login, body := f.readRelay(t, state)
+	require.Equal(t, pending.RedirectURL, login.RedirectURL)
+	require.Equal(t, state, login.State)
+	authURL, err := url.Parse(login.AuthorizationURL)
+	require.NoError(t, err)
+	require.Equal(t, f.provider.server.URL+"/authorize", authURL.Scheme+"://"+authURL.Host+authURL.Path)
+	require.Equal(t, pending.RedirectURL, authURL.Query().Get("redirect_uri"))
+	require.NotEmpty(t, authURL.Query().Get("code_challenge"))
+	require.NotContains(t, body, pending.Verifier)
+	require.NotContains(t, body, owner)
+
+	// The relayed callback is refused to another administrator and to the administrator without the role, and the
+	// attempt stays available.
+	for _, caller := range []kuser.Info{administrator("2"), administrator("1", types.GroupBasic, types.GroupAuthenticated)} {
+		_, err := f.callback(caller, state)
+		requireErrHTTP(t, err, http.StatusForbidden)
+	}
+	_, err = f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+	require.NoError(t, err, "a refused relay consumed the attempt")
+
+	// The initiating administrator completes it: the grant is stored for the profile, and the relay is told.
+	recorder, err := f.callback(administrator("1"), state)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusFound, recorder.Code)
+	completion, err := url.Parse(recorder.Header().Get("Location"))
+	require.NoError(t, err)
+	require.Equal(t, redirect.Host, completion.Host)
+	require.Equal(t, "/oauth/obot/callback", completion.Path)
+	require.Equal(t, "complete", completion.Query().Get("status"))
+	require.Equal(t, state, completion.Query().Get("state"))
+	require.Equal(t, pending.RedirectURL, f.provider.redirectURI.Load())
+	access, authorizedBy, target, ok := f.storedGrant(t, profileGrantAgents)
+	require.True(t, ok)
+	require.Equal(t, profileGrantAccess, access)
+	require.Equal(t, "1", authorizedBy)
+	require.Equal(t, f.provider.mcpURL(), target)
+
+	// It is used up.
+	_, err = f.callback(administrator("1"), state)
+	requireErrHTTP(t, err, http.StatusBadRequest)
+	require.EqualValues(t, 1, f.provider.exchanges.Load())
+
+	// Once the access token expires, an agent's use refreshes the grant with no redirect and no relay.
+	require.NoError(t, f.db.Model(&gatewaytypes.MCPOAuthToken{}).Where("user_id = ? AND mcp_id = ?", owner, mcpID).Update("expiry", time.Now().Add(-time.Hour)).Error)
+	source, err := mcp.NewGlobalTokenStore(f.gateway).ForUserAndMCP(owner, mcpID, f.provider.mcpURL()).TokenSource(context.WithValue(t.Context(), oauth2.HTTPClient, http.DefaultClient))
+	require.NoError(t, err)
+	token, err := source.Token()
+	require.NoError(t, err)
+	require.Equal(t, profileGrantRefreshed, token.AccessToken)
+	require.EqualValues(t, 1, f.provider.refreshes.Load())
+	refreshed, err := f.gateway.GetMCPOAuthToken(t.Context(), owner, mcpID, f.provider.mcpURL())
+	require.NoError(t, err)
+	require.Equal(t, profileGrantRefreshed, refreshed.AccessToken)
+	require.Equal(t, "1", refreshed.AuthorizedBy)
+}
+
+// TestProfileOAuthGrantRelayRefusals checks that a relayed attempt that expired, whose redirect is not the relay's
+// loopback callback, or whose component changed since it started is refused, and stores nothing.
+func TestProfileOAuthGrantRelayRefusals(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		change func(t *testing.T, f *profileGrantFixture)
+		code   int
+	}{
+		{
+			// The relay waits ten minutes; so does its attempt.
+			name: "expired",
+			change: func(t *testing.T, f *profileGrantFixture) {
+				t.Helper()
+				require.NoError(t, f.db.Model(&gatewaytypes.MCPOAuthPendingState{}).Where("state <> ''").Update("created_at", time.Now().Add(-localLoginTTL-time.Minute)).Error)
+			},
+			code: http.StatusBadRequest,
+		},
+		{
+			name: "component changed",
+			change: func(t *testing.T, f *profileGrantFixture) {
+				t.Helper()
+				f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL() + "/moved", LocalhostCallbackEnabled: true})
+			},
+			code: http.StatusConflict,
+		},
+		{
+			name: "redirect is not a loopback callback",
+			change: func(t *testing.T, f *profileGrantFixture) {
+				t.Helper()
+				require.NoError(t, f.db.Model(&gatewaytypes.MCPOAuthPendingState{}).Where("state <> ''").Update("redirect_url", "http://attacker.example:8080/callback").Error)
+			},
+			code: http.StatusForbidden,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newProfileGrantFixture(t)
+			f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true})
+			_, state, err := f.startRelay(t, administrator("1"), profileGrantAgents)
+			require.NoError(t, err)
+			tt.change(t, f)
+
+			_, err = f.callback(administrator("1"), state)
+			requireErrHTTP(t, err, tt.code)
+			_, _, _, ok := f.storedGrant(t, profileGrantAgents)
+			require.False(t, ok)
+			require.Zero(t, f.provider.exchanges.Load())
+		})
+	}
+
+	// Profile-configured URLs go through the relay too.
+	f := newProfileGrantFixture(t)
+	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1", LocalhostCallbackEnabled: true})
+	f.configure(t, profileGrantAgents, map[string]*string{"__url": new(f.provider.mcpURL())})
+	authorization, state, err := f.startRelay(t, administrator("1"), profileGrantSeven)
+	require.NoError(t, err)
+	require.True(t, authorization.LocalhostCallback)
+	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+	require.NoError(t, err)
+	require.Equal(t, f.provider.mcpURL(), pending.URL)
+	recorder, err := f.callback(administrator("1"), state)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusFound, recorder.Code)
+	_, _, target, ok := f.storedGrant(t, profileGrantSeven)
+	require.True(t, ok)
+	require.Equal(t, f.provider.mcpURL(), target)
 }

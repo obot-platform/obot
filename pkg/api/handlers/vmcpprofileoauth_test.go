@@ -24,9 +24,9 @@ type recordingAuthorizer struct {
 	started [][3]string
 }
 
-func (r *recordingAuthorizer) StartProfileOAuthGrant(_ api.Context, vmcpID, profileID, componentID string) (string, error) {
+func (r *recordingAuthorizer) StartProfileOAuthGrant(_ api.Context, vmcpID, profileID, componentID string) (types.VMCPProfileOAuthAuthorization, error) {
 	r.started = append(r.started, [3]string{vmcpID, profileID, componentID})
-	return "https://provider.example.com/authorize?state=s", nil
+	return types.VMCPProfileOAuthAuthorization{AuthURL: "https://provider.example.com/authorize?state=s"}, nil
 }
 
 // profileOAuthTestVMCP returns a stored vMCP with a remote component, with a profile for agent 7 and one for every

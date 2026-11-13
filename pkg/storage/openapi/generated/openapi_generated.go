@@ -20122,6 +20122,13 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthAuthorization(ref
 							Format:  "",
 						},
 					},
+					"localhostCallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LocalhostCallback reports that the component's provider only redirects to a localhost callback, so AuthURL is Obot's local login URL rather than the provider's: the administrator runs `obot mcp login <AuthURL>` on their own machine, which listens for the callback and relays it to Obot in their browser, as for a user's own connection. Only the authorization needs the relay; agents use and refresh the grant without it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"authURL"},
 			},
