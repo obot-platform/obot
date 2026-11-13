@@ -87,8 +87,8 @@ func ListCompute(ctx context.Context, c kclient.Reader) (Compute, error) {
 	}, nil
 }
 
-// replace puts obj in place of the stored object of its kind and name, or adds it. obj must be of a kind that uses
-// compute.
+// replace puts obj in place of the stored object of its kind and name, or adds it. obj must be a vMCP, vMCP instance,
+// filter or system MCP server.
 func (c *Compute) replace(obj kclient.Object) {
 	switch obj := obj.(type) {
 	case *v1.VMCP:
@@ -99,8 +99,6 @@ func (c *Compute) replace(obj kclient.Object) {
 		c.Filters = replaceByName(c.Filters, *obj)
 	case *v1.SystemMCPServer:
 		c.SystemServers = replaceByName(c.SystemServers, *obj)
-	case *v1.K8sSettings:
-		c.Settings = replaceByName(c.Settings, *obj)
 	}
 }
 
@@ -265,9 +263,10 @@ func (a *ComputeAdmitter) Admit(ctx context.Context, obj kclient.Object, write f
 			// An object being deleted has no servers, so writing it can't raise compute.
 			return write()
 		}
-	case *v1.K8sSettings:
 	default:
-		// Nothing limits other kinds.
+		// Nothing limits other kinds. That includes the K8s settings, even though they set the default requests:
+		// startup writes them, so refusing one would keep every replica from starting. If they take usage past the
+		// limits, the over-limit clock starts instead.
 		return write()
 	}
 

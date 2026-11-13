@@ -128,9 +128,10 @@ func TestComputeUsage(t *testing.T) {
 	}
 
 	for _, tt := range []struct {
-		name string
-		objs []kclient.Object
-		want types.EntitlementsUsage
+		name     string
+		objs     []kclient.Object
+		settings []v1.K8sSettings
+		want     types.EntitlementsUsage
 	}{
 		{
 			name: "a multi-user component runs once for its vMCP",
@@ -177,20 +178,20 @@ func TestComputeUsage(t *testing.T) {
 		{
 			name: "the K8s settings set the default requests",
 			objs: []kclient.Object{
-				&v1.K8sSettings{
-					Name:      system.K8sSettingsName,
-					Namespace: system.DefaultNamespace,
-					Spec: v1.K8sSettingsSpec{
-						Resources: &corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("512Mi"),
-								corev1.ResourceCPU:    resource.MustParse("100m"),
-							},
+				testVMCP("vmcp1", shared),
+			},
+			settings: []v1.K8sSettings{{
+				Name:      system.K8sSettingsName,
+				Namespace: system.DefaultNamespace,
+				Spec: v1.K8sSettingsSpec{
+					Resources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+							corev1.ResourceCPU:    resource.MustParse("100m"),
 						},
 					},
 				},
-				testVMCP("vmcp1", shared),
-			},
+			}},
 			want: types.EntitlementsUsage{
 				MemoryMiB:     512,
 				CPUMillicores: 100,
@@ -199,19 +200,19 @@ func TestComputeUsage(t *testing.T) {
 		{
 			name: "a memory limit without a request counts as the request",
 			objs: []kclient.Object{
-				&v1.K8sSettings{
-					Name:      system.K8sSettingsName,
-					Namespace: system.DefaultNamespace,
-					Spec: v1.K8sSettingsSpec{
-						Resources: &corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("1Gi"),
-							},
+				testVMCP("vmcp1", shared),
+			},
+			settings: []v1.K8sSettings{{
+				Name:      system.K8sSettingsName,
+				Namespace: system.DefaultNamespace,
+				Spec: v1.K8sSettingsSpec{
+					Resources: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("1Gi"),
 						},
 					},
 				},
-				testVMCP("vmcp1", shared),
-			},
+			}},
 			want: types.EntitlementsUsage{
 				MemoryMiB:     1024,
 				CPUMillicores: 10,
@@ -311,7 +312,9 @@ func TestComputeUsage(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			var compute Compute
+			compute := Compute{
+				Settings: tt.settings,
+			}
 			for _, obj := range tt.objs {
 				compute.replace(obj)
 			}
@@ -605,6 +608,21 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 			},
 			wantLock:    true,
 			wantRefused: true,
+		},
+		{
+			name:    "the K8s settings skip the lock, even when they raise usage past the limits",
+			granted: memory(200),
+			obj: &v1.K8sSettings{
+				Namespace: system.DefaultNamespace,
+				Name:      system.K8sSettingsName,
+				Spec: v1.K8sSettingsSpec{
+					Resources: &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceMemory: resource.MustParse("512Mi"),
+						},
+					},
+				},
+			},
 		},
 		{
 			name:    "a filter's own server skips the lock",

@@ -129,9 +129,10 @@ that leave the servers counted for the object as they are skip the lock.
   4. Add it up again as if the object were written.
   5. Refuse with a 402 if the write raises memory or CPU past its limit. Otherwise make the write.
 
-  A write that lowers compute is always made, even while over. The lock is a Postgres advisory lock held by a
-  transaction while the write runs on other connections, so replicas take turns. SQLite runs one replica, so an
-  in-process lock is enough.
+  A write that lowers compute is always made, even while over. A write of the K8s settings is always made too,
+  without the lock, even though their default requests count: startup writes them, so refusing one would keep every
+  replica from starting. The lock is a Postgres advisory lock held by a transaction while the write runs on other
+  connections, so replicas take turns. SQLite runs one replica, so an in-process lock is enough.
 
   An update made without the lock can't change the count, whatever else is stored: storage refuses it with a conflict
   if the object changed after it was read, and its servers are the same ones. Each kind compares only the fields that
@@ -223,6 +224,9 @@ every audit log.
 - A change to the subscription reaches each replica through its cache, a moment after the leader stores it.
 - An environment over its limits can't add users, devices or compute, but keeps running what it has until it's
   restricted.
+- Writes of the K8s settings are never checked. Raising their default requests raises the count at once, though
+  running servers keep their old requests until they're redeployed, so it can take an environment over its memory or
+  CPU limit. That starts the over-limit clock, as a downgrade does.
 - An environment whose billing never answers runs unlimited, without enterprise features.
 - An environment whose billing stops answering keeps its last answer, and is restricted 3 days after that answer's
   period ends. Without a period end, it keeps the answer for as long as the outage lasts.
