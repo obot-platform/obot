@@ -13,10 +13,13 @@ documents, counting both category landing pages and string-form entries. The
 remaining 33 pages comprise:
 
 - 13 substantive guides or reference pages accessible through links in other pages.
-- 3 specialized reference or migration pages accessible through links in other pages.
-- 17 compatibility or routing pages, including 14 with no incoming documentation links. These 17 pages are effectively
-  stubs: their primary purpose is forwarding readers to relocated content. The
-  other 16 omitted pages retain substantive guides, reference, or migration content.
+- 4 specialized reference or migration pages accessible through links in other pages.
+- 16 compatibility or routing pages, including 14 with no incoming documentation links.
+
+Correction after closer redirect review: MCP Servers is a mixed page containing
+legacy deployment guidance as well as forwarding sections. It should not have
+been counted as a pure stub. There are 16 pure stubs and 17 omitted pages that
+retain substantive guides, reference, or migration content.
 
 All 14 pages without a path from the sidebar are compatibility pages whose
 replacements are in the navigation. The main problem is discoverability of
@@ -77,6 +80,10 @@ from the current sidebar.
 | [Agent Authorization Scopes](./docs/functionality/agent-auth-scopes.md) | Encryption and secrets, Control MCP access, client connection guides, CLI and APIs | Retain as the API-key reference behind those guides. Review overlap with Encryption and secrets before moving additional content into that existing page. |
 | [AI Judge Policies](./docs/functionality/ai-judge-policies.md) | Guardrails; Upgrading from v0.27 | Keep as an upgrade/migration reference linked from **LLM Gateway → Guardrails** and the upgrade guide. A standalone current-feature entry would obscure the migration to guardrails. |
 
+The [MCP Servers](./docs/functionality/mcp-servers.md) page also retains legacy
+single-user, multi-user, and catalog-entry guidance. Keep this material available
+until it is deliberately relocated; redirecting the whole page would hide it.
+
 ## Compatibility pages to leave out of the sidebar
 
 These 14 have no incoming Markdown links from the current documentation. Each
@@ -100,14 +107,11 @@ absence from the sidebar is expected.
 | [Enabling Authentication](./docs/installation/enabling-authentication.md) | Deploy & Operate → Configure authentication providers |
 | [Catalog and Filter Schemas](./docs/reference/schemas.md) | Reference → Catalog schemas; Filter schemas |
 
-Three more compatibility pages still receive links:
+Two more compatibility pages still receive links:
 
 - [Encryption Overview](./docs/configuration/encryption-providers/overview.md)
   points to Encryption and secrets. Network Requirements still links to this
   older overview; update that link to the current guide in a later cleanup.
-- [MCP Servers](./docs/functionality/mcp-servers.md) points to the current hosted,
-  remote, vMCP, configuration, and access guides. Update incoming links to the
-  appropriate task and anchor as those pages are edited.
 - [Filters and Private-Network Tunnels](./docs/mcp-gateway/filters-tunnels.md)
   points to Filter MCP traffic and Connect private-network servers. Link directly
   to those guides from Add remote MCP servers and Architecture → Where Obot and
