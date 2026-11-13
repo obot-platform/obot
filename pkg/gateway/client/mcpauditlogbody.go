@@ -367,23 +367,11 @@ func (c *Client) mcpAuditLogTransformer() value.Transformer {
 }
 
 // auditBodyHashKey returns the install-wide key for hashing shared bodies, creating it on first
-// use. A keyed hash keeps someone with database access from confirming a guessed body, as long as
-// the key itself is stored encrypted. The key is only needed to find an existing copy when
-// writing: rows reference bodies by the stored hash, so reads never depend on it, and a new key
-// only costs one more copy of each body.
+// use and caching it until restart. Keying the hash keeps someone with database access from
+// confirming a guessed body. Only writes need the key: rows reference bodies by the stored hash.
 //
-// A replica that encrypts properties keeps the stored key protected. It stores the same key again
-// when it is under a rotated-out encryption key, so that retiring that encryption key does not
-// strand it, and replaces the key with a new one when it is stored unencrypted (created before
-// encryption was enabled). Replicas that loaded the key earlier keep using their copy until they
-// restart.
-//
-// When the key cannot be loaded, list responses are stored inline and loading is tried again
-// after auditBodyHashKeyRetryAfter. A key that cannot be decrypted is never replaced: the failure
-// may be passing, and a replica holding the wrong encryption key must not overwrite the key the
-// others use. So a replica without the encryption configuration stays in that state for as long
-// as the key is stored encrypted, and if the encryption key the hash key is stored under is
-// truly gone, sharing stays off until the property is deleted.
+// If the key cannot be loaded, list responses are stored inline and loading is retried after
+// auditBodyHashKeyRetryAfter. A stored key that cannot be read is never replaced.
 func (c *Client) auditBodyHashKey(ctx context.Context) ([]byte, error) {
 	c.auditBodies.lock.Lock()
 	defer c.auditBodies.lock.Unlock()
