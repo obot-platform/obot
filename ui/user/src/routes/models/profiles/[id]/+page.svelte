@@ -7,7 +7,7 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	const { modelAccessPolicy } = $derived(data);
+	let modelAccessPolicy = $derived(data.modelAccessPolicy);
 	const duration = PAGE_TRANSITION_DURATION;
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
@@ -17,7 +17,15 @@
 <Layout {title} showBackButton>
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		{#key modelAccessPolicy?.id}
-			<ProfileForm {modelAccessPolicy} {readonly} />
+			<ProfileForm
+				{modelAccessPolicy}
+				{readonly}
+				onUpdate={(updatedProfile) => {
+					if (updatedProfile.id === modelAccessPolicy?.id) {
+						modelAccessPolicy = updatedProfile;
+					}
+				}}
+			/>
 		{/key}
 	</div>
 </Layout>

@@ -36,9 +36,10 @@
 	interface Props {
 		// Reports whether the gateway is running, so the page can offer actions that need it.
 		onReadyChange?: (ready: boolean) => void;
+		onModelsChange?: (change?: { providers: number }) => void;
 	}
 
-	let { onReadyChange }: Props = $props();
+	let { onReadyChange, onModelsChange }: Props = $props();
 
 	let status = $state<GatewayStatus>();
 	let providers = $state<Provider[]>([]);
@@ -235,6 +236,7 @@
 		}
 		removing = undefined;
 		await load();
+		onModelsChange?.({ providers: providers.length });
 	}}
 	oncancel={() => (removing = undefined)}
 />
@@ -255,5 +257,6 @@
 	{keyNamesByProvider}
 	onClosed={() => {
 		load({ silent: true });
+		onModelsChange?.();
 	}}
 />

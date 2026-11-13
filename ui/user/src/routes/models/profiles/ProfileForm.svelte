@@ -76,9 +76,10 @@
 	interface Props {
 		modelAccessPolicy?: ModelAccessPolicy;
 		readonly?: boolean;
+		onUpdate?: (policy: ModelAccessPolicy) => void;
 	}
 
-	let { modelAccessPolicy: initial, readonly = false }: Props = $props();
+	let { modelAccessPolicy: initial, readonly = false, onUpdate }: Props = $props();
 
 	// A budget or applied guardrail in the draft. `dirty` marks one changed since it was saved;
 	// one without an ID is new.
@@ -409,7 +410,14 @@
 				return;
 			}
 			success.add(m.models_profile_saved());
-			if (creating) await goto(profileUrl(id), { replaceState: true });
+			if (creating) {
+				await goto(profileUrl(id), { replaceState: true });
+			} else if (initial) {
+				onUpdate?.({
+					...initial,
+					...draft
+				});
+			}
 		} finally {
 			saving = false;
 		}

@@ -304,6 +304,7 @@
 			);
 		} finally {
 			saving = false;
+			dialog?.close();
 		}
 	}
 

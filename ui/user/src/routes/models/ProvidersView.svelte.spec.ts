@@ -1,5 +1,6 @@
 import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
+import { defaultModelAliases } from '$lib/stores';
 import { replaceState } from '$lib/url';
 import { worker } from '../../tests/mocks/worker';
 import { readyStatus, renderModelsTab, resetModelsTab } from './testing';
@@ -73,6 +74,53 @@ describe('Models providers tab', () => {
 		await renderProvidersPage();
 
 		await expect.element(page.getByRole('button', { name: 'Set Default Models' })).toBeEnabled();
+	});
+
+	it('refreshes Set Default Models when provider configuration closes', async () => {
+		let models: {
+			id: string;
+			name: string;
+			displayName: string;
+			usage: string;
+			active: boolean;
+		}[] = [];
+		let listed = 0;
+		mockGateway();
+		worker.use(
+			http.get('/api/models', ({ request }) => {
+				const all = new URL(request.url).searchParams.get('all') === 'true';
+				if (all) listed += 1;
+				return HttpResponse.json({ items: all ? models : [] });
+			})
+		);
+		await renderProvidersPage();
+
+		const setDefaults = page.getByRole('button', { name: 'Set Default Models' });
+		await expect.element(setDefaults).toBeDisabled();
+		await vi.waitFor(() => expect(listed).toBeGreaterThan(0));
+		const listedBeforeClose = listed;
+
+		models = [
+			{
+				id: 'm1',
+				name: 'acme-model',
+				displayName: 'Acme Model',
+				usage: 'llm',
+				active: true
+			}
+		];
+		await page.getByRole('button', { name: 'Modify' }).click();
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+		await expect.element(setDefaults).toBeEnabled();
+		expect(listed).toBeGreaterThan(listedBeforeClose);
+
+		defaultModelAliases.current = [{ alias: 'llm-mini', model: '' }];
+		await setDefaults.click();
+		await page.getByRole('combobox').click();
+		await expect.element(page.getByRole('button', { name: 'Acme Model' })).toBeVisible();
 	});
 
 	it('lists gateway providers as provider cards with their key counts', async () => {

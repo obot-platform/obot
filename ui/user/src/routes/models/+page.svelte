@@ -193,7 +193,11 @@
 {/snippet}
 
 {#snippet providers()}
-	<ProvidersView bind:this={providersView} onReadyChange={(ready) => (gatewayReady = ready)} />
+	<ProvidersView
+		bind:this={providersView}
+		onReadyChange={(ready) => (gatewayReady = ready)}
+		onModelsChange={loadAdminModels}
+	/>
 {/snippet}
 
 {#snippet routing()}
