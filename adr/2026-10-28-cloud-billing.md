@@ -82,7 +82,7 @@ only in a billed environment. Until they exist, the entitlements are empty, as b
 - **`Subscription`** (`default/subscription`)
   - The `obot.ai/subscription-sync` annotation: set by `POST /api/license` to ask the leader for a sync, the way
     other kinds ask for one. The license page sends it when an owner comes back from the billing pages. There's no
-    button for it.
+    button for it. The gateway sets it too after it deletes a user or a device, so usage is counted again right away.
   - `status.plan`, `status.status`, `status.periodEnd`, `status.cancelAtPeriodEnd`, `status.selfService` and
     `status.entitlements`: billing's last answer. The period end is stored as a `metav1.Time`, like every other
     stored time, and the API returns the answer as a `types.Subscription`.
@@ -159,7 +159,8 @@ start or lift a moment late. While restricted, the admission check that runs aft
 aren't admins or owners. Admins and owners keep access, including through their scoped API keys, so they can bring
 usage back down. Devices, SCIM, tunnels and metrics keep working. Refused browsers are signed out and sent to the
 login page, which says why. Every other client gets a 402. Nothing is deleted, and the restriction lifts as soon as
-usage fits or billing answers again.
+usage fits or billing answers again: deleting a user or a device requests a sync, and compute is counted again
+whenever it changes.
 
 ### 7. Where usage is shown
 
@@ -211,6 +212,8 @@ every audit log.
   period ends. Without a period end, it keeps the answer for as long as the outage lasts.
 - Limits change only as fast as the leader syncs: every 15 minutes, or right away when an owner comes back from the
   billing pages.
+- Users and devices are counted again at each sync. Deleting a user or a device requests one unless one is already
+  pending, so a long bulk delete asks billing again after each answer, one request at a time.
 - A provider manifest's required entitlement that names no feature Obot knows always counts as missing, so the
   provider can't be used. A license that carried that exact code used to grant it. No shipped provider requires
   one.

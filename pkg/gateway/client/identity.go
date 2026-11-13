@@ -1091,6 +1091,7 @@ func (c *Client) RemoveIdentity(ctx context.Context, id *types.Identity) error {
 // RemoveIdentityAndUser deletes an identity and the associated user from the database.
 // The identity and user are deleted using UserID if set, otherwise ProviderUsername.
 // The method is idempotent and ignores not-found errors, returning only unexpected errors.
+// When it deletes a user, it requests a subscription sync once the deletion commits.
 func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) (uint, error) {
 	var user types.User
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -1125,6 +1126,9 @@ func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) 
 
 		return nil
 	})
+	if err == nil && user.ID != 0 {
+		c.requestSubscriptionSync(ctx)
+	}
 	return user.ID, err
 }
 

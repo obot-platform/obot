@@ -535,8 +535,9 @@ func (c *Client) UpdateSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 
 // DeleteSCIMUser deletes a bound user, as DELETE /Users/{id} asks of an identity provider whose adapter's Rules
 // delete users, and returns the user's ID. In one transaction, the user is disabled, which ends their access when it
-// commits, the binding is retired, and the user is deleted as an administrator deletes them. The identity provider is
-// the one deleting the user, so unlike the deletion by an administrator, an active binding does not refuse it.
+// commits, the binding is retired, and the user is deleted as an administrator deletes them. As with an
+// administrator's deletion, a subscription sync is requested once it commits. The identity provider is the one
+// deleting the user, so unlike the deletion by an administrator, an active binding does not refuse it.
 //
 // A retired or unknown SCIM ID is a *SCIMNotFoundError. Deleting Obot's last Owner, or its last Admin when there is no
 // other Owner, is refused with a *SCIMConflictError, which the identity provider retries.
@@ -596,6 +597,7 @@ func (c *Client) DeleteSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 	}
 
 	c.kickUserLifecycleDelivery()
+	c.requestSubscriptionSync(ctx)
 	return userID, nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -74,17 +73,7 @@ func (h *BillingHandler) Get(req api.Context) error {
 
 // Check asks the leader to sync with billing. It returns right away, with Syncing set until the sync is done.
 func (h *BillingHandler) Check(req api.Context) error {
-	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		var subscription v1.Subscription
-		if err := req.Get(&subscription, system.SubscriptionName); err != nil {
-			return err
-		}
-		if subscription.Annotations == nil {
-			subscription.Annotations = make(map[string]string, 1)
-		}
-		subscription.Annotations[v1.SubscriptionSyncAnnotation] = "true"
-		return req.Update(&subscription)
-	}); err != nil {
+	if err := billing.RequestSync(req.Context(), req.Storage); err != nil {
 		return err
 	}
 	return h.Get(req)

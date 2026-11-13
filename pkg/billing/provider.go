@@ -12,6 +12,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -20,6 +21,13 @@ const (
 	// gracePeriod is how long the environment can be over its limits, or past its period without an answer from
 	// billing, before it's restricted.
 	gracePeriod = 3 * 24 * time.Hour
+)
+
+var (
+	subscriptionKey = kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.SubscriptionName,
+	}
 )
 
 // Provider provides a billed environment's entitlements, in place of its license.
@@ -72,17 +80,34 @@ func (p *Provider) Restricted(ctx context.Context) (bool, error) {
 
 // subscription returns the environment's Subscription, or an empty one before the leader creates it.
 func (p *Provider) subscription(ctx context.Context) (v1.Subscription, error) {
-	var (
-		subscription v1.Subscription
-		key          = kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.SubscriptionName}
-	)
-	err := p.cache.Get(ctx, key, &subscription)
+	var subscription v1.Subscription
+	err := p.cache.Get(ctx, subscriptionKey, &subscription)
 	if _, notStarted := errors.AsType[*cache.ErrCacheNotStarted](err); notStarted {
 		// Still starting up, so read what's stored.
-		err = p.storage.Get(ctx, key, &subscription)
+		err = p.storage.Get(ctx, subscriptionKey, &subscription)
 	}
 	if kclient.IgnoreNotFound(err) != nil {
 		return v1.Subscription{}, fmt.Errorf("failed to read the subscription: %w", err)
 	}
 	return subscription, nil
+}
+
+// RequestSync asks the leader to sync the Subscription with billing now, by setting SubscriptionSyncAnnotation. A sync
+// that's already pending covers the request, so it isn't written again. Without a Subscription, which only a billed
+// environment has, it returns a not-found error.
+func RequestSync(ctx context.Context, c kclient.Client) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var subscription v1.Subscription
+		if err := c.Get(ctx, subscriptionKey, &subscription); err != nil {
+			return err
+		}
+		if subscription.Annotations[v1.SubscriptionSyncAnnotation] == "true" {
+			return nil
+		}
+		if subscription.Annotations == nil {
+			subscription.Annotations = make(map[string]string, 1)
+		}
+		subscription.Annotations[v1.SubscriptionSyncAnnotation] = "true"
+		return c.Update(ctx, &subscription)
+	})
 }

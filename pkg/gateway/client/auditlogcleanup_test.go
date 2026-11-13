@@ -11,7 +11,9 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func newTestClient(t *testing.T) *Client {
@@ -53,6 +55,8 @@ func newTestClientWithDSN(t *testing.T, dsn string) *Client {
 		auditLogDeleteBatchSize:   3,
 		deviceScanCleanupInterval: 50 * time.Millisecond,
 		deviceScanDeleteBatchSize: 3,
+		// Deleting a user or a device reads the Subscription from storage.
+		storageClient: fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(),
 	}
 }
 
