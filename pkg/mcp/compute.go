@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -137,26 +138,6 @@ func (c Compute) Usage() (types.EntitlementsUsage, error) {
 // no servers.
 func (c Compute) servers() []computeServer {
 	var servers []computeServer
-	addComponent := func(component types.VMCPComponent) {
-		manifest := component.CatalogEntry.Manifest
-		servers = append(servers, computeServer{
-			name:      fmt.Sprintf("component %q", component.Name),
-			runtime:   manifest.Runtime,
-			resources: manifest.Resources,
-		})
-	}
-	addSystemServer := func(manifest types.SystemMCPServerManifest) {
-		if manifest.Enabled != nil && !*manifest.Enabled {
-			// The system server controller only deploys a server that isn't disabled.
-			return
-		}
-		servers = append(servers, computeServer{
-			name:      fmt.Sprintf("system MCP server %q", manifest.Name),
-			runtime:   manifest.Runtime,
-			resources: manifest.Resources,
-		})
-	}
-
 	vmcps := make(map[string]*v1.VMCP, len(c.VMCPs))
 	for i := range c.VMCPs {
 		vmcp := &c.VMCPs[i]
@@ -166,7 +147,7 @@ func (c Compute) servers() []computeServer {
 		vmcps[vmcp.Name] = vmcp
 		for _, component := range vmcp.Spec.Manifest.Components {
 			if vmcpconfig.IsMultiUser(component) {
-				addComponent(component)
+				servers = append(servers, componentServer(component))
 			}
 		}
 	}
@@ -184,26 +165,72 @@ func (c Compute) servers() []computeServer {
 		}
 		for _, component := range components {
 			if !vmcpconfig.IsMultiUser(component) {
-				addComponent(component)
+				servers = append(servers, componentServer(component))
 			}
 		}
 	}
 
-	// The filter controller creates a server for each filter, so creating or enabling a filter is what's refused. The
-	// image doesn't change what it requests.
+	// The filter controller creates a server for each filter, so creating or enabling a filter is what's refused.
 	for i := range c.Filters {
-		if c.Filters[i].DeletionTimestamp.IsZero() && c.Filters[i].Spec.Manifest.Guardrail == nil {
-			addSystemServer(FilterServerManifest(&c.Filters[i], ""))
+		if server, ok := filterServer(&c.Filters[i]); ok {
+			servers = append(servers, server)
 		}
 	}
-
-	// A filter's server was counted with its filter, so writing it never changes usage.
-	for _, server := range c.SystemServers {
-		if server.DeletionTimestamp.IsZero() && server.Spec.WebhookValidationName == "" {
-			addSystemServer(server.Spec.Manifest)
+	for i := range c.SystemServers {
+		if server, ok := systemServer(&c.SystemServers[i]); ok {
+			servers = append(servers, server)
 		}
 	}
 	return servers
+}
+
+// componentServer returns the server a vMCP component runs.
+func componentServer(component types.VMCPComponent) computeServer {
+	manifest := component.CatalogEntry.Manifest
+	return computeServer{
+		name:      fmt.Sprintf("component %q", component.Name),
+		runtime:   manifest.Runtime,
+		resources: manifest.Resources,
+	}
+}
+
+// filterServer returns the server a filter runs, if it runs one. A guardrail runs none, and the image doesn't change
+// what it requests.
+func filterServer(filter *v1.MCPWebhookValidation) (computeServer, bool) {
+	if !filter.DeletionTimestamp.IsZero() || filter.Spec.Manifest.Guardrail != nil {
+		return computeServer{}, false
+	}
+	return systemManifestServer(FilterServerManifest(filter, ""))
+}
+
+// systemServer returns the server a system MCP server runs, if it runs one. A filter's own server was counted with its
+// filter, so writing it never changes usage.
+func systemServer(server *v1.SystemMCPServer) (computeServer, bool) {
+	if !server.DeletionTimestamp.IsZero() || server.Spec.WebhookValidationName != "" {
+		return computeServer{}, false
+	}
+	return systemManifestServer(server.Spec.Manifest)
+}
+
+// systemManifestServer returns the server a system server manifest runs, unless it's disabled. The system server
+// controller only deploys a server that isn't disabled.
+func systemManifestServer(manifest types.SystemMCPServerManifest) (computeServer, bool) {
+	if manifest.Enabled != nil && !*manifest.Enabled {
+		return computeServer{}, false
+	}
+	return computeServer{
+		name:      fmt.Sprintf("system MCP server %q", manifest.Name),
+		runtime:   manifest.Runtime,
+		resources: manifest.Resources,
+	}, true
+}
+
+// sameRequests reports whether two servers request the same: the same runtime and resources. Limits count too, since
+// Kubernetes requests the limit when there's no request.
+func sameRequests(a, b computeServer) bool {
+	// A server that sets no resources gets the defaults, the same as one that sets them all empty.
+	var none types.MCPResourceRequirements
+	return a.runtime == b.runtime && *cmp.Or(a.resources, &none) == *cmp.Or(b.resources, &none)
 }
 
 // settings returns the spec of the K8s settings that servers are deployed with.
@@ -217,7 +244,7 @@ func (c Compute) settings() v1.K8sSettingsSpec {
 }
 
 // NewComputeAdmitter returns the admitter. storage must read without a cache, so limits are checked against what's
-// stored. withLock serializes writes that use compute across replicas: the gateway client's WithComputeLock.
+// stored. withLock serializes the writes that change compute across replicas: the gateway client's WithComputeLock.
 func NewComputeAdmitter(storage kclient.Client, entitlements gateway.EntitlementProvider, withLock func(ctx context.Context, fn func() error) error) *ComputeAdmitter {
 	return &ComputeAdmitter{
 		storage:      storage,
@@ -226,10 +253,11 @@ func NewComputeAdmitter(storage kclient.Client, entitlements gateway.Entitlement
 	}
 }
 
-// Admit runs write, storage's write of obj, if it keeps compute within the entitlements' memory and CPU. The limits
-// are read, compute is counted from what's stored and write runs under one lock, so replicas take turns and nothing
-// changes in between. Only a write that raises compute past a limit is refused, so writes that lower it always run,
-// even while over.
+// Admit runs write, storage's write of obj, if it keeps compute within the entitlements' memory and CPU. Without a
+// memory or CPU limit, or for a write that can't raise compute, write runs right away. Otherwise compute is counted
+// from what's stored and write runs under one lock, so replicas take turns and nothing that changes compute lands in
+// between. Only a write that raises compute past a limit is refused, so writes that lower it always run, even while
+// over.
 func (a *ComputeAdmitter) Admit(ctx context.Context, obj kclient.Object, write func() error) error {
 	switch obj.(type) {
 	case *v1.VMCP, *v1.VMCPInstance, *v1.MCPWebhookValidation, *v1.SystemMCPServer:
@@ -243,17 +271,30 @@ func (a *ComputeAdmitter) Admit(ctx context.Context, obj kclient.Object, write f
 		return write()
 	}
 
-	return a.withLock(ctx, func() error {
-		// Read the limits under the lock, so a change to them can't slip in between the check and the write.
-		granted, err := a.entitlements.Entitlements(ctx)
-		if err != nil {
-			return err
-		}
-		if granted.MemoryMiB == nil && granted.CPUMillicores == nil {
-			// Nothing limits compute, no need to count.
-			return write()
-		}
+	// Read the limits before taking the lock. They come from the cached subscription, which is written without the
+	// lock, so holding it never kept them from changing.
+	granted, err := a.entitlements.Entitlements(ctx)
+	if err != nil {
+		return err
+	}
+	if granted.MemoryMiB == nil && granted.CPUMillicores == nil {
+		// Nothing limits compute, no need to count.
+		return write()
+	}
 
+	cannotRaise, err := a.cannotRaise(ctx, obj)
+	if err != nil {
+		return err
+	}
+	if cannotRaise {
+		// The write can't raise compute, whatever else is stored, so it doesn't need the lock.
+		// One case gets through uncounted: changing a vMCP component or its fixed configuration without changing its
+		// server releases the snapshot a migrated instance retains for it (see vmcp.LegacyComponent), and changing it
+		// back restores it. That changes what the instance runs without a write to the instance.
+		return write()
+	}
+
+	return a.withLock(ctx, func() error {
 		// Count what's stored now, then again as if obj were written.
 		compute, err := ListCompute(ctx, a.storage)
 		if err != nil {
@@ -278,6 +319,93 @@ func (a *ComputeAdmitter) Admit(ctx context.Context, obj kclient.Object, write f
 		}
 		return write()
 	})
+}
+
+// cannotRaise reports whether writing obj can't raise compute: an update that keeps the servers counted for it, an
+// update of a stale copy, or a filter or system MCP server that runs no server once written. For an update, it reads
+// the stored object without a cache.
+func (a *ComputeAdmitter) cannotRaise(ctx context.Context, obj kclient.Object) (bool, error) {
+	switch obj := obj.(type) {
+	case *v1.VMCP:
+		return sameAsStored(ctx, a.storage, obj, sameVMCPServers)
+	case *v1.VMCPInstance:
+		return sameAsStored(ctx, a.storage, obj, sameInstanceServers)
+	case *v1.MCPWebhookValidation:
+		return keepsServer(ctx, a.storage, obj, filterServer)
+	case *v1.SystemMCPServer:
+		return keepsServer(ctx, a.storage, obj, systemServer)
+	}
+	return false, nil
+}
+
+// keepsServer reports whether writing obj, which runs at most one server of its own, can't raise compute: once
+// written it runs none, or it's an update that keeps the one it runs.
+func keepsServer[T any, PT interface {
+	*T
+	kclient.Object
+}](ctx context.Context, storage kclient.Reader, obj PT, server func(PT) (computeServer, bool)) (bool, error) {
+	after, runs := server(obj)
+	if !runs {
+		// Nothing runs once it's written, so the write can only lower compute.
+		return true, nil
+	}
+	return sameAsStored(ctx, storage, obj, func(stored, _ PT) bool {
+		before, ran := server(stored)
+		return ran && sameRequests(before, after)
+	})
+}
+
+// sameAsStored reads the object obj updates and reports whether same says the two run the same servers. An update of
+// a stale copy changes nothing either.
+func sameAsStored[T any, PT interface {
+	*T
+	kclient.Object
+}](ctx context.Context, storage kclient.Reader, obj PT, same func(stored, obj PT) bool) (bool, error) {
+	if obj.GetResourceVersion() == "" {
+		// Storage fills in the resource version of every update, so this is a create.
+		return false, nil
+	}
+
+	// Read into an empty object. Get decodes over what it's given, so a copy of obj would keep obj's values wherever
+	// the stored object leaves a field out.
+	stored := PT(new(T))
+	if err := storage.Get(ctx, kclient.ObjectKeyFromObject(obj), stored); err != nil {
+		// Nothing's stored to compare with, so count it.
+		return false, kclient.IgnoreNotFound(err)
+	}
+
+	if stored.GetResourceVersion() != obj.GetResourceVersion() {
+		// Storage refuses the write with a conflict unless the stored object is still this version, so there's
+		// nothing to count.
+		return true, nil
+	}
+	return same(stored, obj), nil
+}
+
+// sameVMCPServers reports whether two versions of a vMCP run the same servers: the same components, in order. Its
+// instances run its single-user components, so those count too.
+func sameVMCPServers(stored, obj *v1.VMCP) bool {
+	return slices.EqualFunc(stored.Spec.Manifest.Components, obj.Spec.Manifest.Components, sameComponentServer)
+}
+
+// sameInstanceServers reports whether two versions of an instance pick the same servers from their vMCP. Its vMCP could
+// change while this write skips the lock, so they're compared by what picks them: the same vMCP, and the same
+// components a migration retains and disables (see vmcp.ComponentsForInstance).
+func sameInstanceServers(stored, obj *v1.VMCPInstance) bool {
+	return stored.Spec.Manifest.VMCPID == obj.Spec.Manifest.VMCPID &&
+		slices.Equal(stored.Spec.LegacyDisabledComponents, obj.Spec.LegacyDisabledComponents) &&
+		slices.EqualFunc(stored.Spec.LegacyComponents, obj.Spec.LegacyComponents, func(a, b types.VMCPComponent) bool {
+			// A retained snapshot replaces the vMCP's component while its source digest matches it.
+			return a.SourceDigest == b.SourceDigest && sameComponentServer(a, b)
+		})
+}
+
+// sameComponentServer reports whether two versions of a vMCP component run the same server: the same ID, which a
+// migrated instance retains and disables components by, shared or not, and the same requests.
+func sameComponentServer(a, b types.VMCPComponent) bool {
+	return a.ID == b.ID &&
+		vmcpconfig.IsMultiUser(a) == vmcpconfig.IsMultiUser(b) &&
+		sameRequests(componentServer(a), componentServer(b))
 }
 
 // ComputeLimitRefusal returns why storage refused a write for taking compute past a limit, if that's what err is.

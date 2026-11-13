@@ -510,21 +510,55 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 			},
 		},
 	}
+	// A new source digest doesn't change the component's server.
+	redigested := dedicated
+	redigested.SourceDigest = "updated"
+	// Nor does a new name.
+	renamed := dedicated
+	renamed.Name = "renamed"
+	// Nor does setting resources that leave every value empty.
+	unset := dedicated
+	unset.CatalogEntry.Manifest.Resources = &types.MCPResourceRequirements{}
+	shared := dedicated
+	shared.ForceSingleUser = false
 	memory := func(miB int64) types.Entitlements {
 		return types.Entitlements{MemoryMiB: new(miB)}
 	}
+	// Selecting tools doesn't change an instance's servers.
+	selected := func() *v1.VMCPInstance {
+		instance := testInstance("instance1", "vmcp1")
+		instance.Spec.Manifest.ComponentSet = map[string]types.VMCPComponentSet{}
+		return instance
+	}
+	retained := testInstance("instance1", "vmcp1")
+	retained.Spec.LegacyComponents = []types.VMCPComponent{dedicated}
+	disabled := testInstance("instance1", "vmcp1")
+	disabled.Spec.LegacyDisabledComponents = []string{"dedicated"}
+	moved := testInstance("instance1", "vmcp2")
+	// vmcp2 has no instances, so its components count for nothing until one moves to it.
+	small := testComponent("small", types.RuntimeNPX, true, types.MCPResourceRequests{})
+	large := testComponent("large", types.RuntimeNPX, true, types.MCPResourceRequests{
+		Memory: "1Gi",
+	})
+	// Swapping IDs keeps vmcp2's servers, but changes which one a migrated instance disables.
+	swappedSmall, swappedLarge := small, large
+	swappedSmall.ID, swappedLarge.ID = large.ID, small.ID
+	larger := testComponent("large", types.RuntimeNPX, true, types.MCPResourceRequests{
+		Memory: "2Gi",
+	})
 
 	for _, tt := range []struct {
 		name        string
 		granted     types.Entitlements
 		obj         kclient.Object
 		update      bool
+		stale       bool
 		wantLock    bool
 		wantRefused bool
 	}{
 		{
 			name:     "a write within the limits is made under the lock",
-			granted:  memory(400),
+			granted:  memory(600),
 			obj:      testInstance("instance2", "vmcp1"),
 			wantLock: true,
 		},
@@ -573,8 +607,8 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 			wantRefused: true,
 		},
 		{
-			name:    "a filter's own server is made at the limit",
-			granted: memory(200),
+			name:    "a filter's own server skips the lock",
+			granted: memory(400),
 			obj: &v1.SystemMCPServer{
 				Namespace: system.DefaultNamespace,
 				Name:      "sms1",
@@ -585,12 +619,152 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:    "an instance update that keeps its servers skips the lock",
+			granted: memory(0),
+			obj:     selected(),
+			update:  true,
+		},
+		{
+			name:     "an instance update that retains a component takes the lock",
+			granted:  memory(0),
+			obj:      retained,
+			update:   true,
 			wantLock: true,
 		},
 		{
-			name:     "without limits nothing is refused",
-			obj:      testInstance("instance2", "vmcp1"),
+			name:     "an instance update that disables a component takes the lock",
+			granted:  memory(0),
+			obj:      disabled,
+			update:   true,
 			wantLock: true,
+		},
+		{
+			name:        "moving an instance to another vMCP past the limits is refused",
+			granted:     memory(200),
+			obj:         moved,
+			update:      true,
+			wantLock:    true,
+			wantRefused: true,
+		},
+		{
+			name:    "a vMCP update that keeps its servers skips the lock",
+			granted: memory(0),
+			obj:     testVMCP("vmcp1", redigested),
+			update:  true,
+		},
+		{
+			name:    "a vMCP update that renames a component skips the lock",
+			granted: memory(0),
+			obj:     testVMCP("vmcp1", renamed),
+			update:  true,
+		},
+		{
+			name:    "a vMCP update that sets empty resources on a component skips the lock",
+			granted: memory(0),
+			obj:     testVMCP("vmcp1", unset),
+			update:  true,
+		},
+		{
+			name:     "a vMCP update that changes a component's requests takes the lock",
+			granted:  memory(0),
+			obj:      testVMCP("vmcp2", small, larger),
+			update:   true,
+			wantLock: true,
+		},
+		{
+			name:     "a vMCP update that shares a component takes the lock",
+			granted:  memory(200),
+			obj:      testVMCP("vmcp1", shared),
+			update:   true,
+			wantLock: true,
+		},
+		{
+			name:     "a vMCP update that swaps its components' IDs takes the lock",
+			granted:  memory(0),
+			obj:      testVMCP("vmcp2", swappedSmall, swappedLarge),
+			update:   true,
+			wantLock: true,
+		},
+		{
+			name:    "a filter update that keeps its server skips the lock",
+			granted: memory(0),
+			obj: testFilter("filter2", types.MCPWebhookValidationManifest{
+				URL: "https://other.example.com",
+			}),
+			update: true,
+		},
+		{
+			name:    "a filter update that raises its requests past the limits is refused",
+			granted: memory(0),
+			obj: testFilter("filter2", types.MCPWebhookValidationManifest{
+				URL: "https://filter.example.com",
+				SystemMCPServerManifest: &types.SystemMCPServerManifest{
+					Runtime: types.RuntimeNPX,
+					Resources: &types.MCPResourceRequirements{
+						Requests: types.MCPResourceRequests{
+							Memory: "1Gi",
+						},
+					},
+				},
+			}),
+			update:      true,
+			wantLock:    true,
+			wantRefused: true,
+		},
+		{
+			name:    "disabling a filter skips the lock",
+			granted: memory(0),
+			obj: testFilter("filter2", types.MCPWebhookValidationManifest{
+				URL:      "https://filter.example.com",
+				Disabled: true,
+			}),
+			update: true,
+		},
+		{
+			name:    "a system server update that keeps its server skips the lock",
+			granted: memory(0),
+			obj: testSystemServer("sms2", "", types.SystemMCPServerManifest{
+				ShortDescription: "updated",
+				Runtime:          types.RuntimeRemote,
+			}),
+			update: true,
+		},
+		{
+			name:    "a system server update that raises its requests past the limits is refused",
+			granted: memory(0),
+			obj: testSystemServer("sms2", "", types.SystemMCPServerManifest{
+				Runtime: types.RuntimeNPX,
+			}),
+			update:      true,
+			wantLock:    true,
+			wantRefused: true,
+		},
+		{
+			name:    "disabling a system server skips the lock",
+			granted: memory(0),
+			obj: testSystemServer("sms2", "", types.SystemMCPServerManifest{
+				Enabled: new(false),
+				Runtime: types.RuntimeRemote,
+			}),
+			update: true,
+		},
+		{
+			name:    "an update of a stale copy skips the lock",
+			granted: memory(0),
+			obj:     testVMCP("vmcp1", shared),
+			update:  true,
+			stale:   true,
+		},
+		{
+			name: "without limits a create skips the lock",
+			obj:  testInstance("instance2", "vmcp1"),
+		},
+		{
+			name:   "without limits an update that changes the servers skips the lock",
+			obj:    testVMCP("vmcp1"),
+			update: true,
 		},
 		{
 			name:    "other kinds skip the lock",
@@ -602,10 +776,22 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(testVMCP("vmcp1", dedicated), testInstance("instance1", "vmcp1")).Build()
-			var locked int
+			// Usage starts at 400 MiB: instance1's dedicated component and filter2's server.
+			storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(
+				testVMCP("vmcp1", dedicated),
+				testInstance("instance1", "vmcp1"),
+				testVMCP("vmcp2", small, large),
+				testFilter("filter2", types.MCPWebhookValidationManifest{
+					URL: "https://filter.example.com",
+				}),
+				testSystemServer("sms2", "", types.SystemMCPServerManifest{
+					Runtime: types.RuntimeRemote,
+				}),
+			).Build()
+			var locked, writes int
 
 			write := func() error {
+				writes++
 				return storage.Create(t.Context(), tt.obj)
 			}
 			if tt.update {
@@ -614,7 +800,14 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 					t.Fatal(err)
 				}
 				tt.obj.SetResourceVersion(stored.GetResourceVersion())
+				if tt.stale {
+					// Another write lands after obj was read.
+					if err := storage.Update(t.Context(), stored); err != nil {
+						t.Fatal(err)
+					}
+				}
 				write = func() error {
+					writes++
 					return storage.Update(t.Context(), tt.obj)
 				}
 			}
@@ -624,21 +817,21 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 				return fn()
 			}
 			err := NewComputeAdmitter(storage, testEntitlements(tt.granted), withLock).Admit(t.Context(), tt.obj, write)
-			if tt.wantRefused {
+			switch {
+			case tt.wantRefused:
 				if _, ok := ComputeLimitRefusal(err); !ok {
 					t.Fatalf("Admit() error = %v, want a refusal", err)
 				}
-			} else if err != nil {
+			case tt.stale:
+				if !apierrors.IsConflict(err) {
+					t.Fatalf("Admit() error = %v, want a conflict", err)
+				}
+			case err != nil:
 				t.Fatalf("Admit() error = %v", err)
 			}
 
-			stored := tt.obj.DeepCopyObject().(kclient.Object)
-			written := storage.Get(t.Context(), kclient.ObjectKeyFromObject(tt.obj), stored) == nil
-			if tt.update {
-				written = stored.(*v1.VMCP).Spec.Manifest.Components == nil
-			}
-			if written == tt.wantRefused {
-				t.Errorf("written = %v, want %v", written, !tt.wantRefused)
+			if (writes == 1) == tt.wantRefused {
+				t.Errorf("wrote %d times, want the write %v", writes, !tt.wantRefused)
 			}
 			if (locked == 1) != tt.wantLock {
 				t.Errorf("locked %d times, want the lock %v", locked, tt.wantLock)

@@ -44,9 +44,9 @@ func (c *Client) withGate(ctx context.Context, id int64, fn func() error) error 
 	return fn()
 }
 
-// WithComputeLock runs fn while holding the lock that serializes writes that use compute, so compute can be counted
-// and a write made without another replica's write landing in between. Those writes are made by storage on its own
-// connections, not in a gateway transaction, so the lock is held around fn.
+// WithComputeLock runs fn while holding the lock that serializes the writes that change compute, so compute can be
+// counted and a write made without another replica's change landing in between. Those writes are made by storage on its
+// own connections, not in a gateway transaction, so the lock is held around fn.
 //
 // SQLite runs a single replica on a single connection, which fn needs, so there the gate is the whole lock.
 func (c *Client) WithComputeLock(ctx context.Context, fn func() error) error {

@@ -1,7 +1,9 @@
 package mcp_test
 
 import (
+	"context"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -33,7 +35,11 @@ func TestStorageAdmitsComputeWithinTheSubscription(t *testing.T) {
 	}
 	gateway := gclient.New(t.Context(), database, c, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gateway.Close() })
-	services.Admission.Set(mcp.NewComputeAdmitter(c, billing.NewProvider(nil, c, c), gateway.WithComputeLock))
+	var locked atomic.Int32
+	services.Admission.Set(mcp.NewComputeAdmitter(c, billing.NewProvider(nil, c, c), func(ctx context.Context, fn func() error) error {
+		locked.Add(1)
+		return gateway.WithComputeLock(ctx, fn)
+	}))
 
 	// Each instance runs the dedicated component with the default 200 MiB request, and the subscription has room for
 	// one.
@@ -89,8 +95,12 @@ func TestStorageAdmitsComputeWithinTheSubscription(t *testing.T) {
 
 	// The first instance fits.
 	first := instance("instance1")
+	before := locked.Load()
 	if err := c.Create(t.Context(), first); err != nil {
 		t.Fatalf("Create() of the instance that fits = %v", err)
+	}
+	if locked.Load() == before {
+		t.Error("Create() of the instance that fits didn't take the lock")
 	}
 
 	// The second doesn't, and isn't stored.
@@ -102,10 +112,15 @@ func TestStorageAdmitsComputeWithinTheSubscription(t *testing.T) {
 		t.Fatalf("Get() of the refused instance = %v, want not found", err)
 	}
 
-	// Writes that don't raise usage go through at the limit, and so does deleting.
+	// Writes that don't raise usage go through at the limit, and so does deleting. An update that keeps the instance's
+	// servers doesn't take the lock at all.
 	first.Labels = map[string]string{"still": "fits"}
+	before = locked.Load()
 	if err := c.Update(t.Context(), first); err != nil {
 		t.Fatalf("Update() at the limit = %v", err)
+	}
+	if locked.Load() != before {
+		t.Error("Update() that keeps the instance's servers took the lock")
 	}
 	if err := c.Delete(t.Context(), first); err != nil {
 		t.Fatalf("Delete() = %v", err)

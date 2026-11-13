@@ -107,7 +107,8 @@ only in a billed environment. Until they exist, the entitlements are empty, as b
 
 ### 5. How limits are enforced
 
-Every limit is enforced when the object is created or updated, against a live count, under a lock.
+Every limit is enforced when the object is created or updated, against a live count, under a lock. Compute updates
+that leave the servers counted for the object as they are skip the lock.
 
 - **Users.** Each request signed in through an auth provider reads the user limit from the entitlements. If the
   request has to create a user, the gateway takes its user lock, counts users and creates the user in one transaction,
@@ -118,15 +119,29 @@ Every limit is enforced when the object is created or updated, against a live co
 - **Compute** (billed environments only). Compute is the memory and CPU that the MCP servers Obot runs request.
   The storage API server passes every create and update, patches included, to `mcp.ComputeAdmitter`, whichever
   client makes the write. A write of an object that's being deleted is made right away, since it has no servers. For
-  the other writes of the kinds that use compute, it does this under one lock:
+  the other writes of the kinds that use compute, it does this:
   1. Read the entitlements. If neither memory nor CPU is limited, make the write.
-  2. List the objects that use compute from storage, without a cache, and add up what their servers request.
-  3. Add it up again as if the object were written.
-  4. Refuse with a 402 if the write raises memory or CPU past its limit. Otherwise make the write.
+  2. If the write can't raise compute, make it. A filter or system MCP server that runs no server once written can't.
+     For an update, read the stored object, without a cache. An update of another version can't, since storage
+     refuses it with a conflict, and neither can one that leaves the servers counted for it as they are.
+  3. Otherwise take the lock. List the objects that use compute from storage, without a cache, and add up what their
+     servers request.
+  4. Add it up again as if the object were written.
+  5. Refuse with a 402 if the write raises memory or CPU past its limit. Otherwise make the write.
 
   A write that lowers compute is always made, even while over. The lock is a Postgres advisory lock held by a
   transaction while the write runs on other connections, so replicas take turns. SQLite runs one replica, so an
   in-process lock is enough.
+
+  An update made without the lock can't change the count, whatever else is stored: storage refuses it with a conflict
+  if the object changed after it was read, and its servers are the same ones. Each kind compares only the fields that
+  decide its servers. For a vMCP, that's the ID, runtime and resources of each component, in order, and whether it's
+  multi-user. For an instance, it's its vMCP, the components it disables from a migration, and the same fields plus
+  the source digest of each snapshot it retains. A filter or system MCP server runs at most one server, decided by the
+  same code that counts it, and compares its runtime and resources.
+  One kind of update gets through uncounted: changing a vMCP component or its fixed configuration without changing
+  its server still releases the snapshot a migrated instance retains for it, and changing it back restores the
+  snapshot. The instance then runs a different server without a write to it.
 
 What a server requests is its memory and CPU requests under the current K8s settings, with a limit counted when
 there's no request, as Kubernetes does. One server counts for each multi-user component of a vMCP, each single-user
@@ -202,8 +217,9 @@ every audit log.
 
 ## Consequences
 
-- In a billed environment, every create and update of a kind that uses compute takes the compute lock and lists
-  those kinds. A new kind that changes compute has to be added to `mcp.Compute`.
+- In a billed environment whose entitlements limit memory or CPU, every create of a kind that uses compute takes the
+  compute lock and lists those kinds. Every update reads the stored object first, and takes the lock unless it's of
+  the stored version and keeps the servers counted for it. A new kind that changes compute has to be added to `mcp.Compute`.
 - A change to the subscription reaches each replica through its cache, a moment after the leader stores it.
 - An environment over its limits can't add users, devices or compute, but keeps running what it has until it's
   restricted.
