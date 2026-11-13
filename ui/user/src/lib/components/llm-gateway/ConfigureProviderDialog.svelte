@@ -254,6 +254,7 @@
 	async function saveNetwork(removeKeys = false) {
 		if (!provider) return;
 		saving = true;
+		let saved = false;
 		try {
 			const extra = Object.fromEntries(
 				headers.filter((h) => h.key.trim()).map((h) => [h.key.trim(), h.value])
@@ -294,6 +295,7 @@
 			responsesAPI = servesResponses(provider);
 			success.add(m.models_providers_settings_saved());
 			if (removeKeys) await loadKeys();
+			saved = true;
 		} catch (e) {
 			// The gateway calls the queue size the buffer size; use the field's name instead.
 			const { message } = parseErrorContent(e);
@@ -304,7 +306,7 @@
 			);
 		} finally {
 			saving = false;
-			dialog?.close();
+			if (saved) dialog?.close();
 		}
 	}
 

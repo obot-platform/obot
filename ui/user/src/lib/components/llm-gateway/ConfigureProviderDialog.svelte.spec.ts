@@ -340,7 +340,7 @@ describe('ConfigureProviderDialog', () => {
 				return HttpResponse.json(local);
 			})
 		);
-		await renderProviderPage([Group.ADMIN], 'local-llm');
+		const screen = await renderProviderPage([Group.ADMIN], 'local-llm');
 
 		const responses = page.getByLabelText('Serves the OpenAI Responses API');
 		await expect.element(responses).toBeChecked();
@@ -348,6 +348,10 @@ describe('ConfigureProviderDialog', () => {
 		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
 		expect(updated.mock.calls[0][0]).not.toHaveProperty('custom_provider_config');
 
+		await expect
+			.element(page.getByRole('dialog', { name: 'local-llm', exact: true }))
+			.not.toBeInTheDocument();
+		await screen.component.open('local-llm');
 		await responses.click();
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 		await vi.waitFor(() => expect(updated).toHaveBeenCalledTimes(2));
