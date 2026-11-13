@@ -482,7 +482,7 @@ func TestDeleteAgentRevokesItsAPIKeys(t *testing.T) {
 	// A deletion that rolls back revokes nothing.
 	rollback := errors.New("rollback")
 	err = c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if _, err := deleteAgentTx(tx, agent.ID); err != nil {
+		if _, _, err := deleteAgentTx(tx, agent.ID); err != nil {
 			return err
 		}
 		var unrevoked int64

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,8 +47,17 @@ func (c *Client) CreateAgent(ctx context.Context, agent types.Agent) (*types.Age
 	if err := validateAgentMetadata(*created); err != nil {
 		return nil, err
 	}
-	if err := c.db.WithContext(ctx).Create(created).Error; err != nil {
-		return nil, fmt.Errorf("failed to create agent: %w", err)
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(created).Error; err != nil {
+			return fmt.Errorf("failed to create agent: %w", err)
+		}
+		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+			Action:       types.AdminAuditActionAgentCreate,
+			ResourceKind: types.AdminAuditResourceAgent,
+			ResourceID:   strconv.FormatUint(uint64(created.ID), 10),
+		})
+	}); err != nil {
+		return nil, err
 	}
 	return created, nil
 }
@@ -89,6 +99,13 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 		if updated, err = lockAgent(tx, agent.ID); err != nil {
 			return err
 		}
+		var changed []string
+		if updated.DisplayName != agent.DisplayName {
+			changed = append(changed, "displayName")
+		}
+		if updated.Description != agent.Description {
+			changed = append(changed, "description")
+		}
 		updated.DisplayName = agent.DisplayName
 		updated.Description = agent.Description
 
@@ -97,7 +114,17 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 		if err := tx.Select(agentMetadataColumns).Omit(types.AgentLifecycleColumns...).Updates(updated).Error; err != nil {
 			return fmt.Errorf("failed to update agent %d: %w", agent.ID, err)
 		}
-		return nil
+		if len(changed) == 0 {
+			// Saving what is already stored changes nothing, so there is nothing to record.
+			return nil
+		}
+		// Field names only: the audit is for who changed what, not a copy of the agent.
+		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+			Action:       types.AdminAuditActionAgentUpdate,
+			ResourceKind: types.AdminAuditResourceAgent,
+			ResourceID:   strconv.FormatUint(uint64(agent.ID), 10),
+			Details:      map[string]any{"changedFields": changed},
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -108,7 +135,22 @@ func (c *Client) UpdateAgent(ctx context.Context, agent types.Agent) (*types.Age
 // or missing agent is gorm.ErrRecordNotFound.
 func (c *Client) DisableAgent(ctx context.Context, id uint, reason string) (*types.Agent, error) {
 	return c.changeAgentLifecycle(ctx, func(tx *gorm.DB) (*types.Agent, bool, error) {
-		return disableAgentTx(tx, id, reason)
+		agent, changed, reasonChanged, err := disableAgentTx(tx, id, reason)
+		if err != nil {
+			return nil, false, err
+		}
+		// Disabling a disabled agent with another reason changes only the reason, which is still a change an
+		// administrator made. Repeating the same disable changes nothing and records nothing.
+		if changed || reasonChanged {
+			// Whether there is a reason, not the reason: it is free text, which could hold anything.
+			err = recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+				Action:       types.AdminAuditActionAgentDisable,
+				ResourceKind: types.AdminAuditResourceAgent,
+				ResourceID:   strconv.FormatUint(uint64(id), 10),
+				Details:      map[string]any{"accessChanged": changed, "hasReason": agent.DisabledReason != ""},
+			})
+		}
+		return agent, changed, err
 	})
 }
 
@@ -116,7 +158,16 @@ func (c *Client) DisableAgent(ctx context.Context, id uint, reason string) (*typ
 // deleted or missing agent is gorm.ErrRecordNotFound.
 func (c *Client) EnableAgent(ctx context.Context, id uint) (*types.Agent, error) {
 	return c.changeAgentLifecycle(ctx, func(tx *gorm.DB) (*types.Agent, bool, error) {
-		return enableAgentTx(tx, id)
+		agent, changed, err := enableAgentTx(tx, id)
+		if err != nil || !changed {
+			// Enabling an agent that is not disabled changes nothing, so it records nothing.
+			return agent, changed, err
+		}
+		return agent, changed, recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+			Action:       types.AdminAuditActionAgentEnable,
+			ResourceKind: types.AdminAuditResourceAgent,
+			ResourceID:   strconv.FormatUint(uint64(id), 10),
+		})
 	})
 }
 
@@ -124,8 +175,16 @@ func (c *Client) EnableAgent(ctx context.Context, id uint) (*types.Agent, error)
 // show it, and the controller removes what it owns. A deleted or missing agent is gorm.ErrRecordNotFound.
 func (c *Client) DeleteAgent(ctx context.Context, id uint) error {
 	_, err := c.changeAgentLifecycle(ctx, func(tx *gorm.DB) (*types.Agent, bool, error) {
-		agent, err := deleteAgentTx(tx, id)
-		return agent, err == nil, err
+		agent, keysRevoked, err := deleteAgentTx(tx, id)
+		if err != nil {
+			return nil, false, err
+		}
+		return agent, true, recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+			Action:       types.AdminAuditActionAgentDelete,
+			ResourceKind: types.AdminAuditResourceAgent,
+			ResourceID:   strconv.FormatUint(uint64(id), 10),
+			Details:      map[string]any{"keysRevoked": keysRevoked},
+		})
 	})
 	return err
 }
@@ -199,22 +258,24 @@ func (c *Client) changeAgentLifecycle(ctx context.Context, change func(tx *gorm.
 }
 
 // disableAgentTx disables an agent within tx, and reports whether the agent lost access, in which case it recorded a
-// disabled event. The caller must kick lifecycle delivery after committing when it reports a change.
-func disableAgentTx(tx *gorm.DB, id uint, reason string) (*types.Agent, bool, error) {
-	agent, err := lockAgent(tx, id)
+// disabled event, and whether only the reason of an agent that was already disabled changed. The caller must kick
+// lifecycle delivery after committing when it reports that the agent lost access.
+func disableAgentTx(tx *gorm.DB, id uint, reason string) (agent *types.Agent, accessChanged, reasonChanged bool, err error) {
+	agent, err = lockAgent(tx, id)
 	if err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	if agent.DisabledAt != nil {
-		if agent.DisabledReason != reason {
-			// Access is unchanged, so only the reason is updated, and there is nothing to deliver.
-			if err := tx.Model(agent).UpdateColumn("disabled_reason", reason).Error; err != nil {
-				return nil, false, fmt.Errorf("failed to update the disable reason of agent %d: %w", id, err)
-			}
-			agent.DisabledReason = reason
+		if agent.DisabledReason == reason {
+			return agent, false, false, nil
 		}
-		return agent, false, nil
+		// Access is unchanged, so only the reason is updated, and there is nothing to deliver.
+		if err := tx.Model(agent).UpdateColumn("disabled_reason", reason).Error; err != nil {
+			return nil, false, false, fmt.Errorf("failed to update the disable reason of agent %d: %w", id, err)
+		}
+		agent.DisabledReason = reason
+		return agent, false, true, nil
 	}
 
 	now := time.Now()
@@ -222,15 +283,15 @@ func disableAgentTx(tx *gorm.DB, id uint, reason string) (*types.Agent, bool, er
 		"disabled_at":     now,
 		"disabled_reason": reason,
 	}).Error; err != nil {
-		return nil, false, fmt.Errorf("failed to disable agent %d: %w", id, err)
+		return nil, false, false, fmt.Errorf("failed to disable agent %d: %w", id, err)
 	}
 	if err := recordAgentLifecycleEvent(tx, id, types.AgentLifecycleEventDisabled); err != nil {
-		return nil, false, err
+		return nil, false, false, err
 	}
 
 	agent.DisabledAt = &now
 	agent.DisabledReason = reason
-	return agent, true, nil
+	return agent, true, false, nil
 }
 
 // enableAgentTx enables a disabled agent within tx, and reports whether the agent regained access, in which case it
@@ -260,38 +321,40 @@ func enableAgentTx(tx *gorm.DB, id uint) (*types.Agent, bool, error) {
 	return agent, true, nil
 }
 
-// deleteAgentTx deletes an agent within tx, revokes its API keys, and records a deleted event. The caller must kick
-// lifecycle delivery after committing.
-func deleteAgentTx(tx *gorm.DB, id uint) (*types.Agent, error) {
+// deleteAgentTx deletes an agent within tx, revokes its API keys, and records a deleted event. It returns the number
+// of keys it revoked. The caller must kick lifecycle delivery after committing.
+func deleteAgentTx(tx *gorm.DB, id uint) (*types.Agent, int64, error) {
 	agent, err := lockAgent(tx, id)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	if err := revokeAgentAPIKeysTx(tx, id); err != nil {
-		return nil, err
+	keysRevoked, err := revokeAgentAPIKeysTx(tx, id)
+	if err != nil {
+		return nil, 0, err
 	}
 	// A soft delete, because the agent has a gorm.DeletedAt: the row stays for audit history.
 	if err := tx.Delete(agent).Error; err != nil {
-		return nil, fmt.Errorf("failed to delete agent %d: %w", id, err)
+		return nil, 0, fmt.Errorf("failed to delete agent %d: %w", id, err)
 	}
 	if err := recordAgentLifecycleEvent(tx, id, types.AgentLifecycleEventDeleted); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return agent, nil
+	return agent, keysRevoked, nil
 }
 
 // revokeAgentAPIKeysTx revokes, within tx, every API key of an agent that is being deleted, so that none of them
-// works once the deletion commits. Keys that are already revoked keep their revocation time. No cached validation
-// needs invalidating: a cache hit reads the key's revocation again, so a revoked key is refused at once on every
-// replica.
-func revokeAgentAPIKeysTx(tx *gorm.DB, agentID uint) error {
-	if err := whereAPIKeyOwner(tx.Model(&types.APIKey{}), principal.Agent(agentID)).
+// works once the deletion commits, and returns how many it revoked. Keys that are already revoked keep their
+// revocation time and are not counted. No cached validation needs invalidating: a cache hit reads the key's
+// revocation again, so a revoked key is refused at once on every replica.
+func revokeAgentAPIKeysTx(tx *gorm.DB, agentID uint) (int64, error) {
+	result := whereAPIKeyOwner(tx.Model(&types.APIKey{}), principal.Agent(agentID)).
 		Where("revoked_at IS NULL").
-		Update("revoked_at", time.Now().UTC()).Error; err != nil {
-		return fmt.Errorf("failed to revoke the API keys of agent %d: %w", agentID, err)
+		Update("revoked_at", time.Now().UTC())
+	if result.Error != nil {
+		return 0, fmt.Errorf("failed to revoke the API keys of agent %d: %w", agentID, result.Error)
 	}
-	return nil
+	return result.RowsAffected, nil
 }
 
 // lockAgent loads and locks an agent within tx. A deleted or missing agent is gorm.ErrRecordNotFound.

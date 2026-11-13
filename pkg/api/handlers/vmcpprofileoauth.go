@@ -3,6 +3,8 @@ package handlers
 import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -96,9 +98,20 @@ func (h *VMCPProfileOAuthHandler) Reset(req api.Context) error {
 		return err
 	}
 	profileID := req.PathValue("profile_id")
-	vmcp, _, err := h.grants.Reset(req.Context(), req.Storage, kclient.ObjectKey{Namespace: req.Namespace(), Name: req.PathValue("vmcp_id")}, profileID, req.PathValue("component_id"))
+	componentID := req.PathValue("component_id")
+	vmcp, deleted, err := h.grants.Reset(req.Context(), req.Storage, kclient.ObjectKey{Namespace: req.Namespace(), Name: req.PathValue("vmcp_id")}, profileID, componentID)
 	if err != nil {
 		return err
+	}
+	// Resetting a component that holds no grant deletes nothing, and records nothing.
+	if deleted {
+		recordAdminAudit(req, gclient.AdminAuditEventInput{
+			Action:       gtypes.AdminAuditActionVMCPProfileOAuthReset,
+			ResourceKind: gtypes.AdminAuditResourceVMCPProfile,
+			ResourceID:   profileID,
+			ParentID:     vmcp.Name,
+			Details:      map[string]any{"componentID": componentID},
+		})
 	}
 	status, err := profileStatusWithOAuth(req, h.grants, *vmcp, profileID)
 	if err != nil {

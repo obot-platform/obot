@@ -25,6 +25,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                         schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                     schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                 schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AdminAuditEvent":                           schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters":              schema_obot_platform_obot_apiclient_types_AdminAuditEventExportFilters(ref),
+		"github.com/obot-platform/obot/apiclient/types.AdminAuditEventList":                       schema_obot_platform_obot_apiclient_types_AdminAuditEventList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKey":                               schema_obot_platform_obot_apiclient_types_AgentAPIKey(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateRequest":                  schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyCreateResponse":                 schema_obot_platform_obot_apiclient_types_AgentAPIKeyCreateResponse(ref),
@@ -926,6 +929,195 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AdminAuditEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdminAuditEvent is one change an administrator, or Obot on its own, made to an agent, an agent's API key, a policy or profile that names agents, or a profile's configuration or OAuth grants. It never carries a secret value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"actor": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actor is the administrator, as a user, who made the change, or the system. DisplayName is the user's, when the user can still be found.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.AuditLogActor"),
+						},
+					},
+					"action": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Action is what was done, such as agent.create, agent.key.revoke or vmcp.profile.configuration.update.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceKind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceKind is agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule, and ResourceID the ID of the resource: for a profile, its profile ID.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resourceID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"parentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ParentID is what holds the resource: the agent of an API key, or the vMCP of a profile.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"details": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Details depends on the action. It names what changed (fields, configuration keys, subjects, scopes), never the values of secrets.",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+				},
+				Required: []string{"id", "createdAt", "actor", "action", "resourceKind", "resourceID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AuditLogActor", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AdminAuditEventExportFilters(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdminAuditEventExportFilters are the filters of an export of the admin change audit (AuditLogTypeAdmin). Each is a list of values that match any, and the filters combine with and.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"resourceKinds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResourceKinds are agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"resourceIDs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Actors are user IDs, or \"system\".",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"actions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AdminAuditEventList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdminAuditEventList is a page of admin audit events, newest first.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEvent"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total is how many events match the filters, over all pages.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEvent"},
 	}
 }
 
@@ -2026,7 +2218,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 					},
 					"displayName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DisplayName names the actor when it is an agent, from the agent's current record, also after the agent is deleted. It is empty when the agent's record cannot be found, and for other actors.",
+							Description: "DisplayName names the actor when it is an agent, from the agent's current record, also after the agent is deleted. In the admin audit it names the administrator. It is empty when the record cannot be found, and for other actors.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2542,6 +2734,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -2560,7 +2757,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportCreateRequest(ref c
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -3020,6 +3217,11 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -3065,7 +3267,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportResponse(ref common
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -16776,12 +16978,17 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportCreateRequ
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 				},
 				Required: []string{"name", "bucket", "schedule"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -16891,6 +17098,11 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"lastRunAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
@@ -16906,7 +17118,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -16956,6 +17168,11 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"bucket": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -16972,7 +17189,7 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportUpdateRequ
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.Schedule"},
 	}
 }
 
@@ -21851,6 +22068,11 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"scheduleUID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScheduleUID associates this fixed window with one schedule incarnation.",
@@ -21870,7 +22092,7 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -28203,6 +28425,11 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"adminFilters": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters"),
+						},
+					},
 					"withRequestAndResponse": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WithRequestAndResponse includes source-specific sensitive request and response fields.",
@@ -28215,7 +28442,7 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
+			"github.com/obot-platform/obot/apiclient/types.AdminAuditEventExportFilters", "github.com/obot-platform/obot/apiclient/types.AuditLogExportFilters", "github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters", v1.Schedule{}.OpenAPIModelName()},
 	}
 }
 

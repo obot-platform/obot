@@ -21,6 +21,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
+	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -348,6 +349,13 @@ func TestExportPathAt(t *testing.T) {
 
 func newExportTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	t.Helper()
+	c, _ := newExportTestGatewayClientWithDB(t)
+	return c
+}
+
+// newExportTestGatewayClientWithDB also returns the database, for tests that insert rows the client has no writer for.
+func newExportTestGatewayClientWithDB(t *testing.T) (*gatewayclient.Client, *gorm.DB) {
+	t.Helper()
 
 	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
 	if err != nil {
@@ -365,7 +373,7 @@ func newExportTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	// Use a short persistence interval so LogMCPAuditEntry rows flush to the DB quickly.
 	c := gatewayclient.New(t.Context(), db, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = c.Close() })
-	return c
+	return c, storageServices.DB.DB
 }
 
 func exportWithFilters(filters types.AuditLogExportFilters, withPayload bool) *v1.AuditLogExport {
@@ -822,5 +830,87 @@ func TestExportOptionsMapActorFilters(t *testing.T) {
 	}, false), 100, 0)
 	if !reflect.DeepEqual(mcp.ActorKind, []string{"agent"}) || !reflect.DeepEqual(mcp.UserID, []string{"agent:7"}) {
 		t.Errorf("MCP actor filters were not mapped: %#v", mcp)
+	}
+}
+
+// TestAdminAuditExport checks the export of the admin change audit: its filters and window, its oldest-first paging, and
+// that a row is exported as the API shows it, without the display name of its actor.
+func TestAdminAuditExport(t *testing.T) {
+	c, db := newExportTestGatewayClientWithDB(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	// Events are recorded as they happen, so the window is built from rows with chosen times.
+	for i, event := range []gatewaytypes.AdminAuditEvent{
+		{ActorUserID: "1", Action: "agent.create", ResourceKind: "agent", ResourceID: "7", Details: []byte(`{"changedFields":["description"]}`)},
+		{ActorUserID: "1", Action: "agent.key.create", ResourceKind: "apiKey", ResourceID: "9", ParentID: "7"},
+		{ActorUserID: gatewaytypes.AdminAuditActorSystem, Action: "vmcp.profile.oauth.invalidate", ResourceKind: "vmcpProfile", ResourceID: "vp1", ParentID: "vmcp1"},
+		{ActorUserID: "2", Action: "agent.delete", ResourceKind: "agent", ResourceID: "7"},
+	} {
+		event.CreatedAt = now.Add(time.Duration(i-10) * time.Minute)
+		if err := db.WithContext(ctx).Create(&event).Error; err != nil {
+			t.Fatalf("insert admin audit event: %v", err)
+		}
+	}
+	handler := &Handler{gatewayClient: c}
+	export := func(filters *types.AdminAuditEventExportFilters, start, end time.Time) *v1.AuditLogExport {
+		return &v1.AuditLogExport{Spec: v1.AuditLogExportSpec{
+			Type:         types.AuditLogTypeAdmin,
+			StartTime:    metav1.NewTime(start),
+			EndTime:      metav1.NewTime(end),
+			AdminFilters: filters,
+		}}
+	}
+	actions := func(e *v1.AuditLogExport, limit, offset int) []string {
+		t.Helper()
+		events, err := handler.fetchAdminAuditEvents(ctx, e, limit, offset)
+		if err != nil {
+			t.Fatalf("fetch admin audit events: %v", err)
+		}
+		var result []string
+		for _, event := range events {
+			result = append(result, event.Action)
+		}
+		return result
+	}
+	window := func(filters *types.AdminAuditEventExportFilters) *v1.AuditLogExport {
+		return export(filters, now.Add(-time.Hour), now)
+	}
+
+	if got, want := actions(window(nil), 100, 0), []string{"agent.create", "agent.key.create", "vmcp.profile.oauth.invalidate", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("unfiltered = %v, want %v, oldest first", got, want)
+	}
+	if got, want := actions(window(nil), 2, 2), []string{"vmcp.profile.oauth.invalidate", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("second page = %v, want %v", got, want)
+	}
+	if got, want := actions(window(&types.AdminAuditEventExportFilters{ResourceKinds: []string{"agent"}, ResourceIDs: []string{"7"}}), 100, 0), []string{"agent.create", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("kind and ID = %v, want %v", got, want)
+	}
+	if got, want := actions(window(&types.AdminAuditEventExportFilters{Actors: []string{"system", "2"}}), 100, 0), []string{"vmcp.profile.oauth.invalidate", "agent.delete"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("actors = %v, want %v", got, want)
+	}
+	if got, want := actions(window(&types.AdminAuditEventExportFilters{Actions: []string{"agent.key.create"}}), 100, 0), []string{"agent.key.create"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("actions = %v, want %v", got, want)
+	}
+	if got := actions(export(nil, now.Add(-time.Hour), now.Add(-8*time.Minute)), 100, 0); len(got) != 2 {
+		t.Errorf("a window that ends after two events = %v, want two", got)
+	}
+
+	events, err := handler.fetchAdminAuditEvents(ctx, window(&types.AdminAuditEventExportFilters{ResourceKinds: []string{"agent"}}), 1, 0)
+	if err != nil {
+		t.Fatalf("fetch admin audit events: %v", err)
+	}
+	data, err := formatLogs(events, func(event gatewaytypes.AdminAuditEvent) types.AdminAuditEvent {
+		return gatewaytypes.ConvertAdminAuditEvent(event, "")
+	})
+	if err != nil {
+		t.Fatalf("format admin audit events: %v", err)
+	}
+	var exported types.AdminAuditEvent
+	if lines := splitNonEmptyLines(string(data)); len(lines) != 1 || json.Unmarshal([]byte(lines[0]), &exported) != nil {
+		t.Fatalf("admin export = %s", data)
+	}
+	if exported.Action != "agent.create" || exported.Actor != (types.AuditLogActor{ActorType: types.AuditLogActorTypeUser, ID: "1"}) ||
+		exported.ResourceKind != "agent" || exported.ResourceID != "7" || string(exported.Details) != `{"changedFields":["description"]}` {
+		t.Errorf("exported event = %+v", exported)
 	}
 }

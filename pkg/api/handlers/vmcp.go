@@ -222,6 +222,8 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	}); err != nil {
 		return err
 	}
+	// The vMCP exists from here, whatever later fails and removes it, so the subjects it granted are recorded.
+	recordProfileSubjectChanges(req, vmcp.Name, subjectChangeCreate, nil, manifest.Profiles)
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
 		Name:    vmcpconfig.ConfigurationCredentialName(),
@@ -305,6 +307,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	hadCredential := err == nil
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
+	previousProfiles := slices.Clone(vmcp.Spec.Manifest.Profiles)
 	vmcp.Spec.Manifest = manifest
 	if vmcp.Spec.StaticConfigurationCredentialName != "" {
 		vmcpconfig.VersionStaticConfiguration(&vmcp, staticConfiguration)
@@ -357,6 +360,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	}); err != nil {
 		return err
 	}
+	recordProfileSubjectChanges(req, vmcp.Name, subjectChangeUpdate, previousProfiles, manifest.Profiles)
 	instance, err := vmcpconfig.FindInstance(req.Context(), req.Storage, vmcp.Namespace, vmcp.Name, req.User.GetUID())
 	if err != nil {
 		return err
@@ -681,10 +685,14 @@ func (*VMCPHandler) Delete(req api.Context) error {
 		return types.NewErrBadRequest("cannot delete vMCP %s synced from a catalog", vmcpID)
 	}
 
-	return req.Delete(&v1.VMCP{
+	if err := req.Delete(&v1.VMCP{
 		Name:      vmcpID,
 		Namespace: req.Namespace(),
-	})
+	}); err != nil {
+		return err
+	}
+	recordProfileSubjectChanges(req, vmcpID, subjectChangeDelete, vMCP.Spec.Manifest.Profiles, nil)
+	return nil
 }
 
 func vmcpConfiguration(components []types.VMCPComponent, secrets map[string]string, policyType types.VMCPConfigurationPolicyType) types.VMCPConfiguration {

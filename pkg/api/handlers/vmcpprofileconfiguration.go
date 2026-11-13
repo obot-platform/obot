@@ -3,10 +3,14 @@ package handlers
 import (
 	"context"
 	"log/slog"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -59,9 +63,34 @@ func (h *VMCPProfileConfigurationHandler) Update(req api.Context) error {
 	if err := req.Read(&update); err != nil {
 		return types.NewErrBadRequest("failed to read profile configuration: %v", err)
 	}
-	vmcp, err := h.store.Update(req.Context(), req.Storage, kclient.ObjectKey{Namespace: req.Namespace(), Name: req.PathValue("vmcp_id")}, req.PathValue("profile_id"), update.Components)
+	profileID := req.PathValue("profile_id")
+	previous := currentProfileConfigurationRevision(req, req.PathValue("vmcp_id"), profileID)
+	vmcp, err := h.store.Update(req.Context(), req.Storage, kclient.ObjectKey{Namespace: req.Namespace(), Name: req.PathValue("vmcp_id")}, profileID, update.Components)
 	if err != nil {
 		return err
+	}
+	// Saving what the profile already has publishes no revision, and so changes nothing to record.
+	if current := vmcp.Status.ProfileConfigurationRevisions[profileID]; current.Name != previous.Name {
+		var set, cleared []string
+		for componentID, changes := range update.Components {
+			for key, value := range changes {
+				if value == nil || strings.TrimSpace(*value) == "" {
+					cleared = append(cleared, vmcpconfig.ConfigurationKey(componentID, key))
+				} else {
+					set = append(set, vmcpconfig.ConfigurationKey(componentID, key))
+				}
+			}
+		}
+		slices.Sort(set)
+		slices.Sort(cleared)
+		// Key names only. The values are secrets, or may be, and are never read here beyond whether they are blank.
+		recordAdminAudit(req, gclient.AdminAuditEventInput{
+			Action:       gtypes.AdminAuditActionVMCPProfileConfigurationUpdate,
+			ResourceKind: gtypes.AdminAuditResourceVMCPProfile,
+			ResourceID:   profileID,
+			ParentID:     vmcp.Name,
+			Details:      map[string]any{"set": set, "cleared": cleared, "revision": current.Name, "keys": current.Keys},
+		})
 	}
 	return req.Write(profileStatus(*vmcp, req.PathValue("profile_id")))
 }
@@ -77,11 +106,19 @@ func (h *VMCPProfileConfigurationHandler) Reset(req api.Context) error {
 		return err
 	}
 	profileID := req.PathValue("profile_id")
+	previous := currentProfileConfigurationRevision(req, req.PathValue("vmcp_id"), profileID)
 	vmcp, cleared, err := h.store.Reset(req.Context(), req.Storage, kclient.ObjectKey{Namespace: req.Namespace(), Name: req.PathValue("vmcp_id")}, profileID)
 	if err != nil {
 		return err
 	}
 	if cleared {
+		recordAdminAudit(req, gclient.AdminAuditEventInput{
+			Action:       gtypes.AdminAuditActionVMCPProfileConfigurationReset,
+			ResourceKind: gtypes.AdminAuditResourceVMCPProfile,
+			ResourceID:   profileID,
+			ParentID:     vmcp.Name,
+			Details:      map[string]any{"cleared": previous.Keys, "revision": previous.Name},
+		})
 		ctx, cancel := context.WithTimeout(req.Context(), h.collectionTimeout)
 		defer cancel()
 		collected, err := wait.For(ctx, req.Storage, vmcp, func(current *v1.VMCP) (bool, error) {
@@ -95,6 +132,16 @@ func (h *VMCPProfileConfigurationHandler) Reset(req api.Context) error {
 		}
 	}
 	return req.Write(profileStatus(*vmcp, profileID))
+}
+
+// currentProfileConfigurationRevision returns the revision a profile's configuration is at, which is empty if the
+// profile has none or the vMCP cannot be read: the change that follows reports a vMCP that is missing.
+func currentProfileConfigurationRevision(req api.Context, vmcpID, profileID string) v1.VMCPProfileConfigurationRevision {
+	var vmcp v1.VMCP
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: req.Namespace(), Name: vmcpID}, &vmcp); err != nil {
+		return v1.VMCPProfileConfigurationRevision{}
+	}
+	return vmcp.Status.ProfileConfigurationRevisions[profileID]
 }
 
 // profileStatus reports the configuration keys a profile of vmcp sets, which the store has checked it has.

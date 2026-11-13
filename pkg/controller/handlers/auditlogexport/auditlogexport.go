@@ -76,6 +76,11 @@ func (h *Handler) ExportAuditLogs(req router.Request, resp router.Response) erro
 		})
 	case types.AuditLogTypeLLM:
 		err = performExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.llmAuditLogFetcher(), gatewaytypes.ConvertLLMAuditLog)
+	case types.AuditLogTypeAdmin:
+		err = performExport(req.Ctx, h.credProvider, export, "admin-audit-events", h.fetchAdminAuditEvents, func(event gatewaytypes.AdminAuditEvent) types.AdminAuditEvent {
+			// No display name is looked up: an export is the record, and names change.
+			return gatewaytypes.ConvertAdminAuditEvent(event, "")
+		})
 	default:
 		err = fmt.Errorf("unsupported audit log export type %q", export.Spec.Type)
 	}
@@ -132,6 +137,29 @@ func (h *Handler) llmAuditLogFetcher() func(context.Context, *v1.AuditLogExport,
 			cursor.AfterID = logs[len(logs)-1].ID
 		}
 		return logs, err
+	}
+}
+
+func (h *Handler) fetchAdminAuditEvents(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.AdminAuditEvent, error) {
+	events, _, err := h.gatewayClient.ListAdminAuditEvents(ctx, adminAuditEventOptionsFromExport(export, limit, offset))
+	return events, err
+}
+
+func adminAuditEventOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.AdminAuditEventOptions {
+	filters := export.Spec.AdminFilters
+	if filters == nil {
+		filters = &types.AdminAuditEventExportFilters{}
+	}
+	return client.AdminAuditEventOptions{
+		ResourceKinds: filters.ResourceKinds,
+		ResourceIDs:   filters.ResourceIDs,
+		Actors:        filters.Actors,
+		Actions:       filters.Actions,
+		Since:         export.Spec.StartTime.Time,
+		Until:         export.Spec.EndTime.Time,
+		Limit:         limit,
+		Offset:        offset,
+		Oldest:        true,
 	}
 }
 

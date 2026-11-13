@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -62,6 +64,7 @@ func (*SkillAccessRuleHandler) Create(req api.Context) error {
 		return err
 	}
 
+	recordSubjectChange(req, gtypes.AdminAuditActionSkillAccessRuleSubjectsUpdate, gtypes.AdminAuditResourceSkillAccessRule, rule.Name, "", subjectChangeCreate, nil, manifest.Subjects)
 	return req.WriteCreated(convertSkillAccessRule(rule))
 }
 
@@ -76,6 +79,7 @@ func (*SkillAccessRuleHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get skill access rule: %w", err)
 	}
 
+	previousSubjects := slices.Clone(rule.Spec.Manifest.Subjects)
 	if err := writeNewSubjects(req, manifest.Subjects, rule.Spec.Manifest.Subjects, func() error {
 		rule.Spec.Manifest = *manifest
 		if err := req.Update(&rule); err != nil {
@@ -86,14 +90,25 @@ func (*SkillAccessRuleHandler) Update(req api.Context) error {
 		return err
 	}
 
+	recordSubjectChange(req, gtypes.AdminAuditActionSkillAccessRuleSubjectsUpdate, gtypes.AdminAuditResourceSkillAccessRule, rule.Name, "", subjectChangeUpdate, previousSubjects, manifest.Subjects)
 	return req.Write(convertSkillAccessRule(rule))
 }
 
 func (*SkillAccessRuleHandler) Delete(req api.Context) error {
-	return req.Delete(&v1.SkillAccessRule{
+	// Read first, for the subjects the deletion takes away. A rule that cannot be read is still deleted, or refused, by
+	// the deletion itself, which only the audit of its subjects depends on this.
+	var existing v1.SkillAccessRule
+	readErr := req.Get(&existing, req.PathValue("skill_access_rule_id"))
+	if err := req.Delete(&v1.SkillAccessRule{
 		Name:      req.PathValue("skill_access_rule_id"),
 		Namespace: req.Namespace(),
-	})
+	}); err != nil {
+		return err
+	}
+	if readErr == nil {
+		recordSubjectChange(req, gtypes.AdminAuditActionSkillAccessRuleSubjectsUpdate, gtypes.AdminAuditResourceSkillAccessRule, existing.Name, "", subjectChangeDelete, existing.Spec.Manifest.Subjects, nil)
+	}
+	return nil
 }
 
 func readAndValidateManifest(req api.Context) (*types.SkillAccessRuleManifest, error) {

@@ -384,7 +384,7 @@ func TestAgentLifecycleChangesRollBackWithTheirEvent(t *testing.T) {
 		{
 			name: "disable",
 			change: func(tx *gorm.DB, id uint) error {
-				_, _, err := disableAgentTx(tx, id, "rotating keys")
+				_, _, _, err := disableAgentTx(tx, id, "rotating keys")
 				return err
 			},
 		},
@@ -399,7 +399,7 @@ func TestAgentLifecycleChangesRollBackWithTheirEvent(t *testing.T) {
 		{
 			name: "delete",
 			change: func(tx *gorm.DB, id uint) error {
-				_, err := deleteAgentTx(tx, id)
+				_, _, err := deleteAgentTx(tx, id)
 				return err
 			},
 		},

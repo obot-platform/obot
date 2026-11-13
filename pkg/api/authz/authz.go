@@ -124,6 +124,9 @@ var (
 		// to agentRules, so they never reach them.
 		"/api/agents",
 		"/api/agents/",
+		// The admin change audit is read-only. Read-only administrators and auditors are granted it below; no other
+		// principal is, and agents are confined to agentRules.
+		"GET /api/admin-audit-events",
 		"GET /api/groups",
 		"/api/group-role-assignments",
 		"/api/group-role-assignments/",
@@ -345,6 +348,8 @@ var (
 		"GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness",
 		"GET /api/agents/{agent_id}/api-keys",
 		"GET /api/agents/{agent_id}/api-keys/{key_id}",
+		// The admin change history of agents and the policies and profiles that name them.
+		"GET /api/admin-audit-events",
 	}
 	ownerRules = []string{
 		"POST /api/license/manage",
@@ -385,6 +390,7 @@ var (
 			// Read-only, like the admin API keys, which already list the keys of agents.
 			"GET /api/agents",
 			"GET /api/agents/",
+			"GET /api/admin-audit-events",
 			"GET /api/groups",
 			"GET /api/groups/",
 			"GET /api/group-role-assignments",

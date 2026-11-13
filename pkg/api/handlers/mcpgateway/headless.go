@@ -5,15 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
-	"strings"
 
 	"github.com/obot-platform/mmmcp/component"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
-	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 )
 
@@ -35,10 +34,7 @@ func presentsAgentCredential(r *http.Request) bool {
 		return false
 	}
 	credential := persistent.RequestToken(r)
-	if strings.HasPrefix(credential, system.AgentAPIKeyPrefix+"-") {
-		return true
-	}
-	return persistent.ClaimsAgentToken(credential)
+	return client.IsAgentAPIKey(credential) || persistent.ClaimsAgentToken(credential)
 }
 
 // agentReadinessResponse is the 409 response to an agent that cannot use a vMCP, with the reasons why. It never

@@ -325,6 +325,25 @@ func TestProfileOAuthGrantAuthorization(t *testing.T) {
 	require.NotContains(t, string(statusJSON), profileGrantAccess)
 	require.NotContains(t, string(statusJSON), profileGrantRefresh)
 
+	// The authorization is recorded once, as the administrator's, with the component, scopes and hostname of the target,
+	// and never the token or the URL. The refused callbacks recorded nothing.
+	events, _, err := f.gateway.ListAdminAuditEvents(t.Context(), gatewayclient.AdminAuditEventOptions{})
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+	require.Equal(t, "1", events[0].ActorUserID)
+	require.Equal(t, "vmcp.profile.oauth.authorize", events[0].Action)
+	require.Equal(t, "vmcpProfile", events[0].ResourceKind)
+	require.Equal(t, profileGrantAgents, events[0].ResourceID)
+	require.Equal(t, f.key.Name, events[0].ParentID)
+	var details map[string]any
+	require.NoError(t, json.Unmarshal(events[0].Details, &details))
+	require.Equal(t, profileGrantRemote, details["componentID"])
+	require.Equal(t, vmcpconfig.URLHostname(f.provider.mcpURL()), details["hostname"])
+	require.Contains(t, details, "scopes")
+	require.NotContains(t, string(events[0].Details), profileGrantAccess)
+	require.NotContains(t, string(events[0].Details), profileGrantRefresh)
+	require.NotContains(t, string(events[0].Details), f.provider.mcpURL())
+
 	// The attempt is used up.
 	_, err = f.callback(administrator("1"), state)
 	requireErrHTTP(t, err, http.StatusBadRequest)

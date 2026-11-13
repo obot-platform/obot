@@ -334,3 +334,22 @@ func TestSchedulePersistsWindowBeforeCreatingJob(t *testing.T) {
 		t.Fatal("recreated schedule would reuse old job identity")
 	}
 }
+
+// TestPendingExportCarriesAdminFilters checks that the window a schedule of the admin change audit captures keeps the
+// schedule's filters, as the other export types' windows keep theirs.
+func TestPendingExportCarriesAdminFilters(t *testing.T) {
+	scheduled := &v1.ScheduledAuditLogExport{
+		Name:      "scheduled",
+		Namespace: "default",
+		UID:       "schedule-uid",
+		Spec: v1.ScheduledAuditLogExportSpec{
+			Name:         "admin",
+			Type:         types.AuditLogTypeAdmin,
+			AdminFilters: &types.AdminAuditEventExportFilters{ResourceKinds: []string{"agent"}},
+		},
+	}
+	pending := pendingExportFromSchedule(scheduled, time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC))
+	if pending.Spec.Type != types.AuditLogTypeAdmin || !reflect.DeepEqual(pending.Spec.AdminFilters, scheduled.Spec.AdminFilters) {
+		t.Fatalf("pending export spec = %#v, want the schedule's admin type and filters", pending.Spec)
+	}
+}

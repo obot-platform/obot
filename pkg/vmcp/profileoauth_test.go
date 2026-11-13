@@ -704,3 +704,46 @@ func TestRedactURL(t *testing.T) {
 		t.Errorf("RedactURL without a URL = %q", got)
 	}
 }
+
+// TestGrantRemovalsAreRecorded checks that the grants the vMCP controller deletes with a removed profile or component
+// are reported, once, and only for grants that were stored: a profile with none, a component whose grant was recorded
+// but never stored, and a deletion that is repeated, report nothing.
+func TestGrantRemovalsAreRecorded(t *testing.T) {
+	type removal struct{ vmcpID, profileID, componentID, reason string }
+	var removed []removal
+	record := func(_ context.Context, vmcpID, profileID, componentID, reason string) {
+		removed = append(removed, removal{vmcpID, profileID, componentID, reason})
+	}
+
+	grants := newMemoryGrants()
+	grants.put(grantOwner(grantExplicit), grantMCPID("static"), "a", "https://static.example.com/mcp")
+	grants.put(grantOwner(grantExplicit), grantMCPID("dynamic"), "b", "https://dynamic.example.com/mcp")
+	store := NewProfileOAuthGrantStore(grants)
+	store.SetGrantRemovalRecorder(record)
+
+	// A profile that holds grants is reported once for all of them, and one that holds none is not reported.
+	for range 2 {
+		require.NoError(t, store.DeleteProfileData(t.Context(), grantVMCP, []string{grantExplicit, grantWildcard}))
+	}
+	require.Equal(t, []removal{{grantVMCP, grantExplicit, "", "profile or vMCP removed"}}, removed)
+
+	removed = nil
+	vmcp := grantTestVMCP()
+	vmcp.Status.ProfileOAuthGrants = []v1.VMCPProfileOAuthGrant{
+		{ProfileID: grantWildcard, ComponentID: "removed", GrantIDs: []string{"grant-removed"}},
+		{ProfileID: grantExplicit, ComponentID: "never-stored", GrantIDs: []string{"grant-never"}},
+		{ProfileID: grantExplicit, ComponentID: "static", GrantIDs: []string{"grant-static"}},
+	}
+	grants.put(grantOwner(grantWildcard), grantMCPID("removed"), "grant-removed", "https://removed.example.com/mcp")
+	changed, err := store.DeleteRemovedComponentGrants(t.Context(), &vmcp)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, []removal{{grantVMCP, grantWildcard, "removed", "component removed"}}, removed)
+
+	// Without a recorder, deletions work and nothing is read for the audit.
+	quiet := newMemoryGrants()
+	quiet.put(grantOwner(grantExplicit), grantMCPID("static"), "a", "https://static.example.com/mcp")
+	queries := quiet.queries
+	require.NoError(t, NewProfileOAuthGrantStore(quiet).DeleteProfileData(t.Context(), grantVMCP, []string{grantExplicit}))
+	require.Equal(t, queries, quiet.queries)
+}

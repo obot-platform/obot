@@ -256,7 +256,8 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("invalid key ID")
 	}
 
-	if err := apiContext.GatewayClient.RevokeAPIKeyByID(apiContext.Context(), uint(keyID)); err != nil {
+	// The administrator is recorded as the actor if the key is an agent's (the admin change audit).
+	if err := apiContext.GatewayClient.RevokeAPIKeyByID(client.WithAdminUser(apiContext.Context(), apiContext.User), uint(keyID)); err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to revoke API key: %v", err))
 	}
 

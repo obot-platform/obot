@@ -828,6 +828,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	mcpSessionManager.SetProfileOAuthGrants(vmcpProfileOAuthGrants)
 	// Grants of components whose URL comes from profile configuration are bound to the URL it resolves to.
 	vmcpProfileOAuthGrants.SetComponentTargets(mcpSessionManager)
+	// Grants the vMCP controller deletes with a removed profile, vMCP or component are audited as the system's.
+	vmcpProfileOAuthGrants.SetGrantRemovalRecorder(func(ctx context.Context, vmcpID, profileID, componentID, reason string) {
+		details := map[string]any{"reason": reason}
+		if componentID != "" {
+			details["componentID"] = componentID
+		}
+		gatewayClient.RecordAdminAuditEvent(ctx, client.AdminAuditEventInput{
+			Actor:        types.AdminAuditActorSystem,
+			Action:       types.AdminAuditActionVMCPProfileOAuthDelete,
+			ResourceKind: types.AdminAuditResourceVMCPProfile,
+			ResourceID:   profileID,
+			ParentID:     vmcpID,
+			Details:      details,
+		})
+	})
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {

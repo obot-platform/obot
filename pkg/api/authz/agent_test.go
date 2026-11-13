@@ -99,6 +99,11 @@ var (
 			method: http.MethodPost,
 			path:   "/api/local-auth/change-password",
 		},
+		// The admin change audit, which records what was done to agents and so is not theirs to read.
+		{
+			method: http.MethodGet,
+			path:   "/api/admin-audit-events",
+		},
 		// The admin API of agents, which no agent reaches, not even for itself.
 		{
 			method: http.MethodGet,

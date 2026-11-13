@@ -122,6 +122,7 @@ func pendingExportFromSchedule(scheduled *v1.ScheduledAuditLogExport, cutoff tim
 			EndTime:                metav1.NewTime(cutoff),
 			Filters:                scheduled.Spec.Filters,
 			LLMFilters:             scheduled.Spec.LLMFilters,
+			AdminFilters:           scheduled.Spec.AdminFilters,
 			WithRequestAndResponse: scheduled.Spec.WithRequestAndResponse,
 			ScheduleUID:            string(scheduled.UID),
 		},

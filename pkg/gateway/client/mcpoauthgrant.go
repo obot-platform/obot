@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -243,7 +244,29 @@ func (r *MCPOAuthRefresh) Invalidate(grantID, reason string) (bool, error) {
 	result := r.db.Model(&types.MCPOAuthToken{}).
 		Where("user_id = ? AND mcp_id = ? AND grant_id = ? AND invalidated_at IS NULL", r.owner, r.mcpID, grantID).
 		Updates(map[string]any{"invalidated_at": time.Now(), "invalid_reason": reason})
-	return result.RowsAffected > 0, result.Error
+	if result.Error != nil || result.RowsAffected == 0 {
+		return false, result.Error
+	}
+	// Nobody asked for this: the provider refused the grant. It is recorded as the system's change, with the change
+	// itself when r.db is a transaction, so that every agent that stopped working because of it can be explained.
+	if vmcpID, profileID, ok := principal.ParseProfileGrant(r.owner); ok {
+		componentID, _ := strings.CutPrefix(r.mcpID, vmcpID+"/")
+		// A savepoint inside a transaction, so that a failed write cannot abort the transaction that holds the lock.
+		if err := r.db.Transaction(func(tx *gorm.DB) error {
+			return recordAdminAuditEventTx(tx, AdminAuditEventInput{
+				Actor:        types.AdminAuditActorSystem,
+				Action:       types.AdminAuditActionVMCPProfileOAuthInvalidate,
+				ResourceKind: types.AdminAuditResourceVMCPProfile,
+				ResourceID:   profileID,
+				ParentID:     vmcpID,
+				Details:      map[string]any{"componentID": componentID, "grantID": grantID, "reason": reason},
+			})
+		}); err != nil {
+			// The grant is invalid whether or not this is recorded, and the caller must go on to refuse it.
+			slog.Error("Failed to record the invalidation of a vMCP profile OAuth grant", "vmcp", vmcpID, "profile", profileID, "component", componentID, "error", err)
+		}
+	}
+	return true, nil
 }
 
 // WithMCPOAuthRefreshLock runs fn while holding the refresh lock of the token of owner for mcpID, across every

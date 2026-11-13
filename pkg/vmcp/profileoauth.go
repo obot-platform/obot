@@ -50,7 +50,14 @@ type ProfileOAuthGrantStore struct {
 	// targets resolves the URL an agent's connection to a component reaches, for components whose definition does
 	// not fix it. Without it, only a component's fixed URL is compared with its grants'.
 	targets ComponentTargetResolver
+	// removed records that Obot deleted a grant on its own (GrantRemovalRecorder). It may be nil.
+	removed GrantRemovalRecorder
 }
+
+// GrantRemovalRecorder records that a profile's grant was deleted by Obot rather than by an administrator, because
+// the profile, its vMCP, or the grant's component was removed. componentID is empty when the grants of every
+// component of the profile were deleted. Recording is best effort and must not fail the deletion it records.
+type GrantRemovalRecorder func(ctx context.Context, vmcpID, profileID, componentID, reason string)
 
 // ComponentTarget is the upstream URL that a component's connection reaches for an agent, as the agent's component
 // server is configured: from the vMCP's fixed values and the values the agent's profiles resolve to.
@@ -102,6 +109,12 @@ type AgentOAuthGrant struct {
 
 func NewProfileOAuthGrantStore(gateway ProfileOAuthGrantGateway) *ProfileOAuthGrantStore {
 	return &ProfileOAuthGrantStore{gateway: gateway}
+}
+
+// SetGrantRemovalRecorder sets the recorder of the grants the store deletes as the vMCP controller removes a profile, a
+// vMCP or a component, which no administrator asked for one at a time. Set it before the store is used.
+func (s *ProfileOAuthGrantStore) SetGrantRemovalRecorder(recorder GrantRemovalRecorder) {
+	s.removed = recorder
 }
 
 // SetComponentTargets sets the resolver of the URLs agents' connections to components reach, which grants are bound to
@@ -198,12 +211,24 @@ func (s *ProfileOAuthGrantStore) ProfilesWithData(ctx context.Context, vmcpID st
 // so it can be called again after any failure. The vMCP controller removes the profiles' records from status after
 // it succeeds.
 func (s *ProfileOAuthGrantStore) DeleteProfileData(ctx context.Context, vmcpID string, profileIDs []string) error {
+	// Only the profiles that hold a grant are recorded, so a profile that never had one adds nothing to the audit.
+	// A failure to find them is not a failure to delete.
+	var held []string
+	if s.removed != nil {
+		var err error
+		if held, err = s.ProfilesWithData(ctx, vmcpID, profileIDs); err != nil {
+			slog.Warn("Failed to find the profile OAuth grants about to be deleted, so their deletion is not audited", "vmcp", vmcpID, "error", err)
+		}
+	}
 	owners := make([]string, 0, len(profileIDs))
 	for _, id := range profileIDs {
 		owners = append(owners, principal.ProfileGrant(vmcpID, id))
 	}
 	if err := s.gateway.DeleteMCPOAuthGrantsForOwners(ctx, owners); err != nil {
 		return fmt.Errorf("delete OAuth grants of vMCP %q profiles: %w", vmcpID, err)
+	}
+	for _, profileID := range held {
+		s.removed(ctx, vmcpID, profileID, "", "profile or vMCP removed")
 	}
 	return nil
 }
@@ -691,10 +716,22 @@ func (s *ProfileOAuthGrantStore) DeleteRemovedComponentGrants(ctx context.Contex
 			continue
 		}
 		owner := principal.ProfileGrant(vmcp.Name, record.ProfileID)
+		// A grant is recorded before it is stored, so one is recorded as deleted only if one was stored.
+		var stored int
+		if s.removed != nil {
+			if grants, err := s.gateway.MCPOAuthGrantMetadata(ctx, []string{owner}, []string{ProfileOAuthGrantMCPID(vmcp.Name, record.ComponentID)}); err != nil {
+				slog.Warn("Failed to read the OAuth grant about to be deleted, so its deletion is not audited", "vmcp", vmcp.Name, "profile", record.ProfileID, "component", record.ComponentID, "error", err)
+			} else {
+				stored = len(grants)
+			}
+		}
 		if err := s.gateway.DeleteMCPOAuthGrants(ctx, owner, ProfileOAuthGrantMCPID(vmcp.Name, record.ComponentID), record.GrantIDs); err != nil {
 			return false, fmt.Errorf("delete OAuth grants of removed component %q of vMCP %q profile %q: %w", record.ComponentID, vmcp.Name, record.ProfileID, err)
 		}
 		slog.Info("Deleted the OAuth grants of a removed vMCP component", "vmcp", vmcp.Name, "profile", record.ProfileID, "component", record.ComponentID)
+		if stored > 0 {
+			s.removed(ctx, vmcp.Name, record.ProfileID, record.ComponentID, "component removed")
+		}
 	}
 	if len(kept) == len(vmcp.Status.ProfileOAuthGrants) {
 		return false, nil

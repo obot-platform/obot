@@ -104,7 +104,8 @@ type AuditLogActor struct {
 	ActorType AuditLogActorType `json:"actorType"`
 	ID        string            `json:"id,omitempty"`
 	// DisplayName names the actor when it is an agent, from the agent's current record, also after the agent is
-	// deleted. It is empty when the agent's record cannot be found, and for other actors.
+	// deleted. In the admin audit it names the administrator. It is empty when the record cannot be found, and for
+	// other actors.
 	DisplayName string `json:"displayName,omitempty"`
 	// CredentialID records authentication context when the actor itself is a known user or agent.
 	CredentialID string `json:"credentialID,omitempty"`

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -141,7 +142,7 @@ func (h *AgentIdentityHandler) Create(req api.Context) error {
 	// The creator is the calling admin. It is 0 for a caller with no user row, such as the bootstrap admin.
 	agent.CreatorUserID = req.UserID()
 
-	created, err := req.GatewayClient.CreateAgent(req.Context(), agent)
+	created, err := req.GatewayClient.CreateAgent(adminAuditContext(req), agent)
 	if err != nil {
 		return agentIdentityError(err)
 	}
@@ -297,7 +298,7 @@ func (h *AgentIdentityHandler) Update(req api.Context) error {
 	}
 	update.ID = agent.ID
 
-	updated, err := req.GatewayClient.UpdateAgent(req.Context(), update)
+	updated, err := req.GatewayClient.UpdateAgent(adminAuditContext(req), update)
 	if err != nil {
 		return agentIdentityError(err)
 	}
@@ -318,7 +319,7 @@ func (h *AgentIdentityHandler) Disable(req api.Context) error {
 		return err
 	}
 
-	disabled, err := req.GatewayClient.DisableAgent(req.Context(), agent.ID, strings.TrimSpace(body.Reason))
+	disabled, err := req.GatewayClient.DisableAgent(adminAuditContext(req), agent.ID, strings.TrimSpace(body.Reason))
 	if err != nil {
 		return agentIdentityError(err)
 	}
@@ -332,7 +333,7 @@ func (h *AgentIdentityHandler) Enable(req api.Context) error {
 		return err
 	}
 
-	enabled, err := req.GatewayClient.EnableAgent(req.Context(), agent.ID)
+	enabled, err := req.GatewayClient.EnableAgent(adminAuditContext(req), agent.ID)
 	if err != nil {
 		return agentIdentityError(err)
 	}
@@ -346,7 +347,7 @@ func (h *AgentIdentityHandler) Delete(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := req.GatewayClient.DeleteAgent(req.Context(), agent.ID); err != nil {
+	if err := req.GatewayClient.DeleteAgent(adminAuditContext(req), agent.ID); err != nil {
 		return agentIdentityError(err)
 	}
 	req.WriteHeader(http.StatusNoContent)
@@ -396,7 +397,7 @@ func (h *AgentIdentityHandler) CreateAPIKey(req api.Context) error {
 		return err
 	}
 
-	created, err := req.GatewayClient.CreateAgentAPIKey(req.Context(), agent.ID, gtypes.AgentAPIKeyCreateRequest{
+	created, err := req.GatewayClient.CreateAgentAPIKey(adminAuditContext(req), agent.ID, gtypes.AgentAPIKeyCreateRequest{
 		Name:              body.Name,
 		Description:       body.Description,
 		ExpiresAt:         timeFromAPI(body.ExpiresAt),
@@ -437,7 +438,7 @@ func (h *AgentIdentityHandler) RevokeAPIKey(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := req.GatewayClient.RevokeAgentAPIKey(req.Context(), agent.ID, key.ID); err != nil {
+	if err := req.GatewayClient.RevokeAgentAPIKey(adminAuditContext(req), agent.ID, key.ID); err != nil {
 		return agentIdentityError(err)
 	}
 	req.WriteHeader(http.StatusNoContent)
@@ -605,4 +606,11 @@ func timeFromAPI(t *types.Time) *time.Time {
 		return nil
 	}
 	return &t.Time
+}
+
+// adminAuditContext returns the request's context with the calling administrator recorded as the actor of the admin
+// audit events that gateway changes made with it write. The routes that use it are administrators' alone, so the caller
+// is one; the bootstrap administrator is recorded under its own ID.
+func adminAuditContext(req api.Context) context.Context {
+	return gclient.WithAdminUser(req.Context(), req.User)
 }

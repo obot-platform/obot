@@ -284,6 +284,20 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 		return err
 	}
 
+	// Recorded once the grant is stored and published, as the administrator who authorized it. The token row keeps only
+	// the latest authorization, so this is the history. The target is its hostname: the URL may carry configured values.
+	f.stateMgr.gatewayClient.RecordAdminAuditEvent(req.Context(), client.AdminAuditEventInput{
+		Actor:        consumed.GrantInitiatorUserID,
+		Action:       gatewaytypes.AdminAuditActionVMCPProfileOAuthAuthorize,
+		ResourceKind: gatewaytypes.AdminAuditResourceVMCPProfile,
+		ResourceID:   profileID,
+		ParentID:     vmcpID,
+		Details: map[string]any{
+			"componentID": componentID,
+			"scopes":      conf.Scopes,
+			"hostname":    vmcpconfig.URLHostname(consumed.URL),
+		},
+	})
 	slog.Info("Stored a vMCP profile's OAuth grant", "vmcp", vmcpID, "profile", profileID, "component", componentID, "administrator", consumed.GrantInitiatorUserID, "scopes", strings.Join(conf.Scopes, " "))
 	if relayed {
 		// Tell the waiting relay that the authorization is complete.

@@ -99,6 +99,65 @@ func TestValidateAuditLogExportRequest(t *testing.T) {
 			wantErr: "filters can only be set for MCP",
 		},
 		{
+			name: "valid admin",
+			req: types.AuditLogExportCreateRequest{
+				Name:         "export",
+				Type:         types.AuditLogTypeAdmin,
+				Bucket:       "bucket",
+				StartTime:    types.Time{Time: now},
+				EndTime:      types.Time{Time: now.Add(time.Hour)},
+				AdminFilters: &types.AdminAuditEventExportFilters{ResourceKinds: []string{"agent"}},
+			},
+			wantType: types.AuditLogTypeAdmin,
+		},
+		{
+			name: "admin rejects MCP filters",
+			req: types.AuditLogExportCreateRequest{
+				Name:      "export",
+				Type:      types.AuditLogTypeAdmin,
+				Bucket:    "bucket",
+				StartTime: types.Time{Time: now},
+				EndTime:   types.Time{Time: now.Add(time.Hour)},
+				Filters:   &types.AuditLogExportFilters{UserIDs: []string{"user-1"}},
+			},
+			wantErr: "filters can only be set for MCP",
+		},
+		{
+			name: "admin rejects LLM filters",
+			req: types.AuditLogExportCreateRequest{
+				Name:       "export",
+				Type:       types.AuditLogTypeAdmin,
+				Bucket:     "bucket",
+				StartTime:  types.Time{Time: now},
+				EndTime:    types.Time{Time: now.Add(time.Hour)},
+				LLMFilters: &types.LLMAuditLogExportFilters{UserIDs: []string{"user-1"}},
+			},
+			wantErr: "llmFilters can only be set for LLM",
+		},
+		{
+			name: "LLM rejects admin filters",
+			req: types.AuditLogExportCreateRequest{
+				Name:         "export",
+				Type:         types.AuditLogTypeLLM,
+				Bucket:       "bucket",
+				StartTime:    types.Time{Time: now},
+				EndTime:      types.Time{Time: now.Add(time.Hour)},
+				AdminFilters: &types.AdminAuditEventExportFilters{Actors: []string{"1"}},
+			},
+			wantErr: "adminFilters can only be set for admin",
+		},
+		{
+			name: "MCP rejects admin filters",
+			req: types.AuditLogExportCreateRequest{
+				Name:         "export",
+				Bucket:       "bucket",
+				StartTime:    types.Time{Time: now},
+				EndTime:      types.Time{Time: now.Add(time.Hour)},
+				AdminFilters: &types.AdminAuditEventExportFilters{Actors: []string{"1"}},
+			},
+			wantErr: "adminFilters can only be set for admin",
+		},
+		{
 			name: "MCP rejects LLM filters",
 			req: types.AuditLogExportCreateRequest{
 				Name:       "export",

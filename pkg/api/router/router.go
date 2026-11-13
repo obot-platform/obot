@@ -142,6 +142,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Agent identities. These are admin-only routes (see authz).
 	agentIdentities.RegisterRoutes(mux.HandleFunc)
+	handlers.NewAdminAuditEventHandler().RegisterRoutes(mux.HandleFunc)
 
 	// License
 	if services.BillingProvider != nil {

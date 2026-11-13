@@ -118,6 +118,17 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	var stored v1.VMCP
 	require.NoError(t, storage.Get(t.Context(), key, &stored))
 	require.Empty(t, stored.Status.ProfileOAuthGrants)
+
+	// Only the reset that deleted a grant is recorded, as the administrator's, and nothing of the grant is in it.
+	events := storedAdminAuditEvents(t, gatewayClient)
+	require.Len(t, events, 1)
+	require.Equal(t, "admin", events[0].ActorUserID)
+	require.Equal(t, "vmcp.profile.oauth.reset", events[0].Action)
+	require.Equal(t, "vmcpProfile", events[0].ResourceKind)
+	require.Equal(t, "vp1agents", events[0].ResourceID)
+	require.Equal(t, vmcp.Name, events[0].ParentID)
+	require.Equal(t, map[string]any{"componentID": "remote"}, adminAuditEventDetails(t, events[0]))
+	require.NotContains(t, string(events[0].Details), "secret-")
 }
 
 // TestVMCPProfileOAuthFollowsAgentIdentities checks that the routes exist only while agent identities are enabled,

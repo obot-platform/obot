@@ -341,7 +341,26 @@ func (c *Client) CreateAgentAPIKey(ctx context.Context, agentID uint, req types.
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
 		resp, err = c.createAPIKey(tx, types.APIKey{AgentID: &agentID, Name: req.Name, Description: req.Description, ExpiresAt: req.ExpiresAt, APIKeyScopes: scopes})
-		return err
+		if err != nil {
+			return err
+		}
+		// The secret is in resp.Key, which the event never sees.
+		details := map[string]any{
+			"name":              resp.Name,
+			"canAccessSkills":   scopes.CanAccessSkills,
+			"canAccessLLMProxy": scopes.CanAccessLLMProxy,
+			"mcpServerIDs":      scopes.MCPServerIDs,
+		}
+		if resp.ExpiresAt != nil {
+			details["expiresAt"] = resp.ExpiresAt.UTC()
+		}
+		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+			Action:       types.AdminAuditActionAgentKeyCreate,
+			ResourceKind: types.AdminAuditResourceAPIKey,
+			ResourceID:   strconv.FormatUint(uint64(resp.ID), 10),
+			ParentID:     strconv.FormatUint(uint64(agentID), 10),
+			Details:      details,
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -531,6 +550,12 @@ func ParseAPIKey(key string) (ownerKind principal.Kind, ownerID uint, keyID uint
 	return ownerKind, uint(parsedOwnerID), uint(parsedKeyID), parts[3], nil
 }
 
+// IsAgentAPIKey reports whether value has the prefix of an agent's API key. It does not check that the rest of value is
+// well-formed, so that a malformed agent key is still recognized as one.
+func IsAgentAPIKey(value string) bool {
+	return strings.HasPrefix(value, system.AgentAPIKeyPrefix+"-")
+}
+
 // ParseRedactedAPIKey extracts the owner and key IDs from the non-secret API
 // key prefix emitted by nanobot audit logs. Nanobot retains the first three
 // hyphen-delimited components or 12 characters, whichever is longer, so short
@@ -610,15 +635,38 @@ func (c *Client) RevokeAPIKeyByID(ctx context.Context, keyID uint) error {
 	return c.revokeAPIKey(ctx, keyID, nil)
 }
 
-// revokeAPIKey revokes the API key with keyID, if owner owns it. A nil owner revokes the key whoever owns it.
+// revokeAPIKey revokes the API key with keyID, if owner owns it. A nil owner revokes the key whoever owns it. Revoking
+// a key of an agent as an administrator (WithAdminActor) records the revocation in the same transaction. Revoking a
+// key that is revoked, or missing, succeeds and records nothing.
 func (c *Client) revokeAPIKey(ctx context.Context, keyID uint, owner *principal.Principal) error {
-	db := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", keyID)
-	if owner != nil {
-		db = whereAPIKeyOwner(db, *owner)
-	}
-	result := db.Where("revoked_at IS NULL").Update("revoked_at", time.Now().UTC())
-	if result.Error != nil {
-		return fmt.Errorf("failed to revoke API key: %w", result.Error)
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		db := tx.Model(&types.APIKey{}).Where("id = ?", keyID)
+		if owner != nil {
+			db = whereAPIKeyOwner(db, *owner)
+		}
+		var key types.APIKey
+		if err := db.Select("id", "agent_id", "name").Take(&key).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("failed to revoke API key: %w", err)
+		}
+
+		result := tx.Model(&types.APIKey{}).Where("id = ? AND revoked_at IS NULL", keyID).Update("revoked_at", time.Now().UTC())
+		if result.Error != nil {
+			return fmt.Errorf("failed to revoke API key: %w", result.Error)
+		}
+		if result.RowsAffected == 0 || key.AgentID == nil {
+			return nil
+		}
+		return recordContextAdminAuditEventTx(ctx, tx, AdminAuditEventInput{
+			Action:       types.AdminAuditActionAgentKeyRevoke,
+			ResourceKind: types.AdminAuditResourceAPIKey,
+			ResourceID:   strconv.FormatUint(uint64(keyID), 10),
+			ParentID:     strconv.FormatUint(uint64(*key.AgentID), 10),
+			Details:      map[string]any{"name": key.Name},
+		})
+	}); err != nil {
+		return err
 	}
 	c.invalidateValidatedAPIKeysByID(keyID)
 	return nil
