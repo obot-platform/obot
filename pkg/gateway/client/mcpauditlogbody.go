@@ -511,23 +511,13 @@ func (c *Client) propertyTransformer() value.Transformer {
 }
 
 // auditBodyStoredState reports whether a row may reference the shared body stored under hash. A
-// stored copy is only usable if this writer can read it, it is a body rather than a reference,
-// and it is encrypted exactly when this writer encrypts.
-//
-// Without this check a writer would reference, and keep refreshing, a copy nobody with the
-// current configuration can read: one left by a replica whose key was lost, or one put there by
-// something other than a writer. Every later row with that result would be unreadable for as
-// long as the result stayed in use. Leaving such a copy unreferenced lets retention remove it,
-// after which the body is stored afresh.
+// stored copy is usable only if this writer can read it, it is a body rather than a reference,
+// and it is encrypted exactly when this writer encrypts. Referencing an unusable copy would keep
+// retention from removing it and make every later row with that result unreadable.
 //
 // A usable answer is remembered for auditBodyKnownFreshFor and an unusable one for
-// auditBodyUnusableFor; that nothing is stored is not remembered. Nothing else marks a copy
-// usable, so this replica reads a copy before relying on what it remembers about it, and reads
-// it again when that time is up. A copy stored after this check and before the row is written
-// is the exception: prepareAuditBodiesForStore does not read it.
-//
-// If the lookup fails, the answer is unusable and lookups are skipped for
-// auditBodyStoredCheckRetryAfter. What is already remembered is still used during that time.
+// auditBodyUnusableFor. If the lookup fails, the answer is unusable and lookups are skipped for
+// auditBodyStoredCheckRetryAfter.
 func (c *Client) auditBodyStoredState(ctx context.Context, transformer value.Transformer, hash []byte, now time.Time) auditBodyStored {
 	id := [auditBodyHashLen]byte(hash)
 
