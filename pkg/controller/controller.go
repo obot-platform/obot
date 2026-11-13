@@ -214,7 +214,7 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 		}
 	}
 	// Delete expired and retained data from the leader only, so replicas don't repeat the same deletes.
-	c.services.GatewayClient.StartCleanups(ctx, c.services.EntitlementProvider)
+	c.services.GatewayClient.StartCleanups(ctx, c.services.EntitlementProvider, c.services.EgressAuditLogRetentionDays)
 	if c.services.Substrate != nil {
 		handler := &agentinstance.Handler{Substrate: c.services.Substrate, Gateway: c.services.GatewayClient}
 		go handler.RunMaintenance(ctx, client)

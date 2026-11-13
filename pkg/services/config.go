@@ -210,6 +210,8 @@ type Services struct {
 	MDMAssetSource              string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
+	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
+	EgressAuditLogRetentionDays int
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -1237,6 +1239,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DevUIPort:                    devPort,
 		DevMode:                      config.DevMode,
 		UserUIPort:                   config.UserUIPort,
+		EgressAuditLogRetentionDays:  config.EgressAuditLogRetentionDays,
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,

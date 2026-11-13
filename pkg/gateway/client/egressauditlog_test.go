@@ -78,6 +78,32 @@ func TestEgressAuditPayloadAccess(t *testing.T) {
 	}
 }
 
+func TestStartCleanupsDeletesExpiredEgressAuditLogs(t *testing.T) {
+	c := newTestClient(t)
+	for _, id := range []string{"expired", "kept"} {
+		require.NoError(t, c.SaveEgressAuditLog(t.Context(), types.EgressAuditLog{
+			ID:        id,
+			CreatedAt: time.Now().UTC(),
+			UserID:    "7",
+		}))
+	}
+	require.NoError(t, c.db.WithContext(t.Context()).Model(new(types.EgressAuditLog)).
+		Where("id = ?", "expired").
+		UpdateColumn("updated_at", time.Now().UTC().AddDate(0, 0, -2)).Error)
+
+	// The leader deletes logs older than the retention once it starts its cleanups.
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	c.StartCleanups(ctx, noEntitlements, 1)
+
+	require.Eventually(t, func() bool {
+		_, err := c.GetEgressAuditLog(t.Context(), "expired", false)
+		return errors.Is(err, gorm.ErrRecordNotFound)
+	}, 5*time.Second, 20*time.Millisecond)
+	_, err := c.GetEgressAuditLog(t.Context(), "kept", false)
+	require.NoError(t, err)
+}
+
 func TestBufferedEgressAuditFinalStatusOrdering(t *testing.T) {
 	for _, finalFirst := range []bool{false, true} {
 		t.Run(map[bool]string{false: "capture-first", true: "status-first"}[finalFirst], func(t *testing.T) {

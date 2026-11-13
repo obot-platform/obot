@@ -1666,7 +1666,7 @@ func TestStartCleanupsStartsTheExpiryOfDeletionMarks(t *testing.T) {
 	// The leader expires the mark once it starts its cleanups.
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	c.StartCleanups(ctx, noEntitlements)
+	c.StartCleanups(ctx, noEntitlements, 0)
 	deadline := time.Now().Add(5 * time.Second)
 	for len(pendingDeletions(t, c)) != 0 {
 		if time.Now().After(deadline) {

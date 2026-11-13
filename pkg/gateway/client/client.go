@@ -128,12 +128,14 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 
 // StartCleanups starts the loops that delete expired and retained data from the database. Only one replica needs to
 // run them, so the controller starts them once this replica is elected leader. Calling it again does nothing.
-func (c *Client) StartCleanups(ctx context.Context, entitlements EntitlementProvider) {
+// Egress audit logs are kept for egressAuditLogRetentionDays, or forever when it's 0.
+func (c *Client) StartCleanups(ctx context.Context, entitlements EntitlementProvider, egressAuditLogRetentionDays int) {
 	c.startOnce.Do(func() {
 		go c.runPendingStateCleanup(ctx)
 		go c.runTokenCleanup(ctx)
 		go c.runRetentionCleanup(ctx, entitlements)
 		go c.runDeviceScanCleanup(ctx, c.deviceScanRetentionDays)
+		go c.runEgressAuditCleanup(ctx, egressAuditLogRetentionDays)
 		go c.runSCIMGroupDeletionMarkExpiry(ctx)
 	})
 }

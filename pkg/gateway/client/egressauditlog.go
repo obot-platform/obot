@@ -156,7 +156,7 @@ func (c *Client) GetEgressAuditLog(ctx context.Context, id string, auditor bool)
 	return &entry, nil
 }
 
-func (c *Client) RunEgressAuditCleanup(ctx context.Context, days int) {
+func (c *Client) runEgressAuditCleanup(ctx context.Context, days int) {
 	if days <= 0 {
 		return
 	}
