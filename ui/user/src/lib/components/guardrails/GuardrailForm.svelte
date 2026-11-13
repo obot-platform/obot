@@ -1,8 +1,10 @@
 <script lang="ts">
+	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -15,6 +17,7 @@
 	} from '$lib/services/llm-gateway/guardrail-text';
 	import {
 		createGuardrail,
+		deleteGuardrail,
 		getGuardrail,
 		listGuardrailProviders,
 		loadGuardrailFieldOptions,
@@ -29,6 +32,7 @@
 	} from '$lib/services/llm-gateway/guardrails';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
+	import { Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -57,6 +61,7 @@
 
 	let loading = $state(true);
 	let saving = $state(false);
+	let deleting = $state(false);
 	let error = $state('');
 	let loadError = $state('');
 
@@ -256,6 +261,22 @@
 		}
 	}
 
+	async function remove() {
+		if (!guardrailID) return;
+		saving = true;
+		error = '';
+		try {
+			await deleteGuardrail(guardrailID, { dontLogErrors: true });
+			deleting = false;
+			onCancel();
+		} catch (e) {
+			error = parseErrorContent(e).message;
+			deleting = false;
+		} finally {
+			saving = false;
+		}
+	}
+
 	function toggleOption(field: string, option: string, checked: boolean) {
 		const current = (values[field] as string[]) ?? [];
 		values[field] = checked ? [...current, option] : current.filter((o) => o !== option);
@@ -287,6 +308,25 @@
 	<div class="notification-error rounded-md p-3 text-sm">{loadError}</div>
 {:else}
 	<div class={twMerge('flex flex-col gap-6', !embedded && 'pb-4')}>
+		{#if guardrailID && !embedded}
+			<header class="flex w-full items-center justify-between gap-4">
+				<div class="flex items-center gap-2">
+					<h1 class="flex items-center gap-4 text-2xl font-semibold">
+						{title}
+					</h1>
+				</div>
+				{#if !readonly}
+					<IconButton
+						variant="danger2"
+						disabled={saving}
+						tooltip={{ text: m.guardrails_delete_tooltip() }}
+						onclick={() => (deleting = true)}
+					>
+						<Trash2 class="size-4" />
+					</IconButton>
+				{/if}
+			</header>
+		{/if}
 		<section class="paper">
 			<div>
 				<h2 class="text-lg font-semibold">{guardrailTypeLabel(provider)}</h2>
@@ -550,9 +590,17 @@
 			)}
 		>
 			<button class="btn btn-secondary text-sm" onclick={onCancel}>{m.common_cancel()}</button>
-			<button class="btn btn-primary text-sm" disabled={!valid || saving} onclick={save}>
+			<button class="btn btn-primary text-sm min-w-19" disabled={!valid || saving} onclick={save}>
 				{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 			</button>
 		</div>
 	{/if}
+
+	<Confirm
+		msg={m.core_delete_named_component({ name: name.trim() || m.guardrails_fallback_title() })}
+		show={deleting}
+		loading={saving}
+		onsuccess={remove}
+		oncancel={() => (deleting = false)}
+	/>
 {/if}

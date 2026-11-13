@@ -183,6 +183,7 @@ describe('provider authentication', () => {
 			await submit.click();
 			await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
 			expect(saved.mock.calls[0][0]).toMatchObject({ value: '' });
+			await expect.element(dialog).not.toBeInTheDocument();
 			component.open(key);
 			await dialog.getByRole('radio', { name: 'API Key', exact: true }).click();
 			await expect.element(submit).toBeDisabled();

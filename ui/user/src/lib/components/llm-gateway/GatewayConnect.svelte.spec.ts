@@ -61,29 +61,34 @@ describe('GatewayConnect', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('filters the client list by name and description', async () => {
+	it('filters the client list by name', async () => {
 		render(GatewayConnect, { obotURL });
-		const search = page.getByPlaceholder('Search clients...');
 
-		await search.fill('curl');
-		await expect.element(page.getByRole('button', { name: 'curl', exact: true })).toBeVisible();
+		await page.getByPlaceholder('Search clients...').fill('curl');
 		await expect
 			.element(page.getByRole('button', { name: 'Claude Code', exact: true }))
 			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'curl', exact: true })).toBeVisible();
+	});
 
-		await search.fill('JetBrains');
-		await expect.element(page.getByRole('button', { name: 'Cline', exact: true })).toBeVisible();
+	it('filters the client list by description', async () => {
+		render(GatewayConnect, { obotURL });
+
+		await page.getByPlaceholder('Search clients...').fill('JetBrains');
 		await expect
 			.element(page.getByRole('button', { name: 'curl', exact: true }))
 			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Cline', exact: true })).toBeVisible();
+	});
 
-		await search.fill('no-such-client');
-		await expect
-			.element(page.getByText('No clients match "no-such-client".'), { timeout: 2000 })
-			.toBeVisible();
+	it('says when no client matches the search', async () => {
+		render(GatewayConnect, { obotURL });
+
+		await page.getByPlaceholder('Search clients...').fill('no-such-client');
 		await expect
 			.element(page.getByRole('button', { name: 'Cline', exact: true }))
 			.not.toBeInTheDocument();
+		await expect.element(page.getByText('No clients match "no-such-client".')).toBeVisible();
 	});
 
 	it('opens Claude Code setup pointed at this Obot server', async () => {

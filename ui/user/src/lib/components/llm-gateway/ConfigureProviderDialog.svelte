@@ -1,8 +1,6 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import Layout from '$lib/components/Layout.svelte';
-	import Skeleton from '$lib/components/Skeleton.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import ProviderKeyDialog from '$lib/components/llm-gateway/ProviderKeyDialog.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
@@ -17,7 +15,6 @@
 		getProvider,
 		getSettings,
 		listProviderKeys,
-		listProviders,
 		refreshProviderModels,
 		secretDisplay,
 		syncModels,
@@ -35,23 +32,43 @@
 	} from '$lib/services/llm-gateway/providers';
 	import { errors, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { goto, resolve } from '$lib/url';
+	import { resolve } from '$lib/url';
 	import { Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
+	import { twMerge } from 'tailwind-merge';
 
-	const PROVIDERS_URL = '/models?view=providers';
+	interface Props {
+		keyNamesByProvider?: Record<string, string[]>;
+		onClosed?: () => void;
+	}
 
-	let name = $derived(decodeURIComponent(page.params.name ?? ''));
+	let { keyNamesByProvider = {}, onClosed }: Props = $props();
+
+	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let name = $state('');
 	let provider = $state<Provider>();
 	let keys = $state<ProviderKey[]>([]);
-	let allKeyNames = $state<string[]>([]);
+	let allKeyNames = $derived([
+		...new Set([
+			...Object.entries(keyNamesByProvider).flatMap(([p, names]) => (p === name ? [] : names)),
+			...keys.map((k) => k.name)
+		])
+	]);
 	let models = $state<string[]>([]);
-	let loading = $state(true);
 	let saving = $state(false);
 	let refreshing = $state(false);
 	let deleting = $state(false);
 	let keyToDelete = $state<ProviderKey>();
 	let keyDialog = $state<ReturnType<typeof ProviderKeyDialog>>();
+	// Bumps whenever a load is superseded, so a closed or replaced provider cannot land late.
+	let requestId = 0;
+	// Stops the background model reload once the dialog is closed.
+	let left = false;
+	// Add Key borrows the screen, so this close should not dismiss the provider.
+	let pausedForKey = false;
+	// Saving a new base URL removes the provider's keys, so they aren't sent to the new
+	// address; the admin confirms first.
+	let confirmingBaseURLChange = $state(false);
 
 	// Editable network settings.
 	let baseURL = $state('');
@@ -85,6 +102,7 @@
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let base = $derived(provider?.custom_provider_config?.base_provider_type);
 	let isAnthropic = $derived(name === 'anthropic' && !base);
+	let title = $derived(base ? name : providerLabel(name));
 
 	// A provider serves the Responses API unless its allowed requests leave it out.
 	function servesResponses(p: Provider) {
@@ -92,31 +110,76 @@
 		return !allowed || !!allowed.responses;
 	}
 
-	async function load() {
-		loading = true;
-		try {
-			provider = await getProvider(name);
-			const nc = provider.network_config ?? {};
-			baseURL = nc.base_url ?? '';
-			timeout = nc.default_request_timeout_in_seconds ?? 300;
-			retries = nc.max_retries ?? 0;
-			backoffInitial = nc.retry_backoff_initial ?? 0;
-			backoffMax = nc.retry_backoff_max ?? 0;
-			streamIdle = nc.stream_idle_timeout_in_seconds ?? 0;
-			allowPrivate = !!nc.allow_private_network;
-			headers = Object.entries(nc.extra_headers ?? {}).map(([key, value]) => ({ key, value }));
-			concurrency = provider.concurrency_and_buffer_size?.concurrency ?? 1000;
-			bufferSize = provider.concurrency_and_buffer_size?.buffer_size ?? 5000;
-			responsesAPI = servesResponses(provider);
-			await Promise.all([loadKeys(), loadModels(), loadSubscriptionSetting()]);
-		} finally {
-			loading = false;
-		}
+	// Loads the provider, then opens. Callers show their own progress until this resolves.
+	export async function open(providerName: string): Promise<boolean> {
+		const id = ++requestId;
+		left = false;
+		name = providerName;
+		provider = undefined;
+		keys = [];
+		models = [];
+		confirmingBaseURLChange = false;
+		deleting = false;
+		keyToDelete = undefined;
+		await load(id);
+		if (id !== requestId || !provider) return false;
+		await tick();
+		dialog?.open();
+		return true;
+	}
+
+	export function close() {
+		dialog?.close();
+	}
+
+	function addKey() {
+		pausedForKey = true;
+		dialog?.close();
+		keyDialog?.open();
+	}
+
+	function resumeAfterKey() {
+		if (!pausedForKey) return;
+		pausedForKey = false;
+		dialog?.open();
+	}
+
+	function handleClose() {
+		if (pausedForKey) return;
+		requestId += 1;
+		left = true;
+		confirmingBaseURLChange = false;
+		deleting = false;
+		keyToDelete = undefined;
+		onClosed?.();
+	}
+
+	async function load(id: number) {
+		const providerName = name;
+		const next = await getProvider(providerName);
+		if (id !== requestId) return;
+		provider = next;
+		const nc = next.network_config ?? {};
+		baseURL = nc.base_url ?? '';
+		timeout = nc.default_request_timeout_in_seconds ?? 300;
+		retries = nc.max_retries ?? 0;
+		backoffInitial = nc.retry_backoff_initial ?? 0;
+		backoffMax = nc.retry_backoff_max ?? 0;
+		streamIdle = nc.stream_idle_timeout_in_seconds ?? 0;
+		allowPrivate = !!nc.allow_private_network;
+		headers = Object.entries(nc.extra_headers ?? {}).map(([key, value]) => ({ key, value }));
+		concurrency = next.concurrency_and_buffer_size?.concurrency ?? 1000;
+		bufferSize = next.concurrency_and_buffer_size?.buffer_size ?? 5000;
+		responsesAPI = servesResponses(next);
+		await Promise.all([loadKeys(), loadModels(), loadSubscriptionSetting()]);
 	}
 
 	async function loadSubscriptionSetting() {
 		if (!isAnthropic) return;
-		subscriptionPassthrough = (await getSettings()).subscriptionPassthrough;
+		const id = requestId;
+		const allowed = (await getSettings()).subscriptionPassthrough;
+		if (id !== requestId) return;
+		subscriptionPassthrough = allowed;
 	}
 
 	async function setSubscriptionPassthrough(allowed: boolean) {
@@ -138,21 +201,23 @@
 	}
 
 	async function loadKeys() {
-		keys = await listProviderKeys(name);
-		const all = await listProviders();
-		const lists = await Promise.all(all.map((p) => listProviderKeys(p.name).catch(() => [])));
-		allKeyNames = lists.flat().map((k) => k.name);
+		const id = requestId;
+		const providerName = name;
+		const nextKeys = await listProviderKeys(providerName);
+		if (id !== requestId || providerName !== name) return;
+		keys = nextKeys;
 	}
 
 	// The model sync runs in the background and reports no completion, so reload the provider's
-	// models until they change, for up to 15 seconds or until the page is left. Callers don't
+	// models until they change, for up to 15 seconds or until the dialog is closed. Callers don't
 	// wait for it: a sync that finds nothing new changes nothing.
-	let left = false;
 	onDestroy(() => (left = true));
 	async function loadModelsAfterSync() {
+		const id = requestId;
 		const before = models.join('\n');
-		for (let i = 0; i < 15 && !left; i++) {
+		for (let i = 0; i < 15 && !left && id === requestId; i++) {
 			await new Promise((r) => setTimeout(r, 1000));
+			if (left || id !== requestId) return;
 			await loadModels().catch(() => {});
 			if (models.join('\n') !== before) return;
 		}
@@ -161,17 +226,17 @@
 	// Obot's models for this provider, which profiles grant: what the provider lists, and for an
 	// Anthropic provider used only for Claude subscriptions, its models from the model catalog.
 	async function loadModels() {
-		const prefix = `${name}/`;
-		models = (await AdminService.listModels({ all: true }))
+		const id = requestId;
+		const providerName = name;
+		const prefix = `${providerName}/`;
+		const next = (await AdminService.listModels({ all: true }))
 			.map((model) => model.targetModel ?? '')
 			.filter((target) => target.startsWith(prefix))
 			.map((target) => target.slice(prefix.length))
 			.sort();
+		if (id !== requestId || providerName !== name) return;
+		models = next;
 	}
-
-	// Saving a new base URL removes the provider's keys, so they aren't sent to the new
-	// address; the admin confirms first.
-	let confirmingBaseURLChange = $state(false);
 
 	function sameBaseURL(a: string, b: string) {
 		return a.trim().replace(/\/+$/, '') === b.trim().replace(/\/+$/, '');
@@ -189,6 +254,7 @@
 	async function saveNetwork(removeKeys = false) {
 		if (!provider) return;
 		saving = true;
+		let saved = false;
 		try {
 			const extra = Object.fromEntries(
 				headers.filter((h) => h.key.trim()).map((h) => [h.key.trim(), h.value])
@@ -229,6 +295,7 @@
 			responsesAPI = servesResponses(provider);
 			success.add(m.models_providers_settings_saved());
 			if (removeKeys) await loadKeys();
+			saved = true;
 		} catch (e) {
 			// The gateway calls the queue size the buffer size; use the field's name instead.
 			const { message } = parseErrorContent(e);
@@ -239,6 +306,7 @@
 			);
 		} finally {
 			saving = false;
+			if (saved) dialog?.close();
 		}
 	}
 
@@ -264,8 +332,6 @@
 		await loadKeys();
 	}
 
-	onMount(load);
-
 	let keyRows = $derived(
 		keys.map((k) => ({
 			...k,
@@ -280,36 +346,20 @@
 	);
 </script>
 
-<svelte:head>
-	<title>Obot | {providerLabel(name)}</title>
-</svelte:head>
-
-<Layout
-	title={base ? name : providerLabel(name)}
-	showBackButton
-	onBackButtonClick={() => goto(PROVIDERS_URL)}
+<ResponsiveDialog
+	bind:this={dialog}
+	{title}
+	class="max-w-6xl"
+	classes={{
+		content: 'p-0',
+		header: 'p-4 pb-0'
+	}}
+	onClose={handleClose}
+	disableCloseAction={saving || deleting}
 >
-	{#snippet rightNavActions()}
-		{#if !readonly && provider}
-			<IconButton
-				variant="danger2"
-				tooltip={{ text: m.models_providers_delete_provider() }}
-				onclick={() => (deleting = true)}
-			>
-				<Trash2 class="size-4" />
-			</IconButton>
-		{/if}
-	{/snippet}
-
-	{#if loading}
-		<Skeleton
-			type="table"
-			count={4}
-			classes={{ header: 'h-14 rounded-none', body: 'rounded-none' }}
-		/>
-	{:else if provider}
-		<div class="flex flex-col gap-6">
-			<div class="paper flex-row items-center gap-3">
+	{#if provider}
+		<div class="flex max-h-[70vh] flex-col gap-6 overflow-y-auto p-4">
+			<div class="flex flex-row items-center gap-3">
 				{#if providerIcon(base ?? name)}
 					<img
 						src={providerIcon(base ?? name)}
@@ -317,7 +367,7 @@
 						class="size-10 rounded object-contain {providerIconClass(base ?? name)}"
 					/>
 				{/if}
-				<div class="text-muted-content flex flex-col text-sm">
+				<div class="text-muted-content flex min-w-0 flex-1 flex-col text-sm">
 					<span>
 						{m.models_providers_addressed_as_prefix()}
 						<code class="font-mono">{name}/&lt;model&gt;</code>
@@ -329,95 +379,106 @@
 						})}</span
 					>
 				</div>
+				{#if !readonly}
+					<button class="btn btn-error btn-sm btn-soft" onclick={() => (deleting = true)}>
+						{m.models_providers_deconfigure_provider()}
+					</button>
+				{/if}
 			</div>
 
-			<section class="paper">
-				<div class="flex flex-wrap items-center justify-between gap-2">
-					<div>
-						<h2 class="text-lg font-semibold">{m.models_providers_keys_heading()}</h2>
-						<p class="text-muted-content text-sm">
-							{m.models_providers_keys_description()}
-						</p>
+			<section class="paper-inset">
+				<div class="paper dark:bg-base-300 p-0">
+					<div class="flex flex-wrap items-center justify-between gap-2 p-4 pb-0">
+						<div>
+							<h2 class="text-lg font-semibold">{m.models_providers_keys_heading()}</h2>
+							<p class="text-muted-content text-xs">
+								{m.models_providers_keys_description()}
+							</p>
+						</div>
+						{#if !readonly && !provider.custom_provider_config?.is_key_less}
+							<button class="btn btn-primary flex items-center gap-1 btn-sm" onclick={addKey}>
+								<Plus class="size-4" />
+								{m.models_providers_add_key()}
+							</button>
+						{/if}
 					</div>
-					{#if !readonly && !provider.custom_provider_config?.is_key_less}
-						<button
-							class="btn btn-primary flex items-center gap-1 text-sm"
-							onclick={() => keyDialog?.open()}
-						>
-							<Plus class="size-4" />
-							{m.models_providers_add_key()}
-						</button>
-					{/if}
+					<Table
+						data={keyRows}
+						fields={['name', 'maskedValue', 'modelsLabel', 'weight', 'statusLabel', 'enabled']}
+						headers={[
+							{ property: 'name', title: m.core_name() },
+							{ property: 'maskedValue', title: m.core_col_value() },
+							{ property: 'modelsLabel', title: m.models_title() },
+							{ property: 'weight', title: m.models_providers_key_weight_col() },
+							{ property: 'statusLabel', title: m.core_status() },
+							{ property: 'enabled', title: m.core_status_enabled() }
+						]}
+						noDataMessage={provider.custom_provider_config?.is_key_less
+							? m.models_providers_keyless_no_keys()
+							: m.models_providers_no_keys_yet()}
+					>
+						{#snippet onRenderColumn(property, row)}
+							{#if property === 'enabled'}
+								<Toggle
+									label={m.core_status_enabled()}
+									checked={row.enabled !== false}
+									disabled={readonly}
+									onChange={(v) => toggleKey(row, v)}
+								/>
+							{:else if property === 'maskedValue'}
+								<span class="font-mono text-xs">{row.maskedValue}</span>
+							{:else if property === 'statusLabel'}
+								<span
+									class={twMerge(
+										'badge badge-xs badge-soft',
+										row.status === 'success' ? 'badge-success' : 'badge-warning'
+									)}>{row.statusLabel}</span
+								>
+							{:else}
+								{row[property as keyof typeof row]}
+							{/if}
+						{/snippet}
+						{#snippet actions(row)}
+							{#if !readonly}
+								<IconButton
+									tooltip={{ text: m.models_providers_edit_key() }}
+									onclick={() => keyDialog?.open(row)}
+								>
+									<Pencil class="size-4" />
+								</IconButton>
+								<IconButton
+									variant="danger"
+									tooltip={{ text: m.models_providers_delete_key() }}
+									onclick={() => (keyToDelete = row)}
+								>
+									<Trash2 class="size-4" />
+								</IconButton>
+							{/if}
+						{/snippet}
+					</Table>
 				</div>
-				<Table
-					data={keyRows}
-					fields={['name', 'maskedValue', 'modelsLabel', 'weight', 'statusLabel', 'enabled']}
-					headers={[
-						{ property: 'name', title: m.core_name() },
-						{ property: 'maskedValue', title: m.core_col_value() },
-						{ property: 'modelsLabel', title: m.models_title() },
-						{ property: 'weight', title: m.models_providers_key_weight_col() },
-						{ property: 'statusLabel', title: m.core_status() },
-						{ property: 'enabled', title: m.core_status_enabled() }
-					]}
-					noDataMessage={provider.custom_provider_config?.is_key_less
-						? m.models_providers_keyless_no_keys()
-						: m.models_providers_no_keys_yet()}
-				>
-					{#snippet onRenderColumn(property, row)}
-						{#if property === 'enabled'}
-							<Toggle
-								label={m.core_status_enabled()}
-								checked={row.enabled !== false}
-								disabled={readonly}
-								onChange={(v) => toggleKey(row, v)}
-							/>
-						{:else if property === 'maskedValue'}
-							<span class="font-mono text-xs">{row.maskedValue}</span>
-						{:else if property === 'statusLabel'}
-							<span class={row.status === 'success' ? 'text-success' : 'text-warning'}
-								>{row.statusLabel}</span
-							>
-						{:else}
-							{row[property as keyof typeof row]}
-						{/if}
-					{/snippet}
-					{#snippet actions(row)}
-						{#if !readonly}
-							<IconButton
-								tooltip={{ text: m.models_providers_edit_key() }}
-								onclick={() => keyDialog?.open(row)}
-							>
-								<Pencil class="size-4" />
-							</IconButton>
-							<IconButton
-								variant="danger"
-								tooltip={{ text: m.models_providers_delete_key() }}
-								onclick={() => (keyToDelete = row)}
-							>
-								<Trash2 class="size-4" />
-							</IconButton>
-						{/if}
-					{/snippet}
-				</Table>
 			</section>
 
 			{#if isAnthropic}
-				<section class="paper">
+				<section class="flex flex-col gap-4">
 					<div>
 						<h2 class="text-lg font-semibold">{m.models_providers_subscriptions_heading()}</h2>
-						<p class="text-muted-content text-sm">
+						<p class="text-muted-content text-xs">
 							{m.models_providers_subscriptions_description_prefix()}
 							<code>X-Obot-Api-Key</code>
 							{m.models_providers_subscriptions_description_suffix()}
 						</p>
-						<p class="text-muted-content text-sm">
+						<p class="text-muted-content text-xs mt-2">
 							{m.models_providers_subscriptions_forwarded_prefix()}
 							<code>https://api.anthropic.com</code>
 							{m.models_providers_subscriptions_forwarded_suffix()}
 						</p>
 					</div>
 					<Toggle
+						classes={{
+							label:
+								'rounded-md border border-base-400 flex justify-between p-3 text-base-content text-sm'
+						}}
 						label={m.models_providers_allow_subscriptions()}
 						labelInline
 						checked={subscriptionPassthrough}
@@ -427,7 +488,7 @@
 				</section>
 			{/if}
 
-			<section class="paper">
+			<section class="flex flex-col gap-4">
 				<div>
 					<h2 class="text-lg font-semibold">{m.models_providers_network_heading()}</h2>
 					<p class="text-muted-content text-sm">
@@ -495,18 +556,28 @@
 						m.models_providers_queue_size_help(),
 						queueSizeError
 					)}
-					<div class="flex flex-col gap-1 pt-6">
+					<label
+						for="p-allow-private"
+						class={twMerge(
+							'border-base-400 flex flex-col gap-1 rounded-md border p-3 md:col-span-2',
+							readonly ? 'cursor-default' : 'cursor-pointer'
+						)}
+					>
 						<Toggle
 							label={m.models_providers_allow_private_network()}
 							labelInline
+							id="p-allow-private"
 							checked={allowPrivate}
 							disabled={readonly}
 							onChange={(v) => (allowPrivate = v)}
+							classes={{
+								label: 'flex justify-between items-center text-base-content text-sm'
+							}}
 						/>
-						<span class="text-muted-content text-xs">
+						<span class="text-muted-content text-xs pr-12">
 							{m.models_providers_allow_private_network_help()}
 						</span>
-					</div>
+					</label>
 					{#if base === 'openai'}
 						<div class="flex flex-col gap-1 md:col-span-2">
 							<label class="flex items-center gap-2 text-sm">
@@ -552,19 +623,23 @@
 							</div>
 						{/each}
 						{#if !readonly}
-							<button
-								class="btn btn-secondary flex w-fit items-center gap-1 text-xs"
-								onclick={() => headers.push({ key: '', value: '' })}
-							>
-								<Plus class="size-3" />
-								{m.models_providers_add_header()}
-							</button>
+							<div class="flex justify-end">
+								<button
+									class="btn btn-secondary flex w-fit items-center gap-1 btn-sm"
+									onclick={() => headers.push({ key: '', value: '' })}
+								>
+									<Plus class="size-3" />
+									{m.models_providers_add_header()}
+								</button>
+							</div>
 						{/if}
 					</div>
 				</div>
 			</section>
 
-			<section class="paper">
+			<div class="divider my-0"></div>
+
+			<section class="flex flex-col gap-4">
 				<div class="flex flex-wrap items-center justify-between gap-2">
 					<div>
 						<h2 class="text-lg font-semibold">
@@ -579,7 +654,7 @@
 					</div>
 					{#if !readonly}
 						<button
-							class="btn btn-secondary flex items-center gap-1 text-sm"
+							class="btn btn-secondary flex items-center gap-1 btn-sm"
 							onclick={refresh}
 							disabled={refreshing}
 						>
@@ -602,22 +677,24 @@
 
 		{#if !readonly}
 			<div
-				class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 z-40 flex w-full justify-end gap-2 py-4"
+				class="bg-base-100 dark:bg-base-300 sticky bottom-0 left-0 z-40 flex w-full justify-end gap-2 p-4"
 			>
-				<button class="btn btn-secondary text-sm" onclick={() => goto(PROVIDERS_URL)}
-					>{m.common_cancel()}</button
+				<button
+					class="btn btn-secondary text-sm"
+					disabled={saving || deleting}
+					onclick={() => dialog?.close()}>{m.common_cancel()}</button
 				>
 				<button
 					class="btn btn-primary text-sm"
 					onclick={save}
-					disabled={saving || !!concurrencyError || !!queueSizeError}
+					disabled={saving || !!concurrencyError || !!queueSizeError || deleting}
 				>
 					{#if saving}<Loading class="size-4" />{:else}{m.core_save()}{/if}
 				</button>
 			</div>
 		{/if}
 	{/if}
-</Layout>
+</ResponsiveDialog>
 
 {#snippet num(
 	id: string,
@@ -656,6 +733,7 @@
 		await syncModels().catch(() => {});
 		void loadModelsAfterSync();
 	}}
+	onClosed={resumeAfterKey}
 />
 
 <Confirm
@@ -683,9 +761,28 @@
 	show={deleting}
 	msg={m.models_providers_delete_provider_confirm({ name: providerLabel(name) })}
 	onsuccess={async () => {
-		await deleteProvider(name);
+		const label = providerLabel(name);
+		try {
+			await deleteProvider(name);
+		} catch {
+			// The request reports its own error; stay on the provider.
+			deleting = false;
+			return;
+		}
 		deleting = false;
-		goto(PROVIDERS_URL);
+		success.add(m.models_providers_removed({ name: label }));
+		dialog?.close();
 	}}
 	oncancel={() => (deleting = false)}
 />
+
+<style lang="postcss">
+	.paper-inset {
+		background-color: var(--color-base-300);
+		border-radius: var(--radius-lg);
+		padding: 0.5rem;
+		:global(.dark) & {
+			background-color: var(--color-base-200);
+		}
+	}
+</style>

@@ -355,6 +355,13 @@ export async function listRoutingRules(opts?: Opts): Promise<RoutingRule[]> {
 	return resp.rules ?? [];
 }
 
+export async function getRoutingRule(id: string, opts?: Opts): Promise<RoutingRule> {
+	const resp = (await doGet(`${B}/governance/routing-rules/${encodeURIComponent(id)}`, opts)) as {
+		rule: RoutingRule;
+	};
+	return resp.rule;
+}
+
 export async function createRoutingRule(rule: RoutingRule, opts?: Opts): Promise<RoutingRule> {
 	const resp = (await doPost(`${B}/governance/routing-rules`, rule, opts)) as {
 		rule: RoutingRule;

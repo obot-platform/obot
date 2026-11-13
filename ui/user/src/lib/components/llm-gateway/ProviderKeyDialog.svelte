@@ -25,9 +25,10 @@
 		baseProvider?: string;
 		existingKeyNames?: string[];
 		onSaved?: (key: ProviderKey) => void;
+		onClosed?: () => void;
 	}
 
-	let { provider, baseProvider, existingKeyNames = [], onSaved }: Props = $props();
+	let { provider, baseProvider, existingKeyNames = [], onSaved, onClosed }: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let editing = $state<ProviderKey>();
@@ -183,9 +184,11 @@
 </script>
 
 <ResponsiveDialog
+	animate="slide"
 	bind:this={dialog}
 	title={editing ? m.models_providers_edit_key_title() : m.models_providers_add_key()}
 	class="max-w-xl"
+	onClose={onClosed}
 >
 	<form
 		class="flex flex-col gap-4 pt-4"

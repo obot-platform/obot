@@ -68,26 +68,39 @@ function mockProfiles() {
 afterEach(resetModelsTab);
 
 describe('Models profiles tab', () => {
-	it('shows each profile as a card with its users, models, budgets and applied guardrails', async () => {
+	it('lists each profile with its users, model count, budget count and applied guardrail count', async () => {
 		mockProfiles();
 		await renderModelsTab('profiles');
 
-		const eng = page.getByRole('article').filter({ hasText: 'Engineering' });
-		// The card names who the profile is for, and lists them all on hover.
+		await expect.element(page.getByRole('cell', { name: 'Name', exact: true })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('cell', { name: 'User/Groups', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('cell', { name: 'Models', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('cell', { name: 'Budget', exact: true }))
+			.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('cell', { name: 'Applied Guardrails', exact: true }))
+			.toBeInTheDocument();
+
+		const eng = page.getByRole('row').filter({ hasText: 'Engineering' });
+		// The row names who the profile is for, and lists them all on hover.
 		await expect.element(eng.getByText('Engineers, Alice, Bob')).toBeInTheDocument();
 		await expect
-			.element(page.getByRole('link', { name: 'Edit Engineering' }))
+			.element(eng.getByText('Engineers, Alice, Bob'))
 			.toHaveAttribute('title', 'Engineers\nAlice\nBob');
-		await expect.element(eng.getByText('All models')).toBeInTheDocument();
-		await expect.element(eng.getByText('2 budgets')).toBeInTheDocument();
-		await expect.element(eng.getByText('0 applied guardrails')).toBeInTheDocument();
+		await expect.element(eng.getByRole('cell', { name: 'All models' })).toBeInTheDocument();
+		await expect.element(eng.getByRole('cell', { name: '2', exact: true })).toBeInTheDocument();
+		await expect.element(eng.getByRole('cell', { name: '0', exact: true })).toBeInTheDocument();
 
-		const everyone = page.getByRole('article').filter({ hasText: 'Everyone' }).first();
-		await expect.element(everyone.getByText('1 model', { exact: true })).toBeInTheDocument();
-		await expect.element(everyone.getByText('1 budget', { exact: true })).toBeInTheDocument();
-		await expect
-			.element(everyone.getByText('1 applied guardrail', { exact: true }))
-			.toBeInTheDocument();
+		const everyone = page.getByRole('row').filter({ hasText: 'Everyone' });
+		const counts = everyone.getByRole('cell', { name: '1', exact: true });
+		await expect.element(counts.nth(0)).toBeInTheDocument();
+		await expect.element(counts.nth(1)).toBeInTheDocument();
+		await expect.element(counts.nth(2)).toBeInTheDocument();
 		await expect
 			.element(page.getByRole('link', { name: 'Edit Engineering' }))
 			.toHaveAttribute('href', '/models/profiles/p-eng');
@@ -116,9 +129,8 @@ describe('Models profiles tab', () => {
 		);
 		await renderModelsTab('profiles');
 
-		await expect.element(page.getByText('Alice, Bob, Engineers and 1 more')).toBeInTheDocument();
 		await expect
-			.element(page.getByRole('link', { name: 'Edit Many' }))
+			.element(page.getByText('Alice, Bob, Engineers and 1 more'))
 			.toHaveAttribute('title', 'Alice\nBob\nEngineers\nObot Admin');
 	});
 
@@ -127,11 +139,11 @@ describe('Models profiles tab', () => {
 		await renderModelsTab('profiles');
 
 		await expect.element(page.getByText('Engineers, Alice, Bob')).toBeInTheDocument();
-		const card = page
-			.getByText('Engineers, Alice, Bob')
-			.element()
-			.closest('article') as HTMLElement;
-		(card.querySelector('button[aria-label="Delete profile"]') as HTMLElement).click();
+		await page
+			.getByRole('row')
+			.filter({ hasText: 'Engineering' })
+			.getByRole('button', { name: 'Delete profile' })
+			.click();
 		await expect
 			.element(
 				page.getByText('Its budgets and applied guardrails are deleted with it', { exact: false })

@@ -1,5 +1,7 @@
+import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
-import { goto } from '$lib/url';
+import { defaultModelAliases } from '$lib/stores';
+import { replaceState } from '$lib/url';
 import { worker } from '../../tests/mocks/worker';
 import { readyStatus, renderModelsTab, resetModelsTab } from './testing';
 import { http, HttpResponse } from 'msw';
@@ -8,7 +10,7 @@ import { page } from 'vitest/browser';
 
 vi.mock(import('$lib/url'), async (importOriginal) => ({
 	...(await importOriginal()),
-	goto: vi.fn()
+	replaceState: vi.fn()
 }));
 
 const openai = {
@@ -32,6 +34,10 @@ function mockGateway({
 		http.get('/api/llm-gateway/admin/providers', () =>
 			HttpResponse.json({ providers, total: providers.length })
 		),
+		http.get('/api/llm-gateway/admin/providers/:name', ({ params }) => {
+			const found = providers.find((provider) => provider.name === params.name);
+			return HttpResponse.json(found ?? { ...openai, name: String(params.name) });
+		}),
 		http.get('/api/llm-gateway/admin/providers/:name/keys', () =>
 			HttpResponse.json({ keys, total: keys.length })
 		)
@@ -68,6 +74,53 @@ describe('Models providers tab', () => {
 		await renderProvidersPage();
 
 		await expect.element(page.getByRole('button', { name: 'Set Default Models' })).toBeEnabled();
+	});
+
+	it('refreshes Set Default Models when provider configuration closes', async () => {
+		let models: {
+			id: string;
+			name: string;
+			displayName: string;
+			usage: string;
+			active: boolean;
+		}[] = [];
+		let listed = 0;
+		mockGateway();
+		worker.use(
+			http.get('/api/models', ({ request }) => {
+				const all = new URL(request.url).searchParams.get('all') === 'true';
+				if (all) listed += 1;
+				return HttpResponse.json({ items: all ? models : [] });
+			})
+		);
+		await renderProvidersPage();
+
+		const setDefaults = page.getByRole('button', { name: 'Set Default Models' });
+		await expect.element(setDefaults).toBeDisabled();
+		await vi.waitFor(() => expect(listed).toBeGreaterThan(0));
+		const listedBeforeClose = listed;
+
+		models = [
+			{
+				id: 'm1',
+				name: 'acme-model',
+				displayName: 'Acme Model',
+				usage: 'llm',
+				active: true
+			}
+		];
+		await page.getByRole('button', { name: 'Modify' }).click();
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+		await expect.element(setDefaults).toBeEnabled();
+		expect(listed).toBeGreaterThan(listedBeforeClose);
+
+		defaultModelAliases.current = [{ alias: 'llm-mini', model: '' }];
+		await setDefaults.click();
+		await page.getByRole('combobox').click();
+		await expect.element(page.getByRole('button', { name: 'Acme Model' })).toBeVisible();
 	});
 
 	it('lists gateway providers as provider cards with their key counts', async () => {
@@ -115,7 +168,56 @@ describe('Models providers tab', () => {
 
 		await page.getByRole('button', { name: 'Modify' }).click();
 
-		expect(goto).toHaveBeenCalledWith('/models/providers/openai');
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+	});
+
+	it('opens a linked provider when it is configured', async () => {
+		mockGateway();
+		(appPage.url as URL).searchParams.set('provider', 'openai');
+		await renderProvidersPage();
+
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		// The link is consumed, so a reload shows the list.
+		const [url] = vi.mocked(replaceState).mock.lastCall ?? [];
+		expect(new URL(String(url)).searchParams.has('provider')).toBe(false);
+	});
+
+	it('shows the list when a linked provider is not configured', async () => {
+		mockGateway();
+		(appPage.url as URL).searchParams.set('provider', 'mistral');
+		await renderProvidersPage();
+
+		await expect.element(page.getByRole('heading', { name: 'OpenAI' })).toBeInTheDocument();
+		await expect.element(page.getByRole('heading', { name: 'Keys' })).not.toBeInTheDocument();
+	});
+
+	it('keeps Modify busy until the provider is ready to show', async () => {
+		let release = () => {};
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		mockGateway();
+		worker.use(
+			http.get('/api/llm-gateway/admin/providers/:name', async () => {
+				await gate;
+				return HttpResponse.json(openai);
+			})
+		);
+		await renderProvidersPage();
+
+		const modify = page.getByRole('button', { name: 'Modify', exact: true });
+		await modify.click();
+
+		await expect.element(modify).toBeDisabled();
+		await expect.element(page.getByRole('heading', { name: 'Keys' })).not.toBeInTheDocument();
+
+		release();
+
+		const dialog = page.getByRole('dialog', { name: 'OpenAI', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		await expect.element(modify).toBeEnabled();
 	});
 
 	it('does not offer legacy providers or a legacy import', async () => {
@@ -217,6 +319,8 @@ describe('Models providers tab', () => {
 		expect(keyCreated).toHaveBeenCalledWith(
 			expect.objectContaining({ name: 'groq-key-1', value: 'gsk_secret', models: ['*'] })
 		);
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/models/providers/groq'));
+		const dialog = page.getByRole('dialog', { name: 'Groq', exact: true });
+		await expect.element(dialog.getByRole('heading', { name: 'Keys' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Add Groq' })).not.toBeInTheDocument();
 	});
 });

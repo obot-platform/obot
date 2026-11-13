@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { m } from '$lib/i18n';
+	import Loading from '$lib/icons/Loading.svelte';
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import { darkMode } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
@@ -30,6 +31,8 @@
 		disableConfigure?: boolean;
 		// Shown as a tooltip when disableConfigure hides the reason the button cannot be used.
 		disableConfigureReason?: string;
+		// The configure action is fetching, so the button waits instead of opening early.
+		configureLoading?: boolean;
 		isComingSoon?: boolean;
 		licenseKey?: string;
 		// Settings saved as a replacement while another provider still serves logins.
@@ -48,6 +51,7 @@
 		readonly,
 		disableConfigure,
 		disableConfigureReason,
+		configureLoading,
 		isComingSoon,
 		licenseKey,
 		staged
@@ -180,11 +184,15 @@
 				<button
 					onclick={onConfigure}
 					class={twMerge(
-						'w-full border-0 text-sm btn',
+						'flex w-full items-center justify-center gap-2 border-0 text-sm btn',
 						provider.configured || staged ? 'btn-secondary' : 'btn-primary'
 					)}
-					disabled={disableConfigure}
+					disabled={disableConfigure || configureLoading}
+					aria-busy={configureLoading || undefined}
 				>
+					{#if configureLoading}
+						<Loading class="size-4" />
+					{/if}
 					{#if readonly}
 						{m.models_providers_view()}
 					{:else if provider.configured}
