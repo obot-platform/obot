@@ -128,8 +128,9 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 			OriginalBody: mcp.OriginalResponseBody,
 			Mutated:      mcp.ResponseMutated,
 		},
-		WebhookStatuses: webhooks,
-		PayloadRedacted: opts.PayloadRedacted,
+		WebhookStatuses:     webhooks,
+		PayloadRedacted:     opts.PayloadRedacted,
+		UnavailablePayloads: log.UnavailablePayloads,
 	}
 }
 
@@ -277,10 +278,11 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 			ReportedUserEmail: local.ReportedUserEmail,
 			TranscriptPath:    local.TranscriptPath,
 		},
-		Request:         &api.AuditLogPayloadDetails{Body: local.RequestBody},
-		Response:        &api.AuditLogPayloadDetails{Body: local.ResponseBody},
-		RawEvent:        local.RawEvent,
-		StartedAt:       startedAt,
-		PayloadRedacted: opts.PayloadRedacted,
+		Request:             &api.AuditLogPayloadDetails{Body: local.RequestBody},
+		Response:            &api.AuditLogPayloadDetails{Body: local.ResponseBody},
+		RawEvent:            local.RawEvent,
+		StartedAt:           startedAt,
+		PayloadRedacted:     opts.PayloadRedacted,
+		UnavailablePayloads: log.UnavailablePayloads,
 	}
 }

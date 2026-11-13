@@ -209,8 +209,19 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 		}
 	}
 
+	now := time.Now().UTC()
+	sharedBodies, err := c.prepareAuditBodiesForStore(ctx, logs, now)
+	if err != nil {
+		return err
+	}
+
 	// Use a transaction to ensure atomicity
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	err = c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Shared bodies go first so no committed row references a body that was not written.
+		if err := storeAuditBodies(tx, sharedBodies); err != nil {
+			return fmt.Errorf("failed to store shared audit log bodies: %w", err)
+		}
+
 		// Insert request-only and complete logs in batches
 		if len(toInsert) > 0 {
 			if err := tx.CreateInBatches(toInsert, 100).Error; err != nil {
@@ -308,6 +319,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 		return nil
 	})
+	return err
 }
 
 // InsertLocalAgentAuditLogs persists completed local-agent tool-call audit logs.
@@ -408,10 +420,8 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	if err := c.enrichMCPAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, 0, err
 	}
-	for i := range logs {
-		if err := c.prepareAuditLogPayload(ctx, &logs[i], opts.WithRequestAndResponse); err != nil {
-			return nil, 0, err
-		}
+	if err := c.prepareAuditLogPayloads(ctx, logs, opts.WithRequestAndResponse); err != nil {
+		return nil, 0, err
 	}
 	return logs, total, nil
 }
@@ -716,29 +726,33 @@ func auditLogEventTimeExpression(sources []types2.AuditLogSourceType) string {
 	return effectiveAuditLogTimeSQL
 }
 
-func (c *Client) prepareAuditLogPayload(ctx context.Context, log *types.MCPAuditLog, includePayload bool) error {
-	if log.SourceType == types2.AuditLogSourceTypeLocalAgentToolCall {
-		log.MCPFields = nil
-		if includePayload {
-			if err := c.decryptMCPAuditLog(ctx, log); err != nil {
-				return fmt.Errorf("failed to decrypt local-agent audit log: %w", err)
+// prepareAuditLogPayloads keeps only each row's own source fields, then either restores the
+// payloads of the whole page together, so shared bodies are loaded once, or blanks them.
+func (c *Client) prepareAuditLogPayloads(ctx context.Context, logs []types.MCPAuditLog, includePayload bool) error {
+	toDecrypt := make([]*types.MCPAuditLog, 0, len(logs))
+	for i := range logs {
+		log := &logs[i]
+		if log.SourceType == types2.AuditLogSourceTypeLocalAgentToolCall {
+			log.MCPFields = nil
+			if !includePayload && log.LocalAgentToolCallFields != nil {
+				blankLocalAgentSensitiveFields(log.LocalAgentToolCallFields)
 			}
-		} else if log.LocalAgentToolCallFields != nil {
-			blankLocalAgentSensitiveFields(log.LocalAgentToolCallFields)
+		} else {
+			log.LocalAgentToolCallFields = nil
+			if !includePayload {
+				mcp := log.MCP()
+				mcp.RequestBody, mcp.MutatedRequestBody, mcp.ResponseBody, mcp.OriginalResponseBody = nil, nil, nil, nil
+				mcp.RequestHeaders, mcp.ResponseHeaders = nil, nil
+			}
 		}
+		toDecrypt = append(toDecrypt, log)
+	}
+	if !includePayload {
 		return nil
 	}
-
-	log.LocalAgentToolCallFields = nil
-	if includePayload {
-		if err := c.decryptMCPAuditLog(ctx, log); err != nil {
-			return fmt.Errorf("failed to decrypt MCP audit log: %w", err)
-		}
-		return nil
+	if err := c.decryptMCPAuditLogs(ctx, toDecrypt); err != nil {
+		return fmt.Errorf("failed to decrypt audit logs: %w", err)
 	}
-	mcp := log.MCP()
-	mcp.RequestBody, mcp.MutatedRequestBody, mcp.ResponseBody, mcp.OriginalResponseBody = nil, nil, nil, nil
-	mcp.RequestHeaders, mcp.ResponseHeaders = nil, nil
 	return nil
 }
 
@@ -1158,23 +1172,25 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	}, nil
 }
 
+// encryptMCPAuditLog puts log's payload fields into their stored form. Bodies are compressed and,
+// for list responses, replaced by a reference to a shared body; that happens whether or not
+// encryption is configured. The remaining sensitive fields are encrypted when it is.
+//
+// It changes the field structs log points to in place and must be applied to a captured entry
+// exactly once: a second pass would encode the already encoded bodies again.
 func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
-	if c.encryptionConfig == nil {
-		return nil
+	transformer := c.mcpAuditLogTransformer()
+	dataCtx := mcpAuditLogDataCtx(log)
+
+	if err := c.encodeMCPAuditLogBodies(ctx, transformer, dataCtx, log); err != nil {
+		return err
 	}
-	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
 	if transformer == nil {
 		return nil
 	}
 
-	dataCtx := mcpAuditLogDataCtx(log)
-
 	if mcp := log.MCP(); mcp != nil {
 		for _, field := range []*json.RawMessage{
-			&mcp.RequestBody,
-			&mcp.MutatedRequestBody,
-			&mcp.ResponseBody,
-			&mcp.OriginalResponseBody,
 			&mcp.RequestHeaders,
 			&mcp.ResponseHeaders,
 		} {
@@ -1203,16 +1219,6 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 		if err := encryptStringSliceField(ctx, transformer, dataCtx, []string(local.GitRemotes)); err != nil {
 			return err
 		}
-
-		for _, field := range []*json.RawMessage{
-			&local.RequestBody,
-			&local.ResponseBody,
-			&local.RawEvent,
-		} {
-			if err := encryptRawMessageField(ctx, transformer, dataCtx, field); err != nil {
-				return err
-			}
-		}
 	}
 
 	log.Encrypted = true
@@ -1221,25 +1227,40 @@ func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 }
 
 func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
-	if !log.Encrypted || c.encryptionConfig == nil {
-		return nil
-	}
-	transformer := c.encryptionConfig.Transformers[mcpAuditLogGroupResource]
-	if transformer == nil {
-		return nil
-	}
+	return c.decryptMCPAuditLogs(ctx, []*types.MCPAuditLog{log})
+}
 
+// decryptMCPAuditLogs restores the payload fields of logs to what was captured. It handles the
+// rows together so that a shared body referenced by several of them is loaded once.
+func (c *Client) decryptMCPAuditLogs(ctx context.Context, logs []*types.MCPAuditLog) error {
 	var (
-		errs    []error
-		dataCtx = mcpAuditLogDataCtx(log)
+		transformer = c.mcpAuditLogTransformer()
+		references  []pendingAuditBodyReference
+		unavailable unavailableAuditBodies
+		errs        []error
 	)
+	defer unavailable.report()
+	for _, log := range logs {
+		dataCtx := mcpAuditLogDataCtx(log)
+		logReferences, err := decodeMCPAuditLogBodies(ctx, transformer, dataCtx, log, &unavailable)
+		references = append(references, logReferences...)
+		errs = append(errs, err)
+		if log.Encrypted && transformer != nil {
+			errs = append(errs, decryptMCPAuditLogFields(ctx, transformer, dataCtx, log))
+		}
+	}
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+	return c.resolveAuditBodyReferences(ctx, transformer, references, &unavailable)
+}
+
+// decryptMCPAuditLogFields decrypts the sensitive fields of log other than its bodies.
+func decryptMCPAuditLogFields(ctx context.Context, transformer value.Transformer, dataCtx value.Context, log *types.MCPAuditLog) error {
+	var errs []error
 
 	if mcp := log.MCP(); mcp != nil {
 		errs = append(errs,
-			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestBody),
-			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.MutatedRequestBody),
-			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseBody),
-			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.OriginalResponseBody),
 			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.RequestHeaders),
 			decryptRawMessageField(ctx, transformer, dataCtx, &mcp.ResponseHeaders),
 		)
@@ -1256,9 +1277,6 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 			decryptStringSliceField(ctx, transformer, dataCtx, []string(local.GitRemotes)),
 			decryptStringField(ctx, transformer, dataCtx, &local.GitBranch),
 			decryptStringField(ctx, transformer, dataCtx, &local.TranscriptPath),
-			decryptRawMessageField(ctx, transformer, dataCtx, &local.RequestBody),
-			decryptRawMessageField(ctx, transformer, dataCtx, &local.ResponseBody),
-			decryptRawMessageField(ctx, transformer, dataCtx, &local.RawEvent),
 		)
 	}
 

@@ -123,6 +123,7 @@
 	"audit_usage_audit_logs_pages": "页",
 	"audit_usage_audit_logs_parent_target": "父目标",
 	"audit_usage_audit_logs_payload_hidden_for_access_level": "根据您的访问级别，有效负载和敏感环境详细信息已隐藏。",
+	"audit_usage_audit_logs_payload_unavailable": "此事件的部分有效负载无法加载：{payloads}",
 	"audit_usage_audit_logs_permission_mode": "权限模式",
 	"audit_usage_audit_logs_preparing_results": "正在准备结果…",
 	"audit_usage_audit_logs_preparing_timeline": "正在准备时间线…",

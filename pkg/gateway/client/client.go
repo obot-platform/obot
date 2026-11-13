@@ -54,6 +54,7 @@ type Client struct {
 	auditPersistLock          sync.Mutex
 	auditBuffer               []types.MCPAuditLog
 	mcpAuditDisabled          bool
+	auditBodies               auditBodyState
 	kickAuditPersist          chan struct{}
 	enforcementLock           sync.Mutex
 	enforcementPersistLock    sync.Mutex

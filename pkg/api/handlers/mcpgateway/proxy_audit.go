@@ -33,7 +33,9 @@ const (
 
 type proxyAuditCollector interface {
 	auditlogs.Collector
-	CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string)
+	// CollectMCPProxyAuditEntry records an entry with proxy-only persistence metadata.
+	// responseMethod is the MCP method a response-only entry answers, or empty when unknown.
+	CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string)
 }
 
 // proxyMessageKind controls whether an HTTP exchange is logged immediately or
@@ -438,7 +440,7 @@ func (a *proxyAudit) recordResponse(body []byte, statusCode int, readErr error, 
 	if readErr != nil && readErr != io.EOF {
 		entry.Error = readErr.Error()
 	}
-	a.submit(entry, true)
+	a.submitResponse(entry, requestID)
 }
 
 func (a *proxyAudit) recordClientResponse(body []byte) {
@@ -542,7 +544,21 @@ func (a *proxyAudit) submit(entry auditlogs.MCPAuditLog, responseReceived bool) 
 	if a == nil || a.collector == nil || entry.CallType == "" {
 		return
 	}
-	a.collector.CollectMCPProxyAuditEntry(entry, responseReceived, a.proxyExchangeID)
+	a.collector.CollectMCPProxyAuditEntry(entry, responseReceived, a.proxyExchangeID, "")
+}
+
+// submitResponse submits a response-only entry. The entry itself only says it is a response, so
+// the method is passed alongside when this exchange's own request is the one being answered.
+// Responses correlated across HTTP requests have no known method here.
+func (a *proxyAudit) submitResponse(entry auditlogs.MCPAuditLog, requestID string) {
+	if a == nil || a.collector == nil || entry.CallType == "" {
+		return
+	}
+	var responseMethod string
+	if a.kind == proxyMessageRequest && requestID == a.entry.RequestID {
+		responseMethod = a.entry.CallType
+	}
+	a.collector.CollectMCPProxyAuditEntry(entry, true, a.proxyExchangeID, responseMethod)
 }
 
 func (b *auditResponseBody) Read(p []byte) (int, error) {
