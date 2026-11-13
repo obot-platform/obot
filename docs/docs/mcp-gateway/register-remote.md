@@ -6,7 +6,7 @@ Register an existing HTTP MCP endpoint when the server runs outside Obot. Obot p
 
 1. Open **MCP Servers**, select **Add MCP Server**, and choose **Remote Server**.
 2. Enter a name, short description, and the server's MCP URL.
-3. Configure required headers or user-supplied values. A remote service must be reachable from Obot, or through a configured [MCP tunnel](./filters-tunnels.md#mcp-tunnels-create-an-mcp-tunnel).
+3. Configure required headers or user-supplied values. A remote service must be reachable from Obot, or through a configured [MCP tunnel](../functionality/mcp-tunnels.md#create-an-mcp-tunnel).
 4. If the provider requires a pre-registered OAuth application, enable **Static OAuth** and configure its client credentials using [Static OAuth configuration](../mcp-gateway/server-configuration.md#static-oauth).
 5. Save the entry and review catalog access policies.
 6. Add the entry to a [vMCP](./server-types.md), configure its tools and profiles, and test the resulting connection.
@@ -29,7 +29,7 @@ Remote MCP servers that conform to the MCP spec authentication schema will work 
 
 **Configuration**: Specify the remote URL endpoint. Additional options include connection restrictions for unconventional configurations, custom HTTP headers, and configuration values to send to the remote server.
 
-If Obot cannot directly reach a remote server, use an [MCP tunnel](./filters-tunnels.md#mcp-tunnels-create-an-mcp-tunnel) to route requests through a machine on the server's network. Keep the remote server's real HTTP or HTTPS URL and select the tunnel separately in **Advanced Configuration**.
+If Obot cannot directly reach a remote server, use an [MCP tunnel](../functionality/mcp-tunnels.md#create-an-mcp-tunnel) to route requests through a machine on the server's network. Keep the remote server's real HTTP or HTTPS URL and select the tunnel separately in **Advanced Configuration**.
 
 ## Caller attribution headers
 

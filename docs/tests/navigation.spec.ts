@@ -61,6 +61,15 @@ test('Cloudflare redirects consolidated guides within their documentation versio
     expect(response.status(), source).toBe(Number(status));
     expect(response.headers().location, source).toBe(destination);
     destinations.add(destination);
+    if (source.endsWith('/')) {
+      // Redirects must not leave empty documentation pages in the Markdown corpus.
+      const markdown = `${source.slice(0, -1)}.md`;
+      expect((await request.get(markdown, { maxRedirects: 0 })).status(), markdown).toBe(404);
+      if (!source.startsWith('/next/') && !source.startsWith('/v0.27.0/')) {
+        const pinned = `/${versions[0]}${markdown}`;
+        expect((await request.get(pinned, { maxRedirects: 0 })).status(), pinned).toBe(404);
+      }
+    }
   }
   for (const destination of destinations) {
     const response = await request.get(destination, { maxRedirects: 0 });
@@ -85,9 +94,10 @@ test('Cloudflare redirects consolidated guides within their documentation versio
   // redirects successfully even when the old section moved to another guide.
   await page.goto('/next/functionality/virtual-mcps/#tools-and-profiles');
   expect(new URL(page.url()).pathname).toBe('/next/mcp-gateway/server-types/');
+  expect(new URL(page.url()).hash).toBe('#tools-and-profiles');
   await expect(page.locator('article').first()).toBeVisible();
   for (const prefix of ['', '/next']) {
-    await page.goto(`${prefix}/configuration/mcp-server-oauth-configuration/`);
+    await page.goto(`${prefix}/configuration/mcp-server-oauth-configuration/#old-heading`);
     expect(new URL(page.url()).pathname).toBe(`${prefix}/mcp-gateway/server-configuration/`);
     expect(new URL(page.url()).hash).toBe('#static-oauth');
     await expect(page.locator('#static-oauth')).toBeVisible();

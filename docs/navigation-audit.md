@@ -49,7 +49,7 @@ adding sidebar entries solely because an older page is absent from navigation.
 | Topic | Existing page to develop | Proposed treatment |
 | --- | --- | --- |
 | [Product Analytics](./docs/configuration/product-analytics.md) | **Security & Governance → Audit data and retention** | Added a consent/privacy summary here, linked to the retained detailed disclosure. Verified all six installation fields, fourteen metrics, and three built-in-server subfields; corrected the claim that server display names are sent. No new sidebar entry. |
-| [MCP Server OAuth Configuration](./docs/configuration/mcp-server-oauth-configuration.md) | **MCP Gateway → MCP server configuration** | Consolidated setup, credential status, rotation, and availability here. The old URL now redirects to this section in current and v0.28.0 docs. No new sidebar entry. v0.27.0 retains its original reference because it has no shared configuration page. |
+| [MCP Server OAuth Configuration](./docs/mcp-gateway/server-configuration.md#static-oauth) | **MCP Gateway → MCP server configuration** | Consolidated setup, credential status, rotation, and availability here. The old URL now redirects to this section in current and v0.28.0 docs. No new sidebar entry. v0.27.0 retains its original reference because it has no shared configuration page. |
 | [MCP Server Egress Control](./docs/configuration/mcp-server-egress-control.md) | **Deploy & Operate → MCP server egress control** | Added a direct sidebar entry after Network requirements. Linked the catalog page's per-entry `egressDomains` and `denyAllEgress` settings to the cluster prerequisites and YAML examples. Remote endpoints are outside this control. |
 | [MCP Registry API](./docs/functionality/mcp-registry-api.md) | **MCP Gateway → vMCP overview**, with the existing discovery link from **Registries & Skills → MCP Servers** | Explain programmatic discovery alongside the gateway's other capabilities and link to the API details. Keep Reference → CLI and APIs as a secondary entry point. |
 
@@ -98,30 +98,30 @@ absence from the sidebar is expected.
 
 | Preserved page | Current destination already in navigation |
 | --- | --- |
-| [User Roles](./docs/configuration/user-roles.md) | Security & Governance → Roles and access policies |
-| [Audit Logs & Usage](./docs/functionality/audit-logs-and-usage.md) | Security & Governance → Audit data and retention |
-| [Device Management](./docs/functionality/device-management.md) | Device Management (Sentry) → Overview, Enroll devices, Inspect device inventory, Policy enforcement |
-| [LLM Gateway](./docs/functionality/llm-gateway.md) | LLM Gateway → Overview, provider setup, client setup, API compatibility, upgrade guide |
-| [MCP Access Policies](./docs/functionality/mcp-access-policies.md) | MCP Gateway → Control MCP access |
-| [Features Overview](./docs/functionality/overview.md) | Security & Governance → Overview |
-| [Server Scheduling](./docs/functionality/server-scheduling.md) | Deploy & Operate → Capacity |
-| [Skill Access Policies](./docs/functionality/skill-access-policies.md) | Registries & Skills → Control skill access |
-| [Skills](./docs/functionality/skills.md) | Registries & Skills → Publish skills |
-| [User Management](./docs/functionality/user-management.md) | Security & Governance → Roles and access policies |
-| [Virtual MCPs](./docs/functionality/virtual-mcps.md) | MCP Gateway → Create vMCP, Share vMCPs, Control MCP access |
-| [CLI Setup](./docs/installation/cli-setup.md) | Reference → CLI and APIs |
-| [Enabling Authentication](./docs/installation/enabling-authentication.md) | Deploy & Operate → Configure authentication providers |
-| [Catalog and Filter Schemas](./docs/reference/schemas.md) | Reference → Catalog schemas; Filter schemas |
+| [User Roles](./docs/security/policy-coverage.md) | Security & Governance → Roles and access policies |
+| [Audit Logs & Usage](./docs/security/audit-data.md) | Security & Governance → Audit data and retention |
+| [Device Management](./docs/device-management/how-sentry-works.md) | Device Management (Sentry) → Overview, Enroll devices, Inspect device inventory, Policy enforcement |
+| [LLM Gateway](./docs/llm-gateway/how-it-works.md) | LLM Gateway → Overview, provider setup, client setup, API compatibility, upgrade guide |
+| [MCP Access Policies](./docs/mcp-gateway/access.md) | MCP Gateway → Control MCP access |
+| [Features Overview](./docs/security/model.md) | Security & Governance → Overview |
+| [Server Scheduling](./docs/operations/capacity.md) | Deploy & Operate → Capacity |
+| [Skill Access Policies](./docs/registries/publish-skills.md) | Registries & Skills → Control skill access |
+| [Skills](./docs/registries/publish-skills.md) | Registries & Skills → Publish skills |
+| [User Management](./docs/security/authentication.md) | Security & Governance → Roles and access policies |
+| [Virtual MCPs](./docs/mcp-gateway/server-types.md) | MCP Gateway → Create vMCP, Share vMCPs, Control MCP access |
+| [CLI Setup](./docs/reference/cli-api.md) | Reference → CLI and APIs |
+| [Enabling Authentication](./docs/security/authentication.md) | Deploy & Operate → Configure authentication providers |
+| [Catalog and Filter Schemas](./docs/reference/catalog-schemas.md) | Reference → Catalog schemas; Filter schemas |
 
 Two more compatibility pages still receive links:
 
-- [Encryption Overview](./docs/configuration/encryption-providers/overview.md)
+- [Encryption Overview](./docs/security/credentials.md)
   points to Encryption and secrets. Network Requirements still links to this
-  older overview; update that link to the current guide in a later cleanup.
-- [Filters and Private-Network Tunnels](./docs/mcp-gateway/filters-tunnels.md)
+  older overview at the initial audit; this now links directly to the current guide.
+- [Filters and Private-Network Tunnels](./docs/functionality/filters.md)
   points to Filter MCP traffic and Connect private-network servers. Link directly
   to those guides from Add remote MCP servers and Architecture → Where Obot and
-  MCP servers run.
+  MCP servers run; these links have now been updated.
 
 The original 16 pure stubs have temporary Cloudflare Pages 302 redirects in
 `static/_redirects`, covering the latest release at the root (v0.28.0), `/next/`,
@@ -130,7 +130,10 @@ intentionally not remapped, as agreed in discussion. The redirects use each
 guide's main replacement; authentication setup goes to Configure authentication
 providers, and the combined schemas page goes to Catalog schemas; Filter schemas
 remains in the Reference navigation. MCP Servers remains available because it retains legacy
-guidance. Stub Markdown is retained for development and in-app navigation. The additionally
+guidance. The 50 redundant Markdown copies (17 current, 17 v0.28.0, and 16
+v0.27.0) have now been deleted. Internal links were updated, and the Docusaurus
+client-redirect plugin generates static HTML fallbacks from the same Cloudflare
+rules. Deleted guides no longer appear in Markdown exports or agent indexes. The additionally
 consolidated OAuth page has equivalent 302 rules for current and v0.28.0 only,
 pointing directly to the new Static OAuth section.
 
@@ -148,8 +151,9 @@ At the initial audit, current and v0.28.0 omitted exactly the same page paths. v
 [Slack tutorial](./versioned_docs/version-v0.27.0/configuration/tutorials/slack-mcp-server.md),
 which was restored to current navigation later; its AI Judge Policies page is
 still in the sidebar. The other 32 omissions matched current. Adding egress
-control has since increased current and v0.28.0 sidebar coverage to 80 documents,
-leaving 32 outside their sidebars: 17 redirect stubs and 15 substantive pages.
+control increased current and v0.28.0 sidebar coverage to 80 documents. After
+deleting the 17 stub files from each, those versions now contain 95 documents,
+with 15 substantive pages outside the sidebar.
 Product Analytics is one of those 15 and now has an expanded entry point in the
 existing audit guide; the other 14 remain for review.
 

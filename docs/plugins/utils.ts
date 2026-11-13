@@ -16,6 +16,25 @@ export function escapeRegExp(value: string): string {
  * the swizzled DocItem/Metadata component (for client-side hydration).
  */
 export const PATH_REDIRECTS: Record<string, string> = {
+	// Consolidated guides: retained older pages canonicalize to the current guide.
+	"configuration/user-roles": "security/policy-coverage",
+	"functionality/audit-logs-and-usage": "security/audit-data",
+	"functionality/device-management": "device-management/how-sentry-works",
+	"functionality/llm-gateway": "llm-gateway/how-it-works",
+	"functionality/mcp-access-policies": "mcp-gateway/access",
+	"functionality/overview": "security/model",
+	"functionality/server-scheduling": "operations/capacity",
+	"functionality/skill-access-policies": "registries/publish-skills",
+	"functionality/skills": "registries/publish-skills",
+	"functionality/user-management": "security/authentication",
+	"functionality/virtual-mcps": "mcp-gateway/server-types",
+	"installation/cli-setup": "reference/cli-api",
+	"installation/enabling-authentication": "configuration/auth-providers",
+	"reference/schemas": "reference/catalog-schemas",
+	"configuration/encryption-providers/overview": "security/credentials",
+	"mcp-gateway/filters-tunnels": "functionality/filters",
+	"configuration/mcp-server-oauth-configuration": "mcp-gateway/server-configuration",
+
 	// Pages moved between versions
 	"agents/availability": "start-here/choose",
 	"agents/first-agent": "start-here/govern",
@@ -29,11 +48,11 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	architecture: "concepts/architecture",
 
 	// concepts/admin/* — section removed; map to closest equivalents
-	"concepts/admin/overview": "functionality/overview",
+	"concepts/admin/overview": "security/model",
 	"concepts/admin/mcp-servers": "functionality/mcp-servers",
 	"concepts/admin/mcp-server-catalogs": "configuration/mcp-server-gitops",
 	"concepts/admin/filters": "functionality/filters",
-	"concepts/admin/access-control": "configuration/user-roles",
+	"concepts/admin/access-control": "security/policy-coverage",
 
 	// concepts/chat/* — section removed; map to current agent concept page
 	"concepts/chat/overview": "concepts/obot-agent",
@@ -60,7 +79,7 @@ export const PATH_REDIRECTS: Record<string, string> = {
 	// configuration renames
 	"configuration/chat-configuration": "configuration/server-configuration",
 	"configuration/oauth-configuration":
-		"configuration/mcp-server-oauth-configuration",
+		"mcp-gateway/server-configuration",
 
 	// Removed sections
 	"integrations/ide-client-integration": "",

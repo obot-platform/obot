@@ -2,6 +2,8 @@ import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
 import versions from "./versions.json";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
@@ -11,6 +13,19 @@ const latestVersion = versions[0] ?? "current";
 // olderVersions may legitimately be empty (when there is only one or zero versions).
 // This is safe: the subsequent .map calls will just operate on an empty array.
 const olderVersions = versions.slice(1);
+
+// Generate static-host browser fallbacks from the same rules Cloudflare uses.
+// One trailing-slash spelling is enough for each generated HTML redirect.
+const consolidatedGuideRedirects = readFileSync(
+  path.join(__dirname, "static/_redirects"),
+  "utf8",
+)
+  .split(/\r?\n/)
+  .filter((line) => line.startsWith("/") && line.split(/\s+/)[0].endsWith("/"))
+  .map((line) => {
+    const [from, to] = line.split(/\s+/);
+    return { from, to };
+  });
 
 // Generate version config for older versions (latest is served at root)
 // "unmaintained" banner shows a warning that this is an older version with link to latest
@@ -67,6 +82,7 @@ const config: Config = {
       "@docusaurus/plugin-client-redirects",
       {
         redirects: [
+          ...consolidatedGuideRedirects,
           {
             from: "/next/agents/availability",
             to: "/next/start-here/choose",
@@ -101,7 +117,7 @@ const config: Config = {
           },
           {
             from: "/functionality/mcp-registries",
-            to: "/functionality/mcp-access-policies",
+            to: "/mcp-gateway/access/",
           },
           {
             from: "/concepts/admin/mcp-server-catalogs",
