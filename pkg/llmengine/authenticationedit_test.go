@@ -12,7 +12,7 @@ func TestAuthenticationEditPreservesWrappedSecrets(t *testing.T) {
 	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: testKeyDNS}
 	t.Cleanup(func() { net.DefaultResolver = previousResolver })
 	e, ctx := startTestEngine(t)
-	for _, provider := range []string{"azure", "bedrock"} {
+	for _, provider := range []string{"azure", "bedrock_mantle"} {
 		_, err := e.CreateProvider(ctx, mustJSON(t, map[string]any{"provider": provider}))
 		require.NoError(t, err)
 		for _, method := range []string{"api", "credentials"} {
@@ -33,7 +33,7 @@ func TestAuthenticationEditPreservesWrappedSecrets(t *testing.T) {
 				if provider == "azure" {
 					body["azure_key_config"] = view.AzureKeyConfig
 				} else {
-					body["bedrock_key_config"] = view.BedrockKeyConfig
+					body["bedrock_mantle_key_config"] = view.BedrockMantleKeyConfig
 				}
 				_, err = e.UpdateKey(ctx, provider, key.ID, mustJSON(t, body))
 				require.NoError(t, err)

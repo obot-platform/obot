@@ -21,7 +21,7 @@ import (
 
 func TestLegacyCredentialFamilies(t *testing.T) {
 	e, ctx := startTestEngine(t)
-	require.NoError(t, e.store.CreateProvider(ctx, "bedrock", llmcoreclient.Provider{Keys: []schemas.Key{
+	require.NoError(t, e.store.CreateProvider(ctx, "bedrock_mantle", llmcoreclient.Provider{Keys: []schemas.Key{
 		{ID: "iam", Name: "imported-" + system.AmazonBedrockModelProvider, Models: schemas.WhiteList{"*"}},
 		{ID: "api", Name: "imported-" + system.AmazonBedrockAPIKeyModelProvider, Models: schemas.WhiteList{"*"}},
 	}}))
@@ -41,15 +41,15 @@ func TestLegacyCredentialFamilies(t *testing.T) {
 		},
 	} {
 		scoped := WithLegacySource(ctx, tc.source)
-		require.Equal(t, "bedrock", LegacyProvider(scoped))
-		key, err := e.LegacyKey(scoped, "bedrock/test")
+		require.Equal(t, "bedrock_mantle", LegacyProvider(scoped))
+		key, err := e.LegacyKey(scoped, "bedrock_mantle/test")
 		require.NoError(t, err)
 		require.Equal(t, tc.want, key)
 	}
-	require.NoError(t, e.store.MutateProvider(ctx, "bedrock", func(p *llmcoreclient.Provider) error { p.Keys = nil; return nil }))
+	require.NoError(t, e.store.MutateProvider(ctx, "bedrock_mantle", func(p *llmcoreclient.Provider) error { p.Keys = nil; return nil }))
 	_, err = e.Sync(ctx)
 	require.NoError(t, err)
-	key, err := e.LegacyKey(WithLegacySource(ctx, system.AmazonBedrockModelProvider), "bedrock/test")
+	key, err := e.LegacyKey(WithLegacySource(ctx, system.AmazonBedrockModelProvider), "bedrock_mantle/test")
 	require.NoError(t, err)
 	require.Empty(t, key)
 }

@@ -57,8 +57,8 @@ describe('provider authentication', () => {
 		});
 	});
 
-	for (const provider of ['bedrock', 'azure']) {
-		const aws = provider === 'bedrock';
+	for (const provider of ['bedrock_mantle', 'azure']) {
+		const aws = provider === 'bedrock_mantle';
 		const method = aws ? 'AWS credentials' : 'Microsoft Entra ID';
 		// The required marker distinguishes Azure’s credential field from its API Key radio.
 		const apiKeyLabel = aws ? /^Bedrock API Key/ : /^API Key\s*\*/;
@@ -75,10 +75,12 @@ describe('provider authentication', () => {
 		for (const addingProvider of [true, false]) {
 			it(`${provider}: selects and validates credentials in ${addingProvider ? 'provider creation' : 'key creation'}`, async () => {
 				const saved = vi.fn();
+				const created = vi.fn();
 				worker.use(
-					http.post('/api/llm-gateway/admin/providers', () =>
-						HttpResponse.json({ name: provider })
-					),
+					http.post('/api/llm-gateway/admin/providers', async ({ request }) => {
+						created(await request.json());
+						return HttpResponse.json({ name: provider });
+					}),
 					http.post('/api/llm-gateway/admin/providers/:provider/keys', async ({ request }) => {
 						saved(await request.json());
 						return HttpResponse.json({ id: 'key' });
@@ -118,10 +120,12 @@ describe('provider authentication', () => {
 				}
 				await submit.click();
 				await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+				if (addingProvider)
+					expect(created).toHaveBeenCalledWith(expect.objectContaining({ provider }));
 				if (!aws) expect(saved.mock.calls[0][0].models).toEqual(['my-deployment']);
 				expect(saved.mock.calls[0][0]).toMatchObject({
 					value: '',
-					[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+					[aws ? 'bedrock_mantle_key_config' : 'azure_key_config']: aws
 						? { access_key: 'access', secret_key: 'secret', region: sharedValue }
 						: {
 								endpoint: sharedValue,
@@ -151,7 +155,7 @@ describe('provider authentication', () => {
 				value: '',
 				models: ['*'],
 				weight: 1,
-				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+				[aws ? 'bedrock_mantle_key_config' : 'azure_key_config']: aws
 					? {
 							access_key: { value: '********' },
 							secret_key: { value: '********' },
@@ -192,12 +196,12 @@ describe('provider authentication', () => {
 			await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
 			expect(saved.mock.calls[1][0]).toMatchObject({
 				value: 'replacement',
-				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+				[aws ? 'bedrock_mantle_key_config' : 'azure_key_config']: aws
 					? { region: sharedValue }
 					: { endpoint: sharedValue }
 			});
 			expect(
-				saved.mock.calls[1][0][aws ? 'bedrock_key_config' : 'azure_key_config']
+				saved.mock.calls[1][0][aws ? 'bedrock_mantle_key_config' : 'azure_key_config']
 			).toHaveProperty(aws ? 'access_key' : 'client_id', '');
 			component.open();
 			await expect
@@ -222,7 +226,7 @@ describe('provider authentication', () => {
 				value: { value: masked, type: 'env', ref: 'env.OBOT_TEST_API_KEY' },
 				models: ['*'],
 				weight: 1,
-				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+				[aws ? 'bedrock_mantle_key_config' : 'azure_key_config']: aws
 					? { region: sharedValue, access_key: 'access', secret_key: { value: masked } }
 					: {
 							endpoint: sharedValue,
@@ -244,7 +248,7 @@ describe('provider authentication', () => {
 				name: 'renamed',
 				weight: 2,
 				value: aws ? { value: masked } : '',
-				[aws ? 'bedrock_key_config' : 'azure_key_config']: aws
+				[aws ? 'bedrock_mantle_key_config' : 'azure_key_config']: aws
 					? { region: sharedValue, access_key: '', secret_key: '', session_token: '', role_arn: '' }
 					: {
 							endpoint: sharedValue,
