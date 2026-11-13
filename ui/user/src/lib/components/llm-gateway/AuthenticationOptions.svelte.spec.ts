@@ -13,7 +13,7 @@ describe('authentication options', () => {
 					: await renderOpenDialog(ProviderKeyDialog, { provider });
 				if (addingProvider)
 					await dialog
-						.getByRole('button', { name: aws ? /^AWS Bedrock/ : /^Azure OpenAI/ })
+						.getByRole('button', { name: aws ? /^AWS Bedrock Runtime/ : /^Azure OpenAI/ })
 						.click();
 				await expect
 					.element(dialog.getByRole('radio', { name: 'Server identity', exact: true }))

@@ -241,7 +241,7 @@ describe('Models providers tab', () => {
 		const headings = page.getByRole('heading', { level: 4 }).elements();
 		expect(headings[0].textContent).toBe('OpenAI');
 		expect(headings.map((h) => h.textContent)).toEqual(
-			expect.arrayContaining(['Anthropic', 'Groq', 'AWS Bedrock'])
+			expect.arrayContaining(['Anthropic', 'Groq', 'AWS Bedrock Runtime', 'AWS Bedrock Mantle'])
 		);
 		await expect
 			.element(page.getByRole('button', { name: 'Configure' }).first())

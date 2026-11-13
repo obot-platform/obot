@@ -281,11 +281,11 @@ func TestLegacyImportCreatesFamilyInOneWriteAndDoesNotReimportDeletion(t *testin
 	require.NoError(t, err)
 	require.Equal(t, 1, creates)
 	require.Zero(t, updates)
-	require.NoError(t, e.store.DeleteProvider(ctx, "bedrock"))
+	require.NoError(t, e.store.DeleteProvider(ctx, "bedrock_mantle"))
 	err = e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, creates)
-	_, err = e.store.GetProvider(ctx, "bedrock")
+	_, err = e.store.GetProvider(ctx, "bedrock_mantle")
 	require.True(t, apierrors.IsNotFound(err))
 }
 
@@ -322,7 +322,7 @@ func TestLegacyImportRequiresExplicitBedrockIAMCredentialsAndRetries(t *testing.
 				system.AmazonBedrockModelProvider:       iam,
 			})
 			require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false), "requires both access-key ID and secret-access key")
-			_, err := e.store.GetProvider(ctx, "bedrock")
+			_, err := e.store.GetProvider(ctx, "bedrock_mantle")
 			require.True(t, apierrors.IsNotFound(err), "the valid API-key sibling must not be saved on its own")
 
 			// Re-running after correction proves the failed family was not marked complete.
@@ -334,13 +334,13 @@ func TestLegacyImportRequiresExplicitBedrockIAMCredentialsAndRetries(t *testing.
 				Secrets: iam,
 			}))
 			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
-			provider, err := e.store.GetProvider(ctx, "bedrock")
+			provider, err := e.store.GetProvider(ctx, "bedrock_mantle")
 			require.NoError(t, err)
 			require.Len(t, provider.Keys, 2)
 			for _, key := range provider.Keys {
 				if key.Name == "imported-"+system.AmazonBedrockModelProvider {
-					require.Equal(t, "access-key", key.BedrockKeyConfig.AccessKey.GetValue())
-					require.Equal(t, "secret-key", key.BedrockKeyConfig.SecretKey.GetValue())
+					require.Equal(t, "access-key", key.BedrockMantleKeyConfig.AccessKey.GetValue())
+					require.Equal(t, "secret-key", key.BedrockMantleKeyConfig.SecretKey.GetValue())
 				}
 			}
 		})
@@ -369,7 +369,7 @@ func TestLegacyImportGroupedProviders(t *testing.T) {
 
 	err := e.ImportLegacyModelProviders(ctx, nil, gateway, false)
 	require.NoError(t, err)
-	for _, name := range []string{"bedrock", "azure"} {
+	for _, name := range []string{"bedrock_mantle", "azure"} {
 		provider, err := e.store.GetProvider(ctx, name)
 		require.NoError(t, err)
 		require.Len(t, provider.Keys, 2)
@@ -392,7 +392,7 @@ func TestLegacyImportGroupedProviders(t *testing.T) {
 	require.NoError(t, err)
 	providers, err := e.Client().GetConfiguredProviders()
 	require.NoError(t, err)
-	require.Contains(t, providers, schemas.Bedrock, "normal sync must load the imported configuration")
+	require.Contains(t, providers, schemas.BedrockMantle, "normal sync must load the imported configuration")
 	require.Contains(t, providers, schemas.Azure)
 }
 
@@ -589,27 +589,19 @@ func TestLegacyAzureImportPreservesDeploymentDiscoveryMode(t *testing.T) {
 }
 
 func TestLegacyImportPreservesExistingDestinationBeforeValidatingSource(t *testing.T) {
-	for _, name := range []string{"bedrock", "bedrock_mantle"} {
-		t.Run(name, func(t *testing.T) {
-			e, ctx := startTestEngine(t)
-			t.Setenv("HTTPS_PROXY", "http://environment-proxy.invalid:3128")
-			gateway := legacyImportGateway(t, map[string]map[string]string{
-				system.AmazonBedrockModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID": "incomplete-credentials"},
-			})
-			_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": name, "network_config": map[string]any{"max_retries": 7}, "proxy_config": map[string]any{"type": "http", "url": "http://admin-proxy.invalid:8080"}}))
-			require.NoError(t, err)
-			before, err := e.store.GetProvider(ctx, name)
-			require.NoError(t, err)
-			require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, true))
-			after, err := e.store.GetProvider(ctx, name)
-			require.NoError(t, err)
-			require.Equal(t, before, after)
-			if name == "bedrock_mantle" {
-				_, err = e.store.GetProvider(ctx, "bedrock")
-				require.True(t, apierrors.IsNotFound(err))
-			}
-		})
-	}
+	e, ctx := startTestEngine(t)
+	t.Setenv("HTTPS_PROXY", "http://environment-proxy.invalid:3128")
+	gateway := legacyImportGateway(t, map[string]map[string]string{
+		system.AmazonBedrockModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID": "incomplete-credentials"},
+	})
+	_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "bedrock_mantle", "network_config": map[string]any{"max_retries": 7}, "proxy_config": map[string]any{"type": "http", "url": "http://admin-proxy.invalid:8080"}}))
+	require.NoError(t, err)
+	before, err := e.store.GetProvider(ctx, "bedrock_mantle")
+	require.NoError(t, err)
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, true))
+	after, err := e.store.GetProvider(ctx, "bedrock_mantle")
+	require.NoError(t, err)
+	require.Equal(t, before, after)
 }
 
 func TestLegacyImportAfterStartupAppliesProxyBeforePublication(t *testing.T) {
@@ -746,4 +738,26 @@ func TestLegacyImportProxyBeforeFirstDiscoveryAndInference(t *testing.T) {
 	code, response := do(t, e, http.MethodPost, "/v1/responses", `{"model":"generic-responses/gpt-4o-mini","input":"hi"}`)
 	require.Equal(t, http.StatusOK, code, response)
 	require.Contains(t, response, "Hello from responses")
+}
+
+func TestLegacyMantleImportPreservesRuntimeConfiguration(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "bedrock", "network_config": map[string]any{"max_retries": 7}}))
+	require.NoError(t, err)
+	before, err := e.store.GetProvider(ctx, "bedrock")
+	require.NoError(t, err)
+	gateway := legacyImportGateway(t, map[string]map[string]string{
+		system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "legacy-api-key"},
+	})
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
+	after, err := e.store.GetProvider(ctx, "bedrock")
+	require.NoError(t, err)
+	require.Equal(t, before, after, "Runtime profiles and admin settings must not become Mantle configuration")
+	mantle, err := e.store.GetProvider(ctx, "bedrock_mantle")
+	require.NoError(t, err)
+	require.Len(t, mantle.Keys, 1)
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
+	repeated, err := e.store.GetProvider(ctx, "bedrock_mantle")
+	require.NoError(t, err)
+	require.Equal(t, mantle, repeated)
 }

@@ -254,3 +254,27 @@ func TestGatewayModelMatchStaysWithinProviderAndPrefersExactThenLatestDate(t *te
 	_, ok = gatewayModelFor(byTarget, "anthropic", "claude-sonnet-4")
 	require.False(t, ok)
 }
+
+func TestLegacyAWSReferencesMigrateToMantle(t *testing.T) {
+	iam := migrationModel("m1-iam", system.AmazonBedrockModelProvider, "anthropic.claude-haiku-4-5")
+	api := migrationModel("m1-api", system.AmazonBedrockAPIKeyModelProvider, "anthropic.claude-haiku-4-5")
+	target := migrationModel("m1-mantle", system.LLMGatewayModelProvider, "bedrock_mantle/anthropic.claude-haiku-4-5")
+	policy := migrationPolicy(iam.Name, api.Name)
+	alias := &v1.DefaultModelAlias{
+		Name:      "llm",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.DefaultModelAliasSpec{
+			Manifest: types.DefaultModelAliasManifest{
+				Alias: "llm",
+				Model: iam.Name,
+			},
+		},
+	}
+	provider := ModelProviderResource()
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(iam, api, target, policy, alias, provider).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+	require.Equal(t, []types.ModelResource{{ID: target.Name}}, policy.Spec.Manifest.Models)
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(alias), alias))
+	require.Equal(t, target.Name, alias.Spec.Manifest.Model)
+}

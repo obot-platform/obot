@@ -44,6 +44,74 @@ const apiKey = (placeholder = 'sk-...'): KeyField => ({
 	required: true
 });
 
+// Runtime and Mantle use different Bifrost key payloads, even though their AWS auth fields match.
+function awsBedrock(id: 'bedrock' | 'bedrock_mantle'): ProviderCatalogEntry {
+	const mantle = id === 'bedrock_mantle';
+	const config = mantle ? 'bedrock_mantle_key_config' : 'bedrock_key_config';
+	return {
+		id,
+		label: mantle ? 'AWS Bedrock Mantle' : 'AWS Bedrock Runtime',
+		icon: '/admin/assets/amazon-bedrock.png',
+		description: mantle
+			? m.models_providers_desc_bedrock_mantle()
+			: m.models_providers_desc_bedrock(),
+		authenticationMethods: [
+			{
+				id: 'api-key',
+				label: m.models_providers_api_key(),
+				description: m.models_providers_auth_api_key_help(),
+				paths: ['value']
+			},
+			{
+				id: 'credentials',
+				label: m.models_providers_auth_aws(),
+				description: m.models_providers_auth_aws_help(),
+				paths: [
+					`${config}.access_key`,
+					`${config}.secret_key`,
+					`${config}.session_token`,
+					`${config}.role_arn`
+				]
+			}
+		],
+		keyFields: [
+			{
+				path: 'value',
+				label: m.models_providers_field_bedrock_api_key(),
+				sensitive: true,
+				required: true
+			},
+			{
+				path: `${config}.access_key`,
+				label: m.models_providers_field_access_key_id(),
+				required: true
+			},
+			{
+				path: `${config}.secret_key`,
+				required: true,
+				label: m.models_providers_field_secret_access_key(),
+				sensitive: true
+			},
+			{
+				path: `${config}.session_token`,
+				label: m.models_providers_field_session_token(),
+				sensitive: true
+			},
+			{
+				path: `${config}.region`,
+				label: m.models_providers_field_region(),
+				placeholder: 'us-east-1',
+				required: true
+			},
+			{
+				path: `${config}.role_arn`,
+				label: m.models_providers_field_role_arn(),
+				description: m.models_providers_field_role_arn_help()
+			}
+		]
+	};
+}
+
 export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 	{
 		id: 'openai',
@@ -94,66 +162,8 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 			}
 		]
 	},
-	{
-		id: 'bedrock',
-		label: 'AWS Bedrock',
-		icon: '/admin/assets/amazon-bedrock.png',
-		description: m.models_providers_desc_bedrock(),
-		authenticationMethods: [
-			{
-				id: 'api-key',
-				label: m.models_providers_api_key(),
-				description: m.models_providers_auth_api_key_help(),
-				paths: ['value']
-			},
-			{
-				id: 'credentials',
-				label: m.models_providers_auth_aws(),
-				description: m.models_providers_auth_aws_help(),
-				paths: [
-					'bedrock_key_config.access_key',
-					'bedrock_key_config.secret_key',
-					'bedrock_key_config.session_token',
-					'bedrock_key_config.role_arn'
-				]
-			}
-		],
-		keyFields: [
-			{
-				path: 'value',
-				label: m.models_providers_field_bedrock_api_key(),
-				sensitive: true,
-				required: true
-			},
-			{
-				path: 'bedrock_key_config.access_key',
-				label: m.models_providers_field_access_key_id(),
-				required: true
-			},
-			{
-				path: 'bedrock_key_config.secret_key',
-				required: true,
-				label: m.models_providers_field_secret_access_key(),
-				sensitive: true
-			},
-			{
-				path: 'bedrock_key_config.session_token',
-				label: m.models_providers_field_session_token(),
-				sensitive: true
-			},
-			{
-				path: 'bedrock_key_config.region',
-				label: m.models_providers_field_region(),
-				placeholder: 'us-east-1',
-				required: true
-			},
-			{
-				path: 'bedrock_key_config.role_arn',
-				label: m.models_providers_field_role_arn(),
-				description: m.models_providers_field_role_arn_help()
-			}
-		]
-	},
+	awsBedrock('bedrock'),
+	awsBedrock('bedrock_mantle'),
 	{
 		id: 'azure',
 		label: 'Azure OpenAI / AI Foundry',

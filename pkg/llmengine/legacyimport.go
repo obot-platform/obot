@@ -46,8 +46,9 @@ var (
 				}
 			},
 		},
+		// The v0.27 AWS providers used Mantle for both Claude and OpenAI model IDs.
 		system.AmazonBedrockModelProvider: {
-			provider: "bedrock",
+			provider: "bedrock_mantle",
 			build: func(s map[string]string) (map[string]any, map[string]any) {
 				region := secretWithSuffix(s, "_MODEL_PROVIDER_REGION")
 				if region == "" {
@@ -61,19 +62,19 @@ var (
 				if token := secretWithSuffix(s, "_MODEL_PROVIDER_SESSION_TOKEN"); token != "" {
 					cfg["session_token"] = token
 				}
-				return map[string]any{}, map[string]any{"value": "", "bedrock_key_config": cfg}
+				return map[string]any{}, map[string]any{"value": "", "bedrock_mantle_key_config": cfg}
 			},
 		},
 		system.AmazonBedrockAPIKeyModelProvider: {
-			provider: "bedrock",
+			provider: "bedrock_mantle",
 			build: func(s map[string]string) (map[string]any, map[string]any) {
 				region := secretWithSuffix(s, "_MODEL_PROVIDER_REGION")
 				if region == "" {
 					region = "us-east-1"
 				}
 				return map[string]any{}, map[string]any{
-					"value":              secretWithSuffix(s, "_MODEL_PROVIDER_API_KEY"),
-					"bedrock_key_config": map[string]any{"region": region},
+					"value":                     secretWithSuffix(s, "_MODEL_PROVIDER_API_KEY"),
+					"bedrock_mantle_key_config": map[string]any{"region": region},
 				}
 			},
 		},
@@ -122,17 +123,11 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 			if envConfigured(family) != "" {
 				return nil
 			}
-			existing := []string{family}
-			if family == "bedrock" {
-				existing = append(existing, "bedrock_mantle")
-			}
-			for _, name := range existing {
-				if _, err := e.store.GetProvider(ctx, name); err == nil {
-					// Existing configuration wins: complete this family without merging legacy keys; other families still run.
-					return nil
-				} else if !apierrors.IsNotFound(err) {
-					return fmt.Errorf("read gateway provider %s: %w", name, err)
-				}
+			if _, err := e.store.GetProvider(ctx, family); err == nil {
+				// Existing destination configuration wins without merging legacy keys or changing its proxy.
+				return nil
+			} else if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("read gateway provider %s: %w", family, err)
 			}
 			secrets := map[string]map[string]string{}
 			for _, source := range sources {

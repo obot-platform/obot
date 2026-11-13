@@ -51,7 +51,7 @@ On first startup, Obot imports legacy configuration into the gateway.
 ## Client routes {#client-routes}
 
 :::warning Deprecated provider endpoints
-Legacy provider endpoints still support compatible operations, but are deprecated and will be removed in a future release. Migrate existing clients to `/api/llm-proxy/v1` with provider-qualified model names, such as `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. See [Connecting clients](./connect-clients.md).
+Legacy provider endpoints still support compatible operations, but are deprecated and will be removed in a future release. Migrate existing clients to `/api/llm-proxy/v1` with provider-qualified model names, such as `bedrock_mantle/anthropic.claude-haiku-4-5`. See [Connecting clients](./connect-clients.md).
 :::
 
 **v0.28.1** restores supported legacy operations through the gateway:
@@ -60,11 +60,11 @@ Legacy provider endpoints still support compatible operations, but are deprecate
 | --- | --- |
 | `/api/llm-proxy/v1` | Serves every model in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Use this for new setups. |
 | `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic`, `/api/llm-proxy/generic-responses` | Supported inference and model-listing requests retain their URLs. Bare model names resolve within the original provider. |
-| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported paths, including `anthropic/v1/messages` and `openai/v1/responses`, use the current `bedrock` provider. |
+| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported paths, including `anthropic/v1/messages` and `openai/v1/responses`, use the `bedrock_mantle` provider. |
 | `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the current `azure` provider pool. |
 
 - Retained routes prefer their matching imported key. If it is absent, disabled, or does not support the requested model, they use the provider's normal key pool. Model access policies, budgets, guardrails and audit logging still apply; routing rules and fallbacks can change the serving provider or model.
-- Both AWS legacy routes initially select `bedrock`. For Bedrock Mantle, use the unified endpoint with a `bedrock_mantle/` model name.
+- Both AWS legacy routes initially select `bedrock_mantle`. The v0.27 AWS providers used Mantle; their IAM and API-key credentials import as separate keys of that provider.
 - Unsupported legacy operations remain unavailable. Use `/api/llm-proxy/v1` with a configured provider and an accessible model for new setups.
 - See [Deprecated provider endpoints](./compatibility.md#deprecated-provider-endpoints) for operation and model-name details.
 
@@ -82,3 +82,9 @@ Legacy provider endpoints still support compatible operations, but are deprecate
   - Converted guardrail policies start disabled; review and enable them. Policies scoped to specific users/groups get a profile named `<policy name> (message policy)` with those subjects and no models.
   - `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` is removed. Past violations remain stored but disappear from the UI/API; audit logs no longer mark or filter requests changed by message policies.
   - See [AI Judge Policies](../functionality/ai-judge-policies.md) and [Audit usage and costs](./audit.md).
+
+### Existing AWS gateway configurations
+
+The provider picker distinguishes **AWS Bedrock Runtime** (`bedrock`) from **AWS Bedrock Mantle** (`bedrock_mantle`). Choose Mantle for native Mantle IDs such as `anthropic.claude-haiku-4-5`; use Runtime for Runtime model IDs and inference profiles.
+
+Existing Runtime configurations are left untouched. If you previously configured a Mantle model under Runtime, configure the Mantle provider and select its model in your client, profile, or default model setting. Retained legacy credentials can populate the Mantle provider on startup, but gateway references already rewritten to Runtime models are not automatically retargeted.
