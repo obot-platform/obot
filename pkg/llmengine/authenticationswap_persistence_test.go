@@ -17,7 +17,7 @@ func TestAuthenticationSwapPersistsAcrossRestart(t *testing.T) {
 	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: testKeyDNS}
 	t.Cleanup(func() { net.DefaultResolver = previousResolver })
 	e, ctx := startTestEngine(t)
-	for _, provider := range []string{"azure", "bedrock"} {
+	for _, provider := range []string{"azure", "bedrock_mantle"} {
 		if _, err := e.CreateProvider(ctx, mustJSON(t, map[string]any{"provider": provider})); err != nil {
 			t.Fatal(err)
 		}

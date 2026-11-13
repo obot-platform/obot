@@ -75,6 +75,18 @@ func TestRejectAmbientCredentialRedirects(t *testing.T) {
 			wantErr:      true,
 		},
 		{
+			name:         "another CA on Bedrock Mantle",
+			providerType: "bedrock_mantle",
+			body:         `{"network_config":{"ca_cert_pem":"-----BEGIN CERTIFICATE-----"}}`,
+			wantErr:      true,
+		},
+		{
+			name:         "proxy certificate checks off on Bedrock Mantle",
+			providerType: "bedrock_mantle",
+			body:         `{"proxy_config":{"skip_tls_verify":true}}`,
+			wantErr:      true,
+		},
+		{
 			name:         "certificate checks off on a self-hosted provider",
 			providerType: "openai",
 			body:         `{"network_config":{"base_url":"https://vllm.internal","insecure_skip_verify":true}}`,
