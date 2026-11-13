@@ -2,6 +2,7 @@ package llmengine
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -30,7 +31,9 @@ func (e *Engine) LegacyKey(ctx context.Context, target string) (string, error) {
 	model := strings.TrimPrefix(target, provider+"/")
 	key, configured, err := e.core.Load().ProviderKeyID(ctx, schemas.ModelProvider(provider), "imported-"+source, model)
 	if err != nil {
-		return "", err
+		// Key preference must not prevent normal routing, fallbacks, or provider transition gating.
+		slog.WarnContext(ctx, "failed to select imported LLM gateway key; continuing without a preference", "provider", provider, "error", err)
+		return "", nil
 	}
 	if !configured {
 		return "", missing("provider")

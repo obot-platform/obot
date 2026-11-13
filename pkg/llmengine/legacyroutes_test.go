@@ -2,9 +2,13 @@ package llmengine
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/obot-platform/obot/pkg/llmcore"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -99,4 +103,62 @@ func TestLegacyKeyReadsOnlyReconciledConfiguration(t *testing.T) {
 	require.True(t, apierrors.IsNotFound(err))
 	_, err = New().LegacyKey(ctx, "openai/test")
 	require.True(t, apierrors.IsServiceUnavailable(err))
+}
+
+func TestLegacyKeyDuringProviderReconfiguration(t *testing.T) {
+	upstream := mockOpenAI(t)
+	t.Cleanup(upstream.Close)
+	e, ctx := startTestEngine(t)
+	for _, provider := range []string{"generic-responses", "healthy"} {
+		require.NoError(t, e.store.CreateProvider(ctx, provider, llmcoreclient.Provider{
+			Config: schemas.ProviderConfig{
+				NetworkConfig:        schemas.NetworkConfig{BaseURL: upstream.URL, AllowPrivateNetwork: true},
+				CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.OpenAI},
+			},
+			Keys: []schemas.Key{{ID: provider, Name: "imported-" + system.GenericResponsesModelProvider, Value: *schemas.NewSecretVar("secret"), Models: schemas.WhiteList{"*"}, Weight: 1}},
+		}))
+	}
+	_, err := e.Sync(ctx)
+	require.NoError(t, err)
+	ctx = WithLegacySource(ctx, system.GenericResponsesModelProvider)
+	key, err := e.LegacyKey(ctx, "generic-responses/test")
+	require.NoError(t, err)
+	require.Equal(t, "generic-responses", key)
+
+	// A failed replacement keeps the provider transitioning without timing-dependent pauses.
+	require.NoError(t, e.store.MutateProvider(ctx, "generic-responses", func(p *llmcoreclient.Provider) error {
+		p.Config.CustomProviderConfig.BaseProviderType = "unsupported-base"
+		return nil
+	}))
+	_, err = e.Sync(ctx)
+	require.Error(t, err)
+	_, _, err = e.core.Load().ProviderKeyID(ctx, "generic-responses", "imported-"+system.GenericResponsesModelProvider, "test")
+	require.ErrorContains(t, err, "being reconfigured")
+	key, err = e.LegacyKey(ctx, "generic-responses/test")
+	require.NoError(t, err)
+	require.Empty(t, key)
+
+	for _, tc := range []struct {
+		name string
+		body string
+		code int
+	}{
+		{
+			name: "provider gate",
+			body: `{"model":"generic-responses/test","messages":[{"role":"user","content":"hello"}]}`,
+			code: http.StatusServiceUnavailable,
+		},
+		{
+			name: "fallback",
+			body: `{"model":"generic-responses/test","fallbacks":["healthy/test"],"messages":[{"role":"user","content":"hello"}]}`,
+			code: http.StatusOK,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(tc.body)).WithContext(llmcore.WithInitialKey(ctx, key))
+			e.ServeHTTP(response, request)
+			require.Equal(t, tc.code, response.Code, response.Body.String())
+		})
+	}
 }
