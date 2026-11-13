@@ -16,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/messagepolicy"
 )
 
 const (
@@ -137,7 +136,7 @@ type ProviderInfo struct {
 // Deps are services checkers may use.
 type Deps struct {
 	// Judge evaluates natural-language policies with an LLM.
-	Judge *messagepolicy.Helper
+	Judge *Judge
 	// HTTPClient is used for calls to external guardrail services.
 	HTTPClient *http.Client
 }

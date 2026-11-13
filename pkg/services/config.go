@@ -51,7 +51,6 @@ import (
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcptester"
-	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/otel"
 	"github.com/obot-platform/obot/pkg/producttelemetry"
@@ -948,8 +947,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	bifrostEngine := llmengine.New()
 	providerDispatcher.RegisterBuiltinModelProvider(system.DefaultNamespace, system.LLMGatewayModelProvider, bifrostEngine)
 
-	// Message policies are now LLM judge guardrails, evaluated with the message policy judge.
-	judge := messagepolicy.NewHelper(storageClient, bifrostEngine)
+	// LLM judge guardrails use the configured default models through the gateway.
+	judge := guardrails.NewJudge(storageClient, bifrostEngine)
 	guardrailEngine := guardrails.New(gatewayClient, judge)
 	go backfillIdentityGroupLookupIDHashes(ctx, gatewayClient)
 	go func() {
