@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +28,7 @@ import (
 func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 	for _, mode := range []string{"initial", "disabled imported", "restricted imported", "blacklisted imported", "model rule", "provider rule", "provider and key rule", "fallback"} {
 		t.Run(mode, func(t *testing.T) {
-			type attempt struct{ path, auth string }
+			type attempt struct{ path, auth, model string }
 			attempts := make(chan attempt, 20)
 			upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
@@ -35,15 +36,21 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 					_, _ = io.WriteString(w, `{"data":[]}`)
 					return
 				}
-				attempts <- attempt{path: r.URL.Path, auth: r.Header.Get("Authorization")}
-				if strings.HasPrefix(r.URL.Path, "/model/") {
+				var body struct {
+					Model string `json:"model"`
+				}
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+				attempts <- attempt{
+					path:  r.URL.Path,
+					auth:  r.Header.Get("Authorization"),
+					model: body.Model,
+				}
+				if strings.HasPrefix(r.URL.Path, "/openai/") {
 					if mode == "fallback" {
 						w.WriteHeader(http.StatusInternalServerError)
 						_, _ = io.WriteString(w, `{"message":"try fallback"}`)
 						return
 					}
-					_, _ = io.WriteString(w, `{"output":{"message":{"role":"assistant","content":[{"text":"ok"}]}},"stopReason":"end_turn","usage":{"inputTokens":1,"outputTokens":1,"totalTokens":2}}`)
-					return
 				}
 				_, _ = io.WriteString(w, `{"id":"resp_1","object":"response","status":"completed","model":"destination","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ok","annotations":[]}]}],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}`)
 			}))
@@ -55,16 +62,16 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 				NetworkConfig:            schemas.NetworkConfig{BaseURL: upstream.URL, InsecureSkipVerify: true, AllowPrivateNetwork: true},
 				ConcurrencyAndBufferSize: schemas.ConcurrencyAndBufferSize{Concurrency: 2, BufferSize: 10},
 			}
-			bedrockConfig := &schemas.BedrockKeyConfig{
+			bedrockConfig := &schemas.BedrockMantleKeyConfig{
 				Region:    schemas.NewSecretVar("us-east-1"),
-				Endpoints: &schemas.BedrockEndpoints{Runtime: schemas.NewSecretVar(strings.TrimPrefix(upstream.URL, "https://"))},
+				Endpoints: &schemas.BedrockEndpoints{Mantle: schemas.NewSecretVar(strings.TrimPrefix(upstream.URL, "https://"))},
 			}
 			iamConfig := *bedrockConfig
 			iamConfig.AccessKey = *schemas.NewSecretVar("legacy-access-id")
 			iamConfig.SecretKey = *schemas.NewSecretVar("legacy-signing-secret")
-			require.NoError(t, store.CreateProvider(t.Context(), "bedrock", llmcoreclient.Provider{Config: config, Keys: []schemas.Key{
-				{ID: "iam", Name: "imported-" + system.AmazonBedrockModelProvider, Models: schemas.WhiteList{"*"}, Weight: 1, BedrockKeyConfig: &iamConfig},
-				{ID: "api", Name: "imported-" + system.AmazonBedrockAPIKeyModelProvider, Models: schemas.WhiteList{"*"}, Weight: 1, Value: *schemas.NewSecretVar("legacy-api-token"), BedrockKeyConfig: bedrockConfig},
+			require.NoError(t, store.CreateProvider(t.Context(), "bedrock_mantle", llmcoreclient.Provider{Config: config, Keys: []schemas.Key{
+				{ID: "iam", Name: "imported-" + system.AmazonBedrockModelProvider, Models: schemas.WhiteList{"*"}, Weight: 1, BedrockMantleKeyConfig: &iamConfig},
+				{ID: "api", Name: "imported-" + system.AmazonBedrockAPIKeyModelProvider, Models: schemas.WhiteList{"*"}, Weight: 1, Value: *schemas.NewSecretVar("legacy-api-token"), BedrockMantleKeyConfig: bedrockConfig},
 			}}))
 			require.NoError(t, store.CreateProvider(t.Context(), "openai", llmcoreclient.Provider{Config: config, Keys: []schemas.Key{
 				{ID: "destination", Name: "destination", Models: schemas.WhiteList{"*"}, Weight: 1, Value: *schemas.NewSecretVar("destination-token")},
@@ -74,7 +81,7 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 				target := tables.TableRoutingTarget{Provider: new("openai"), Model: new("destination"), Weight: 1}
 				if mode == "model rule" {
 					target.Provider = nil
-					target.Model = new("amazon.nova-other")
+					target.Model = new("openai.gpt-5.4-mini")
 				}
 				if mode == "provider and key rule" {
 					target.KeyID = new("explicit")
@@ -87,7 +94,7 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 			access := &directAccessBackend{storage: storage, informers: map[string]cache.SharedIndexInformer{}}
 			helper, err := modelaccesspolicy.NewHelper(t.Context(), access)
 			require.NoError(t, err)
-			for id, target := range map[string]string{"m1-bedrock": "bedrock/amazon.nova-test", "m1-openai": "openai/destination", "m1-bedrock-other": "bedrock/amazon.nova-other"} {
+			for id, target := range map[string]string{"m1-bedrock": "bedrock_mantle/openai.gpt-5.4", "m1-openai": "openai/destination", "m1-bedrock-other": "bedrock_mantle/openai.gpt-5.4-mini"} {
 				model := &v1.Model{Name: id, Namespace: system.DefaultNamespace, Spec: v1.ModelSpec{Manifest: types.ModelManifest{Active: true, ModelProvider: system.LLMGatewayModelProvider, TargetModel: target, Usage: types.ModelUsageLLM}}}
 				require.NoError(t, access.informers["Model"].GetIndexer().Add(model))
 			}
@@ -108,7 +115,7 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 						keyID = "api"
 					}
 					// The expected imported key has zero pool weight: losing the pin must select the wrong key.
-					require.NoError(t, store.MutateProvider(t.Context(), "bedrock", func(p *llmcoreclient.Provider) error {
+					require.NoError(t, store.MutateProvider(t.Context(), "bedrock_mantle", func(p *llmcoreclient.Provider) error {
 						for i := range p.Keys {
 							p.Keys[i].Weight = 1
 							p.Keys[i].Enabled = nil
@@ -122,9 +129,9 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 								case "restricted imported":
 									p.Keys[i].Models = schemas.WhiteList{"another-model"}
 								case "blacklisted imported":
-									p.Keys[i].BlacklistedModels = schemas.BlackList{"amazon.nova-test"}
+									p.Keys[i].BlacklistedModels = schemas.BlackList{"openai.gpt-5.4"}
 								case "model rule":
-									p.Keys[i].Models = schemas.WhiteList{"amazon.nova-test"}
+									p.Keys[i].Models = schemas.WhiteList{"openai.gpt-5.4"}
 								}
 							}
 						}
@@ -132,9 +139,9 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 					}))
 					_, err := engine.Sync(t.Context())
 					require.NoError(t, err)
-					body := `{"model":"amazon.nova-test","input":"hi"}`
+					body := `{"model":"openai.gpt-5.4","input":"hi"}`
 					if mode == "fallback" {
-						body = `{"model":"amazon.nova-test","input":"hi","fallbacks":["openai/destination"]}`
+						body = `{"model":"openai.gpt-5.4","input":"hi","fallbacks":["openai/destination"]}`
 					}
 					req := httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+prefix+"/v1/responses", strings.NewReader(body))
 					req.SetPathValue("path", "v1/responses")
@@ -153,7 +160,7 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 						expectedIAM = !expectedIAM
 					}
 					for _, a := range recorded {
-						if strings.HasPrefix(a.path, "/model/") {
+						if strings.HasPrefix(a.path, "/openai/") {
 							if expectedIAM {
 								require.Contains(t, a.auth, "AWS4-HMAC-SHA256 Credential=legacy-access-id/")
 							} else {
@@ -168,16 +175,16 @@ func TestLegacyRoutesSendSelectedCredentialsUpstream(t *testing.T) {
 						}
 					}
 					if mode == "initial" || strings.HasSuffix(mode, "imported") || mode == "model rule" {
-						require.True(t, strings.HasPrefix(recorded[0].path, "/model/"))
+						require.True(t, strings.HasPrefix(recorded[0].path, "/openai/"))
 					} else {
 						require.True(t, strings.HasSuffix(recorded[len(recorded)-1].path, "/responses"))
 					}
 					if mode == "model rule" {
-						require.Contains(t, recorded[0].path, "amazon.nova-other")
+						require.Equal(t, "openai.gpt-5.4-mini", recorded[0].model)
 					}
 					if mode == "fallback" {
 						require.GreaterOrEqual(t, len(recorded), 2)
-						require.True(t, strings.HasPrefix(recorded[0].path, "/model/"))
+						require.True(t, strings.HasPrefix(recorded[0].path, "/openai/"))
 					}
 				})
 			}
