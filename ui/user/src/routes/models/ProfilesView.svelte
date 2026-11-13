@@ -70,9 +70,7 @@
 	);
 
 	let filteredRows = $derived(
-		rows.filter((r) =>
-			[r.name, r.subjectsTitle].some((v) => v?.toLowerCase().includes(query.toLowerCase()))
-		)
+		rows.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()))
 	);
 
 	async function load() {
