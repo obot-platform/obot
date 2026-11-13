@@ -117,8 +117,14 @@ Two more compatibility pages still receive links:
   to those guides from Add remote MCP servers and Architecture → Where Obot and
   MCP servers run.
 
-Keep these files and explicit anchors working for bookmarks. Restoring them to
-the sidebar would duplicate the current task-based guides.
+The 16 pure stubs now have temporary Cloudflare Pages 302 redirects in
+`static/_redirects`, covering the latest release at the root (v0.28.0), `/next/`,
+and v0.27.0, with and without trailing slashes. Old section fragments are
+intentionally not remapped, as agreed in discussion. The redirects use each
+guide's main replacement; authentication setup goes to Configure authentication
+providers, and the combined schemas page goes to Catalog schemas; Filter schemas
+remains in the Reference navigation. MCP Servers remains available because it retains legacy
+guidance. Stub Markdown is retained for development and in-app navigation.
 
 ## Released versions
 

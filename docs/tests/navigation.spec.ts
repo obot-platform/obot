@@ -1,4 +1,5 @@
 import { test, expect, type Locator } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import versions from '../versions.json';
 
 test('current documentation navigation and direct loads', async ({ page }) => {
@@ -46,14 +47,50 @@ test('current documentation navigation and direct loads', async ({ page }) => {
   }
 });
 
-test('bookmarked guide sections lead directly to their relocated procedures', async ({ page }) => {
+test('Cloudflare redirects consolidated guides within their documentation version', async ({ page, request }) => {
+  const rules = readFileSync(`${__dirname}/../static/_redirects`, 'utf8')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .map(line => line.split(/\s+/));
+  const destinations = new Set<string>();
+  expect(rules.length).toBeGreaterThan(0);
+  for (const [source, destination, status] of rules) {
+    expect(status, source).toBe('302');
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(Number(status));
+    expect(response.headers().location, source).toBe(destination);
+    destinations.add(destination);
+  }
+  for (const destination of destinations) {
+    const response = await request.get(destination, { maxRedirects: 0 });
+    expect(response.status(), destination).toBe(200);
+    expect(await response.text(), destination).toContain('<article');
+  }
+  for (const prefix of ['', '/next', '/v0.27.0']) {
+    const source = `${prefix}/functionality/mcp-servers/`;
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(200);
+    expect(await response.text(), source).toContain('single-user-server');
+  }
+  // Pre-refactor releases still have real guides at these paths. Do not send
+  // their readers into another version or a replacement that does not exist.
+  for (const version of ['v0.26.0', 'v0.25.0']) {
+    for (const source of ['/configuration/user-roles/', '/functionality/skills/']) {
+      const response = await request.get(`/${version}${source}`, { maxRedirects: 0 });
+      expect(response.status(), `${version}${source}`).toBe(200);
+    }
+  }
+  // Exact old fragments are deliberately not translated. The page itself
+  // redirects successfully even when the old section moved to another guide.
+  await page.goto('/next/functionality/virtual-mcps/#tools-and-profiles');
+  expect(new URL(page.url()).pathname).toBe('/next/mcp-gateway/server-types/');
+  await expect(page.locator('article').first()).toBeVisible();
+});
+
+test('retained legacy MCP server sections still link to relocated procedures', async ({ page }) => {
   for (const [source, anchor, target] of [
-    ['functionality/virtual-mcps', 'tools-and-profiles', 'mcp-gateway/access'],
     ['functionality/mcp-servers', 'npx-nodetypescript-based-mcp-servers', 'concepts/mcp-hosting'],
-    ['functionality/skills', 'adding-a-source', 'registries/publish-skills'],
-    ['installation/enabling-authentication', 'step-1-set-environment-variables', 'configuration/auth-providers'],
-    ['functionality/audit-logs-and-usage', 'retention', 'security/audit-data'],
-    ['installation/cli-setup', 'basic-usage', 'reference/cli-api'],
   ]) {
     await page.goto(`/next/${source}/#${anchor}`);
     const heading = page.locator(`[id="${anchor}"]`);
