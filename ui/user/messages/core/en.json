@@ -179,6 +179,7 @@
 	"core_select_more_options": "{count} more — type to narrow the results",
 	"core_select_summary_more": "{first}, {second}, and {count} more",
 	"core_select_time": "Select time",
+	"core_setup": "Setup",
 	"core_show_all_items": "Show All Items",
 	"core_show_all_legend_items": "Show all legend items",
 	"core_show_less": "Show less",

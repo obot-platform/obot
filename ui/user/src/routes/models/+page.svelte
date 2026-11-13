@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
 	import DefaultModels from '$lib/components/admin/DefaultModels.svelte';
 	import GuardrailsList from '$lib/components/guardrails/GuardrailsList.svelte';
@@ -23,7 +24,6 @@
 	initModels([]);
 	const adminModels = getAdminModels();
 	let providersView = $state<ReturnType<typeof ProvidersView>>();
-	let routingView = $state<ReturnType<typeof RoutingView>>();
 	let guardrailsList = $state<ReturnType<typeof GuardrailsList>>();
 	let gatewayReady = $state(false);
 
@@ -87,7 +87,19 @@
 		return views.some((v) => v.value === requested) ? requested : 'connect';
 	});
 
-	let title = $derived(titles[selectedView] ?? m.models_page_title());
+	let creatingRouting = $derived(
+		selectedView === 'routing' && page.url.searchParams.has('new') && !isAdminReadonly
+	);
+	let creatingProfile = $derived(
+		selectedView === 'profiles' && page.url.searchParams.has('new') && !isAdminReadonly
+	);
+	let title = $derived(
+		creatingRouting
+			? m.models_routing_add_title()
+			: creatingProfile
+				? m.models_profiles_new()
+				: (titles[selectedView] ?? m.models_page_title())
+	);
 
 	// The default models dialog on the Providers tab chooses from every model the gateway has.
 	$effect(() => {
@@ -109,13 +121,31 @@
 	<title>Obot | {title}</title>
 </svelte:head>
 
-<TabLayout
-	title={m.models_page_title()}
-	defaultView="connect"
-	rightNavActions={navActions}
-	{views}
-	classes={{ childrenContainer: 'max-w-none' }}
-/>
+{#if creatingRouting}
+	<Layout
+		title={m.models_routing_add_title()}
+		showBackButton
+		onBackButtonClick={() => goto('/models?view=routing', { replaceState: true })}
+	>
+		<RoutingView onReadyChange={(ready) => (gatewayReady = ready)} />
+	</Layout>
+{:else if creatingProfile}
+	<Layout
+		title={m.models_profiles_new()}
+		showBackButton
+		onBackButtonClick={() => goto('/models?view=profiles', { replaceState: true })}
+	>
+		<ProfilesView />
+	</Layout>
+{:else}
+	<TabLayout
+		title={m.models_page_title()}
+		defaultView="connect"
+		rightNavActions={navActions}
+		{views}
+		classes={{ childrenContainer: 'max-w-none' }}
+	/>
+{/if}
 
 {#snippet navActions(view: string)}
 	{#if view === 'providers'}
@@ -134,7 +164,7 @@
 	{:else if !isAdminReadonly && gatewayReady && view === 'routing'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => routingView?.open()}
+			onclick={() => goto('/models?view=routing&new=true')}
 		>
 			<Plus class="size-4" />
 			{m.models_routing_add_rule()}
@@ -142,7 +172,7 @@
 	{:else if view === 'profiles' && !isAdminReadonly}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => goto('/models/profiles/new')}
+			onclick={() => goto('/models?view=profiles&new=true')}
 		>
 			<Plus class="size-4" />
 			{m.models_profiles_add()}
@@ -159,15 +189,19 @@
 {/snippet}
 
 {#snippet connect()}
-	<ModelsView />
+	<ModelsView apiKeys={data.apiKeys} />
 {/snippet}
 
 {#snippet providers()}
-	<ProvidersView bind:this={providersView} onReadyChange={(ready) => (gatewayReady = ready)} />
+	<ProvidersView
+		bind:this={providersView}
+		onReadyChange={(ready) => (gatewayReady = ready)}
+		onModelsChange={loadAdminModels}
+	/>
 {/snippet}
 
 {#snippet routing()}
-	<RoutingView bind:this={routingView} onReadyChange={(ready) => (gatewayReady = ready)} />
+	<RoutingView onReadyChange={(ready) => (gatewayReady = ready)} />
 {/snippet}
 
 {#snippet profiles()}

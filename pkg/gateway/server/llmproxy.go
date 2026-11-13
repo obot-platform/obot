@@ -209,6 +209,12 @@ func (r *llmResponseWriter) prepareUnary(resp *http.Response) error {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
 		if r.modelProvider == system.LLMGatewayModelProvider {
+			if scope := llmengine.LegacyProvider(resp.Request.Context()); scope != "" {
+				// Bare IDs can collide across providers; scope grants before dropping their prefixes.
+				maps.DeleteFunc(allowedTargetModels, func(target string, _ bool) bool {
+					return !strings.HasPrefix(target, scope+"/")
+				})
+			}
 			// The gateway's Anthropic-format model list uses bare model IDs, which the
 			// gateway also accepts in requests, so allow the bare form of each target too.
 			for target := range maps.Clone(allowedTargetModels) {
@@ -487,10 +493,15 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if targetModel != "" {
 		audit.setModel(modelProvider.Name, "", targetModel)
 
-		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
-		if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
-			if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
-				model, err = fallback, nil
+		var model *v1.Model
+		if scope := llmengine.LegacyProvider(req.Context()); scope != "" {
+			model, err = resolveLegacyModel(l, req, targetModel, scope)
+		} else {
+			model, err = l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
+			if resolver, ok := l.backend.(modelResolvingBackend); ok && apierrors.IsNotFound(err) {
+				if fallback, fallbackErr := resolver.resolveModel(l, req.User, targetModel); fallbackErr == nil && fallback != nil {
+					model, err = fallback, nil
+				}
 			}
 		}
 		if apierrors.IsNotFound(err) {

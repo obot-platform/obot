@@ -218,10 +218,9 @@ func TestDirectPublicInferenceStreaming(t *testing.T) {
 				done := make(chan error, 1)
 				go func() { done <- proxy.proxy(apiReq) }()
 				if failure != "before" {
+					// A flush failure can complete the handler before this goroutine observes the flush.
 					select {
 					case <-w.first:
-					case err := <-done:
-						t.Fatalf("handler ended before first flush: %v body %s", err, w.Body.String())
 					case <-time.After(5 * time.Second):
 						t.Fatal("first event was not incremental")
 					}

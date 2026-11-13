@@ -1,11 +1,13 @@
 import { Group } from '$lib/services';
 import type { ModelAccessPolicy } from '$lib/services/admin/types';
+import { errors } from '$lib/stores';
+import { success } from '$lib/stores/success';
 import { goto, replaceState } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import ProfileForm from './ProfileForm.svelte';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -138,10 +140,17 @@ async function addGuardrail(name: string) {
 	await expect.element(dialog).not.toBeInTheDocument();
 }
 
+let notified: ReturnType<typeof vi.spyOn>;
+
 beforeEach(async () => {
 	vi.mocked(goto).mockClear();
 	vi.mocked(replaceState).mockClear();
+	notified = vi.spyOn(success, 'add');
 	await preparePageData({ profile: createMockProfile([Group.ADMIN]) });
+});
+
+afterEach(() => {
+	notified.mockRestore();
 });
 
 describe('Profile form', () => {
@@ -160,7 +169,12 @@ describe('Profile form', () => {
 
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/models?view=profiles'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.'));
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		expect(replaceState).not.toHaveBeenCalled();
+		await expect.element(page.getByRole('heading', { name: 'Sales' })).toBeVisible();
 		const writes = calls.mock.calls;
 		expect(writes.map(([method, path]) => `${method} ${path}`)).toEqual([
 			'POST /api/model-access-policies',
@@ -187,8 +201,9 @@ describe('Profile form', () => {
 		});
 	});
 
-	it('stays on the new profile and keeps what failed when a budget cannot be saved', async () => {
-		const { calls } = mockGateway({ failBudgetCreate: true });
+	it('moves to the created profile and reports what failed when a budget cannot be saved', async () => {
+		mockGateway({ failBudgetCreate: true });
+		errors.items = [];
 		render(ProfileForm, {});
 
 		await page.getByLabelText('Name', { exact: true }).fill('Sales');
@@ -196,21 +211,14 @@ describe('Profile form', () => {
 		await addBudget('Too much');
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-		await expect
-			.element(page.getByText('The profile was saved, but some of its budgets', { exact: false }))
-			.toBeVisible();
-		await expect.element(page.getByText('Too much: limit is too high')).toBeVisible();
-		expect(replaceState).toHaveBeenCalledWith('/models/profiles/p-new', {});
-		expect(goto).not.toHaveBeenCalled();
-		// The budget is still in the form, and saving again retries only it.
-		await expect.element(page.getByRole('button', { name: 'Edit Too much' })).toBeVisible();
-		await expect.element(page.getByRole('heading', { name: 'Edit Profile' })).toBeVisible();
-		calls.mockClear();
-		await page.getByRole('button', { name: 'Save', exact: true }).click();
-		await vi.waitFor(() => expect(calls).toHaveBeenCalled());
-		expect(calls.mock.calls.map(([method, path]) => `${method} ${path}`)).toEqual([
-			'POST /api/llm-gateway/budgets'
-		]);
+		// The profile exists, so the URL must point at it even though a budget failed.
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		const reported = errors.items.map((e) => e.message).join('\n');
+		expect(reported).toContain('The profile was created, but these budgets');
+		expect(reported).toContain('Too much: limit is too high');
+		errors.items = [];
 	});
 
 	it('edits and deletes budgets within the form', async () => {
@@ -232,14 +240,20 @@ describe('Profile form', () => {
 		expect(calls).not.toHaveBeenCalled();
 
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/models?view=profiles'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Profile saved.'));
+		expect(goto).not.toHaveBeenCalled();
+		await expect.element(page.getByRole('heading', { name: 'Engineering' })).toBeVisible();
 		const writes = calls.mock.calls;
-		// The profile itself didn't change, so only the budgets are written.
 		expect(writes.map(([method, path]) => `${method} ${path}`)).toEqual([
+			'PUT /api/model-access-policies/p1',
 			'DELETE /api/llm-gateway/budgets/b2',
 			'PUT /api/llm-gateway/budgets/b1'
 		]);
-		expect(writes[1][2]).toMatchObject({
+		expect(writes[0][2]).toMatchObject({
+			displayName: 'Engineering',
+			subjects: [{ type: 'selector', id: '*' }]
+		});
+		expect(writes[2][2]).toMatchObject({
 			name: 'Monthly spend',
 			limits: [{ metric: 'spend', amount: 75, window: '1M', calendar: true }],
 			profileID: 'p1'

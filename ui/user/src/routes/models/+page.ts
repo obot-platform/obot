@@ -1,6 +1,6 @@
 import { browser } from '$app/env';
 import { handleRouteError } from '$lib/errors';
-import { UserService, type Model } from '$lib/services';
+import { ApiKeysService, UserService, type APIKey, type Model } from '$lib/services';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -34,13 +34,16 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 			: 'connect';
 
 	let models: Model[] = [];
+	let apiKeys: APIKey[] = [];
 
 	if (view === 'connect') {
+		const keysPromise = ApiKeysService.listApiKeys({ fetch }).catch((): APIKey[] => []);
 		try {
-			const response =
-				browser && accessibleModels.initialized && accessibleModels.current.length > 0
-					? accessibleModels.current
-					: (initialModels ?? (await UserService.listModels({ fetch })));
+			const response = await (browser &&
+			accessibleModels.initialized &&
+			accessibleModels.current.length > 0
+				? accessibleModels.current
+				: (initialModels ?? UserService.listModels({ fetch })));
 
 			models = filterAccessibleModels(response ?? []);
 
@@ -50,10 +53,12 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		} catch (err) {
 			handleRouteError(err, '/models', profile);
 		}
+		apiKeys = await keysPromise;
 	}
 
 	return {
 		models,
+		apiKeys,
 		hasAdminAccess
 	};
 };
