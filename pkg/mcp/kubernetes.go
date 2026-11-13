@@ -702,7 +702,38 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		},
 	})
 
+	if server.ToolPreview {
+		for _, obj := range objs {
+			obj.SetLabels(withToolPreviewLabel(obj.GetLabels()))
+		}
+		dep.Spec.Template.Labels = withToolPreviewLabel(dep.Spec.Template.Labels)
+	}
+
 	return objs, nil
+}
+
+func withToolPreviewLabel(labels map[string]string) map[string]string {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[ToolPreviewLabel] = "true"
+	return labels
+}
+
+func (k *kubernetesBackend) listToolPreviewServers(ctx context.Context) ([]toolPreviewServer, error) {
+	var deployments appsv1.DeploymentList
+	if err := k.client.List(ctx, &deployments, kclient.InNamespace(k.mcpNamespace), kclient.HasLabels{ToolPreviewLabel}); err != nil {
+		return nil, fmt.Errorf("failed to list tool preview deployments: %w", err)
+	}
+
+	servers := make([]toolPreviewServer, 0, len(deployments.Items))
+	for _, deployment := range deployments.Items {
+		servers = append(servers, toolPreviewServer{
+			Name:    deployment.Name,
+			Created: deployment.CreationTimestamp.Time,
+		})
+	}
+	return servers, nil
 }
 
 // getNewestPod returns the most recently created non-terminating pod.
