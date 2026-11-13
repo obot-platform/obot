@@ -42,8 +42,11 @@ type ClientOption struct {
 	ClientLookup                  ClientCredLookup
 }
 
-func (c *Client) hasValidToken() bool {
-	if c.recovery.ctx.Err() != nil {
+// reusable reports whether a cached client can serve another request: it is
+// open, its connection has not permanently failed, and its token is not about
+// to expire.
+func (c *Client) reusable() bool {
+	if c.recovery.ctx.Err() != nil || c.connectionEnded() {
 		return false
 	}
 
@@ -98,7 +101,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	existing, ok := clientSessions.Load(clientScope)
 	if ok && existing != nil {
 		c := existing.(*Client)
-		if c.hasValidToken() {
+		if c.reusable() {
 			return c, nil
 		}
 
@@ -205,7 +208,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	res, ok := clientSessions.LoadOrStore(clientScope, result)
 	if ok {
 		existing := res.(*Client)
-		if existing.hasValidToken() {
+		if existing.reusable() {
 			result.Close()
 			return existing, nil
 		}
