@@ -23,6 +23,9 @@ type recoveryAttempt struct {
 type recoverableSession struct {
 	*gomcp.ClientSession
 	missing atomic.Bool
+	// done closes when the SDK session ends, including after a permanent
+	// transport failure.
+	done chan struct{}
 }
 
 type sessionReconnect struct {
@@ -71,6 +74,11 @@ func newRecoveringClient(ctx context.Context, sdk *gomcp.Client, transport gomcp
 			return nil, err
 		}
 		state.ClientSession = session
+		state.done = make(chan struct{})
+		go func() {
+			_ = session.Wait()
+			close(state.done)
+		}()
 		return state, nil
 	}
 	sdk.AddSendingMiddleware(r.middleware)
@@ -223,6 +231,24 @@ func (r *sessionRecovery) reconnect(ctx context.Context, stale *recoverableSessi
 		}
 
 		return session, err
+	}
+}
+
+// connectionEnded reports whether the current connection ended in a way
+// session recovery cannot repair. A session the component reported missing is
+// reconnected on next use, so it does not count.
+func (c *Client) connectionEnded() bool {
+	c.recovery.mu.Lock()
+	current := c.recovery.current
+	c.recovery.mu.Unlock()
+	if current.missing.Load() {
+		return false
+	}
+	select {
+	case <-current.done:
+		return true
+	default:
+		return false
 	}
 }
 
