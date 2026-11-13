@@ -4,10 +4,6 @@ title: "Upgrading from v0.27"
 
 The [LLM gateway](./how-it-works.md) replaces the v0.27 model-provider backends. All model requests use the gateway, which cannot be turned off.
 
-:::note Migration availability
-For an upgrade from v0.27, use a release that includes [the companion migration change, #8514](https://github.com/obot-platform/obot/pull/8514). The migration behavior described here requires that change; restoring legacy client URLs alone does not migrate provider configuration or model references.
-:::
-
 :::warning Back up and review access
 Back up the database before upgrading and restore that backup to roll back. Before returning to service, review provider configuration, default models, Profiles, wildcard grants and custom pricing. Test both allowed and denied requests as ordinary users; an administrator's successful request does not verify other users' access.
 :::

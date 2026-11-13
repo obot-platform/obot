@@ -2,10 +2,6 @@
 title: "Upgrading from v0.27"
 ---
 
-:::note Companion migration change
-The provider and model-reference migration behavior described below requires [the companion migration change, #8514](https://github.com/obot-platform/obot/pull/8514). Restoring legacy URLs alone does not provide that migration behavior; the routes can also use manually configured gateway providers and model access.
-:::
-
 :::warning Upgrade directly to v0.28.1 or later
 Existing installations using model providers or the LLM gateway should upgrade directly to **v0.28.1 or later**. v0.28.0 has no migration from v0.27 model providers; the migration below requires **v0.28.1**.
 :::
@@ -24,7 +20,7 @@ Automatic migration does not replace an administrator's review of provider confi
 
 1. **Providers:** Under **LLM Gateway → Providers**, resolve import outcomes and confirm expected models are discovered and available. Existing gateway configuration wins conflicts.
 2. **Profiles:** Review users, groups, explicit model grants, default aliases and wildcard patterns under **LLM Gateway → Profiles**. Review wildcard patterns against the gateway model names; migration leaves wildcard patterns unchanged. See [Profiles](../functionality/model-access-policies.md).
-3. **Pooling:** Review each Azure and Bedrock key's allowed models, accounts, endpoints and regions. Unified-endpoint requests can select any eligible key in the pool. Legacy routes prefer their own imported key when present. Bedrock initially allows every model, while Azure retains deployment names.
+3. **Pooling:** Review each Azure and Bedrock key's allowed models, accounts, endpoints and regions. Unified-endpoint requests can select any eligible key in the pool. Legacy routes prefer their own imported key when it is enabled and supports the requested model. Bedrock initially allows every model, while Azure retains deployment names.
 4. **Access:** Test both allowed and denied requests as ordinary users from representative groups. An administrator's successful request does not verify ordinary users' access.
 
 ## What happens on upgrade {#what-happens-on-upgrade}
@@ -36,7 +32,7 @@ On first startup, Obot imports legacy configuration into the gateway.
 - An existing gateway provider is left unchanged; its legacy credentials are not merged into it. Review existing configuration before relying on a legacy route.
 - The generic provider's base URL loses its trailing `/v1`; the gateway adds it.
 - Azure and Bedrock authentication variants become separate keys in the same provider pool, preserving credentials, Azure endpoints and Bedrock regions.
-- Unified-endpoint requests can select any eligible key for the same model. Legacy routes prefer their own imported key when present. Review allowed models and account/region requirements.
+- Unified-endpoint requests can select any eligible key for the same model. Legacy routes prefer their own imported key when it is enabled and supports the requested model. Review allowed models and account/region requirements.
 - Bedrock keys initially allow every model. Azure keeps legacy deployment names; if none exist, configure deployment names or Azure account discovery under **LLM Gateway → Providers**.
 
 ### Model references
