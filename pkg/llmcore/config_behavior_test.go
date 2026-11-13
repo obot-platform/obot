@@ -30,58 +30,75 @@ func configTestChat(engine *llmcore.Engine, query string) *httptest.ResponseReco
 
 func TestEmptyProviderProxyUsesGlobalInferenceProxy(t *testing.T) {
 	var directCalls, proxyCalls atomic.Int64
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
+			return
+		}
 		directCalls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, configTestChatResponse)
 	}))
 	defer upstream.Close()
-	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// CONNECT switches the connection to a tunnel; serve the inference
-		// request explicitly rather than relying on HTTP keep-alive behavior.
-		if r.Method == http.MethodConnect {
-			conn, rw, err := w.(http.Hijacker).Hijack()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			defer conn.Close()
-			_, err = rw.WriteString("HTTP/1.1 200 Connection Established\r\n\r\n")
-			if err == nil {
-				err = rw.Flush()
-			}
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			request, err := http.ReadRequest(rw.Reader)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			defer request.Body.Close()
-			if request.Method == http.MethodPost {
-				proxyCalls.Add(1)
-			}
-			response := http.Response{
-				StatusCode:    http.StatusOK,
-				ProtoMajor:    1,
-				ProtoMinor:    1,
-				Header:        http.Header{"Content-Type": {"application/json"}},
-				Body:          io.NopCloser(strings.NewReader(configTestChatResponse)),
-				ContentLength: int64(len(configTestChatResponse)),
-				Close:         true,
-			}
-			if err := response.Write(conn); err != nil {
-				t.Error(err)
-			}
+	serveProxiedRequest := func(w http.ResponseWriter, r *http.Request) {
+		// Discovery probes do not represent inference traffic through the proxy.
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
 			return
 		}
-		if r.Method == http.MethodPost {
-			proxyCalls.Add(1)
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("unexpected proxied request %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected inference request", http.StatusBadRequest)
+			return
 		}
+		proxyCalls.Add(1)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(w, configTestChatResponse)
+	}
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodConnect {
+			serveProxiedRequest(w, r)
+			return
+		}
+		if r.Host != strings.TrimPrefix(upstream.URL, "http://") {
+			t.Errorf("unexpected CONNECT destination %s", r.Host)
+			http.Error(w, "unexpected proxy destination", http.StatusBadRequest)
+			return
+		}
+		// fasthttp establishes CONNECT even for an HTTP provider. A JSON response
+		// to CONNECT is not a tunnel: acknowledge it, then serve the nested HTTP request.
+		connection, buffered, err := w.(http.Hijacker).Hijack()
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer connection.Close()
+		if _, err := io.WriteString(buffered, "HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := buffered.Flush(); err != nil {
+			t.Error(err)
+			return
+		}
+		tunneled, err := http.ReadRequest(buffered.Reader)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer tunneled.Body.Close()
+		response := httptest.NewRecorder()
+		serveProxiedRequest(response, tunneled)
+		result := response.Result()
+		defer result.Body.Close()
+		result.Close = true
+		if err := result.Write(buffered); err != nil {
+			t.Error(err)
+			return
+		}
+		if err := buffered.Flush(); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer proxy.Close()
 	store := newTestStore(t)

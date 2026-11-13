@@ -530,6 +530,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.Schedule{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_Schedule(ref),
 		v1.ScheduledAuditLogExport{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_ScheduledAuditLogExport(ref),
 		v1.ScheduledAuditLogExportList{}.OpenAPIModelName():                                       schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref),
+		v1.ScheduledAuditLogExportPending{}.OpenAPIModelName():                                    schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportPending(ref),
 		v1.ScheduledAuditLogExportSpec{}.OpenAPIModelName():                                       schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref),
 		v1.ScheduledAuditLogExportStatus{}.OpenAPIModelName():                                     schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref),
 		v1.Skill{}.OpenAPIModelName():                                                             schema_storage_apis_obotobotai_v1_Skill(ref),
@@ -15718,6 +15719,11 @@ func schema_obot_platform_obot_apiclient_types_ScheduledAuditLogExportResponse(r
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
 						},
 					},
+					"lastExportedThrough": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
 				},
 				Required: []string{"id", "type", "bucket", "keyPrefix", "name", "enabled", "schedule"},
 			},
@@ -19991,6 +19997,13 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportSpec(ref common.ReferenceCa
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters"),
 						},
 					},
+					"scheduleUID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScheduleUID associates this fixed window with one schedule incarnation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"withRequestAndResponse": {
 						SchemaProps: spec.SchemaProps{
 							Description: "WithRequestAndResponse includes source-specific sensitive request and response fields.",
@@ -20046,6 +20059,12 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportStatus(ref common.Reference
 					"completedAt": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"retryAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RetryAt bounds retries for scheduled exports; one-time failures remain terminal.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
 					"storageProvider": {
@@ -26125,6 +26144,34 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref common.Re
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportPending(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.AuditLogExportSpec{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"name", "spec"},
+			},
+		},
+		Dependencies: []string{
+			v1.AuditLogExportSpec{}.OpenAPIModelName()},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26230,11 +26277,22 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportStatus(ref common.
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
+					"lastExportedThrough": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"pendingExport": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PendingExport captures configuration before job creation so retries and deleted jobs retain the first backfill window even after schedule edits or restarts.",
+							Ref:         ref(v1.ScheduledAuditLogExportPending{}.OpenAPIModelName()),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
+			v1.ScheduledAuditLogExportPending{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
 	}
 }
 

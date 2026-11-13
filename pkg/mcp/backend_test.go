@@ -194,6 +194,11 @@ func TestServerHookConfigRunsGuardrailFiltersInProcess(t *testing.T) {
 func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 	var healthzCalls, mcpCalls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Port discovery sends HEAD / independently of the readiness check.
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
+			return
+		}
 		switch r.URL.Path {
 		case "/ready":
 			healthzCalls++
@@ -232,6 +237,11 @@ func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 func TestEnsureServerReadyHealthzPathWaitsForOK(t *testing.T) {
 	var calls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Port discovery sends HEAD / independently of the readiness check.
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
+			return
+		}
 		if r.URL.Path != "/healthz" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}

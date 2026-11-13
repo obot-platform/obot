@@ -91,6 +91,7 @@ type ScheduledAuditLogExportResponse struct {
 	Filters               *AuditLogExportFilters    `json:"filters,omitempty"`
 	LLMFilters            *LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
 	LastRunAt             Time                      `json:"lastRunAt,omitempty"`
+	LastExportedThrough   Time                      `json:"lastExportedThrough,omitempty"`
 }
 
 type Schedule struct {

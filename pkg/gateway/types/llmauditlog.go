@@ -16,6 +16,8 @@ const (
 type LLMAuditLog struct {
 	ID        string    `gorm:"primaryKey;type:text"`
 	CreatedAt time.Time `gorm:"index;index:idx_llm_audit_user_created,priority:2;index:idx_llm_audit_provider_created,priority:2;index:idx_llm_audit_client_session_created,priority:2;index:idx_llm_audit_response_created,priority:2;index:idx_llm_audit_target_model_created,priority:2;index:idx_llm_audit_request_path_created,priority:2;index:idx_llm_audit_response_status_created,priority:2;index:idx_llm_audit_outcome_created,priority:2;index:idx_llm_audit_user_agent_created,priority:2;index:idx_llm_audit_message_policy_triggered_created,priority:2;index:idx_llm_audit_api_key_created,priority:2;index:idx_llm_audit_served_provider_created,priority:2"`
+	// UpdatedAt tracks persistence rather than the event timestamp supplied by the request.
+	UpdatedAt time.Time `gorm:"index"`
 	Duration  int64
 	UserID    string `gorm:"type:text;index:idx_llm_audit_user_created,priority:1"`
 	APIKeyID  *uint  `gorm:"index:idx_llm_audit_api_key_created,priority:1"`

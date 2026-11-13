@@ -593,6 +593,9 @@ func (h *AuditLogExportHandler) convertScheduledExportToAPI(export *v1.Scheduled
 	if export.Status.LastRunAt != nil {
 		result.LastRunAt = types.Time{Time: export.Status.LastRunAt.Time}
 	}
+	if export.Status.LastExportedThrough != nil {
+		result.LastExportedThrough = types.Time{Time: export.Status.LastExportedThrough.Time}
+	}
 	return result
 }
 

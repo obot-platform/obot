@@ -78,12 +78,32 @@ func TestSubscriptionReplacementAfterHooks(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			oldHeaders := make(chan http.Header, 10)
 			oldServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Listener discovery may send HEAD /; it is not an admitted inference request.
+				if r.Method == http.MethodHead && r.URL.Path == "/" {
+					http.NotFound(w, r)
+					return
+				}
+				if r.Method != http.MethodPost || r.URL.Path != tc.path {
+					t.Errorf("unexpected inference request %s %s", r.Method, r.URL.Path)
+					http.Error(w, "unexpected inference request", http.StatusBadRequest)
+					return
+				}
 				oldHeaders <- r.Header.Clone()
 				subscriptionReply(w, r)
 			}))
 			defer oldServer.Close()
 			var replacementCalls atomic.Int32
 			replacement := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Listener discovery may send HEAD /; it is not an admitted inference request.
+				if r.Method == http.MethodHead && r.URL.Path == "/" {
+					http.NotFound(w, r)
+					return
+				}
+				if r.Method != http.MethodPost || r.URL.Path != tc.path {
+					t.Errorf("unexpected inference request %s %s", r.Method, r.URL.Path)
+					http.Error(w, "unexpected inference request", http.StatusBadRequest)
+					return
+				}
 				replacementCalls.Add(1)
 				subscriptionReply(w, r)
 			}))

@@ -21,8 +21,10 @@ const (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID         uint                      `json:"id" gorm:"primaryKey"`
-	CreatedAt  time.Time                 `json:"createdAt" gorm:"index;index:idx_mcp_audit_api_key_created,priority:2;index:idx_mcp_audit_tool_calls_daily,priority:3"`
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time `json:"createdAt" gorm:"index;index:idx_mcp_audit_api_key_created,priority:2;index:idx_mcp_audit_tool_calls_daily,priority:3"`
+	// UpdatedAt tracks server writes for incremental exports; CreatedAt remains the event timestamp.
+	UpdatedAt  time.Time                 `json:"-" gorm:"index"`
 	SourceType types2.AuditLogSourceType `json:"sourceType" gorm:"index;default:mcp;index:idx_mcp_audit_tool_calls_daily,priority:1"`
 	UserID     string                    `json:"userID" gorm:"index"`
 	APIKeyID   *uint                     `json:"apiKeyID,omitempty" gorm:"index:idx_mcp_audit_api_key_created,priority:1"`

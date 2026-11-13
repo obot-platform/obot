@@ -216,6 +216,7 @@ export interface ScheduledAuditLogExport {
 	retentionPeriodInDays: number;
 	filters?: AuditLogExportFilterResponse;
 	llmFilters?: LLMAuditLogExportFilters;
+	lastExportedThrough?: string;
 }
 
 export type LLMAuditLogExportFilters = {
