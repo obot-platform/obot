@@ -293,7 +293,8 @@
 			[CommonAuthProviderIds.AUTH0]: 'auth0',
 			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud',
 			[CommonAuthProviderIds.ONELOGIN]: 'onelogin',
-			[CommonAuthProviderIds.KEYCLOAK]: 'keycloak'
+			[CommonAuthProviderIds.KEYCLOAK]: 'keycloak',
+			[CommonAuthProviderIds.PINGFEDERATE]: 'pingfederate'
 		};
 		return idRef[authProviderId as keyof typeof idRef]
 			? `https://docs.obot.ai/configuration/auth-providers/#${idRef[authProviderId as keyof typeof idRef]}`

@@ -538,7 +538,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 				}
 			}
 		}
-	case "entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider":
+	case "entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider", "pingfederate-auth-provider":
 		if displayName, ok := profile["name"].(string); ok && displayName != "" {
 			user.DisplayName = displayName
 		}
