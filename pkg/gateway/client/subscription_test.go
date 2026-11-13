@@ -31,7 +31,7 @@ func newTestSubscription() *v1.Subscription {
 	}
 }
 
-func TestDeleteRequestsSubscriptionSync(t *testing.T) {
+func TestDeleteRequestsUsageRecount(t *testing.T) {
 	tests := []struct {
 		name   string
 		delete func(t *testing.T, c *Client)
@@ -83,11 +83,13 @@ func TestDeleteRequestsSubscriptionSync(t *testing.T) {
 			c := newLookupTestClient(t)
 			storage := c.storageClient.(kclient.WithWatch)
 			require.NoError(t, storage.Create(t.Context(), newTestSubscription()))
+			var requests int
 			c.storageClient = interceptor.NewClient(storage, interceptor.Funcs{
-				Update: func(ctx context.Context, client kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
+				Patch: func(ctx context.Context, client kclient.WithWatch, obj kclient.Object, patch kclient.Patch, opts ...kclient.PatchOption) error {
 					if _, ok := obj.(*v1.Subscription); !ok {
-						return client.Update(ctx, obj, opts...)
+						return client.Patch(ctx, obj, patch, opts...)
 					}
+					requests++
 					// Check that the delete committed before the request. The count runs on another connection, so it
 					// misses an uncommitted delete, or with SQLite, waits for it until the timeout.
 					countCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -97,21 +99,30 @@ func TestDeleteRequestsSubscriptionSync(t *testing.T) {
 					devices, err := c.DeviceCount(countCtx)
 					require.NoError(t, err)
 					require.Zero(t, users+devices)
-					return client.Update(ctx, obj, opts...)
+					return client.Patch(ctx, obj, patch, opts...)
 				},
 			})
 
 			tt.delete(t, c)
 
+			// The request changes nothing, so it can't ask for a sync with billing.
+			require.Equal(t, 1, requests)
 			var subscription v1.Subscription
 			require.NoError(t, c.storageClient.Get(t.Context(), subscriptionKey, &subscription))
-			require.Equal(t, "true", subscription.Annotations[v1.SubscriptionSyncAnnotation])
+			require.Empty(t, subscription.Annotations)
 		})
 	}
 }
 
-func TestRemovingNoUserRequestsNoSubscriptionSync(t *testing.T) {
+func TestRemovingNoUserRequestsNoUsageRecount(t *testing.T) {
 	c := newLifecycleTestClient(t, newTestSubscription())
+	var requests int
+	c.storageClient = interceptor.NewClient(c.storageClient.(kclient.WithWatch), interceptor.Funcs{
+		Patch: func(ctx context.Context, client kclient.WithWatch, obj kclient.Object, patch kclient.Patch, opts ...kclient.PatchOption) error {
+			requests++
+			return client.Patch(ctx, obj, patch, opts...)
+		},
+	})
 
 	// Startup removes the "nobody" user this way, usually finding none.
 	userID, err := c.RemoveIdentityAndUser(t.Context(), &types.Identity{
@@ -121,35 +132,13 @@ func TestRemovingNoUserRequestsNoSubscriptionSync(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Zero(t, userID)
-
-	var subscription v1.Subscription
-	require.NoError(t, c.storageClient.Get(t.Context(), subscriptionKey, &subscription))
-	require.Empty(t, subscription.Annotations[v1.SubscriptionSyncAnnotation])
+	require.Zero(t, requests)
 }
 
-func TestRepeatedDeletesRequestOneSubscriptionSync(t *testing.T) {
-	c := newLifecycleTestClient(t, newTestSubscription())
-	var updates int
-	c.storageClient = interceptor.NewClient(c.storageClient.(kclient.WithWatch), interceptor.Funcs{
-		Update: func(ctx context.Context, client kclient.WithWatch, obj kclient.Object, opts ...kclient.UpdateOption) error {
-			updates++
-			return client.Update(ctx, obj, opts...)
-		},
-	})
-
-	for _, deviceID := range []string{"device-1", "device-2", "device-3"} {
-		require.NoError(t, enrollDeviceLimitTestDevice(t.Context(), c, deviceID, DeviceLimit{Unlimited: true}))
-		require.NoError(t, c.DeleteDevice(t.Context(), deviceID, false))
-	}
-
-	// No leader clears the first request, so the later deletes find it pending.
-	require.Equal(t, 1, updates)
-}
-
-func TestDeleteSucceedsWhenTheSubscriptionSyncRequestFails(t *testing.T) {
+func TestDeleteSucceedsWhenTheUsageRecountRequestFails(t *testing.T) {
 	c := newLifecycleTestClient(t, newTestSubscription())
 	c.storageClient = interceptor.NewClient(c.storageClient.(kclient.WithWatch), interceptor.Funcs{
-		Update: func(context.Context, kclient.WithWatch, kclient.Object, ...kclient.UpdateOption) error {
+		Patch: func(context.Context, kclient.WithWatch, kclient.Object, kclient.Patch, ...kclient.PatchOption) error {
 			return errors.New("storage unavailable")
 		},
 	})

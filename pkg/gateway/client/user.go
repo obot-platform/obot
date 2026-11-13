@@ -280,7 +280,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 	}
 
 	c.kickUserLifecycleDelivery()
-	c.requestSubscriptionSync(ctx)
+	c.requestUsageRecount(ctx)
 	return nil
 }
 

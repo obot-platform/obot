@@ -347,6 +347,6 @@ func (c *Client) DeleteDevice(ctx context.Context, deviceID string, deleteScans 
 		return err
 	}
 
-	c.requestSubscriptionSync(ctx)
+	c.requestUsageRecount(ctx)
 	return nil
 }

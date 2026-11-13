@@ -1127,7 +1127,7 @@ func (c *Client) RemoveIdentityAndUser(ctx context.Context, id *types.Identity) 
 		return nil
 	})
 	if err == nil && user.ID != 0 {
-		c.requestSubscriptionSync(ctx)
+		c.requestUsageRecount(ctx)
 	}
 	return user.ID, err
 }

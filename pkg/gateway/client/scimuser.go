@@ -597,7 +597,7 @@ func (c *Client) DeleteSCIMUser(ctx context.Context, conn *types.SCIMConnection,
 	}
 
 	c.kickUserLifecycleDelivery()
-	c.requestSubscriptionSync(ctx)
+	c.requestUsageRecount(ctx)
 	return userID, nil
 }
 
