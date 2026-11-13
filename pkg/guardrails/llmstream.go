@@ -316,12 +316,11 @@ func (s *streamState) finalText(d Decision) map[string]string {
 
 // rewriteField sets a field to what clients receive: nothing while blanking (final == nil);
 // for a delta, the part's complete text on its first delta and nothing on later ones; for a
-// complete-text field, the part's complete text. An empty complete-text field stays empty: it
-// starts a part (an output item before its deltas) rather than repeating it, and filling it
-// would deliver the text twice, since some clients' converters stream a non-empty starting
-// item's text before its deltas.
-func rewriteField(f textField, final map[string]string, emitted map[string]bool) {
-	if f.text == nil || (final != nil && !f.delta && *f.text == "") {
+// complete-text field, the part's complete text. Only starting events preserve empty
+// fields, so converters do not deliver text twice. Completion fields must be restored
+// even when empty, because held chunks have already been blanked.
+func rewriteField(f textField, final map[string]string, emitted map[string]bool, starting bool) {
+	if f.text == nil || (final != nil && starting && !f.delta && *f.text == "") {
 		return
 	}
 	if final == nil {
@@ -404,7 +403,7 @@ func (s *streamState) rewriteChat(r *schemas.BifrostChatResponse, final map[stri
 			delta.ToolCalls = append([]schemas.ChatAssistantMessageToolCall(nil), c.Delta.ToolCalls...)
 		}
 		for _, f := range chatDeltaFields(c.Index, &delta) {
-			rewriteField(f, final, emitted)
+			rewriteField(f, final, emitted, false)
 		}
 		choice := *c.ChatStreamResponseChoice
 		choice.Delta = &delta
@@ -417,6 +416,11 @@ func (s *streamState) rewriteResponsesEvent(ev *schemas.BifrostResponsesStreamRe
 	if ev == nil {
 		return nil
 	}
+	starting := ev.Type == schemas.ResponsesStreamResponseTypeOutputItemAdded ||
+		ev.Type == schemas.ResponsesStreamResponseTypeContentPartAdded ||
+		ev.Type == schemas.ResponsesStreamResponseTypeReasoningSummaryPartAdded ||
+		ev.Type == schemas.ResponsesStreamResponseTypeCreated ||
+		ev.Type == schemas.ResponsesStreamResponseTypeInProgress
 	out := *ev
 	out.Delta = copyString(ev.Delta)
 	out.Text = copyString(ev.Text)
@@ -433,12 +437,12 @@ func (s *streamState) rewriteResponsesEvent(ev *schemas.BifrostResponsesStreamRe
 		out.Part = &part
 	}
 	for _, f := range s.responsesEventFields(&out) {
-		rewriteField(f, final, emitted)
+		rewriteField(f, final, emitted, starting)
 	}
 	if ev.Item != nil {
 		item := cloneItem(*ev.Item)
 		for _, f := range itemFields(&item) {
-			rewriteField(f, final, emitted)
+			rewriteField(f, final, emitted, starting)
 		}
 		out.Item = &item
 	}
@@ -448,7 +452,7 @@ func (s *streamState) rewriteResponsesEvent(ev *schemas.BifrostResponsesStreamRe
 		for i, item := range ev.Response.Output {
 			item = cloneItem(item)
 			for _, f := range itemFields(&item) {
-				rewriteField(f, final, emitted)
+				rewriteField(f, final, emitted, starting)
 			}
 			resp.Output[i] = item
 		}
