@@ -92,6 +92,12 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 			}
 			matched[i] = true
 			reason := vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: vmcpaccess.ReadinessOAuthRequired}
+			if target.OAuthGrant != nil {
+				// The connection used the grant of the agent's profile, so the upstream refused that grant, or refused it
+				// more scopes than it was authorized with. Only an administrator can authorize it again; the agent never
+				// falls back from it to another profile's grant.
+				reason = vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: target.OAuthGrant.ProfileID}
+			}
 			if !slices.Contains(failure.Reasons, reason) {
 				failure.Reasons = append(failure.Reasons, reason)
 			}
@@ -101,6 +107,23 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 		return nil, fmt.Errorf("upstream challenge does not belong to this connection")
 	}
 	return agentReadinessResponse(failure), nil
+}
+
+// agentOAuthGrantInvalidResponse is the response to an agent whose connection to a vMCP component would use an OAuth
+// grant of its profile that no longer works (mcp.AgentOAuthGrantError, mcp.ErrOAuthGrantInvalid). At the component hop,
+// the caller is the composite loopback acting for the agent, so the response is a bare 401, as for a component that
+// challenges an agent (rewriteHeadlessAuthorizationResponse): the composite reports it as the component's
+// authorization failure, and answers the agent with a 409 that names the component and the grant as invalid
+// (agentOAuthRequiredResponse). Anywhere else the agent is answered with that 409 directly. Neither carries
+// WWW-Authenticate, and no challenge is created.
+func agentOAuthGrantInvalidResponse(req api.Context, componentID, profileID string) *mcpResponse {
+	if principal.IsComponentHop(req.User) {
+		return mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
+	}
+	return agentReadinessResponse(vmcpaccess.AgentReadinessFailure{
+		Error:   vmcpaccess.AgentOAuthRequiredError,
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: profileID}},
+	})
 }
 
 // rewriteHeadlessAuthorizationResponse replaces an authorization challenge in resp, the response to a headless

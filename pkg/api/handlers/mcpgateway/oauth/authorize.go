@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -591,6 +592,12 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to get pending state: %w", err)
+	}
+
+	// An administrator's authorization of a vMCP profile's grant is completed for the profile, never for whoever holds
+	// the state, and only by its administrator.
+	if principal.IsProfileGrant(pending.UserID) {
+		return h.oauthChecker.completeProfileGrantCallback(req, pending)
 	}
 
 	if err := h.oauthChecker.validateCapturedCallback(req, pending); err != nil {

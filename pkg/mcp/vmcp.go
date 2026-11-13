@@ -218,6 +218,25 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	var fallbackProfiles []string
 	if principal.IsAgent(user) {
 		fallbackProfiles = vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, user).FallbackProfileIDs()
+		if sm.profileOAuthGrants != nil {
+			// Each component's connection selects its grant again when the composite reaches it; this selection names
+			// the grant in the composite's configuration, so that an authorization failure of the component is reported
+			// to the agent as the grant being invalid, and records the profiles the agent falls back to for grants.
+			grants, err := sm.profileOAuthGrants.SelectAgentGrants(ctx, *vmcp, vmcpaccess.SelectAgentProfiles(user, vmcp.Spec.Manifest), configuredComponents)
+			if err != nil {
+				return ServerConfig{}, err
+			}
+			for i, grant := range grants {
+				if grant.ProfileID != "" {
+					components[i].OAuthGrant = &OAuthGrantRef{ComponentID: grant.ComponentID, ProfileID: grant.ProfileID, Owner: grant.Owner, MCPID: grant.MCPID}
+				}
+			}
+			for _, id := range vmcpaccess.FallbackGrantProfileIDs(grants) {
+				if !slices.Contains(fallbackProfiles, id) {
+					fallbackProfiles = append(fallbackProfiles, id)
+				}
+			}
+		}
 	}
 
 	allowedTools := vmcpaccess.InstanceGrant(user, *vmcp, *instance)
@@ -257,8 +276,8 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			"userID":               userID,
 			AuditLogVMCPID:         vmcp.Name,
 			AuditLogProfiles:       strings.Join(contributingProfileIDs(user, *vmcp), ","),
-			// The wildcard profile, when it supplies an agent configuration as the profile the agent falls back to.
-			// Grants an agent falls back to arrive with OAuth grants.
+			// The wildcard profile, when it supplies an agent configuration or OAuth grants as the profile the agent
+			// falls back to.
 			AuditLogFallbackProfiles: strings.Join(fallbackProfiles, ","),
 		},
 	}, nil

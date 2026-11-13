@@ -6,15 +6,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 )
 
 // ProfileDataStore holds data that is keyed by vMCP profile ID and kept outside the vMCP manifest, such as profile
-// configuration (ProfileConfigurationStore) and profile OAuth grants (spec 13). Catalog-synced vMCPs keep such data
-// too, because nothing about it is in the manifest that catalog sync replaces.
+// configuration (ProfileConfigurationStore) and profile OAuth grants (ProfileOAuthGrantStore). Catalog-synced vMCPs
+// keep such data too, because nothing about it is in the manifest that catalog sync replaces.
 type ProfileDataStore interface {
 	// ProfilesWithData returns the IDs, among profileIDs, of the vMCP's profiles that the store holds data for, so
 	// that one call answers for many profiles. While any profile has data, the wildcard rule across profiles
@@ -122,6 +124,19 @@ func ProfileIDs(manifest types.VMCPManifest) []string {
 	for _, profile := range manifest.Profiles {
 		if profile.ID != "" {
 			ids = append(ids, profile.ID)
+		}
+	}
+	return ids
+}
+
+// RecordedProfileIDs returns, once each, the profiles that vmcp's status records data for: those recorded before any
+// data was stored for them (v1.VMCPStatus.ProfileIDs), and those that a configuration revision or an OAuth grant is
+// recorded for, so that a profile with either is cleaned up even if it was somehow never recorded.
+func RecordedProfileIDs(vmcp v1.VMCP) []string {
+	var ids []string
+	for _, id := range slices.Concat(vmcp.Status.ProfileIDs, slices.Sorted(maps.Keys(vmcp.Status.ProfileConfigurationRevisions)), ProfileOAuthGrantProfileIDs(vmcp)) {
+		if !slices.Contains(ids, id) {
+			ids = append(ids, id)
 		}
 	}
 	return ids

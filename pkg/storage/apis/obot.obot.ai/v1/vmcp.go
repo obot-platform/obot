@@ -67,6 +67,11 @@ type VMCPStatus struct {
 	// profiles for agents (pkg/vmcp profile configuration). The values are in credentials, never here. A profile
 	// without configuration has no entry, unless it has superseded revisions left to delete.
 	ProfileConfigurationRevisions map[string]VMCPProfileConfigurationRevision `json:"profileConfigurationRevisions,omitempty"`
+	// ProfileOAuthGrants record the OAuth grants that administrators authorize on agent-capable profiles for agents,
+	// by profile and component (pkg/vmcp profile OAuth grants). The grants are in the gateway database, never here.
+	// Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its
+	// component leaves the manifest, and the store deletes exactly the recorded ones when an administrator resets it.
+	ProfileOAuthGrants []VMCPProfileOAuthGrant `json:"profileOAuthGrants,omitempty"`
 	// Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
@@ -84,6 +89,15 @@ type VMCPProfileConfigurationRevision struct {
 	// Superseded are earlier revisions. The vMCP controller deletes each once no agent's instance records that its
 	// configuration was resolved from it.
 	Superseded []string `json:"superseded,omitempty"`
+}
+
+// VMCPProfileOAuthGrant records the OAuth grants that may be stored for one component of one vMCP profile.
+type VMCPProfileOAuthGrant struct {
+	ProfileID   string `json:"profileID"`
+	ComponentID string `json:"componentID"`
+	// GrantIDs identify the grants that may be stored for the component: the one last published, and any being
+	// written since. Only one is stored at a time, and it has one of these IDs.
+	GrantIDs []string `json:"grantIDs,omitempty"`
 }
 
 type VMCPComponentStatus struct {

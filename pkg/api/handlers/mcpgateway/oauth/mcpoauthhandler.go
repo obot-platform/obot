@@ -42,6 +42,8 @@ type MCPOAuthHandlerFactory struct {
 	secretBindingAllowedLabel string
 	cimdDocumentURL           string
 	resolveOAuthClient        func(context.Context, kclient.Client, string) (v1.OAuthClient, error)
+	// profileGrants stores the OAuth grants administrators authorize on vMCP profiles for agents.
+	profileGrants *vmcpconfig.ProfileOAuthGrantStore
 }
 
 type mcpOAuthHandler struct {
@@ -63,6 +65,10 @@ type mcpOAuthHandler struct {
 	credentialContext string
 	redirectURL       string
 	localLogin        bool
+
+	// profileGrant binds the authorization of a vMCP profile's grant to the administrator who started it and to the
+	// component's definition. It is nil for every other authorization.
+	profileGrant *profileGrantBinding
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -486,6 +492,9 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 	// the pending state from the DB directly.
 	ch := make(chan mcp.CallbackPayload)
 
+	if m.profileGrant != nil {
+		return state, ch, m.gatewayClient.CreateMCPOAuthGrantPendingState(ctx, m.userID, m.mcpID, m.mcpURL, m.tunnelName, m.profileGrant.initiatorUserID, m.profileGrant.definitionHash, state, verifier, resourceURL, conf)
+	}
 	return state, ch, m.stateMgr.store(ctx, m.userID, m.initiatorUserID, m.mcpID, m.mcpURL, m.tunnelName, m.oauthAuthRequestID, state, verifier, resourceURL, conf, m.upstreamChallenge)
 }
 

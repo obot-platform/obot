@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -124,7 +125,23 @@ func compositeConfig(req api.Context, serverConfig mcp.ServerConfig) (*mmmcpconf
 			ids = append(ids, component.ConnectID())
 		}
 
-		revision, err := req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), req.User.GetUID(), ids)
+		var (
+			revision string
+			err      error
+		)
+		if principal.ClaimsAgent(req.User) {
+			// An agent's components use the grants of its profiles, never tokens of its own, so its discovery is
+			// separated by those grants.
+			var keys []gatewaytypes.MCPOAuthTokenKey
+			for _, component := range serverConfig.Components {
+				if component.OAuthGrant != nil {
+					keys = append(keys, gatewaytypes.MCPOAuthTokenKey{UserID: component.OAuthGrant.Owner, MCPID: component.OAuthGrant.MCPID})
+				}
+			}
+			revision, err = req.GatewayClient.MCPOAuthGrantDiscoveryRevision(req.Context(), keys)
+		} else {
+			revision, err = req.GatewayClient.MCPOAuthDiscoveryRevision(req.Context(), req.User.GetUID(), ids)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("read component OAuth discovery revision: %w", err)
 		}

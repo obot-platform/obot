@@ -105,8 +105,8 @@ type AgentReadinessInput struct {
 }
 
 // ComponentReadinessCheck is one source of reasons an agent cannot use a component enabled for it. Each source is
-// replaced on its own: ProfileConfigurationCheck resolves profile configuration, and spec 13 replaces
-// UnsupportedAgentOAuth with profile OAuth grant selection.
+// replaced on its own: ProfileConfigurationCheck resolves profile configuration, and ProfileOAuthGrantCheck selects
+// profile OAuth grants.
 //
 // A check resolves what the component needs from the agent's explicit profile first (in.Selection.Explicit), and
 // only then from the profile the agent falls back to (in.Selection.Wildcard). When it would need the fallback and the
@@ -119,17 +119,18 @@ type ComponentReadinessCheck interface {
 }
 
 // AgentReadinessChecks computes agent readiness from one check per source of reasons. A nil check uses its default:
-// ProfileConfigurationCheck and UnsupportedAgentOAuth.
+// ProfileConfigurationCheck and UnsupportedAgentOAuth. The OAuth check that reads profile grants needs their store, so
+// the server sets ProfileOAuthGrantCheck, and the readiness API must use the same checks as the connect path.
 type AgentReadinessChecks struct {
 	Configuration ComponentReadinessCheck
 	OAuth         ComponentReadinessCheck
 }
 
-// UnsupportedAgentOAuth is the OAuth check until profiles can hold OAuth grants (spec 13): a component that is known
-// to require OAuth, a remote server with administrator static OAuth, has no grant for an agent. No explicit profile
-// can hold a grant yet, so the grant would always come from the fallback: on a vMCP whose fallback is ambiguous, the
-// component is reported as AmbiguousFallbackReason rather than ReadinessOAuthRequired. A component that only asks for
-// OAuth when it is called is caught then, by the MCP gateway's headless challenge handling.
+// UnsupportedAgentOAuth is the OAuth check without a store of profile OAuth grants (ProfileOAuthGrantCheck): a
+// component that is known to require OAuth, a remote server with administrator static OAuth, has no grant for an
+// agent. On a vMCP whose fallback is ambiguous, the component is reported as AmbiguousFallbackReason rather than
+// ReadinessOAuthRequired. A component that only asks for OAuth when it is called is caught then, by the MCP gateway's
+// headless challenge handling.
 type UnsupportedAgentOAuth struct{}
 
 // Ready reports whether nothing keeps the agent from using the vMCP.

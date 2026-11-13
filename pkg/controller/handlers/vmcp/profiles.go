@@ -35,16 +35,9 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 	}
 
 	current := vmcpconfig.ProfileIDs(vmcp.Spec.Manifest)
-	removed := slices.DeleteFunc(slices.Clone(vmcp.Status.ProfileIDs), func(id string) bool {
+	removed := slices.DeleteFunc(vmcpconfig.RecordedProfileIDs(*vmcp), func(id string) bool {
 		return slices.Contains(current, id)
 	})
-	// Configuration is only stored for a profile recorded in ProfileIDs, but its record in status names the profile
-	// too, so a profile with one is cleaned up even if it was somehow never recorded.
-	for _, id := range slices.Sorted(maps.Keys(vmcp.Status.ProfileConfigurationRevisions)) {
-		if !slices.Contains(current, id) && !slices.Contains(removed, id) {
-			removed = append(removed, id)
-		}
-	}
 	if len(removed) > 0 {
 		if err := h.deleteProfileData(req, vmcp.Name, removed); err != nil {
 			return err
@@ -60,6 +53,9 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 			changed = true
 		}
 	}
+	if vmcpconfig.RemoveProfileOAuthGrantRecords(vmcp, removed) {
+		changed = true
+	}
 	if meta.SetStatusCondition(&vmcp.Status.Conditions, agentSelectionCondition(vmcp.Spec.Manifest)) {
 		changed = true
 	}
@@ -74,7 +70,7 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 func (h *Handler) RemoveProfileData(req router.Request, _ router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
 	ids := vmcpconfig.ProfileIDs(vmcp.Spec.Manifest)
-	for _, id := range slices.Concat(vmcp.Status.ProfileIDs, slices.Sorted(maps.Keys(vmcp.Status.ProfileConfigurationRevisions))) {
+	for _, id := range vmcpconfig.RecordedProfileIDs(*vmcp) {
 		if !slices.Contains(ids, id) {
 			ids = append(ids, id)
 		}
@@ -119,6 +115,23 @@ func (h *Handler) CollectProfileConfiguration(req router.Request, _ router.Respo
 		}
 	}
 	return err
+}
+
+// CollectProfileOAuthGrants deletes the OAuth grants that profiles hold for components the vMCP no longer has. Unlike
+// a profile's data, which ReconcileProfiles deletes when the profile goes, a component's grants are keyed by component,
+// so removing a component needs its own trigger: the records of the grants in status, which every grant is recorded in
+// before it is stored (vmcpconfig.ProfileOAuthGrantStore.Authorize).
+func (h *Handler) CollectProfileOAuthGrants(req router.Request, _ router.Response) error {
+	vmcp := req.Object.(*v1.VMCP)
+	if !vmcp.DeletionTimestamp.IsZero() || h.profileOAuthGrants == nil || len(vmcp.Status.ProfileOAuthGrants) == 0 {
+		// The finalizer deletes every grant of a vMCP being deleted.
+		return nil
+	}
+	changed, err := h.profileOAuthGrants.DeleteRemovedComponentGrants(req.Ctx, vmcp)
+	if err != nil || !changed {
+		return err
+	}
+	return req.Client.Status().Update(req.Ctx, vmcp)
 }
 
 func (h *Handler) deleteProfileData(req router.Request, vmcpID string, profileIDs []string) error {

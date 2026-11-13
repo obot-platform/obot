@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -25,6 +26,10 @@ import (
 )
 
 var (
+	// ErrOAuthNotRequired reports that an MCP server accepted an unauthenticated connection, so there is no OAuth to
+	// authorize for it.
+	ErrOAuthNotRequired = errors.New("the MCP server does not require OAuth")
+
 	// strictEgressClient is the fallback for OAuth token requests when the caller passes no
 	// client. Callers should pass the client from SessionManager.OAuthClientForServer, which
 	// uses the server's tunnel when it has one, so metadata and tokens take the same path.
@@ -1395,6 +1400,40 @@ func (o *oauth) startAuthorization(ctx context.Context, connectURL, authenticate
 		discovery:       discovery,
 		hasClientSecret: clientInfo.ClientSecret != "",
 	}, nil
+}
+
+// StartOAuthAuthorization starts a new OAuth authorization for server and returns the URL to authorize at, whether or
+// not a token is stored for it, so that an administrator can replace a grant that still works. The authorization ends
+// at opt.CallbackHandler's callback, which stores the token. Client credentials are resolved as for any other
+// authorization: static credentials from opt.ClientLookup first, then a client ID metadata document, then dynamic
+// registration.
+//
+// It learns the server's challenge from an unauthenticated initialize request, sent with the OAuth client, which
+// carries none of the server's configured headers. A server that accepts that request does not use OAuth, and is
+// refused with ErrOAuthNotRequired, unless staticOAuth says that it requires administrator static OAuth, which some
+// servers only ask for when a tool is called.
+func (m *SessionManager) StartOAuthAuthorization(ctx context.Context, server ServerConfig, opt ClientOption, staticOAuth bool) (string, error) {
+	client, err := m.OAuthClientForServer(server)
+	if err != nil {
+		return "", err
+	}
+	header, initialized, err := wwwAuthenticateFromInitialize(ctx, client, server)
+	if err != nil {
+		return "", fmt.Errorf("failed to reach the MCP server to authorize: %w", err)
+	}
+	if initialized && !staticOAuth {
+		return "", ErrOAuthNotRequired
+	}
+	if header == "" {
+		// Discovery falls back to the well-known metadata locations.
+		header = "Bearer"
+	}
+	o := newOAuth(client, opt.CallbackHandler, opt.ClientLookup, opt.TokenStorage, server.MCPServerName, server.URL, opt.OAuthClientName, opt.OAuthRedirectURL, opt.OAuthClientIDMetadataDocument)
+	start, err := o.startAuthorization(ctx, server.URL, header)
+	if err != nil {
+		return "", err
+	}
+	return start.authURL, nil
 }
 
 // StartOAuthFromChallenge starts OAuth from an actual challenge without issuing any MCP operation.

@@ -405,6 +405,11 @@ func TestCallerOwner(t *testing.T) {
 			caller:  &kuser.DefaultInfo{UID: "agent:7"},
 			wantErr: true,
 		},
+		{
+			name:    "profile grant owner",
+			caller:  marked(ProfileGrant("vmcp1", "profile1"), KindUser),
+			wantErr: true,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := CallerOwner(tt.caller)

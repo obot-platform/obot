@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"golang.org/x/oauth2"
 )
@@ -44,6 +45,22 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 		return ps.OAuthAuthRequestID, ps.MCPID, fmt.Errorf("error returned from oauth server: %s, %s", errorStr, errorDescription)
 	}
 
+	conf, token, err := sm.exchange(ctx, ps, code)
+	if err != nil {
+		return ps.OAuthAuthRequestID, ps.MCPID, err
+	}
+
+	// Save the completed token
+	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, ps.UserID, ps.MCPID, ps.URL, ps.OAuthAuthRequestID, conf, token, ps.UpstreamChallenge); err != nil {
+		return ps.OAuthAuthRequestID, ps.MCPID, err
+	}
+
+	return ps.OAuthAuthRequestID, ps.MCPID, nil
+}
+
+// exchange exchanges the code that the callback of the consumed pending authorization ps received for a token, at the
+// token endpoint and with the client ps recorded, through the server's tunnel when it has one.
+func (sm *stateManager) exchange(ctx context.Context, ps *gatewaytypes.MCPOAuthPendingState, code string) (*oauth2.Config, *oauth2.Token, error) {
 	conf := &oauth2.Config{
 		ClientID:     ps.ClientID,
 		ClientSecret: ps.ClientSecret,
@@ -62,7 +79,7 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 	if sm.tokenClient != nil {
 		httpClient, err := sm.tokenClient(ps.TunnelName)
 		if err != nil {
-			return ps.OAuthAuthRequestID, ps.MCPID, fmt.Errorf("failed to create OAuth token client: %w", err)
+			return nil, nil, fmt.Errorf("failed to create OAuth token client: %w", err)
 		}
 
 		if httpClient != nil {
@@ -72,13 +89,7 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 
 	token, err := mcp.ExchangeOAuthToken(exchangeCtx, conf, code, ps.Verifier, ps.ResourceURL)
 	if err != nil {
-		return ps.OAuthAuthRequestID, ps.MCPID, fmt.Errorf("failed to exchange code: %w", err)
+		return nil, nil, fmt.Errorf("failed to exchange code: %w", err)
 	}
-
-	// Save the completed token
-	if err := sm.gatewayClient.ReplaceMCPOAuthToken(ctx, ps.UserID, ps.MCPID, ps.URL, ps.OAuthAuthRequestID, conf, token, ps.UpstreamChallenge); err != nil {
-		return ps.OAuthAuthRequestID, ps.MCPID, err
-	}
-
-	return ps.OAuthAuthRequestID, ps.MCPID, nil
+	return conf, token, nil
 }

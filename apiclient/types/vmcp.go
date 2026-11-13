@@ -307,6 +307,44 @@ type VMCPProfileStatus struct {
 type VMCPProfileComponentStatus struct {
 	ComponentID   string                         `json:"componentID"`
 	Configuration VMCPProfileConfigurationStatus `json:"configuration"`
+	// OAuth is the profile's OAuth grant for the component. Only a remote component can have one.
+	OAuth *VMCPProfileOAuthStatus `json:"oauth,omitempty"`
+}
+
+const (
+	// VMCPProfileOAuthAuthorized is the state of a profile's OAuth grant that agents can use.
+	VMCPProfileOAuthAuthorized = "authorized"
+	// VMCPProfileOAuthMissing is the state of a profile that holds no OAuth grant for a component.
+	VMCPProfileOAuthMissing = "missing"
+	// VMCPProfileOAuthInvalid is the state of a profile's OAuth grant that no longer works: the provider refused to
+	// refresh it, or the component's target changed since it was authorized. An administrator must authorize it again.
+	VMCPProfileOAuthInvalid = "invalid"
+)
+
+// VMCPProfileOAuthStatus is the OAuth grant a vMCP profile holds for one component, which every agent that resolves
+// to the profile uses. It describes the grant, never its tokens.
+type VMCPProfileOAuthStatus struct {
+	// Required reports that the component is known to need OAuth: a remote server that requires administrator static
+	// OAuth. Another remote component can still ask for OAuth when an agent calls it.
+	Required bool `json:"required"`
+	// State is VMCPProfileOAuthAuthorized, VMCPProfileOAuthMissing or VMCPProfileOAuthInvalid.
+	State string `json:"state"`
+	// AuthorizedBy is the administrator who authorized the grant, as a user ID.
+	AuthorizedBy string `json:"authorizedBy,omitempty"`
+	// AuthorizedAt is when the grant was authorized.
+	AuthorizedAt *Time `json:"authorizedAt,omitempty"`
+	// Target is the upstream URL the grant was authorized for. Agents use the grant only for that URL.
+	Target string `json:"target,omitempty"`
+	// Scopes are the scopes the grant was authorized with.
+	Scopes []string `json:"scopes,omitempty"`
+	// InvalidReason says why an invalid grant stopped working.
+	InvalidReason string `json:"invalidReason,omitempty"`
+}
+
+// VMCPProfileOAuthAuthorization starts an administrator's authorization of a vMCP profile's OAuth grant for one
+// component. The administrator opens AuthURL; the provider's callback stores the grant for the profile.
+type VMCPProfileOAuthAuthorization struct {
+	AuthURL string `json:"authURL"`
 }
 
 // VMCPProfileConfigurationStatus names the configuration keys of a component that a profile can set, by whether it

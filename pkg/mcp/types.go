@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"net"
@@ -12,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/net/idna"
@@ -94,6 +96,20 @@ type ServerConfig struct {
 	// ToolPreview marks a temporary server launched only to list tools. Backends label its
 	// resources so that a missed cleanup can be found and swept.
 	ToolPreview bool `json:"toolPreview,omitempty"`
+
+	// OAuthGrant is the vMCP profile OAuth grant that an agent's connection to a component uses, in place of a token of
+	// the agent's own. It is set only for agents, and only when the agent's profiles hold a working grant for the
+	// component, for its URL (SessionManager.applyAgentOAuthGrant).
+	OAuthGrant *OAuthGrantRef `json:"oauthGrant,omitempty"`
+}
+
+// OAuthGrantRef identifies a vMCP profile's OAuth grant for a component: the component, the profile that holds the
+// grant, and the key of its token.
+type OAuthGrantRef struct {
+	ComponentID string `json:"componentID"`
+	ProfileID   string `json:"profileID"`
+	Owner       string `json:"owner"`
+	MCPID       string `json:"mcpID"`
 }
 
 type File struct {
@@ -112,6 +128,10 @@ type ComponentServer struct {
 	URL                 string               `json:"url"`
 	Tools               []types.ToolOverride `json:"tools"`
 	ToolPrefix          string               `json:"toolPrefix"`
+	// OAuthGrant is the vMCP profile OAuth grant an agent's connection to the component uses, as the gateway selected
+	// it when it connected the agent. It is nil for users, and for an agent whose profiles hold no grant for the
+	// component. The gateway reports an authorization failure of a component with a grant as the grant being invalid.
+	OAuthGrant *OAuthGrantRef `json:"oauthGrant,omitempty"`
 }
 
 // ConnectID identifies the connection while Name identifies its backing server.
@@ -120,6 +140,20 @@ func (c ComponentServer) ConnectID() string {
 		return c.MCPServerInstanceID
 	}
 	return c.Name
+}
+
+// OAuthTokenKey returns the key of the stored OAuth token that a connection to the server uses, and false when it
+// uses none. A user's connection uses the user's own token for the connection, as it always has. An agent's uses only
+// the profile grant selected for it (OAuthGrant): an agent never authorizes a connection of its own, so it never reads
+// a token keyed by itself, and so no one else's token can ever be read for it.
+func (s ServerConfig) OAuthTokenKey() (userID, mcpID string, ok bool) {
+	if s.OAuthGrant != nil {
+		return s.OAuthGrant.Owner, s.OAuthGrant.MCPID, true
+	}
+	if _, agent := principal.ParseAgent(s.UserID); agent || principal.IsProfileGrant(s.UserID) {
+		return "", "", false
+	}
+	return s.UserID, cmp.Or(s.MCPServerInstanceID, s.MCPServerName), true
 }
 
 // isHTTPContainerRuntime reports whether the runtime serves MCP over HTTP

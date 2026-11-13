@@ -116,6 +116,9 @@ type SessionManager struct {
 	// agentReadiness decides whether an agent can connect to a vMCP. Its zero value uses the default checks
 	// (vmcpaccess.AgentReadinessChecks).
 	agentReadiness vmcpaccess.AgentReadinessChecks
+	// profileOAuthGrants holds the OAuth grants of vMCP profiles, which agents' connections to vMCP components use.
+	// Without it, agents use no OAuth token at all.
+	profileOAuthGrants *vmcpaccess.ProfileOAuthGrantStore
 }
 
 type RemoteMCPURLValidationConfig struct {
@@ -230,6 +233,12 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 // session manager serves connections.
 func (sm *SessionManager) SetAgentReadinessChecks(checks vmcpaccess.AgentReadinessChecks) {
 	sm.agentReadiness = checks
+}
+
+// SetProfileOAuthGrants sets the store of vMCP profile OAuth grants, which agents' connections to vMCP components use.
+// Set it before the session manager serves connections.
+func (sm *SessionManager) SetProfileOAuthGrants(grants *vmcpaccess.ProfileOAuthGrantStore) {
+	sm.profileOAuthGrants = grants
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {
@@ -522,6 +531,8 @@ func serverID(server ServerConfig) string {
 	server.PassthroughHeaderValues = nil
 	// The Webhooks are handled dynamically and are not part of the server ID.
 	server.Webhooks = nil
+	// Nor is the OAuth grant a connection uses, which is per caller.
+	server.OAuthGrant = nil
 	// Attribution selection is applied by the gateway, without changing the deployment.
 	server.InjectObotHeaders = nil
 

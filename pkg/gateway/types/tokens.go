@@ -72,7 +72,38 @@ type MCPOAuthToken struct {
 	Expiry             time.Time
 	ExpiresIn          int64
 
+	// AuthorizedBy and AuthorizedAt record who authorized the grant of a vMCP profile (UserID is a
+	// principal.ProfileGrant owner), and when: the encoded principal of the administrator. They are empty for
+	// everyone else's tokens, and a refresh keeps them.
+	AuthorizedBy string
+	AuthorizedAt *time.Time
+	// InvalidatedAt and InvalidReason record that a vMCP profile's grant stopped working, such as when its refresh
+	// token was refused (invalid_grant). Every agent that uses the grant is refused until an administrator authorizes
+	// it again, which replaces the row and clears them. They never carry a token.
+	InvalidatedAt *time.Time
+	InvalidReason string
+
 	Encrypted bool
+}
+
+// MCPOAuthGrantMetadata is what is known about a stored MCP OAuth token without its secrets: none of its tokens or
+// client credentials. It is read for vMCP profile grants, to select one for an agent and to report its state.
+type MCPOAuthGrantMetadata struct {
+	MCPID         string
+	UserID        string
+	URL           string
+	GrantID       string
+	Scopes        string
+	AuthorizedBy  string
+	AuthorizedAt  *time.Time
+	InvalidatedAt *time.Time
+	InvalidReason string
+}
+
+// MCPOAuthTokenKey identifies one stored MCP OAuth token.
+type MCPOAuthTokenKey struct {
+	UserID string
+	MCPID  string
 }
 
 type MCPOAuthPendingState struct {
@@ -102,6 +133,12 @@ type MCPOAuthPendingState struct {
 	Scopes             string
 	Encrypted          bool
 	CreatedAt          time.Time
+
+	// GrantInitiatorUserID and GrantDefinitionHash bind the pending authorization of a vMCP profile's grant (UserID is
+	// a principal.ProfileGrant owner): the callback is accepted only from the administrator who started it, and only
+	// while the component still has the definition it was started for. Both are empty for every other authorization.
+	GrantInitiatorUserID string
+	GrantDefinitionHash  string
 }
 
 // MCPOAuthChallenge is a short-lived, single-transaction handoff, never a grant.

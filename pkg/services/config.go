@@ -232,6 +232,9 @@ type Services struct {
 	// VMCPProfileConfiguration stores the configuration that administrators set on vMCP profiles for agents. It is
 	// one of VMCPProfileData.
 	VMCPProfileConfiguration *vmcp.ProfileConfigurationStore
+	// VMCPProfileOAuthGrants stores the OAuth grants that administrators authorize on vMCP profiles for agents. It is
+	// one of VMCPProfileData.
+	VMCPProfileOAuthGrants *vmcp.ProfileOAuthGrantStore
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -821,7 +824,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Profile configuration is stored whether or not agent identities are enabled, so that the vMCP controller always
 	// deletes it with its profile.
 	vmcpProfileConfiguration := vmcp.NewProfileConfigurationStore(gatewayClient)
-	mcpSessionManager.SetAgentReadinessChecks(vmcp.AgentReadinessChecks{Configuration: vmcp.ProfileConfigurationCheck{}})
+	// So are profile OAuth grants.
+	vmcpProfileOAuthGrants := vmcp.NewProfileOAuthGrantStore(gatewayClient)
+	mcpSessionManager.SetAgentReadinessChecks(vmcp.AgentReadinessChecks{
+		Configuration: vmcp.ProfileConfigurationCheck{},
+		OAuth:         vmcp.ProfileOAuthGrantCheck{Grants: vmcpProfileOAuthGrants},
+	})
+	mcpSessionManager.SetProfileOAuthGrants(vmcpProfileOAuthGrants)
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {
@@ -1203,8 +1212,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
 		EnableAgentIdentities:        config.EnableAgentIdentities,
-		VMCPProfileData:              vmcp.ProfileDataStores{vmcpProfileConfiguration},
+		VMCPProfileData:              vmcp.ProfileDataStores{vmcpProfileConfiguration, vmcpProfileOAuthGrants},
 		VMCPProfileConfiguration:     vmcpProfileConfiguration,
+		VMCPProfileOAuthGrants:       vmcpProfileOAuthGrants,
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

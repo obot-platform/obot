@@ -87,6 +87,11 @@ type Client struct {
 	lockGates sync.Map
 	// startOnce keeps StartCleanups from starting the cleanups more than once.
 	startOnce sync.Once
+	// mcpOAuthRefreshLocks serialize, within the process, the refreshes of each shared MCP OAuth grant, and
+	// mcpOAuthRefreshHoldersSlot bounds how many hold a database connection at once (WithMCPOAuthRefreshLock).
+	mcpOAuthRefreshLocks       keyedLocks
+	mcpOAuthRefreshHoldersOnce sync.Once
+	mcpOAuthRefreshHoldersSlot chan struct{}
 }
 
 func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {

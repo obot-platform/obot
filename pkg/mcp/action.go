@@ -12,6 +12,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
@@ -28,6 +29,16 @@ const (
 var (
 	actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
+
+// AgentOAuthGrantError reports that the OAuth grant an agent's profiles hold for a vMCP component cannot be used: it
+// was marked invalid, or the component's upstream URL is not the one it was authorized for. The agent is refused the
+// component rather than connected without the grant, or with another profile's.
+type AgentOAuthGrantError struct {
+	ComponentID string
+	// ProfileID is the profile that holds the grant, where an administrator authorizes it again.
+	ProfileID string
+	Reason    string
+}
 
 func (sm *SessionManager) ServerForActionWithConnectID(ctx context.Context, id string, user kuser.Info) (string, v1.MCPServer, ServerConfig, error) {
 	id, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, user, false)
@@ -58,13 +69,74 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id s
 	switch {
 	case instance.Name != "":
 		server, config, missingConfig, err := sm.serverFromMCPServerInstance(ctx, instance, userID, allowMissingConfig)
+		if err == nil {
+			err = sm.applyAgentOAuthGrant(ctx, user, server, &config)
+		}
 		return instance.Name, server, config, missingConfig, err
 	case server.Name != "":
 		config, missingConfig, err := sm.serverConfigForAction(ctx, server, userID, allowMissingConfig)
+		if err == nil {
+			err = sm.applyAgentOAuthGrant(ctx, user, server, &config)
+		}
 		return server.Name, server, config, missingConfig, err
 	default:
 		return "", v1.MCPServer{}, ServerConfig{}, nil, fmt.Errorf("unknown MCP server ID %s", id)
 	}
+}
+
+func (e *AgentOAuthGrantError) Error() string {
+	return fmt.Sprintf("the OAuth grant of vMCP profile %q for component %q cannot be used: %s", e.ProfileID, e.ComponentID, e.Reason)
+}
+
+// applyAgentOAuthGrant makes the connection of an agent, user, to a vMCP component's server use the OAuth grant that
+// the agent's profiles hold for the component (vmcpaccess.ProfileOAuthGrantStore.SelectAgentGrants): its explicit
+// profile's if that holds one, and otherwise the wildcard profile's. This is where the token of every agent request
+// to a component is chosen, for shared and dedicated component servers alike, since both reach the component hop
+// through here; the caller's own encoded owner stays the connection's UserID, so sessions, caches and audit stay the
+// agent's own. Users' connections are unchanged.
+//
+// A grant is used only for the URL it was authorized for, which config.URL, the URL this connection reaches, must
+// equal. A grant that is invalid or bound to another URL fails the connection with AgentOAuthGrantError: the agent
+// never falls back from a broken grant, and never sends a grant to an upstream it was not authorized for. Without any
+// grant the connection uses no token (ServerConfig.OAuthTokenKey), and an upstream that asks for one is reported to the
+// agent as needing OAuth.
+func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.Info, server v1.MCPServer, config *ServerConfig) error {
+	if !principal.IsAgent(user) || config.Runtime != types.RuntimeRemote || server.Spec.VMCPComponentID == "" || sm.profileOAuthGrants == nil {
+		return nil
+	}
+	vmcpID := server.Spec.VMCPID
+	if server.Spec.VMCPInstanceID != "" {
+		var instance v1.VMCPInstance
+		if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.VMCPInstanceID}, &instance); err != nil {
+			return fmt.Errorf("get vMCP instance of component server %q: %w", server.Name, err)
+		}
+		vmcpID = instance.Spec.Manifest.VMCPID
+	}
+	var vmcp v1.VMCP
+	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: vmcpID}, &vmcp); err != nil {
+		return fmt.Errorf("get vMCP of component server %q: %w", server.Name, err)
+	}
+	// The component server is remote, so the component can hold a grant. Its URL is checked below against the one the
+	// connection reaches, not against the component's definition.
+	component := types.VMCPComponent{
+		ID:           server.Spec.VMCPComponentID,
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote}},
+	}
+	grants, err := sm.profileOAuthGrants.SelectAgentGrants(ctx, vmcp, vmcpaccess.SelectAgentProfiles(user, vmcp.Spec.Manifest), []types.VMCPComponent{component})
+	if err != nil {
+		return err
+	}
+	grant := grants[0]
+	switch {
+	case grant.ProfileID == "":
+		return nil
+	case !grant.Usable():
+		return &AgentOAuthGrantError{ComponentID: component.ID, ProfileID: grant.ProfileID, Reason: grant.InvalidReason}
+	case grant.URL != config.URL:
+		return &AgentOAuthGrantError{ComponentID: component.ID, ProfileID: grant.ProfileID, Reason: "the component's upstream URL is not the one the grant was authorized for"}
+	}
+	config.OAuthGrant = &OAuthGrantRef{ComponentID: grant.ComponentID, ProfileID: grant.ProfileID, Owner: grant.Owner, MCPID: grant.MCPID}
+	return nil
 }
 
 func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user kuser.Info) (v1.MCPServer, ServerConfig, error) {
@@ -95,6 +167,9 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id string, user k
 	}
 
 	serverConfig, _, err := sm.serverConfigForAction(ctx, server, userID, false)
+	if err == nil {
+		err = sm.applyAgentOAuthGrant(ctx, user, server, &serverConfig)
+	}
 	return server, serverConfig, err
 }
 

@@ -388,3 +388,47 @@ func TestAdmissionCheckRefusesAsUnavailableWhenRestrictionCantBeRead(t *testing.
 		t.Fatalf("AuthenticateRequest() = %v, %v; want a lookup error for user 7", ok, err)
 	}
 }
+
+// TestAdmissionCheckRefusesProfileGrantOwners checks that no caller is ever admitted as the owner of a vMCP profile's
+// OAuth grants, whatever kind, status or groups its authenticator recorded: such an owner stands for a profile, and
+// must never be able to read or use the grants as its own.
+func TestAdmissionCheckRefusesProfileGrantOwners(t *testing.T) {
+	owner := principal.ProfileGrant("vmcp1abc", "vp1def")
+	for _, tt := range []struct {
+		name string
+		resp *authenticator.Response
+	}{
+		{
+			name: "marked as an active user",
+			resp: principalWith(owner, []string{types2.GroupAdmin, types2.GroupAuthenticated}, map[string][]string{
+				principal.UserStatusExtra: {string(types2.UserStatusActive)},
+				principal.KindExtra:       {string(principal.KindUser)},
+			}),
+		},
+		{
+			name: "marked as an active agent",
+			resp: principalWith(owner, []string{types2.GroupMCP, types2.GroupAuthenticated}, map[string][]string{
+				principal.UserStatusExtra: {string(types2.UserStatusActive)},
+				principal.KindExtra:       {string(principal.KindAgent)},
+			}),
+		},
+		{
+			name: "with the groups of a non-user principal",
+			resp: principalWith(owner, []string{types2.GroupTunnel}, nil),
+		},
+		{
+			name: "malformed",
+			resp: principalWith("vmcp-profile:anything", []string{types2.GroupTunnel}, nil),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			resp, ok, err := NewAdmissionCheck(stubAuthenticator{
+				resp: tt.resp,
+				ok:   true,
+			}, nil).AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/api/me", nil))
+			if !errors.Is(err, errProfileGrantCaller) || ok || resp != nil {
+				t.Fatalf("got %v, %v, %v; want the caller refused", resp, ok, err)
+			}
+		})
+	}
+}

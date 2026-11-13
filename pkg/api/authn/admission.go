@@ -19,6 +19,10 @@ var (
 	// ErrRestricted refuses a principal while the environment is restricted.
 	ErrRestricted = types2.NewErrHTTP(http.StatusPaymentRequired, "Only admins can use this environment right now, because it's over its plan or its subscription couldn't be confirmed. An admin can bring usage back within the plan, or an owner can check the subscription.")
 
+	// errProfileGrantCaller refuses a caller whose UID is the owner of a vMCP profile's OAuth grants. No authenticator
+	// builds one, and none must: the owner stands for a profile, never for anyone who can act.
+	errProfileGrantCaller = errors.New("the owner of a vMCP profile's OAuth grants cannot authenticate")
+
 	// nonUserGroups mark principals that act for Obot itself or for a device, never for a user, so they have no
 	// lifecycle status. Only their own authenticators assign these groups.
 	nonUserGroups = []string{
@@ -62,6 +66,11 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 	}
 	if resp == nil || resp.User == nil {
 		return nil, false, errors.New("authenticator returned no principal")
+	}
+	// The owner of a profile's grants is refused whatever status or groups its authenticator recorded, so that no
+	// authenticator, now or later, can let a caller read or use the grants as their own.
+	if principal.IsProfileGrant(resp.User.GetUID()) {
+		return nil, false, errProfileGrantCaller
 	}
 
 	status, recorded := principal.UserStatus(resp.User)

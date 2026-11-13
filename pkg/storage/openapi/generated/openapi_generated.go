@@ -394,6 +394,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus":                schema_obot_platform_obot_apiclient_types_VMCPProfileComponentStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus":            schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationUpdate":            schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationUpdate(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthAuthorization":             schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthAuthorization(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthStatus":                    schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions":                    schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfileStatus":                         schema_obot_platform_obot_apiclient_types_VMCPProfileStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPStatus":                                schema_obot_platform_obot_apiclient_types_VMCPStatus(ref),
@@ -612,6 +614,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.VMCPInstanceStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref),
 		v1.VMCPList{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPList(ref),
 		v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName():                                  schema_storage_apis_obotobotai_v1_VMCPProfileConfigurationRevision(ref),
+		v1.VMCPProfileOAuthGrant{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_VMCPProfileOAuthGrant(ref),
 		v1.VMCPSpec{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPSpec(ref),
 		v1.VMCPStatus{}.OpenAPIModelName():                                                        schema_storage_apis_obotobotai_v1_VMCPStatus(ref),
 		coordinationv1.Lease{}.OpenAPIModelName():                                                 schema_k8sio_api_coordination_v1_Lease(ref),
@@ -19998,12 +20001,18 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileComponentStatus(ref co
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus"),
 						},
 					},
+					"oauth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OAuth is the profile's OAuth grant for the component. Only a remote component can have one.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthStatus"),
+						},
+					},
 				},
 				Required: []string{"componentID", "configuration"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus"},
+			"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus", "github.com/obot-platform/obot/apiclient/types.VMCPProfileOAuthStatus"},
 	}
 }
 
@@ -20096,6 +20105,100 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationUpdate(re
 				Required: []string{"components"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthAuthorization(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileOAuthAuthorization starts an administrator's authorization of a vMCP profile's OAuth grant for one component. The administrator opens AuthURL; the provider's callback stores the grant for the profile.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"authURL": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"authURL"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileOAuthStatus is the OAuth grant a vMCP profile holds for one component, which every agent that resolves to the profile uses. It describes the grant, never its tokens.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth. Another remote component can still ask for OAuth when an agent calls it.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State is VMCPProfileOAuthAuthorized, VMCPProfileOAuthMissing or VMCPProfileOAuthInvalid.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizedBy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedBy is the administrator who authorized the grant, as a user ID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"authorizedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AuthorizedAt is when the grant was authorized.",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Target is the upstream URL the grant was authorized for. Agents use the grant only for that URL.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scopes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Scopes are the scopes the grant was authorized with.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"invalidReason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InvalidReason says why an invalid grant stopped working.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"required", "state"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -30113,6 +30216,48 @@ func schema_storage_apis_obotobotai_v1_VMCPProfileConfigurationRevision(ref comm
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_VMCPProfileOAuthGrant(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileOAuthGrant records the OAuth grants that may be stored for one component of one vMCP profile.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"profileID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"grantIDs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GrantIDs identify the grants that may be stored for the component: the one last published, and any being written since. Only one is stored at a time, and it has one of these IDs.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"profileID", "componentID"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30275,6 +30420,19 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"profileOAuthGrants": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProfileOAuthGrants record the OAuth grants that administrators authorize on agent-capable profiles for agents, by profile and component (pkg/vmcp profile OAuth grants). The grants are in the gateway database, never here. Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its component leaves the manifest, and the store deletes exactly the recorded ones when an administrator resets it.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPProfileOAuthGrant{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.",
@@ -30292,7 +30450,7 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
+			v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName(), v1.VMCPProfileOAuthGrant{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
 	}
 }
 

@@ -2,18 +2,25 @@ package vmcp
 
 import (
 	"context"
+	"errors"
 	"maps"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -250,4 +257,116 @@ func (p *profileCredentials) DeleteCredentialsInContexts(_ context.Context, cont
 		delete(p.credentials, credentialContext)
 	}
 	return nil
+}
+
+// TestProfileOAuthGrantsAreDeletedWithTheirProfileAndComponent checks, with the gateway database, that a profile's
+// OAuth grants are deleted when their component leaves the vMCP, when their profile does, and when the vMCP is
+// deleted, with their records in status; and that no user's or agent's own token is ever deleted with them.
+func TestProfileOAuthGrantsAreDeletedWithTheirProfileAndComponent(t *testing.T) {
+	remote := func(id string) types.VMCPComponent {
+		return types.VMCPComponent{ID: id, Name: id, CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime:      types.RuntimeRemote,
+			RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://" + id + ".example.com/mcp"},
+		}}}
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1grants", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{remote("static"), remote("dynamic")},
+		Profiles: []types.VMCPProfile{
+			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}},
+			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}},
+		},
+	}}}
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(vmcp).WithObjects(vmcp).Build()
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gatewayClient := gateway.New(t.Context(), database, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	store := vmcpconfig.NewProfileOAuthGrantStore(gatewayClient)
+	handler := &Handler{profileData: vmcpconfig.ProfileDataStores{store}, profileOAuthGrants: store}
+	key := kclient.ObjectKeyFromObject(vmcp)
+	current := func() *v1.VMCP {
+		t.Helper()
+		stored := &v1.VMCP{}
+		require.NoError(t, client.Get(t.Context(), key, stored))
+		return stored
+	}
+	run := func(handle func(router.Request, router.Response) error) *v1.VMCP {
+		t.Helper()
+		require.NoError(t, handle(router.Request{Ctx: t.Context(), Client: client, Object: current()}, nil))
+		return current()
+	}
+	conf := &oauth2.Config{ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: "https://provider.example.com/token"}}
+	token := &oauth2.Token{AccessToken: "access", RefreshToken: "refresh"}
+	authorize := func(profileID, componentID string) {
+		t.Helper()
+		_, err := store.Authorize(t.Context(), client, key, profileID, componentID, func(*v1.VMCP, types.VMCPProfile, types.VMCPComponent) error { return nil },
+			func(ctx context.Context, owner, mcpID, grantID string) error {
+				return gatewayClient.ReplaceMCPOAuthGrant(ctx, owner, mcpID, "https://"+componentID+".example.com/mcp", grantID, "1", conf, token)
+			})
+		require.NoError(t, err)
+	}
+	hasGrant := func(profileID, componentID string) bool {
+		t.Helper()
+		_, err := gatewayClient.GetMCPOAuthToken(t.Context(), principal.ProfileGrant(vmcp.Name, profileID), vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, componentID), "https://"+componentID+".example.com/mcp")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false
+		}
+		require.NoError(t, err)
+		return true
+	}
+
+	run(handler.ReconcileProfiles)
+	authorize("vp1kept", "static")
+	authorize("vp1kept", "dynamic")
+	authorize("vp1removed", "static")
+	// Tokens of a user and of an agent, for connections of their own; neither is ever a profile's grant.
+	for _, owner := range []string{"7", "agent:7"} {
+		require.NoError(t, gatewayClient.ReplaceMCPOAuthToken(t.Context(), owner, "msi1connection", "https://static.example.com/mcp", "", conf, token))
+	}
+	requireOwnTokens := func() {
+		t.Helper()
+		for _, owner := range []string{"7", "agent:7"} {
+			_, err := gatewayClient.GetMCPOAuthToken(t.Context(), owner, "msi1connection", "https://static.example.com/mcp")
+			require.NoError(t, err, "the token of %s was deleted with profile grants", owner)
+		}
+	}
+
+	// Removing a component deletes every profile's grant for it, and their records.
+	stored := current()
+	stored.Spec.Manifest.Components = stored.Spec.Manifest.Components[:1]
+	require.NoError(t, client.Update(t.Context(), stored))
+	stored = run(handler.CollectProfileOAuthGrants)
+	require.False(t, hasGrant("vp1kept", "dynamic"))
+	require.True(t, hasGrant("vp1kept", "static"))
+	require.True(t, hasGrant("vp1removed", "static"))
+	require.ElementsMatch(t, []string{"vp1kept/static", "vp1removed/static"}, grantRecords(stored))
+	requireOwnTokens()
+
+	// Removing a profile deletes its grants, and their records.
+	stored.Spec.Manifest.Profiles = stored.Spec.Manifest.Profiles[:1]
+	require.NoError(t, client.Update(t.Context(), stored))
+	stored = run(handler.ReconcileProfiles)
+	require.False(t, hasGrant("vp1removed", "static"))
+	require.True(t, hasGrant("vp1kept", "static"))
+	require.Equal(t, []string{"vp1kept/static"}, grantRecords(stored))
+	withData, err := store.ProfilesWithData(t.Context(), vmcp.Name, []string{"vp1kept", "vp1removed"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"vp1kept"}, withData)
+	requireOwnTokens()
+
+	// Deleting the vMCP deletes every grant.
+	run(handler.RemoveProfileData)
+	require.False(t, hasGrant("vp1kept", "static"))
+	requireOwnTokens()
+}
+
+func grantRecords(vmcp *v1.VMCP) []string {
+	var records []string
+	for _, record := range vmcp.Status.ProfileOAuthGrants {
+		records = append(records, record.ProfileID+"/"+record.ComponentID)
+	}
+	return records
 }

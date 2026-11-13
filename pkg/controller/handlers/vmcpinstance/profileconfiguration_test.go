@@ -319,7 +319,7 @@ func TestProfileConfigurationChangeReachesAgentInstances(t *testing.T) {
 	require.NoError(t, d.client.Get(t.Context(), kclient.ObjectKeyFromObject(d.vmcp), vmcp))
 	superseded := vmcp.Status.ProfileConfigurationRevisions["vp1seven"].Superseded
 	require.Len(t, superseded, 1)
-	collector := vmcphandler.New(d.gateway, nil, vmcpconfig.ProfileDataStores{d.store}, d.store)
+	collector := vmcphandler.New(d.gateway, nil, vmcpconfig.ProfileDataStores{d.store}, d.store, nil)
 	require.NoError(t, collector.CollectProfileConfiguration(router.Request{Ctx: t.Context(), Client: d.client, Object: vmcp}, nil))
 	require.NoError(t, d.client.Get(t.Context(), kclient.ObjectKeyFromObject(d.vmcp), vmcp))
 	require.Empty(t, vmcp.Status.ProfileConfigurationRevisions["vp1seven"].Superseded)
