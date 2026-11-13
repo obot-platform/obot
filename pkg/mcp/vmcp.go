@@ -96,6 +96,14 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		return ServerConfig{}, fmt.Errorf("VMCP instance %q does not belong to VMCP %q and user %q", instance.Name, vmcpID, userID)
 	}
 
+	if principal.IsAgent(user) {
+		// An agent's instance is given its configuration from its profiles. Wait for the copy of their current
+		// revisions first: it changes the configuration that the wait below, and the component waits after it, follow.
+		instance, err = sm.waitForAgentConfiguration(ctx, vmcp, instance, user)
+		if err != nil {
+			return ServerConfig{}, err
+		}
+	}
 	instance, err = sm.waitForVMCPInstanceConfiguration(ctx, vmcp, instance, user)
 	if err != nil {
 		return ServerConfig{}, err
@@ -207,6 +215,11 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		})
 	}
 
+	var fallbackProfiles []string
+	if principal.IsAgent(user) {
+		fallbackProfiles = vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, user).FallbackProfileIDs()
+	}
+
 	allowedTools := vmcpaccess.InstanceGrant(user, *vmcp, *instance)
 	for i := range components {
 		if err := restrictComponentTools(&components[i], allowedTools, configuredComponents[i].ID); err != nil {
@@ -244,8 +257,9 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			"userID":               userID,
 			AuditLogVMCPID:         vmcp.Name,
 			AuditLogProfiles:       strings.Join(contributingProfileIDs(user, *vmcp), ","),
-			// Profiles a caller falls back to for configuration or OAuth grants arrive with specs 12 and 13.
-			AuditLogFallbackProfiles: "",
+			// The wildcard profile, when it supplies an agent configuration as the profile the agent falls back to.
+			// Grants an agent falls back to arrive with OAuth grants.
+			AuditLogFallbackProfiles: strings.Join(fallbackProfiles, ","),
 		},
 	}, nil
 }
@@ -257,6 +271,23 @@ func contributingProfileIDs(user kuser.Info, vmcp v1.VMCP) []string {
 		return nil
 	}
 	return vmcpaccess.ProfileIDs(types.VMCPManifest{Profiles: vmcpaccess.MatchingProfiles(user, vmcp.Spec.Manifest.Profiles)})
+}
+
+// waitForAgentConfiguration waits for the VMCPInstance controller to copy the configuration that an agent's profiles
+// give it, as the vMCP's current status publishes their revisions, to the agent's instance
+// (v1.VMCPInstanceStatus.AgentConfigurationRevision). Until then, the instance may hold another revision's values.
+func (sm *SessionManager) waitForAgentConfiguration(ctx context.Context, vmcp *v1.VMCP, instance *v1.VMCPInstance, user kuser.Info) (*v1.VMCPInstance, error) {
+	want := vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, user).Revision
+	if instance.Status.AgentConfigurationRevision == want {
+		return instance, nil
+	}
+	instance, err := wait.For(ctx, sm.storageClient, instance, func(current *v1.VMCPInstance) (bool, error) {
+		return current.Status.AgentConfigurationRevision == want, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("wait for vMCP connection profile configuration to sync: %w", err)
+	}
+	return instance, nil
 }
 
 // waitForVMCPInstanceConfiguration waits for the VMCPInstance controller to process

@@ -123,8 +123,8 @@ func TestAgentReadiness(t *testing.T) {
 			wantWildcard: readinessWildcardProfile,
 		},
 		{
-			// Agents cannot be given configuration until profiles carry it, so a required value a user would enter
-			// blocks the agent, fixed by the explicit profile. Optional and fixed values do not.
+			// No profile sets the required value a user would enter, so it blocks the agent, fixed by the explicit
+			// profile. Optional and fixed values do not.
 			name: "required configuration with an explicit profile",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{configuredComponent("configured")},
@@ -227,9 +227,9 @@ func TestAgentReadiness(t *testing.T) {
 			wantExplicit: readinessExplicitProfile,
 		},
 		{
-			// The explicit profile cannot supply configuration or grants yet, so components that need them would need
-			// the ambiguous fallback, and are reported as ambiguous, once each, without a profile to fix. A component
-			// that needs nothing is not reported.
+			// The explicit profile sets no configuration, and cannot hold grants yet, so components that need them
+			// would need the ambiguous fallback, and are reported as ambiguous, once each, without a profile to fix. A
+			// component that needs nothing is not reported.
 			name: "legacy wildcard profiles with an explicit profile and components that need setup",
 			vmcp: readinessVMCP(
 				[]types.VMCPComponent{configuredComponent("configured"), readinessComponent("plain"), staticOAuthConfiguredComponent("both")},

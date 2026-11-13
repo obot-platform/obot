@@ -25,6 +25,13 @@ type Handler struct {
 	acrHelper   *accesscontrolrule.Helper
 	credentials credentialClient
 	profileData vmcpconfig.ProfileDataStore
+	// profileConfiguration deletes superseded profile configuration revisions. Profile deletion goes through
+	// profileData, which includes it.
+	profileConfiguration profileConfigurationCollector
+}
+
+type profileConfigurationCollector interface {
+	CollectSuperseded(ctx context.Context, vmcp *v1.VMCP, instances []v1.VMCPInstance) (bool, error)
 }
 
 type credentialClient interface {
@@ -33,8 +40,12 @@ type credentialClient interface {
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
 }
 
-func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, profileData vmcpconfig.ProfileDataStore) *Handler {
-	return &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient, profileData: profileData}
+func New(gatewayClient *gateway.Client, acrHelper *accesscontrolrule.Helper, profileData vmcpconfig.ProfileDataStore, profileConfiguration *vmcpconfig.ProfileConfigurationStore) *Handler {
+	handler := &Handler{userInfo: gatewayClient.IdentityInfo, acrHelper: acrHelper, credentials: gatewayClient, profileData: profileData}
+	if profileConfiguration != nil {
+		handler.profileConfiguration = profileConfiguration
+	}
+	return handler
 }
 
 // PruneUnauthorizedComponents preserves missing sources, but removes existing

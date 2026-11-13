@@ -27,14 +27,25 @@ import (
 
 type Handler struct {
 	revealCredential func(context.Context, []string, string) (gatewaytypes.Credential, error)
+	upsertCredential func(context.Context, gatewaytypes.Credential) error
+	deleteCredential func(context.Context, string, string) (bool, error)
 	userInfo         func(context.Context, principal.Principal) (kuser.Info, error)
+	// profileConfiguration reads the profile configuration that agents' instances are given.
+	profileConfiguration agentConfigurationValues
+}
+
+type agentConfigurationValues interface {
+	AgentConfigurationValues(ctx context.Context, vmcpID string, configuration vmcpconfig.AgentConfiguration) (map[string]string, error)
 }
 
 func New(gatewayClient *gateway.Client) *Handler {
 	handler := &Handler{}
 	if gatewayClient != nil {
 		handler.revealCredential = gatewayClient.RevealCredential
+		handler.upsertCredential = gatewayClient.UpsertCredential
+		handler.deleteCredential = gatewayClient.DeleteCredential
 		handler.userInfo = gatewayClient.IdentityInfo
+		handler.profileConfiguration = vmcpconfig.NewProfileConfigurationStore(gatewayClient)
 	}
 	return handler
 }

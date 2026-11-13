@@ -279,6 +279,47 @@ type VMCPConfigurationPresence struct {
 	ConfiguredFields []string `json:"configuredFields"`
 }
 
+// VMCPProfileConfigurationUpdate changes the configuration that a vMCP profile gives the agents it applies to, by
+// component ID and then configuration key. A value replaces the key's value, and null (or a blank value) clears the
+// key. Keys left out keep their values. Only keys a user would enter on their own connection (the userAllowed policy)
+// can be set; fixed values always come from the vMCP.
+type VMCPProfileConfigurationUpdate struct {
+	Components map[string]map[string]*string `json:"components"`
+}
+
+// VMCPProfileStatus reports how far a vMCP profile is set up for agents. It describes the profile alone, without
+// falling back to any other profile, and never carries a configuration value.
+type VMCPProfileStatus struct {
+	ProfileID string `json:"profileID"`
+	// AgentCapable reports whether the profile can apply to agents (VMCPProfile.IsAgentCapable). Only such a profile
+	// can be given configuration.
+	AgentCapable bool `json:"agentCapable"`
+	// Components cover every component of the vMCP, including those the profile does not grant: an agent may be
+	// granted a component by another profile and still take its configuration from this one.
+	Components []VMCPProfileComponentStatus `json:"components"`
+	// PendingCollection reports that revisions of the profile's configuration that it no longer uses are still stored,
+	// until no agent's instance uses them and the vMCP controller deletes them. Agents are no longer given their values,
+	// but until then the profile counts as having data, even after a reset.
+	PendingCollection bool `json:"pendingCollection,omitempty"`
+}
+
+// VMCPProfileComponentStatus is the setup of one component on a vMCP profile.
+type VMCPProfileComponentStatus struct {
+	ComponentID   string                         `json:"componentID"`
+	Configuration VMCPProfileConfigurationStatus `json:"configuration"`
+}
+
+// VMCPProfileConfigurationStatus names the configuration keys of a component that a profile can set, by whether it
+// sets them. It never carries their values.
+type VMCPProfileConfigurationStatus struct {
+	// Set are the keys the profile sets.
+	Set []string `json:"set"`
+	// MissingRequired are the required keys the profile does not set.
+	MissingRequired []string `json:"missingRequired"`
+	// OptionalUnset are the optional keys the profile does not set.
+	OptionalUnset []string `json:"optionalUnset"`
+}
+
 type VMCPInstanceManifest struct {
 	VMCPID string `json:"vmcpID"`
 	// Nil follows the current grant; an empty map explicitly selects no tools.

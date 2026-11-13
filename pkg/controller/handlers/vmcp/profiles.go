@@ -1,8 +1,10 @@
 package vmcp
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -11,6 +13,8 @@ import (
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ReconcileProfiles keeps the vMCP's profiles identified and their stored data in step with the manifest. It gives
@@ -34,6 +38,13 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 	removed := slices.DeleteFunc(slices.Clone(vmcp.Status.ProfileIDs), func(id string) bool {
 		return slices.Contains(current, id)
 	})
+	// Configuration is only stored for a profile recorded in ProfileIDs, but its record in status names the profile
+	// too, so a profile with one is cleaned up even if it was somehow never recorded.
+	for _, id := range slices.Sorted(maps.Keys(vmcp.Status.ProfileConfigurationRevisions)) {
+		if !slices.Contains(current, id) && !slices.Contains(removed, id) {
+			removed = append(removed, id)
+		}
+	}
 	if len(removed) > 0 {
 		if err := h.deleteProfileData(req, vmcp.Name, removed); err != nil {
 			return err
@@ -43,6 +54,12 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 
 	changed := !slices.Equal(vmcp.Status.ProfileIDs, current)
 	vmcp.Status.ProfileIDs = current
+	for _, id := range removed {
+		if _, ok := vmcp.Status.ProfileConfigurationRevisions[id]; ok {
+			delete(vmcp.Status.ProfileConfigurationRevisions, id)
+			changed = true
+		}
+	}
 	if meta.SetStatusCondition(&vmcp.Status.Conditions, agentSelectionCondition(vmcp.Spec.Manifest)) {
 		changed = true
 	}
@@ -57,7 +74,7 @@ func (h *Handler) ReconcileProfiles(req router.Request, _ router.Response) error
 func (h *Handler) RemoveProfileData(req router.Request, _ router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
 	ids := vmcpconfig.ProfileIDs(vmcp.Spec.Manifest)
-	for _, id := range vmcp.Status.ProfileIDs {
+	for _, id := range slices.Concat(vmcp.Status.ProfileIDs, slices.Sorted(maps.Keys(vmcp.Status.ProfileConfigurationRevisions))) {
 		if !slices.Contains(ids, id) {
 			ids = append(ids, id)
 		}
@@ -66,6 +83,42 @@ func (h *Handler) RemoveProfileData(req router.Request, _ router.Response) error
 		return nil
 	}
 	return h.deleteProfileData(req, vmcp.Name, ids)
+}
+
+// CollectProfileConfiguration deletes the superseded configuration revisions of the vMCP's profiles once no agent's
+// instance records that its configuration was copied from them. Only then is a revision unused: an instance keeps
+// recording the revision it was last resolved from until the vMCP instance controller copies the current one.
+//
+// Instances are listed only while a revision waits to be deleted, and listing them watches them, so an instance that
+// moves to the current revision rechecks the vMCP. A vMCP whose profiles carry no configuration never watches its
+// instances.
+func (h *Handler) CollectProfileConfiguration(req router.Request, _ router.Response) error {
+	vmcp := req.Object.(*v1.VMCP)
+	if !vmcp.DeletionTimestamp.IsZero() || h.profileConfiguration == nil {
+		// The finalizer deletes every revision of a vMCP being deleted.
+		return nil
+	}
+	if !slices.ContainsFunc(slices.Collect(maps.Values(vmcp.Status.ProfileConfigurationRevisions)), func(revision v1.VMCPProfileConfigurationRevision) bool {
+		return len(revision.Superseded) > 0
+	}) {
+		return nil
+	}
+
+	var instances v1.VMCPInstanceList
+	if err := req.List(&instances, &kclient.ListOptions{
+		Namespace:     vmcp.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.manifest.vmcpID", vmcp.Name),
+	}); err != nil {
+		return err
+	}
+	changed, err := h.profileConfiguration.CollectSuperseded(req.Ctx, vmcp, instances.Items)
+	if changed {
+		// Revisions already deleted are recorded as deleted even if a later one failed.
+		if updateErr := req.Client.Status().Update(req.Ctx, vmcp); updateErr != nil {
+			return errors.Join(err, updateErr)
+		}
+	}
+	return err
 }
 
 func (h *Handler) deleteProfileData(req router.Request, vmcpID string, profileIDs []string) error {

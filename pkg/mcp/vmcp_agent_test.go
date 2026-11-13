@@ -245,7 +245,7 @@ func TestVMCPConnectionsAreIsolatedPerPrincipal(t *testing.T) {
 }
 
 // TestAgentConnectRefusedUntilReady checks that an agent is refused, with the reasons, when a component enabled for
-// it needs setup that agents cannot be given yet, and on a vMCP whose wildcard profiles make its selection ambiguous,
+// it needs setup that its profiles do not give it, and on a vMCP whose wildcard profiles make its selection ambiguous,
 // while a user still connects to the same vMCP.
 func TestAgentConnectRefusedUntilReady(t *testing.T) {
 	everyone := func(id string) types.VMCPProfile {
@@ -278,8 +278,8 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			}},
 		},
 		{
-			// An agent with its own profile falls back for the configuration only agents' fallback could supply, and
-			// that fallback is ambiguous.
+			// An agent with its own profile, which does not set the header, falls back for it, and that fallback is
+			// ambiguous.
 			name:     "legacy wildcard profiles with an explicit profile and a header a user would enter",
 			profiles: []types.VMCPProfile{explicit("vp1agent"), everyone("vp1first"), everyone("vp1second")},
 			configure: func(component *types.VMCPComponent) {

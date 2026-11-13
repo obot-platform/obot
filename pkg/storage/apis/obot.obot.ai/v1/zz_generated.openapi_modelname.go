@@ -1066,6 +1066,11 @@ func (in VMCPList) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPProfileConfigurationRevision) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPProfileConfigurationRevision"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in VMCPSpec) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPSpec"
 }

@@ -63,10 +63,17 @@ func (h *AgentIdentityHandler) RegisterRoutes(handle func(pattern string, f api.
 
 // check answers whether agent identities are available. It must come first in every route.
 func (h *AgentIdentityHandler) check() error {
-	if !h.enabled {
+	return agentIdentitiesAvailable(h.enabled, h.authEnabled)
+}
+
+// agentIdentitiesAvailable answers whether the routes that exist only for agents are available: 404, as though they
+// did not exist, while agent identities are disabled (enabled is the server's EnableAgentIdentities option), and 501
+// while authentication is, because agents authenticate only with authentication enabled.
+func agentIdentitiesAvailable(enabled, authEnabled bool) error {
+	if !enabled {
 		return types.NewErrNotFound("not found")
 	}
-	if !h.authEnabled {
+	if !authEnabled {
 		return types.NewErrHTTP(http.StatusNotImplemented, "agent identities require authentication to be enabled: agents authenticate with API keys, which are only checked when authentication is enabled")
 	}
 	return nil

@@ -105,8 +105,8 @@ type AgentReadinessInput struct {
 }
 
 // ComponentReadinessCheck is one source of reasons an agent cannot use a component enabled for it. Each source is
-// replaced on its own: spec 12 replaces UnsupportedAgentConfiguration with profile configuration resolution, and
-// spec 13 replaces UnsupportedAgentOAuth with profile OAuth grant selection.
+// replaced on its own: ProfileConfigurationCheck resolves profile configuration, and spec 13 replaces
+// UnsupportedAgentOAuth with profile OAuth grant selection.
 //
 // A check resolves what the component needs from the agent's explicit profile first (in.Selection.Explicit), and
 // only then from the profile the agent falls back to (in.Selection.Wildcard). When it would need the fallback and the
@@ -119,17 +119,11 @@ type ComponentReadinessCheck interface {
 }
 
 // AgentReadinessChecks computes agent readiness from one check per source of reasons. A nil check uses its default:
-// UnsupportedAgentConfiguration and UnsupportedAgentOAuth.
+// ProfileConfigurationCheck and UnsupportedAgentOAuth.
 type AgentReadinessChecks struct {
 	Configuration ComponentReadinessCheck
 	OAuth         ComponentReadinessCheck
 }
-
-// UnsupportedAgentConfiguration is the configuration check until profiles can carry configuration (spec 12): every
-// required value a user would enter on their instance is missing for an agent. No explicit profile can supply such a
-// value yet, so supplying it would always need the fallback: on a vMCP whose fallback is ambiguous, the component is
-// reported as AmbiguousFallbackReason rather than ReadinessConfigurationRequired.
-type UnsupportedAgentConfiguration struct{}
 
 // UnsupportedAgentOAuth is the OAuth check until profiles can hold OAuth grants (spec 13): a component that is known
 // to require OAuth, a remote server with administrator static OAuth, has no grant for an agent. No explicit profile
@@ -258,7 +252,7 @@ func (c AgentReadinessChecks) AgentReadiness(ctx context.Context, vmcp v1.VMCP, 
 
 	configuration, oauth := c.Configuration, c.OAuth
 	if configuration == nil {
-		configuration = UnsupportedAgentConfiguration{}
+		configuration = ProfileConfigurationCheck{}
 	}
 	if oauth == nil {
 		oauth = UnsupportedAgentOAuth{}
@@ -279,28 +273,6 @@ func (c AgentReadinessChecks) AgentReadiness(ctx context.Context, vmcp v1.VMCP, 
 		}
 	}
 	return readiness, nil
-}
-
-func (UnsupportedAgentConfiguration) ComponentReadiness(_ context.Context, in AgentReadinessInput, component types.VMCPComponent) ([]ReadinessReason, error) {
-	missing := MissingRequiredConfiguration(component, nil, true)
-	if len(missing) > 0 && in.Selection.Ambiguous {
-		// The explicit profile cannot supply a value yet, so each would come from the ambiguous fallback.
-		return []ReadinessReason{AmbiguousFallbackReason(component.ID)}, nil
-	}
-	var reasons []ReadinessReason
-	for _, key := range missing {
-		_, field, ok := ParseConfigurationKey(key)
-		if !ok {
-			return nil, fmt.Errorf("invalid configuration key %q", key)
-		}
-		reasons = append(reasons, ReadinessReason{
-			ComponentID: component.ID,
-			Code:        ReadinessConfigurationRequired,
-			Field:       field,
-			ProfileID:   in.Selection.fixProfileID(),
-		})
-	}
-	return reasons, nil
 }
 
 func (UnsupportedAgentOAuth) ComponentReadiness(_ context.Context, in AgentReadinessInput, component types.VMCPComponent) ([]ReadinessReason, error) {

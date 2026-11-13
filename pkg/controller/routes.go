@@ -54,7 +54,7 @@ func (c *Controller) setupRoutes() {
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	vmcpinstance := vmcpinstance.New(c.services.GatewayClient)
-	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.VMCPProfileData)
+	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.VMCPProfileData, c.services.VMCPProfileConfiguration)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GatewayClient, c.services.MCPHTTPWebhookBaseImage)
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
@@ -187,6 +187,7 @@ func (c *Controller) setupRoutes() {
 	// VMCP
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.PruneUnauthorizedComponents)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ReconcileProfiles)
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.CollectProfileConfiguration)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.SyncStatus)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.EnsureMCPServers)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.DetectDrift)
@@ -204,6 +205,8 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.ReconcileToolSelection)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServers)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServerInstances)
+	// Before SyncUserConfigurationHash, which records the configuration this writes for an agent's instance.
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncAgentProfileConfiguration)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncUserConfigurationHash)
 	root.Type(&v1.VMCPInstance{}).FinalizeFunc(v1.VMCPInstanceFinalizer, credentialCleanup.RemoveVMCPInstanceConfigurationCredentials)
 

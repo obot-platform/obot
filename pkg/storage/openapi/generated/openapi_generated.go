@@ -391,7 +391,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPList":                                  schema_obot_platform_obot_apiclient_types_VMCPList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPManifest":                              schema_obot_platform_obot_apiclient_types_VMCPManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfile":                               schema_obot_platform_obot_apiclient_types_VMCPProfile(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus":                schema_obot_platform_obot_apiclient_types_VMCPProfileComponentStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus":            schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationUpdate":            schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions":                    schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfileStatus":                         schema_obot_platform_obot_apiclient_types_VMCPProfileStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPStatus":                                schema_obot_platform_obot_apiclient_types_VMCPStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPToolReference":                         schema_obot_platform_obot_apiclient_types_VMCPToolReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookStatus":                             schema_obot_platform_obot_apiclient_types_WebhookStatus(ref),
@@ -607,6 +611,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.VMCPInstanceSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref),
 		v1.VMCPInstanceStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref),
 		v1.VMCPList{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPList(ref),
+		v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName():                                  schema_storage_apis_obotobotai_v1_VMCPProfileConfigurationRevision(ref),
 		v1.VMCPSpec{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPSpec(ref),
 		v1.VMCPStatus{}.OpenAPIModelName():                                                        schema_storage_apis_obotobotai_v1_VMCPStatus(ref),
 		coordinationv1.Lease{}.OpenAPIModelName():                                                 schema_k8sio_api_coordination_v1_Lease(ref),
@@ -19973,6 +19978,127 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_VMCPProfileComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileComponentStatus is the setup of one component on a vMCP profile.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus"),
+						},
+					},
+				},
+				Required: []string{"componentID", "configuration"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPProfileConfigurationStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileConfigurationStatus names the configuration keys of a component that a profile can set, by whether it sets them. It never carries their values.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"set": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Set are the keys the profile sets.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"missingRequired": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MissingRequired are the required keys the profile does not set.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"optionalUnset": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OptionalUnset are the optional keys the profile does not set.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"set", "missingRequired", "optionalUnset"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfileConfigurationUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileConfigurationUpdate changes the configuration that a vMCP profile gives the agents it applies to, by component ID and then configuration key. A value replaces the key's value, and null (or a blank value) clears the key. Keys left out keep their values. Only keys a user would enter on their own connection (the userAllowed policy) can be set; fixed values always come from the vMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"object"},
+										AdditionalProperties: &spec.SchemaOrBool{
+											Allows: true,
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Type:   []string{"string"},
+													Format: "",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"components"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -20003,6 +20129,57 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref common
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfileStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileStatus reports how far a vMCP profile is set up for agents. It describes the profile alone, without falling back to any other profile, and never carries a configuration value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"profileID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"agentCapable": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentCapable reports whether the profile can apply to agents (VMCPProfile.IsAgentCapable). Only such a profile can be given configuration.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Components cover every component of the vMCP, including those the profile does not grant: an agent may be granted a component by another profile and still take its configuration from this one.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus"),
+									},
+								},
+							},
+						},
+					},
+					"pendingCollection": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PendingCollection reports that revisions of the profile's configuration that it no longer uses are still stored, until no agent's instance uses them and the vMCP controller deletes them. Agents are no longer given their values, but until then the profile counts as having data, even after a reset.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"profileID", "agentCapable", "components"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPProfileComponentStatus"},
 	}
 }
 
@@ -29813,6 +29990,28 @@ func schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref common.ReferenceCa
 							Format: "",
 						},
 					},
+					"agentConfigurationRevision": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentConfigurationRevision identifies the profile configuration that the configuration credential of an agent's instance was last resolved from (vmcp.AgentConfiguration.Revision). Agents never enter configuration: the vMCP instance controller copies it from the agent's profiles, and an agent's connect waits until this matches the vMCP's current profile configuration. It is empty for a user's instance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"agentConfigurationRevisions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AgentConfigurationRevisions are the profile configuration revisions, by profile ID, that supplied a value to AgentConfigurationRevision. The vMCP controller keeps a superseded revision while any instance records it here.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -29863,6 +30062,54 @@ func schema_storage_apis_obotobotai_v1_VMCPList(ref common.ReferenceCallback) co
 		},
 		Dependencies: []string{
 			v1.VMCP{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPProfileConfigurationRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfileConfigurationRevision records the configuration of one vMCP profile. Each change to it is stored as a new credential, a revision, which is published here with the keys it sets, so the configuration an agent resolves to and the revision its values are copied from always agree.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name names the credential of the current revision, in the profile's credential context. It is empty when the profile has no configuration.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"keys": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Keys are the configuration keys the current revision sets, as vmcp.ConfigurationKey encodes them. They never carry a value.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"superseded": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Superseded are earlier revisions. The vMCP controller deletes each once no agent's instance records that its configuration was resolved from it.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -30014,6 +30261,20 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"profileConfigurationRevisions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProfileConfigurationRevisions record, by profile ID, the configuration that administrators set on agent-capable profiles for agents (pkg/vmcp profile configuration). The values are in credentials, never here. A profile without configuration has no entry, unless it has superseded revisions left to delete.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.",
@@ -30031,7 +30292,7 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			v1.VMCPComponentStatus{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
+			v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
 	}
 }
 

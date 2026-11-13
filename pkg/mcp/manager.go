@@ -113,8 +113,8 @@ type SessionManager struct {
 
 	webhookHelper *WebhookHelper
 
-	// agentReadiness decides whether an agent can connect to a vMCP. Its zero value uses the default checks, which
-	// specs 12 and 13 replace with profile configuration and OAuth grants.
+	// agentReadiness decides whether an agent can connect to a vMCP. Its zero value uses the default checks
+	// (vmcpaccess.AgentReadinessChecks).
 	agentReadiness vmcpaccess.AgentReadinessChecks
 }
 
@@ -224,6 +224,12 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 	go sm.runToolPreviewSweeper(ctx)
 
 	return sm, nil
+}
+
+// SetAgentReadinessChecks sets the checks that decide whether an agent can connect to a vMCP. Set them before the
+// session manager serves connections.
+func (sm *SessionManager) SetAgentReadinessChecks(checks vmcpaccess.AgentReadinessChecks) {
+	sm.agentReadiness = checks
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {

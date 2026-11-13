@@ -462,7 +462,9 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 					Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
 				},
 			}
-			// The instance controller has recorded the agent's configuration status.
+			// The instance controller has given the agent its profiles' configuration, and recorded its configuration
+			// status.
+			instance.Status.AgentConfigurationRevision = vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, caller).Revision
 			instance.Status.ConfigurationCheckHash = vmcpaccess.ConfigurationCheckHash(vmcpaccess.EnabledComponents(caller, *vmcp, vmcpaccess.ComponentsForInstance(*vmcp, *instance)), "")
 			storageClient := newAgentReadinessTestStorage(vmcp, instance)
 			gateway, db := newHeadlessTestGatewayClient(t)

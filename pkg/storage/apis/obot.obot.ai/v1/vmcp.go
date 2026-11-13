@@ -63,8 +63,27 @@ type VMCPStatus struct {
 	// (vmcp.ProfileDataStore) and then records the manifest's IDs. A handler that stores such data for a profile must
 	// first make sure its ID is recorded here, so that a deletion the controller has not yet observed still cleans it up.
 	ProfileIDs []string `json:"profileIDs,omitempty"`
+	// ProfileConfigurationRevisions record, by profile ID, the configuration that administrators set on agent-capable
+	// profiles for agents (pkg/vmcp profile configuration). The values are in credentials, never here. A profile
+	// without configuration has no entry, unless it has superseded revisions left to delete.
+	ProfileConfigurationRevisions map[string]VMCPProfileConfigurationRevision `json:"profileConfigurationRevisions,omitempty"`
 	// Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// VMCPProfileConfigurationRevision records the configuration of one vMCP profile. Each change to it is stored as a new
+// credential, a revision, which is published here with the keys it sets, so the configuration an agent resolves to
+// and the revision its values are copied from always agree.
+type VMCPProfileConfigurationRevision struct {
+	// Name names the credential of the current revision, in the profile's credential context. It is empty when the
+	// profile has no configuration.
+	Name string `json:"name,omitempty"`
+	// Keys are the configuration keys the current revision sets, as vmcp.ConfigurationKey encodes them. They never
+	// carry a value.
+	Keys []string `json:"keys,omitempty"`
+	// Superseded are earlier revisions. The vMCP controller deletes each once no agent's instance records that its
+	// configuration was resolved from it.
+	Superseded []string `json:"superseded,omitempty"`
 }
 
 type VMCPComponentStatus struct {

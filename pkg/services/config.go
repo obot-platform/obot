@@ -229,6 +229,9 @@ type Services struct {
 	// a vMCP with any keeps no exception from the wildcard rule across profiles. Each store is appended here as it is
 	// added; with none, no profile has data.
 	VMCPProfileData vmcp.ProfileDataStores
+	// VMCPProfileConfiguration stores the configuration that administrators set on vMCP profiles for agents. It is
+	// one of VMCPProfileData.
+	VMCPProfileConfiguration *vmcp.ProfileConfigurationStore
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -815,6 +818,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Profile configuration is stored whether or not agent identities are enabled, so that the vMCP controller always
+	// deletes it with its profile.
+	vmcpProfileConfiguration := vmcp.NewProfileConfigurationStore(gatewayClient)
+	mcpSessionManager.SetAgentReadinessChecks(vmcp.AgentReadinessChecks{Configuration: vmcp.ProfileConfigurationCheck{}})
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {
@@ -1196,6 +1203,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
 		EnableAgentIdentities:        config.EnableAgentIdentities,
+		VMCPProfileData:              vmcp.ProfileDataStores{vmcpProfileConfiguration},
+		VMCPProfileConfiguration:     vmcpProfileConfiguration,
 		Bootstrapper:                 bootstrapper,
 		LocalAuthProvider:            localAuthProvider,
 		BifrostEngine:                bifrostEngine,

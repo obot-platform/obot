@@ -13,8 +13,8 @@ import (
 )
 
 // ProfileDataStore holds data that is keyed by vMCP profile ID and kept outside the vMCP manifest, such as profile
-// configuration (spec 12) and profile OAuth grants (spec 13). Catalog-synced vMCPs keep such data too, because
-// nothing about it is in the manifest that catalog sync replaces.
+// configuration (ProfileConfigurationStore) and profile OAuth grants (spec 13). Catalog-synced vMCPs keep such data
+// too, because nothing about it is in the manifest that catalog sync replaces.
 type ProfileDataStore interface {
 	// ProfilesWithData returns the IDs, among profileIDs, of the vMCP's profiles that the store holds data for, so
 	// that one call answers for many profiles. While any profile has data, the wildcard rule across profiles
