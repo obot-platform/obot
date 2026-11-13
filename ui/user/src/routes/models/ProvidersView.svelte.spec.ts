@@ -238,10 +238,16 @@ describe('Models providers tab', () => {
 		await renderProvidersPage();
 
 		await expect.element(page.getByRole('heading', { name: 'Anthropic' })).toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'AWS Bedrock Runtime', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'AWS Bedrock Mantle', exact: true }))
+			.not.toBeInTheDocument();
 		const headings = page.getByRole('heading', { level: 4 }).elements();
 		expect(headings[0].textContent).toBe('OpenAI');
 		expect(headings.map((h) => h.textContent)).toEqual(
-			expect.arrayContaining(['Anthropic', 'Groq', 'AWS Bedrock Runtime', 'AWS Bedrock Mantle'])
+			expect.arrayContaining(['Anthropic', 'Groq', 'AWS Bedrock'])
 		);
 		await expect
 			.element(page.getByRole('button', { name: 'Configure' }).first())

@@ -4,8 +4,8 @@ import ProviderKeyDialog from './ProviderKeyDialog.svelte';
 import { describe, expect, it } from 'vitest';
 
 describe('authentication options', () => {
-	for (const provider of ['bedrock', 'azure']) {
-		const aws = provider === 'bedrock';
+	for (const provider of ['bedrock_mantle', 'azure']) {
+		const aws = provider === 'bedrock_mantle';
 		for (const addingProvider of [true, false]) {
 			it(`${provider}: offers only API key and explicit credentials when adding ${addingProvider ? 'a provider' : 'a key'}`, async () => {
 				const dialog = addingProvider
@@ -13,7 +13,7 @@ describe('authentication options', () => {
 					: await renderOpenDialog(ProviderKeyDialog, { provider });
 				if (addingProvider)
 					await dialog
-						.getByRole('button', { name: aws ? /^AWS Bedrock Runtime/ : /^Azure OpenAI/ })
+						.getByRole('button', { name: aws ? /^AWS Bedrock/ : /^Azure OpenAI/ })
 						.click();
 				await expect
 					.element(dialog.getByRole('radio', { name: 'Server identity', exact: true }))

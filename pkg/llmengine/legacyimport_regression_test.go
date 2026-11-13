@@ -739,25 +739,3 @@ func TestLegacyImportProxyBeforeFirstDiscoveryAndInference(t *testing.T) {
 	require.Equal(t, http.StatusOK, code, response)
 	require.Contains(t, response, "Hello from responses")
 }
-
-func TestLegacyMantleImportPreservesRuntimeConfiguration(t *testing.T) {
-	e, ctx := startTestEngine(t)
-	_, err := e.CreateProvider(ctx, testJSON(t, map[string]any{"provider": "bedrock", "network_config": map[string]any{"max_retries": 7}}))
-	require.NoError(t, err)
-	before, err := e.store.GetProvider(ctx, "bedrock")
-	require.NoError(t, err)
-	gateway := legacyImportGateway(t, map[string]map[string]string{
-		system.AmazonBedrockAPIKeyModelProvider: {"OBOT_BEDROCK_MODEL_PROVIDER_API_KEY": "legacy-api-key"},
-	})
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
-	after, err := e.store.GetProvider(ctx, "bedrock")
-	require.NoError(t, err)
-	require.Equal(t, before, after, "Runtime profiles and admin settings must not become Mantle configuration")
-	mantle, err := e.store.GetProvider(ctx, "bedrock_mantle")
-	require.NoError(t, err)
-	require.Len(t, mantle.Keys, 1)
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, false))
-	repeated, err := e.store.GetProvider(ctx, "bedrock_mantle")
-	require.NoError(t, err)
-	require.Equal(t, mantle, repeated)
-}

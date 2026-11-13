@@ -83,8 +83,4 @@ Legacy provider endpoints still support compatible operations, but are deprecate
   - `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` is removed. Past violations remain stored but disappear from the UI/API; audit logs no longer mark or filter requests changed by message policies.
   - See [AI Judge Policies](../functionality/ai-judge-policies.md) and [Audit usage and costs](./audit.md).
 
-### Existing AWS gateway configurations
-
-The provider picker distinguishes **AWS Bedrock Runtime** (`bedrock`) from **AWS Bedrock Mantle** (`bedrock_mantle`). Choose Mantle for native Mantle IDs such as `anthropic.claude-haiku-4-5`; use Runtime for Runtime model IDs and inference profiles.
-
-Existing Runtime configurations are left untouched. If you previously configured a Mantle model under Runtime, configure the Mantle provider and select its model in your client, profile, or default model setting. Retained legacy credentials can populate the Mantle provider on startup, but gateway references already rewritten to Runtime models are not automatically retargeted.
+The **AWS Bedrock** option uses Mantle (`bedrock_mantle`), matching v0.27, and accepts native IDs such as `anthropic.claude-haiku-4-5`.
