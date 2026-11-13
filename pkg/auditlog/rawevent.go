@@ -18,6 +18,24 @@ const (
 	rawOmittedResponse    = "details.response.body"
 )
 
+var (
+	// rawOmittedKeyBytes is the marker key as it appears in a payload. It holds nothing JSON
+	// escapes, so a payload without these bytes holds no marker and needs no decoding.
+	rawOmittedKeyBytes = []byte(rawOmittedKey)
+
+	// goEscapes are the escapes encoding/json writes in strings where the agent wrote the character
+	// itself: it escapes <, > and & for HTML, and U+2028 and U+2029 for JavaScript. The agents that
+	// send a JSON-string output (Cursor) build it with JavaScript's JSON.stringify, which escapes none
+	// of them.
+	goEscapes = map[string]string{
+		`\u003c`: "<",
+		`\u003e`: ">",
+		`\u0026`: "&",
+		`\u2028`: "\u2028",
+		`\u2029`: "\u2029",
+	}
+)
+
 // restoreRawEvent returns the raw event with each top-level Obot Sentry marker replaced by the
 // body it names, so the presented raw event is the hook payload the agent sent while storage keeps
 // each value once. Only the marker values are rewritten; every other byte of the raw event is kept
@@ -28,6 +46,10 @@ func restoreRawEvent(raw, request, response json.RawMessage) json.RawMessage {
 	type replacement struct {
 		start, end int
 		value      []byte
+	}
+
+	if !bytes.Contains(raw, rawOmittedKeyBytes) {
+		return raw
 	}
 
 	dec := json.NewDecoder(bytes.NewReader(raw))
@@ -78,7 +100,7 @@ func restoreRawEvent(raw, request, response json.RawMessage) json.RawMessage {
 // parseOmittedMarker reports whether value is exactly an Obot Sentry marker: an object holding
 // the marker key naming the request or response body, and at most the json_string encoding.
 func parseOmittedMarker(value json.RawMessage) (field string, jsonString, ok bool) {
-	if len(value) == 0 || value[0] != '{' {
+	if len(value) == 0 || value[0] != '{' || !bytes.Contains(value, rawOmittedKeyBytes) {
 		return "", false, false
 	}
 	var marker map[string]json.RawMessage
@@ -107,7 +129,8 @@ func parseOmittedMarker(value json.RawMessage) (field string, jsonString, ok boo
 
 // restoredValue returns the JSON that stands where the marker was. For a json_string marker that
 // is a JSON string holding the body as compact JSON, which is the string the agent sent: Obot
-// Sentry only replaces a string whose content is already compact JSON.
+// Sentry only replaces a string whose content is already compact JSON, and it submits the body
+// with encoding/json, which escapes the characters undoGoEscapes puts back.
 func restoredValue(body json.RawMessage, jsonString bool) ([]byte, bool) {
 	if len(bytes.TrimSpace(body)) == 0 || !json.Valid(body) {
 		return nil, false
@@ -120,11 +143,47 @@ func restoredValue(body json.RawMessage, jsonString bool) ([]byte, bool) {
 	if err := json.Compact(&compact, body); err != nil {
 		return nil, false
 	}
+	// SetEscapeHTML(false) keeps the encoder from escaping <, > and & again in the string it
+	// builds. encoding/json always writes U+2028 and U+2029 escaped, which is the same string.
 	var encoded bytes.Buffer
 	enc := json.NewEncoder(&encoded)
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(compact.String()); err != nil {
+	if err := enc.Encode(string(undoGoEscapes(compact.Bytes()))); err != nil {
 		return nil, false
 	}
 	return bytes.TrimSuffix(encoded.Bytes(), []byte("\n")), true
+}
+
+// undoGoEscapes returns compact JSON with each of goEscapes inside a string replaced by the
+// character it stands for. Other escapes are copied as they are, so an escaped backslash followed
+// by "u0026" stays literal text. The result is the same JSON value.
+func undoGoEscapes(compact []byte) []byte {
+	if !bytes.Contains(compact, []byte(`\u`)) {
+		return compact
+	}
+
+	out := make([]byte, 0, len(compact))
+	inString := false
+	for i := 0; i < len(compact); i++ {
+		c := compact[i]
+		switch {
+		case !inString:
+			inString = c == '"'
+		case c == '"':
+			inString = false
+		case c == '\\' && i+1 < len(compact):
+			if i+6 <= len(compact) {
+				if char, ok := goEscapes[string(compact[i:i+6])]; ok {
+					out = append(out, char...)
+					i += 5
+					continue
+				}
+			}
+			out = append(out, c, compact[i+1])
+			i++
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
 }

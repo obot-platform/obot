@@ -73,10 +73,10 @@ func TestRestoreRawEvent(t *testing.T) {
 			want:     `{"tool_output":"{\"id\":9007199254740993,\"ratio\":0.1000000000000000055}"}`,
 		},
 		{
-			name:     "cursor output keeps HTML characters unescaped",
+			name:     "a cursor escape after an escaped backslash stays literal text",
 			raw:      `{"tool_output":` + responseJSONStringMark + `}`,
-			response: `{"html":"<a href=\"x\">&</a>"}`,
-			want:     `{"tool_output":"{\"html\":\"<a href=\\\"x\\\">&</a>\"}"}`,
+			response: `{"path":"C:\\u0026","both":"\\\u0026"}`,
+			want:     `{"tool_output":"{\"path\":\"C:\\\\u0026\",\"both\":\"\\\\&\"}"}`,
 		},
 		{
 			name:     "a stored body that was reformatted is compacted into the cursor string",
@@ -123,6 +123,13 @@ func TestRestoreRawEvent(t *testing.T) {
 			want:    `[` + requestMarker + `]`,
 		},
 		{
+			name:     "a raw event with no marker is unchanged",
+			raw:      `{"tool_input":{"command":"x"},"tool_response":"y"}`,
+			request:  `{"command":"x"}`,
+			response: `"y"`,
+			want:     `{"tool_input":{"command":"x"},"tool_response":"y"}`,
+		},
+		{
 			name: "an empty raw event stays empty",
 		},
 	}
@@ -164,6 +171,55 @@ func TestPresentLocalAgentRestoresRawEvent(t *testing.T) {
 	}
 	if _, err := json.Marshal(event); err != nil {
 		t.Fatalf("presented event does not marshal: %v", err)
+	}
+}
+
+// TestRestoreRawEventCursorSubmissionRoundTrip sends a Cursor hook payload the way Obot Sentry
+// does: it marks the output and submits the event with encoding/json, which escapes <, >, &,
+// U+2028 and U+2029 inside the body. Restoring the stored event must give back Cursor's string.
+func TestRestoreRawEventCursorSubmissionRoundTrip(t *testing.T) {
+	outputs := []string{
+		`{"output":"a && b <x> -> c\n","exitCode":0}`,
+		`{"html":"<a href=\"x\">&amp;</a>"}`,
+		"{\"text\":\"line\u2028para\u2029end\"}",
+		`{"path":"C:\\u0026 and \\&"}`,
+		`{"id":9007199254740993,"empty":"","nested":{"list":[1,"<",{"k":">"}]}}`,
+	}
+
+	for _, output := range outputs {
+		t.Run(output, func(t *testing.T) {
+			original := map[string]string{"tool_name": "Shell", "tool_output": output}
+
+			// What Obot Sentry submits, through encoding/json.
+			submitted, err := json.Marshal(struct {
+				RawEvent json.RawMessage `json:"rawEvent"`
+				Body     json.RawMessage `json:"body"`
+			}{
+				RawEvent: json.RawMessage(`{"tool_name":"Shell","tool_output":` + responseJSONStringMark + `}`),
+				Body:     json.RawMessage(output),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// What Obot stores: the submitted bytes of each field.
+			var stored struct {
+				RawEvent json.RawMessage `json:"rawEvent"`
+				Body     json.RawMessage `json:"body"`
+			}
+			if err := json.Unmarshal(submitted, &stored); err != nil {
+				t.Fatal(err)
+			}
+
+			restored := restoreRawEvent(stored.RawEvent, nil, stored.Body)
+
+			var got map[string]string
+			if err := json.Unmarshal(restored, &got); err != nil {
+				t.Fatalf("restored raw event %s: %v", restored, err)
+			}
+			if got["tool_output"] != original["tool_output"] || got["tool_name"] != original["tool_name"] {
+				t.Fatalf("tool_output = %q, want %q", got["tool_output"], original["tool_output"])
+			}
+		})
 	}
 }
 
