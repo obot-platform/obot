@@ -560,6 +560,8 @@ func TestVMCPHandlerUpdateUndoesStaticConfigurationWhenTheWriteFails(t *testing.
 		name         string
 		versioned    bool
 		noCredential bool
+		published    bool
+		canceled     bool
 		updateErr    error
 		wantToken    string
 	}{
@@ -574,9 +576,21 @@ func TestVMCPHandlerUpdateUndoesStaticConfigurationWhenTheWriteFails(t *testing.
 			updateErr:    refused,
 		},
 		{
-			name:      "a conflict leaves the configuration to the update that got in first",
+			name:      "a conflict with a write that published no configuration puts it back",
 			updateErr: conflict,
-			wantToken: "new-token",
+			wantToken: "old-token",
+		},
+		{
+			name:      "a conflict leaves the configuration another update published",
+			published: true,
+			updateErr: conflict,
+			wantToken: "other-token",
+		},
+		{
+			name:      "a canceled request still puts the stored configuration back",
+			canceled:  true,
+			updateErr: context.Canceled,
+			wantToken: "old-token",
 		},
 		{
 			name:      "a refused update of a versioned vMCP leaves its revision alone",
@@ -624,9 +638,32 @@ func TestVMCPHandlerUpdateUndoesStaticConfigurationWhenTheWriteFails(t *testing.
 			update.Components[0].Configuration[0].Value = "new-token"
 			body, err := json.Marshal(update)
 			require.NoError(t, err)
-			request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body)).WithContext(ctx)
 			request.SetPathValue("vmcp_id", created.ID)
 			storage.updateErr = tt.updateErr
+			if tt.canceled {
+				// The caller goes away as the vMCP is written.
+				storage.onUpdate = func(kclient.Object) { cancel() }
+			}
+			if tt.published {
+				// Another update stores its configuration and publishes it before this one's write lands.
+				storage.onUpdate = func(kclient.Object) {
+					secrets := map[string]string{
+						vmcpconfig.ConfigurationKey(update.Components[0].ID, "TOKEN"): "other-token",
+					}
+					require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+						Context: credentialContext,
+						Name:    vmcpconfig.ConfigurationCredentialName(),
+						Secrets: secrets,
+					}))
+					var other v1.VMCP
+					require.NoError(t, storage.Get(t.Context(), key, &other))
+					vmcpconfig.SetStaticConfigurationHashes(&other, secrets)
+					require.NoError(t, storage.WithWatch.Update(t.Context(), &other))
+				}
+			}
 			err = handler.Update(api.Context{
 				Request:        request,
 				ResponseWriter: httptest.NewRecorder(),

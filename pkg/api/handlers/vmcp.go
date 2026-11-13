@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -20,6 +22,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	// staticConfigurationUndoTimeout bounds putting a vMCP's stored configuration back after a failed update, which
+	// doesn't stop when the request's context does.
+	staticConfigurationUndoTimeout = 10 * time.Second
 )
 
 type VMCPHandler struct {
@@ -260,6 +268,8 @@ func (h *VMCPHandler) Update(req api.Context) error {
 
 	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
 	credentialName := vmcpconfig.StaticConfigurationCredentialName(&vmcp)
+	// What the stored vMCP publishes now. If it still does after a failed update, no other update published since.
+	publishedHash := vmcp.Spec.StaticConfigurationHash
 
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, credentialName)
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
@@ -284,24 +294,37 @@ func (h *VMCPHandler) Update(req api.Context) error {
 			return fmt.Errorf("failed to store VMCP static configuration: %w", err)
 		}
 		if err := req.Update(&vmcp); err != nil {
-			// The vMCP wasn't updated, so undo the credential write. Only a write over the credential the stored
-			// vMCP names needs undoing: a new revision isn't read until the vMCP names it. After a conflict
-			// another update got in first, and the credential may be its own, so leave it.
-			var cleanupErr error
-			if !apierrors.IsConflict(err) && vmcpconfig.StaticConfigurationCredentialName(&vmcp) == credentialName {
-				if hadCredential {
-					// Put back what was stored.
-					cleanupErr = req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-						Context: credentialContext,
-						Name:    credentialName,
-						Secrets: cred.Secrets,
-					})
-				} else {
-					// Nothing was stored before, remove what this update stored.
-					_, cleanupErr = req.GatewayClient.DeleteCredential(req.Context(), credentialContext, credentialName)
-				}
+			err = fmt.Errorf("failed to update VMCP: %w", err)
+
+			// The vMCP wasn't updated, so undo the credential write, even if the caller has gone away.
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(req.Context()), staticConfigurationUndoTimeout)
+			defer cancel()
+
+			// Check what the stored vMCP publishes first. If another update published its configuration since this
+			// one read the vMCP, the credential may be its own, so leave it. A conflict with a write that published
+			// nothing, like a controller's status update, is undone.
+			var stored v1.VMCP
+			if getErr := req.Storage.Get(ctx, kclient.ObjectKeyFromObject(&vmcp), &stored); getErr != nil {
+				// A deleted vMCP has nothing left to undo.
+				return errors.Join(err, kclient.IgnoreNotFound(getErr))
 			}
-			return errors.Join(fmt.Errorf("failed to update VMCP: %w", err), cleanupErr)
+			if stored.Spec.StaticConfigurationHash != publishedHash {
+				return err
+			}
+
+			var cleanupErr error
+			if hadCredential {
+				// Put back what was stored.
+				cleanupErr = req.GatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+					Context: credentialContext,
+					Name:    credentialName,
+					Secrets: cred.Secrets,
+				})
+			} else {
+				// Nothing was stored before, remove what this update stored.
+				_, cleanupErr = req.GatewayClient.DeleteCredential(ctx, credentialContext, credentialName)
+			}
+			return errors.Join(err, cleanupErr)
 		}
 		return nil
 	}); err != nil {
