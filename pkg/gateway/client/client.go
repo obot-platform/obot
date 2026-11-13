@@ -136,6 +136,7 @@ func (c *Client) StartCleanups(ctx context.Context, entitlements EntitlementProv
 		go c.runRetentionCleanup(ctx, entitlements)
 		go c.runDeviceScanCleanup(ctx, c.deviceScanRetentionDays)
 		go c.runEgressAuditCleanup(ctx, egressAuditLogRetentionDays)
+		go c.runLocalAuthSessionCleanup(ctx)
 		go c.runSCIMGroupDeletionMarkExpiry(ctx)
 	})
 }
