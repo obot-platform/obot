@@ -304,39 +304,6 @@ func TestEnsureResources(t *testing.T) {
 	if !exists(&v1.Subscription{}, system.SubscriptionName) || !exists(&v1.EntitlementUsage{}, system.EntitlementUsageName) {
 		t.Fatal("the Subscription and the EntitlementUsage weren't both created")
 	}
-
-	// A deleted one comes back when its handler sees it gone.
-	for _, tt := range []struct {
-		name    string
-		obj     kclient.Object
-		handler router.HandlerFunc
-	}{
-		{
-			name:    system.SubscriptionName,
-			obj:     &v1.Subscription{},
-			handler: New(nil, nil).Sync,
-		},
-		{
-			name:    system.EntitlementUsageName,
-			obj:     &v1.EntitlementUsage{},
-			handler: New(nil, nil).CountUsage,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			if !exists(tt.obj, tt.name) {
-				t.Fatalf("%s doesn't exist", tt.name)
-			}
-			if err := storage.Delete(t.Context(), tt.obj); err != nil {
-				t.Fatal(err)
-			}
-			if err := tt.handler(router.Request{Ctx: t.Context(), Client: storage}, &response{}); err != nil {
-				t.Fatal(err)
-			}
-			if !exists(tt.obj, tt.name) {
-				t.Fatalf("%s wasn't recreated", tt.name)
-			}
-		})
-	}
 }
 
 func TestEnsureOverLimitSinceWithoutStoredUsage(t *testing.T) {

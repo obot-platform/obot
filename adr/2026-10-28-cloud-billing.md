@@ -76,8 +76,8 @@ paths that need a configured auth provider's features. Nothing outside `pkg/lice
 
 ### 3. What billing stores
 
-Two resources, both in the default namespace, created by the leader when it's elected and recreated if deleted, and
-only in a billed environment. Until they exist, the entitlements are empty, as before billing first answers:
+Two resources, both in the default namespace, created by the leader when it's elected, and only in a billed
+environment. Until they exist, the entitlements are empty, as before billing first answers:
 
 - **`Subscription`** (`default/subscription`)
   - The `obot.ai/subscription-sync` annotation: set by `POST /api/license` to ask the leader for a sync, the way

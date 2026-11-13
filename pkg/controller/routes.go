@@ -105,9 +105,9 @@ func (c *Controller) setupRoutes() {
 	if c.services.BillingProvider != nil {
 		subscriptions := subscription.New(c.services.BillingProvider.Client, c.services.GatewayClient)
 		subscriptionRoute := root.Type(&v1.Subscription{}).Namespace(system.DefaultNamespace).Name(system.SubscriptionName)
-		subscriptionRoute.IncludeRemoved().HandlerFunc(subscriptions.Sync)
+		subscriptionRoute.HandlerFunc(subscriptions.Sync)
 		subscriptionRoute.HandlerFunc(subscriptions.EnsureOverLimitSince)
-		root.Type(&v1.EntitlementUsage{}).Namespace(system.DefaultNamespace).Name(system.EntitlementUsageName).IncludeRemoved().HandlerFunc(subscriptions.CountUsage)
+		root.Type(&v1.EntitlementUsage{}).Namespace(system.DefaultNamespace).Name(system.EntitlementUsageName).HandlerFunc(subscriptions.CountUsage)
 	}
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 

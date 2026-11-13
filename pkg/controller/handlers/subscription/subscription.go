@@ -60,11 +60,6 @@ func EnsureResources(ctx context.Context, c kclient.Client) error {
 // Sync records billing's answer when a sync is due, or requested with SubscriptionSyncAnnotation. A failed sync keeps
 // the last answer.
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
-	if req.Object == nil {
-		// Recreate the Subscription if it was deleted.
-		return EnsureResources(req.Ctx, req.Client)
-	}
-
 	subscription := req.Object.(*v1.Subscription)
 	status := &subscription.Status
 	requested := subscription.Annotations[v1.SubscriptionSyncAnnotation] == "true"
@@ -119,14 +114,9 @@ func nextSync(subscription *v1.Subscription) time.Time {
 // usage is back within them. Reading the EntitlementUsage through the controller's client makes it run again when
 // compute changes. Users and devices are counted at each sync.
 func (h *Handler) EnsureOverLimitSince(req router.Request, _ router.Response) error {
-	if req.Object == nil {
-		// The Subscription was deleted. Sync recreates it.
-		return nil
-	}
-
 	subscription := req.Object.(*v1.Subscription)
 	status := &subscription.Status
-	// If the EntitlementUsage was deleted, CountUsage recreates it, and until then compute counts as 0.
+	// Without an EntitlementUsage, compute counts as 0.
 	used, err := license.Usage(req.Ctx, h.gatewayClient, req.Client)
 	if err != nil {
 		// Leave the clock as it is. An error here would keep the Subscription's status from being saved, and
@@ -151,11 +141,6 @@ func (h *Handler) EnsureOverLimitSince(req router.Request, _ router.Response) er
 // CountUsage keeps the EntitlementUsage's status current. Listing the objects that use compute through the
 // controller's client makes it run again when any of them changes.
 func (h *Handler) CountUsage(req router.Request, _ router.Response) error {
-	if req.Object == nil {
-		// Recreate the EntitlementUsage if it was deleted.
-		return EnsureResources(req.Ctx, req.Client)
-	}
-
 	usage := req.Object.(*v1.EntitlementUsage)
 	compute, err := mcp.ListCompute(req.Ctx, req.Client)
 	if err != nil {
