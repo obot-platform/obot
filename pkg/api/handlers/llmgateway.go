@@ -331,13 +331,17 @@ func triggerGatewayModelSync(req api.Context) {
 }
 
 func disableSubscriptionPassthrough(ctx context.Context, req api.Context) {
-	var update gatewaytypes.LLMGatewaySettingsUpdate
-	if req.PathValue("provider") == "openai" {
-		update.CodexSubscriptionPassthrough = new(false)
-	} else {
-		update.ClaudeSubscriptionPassthrough = new(false)
+	settings, err := req.GatewayClient.GetLLMGatewaySettings(ctx)
+	if err != nil {
+		slog.Warn("failed to read LLM gateway settings", "error", err)
+		return
 	}
-	if _, _, err := req.GatewayClient.UpdateLLMGatewaySettings(ctx, update); err != nil {
+	if req.PathValue("provider") == "openai" {
+		settings.CodexSubscriptionPassthrough = false
+	} else {
+		settings.ClaudeSubscriptionPassthrough = false
+	}
+	if err := req.GatewayClient.SetLLMGatewaySettings(ctx, settings); err != nil {
 		slog.Warn("failed to turn off subscriptions after removing their provider", "error", err)
 	}
 }
@@ -362,17 +366,20 @@ func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
 	return req.Write(settings)
 }
 
-// UpdateSettings merges supplied settings, preserving omitted fields.
+// UpdateSettings replaces the LLM gateway settings Obot enforces.
 func (h *LLMGatewayHandler) UpdateSettings(req api.Context) error {
-	var update gatewaytypes.LLMGatewaySettingsUpdate
-	if err := req.Read(&update); err != nil {
+	var settings gatewaytypes.LLMGatewaySettings
+	if err := req.Read(&settings); err != nil {
 		return types.NewErrBadRequest("invalid settings: %v", err)
 	}
-	settings, changed, err := req.GatewayClient.UpdateLLMGatewaySettings(req.Context(), update)
+	previous, err := req.GatewayClient.GetLLMGatewaySettings(req.Context())
 	if err != nil {
 		return err
 	}
-	if changed {
+	if err := req.GatewayClient.SetLLMGatewaySettings(req.Context(), settings); err != nil {
+		return err
+	}
+	if previous.ClaudeSubscriptionPassthrough != settings.ClaudeSubscriptionPassthrough || previous.CodexSubscriptionPassthrough != settings.CodexSubscriptionPassthrough {
 		// Subscription providers without keys list their models only while enabled.
 		if err := llmengine.TriggerModelSync(req.Context(), req.Storage); err != nil {
 			slog.Warn("failed to trigger LLM gateway model sync", "error", err)
