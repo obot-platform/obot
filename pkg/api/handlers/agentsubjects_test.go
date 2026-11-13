@@ -106,6 +106,7 @@ func TestAgentIdentityAccess(t *testing.T) {
 		SkillAccessRules: []types.AgentIdentityPolicyAccess{
 			{ID: "sar1agents", DisplayName: "Agents", Match: types.SubjectMatchKindWildcard},
 		},
+		Problems: []types.AgentIdentityAccessProblem{},
 	}, access)
 
 	// A deleted agent has no access summary.

@@ -128,6 +128,19 @@ var (
 			method: http.MethodGet,
 			path:   "/api/agents/7/api-keys",
 		},
+		// Readiness, which says what an administrator has to fix, and where.
+		{
+			method: http.MethodGet,
+			path:   "/api/agents/7/vmcps",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/agents/7/vmcps/" + agentTestVMCP + "/readiness",
+		},
+		{
+			method: http.MethodGet,
+			path:   "/api/vmcps/" + agentTestVMCP + "/profiles/vp1agent/status",
+		},
 		{
 			method: http.MethodPost,
 			path:   "/api/agents/7/api-keys",

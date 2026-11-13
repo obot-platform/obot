@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/subjects"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"gorm.io/gorm"
 )
 
@@ -35,12 +36,16 @@ type AgentIdentityHandler struct {
 	// authEnabled is whether the server authenticates callers. Agents authenticate only with authentication, so
 	// without it the routes refuse, rather than create agents that could never connect.
 	authEnabled bool
+	// readiness decides whether an agent can connect to a vMCP, which the readiness routes report as the connect path
+	// decides it, with the grants it selected.
+	readiness AgentReadinessSource
 }
 
-func NewAgentIdentityHandler(enabled, authEnabled bool) *AgentIdentityHandler {
+func NewAgentIdentityHandler(enabled, authEnabled bool, readiness AgentReadinessSource) *AgentIdentityHandler {
 	return &AgentIdentityHandler{
 		enabled:     enabled,
 		authEnabled: authEnabled,
+		readiness:   readiness,
 	}
 }
 
@@ -51,6 +56,8 @@ func (h *AgentIdentityHandler) RegisterRoutes(handle func(pattern string, f api.
 	handle("POST /api/agents", h.Create)
 	handle("GET /api/agents/{agent_id}", h.Get)
 	handle("GET /api/agents/{agent_id}/access", h.Access)
+	handle("GET /api/agents/{agent_id}/vmcps", h.ListVMCPReadiness)
+	handle("GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness", h.GetVMCPReadiness)
 	handle("PUT /api/agents/{agent_id}", h.Update)
 	handle("DELETE /api/agents/{agent_id}", h.Delete)
 	handle("POST /api/agents/{agent_id}/disable", h.Disable)
@@ -167,23 +174,19 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 		SkillAccessRules:    []types.AgentIdentityPolicyAccess{},
 	}
 
-	var vmcps v1.VMCPList
-	if err := req.List(&vmcps); err != nil {
-		return fmt.Errorf("failed to list vMCPs: %w", err)
+	vmcps, err := listSharedVMCPs(req)
+	if err != nil {
+		return err
 	}
-	slices.SortFunc(vmcps.Items, func(a, b v1.VMCP) int { return strings.Compare(a.Name, b.Name) })
-	for _, vmcp := range vmcps.Items {
-		// A personal vMCP grants only its owner, through no profile, and one being deleted grants no one.
-		if vmcp.IsPersonal() || !vmcp.DeletionTimestamp.IsZero() {
-			continue
-		}
-		for _, profile := range vmcp.Spec.Manifest.Profiles {
-			if match, ok := agentSubjectMatch(caller.Best(profile.Subjects)); ok {
+	info := agentInfo(agent)
+	for _, vmcp := range vmcps {
+		for _, profile := range vmcpconfig.MatchingProfileStrengths(info, vmcp.Spec.Manifest.Profiles) {
+			if match, ok := agentSubjectMatch(profile.Match); ok {
 				access.VMCPProfiles = append(access.VMCPProfiles, types.AgentIdentityVMCPProfileAccess{
 					VMCPID:          vmcp.Name,
 					VMCPDisplayName: vmcp.Spec.Manifest.DisplayName,
-					ProfileID:       profile.ID,
-					ProfileName:     profile.Name,
+					ProfileID:       profile.Profile.ID,
+					ProfileName:     profile.Profile.Name,
 					Match:           match,
 				})
 			}
@@ -226,7 +229,40 @@ func (h *AgentIdentityHandler) Access(req api.Context) error {
 		}
 	}
 
+	keys, err := req.GatewayClient.ListAgentAPIKeys(req.Context(), agent.ID, gclient.APIKeyListOptions{})
+	if err != nil {
+		return err
+	}
+	access.Problems = accessProblems(keys, access, time.Now())
 	return req.Write(access)
+}
+
+// listSharedVMCPs lists the vMCPs agents can use, sorted by name: shared vMCPs that are not being deleted. A personal
+// vMCP grants only its owner, through no profile, and one being deleted grants no one.
+func listSharedVMCPs(req api.Context) ([]v1.VMCP, error) {
+	var vmcps v1.VMCPList
+	if err := req.List(&vmcps); err != nil {
+		return nil, fmt.Errorf("failed to list vMCPs: %w", err)
+	}
+	slices.SortFunc(vmcps.Items, func(a, b v1.VMCP) int { return strings.Compare(a.Name, b.Name) })
+	return slices.DeleteFunc(vmcps.Items, func(vmcp v1.VMCP) bool {
+		return vmcp.IsPersonal() || !vmcp.DeletionTimestamp.IsZero()
+	}), nil
+}
+
+// accessProblems reports the scopes of an agent's keys that its policies grant nothing for, which are refused or empty
+// rather than failing at setup: with no model access policy that names the agent, every LLM request of a key that can
+// use the gateway is answered 403, and with no skill access rule, a key that can use skills lists none.
+func accessProblems(keys []gtypes.APIKey, access types.AgentIdentityAccess, now time.Time) []types.AgentIdentityAccessProblem {
+	problems := []types.AgentIdentityAccessProblem{}
+	active := slices.DeleteFunc(slices.Clone(keys), func(key gtypes.APIKey) bool { return !apiKeyIsActive(key, now) })
+	if len(access.ModelAccessPolicies) == 0 && slices.ContainsFunc(active, func(key gtypes.APIKey) bool { return key.CanAccessLLMProxy }) {
+		problems = append(problems, types.AgentIdentityAccessProblem{Code: types.AgentProblemNoModelAccessPolicy})
+	}
+	if len(access.SkillAccessRules) == 0 && slices.ContainsFunc(active, func(key gtypes.APIKey) bool { return key.CanAccessSkills }) {
+		problems = append(problems, types.AgentIdentityAccessProblem{Code: types.AgentProblemNoSkillAccessRule})
+	}
+	return problems
 }
 
 // agentSubjectMatch returns how a policy whose strongest match of an agent is match names the agent, and false if it

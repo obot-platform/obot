@@ -2,7 +2,6 @@ package vmcp
 
 import (
 	"cmp"
-	"context"
 	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -50,17 +49,6 @@ type AgentConfiguration struct {
 	// Revisions are the profile configuration revisions, by profile ID, that supply any value. It is nil when none do.
 	Revisions map[string]string
 }
-
-// ProfileConfigurationCheck is the configuration source of agent readiness (AgentReadinessChecks.Configuration). A
-// component is not ready while a required value that a user would enter on their own connection is supplied by neither
-// the agent's explicit profile nor, falling back, the wildcard profile (ResolveComponentConfiguration). Each missing
-// key is a ReadinessConfigurationRequired reason, fixed in the explicit profile if the agent has one and otherwise in
-// the wildcard. A component that needs the fallback while it is ambiguous is AmbiguousFallbackReason.
-//
-// It reads the keys that the vMCP's status publishes for each profile's current revision, never the values, so it
-// costs nothing on the connect path, and the readiness API computes the same answer. The connect path checks it only
-// after the agent's instance holds the values of those same revisions.
-type ProfileConfigurationCheck struct{}
 
 // ResolveAgentConfiguration resolves the configuration of the components of vmcp enabled for agent, through instance,
 // its connection (the zero instance when it has not connected), from the keys that its profiles' current revisions set
@@ -155,19 +143,28 @@ func ResolveComponentConfiguration(component types.VMCPComponent, selection Agen
 	return result
 }
 
-func (ProfileConfigurationCheck) ComponentReadiness(_ context.Context, in AgentReadinessInput, component types.VMCPComponent) ([]ReadinessReason, error) {
-	resolved := ResolveComponentConfiguration(component, in.Selection, in.VMCP.Status.ProfileConfigurationRevisions)
+// configurationReasons returns why an agent's configuration of a component, as its profiles resolve it (resolved,
+// ResolveComponentConfiguration), keeps it from using the component, where selection is how the agent's profiles apply
+// to it. A required value that a user would enter on their own connection, and that neither the agent's explicit
+// profile nor, falling back, the wildcard profile supplies, is a types.AgentReadinessConfigurationRequired reason,
+// fixed in the explicit profile if the agent has one and otherwise in the wildcard. A component that needs the fallback
+// while it is ambiguous is AmbiguousFallbackReason.
+//
+// Resolution reads the keys that the vMCP's status publishes for each profile's current revision, never the values, so
+// it costs nothing on the connect path, and the readiness API computes the same answer. The connect path checks it only
+// after the agent's instance holds the values of those same revisions.
+func configurationReasons(resolved ComponentConfiguration, selection AgentSelection) []ReadinessReason {
 	if resolved.AmbiguousFallback {
-		return []ReadinessReason{AmbiguousFallbackReason(component.ID)}, nil
+		return []ReadinessReason{AmbiguousFallbackReason(resolved.ComponentID)}
 	}
 	reasons := make([]ReadinessReason, 0, len(resolved.Missing))
 	for _, field := range resolved.Missing {
 		reasons = append(reasons, ReadinessReason{
-			ComponentID: component.ID,
-			Code:        ReadinessConfigurationRequired,
+			ComponentID: resolved.ComponentID,
+			Code:        types.AgentReadinessConfigurationRequired,
 			Field:       field,
-			ProfileID:   in.Selection.fixProfileID(),
+			ProfileID:   selection.fixProfileID(),
 		})
 	}
-	return reasons, nil
+	return reasons
 }

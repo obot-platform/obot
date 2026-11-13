@@ -263,7 +263,7 @@ func TestAgentComponentChallengeBecomesConflict(t *testing.T) {
 		Error: vmcpaccess.AgentOAuthRequiredError,
 		Reasons: []vmcpaccess.ReadinessReason{{
 			ComponentID: "remote",
-			Code:        vmcpaccess.ReadinessOAuthRequired,
+			Code:        types.AgentReadinessOAuthRequired,
 		}},
 	}, failure)
 	requireNoOAuthState(t, db)
@@ -411,7 +411,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 				Error: vmcpaccess.AgentOAuthRequiredError,
 				Reasons: []vmcpaccess.ReadinessReason{{
 					ComponentID: "salesforce",
-					Code:        vmcpaccess.ReadinessOAuthRequired,
+					Code:        types.AgentReadinessOAuthRequired,
 					ProfileID:   "vp1everyone",
 				}},
 			},
@@ -421,7 +421,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 			profiles: []types.VMCPProfile{everyone("vp1first"), everyone("vp1second")},
 			wantFailure: vmcpaccess.AgentReadinessFailure{
 				Error:   vmcpaccess.AgentSelectionAmbiguousError,
-				Reasons: []vmcpaccess.ReadinessReason{{Code: vmcpaccess.ReadinessSelectionAmbiguous}},
+				Reasons: []vmcpaccess.ReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}},
 			},
 		},
 		{
@@ -439,7 +439,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 			},
 			wantFailure: vmcpaccess.AgentReadinessFailure{
 				Error:   vmcpaccess.AgentSelectionAmbiguousError,
-				Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "salesforce", Code: vmcpaccess.ReadinessSelectionAmbiguous}},
+				Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "salesforce", Code: types.AgentReadinessSelectionAmbiguous}},
 			},
 		},
 	} {
@@ -472,6 +472,7 @@ func TestAgentNotReadyIsAConflict(t *testing.T) {
 				mcp.Options{MCPRuntimeBackend: mcp.RuntimeBackendKubernetes, MCPNamespace: "mcp"}, nil,
 				&rest.Config{Host: "http://kubernetes.invalid"}, storageClient, storageClient, storageClient, gateway, system.DefaultNamespace, nil)
 			require.NoError(t, err)
+			manager.SetProfileOAuthGrants(vmcpaccess.NewProfileOAuthGrantStore(gateway))
 
 			request := httptest.NewRequest(http.MethodPost, "https://obot.example/mcp-connect/"+vmcp.Name, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`))
 			request.SetPathValue("mcp_id", vmcp.Name)

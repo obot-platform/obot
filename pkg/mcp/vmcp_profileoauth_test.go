@@ -213,7 +213,6 @@ func TestAgentConnectUsesProfileGrants(t *testing.T) {
 	gateway := newGrantTestGateway(t)
 	grants := vmcpaccess.NewProfileOAuthGrantStore(gateway)
 	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
-	manager.SetAgentReadinessChecks(vmcpaccess.AgentReadinessChecks{OAuth: vmcpaccess.ProfileOAuthGrantCheck{Grants: grants}})
 	manager.SetProfileOAuthGrants(grants)
 	refused := func(caller kuser.Info) vmcpaccess.AgentReadinessFailure {
 		t.Helper()
@@ -225,7 +224,7 @@ func TestAgentConnectUsesProfileGrants(t *testing.T) {
 
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: vmcpaccess.ReadinessOAuthRequired, ProfileID: grantSeven}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthRequired, ProfileID: grantSeven}},
 	}, refused(asAgent(7, 11)))
 
 	storeGrant(t, gateway, vmcp.Name, grantSeven, grantComponentURL, "grant-seven")
@@ -240,7 +239,7 @@ func TestAgentConnectUsesProfileGrants(t *testing.T) {
 	}))
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: grantSeven}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantSeven}},
 	}, refused(asAgent(7, 11)))
 
 	// An agent of the wildcard profile alone, and agent seven once its explicit grant is gone, use the wildcard's.
@@ -257,4 +256,102 @@ func TestAgentConnectUsesProfileGrants(t *testing.T) {
 	// A user connects as before: no grant is ever selected for them.
 	cfg = connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "7"}))
 	require.Nil(t, cfg.Components[0].OAuthGrant)
+}
+
+// TestAgentReadinessReportAgreesWithConnect checks that what the readiness API reports, which is computed with the
+// session manager (SessionManager.AgentReadiness) and with no instance, is what a connect decides for the
+// agent through its own instance, through every state of the grants and of the vMCP's profiles. If they disagreed, the API
+// would report an agent ready that a connect refuses.
+func TestAgentReadinessReportAgreesWithConnect(t *testing.T) {
+	vmcp, shared := grantVMCP("vmcp1agree", true)
+	storageClient := newVMCPTestStorage(vmcp, shared)
+	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
+	gateway := newGrantTestGateway(t)
+	grants := vmcpaccess.NewProfileOAuthGrantStore(gateway)
+	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+	manager.SetProfileOAuthGrants(grants)
+
+	agree := func(label string, ready7, ready8 bool) {
+		t.Helper()
+		for _, caller := range []kuser.Info{asAgent(7, 11), asAgent(8, 12)} {
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			_, connectErr := manager.ServerConfigForVMCP(ctx, vmcp.Name, caller)
+			cancel()
+			report, err := manager.AgentReadiness(t.Context(), *vmcp, nil, caller)
+			require.NoError(t, err)
+
+			var connectReasons []vmcpaccess.ReadinessReason
+			if notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](connectErr); ok {
+				connectReasons = notReady.Readiness.Reasons
+			} else {
+				require.NoError(t, connectErr, "%s: %s", label, caller.GetUID())
+			}
+			require.Equal(t, connectReasons, report.Readiness.Reasons, "%s: %s", label, caller.GetUID())
+			wantReady := ready7
+			if caller.GetUID() == "agent:8" {
+				wantReady = ready8
+			}
+			require.Equal(t, wantReady, report.Readiness.Ready(), "%s: %s", label, caller.GetUID())
+		}
+	}
+
+	agree("no grant", false, false)
+	storeGrant(t, gateway, vmcp.Name, grantAgents, grantComponentURL, "grant-agents")
+	agree("only the wildcard profile's grant", true, true)
+	storeGrant(t, gateway, vmcp.Name, grantSeven, grantComponentURL, "grant-seven")
+	agree("an explicit grant too", true, true)
+	require.NoError(t, gateway.WithMCPOAuthRefreshLock(t.Context(), principal.ProfileGrant(vmcp.Name, grantSeven), vmcpaccess.ProfileOAuthGrantMCPID(vmcp.Name, "one"), func(_ context.Context, refresh *gatewayclient.MCPOAuthRefresh) error {
+		_, err := refresh.Invalidate("grant-seven", "refused")
+		return err
+	}))
+	agree("a broken explicit grant", false, true)
+	require.NoError(t, gateway.DeleteMCPOAuthGrantsForOwners(t.Context(), []string{principal.ProfileGrant(vmcp.Name, grantSeven)}))
+	agree("the explicit grant reset", true, true)
+	storeGrant(t, gateway, vmcp.Name, grantAgents, "https://elsewhere.example.com/mcp", "grant-elsewhere")
+	agree("a grant authorized for another upstream", false, false)
+}
+
+// TestAgentReadinessReportAgreesWithConnectWhenAmbiguous is TestAgentReadinessReportAgreesWithConnect for a vMCP that
+// more than one profile names every agent for: the agent with only the wildcard is refused for the whole vMCP, and the
+// agent with an explicit profile only for the grant that would come from the fallback.
+func TestAgentReadinessReportAgreesWithConnectWhenAmbiguous(t *testing.T) {
+	vmcp, shared := grantVMCP("vmcp1ambiguous", true)
+	vmcp.Spec.Manifest.Profiles = append(vmcp.Spec.Manifest.Profiles, types.VMCPProfile{
+		ID:          "vp1others",
+		Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}},
+		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+	})
+	storageClient := newVMCPTestStorage(vmcp, shared)
+	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
+	gateway := newGrantTestGateway(t)
+	grants := vmcpaccess.NewProfileOAuthGrantStore(gateway)
+	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+	manager.SetProfileOAuthGrants(grants)
+
+	for _, tt := range []struct {
+		name   string
+		caller kuser.Info
+		want   []vmcpaccess.ReadinessReason
+	}{
+		{
+			name:   "an agent with only the ambiguous wildcard",
+			caller: asAgent(8, 12),
+			want:   []vmcpaccess.ReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}},
+		},
+		{
+			name:   "an agent with an explicit profile that holds no grant",
+			caller: asAgent(7, 11),
+			want:   []vmcpaccess.ReadinessReason{{ComponentID: "one", Code: types.AgentReadinessSelectionAmbiguous}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, tt.caller)
+			notReady, ok := errors.AsType[*vmcpaccess.AgentNotReadyError](err)
+			require.True(t, ok, "connect error = %v", err)
+			report, err := manager.AgentReadiness(t.Context(), *vmcp, nil, tt.caller)
+			require.NoError(t, err)
+			require.Equal(t, tt.want, report.Readiness.Reasons)
+			require.Equal(t, tt.want, notReady.Readiness.Reasons)
+		})
+	}
 }

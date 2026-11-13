@@ -14,21 +14,6 @@ import (
 )
 
 const (
-	// ReadinessConfigurationRequired is a reason an agent cannot use a vMCP: a component enabled for it requires a
-	// configuration value that the agent's profiles do not supply. Field names the key.
-	ReadinessConfigurationRequired = "configuration_required"
-	// ReadinessOAuthRequired is a reason an agent cannot use a vMCP: a component enabled for it requires OAuth, and
-	// the agent's profiles hold no grant for it.
-	ReadinessOAuthRequired = "oauth_required"
-	// ReadinessOAuthInvalid is a reason an agent cannot use a vMCP: the grant its profile holds for a component no
-	// longer works, and must be authorized again.
-	ReadinessOAuthInvalid = "oauth_invalid"
-	// ReadinessSelectionAmbiguous is a reason an agent cannot use a vMCP: more than one profile names every agent
-	// (VMCPConditionAgentSelectionAmbiguous), so the profile an agent falls back to is unknown. Without a component, it
-	// is about the whole vMCP: the agent has no explicit profile, so every setup would come from the fallback. With a
-	// component, the agent has an explicit profile, but that component needs something only the fallback could supply.
-	ReadinessSelectionAmbiguous = "selection_ambiguous"
-
 	// AgentSelectionAmbiguousError is the error of the 409 response to an agent that needs the profile it falls back
 	// to, on a vMCP where that profile is ambiguous. Only an administrator can fix it, by leaving one profile that names
 	// every agent.
@@ -40,26 +25,10 @@ const (
 	AgentOAuthRequiredError = "agent_oauth_required"
 )
 
-// ReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value.
-type ReadinessReason struct {
-	// ComponentID is the component the reason is about. It is empty for a reason about the whole vMCP, such as
-	// ReadinessSelectionAmbiguous.
-	ComponentID string `json:"componentID,omitempty"`
-	// Code is one of ReadinessConfigurationRequired, ReadinessOAuthRequired, ReadinessOAuthInvalid and
-	// ReadinessSelectionAmbiguous.
-	Code string `json:"code"`
-	// Field is the configuration key that is missing, never its value.
-	Field string `json:"field,omitempty"`
-	// ProfileID is the profile where an administrator fixes the reason: the agent's explicit profile if it has one,
-	// otherwise the wildcard profile it falls back to. It is empty for ReadinessSelectionAmbiguous, which is fixed by
-	// leaving one wildcard profile rather than in any profile's setup. For ReadinessOAuthInvalid, it is the profile that
-	// holds the grant.
-	ProfileID string `json:"profileID,omitempty"`
-	// URLProfileID is, for ReadinessOAuthInvalid because the grant was authorized for another upstream URL than the one
-	// the agent's connection reaches, the profile whose configuration sets the URL the agent reaches. An administrator
-	// authorizes the grant again, or gives that profile its own grant.
-	URLProfileID string `json:"urlProfileID,omitempty"`
-}
+// ReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value. Its Code is
+// types.AgentReadinessConfigurationRequired, types.AgentReadinessOAuthRequired, types.AgentReadinessOAuthInvalid or
+// types.AgentReadinessSelectionAmbiguous.
+type ReadinessReason = types.AgentReadinessReason
 
 // Readiness is whether an agent can use a vMCP. Any reason blocks the whole connection: an agent is never served a
 // subset of the tools it is granted.
@@ -70,6 +39,22 @@ type Readiness struct {
 	WildcardProfileID string `json:"wildcardProfileID,omitempty"`
 	// Reasons are why the agent cannot use the vMCP. There are none when it can.
 	Reasons []ReadinessReason `json:"reasons,omitempty"`
+}
+
+// AgentReadinessReport is what the readiness API reports about an agent on a vMCP: the readiness that the connect path
+// computes, and where the agent's configuration comes from.
+type AgentReadinessReport struct {
+	Readiness Readiness
+	// Configuration is how the agent's profiles supply its configuration (ResolveAgentConfiguration). It names keys,
+	// never values.
+	Configuration AgentConfiguration
+	// Grants are the grants the agent uses, one for each component enabled for it, in the order of EnabledComponents
+	// (SelectAgentGrants), with what comparing their URLs with the URLs the agent reaches found. They are nil when the
+	// agent's fallback is ambiguous and it has no explicit profile, as nothing else is checked then.
+	Grants []AgentOAuthGrant
+	// PendingSync reports that the agent's instance exists and has not yet been given the configuration its profiles now
+	// resolve to, so the next connect waits for the vMCP instance controller.
+	PendingSync bool
 }
 
 // AgentReadinessFailure is the body of the 409 response to an agent that cannot use a vMCP.
@@ -93,50 +78,9 @@ type AgentSelection struct {
 	Wildcard *types.VMCPProfile
 	// Ambiguous reports that more than one profile names every agent, as a vMCP stored before the wildcard rule may
 	// (types.VMCPManifest.AgentWildcardProfiles), so the fallback is unknown and Wildcard is nil. An agent with an
-	// explicit profile is still checked: only what it would need from the fallback is ambiguous
-	// (ComponentReadinessCheck).
+	// explicit profile is still checked: only what it would need from the fallback is ambiguous (AgentReadiness).
 	Ambiguous bool
-	// Profiles are every profile that names the agent, in manifest order. Their permissions add up.
-	Profiles []types.VMCPProfile
 }
-
-// AgentReadinessInput is what a ComponentReadinessCheck evaluates a component for.
-type AgentReadinessInput struct {
-	VMCP v1.VMCP
-	// Instance is the agent's connection to the vMCP. It is the zero instance when the agent has not connected.
-	Instance  v1.VMCPInstance
-	Agent     kuser.Info
-	Selection AgentSelection
-}
-
-// ComponentReadinessCheck is one source of reasons an agent cannot use a component enabled for it. Each source is
-// replaced on its own: ProfileConfigurationCheck resolves profile configuration, and ProfileOAuthGrantCheck selects
-// profile OAuth grants.
-//
-// A check resolves what the component needs from the agent's explicit profile first (in.Selection.Explicit), and
-// only then from the profile the agent falls back to (in.Selection.Wildcard). When it would need the fallback and the
-// fallback is ambiguous (in.Selection.Ambiguous), it reports AmbiguousFallbackReason for the component instead of its
-// own reason, because no one can tell which profile's setup would apply. A component that the explicit profile fully
-// supplies, or that needs nothing, has no reason. A check is never called for an ambiguous vMCP when the agent has no
-// explicit profile: AgentReadiness refuses that agent before any component is checked.
-type ComponentReadinessCheck interface {
-	ComponentReadiness(ctx context.Context, in AgentReadinessInput, component types.VMCPComponent) ([]ReadinessReason, error)
-}
-
-// AgentReadinessChecks computes agent readiness from one check per source of reasons. A nil check uses its default:
-// ProfileConfigurationCheck and UnsupportedAgentOAuth. The OAuth check that reads profile grants needs their store, so
-// the server sets ProfileOAuthGrantCheck, and the readiness API must use the same checks as the connect path.
-type AgentReadinessChecks struct {
-	Configuration ComponentReadinessCheck
-	OAuth         ComponentReadinessCheck
-}
-
-// UnsupportedAgentOAuth is the OAuth check without a store of profile OAuth grants (ProfileOAuthGrantCheck): a
-// component that is known to require OAuth, a remote server with administrator static OAuth, has no grant for an
-// agent. On a vMCP whose fallback is ambiguous, the component is reported as AmbiguousFallbackReason rather than
-// ReadinessOAuthRequired. A component that only asks for OAuth when it is called is caught then, by the MCP gateway's
-// headless challenge handling.
-type UnsupportedAgentOAuth struct{}
 
 // Ready reports whether nothing keeps the agent from using the vMCP.
 func (r Readiness) Ready() bool {
@@ -144,16 +88,16 @@ func (r Readiness) Ready() bool {
 }
 
 // ErrorCode returns the error of the 409 response for the readiness. A mix of reasons is reported by the one an
-// administrator fixes first: AgentSelectionAmbiguousError if any reason is ReadinessSelectionAmbiguous, because which
-// profile's configuration and grants apply is unknown until the profiles are fixed; then
+// administrator fixes first: AgentSelectionAmbiguousError if any reason is types.AgentReadinessSelectionAmbiguous,
+// because which profile's configuration and grants apply is unknown until the profiles are fixed; then
 // AgentConfigurationRequiredError if any reason is not about OAuth, because configuration can decide which upstream a
 // grant is for; and AgentOAuthRequiredError when every reason is about OAuth.
 func (r Readiness) ErrorCode() string {
 	switch {
-	case slices.ContainsFunc(r.Reasons, func(reason ReadinessReason) bool { return reason.Code == ReadinessSelectionAmbiguous }):
+	case slices.ContainsFunc(r.Reasons, func(reason ReadinessReason) bool { return reason.Code == types.AgentReadinessSelectionAmbiguous }):
 		return AgentSelectionAmbiguousError
 	case len(r.Reasons) > 0 && !slices.ContainsFunc(r.Reasons, func(reason ReadinessReason) bool {
-		return reason.Code != ReadinessOAuthRequired && reason.Code != ReadinessOAuthInvalid
+		return reason.Code != types.AgentReadinessOAuthRequired && reason.Code != types.AgentReadinessOAuthInvalid
 	}):
 		return AgentOAuthRequiredError
 	default:
@@ -183,7 +127,6 @@ func (e *AgentNotReadyError) Failure() AgentReadinessFailure {
 func SelectAgentProfiles(agent kuser.Info, manifest types.VMCPManifest) AgentSelection {
 	var selection AgentSelection
 	for _, match := range MatchingProfileStrengths(agent, manifest.Profiles) {
-		selection.Profiles = append(selection.Profiles, match.Profile)
 		if match.Match == subjects.MatchExplicit && selection.Explicit == nil {
 			profile := match.Profile
 			selection.Explicit = &profile
@@ -200,7 +143,7 @@ func SelectAgentProfiles(agent kuser.Info, manifest types.VMCPManifest) AgentSel
 }
 
 // fixProfileID is the profile where an administrator fixes a reason: the explicit profile if there is one, otherwise
-// the wildcard. It is empty when the agent has no explicit profile and the wildcard is ambiguous; a check reports
+// the wildcard. It is empty when the agent has no explicit profile and the wildcard is ambiguous; readiness reports
 // AmbiguousFallbackReason, without a profile, for what it would need from such a fallback.
 func (s AgentSelection) fixProfileID() string {
 	if s.Explicit != nil {
@@ -212,37 +155,51 @@ func (s AgentSelection) fixProfileID() string {
 	return ""
 }
 
-// AmbiguousFallbackReason is the reason a ComponentReadinessCheck reports for a component that needs something the
-// agent's explicit profile does not supply, when the profile it falls back to is ambiguous.
+// AmbiguousFallbackReason is the reason readiness reports for a component that needs something the agent's explicit
+// profile does not supply, when the profile it falls back to is ambiguous. Unlike the
+// types.AgentReadinessSelectionAmbiguous reason about the whole vMCP, it names the component: the agent has an explicit
+// profile, but the component needs something only the fallback could supply.
 func AmbiguousFallbackReason(componentID string) ReadinessReason {
-	return ReadinessReason{ComponentID: componentID, Code: ReadinessSelectionAmbiguous}
+	return ReadinessReason{ComponentID: componentID, Code: types.AgentReadinessSelectionAmbiguous}
 }
 
-// AgentReadiness returns whether agent can use vmcp, with the default checks.
-func AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance v1.VMCPInstance, agent kuser.Info) (Readiness, error) {
-	return AgentReadinessChecks{}.AgentReadiness(ctx, vmcp, instance, agent)
-}
-
-// AgentReadiness returns whether agent can use vmcp through instance, its connection to it (the zero instance when it
-// has not connected). It only checks the components enabled for the agent, and it is computed anew on every call,
-// for the connect path and the readiness API alike. It does not check access: an agent that no profile names has no
-// components enabled, and the caller must refuse it.
+// AgentReadiness reports whether agent can use vmcp through instance, its connection to it, or nil when it has not
+// connected, where grants is the store of profile OAuth grants. The connect path and the readiness API both call it,
+// with the same store, so they never disagree. It only checks the components enabled for the agent, and it is computed
+// anew on every call from the vMCP's current state, the keys its profiles' configuration revisions publish, and the
+// stored grants. It does not check access: an agent that no profile names has no components enabled, and the caller
+// must refuse it.
+//
+// A component takes what it needs from the agent's explicit profile first, and only then from the wildcard profile the
+// agent falls back to. It is not ready while a required value that a user would enter on their own connection is
+// supplied by neither (configurationReasons), or while the grant the agent would use does not work, or none is held
+// for a component known to need OAuth (AgentOAuthGrant.ReadinessReasons). The grants are selected for every component
+// at once (SelectAgentGrants), and each usable one is compared with the URL the agent reaches (checkGrantTarget).
 //
 // When more than one profile names every agent, an agent without an explicit profile would take all its setup from
-// the ambiguous fallback, so it is refused with one ReadinessSelectionAmbiguous reason for the whole vMCP. An agent
-// with an explicit profile is checked component by component, and only the components that need the fallback are
-// ambiguous (ComponentReadinessCheck). Tool permissions are unaffected either way: they are the union of every
-// profile that names the agent.
-func (c AgentReadinessChecks) AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance v1.VMCPInstance, agent kuser.Info) (Readiness, error) {
+// the ambiguous fallback, so it is refused with one types.AgentReadinessSelectionAmbiguous reason for the whole vMCP,
+// and nothing else is checked. An agent with an explicit profile is checked component by component, and a component
+// that needs something only the fallback could supply is AmbiguousFallbackReason. Tool permissions are unaffected either
+// way: they are the union of every profile that names the agent.
+func AgentReadiness(ctx context.Context, grants *ProfileOAuthGrantStore, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (AgentReadinessReport, error) {
 	if !principal.IsAgent(agent) {
-		return Readiness{}, fmt.Errorf("agent readiness is only for agents")
+		return AgentReadinessReport{}, fmt.Errorf("agent readiness is only for agents")
 	}
 	if vmcp.Spec.UserID != "" {
-		return Readiness{}, fmt.Errorf("VMCP %q is personal, and agents only use shared VMCPs", vmcp.Name)
+		return AgentReadinessReport{}, fmt.Errorf("VMCP %q is personal, and agents only use shared VMCPs", vmcp.Name)
 	}
+	if grants == nil {
+		return AgentReadinessReport{}, fmt.Errorf("agent readiness needs the store of vMCP profile OAuth grants")
+	}
+	var current v1.VMCPInstance
+	if instance != nil {
+		current = *instance
+	}
+	report := AgentReadinessReport{Configuration: ResolveAgentConfiguration(vmcp, current, agent)}
+	report.PendingSync = instance != nil && instance.Status.AgentConfigurationRevision != report.Configuration.Revision
 
 	selection := SelectAgentProfiles(agent, vmcp.Spec.Manifest)
-	var readiness Readiness
+	readiness := &report.Readiness
 	if selection.Explicit != nil {
 		readiness.ExplicitProfileID = selection.Explicit.ID
 	}
@@ -252,46 +209,27 @@ func (c AgentReadinessChecks) AgentReadiness(ctx context.Context, vmcp v1.VMCP, 
 	if selection.Ambiguous && selection.Explicit == nil {
 		// Every configuration value and grant would come from the fallback, which is unknown, so nothing else is
 		// checked.
-		readiness.Reasons = []ReadinessReason{{Code: ReadinessSelectionAmbiguous}}
-		return readiness, nil
+		readiness.Reasons = []ReadinessReason{{Code: types.AgentReadinessSelectionAmbiguous}}
+		return report, nil
 	}
 
-	configuration, oauth := c.Configuration, c.OAuth
-	if configuration == nil {
-		configuration = ProfileConfigurationCheck{}
+	// ResolveAgentConfiguration resolved these same components, in the same order.
+	components := EnabledComponents(agent, vmcp, ComponentsForInstance(vmcp, current))
+	var err error
+	if report.Grants, err = grants.SelectAgentGrants(ctx, vmcp, selection, components); err != nil {
+		return AgentReadinessReport{}, err
 	}
-	if oauth == nil {
-		oauth = UnsupportedAgentOAuth{}
-	}
-	in := AgentReadinessInput{VMCP: vmcp, Instance: instance, Agent: agent, Selection: selection}
-	for _, component := range EnabledComponents(agent, vmcp, ComponentsForInstance(vmcp, instance)) {
-		for _, check := range []ComponentReadinessCheck{configuration, oauth} {
-			reasons, err := check.ComponentReadiness(ctx, in, component)
-			if err != nil {
-				return Readiness{}, fmt.Errorf("check component %q for agent readiness: %w", component.ID, err)
-			}
-			// Checks report the same ambiguous fallback for a component that needs both configuration and a grant.
-			for _, reason := range reasons {
-				if !slices.Contains(readiness.Reasons, reason) {
-					readiness.Reasons = append(readiness.Reasons, reason)
-				}
+	for i, component := range components {
+		// The MCP gateway refuses a grant for another URL than the agent's connection reaches; readiness says so first.
+		if err := grants.checkGrantTarget(ctx, vmcp, selection, component, &report.Grants[i]); err != nil {
+			return AgentReadinessReport{}, fmt.Errorf("check component %q for agent readiness: %w", component.ID, err)
+		}
+		// A component that needs both configuration and a grant from an ambiguous fallback is reported once.
+		for _, reason := range slices.Concat(configurationReasons(report.Configuration.Components[i], selection), report.Grants[i].ReadinessReasons(component, selection)) {
+			if !slices.Contains(readiness.Reasons, reason) {
+				readiness.Reasons = append(readiness.Reasons, reason)
 			}
 		}
 	}
-	return readiness, nil
-}
-
-func (UnsupportedAgentOAuth) ComponentReadiness(_ context.Context, in AgentReadinessInput, component types.VMCPComponent) ([]ReadinessReason, error) {
-	if ComponentOAuthCredentialReference(component) == "" {
-		return nil, nil
-	}
-	if in.Selection.Ambiguous {
-		// The explicit profile cannot hold a grant yet, so the grant would come from the ambiguous fallback.
-		return []ReadinessReason{AmbiguousFallbackReason(component.ID)}, nil
-	}
-	return []ReadinessReason{{
-		ComponentID: component.ID,
-		Code:        ReadinessOAuthRequired,
-		ProfileID:   in.Selection.fixProfileID(),
-	}}, nil
+	return report, nil
 }

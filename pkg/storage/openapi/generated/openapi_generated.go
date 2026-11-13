@@ -31,11 +31,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentAPIKeyList":                           schema_obot_platform_obot_apiclient_types_AgentAPIKeyList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentity":                             schema_obot_platform_obot_apiclient_types_AgentIdentity(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccess":                       schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem":                schema_obot_platform_obot_apiclient_types_AgentIdentityAccessProblem(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityDisableRequest":               schema_obot_platform_obot_apiclient_types_AgentIdentityDisableRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityList":                         schema_obot_platform_obot_apiclient_types_AgentIdentityList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityManifest":                     schema_obot_platform_obot_apiclient_types_AgentIdentityManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess":                 schema_obot_platform_obot_apiclient_types_AgentIdentityPolicyAccess(ref),
 		"github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess":            schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason":                      schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentReadinessSource":                      schema_obot_platform_obot_apiclient_types_AgentReadinessSource(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness":                        schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref),
+		"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadinessList":                    schema_obot_platform_obot_apiclient_types_AgentVMCPReadinessList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
@@ -1280,7 +1285,7 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AgentIdentityAccess is what the policies that can name agents grant an agent: the vMCP profiles, model access policies and skill access rules whose subjects match it, and how each matches. A policy that several of its subjects match is listed once, with its most specific match. It lists grants of a disabled agent too, which apply again once it is enabled. Whether the agent can use them, such as whether a vMCP is ready for it, is not part of it.",
+				Description: "AgentIdentityAccess is what the policies that can name agents grant an agent: the vMCP profiles, model access policies and skill access rules whose subjects match it, and how each matches. A policy that several of its subjects match is listed once, with its most specific match. It lists grants of a disabled agent too, which apply again once it is enabled. Whether the agent can use a vMCP is the readiness API's (AgentVMCPReadiness). The summary only reports, as Problems, scopes of the agent's keys that none of these grants anything for.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"agentID": {
@@ -1330,12 +1335,47 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityAccess(ref common.Re
 							},
 						},
 					},
+					"problems": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Problems are scopes of the agent's active API keys that nothing grants access to: the LLM gateway without a model access policy, and skills without a skill access rule.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem"),
+									},
+								},
+							},
+						},
+					},
 				},
-				Required: []string{"agentID", "vmcpProfiles", "modelAccessPolicies", "skillAccessRules"},
+				Required: []string{"agentID", "vmcpProfiles", "modelAccessPolicies", "skillAccessRules", "problems"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess", "github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess"},
+			"github.com/obot-platform/obot/apiclient/types.AgentIdentityAccessProblem", "github.com/obot-platform/obot/apiclient/types.AgentIdentityPolicyAccess", "github.com/obot-platform/obot/apiclient/types.AgentIdentityVMCPProfileAccess"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentIdentityAccessProblem(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentIdentityAccessProblem is something that keeps an agent from using what one of its active API keys is scoped for.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Code is AgentProblemNoModelAccessPolicy or AgentProblemNoSkillAccessRule.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"code"},
+			},
+		},
 	}
 }
 
@@ -1492,6 +1532,225 @@ func schema_obot_platform_obot_apiclient_types_AgentIdentityVMCPProfileAccess(re
 				Required: []string{"vmcpID", "profileName", "match"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentReadinessReason(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentReadinessReason is one reason an agent cannot use a vMCP. It never carries a configuration value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentID is the component the reason is about. It is empty for a reason about the whole vMCP.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Code is one of the AgentReadiness constants.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"field": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Field is the configuration key that is missing, never its value.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"profileID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ProfileID is the profile where an administrator fixes the reason: the agent's explicit profile if it has one, otherwise the wildcard profile it falls back to. It is empty for AgentReadinessSelectionAmbiguous. For AgentReadinessOAuthInvalid, it is the profile that holds the grant.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"urlProfileID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URLProfileID is, for an invalid grant that was authorized for another upstream URL than the one the agent's connection reaches, the profile whose configuration sets the URL the agent reaches.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"code"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentReadinessSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentReadinessSource is the profile that supplies something an agent uses on a vMCP. It names the key, never the value, and never a token.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is AgentSourceConfiguration or AgentSourceOAuth.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"field": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Field is the configuration key. It is empty for an OAuth grant.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"profileID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"fallback": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Fallback reports that it comes from the profile that names every agent, which the agent falls back to, rather than from the profile that names the agent itself.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "componentID", "profileID"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentVMCPReadiness(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AgentVMCPReadiness is whether an agent can use a vMCP, computed when it is asked for, with the same checks that decide whether the agent can connect. It carries no configuration value and no token.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"vmcpDisplayName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready reports that the agent can connect to the vMCP. A disabled agent can be ready: it is refused at admission until it is enabled.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"disabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Disabled reports that the agent is disabled, so it cannot connect whatever its readiness is.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"explicitProfileID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ExplicitProfileID is the profile that names the agent by ID, if any.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"wildcardProfileID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "WildcardProfileID is the profile that names every agent, if exactly one does.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reasons": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reasons are why the agent cannot use the vMCP. It is empty when it can.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessReason"),
+									},
+								},
+							},
+						},
+					},
+					"sources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Sources are the profiles that supply the agent's configuration values and OAuth grants. The list of an agent's vMCPs leaves it out.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentReadinessSource"),
+									},
+								},
+							},
+						},
+					},
+					"pendingSync": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PendingSync reports that the agent has connected before, and its connection has not yet received the configuration its profiles now resolve to. The next connect waits for it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"vmcpID", "ready", "disabled", "reasons"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentReadinessReason", "github.com/obot-platform/obot/apiclient/types.AgentReadinessSource"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AgentVMCPReadinessList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AgentVMCPReadiness"},
 	}
 }
 
@@ -20174,7 +20433,14 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref common
 					},
 					"target": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Target is the upstream URL the grant was authorized for. Agents use the grant only for that URL.",
+							Description: "Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that URL is catalog data. Agents use the grant only for that URL. It is empty when the URL comes from configuration, which is never returned: see TargetHostname.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"targetHostname": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetHostname is, for a component whose URL comes from configuration (a hostname-constrained URL or a URL template), only the hostname of the URL the grant was authorized for, never its port, path, query or userinfo. It is not a URL.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

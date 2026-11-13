@@ -237,15 +237,14 @@ func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 	f := newTargetFixture(t)
 	grants := vmcpaccess.NewProfileOAuthGrantStore(f.gateway)
 	grants.SetComponentTargets(f.sm)
-	checks := vmcpaccess.AgentReadinessChecks{OAuth: vmcpaccess.ProfileOAuthGrantCheck{Grants: grants}}
 	readiness := func(agent kuser.Info) []vmcpaccess.ReadinessReason {
 		t.Helper()
 		vmcp := f.vmcp(t)
 		// Only the hostname-constrained component, so configuration readiness reports nothing else.
 		vmcp.Spec.Manifest.Components = vmcp.Spec.Manifest.Components[:1]
-		result, err := checks.AgentReadiness(t.Context(), vmcp, v1.VMCPInstance{}, agent)
+		result, err := vmcpaccess.AgentReadiness(t.Context(), grants, vmcp, nil, agent)
 		require.NoError(t, err)
-		return result.Reasons
+		return result.Readiness.Reasons
 	}
 	authorize := func(profileID, url string) {
 		t.Helper()
@@ -260,7 +259,7 @@ func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 
 	// Agent 7's explicit profile now sets its own URL, but holds no grant: the wildcard's grant is for another URL.
 	f.configure(t, targetSeven, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/seven")}})
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: targetAgents, URLProfileID: targetSeven}}, readiness(asAgent(7, 11)))
+	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: types.AgentReadinessOAuthInvalid, ProfileID: targetAgents, URLProfileID: targetSeven}}, readiness(asAgent(7, 11)))
 	require.Empty(t, readiness(asAgent(8, 12)))
 	// Its own grant, for its own URL, fixes it.
 	authorize(targetSeven, "https://tenant.example.com/seven")
@@ -269,7 +268,7 @@ func TestAgentReadinessComparesGrantURLsWithTheAgentsURL(t *testing.T) {
 	// Changing the wildcard's URL after its grant was authorized makes the grant unusable for its agents, and its status
 	// says so.
 	f.configure(t, targetAgents, map[string]map[string]*string{"hosted": {"__url": new("https://tenant.example.com/moved")}})
-	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: targetAgents, URLProfileID: targetAgents}}, readiness(asAgent(8, 12)))
+	require.Equal(t, []vmcpaccess.ReadinessReason{{ComponentID: "hosted", Code: types.AgentReadinessOAuthInvalid, ProfileID: targetAgents, URLProfileID: targetAgents}}, readiness(asAgent(8, 12)))
 	require.Empty(t, readiness(asAgent(7, 11)))
 	status, err := grants.ProfileOAuthStatus(t.Context(), f.vmcp(t), targetAgents)
 	require.NoError(t, err)

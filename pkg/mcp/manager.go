@@ -113,11 +113,9 @@ type SessionManager struct {
 
 	webhookHelper *WebhookHelper
 
-	// agentReadiness decides whether an agent can connect to a vMCP. Its zero value uses the default checks
-	// (vmcpaccess.AgentReadinessChecks).
-	agentReadiness vmcpaccess.AgentReadinessChecks
-	// profileOAuthGrants holds the OAuth grants of vMCP profiles, which agents' connections to vMCP components use.
-	// Without it, agents use no OAuth token at all.
+	// profileOAuthGrants holds the OAuth grants of vMCP profiles, which agents' connections to vMCP components use, and
+	// which decide, with the profiles' configuration, whether an agent can connect to a vMCP (vmcpaccess.AgentReadiness).
+	// Without it, agents use no OAuth token at all, and cannot connect to a vMCP.
 	profileOAuthGrants *vmcpaccess.ProfileOAuthGrantStore
 }
 
@@ -229,14 +227,8 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 	return sm, nil
 }
 
-// SetAgentReadinessChecks sets the checks that decide whether an agent can connect to a vMCP. Set them before the
-// session manager serves connections.
-func (sm *SessionManager) SetAgentReadinessChecks(checks vmcpaccess.AgentReadinessChecks) {
-	sm.agentReadiness = checks
-}
-
-// SetProfileOAuthGrants sets the store of vMCP profile OAuth grants, which agents' connections to vMCP components use.
-// Set it before the session manager serves connections.
+// SetProfileOAuthGrants sets the store of vMCP profile OAuth grants, which agents' connections to vMCP components use,
+// and which agent readiness reads. Set it before the session manager serves connections.
 func (sm *SessionManager) SetProfileOAuthGrants(grants *vmcpaccess.ProfileOAuthGrantStore) {
 	sm.profileOAuthGrants = grants
 }

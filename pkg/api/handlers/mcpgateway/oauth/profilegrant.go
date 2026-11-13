@@ -78,13 +78,23 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	if err != nil {
 		return none, err
 	}
-	server, cfg, err := profileGrantServer(vmcp, component, target)
-	if err != nil {
-		return none, err
+	// A URL that comes from configuration is never put into an error, which reaches the administrator who started the
+	// authorization, and may be seen by those who do not configure it.
+	_, fixed := vmcpconfig.StaticComponentTargetURL(component)
+	redact := func(err error) error {
+		switch httpErr, isHTTP := errors.AsType[*types.ErrHTTP](err); {
+		case err == nil || fixed:
+			return err
+		case isHTTP:
+			return types.NewErrHTTP(httpErr.Code, vmcpconfig.RedactURL(httpErr.Message, target))
+		default:
+			return errors.New(vmcpconfig.RedactURL(err.Error(), target))
+		}
 	}
+	server, cfg := profileGrantServer(vmcp, component, target)
 	if cfg.TunnelName == "" {
 		if err := mcp.ValidateRemoteMCPURL(req.Context(), cfg.URL, f.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
-			return none, types.NewErrBadRequest("component %q has an upstream URL that cannot be reached: %v", component.ID, err)
+			return none, redact(types.NewErrBadRequest("component %q has an upstream URL that cannot be reached: %v", component.ID, err))
 		}
 	}
 
@@ -92,7 +102,7 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	mcpID := vmcpconfig.ProfileOAuthGrantMCPID(vmcp.Name, component.ID)
 	oauthHandler, opt, err := f.prepareUpstreamOAuth(req, server, cfg, owner, mcpID, "")
 	if err != nil {
-		return none, err
+		return none, redact(err)
 	}
 	oauthHandler.profileGrant = &profileGrantBinding{
 		initiatorUserID: initiator.String(),
@@ -103,11 +113,11 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	if errors.Is(err, mcp.ErrOAuthNotRequired) {
 		return none, types.NewErrBadRequest("component %q does not require OAuth", component.ID)
 	} else if err != nil {
-		return none, fmt.Errorf("start OAuth authorization of component %q: %w", component.ID, err)
+		return none, redact(fmt.Errorf("start OAuth authorization of component %q: %w", component.ID, err))
 	}
 	// For a localhost callback, the administrator gets the relay's local login URL, as a user does.
 	if authURL, err = f.localLoginURL(authURL, cfg); err != nil {
-		return none, err
+		return none, redact(err)
 	}
 	slog.Info("Started the authorization of a vMCP profile's OAuth grant", "vmcp", vmcp.Name, "profile", profileID, "component", component.ID, "administrator", initiator.ID, "localhostCallback", cfg.LocalhostCallbackEnabled)
 	return types.VMCPProfileOAuthAuthorization{AuthURL: authURL, LocalhostCallback: cfg.LocalhostCallbackEnabled}, nil
@@ -140,7 +150,7 @@ func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp
 // grant is bound to (profileGrantTargetURL), and otherwise built from the component's definition alone, including
 // whether its provider redirects to a localhost callback: no component server is needed. Neither carries a configured
 // header or credential: OAuth discovery and the code exchange never send them.
-func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target string) (v1.MCPServer, mcp.ServerConfig, error) {
+func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target string) (v1.MCPServer, mcp.ServerConfig) {
 	remote := component.CatalogEntry.Manifest.RemoteConfig
 	server := v1.MCPServer{
 		Namespace: vmcp.Namespace,
@@ -172,7 +182,7 @@ func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target stri
 		MCPServerNamespace:       vmcp.Namespace,
 		MCPCatalogEntryName:      component.MCPServerCatalogEntryID,
 		ComponentMCPServer:       true,
-	}, nil
+	}
 }
 
 // completeProfileGrantCallback completes the authorization of a vMCP profile's grant at the MCP OAuth callback, for

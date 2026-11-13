@@ -111,13 +111,13 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 
 	// An agent cannot complete setup interactively, so it is refused with the reasons it is not ready rather than
 	// connected to a subset of its tools or challenged. Readiness is computed on every connect and never cached.
+	var agentReadiness vmcpaccess.AgentReadinessReport
 	if principal.IsAgent(user) {
-		readiness, err := sm.agentReadiness.AgentReadiness(ctx, *vmcp, *instance, user)
-		if err != nil {
+		if agentReadiness, err = sm.AgentReadiness(ctx, *vmcp, instance, user); err != nil {
 			return ServerConfig{}, err
 		}
-		if !readiness.Ready() {
-			return ServerConfig{}, &vmcpaccess.AgentNotReadyError{Readiness: readiness}
+		if !agentReadiness.Readiness.Ready() {
+			return ServerConfig{}, &vmcpaccess.AgentNotReadyError{Readiness: agentReadiness.Readiness}
 		}
 	}
 
@@ -215,27 +215,19 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		})
 	}
 
-	var fallbackProfiles []string
-	if principal.IsAgent(user) {
-		fallbackProfiles = vmcpaccess.ResolveAgentConfiguration(*vmcp, *instance, user).FallbackProfileIDs()
-		if sm.profileOAuthGrants != nil {
-			// Each component's connection selects its grant again when the composite reaches it; this selection names
-			// the grant in the composite's configuration, so that an authorization failure of the component is reported
-			// to the agent as the grant being invalid, and records the profiles the agent falls back to for grants.
-			grants, err := sm.profileOAuthGrants.SelectAgentGrants(ctx, *vmcp, vmcpaccess.SelectAgentProfiles(user, vmcp.Spec.Manifest), configuredComponents)
-			if err != nil {
-				return ServerConfig{}, err
-			}
-			for i, grant := range grants {
-				if grant.ProfileID != "" {
-					components[i].OAuthGrant = &OAuthGrantRef{ComponentID: grant.ComponentID, ProfileID: grant.ProfileID, Owner: grant.Owner, MCPID: grant.MCPID}
-				}
-			}
-			for _, id := range vmcpaccess.FallbackGrantProfileIDs(grants) {
-				if !slices.Contains(fallbackProfiles, id) {
-					fallbackProfiles = append(fallbackProfiles, id)
-				}
-			}
+	// An agent's readiness was computed for these same components, in the same order. Each component's connection
+	// selects its grant again when the composite reaches it; the grants readiness selected name the grant in the
+	// composite's configuration, so that an authorization failure of the component is reported to the agent as the grant
+	// being invalid, and record the profiles the agent falls back to for configuration and grants.
+	fallbackProfiles := agentReadiness.Configuration.FallbackProfileIDs()
+	for i, grant := range agentReadiness.Grants {
+		if grant.ProfileID != "" {
+			components[i].OAuthGrant = newOAuthGrantRef(grant)
+		}
+	}
+	for _, id := range vmcpaccess.FallbackGrantProfileIDs(agentReadiness.Grants) {
+		if !slices.Contains(fallbackProfiles, id) {
+			fallbackProfiles = append(fallbackProfiles, id)
 		}
 	}
 
@@ -281,6 +273,18 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			AuditLogFallbackProfiles: strings.Join(fallbackProfiles, ","),
 		},
 	}, nil
+}
+
+// AgentReadiness reports whether agent can use vmcp through instance, or nil when it has not connected, as a connect
+// decides it (vmcpaccess.AgentReadiness, with the session manager's store of profile OAuth grants). The readiness API
+// uses it, so that it never reports an agent ready that a connect refuses.
+func (sm *SessionManager) AgentReadiness(ctx context.Context, vmcp v1.VMCP, instance *v1.VMCPInstance, agent kuser.Info) (vmcpaccess.AgentReadinessReport, error) {
+	return vmcpaccess.AgentReadiness(ctx, sm.profileOAuthGrants, vmcp, instance, agent)
+}
+
+// newOAuthGrantRef names the grant an agent uses for a component, as SelectAgentGrants selected it.
+func newOAuthGrantRef(grant vmcpaccess.AgentOAuthGrant) *OAuthGrantRef {
+	return &OAuthGrantRef{ComponentID: grant.ComponentID, ProfileID: grant.ProfileID, Owner: grant.Owner, MCPID: grant.MCPID}
 }
 
 // contributingProfileIDs returns the IDs of the profiles that grant the caller its permissions on a shared vMCP. A

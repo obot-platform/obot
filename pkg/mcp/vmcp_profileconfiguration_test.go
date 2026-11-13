@@ -186,7 +186,7 @@ func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 	component.Configuration = []types.VMCPConfigurationPolicy{{Key: "X-Token", Policy: types.VMCPConfigurationPolicyUserAllowed}}
 	storageClient := newVMCPTestStorage(vmcp, shared)
 	runVMCPInstanceController(t, storageClient, vmcp.DeepCopy())
-	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+	manager := newAgentTestManager(storageClient)
 
 	// No profile sets the token, so the agent is refused, to be fixed in its own profile.
 	_, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, asAgent(5, 11))
@@ -196,7 +196,7 @@ func TestAgentConnectFollowsProfileConfiguration(t *testing.T) {
 		Error: vmcpaccess.AgentConfigurationRequiredError,
 		Reasons: []vmcpaccess.ReadinessReason{{
 			ComponentID: "one",
-			Code:        vmcpaccess.ReadinessConfigurationRequired,
+			Code:        types.AgentReadinessConfigurationRequired,
 			Field:       "X-Token",
 			ProfileID:   "vp1agent",
 		}},

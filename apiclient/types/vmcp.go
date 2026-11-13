@@ -333,8 +333,14 @@ type VMCPProfileOAuthStatus struct {
 	AuthorizedBy string `json:"authorizedBy,omitempty"`
 	// AuthorizedAt is when the grant was authorized.
 	AuthorizedAt *Time `json:"authorizedAt,omitempty"`
-	// Target is the upstream URL the grant was authorized for. Agents use the grant only for that URL.
+	// Target is the upstream URL the grant was authorized for, for a component whose catalog entry fixes the URL: that
+	// URL is catalog data. Agents use the grant only for that URL. It is empty when the URL comes from configuration,
+	// which is never returned: see TargetHostname.
 	Target string `json:"target,omitempty"`
+	// TargetHostname is, for a component whose URL comes from configuration (a hostname-constrained URL or a URL
+	// template), only the hostname of the URL the grant was authorized for, never its port, path, query or userinfo.
+	// It is not a URL.
+	TargetHostname string `json:"targetHostname,omitempty"`
 	// Scopes are the scopes the grant was authorized with.
 	Scopes []string `json:"scopes,omitempty"`
 	// InvalidReason says why an invalid grant stopped working.

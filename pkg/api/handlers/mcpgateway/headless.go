@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/mmmcp/component"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -70,7 +71,7 @@ func agentConfigurationRequiredResponse(componentID string, missing []string) *m
 	for _, field := range missing {
 		failure.Reasons = append(failure.Reasons, vmcpaccess.ReadinessReason{
 			ComponentID: componentID,
-			Code:        vmcpaccess.ReadinessConfigurationRequired,
+			Code:        types.AgentReadinessConfigurationRequired,
 			Field:       field,
 		})
 	}
@@ -91,12 +92,12 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 				continue
 			}
 			matched[i] = true
-			reason := vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: vmcpaccess.ReadinessOAuthRequired}
+			reason := vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthRequired}
 			if target.OAuthGrant != nil {
 				// The connection used the grant of the agent's profile, so the upstream refused that grant, or refused it
 				// more scopes than it was authorized with. Only an administrator can authorize it again; the agent never
 				// falls back from it to another profile's grant.
-				reason = vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: target.OAuthGrant.ProfileID}
+				reason = vmcpaccess.ReadinessReason{ComponentID: target.ComponentID, Code: types.AgentReadinessOAuthInvalid, ProfileID: target.OAuthGrant.ProfileID}
 			}
 			if !slices.Contains(failure.Reasons, reason) {
 				failure.Reasons = append(failure.Reasons, reason)
@@ -122,7 +123,7 @@ func agentOAuthGrantInvalidResponse(req api.Context, componentID, profileID, url
 	}
 	return agentReadinessResponse(vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: profileID, URLProfileID: urlProfileID}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: types.AgentReadinessOAuthInvalid, ProfileID: profileID, URLProfileID: urlProfileID}},
 	})
 }
 

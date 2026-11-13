@@ -6,6 +6,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -197,14 +198,14 @@ func TestSelectAgentGrants(t *testing.T) {
 			stored:      map[string]map[string]string{grantExplicit: {"static": staticURL}, grantWildcard: {"static": staticURL}},
 			invalid:     map[string][]string{grantExplicit: {"static"}},
 			want:        map[string]string{"static": grantExplicit},
-			wantReasons: []ReadinessReason{{ComponentID: "static", Code: ReadinessOAuthInvalid, ProfileID: grantExplicit}},
+			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantExplicit}},
 		},
 		{
 			name:        "explicit grant for another target never falls back",
 			agent:       7,
 			stored:      map[string]map[string]string{grantExplicit: {"static": "https://moved.example.com/mcp"}, grantWildcard: {"static": staticURL}},
 			want:        map[string]string{"static": grantExplicit},
-			wantReasons: []ReadinessReason{{ComponentID: "static", Code: ReadinessOAuthInvalid, ProfileID: grantExplicit}},
+			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantExplicit}},
 		},
 		{
 			name:         "broken wildcard grant",
@@ -214,15 +215,15 @@ func TestSelectAgentGrants(t *testing.T) {
 			want:         map[string]string{"dynamic": grantWildcard},
 			wantFallback: []string{"dynamic"},
 			wantReasons: []ReadinessReason{
-				{ComponentID: "static", Code: ReadinessOAuthRequired, ProfileID: grantWildcard},
-				{ComponentID: "dynamic", Code: ReadinessOAuthInvalid, ProfileID: grantWildcard},
+				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthInvalid, ProfileID: grantWildcard},
 			},
 		},
 		{
 			// Only a component known to need OAuth is reported without a grant; the other is caught when it is called.
 			name:        "no grant",
 			agent:       7,
-			wantReasons: []ReadinessReason{{ComponentID: "static", Code: ReadinessOAuthRequired, ProfileID: grantExplicit}},
+			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
 		},
 		{
 			name:     "explicit grant on an ambiguous vMCP",
@@ -284,10 +285,10 @@ func TestSelectAgentGrants(t *testing.T) {
 			}
 			require.Equal(t, wantFallbackProfiles, FallbackGrantProfileIDs(selected))
 
-			readiness, err := AgentReadinessChecks{OAuth: ProfileOAuthGrantCheck{Grants: store}}.AgentReadiness(t.Context(), vmcp, v1.VMCPInstance{}, agent)
+			readiness, err := readinessWith(t, store, vmcp, agent)
 			require.NoError(t, err)
 			require.Equal(t, tt.wantReasons, readiness.Reasons)
-			if slices.ContainsFunc(tt.wantReasons, func(reason ReadinessReason) bool { return reason.Code == ReadinessOAuthInvalid }) {
+			if slices.ContainsFunc(tt.wantReasons, func(reason ReadinessReason) bool { return reason.Code == types.AgentReadinessOAuthInvalid }) {
 				require.Equal(t, AgentOAuthRequiredError, readiness.ErrorCode())
 			}
 		})
@@ -607,7 +608,7 @@ func TestProfileGrantOwnerIsNeverACaller(t *testing.T) {
 		require.False(t, principal.IsAgent(caller), "kind %q", kind)
 		_, err := principal.CallerOwner(caller)
 		require.Error(t, err, "kind %q", kind)
-		_, err = AgentReadiness(t.Context(), vmcp, v1.VMCPInstance{}, caller)
+		_, err = agentReadiness(t, vmcp, caller)
 		require.Error(t, err, "kind %q", kind)
 	}
 }
@@ -635,4 +636,71 @@ func TestProfileGrantSelection(t *testing.T) {
 	selection = ProfileGrantSelection(types.VMCPManifest{Profiles: []types.VMCPProfile{explicit, legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)}}, explicit)
 	require.Nil(t, selection.Wildcard)
 	require.True(t, selection.Ambiguous)
+}
+
+// TestGrantTargetForResponse checks that only a URL the catalog fixes is returned in full, and that any other URL is
+// reduced to its hostname.
+func TestGrantTargetForResponse(t *testing.T) {
+	remote := func(config types.RemoteCatalogConfig) types.VMCPComponent {
+		return types.VMCPComponent{CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeRemote, RemoteConfig: &config}}}
+	}
+	const configured = "https://user:pw@tenant.example.com:8443/secret/path?token=secret"
+	for _, tt := range []struct {
+		name         string
+		component    types.VMCPComponent
+		grantURL     string
+		wantTarget   string
+		wantHostname string
+	}{
+		{
+			name:       "a fixed URL",
+			component:  remote(types.RemoteCatalogConfig{FixedURL: "https://fixed.example.com/mcp"}),
+			grantURL:   "https://fixed.example.com/mcp",
+			wantTarget: "https://fixed.example.com/mcp",
+		},
+		{
+			name:         "a hostname-constrained URL",
+			component:    remote(types.RemoteCatalogConfig{Hostname: "tenant.example.com"}),
+			grantURL:     configured,
+			wantHostname: "tenant.example.com",
+		},
+		{
+			name:         "a URL template",
+			component:    remote(types.RemoteCatalogConfig{URLTemplate: "https://${TENANT}.example.com/mcp"}),
+			grantURL:     configured,
+			wantHostname: "tenant.example.com",
+		},
+		{
+			name:      "a URL that cannot be parsed",
+			component: remote(types.RemoteCatalogConfig{URLTemplate: "${URL}"}),
+			grantURL:  "://secret",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			target, hostname := GrantTargetForResponse(tt.component, tt.grantURL)
+			if target != tt.wantTarget || hostname != tt.wantHostname {
+				t.Fatalf("GrantTargetForResponse() = (%q, %q), want (%q, %q)", target, hostname, tt.wantTarget, tt.wantHostname)
+			}
+		})
+	}
+}
+
+// TestRedactURL checks that a configured URL, and the parts of it an error repeats, are removed from error text.
+func TestRedactURL(t *testing.T) {
+	const configured = "https://user:pw@tenant.example.com:8443/secret/path?token=secret"
+	for _, text := range []string{
+		`Get "` + configured + `": dial tcp: lookup failed`,
+		"MCP server URL must not be a localhost URL: " + configured,
+		`parse "https://user:pw@tenant.example.com:8443/secret/path": no such host; query token=secret`,
+	} {
+		redacted := RedactURL(text, configured)
+		for _, secret := range []string{"secret/path", "token=secret", "user:pw", "https://tenant.example.com:8443"} {
+			if strings.Contains(redacted, secret) {
+				t.Errorf("RedactURL(%q) = %q, still has %q", text, redacted, secret)
+			}
+		}
+	}
+	if got := RedactURL("unchanged", ""); got != "unchanged" {
+		t.Errorf("RedactURL without a URL = %q", got)
+	}
 }

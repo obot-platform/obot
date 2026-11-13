@@ -824,12 +824,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// Profile configuration is stored whether or not agent identities are enabled, so that the vMCP controller always
 	// deletes it with its profile.
 	vmcpProfileConfiguration := vmcp.NewProfileConfigurationStore(gatewayClient)
-	// So are profile OAuth grants.
 	vmcpProfileOAuthGrants := vmcp.NewProfileOAuthGrantStore(gatewayClient)
-	mcpSessionManager.SetAgentReadinessChecks(vmcp.AgentReadinessChecks{
-		Configuration: vmcp.ProfileConfigurationCheck{},
-		OAuth:         vmcp.ProfileOAuthGrantCheck{Grants: vmcpProfileOAuthGrants},
-	})
 	mcpSessionManager.SetProfileOAuthGrants(vmcpProfileOAuthGrants)
 	// Grants of components whose URL comes from profile configuration are bound to the URL it resolves to.
 	vmcpProfileOAuthGrants.SetComponentTargets(mcpSessionManager)

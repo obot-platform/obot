@@ -56,8 +56,8 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error: vmcpaccess.AgentOAuthRequiredError,
 		Reasons: []vmcpaccess.ReadinessReason{
-			{ComponentID: "granted", Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: "vp1agents"},
-			{ComponentID: "ungranted", Code: vmcpaccess.ReadinessOAuthRequired},
+			{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agents"},
+			{ComponentID: "ungranted", Code: types.AgentReadinessOAuthRequired},
 		},
 	}, readAgentFailure(t, bytes.NewReader(response.body)))
 
@@ -72,7 +72,7 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	require.Empty(t, response.headers.Values("WWW-Authenticate"))
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: "vp1agents"}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agents"}},
 	}, readAgentFailure(t, bytes.NewReader(response.body)))
 
 	// Through the composite: the component's bare 401 becomes the agent's 409, naming the grant as invalid.
@@ -122,7 +122,7 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: "vp1agents"}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: "granted", Code: types.AgentReadinessOAuthInvalid, ProfileID: "vp1agents"}},
 	}, readAgentFailure(t, bytes.NewReader(recorder.Body.Bytes())))
 	requireNoOAuthState(t, db)
 }

@@ -5,6 +5,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -14,7 +15,7 @@ type ProfileOAuthAuthorizer interface {
 	StartProfileOAuthGrant(req api.Context, vmcpID, profileID, componentID string) (types.VMCPProfileOAuthAuthorization, error)
 }
 
-// VMCPProfileOAuthHandler serves the routes that authorize and reset the OAuth grants a vMCP profile holds for its
+// VMCPProfileOAuthHandler serves the routes that report a profile's status and authorize and reset the OAuth grants a vMCP profile holds for its
 // components, which every agent that resolves to the profile uses headlessly. They exist only for agents, so they
 // answer 404 while agent identities are disabled, and 501 while authentication is, as the agent admin API does.
 //
@@ -39,8 +40,36 @@ func NewVMCPProfileOAuthHandler(enabled, authEnabled bool, authorizer ProfileOAu
 
 // RegisterRoutes registers the routes with handle.
 func (h *VMCPProfileOAuthHandler) RegisterRoutes(handle func(pattern string, f api.HandlerFunc)) {
+	handle("GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status", h.Status)
 	handle("POST /api/vmcps/{vmcp_id}/profiles/{profile_id}/components/{component_id}/oauth", h.Authorize)
 	handle("DELETE /api/vmcps/{vmcp_id}/profiles/{profile_id}/components/{component_id}/oauth", h.Reset)
+}
+
+// Status reports how far a profile is set up for agents (types.VMCPProfileStatus): for every component of the vMCP that
+// the profile grants, which configuration keys it sets and lacks, and the OAuth grant it holds.
+// It describes the profile alone, with no fallback to another profile: an agent's readiness, which applies the
+// fallback, is reported by the agent's routes. It is computed on the request, from the status the vMCP publishes and the
+// stored grants, and returns key names, grant metadata and no value or token. A vMCP, or a profile, that does not
+// exist is 404.
+func (h *VMCPProfileOAuthHandler) Status(req api.Context) error {
+	if err := agentIdentitiesAvailable(h.enabled, h.authEnabled); err != nil {
+		return err
+	}
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); apierrors.IsNotFound(err) {
+		return types.NewErrNotFound("vMCP not found")
+	} else if err != nil {
+		return err
+	}
+	profileID := req.PathValue("profile_id")
+	if _, ok := vmcp.Spec.Manifest.Profile(profileID); !ok {
+		return types.NewErrNotFound("profile not found")
+	}
+	status, err := profileStatusWithOAuth(req, h.grants, vmcp, profileID)
+	if err != nil {
+		return err
+	}
+	return req.Write(status)
 }
 
 // Authorize starts the authorization of the profile's grant for the component, and returns the URL the administrator

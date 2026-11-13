@@ -17,6 +17,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gt "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -92,7 +93,7 @@ func newAgentIdentityFixture(t *testing.T, enabled, authEnabled bool) *agentIden
 		db:      services.DB.DB,
 	}
 	mux := http.NewServeMux()
-	NewAgentIdentityHandler(enabled, authEnabled).RegisterRoutes(func(pattern string, handle api.HandlerFunc) {
+	NewAgentIdentityHandler(enabled, authEnabled, &mcp.SessionManager{}).RegisterRoutes(func(pattern string, handle api.HandlerFunc) {
 		f.routes = append(f.routes, pattern)
 		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			err := handle(api.Context{
@@ -605,11 +606,11 @@ func TestAgentIdentityRoutesAreUnavailableWithoutTheFeature(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newAgentIdentityFixture(t, tt.enabled, tt.authEnabled)
-			require.Len(t, f.routes, 12)
+			require.Len(t, f.routes, 14)
 
 			for _, pattern := range f.routes {
 				method, path, _ := strings.Cut(pattern, " ")
-				path = strings.NewReplacer("{agent_id}", "1", "{key_id}", "1").Replace(path)
+				path = strings.NewReplacer("{agent_id}", "1", "{key_id}", "1", "{vmcp_id}", agentIdentityTestVMCP).Replace(path)
 				rec := f.do(method, path, `{"displayName":"x","canAccessLLMProxy":true}`)
 				require.Equal(t, tt.wantStatus, rec.Code, "%s: %s", pattern, rec.Body.String())
 			}
@@ -629,7 +630,7 @@ func TestAgentIdentityRoutesAreUnavailableWithoutTheFeature(t *testing.T) {
 // does.
 func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
 	f := newAgentIdentityFixture(t, true, true)
-	require.Len(t, f.routes, 12)
+	require.Len(t, f.routes, 14)
 	authorizer := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 
 	// An agent with every scope its key can have.
@@ -695,7 +696,7 @@ func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, pattern := range f.routes {
 				method, path, _ := strings.Cut(pattern, " ")
-				path = strings.NewReplacer("{agent_id}", "7", "{key_id}", "3").Replace(path)
+				path = strings.NewReplacer("{agent_id}", "7", "{key_id}", "3", "{vmcp_id}", agentIdentityTestVMCP).Replace(path)
 
 				want := !tt.denied && (!tt.readsOnly || method == http.MethodGet)
 				got := authorizer.Authorize(httptest.NewRequest(method, path, nil), tt.user)

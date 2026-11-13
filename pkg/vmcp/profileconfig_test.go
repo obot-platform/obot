@@ -292,7 +292,7 @@ func TestResolveComponentConfiguration(t *testing.T) {
 	}
 }
 
-// TestProfileConfigurationReadiness checks the default configuration check of agent readiness, from the keys that
+// TestProfileConfigurationReadiness checks the configuration reasons of agent readiness, from the keys that
 // profiles publish.
 func TestProfileConfigurationReadiness(t *testing.T) {
 	for _, tt := range []struct {
@@ -325,7 +325,7 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 			keys:       map[string][]string{profileAgents: {"VERBOSE"}},
 			wantReasons: []ReadinessReason{{
 				ComponentID: "api",
-				Code:        ReadinessConfigurationRequired,
+				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "REGION",
 				ProfileID:   profileExplicit,
 			}},
@@ -338,7 +338,7 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 			keys:       map[string][]string{profileExplicit: {"REGION"}},
 			wantReasons: []ReadinessReason{{
 				ComponentID: "api",
-				Code:        ReadinessConfigurationRequired,
+				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "REGION",
 				ProfileID:   profileAgents,
 			}},
@@ -350,7 +350,7 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 			profiles:   []types.VMCPProfile{explicitAgentProfile(profileExplicit, "7")},
 			wantReasons: []ReadinessReason{{
 				ComponentID: "remote",
-				Code:        ReadinessConfigurationRequired,
+				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "__url",
 				ProfileID:   profileExplicit,
 			}},
@@ -381,7 +381,7 @@ func TestProfileConfigurationReadiness(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			vmcp := readinessVMCP(tt.components, tt.profiles...)
 			vmcp.Status.ProfileConfigurationRevisions = profileRevisions(tt.components[0].ID, tt.keys)
-			readiness, err := AgentReadiness(t.Context(), vmcp, v1.VMCPInstance{}, agentInfo(tt.agent, nil))
+			readiness, err := agentReadiness(t, vmcp, agentInfo(tt.agent, nil))
 			require.NoError(t, err)
 			require.Equal(t, tt.wantReasons, readiness.Reasons)
 		})

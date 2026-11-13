@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/principal/principaltest"
 	"github.com/obot-platform/obot/pkg/storage"
@@ -17,8 +18,34 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// noGrants is a gateway whose vMCP profiles hold no OAuth grant.
+type noGrants struct{}
+
+func (noGrants) MCPOAuthGrantMetadata(context.Context, []string, []string) ([]gatewaytypes.MCPOAuthGrantMetadata, error) {
+	return nil, nil
+}
+
+func (noGrants) MCPOAuthGrantOwners(context.Context, []string) ([]string, error) {
+	return nil, nil
+}
+
+func (noGrants) DeleteMCPOAuthGrants(context.Context, string, string, []string) error {
+	return nil
+}
+
+func (noGrants) DeleteMCPOAuthGrantsForOwners(context.Context, []string) error {
+	return nil
+}
+
+// newAgentTestManager returns a session manager that connects to vMCPs stored in storageClient, whose profiles hold no
+// OAuth grant.
+func newAgentTestManager(storageClient storage.Client) *SessionManager {
+	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+	manager.SetProfileOAuthGrants(vmcpaccess.NewProfileOAuthGrantStore(noGrants{}))
+	return manager
+}
 
 // asAgent returns the principal of the agent with id, as the API key authenticator builds it for the agent's key
 // keyID.
@@ -147,7 +174,7 @@ func TestVMCPConnectionsAreIsolatedPerPrincipal(t *testing.T) {
 	)
 	storageClient := newVMCPTestStorage(vmcp, shared)
 	runVMCPInstanceController(t, storageClient, vmcp)
-	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+	manager := newAgentTestManager(storageClient)
 
 	user := connectVMCP(t, manager, vmcp.Name, principaltest.AsUser(&kuser.DefaultInfo{UID: "5"}))
 	agentFirstKey := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
@@ -274,7 +301,7 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			profiles:  []types.VMCPProfile{everyone("vp1first"), everyone("vp1second")},
 			wantError: vmcpaccess.AgentSelectionAmbiguousError,
 			wantReasons: []vmcpaccess.ReadinessReason{{
-				Code: vmcpaccess.ReadinessSelectionAmbiguous,
+				Code: types.AgentReadinessSelectionAmbiguous,
 			}},
 		},
 		{
@@ -289,7 +316,7 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			wantError: vmcpaccess.AgentSelectionAmbiguousError,
 			wantReasons: []vmcpaccess.ReadinessReason{{
 				ComponentID: "one",
-				Code:        vmcpaccess.ReadinessSelectionAmbiguous,
+				Code:        types.AgentReadinessSelectionAmbiguous,
 			}},
 		},
 		{
@@ -302,7 +329,7 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			wantError: vmcpaccess.AgentConfigurationRequiredError,
 			wantReasons: []vmcpaccess.ReadinessReason{{
 				ComponentID: "one",
-				Code:        vmcpaccess.ReadinessConfigurationRequired,
+				Code:        types.AgentReadinessConfigurationRequired,
 				Field:       "X-Token",
 				ProfileID:   "vp1everyone",
 			}},
@@ -317,7 +344,7 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			wantError: vmcpaccess.AgentOAuthRequiredError,
 			wantReasons: []vmcpaccess.ReadinessReason{{
 				ComponentID: "one",
-				Code:        vmcpaccess.ReadinessOAuthRequired,
+				Code:        types.AgentReadinessOAuthRequired,
 				ProfileID:   "vp1everyone",
 			}},
 		},
@@ -329,7 +356,7 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 			}
 			storageClient := newVMCPTestStorage(vmcp, shared)
 			runVMCPInstanceController(t, storageClient, vmcp)
-			manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+			manager := newAgentTestManager(storageClient)
 
 			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 			defer cancel()
@@ -359,52 +386,6 @@ func TestAgentConnectRefusedUntilReady(t *testing.T) {
 	}
 }
 
-// TestAgentConnectReadinessFollowsTheVMCP checks that readiness is computed on every connect: once the component that
-// needed setup no longer does, the agent's next connect succeeds.
-func TestAgentConnectReadinessFollowsTheVMCP(t *testing.T) {
-	vmcp, shared := sharedComponentVMCP("vmcp1fixed", types.VMCPProfile{
-		ID:          "vp1agent",
-		Subjects:    []types.Subject{{Type: types.SubjectTypeAgent, ID: "5"}},
-		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
-	})
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Runtime = types.RuntimeRemote
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://one.example.com/mcp", StaticOAuthRequired: true}
-	storageClient := newVMCPTestStorage(vmcp, shared)
-	controlled := vmcp.DeepCopy()
-	runVMCPInstanceController(t, storageClient, controlled)
-	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
-
-	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, asAgent(5, 11)); !errors.As(err, new(*vmcpaccess.AgentNotReadyError)) {
-		t.Fatalf("agent connect error = %v, want an AgentNotReadyError", err)
-	}
-
-	var current v1.VMCP
-	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &current); err != nil {
-		t.Fatal(err)
-	}
-	current.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.StaticOAuthRequired = false
-	if err := storageClient.Update(t.Context(), &current); err != nil {
-		t.Fatal(err)
-	}
-	// The agent's instance was created by the refused connect; the controller recomputes its status for the change.
-	var instances v1.VMCPInstanceList
-	if err := storageClient.List(t.Context(), &instances); err != nil {
-		t.Fatal(err)
-	}
-	if len(instances.Items) != 1 || instances.Items[0].Spec.UserID != "agent:5" {
-		t.Fatalf("instances = %#v, want the agent's", instances.Items)
-	}
-	syncedVMCPInstanceForUser(&instances.Items[0], &current, asAgent(5, 0))
-	if err := storageClient.Update(t.Context(), &instances.Items[0]); err != nil {
-		t.Fatal(err)
-	}
-
-	cfg := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
-	if cfg.MCPServerName != instances.Items[0].Name || cfg.AuditLogMetadata[AuditLogProfiles] != "vp1agent" || cfg.AuditLogMetadata[AuditLogVMCPID] != vmcp.Name {
-		t.Fatalf("agent connection = %#v, want the agent's instance attributed to its profile", cfg)
-	}
-}
-
 // TestExplicitAgentConnectsToLegacyVMCP checks that an agent with its own profile connects to a vMCP whose wildcard
 // profiles make the fallback ambiguous, when none of its components needs anything from that fallback. Its tools are
 // still the union of every profile that names it.
@@ -431,7 +412,7 @@ func TestExplicitAgentConnectsToLegacyVMCP(t *testing.T) {
 	)
 	storageClient := newVMCPTestStorage(vmcp, shared)
 	runVMCPInstanceController(t, storageClient, vmcp)
-	manager := &SessionManager{storageClient: storageClient, httpListenPort: vmcpTestListenPort}
+	manager := newAgentTestManager(storageClient)
 
 	cfg := connectVMCP(t, manager, vmcp.Name, asAgent(5, 11))
 	if len(cfg.Components) != 1 || cfg.Components[0].ComponentID != "one" {

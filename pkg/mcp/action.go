@@ -148,7 +148,7 @@ func (sm *SessionManager) applyAgentOAuthGrant(ctx context.Context, user kuser.I
 		}
 		return grantErr
 	}
-	config.OAuthGrant = &OAuthGrantRef{ComponentID: grant.ComponentID, ProfileID: grant.ProfileID, Owner: grant.Owner, MCPID: grant.MCPID}
+	config.OAuthGrant = newOAuthGrantRef(grant)
 	return nil
 }
 

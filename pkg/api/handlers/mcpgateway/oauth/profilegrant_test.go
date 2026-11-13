@@ -508,11 +508,10 @@ func TestProfileOAuthGrantsForConfiguredURLs(t *testing.T) {
 			var stored v1.VMCP
 			require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
 			stored.Spec.Manifest.Components = stored.Spec.Manifest.Components[:1]
-			checks := vmcpconfig.AgentReadinessChecks{OAuth: vmcpconfig.ProfileOAuthGrantCheck{Grants: f.grants}}
 			for _, agentID := range []uint{7, 8} {
-				readiness, err := checks.AgentReadiness(t.Context(), stored, v1.VMCPInstance{}, profileGrantAgent(agentID))
+				report, err := vmcpconfig.AgentReadiness(t.Context(), f.grants, stored, nil, profileGrantAgent(agentID))
 				require.NoError(t, err)
-				require.Empty(t, readiness.Reasons, "agent %d", agentID)
+				require.Empty(t, report.Readiness.Reasons, "agent %d", agentID)
 			}
 
 			// The wildcard's URL changes while an authorization of its grant waits for its callback: the callback is
