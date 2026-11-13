@@ -132,7 +132,11 @@ type LocalAgentToolCallAuditLogFields struct {
 
 	RequestBody  json.RawMessage `json:"requestBody,omitempty" gorm:"column:local_agent_request_body"`
 	ResponseBody json.RawMessage `json:"responseBody,omitempty" gorm:"column:local_agent_response_body"`
-	// RawEvent preserves the original hook payload for debugging and future parsers.
+	// RawEvent is the hook payload as the client submitted it, kept for debugging
+	// and future parsers. It is not always the complete original payload: a client
+	// may replace values already carried in RequestBody and ResponseBody with a
+	// marker (Obot Sentry uses {"obot_sentry_omitted": "details.request.body"} and
+	// {"obot_sentry_omitted": "details.response.body"}) so they are stored once.
 	RawEvent json.RawMessage `json:"rawEvent,omitempty" gorm:"column:local_agent_raw_event"`
 }
 
