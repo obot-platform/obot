@@ -122,10 +122,10 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 			if envConfigured(family) != "" {
 				return nil
 			}
-			if _, err := e.store.GetProvider(ctx, family); err == nil && family != "bedrock_mantle" {
+			if _, err := e.store.GetProvider(ctx, family); err == nil {
 				// Existing configuration wins: complete this family without merging legacy keys; other families still run.
 				return nil
-			} else if err != nil && !apierrors.IsNotFound(err) {
+			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("read gateway provider %s: %w", family, err)
 			}
 			secrets := map[string]map[string]string{}
@@ -160,13 +160,6 @@ func (e *Engine) ImportLegacyModelProviders(ctx context.Context, c kclient.Clien
 			// Publish settings and credentials together only after every key has passed validation.
 			if err := e.store.CreateProvider(ctx, family, candidate); err != nil {
 				if apierrors.IsAlreadyExists(err) {
-					if family == "bedrock_mantle" {
-						// Legacy Bedrock credentials always configure Mantle, even if it was configured before import.
-						return e.store.MutateProvider(ctx, family, func(current *llmcoreclient.Provider) error {
-							*current = candidate
-							return nil
-						})
-					}
 					return nil
 				}
 				return fmt.Errorf("save imported provider %s: %w", family, err)

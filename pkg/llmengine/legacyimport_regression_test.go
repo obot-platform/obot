@@ -603,7 +603,7 @@ func TestLegacyAzureImportPreservesDeploymentDiscoveryMode(t *testing.T) {
 	}
 }
 
-func TestLegacyBedrockImportReplacesExistingDestinationAfterValidation(t *testing.T) {
+func TestLegacyImportPreservesExistingDestinationBeforeValidatingSource(t *testing.T) {
 	e, ctx := startTestEngine(t)
 	t.Setenv("HTTPS_PROXY", "http://environment-proxy.invalid:3128")
 	gateway := legacyImportGateway(t, map[string]map[string]string{
@@ -613,29 +613,12 @@ func TestLegacyBedrockImportReplacesExistingDestinationAfterValidation(t *testin
 	require.NoError(t, err)
 	before, err := e.store.GetProvider(ctx, "bedrock_mantle")
 	require.NoError(t, err)
-	require.ErrorContains(t, e.ImportLegacyModelProviders(ctx, nil, gateway, true), "requires both access-key ID and secret-access key")
+	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, true))
 	after, err := e.store.GetProvider(ctx, "bedrock_mantle")
 	require.NoError(t, err)
 	require.Equal(t, before, after)
 	_, err = e.store.GetProvider(ctx, "bedrock")
 	require.True(t, apierrors.IsNotFound(err))
-
-	require.NoError(t, gateway.UpsertCredential(ctx, gatewaytypes.Credential{
-		Context: system.AmazonBedrockModelProvider,
-		Name:    system.AmazonBedrockModelProvider,
-		Secrets: map[string]string{
-			"OBOT_BEDROCK_MODEL_PROVIDER_ACCESS_KEY_ID":     "legacy-access-key",
-			"OBOT_BEDROCK_MODEL_PROVIDER_SECRET_ACCESS_KEY": "legacy-secret-key",
-		},
-	}))
-	require.NoError(t, e.ImportLegacyModelProviders(ctx, nil, gateway, true))
-	after, err = e.store.GetProvider(ctx, "bedrock_mantle")
-	require.NoError(t, err)
-	require.Equal(t, defaultMaxRetries, after.Config.NetworkConfig.MaxRetries)
-	require.Equal(t, "http://environment-proxy.invalid:3128", after.Config.ProxyConfig.URL.GetValue())
-	require.Len(t, after.Keys, 1)
-	require.Equal(t, "legacy-access-key", after.Keys[0].BedrockMantleKeyConfig.AccessKey.GetValue())
-	require.Equal(t, "legacy-secret-key", after.Keys[0].BedrockMantleKeyConfig.SecretKey.GetValue())
 }
 
 func TestLegacyImportAfterStartupAppliesProxyBeforePublication(t *testing.T) {
