@@ -148,7 +148,7 @@ func TestPostgresCleanupSkipsBodyRefreshedByUncommittedWriter(t *testing.T) {
 		t.Fatal(tx.Error)
 	}
 	defer tx.Rollback()
-	if err := storeAuditBodies(tx, []types.MCPAuditLogBody{{Hash: body.Hash, Body: body.Body, CreatedAt: now, LastReferencedAt: now}}, now); err != nil {
+	if err := storeAuditBodies(tx, []auditBodyWrite{{body: types.MCPAuditLogBody{Hash: body.Hash, Body: body.Body, CreatedAt: now, LastReferencedAt: now}}}); err != nil {
 		t.Fatalf("refresh shared body: %v", err)
 	}
 
@@ -251,7 +251,7 @@ func TestPostgresWritersRacingCleanupNeverLoseABody(t *testing.T) {
 	for round := range rounds {
 		// Forget what each replica knows so every write decides from the database.
 		for _, c := range clients {
-			c.auditBodies.knownStored = nil
+			c.auditBodies.known = nil
 		}
 		if err := cleaner.db.WithContext(ctx).Session(&gorm.Session{AllowGlobalUpdate: true}).
 			Model(&types.MCPAuditLogBody{}).Update("last_referenced_at", staleAuditBodyTime()).Error; err != nil {

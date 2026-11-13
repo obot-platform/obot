@@ -49,9 +49,10 @@ type MCPAuditLog struct {
 // MCPAuditLogBody stores one distinct list-method result that audit rows reference by Hash instead
 // of each holding their own copy.
 type MCPAuditLogBody struct {
-	// Hash is the keyed hash of the plaintext result bytes.
+	// Hash is the keyed hash of the plaintext result bytes and of whether the writer encrypts.
 	Hash []byte `json:"-" gorm:"primaryKey"`
-	// Body is the result in the audit body field format: compressed, then encrypted.
+	// Body is the result in the audit body field format: compressed when that makes it smaller,
+	// then encrypted when encryption is configured.
 	Body      []byte    `json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
 	// LastReferencedAt is refreshed, at most daily, whenever an audit row referencing this body is

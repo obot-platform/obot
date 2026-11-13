@@ -208,7 +208,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	}
 
 	now := time.Now().UTC()
-	sharedBodies, referencedBodies, err := c.prepareAuditBodiesForStore(ctx, logs, now)
+	sharedBodies, err := c.prepareAuditBodiesForStore(ctx, logs, now)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	// Use a transaction to ensure atomicity
 	err = c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Shared bodies go first so no committed row references a body that was not written.
-		if err := storeAuditBodies(tx, sharedBodies, now); err != nil {
+		if err := storeAuditBodies(tx, sharedBodies); err != nil {
 			return fmt.Errorf("failed to store shared audit log bodies: %w", err)
 		}
 
@@ -317,11 +317,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-	c.rememberAuditBodiesStored(referencedBodies, now)
-	return nil
+	return err
 }
 
 // InsertLocalAgentAuditLogs persists completed local-agent tool-call audit logs.
@@ -1169,6 +1165,9 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 // encryptMCPAuditLog puts log's payload fields into their stored form. Bodies are compressed and,
 // for list responses, replaced by a reference to a shared body; that happens whether or not
 // encryption is configured. The remaining sensitive fields are encrypted when it is.
+//
+// It changes the field structs log points to in place and must be applied to a captured entry
+// exactly once: a second pass would encode the already encoded bodies again.
 func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {
 	transformer := c.mcpAuditLogTransformer()
 	dataCtx := mcpAuditLogDataCtx(log)
@@ -1227,11 +1226,13 @@ func (c *Client) decryptMCPAuditLogs(ctx context.Context, logs []*types.MCPAudit
 	var (
 		transformer = c.mcpAuditLogTransformer()
 		references  []pendingAuditBodyReference
+		unavailable unavailableAuditBodies
 		errs        []error
 	)
+	defer unavailable.report()
 	for _, log := range logs {
 		dataCtx := mcpAuditLogDataCtx(log)
-		logReferences, err := decodeMCPAuditLogBodies(ctx, transformer, dataCtx, log)
+		logReferences, err := decodeMCPAuditLogBodies(ctx, transformer, dataCtx, log, &unavailable)
 		references = append(references, logReferences...)
 		errs = append(errs, err)
 		if log.Encrypted && transformer != nil {
@@ -1241,7 +1242,7 @@ func (c *Client) decryptMCPAuditLogs(ctx context.Context, logs []*types.MCPAudit
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
-	return c.resolveAuditBodyReferences(ctx, transformer, references)
+	return c.resolveAuditBodyReferences(ctx, transformer, references, &unavailable)
 }
 
 // decryptMCPAuditLogFields decrypts the sensitive fields of log other than its bodies.
