@@ -542,6 +542,115 @@ func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
 	}
 }
 
+func TestVMCPHandlerUpdateUndoesStaticConfigurationWhenTheWriteFails(t *testing.T) {
+	refused := &apierrors.StatusError{
+		ErrStatus: metav1.Status{
+			Code:    http.StatusPaymentRequired,
+			Message: "There isn't room on the plan for this.",
+		},
+	}
+	conflict := &apierrors.StatusError{
+		ErrStatus: metav1.Status{
+			Reason: metav1.StatusReasonConflict,
+			Code:   http.StatusConflict,
+		},
+	}
+
+	for _, tt := range []struct {
+		name         string
+		versioned    bool
+		noCredential bool
+		updateErr    error
+		wantToken    string
+	}{
+		{
+			name:      "a refused update puts the stored configuration back",
+			updateErr: refused,
+			wantToken: "old-token",
+		},
+		{
+			name:         "a refused update deletes the configuration when none was stored",
+			noCredential: true,
+			updateErr:    refused,
+		},
+		{
+			name:      "a conflict leaves the configuration to the update that got in first",
+			updateErr: conflict,
+			wantToken: "new-token",
+		},
+		{
+			name:      "a refused update of a versioned vMCP leaves its revision alone",
+			versioned: true,
+			updateErr: refused,
+			wantToken: "old-token",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+			gatewayClient := newHandlerTestGateway(t)
+			handler := NewVMCPHandler(nil, "", "")
+			admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
+			manifest := testVMCPManifest()
+			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
+				{
+					Key:    "TOKEN",
+					Policy: types.VMCPConfigurationPolicyFixed,
+					Value:  "old-token",
+				},
+			}
+			created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, admin)
+			key := kclient.ObjectKey{Name: created.ID, Namespace: system.DefaultNamespace}
+			credentialContext := vmcpconfig.StaticConfigurationCredentialContext(created.ID)
+
+			var stored v1.VMCP
+			require.NoError(t, storage.Get(t.Context(), key, &stored))
+			if tt.versioned {
+				credential, err := gatewayClient.RevealCredential(t.Context(), []string{credentialContext}, vmcpconfig.ConfigurationCredentialName())
+				require.NoError(t, err)
+				vmcpconfig.VersionStaticConfiguration(&stored, credential.Secrets)
+				require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+					Context: credentialContext,
+					Name:    vmcpconfig.StaticConfigurationCredentialName(&stored),
+					Secrets: credential.Secrets,
+				}))
+				require.NoError(t, storage.Update(t.Context(), &stored))
+			}
+			if tt.noCredential {
+				_, err := gatewayClient.DeleteCredential(t.Context(), credentialContext, vmcpconfig.ConfigurationCredentialName())
+				require.NoError(t, err)
+			}
+
+			update := stored.Spec.Manifest
+			update.Components[0].Configuration[0].Value = "new-token"
+			body, err := json.Marshal(update)
+			require.NoError(t, err)
+			request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+			request.SetPathValue("vmcp_id", created.ID)
+			storage.updateErr = tt.updateErr
+			err = handler.Update(api.Context{
+				Request:        request,
+				ResponseWriter: httptest.NewRecorder(),
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+				User:           admin,
+			})
+			require.ErrorIs(t, err, tt.updateErr)
+
+			// The vMCP wasn't written, so it still names the credential its servers read.
+			require.NoError(t, storage.Get(t.Context(), key, &stored))
+			credential, err := gatewayClient.RevealCredential(t.Context(), []string{credentialContext}, vmcpconfig.StaticConfigurationCredentialName(&stored))
+			if tt.wantToken == "" {
+				require.ErrorAs(t, err, &gateway.CredentialNotFoundError{})
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, map[string]string{
+				vmcpconfig.ConfigurationKey(update.Components[0].ID, "TOKEN"): tt.wantToken,
+			}, credential.Secrets)
+		})
+	}
+}
+
 func TestVMCPHandlerUpdateDefaultsFromStoredPersonalScope(t *testing.T) {
 	vmcp := &v1.VMCP{
 		Name:      "vmcp-personal",

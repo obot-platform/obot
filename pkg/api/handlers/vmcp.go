@@ -265,6 +265,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to reveal VMCP static configuration: %w", err)
 	}
+	hadCredential := err == nil
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
 	vmcp.Spec.Manifest = manifest
@@ -283,7 +284,24 @@ func (h *VMCPHandler) Update(req api.Context) error {
 			return fmt.Errorf("failed to store VMCP static configuration: %w", err)
 		}
 		if err := req.Update(&vmcp); err != nil {
-			return fmt.Errorf("failed to update VMCP: %w", err)
+			// The vMCP wasn't updated, so undo the credential write. Only a write over the credential the stored
+			// vMCP names needs undoing: a new revision isn't read until the vMCP names it. After a conflict
+			// another update got in first, and the credential may be its own, so leave it.
+			var cleanupErr error
+			if !apierrors.IsConflict(err) && vmcpconfig.StaticConfigurationCredentialName(&vmcp) == credentialName {
+				if hadCredential {
+					// Put back what was stored.
+					cleanupErr = req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
+						Context: credentialContext,
+						Name:    credentialName,
+						Secrets: cred.Secrets,
+					})
+				} else {
+					// Nothing was stored before, remove what this update stored.
+					_, cleanupErr = req.GatewayClient.DeleteCredential(req.Context(), credentialContext, credentialName)
+				}
+			}
+			return errors.Join(fmt.Errorf("failed to update VMCP: %w", err), cleanupErr)
 		}
 		return nil
 	}); err != nil {
