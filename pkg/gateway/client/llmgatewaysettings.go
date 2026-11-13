@@ -6,36 +6,47 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/obot-platform/obot/pkg/gateway/types"
+	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"gorm.io/gorm"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 )
 
-const (
-	llmGatewaySettingsKey = "llm-gateway-settings"
-)
+// MigrateLLMGatewaySubscriptions copies the legacy Claude flag before engine readiness.
+// The marker avoids reading the retired property again after a successful startup.
+func (c *Client) MigrateLLMGatewaySubscriptions(ctx context.Context, store *llmcoreclient.Client) error {
+	return c.MigrateKinmIfNotRun(ctx, "provider-owned-subscription-passthrough", func() error {
+		legacy := map[string]json.RawMessage{}
+		property, err := c.GetProperty(ctx, "llm-gateway-settings")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return err
+		}
+		if err == nil {
+			if err := json.Unmarshal([]byte(property.Value), &legacy); err != nil || legacy == nil {
+				return fmt.Errorf("invalid legacy LLM gateway settings object: %v", err)
+			}
+		}
 
-// GetLLMGatewaySettings returns the LLM gateway settings Obot enforces, or the defaults when
-// none were saved.
-func (c *Client) GetLLMGatewaySettings(ctx context.Context) (types.LLMGatewaySettings, error) {
-	var settings types.LLMGatewaySettings
-	p, err := c.GetProperty(ctx, llmGatewaySettingsKey)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return settings, nil
-	} else if err != nil {
-		return settings, err
-	}
-	if err := json.Unmarshal([]byte(p.Value), &settings); err != nil {
-		return settings, fmt.Errorf("invalid LLM gateway settings: %w", err)
-	}
-	return settings, nil
-}
+		allowed := false
+		if raw, ok := legacy["subscriptionPassthrough"]; ok {
+			if string(raw) == "null" || json.Unmarshal(raw, &allowed) != nil {
+				return errors.New("invalid legacy LLM gateway setting subscriptionPassthrough: expected boolean")
+			}
+		}
 
-// SetLLMGatewaySettings saves the LLM gateway settings.
-func (c *Client) SetLLMGatewaySettings(ctx context.Context, settings types.LLMGatewaySettings) error {
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return err
-	}
-	_, err = c.SetProperty(ctx, llmGatewaySettingsKey, string(data))
-	return err
+		// Replicas may run together. Re-read on conflict and preserve an explicit
+		// migrated/admin value, even when another replica has since revoked it.
+		err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+			return store.MutateProvider(ctx, "anthropic", func(provider *llmcoreclient.Provider) error {
+				if provider.SubscriptionPassthrough == nil && provider.Config.CustomProviderConfig == nil {
+					provider.SubscriptionPassthrough = new(allowed)
+				}
+				return nil
+			})
+		})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("migrate anthropic subscriptions: %w", err)
+		}
+		return nil
+	})
 }

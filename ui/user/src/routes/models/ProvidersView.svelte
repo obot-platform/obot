@@ -10,7 +10,6 @@
 	import type { BaseProvider } from '$lib/services/admin/types';
 	import {
 		deleteProvider,
-		getSettings,
 		getStatus,
 		listProviderKeys,
 		listProviders,
@@ -50,9 +49,6 @@
 	let openingProvider = $state<string>();
 	let openRequest = 0;
 	let removing = $state<string>();
-	// Subscription providers work without keys of their own when their setting is enabled.
-	let subscriptionPassthrough = $state(false);
-	let codexSubscriptionPassthrough = $state(false);
 
 	let readonly = $derived(profile.current.isAdminReadonly?.());
 	let keyNamesByProvider = $derived(
@@ -72,9 +68,6 @@
 				providers.map(async (p) => [p.name, await listProviderKeys(p.name).catch(() => [])])
 			);
 			keys = Object.fromEntries(entries);
-			const settings = await getSettings().catch(() => undefined);
-			subscriptionPassthrough = !!settings?.subscriptionPassthrough;
-			codexSubscriptionPassthrough = !!settings?.codexSubscriptionPassthrough;
 		} finally {
 			if (!options?.silent) loading = false;
 		}
@@ -191,9 +184,9 @@
 								{/if}
 								{#if p.custom_provider_config?.is_key_less}
 									<span>{m.models_providers_no_keys()}</span>
-								{:else if ks.length === 0 && p.name === 'openai' && codexSubscriptionPassthrough}
+								{:else if ks.length === 0 && p.name === 'openai' && p.subscription_passthrough}
 									<span>{m.models_providers_codex_subscriptions_only()}</span>
-								{:else if ks.length === 0 && p.name === 'anthropic' && subscriptionPassthrough}
+								{:else if ks.length === 0 && p.name === 'anthropic' && p.subscription_passthrough}
 									<span>{m.models_providers_subscriptions_only()}</span>
 								{:else if ks.length === 0}
 									<span class="text-warning">{m.models_providers_no_keys_add_one()}</span>

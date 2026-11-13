@@ -525,10 +525,7 @@ describe('ConfigureProviderDialog', () => {
 		mockProvider({ provider: { ...openai, name: 'anthropic' } });
 		const saved = vi.fn();
 		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: false })
-			),
-			http.put('/api/llm-gateway/settings', async ({ request }) => {
+			http.put('/api/llm-gateway/admin/providers/anthropic', async ({ request }) => {
 				const body = await request.json();
 				saved(body);
 				return HttpResponse.json(body);
@@ -541,7 +538,7 @@ describe('ConfigureProviderDialog', () => {
 		await toggle.click();
 
 		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
-		expect(saved).toHaveBeenCalledWith({ subscriptionPassthrough: true });
+		expect(saved).toHaveBeenCalledWith({ subscription_passthrough: true });
 		await expect.element(toggle).toBeChecked();
 	});
 
@@ -549,10 +546,7 @@ describe('ConfigureProviderDialog', () => {
 		mockProvider();
 		const saved = vi.fn();
 		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: true, codexSubscriptionPassthrough: false })
-			),
-			http.put('/api/llm-gateway/settings', async ({ request }) => {
+			http.put('/api/llm-gateway/admin/providers/openai', async ({ request }) => {
 				const body = await request.json();
 				saved(body);
 				return HttpResponse.json(body);
@@ -567,8 +561,7 @@ describe('ConfigureProviderDialog', () => {
 		await toggle.click();
 		await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
 		expect(saved).toHaveBeenCalledWith({
-			subscriptionPassthrough: true,
-			codexSubscriptionPassthrough: true
+			subscription_passthrough: true
 		});
 		await expect.element(toggle).toBeChecked();
 	});
@@ -589,12 +582,7 @@ describe('ConfigureProviderDialog', () => {
 	});
 
 	it('shows the Codex setting read-only to auditors', async () => {
-		mockProvider();
-		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: false, codexSubscriptionPassthrough: true })
-			)
-		);
+		mockProvider({ provider: { ...openai, subscription_passthrough: true } });
 		await renderProviderPage([Group.USER, Group.AUDITOR], 'openai');
 		const toggle = page.getByRole('switch', { name: 'Allow Codex subscriptions' });
 		await expect.element(toggle).toBeChecked();
@@ -618,12 +606,7 @@ describe('ConfigureProviderDialog', () => {
 	});
 
 	it('shows the Claude subscription setting read-only to auditors', async () => {
-		mockProvider({ provider: { ...openai, name: 'anthropic' } });
-		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: true })
-			)
-		);
+		mockProvider({ provider: { ...openai, name: 'anthropic', subscription_passthrough: true } });
 		await renderProviderPage([Group.USER, Group.AUDITOR], 'anthropic');
 
 		const toggle = page.getByRole('switch', { name: 'Allow Claude subscriptions' });

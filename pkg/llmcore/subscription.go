@@ -98,9 +98,9 @@ func subscriptionCredential(headers http.Header) (subscriptionCredentialValue, b
 	return credential, true
 }
 
-// Check the effective standalone runtime settings, including proxy inheritance.
+// SubscriptionDestination checks the effective runtime destination, including proxy inheritance.
 // IsSet also catches configured CAs whose secret reference has not resolved yet.
-func subscriptionDestination(cfg *llmcoreclient.Config, provider schemas.ModelProvider) bool {
+func SubscriptionDestination(cfg *llmcoreclient.Config, provider schemas.ModelProvider) bool {
 	pc, exists := cfg.Providers[provider]
 	if !exists || pc.CustomProviderConfig != nil {
 		return false
@@ -154,7 +154,7 @@ func prepareSubscription(ctx *schemas.BifrostContext, req *schemas.BifrostReques
 	}
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, extra)
 	provider, _, _ := req.GetRequestFields()
-	admitted := provider == credential.provider && subscriptionDestination(a.config.Load(), provider)
+	admitted := provider == credential.provider && SubscriptionDestination(a.config.Load(), provider)
 	if credential.provider == schemas.OpenAI {
 		admitted = admitted && (req.RequestType == schemas.ResponsesRequest || req.RequestType == schemas.ResponsesStreamRequest ||
 			req.RequestType == schemas.PassthroughRequest && req.PassthroughRequest != nil && req.PassthroughRequest.Method == http.MethodGet && req.PassthroughRequest.Path == "/models")

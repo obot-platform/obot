@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	"github.com/obot-platform/obot/pkg/llm"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
@@ -46,7 +45,10 @@ func TestDirectHostedSubscriptionHandoff(t *testing.T) {
 				require.NoError(t, req.Storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "m1-test"}, &model))
 				model.Spec.Manifest.TargetModel = provider + "/test"
 				require.NoError(t, req.Storage.Update(t.Context(), &model))
-				require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: provider == "anthropic" && allowed || provider == "openai", CodexSubscriptionPassthrough: provider == "openai" && allowed || provider == "anthropic"}))
+				require.NoError(t, store.MutateProvider(t.Context(), provider, func(p *llmcoreclient.Provider) error {
+					p.SubscriptionPassthrough = new(allowed)
+					return nil
+				}))
 
 				fixture := &subscriptionHandoffFixture{}
 				input, _ := guardrails.New(req.GatewayClient, nil).Plugins()

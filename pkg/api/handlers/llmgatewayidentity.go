@@ -14,7 +14,6 @@ import (
 const (
 	// The reasons TLS settings are refused for a provider.
 	ambientIdentityReason = "it may authenticate with the Obot server's own cloud identity"
-	subscriptionReason    = "subscriptions are allowed, and users' subscription tokens may only reach their provider over verified TLS"
 )
 
 // Some gateway providers fall back to the Obot server's own cloud identity when a key has no
@@ -50,22 +49,6 @@ func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
 			}
 			if err := llmengine.ValidateAzureKey(key); err != nil {
 				return err
-			}
-		}
-		return nil
-	})
-}
-
-// rejectSubscriptionRedirects refuses TLS-inspecting proxy settings while a provider
-// accepts subscription tokens. Runtime admission also checks the effective destination;
-// rejecting the write gives administrators an explanation before requests fail.
-func rejectSubscriptionRedirects(body []byte) error {
-	return walkObjects(body, func(fields map[string]json.RawMessage) error {
-		for name, settings := range fields {
-			if strings.EqualFold(name, "proxy_config") {
-				if err := checkProviderTLS(settings, subscriptionReason); err != nil {
-					return err
-				}
 			}
 		}
 		return nil
@@ -208,18 +191,4 @@ func providerNames(provider string, body []byte) []string {
 		}
 	}
 	return names
-}
-
-// isAnthropicProvider identifies the provider that receives Claude subscription tokens.
-func isAnthropicProvider(provider string, body []byte) bool {
-	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
-		return strings.EqualFold(name, "anthropic")
-	})
-}
-
-// isOpenAIProvider identifies the provider that receives Codex subscription tokens.
-func isOpenAIProvider(provider string, body []byte) bool {
-	return slices.ContainsFunc(providerNames(provider, body), func(name string) bool {
-		return strings.EqualFold(name, "openai")
-	})
 }

@@ -7,20 +7,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/streaming"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/llmcore"
@@ -34,10 +31,6 @@ import (
 )
 
 const (
-	// settingsCacheTTL is how long the proxy uses the LLM gateway settings it read, so a change
-	// reaches every replica within seconds without a database read per request.
-	settingsCacheTTL = 5 * time.Second
-
 	// headerServedProvider and headerServedModel name the provider and model that served a
 	// gateway response, which routing rules and fallbacks can make differ from the request's.
 	headerServedProvider = "X-Obot-LLM-Provider"
@@ -58,15 +51,7 @@ var (
 // and records audit logs and usage; Bifrost then routes to the upstream provider
 // with load balancing, fallbacks and routing rules.
 type bifrostProviderBackend struct {
-	engine   *llmengine.Engine
-	settings settingsCache
-}
-
-// settingsCache holds the LLM gateway settings the proxy last read.
-type settingsCache struct {
-	lock     sync.Mutex
-	settings gatewaytypes.LLMGatewaySettings
-	read     time.Time
+	engine *llmengine.Engine
 }
 
 // bifrostRoute maps a client path under /api/llm-proxy/v1 to a Bifrost route.
@@ -118,22 +103,6 @@ type gatewayAttempts struct {
 	detections map[string][]guardrails.Detection
 	// priced is what the gateway priced the response at, when it did.
 	priced *guardrails.Cost
-}
-
-func (c *settingsCache) get(ctx context.Context, gatewayClient *client.Client) gatewaytypes.LLMGatewaySettings {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if time.Since(c.read) < settingsCacheTTL {
-		return c.settings
-	}
-	settings, err := gatewayClient.GetLLMGatewaySettings(ctx)
-	if err != nil {
-		// Keep the last settings read; they are the safest guess until the next read.
-		slog.Warn("failed to read LLM gateway settings", "error", err)
-		return c.settings
-	}
-	c.settings, c.read = settings, time.Now()
-	return settings
 }
 
 // SetLLMGateway attaches the embedded Bifrost gateway, enabling the
@@ -619,16 +588,21 @@ func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPass
 // decorateRequest removes the caller's credentials and adds the guardrails token, which tells
 // the gateway's guardrail plugins who the request is for and checks each model it tries.
 func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api.Context, model *v1.Model) (gatewayRequest, error) {
-	ctx, gatewayClient, req, user := apiReq.Context(), apiReq.GatewayClient, apiReq.Request, apiReq.User
-	settings := b.settings.get(ctx, gatewayClient)
+	ctx, req, user := apiReq.Context(), apiReq.Request, apiReq.User
 	codex := llmtypes.IsCodexSubscription(req.Header)
 	provider := "anthropic"
-	allowSubscription := settings.ClaudeSubscriptionPassthrough
 	if codex {
 		provider = "openai"
-		allowSubscription = settings.CodexSubscriptionPassthrough
 	}
 	subscriptionToken := llmtypes.IsClaudeSubscription(req.Header) || codex
+	allowSubscription := false
+	if subscriptionToken {
+		var err error
+		allowSubscription, err = b.engine.SubscriptionPassthrough(ctx, provider)
+		if err != nil {
+			return nil, apierrors.NewServiceUnavailable(fmt.Sprintf("subscription provider unavailable: %v", err))
+		}
+	}
 	if allowSubscription && subscriptionToken {
 		// Keep Claude's admission policy; core validates both providers under their lifetime gates.
 		allowSubscription = provider == "openai" || b.engine.AnthropicIsDirect(ctx)

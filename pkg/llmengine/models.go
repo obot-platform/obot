@@ -283,7 +283,7 @@ func (e *Engine) withLastKnownModels(ctx context.Context, listed []listedModel) 
 // OpenAI's API-key listing can omit Codex targets; Claude only needs the catalog without
 // enabled keys. User tokens are never used for background model sync.
 func (e *Engine) subscriptionModels(ctx context.Context, provider string) []listedModel {
-	if allowed, err := e.subscriptionsAllowed(ctx, provider); err != nil {
+	if allowed, err := e.SubscriptionPassthrough(ctx, provider); err != nil {
 		slog.Warn("failed to check subscription provider", "provider", provider, "error", err)
 		return nil
 	} else if !allowed {
@@ -320,22 +320,11 @@ func (e *Engine) ClaudeSubscriptionModels(ctx context.Context) []ListedModel {
 
 // subscriptionsOnly reports whether a built-in provider is used only for subscriptions.
 func (e *Engine) subscriptionsOnly(ctx context.Context, provider string) (bool, error) {
-	if allowed, err := e.subscriptionsAllowed(ctx, provider); err != nil || !allowed {
+	if allowed, err := e.SubscriptionPassthrough(ctx, provider); err != nil || !allowed {
 		return false, err
 	}
 	builtin, _, enabled, err := e.subscriptionProviderKeys(ctx, provider)
 	return builtin && enabled == 0, err
-}
-
-func (e *Engine) subscriptionsAllowed(ctx context.Context, provider string) (bool, error) {
-	allowed := e.opts.ClaudeSubscriptions
-	if provider == "openai" {
-		allowed = e.opts.CodexSubscriptions
-	}
-	if allowed == nil {
-		return false, nil
-	}
-	return allowed(ctx)
 }
 
 // subscriptionProviderKeys counts only a built-in provider's keys; custom providers never accept subscriptions.
@@ -412,7 +401,7 @@ func (e *Engine) ConfiguredProviders(ctx context.Context) ([]string, error) {
 	// Subscription-only providers stop advertising models when their setting is disabled.
 	for _, provider := range []string{anthropicProvider, "openai"} {
 		if slices.Contains(names, provider) {
-			if allowed, err := e.subscriptionsAllowed(ctx, provider); err == nil && !allowed {
+			if allowed, err := e.SubscriptionPassthrough(ctx, provider); err == nil && !allowed {
 				if builtin, keys, _, err := e.subscriptionProviderKeys(ctx, provider); err == nil && builtin && keys == 0 {
 					names = slices.DeleteFunc(names, func(n string) bool { return n == provider })
 				}

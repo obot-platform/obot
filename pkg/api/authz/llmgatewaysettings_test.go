@@ -9,8 +9,7 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-// Every signed-in user may read whether Claude subscriptions are allowed, for the gateway's
-// setup instructions; only administrators may change it.
+// Every signed-in user can read the safe setup summary; provider writes remain admin-only.
 func TestLLMGatewaySettingsAuthorization(t *testing.T) {
 	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 	tests := []struct {
@@ -43,7 +42,7 @@ func TestLLMGatewaySettingsAuthorization(t *testing.T) {
 			if !authorizer.Authorize(httptest.NewRequest(http.MethodGet, "/api/llm-gateway/settings", nil), info) {
 				t.Error("GET refused, want it allowed")
 			}
-			if got := authorizer.Authorize(httptest.NewRequest(http.MethodPut, "/api/llm-gateway/settings", nil), info); got != tt.write {
+			if got := authorizer.Authorize(httptest.NewRequest(http.MethodPut, "/api/llm-gateway/admin/providers/anthropic", nil), info); got != tt.write {
 				t.Errorf("PUT allowed = %t, want %t", got, tt.write)
 			}
 			if tt.role == types.RoleBasic && authorizer.Authorize(httptest.NewRequest(http.MethodGet, "/api/llm-gateway/budgets", nil), info) {

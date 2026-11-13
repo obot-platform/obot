@@ -340,8 +340,9 @@ func keyViews(keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount
 	return out
 }
 
-func providerViewWithIDs(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount) ProviderResponse {
+func providerViewWithIDs(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount, subscriptions bool) ProviderResponse {
 	view := providerView(name, pc, keys)
+	view.SubscriptionPassthrough = subscriptions
 	view.Keys = keyViews(view.ProviderConfig.Keys, accounts)
 
 	return view

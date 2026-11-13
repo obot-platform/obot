@@ -37,8 +37,6 @@ type Options struct {
 	DataDir                 string
 	LogLevel                string
 	FirstPlugin, LastPlugin schemas.LLMPlugin
-	ClaudeSubscriptions     func(context.Context) (bool, error)
-	CodexSubscriptions      func(context.Context) (bool, error)
 	ModelDataURL            string
 }
 

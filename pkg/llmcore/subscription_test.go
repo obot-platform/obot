@@ -214,7 +214,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "ANTHROPIC", strings.ToUpper(string(provider)))
 				cfg.Providers[provider] = tc.config
 			}
-			require.Equal(t, tc.safe, subscriptionDestination(cfg, provider))
+			require.Equal(t, tc.safe, SubscriptionDestination(cfg, provider))
 
 			a := &account{}
 			a.config.Store(cfg)
@@ -269,7 +269,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 		cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
 			provider: {NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{name: ""}}},
 		}}
-		require.False(t, subscriptionDestination(cfg, provider), name)
+		require.False(t, SubscriptionDestination(cfg, provider), name)
 		e.account.config.Store(cfg)
 		var result *httptest.ResponseRecorder
 		if provider == schemas.OpenAI {

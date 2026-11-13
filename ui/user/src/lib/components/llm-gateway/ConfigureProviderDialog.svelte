@@ -13,14 +13,12 @@
 		deleteProvider,
 		deleteProviderKey,
 		getProvider,
-		getSettings,
 		listProviderKeys,
 		refreshProviderModels,
 		secretDisplay,
 		syncModels,
 		updateProvider,
 		updateProviderKey,
-		updateSettings,
 		type Provider,
 		type ProviderKey
 	} from '$lib/services/llm-gateway/gateway';
@@ -172,28 +170,14 @@
 		concurrency = next.concurrency_and_buffer_size?.concurrency ?? 1000;
 		bufferSize = next.concurrency_and_buffer_size?.buffer_size ?? 5000;
 		responsesAPI = servesResponses(next);
-		await Promise.all([loadKeys(), loadModels(), loadSubscriptionSetting()]);
-	}
-
-	async function loadSubscriptionSetting() {
-		if (!isAnthropic && !isOpenAI) return;
-		const id = requestId;
-		const settings = await getSettings();
-		if (id !== requestId) return;
-		subscriptionPassthrough = isOpenAI
-			? !!settings.codexSubscriptionPassthrough
-			: settings.subscriptionPassthrough;
+		subscriptionPassthrough = !!next.subscription_passthrough;
+		await Promise.all([loadKeys(), loadModels()]);
 	}
 
 	async function setSubscriptionPassthrough(allowed: boolean) {
 		savingSubscriptions = true;
 		try {
-			await updateSettings({
-				...(await getSettings()),
-				...(isOpenAI
-					? { codexSubscriptionPassthrough: allowed }
-					: { subscriptionPassthrough: allowed })
-			});
+			await updateProvider(name, { subscription_passthrough: allowed });
 			subscriptionPassthrough = allowed;
 			success.add(
 				allowed

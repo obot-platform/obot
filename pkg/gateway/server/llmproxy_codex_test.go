@@ -19,7 +19,6 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
@@ -75,7 +74,7 @@ func TestPublicCodexRecording(t *testing.T) {
 	require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: t.TempDir(), FirstPlugin: input, LastPlugin: output}))
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	recordCodexTransport(t, engine, upstream)
-	require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{CodexSubscriptionPassthrough: true}))
+	setPublicCodexSubscriptions(t, req, true)
 	proxy.backend = &bifrostProviderBackend{engine: engine}
 	for _, tc := range []struct {
 		name   string
@@ -131,15 +130,35 @@ func TestPublicCodexRecording(t *testing.T) {
 			}
 		})
 	}
-	// Disabled passthrough cannot silently fall back to configured-key billing.
-	proxy.backend = &bifrostProviderBackend{engine: engine}
-	require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: true}))
+	// Revocation takes effect on the same backend, without cache expiry or reconfiguration.
+	setPublicCodexSubscriptions(t, req, false)
 	r := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil)
 	r.SetPathValue("path", "v1/models")
 	r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
 	r.Header.Set("Authorization", bearer)
-	req.Request, req.ResponseWriter = r, httptest.NewRecorder()
-	require.Error(t, proxy.proxy(req))
+	refused := func() error {
+		r := r.Clone(t.Context())
+		r.Header.Set("Authorization", bearer)
+		req.Request, req.ResponseWriter = r, httptest.NewRecorder()
+		return proxy.proxy(req)
+	}
+	require.Error(t, refused())
+	require.Empty(t, received)
+
+	// An unreadable enabled provider also fails closed instead of reusing its last flag.
+	setPublicCodexSubscriptions(t, req, true)
+	var rows v1.LLMGatewayProviderList
+	require.NoError(t, req.Storage.List(t.Context(), &rows))
+	for i := range rows.Items {
+		if rows.Items[i].Spec.ID == "openai" {
+			rows.Items[i].Spec.Payload = "unreadable provider"
+			require.NoError(t, req.Storage.Update(t.Context(), &rows.Items[i]))
+		}
+	}
+	require.Error(t, refused())
+	require.Empty(t, received)
+	require.NoError(t, store.DeleteProvider(t.Context(), "openai"))
+	require.Error(t, refused(), "a deleted provider cannot admit a new subscription")
 	require.Empty(t, received)
 }
 
@@ -199,7 +218,7 @@ func TestPublicCodexNativeModelNamespace(t *testing.T) {
 		}},
 	}
 	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
-	require.NoError(t, req.GatewayClient.SetLLMGatewaySettings(t.Context(), gatewaytypes.LLMGatewaySettings{CodexSubscriptionPassthrough: true}))
+	setPublicCodexSubscriptions(t, req, true)
 
 	for _, reference := range []string{"test", "openai/test", "m1-test"} {
 		t.Run(reference, func(t *testing.T) {
@@ -214,4 +233,14 @@ func TestPublicCodexNativeModelNamespace(t *testing.T) {
 			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 		})
 	}
+}
+
+func setPublicCodexSubscriptions(t *testing.T, req api.Context, enabled bool) {
+	t.Helper()
+	store, err := llmcoreclient.New(req.Storage, directCodec{})
+	require.NoError(t, err)
+	require.NoError(t, store.MutateProvider(t.Context(), "openai", func(p *llmcoreclient.Provider) error {
+		p.SubscriptionPassthrough = new(enabled)
+		return nil
+	}))
 }

@@ -251,7 +251,7 @@ func TestSettingsConflictPreservesOtherSettings(t *testing.T) {
 
 func TestCreateProviderPreservesExistingAggregate(t *testing.T) {
 	store := newStore(t, fake.NewClientBuilder().WithScheme(scheme.Scheme).Build())
-	original := client.Provider{Keys: []schemas.Key{{ID: "existing", Value: *schemas.NewSecretVar("existing-secret")}}}
+	original := client.Provider{SubscriptionPassthrough: new(false), Keys: []schemas.Key{{ID: "existing", Value: *schemas.NewSecretVar("existing-secret")}}}
 	require.NoError(t, store.CreateProvider(t.Context(), "openai", original))
 	require.True(t, apierrors.IsAlreadyExists(store.CreateProvider(t.Context(), "openai", client.Provider{})))
 	got, err := store.GetProvider(t.Context(), "openai")

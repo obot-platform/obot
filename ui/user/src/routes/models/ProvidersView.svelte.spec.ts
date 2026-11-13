@@ -15,6 +15,7 @@ vi.mock(import('$lib/url'), async (importOriginal) => ({
 
 const openai = {
 	name: 'openai',
+	subscription_passthrough: false,
 	network_config: { base_url: '', max_retries: 2 },
 	concurrency_and_buffer_size: { concurrency: 1000, buffer_size: 5000 },
 	provider_status: 'active'
@@ -257,16 +258,29 @@ describe('Models providers tab', () => {
 	});
 
 	it('does not warn about keys when Anthropic is used with Claude subscriptions only', async () => {
-		mockGateway({ providers: [{ ...openai, name: 'anthropic' }], keys: [] });
-		worker.use(
-			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: true })
-			)
-		);
+		mockGateway({
+			providers: [{ ...openai, name: 'anthropic', subscription_passthrough: true }],
+			keys: []
+		});
 		await renderProvidersPage();
 
 		await expect.element(page.getByText('Claude subscriptions only')).toBeInTheDocument();
 		await expect.element(page.getByText('No keys: add one to use it')).not.toBeInTheDocument();
+	});
+
+	it('derives subscription-only status independently from each provider', async () => {
+		mockGateway({
+			providers: [
+				{ ...openai, subscription_passthrough: true },
+				{ ...openai, name: 'anthropic', subscription_passthrough: false }
+			],
+			keys: []
+		});
+		await renderProvidersPage();
+
+		await expect.element(page.getByText('Codex subscriptions only')).toBeInTheDocument();
+		await expect.element(page.getByText('Claude subscriptions only')).not.toBeInTheDocument();
+		await expect.element(page.getByText('No keys: add one to use it')).toBeInTheDocument();
 	});
 
 	it('shows a starting banner and no actions while the gateway is starting', async () => {

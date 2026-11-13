@@ -35,10 +35,12 @@ type AzureDiscoverySnapshot struct {
 
 // Provider is one atomic configuration aggregate: provider settings and its keys.
 type Provider struct {
-	AzureAccounts    map[string]AzureAccount           `json:",omitempty"`
-	AzureDiscoveries map[string]AzureDiscoverySnapshot `json:",omitempty"`
-	Config           schemas.ProviderConfig
-	Keys             []schemas.Key
+	// Nil identifies aggregates predating the legacy subscription migration.
+	SubscriptionPassthrough *bool                             `json:"subscription_passthrough,omitempty"`
+	AzureAccounts           map[string]AzureAccount           `json:",omitempty"`
+	AzureDiscoveries        map[string]AzureDiscoverySnapshot `json:",omitempty"`
+	Config                  schemas.ProviderConfig
+	Keys                    []schemas.Key
 }
 
 func (a AzureAccount) ResourceID() string {
@@ -95,6 +97,9 @@ func (s *Client) CreateProvider(ctx context.Context, name string, provider Provi
 	}
 	if err := validateKeys(provider.Keys); err != nil {
 		return err
+	}
+	if provider.SubscriptionPassthrough == nil {
+		provider.SubscriptionPassthrough = new(false)
 	}
 	payload, err := s.encode(ctx, providerConfigID(name), provider)
 	if err != nil {
