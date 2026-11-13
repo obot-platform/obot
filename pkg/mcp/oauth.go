@@ -560,6 +560,15 @@ func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, re
 		return oauthMetadataDiscovery{}, false, nil
 	}
 
+	// Some servers (e.g. Vercel) only issue refresh tokens for offline_access but leave it out of the
+	// resource's scopes, so request it whenever the authorization server supports refreshing.
+	// An empty scope is left alone so the server's default scopes still apply.
+	if scope != "" && !slices.Contains(strings.Fields(scope), "offline_access") &&
+		slices.Contains(authorizationServerMetadata.ScopesSupported, "offline_access") &&
+		slices.Contains(authorizationServerMetadata.GrantTypesSupported, "refresh_token") {
+		scope += " offline_access"
+	}
+
 	var rawAuthorizationServerMetadata struct {
 		RegistrationEndpoint string `json:"registration_endpoint"`
 	}
