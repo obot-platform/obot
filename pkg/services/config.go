@@ -1148,8 +1148,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	authenticators = union.NewFailOnError(scim.NewAuthenticator(gatewayClient), authenticators)
 
 	// Deny disabled and deleted users whichever credential they present, and while the environment is restricted,
-	// users who aren't admins or owners, and devices. This wraps the complete chain so that it
-	// runs once per request, after authentication and before authorization.
+	// users who aren't admins or owners. This wraps the complete chain so that it runs once per request, after
+	// authentication and before authorization.
 	authenticators = authn.NewAdmissionCheck(authenticators, restriction)
 
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))

@@ -233,13 +233,11 @@ func TestAdmissionCheckRestriction(t *testing.T) {
 				"device_id": {"device-1"},
 			}),
 			restriction: restriction(true),
-			wantRefused: true,
 		},
 		{
 			name:        "a device enrolling while restricted",
 			resp:        principalWith("enroll", []string{types2.GroupDeviceEnroll, types2.GroupAuthenticated}, nil),
 			restriction: restriction(true),
-			wantRefused: true,
 		},
 		{
 			name:        "SCIM while restricted",

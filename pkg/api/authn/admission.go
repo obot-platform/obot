@@ -20,14 +20,15 @@ var (
 	// ErrRestricted refuses a principal while the environment is restricted.
 	ErrRestricted = types2.NewErrHTTP(http.StatusPaymentRequired, "Only admins can use this environment right now, because it's over its plan or its subscription couldn't be confirmed. An admin can bring usage back within the plan, or an owner can check the subscription.")
 
-	// nonUserGroups mark principals that act for Obot itself, never for a user, so they have no lifecycle status.
-	// Only their own authenticators assign these groups. Devices have none either, see isDevice.
+	// nonUserGroups mark principals that act for Obot itself or for a device, never for a user, so they have no
+	// lifecycle status. Only their own authenticators assign these groups.
 	nonUserGroups = []string{
 		authz.UnauthenticatedGroup,
 		authz.MetricsGroup,
 		types2.GroupTunnel,
 		types2.GroupTunnelBridge,
 		types2.GroupTunnelPeer,
+		types2.GroupDeviceEnroll,
 		types2.GroupSCIM,
 	}
 )
@@ -38,9 +39,9 @@ type Restriction interface {
 }
 
 // AdmissionCheck denies requests made by or for users who may not access Obot: disabled, deleted, or missing
-// users, and while the environment is restricted, users who aren't admins or owners, and devices. It wraps the
-// complete authenticator chain, so it runs once per request, after authentication and before authorization,
-// whichever credential authenticated the request.
+// users, and while the environment is restricted, users who aren't admins or owners. It wraps the complete
+// authenticator chain, so it runs once per request, after authentication and before authorization, whichever
+// credential authenticated the request.
 type AdmissionCheck struct {
 	next        authenticator.Request
 	restriction Restriction
@@ -63,44 +64,40 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 		return nil, false, errors.New("authenticator returned no principal")
 	}
 
-	if status, recorded := principal.UserStatus(resp.User); recorded {
-		if status != types2.UserStatusActive {
-			return nil, false, &gclient.UserAccessDeniedError{
-				UserID: admissionUserID(resp.User),
-				Status: status,
-			}
+	status, recorded := principal.UserStatus(resp.User)
+	if !recorded {
+		// Principals that act for Obot itself or for a device have no status, and the restriction doesn't apply to them.
+		if isNonUserPrincipal(resp.User) {
+			return resp, true, nil
 		}
-	} else if !isNonUserPrincipal(resp.User) {
 		return nil, false, &gclient.UserAccessLookupError{
 			UserID: admissionUserID(resp.User),
 			Err:    fmt.Errorf("the authenticator of principal %q did not report a user status", resp.User.GetName()),
 		}
 	}
+	if status != types2.UserStatusActive {
+		return nil, false, &gclient.UserAccessDeniedError{
+			UserID: admissionUserID(resp.User),
+			Status: status,
+		}
+	}
 
-	if a.restriction != nil && restrictable(resp.User) {
-		restricted, err := a.restriction.Restricted(req.Context())
-		if err != nil {
-			// Like a user status that can't be read: refused as unavailable, without the details.
-			return nil, false, &gclient.UserAccessLookupError{
-				UserID: admissionUserID(resp.User),
-				Err:    fmt.Errorf("failed to check whether the environment is restricted: %w", err),
-			}
+	// Check the restriction. Admins and owners keep access so they can bring usage back within the limits.
+	if a.restriction == nil || principal.IsAdminOrOwner(resp.User) {
+		return resp, true, nil
+	}
+	restricted, err := a.restriction.Restricted(req.Context())
+	if err != nil {
+		// Like a user status that can't be read: refused as unavailable, without the details.
+		return nil, false, &gclient.UserAccessLookupError{
+			UserID: admissionUserID(resp.User),
+			Err:    fmt.Errorf("failed to check whether the environment is restricted: %w", err),
 		}
-		if restricted {
-			return nil, false, ErrRestricted
-		}
+	}
+	if restricted {
+		return nil, false, ErrRestricted
 	}
 	return resp, true, nil
-}
-
-// restrictable reports whether a restricted environment refuses the principal: users who aren't admins or owners, and
-// devices, which have no user. Admins and owners keep access so they can bring usage back within the limits, and
-// Obot's own principals and SCIM always get through.
-func restrictable(u user.Info) bool {
-	if _, isUser := principal.UserStatus(u); isUser {
-		return !principal.IsAdminOrOwner(u)
-	}
-	return isDevice(u)
 }
 
 // isNonUserPrincipal reports whether a principal acts for Obot itself or for a device rather than for a user.
@@ -111,15 +108,10 @@ func isNonUserPrincipal(u user.Info) bool {
 			return true
 		}
 	}
-	return isDevice(u)
-}
 
-// isDevice reports whether a principal acts for a device. A device's principal carries device-scans, which a user's API
-// key can carry too, so it is recognized by the device ID its authenticator records.
-func isDevice(u user.Info) bool {
-	groups := u.GetGroups()
-	return slices.Contains(groups, types2.GroupDeviceEnroll) ||
-		slices.Contains(groups, types2.GroupDeviceScans) && len(u.GetExtra()["device_id"]) > 0
+	// A device's principal carries device-scans, which a user's API key can carry too, so it is recognized by the
+	// device ID its authenticator records.
+	return slices.Contains(groups, types2.GroupDeviceScans) && len(u.GetExtra()["device_id"]) > 0
 }
 
 // admissionUserID returns the ID of the user a principal acts for, for error reporting, or 0 if it has none.

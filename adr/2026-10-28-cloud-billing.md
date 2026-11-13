@@ -154,12 +154,12 @@ A billed environment is restricted in two cases:
   the last answer, but only that far past the period it was for. An enterprise subscription has no period end, so an
   outage never restricts it.
 
-Every request from someone who isn't an admin checks it, against the cached `Subscription`, so a restriction can
-start or lift a moment late. While restricted, the admission check that runs after
-authentication refuses users who aren't admins or owners, and devices. Admins and owners keep access, including through their scoped API keys, so they can
-bring usage back down. SCIM, tunnels and metrics keep working. Refused browsers are signed out and sent to the login
-page, which says why. Every other client gets a 402. Nothing is deleted, and the restriction lifts as soon as usage
-fits or billing answers again.
+Every request from a user who isn't an admin checks it, against the cached `Subscription`, so a restriction can
+start or lift a moment late. While restricted, the admission check that runs after authentication refuses users who
+aren't admins or owners. Admins and owners keep access, including through their scoped API keys, so they can bring
+usage back down. Devices, SCIM, tunnels and metrics keep working. Refused browsers are signed out and sent to the
+login page, which says why. Every other client gets a 402. Nothing is deleted, and the restriction lifts as soon as
+usage fits or billing answers again.
 
 ### 7. Where usage is shown
 
