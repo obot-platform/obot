@@ -156,6 +156,7 @@ func newProfileGrantFixture(t *testing.T) *profileGrantFixture {
 		&rest.Config{Host: "http://kubernetes.invalid"}, storage, storage, storage, gateway, system.DefaultNamespace, nil)
 	require.NoError(t, err)
 	grants := vmcpconfig.NewProfileOAuthGrantStore(gateway)
+	grants.SetComponentTargets(manager)
 	factory := NewMCPOAuthHandlerFactory("http://obot.example", manager, storage, gateway, tokens, "", true)
 	factory.SetProfileOAuthGrants(grants)
 	return &profileGrantFixture{
@@ -383,13 +384,149 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 		})
 	}
 
-	// A component whose URL comes from each connection's configuration cannot hold one grant for every agent.
+	// A component whose URL comes from configuration that no profile of an agent using the grant sets.
 	f := newProfileGrantFixture(t)
-	var vmcp v1.VMCP
-	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{Hostname: "tenant.example.com"}
-	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
 	_, err := f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
 	requireErrHTTP(t, err, http.StatusBadRequest)
-	require.True(t, strings.Contains(err.Error(), "fixed upstream URL"), err.Error())
+	require.True(t, strings.Contains(err.Error(), "configure the profile first"), err.Error())
+	require.True(t, strings.Contains(err.Error(), "__url"), err.Error())
+
+	// A component that authorizes through a localhost callback stays refused.
+	f.setRemote(t, &types.RemoteCatalogConfig{FixedURL: f.provider.mcpURL(), LocalhostCallbackEnabled: true})
+	_, err = f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+	requireErrHTTP(t, err, http.StatusBadRequest)
+	require.True(t, strings.Contains(err.Error(), "localhost callback"), err.Error())
+}
+
+// setRemote replaces how the fixture's remote component reaches its upstream.
+func (f *profileGrantFixture) setRemote(t *testing.T, remote *types.RemoteCatalogConfig) {
+	t.Helper()
+	var vmcp v1.VMCP
+	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = remote
+	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+}
+
+// configure sets a profile's configuration of the remote component, as an administrator does through spec 12's API.
+func (f *profileGrantFixture) configure(t *testing.T, profileID string, values map[string]*string) {
+	t.Helper()
+	_, err := vmcpconfig.NewProfileConfigurationStore(f.gateway).Update(t.Context(), f.storage, f.key, profileID, map[string]map[string]*string{profileGrantRemote: values})
+	require.NoError(t, err)
+}
+
+// TestProfileOAuthGrantsForConfiguredURLs authorizes grants for remote components whose upstream URL comes from
+// configuration, a hostname-constrained one and a URL template: each grant is bound to the URL that an agent using the
+// profile's grants reaches, its own profile's or, for a value it does not set, the wildcard profile's, and an agent
+// that reaches it is ready. A grant for a URL that changed since, before or after the callback, is refused.
+func TestProfileOAuthGrantsForConfiguredURLs(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		remote func(base string) *types.RemoteCatalogConfig
+		config []types.MCPConfig
+		policy []types.VMCPConfigurationPolicy
+		// value sets the configuration that makes the component reach path on the provider.
+		value func(base, path string) map[string]*string
+	}{
+		{
+			name:   "hostname constraint",
+			remote: func(string) *types.RemoteCatalogConfig { return &types.RemoteCatalogConfig{Hostname: "127.0.0.1"} },
+			value: func(base, path string) map[string]*string {
+				return map[string]*string{"__url": new(base + path)}
+			},
+		},
+		{
+			name: "URL template",
+			remote: func(base string) *types.RemoteCatalogConfig {
+				return &types.RemoteCatalogConfig{URLTemplate: base + "/${PATH}"}
+			},
+			config: []types.MCPConfig{{Key: "PATH", Required: true}},
+			policy: []types.VMCPConfigurationPolicy{{Key: "PATH", Policy: types.VMCPConfigurationPolicyUserAllowed}},
+			value: func(_, path string) map[string]*string {
+				return map[string]*string{"PATH": new(strings.TrimPrefix(path, "/"))}
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newProfileGrantFixture(t)
+			base := f.provider.server.URL
+			var vmcp v1.VMCP
+			require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+			vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = tt.remote(base)
+			vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config = tt.config
+			vmcp.Spec.Manifest.Components[0].Configuration = tt.policy
+			require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+
+			// Nothing configures the URL yet.
+			_, err := f.start(t, administrator("1"), profileGrantSeven, profileGrantRemote)
+			requireErrHTTP(t, err, http.StatusBadRequest)
+
+			// The wildcard profile configures it: agent 7's explicit profile falls back to it.
+			f.configure(t, profileGrantAgents, tt.value(base, "/mcp"))
+			for _, profileID := range []string{profileGrantSeven, profileGrantAgents} {
+				state, err := f.start(t, administrator("1"), profileID, profileGrantRemote)
+				require.NoError(t, err)
+				pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+				require.NoError(t, err)
+				require.Equal(t, base+"/mcp", pending.URL)
+				_, err = f.callback(administrator("1"), state)
+				require.NoError(t, err)
+				_, _, target, ok := f.storedGrant(t, profileID)
+				require.True(t, ok)
+				require.Equal(t, base+"/mcp", target)
+			}
+
+			// An agent of either profile reaches the URL the grant is for, and is ready.
+			var stored v1.VMCP
+			require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
+			stored.Spec.Manifest.Components = stored.Spec.Manifest.Components[:1]
+			checks := vmcpconfig.AgentReadinessChecks{OAuth: vmcpconfig.ProfileOAuthGrantCheck{Grants: f.grants}}
+			for _, agentID := range []uint{7, 8} {
+				readiness, err := checks.AgentReadiness(t.Context(), stored, v1.VMCPInstance{}, profileGrantAgent(agentID))
+				require.NoError(t, err)
+				require.Empty(t, readiness.Reasons, "agent %d", agentID)
+			}
+
+			// The wildcard's URL changes while an authorization of its grant waits for its callback: the callback is
+			// refused, and its attempt consumed.
+			state, err := f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+			require.NoError(t, err)
+			f.configure(t, profileGrantAgents, tt.value(base, "/moved"))
+			_, err = f.callback(administrator("1"), state)
+			requireErrHTTP(t, err, http.StatusConflict)
+			_, err = f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+			require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+
+			// Both grants were authorized for the old URL, which neither profile's agents reach any more.
+			require.NoError(t, f.storage.Get(t.Context(), f.key, &stored))
+			for _, profileID := range []string{profileGrantSeven, profileGrantAgents} {
+				status, err := f.grants.ProfileOAuthStatus(t.Context(), stored, profileID)
+				require.NoError(t, err)
+				require.Equal(t, types.VMCPProfileOAuthInvalid, status[profileGrantRemote].State, profileID)
+			}
+		})
+	}
+
+	// An ambiguous fallback is a conflict, as for the vMCP's other ambiguous cases.
+	f := newProfileGrantFixture(t)
+	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
+	var vmcp v1.VMCP
+	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+	vmcp.Spec.Manifest.Profiles = append(vmcp.Spec.Manifest.Profiles, types.VMCPProfile{
+		ID:          "vp1everyone",
+		Name:        "everyone",
+		Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: types.SubjectWildcardID}},
+		Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+	})
+	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+	_, err := f.start(t, administrator("1"), profileGrantSeven, profileGrantRemote)
+	requireErrHTTP(t, err, http.StatusConflict)
+}
+
+// profileGrantAgent returns the principal of the agent with id.
+func profileGrantAgent(id uint) kuser.Info {
+	extra := map[string][]string{}
+	principal.RecordKind(extra, principal.KindAgent)
+	uid := principal.Agent(id).String()
+	return &kuser.DefaultInfo{Name: uid, UID: uid, Groups: []string{types.GroupMCP, types.GroupAuthenticated}, Extra: extra}
 }

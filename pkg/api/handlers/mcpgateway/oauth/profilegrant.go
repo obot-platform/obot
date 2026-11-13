@@ -42,9 +42,10 @@ func (f *MCPOAuthHandlerFactory) SetProfileOAuthGrants(grants *vmcpconfig.Profil
 // administrator opens; the provider redirects back to the MCP OAuth callback (oauthCallback), which stores the grant
 // (completeProfileGrantCallback).
 //
-// The profile must be agent-capable, and the component a remote server whose upstream URL its definition fixes
-// (vmcpconfig.StaticComponentTargetURL), the URL the grant is bound to. The pending authorization is stored for the
-// profile's grant owner, never the administrator, bound to the administrator and to the component's definition. The
+// The profile must be agent-capable, and the component a remote server. The grant is bound to the upstream URL that an
+// agent using the profile's grants reaches (profileGrantTargetURL): the URL the component's definition fixes, or else
+// the one its URL configuration resolves to for the profile. The pending authorization is stored for the profile's
+// grant owner, never the administrator, bound to the administrator, to that URL, and to the component's definition. The
 // OAuth client is resolved as for any authorization: the catalog's static credentials first, then a client ID
 // metadata document, then dynamic registration. The grant holds only the authorization; the static credentials stay
 // the catalog's.
@@ -63,11 +64,15 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	} else if err != nil {
 		return "", err
 	}
-	_, component, err := vmcpconfig.ProfileOAuthGrantTarget(&vmcp, profileID, componentID)
+	profile, component, err := vmcpconfig.ProfileOAuthGrantTarget(&vmcp, profileID, componentID)
 	if err != nil {
 		return "", err
 	}
-	server, cfg, err := profileGrantServer(vmcp, component)
+	target, err := f.profileGrantTargetURL(req.Context(), vmcp, profile, component)
+	if err != nil {
+		return "", err
+	}
+	server, cfg, err := profileGrantServer(vmcp, component, target)
 	if err != nil {
 		return "", err
 	}
@@ -98,16 +103,34 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 	return authURL, nil
 }
 
-// profileGrantServer returns the server a profile's grant for component is authorized against, built from the
-// component's definition alone: grants are bound to the one upstream URL that the definition fixes, so no one's
-// configuration and no component server is needed. A component whose URL comes from each connection's configuration
-// is refused, because no single URL could bind its grant. Neither carries a configured header or credential: OAuth
-// discovery and the code exchange never send them.
-func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent) (v1.MCPServer, mcp.ServerConfig, error) {
-	target, ok := vmcpconfig.StaticComponentTargetURL(component)
-	if !ok {
-		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("component %q has no fixed upstream URL, so a profile cannot hold one OAuth grant for every agent of it", component.ID)
+// profileGrantTargetURL returns the upstream URL a profile's grant for component is bound to: the URL that the
+// connection of an agent using the profile's grants reaches (vmcpconfig.ProfileGrantSelection). For a component whose
+// definition fixes the URL, that is the fixed URL. Otherwise it is resolved from configuration as the agent's component
+// server is configured (mcp.SessionManager.ComponentTarget): the profile's own values, then, for the required values
+// the profile does not set, the wildcard profile's, or the wildcard profile's alone when the profile is it, and the
+// vMCP's fixed values. A URL that needs a value no profile sets is refused until an administrator configures the
+// profile; one that needs it from an ambiguous fallback is a conflict, as for the vMCP's other ambiguous cases; and one
+// that does not satisfy the component's hostname is refused, as configuring it is.
+func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent) (string, error) {
+	target, refused, err := vmcpconfig.ProfileGrantTarget(ctx, f.mcpSessionManager, vmcp, profile, component)
+	switch {
+	case err != nil:
+		return "", err
+	case refused != nil:
+		return "", refused
+	case target.AmbiguousFallback:
+		return "", types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("the upstream URL of component %q needs a value that profile %q falls back for, and more than one profile of vMCP %q names every agent; leave at most one such profile first", component.ID, profile.ID, vmcp.Name))
+	case target.URL == "":
+		return "", types.NewErrBadRequest("the upstream URL of component %q needs %s, which profile %q does not configure; configure the profile first", component.ID, strings.Join(target.Missing, ", "), profile.ID)
 	}
+	return target.URL, nil
+}
+
+// profileGrantServer returns the server a profile's grant for component is authorized against, at target, the URL the
+// grant is bound to (profileGrantTargetURL), and otherwise built from the component's definition alone: no component
+// server is needed. Neither carries a configured header or credential: OAuth discovery and the code exchange never send
+// them.
+func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent, target string) (v1.MCPServer, mcp.ServerConfig, error) {
 	remote := component.CatalogEntry.Manifest.RemoteConfig
 	if remote.LocalhostCallbackEnabled {
 		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("component %q authorizes through a localhost callback, which a profile's OAuth grant cannot use", component.ID)
@@ -148,8 +171,9 @@ func profileGrantServer(vmcp v1.VMCP, component types.VMCPComponent) (v1.MCPServ
 //     without consuming the attempt, so its administrator can still complete it.
 //   - The attempt has not expired, and is consumed, so no callback, from anyone, can use it again.
 //   - The vMCP, the profile and the component still exist, the profile can still hold grants, and the component
-//     still has the upstream URL and definition the authorization started with. This is checked before the code is
-//     exchanged, and again, from a fresh read, as the grant is stored (vmcpconfig.ProfileOAuthGrantStore.Authorize).
+//     still has the definition the authorization started with, and still reaches the same upstream URL for the
+//     profile: a change to the profile's URL configuration in between refuses the grant. This is checked before the
+//     code is exchanged, and again, from a fresh read, as the grant is stored (vmcpconfig.ProfileOAuthGrantStore.Authorize).
 func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, pending *gatewaytypes.MCPOAuthPendingState) error {
 	if f.profileGrants == nil {
 		return fmt.Errorf("vMCP profile OAuth grants are not configured")
@@ -171,12 +195,17 @@ func (f *MCPOAuthHandlerFactory) completeProfileGrantCallback(req api.Context, p
 	}
 
 	key := kclient.ObjectKey{Namespace: req.Namespace(), Name: vmcpID}
-	check := func(vmcp *v1.VMCP, _ types.VMCPProfile, component types.VMCPComponent) error {
-		target, ok := vmcpconfig.StaticComponentTargetURL(component)
-		if !ok || target != pending.URL || vmcpconfig.ProfileOAuthGrantDefinitionHash(component) != pending.GrantDefinitionHash {
-			return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("component %q of vMCP %q changed since its authorization started; start a new authorization", component.ID, vmcp.Name))
+	check := func(vmcp *v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent) error {
+		changed := types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("component %q of vMCP %q changed since its authorization started; start a new authorization", component.ID, vmcp.Name))
+		if vmcpconfig.ProfileOAuthGrantDefinitionHash(component) != pending.GrantDefinitionHash {
+			return changed
 		}
-		return nil
+		target, err := f.profileGrantTargetURL(req.Context(), *vmcp, profile, component)
+		if _, refused := errors.AsType[*types.ErrHTTP](err); refused || err == nil && target != pending.URL {
+			// The URL the profile's agents reach is not the one the administrator authorized, or no longer resolves.
+			return changed
+		}
+		return err
 	}
 	var vmcp v1.VMCP
 	err := req.Storage.Get(req.Context(), key, &vmcp)

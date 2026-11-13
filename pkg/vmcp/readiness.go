@@ -52,8 +52,13 @@ type ReadinessReason struct {
 	Field string `json:"field,omitempty"`
 	// ProfileID is the profile where an administrator fixes the reason: the agent's explicit profile if it has one,
 	// otherwise the wildcard profile it falls back to. It is empty for ReadinessSelectionAmbiguous, which is fixed by
-	// leaving one wildcard profile rather than in any profile's setup.
+	// leaving one wildcard profile rather than in any profile's setup. For ReadinessOAuthInvalid, it is the profile that
+	// holds the grant.
 	ProfileID string `json:"profileID,omitempty"`
+	// URLProfileID is, for ReadinessOAuthInvalid because the grant was authorized for another upstream URL than the one
+	// the agent's connection reaches, the profile whose configuration sets the URL the agent reaches. An administrator
+	// authorizes the grant again, or gives that profile its own grant.
+	URLProfileID string `json:"urlProfileID,omitempty"`
 }
 
 // Readiness is whether an agent can use a vMCP. Any reason blocks the whole connection: an agent is never served a

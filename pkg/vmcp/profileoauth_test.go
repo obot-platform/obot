@@ -611,3 +611,28 @@ func TestProfileGrantOwnerIsNeverACaller(t *testing.T) {
 		require.Error(t, err, "kind %q", kind)
 	}
 }
+
+// TestProfileGrantSelection checks the agent a profile's grants are bound for: one whose explicit profile is the
+// profile, falling back to the wildcard profile, or one that has only the wildcard profile when the profile is it.
+func TestProfileGrantSelection(t *testing.T) {
+	explicit, wildcard := explicitAgentProfile(grantExplicit, "7"), everyAgentProfile(grantWildcard, types.SubjectTypeAgent)
+	manifest := types.VMCPManifest{Profiles: []types.VMCPProfile{explicit, wildcard}}
+
+	selection := ProfileGrantSelection(manifest, explicit)
+	require.Equal(t, grantExplicit, selection.Explicit.ID)
+	require.Equal(t, grantWildcard, selection.Wildcard.ID)
+	require.False(t, selection.Ambiguous)
+
+	selection = ProfileGrantSelection(manifest, wildcard)
+	require.Nil(t, selection.Explicit)
+	require.Equal(t, grantWildcard, selection.Wildcard.ID)
+
+	// Without a wildcard profile, the profile has no fallback; with several, its fallback is ambiguous.
+	selection = ProfileGrantSelection(types.VMCPManifest{Profiles: []types.VMCPProfile{explicit}}, explicit)
+	require.Equal(t, grantExplicit, selection.Explicit.ID)
+	require.Nil(t, selection.Wildcard)
+	require.False(t, selection.Ambiguous)
+	selection = ProfileGrantSelection(types.VMCPManifest{Profiles: []types.VMCPProfile{explicit, legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)}}, explicit)
+	require.Nil(t, selection.Wildcard)
+	require.True(t, selection.Ambiguous)
+}

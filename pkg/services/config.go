@@ -831,6 +831,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		OAuth:         vmcp.ProfileOAuthGrantCheck{Grants: vmcpProfileOAuthGrants},
 	})
 	mcpSessionManager.SetProfileOAuthGrants(vmcpProfileOAuthGrants)
+	// Grants of components whose URL comes from profile configuration are bound to the URL it resolves to.
+	vmcpProfileOAuthGrants.SetComponentTargets(mcpSessionManager)
 
 	acrGVK, err := r.Backend().GroupVersionKindFor(&v1.AccessControlRule{})
 	if err != nil {

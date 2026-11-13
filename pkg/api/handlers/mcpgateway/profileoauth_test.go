@@ -62,12 +62,12 @@ func TestAgentGrantFailuresAreReportedAsInvalid(t *testing.T) {
 	}, readAgentFailure(t, bytes.NewReader(response.body)))
 
 	componentHop := api.Context{User: agentLoopbackCaller("vmcpi1agent")}
-	response = agentOAuthGrantInvalidResponse(componentHop, "granted", "vp1agents")
+	response = agentOAuthGrantInvalidResponse(componentHop, "granted", "vp1agents", "")
 	require.Equal(t, http.StatusUnauthorized, response.status)
 	require.Empty(t, response.headers.Values("WWW-Authenticate"))
 	require.NotEmpty(t, mmmcpcomponent.AuthorizationChallenges(&http.Response{StatusCode: response.status, Header: response.headers}), "the composite must read the refusal as the component's authorization failure")
 
-	response = agentOAuthGrantInvalidResponse(api.Context{User: agentKeyCaller()}, "granted", "vp1agents")
+	response = agentOAuthGrantInvalidResponse(api.Context{User: agentKeyCaller()}, "granted", "vp1agents", "")
 	require.Equal(t, http.StatusConflict, response.status)
 	require.Empty(t, response.headers.Values("WWW-Authenticate"))
 	require.Equal(t, vmcpaccess.AgentReadinessFailure{

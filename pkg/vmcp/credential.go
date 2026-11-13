@@ -194,3 +194,26 @@ func ValidateAndEncodeUserConfiguration(manifest types.VMCPManifest, configurati
 	}
 	return result, nil
 }
+
+// ComponentServerConfiguration returns the configuration a component's server is given, by plain key: the vMCP's
+// fixed values (staticConfiguration, keyed by ConfigurationKey) for its fixed keys, and the connection's own values
+// (userConfiguration, likewise keyed) for its user-allowed keys, which for an agent are those its profiles resolve to.
+func ComponentServerConfiguration(component types.VMCPComponent, staticConfiguration, userConfiguration map[string]string) map[string]string {
+	configuration := make(map[string]string)
+	for _, policy := range component.Configuration {
+		var source map[string]string
+		switch policy.Policy {
+		case types.VMCPConfigurationPolicyFixed:
+			source = staticConfiguration
+		case types.VMCPConfigurationPolicyUserAllowed:
+			source = userConfiguration
+		default:
+			continue
+		}
+
+		if value, ok := source[ConfigurationKey(component.ID, policy.Key)]; ok {
+			configuration[policy.Key] = value
+		}
+	}
+	return configuration
+}

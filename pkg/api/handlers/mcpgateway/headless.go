@@ -116,13 +116,13 @@ func agentOAuthRequiredResponse(cfg mcp.ServerConfig, challenges []*component.Au
 // authorization failure, and answers the agent with a 409 that names the component and the grant as invalid
 // (agentOAuthRequiredResponse). Anywhere else the agent is answered with that 409 directly. Neither carries
 // WWW-Authenticate, and no challenge is created.
-func agentOAuthGrantInvalidResponse(req api.Context, componentID, profileID string) *mcpResponse {
+func agentOAuthGrantInvalidResponse(req api.Context, componentID, profileID, urlProfileID string) *mcpResponse {
 	if principal.IsComponentHop(req.User) {
 		return mcpTextResponse(http.StatusUnauthorized, "MCP server requires authentication")
 	}
 	return agentReadinessResponse(vmcpaccess.AgentReadinessFailure{
 		Error:   vmcpaccess.AgentOAuthRequiredError,
-		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: profileID}},
+		Reasons: []vmcpaccess.ReadinessReason{{ComponentID: componentID, Code: vmcpaccess.ReadinessOAuthInvalid, ProfileID: profileID, URLProfileID: urlProfileID}},
 	})
 }
 

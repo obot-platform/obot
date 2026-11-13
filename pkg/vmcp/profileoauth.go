@@ -3,6 +3,7 @@ package vmcp
 import (
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -46,6 +47,31 @@ type ProfileOAuthGrantGateway interface {
 // deletes no grant: grants belong to profiles.
 type ProfileOAuthGrantStore struct {
 	gateway ProfileOAuthGrantGateway
+	// targets resolves the URL an agent's connection to a component reaches, for components whose definition does
+	// not fix it. Without it, only a component's fixed URL is compared with its grants'.
+	targets ComponentTargetResolver
+}
+
+// ComponentTarget is the upstream URL that a component's connection reaches for an agent, as the agent's component
+// server is configured: from the vMCP's fixed values and the values the agent's profiles resolve to.
+type ComponentTarget struct {
+	// URL is the URL. It is empty when a value it needs is missing or ambiguous.
+	URL string
+	// Missing are the keys the URL needs that no profile of the agent, and not the vMCP, supplies.
+	Missing []string
+	// AmbiguousFallback reports that the URL needs a value the agent would fall back for, and the profile it would fall
+	// back to is ambiguous (AgentSelection.Ambiguous).
+	AmbiguousFallback bool
+	// ProfileIDs are the profiles whose configuration supplies a value the URL needs, the explicit profile first. It is
+	// empty for a URL the component's definition, or the vMCP, fixes.
+	ProfileIDs []string
+}
+
+// ComponentTargetResolver resolves the upstream URL that a component's connection reaches for an agent whose profiles
+// apply to it as selection, from the same values, resolved the same way (ResolveComponentConfiguration), as the agent's
+// component server is given. The MCP session manager implements it.
+type ComponentTargetResolver interface {
+	ComponentTarget(ctx context.Context, vmcp v1.VMCP, selection AgentSelection, component types.VMCPComponent) (ComponentTarget, error)
 }
 
 // AgentOAuthGrant is the grant an agent uses for one component, selected from the agent's profiles
@@ -69,14 +95,18 @@ type AgentOAuthGrant struct {
 	InvalidReason string
 	// URL is the upstream URL the grant was authorized for.
 	URL string
+	// URLProfileID is, for a grant that is invalid because the agent's connection reaches another URL than the one it
+	// was authorized for (CheckAgentGrantTargets), the profile whose configuration sets the URL the agent reaches.
+	URLProfileID string
 }
 
 // ProfileOAuthGrantCheck is the OAuth source of agent readiness (AgentReadinessChecks.OAuth). It selects the grant an
 // agent uses for each component as the MCP gateway does when it connects the agent (SelectAgentGrants), and reports:
 //
-//   - ReadinessOAuthInvalid, fixed in the profile that holds it, for a grant that no longer works. The agent never
-//     falls back from a broken grant, so a broken explicit grant blocks the component even when the wildcard profile
-//     holds a working one.
+//   - ReadinessOAuthInvalid, fixed in the profile that holds it, for a grant that no longer works, including one
+//     authorized for another upstream URL than the one the agent's connection reaches (CheckAgentGrantTargets), with
+//     the profile that configures the agent's URL. The agent never falls back from a broken grant, so a broken explicit
+//     grant blocks the component even when the wildcard profile holds a working one.
 //   - ReadinessOAuthRequired, fixed in the agent's explicit profile if it has one and otherwise in the wildcard, for a
 //     component that is known to need OAuth (ComponentRequiresOAuth) when no profile of the agent holds a grant.
 //   - AmbiguousFallbackReason for such a component when the agent's explicit profile holds none and the fallback is
@@ -90,6 +120,30 @@ type ProfileOAuthGrantCheck struct {
 
 func NewProfileOAuthGrantStore(gateway ProfileOAuthGrantGateway) *ProfileOAuthGrantStore {
 	return &ProfileOAuthGrantStore{gateway: gateway}
+}
+
+// SetComponentTargets sets the resolver of the URLs agents' connections to components reach, which grants are bound to
+// for components whose definition does not fix the URL. Set it before the store is used.
+func (s *ProfileOAuthGrantStore) SetComponentTargets(targets ComponentTargetResolver) {
+	s.targets = targets
+}
+
+// ProfileGrantSelection returns how the profiles of manifest apply to an agent that uses profile's grants: an agent
+// whose explicit profile is profile, which falls back to the wildcard profile for the required values profile does not
+// set, or, when profile is the wildcard profile, an agent that has only it. The URL a grant is authorized for is the
+// URL that such an agent's connection reaches.
+func ProfileGrantSelection(manifest types.VMCPManifest, profile types.VMCPProfile) AgentSelection {
+	selection := AgentSelection{Profiles: []types.VMCPProfile{profile}}
+	switch wildcards := manifest.AgentWildcardProfiles(); {
+	case len(wildcards) == 1 && wildcards[0].ID == profile.ID:
+		selection.Wildcard = &profile
+	case len(wildcards) == 1:
+		wildcard := wildcards[0]
+		selection.Explicit, selection.Wildcard = &profile, &wildcard
+	default:
+		selection.Explicit, selection.Ambiguous = &profile, len(wildcards) > 1
+	}
+	return selection
 }
 
 // ProfileOAuthGrantMCPID is the MCPID of the token of a profile's grant for a component. Grants are per component, not
@@ -112,7 +166,8 @@ func ComponentRequiresOAuth(component types.VMCPComponent) bool {
 
 // StaticComponentTargetURL returns the upstream URL that every connection to a component reaches, when the
 // component's definition fixes it, so that a grant can be checked against it without resolving anyone's
-// configuration. The MCP gateway checks the grant against the URL it actually connects to on every use either way.
+// configuration. Otherwise the URL comes from configuration (ComponentTargetResolver). The MCP gateway checks the grant
+// against the URL it actually connects to on every use either way.
 func StaticComponentTargetURL(component types.VMCPComponent) (string, bool) {
 	remote := component.CatalogEntry.Manifest.RemoteConfig
 	if !ComponentUsesOAuth(component) || remote == nil || remote.FixedURL == "" {
@@ -255,6 +310,96 @@ func grantState(grant gatewaytypes.MCPOAuthGrantMetadata, component types.VMCPCo
 	return types.VMCPProfileOAuthAuthorized, ""
 }
 
+// CheckAgentGrantTargets compares the URL each usable grant among grants, selected for an agent with selection
+// (SelectAgentGrants), was authorized for with the URL the agent's connection to its component reaches, for each
+// component whose definition does not fix the URL, and marks a grant whose URL differs invalid, naming the profile that
+// sets the URL the agent reaches. The agent's URL comes from its own profiles' configuration, so an agent whose explicit
+// profile sets the URL but holds no grant, and which falls back to the wildcard profile's grant for another URL, is
+// refused rather than sent to its own URL with the wildcard's grant. A URL that cannot be resolved leaves the grant as
+// it is: the agent lacks configuration, which configuration readiness reports. Without a resolver, nothing is compared
+// here; the MCP gateway still refuses a mismatch when it connects the agent.
+func (s *ProfileOAuthGrantStore) CheckAgentGrantTargets(ctx context.Context, vmcp v1.VMCP, selection AgentSelection, components []types.VMCPComponent, grants []AgentOAuthGrant) error {
+	if s.targets == nil {
+		return nil
+	}
+	for i := range grants {
+		if !grants[i].Usable() || i >= len(components) || components[i].ID != grants[i].ComponentID {
+			continue
+		}
+		if _, static := StaticComponentTargetURL(components[i]); static {
+			continue
+		}
+		target, err := s.targets.ComponentTarget(ctx, vmcp, selection, components[i])
+		if _, refused := errors.AsType[*types.ErrHTTP](err); refused {
+			// The configured URL no longer satisfies the component, so no grant can be used for it.
+			grants[i].State, grants[i].InvalidReason = types.VMCPProfileOAuthInvalid, err.Error()
+			continue
+		} else if err != nil {
+			return fmt.Errorf("resolve the upstream URL of component %q: %w", components[i].ID, err)
+		}
+		if target.URL == "" || target.URL == grants[i].URL {
+			continue
+		}
+		grants[i].State = types.VMCPProfileOAuthInvalid
+		grants[i].URLProfileID, grants[i].InvalidReason = GrantTargetMismatch(target, grants[i].ProfileID)
+	}
+	return nil
+}
+
+// ResolveComponentTarget resolves the upstream URL that a component's connection reaches for an agent whose profiles
+// apply to it as selection: the URL the component's definition fixes (StaticComponentTargetURL), without resolving
+// anything, or else the one that targets resolves from configuration. Without targets, a URL that comes from
+// configuration is left empty. refused is the error, an ErrHTTP that names no URL, of a configured URL that no longer
+// satisfies the component; err is any other failure to resolve it.
+func ResolveComponentTarget(ctx context.Context, targets ComponentTargetResolver, vmcp v1.VMCP, selection AgentSelection, component types.VMCPComponent) (target ComponentTarget, refused, err error) {
+	if url, ok := StaticComponentTargetURL(component); ok {
+		return ComponentTarget{URL: url}, nil, nil
+	}
+	if targets == nil {
+		return ComponentTarget{}, nil, nil
+	}
+	target, err = targets.ComponentTarget(ctx, vmcp, selection, component)
+	if _, ok := errors.AsType[*types.ErrHTTP](err); ok {
+		return ComponentTarget{}, err, nil
+	}
+	return target, nil, err
+}
+
+// ProfileGrantTarget resolves, as ResolveComponentTarget does, the upstream URL that a profile's grant for component
+// is bound to: the URL that the connection of an agent using the profile's grants reaches (ProfileGrantSelection).
+func ProfileGrantTarget(ctx context.Context, targets ComponentTargetResolver, vmcp v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent) (target ComponentTarget, refused, err error) {
+	return ResolveComponentTarget(ctx, targets, vmcp, ProfileGrantSelection(vmcp.Spec.Manifest, profile), component)
+}
+
+// GrantTargetMismatch explains a grant of grantProfileID that was authorized for another URL than target, the URL an
+// agent's connection reaches, without either URL. It returns the profile, among those that configure target, that an
+// administrator looks at: the first other than the grant's, or the grant's own when only it configures the URL.
+func GrantTargetMismatch(target ComponentTarget, grantProfileID string) (urlProfileID, reason string) {
+	for _, id := range target.ProfileIDs {
+		if id != grantProfileID {
+			urlProfileID = id
+			break
+		}
+	}
+	if urlProfileID == "" && len(target.ProfileIDs) > 0 {
+		urlProfileID = target.ProfileIDs[0]
+	}
+	return urlProfileID, targetMismatchReason(grantProfileID, urlProfileID)
+}
+
+// targetMismatchReason explains a grant of grantProfileID authorized for another URL than the one the agent's
+// connection reaches, as set by urlProfileID, without either URL.
+func targetMismatchReason(grantProfileID, urlProfileID string) string {
+	switch urlProfileID {
+	case "":
+		return fmt.Sprintf("the grant of profile %q was authorized for another upstream URL than the one the vMCP now configures", grantProfileID)
+	case grantProfileID:
+		return fmt.Sprintf("the upstream URL that profile %q configures changed since its grant was authorized", grantProfileID)
+	default:
+		return fmt.Sprintf("the grant of profile %q was authorized for another upstream URL than the one profile %q configures for the agent", grantProfileID, urlProfileID)
+	}
+}
+
 // Usable reports whether the agent has a grant for the component that works.
 func (g AgentOAuthGrant) Usable() bool {
 	return g.ProfileID != "" && g.State == types.VMCPProfileOAuthAuthorized
@@ -265,7 +410,7 @@ func (g AgentOAuthGrant) Usable() bool {
 func (g AgentOAuthGrant) ReadinessReasons(component types.VMCPComponent, selection AgentSelection) []ReadinessReason {
 	switch {
 	case g.ProfileID != "" && g.State != types.VMCPProfileOAuthAuthorized:
-		return []ReadinessReason{{ComponentID: component.ID, Code: ReadinessOAuthInvalid, ProfileID: g.ProfileID}}
+		return []ReadinessReason{{ComponentID: component.ID, Code: ReadinessOAuthInvalid, ProfileID: g.ProfileID, URLProfileID: g.URLProfileID}}
 	case g.ProfileID != "" || !ComponentRequiresOAuth(component):
 		return nil
 	case g.AmbiguousFallback:
@@ -290,8 +435,13 @@ func (c ProfileOAuthGrantCheck) ComponentReadiness(ctx context.Context, in Agent
 	if c.Grants == nil {
 		return UnsupportedAgentOAuth{}.ComponentReadiness(ctx, in, component)
 	}
-	grants, err := c.Grants.SelectAgentGrants(ctx, in.VMCP, in.Selection, []types.VMCPComponent{component})
+	components := []types.VMCPComponent{component}
+	grants, err := c.Grants.SelectAgentGrants(ctx, in.VMCP, in.Selection, components)
 	if err != nil {
+		return nil, err
+	}
+	// The MCP gateway refuses a grant for another URL than the agent's connection reaches; readiness says so first.
+	if err := c.Grants.CheckAgentGrantTargets(ctx, in.VMCP, in.Selection, components, grants); err != nil {
 		return nil, err
 	}
 	return grants[0].ReadinessReasons(component, in.Selection), nil
@@ -323,6 +473,11 @@ func (s *ProfileOAuthGrantStore) ProfileOAuthStatus(ctx context.Context, vmcp v1
 				continue
 			}
 			status.State, status.InvalidReason = grantState(grant, component)
+			if status.State == types.VMCPProfileOAuthAuthorized {
+				if status.State, status.InvalidReason, err = s.profileTargetState(ctx, vmcp, profileID, component, grant); err != nil {
+					return nil, err
+				}
+			}
 			status.Target = grant.URL
 			status.Scopes = strings.Fields(grant.Scopes)
 			if p, err := principal.Parse(grant.AuthorizedBy); err == nil {
@@ -335,6 +490,35 @@ func (s *ProfileOAuthGrantStore) ProfileOAuthStatus(ctx context.Context, vmcp v1
 		result[component.ID] = status
 	}
 	return result, nil
+}
+
+// profileTargetState is whether a profile's grant for a component whose definition does not fix its URL is still for
+// the URL that an agent using the profile's grants reaches (ProfileGrantSelection): a change to the URL configuration
+// since the grant was authorized, the profile's own or the one it falls back to, makes it invalid. Without a resolver,
+// the grant is reported as authorized.
+func (s *ProfileOAuthGrantStore) profileTargetState(ctx context.Context, vmcp v1.VMCP, profileID string, component types.VMCPComponent, grant gatewaytypes.MCPOAuthGrantMetadata) (string, string, error) {
+	if _, static := StaticComponentTargetURL(component); static || s.targets == nil {
+		return types.VMCPProfileOAuthAuthorized, "", nil
+	}
+	index := slices.IndexFunc(vmcp.Spec.Manifest.Profiles, func(profile types.VMCPProfile) bool { return profile.ID == profileID })
+	if index < 0 {
+		return types.VMCPProfileOAuthAuthorized, "", nil
+	}
+	target, err := s.targets.ComponentTarget(ctx, vmcp, ProfileGrantSelection(vmcp.Spec.Manifest, vmcp.Spec.Manifest.Profiles[index]), component)
+	if _, refused := errors.AsType[*types.ErrHTTP](err); refused {
+		return types.VMCPProfileOAuthInvalid, err.Error(), nil
+	} else if err != nil {
+		return "", "", fmt.Errorf("resolve the upstream URL of component %q: %w", component.ID, err)
+	}
+	switch target.URL {
+	case grant.URL:
+		return types.VMCPProfileOAuthAuthorized, "", nil
+	case "":
+		return types.VMCPProfileOAuthInvalid, fmt.Sprintf("the upstream URL the grant of profile %q was authorized for is no longer configured", profileID), nil
+	default:
+		_, reason := GrantTargetMismatch(target, profileID)
+		return types.VMCPProfileOAuthInvalid, reason, nil
+	}
 }
 
 // AddOAuthStatus adds to a profile's status the OAuth grants ProfileOAuthStatus reported for it.
