@@ -6,6 +6,7 @@
 	import type { AuditLogEvent } from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
+	import { restoreRawEvent } from './rawEvent';
 	import { X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -16,6 +17,7 @@
 
 	let { auditLog, onClose }: Props = $props();
 	const details = $derived(auditLog.details);
+	const rawEvent = $derived(details ? restoreRawEvent(details.rawEvent, details) : undefined);
 
 	function hasBody(body: unknown) {
 		if (body == null) return false;
@@ -152,8 +154,8 @@
 							details.response?.headers
 						)}
 					{/if}
-					{#if hasBody(details.rawEvent)}
-						{@render jsonBody(m.audit_usage_audit_logs_raw_event(), details.rawEvent)}
+					{#if hasBody(rawEvent)}
+						{@render jsonBody(m.audit_usage_audit_logs_raw_event(), rawEvent)}
 					{/if}
 					{#if details.environment || details.request?.headers || details.response?.headers || details.rawEvent}
 						<div class="divider my-0"></div>
