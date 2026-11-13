@@ -9,7 +9,7 @@ This guide is now organized into focused pages. Existing section links remain av
 - [Configure providers and models](../configuration/model-providers.md)
 - [Connect clients and applications](../llm-gateway/connect-clients.md)
 - [API compatibility](../llm-gateway/compatibility.md)
-- [Upgrading from model providers](../llm-gateway/upgrade.md)
+- [Upgrading from v0.27](../llm-gateway/upgrade.md)
 
 ## Overview {#overview}
 
@@ -107,21 +107,21 @@ See [Connect clients and applications](../llm-gateway/connect-clients.md#using-w
 
 See [Connect clients and applications](../llm-gateway/connect-clients.md#using-with-codex).
 
-## Upgrading from model providers {#upgrading-from-model-providers}
+## Upgrading from v0.27 {#upgrading-from-model-providers}
 
-See [Upgrading from model providers](../llm-gateway/upgrade.md).
+See [Upgrading from v0.27](../llm-gateway/upgrade.md).
 
 ## What happens on upgrade {#what-happens-on-upgrade}
 
-See [Upgrading from model providers](../llm-gateway/upgrade.md#what-happens-on-upgrade).
+See [Upgrading from v0.27](../llm-gateway/upgrade.md#what-happens-on-upgrade).
 
 ## Client routes {#client-routes}
 
-See [Upgrading from model providers](../llm-gateway/upgrade.md#client-routes).
+See [Upgrading from v0.27](../llm-gateway/upgrade.md#client-routes).
 
 ## Other changes {#other-changes}
 
-See [Upgrading from model providers](../llm-gateway/upgrade.md#other-changes).
+See [Upgrading from v0.27](../llm-gateway/upgrade.md#other-changes).
 
 ## Limitations {#limitations}
 

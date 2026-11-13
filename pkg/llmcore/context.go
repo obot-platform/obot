@@ -9,10 +9,20 @@ import (
 	"github.com/obot-platform/obot/pkg/llm"
 )
 
+type initialKeyContextKey struct{}
+
+// WithInitialKey selects the initial credential for a trusted HTTP request; routing rules
+// and fallback attempts may replace it. It is never populated from caller headers.
+func WithInitialKey(ctx context.Context, keyID string) context.Context {
+	return context.WithValue(ctx, initialKeyContextKey{}, keyID)
+}
+
 // requestContext forwards compatibility headers and privately retains an admitted
 // subscription credential. Only per-attempt admission can add it to outgoing headers.
 func (e *Engine) requestContext(r *http.Request) (*schemas.BifrostContext, context.CancelFunc) {
 	ctx, cancel := e.inferenceContext(r.Context())
+	ctx.SetValue(initialKeyContextKey{}, r.Context().Value(initialKeyContextKey{}))
+
 	if credential, _ := r.Context().Value(subscriptionTokenKey{}).(subscriptionCredentialValue); credential.token != "" {
 		ctx.SetValue(subscriptionTokenKey{}, credential)
 	}
@@ -58,6 +68,7 @@ func (e *Engine) inferenceContext(parent context.Context) (*schemas.BifrostConte
 	ctx, cancel := schemas.NewBifrostContextWithCancel(parent)
 	// A judge can run inside another inference call. Do not inherit its subscription
 	// credential or selection overrides; HTTP explicitly hands off its own token above.
+	ctx.SetValue(initialKeyContextKey{}, "")
 	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{})
 	ctx.SetValue(schemas.BifrostContextKeySkipKeySelection, false)
 	ctx.SetValue(schemas.BifrostContextKeyDirectKey, nil)

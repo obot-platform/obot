@@ -27,7 +27,11 @@ The alias must point to an active model, and the caller must have access to that
 
 ## The endpoint or request format is rejected
 
-Check the client's base URL against the example on **LLM Gateway**. The gateway serves the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats at one base URL for every model. Requests to a former per-provider route other than OpenAI and Anthropic get `410 Gone` with the new URL.
+:::warning Deprecated provider endpoints
+Legacy provider routes still support compatible operations, but are deprecated and will be removed in a future release. Migrate existing clients to `/api/llm-proxy/v1` with provider-qualified model names. See [Deprecated provider endpoints](./compatibility.md#deprecated-provider-endpoints).
+:::
+
+Check the client's base URL against the example on **LLM Gateway**. The gateway serves the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats at one base URL for every model. For a legacy URL, confirm that its corresponding gateway provider is configured and that the model belongs to that provider. Both AWS legacy routes select `bedrock`; use the unified endpoint with a `bedrock_mantle/` model name for Bedrock Mantle. Check the route's imported key when it is enabled and supports the requested model; otherwise check the provider's normal key pool. Unsupported legacy operations remain unavailable.
 
 For client-specific settings and known limits, see [Using with Claude Code](./connect-clients.md#using-with-claude-code), [Using with Codex](./connect-clients.md#using-with-codex) and [API compatibility](./compatibility.md#limitations).
 

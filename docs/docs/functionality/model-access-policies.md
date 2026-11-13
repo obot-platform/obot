@@ -100,7 +100,7 @@ The *Daily token limit* budget's limits come from `OBOT_SERVER_DAILY_USER_INPUT_
 
 ## Upgrades and Migration
 
-When upgrading from a version that used model providers, policies that named a model provider's model are re-pointed to the LLM gateway model for the same upstream model. See [Upgrading from model providers](../llm-gateway/upgrade.md). Wildcard patterns written for earlier versions matched provider-native IDs, such as `claude-haiku-4-5*`. They're replaced with the provider-qualified form, such as `anthropic/claude-haiku-4-5*`, for each provider whose models they matched. A pattern that matched no model is left as it was; add the provider to it yourself.
+When upgrading from v0.27, default aliases and explicit model IDs in Profiles are re-pointed to matching discovered gateway models. Profile subjects and associations remain unchanged. Wildcard patterns are not rewritten, and legacy model settings are not copied. Review users, groups, grants, defaults and pricing, then test allowed and denied requests as ordinary users. See [Upgrading from v0.27](../llm-gateway/upgrade.md) for migration details and the other upgrade changes.
 
 ## Managing Profiles
 
