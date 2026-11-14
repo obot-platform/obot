@@ -136,14 +136,13 @@ that leave the servers counted for the object as they are skip the lock.
   connections, so replicas take turns. SQLite runs one replica, so an in-process lock is enough.
 
   An update made without the lock can't change the count, whatever else is stored: storage refuses it with a conflict
-  if the object changed after it was read, and its servers are the same ones. Each kind compares only the fields that
-  decide its servers. For a vMCP, that's the ID, runtime and resources of each component, in order, and whether it's
-  multi-user. For an instance, it's its vMCP, the components it disables from a migration, and the same fields plus
-  the source digest of each snapshot it retains. A filter or system MCP server runs at most one server, decided by the
-  same code that counts it, and compares its runtime and resources.
-  One kind of update gets through uncounted: changing a vMCP component or its fixed configuration without changing
-  its server still releases the snapshot a migrated instance retains for it, and changing it back restores the
-  snapshot. The instance then runs a different server without a write to it.
+  if the object changed after it was read, and its servers are the same ones. Each kind compares only what decides
+  its servers. For a vMCP, that's each component, in order, and the hash of its fixed configuration: a change to
+  either releases the snapshot a migrated instance retains for the component, so that instance runs a different
+  server without a write to it. For an instance, it's its vMCP, the components it disables from a migration, and
+  each snapshot it retains: its source digest, ID, runtime and resources, and whether it's multi-user. A filter or
+  system MCP server runs at most one server, decided by the same code that counts it, and compares its runtime and
+  resources.
 
 What a server requests is its memory and CPU requests under the current K8s settings, with a limit counted when
 there's no request, as Kubernetes does. One server counts for each multi-user component of a vMCP, each single-user

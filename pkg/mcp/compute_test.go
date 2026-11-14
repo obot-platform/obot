@@ -513,15 +513,17 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 			},
 		},
 	}
-	// A new source digest doesn't change the component's server.
-	redigested := dedicated
-	redigested.SourceDigest = "updated"
-	// Nor does a new name.
+	// A new display name leaves the vMCP's components alone.
+	retitled := testVMCP("vmcp1", dedicated)
+	retitled.Spec.Manifest.DisplayName = "Retitled"
+	// A new name doesn't change the component's server, but releases the snapshot a migrated instance retains for it.
 	renamed := dedicated
 	renamed.Name = "renamed"
-	// Nor does setting resources that leave every value empty.
-	unset := dedicated
-	unset.CatalogEntry.Manifest.Resources = &types.MCPResourceRequirements{}
+	// So does new fixed configuration.
+	reconfigured := testVMCP("vmcp1", dedicated)
+	reconfigured.Spec.ComponentStaticConfigurationHashes = map[string]string{
+		dedicated.ID: "updated",
+	}
 	shared := dedicated
 	shared.ForceSingleUser = false
 	memory := func(miB int64) types.Entitlements {
@@ -667,22 +669,24 @@ func TestComputeAdmitterAdmit(t *testing.T) {
 			wantRefused: true,
 		},
 		{
-			name:    "a vMCP update that keeps its servers skips the lock",
+			name:    "a vMCP update that keeps its components skips the lock",
 			granted: memory(0),
-			obj:     testVMCP("vmcp1", redigested),
+			obj:     retitled,
 			update:  true,
 		},
 		{
-			name:    "a vMCP update that renames a component skips the lock",
-			granted: memory(0),
-			obj:     testVMCP("vmcp1", renamed),
-			update:  true,
+			name:     "a vMCP update that changes a component without changing its server takes the lock",
+			granted:  memory(0),
+			obj:      testVMCP("vmcp1", renamed),
+			update:   true,
+			wantLock: true,
 		},
 		{
-			name:    "a vMCP update that sets empty resources on a component skips the lock",
-			granted: memory(0),
-			obj:     testVMCP("vmcp1", unset),
-			update:  true,
+			name:     "a vMCP update that changes a component's fixed configuration takes the lock",
+			granted:  memory(0),
+			obj:      reconfigured,
+			update:   true,
+			wantLock: true,
 		},
 		{
 			name:     "a vMCP update that changes a component's requests takes the lock",

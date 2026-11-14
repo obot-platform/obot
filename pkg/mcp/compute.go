@@ -12,6 +12,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -287,9 +288,6 @@ func (a *ComputeAdmitter) Admit(ctx context.Context, obj kclient.Object, write f
 	}
 	if cannotRaise {
 		// The write can't raise compute, whatever else is stored, so it doesn't need the lock.
-		// One case gets through uncounted: changing a vMCP component or its fixed configuration without changing its
-		// server releases the snapshot a migrated instance retains for it (see vmcp.LegacyComponent), and changing it
-		// back restores it. That changes what the instance runs without a write to the instance.
 		return write()
 	}
 
@@ -381,10 +379,18 @@ func sameAsStored[T any, PT interface {
 	return same(stored, obj), nil
 }
 
-// sameVMCPServers reports whether two versions of a vMCP run the same servers: the same components, in order. Its
-// instances run its single-user components, so those count too.
+// sameVMCPServers reports whether two versions of a vMCP run the same servers: the same components, in order, each
+// with the same fixed configuration. Its instances run its single-user components, so those count too.
+//
+// A component counts as changed even when its server isn't. Changing it, or its fixed configuration, releases the
+// snapshot a migrated instance retains for it (see vmcp.LegacyComponent), so that instance runs a different server
+// without a write to it.
 func sameVMCPServers(stored, obj *v1.VMCP) bool {
-	return slices.EqualFunc(stored.Spec.Manifest.Components, obj.Spec.Manifest.Components, sameComponentServer)
+	return slices.EqualFunc(stored.Spec.Manifest.Components, obj.Spec.Manifest.Components, func(a, b types.VMCPComponent) bool {
+		// Compare what a retained snapshot is bound to.
+		return utils.Digest([]any{a, stored.Spec.ComponentStaticConfigurationHashes[a.ID]}) ==
+			utils.Digest([]any{b, obj.Spec.ComponentStaticConfigurationHashes[b.ID]})
+	})
 }
 
 // sameInstanceServers reports whether two versions of an instance pick the same servers from their vMCP. Its vMCP could
@@ -399,8 +405,8 @@ func sameInstanceServers(stored, obj *v1.VMCPInstance) bool {
 		})
 }
 
-// sameComponentServer reports whether two versions of a vMCP component run the same server: the same ID, which a
-// migrated instance retains and disables components by, shared or not, and the same requests.
+// sameComponentServer reports whether two versions of a snapshot an instance retains run the same server: the same
+// ID, which a migrated instance retains and disables components by, shared or not, and the same requests.
 func sameComponentServer(a, b types.VMCPComponent) bool {
 	return a.ID == b.ID &&
 		vmcpconfig.IsMultiUser(a) == vmcpconfig.IsMultiUser(b) &&
