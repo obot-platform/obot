@@ -49,7 +49,7 @@ const PROFICIENCY_MAP: Record<string, string> = {
  */
 const PREFERRED_SECTION_LANDING: Record<string, string> = {
   concepts: "concepts/mcp-hosting",
-  functionality: "functionality/overview",
+  functionality: "security/model",
   installation: "installation/overview",
   configuration: "configuration/auth-providers",
   enterprise: "enterprise/overview",

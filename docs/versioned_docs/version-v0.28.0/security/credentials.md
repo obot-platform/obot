@@ -7,7 +7,7 @@ Obot credentials serve different connections. Manage them according to their own
 | Credential | Configure and revoke |
 |---|---|
 | Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md); deleting a scope invalidates its keys |
-| Upstream MCP OAuth application | [Static OAuth](../configuration/mcp-server-oauth-configuration.md); changing application credentials can interrupt use |
+| Upstream MCP OAuth application | [Static OAuth](../mcp-gateway/server-configuration.md#static-oauth); changing application credentials can interrupt use |
 | Shared or user-supplied MCP configuration | [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) |
 | Externally managed Kubernetes Secret | [Secret bindings](../concepts/mcp-hosting.md#mcp-servers-kubernetes-secret-bindings), including the required discovery/resolution label |
 | Private image registry credential | [Image Pull Secrets](../configuration/image-pull-secrets.md) |

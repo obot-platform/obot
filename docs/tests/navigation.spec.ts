@@ -1,5 +1,8 @@
 import { test, expect, type Locator } from '@playwright/test';
+import { readFileSync } from 'node:fs';
 import versions from '../versions.json';
+
+const olderVersionPrefixes = versions.slice(1).map(version => `/${version}`);
 
 test('current documentation navigation and direct loads', async ({ page }) => {
   test.setTimeout(240_000);
@@ -46,14 +49,72 @@ test('current documentation navigation and direct loads', async ({ page }) => {
   }
 });
 
-test('bookmarked guide sections lead directly to their relocated procedures', async ({ page }) => {
+test('Cloudflare redirects consolidated guides within their documentation version', async ({ page, request }) => {
+  const rules = readFileSync(`${__dirname}/../static/_redirects`, 'utf8')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .map(line => line.split(/\s+/));
+  const destinations = new Set<string>();
+  expect(rules.length).toBeGreaterThan(0);
+  for (const [source, destination, status] of rules) {
+    expect(status, source).toBe('302');
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(Number(status));
+    expect(response.headers().location, source).toBe(destination);
+    destinations.add(destination);
+    if (source.endsWith('/')) {
+      // Redirects must not leave empty documentation pages in the Markdown corpus.
+      const markdown = `${source.slice(0, -1)}.md`;
+      expect((await request.get(markdown, { maxRedirects: 0 })).status(), markdown).toBe(404);
+      if (!source.startsWith('/next/') && !olderVersionPrefixes.some(prefix => source.startsWith(`${prefix}/`))) {
+        const pinned = `/${versions[0]}${markdown}`;
+        expect((await request.get(pinned, { maxRedirects: 0 })).status(), pinned).toBe(404);
+      }
+    }
+  }
+  for (const destination of destinations) {
+    const response = await request.get(destination, { maxRedirects: 0 });
+    expect(response.status(), destination).toBe(200);
+    expect(await response.text(), destination).toContain('<article');
+  }
+  for (const prefix of ['', '/next', ...olderVersionPrefixes]) {
+    const source = `${prefix}/functionality/mcp-servers/`;
+    const response = await request.get(source, { maxRedirects: 0 });
+    expect(response.status(), source).toBe(200);
+    expect(await response.text(), source).toContain('single-user-server');
+  }
+  // Pre-refactor releases still have real guides at these paths. Do not send
+  // their readers into another version or a replacement that does not exist.
+  for (const version of ['v0.26.0', 'v0.25.0'].filter(version => versions.includes(version))) {
+    for (const source of ['/configuration/user-roles/', '/functionality/skills/']) {
+      const response = await request.get(`/${version}${source}`, { maxRedirects: 0 });
+      expect(response.status(), `${version}${source}`).toBe(200);
+    }
+  }
+  // Exact old fragments are deliberately not translated. The page itself
+  // redirects successfully even when the old section moved to another guide.
+  await page.goto('/next/functionality/virtual-mcps/#tools-and-profiles');
+  expect(new URL(page.url()).pathname).toBe('/next/mcp-gateway/server-types/');
+  expect(new URL(page.url()).hash).toBe('#tools-and-profiles');
+  await expect(page.locator('article').first()).toBeVisible();
+  for (const prefix of ['', '/next']) {
+    await page.goto(`${prefix}/configuration/mcp-server-oauth-configuration/#old-heading`);
+    expect(new URL(page.url()).pathname).toBe(`${prefix}/mcp-gateway/server-configuration/`);
+    expect(new URL(page.url()).hash).toBe('#static-oauth');
+    await expect(page.locator('#static-oauth')).toBeVisible();
+    await expect(page.locator('#credential-status-and-rotation')).toBeVisible();
+  }
+  // v0.27 has no shared server-configuration guide, so keep its OAuth reference.
+  if (versions.includes('v0.27.0')) {
+    const previousOAuth = await request.get('/v0.27.0/configuration/mcp-server-oauth-configuration/', { maxRedirects: 0 });
+    expect(previousOAuth.status()).toBe(200);
+  }
+});
+
+test('retained legacy MCP server sections still link to relocated procedures', async ({ page }) => {
   for (const [source, anchor, target] of [
-    ['functionality/virtual-mcps', 'tools-and-profiles', 'mcp-gateway/access'],
     ['functionality/mcp-servers', 'npx-nodetypescript-based-mcp-servers', 'concepts/mcp-hosting'],
-    ['functionality/skills', 'adding-a-source', 'registries/publish-skills'],
-    ['installation/enabling-authentication', 'step-1-set-environment-variables', 'configuration/auth-providers'],
-    ['functionality/audit-logs-and-usage', 'retention', 'security/audit-data'],
-    ['installation/cli-setup', 'basic-usage', 'reference/cli-api'],
   ]) {
     await page.goto(`/next/${source}/#${anchor}`);
     const heading = page.locator(`[id="${anchor}"]`);
@@ -68,7 +129,7 @@ test('bookmarked guide sections lead directly to their relocated procedures', as
 });
 
 test('released versions remain available', async ({ page }) => {
-  const routes = ['/', ...versions.slice(1).map(version => `/${version}/`)];
+  const routes = ['/', ...olderVersionPrefixes.map(prefix => `${prefix}/`)];
   for (const route of routes) {
     const response = await page.goto(route);
     expect(response?.status()).toBe(200);

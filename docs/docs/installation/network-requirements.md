@@ -144,7 +144,7 @@ These connections only happen when you configure the feature, and go to the dest
 | Remote MCP servers | The server's URL, plus its OAuth authorization server for discovery, dynamic client registration, and token exchange |
 | MCP catalogs and skill repositories added by an admin | The repository host over HTTPS, usually `github.com`, `gitlab.com`, or `bitbucket.org`. For GitHub and GitLab, Obot also calls `api.github.com` or `gitlab.com/api/v4` to check the repository size before cloning. |
 | OAuth clients connecting to Obot | The client's Client ID Metadata Document URL and `jwks_uri`, when the client uses them |
-| [Encryption providers](../configuration/encryption-providers/overview.md) | AWS KMS, Google Cloud KMS, or Azure Key Vault. Obot doesn't start if the provider can't be reached. |
+| [Encryption providers](../security/credentials.md) | AWS KMS, Google Cloud KMS, or Azure Key Vault. Obot doesn't start if the provider can't be reached. |
 | Audit log storage and exports | Amazon S3 or an S3-compatible endpoint, Google Cloud Storage, or Azure Blob Storage |
 | Image pull secrets for Amazon ECR (Kubernetes only) | AWS STS and ECR, about an hour before each token expires |
 | MCP server egress control (Kubernetes only) | The Helm repository in `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_REPO`, at startup. Obot doesn't start if it can't fetch the chart. Set `OBOT_SERVER_MCPNETWORK_POLICY_PROVIDER_CHART_PATH` to use a local chart instead. |
