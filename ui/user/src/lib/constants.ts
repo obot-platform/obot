@@ -3,6 +3,11 @@ import { m } from '$lib/i18n';
 export const ABORTED_THREAD_MESSAGE = 'thread was aborted, cancelling run';
 export const ABORTED_BY_USER_MESSAGE = 'aborted by user';
 
+// The server signs out users who can't use a restricted environment, and sets ENVIRONMENT_RESTRICTED_COOKIE so the
+// login page can say why (restrictedCookie and restrictedLoginPath in pkg/api/server/server.go).
+export const ENVIRONMENT_RESTRICTED_COOKIE = 'obot_environment_restricted';
+export const ENVIRONMENT_RESTRICTED_LOGIN_PATH = '/?restricted=true';
+
 export const UNAUTHORIZED_PATHS = new Set([
 	'/',
 	'/privacy-policy',
@@ -448,10 +453,5 @@ export const MCP_FILTERS_FIELD_IDS = {
 	runtimeSelector: 'filter-runtime-selector',
 	saveBtn: 'filter-save-btn'
 };
-
-export const CLOUD_ENTITLEMENT = 'OBOT_CLOUD';
-export const COMMUNITY_ENTITLEMENT = 'OBOT_COMMUNITY';
-export const ENTERPRISE_ENTITLEMENT = 'OBOT_ENTERPRISE';
-export const MODEL_PROVIDERS_ENTITLEMENT = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';
 
 export const COMMUNITY_SIGNUP_BANNER_COPY = m.core_community_signup_banner();

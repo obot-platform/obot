@@ -14,6 +14,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -151,52 +152,13 @@ func (h *Handler) EnsureSystemServer(req router.Request, resp router.Response) e
 }
 
 func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image string) v1.SystemMCPServer {
-	var manifest types.SystemMCPServerManifest
-	if webhookValidation.Spec.Manifest.SystemMCPServerManifest != nil {
-		manifest = *webhookValidation.Spec.Manifest.SystemMCPServerManifest.DeepCopy()
-	} else {
-		manifest = types.SystemMCPServerManifest{
-			ShortDescription: "Managed webhook validation server",
-			Enabled:          new(!webhookValidation.Spec.Manifest.Disabled),
-			Runtime:          types.RuntimeContainerized,
-			ContainerizedConfig: &types.ContainerizedRuntimeConfig{
-				Image: image,
-				Port:  8099,
-				Path:  "/mcp",
-			},
-			Config: []types.MCPConfig{{
-				Key:   "WEBHOOK_URL",
-				Value: webhookValidation.Spec.Manifest.URL,
-				Usage: types.Env,
-			},
-				{
-					Key:       "WEBHOOK_SECRET",
-					Sensitive: true,
-					Usage:     types.Env,
-				},
-				{
-					Key:   "PORT",
-					Value: "8099",
-					Usage: types.Env,
-				}},
-		}
-	}
-
-	manifest.Name = webhookValidation.Spec.Manifest.Name
-	if manifest.Name == "" {
-		manifest.Name = webhookValidation.Spec.Manifest.SystemMCPServerManifest.Name
-		if manifest.Name == "" {
-			manifest.Name = webhookValidation.Name
-		}
-	}
-
 	return v1.SystemMCPServer{
 		Name:       system.SystemMCPServerPrefix + webhookValidation.Name,
 		Namespace:  webhookValidation.Namespace,
 		Finalizers: []string{v1.SystemMCPServerFinalizer},
 		Spec: v1.SystemMCPServerSpec{
 			WebhookValidationName: webhookValidation.Name,
-			Manifest:              manifest,
+			Manifest:              mcp.FilterServerManifest(webhookValidation, image),
 		},
 	}
 }

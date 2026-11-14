@@ -1,5 +1,4 @@
 import { page as appPage } from '$app/state';
-import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 import {
 	createMcpConnectPostResolver,
@@ -90,8 +89,7 @@ const communityLicenseData: Partial<PageData> = {
 	license: {
 		...getLicenseResponse,
 		licenseKey: 'community-license-key',
-		enterprise: true,
-		entitlements: [COMMUNITY_ENTITLEMENT]
+		entitlements: { ...getLicenseResponse.entitlements, community: true }
 	}
 };
 

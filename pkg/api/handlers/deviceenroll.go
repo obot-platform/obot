@@ -18,12 +18,12 @@ import (
 
 // DeviceEnrollHandler serves device enrollment.
 type DeviceEnrollHandler struct {
-	deviceLimitProvider gateway.DeviceLimitProvider
+	entitlements gateway.EntitlementProvider
 }
 
-func NewDeviceEnrollHandler(deviceLimitProvider gateway.DeviceLimitProvider) *DeviceEnrollHandler {
+func NewDeviceEnrollHandler(entitlements gateway.EntitlementProvider) *DeviceEnrollHandler {
 	return &DeviceEnrollHandler{
-		deviceLimitProvider: deviceLimitProvider,
+		entitlements: entitlements,
 	}
 }
 
@@ -65,13 +65,11 @@ func (h *DeviceEnrollHandler) Enroll(req api.Context) error {
 		return types.NewErrBadRequest("unsupported public key type %T: publicKey must be an ECDSA P-256/P-384/P-521 or Ed25519 key", pub)
 	}
 
-	deviceLimit, err := h.deviceLimitProvider.DeviceLimit(req.Context())
+	granted, err := h.entitlements.Entitlements(req.Context())
 	if err != nil {
 		return fmt.Errorf("failed to resolve device limit: %w", err)
 	}
-	if !deviceLimit.Unlimited && deviceLimit.Maximum <= 0 {
-		return fmt.Errorf("invalid device limit %d", deviceLimit.Maximum)
-	}
+	deviceLimit := gateway.NewDeviceLimit(granted.Devices)
 
 	device, err := req.GatewayClient.EnrollDevice(req.Context(), gateway.DeviceEnrollment{
 		DeviceID:           in.DeviceID,

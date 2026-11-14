@@ -186,6 +186,21 @@ func (in EmptyStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EntitlementUsage) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.EntitlementUsage"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EntitlementUsageList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.EntitlementUsageList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in EntitlementUsageStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.EntitlementUsageStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GitCredential) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredential"
 }
@@ -838,6 +853,26 @@ func (in SkillSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in SkillStatus) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.SkillStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Subscription) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Subscription"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SubscriptionList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.SubscriptionList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SubscriptionSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.SubscriptionSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in SubscriptionStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.SubscriptionStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

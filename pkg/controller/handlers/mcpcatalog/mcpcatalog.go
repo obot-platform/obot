@@ -211,8 +211,17 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// delete a freshly detached entry
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
 	applyObjects := func() error {
-		if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
+		refused, err := applyWithinLimits(req.Ctx, app, mcpCatalog, toAdd)
+		if err != nil {
 			return err
+		}
+		if len(refused) > 0 {
+			for sourceURL, errMsg := range refused {
+				addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+			}
+			if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
+				return fmt.Errorf("failed to update catalog status: %w", err)
+			}
 		}
 		if forceSync {
 			delete(mcpCatalog.Annotations, v1.MCPCatalogSyncAnnotation)
@@ -272,6 +281,43 @@ func (h *Handler) SyncNow(ctx context.Context, client kclient.WithWatch, key kcl
 		Name:      key.Name,
 		Key:       key.String(),
 	}, discardResponse{})
+}
+
+// applyWithinLimits applies the catalog's objects. Storage refuses a vMCP that takes compute past the entitlements'
+// limits. It returns why vMCPs were left out, by source. A vMCP left out keeps its current version, since the apply
+// doesn't prune.
+func applyWithinLimits(ctx context.Context, app apply.Apply, catalog *v1.MCPCatalog, objs []kclient.Object) (map[string]string, error) {
+	err := app.Apply(ctx, catalog, objs...)
+	if _, ok := mcp.ComputeLimitRefusal(err); !ok {
+		return nil, err
+	}
+
+	// Some vMCP doesn't fit. Apply each one on its own to find which, after everything else.
+	var (
+		others []kclient.Object
+		vmcps  []*v1.VMCP
+	)
+	for _, obj := range objs {
+		if vmcp, ok := obj.(*v1.VMCP); ok {
+			vmcps = append(vmcps, vmcp)
+		} else {
+			others = append(others, obj)
+		}
+	}
+	if err := app.Apply(ctx, catalog, others...); err != nil {
+		return nil, err
+	}
+
+	refused := make(map[string]string)
+	for _, vmcp := range vmcps {
+		err := app.Apply(ctx, catalog, vmcp)
+		if refusal, ok := mcp.ComputeLimitRefusal(err); ok {
+			addSyncError(refused, vmcp.Spec.SourceURL, fmt.Sprintf("vMCP %s: %s", vmcp.Name, refusal))
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	return refused, nil
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {

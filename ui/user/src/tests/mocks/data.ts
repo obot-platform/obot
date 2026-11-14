@@ -178,7 +178,7 @@ export const listAuthProvidersResponse = [
 		image: '',
 		port: 0,
 		link: 'https://entra.microsoft.com/',
-		missingEntitlements: ['OBOT_ENTERPRISE_AUTH_PROVIDERS'],
+		entitlementsMissing: true,
 		requiredConfigurationParameters: [
 			{
 				name: 'OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID',
@@ -273,11 +273,24 @@ export const initiateTempLoginResponse = {
 // License
 
 export const getLicenseResponse = {
-	entitlements: null,
-	enterprise: false,
+	entitlements: {
+		community: false,
+		enterprise: false,
+		cloud: false,
+		enterpriseAuthProviders: false,
+		enterpriseModelProviders: false,
+		users: null,
+		devices: null,
+		memoryMiB: null,
+		cpuMillicores: null,
+		auditLogRetentionDays: null,
+		auditLogStorageMiB: null,
+		networkEgressMiB: null
+	},
 	licenseKey: '',
+	source: '',
 	locked: false,
-	source: ''
+	enterprise: false
 } satisfies Awaited<ReturnType<typeof UserService.getLicense>>;
 
 // MCP servers
@@ -508,10 +521,8 @@ export const getVersionResponse = {
 	hideK8sDetails: false,
 	latestVersion: 'v0.0.0-dev',
 	licenseEntitlementViolations: undefined,
-	licenseEntitlements: undefined,
 	mcpDefaultDenyAllEgress: false,
 	mcpNetworkPolicyEnabled: false,
-	missingLicenseEntitlements: [],
 	obot: 'v0.0.0-dev',
 	sessionStore: 'cookie',
 	upgradeAvailable: false

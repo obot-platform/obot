@@ -96,7 +96,6 @@ func (p *Provider) Start(ctx context.Context) (url.URL, error) {
 		}
 	}()
 
-	go p.cleanupSessions(ctx)
 	go p.throttle.run(ctx)
 
 	u := url.URL{Scheme: "http", Host: listener.Addr().String()}
@@ -120,22 +119,6 @@ func (p *Provider) handler() http.Handler {
 	mux.HandleFunc("POST /obot-get-state", p.getState)
 	mux.HandleFunc("GET /obot-get-user-info", p.getUserInfo)
 	return mux
-}
-
-func (p *Provider) cleanupSessions(ctx context.Context) {
-	t := time.NewTicker(time.Hour)
-	defer t.Stop()
-	for {
-		if err := p.gatewayClient.DeleteExpiredLocalAuthSessions(ctx); err != nil {
-			slog.Warn("failed to clean up expired local auth sessions", "error", err)
-		}
-
-		select {
-		case <-t.C:
-		case <-ctx.Done():
-			return
-		}
-	}
 }
 
 // start redirects to the login form in the UI, preserving the post-login redirect target.

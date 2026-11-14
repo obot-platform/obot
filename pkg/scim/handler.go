@@ -398,10 +398,6 @@ func (h *Handler) createUser(w http.ResponseWriter, r *request) {
 		writeError(w, toError(fmt.Errorf("failed to resolve user limit: %w", err)))
 		return
 	}
-	if !userLimit.Unlimited && userLimit.Maximum <= 0 {
-		writeError(w, toError(fmt.Errorf("invalid user limit %d", userLimit.Maximum)))
-		return
-	}
 	defaultRole, err := h.env.DefaultRole(r.Context())
 	if err != nil {
 		writeError(w, toError(fmt.Errorf("failed to get default role: %w", err)))

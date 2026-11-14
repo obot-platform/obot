@@ -32,7 +32,7 @@ func (h *Harness) do(t *testing.T, method, path string, body, out any) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), requestTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, method, h.BaseURL+path, reqBody)
+	req, err := h.newRequest(ctx, method, path, reqBody)
 	if err != nil {
 		t.Fatalf("build %s %s: %v", method, path, err)
 	}
@@ -69,6 +69,12 @@ func (h *Harness) Post(t *testing.T, path string, body, out any) {
 	h.do(t, http.MethodPost, path, body, out)
 }
 
+// Put issues PUT path with body, decoding into out.
+func (h *Harness) Put(t *testing.T, path string, body, out any) {
+	t.Helper()
+	h.do(t, http.MethodPut, path, body, out)
+}
+
 // Delete issues DELETE path.
 func (h *Harness) Delete(t *testing.T, path string) {
 	t.Helper()
@@ -90,7 +96,7 @@ func (h *Harness) Status(t *testing.T, method, path string) int {
 }
 
 func (h *Harness) status(ctx context.Context, method, path string) (int, error) {
-	req, err := http.NewRequestWithContext(ctx, method, h.BaseURL+path, nil)
+	req, err := h.newRequest(ctx, method, path, nil)
 	if err != nil {
 		return 0, fmt.Errorf("build request: %w", err)
 	}
@@ -101,4 +107,52 @@ func (h *Harness) status(ctx context.Context, method, path string) (int, error) 
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 	return resp.StatusCode, nil
+}
+
+// Request issues a request with a JSON body, if body isn't nil, and returns the response's status and body without
+// failing the test on a non-2xx status. Use it to assert the exact refusal a request gets.
+func (h *Harness) Request(t *testing.T, method, path string, body any) (int, string) {
+	t.Helper()
+
+	var reqBody io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal %s %s: %v", method, path, err)
+		}
+		reqBody = bytes.NewReader(buf)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), requestTimeout)
+	defer cancel()
+	req, err := h.newRequest(ctx, method, path, reqBody)
+	if err != nil {
+		t.Fatalf("build %s %s: %v", method, path, err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	resp, err := h.HTTP.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, path, err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read %s %s: %v", method, path, err)
+	}
+	return resp.StatusCode, string(respBody)
+}
+
+// newRequest builds a request to BaseURL+path, as the bearer of BearerToken if it's set.
+func (h *Harness) newRequest(ctx context.Context, method, path string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, h.BaseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	if h.BearerToken != "" {
+		req.Header.Set("Authorization", "Bearer "+h.BearerToken)
+	}
+	return req, nil
 }

@@ -7,62 +7,60 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-type userLimitProviderFunc func(context.Context) (UserLimit, error)
+var (
+	// noEntitlements grants no features and sets no limits.
+	noEntitlements = entitlementsFunc(func(context.Context) (types.Entitlements, error) {
+		return types.Entitlements{}, nil
+	})
+)
 
-func (f userLimitProviderFunc) UserLimit(ctx context.Context) (UserLimit, error) {
+type entitlementsFunc func(context.Context) (types.Entitlements, error)
+
+func (f entitlementsFunc) Entitlements(ctx context.Context) (types.Entitlements, error) {
 	return f(ctx)
 }
 
 func TestUserDecoratorResolveUserLimit(t *testing.T) {
 	tests := []struct {
-		name    string
-		limit   UserLimit
-		wantErr bool
+		name  string
+		users *int64
+		want  UserLimit
 	}{
 		{
 			name:  "bounded",
-			limit: UserLimit{Maximum: 100},
+			users: new(int64(100)),
+			want:  UserLimit{Maximum: 100},
 		},
 		{
-			name:  "unlimited ignores maximum",
-			limit: UserLimit{Unlimited: true},
+			name: "no limit is unlimited",
+			want: UserLimit{Unlimited: true},
 		},
 		{
-			name:    "zero maximum",
-			limit:   UserLimit{},
-			wantErr: true,
-		},
-		{
-			name:    "negative maximum",
-			limit:   UserLimit{Maximum: -1},
-			wantErr: true,
+			name:  "zero allows no new users",
+			users: new(int64(0)),
+			want:  UserLimit{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			decorator := UserDecorator{
-				userLimitProvider: userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-					return tt.limit, nil
+				entitlements: entitlementsFunc(func(context.Context) (types.Entitlements, error) {
+					return types.Entitlements{Users: tt.users}, nil
 				}),
 			}
 
 			got, err := decorator.resolveUserLimit(t.Context())
-			if tt.wantErr {
-				if err == nil {
-					t.Fatalf("resolveUserLimit() = %+v, want error", got)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatalf("resolveUserLimit() error = %v", err)
 			}
-			if got != tt.limit {
-				t.Fatalf("resolveUserLimit() = %+v, want %+v", got, tt.limit)
+			if got != tt.want {
+				t.Fatalf("resolveUserLimit() = %+v, want %+v", got, tt.want)
 			}
 		})
 	}
@@ -88,8 +86,8 @@ func TestUserDecoratorDoesNotCreateUserWhenUserLimitProviderFails(t *testing.T) 
 			}, true, nil
 		}),
 		c,
-		userLimitProviderFunc(func(context.Context) (UserLimit, error) {
-			return UserLimit{Maximum: 1}, currentErr
+		entitlementsFunc(func(context.Context) (types.Entitlements, error) {
+			return types.Entitlements{Users: new(int64(1))}, currentErr
 		}),
 	)
 

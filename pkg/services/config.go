@@ -32,6 +32,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/server"
 	"github.com/obot-platform/obot/pkg/api/server/audit"
 	"github.com/obot-platform/obot/pkg/api/server/ratelimiter"
+	"github.com/obot-platform/obot/pkg/billing"
 	"github.com/obot-platform/obot/pkg/bootstrap"
 	"github.com/obot-platform/obot/pkg/encryption"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -101,6 +102,8 @@ type (
 type Config struct {
 	GitMaxRepoSizeMB                               int      `usage:"Maximum git repository size in MB" default:"100" name:"git-max-repo-size-mb"`
 	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables the model proxy" default:"https://model-service.obot.ai"`
+	BillingURL                                     string   `usage:"Obot Cloud billing service URL" default:"https://billing.obot.ai" hidden:"true"`
+	BillingKey                                     string   `usage:"This environment's Obot Cloud billing key; billing is off unless it's set" hidden:"true"`
 	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
 	ProviderRegistries                             []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
@@ -207,6 +210,8 @@ type Services struct {
 	MDMAssetSource              string
 	DefaultSkillRepoURL         string
 	DefaultSkillRepoRef         string
+	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
+	EgressAuditLogRetentionDays int
 
 	// Used for indexed lookups of access control rules.
 	AccessControlRuleHelper *accesscontrolrule.Helper
@@ -266,9 +271,13 @@ type Services struct {
 	SingleUserIdleServerShutdownInterval time.Duration
 	MultiUserIdleServerShutdownInterval  time.Duration
 
-	// License provider
 	LicenseProvider *license.Provider
-	VersionChecker  *upgrade.VersionChecker
+	// BillingProvider is the environment's subscription, or nil when the environment isn't billed.
+	BillingProvider *billing.Provider
+	// EntitlementProvider provides what the environment may do: BillingProvider when it's billed, otherwise
+	// LicenseProvider.
+	EntitlementProvider client.EntitlementProvider
+	VersionChecker      *upgrade.VersionChecker
 
 	ModelProxyConfiguredURL string
 	ModelProxyURL           *url.URL
@@ -942,6 +951,19 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create license provider: %w", err)
 	}
+	// The environment is billed when a billing key is set. Its subscription then provides the entitlements in place
+	// of the license, it can be restricted, and storage admits writes that use compute within its limits. A license
+	// doesn't limit compute.
+	var (
+		billingProvider     *billing.Provider
+		entitlementProvider client.EntitlementProvider = licenseProvider
+		restriction         authn.Restriction
+	)
+	if config.BillingKey != "" {
+		billingProvider = billing.NewProvider(billing.NewClient(config.BillingURL, config.BillingKey), r.Backend(), storageClient)
+		entitlementProvider, restriction = billingProvider, billingProvider
+		storageServices.Admission.Set(mcp.NewComputeAdmitter(storageClient, billingProvider, gatewayClient.WithComputeLock))
+	}
 
 	providerDispatcher := dispatcher.New(mcpSessionManager, storageClient, gatewayClient, licenseProvider, config.Hostname, system.LocalServerURL(config.HTTPListenPort), postgresDSN)
 
@@ -1053,7 +1075,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlementProvider)
 		// Tunnel credentials are non-user principals and must be handled after
 		// the user decorator. Authorization restricts them to tunnel setup only.
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1100,7 +1122,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// "Authentication Disabled" flow
 
 		// Add gateway user info if token auth worked
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlementProvider)
 
 		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -1127,9 +1149,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	// just-in-time user creation applies there. Off SCIM routes, it declines.
 	authenticators = union.NewFailOnError(scim.NewAuthenticator(gatewayClient), authenticators)
 
-	// Deny disabled and deleted users whichever credential they present. This wraps the complete chain so that it
-	// runs once per request, after authentication and before authorization.
-	authenticators = authn.NewAdmissionCheck(authenticators)
+	// Deny disabled and deleted users whichever credential they present, and while the environment is restricted,
+	// users who aren't admins or owners. This wraps the complete chain so that it runs once per request, after
+	// authentication and before authorization.
+	authenticators = authn.NewAdmissionCheck(authenticators, restriction)
 
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
@@ -1196,7 +1219,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			rateLimiter,
 			config.Hostname,
 			oauthServerConfig.ScopesSupported,
-			licenseProvider,
+			entitlementProvider,
 		),
 		GatewayClient:                gatewayClient,
 		ProxyManager:                 proxyManager,
@@ -1216,6 +1239,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DevUIPort:                    devPort,
 		DevMode:                      config.DevMode,
 		UserUIPort:                   config.UserUIPort,
+		EgressAuditLogRetentionDays:  config.EgressAuditLogRetentionDays,
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
@@ -1234,7 +1258,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		ForceDynamicClient:             config.ForceDynamicClient,
 		ProductTelemetryConsent:        telemetryConsent,
-		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient, storageClient, licenseProvider, config.MCPRuntimeBackend),
+		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient, storageClient, entitlementProvider, config.MCPRuntimeBackend),
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,
 
@@ -1267,6 +1291,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderChartPath:    config.MCPNetworkPolicyProviderChartPath,
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		LicenseProvider:                      licenseProvider,
+		BillingProvider:                      billingProvider,
+		EntitlementProvider:                  entitlementProvider,
 		VersionChecker:                       versionChecker,
 	}
 

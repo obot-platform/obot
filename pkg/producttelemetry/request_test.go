@@ -39,7 +39,7 @@ type requestGateway struct {
 	dayEnd         time.Time
 }
 
-type entitlementProviderFunc func(context.Context) ([]string, error)
+type entitlementProviderFunc func(context.Context) (clienttypes.Entitlements, error)
 
 type errorStorageReader struct {
 	err error
@@ -159,12 +159,14 @@ func (g *requestGateway) recordWindow(start, end time.Time) {
 	}
 }
 
-func (f entitlementProviderFunc) Entitlements(ctx context.Context) ([]string, error) {
+func (f entitlementProviderFunc) Entitlements(ctx context.Context) (clienttypes.Entitlements, error) {
 	return f(ctx)
 }
 
-func testEntitlements(values ...string) licenseEntitlementProvider {
-	return entitlementProviderFunc(func(context.Context) ([]string, error) { return values, nil })
+func testEntitlements() licenseEntitlementProvider {
+	return entitlementProviderFunc(func(context.Context) (clienttypes.Entitlements, error) {
+		return clienttypes.Entitlements{}, nil
+	})
 }
 
 func testStorageClient(objects ...kclient.Object) storage.Client {
@@ -242,7 +244,9 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	)
 
 	before := time.Now().UTC()
-	report, err := buildRequest(t.Context(), gateway, storageClient, testEntitlements(license.CommunityEntitlement), "kubernetes")
+	report, err := buildRequest(t.Context(), gateway, storageClient, entitlementProviderFunc(func(context.Context) (clienttypes.Entitlements, error) {
+		return clienttypes.Entitlements{Community: true}, nil
+	}), "kubernetes")
 	if err != nil {
 		t.Fatalf("buildRequest() error = %v", err)
 	}
@@ -417,8 +421,8 @@ func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
 		t.Context(),
 		newRequestGateway(),
 		testStorageClient(),
-		entitlementProviderFunc(func(context.Context) ([]string, error) {
-			return nil, errors.New("license unavailable")
+		entitlementProviderFunc(func(context.Context) (clienttypes.Entitlements, error) {
+			return clienttypes.Entitlements{}, errors.New("license unavailable")
 		}),
 		"docker",
 	)
@@ -494,5 +498,48 @@ func assertInt64(t *testing.T, name string, got *int64, want int64) {
 	t.Helper()
 	if got == nil || *got != want {
 		t.Fatalf("%s = %v, want %d", name, got, want)
+	}
+}
+
+func TestDistribution(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		entitlements clienttypes.Entitlements
+		want         clienttypes.ProductTelemetryDistribution
+	}{
+		{
+			name: "unregistered",
+			want: clienttypes.ProductTelemetryDistributionUnregistered,
+		},
+		{
+			name: "registered",
+			entitlements: clienttypes.Entitlements{
+				Community: true,
+			},
+			want: clienttypes.ProductTelemetryDistributionRegistered,
+		},
+		{
+			name: "enterprise",
+			entitlements: clienttypes.Entitlements{
+				Community:  true,
+				Enterprise: true,
+			},
+			want: clienttypes.ProductTelemetryDistributionEnterprise,
+		},
+		{
+			name: "cloud",
+			entitlements: clienttypes.Entitlements{
+				Community:  true,
+				Enterprise: true,
+				Cloud:      true,
+			},
+			want: clienttypes.ProductTelemetryDistributionCloud,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := distribution(test.entitlements); got != test.want {
+				t.Fatalf("distribution() = %q, want %q", got, test.want)
+			}
+		})
 	}
 }

@@ -9,7 +9,7 @@
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import McpLocalAuth from '$lib/components/mcp/McpLocalAuth.svelte';
-	import { isAbortError } from '$lib/errors';
+	import { httpErrorReason, isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
@@ -624,7 +624,9 @@
 		error = undefined;
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
-			const targetInstance = instance ?? (await UserService.createVMCPInstance(target.id));
+			// The dialog says why a launch failed, so a refusal, like a plan without room, isn't also a toast.
+			const targetInstance =
+				instance ?? (await UserService.createVMCPInstance(target.id, { dontLogErrors: true }));
 			const submitted = configureForm
 				? await UserService.configureVMCPInstance(
 						targetInstance.id,
@@ -653,7 +655,8 @@
 			vmcpInstances.upsert(instance);
 			await verifyOauthOrConnect();
 		} catch (err) {
-			launchError = err instanceof Error ? err.message : m.vmcps_failed_to_launch();
+			launchError =
+				httpErrorReason(err) ?? (err instanceof Error ? err.message : m.vmcps_failed_to_launch());
 		} finally {
 			clearTimeout(timeout1);
 			clearTimeout(timeout2);

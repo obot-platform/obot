@@ -210,7 +210,7 @@
 		if (localAuthConfigureOpen) return;
 
 		const configuredAuthProvider = authProviders.find(
-			(provider) => provider.configured && (provider.missingEntitlements || []).length === 0
+			(provider) => provider.configured && !provider.entitlementsMissing
 		);
 		if (!configuredAuthProvider) return;
 
@@ -643,7 +643,7 @@
 	}
 
 	async function handleClickConfigure(authProvider: AuthProvider) {
-		if (authProvider.missingEntitlements && authProvider.missingEntitlements.length > 0) {
+		if (authProvider.entitlementsMissing) {
 			licenseRequiredProvider = authProvider;
 			return;
 		}

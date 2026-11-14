@@ -56,7 +56,7 @@ type capacityInfoProvider interface {
 	GetCapacityInfoForServers(context.Context, []string) (types.MCPCapacityInfo, error)
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string, capacity *mcp.ComputeCapacity) *MCPCatalogHandler {
 	var validationOptions mcp.ValidationOptions
 	if sessionManager != nil {
 		validationOptions = sessionManager.ValidationOptions()
@@ -66,7 +66,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBacken
 		serverURL:                 serverURL,
 		mcpBackend:                mcpBackend,
 		sessionManager:            sessionManager,
-		capacityInfoProvider:      sessionManager,
+		capacityInfoProvider:      capacity,
 		oauthChecker:              oauthChecker,
 		gatewayClient:             gatewayClient,
 		acrHelper:                 acrHelper,
