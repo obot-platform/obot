@@ -2,6 +2,8 @@ import { test, expect, type Locator } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import versions from '../versions.json';
 
+const olderVersionPrefixes = versions.slice(1).map(version => `/${version}`);
+
 test('current documentation navigation and direct loads', async ({ page }) => {
   test.setTimeout(240_000);
   await page.goto('/next/');
@@ -65,7 +67,7 @@ test('Cloudflare redirects consolidated guides within their documentation versio
       // Redirects must not leave empty documentation pages in the Markdown corpus.
       const markdown = `${source.slice(0, -1)}.md`;
       expect((await request.get(markdown, { maxRedirects: 0 })).status(), markdown).toBe(404);
-      if (!source.startsWith('/next/') && !source.startsWith('/v0.27.0/')) {
+      if (!source.startsWith('/next/') && !olderVersionPrefixes.some(prefix => source.startsWith(`${prefix}/`))) {
         const pinned = `/${versions[0]}${markdown}`;
         expect((await request.get(pinned, { maxRedirects: 0 })).status(), pinned).toBe(404);
       }
@@ -76,7 +78,7 @@ test('Cloudflare redirects consolidated guides within their documentation versio
     expect(response.status(), destination).toBe(200);
     expect(await response.text(), destination).toContain('<article');
   }
-  for (const prefix of ['', '/next', '/v0.27.0']) {
+  for (const prefix of ['', '/next', ...olderVersionPrefixes]) {
     const source = `${prefix}/functionality/mcp-servers/`;
     const response = await request.get(source, { maxRedirects: 0 });
     expect(response.status(), source).toBe(200);
@@ -84,7 +86,7 @@ test('Cloudflare redirects consolidated guides within their documentation versio
   }
   // Pre-refactor releases still have real guides at these paths. Do not send
   // their readers into another version or a replacement that does not exist.
-  for (const version of ['v0.26.0', 'v0.25.0']) {
+  for (const version of ['v0.26.0', 'v0.25.0'].filter(version => versions.includes(version))) {
     for (const source of ['/configuration/user-roles/', '/functionality/skills/']) {
       const response = await request.get(`/${version}${source}`, { maxRedirects: 0 });
       expect(response.status(), `${version}${source}`).toBe(200);
@@ -104,8 +106,10 @@ test('Cloudflare redirects consolidated guides within their documentation versio
     await expect(page.locator('#credential-status-and-rotation')).toBeVisible();
   }
   // v0.27 has no shared server-configuration guide, so keep its OAuth reference.
-  const previousOAuth = await request.get('/v0.27.0/configuration/mcp-server-oauth-configuration/', { maxRedirects: 0 });
-  expect(previousOAuth.status()).toBe(200);
+  if (versions.includes('v0.27.0')) {
+    const previousOAuth = await request.get('/v0.27.0/configuration/mcp-server-oauth-configuration/', { maxRedirects: 0 });
+    expect(previousOAuth.status()).toBe(200);
+  }
 });
 
 test('retained legacy MCP server sections still link to relocated procedures', async ({ page }) => {
@@ -125,7 +129,7 @@ test('retained legacy MCP server sections still link to relocated procedures', a
 });
 
 test('released versions remain available', async ({ page }) => {
-  const routes = ['/', ...versions.slice(1).map(version => `/${version}/`)];
+  const routes = ['/', ...olderVersionPrefixes.map(prefix => `${prefix}/`)];
   for (const route of routes) {
     const response = await page.goto(route);
     expect(response?.status()).toBe(200);
