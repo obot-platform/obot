@@ -306,8 +306,8 @@ func (c *Client) setDeviceLatestScans(ctx context.Context, devices []types.Devic
 }
 
 // DeleteDevice removes an enrolled device, freeing its seat and invalidating its access JWTs.
-// Once the removal commits, a subscription sync is requested, so a restriction for being over the device limit can
-// lift.
+// Once the removal commits, usage is counted again (requestUsageRecount), so a restriction for being over the device
+// limit can lift.
 // Its audit logs are kept. Its scans are kept too, unless deleteScans is set.
 // Access ends right away because device auth looks up the registered key on every request.
 // A device that still has a valid enrollment key can enroll again, possibly with a new identity key.

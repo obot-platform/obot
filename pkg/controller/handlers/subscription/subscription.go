@@ -112,7 +112,7 @@ func nextSync(subscription *v1.Subscription) time.Time {
 
 // EnsureOverLimitSince starts the over-limit clock when usage is over the subscription's limits, and clears it once
 // usage is back within them. Reading the EntitlementUsage through the controller's client makes it run again when
-// compute changes. Users and devices are counted at each sync.
+// compute changes. Users and devices are counted at each sync, and again after the gateway deletes one.
 func (h *Handler) EnsureOverLimitSince(req router.Request, _ router.Response) error {
 	subscription := req.Object.(*v1.Subscription)
 	status := &subscription.Status
