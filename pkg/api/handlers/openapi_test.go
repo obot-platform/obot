@@ -37,7 +37,7 @@ func (f openAPIImporterFunc) Import(ctx context.Context, config types.OpenAPIRun
 }
 
 func newOpenAPIHandler() *MCPCatalogHandler {
-	handler := NewMCPCatalogHandler("", "", "docker", &mcp.SessionManager{}, nil, nil, nil, "")
+	handler := NewMCPCatalogHandler("", "", "docker", &mcp.SessionManager{}, nil, nil, nil, "", nil)
 	handler.openAPIImporter = openAPIImporterFunc(func(_ context.Context, config types.OpenAPIRuntimeConfig) (*openapi.Result, error) {
 		if err := openapi.ValidateSource(config.Source); err != nil {
 			return nil, err
@@ -540,7 +540,7 @@ func TestOpenAPIImportDevelopmentMode(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	handler := NewMCPCatalogHandler("", "", mcp.RuntimeBackendKubernetes, manager, nil, nil, nil, "")
+	handler := NewMCPCatalogHandler("", "", mcp.RuntimeBackendKubernetes, manager, nil, nil, nil, "", nil)
 	config := types.OpenAPIRuntimeConfig{
 		Source: types.OpenAPISource{
 			Content: strings.Replace(apiOpenAPISchema, "https://8.8.8.8", "http://localhost:8000", 1),
@@ -562,7 +562,7 @@ func TestOpenAPIInlineSnapshotUsesContent(t *testing.T) {
 	}
 	config := manifest.OpenAPIConfig
 	before := config.DeepCopy()
-	handler := NewMCPCatalogHandler("", "", "docker", nil, nil, nil, nil, "")
+	handler := NewMCPCatalogHandler("", "", "docker", nil, nil, nil, nil, "", nil)
 
 	require.NoError(t, handler.prepareOpenAPIEntry(t.Context(), &manifest))
 	require.JSONEq(t, content, string(manifest.OpenAPIConfig.Schema.Raw))
@@ -597,7 +597,7 @@ func TestOpenAPIImportDestinationValidation(t *testing.T) {
 			schema := strings.Replace(apiOpenAPISchema, "https://8.8.8.8", test.url, 1)
 			schema = strings.Replace(schema, `"paths":{}`, `"paths":{},"components":{"securitySchemes":{"key":{"type":"apiKey","in":"header","name":"X-Key"}}},"security":[{"key":[]}]`, 1)
 			config := types.OpenAPIRuntimeConfig{Source: types.OpenAPISource{Content: schema}}
-			handler := NewMCPCatalogHandler("", "", "docker", &mcp.SessionManager{}, nil, nil, nil, "")
+			handler := NewMCPCatalogHandler("", "", "docker", &mcp.SessionManager{}, nil, nil, nil, "", nil)
 			storage := newFakeStorage(t, &v1.MCPCatalog{Name: "scope", Namespace: system.DefaultNamespace})
 
 			ctx, response := openAPIRequest(t, storage, "", http.MethodPost, config)

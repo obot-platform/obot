@@ -279,7 +279,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			return nil
 		}
 
-		err = fmt.Errorf("failed to ensure server is deployed: %w", err)
+		err = deploymentError(err)
 		if response := mcpJSONRPCErrorResponse(req.Request, err); response != nil {
 			response.write(req.ResponseWriter, nil)
 
@@ -633,6 +633,16 @@ func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
 		}
 	}
 	r.Out.URL.RawQuery = upstreamQuery.Encode()
+}
+
+// deploymentError is what a client is told when its server can't be deployed. A plan without room for the server is
+// said as storage said it, since the client shows the message to its user.
+func deploymentError(err error) error {
+	if _, ok := mcp.ComputeLimitRefusal(err); ok {
+		refusal, _ := errors.AsType[*apierrors.StatusError](err)
+		return refusal
+	}
+	return fmt.Errorf("failed to ensure server is deployed: %w", err)
 }
 
 func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, error) {

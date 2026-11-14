@@ -29,11 +29,6 @@ type DeviceLimit struct {
 	Unlimited bool
 }
 
-// DeviceLimitProvider resolves the current license-derived device limit.
-type DeviceLimitProvider interface {
-	DeviceLimit(context.Context) (DeviceLimit, error)
-}
-
 // DeviceEnrollment is the input to enrolling (or re-enrolling) a device.
 // PublicKey is DER SubjectPublicKeyInfo (PKIX) of the device identity key.
 type DeviceEnrollment struct {
@@ -43,6 +38,14 @@ type DeviceEnrollment struct {
 	Hostname           string
 	OS                 string
 	OSVersion          string
+}
+
+// NewDeviceLimit returns the limit an entitlement's device count sets. nil is unlimited.
+func NewDeviceLimit(limit *int64) DeviceLimit {
+	if limit == nil {
+		return DeviceLimit{Unlimited: true}
+	}
+	return DeviceLimit{Maximum: *limit}
 }
 
 // EnrollDevice registers a device's identity key trust-on-first-use and returns
@@ -303,12 +306,14 @@ func (c *Client) setDeviceLatestScans(ctx context.Context, devices []types.Devic
 }
 
 // DeleteDevice removes an enrolled device, freeing its seat and invalidating its access JWTs.
+// Once the removal commits, a subscription sync is requested, so a restriction for being over the device limit can
+// lift.
 // Its audit logs are kept. Its scans are kept too, unless deleteScans is set.
 // Access ends right away because device auth looks up the registered key on every request.
 // A device that still has a valid enrollment key can enroll again, possibly with a new identity key.
 // Returns gorm.ErrRecordNotFound if no device has the ID, without deleting any scans.
 func (c *Client) DeleteDevice(ctx context.Context, deviceID string, deleteScans bool) error {
-	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Where("device_id = ?", deviceID).Delete(&types.Device{})
 		if result.Error != nil {
 			return fmt.Errorf("failed to delete device: %w", result.Error)
@@ -338,5 +343,10 @@ func (c *Client) DeleteDevice(ctx context.Context, deviceID string, deleteScans 
 			return fmt.Errorf("failed to delete device scans: %w", err)
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+
+	c.requestUsageRecount(ctx)
+	return nil
 }

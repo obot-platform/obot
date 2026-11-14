@@ -81,7 +81,6 @@ func Run(ctx context.Context, c services.Config) error {
 	}
 	defer listener.Close()
 
-	go svcs.GatewayClient.RunEgressAuditCleanup(ctx, c.EgressAuditLogRetentionDays)
 	stopOrchestrator := func() {}
 	stopCredentials := func() {}
 	if svcs.Substrate != nil {

@@ -5,10 +5,10 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/billing"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -36,6 +36,8 @@ type VersionHandlerOptions struct {
 	GatewayClient             *client.Client
 	StorageClient             storage.Client
 	LicenseProvider           *license.Provider
+	BillingProvider           *billing.Provider // nil when the environment isn't billed
+	EntitlementProvider       client.EntitlementProvider
 	PostgresDSN               string
 	Engine                    string
 	MCPNetworkPolicyEnabled   bool
@@ -80,63 +82,57 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		engine = mcp.RuntimeBackendKubernetes
 	}
 
-	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient)
-	if err != nil {
-		return nil, err
-	}
-
 	upgradeStatus := v.upgradeStatus()
 
-	entitlements, err := v.LicenseProvider.Entitlements(ctx)
+	granted, err := v.EntitlementProvider.Entitlements(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	userCount, err := v.GatewayClient.UserCount(ctx)
+	used, err := license.Usage(ctx, v.GatewayClient, v.StorageClient)
 	if err != nil {
 		return nil, err
 	}
-
-	deviceCount, err := v.GatewayClient.DeviceCount(ctx)
+	violations, err := license.Violations(ctx, v.StorageClient, granted, used)
 	if err != nil {
 		return nil, err
+	}
+	if v.BillingProvider != nil {
+		restricted, err := v.BillingProvider.Restricted(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if restricted {
+			violations = append(violations, license.Violation{Type: "restricted"})
+		}
 	}
 
 	values := map[string]any{
-		"upgradeAvailable":             upgradeStatus.UpgradeAvailable,
-		"latestVersion":                upgradeStatus.LatestVersion,
-		"obot":                         version.Get().String(),
-		"authEnabled":                  v.AuthEnabled,
-		"sessionStore":                 v.sessionStore,
-		"enterprise":                   slices.Contains(entitlements, license.EnterpriseEntitlement),
-		"community":                    slices.Contains(entitlements, license.CommunityEntitlement),
-		"licenseEntitlements":          entitlements,
-		"userCount":                    userCount,
-		"deviceCount":                  deviceCount,
+		"upgradeAvailable": upgradeStatus.UpgradeAvailable,
+		"latestVersion":    upgradeStatus.LatestVersion,
+		"obot":             version.Get().String(),
+		"authEnabled":      v.AuthEnabled,
+		"sessionStore":     v.sessionStore,
+		"enterprise":       granted.Enterprise,
+		"community":        granted.Community,
+		"cloud":            granted.Cloud,
+		// A license can grant cloud too, so the UI is told when the environment is billed.
+		"billingEnabled":               v.BillingProvider != nil,
+		"userCount":                    used.Users,
+		"deviceCount":                  used.Devices,
 		"engine":                       engine,
 		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
 		"licenseEntitlementViolations": violations,
-		"missingLicenseEntitlements":   missingEntitlements(violations),
 	}
 	for key, value := range v.featureValues() {
 		values[key] = value
 	}
 
-	userLimit, err := v.LicenseProvider.UserLimit(ctx)
-	if err != nil {
-		return nil, err
+	if granted.Users != nil {
+		values["userLimit"] = *granted.Users
 	}
-	if !userLimit.Unlimited {
-		values["userLimit"] = userLimit.Maximum
-	}
-
-	deviceLimit, err := v.LicenseProvider.DeviceLimit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if !deviceLimit.Unlimited {
-		values["deviceLimit"] = deviceLimit.Maximum
+	if granted.Devices != nil {
+		values["deviceLimit"] = *granted.Devices
 	}
 
 	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {
@@ -183,19 +179,4 @@ func (v *VersionHandler) featureValues() map[string]bool {
 		"claudeEnvironmentsEnabled": v.ClaudeEnvironmentsEnabled,
 		"hideK8sDetails":            v.HideK8sDetails,
 	}
-}
-
-func missingEntitlements(violations []license.Violation) []string {
-	seen := make(map[string]struct{})
-	for _, violation := range violations {
-		for _, entitlement := range violation.MissingEntitlements {
-			seen[entitlement] = struct{}{}
-		}
-	}
-	missing := make([]string, 0, len(seen))
-	for entitlement := range seen {
-		missing = append(missing, entitlement)
-	}
-	slices.Sort(missing)
-	return missing
 }

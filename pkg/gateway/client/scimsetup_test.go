@@ -1649,7 +1649,7 @@ func TestMarkExpiryWaitsForTheSCIMWriteLockOnPostgres(t *testing.T) {
 	}
 }
 
-func TestNewStartsTheExpiryOfDeletionMarks(t *testing.T) {
+func TestStartCleanupsStartsTheExpiryOfDeletionMarks(t *testing.T) {
 	c := newLifecycleTestClient(t)
 	conn, _ := createTestSCIMConnection(t, c, false)
 	createTestGroup(t, c, "okta/00g-stuck", "Stuck")
@@ -1663,14 +1663,14 @@ func TestNewStartsTheExpiryOfDeletionMarks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The client of the restarted replica expires the mark once it starts.
+	// The leader expires the mark once it starts its cleanups.
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	New(ctx, c.db, c.storageClient, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	c.StartCleanups(ctx, noEntitlements, 0)
 	deadline := time.Now().Add(5 * time.Second)
 	for len(pendingDeletions(t, c)) != 0 {
 		if time.Now().After(deadline) {
-			t.Fatal("the mark of a deletion that never finished did not expire once the client started")
+			t.Fatal("the mark of a deletion that never finished did not expire once the cleanups started")
 		}
 		time.Sleep(20 * time.Millisecond)
 	}

@@ -32,6 +32,9 @@ const (
 	AppPreferencesName     = "app-preferences"
 	AppNotificationName    = "app-notification"
 
+	SubscriptionName     = "subscription"
+	EntitlementUsageName = "entitlement-usage"
+
 	GenericModelProviderCredentialContext = "model-provider"
 	GenericAuthProviderCredentialContext  = "auth-provider"
 	StagedProviderCredentialContext       = "provider-staged"

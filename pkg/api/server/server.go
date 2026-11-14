@@ -45,6 +45,13 @@ const (
 	// accountInactiveCookie tells the login page that its visitor's account is not active. The UI's root layout reads
 	// and clears it (ACCOUNT_INACTIVE_COOKIE in ui/user/src/routes/+layout.ts).
 	accountInactiveCookie = "obot_account_inactive"
+	// restrictedLoginPath is the login page that a page load refused while the environment is restricted is sent to,
+	// with restrictedCookie. Its parameter tells a refused load of the login page itself apart, which isn't sent there
+	// again.
+	restrictedLoginPath = "/?restricted=true"
+	// restrictedCookie tells the login page that its visitor was signed out because the environment is restricted. The
+	// UI reads and clears it (ENVIRONMENT_RESTRICTED_COOKIE in ui/user/src/lib/constants.ts).
+	restrictedCookie = "obot_environment_restricted"
 )
 
 var (
@@ -93,7 +100,7 @@ type tracingResponseWriter struct {
 	wroteHeader bool
 }
 
-func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, licenseProvider *license.Provider) *Server {
+func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, entitlementProvider gclient.EntitlementProvider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
 		scope = fmt.Sprintf(", scope=\"%s\"", strings.Join(oauthScopesSupported, " "))
@@ -111,7 +118,7 @@ func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, loca
 		auditLogger:             auditLogger,
 		rateLimiter:             rateLimiter,
 		mux:                     http.NewServeMux(),
-		providerEntitlementGate: license.NewProviderEntitlementGate(licenseProvider, storageClient),
+		providerEntitlementGate: license.NewProviderEntitlementGate(entitlementProvider, storageClient),
 	}
 	s.otelHandler = traced(s.mux)
 	return s
@@ -328,6 +335,27 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				}
 				httpErr := denied.HTTPError()
 				httpError(rw, httpErr.Message, httpErr.Code)
+			} else if errors.Is(err, authn.ErrRestricted) {
+				// Like an inactive account, but the login page says the environment is restricted.
+				http.SetCookie(rw, &http.Cookie{
+					Name:   proxy.ObotAccessTokenCookie,
+					Value:  "",
+					Path:   "/",
+					MaxAge: -1,
+				})
+				// An open page follows the cookie to the login page when one of its API calls is refused.
+				http.SetCookie(rw, &http.Cookie{
+					Name:     restrictedCookie,
+					Value:    "true",
+					Path:     "/",
+					MaxAge:   60,
+					SameSite: http.SameSiteLaxMode,
+				})
+				if isPageLoad(req) && req.URL.String() != restrictedLoginPath {
+					http.Redirect(rw, req, restrictedLoginPath, http.StatusFound)
+					return
+				}
+				httpError(rw, authn.ErrRestricted.Message, authn.ErrRestricted.Code)
 			} else if lookupErr, ok := authenticationError[*gclient.UserAccessLookupError](err); ok {
 				slog.Error("Denied request because the user's status could not be checked", "userID", lookupErr.UserID, "error", lookupErr.Err)
 				httpError(rw, "Unable to verify account status. Please try again.", http.StatusServiceUnavailable)

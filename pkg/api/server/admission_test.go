@@ -163,6 +163,79 @@ func TestWrapRefusesInactiveAndUnverifiableUsers(t *testing.T) {
 	}
 }
 
+func TestWrapSignsOutRestrictedUsers(t *testing.T) {
+	const pageAccept = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+
+	for _, tt := range []struct {
+		name         string
+		path         string
+		accept       string
+		wantStatus   int
+		wantLocation string
+	}{
+		{
+			name:       "an API call is refused, and its page follows the cookie to the login page",
+			path:       "/api/me",
+			wantStatus: http.StatusPaymentRequired,
+		},
+		{
+			name:         "a page load goes to the login page, which says why",
+			path:         "/mcp-servers",
+			accept:       pageAccept,
+			wantStatus:   http.StatusFound,
+			wantLocation: restrictedLoginPath,
+		},
+		{
+			name:       "the login page is refused as text rather than redirected again",
+			path:       restrictedLoginPath,
+			accept:     pageAccept,
+			wantStatus: http.StatusPaymentRequired,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				authenticator: authn.NewAuthenticator(failingAuthenticator{
+					err: utilerrors.NewAggregate([]error{authn.ErrRestricted}),
+				}),
+			}
+			handler := s.Wrap(func(api.Context) error {
+				t.Fatal("the handler ran for a restricted user")
+				return nil
+			})
+
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			if tt.accept != "" {
+				req.Header.Set("Accept", tt.accept)
+			}
+			rec := httptest.NewRecorder()
+			handler(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Errorf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+			if location := rec.Header().Get("Location"); location != tt.wantLocation {
+				t.Errorf("Location = %q, want %q", location, tt.wantLocation)
+			}
+			if tt.wantStatus == http.StatusPaymentRequired && !strings.Contains(rec.Body.String(), authn.ErrRestricted.Message) {
+				t.Errorf("body = %q, want it to say why", rec.Body.String())
+			}
+
+			var cookieReset, restricted bool
+			for _, cookie := range rec.Result().Cookies() {
+				if cookie.Name == proxy.ObotAccessTokenCookie && cookie.MaxAge < 0 {
+					cookieReset = true
+				}
+				if cookie.Name == restrictedCookie && cookie.Value == "true" && cookie.MaxAge > 0 {
+					restricted = true
+				}
+			}
+			if !cookieReset || !restricted {
+				t.Errorf("session cookie cleared = %v, restricted cookie set = %v, want both", cookieReset, restricted)
+			}
+		})
+	}
+}
+
 // LLM API clients only understand errors in their API's format, so failures on the LLM proxy
 // are written in the format of the request, OpenAI's or Anthropic's.
 func TestWrapWritesLLMProxyErrorsInTheRequestFormat(t *testing.T) {

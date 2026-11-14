@@ -8,7 +8,7 @@
 	import Search from '$lib/components/Search.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { COMMUNITY_ENTITLEMENT, PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_SIZE, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -200,7 +200,9 @@
 		{ label: m.core_role_standard_user(), id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
+	const isNearUserLimit = $derived(
+		validateVersionUserLimit(version.current) && !version.current.billingEnabled
+	);
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -400,9 +402,7 @@
 	const auditorReadonlyAdminRoles = [Role.BASIC, Role.POWERUSER, Role.POWERUSER_PLUS];
 
 	const hasValidLicense = $derived(Boolean(version.current.enterprise));
-	const isCommunityEdition = $derived(
-		version.current.licenseEntitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
-	);
+	const isCommunityEdition = $derived(version.current.community ?? false);
 </script>
 
 <div class="mb-4" in:fade={{ duration }}>

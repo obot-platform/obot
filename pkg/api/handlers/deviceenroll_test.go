@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,10 +18,18 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-type deviceLimitProviderFunc func(context.Context) (gatewayclient.DeviceLimit, error)
+// deviceLimit grants a device limit and nothing else.
+type deviceLimit int64
 
-func (f deviceLimitProviderFunc) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, error) {
-	return f(ctx)
+// noDeviceLimit sets no device limit, like an enterprise license.
+type noDeviceLimit struct{}
+
+func (d deviceLimit) Entitlements(context.Context) (types.Entitlements, error) {
+	return types.Entitlements{Devices: new(int64(d))}, nil
+}
+
+func (noDeviceLimit) Entitlements(context.Context) (types.Entitlements, error) {
+	return types.Entitlements{}, nil
 }
 
 func TestDeviceEnrollPreservesDeviceLimitForbiddenError(t *testing.T) {
@@ -58,9 +65,7 @@ func TestDeviceEnrollPreservesDeviceLimitForbiddenError(t *testing.T) {
 			},
 		},
 	}
-	handler := NewDeviceEnrollHandler(deviceLimitProviderFunc(func(context.Context) (gatewayclient.DeviceLimit, error) {
-		return limit, nil
-	}))
+	handler := NewDeviceEnrollHandler(deviceLimit(limit.Maximum))
 
 	err = handler.Enroll(apiContext)
 	var httpErr *types.ErrHTTP
@@ -90,7 +95,7 @@ func deviceEnrollTestPublicKey(t *testing.T) []byte {
 	return der
 }
 
-func TestDeviceEnrollRejectsInvalidDeviceLimit(t *testing.T) {
+func TestDeviceEnrollRefusesNewDevicesAtALimitOfZero(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	body, err := json.Marshal(types.DeviceEnrollRequest{
 		DeviceID:  "device-1",
@@ -111,17 +116,49 @@ func TestDeviceEnrollRejectsInvalidDeviceLimit(t *testing.T) {
 			},
 		},
 	}
-	handler := NewDeviceEnrollHandler(deviceLimitProviderFunc(func(context.Context) (gatewayclient.DeviceLimit, error) {
-		return gatewayclient.DeviceLimit{}, nil
-	}))
+	handler := NewDeviceEnrollHandler(deviceLimit(0))
 
 	err = handler.Enroll(apiContext)
-	if err == nil || err.Error() != fmt.Sprintf("invalid device limit %d", 0) {
-		t.Fatalf("Enroll() error = %v, want invalid device limit", err)
+	var httpErr *types.ErrHTTP
+	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusForbidden {
+		t.Fatalf("Enroll() error = %v, want the device limit's Forbidden", err)
 	}
 	if got, err := gatewayClient.DeviceCount(t.Context()); err != nil {
 		t.Fatalf("count devices: %v", err)
 	} else if got != 0 {
 		t.Fatalf("device count = %d, want 0", got)
+	}
+}
+
+func TestDeviceEnrollAllowsDevicesWithoutALimit(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	handler := NewDeviceEnrollHandler(noDeviceLimit{})
+
+	for _, deviceID := range []string{"device-1", "device-2"} {
+		body, err := json.Marshal(types.DeviceEnrollRequest{
+			DeviceID:  deviceID,
+			PublicKey: deviceEnrollTestPublicKey(t),
+		})
+		if err != nil {
+			t.Fatalf("marshal enrollment request: %v", err)
+		}
+
+		if err := handler.Enroll(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        httptest.NewRequest(http.MethodPost, "/api/mdm/enroll", bytes.NewReader(body)),
+			GatewayClient:  gatewayClient,
+			User: &user.DefaultInfo{
+				Extra: map[string][]string{
+					"mdm_configuration_id": {"1"},
+				},
+			},
+		}); err != nil {
+			t.Fatalf("Enroll(%s) error = %v", deviceID, err)
+		}
+	}
+	if got, err := gatewayClient.DeviceCount(t.Context()); err != nil {
+		t.Fatalf("count devices: %v", err)
+	} else if got != 2 {
+		t.Fatalf("device count = %d, want 2", got)
 	}
 }

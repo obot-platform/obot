@@ -57,9 +57,7 @@
 		staged
 	}: Props = $props();
 
-	const isLicenseRequired = $derived(
-		provider.missingEntitlements && provider.missingEntitlements.length > 0
-	);
+	const isLicenseRequired = $derived(Boolean(provider.entitlementsMissing));
 </script>
 
 <div

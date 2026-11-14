@@ -1,4 +1,6 @@
 import { dev } from '$app/env';
+import { ENVIRONMENT_RESTRICTED_COOKIE } from '$lib/constants';
+import { hasCookie } from '$lib/cookies';
 import { getHttpStatusCode } from '$lib/errors';
 import {
 	AdminService,
@@ -26,17 +28,13 @@ const ACCOUNT_INACTIVE_KEY = 'obot-account-inactive';
 // but cannot set a cookie, so only the cookie is trusted.
 const ACCOUNT_INACTIVE_COOKIE = 'obot_account_inactive';
 
-// takeAccountInactiveCookie reports whether the server set ACCOUNT_INACTIVE_COOKIE, and clears it, so that it is read
-// once.
-function takeAccountInactiveCookie(): boolean {
-	if (typeof document === 'undefined') {
-		return false;
-	}
-	const set = document.cookie
-		.split(';')
-		.some((cookie) => cookie.trim() === `${ACCOUNT_INACTIVE_COOKIE}=true`);
+const ENVIRONMENT_RESTRICTED_KEY = 'obot-environment-restricted';
+
+// takeCookie reports whether the server set the cookie name to true, and clears it, so that it is read once.
+function takeCookie(name: string): boolean {
+	const set = hasCookie(name);
 	if (set) {
-		document.cookie = `${ACCOUNT_INACTIVE_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`;
+		document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
 	}
 	return set;
 }
@@ -46,7 +44,7 @@ function takeAccountInactiveCookie(): boolean {
 // redirect of a page load to the login page with ACCOUNT_INACTIVE_COOKIE. The answer is kept for the rest of the visit,
 // so that it survives the redirects that follow, until someone signs in.
 function accountInactive(profileResult: PromiseSettledResult<Profile>): boolean {
-	const redirected = takeAccountInactiveCookie();
+	const redirected = takeCookie(ACCOUNT_INACTIVE_COOKIE);
 	const refused =
 		profileResult.status === 'rejected' &&
 		(getHttpStatusCode(profileResult.reason) === 403 || redirected);
@@ -62,6 +60,29 @@ function accountInactive(profileResult: PromiseSettledResult<Profile>): boolean 
 		return false;
 	}
 	return sessionStorage.getItem(ACCOUNT_INACTIVE_KEY) === 'true';
+}
+
+// environmentRestricted reports whether to tell the visitor they were signed out because the environment is
+// restricted: the profile was refused with a 402, or a page load was sent to the login page with
+// ENVIRONMENT_RESTRICTED_COOKIE. Like accountInactive, the answer is kept for the rest of the visit, until someone signs
+// in.
+function environmentRestricted(profileResult: PromiseSettledResult<Profile>): boolean {
+	const redirected = takeCookie(ENVIRONMENT_RESTRICTED_COOKIE);
+	const refused =
+		profileResult.status === 'rejected' &&
+		(getHttpStatusCode(profileResult.reason) === 402 || redirected);
+	if (typeof sessionStorage === 'undefined') {
+		return refused;
+	}
+	if (refused) {
+		sessionStorage.setItem(ENVIRONMENT_RESTRICTED_KEY, 'true');
+		return true;
+	}
+	if (profileResult.status === 'fulfilled') {
+		sessionStorage.removeItem(ENVIRONMENT_RESTRICTED_KEY);
+		return false;
+	}
+	return sessionStorage.getItem(ENVIRONMENT_RESTRICTED_KEY) === 'true';
 }
 
 export const load: LayoutLoad = async ({ fetch, url }) => {
@@ -82,6 +103,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 			? compileAppPreferences(appPreferencesResult.value)
 			: compileAppPreferences();
 	const inactive = accountInactive(profileResult);
+	const restricted = environmentRestricted(profileResult);
 	const profile: Profile =
 		profileResult.status === 'fulfilled'
 			? profileResult.value
@@ -94,6 +116,7 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 					groups: [],
 					unauthorized: true,
 					accountInactive: inactive,
+					environmentRestricted: restricted,
 					username: ''
 				};
 

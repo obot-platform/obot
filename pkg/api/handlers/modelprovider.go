@@ -7,22 +7,22 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/i18n"
-	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ModelProviderHandler struct {
-	dispatcher *dispatcher.Dispatcher
-	license    *license.Provider
+	dispatcher          *dispatcher.Dispatcher
+	entitlementProvider gclient.EntitlementProvider
 }
 
-func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider) *ModelProviderHandler {
+func NewModelProviderHandler(dispatcher *dispatcher.Dispatcher, entitlementProvider gclient.EntitlementProvider) *ModelProviderHandler {
 	return &ModelProviderHandler{
-		dispatcher: dispatcher,
-		license:    licenseProvider,
+		dispatcher:          dispatcher,
+		entitlementProvider: entitlementProvider,
 	}
 }
 
@@ -32,7 +32,7 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
+	mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.entitlementProvider)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 	resp := make([]types.ModelProvider, 0, len(modelProviders.Items))
 	locale := providerResponseLocale(req)
 	for _, modelProvider := range modelProviders.Items {
-		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
+		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.entitlementProvider)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return err
 	}
 
-	mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.license)
+	mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, mp.entitlementProvider)
 	if err != nil {
 		return err
 	}

@@ -20,6 +20,8 @@ type Harness struct {
 	BaseURL string
 	RunID   string
 	HTTP    *http.Client
+	// BearerToken, if set, authenticates every request.
+	BearerToken string
 
 	cleanups []func()
 }
@@ -28,7 +30,7 @@ type Harness struct {
 func New(t *testing.T) *Harness {
 	t.Helper()
 
-	url := os.Getenv("OBOT_INTEGRATION_BASE_URL")
+	url := os.Getenv(BaseURLEnv)
 	if url == "" {
 		t.Fatal("integration server URL was not configured by TestMain")
 	}

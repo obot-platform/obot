@@ -246,7 +246,7 @@ export interface BaseProvider {
 	name: string;
 	configured: boolean;
 	created: string;
-	missingEntitlements?: string[];
+	entitlementsMissing?: boolean;
 	missingConfigurationParameters?: string[];
 	optionalConfigurationParameters?: ProviderParameter[];
 	requiredConfigurationParameters?: ProviderParameter[];
@@ -642,13 +642,57 @@ export interface ServerK8sSettings {
 }
 
 // Licensing
+// Limits are null when unlimited. A limit of 0 allows none.
+export interface Entitlements {
+	community: boolean;
+	enterprise: boolean;
+	cloud: boolean;
+	enterpriseAuthProviders: boolean;
+	enterpriseModelProviders: boolean;
+	users: number | null;
+	devices: number | null;
+	memoryMiB: number | null;
+	cpuMillicores: number | null;
+	auditLogRetentionDays: number | null;
+	// Not shown or enforced yet. Egress is per billing period.
+	auditLogStorageMiB: number | null;
+	networkEgressMiB: number | null;
+}
+
+export interface EntitlementsUsage {
+	users: number;
+	devices: number;
+	memoryMiB: number;
+	cpuMillicores: number;
+}
+
+export type SubscriptionStatus = 'trialing' | 'active' | 'pastDue' | 'ended';
+
+export interface Subscription {
+	plan: string;
+	status: SubscriptionStatus;
+	periodEnd?: string;
+	cancelAtPeriodEnd: boolean;
+	selfService: boolean;
+}
+
+export interface BillingSession {
+	url: string;
+}
+
 export interface License {
 	licenseKey: string;
 	source: string;
 	locked: boolean;
 	enterprise: boolean;
-	entitlements: string[] | null;
+	entitlements: Entitlements;
 	manualCheckAvailableAt?: string;
+	// A billed environment answers with its billing status instead: the entitlements and the fields below, without
+	// the license's own fields above. Usage, subscription and syncError are for admins and auditors.
+	usage?: EntitlementsUsage;
+	subscription?: Subscription;
+	syncing?: boolean;
+	syncError?: string;
 }
 
 export interface LicenseManifest {
@@ -746,7 +790,7 @@ export type LLMAuditLogURLFilters = {
 
 // MCP capacity
 
-export type CapacitySource = 'resourceQuota' | 'deployments';
+export type CapacitySource = 'resourceQuota' | 'deployments' | 'entitlements';
 export interface MCPCapacityInfo {
 	source: CapacitySource;
 	cpuRequested?: string;

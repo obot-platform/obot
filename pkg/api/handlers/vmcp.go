@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -19,6 +22,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	// staticConfigurationUndoTimeout bounds putting a vMCP's stored configuration back after a failed update, which
+	// doesn't stop when the request's context does.
+	staticConfigurationUndoTimeout = 10 * time.Second
 )
 
 type VMCPHandler struct {
@@ -259,11 +268,14 @@ func (h *VMCPHandler) Update(req api.Context) error {
 
 	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
 	credentialName := vmcpconfig.StaticConfigurationCredentialName(&vmcp)
+	// What the stored vMCP publishes now. If it still does after a failed update, no other update published since.
+	publishedHash := vmcp.Spec.StaticConfigurationHash
 
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, credentialName)
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to reveal VMCP static configuration: %w", err)
 	}
+	hadCredential := err == nil
 
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
 	vmcp.Spec.Manifest = manifest
@@ -282,7 +294,37 @@ func (h *VMCPHandler) Update(req api.Context) error {
 			return fmt.Errorf("failed to store VMCP static configuration: %w", err)
 		}
 		if err := req.Update(&vmcp); err != nil {
-			return fmt.Errorf("failed to update VMCP: %w", err)
+			err = fmt.Errorf("failed to update VMCP: %w", err)
+
+			// The vMCP wasn't updated, so undo the credential write, even if the caller has gone away.
+			ctx, cancel := context.WithTimeout(context.WithoutCancel(req.Context()), staticConfigurationUndoTimeout)
+			defer cancel()
+
+			// Check what the stored vMCP publishes first. If another update published its configuration since this
+			// one read the vMCP, the credential may be its own, so leave it. A conflict with a write that published
+			// nothing, like a controller's status update, is undone.
+			var stored v1.VMCP
+			if getErr := req.Storage.Get(ctx, kclient.ObjectKeyFromObject(&vmcp), &stored); getErr != nil {
+				// A deleted vMCP has nothing left to undo.
+				return errors.Join(err, kclient.IgnoreNotFound(getErr))
+			}
+			if stored.Spec.StaticConfigurationHash != publishedHash {
+				return err
+			}
+
+			var cleanupErr error
+			if hadCredential {
+				// Put back what was stored.
+				cleanupErr = req.GatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+					Context: credentialContext,
+					Name:    credentialName,
+					Secrets: cred.Secrets,
+				})
+			} else {
+				// Nothing was stored before, remove what this update stored.
+				_, cleanupErr = req.GatewayClient.DeleteCredential(ctx, credentialContext, credentialName)
+			}
+			return errors.Join(err, cleanupErr)
 		}
 		return nil
 	}); err != nil {
@@ -332,6 +374,7 @@ func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
 	if err := req.List(&instances, kclient.MatchingFields{"spec.manifest.vmcpID": vmcp.Name}); err != nil {
 		return err
 	}
+	var refusal string
 	for i := range instances.Items {
 		instance := &instances.Items[i]
 		err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -347,9 +390,17 @@ func releaseOutdatedLegacyComponents(req api.Context, vmcp v1.VMCP) error {
 			}
 			return err
 		})
+		if refused, ok := mcp.ComputeLimitRefusal(err); ok {
+			// Keep releasing the others. This connection keeps its snapshot until there's room.
+			refusal = refused
+			continue
+		}
 		if err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to update VMCP instance %q: %w", instance.Name, err)
 		}
+	}
+	if refusal != "" {
+		return types.NewErrHTTP(http.StatusPaymentRequired, "The vMCP was updated, but some of its connections keep their current versions. "+refusal)
 	}
 	return nil
 }

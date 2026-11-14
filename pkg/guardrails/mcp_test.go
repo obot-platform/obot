@@ -221,7 +221,7 @@ func TestResolveIdentityAdmin(t *testing.T) {
 		{
 			name: "LLM-only API key of the owner",
 			user: &kuser.DefaultInfo{UID: "1", Groups: []string{apitypes.GroupLLM}, Extra: map[string][]string{
-				"obot_groups": {apitypes.GroupOwner},
+				"obot_groups": apitypes.RoleOwner.RoleGroups(),
 			}},
 			admin: true,
 		},

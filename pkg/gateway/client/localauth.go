@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -14,6 +15,10 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apiserver/pkg/storage/value"
+)
+
+const (
+	localAuthSessionCleanupInterval = time.Hour
 )
 
 var (
@@ -355,9 +360,26 @@ func (c *Client) DeleteAllLocalAuthSessions(ctx context.Context) error {
 	return c.db.WithContext(ctx).Where("1 = 1").Delete(new(types.LocalAuthSession)).Error
 }
 
-// DeleteExpiredLocalAuthSessions removes sessions that are past their expiration.
-func (c *Client) DeleteExpiredLocalAuthSessions(ctx context.Context) error {
+// deleteExpiredLocalAuthSessions removes sessions that are past their expiration.
+func (c *Client) deleteExpiredLocalAuthSessions(ctx context.Context) error {
 	return c.db.WithContext(ctx).Where("expires_at < ?", time.Now()).Delete(new(types.LocalAuthSession)).Error
+}
+
+// runLocalAuthSessionCleanup deletes expired local auth sessions now, and again every hour.
+func (c *Client) runLocalAuthSessionCleanup(ctx context.Context) {
+	ticker := time.NewTicker(localAuthSessionCleanupInterval)
+	defer ticker.Stop()
+	for {
+		if err := c.deleteExpiredLocalAuthSessions(ctx); err != nil {
+			slog.Warn("failed to clean up expired local auth sessions", "error", err)
+		}
+
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func localAuthUserDataCtx(user *types.LocalAuthUser) value.Context {

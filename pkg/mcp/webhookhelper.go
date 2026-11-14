@@ -118,3 +118,48 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 
 	return result
 }
+
+// FilterServerManifest returns the manifest of the system MCP server that runs a filter. A built-in filter runs its own
+// manifest, and a webhook filter runs image, which forwards to its URL. The filter controller deploys it, and billing
+// measures it.
+func FilterServerManifest(webhookValidation *v1.MCPWebhookValidation, image string) types.SystemMCPServerManifest {
+	var manifest types.SystemMCPServerManifest
+	if webhookValidation.Spec.Manifest.SystemMCPServerManifest != nil {
+		manifest = *webhookValidation.Spec.Manifest.SystemMCPServerManifest.DeepCopy()
+	} else {
+		manifest = types.SystemMCPServerManifest{
+			ShortDescription: "Managed webhook validation server",
+			Enabled:          new(!webhookValidation.Spec.Manifest.Disabled),
+			Runtime:          types.RuntimeContainerized,
+			ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+				Image: image,
+				Port:  8099,
+				Path:  "/mcp",
+			},
+			Config: []types.MCPConfig{{
+				Key:   "WEBHOOK_URL",
+				Value: webhookValidation.Spec.Manifest.URL,
+				Usage: types.Env,
+			},
+				{
+					Key:       "WEBHOOK_SECRET",
+					Sensitive: true,
+					Usage:     types.Env,
+				},
+				{
+					Key:   "PORT",
+					Value: "8099",
+					Usage: types.Env,
+				}},
+		}
+	}
+
+	// Name it for the filter, falling back to the manifest's name and then the filter's ID.
+	if name := webhookValidation.Spec.Manifest.Name; name != "" {
+		manifest.Name = name
+	} else if manifest.Name == "" {
+		manifest.Name = webhookValidation.Name
+	}
+
+	return manifest
+}
