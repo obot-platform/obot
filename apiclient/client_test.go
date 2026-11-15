@@ -17,7 +17,7 @@ func TestTokenHasScopes(t *testing.T) {
 		want   bool
 	}{
 		{
-			name:   "API scope satisfies non-MCP scopes",
+			name:   "API scope does not satisfy LLM or skills",
 			scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM},
 			resp: map[string]any{
 				"allowed": true,
@@ -25,7 +25,7 @@ func TestTokenHasScopes(t *testing.T) {
 					"canAccessAPI": true,
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name:   "API scope does not satisfy MCP scope",
@@ -59,6 +59,50 @@ func TestTokenHasScopes(t *testing.T) {
 				},
 			},
 			want: true,
+		},
+		{
+			name:   "API only does not satisfy LLM",
+			scopes: []string{types.APIKeyScopeLLM},
+			resp:   map[string]any{"allowed": true, "scopes": map[string]any{"canAccessAPI": true}},
+			want:   false,
+		},
+		{
+			name:   "API only does not satisfy skills",
+			scopes: []string{types.APIKeyScopeSkills},
+			resp:   map[string]any{"allowed": true, "scopes": map[string]any{"canAccessAPI": true}},
+			want:   false,
+		},
+		{
+			name:   "LLM only does not satisfy API",
+			scopes: []string{types.APIKeyScopeAPI},
+			resp:   map[string]any{"allowed": true, "scopes": map[string]any{"canAccessLLMProxy": true}},
+			want:   false,
+		},
+		{
+			name:   "skills only does not satisfy LLM",
+			scopes: []string{types.APIKeyScopeLLM},
+			resp:   map[string]any{"allowed": true, "scopes": map[string]any{"canAccessSkills": true}},
+			want:   false,
+		},
+		{
+			name:   "mixed capabilities satisfy mixed request regardless of order",
+			scopes: []string{types.APIKeyScopeSkills, types.APIKeyScopeLLM, types.APIKeyScopeAPI},
+			resp: map[string]any{"allowed": true, "scopes": map[string]any{
+				"canAccessAPI": true, "canAccessLLMProxy": true, "canAccessSkills": true,
+			}},
+			want: true,
+		},
+		{
+			name:   "partial mixed capabilities do not satisfy request",
+			scopes: []string{types.APIKeyScopeLLM, types.APIKeyScopeSkills},
+			resp:   map[string]any{"allowed": true, "scopes": map[string]any{"canAccessLLMProxy": true}},
+			want:   false,
+		},
+		{
+			name:   "unknown scope is rejected",
+			scopes: []string{"unknown"},
+			resp:   map[string]any{"allowed": true, "scopes": map[string]any{"canAccessAPI": true}},
+			want:   false,
 		},
 		{
 			name:   "missing requested scope fails",

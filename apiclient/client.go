@@ -108,11 +108,11 @@ func TokenHasScopes(ctx context.Context, baseURL, token string, scopes []string)
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
 		case types.APIKeyScopeSkills:
-			if !validation.Scopes.CanAccessSkills && !validation.Scopes.CanAccessAPI {
+			if !validation.Scopes.CanAccessSkills {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
 		case types.APIKeyScopeLLM:
-			if !validation.Scopes.CanAccessLLMProxy && !validation.Scopes.CanAccessAPI {
+			if !validation.Scopes.CanAccessLLMProxy {
 				return fmt.Errorf("token does not have scope: %s", scope)
 			}
 		case types.APIKeyScopeAllMCP:
