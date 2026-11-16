@@ -116,7 +116,9 @@ The first provider listed for a resource in the `EncryptionConfiguration` encryp
 2. Move the new key to the first position on every replica. New data is now encrypted with it.
 3. Keep the old key configured until no stored data needs it.
 
-For MCP and local-agent audit logs, keep the old key for at least the MCP audit log retention period (`OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS`) plus three days after the last replica moves the new key first. Large `tools/list`, `prompts/list`, `resources/list`, and `resources/templates/list` results are stored once and shared by every audit log that contains them. A shared result moves to the new key only when it is next referenced after a daily refresh, so it can stay under the old key for a day longer than the audit logs themselves. If retention is disabled, audit logs and shared results written under the old key are never deleted and continue to need it.
+For MCP and local-agent audit logs, keep the old key for at least the MCP audit log retention period in effect plus three days after the last replica moves the new key first. The period in effect is `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS`, unless an Obot Cloud plan sets an audit log retention, which replaces it. If Obot cannot read the plan's retention, it keeps every audit log and logs `Failed to read audit log retention, keeping audit logs`; the old key is then needed until cleanup resumes.
+
+Before removing the old key, confirm that cleanup is running: no MCP audit log older than the retention period in effect should remain. Large `tools/list`, `prompts/list`, `resources/list`, and `resources/templates/list` results are stored once and shared by every audit log that contains them. A shared result moves to the new key only when it is next referenced after a daily refresh, so it can stay under the old key for a day longer than the audit logs themselves. If retention is disabled, audit logs and shared results written under the old key are never deleted and continue to need it.
 
 Other encrypted data, such as credentials and user details, is not re-encrypted when the key changes. It keeps needing the old key until it is rewritten.
 

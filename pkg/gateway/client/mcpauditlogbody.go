@@ -129,6 +129,9 @@ type auditBodyState struct {
 	storedCheckRetryAt time.Time
 	// known records what this replica found when it last read each stored shared body.
 	known map[[auditBodyHashLen]byte]auditBodyKnown
+	// warnedUnprotectedHashKey records that sharing was found disabled for want of property
+	// encryption, which is logged once.
+	warnedUnprotectedHashKey bool
 }
 
 // auditBodyReference is the decoded content of a reference field: which shared body holds the cut
@@ -420,6 +423,18 @@ func (c *Client) auditBodyHashKey(ctx context.Context) ([]byte, error) {
 	return key, nil
 }
 
+// warnUnprotectedAuditBodyHashKey logs, once per replica, that encrypted list responses are
+// stored inline because the configuration does not encrypt properties.
+func (c *Client) warnUnprotectedAuditBodyHashKey() {
+	c.auditBodies.lock.Lock()
+	defer c.auditBodies.lock.Unlock()
+	if c.auditBodies.warnedUnprotectedHashKey {
+		return
+	}
+	c.auditBodies.warnedUnprotectedHashKey = true
+	slog.Warn("MCP list responses are stored inline because audit logs are encrypted but properties are not; add properties.obot.obot.ai to the encryption configuration to store them once")
+}
+
 func (c *Client) loadAuditBodyHashKey(ctx context.Context) ([]byte, error) {
 	var stored types.Property
 	err := c.db.WithContext(ctx).Where("key = ?", auditBodyHashKeyProperty).First(&stored).Error
@@ -671,6 +686,12 @@ func (c *Client) encodeAuditListResponseField(ctx context.Context, transformer v
 	}
 	start, end, ok := splitJSONRPCResult(body)
 	if !ok || end-start < auditBodyDedupMinBytes {
+		return encodeAuditBodyField(ctx, transformer, dataCtx, field)
+	}
+	if transformer != nil && c.propertyTransformer() == nil {
+		// The hash key would be stored unencrypted, and anyone who can read the database could
+		// use it to confirm a guessed result against the hashes of encrypted bodies.
+		c.warnUnprotectedAuditBodyHashKey()
 		return encodeAuditBodyField(ctx, transformer, dataCtx, field)
 	}
 	key, err := c.auditBodyHashKey(ctx)

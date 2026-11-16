@@ -134,6 +134,7 @@ func contextBoundEncryptionConfig() *encryptionconfig.EncryptionConfiguration {
 	return &encryptionconfig.EncryptionConfiguration{
 		Transformers: map[schema.GroupResource]value.Transformer{
 			mcpAuditLogGroupResource: contextBoundTransformer{},
+			propertyGroupResource:    contextBoundTransformer{},
 		},
 	}
 }
@@ -1229,10 +1230,13 @@ func rotatingKeyPrefix(key string) []byte {
 	return []byte("key[" + key + "]:")
 }
 
+// useRotatingKeys encrypts audit logs and properties with keys, as the shipped encryption
+// configurations do. Without property encryption, list responses are not shared.
 func useRotatingKeys(c *Client, keys ...string) {
 	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
 		Transformers: map[schema.GroupResource]value.Transformer{
 			mcpAuditLogGroupResource: rotatingTransformer{keys: keys},
+			propertyGroupResource:    rotatingTransformer{keys: keys},
 		},
 	}
 }
@@ -1297,18 +1301,22 @@ func TestEnablingEncryptionStoresASeparateEncryptedBody(t *testing.T) {
 }
 
 // A writer without the encryption configuration must neither rewrite an encrypted body in the
-// clear nor reference one it cannot read. This is the case where it can still read the hash key,
-// because the key is not stored encrypted; where it cannot, it does not share bodies at all (see
+// clear nor reference one it cannot read. This is the case where it still holds a hash key it
+// loaded while the key was stored unencrypted, before a writer that encrypts replaced it; once
+// the key is stored encrypted, a writer that cannot read it does not share bodies at all (see
 // TestHashKeyStoredBeforeEncryptionIsReplaced).
 func TestUnencryptedWriterLeavesEncryptedSharedBodyAlone(t *testing.T) {
 	c := newTestClient(t)
+	unencryptedWriter := &Client{db: c.db}
+	if _, err := unencryptedWriter.auditBodyHashKey(t.Context()); err != nil {
+		t.Fatal(err)
+	}
 	c.encryptionConfig = contextBoundEncryptionConfig()
 	result := testListResult("mixed", 4096)
 	first := testListResponse(1, result)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", first)...)
 	_, encryptedBefore := loadAuditBodies(t, c)
 
-	unencryptedWriter := &Client{db: c.db}
 	second := testListResponse(2, result)
 	storeMCPAuditEntries(t, unencryptedWriter, listCallEntries(2, "tools/list", second)...)
 
@@ -1717,6 +1725,9 @@ func TestUnreadableSharedBodyIsNotReferencedAndAgesOut(t *testing.T) {
 	const retentionDays = 30
 	c := newTestClient(t)
 	useRotatingKeys(c, "lost")
+	// Only the audit key is lost. The hash key stays readable, so the writers below can share,
+	// and what they cannot read is the stored body.
+	c.encryptionConfig.Transformers[propertyGroupResource] = rotatingTransformer{keys: []string{"current"}}
 	result := testListResult("orphan", 4096)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, result))...)
 	if err := c.db.WithContext(t.Context()).Where("1 = 1").Delete(&types.MCPAuditLog{}).Error; err != nil {
@@ -2605,5 +2616,41 @@ func TestLegacyDecryptFailureStopsAtTheFirstRow(t *testing.T) {
 	}
 	if got := strings.Count(err.Error(), "no configured key can decrypt"); got != 1 {
 		t.Fatalf("error reports %d failures, want 1: %v", got, err)
+	}
+}
+
+// With audit logs encrypted but properties not, the hash key would be stored in the clear, and a
+// database reader could use it to confirm a guessed result against the stored hashes. List
+// responses are then stored inline, and no hash key is created.
+func TestEncryptedAuditLogsWithoutPropertyEncryptionDoNotShare(t *testing.T) {
+	c := newTestClient(t)
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			mcpAuditLogGroupResource: rotatingTransformer{keys: []string{"key"}},
+		},
+	}
+	response := testListResponse(1, testListResult("unprotected", 4096))
+	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", response)...)
+
+	if got := countAuditBodies(t, c); got != 0 {
+		t.Fatalf("stored %d shared bodies, want none", got)
+	}
+	var keys int64
+	if err := c.db.WithContext(t.Context()).Model(&types.Property{}).Where("key = ?", auditBodyHashKeyProperty).Count(&keys).Error; err != nil {
+		t.Fatal(err)
+	}
+	if keys != 0 {
+		t.Fatal("a hash key was stored although it could not be encrypted")
+	}
+	stored := storedResponseBodyOf(t, c, 1)
+	if stored[2]&auditBodyFlagReference != 0 || stored[2]&auditBodyFlagEncrypted == 0 {
+		t.Fatalf("response stored with flags %08b, want inline and encrypted", stored[2])
+	}
+	row, err := c.GetMCPAuditLog(t.Context(), 1, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(row.UnavailablePayloads) != 0 || !bytes.Equal(row.MCP().ResponseBody, response) {
+		t.Fatalf("inline response did not read back: unavailable=%v", row.UnavailablePayloads)
 	}
 }

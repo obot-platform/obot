@@ -55,7 +55,10 @@ bodies last referenced more than two days before the audit row cutoff.
 **HMAC key.** Generated on first use and kept in the `properties` table. A
 replica that encrypts properties stores it again when it is under a
 rotated-out encryption key and replaces it when it is stored unencrypted. A
-key that cannot be read is left alone.
+key that cannot be read is left alone. When audit logs are encrypted but
+properties are not, the key would be stored in the clear and would let a
+database reader confirm a guessed result against the stored hashes, so list
+responses are stored inline instead.
 
 **Unreadable bodies.** A body in the new format that cannot be read is omitted
 from the row and named in `unavailablePayloads`, rather than failing the
@@ -96,7 +99,7 @@ Alternatives are discussed in the ODP.
 - **Existing rows** are not rewritten. Storage falls as they age out.
 - **Key rotation.** A new key must be readable by every replica before any
   replica writes with it. The old key must stay readable for the retention
-  period plus about three days after the last replica switches, a day longer
+  period in effect, which an entitlement can override, plus about three days after the last replica switches, a day longer
   than inline rows need, because a shared body only moves to the new key when
   its refresh comes due. The procedure is documented under "Rotating the
   Encryption Key" in `docs/docs/security/credentials.md`.
