@@ -110,7 +110,7 @@ describe('LlmAuditLogRouting', () => {
 				servedProvider: 'openai',
 				servedModel: 'test',
 				providerKey: undefined,
-				chatgptSubscription: true
+				subscription: true
 			})
 		});
 		const section = page.getByRole('region', { name: 'Routing' });
@@ -128,7 +128,7 @@ describe('LlmAuditLogRouting', () => {
 				servedProvider: 'anthropic',
 				servedModel: 'claude-sonnet-4-5',
 				providerKey: undefined,
-				claudeSubscription: true
+				subscription: true
 			})
 		});
 

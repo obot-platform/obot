@@ -327,8 +327,8 @@ func TestLLMAuditRecorderRecordsRoute(t *testing.T) {
 	recorder.finish(newUsageTestClient(t), nil)
 
 	log := recorder.log
-	if log.TargetModel != "anthropic/claude-opus-4-8" || log.ServedProvider != "bedrock" || log.ServedModel != "claude-opus-4-8" || log.ProviderKey != "us-east" || !log.Fallback || log.ClaudeSubscription {
-		t.Fatalf("audit log routing = target %q, served %q/%q, key %q, fallback %v, subscription %v", log.TargetModel, log.ServedProvider, log.ServedModel, log.ProviderKey, log.Fallback, log.ClaudeSubscription)
+	if log.TargetModel != "anthropic/claude-opus-4-8" || log.ServedProvider != "bedrock" || log.ServedModel != "claude-opus-4-8" || log.ProviderKey != "us-east" || !log.Fallback || log.Subscription {
+		t.Fatalf("audit log routing = target %q, served %q/%q, key %q, fallback %v, subscription %v", log.TargetModel, log.ServedProvider, log.ServedModel, log.ProviderKey, log.Fallback, log.Subscription)
 	}
 
 	subscription := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/messages", nil), &user.DefaultInfo{UID: "7"}, 1024)
@@ -337,14 +337,14 @@ func TestLLMAuditRecorderRecordsRoute(t *testing.T) {
 	})
 	subscription.recordResponseStatus(http.StatusOK)
 	subscription.finish(newUsageTestClient(t), nil)
-	if !subscription.log.ClaudeSubscription || subscription.log.ProviderKey != "" {
-		t.Fatalf("audit log of a subscription request: subscription %v, key %q", subscription.log.ClaudeSubscription, subscription.log.ProviderKey)
+	if !subscription.log.Subscription || subscription.log.ProviderKey != "" {
+		t.Fatalf("audit log of a subscription request: subscription %v, key %q", subscription.log.Subscription, subscription.log.ProviderKey)
 	}
 	chatgpt := newLLMAuditRecorder(httptest.NewRequest(http.MethodPost, "/api/llm-proxy/v1/responses", nil), &user.DefaultInfo{UID: "7"}, 1024)
 	chatgpt.setRoute(func() llmRoute { return llmRoute{Provider: "openai", Model: "test", Subscription: true} })
 	chatgpt.recordResponseStatus(http.StatusOK)
 	chatgpt.finish(newUsageTestClient(t), nil)
-	if !chatgpt.log.ChatGPTSubscription || chatgpt.log.ClaudeSubscription || chatgpt.log.ProviderKey != "" {
+	if !chatgpt.log.Subscription || chatgpt.log.ServedProvider != "openai" || chatgpt.log.ProviderKey != "" {
 		t.Fatalf("incorrect ChatGPT subscription attribution: %+v", chatgpt.log)
 	}
 }

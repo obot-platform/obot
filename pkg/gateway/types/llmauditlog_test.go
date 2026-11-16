@@ -13,7 +13,7 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 		ID:                        "a1",
 		MessagePolicyTriggered:    true,
 		PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`),
-		ClaudeSubscription:        true,
+		Subscription:              true,
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -23,17 +23,17 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 			t.Errorf("the audit log entry shows %q: %s", field, data)
 		}
 	}
-	if !strings.Contains(string(data), `"claudeSubscription":true`) {
+	if !strings.Contains(string(data), `"subscription":true`) {
 		t.Errorf("the audit log entry doesn't say a Claude subscription paid for it: %s", data)
 	}
 }
 
-func TestConvertLLMAuditLogChatGPTSubscription(t *testing.T) {
-	data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{ChatGPTSubscription: true}))
+func TestConvertLLMAuditLogSubscription(t *testing.T) {
+	data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{Subscription: true}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"chatgptSubscription":true`) || strings.Contains(string(data), `"claudeSubscription":true`) {
+	if !strings.Contains(string(data), `"subscription":true`) || strings.Contains(string(data), `"claudeSubscription"`) || strings.Contains(string(data), `"chatgptSubscription"`) {
 		t.Fatalf("incorrect subscription type: %s", data)
 	}
 }
