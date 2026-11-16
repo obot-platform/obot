@@ -22,6 +22,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/system"
@@ -198,16 +199,9 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	p.throttle.succeeded(email)
 
-	token, err := generateToken()
+	token, expiresAt, err := p.StartSession(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to generate session token", "error", err)
-		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
-		return
-	}
-
-	expiresAt := time.Now().Add(sessionDuration)
-	if err := p.gatewayClient.CreateLocalAuthSession(r.Context(), hash.String(token), user.ID, expiresAt); err != nil {
-		slog.Error("failed to create local auth session", "error", err)
+		slog.Error("failed to start local auth session", "error", err)
 		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
 	}
@@ -237,6 +231,36 @@ func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) 
 		return "", time.Time{}, err
 	}
 	return token, expiresAt, nil
+}
+
+// StartSession creates a session for the local user and returns the token to hand to the browser
+// as its session cookie. Only the token's hash is stored.
+func (p *Provider) StartSession(ctx context.Context, userID uint) (string, time.Time, error) {
+	token, err := generateToken()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to generate session token: %w", err)
+	}
+
+	expiresAt := time.Now().Add(sessionDuration)
+	if err := p.gatewayClient.CreateLocalAuthSession(ctx, hash.String(token), userID, expiresAt); err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to create local auth session: %w", err)
+	}
+	return token, expiresAt, nil
+}
+
+// Identity returns the identity that signing in with the local account for email produces. It must
+// match what the auth proxy builds from this provider's session state (see getState here and
+// authenticateRequest in pkg/proxy/proxy.go), so that an identity ensured ahead of the first
+// sign-in is the one that sign-in finds.
+func Identity(email string) *types.Identity {
+	email = client.NormalizeEmail(email)
+	return &types.Identity{
+		Email:                 email,
+		ProviderUsername:      email,
+		ProviderUserID:        email,
+		AuthProviderName:      ProviderName,
+		AuthProviderNamespace: system.DefaultNamespace,
+	}
 }
 
 func (p *Provider) SetSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {

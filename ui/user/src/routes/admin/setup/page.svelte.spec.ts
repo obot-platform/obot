@@ -1,4 +1,5 @@
 import { CommonAuthProviderIds, LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
+import * as navigation from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider, LocalAuthUser } from '$lib/services/admin/types';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
@@ -7,9 +8,15 @@ import { worker } from '../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import SetupPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock(import('$lib/navigation'), { spy: true });
+
+afterEach(() => {
+	vi.mocked(navigation.navigateTo).mockRestore();
+});
 
 const localProvider: AuthProvider = {
 	id: CommonAuthProviderIds.LOCAL,
@@ -134,25 +141,49 @@ describe('Setup page', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('creates the initial owner and slides to the sign-in step', async () => {
+	it('creates the owner in one step and goes to admin without another sign-in', async () => {
 		const { createUser, initiateTempLogin } = mockSetupApis();
+		const createOwner = vi.fn();
+		worker.use(
+			http.post('/api/setup/local-owner', async ({ request }) => {
+				createOwner(await request.json());
+				return HttpResponse.json({ email: 'ada@example.com', redirect: '/admin' });
+			})
+		);
+		vi.mocked(navigation.navigateTo).mockImplementation(() => {});
 		await renderSetupPage({ splashSeen: true, eulaAccepted: true, localProvider: localConfigured });
 
 		await completeOwnerForm();
 
 		await vi.waitFor(() => {
-			expect(createUser).toHaveBeenCalledWith({
+			expect(createOwner).toHaveBeenCalledWith({
 				email: 'ada@example.com',
-				password: validPassword,
-				requirePasswordChange: false
+				password: validPassword
 			});
-			expect(initiateTempLogin).toHaveBeenCalledOnce();
+			expect(navigation.navigateTo).toHaveBeenCalledWith('/admin');
 		});
+		expect(createUser).not.toHaveBeenCalled();
+		expect(initiateTempLogin).not.toHaveBeenCalled();
+		await expect
+			.element(page.getByText('Next Step: Owner Setup', { exact: true }))
+			.not.toBeInTheDocument();
+	});
 
-		await expect.element(page.getByText('Next Step: Owner Setup', { exact: true })).toBeVisible();
-		const signIn = page.getByRole('link', { name: /Sign in as ada@example.com/ });
-		await expect.element(signIn).toBeVisible();
-		await expect.element(signIn).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
+	it('keeps the owner form with the error for other failures', async () => {
+		mockSetupApis();
+		worker.use(
+			http.post('/api/setup/local-owner', () =>
+				HttpResponse.text('password must be at least 8 characters', { status: 400 })
+			)
+		);
+		vi.mocked(navigation.navigateTo).mockImplementation(() => {});
+		await renderSetupPage({ splashSeen: true, eulaAccepted: true, localProvider: localConfigured });
+
+		await completeOwnerForm();
+
+		await expect.element(page.getByText('password must be at least 8 characters')).toBeVisible();
+		await expect.element(page.getByLabelText('Email', { exact: true })).toBeEnabled();
+		expect(navigation.navigateTo).not.toHaveBeenCalled();
 	});
 
 	it('opens user management without configuration when changing the owner account', async () => {

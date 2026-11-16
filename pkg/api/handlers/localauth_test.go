@@ -92,7 +92,7 @@ func newLocalSetupFixture(t *testing.T) *localSetupFixture {
 		storage:   storageClient,
 		provider:  provider,
 		handler:   NewLocalAuthHandler(provider),
-		setup:     setup.NewHandler("https://obot.example.com", boot, getter),
+		setup:     setup.NewHandler("https://obot.example.com", boot, getter, provider),
 		bootstrap: boot,
 		getter:    getter,
 	}

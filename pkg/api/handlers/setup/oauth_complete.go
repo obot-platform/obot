@@ -128,7 +128,17 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 
 func (h *Handler) completeOwnerLogin(req api.Context) error {
 	// Keep the provider session and remove bootstrap authentication from this browser.
-	http.SetCookie(req.ResponseWriter, &http.Cookie{
+	h.clearBootstrapCookie(req.ResponseWriter)
+	// No sign-out follows this redirect to clear the setup login marker, so clear it here.
+	auth.ClearSetupLoginCookie(req.ResponseWriter, strings.HasPrefix(h.serverURL, "https://"))
+
+	http.Redirect(req.ResponseWriter, req.Request, "/admin", http.StatusFound)
+	return nil
+}
+
+// clearBootstrapCookie removes bootstrap authentication from the browser once its owner can sign in.
+func (h *Handler) clearBootstrapCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
 		Name:     bootstrap.ObotBootstrapCookie,
 		Value:    "",
 		Path:     "/",
@@ -137,9 +147,4 @@ func (h *Handler) completeOwnerLogin(req api.Context) error {
 		Secure:   strings.HasPrefix(h.serverURL, "https://"),
 		SameSite: http.SameSiteLaxMode,
 	})
-	// No sign-out follows this redirect to clear the setup login marker, so clear it here.
-	auth.ClearSetupLoginCookie(req.ResponseWriter, strings.HasPrefix(h.serverURL, "https://"))
-
-	http.Redirect(req.ResponseWriter, req.Request, "/admin", http.StatusFound)
-	return nil
 }

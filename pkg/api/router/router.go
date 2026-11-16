@@ -118,7 +118,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	serverInstances := handlers.NewServerInstancesHandler()
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
-	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper, services.ProviderDispatcher)
+	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper, services.ProviderDispatcher, services.LocalAuthProvider)
 	registryHandler := registry.NewHandler(services.ServerURL)
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
@@ -614,6 +614,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/setup/temp-user", setupHandler.GetTempUser)
 	mux.HandleFunc("POST /api/setup/confirm-owner", setupHandler.ConfirmOwner)
 	mux.HandleFunc("POST /api/setup/cancel-temp-login", setupHandler.CancelTempLogin)
+	mux.HandleFunc("POST /api/setup/local-owner", setupHandler.CreateLocalOwner)
 
 	// Models
 	mux.HandleFunc("POST /api/models", models.Create)
