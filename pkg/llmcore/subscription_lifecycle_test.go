@@ -60,7 +60,7 @@ func testSubscriptionReplacementAfterHooks(t *testing.T, provider schemas.ModelP
 	if provider == schemas.OpenAI {
 		reply = codexReply
 		transport = codexTransport
-		credential = codexFixture
+		credential = chatgptFixture
 		other = schemas.Anthropic
 	}
 	call := func(ctx context.Context, e *Engine, path string, stream bool) *httptest.ResponseRecorder {

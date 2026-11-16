@@ -58,8 +58,8 @@ type Engine struct {
 	shutdownDone chan struct{}
 
 	// Each subscription provider drains after its admitted HTTP requests return.
-	claudeSubscriptionLifetime sync.RWMutex
-	codexSubscriptionLifetime  sync.RWMutex
+	claudeSubscriptionLifetime  sync.RWMutex
+	chatgptSubscriptionLifetime sync.RWMutex
 
 	// syncLock serializes Sync, so two syncs don't apply provider changes out of order.
 	syncLock sync.Mutex

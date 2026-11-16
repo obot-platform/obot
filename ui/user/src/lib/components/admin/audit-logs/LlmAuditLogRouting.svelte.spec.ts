@@ -110,7 +110,7 @@ describe('LlmAuditLogRouting', () => {
 				servedProvider: 'openai',
 				servedModel: 'test',
 				providerKey: undefined,
-				codexSubscription: true
+				chatgptSubscription: true
 			})
 		});
 		const section = page.getByRole('region', { name: 'Routing' });

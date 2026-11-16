@@ -182,10 +182,10 @@
 			success.add(
 				allowed
 					? isOpenAI
-						? m.models_providers_codex_subscriptions_allowed()
+						? m.models_providers_chatgpt_subscriptions_allowed()
 						: m.models_providers_subscriptions_allowed()
 					: isOpenAI
-						? m.models_providers_codex_subscriptions_turned_off()
+						? m.models_providers_chatgpt_subscriptions_turned_off()
 						: m.models_providers_subscriptions_turned_off()
 			);
 		} finally {
@@ -460,12 +460,12 @@
 					<div>
 						<h2 class="text-lg font-semibold">
 							{isOpenAI
-								? m.models_providers_codex_subscriptions_heading()
+								? m.models_providers_chatgpt_subscriptions_heading()
 								: m.models_providers_subscriptions_heading()}
 						</h2>
 						<p class="text-muted-content text-xs">
 							{isOpenAI
-								? m.models_providers_codex_subscriptions_description_prefix()
+								? m.models_providers_chatgpt_subscriptions_description_prefix()
 								: m.models_providers_subscriptions_description_prefix()}
 							<code>X-Obot-Api-Key</code>
 							{m.models_providers_subscriptions_description_suffix()}
@@ -486,7 +486,7 @@
 								'rounded-md border border-base-400 flex justify-between p-3 text-base-content text-sm'
 						}}
 						label={isOpenAI
-							? m.models_providers_allow_codex_subscriptions()
+							? m.models_providers_allow_chatgpt_subscriptions()
 							: m.models_providers_allow_subscriptions()}
 						labelInline
 						checked={subscriptionPassthrough}

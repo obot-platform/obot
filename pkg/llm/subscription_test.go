@@ -12,7 +12,7 @@ func TestSubscriptionCredentialModes(t *testing.T) {
 		name    string
 		headers http.Header
 		claude  bool
-		codex   bool
+		chatgpt bool
 	}{
 		{
 			name: "configured credentials",
@@ -28,9 +28,9 @@ func TestSubscriptionCredentialModes(t *testing.T) {
 			claude:  true,
 		},
 		{
-			name:    "Codex subscription",
+			name:    "ChatGPT subscription",
 			headers: http.Header{"Authorization": {"Bearer eyJfixture.payload.signature"}, "User-Agent": {"codex_cli_rs/0.167.0"}},
-			codex:   true,
+			chatgpt: true,
 		},
 		{
 			name:    "Codex API key",
@@ -43,7 +43,7 @@ func TestSubscriptionCredentialModes(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Equal(t, tc.claude, IsClaudeSubscription(tc.headers))
-			require.Equal(t, tc.codex, IsCodexSubscription(tc.headers))
+			require.Equal(t, tc.chatgpt, IsChatGPTSubscription(tc.headers))
 		})
 	}
 }

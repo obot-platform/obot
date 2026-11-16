@@ -111,10 +111,10 @@ describe('ModelsView', () => {
 			.toBeVisible();
 	});
 
-	it('offers Codex subscriptions to ordinary users from the safe summary', async () => {
+	it('offers ChatGPT subscriptions to ordinary users from the safe summary', async () => {
 		worker.use(
 			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: false, codexSubscriptionPassthrough: true })
+				HttpResponse.json({ subscriptionPassthrough: false, chatgptSubscriptionPassthrough: true })
 			)
 		);
 		await renderModelsView(gatewayModels, [Group.USER]);
@@ -125,7 +125,7 @@ describe('ModelsView', () => {
 	it('hides unavailable Claude subscriptions for ordinary users', async () => {
 		worker.use(
 			http.get('/api/llm-gateway/settings', () =>
-				HttpResponse.json({ subscriptionPassthrough: false, codexSubscriptionPassthrough: true })
+				HttpResponse.json({ subscriptionPassthrough: false, chatgptSubscriptionPassthrough: true })
 			)
 		);
 		await renderModelsView(gatewayModels, [Group.USER]);

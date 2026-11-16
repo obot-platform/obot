@@ -9,7 +9,7 @@
 		| 'providerKey'
 		| 'fallback'
 		| 'claudeSubscription'
-		| 'codexSubscription'
+		| 'chatgptSubscription'
 	>;
 
 	// servedBy names the provider and model that served a request, as "provider/model".
@@ -56,8 +56,8 @@
 				label: m.audit_usage_audit_logs_model_routing_paid_by(),
 				value: auditLog.claudeSubscription
 					? m.audit_usage_audit_logs_model_routing_claude_subscription()
-					: auditLog.codexSubscription
-						? m.audit_usage_audit_logs_model_routing_codex_subscription()
+					: auditLog.chatgptSubscription
+						? m.audit_usage_audit_logs_model_routing_chatgpt_subscription()
 						: ''
 			},
 			{

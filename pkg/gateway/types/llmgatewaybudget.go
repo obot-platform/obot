@@ -78,8 +78,8 @@ type LLMGatewaySettings struct {
 	// models instead of a configured provider key.
 	// Keep the JSON name compatible with existing connection-setup clients.
 	ClaudeSubscriptionPassthrough bool `json:"subscriptionPassthrough"`
-	// CodexSubscriptionPassthrough forwards Codex CLI ChatGPT credentials to OpenAI's Codex endpoint.
-	CodexSubscriptionPassthrough bool `json:"codexSubscriptionPassthrough"`
+	// ChatGPTSubscriptionPassthrough forwards Codex CLI ChatGPT credentials to OpenAI's Codex endpoint.
+	ChatGPTSubscriptionPassthrough bool `json:"chatgptSubscriptionPassthrough"`
 }
 
 func (LLMGatewayBudget) TableName() string {

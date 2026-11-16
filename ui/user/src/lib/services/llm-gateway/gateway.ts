@@ -26,7 +26,7 @@ export async function getStatus(opts?: Opts): Promise<GatewayStatus> {
 // Read-only subscription availability for connection setup.
 export type LLMGatewaySettings = {
 	subscriptionPassthrough: boolean;
-	codexSubscriptionPassthrough?: boolean;
+	chatgptSubscriptionPassthrough?: boolean;
 };
 
 export async function getSettings(opts?: Opts): Promise<LLMGatewaySettings> {

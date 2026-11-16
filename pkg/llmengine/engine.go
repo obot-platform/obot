@@ -262,7 +262,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "LLM gateway unavailable", http.StatusServiceUnavailable)
 		return
 	}
-	if r.Method == http.MethodGet && (r.URL.Path == "/v1/models" || r.URL.Path == "/anthropic/v1/models") && !llmtypes.IsCodexSubscription(r.Header) {
+	if r.Method == http.MethodGet && (r.URL.Path == "/v1/models" || r.URL.Path == "/anthropic/v1/models") && !llmtypes.IsChatGPTSubscription(r.Header) {
 		e.serveModels(w, r)
 		return
 	}

@@ -307,7 +307,7 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 
 	// Codex catalog entries use models/slug; ordinary API lists use data/id.
 	list, id, prefix := "data", "id", ""
-	if resp.Request != nil && llmtypes.IsCodexSubscription(resp.Request.Header) {
+	if resp.Request != nil && llmtypes.IsChatGPTSubscription(resp.Request.Header) {
 		// Native slugs belong only to OpenAI; a same-named foreign grant is insufficient.
 		list, id, prefix = "models", "slug", "openai/"
 	}

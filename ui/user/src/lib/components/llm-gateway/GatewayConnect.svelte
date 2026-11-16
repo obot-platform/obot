@@ -29,7 +29,7 @@
 		hasValidIdentityApiKeys?: boolean;
 		creatingApiKey?: boolean;
 		onGenerateApiKey?: () => Promise<boolean>;
-		codexSubscriptionPassthrough?: boolean;
+		chatgptSubscriptionPassthrough?: boolean;
 		class?: string;
 	}
 
@@ -41,7 +41,7 @@
 		hasValidIdentityApiKeys = false,
 		creatingApiKey = false,
 		onGenerateApiKey,
-		codexSubscriptionPassthrough = false,
+		chatgptSubscriptionPassthrough = false,
 		class: klass = ''
 	}: Props = $props();
 
@@ -121,7 +121,7 @@
 	);
 
 	// Subscription setups have separate pickers restricted to their own provider.
-	type PickerKey = 'model' | 'claude-code' | 'claude-code-subscription' | 'codex-subscription';
+	type PickerKey = 'model' | 'claude-code' | 'claude-code-subscription' | 'chatgpt-subscription';
 	// Leaves the model to Claude Code, which starts with its own default.
 	const CLAUDE_CODE_DEFAULT = 'claude-code-default';
 	let picked = $state<Partial<Record<PickerKey, string>>>({});
@@ -139,7 +139,7 @@
 		model: modelOptions,
 		// Without an Anthropic provider, Claude Code needs a gateway model named.
 		'claude-code': hasAnthropic ? [claudeCodeDefaultOption, ...modelOptions] : modelOptions,
-		'codex-subscription': [
+		'chatgpt-subscription': [
 			{ id: 'codex-default', label: m.models_connect_codex_default() },
 			...modelOptions.filter((o) => o.id.startsWith('openai/'))
 		],
@@ -152,7 +152,7 @@
 		model: selected === 'anthropic-sdk' ? anthropicModel : openaiModel,
 		'claude-code': claudeCodeModel ?? CLAUDE_CODE_DEFAULT,
 		'claude-code-subscription': CLAUDE_CODE_DEFAULT,
-		'codex-subscription': 'codex-default'
+		'chatgpt-subscription': 'codex-default'
 	});
 
 	function pickedModel(key: PickerKey) {
@@ -414,20 +414,22 @@
 				};
 				// Profile files layer over the user's config; select the active tab's credential mode.
 				const profile =
-					codexSubscriptionPassthrough && selectedTab === 0 ? 'obot-subscription' : 'obot-api-key';
+					chatgptSubscriptionPassthrough && selectedTab === 0
+						? 'obot-subscription'
+						: 'obot-api-key';
 				const run = {
 					title: m.models_connect_run_in_terminal(),
 					authVariable: AUTH.obot,
 					language: 'bash' as const,
 					code: `export ${AUTH.obot}="${token}"\ncodex --profile ${profile}`
 				};
-				if (!codexSubscriptionPassthrough) return [apiKey, run];
-				const nativeModel = pickedModel('codex-subscription');
+				if (!chatgptSubscriptionPassthrough) return [apiKey, run];
+				const nativeModel = pickedModel('chatgpt-subscription');
 				return [
 					{
 						tabTitle: m.models_connect_tab_subscription(),
 						title: '~/.codex/obot-subscription.config.toml',
-						picker: 'codex-subscription',
+						picker: 'chatgpt-subscription',
 						language: 'toml',
 						code: [
 							...(nativeModel === 'codex-default'
@@ -758,7 +760,7 @@
 			/>
 			{#if key !== 'model'}
 				<p id="gateway-model-{key}-description" class="text-muted-content text-xs">
-					{key === 'codex-subscription'
+					{key === 'chatgpt-subscription'
 						? m.models_connect_codex_model_note()
 						: key === 'claude-code-subscription'
 							? m.models_connect_subscription_model_note()

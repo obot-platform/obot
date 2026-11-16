@@ -203,7 +203,7 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 			r.log.ProviderKey = route.Key
 			r.log.Fallback = route.Fallback
 			r.log.ClaudeSubscription = route.Subscription && route.Provider == "anthropic"
-			r.log.CodexSubscription = route.Subscription && route.Provider == "openai"
+			r.log.ChatGPTSubscription = route.Subscription && route.Provider == "openai"
 		}
 		r.finishBody()
 		c.LogLLMAuditEntry(r.log)

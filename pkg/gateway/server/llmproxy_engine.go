@@ -344,7 +344,7 @@ func addListedModels(resp *http.Response, models []llmengine.ListedModel, anthro
 func (b *bifrostProviderBackend) resolveModel(l *llmProviderProxy, req api.Context, reference string) (*v1.Model, error) {
 	// Native Codex catalog slugs name OpenAI models even when another provider
 	// exposes the same ID. Explicit aliases/resources have already been resolved.
-	if llmtypes.IsCodexSubscription(req.Request.Header) && !strings.Contains(reference, "/") {
+	if llmtypes.IsChatGPTSubscription(req.Request.Header) && !strings.Contains(reference, "/") {
 		reference = "openai/" + reference
 	}
 	return l.mapHelper.ResolveUpstreamModelName(system.LLMGatewayModelProvider, reference, func(m *v1.Model) bool {
@@ -563,15 +563,15 @@ func (b *bifrostProviderBackend) authorizeExtraModels(l *llmProviderProxy, req a
 // stripCallerCredentials keeps only an enabled subscription's upstream credential,
 // for its matching provider. The Obot API key and caller engine overrides are always removed.
 func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPassthrough bool) bool {
-	codex := llmtypes.IsCodexSubscription(req.Header)
+	chatgpt := llmtypes.IsChatGPTSubscription(req.Header)
 	matches := model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "anthropic/") &&
 		llmtypes.IsClaudeSubscription(req.Header)
-	if codex {
+	if chatgpt {
 		matches = model == nil && isModelsListRequest(req) || model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "openai/")
 	}
 	subscription := subscriptionPassthrough && matches
 	for _, h := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", "ChatGPT-Account-ID", "OpenAI-Organization", "OpenAI-Project", guardrails.HeaderRequestToken, HeaderObotAPIKey} {
-		if subscription && (h == "Authorization" || codex && h == "ChatGPT-Account-ID") {
+		if subscription && (h == "Authorization" || chatgpt && h == "ChatGPT-Account-ID") {
 			continue
 		}
 		req.Header.Del(h)
@@ -589,12 +589,12 @@ func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPass
 // the gateway's guardrail plugins who the request is for and checks each model it tries.
 func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api.Context, model *v1.Model) (gatewayRequest, error) {
 	ctx, req, user := apiReq.Context(), apiReq.Request, apiReq.User
-	codex := llmtypes.IsCodexSubscription(req.Header)
+	chatgpt := llmtypes.IsChatGPTSubscription(req.Header)
 	provider := "anthropic"
-	if codex {
+	if chatgpt {
 		provider = "openai"
 	}
-	subscriptionToken := llmtypes.IsClaudeSubscription(req.Header) || codex
+	subscriptionToken := llmtypes.IsClaudeSubscription(req.Header) || chatgpt
 	allowSubscription := false
 	if subscriptionToken {
 		var err error
@@ -615,7 +615,7 @@ func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api
 		*req = *req.WithContext(llmcore.WithInitialKey(ctx, key))
 	}
 	subscription := stripCallerCredentials(req, model, allowSubscription)
-	if subscriptionToken && !subscription && (model != nil || codex) {
+	if subscriptionToken && !subscription && (model != nil || chatgpt) {
 		// Subscription requests must not silently spend configured provider keys.
 		return nil, types2.NewErrForbidden("%s subscription passthrough is disabled or unavailable for this request", provider)
 	}

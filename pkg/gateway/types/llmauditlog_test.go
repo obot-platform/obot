@@ -28,12 +28,12 @@ func TestConvertLLMAuditLogLeavesOutMessagePolicies(t *testing.T) {
 	}
 }
 
-func TestConvertLLMAuditLogCodexSubscription(t *testing.T) {
-	data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{CodexSubscription: true}))
+func TestConvertLLMAuditLogChatGPTSubscription(t *testing.T) {
+	data, err := json.Marshal(ConvertLLMAuditLog(LLMAuditLog{ChatGPTSubscription: true}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), `"codexSubscription":true`) || strings.Contains(string(data), `"claudeSubscription":true`) {
+	if !strings.Contains(string(data), `"chatgptSubscription":true`) || strings.Contains(string(data), `"claudeSubscription":true`) {
 		t.Fatalf("incorrect subscription type: %s", data)
 	}
 }

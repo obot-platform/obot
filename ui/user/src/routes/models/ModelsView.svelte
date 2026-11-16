@@ -29,7 +29,7 @@
 	// The store only holds the LLM gateway's models.
 	let gatewayModels = $derived(accessibleModels.current);
 	let subscriptionPassthrough = $state(false);
-	let codexSubscriptionPassthrough = $state(false);
+	let chatgptSubscriptionPassthrough = $state(false);
 
 	onMount(() => {
 		obotURL = window.location.origin;
@@ -37,12 +37,12 @@
 		(
 			doGet('/llm-gateway/settings', { dontLogErrors: true }) as Promise<{
 				subscriptionPassthrough: boolean;
-				codexSubscriptionPassthrough?: boolean;
+				chatgptSubscriptionPassthrough?: boolean;
 			}>
 		)
 			.then((s) => {
 				subscriptionPassthrough = s.subscriptionPassthrough;
-				codexSubscriptionPassthrough = !!s.codexSubscriptionPassthrough;
+				chatgptSubscriptionPassthrough = !!s.chatgptSubscriptionPassthrough;
 			})
 			.catch(() => {});
 	});
@@ -181,7 +181,7 @@
 				{hasValidIdentityApiKeys}
 				{creatingApiKey}
 				onGenerateApiKey={generateApiKey}
-				{codexSubscriptionPassthrough}
+				{chatgptSubscriptionPassthrough}
 			/>
 			<GatewayModelsDialog bind:this={modelsDialog} models={gatewayModels} />
 		{:else}

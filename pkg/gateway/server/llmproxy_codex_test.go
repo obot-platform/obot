@@ -74,7 +74,7 @@ func TestPublicCodexRecording(t *testing.T) {
 	require.NoError(t, engine.Start(t.Context(), llmengine.Options{Store: store, DataDir: t.TempDir(), FirstPlugin: input, LastPlugin: output}))
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	recordCodexTransport(t, engine, upstream)
-	setPublicCodexSubscriptions(t, req, true)
+	setPublicChatGPTSubscriptions(t, req, true)
 	proxy.backend = &bifrostProviderBackend{engine: engine}
 	for _, tc := range []struct {
 		name   string
@@ -131,7 +131,7 @@ func TestPublicCodexRecording(t *testing.T) {
 		})
 	}
 	// Revocation takes effect on the same backend, without cache expiry or reconfiguration.
-	setPublicCodexSubscriptions(t, req, false)
+	setPublicChatGPTSubscriptions(t, req, false)
 	r := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil)
 	r.SetPathValue("path", "v1/models")
 	r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
@@ -146,7 +146,7 @@ func TestPublicCodexRecording(t *testing.T) {
 	require.Empty(t, received)
 
 	// An unreadable enabled provider also fails closed instead of reusing its last flag.
-	setPublicCodexSubscriptions(t, req, true)
+	setPublicChatGPTSubscriptions(t, req, true)
 	var rows v1.LLMGatewayProviderList
 	require.NoError(t, req.Storage.List(t.Context(), &rows))
 	for i := range rows.Items {
@@ -218,7 +218,7 @@ func TestPublicCodexNativeModelNamespace(t *testing.T) {
 		}},
 	}
 	require.NoError(t, b.informers["ModelAccessPolicy"].GetIndexer().Add(policy))
-	setPublicCodexSubscriptions(t, req, true)
+	setPublicChatGPTSubscriptions(t, req, true)
 
 	for _, reference := range []string{"test", "openai/test", "m1-test"} {
 		t.Run(reference, func(t *testing.T) {
@@ -235,7 +235,7 @@ func TestPublicCodexNativeModelNamespace(t *testing.T) {
 	}
 }
 
-func setPublicCodexSubscriptions(t *testing.T, req api.Context, enabled bool) {
+func setPublicChatGPTSubscriptions(t *testing.T, req api.Context, enabled bool) {
 	t.Helper()
 	store, err := llmcoreclient.New(req.Storage, directCodec{})
 	require.NoError(t, err)

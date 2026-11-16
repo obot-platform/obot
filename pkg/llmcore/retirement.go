@@ -78,7 +78,7 @@ func (e *Engine) subscriptionLock(provider schemas.ModelProvider) *sync.RWMutex 
 	case schemas.Anthropic:
 		return &e.claudeSubscriptionLifetime
 	case schemas.OpenAI:
-		return &e.codexSubscriptionLifetime
+		return &e.chatgptSubscriptionLifetime
 	default:
 		return nil
 	}

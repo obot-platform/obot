@@ -444,8 +444,8 @@ describe('GatewayConnect', () => {
 			.toBeInTheDocument();
 	});
 
-	it('keeps the ChatGPT login and sends the Obot key separately for Codex subscriptions', async () => {
-		render(GatewayConnect, { obotURL, models, codexSubscriptionPassthrough: true });
+	it('keeps the ChatGPT login and sends the Obot key separately for ChatGPT subscriptions', async () => {
+		render(GatewayConnect, { obotURL, models, chatgptSubscriptionPassthrough: true });
 		await openClient('Codex CLI');
 		await expect.element(page.getByRole('tab', { name: 'Use subscription' })).toBeInTheDocument();
 		await expect
@@ -504,7 +504,7 @@ describe('GatewayConnect', () => {
 			.toBeInTheDocument();
 	});
 
-	it('keeps Codex subscription setup hidden when only Claude subscriptions are enabled', async () => {
+	it('keeps ChatGPT subscription setup hidden when only Claude subscriptions are enabled', async () => {
 		render(GatewayConnect, { obotURL, models, subscriptionPassthrough: true });
 		await openClient('Codex CLI');
 		await expect

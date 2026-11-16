@@ -11,11 +11,11 @@ func TestClaudeSubscriptionSettingJSONCompatibility(t *testing.T) {
 	var settings LLMGatewaySettings
 	require.NoError(t, json.Unmarshal([]byte(`{"subscriptionPassthrough":true}`), &settings))
 	require.True(t, settings.ClaudeSubscriptionPassthrough)
-	require.False(t, settings.CodexSubscriptionPassthrough)
+	require.False(t, settings.ChatGPTSubscriptionPassthrough)
 
 	settings.ClaudeSubscriptionPassthrough = false
-	settings.CodexSubscriptionPassthrough = true
+	settings.ChatGPTSubscriptionPassthrough = true
 	data, err := json.Marshal(settings)
 	require.NoError(t, err)
-	require.JSONEq(t, `{"subscriptionPassthrough":false,"codexSubscriptionPassthrough":true}`, string(data))
+	require.JSONEq(t, `{"subscriptionPassthrough":false,"chatgptSubscriptionPassthrough":true}`, string(data))
 }

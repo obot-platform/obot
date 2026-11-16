@@ -90,7 +90,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 	if provider == schemas.OpenAI {
 		reply = codexReply
 		transport = codexTransport
-		credential = subscriptionCredentialValue{provider: provider, token: codexFixture, accountID: "workspace-fixture"}
+		credential = subscriptionCredentialValue{provider: provider, token: chatgptFixture, accountID: "workspace-fixture"}
 	}
 	received := make(chan http.Header, 1)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

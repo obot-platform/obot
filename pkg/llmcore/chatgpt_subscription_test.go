@@ -29,10 +29,10 @@ import (
 )
 
 const (
-	codexFixture  = "Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.c2ln"
-	codexCatalog  = `{"models":[{"slug":"gpt-5.4","display_name":"Fixture","model_instructions":{"instructions_template":"Keep metadata"},"supported_reasoning_levels":[{"effort":"high"}],"tools":["shell"],"future_field":{"preserve":true}}],"future_catalog":42}`
-	codexOutput   = `[{"type":"reasoning","id":"rs_fixture","encrypted_content":"encrypted_fixture","summary":[]},{"type":"function_call","id":"fc_fixture","call_id":"call_fixture","name":"weather","arguments":"{\"city\":\"Phoenix\"}","status":"completed"}]`
-	codexResponse = `{"id":"resp_fixture","object":"response","model":"gpt-5.4","status":"completed","output":` + codexOutput + `,"usage":{"input_tokens":2,"output_tokens":3,"total_tokens":5}}`
+	chatgptFixture = "Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJmaXh0dXJlIn0.c2ln"
+	codexCatalog   = `{"models":[{"slug":"gpt-5.4","display_name":"Fixture","model_instructions":{"instructions_template":"Keep metadata"},"supported_reasoning_levels":[{"effort":"high"}],"tools":["shell"],"future_field":{"preserve":true}}],"future_catalog":42}`
+	codexOutput    = `[{"type":"reasoning","id":"rs_fixture","encrypted_content":"encrypted_fixture","summary":[]},{"type":"function_call","id":"fc_fixture","call_id":"call_fixture","name":"weather","arguments":"{\"city\":\"Phoenix\"}","status":"completed"}]`
+	codexResponse  = `{"id":"resp_fixture","object":"response","model":"gpt-5.4","status":"completed","output":` + codexOutput + `,"usage":{"input_tokens":2,"output_tokens":3,"total_tokens":5}}`
 )
 
 type codexRecorded struct {
@@ -76,7 +76,7 @@ func codexHTTPRequest(ctx context.Context, path, body string, subscription bool)
 	r.Header.Set("Originator", "codex_cli_rs")
 	r.Header.Set("Session_id", "session-fixture")
 	if subscription {
-		r.Header.Set("Authorization", codexFixture)
+		r.Header.Set("Authorization", chatgptFixture)
 		r.Header.Set("ChatGPT-Account-ID", "workspace-fixture")
 	}
 	return r
@@ -116,7 +116,7 @@ func codexReply(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.WriteString(w, codexResponse)
 }
 
-func TestCodexCredentialAdmission(t *testing.T) {
+func TestChatGPTSubscriptionCredentialAdmission(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
 		headers      http.Header
@@ -125,13 +125,13 @@ func TestCodexCredentialAdmission(t *testing.T) {
 	}{
 		{
 			name:         "native UA and optional account absent",
-			headers:      http.Header{"User-Agent": {"codex_cli_rs/0.162.1"}, "Authorization": {codexFixture}},
+			headers:      http.Header{"User-Agent": {"codex_cli_rs/0.162.1"}, "Authorization": {chatgptFixture}},
 			valid:        true,
 			subscription: true,
 		},
 		{
 			name:         "existing codex UA",
-			headers:      http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "Chatgpt-Account-Id": {"workspace"}},
+			headers:      http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "Chatgpt-Account-Id": {"workspace"}},
 			valid:        true,
 			subscription: true,
 		},
@@ -154,27 +154,27 @@ func TestCodexCredentialAdmission(t *testing.T) {
 		},
 		{
 			name:    "wrong UA",
-			headers: http.Header{"User-Agent": {"curl/1"}, "Authorization": {codexFixture}},
+			headers: http.Header{"User-Agent": {"curl/1"}, "Authorization": {chatgptFixture}},
 		},
 		{
 			name:    "mixed CLI identities",
-			headers: http.Header{"User-Agent": {"codex-cli/1 claude-cli/2"}, "Authorization": {codexFixture}},
+			headers: http.Header{"User-Agent": {"codex-cli/1 claude-cli/2"}, "Authorization": {chatgptFixture}},
 		},
 		{
 			name:    "repeated UA",
-			headers: http.Header{"User-Agent": {"codex-cli/1", "codex-cli/1"}, "Authorization": {codexFixture}},
+			headers: http.Header{"User-Agent": {"codex-cli/1", "codex-cli/1"}, "Authorization": {chatgptFixture}},
 		},
 		{
 			name:    "mixed authorization",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "X-Api-Key": {"configured"}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "X-Api-Key": {"configured"}},
 		},
 		{
 			name:    "duplicate authorization casing",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "authorization": {codexFixture}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "authorization": {chatgptFixture}},
 		},
 		{
 			name:    "combined authorization",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture + ", " + codexFixture}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture + ", " + chatgptFixture}},
 		},
 		{
 			name:    "two JWT segments",
@@ -190,19 +190,19 @@ func TestCodexCredentialAdmission(t *testing.T) {
 		},
 		{
 			name:    "repeated account",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "Chatgpt-Account-Id": {"one", "two"}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "Chatgpt-Account-Id": {"one", "two"}},
 		},
 		{
 			name:    "duplicate account casing",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "Chatgpt-Account-Id": {"one"}, "chatgpt-account-id": {"two"}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "Chatgpt-Account-Id": {"one"}, "chatgpt-account-id": {"two"}},
 		},
 		{
 			name:    "combined account",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "Chatgpt-Account-Id": {"one,two"}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "Chatgpt-Account-Id": {"one,two"}},
 		},
 		{
 			name:    "empty account",
-			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {codexFixture}, "Chatgpt-Account-Id": {""}},
+			headers: http.Header{"User-Agent": {"codex-cli/1"}, "Authorization": {chatgptFixture}, "Chatgpt-Account-Id": {""}},
 		},
 		{
 			name:    "account without subscription",
@@ -214,7 +214,7 @@ func TestCodexCredentialAdmission(t *testing.T) {
 			require.Equal(t, tc.valid, valid)
 			if tc.subscription {
 				require.Equal(t, schemas.OpenAI, credential.provider)
-				require.Equal(t, codexFixture, credential.token)
+				require.Equal(t, chatgptFixture, credential.token)
 			} else {
 				require.Empty(t, credential)
 			}
@@ -230,7 +230,7 @@ func TestCodexCredentialAdmission(t *testing.T) {
 	}
 }
 
-func TestCodexRecordingCatalogAndToolLoop(t *testing.T) {
+func TestChatGPTSubscriptionRecordingCatalogAndToolLoop(t *testing.T) {
 	received := make(chan codexRecorded, 20)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -255,7 +255,7 @@ func TestCodexRecordingCatalogAndToolLoop(t *testing.T) {
 	recorded := <-received
 	require.Equal(t, "chatgpt.com", recorded.host)
 	require.Equal(t, "/backend-api/codex/models?client_version=0.162.1", recorded.uri)
-	require.Equal(t, codexFixture, recorded.headers.Get("Authorization"))
+	require.Equal(t, chatgptFixture, recorded.headers.Get("Authorization"))
 	require.Equal(t, "workspace-fixture", recorded.headers.Get("ChatGPT-Account-ID"))
 	require.Empty(t, recorded.headers.Get("X-Obot-Api-Key"))
 
@@ -303,7 +303,7 @@ func TestCodexRecordingCatalogAndToolLoop(t *testing.T) {
 			for _, request := range []codexRecorded{sent, replayed} {
 				require.Equal(t, "chatgpt.com", request.host)
 				require.Equal(t, "/backend-api/codex/responses", request.uri)
-				require.Equal(t, codexFixture, request.headers.Get("Authorization"))
+				require.Equal(t, chatgptFixture, request.headers.Get("Authorization"))
 				require.Equal(t, "workspace-fixture", request.headers.Get("ChatGPT-Account-ID"))
 				require.Empty(t, request.headers.Get("X-Obot-Api-Key"))
 				require.Empty(t, request.headers.Get("X-Unapproved"))
@@ -316,7 +316,7 @@ func TestCodexRecordingCatalogAndToolLoop(t *testing.T) {
 	// No private caller credential, account or configured secret in observers.
 	encoded, err := json.Marshal(metadata)
 	require.NoError(t, err)
-	for _, secret := range []string{codexFixture[7:], "workspace-fixture", "configured-key", "gateway-fixture"} {
+	for _, secret := range []string{chatgptFixture[7:], "workspace-fixture", "configured-key", "gateway-fixture"} {
 		require.NotContains(t, string(encoded), secret)
 	}
 
@@ -344,7 +344,7 @@ func TestCodexRecordingCatalogAndToolLoop(t *testing.T) {
 	}
 }
 
-func TestCodexRecordingFallbackRetryAndErrors(t *testing.T) {
+func TestChatGPTSubscriptionRecordingFallbackRetryAndErrors(t *testing.T) {
 	for _, stream := range []bool{false, true} {
 		t.Run(fmt.Sprintf("stream=%t", stream), func(t *testing.T) {
 			var mu sync.Mutex
@@ -481,7 +481,7 @@ func TestCodexRecordingFallbackRetryAndErrors(t *testing.T) {
 				mu.Lock()
 				require.Equal(t, []string{tc.model}, models)
 				for i := range auths {
-					require.Equal(t, codexFixture, auths[i])
+					require.Equal(t, chatgptFixture, auths[i])
 					require.Equal(t, "workspace-fixture", accounts[i])
 				}
 				mu.Unlock()
@@ -491,7 +491,7 @@ func TestCodexRecordingFallbackRetryAndErrors(t *testing.T) {
 	}
 }
 
-func TestCodexAttemptIsolationAndFinalGate(t *testing.T) {
+func TestChatGPTSubscriptionAttemptIsolationAndFinalGate(t *testing.T) {
 	a := &account{}
 	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
 		schemas.OpenAI:    {},
@@ -499,7 +499,7 @@ func TestCodexAttemptIsolationAndFinalGate(t *testing.T) {
 	}})
 	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
 	defer ctx.Cancel()
-	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{provider: schemas.OpenAI, token: codexFixture, accountID: "workspace-fixture"})
+	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{provider: schemas.OpenAI, token: chatgptFixture, accountID: "workspace-fixture"})
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, map[string][]string{"user-agent": {"codex_cli_rs/1"}})
 	for _, provider := range []schemas.ModelProvider{schemas.OpenAI, schemas.Anthropic, "custom-openai", schemas.OpenAI} {
 		req := &schemas.BifrostRequest{
@@ -550,7 +550,7 @@ func TestCodexAttemptIsolationAndFinalGate(t *testing.T) {
 	}
 }
 
-func TestCodexContextPrivacyAndParsing(t *testing.T) {
+func TestChatGPTSubscriptionContextPrivacyAndParsing(t *testing.T) {
 	e := &Engine{account: &account{}}
 	e.account.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"foreign": {}}})
 	r := codexHTTPRequest(t.Context(), "/v1/responses", "", true)
@@ -582,7 +582,7 @@ func TestCodexContextPrivacyAndParsing(t *testing.T) {
 	require.Equal(t, "https://trusted.example", direct.Value(schemas.BifrostContextKeyURLPath))
 }
 
-func TestCodexOptionalIdentityStreamFailureAndParseRelease(t *testing.T) {
+func TestChatGPTSubscriptionOptionalIdentityStreamFailureAndParseRelease(t *testing.T) {
 	received := make(chan http.Header, 10)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		received <- r.Header.Clone()
@@ -609,7 +609,7 @@ func TestCodexOptionalIdentityStreamFailureAndParseRelease(t *testing.T) {
 	for _, stream := range []bool{false, true} {
 		r := codexHTTPRequest(t.Context(), "/v1/responses?unused=1", fmt.Sprintf(`{"model":"gpt-5.4","input":"hi","stream":%t}`, stream), true)
 		r.Header.Del("ChatGPT-Account-ID")
-		originalAuth := "bEaReR " + codexFixture[7:]
+		originalAuth := "bEaReR " + chatgptFixture[7:]
 		r.Header.Set("Authorization", originalAuth)
 		w := httptest.NewRecorder()
 		e.ServeHTTP(w, r)

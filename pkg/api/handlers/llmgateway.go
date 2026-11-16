@@ -334,11 +334,11 @@ func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	codex, err := h.engine.SubscriptionPassthrough(req.Context(), "openai")
+	chatgpt, err := h.engine.SubscriptionPassthrough(req.Context(), "openai")
 	if err != nil {
 		return err
 	}
-	return req.Write(gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: claude, CodexSubscriptionPassthrough: codex})
+	return req.Write(gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: claude, ChatGPTSubscriptionPassthrough: chatgpt})
 }
 
 func (h *LLMGatewayHandler) ListBudgets(req api.Context) error {

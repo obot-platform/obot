@@ -218,7 +218,7 @@ func closeCost(a, b types.ModelCost) bool {
 	return near(a.Input, b.Input) && near(a.Output, b.Output) && near(a.CacheRead, b.CacheRead) && near(a.CacheWrite, b.CacheWrite)
 }
 
-func TestCodexSubscriptionCatalogWithoutKeys(t *testing.T) {
+func TestChatGPTSubscriptionCatalogWithoutKeys(t *testing.T) {
 	engine := New()
 	catalog := testCatalog(t)
 	engine.catalog = func() modelCatalog { return catalog }
@@ -243,7 +243,7 @@ func TestCodexSubscriptionCatalogWithoutKeys(t *testing.T) {
 	}
 }
 
-func TestCodexSubscriptionCatalogWithAPIKey(t *testing.T) {
+func TestChatGPTSubscriptionCatalogWithAPIKey(t *testing.T) {
 	var requests atomic.Int32
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/models") {

@@ -29,9 +29,9 @@ func IsClaudeSubscription(headers http.Header) bool {
 	return strings.HasPrefix(strings.ToLower(headers.Get("Authorization")), "bearer sk-ant-oat")
 }
 
-// IsCodexSubscription recognizes the CLI credential mode at the proxy boundary.
+// IsChatGPTSubscription recognizes ChatGPT credentials from Codex CLI at the proxy boundary.
 // Core validates the full credential before inference; no JWT claims are trusted.
-func IsCodexSubscription(headers http.Header) bool {
+func IsChatGPTSubscription(headers http.Header) bool {
 	return schemas.CodexCLI.Matches(strings.ReplaceAll(headers.Get("User-Agent"), "_", "-")) &&
 		strings.HasPrefix(strings.ToLower(headers.Get("Authorization")), "bearer eyj")
 }

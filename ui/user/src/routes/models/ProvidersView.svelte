@@ -185,7 +185,7 @@
 								{#if p.custom_provider_config?.is_key_less}
 									<span>{m.models_providers_no_keys()}</span>
 								{:else if ks.length === 0 && p.name === 'openai' && p.subscription_passthrough}
-									<span>{m.models_providers_codex_subscriptions_only()}</span>
+									<span>{m.models_providers_chatgpt_subscriptions_only()}</span>
 								{:else if ks.length === 0 && p.name === 'anthropic' && p.subscription_passthrough}
 									<span>{m.models_providers_subscriptions_only()}</span>
 								{:else if ks.length === 0}
