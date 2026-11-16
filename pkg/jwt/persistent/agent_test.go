@@ -24,12 +24,12 @@ var (
 	agentLoopbackGroups = []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated}
 )
 
-// newAgentTestTokenService returns a token service with agent identities enabled.
+// newAgentTestTokenService returns a token service of a server that authenticates callers, which agents need.
 func newAgentTestTokenService(t *testing.T) (*TokenService, *client.Client) {
 	t.Helper()
 
 	tokenService, gatewayClient := newLifecycleTestTokenService(t)
-	tokenService.enableAgentIdentities = true
+	tokenService.authEnabled = true
 	return tokenService, gatewayClient
 }
 
@@ -392,9 +392,9 @@ func TestAgentTokensCarryOnlyMCPGroups(t *testing.T) {
 	}
 }
 
-// TestAgentTokensNeedAgentIdentities checks that without agent identities, no token is issued to an agent, and a
-// token issued to one while they were enabled authenticates no one.
-func TestAgentTokensNeedAgentIdentities(t *testing.T) {
+// TestAgentTokensNeedAuthentication checks that while authentication is disabled, no token is issued to an agent, and
+// a token issued to one while it was enabled authenticates no one.
+func TestAgentTokensNeedAuthentication(t *testing.T) {
 	enabled, gatewayClient := newAgentTestTokenService(t)
 	agent := createTestAgent(t, gatewayClient)
 	disabled, err := NewTokenService(testServerURL, gatewayClient, false)

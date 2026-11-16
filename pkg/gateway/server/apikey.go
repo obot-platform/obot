@@ -266,8 +266,9 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 
 // authenticateAPIKey answers the API key authentication webhook, which the nanobot shim and the CLI call with a key
 // to validate. Its subject is the key owner's storage encoding: a user's decimal ID, or "agent:<id>" for an agent's
-// key, which agent identities must be enabled for. An agent has no username or email, so neither is reported for
-// one, and its display name is only a name: display names need not be unique.
+// key, which is answered for only while authentication is enabled, because agents are not supported without it. An
+// agent has no username or email, so neither is reported for one, and its display name is only a name: display names
+// need not be unique.
 func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Extract API key from header
 	authHeader := apiContext.Request.Header.Get("Authorization")
@@ -288,7 +289,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	case !ok:
 	case strings.HasPrefix(bearer, system.APIKeyPrefix+"-"):
 		ownerKind = principal.KindUser
-	case strings.HasPrefix(bearer, system.AgentAPIKeyPrefix+"-") && s.enableAgentIdentities:
+	case strings.HasPrefix(bearer, system.AgentAPIKeyPrefix+"-") && s.authEnabled:
 		ownerKind = principal.KindAgent
 	}
 	if ownerKind == "" {

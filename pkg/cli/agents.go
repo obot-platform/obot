@@ -315,11 +315,11 @@ func mapAgentsError(ctx context.Context, client *apiclient.Client, err error) er
 	case http.StatusForbidden:
 		return errors.New("this requires an administrator")
 	case http.StatusNotFound:
-		// A missing agent or key is also a 404. Listing agents only 404s when the feature is off, so it tells the two
-		// apart.
+		// A missing agent or key is also a 404. Listing agents only 404s on a server without the agent admin API, such
+		// as an older version, so it tells the two apart.
 		var probeErr *types.ErrHTTP
 		if _, lerr := client.ListAgentIdentities(ctx, false); errors.As(lerr, &probeErr) && probeErr.Code == http.StatusNotFound {
-			return errors.New("agent identities are not enabled on this server")
+			return errors.New("agent identities are not supported by this server")
 		}
 	}
 	return err

@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/principal"
-	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -25,22 +24,19 @@ const (
 	llmProxyPathPrefix = "/api/llm-proxy/"
 )
 
-// APIKeyAuthenticator authenticates requests using the API keys of users (ok1-) and, when agent identities are
-// enabled, of agents (oak1-). A key's principal has only the groups its scopes grant, not every group of its owner.
+// APIKeyAuthenticator authenticates requests using the API keys of users (ok1-) and of agents (oak1-). A key's
+// principal has only the groups its scopes grant, not every group of its owner.
+//
+// The server adds it to the authenticator chain only when authentication is enabled. Agents authenticate only with
+// their keys, so without authentication they are not supported: an agent key is then tried by the rest of the chain
+// as any other bearer value is, and authenticates no one.
 type APIKeyAuthenticator struct {
 	client *client.Client
-	// enableAgentIdentities admits agent keys. Without it, an agent key is declined as any value that is not an API
-	// key is, so that the rest of the chain can try it.
-	enableAgentIdentities bool
 }
 
-// NewAPIKeyAuthenticator creates a new API key authenticator. Agent keys are only authenticated if
-// enableAgentIdentities is set.
-func NewAPIKeyAuthenticator(client *client.Client, enableAgentIdentities bool) *APIKeyAuthenticator {
-	return &APIKeyAuthenticator{
-		client:                client,
-		enableAgentIdentities: enableAgentIdentities,
-	}
+// NewAPIKeyAuthenticator creates a new API key authenticator.
+func NewAPIKeyAuthenticator(client *client.Client) *APIKeyAuthenticator {
+	return &APIKeyAuthenticator{client: client}
 }
 
 // AuthenticateRequest implements authenticator.Request.
@@ -64,14 +60,11 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	// The prefix names the kind of the key's owner, and ValidateAPIKey looks the key up as a key of that kind of
-	// owner only.
-	var ownerKind principal.Kind
-	switch {
-	case strings.HasPrefix(authHeader, system.APIKeyPrefix+"-"):
-		ownerKind = principal.KindUser
-	case strings.HasPrefix(authHeader, system.AgentAPIKeyPrefix+"-") && a.enableAgentIdentities:
-		ownerKind = principal.KindAgent
-	default:
+	// owner only, so the key it returns is one of that kind of owner: a key is never authenticated as an owner of
+	// another kind, such as the user with its agent's numeric ID.
+	ownerKind, ownerID, _, _, err := client.ParseAPIKey(authHeader)
+	if err != nil {
+		// Not an API key, or not a well-formed one, which ValidateAPIKey would refuse: let other authenticators try.
 		return nil, false, nil
 	}
 
@@ -84,7 +77,6 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	} else if err != nil {
 		// The key or its owner could not be read, so its owner's access is unknown. Fail rather than letting the
 		// request continue to another credential or to anonymous access.
-		_, ownerID, _, _, _ := client.ParseAPIKey(authHeader)
 		if ownerKind == principal.KindAgent {
 			return nil, false, &client.AgentAccessLookupError{
 				AgentID: ownerID,
@@ -97,12 +89,6 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		}
 	}
 
-	// A key read for a prefix is a key of the kind of owner the prefix names. Should it not be, it is not
-	// authenticated as anyone: a key is never authenticated as an owner of another kind, such as the user with its
-	// agent's numeric ID.
-	if apiKey.Owner().Kind != ownerKind {
-		return nil, false, nil
-	}
 	if ownerKind == principal.KindAgent {
 		return a.authenticateAgentKey(req, apiKey)
 	}

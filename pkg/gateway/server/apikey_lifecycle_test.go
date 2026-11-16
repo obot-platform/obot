@@ -118,7 +118,7 @@ func TestAPIKeyAuthenticatorFailsWhenItCannotReadTheKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create API key: %v", err)
 	}
-	authenticator := NewAPIKeyAuthenticator(client, false)
+	authenticator := NewAPIKeyAuthenticator(client)
 
 	// An invalid key is declined, so that the rest of the chain can try the credential.
 	response, ok, err := authenticator.AuthenticateRequest(apiKeyRequest(fmt.Sprintf("ok1-%d-%d-wrong", user.ID, created.ID)))
@@ -171,10 +171,11 @@ func TestAPIKeyWebhookDeniesInactiveUsers(t *testing.T) {
 	}
 }
 
-// TestAPIKeyWebhookDeniesAgentKeys checks that the webhook answers for no agent key while agent identities are
-// disabled.
-func TestAPIKeyWebhookDeniesAgentKeys(t *testing.T) {
+// TestAPIKeyWebhookDeniesAgentKeysWithoutAuthentication checks that the webhook answers for no agent key while
+// authentication is disabled, because agents are not supported without it.
+func TestAPIKeyWebhookDeniesAgentKeysWithoutAuthentication(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
+	s.authEnabled = false
 	ctx := t.Context()
 	agent, err := client.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "nightly build"})
 	if err != nil {
@@ -194,7 +195,7 @@ func TestAPIKeyWebhookDeniesAgentKeys(t *testing.T) {
 	}
 	var response apiKeyAuthResponse
 	decodeTokenRequestResponse(t, recorder, &response)
-	if response.Allowed || response.Subject != "" {
-		t.Fatalf("webhook response for an agent key = %+v, want denied", response)
+	if response.Allowed || response.Subject != "" || response.Reason != "invalid API key format" {
+		t.Fatalf("webhook response for an agent key = %+v, want denied as not an API key", response)
 	}
 }

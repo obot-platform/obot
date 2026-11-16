@@ -157,12 +157,6 @@ type Config struct {
 	MCPNetworkPolicyProviderValues       string `usage:"YAML or JSON values blob merged into the network policy provider chart values"`
 	MCPDefaultDenyAllEgress              bool   `usage:"Default new MCP servers to deny all egress when network policy enforcement is enabled" default:"false"`
 
-	// EnableAgentIdentities lets agents authenticate with their own API keys (oak1-), and lets tokens be issued to
-	// them. It is hidden while agent identities are rolled out. Agents need the API key authenticator, which runs
-	// only when authentication is enabled, so without authentication agents are not supported and this has no
-	// effect.
-	EnableAgentIdentities bool `usage:"Enable agent identities, which authenticate with their own API keys; requires authentication" default:"false" hidden:"true"`
-
 	GatewayConfig
 	EncryptionConfig
 	AuditConfig
@@ -218,11 +212,6 @@ type Services struct {
 	DefaultSkillRepoRef         string
 	// EgressAuditLogRetentionDays is how long egress audit logs are kept. 0 keeps them forever.
 	EgressAuditLogRetentionDays int
-
-	// EnableAgentIdentities is the server's EnableAgentIdentities option as given. Agents authenticate only when it
-	// and AuthEnabled are both set: without authentication, agents are not supported. The agent admin API (spec 05)
-	// answers 404 while it is unset, and must refuse with an explanation while AuthEnabled is unset.
-	EnableAgentIdentities bool
 
 	// VMCPProfileData are the stores of data kept per vMCP profile outside the manifest: profile configuration and
 	// profile OAuth grants. The vMCP controller deletes a profile's data when the profile or its vMCP is deleted, and
@@ -705,13 +694,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// Agents authenticate only with their API keys, whose authenticator runs only with authentication enabled. In the
 	// no-auth mode, every caller is an administrator, and agents are not supported: no agent key or token
-	// authenticates, whatever the option says.
-	agentIdentitiesEnabled := config.EnableAgentIdentities && config.EnableAuthentication
-	if config.EnableAgentIdentities && !config.EnableAuthentication {
-		slog.Warn("Agent identities are enabled, but authentication is disabled; agents are not supported without authentication, so their keys will not authenticate")
-	}
-
-	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, agentIdentitiesEnabled)
+	// authenticates.
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, config.EnableAuthentication)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}
@@ -821,8 +805,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Profile configuration is stored whether or not agent identities are enabled, so that the vMCP controller always
-	// deletes it with its profile.
 	vmcpProfileConfiguration := vmcp.NewProfileConfigurationStore(gatewayClient)
 	vmcpProfileOAuthGrants := vmcp.NewProfileOAuthGrantStore(gatewayClient)
 	mcpSessionManager.SetProfileOAuthGrants(vmcpProfileOAuthGrants)
@@ -1009,7 +991,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayOpts.EnableAgentIdentities = agentIdentitiesEnabled
+	gatewayOpts.AuthEnabled = config.EnableAuthentication
 	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
@@ -1058,7 +1040,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
 		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
 		// Must come after UserDecorator since it handles its own user lookup
-		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient, agentIdentitiesEnabled))
+		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
 		// Device enrollment tokens (ode1-) and device access JWTs. Both yield
 		// non-user principals, so they must come after the UserDecorator.
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
@@ -1098,7 +1080,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	} else {
 		// "Authentication Disabled" flow. There is no API key authenticator here, so agents, which authenticate only
 		// with their API keys, are not supported, and the token service issues and authenticates no token for one
-		// (agentIdentitiesEnabled is false).
+		// (it is given EnableAuthentication, which is false).
 
 		// Add gateway user info if token auth worked
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlementProvider)
@@ -1223,7 +1205,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProviderRegistryPaths:        config.ProviderRegistries,
 		GatewayServer:                gatewayServer,
 		AuthEnabled:                  config.EnableAuthentication,
-		EnableAgentIdentities:        config.EnableAgentIdentities,
 		VMCPProfileData:              vmcp.ProfileDataStores{vmcpProfileConfiguration, vmcpProfileOAuthGrants},
 		VMCPProfileConfiguration:     vmcpProfileConfiguration,
 		VMCPProfileOAuthGrants:       vmcpProfileOAuthGrants,

@@ -308,15 +308,15 @@ func TestAgentsErrorMapping(t *testing.T) {
 			wantErr: "requires an administrator",
 		},
 		{
-			name: "404 on every route means the feature is off",
+			name: "404 on every route means the server has no agent admin API",
 			handle: func(w http.ResponseWriter, _ *http.Request) {
 				http.Error(w, "not found", http.StatusNotFound)
 			},
 			args:    []string{"get", "7"},
-			wantErr: "agent identities are not enabled on this server",
+			wantErr: "agent identities are not supported by this server",
 		},
 		{
-			name: "404 with the feature on is a missing agent",
+			name: "404 from a server with the agent admin API is a missing agent",
 			handle: func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/api/agents" {
 					_, _ = w.Write([]byte(`{"items":[]}`))
@@ -333,7 +333,7 @@ func TestAgentsErrorMapping(t *testing.T) {
 			server, _ := agentsTestServer(t, tt.handle)
 			_, _, err := runAgents(t, server, tt.args...)
 			require.ErrorContains(t, err, tt.wantErr)
-			if tt.name != "404 with the feature on is a missing agent" {
+			if tt.name != "404 from a server with the agent admin API is a missing agent" {
 				require.NotContains(t, err.Error(), "error code")
 			}
 		})

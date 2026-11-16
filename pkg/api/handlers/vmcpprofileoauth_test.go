@@ -81,7 +81,7 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	gatewayClient := newHandlerTestGateway(t)
 	grants := vmcpconfig.NewProfileOAuthGrantStore(gatewayClient)
 	authorizer := &recordingAuthorizer{}
-	handler := NewVMCPProfileOAuthHandler(true, true, authorizer, grants)
+	handler := NewVMCPProfileOAuthHandler(true, authorizer, grants)
 
 	body, err := callProfileOAuth(t, handler, storage, gatewayClient, http.MethodPost, vmcp.Name, "vp1agents", "remote")
 	require.NoError(t, err)
@@ -131,37 +131,17 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	require.NotContains(t, string(events[0].Details), "secret-")
 }
 
-// TestVMCPProfileOAuthFollowsAgentIdentities checks that the routes exist only while agent identities are enabled,
-// and refuse without authentication, which agents need.
-func TestVMCPProfileOAuthFollowsAgentIdentities(t *testing.T) {
-	for _, tt := range []struct {
-		name        string
-		enabled     bool
-		authEnabled bool
-		want        int
-	}{
-		{
-			name:        "agent identities disabled",
-			authEnabled: true,
-			want:        http.StatusNotFound,
-		},
-		{
-			name:    "authentication disabled",
-			enabled: true,
-			want:    http.StatusNotImplemented,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			vmcp := profileOAuthTestVMCP()
-			storage := newProfileConfigurationTestStorage(vmcp)
-			gatewayClient := newHandlerTestGateway(t)
-			authorizer := &recordingAuthorizer{}
-			handler := NewVMCPProfileOAuthHandler(tt.enabled, tt.authEnabled, authorizer, vmcpconfig.NewProfileOAuthGrantStore(gatewayClient))
-			for _, method := range []string{http.MethodPost, http.MethodDelete} {
-				_, err := callProfileOAuth(t, handler, storage, gatewayClient, method, vmcp.Name, "vp1agents", "remote")
-				requireHTTPStatus(t, err, tt.want)
-			}
-			require.Empty(t, authorizer.started)
-		})
+// TestVMCPProfileOAuthRequiresAuthentication checks that the routes refuse without authentication, which agents need,
+// and start no authorization.
+func TestVMCPProfileOAuthRequiresAuthentication(t *testing.T) {
+	vmcp := profileOAuthTestVMCP()
+	storage := newProfileConfigurationTestStorage(vmcp)
+	gatewayClient := newHandlerTestGateway(t)
+	authorizer := &recordingAuthorizer{}
+	handler := NewVMCPProfileOAuthHandler(false, authorizer, vmcpconfig.NewProfileOAuthGrantStore(gatewayClient))
+	for _, method := range []string{http.MethodPost, http.MethodDelete} {
+		_, err := callProfileOAuth(t, handler, storage, gatewayClient, method, vmcp.Name, "vp1agents", "remote")
+		requireHTTPStatus(t, err, http.StatusNotImplemented)
 	}
+	require.Empty(t, authorizer.started)
 }

@@ -18,9 +18,10 @@ type Options struct {
 	DailyUserInputTokenLimit  int `usage:"Daily input token limit per user in the LLM gateway's Daily token limit budget, put on every profile when the gateway first starts; < 0 for no limit" default:"10000000"` // default is 10 million
 	DailyUserOutputTokenLimit int `usage:"Daily output token limit per user in the LLM gateway's Daily token limit budget, put on every profile when the gateway first starts; < 0 for no limit" default:"100000"`  // default is 100 thousand
 
-	// EnableAgentIdentities lets the API key webhook answer for agent keys. It is not a flag of its own: the server
-	// sets it from its EnableAgentIdentities option, which also requires authentication to be enabled.
-	EnableAgentIdentities bool `usage:"-"`
+	// AuthEnabled is whether the server authenticates callers. The API key webhook answers for agent keys only when
+	// it is set, because agents are not supported without authentication. It is not a flag of its own: the server
+	// sets it from its EnableAuthentication option.
+	AuthEnabled bool `usage:"-"`
 }
 
 type Server struct {
@@ -31,8 +32,8 @@ type Server struct {
 	acrHelper      *accesscontrolrule.Helper
 	mapHelper      *modelaccesspolicy.Helper
 	llmGateway     *llmengine.Engine
-	// enableAgentIdentities lets the API key webhook answer for agent keys.
-	enableAgentIdentities bool
+	// authEnabled lets the API key webhook answer for agent keys.
+	authEnabled bool
 }
 
 func New(db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, acrHelper *accesscontrolrule.Helper, mapHelper *modelaccesspolicy.Helper, opts Options) (*Server, error) {
@@ -45,7 +46,7 @@ func New(db *db.DB, tokenService *persistent.TokenService, modelProviderDispatch
 		acrHelper:    acrHelper,
 		mapHelper:    mapHelper,
 
-		enableAgentIdentities: opts.EnableAgentIdentities,
+		authEnabled: opts.AuthEnabled,
 	}
 
 	return s, nil

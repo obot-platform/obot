@@ -31,9 +31,6 @@ import (
 // The API names an agent AgentIdentity, because "agent" already means a hosted agent and an agent on a device. Agent
 // IDs and user IDs are decimal strings in the API, as users' IDs are elsewhere.
 type AgentIdentityHandler struct {
-	// enabled is the server's EnableAgentIdentities option. While it is unset, every route answers 404 as though
-	// agents did not exist.
-	enabled bool
 	// authEnabled is whether the server authenticates callers. Agents authenticate only with authentication, so
 	// without it the routes refuse, rather than create agents that could never connect.
 	authEnabled bool
@@ -42,9 +39,8 @@ type AgentIdentityHandler struct {
 	readiness AgentReadinessSource
 }
 
-func NewAgentIdentityHandler(enabled, authEnabled bool, readiness AgentReadinessSource) *AgentIdentityHandler {
+func NewAgentIdentityHandler(authEnabled bool, readiness AgentReadinessSource) *AgentIdentityHandler {
 	return &AgentIdentityHandler{
-		enabled:     enabled,
 		authEnabled: authEnabled,
 		readiness:   readiness,
 	}
@@ -71,16 +67,12 @@ func (h *AgentIdentityHandler) RegisterRoutes(handle func(pattern string, f api.
 
 // check answers whether agent identities are available. It must come first in every route.
 func (h *AgentIdentityHandler) check() error {
-	return agentIdentitiesAvailable(h.enabled, h.authEnabled)
+	return agentIdentitiesAvailable(h.authEnabled)
 }
 
-// agentIdentitiesAvailable answers whether the routes that exist only for agents are available: 404, as though they
-// did not exist, while agent identities are disabled (enabled is the server's EnableAgentIdentities option), and 501
-// while authentication is, because agents authenticate only with authentication enabled.
-func agentIdentitiesAvailable(enabled, authEnabled bool) error {
-	if !enabled {
-		return types.NewErrNotFound("not found")
-	}
+// agentIdentitiesAvailable answers whether the routes that exist only for agents are available: 501 while
+// authentication is disabled, because agents authenticate only with authentication enabled.
+func agentIdentitiesAvailable(authEnabled bool) error {
 	if !authEnabled {
 		return types.NewErrHTTP(http.StatusNotImplemented, "agent identities require authentication to be enabled: agents authenticate with API keys, which are only checked when authentication is enabled")
 	}

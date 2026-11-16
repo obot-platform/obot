@@ -107,7 +107,7 @@ func TestAPIKeyAuthenticatorBuildsTheAgentPrincipal(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			info, ok, err := authenticateAPIKey(t, NewAPIKeyAuthenticator(client, true), created.Key)
+			info, ok, err := authenticateAPIKey(t, NewAPIKeyAuthenticator(client), created.Key)
 			if err != nil || !ok {
 				t.Fatalf("authenticate = %v, %v; want the agent key authenticated", ok, err)
 			}
@@ -163,7 +163,7 @@ func TestAPIKeyAuthenticatorNeverGrantsAgentsAPIAccess(t *testing.T) {
 		t.Fatalf("failed to widen the stored key: %v", err)
 	}
 
-	info, ok, err := authenticateAPIKey(t, NewAPIKeyAuthenticator(client, true), created.Key)
+	info, ok, err := authenticateAPIKey(t, NewAPIKeyAuthenticator(client), created.Key)
 	if err != nil || !ok {
 		t.Fatalf("authenticate = %v, %v; want the agent key authenticated", ok, err)
 	}
@@ -198,7 +198,7 @@ func TestAPIKeysOfAUserAndAnAgentWithTheSameIDAreNeverConfused(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	authenticator := NewAPIKeyAuthenticator(client, true)
+	authenticator := NewAPIKeyAuthenticator(client)
 	assertAuthenticatesAs := func(key string, want principal.Principal) {
 		t.Helper()
 		info, ok, err := authenticateAPIKey(t, authenticator, key)
@@ -260,7 +260,7 @@ func TestAPIKeyAuthenticatorDeniesInactiveAgents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authenticator := NewAPIKeyAuthenticator(client, true)
+	authenticator := NewAPIKeyAuthenticator(client)
 	assertAdmitted := func(key string) {
 		t.Helper()
 		if _, ok, err := authenticateAPIKey(t, authenticator, key); err != nil || !ok {
@@ -317,7 +317,7 @@ func TestAPIKeyAuthenticatorFailsWhenItCannotReadTheAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authenticator := NewAPIKeyAuthenticator(client, true)
+	authenticator := NewAPIKeyAuthenticator(client)
 
 	if err := client.Close(); err != nil {
 		t.Fatalf("failed to close gateway client: %v", err)
@@ -353,7 +353,7 @@ func callAPIKeyWebhook(t *testing.T, s *Server, client *gatewayclient.Client, ke
 // A disabled agent's key, and an MCP server outside the key's scope, are refused.
 func TestAPIKeyWebhookAnswersForAgents(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
-	s.enableAgentIdentities = true
+	s.authEnabled = true
 	ctx := t.Context()
 	user := createAPIKeyLifecycleTestUser(t, client, "pia")
 	agent := createAgentWithUsersID(t, client, user)
@@ -412,7 +412,7 @@ func TestAPIKeyWebhookAnswersForAgents(t *testing.T) {
 // authenticator honors, without API or device scan access, even should its stored scopes claim them.
 func TestAPIKeyWebhookNeverReportsAgentsAPIAccess(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
-	s.enableAgentIdentities = true
+	s.authEnabled = true
 	ctx := t.Context()
 	agent, err := client.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "nightly build"})
 	if err != nil {
@@ -441,7 +441,7 @@ func TestAPIKeyWebhookNeverReportsAgentsAPIAccess(t *testing.T) {
 // server error, not as an agent that does not exist.
 func TestAPIKeyWebhookFailsWhenItCannotReadTheAgent(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
-	s.enableAgentIdentities = true
+	s.authEnabled = true
 	ctx := t.Context()
 	agent, err := client.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "nightly build"})
 	if err != nil {
@@ -468,7 +468,7 @@ func TestAPIKeyWebhookFailsWhenItCannotReadTheAgent(t *testing.T) {
 	}
 }
 
-// agentChain composes the authenticators of agents' credentials as the server does, with agent identities enabled.
+// agentChain composes the authenticators of agents' credentials as the server does with authentication enabled.
 func agentChain(t *testing.T, client *gatewayclient.Client) (*authn.AdmissionCheck, *persistent.TokenService) {
 	t.Helper()
 
@@ -491,7 +491,7 @@ func agentChain(t *testing.T, client *gatewayclient.Client) (*authn.AdmissionChe
 	}
 	return authn.NewAdmissionCheck(union.NewFailOnError(
 		union.New(
-			NewAPIKeyAuthenticator(client, true),
+			NewAPIKeyAuthenticator(client),
 			tokenService,
 		),
 		authn.Anonymous{},

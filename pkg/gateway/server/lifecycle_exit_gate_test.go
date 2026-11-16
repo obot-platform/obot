@@ -116,7 +116,7 @@ func TestLifecycleExitGate(t *testing.T) {
 		union.New(
 			gatewayclient.NewUserDecorator(sessionAuthenticator{provider: provider}, client, userLimitUnlimited{}),
 			gatewayclient.NewUserDecorator(sessionAuthenticator{provider: localProvider}, client, userLimitUnlimited{}),
-			NewAPIKeyAuthenticator(client, false),
+			NewAPIKeyAuthenticator(client),
 			tokenService,
 		),
 		authn.Anonymous{},

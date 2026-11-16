@@ -47,9 +47,9 @@ type TokenService struct {
 	jwks          json.RawMessage
 	gatewayClient *client.Client
 	serverURL     string
-	// enableAgentIdentities lets tokens be issued to and authenticate agents. Without it, a token for an agent is
-	// neither issued nor authenticated.
-	enableAgentIdentities bool
+	// authEnabled is whether the server authenticates callers. Agents are supported only with authentication, so
+	// without it a token for an agent is neither issued nor authenticated.
+	authEnabled bool
 }
 
 type TokenContext struct {
@@ -92,12 +92,12 @@ type TokenContext struct {
 }
 
 // NewTokenService returns a service that issues and authenticates Obot's own tokens. Tokens are only issued to and
-// authenticate agents if enableAgentIdentities is set.
-func NewTokenService(serverURL string, gatewayClient *client.Client, enableAgentIdentities bool) (*TokenService, error) {
+// authenticate agents if authEnabled is set, because agents are supported only when the server authenticates callers.
+func NewTokenService(serverURL string, gatewayClient *client.Client, authEnabled bool) (*TokenService, error) {
 	t := &TokenService{
-		gatewayClient:         gatewayClient,
-		serverURL:             serverURL,
-		enableAgentIdentities: enableAgentIdentities,
+		gatewayClient: gatewayClient,
+		serverURL:     serverURL,
+		authEnabled:   authEnabled,
 	}
 	return t, nil
 }
@@ -310,7 +310,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	if agentID, ok := owner.AgentID(); ok {
-		if !t.enableAgentIdentities {
+		if !t.authEnabled {
 			return nil, false, nil
 		}
 		return t.authenticateAgent(req.Context(), tokenContext, agentID, extra)
@@ -567,11 +567,11 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 }
 
 // checkAgentToken returns an error unless a token described by tokenContext may be issued to the agent with
-// agentID: agent identities are enabled, the token grants no group that tokens are not issued to agents with, and
-// the agent is active.
+// agentID: authentication is enabled, the token grants no group that tokens are not issued to agents with, and the
+// agent is active.
 func (t *TokenService) checkAgentToken(ctx context.Context, tokenContext TokenContext, agentID uint) error {
-	if !t.enableAgentIdentities {
-		return fmt.Errorf("agent identities are not enabled, so no token is issued to agent %d", agentID)
+	if !t.authEnabled {
+		return fmt.Errorf("agents require authentication to be enabled, so no token is issued to agent %d", agentID)
 	}
 	if group, refused := refusedAgentTokenGroup(tokenContext.UserGroups); refused {
 		return fmt.Errorf("a token for agent %d cannot grant group %q", agentID, group)

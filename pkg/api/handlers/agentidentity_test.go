@@ -57,7 +57,7 @@ type agentRoute struct {
 // newAgentIdentityFixture serves the admin API of agent identities, as pkg/api/router registers it, from a real
 // gateway database. Authorization is not part of it: authorization is checked against the same routes in
 // TestAgentIdentityRoutesAreAdminOnly.
-func newAgentIdentityFixture(t *testing.T, enabled, authEnabled bool) *agentIdentityFixture {
+func newAgentIdentityFixture(t *testing.T, authEnabled bool) *agentIdentityFixture {
 	t.Helper()
 
 	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
@@ -93,7 +93,7 @@ func newAgentIdentityFixture(t *testing.T, enabled, authEnabled bool) *agentIden
 		db:      services.DB.DB,
 	}
 	mux := http.NewServeMux()
-	NewAgentIdentityHandler(enabled, authEnabled, &mcp.SessionManager{}).RegisterRoutes(func(pattern string, handle api.HandlerFunc) {
+	NewAgentIdentityHandler(authEnabled, &mcp.SessionManager{}).RegisterRoutes(func(pattern string, handle api.HandlerFunc) {
 		f.routes = append(f.routes, pattern)
 		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			err := handle(api.Context{
@@ -166,7 +166,7 @@ func (f *agentIdentityFixture) createKey(agentID string, req types.AgentAPIKeyCr
 }
 
 func TestAgentIdentityLifecycleOverHTTP(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 
 	created := f.createAgent(types.AgentIdentityManifest{
 		DisplayName: "  nightly build  ",
@@ -291,7 +291,7 @@ func uintOf(t *testing.T, s string) uint {
 }
 
 func TestAgentIdentityValidation(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 
 	for _, tt := range []struct {
@@ -350,7 +350,7 @@ func TestAgentIdentityValidation(t *testing.T) {
 }
 
 func TestAgentIdentityUnknownAgentIsNotFound(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	key := f.createKey(agent.ID, types.AgentAPIKeyCreateRequest{CanAccessLLMProxy: true})
 
@@ -367,7 +367,7 @@ func TestAgentIdentityUnknownAgentIsNotFound(t *testing.T) {
 }
 
 func TestAgentAPIKeyScopesRoundTripOverHTTP(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	keysPath := "/api/agents/" + agent.ID + "/api-keys"
 
@@ -467,7 +467,7 @@ func TestAgentAPIKeyScopesRoundTripOverHTTP(t *testing.T) {
 }
 
 func TestAgentAPIKeyRequestsAreRefused(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	keysPath := "/api/agents/" + agent.ID + "/api-keys"
 
@@ -522,7 +522,7 @@ func TestAgentAPIKeyRequestsAreRefused(t *testing.T) {
 }
 
 func TestAgentAPIKeysBelongToTheirAgent(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	other := f.createAgent(types.AgentIdentityManifest{DisplayName: "other"})
 	otherKey := f.createKey(other.ID, types.AgentAPIKeyCreateRequest{CanAccessLLMProxy: true})
@@ -566,7 +566,7 @@ func TestAgentAPIKeysBelongToTheirAgent(t *testing.T) {
 }
 
 func TestDisabledAgentGetsKeysThatWaitForEnable(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	f.call(http.StatusOK, http.MethodPost, "/api/agents/"+agent.ID+"/disable", types.AgentIdentityDisableRequest{Reason: "rotating"}, nil)
 
@@ -582,54 +582,30 @@ func TestDisabledAgentGetsKeysThatWaitForEnable(t *testing.T) {
 	require.Equal(t, types.UserStatusActive, validated.OwnerStatus)
 }
 
-func TestAgentIdentityRoutesAreUnavailableWithoutTheFeature(t *testing.T) {
-	for _, tt := range []struct {
-		name        string
-		enabled     bool
-		authEnabled bool
-		wantStatus  int
-	}{
-		{
-			name:        "the feature is off",
-			authEnabled: true,
-			wantStatus:  http.StatusNotFound,
-		},
-		{
-			name:       "the feature is off and authentication is too",
-			wantStatus: http.StatusNotFound,
-		},
-		{
-			name:       "authentication is off",
-			enabled:    true,
-			wantStatus: http.StatusNotImplemented,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			f := newAgentIdentityFixture(t, tt.enabled, tt.authEnabled)
-			require.Len(t, f.routes, 14)
+// TestAgentIdentityRoutesRequireAuthentication checks that while authentication is disabled, every route of the admin
+// API is still registered but refuses with 501 and an explanation, and that no request creates an agent.
+func TestAgentIdentityRoutesRequireAuthentication(t *testing.T) {
+	f := newAgentIdentityFixture(t, false)
+	require.Len(t, f.routes, 14)
 
-			for _, pattern := range f.routes {
-				method, path, _ := strings.Cut(pattern, " ")
-				path = strings.NewReplacer("{agent_id}", "1", "{key_id}", "1", "{vmcp_id}", agentIdentityTestVMCP).Replace(path)
-				rec := f.do(method, path, `{"displayName":"x","canAccessLLMProxy":true}`)
-				require.Equal(t, tt.wantStatus, rec.Code, "%s: %s", pattern, rec.Body.String())
-			}
-
-			if tt.wantStatus == http.StatusNotImplemented {
-				require.Contains(t, f.do(http.MethodGet, "/api/agents", nil).Body.String(), "require authentication")
-			}
-			var agents int64
-			require.NoError(t, f.db.Model(&gt.Agent{}).Count(&agents).Error)
-			require.Zero(t, agents, "no request created an agent")
-		})
+	for _, pattern := range f.routes {
+		method, path, _ := strings.Cut(pattern, " ")
+		path = strings.NewReplacer("{agent_id}", "1", "{key_id}", "1", "{vmcp_id}", agentIdentityTestVMCP).Replace(path)
+		rec := f.do(method, path, `{"displayName":"x","canAccessLLMProxy":true}`)
+		require.Equal(t, http.StatusNotImplemented, rec.Code, "%s: %s", pattern, rec.Body.String())
 	}
+
+	require.Contains(t, f.do(http.MethodGet, "/api/agents", nil).Body.String(), "require authentication")
+	var agents int64
+	require.NoError(t, f.db.Model(&gt.Agent{}).Count(&agents).Error)
+	require.Zero(t, agents, "no request created an agent")
 }
 
 // TestAgentIdentityRoutesAreAdminOnly checks every registered route against the authorizer of the server: admins and
 // owners reach all of them, auditors only the reads, and no other user, not even an agent's creator, and no agent
 // does.
 func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	require.Len(t, f.routes, 14)
 	authorizer := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 

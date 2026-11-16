@@ -21,7 +21,7 @@ import (
 // skill access rules that match it, with how they match, and none that only name users, groups, another agent, or
 // the user that has the agent's numeric ID.
 func TestAgentIdentityAccess(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "builder"})
 	other := f.createAgent(types.AgentIdentityManifest{DisplayName: "other"})
 
@@ -118,7 +118,7 @@ func TestAgentIdentityAccess(t *testing.T) {
 // TestCheckNewAgentSubjects checks that a policy write may add an explicit agent subject only for an agent that
 // exists and is not deleted, while subjects it already had, and the agent wildcard, are not looked up.
 func TestCheckNewAgentSubjects(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	active := f.createAgent(types.AgentIdentityManifest{DisplayName: "active"})
 	disabled := f.createAgent(types.AgentIdentityManifest{DisplayName: "disabled"})
 	deleted := f.createAgent(types.AgentIdentityManifest{DisplayName: "deleted"})
@@ -184,7 +184,7 @@ func TestCheckNewAgentSubjects(t *testing.T) {
 // TestGuardrailFilterAgentSubjectsMustExist checks that creating or updating a guardrail filter refuses a newly
 // named agent that does not exist or is deleted, and that an agent the filter already named is not looked up again.
 func TestGuardrailFilterAgentSubjectsMustExist(t *testing.T) {
-	f := newAgentIdentityFixture(t, true, true)
+	f := newAgentIdentityFixture(t, true)
 	active := f.createAgent(types.AgentIdentityManifest{DisplayName: "active"})
 	deleted := f.createAgent(types.AgentIdentityManifest{DisplayName: "deleted"})
 	f.call(http.StatusNoContent, http.MethodDelete, "/api/agents/"+deleted.ID, nil, nil)

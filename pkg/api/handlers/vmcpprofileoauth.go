@@ -19,21 +19,19 @@ type ProfileOAuthAuthorizer interface {
 
 // VMCPProfileOAuthHandler serves the routes that report a profile's status and authorize and reset the OAuth grants a vMCP profile holds for its
 // components, which every agent that resolves to the profile uses headlessly. They exist only for agents, so they
-// answer 404 while agent identities are disabled, and 501 while authentication is, as the agent admin API does.
+// answer 501 while authentication is disabled, as the agent admin API does.
 //
 // The routes are admin-only, which the authorizer enforces: they are under the administrators' /api/vmcps/ rule, no
 // other role or group is granted them, and they are not on the agents' allowlist. They return the grant's metadata
 // (who authorized it, when, for which target and scopes), never a token.
 type VMCPProfileOAuthHandler struct {
-	enabled     bool
 	authEnabled bool
 	authorizer  ProfileOAuthAuthorizer
 	grants      *vmcpconfig.ProfileOAuthGrantStore
 }
 
-func NewVMCPProfileOAuthHandler(enabled, authEnabled bool, authorizer ProfileOAuthAuthorizer, grants *vmcpconfig.ProfileOAuthGrantStore) *VMCPProfileOAuthHandler {
+func NewVMCPProfileOAuthHandler(authEnabled bool, authorizer ProfileOAuthAuthorizer, grants *vmcpconfig.ProfileOAuthGrantStore) *VMCPProfileOAuthHandler {
 	return &VMCPProfileOAuthHandler{
-		enabled:     enabled,
 		authEnabled: authEnabled,
 		authorizer:  authorizer,
 		grants:      grants,
@@ -54,7 +52,7 @@ func (h *VMCPProfileOAuthHandler) RegisterRoutes(handle func(pattern string, f a
 // stored grants, and returns key names, grant metadata and no value or token. A vMCP, or a profile, that does not
 // exist is 404.
 func (h *VMCPProfileOAuthHandler) Status(req api.Context) error {
-	if err := agentIdentitiesAvailable(h.enabled, h.authEnabled); err != nil {
+	if err := agentIdentitiesAvailable(h.authEnabled); err != nil {
 		return err
 	}
 	var vmcp v1.VMCP
@@ -80,7 +78,7 @@ func (h *VMCPProfileOAuthHandler) Status(req api.Context) error {
 // administrator who started the authorization can complete. Authorizing a component that already has a grant replaces
 // the grant once the new authorization completes.
 func (h *VMCPProfileOAuthHandler) Authorize(req api.Context) error {
-	if err := agentIdentitiesAvailable(h.enabled, h.authEnabled); err != nil {
+	if err := agentIdentitiesAvailable(h.authEnabled); err != nil {
 		return err
 	}
 	authorization, err := h.authorizer.StartProfileOAuthGrant(req, req.PathValue("vmcp_id"), req.PathValue("profile_id"), req.PathValue("component_id"))
@@ -94,7 +92,7 @@ func (h *VMCPProfileOAuthHandler) Authorize(req api.Context) error {
 // component until it is authorized again; an agent whose explicit profile's grant is reset falls back to the wildcard
 // profile's grant, if it holds one. It returns the profile's status.
 func (h *VMCPProfileOAuthHandler) Reset(req api.Context) error {
-	if err := agentIdentitiesAvailable(h.enabled, h.authEnabled); err != nil {
+	if err := agentIdentitiesAvailable(h.authEnabled); err != nil {
 		return err
 	}
 	profileID := req.PathValue("profile_id")
