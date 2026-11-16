@@ -13,12 +13,13 @@ import (
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
+	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -283,14 +284,21 @@ func TestKubernetesListToolPreviewServers(t *testing.T) {
 	if err := appsv1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	created := metav1.NewTime(time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC))
-	deployment := func(name, namespace string, labels map[string]string) kclient.Object {
-		return &appsv1.Deployment{
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	created := time.Date(2026, 11, 13, 12, 0, 0, 0, time.UTC)
+	meta := func(name, namespace, server string, age time.Duration, labels map[string]string) metav1.ObjectMeta {
+		m := metav1.ObjectMeta{
 			Name:              name,
 			Namespace:         namespace,
 			Labels:            labels,
-			CreationTimestamp: created,
+			CreationTimestamp: metav1.NewTime(created.Add(-age)),
 		}
+		if server != "" {
+			m.Annotations = map[string]string{apply.LabelSubContext: server}
+		}
+		return m
 	}
 	previewLabels := map[string]string{ToolPreviewLabel: "true"}
 	legacyName := "tool-preview-0123456789abcdef"
@@ -298,10 +306,17 @@ func TestKubernetesListToolPreviewServers(t *testing.T) {
 	k := &kubernetesBackend{
 		mcpNamespace: "obot-mcp",
 		client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(
-			deployment("tool-preview-a", "obot-mcp", previewLabels),
-			deployment(legacyName, "obot-mcp", map[string]string{"app": legacyName}),
-			deployment("ms1server", "obot-mcp", map[string]string{"app": "ms1server"}),
-			deployment("tool-preview-elsewhere", "other", previewLabels),
+			// A whole preview: its oldest object dates it.
+			&appsv1.Deployment{ObjectMeta: meta("tool-preview-a-1", "obot-mcp", "tool-preview-a-1", 0, previewLabels)},
+			&corev1.Secret{ObjectMeta: meta("tool-preview-a-1-mcp-config", "obot-mcp", "tool-preview-a-1", time.Minute, previewLabels)},
+			// A preview whose Deployment is gone, leaving a Secret.
+			&corev1.Secret{ObjectMeta: meta("tool-preview-b-2-mcp-config", "obot-mcp", "tool-preview-b-2", 0, previewLabels)},
+			// An unlabelled preview from an earlier release, with only its Service left.
+			&corev1.Service{ObjectMeta: meta(legacyName, "obot-mcp", legacyName, 0, nil)},
+			// Not tool previews.
+			&appsv1.Deployment{ObjectMeta: meta("ms1server", "obot-mcp", "ms1server", 0, map[string]string{"app": "ms1server"})},
+			&corev1.Secret{ObjectMeta: meta("unowned", "obot-mcp", "", 0, previewLabels)},
+			&appsv1.Deployment{ObjectMeta: meta("tool-preview-elsewhere", "other", "tool-preview-elsewhere", 0, previewLabels)},
 		).Build(),
 	}
 
@@ -309,16 +324,27 @@ func TestKubernetesListToolPreviewServers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listToolPreviewServers() error = %v", err)
 	}
-	var names []string
-	for _, server := range servers {
-		if !server.Created.Equal(created.Time) {
-			t.Errorf("server %s created %s, want %s", server.Name, server.Created, created.Time)
-		}
-		names = append(names, server.Name)
+	want := []toolPreviewServer{
+		{
+			Name:    legacyName,
+			Created: created,
+		},
+		{
+			Name:    "tool-preview-a-1",
+			Created: created.Add(-time.Minute),
+		},
+		{
+			Name:    "tool-preview-b-2",
+			Created: created,
+		},
 	}
-	slices.Sort(names)
-	if want := []string{legacyName, "tool-preview-a"}; !slices.Equal(names, want) {
-		t.Fatalf("listToolPreviewServers() = %q, want %q", names, want)
+	if len(servers) != len(want) {
+		t.Fatalf("listToolPreviewServers() = %+v, want %+v", servers, want)
+	}
+	for i := range want {
+		if servers[i].Name != want[i].Name || !servers[i].Created.Equal(want[i].Created) {
+			t.Fatalf("listToolPreviewServers() = %+v, want %+v", servers, want)
+		}
 	}
 }
 
