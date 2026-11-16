@@ -17,8 +17,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/klauspost/compress/zstd"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
 	"k8s.io/apiserver/pkg/storage/value"
@@ -2173,7 +2175,7 @@ func TestStoredCopyIsReadAgainAfterItWasLastChecked(t *testing.T) {
 
 	hash := [auditBodyHashLen]byte(loadAuditBody(t, c).Hash)
 	checked, ok := c.auditBodies.known[hash]
-	if !ok || checked.unusable {
+	if !ok || checked.unusable || checked.pending {
 		t.Fatal("expected the second capture to have read the stored copy and found it usable")
 	}
 
@@ -2470,9 +2472,138 @@ func TestRememberedStoredCopiesAreBounded(t *testing.T) {
 	for i := range auditBodyKnownMax + 10 {
 		hash := make([]byte, auditBodyHashLen)
 		binary.BigEndian.PutUint64(hash, uint64(i))
-		c.rememberAuditBody(hash, now, false)
+		c.rememberAuditBody(hash, auditBodyKnown{at: now})
 	}
 	if got := len(c.auditBodies.known); got > auditBodyKnownMax {
 		t.Fatalf("remembers %d stored copies, want at most %d", got, auditBodyKnownMax)
+	}
+}
+
+// A result captured again before the flush that stores it is neither looked up nor encoded again:
+// the replica remembers that it is about to store it, and the flush stores it once.
+func TestUnstoredResultIsLookedUpOnceBeforeFlush(t *testing.T) {
+	c := newTestClient(t)
+	useRotatingKeys(c, "key")
+
+	var lookups int
+	if err := c.db.WithContext(t.Context()).Callback().Query().After("gorm:query").Register("count_audit_body_lookups", func(db *gorm.DB) {
+		if db.Statement.Table == "mcp_audit_log_bodies" {
+			lookups++
+		}
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	result := testListResult("pending", 4096)
+	var entries []types.MCPAuditLog
+	for i := 1; i <= 3; i++ {
+		batch := listCallEntries(i, "tools/list", testListResponse(i, result))
+		for j := range batch {
+			batch[j].NormalizeMCPFields()
+			if err := c.encryptMCPAuditLog(t.Context(), &batch[j]); err != nil {
+				t.Fatal(err)
+			}
+		}
+		entries = append(entries, batch...)
+	}
+	if lookups != 1 {
+		t.Fatalf("captures looked up the stored copy %d times, want 1", lookups)
+	}
+	var encoded, plain int
+	for _, entry := range entries {
+		for _, pending := range entry.PendingBodies {
+			if pending.Encoded != nil {
+				encoded++
+			}
+			if pending.Plain != nil {
+				plain++
+			}
+		}
+	}
+	if encoded != 1 || plain != 2 {
+		t.Fatalf("pending bodies: %d encoded and %d plain, want 1 and 2", encoded, plain)
+	}
+
+	if err := c.insertMCPAuditLogs(t.Context(), entries); err != nil {
+		t.Fatal(err)
+	}
+	var stored int64
+	if err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLogBody{}).Count(&stored).Error; err != nil {
+		t.Fatal(err)
+	}
+	if stored != 1 {
+		t.Fatalf("stored %d shared bodies, want 1", stored)
+	}
+	if _, remembered := c.auditBodies.known[[auditBodyHashLen]byte(loadAuditBody(t, c).Hash)]; remembered {
+		t.Fatal("the body is still remembered as pending after the write that stored it")
+	}
+	for i := 1; i <= 3; i++ {
+		row, err := c.GetMCPAuditLog(t.Context(), uint(i), true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(row.UnavailablePayloads) != 0 || !bytes.Equal(row.MCP().ResponseBody, testListResponse(i, result)) {
+			t.Fatalf("row %d does not read back: unavailable=%v", i, row.UnavailablePayloads)
+		}
+	}
+}
+
+// Bodies compressed before the window was capped used the zstd default window, and still read.
+func TestBodyCompressedWithDefaultWindowStillDecodes(t *testing.T) {
+	// Repeats that lie further apart than auditBodyWindowSize only compress with the larger window.
+	chunk := make([]byte, 3<<20/2)
+	if _, err := rand.Read(chunk); err != nil {
+		t.Fatal(err)
+	}
+	plain := append(append([]byte{}, chunk...), chunk...)
+
+	encoder, err := zstd.NewWriter(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	stored := append([]byte{auditBodyMarker, auditBodyVersion, auditBodyFlagCompressed}, encoder.EncodeAll(plain, nil)...)
+
+	got, _, err := decodeAuditBody(t.Context(), nil, value.DefaultContext{}, stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, plain) {
+		t.Fatal("body compressed with the default window did not decode to what was written")
+	}
+}
+
+// A read that cannot decrypt legacy rows fails on the first of them. An export batch holds
+// thousands of rows, and its error is stored on the export, so it must not name every one.
+func TestLegacyDecryptFailureStopsAtTheFirstRow(t *testing.T) {
+	c := newTestClient(t)
+	useRotatingKeys(c, "old")
+	for range 3 {
+		row := types.MCPAuditLog{
+			CreatedAt: time.Now().UTC(),
+			UserID:    "user-1",
+			Encrypted: true,
+			MCPFields: &types.MCPAuditLogFields{
+				MCPID:    "mcp-1",
+				CallType: "tools/call",
+			},
+		}
+		row.NormalizeMCPFields()
+		row.MCP().RequestBody = legacyEncryptedBody(t, c, &row, `{"jsonrpc":"2.0","id":1,"method":"tools/call"}`)
+		if err := c.db.WithContext(t.Context()).Create(&row).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	useRotatingKeys(c, "new")
+	_, _, err := c.GetMCPAuditLogs(t.Context(), MCPAuditLogOptions{
+		WithRequestAndResponse: true,
+		SourceTypes:            []types2.AuditLogSourceType{types2.AuditLogSourceTypeMCP},
+	})
+	if err == nil {
+		t.Fatal("expected reading legacy rows under the wrong key to fail")
+	}
+	if got := strings.Count(err.Error(), "no configured key can decrypt"); got != 1 {
+		t.Fatalf("error reports %d failures, want 1: %v", got, err)
 	}
 }

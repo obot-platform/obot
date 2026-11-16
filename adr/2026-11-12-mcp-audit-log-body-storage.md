@@ -28,7 +28,9 @@ which cannot begin JSON or base64, then a version byte and flags for
 compressed, encrypted, and reference. Fields without the header are read as
 before. A body is zstd-compressed when that makes it smaller, then encrypted
 when a provider is configured, and stored as raw bytes. The version and flags
-are part of the encryption context.
+are part of the encryption context. Compression uses a 1 MiB window and at
+most four pooled encoders and decoders, which bounds the memory they keep for
+the life of the process. JSON gains little from longer back-references.
 
 **Shared list results.** The `result` of a `tools/list`, `prompts/list`,
 `resources/list`, or `resources/templates/list` response of at least 2 KiB is
@@ -40,6 +42,9 @@ result back in to reproduce the original bytes.
 **Using a stored copy.** A writer reads a stored copy before referencing it,
 and again about every twelve hours. If it cannot read the copy, or the copy is
 not encrypted exactly when the writer encrypts, it stores the response inline.
+When nothing is stored, the writer encodes the result once for the next write
+to store. Until that write, later captures of the same result reference it
+without looking it up or encoding it again.
 
 **Refresh and retention.** A write refreshes a shared body's last-referenced
 time when it is more than a day old, in the transaction that writes the
@@ -83,14 +88,18 @@ Alternatives are discussed in the ODP.
 
 - **Upgrade and rollback.** Replicas on an earlier version cannot read bodies
   written by this one. During a rolling upgrade, and after a rollback until
-  the upgrade is reapplied, payload requests for those rows fail on old
-  replicas. Metadata is unaffected and no data is lost.
+  the upgrade is reapplied, list pages and audit log exports that include
+  payloads fail on old replicas if they contain any row written by the new
+  version. This includes one-time and scheduled exports run by an old
+  replica, which are marked failed. Views without payloads are unaffected and
+  no data is lost.
 - **Existing rows** are not rewritten. Storage falls as they age out.
 - **Key rotation.** A new key must be readable by every replica before any
   replica writes with it. The old key must stay readable for the retention
   period plus about three days after the last replica switches, a day longer
   than inline rows need, because a shared body only moves to the new key when
-  its refresh comes due.
+  its refresh comes due. The procedure is documented under "Rotating the
+  Encryption Key" in `docs/docs/security/credentials.md`.
 - **Lost HMAC key.** If the encryption key the HMAC key is stored under is
   lost, list responses are stored inline until the
   `mcp-audit-log-body-hash-key` row is deleted from `properties`. Replicas
@@ -108,7 +117,11 @@ Alternatives are discussed in the ODP.
   the writer cannot use it, those rows' list responses are unavailable to it.
 - **Cost.** Reads take one extra query per page that references shared
   bodies. Capturing a list response reads the stored copy at most once every
-  twelve hours per replica, or every ten minutes for a copy found unusable.
+  twelve hours per replica, or every ten minutes for a copy found unusable. A
+  result that is not stored yet is looked up and encoded once per write that
+  stores it, not once per capture. A list result of at least 2 KiB that
+  differs on every response, such as a paginated or changing `resources/list`,
+  still costs one lookup when captured and one single-row upsert when written.
 - Thresholds and intervals are constants in
   `pkg/gateway/client/mcpauditlogbody.go`, not settings.
 

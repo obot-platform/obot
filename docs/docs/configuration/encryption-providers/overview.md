@@ -28,3 +28,7 @@ Continue to [Local Passwords](../../security/credentials.md#overview-local-passw
 ## Enabling Encryption on an Existing Installation {#enabling-encryption-on-an-existing-installation}
 
 Continue to [Enabling Encryption on an Existing Installation](../../security/credentials.md#overview-enabling-encryption-on-an-existing-installation).
+
+## Rotating the Encryption Key {#rotating-the-encryption-key}
+
+Continue to [Rotating the Encryption Key](../../security/credentials.md#overview-rotating-the-encryption-key).

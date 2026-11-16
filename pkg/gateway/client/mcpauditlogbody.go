@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -50,6 +51,11 @@ const (
 	// auditBodyDedupMinBytes is the smallest list result stored as a shared body. Postgres keeps
 	// smaller values in the main row, so sharing them saves little.
 	auditBodyDedupMinBytes = 2 << 10
+	// auditBodyWindowSize is the compression window. Bodies written before it was set used the
+	// zstd default of 8 MiB, which the decoder still accepts.
+	auditBodyWindowSize = 1 << 20
+	// auditBodyCoderConcurrency caps the pooled zstd encoders and decoders.
+	auditBodyCoderConcurrency = 4
 
 	auditBodyHashLen = sha256.Size
 	// The first byte hashed says whether the writer encrypts; see auditBodyHash.
@@ -78,6 +84,10 @@ const (
 	// looking at it again. It is short because the cause may be passing, such as a failed call
 	// to the encryption provider.
 	auditBodyUnusableFor = 10 * time.Minute
+	// auditBodyPendingFor bounds how long a replica goes on referencing a result it found absent
+	// and encoded for storing without looking it up again. The write that stores the body ends
+	// that sooner; this only covers entries that never reach a write.
+	auditBodyPendingFor = 10 * time.Minute
 	// auditBodyStoredCheckRetryAfter is how long stored copies are left unread after looking one
 	// up fails or times out, so that capturing list responses does not wait on the database once
 	// per response.
@@ -105,20 +115,8 @@ var (
 		"resources/templates/list": true,
 	}
 
-	auditBodyEncoder = sync.OnceValue(func() *zstd.Encoder {
-		encoder, err := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.SpeedDefault))
-		if err != nil {
-			panic(fmt.Sprintf("failed to create audit body compressor: %v", err))
-		}
-		return encoder
-	})
-	auditBodyDecoder = sync.OnceValue(func() *zstd.Decoder {
-		decoder, err := zstd.NewReader(nil, zstd.WithDecoderMaxMemory(auditBodyCompressMaxBytes))
-		if err != nil {
-			panic(fmt.Sprintf("failed to create audit body decompressor: %v", err))
-		}
-		return decoder
-	})
+	auditBodyEncoder *zstd.Encoder
+	auditBodyDecoder *zstd.Decoder
 )
 
 // auditBodyState is the client's in-memory state for shared audit bodies.
@@ -179,6 +177,9 @@ type auditBodyKnown struct {
 	// unusable says the stored copy cannot be read by this replica, or is not protected the way
 	// this replica protects bodies, so new rows must not reference it.
 	unusable bool
+	// pending says nothing was stored when this replica last looked, and it has encoded the body
+	// for the next flush to store.
+	pending bool
 }
 
 // auditBodyStored is what a writer found when it looked for a shared body it is about to reference.
@@ -192,6 +193,31 @@ type auditBodyWrite struct {
 	replaceIfStored []byte
 }
 
+func init() {
+	// Each pooled coder keeps its history allocated, so their number and window size bound the
+	// memory held for as long as the process runs. JSON gains little from back-references longer
+	// than auditBodyWindowSize.
+	concurrency := min(auditBodyCoderConcurrency, runtime.GOMAXPROCS(0))
+
+	var err error
+	auditBodyEncoder, err = zstd.NewWriter(nil,
+		zstd.WithEncoderLevel(zstd.SpeedDefault),
+		zstd.WithWindowSize(auditBodyWindowSize),
+		zstd.WithEncoderConcurrency(concurrency),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create audit body compressor: %v", err))
+	}
+	// The decoder still reads bodies written with a larger window, up to the memory limit.
+	auditBodyDecoder, err = zstd.NewReader(nil,
+		zstd.WithDecoderMaxMemory(auditBodyCompressMaxBytes),
+		zstd.WithDecoderConcurrency(concurrency),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to create audit body decompressor: %v", err))
+	}
+}
+
 func isEncodedAuditBody(field []byte) bool {
 	return len(field) > 0 && field[0] == auditBodyMarker
 }
@@ -201,7 +227,7 @@ func isEncodedAuditBody(field []byte) bool {
 func encodeAuditBody(ctx context.Context, transformer value.Transformer, dataCtx value.Context, plain []byte, flags byte) ([]byte, error) {
 	payload := plain
 	if len(plain) >= auditBodyCompressMinBytes && len(plain) <= auditBodyCompressMaxBytes {
-		if compressed := auditBodyEncoder().EncodeAll(plain, make([]byte, 0, len(plain)/4)); len(compressed) < len(plain) {
+		if compressed := auditBodyEncoder.EncodeAll(plain, make([]byte, 0, len(plain)/4)); len(compressed) < len(plain) {
 			payload = compressed
 			flags |= auditBodyFlagCompressed
 		}
@@ -266,7 +292,7 @@ func decodeAuditBodyWithStale(ctx context.Context, transformer value.Transformer
 		payload, stale = decrypted, isStale
 	}
 	if flags&auditBodyFlagCompressed != 0 {
-		decompressed, err := auditBodyDecoder().DecodeAll(payload, nil)
+		decompressed, err := auditBodyDecoder.DecodeAll(payload, nil)
 		if err != nil {
 			return nil, 0, false, fmt.Errorf("failed to decompress audit body: %w", err)
 		}
@@ -516,7 +542,9 @@ func (c *Client) propertyTransformer() value.Transformer {
 // retention from removing it and make every later row with that result unreadable.
 //
 // A usable answer is remembered for auditBodyKnownFreshFor and an unusable one for
-// auditBodyUnusableFor. If the lookup fails, the answer is unusable and lookups are skipped for
+// auditBodyUnusableFor. An absent one is remembered by the caller once it has encoded the body,
+// and is then answered as usable until the write that stores it, or for auditBodyPendingFor. If
+// the lookup fails, the answer is unusable and lookups are skipped for
 // auditBodyStoredCheckRetryAfter.
 func (c *Client) auditBodyStoredState(ctx context.Context, transformer value.Transformer, hash []byte, now time.Time) auditBodyStored {
 	id := [auditBodyHashLen]byte(hash)
@@ -526,10 +554,17 @@ func (c *Client) auditBodyStoredState(ctx context.Context, transformer value.Tra
 	backingOff := now.Before(c.auditBodies.storedCheckRetryAt)
 	c.auditBodies.lock.Unlock()
 	if ok {
-		if known.unusable && now.Sub(known.at) < auditBodyUnusableFor {
-			return auditBodyStoredUnusable
-		}
-		if !known.unusable && now.Sub(known.at) < auditBodyKnownFreshFor {
+		switch age := now.Sub(known.at); {
+		case known.unusable:
+			if age < auditBodyUnusableFor {
+				return auditBodyStoredUnusable
+			}
+		case known.pending:
+			// The flush stores it from the plain result the entry keeps.
+			if age < auditBodyPendingFor {
+				return auditBodyStoredUsable
+			}
+		case age < auditBodyKnownFreshFor:
 			return auditBodyStoredUsable
 		}
 	}
@@ -558,7 +593,7 @@ func (c *Client) auditBodyStoredState(ctx context.Context, transformer value.Tra
 		// The check was cut short, which says nothing about the copy.
 		return auditBodyStoredUnusable
 	}
-	c.rememberAuditBody(hash, now, err != nil)
+	c.rememberAuditBody(hash, auditBodyKnown{at: now, unusable: err != nil})
 	if err != nil {
 		slog.Warn("A shared MCP audit log body cannot be used by this server; storing matching list responses inline",
 			"hash", hex.EncodeToString(hash), "error", err)
@@ -567,17 +602,34 @@ func (c *Client) auditBodyStoredState(ctx context.Context, transformer value.Tra
 	return auditBodyStoredUsable
 }
 
-// rememberAuditBody records what this replica found when it read the copy stored under hash.
+// rememberAuditBody records what this replica found when it read the copy stored under hash, or
+// that it found none and is about to store one.
 // Everything remembered is dropped once auditBodyKnownMax copies have been, which keeps the
 // memory bounded and only costs reading those copies again.
-func (c *Client) rememberAuditBody(hash []byte, now time.Time, unusable bool) {
+func (c *Client) rememberAuditBody(hash []byte, known auditBodyKnown) {
 	c.auditBodies.lock.Lock()
 	defer c.auditBodies.lock.Unlock()
 
 	if c.auditBodies.known == nil || len(c.auditBodies.known) >= auditBodyKnownMax {
 		c.auditBodies.known = make(map[[auditBodyHashLen]byte]auditBodyKnown)
 	}
-	c.auditBodies.known[[auditBodyHashLen]byte(hash)] = auditBodyKnown{at: now, unusable: unusable}
+	c.auditBodies.known[[auditBodyHashLen]byte(hash)] = known
+}
+
+// endPendingAuditBodies forgets that the shared bodies logs carry are pending, once the write that
+// stores them is over. Whether it stored them or found a copy another replica stored in the
+// meantime, the next capture reads what is stored before trusting it.
+func (c *Client) endPendingAuditBodies(logs []types.MCPAuditLog) {
+	c.auditBodies.lock.Lock()
+	defer c.auditBodies.lock.Unlock()
+	for _, log := range logs {
+		for _, pending := range log.PendingBodies {
+			id := [auditBodyHashLen]byte(pending.Hash)
+			if known, ok := c.auditBodies.known[id]; ok && known.pending {
+				delete(c.auditBodies.known, id)
+			}
+		}
+	}
 }
 
 // auditBodyHash identifies a shared body by its content and by whether the writer encrypts.
@@ -631,8 +683,9 @@ func (c *Client) encodeAuditListResponseField(ctx context.Context, transformer v
 	result := body[start:end]
 	hash := auditBodyHash(key, transformer != nil, result)
 
+	now := time.Now()
 	pending := types.PendingMCPAuditLogBody{Hash: hash}
-	switch c.auditBodyStoredState(ctx, transformer, hash, time.Now()) {
+	switch c.auditBodyStoredState(ctx, transformer, hash, now) {
 	case auditBodyStoredUnusable:
 		return encodeAuditBodyField(ctx, transformer, dataCtx, field)
 	case auditBodyStoredUsable:
@@ -642,6 +695,9 @@ func (c *Client) encodeAuditListResponseField(ctx context.Context, transformer v
 		if pending.Encoded, err = encodeAuditBody(ctx, transformer, auditBodyDataCtx(hash), result, 0); err != nil {
 			return err
 		}
+		// Repeats before the flush keep only the plain result instead of looking it up and
+		// encoding it again.
+		c.rememberAuditBody(hash, auditBodyKnown{at: now, pending: true})
 	}
 
 	envelope := make([]byte, 0, len(body)-len(result))
@@ -959,7 +1015,7 @@ func (c *Client) outdatedAuditBodies(ctx context.Context, transformer value.Tran
 				outdated[string(body.Hash)] = body.Body
 			case err != nil && ctx.Err() == nil:
 				// The entries being written already reference it, but later ones should not.
-				c.rememberAuditBody(body.Hash, time.Now(), true)
+				c.rememberAuditBody(body.Hash, auditBodyKnown{at: time.Now(), unusable: true})
 			}
 		}
 	}

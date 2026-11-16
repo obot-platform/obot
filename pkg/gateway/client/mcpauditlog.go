@@ -208,6 +208,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 	}
 
 	now := time.Now().UTC()
+	defer c.endPendingAuditBodies(logs)
 	sharedBodies, err := c.prepareAuditBodiesForStore(ctx, logs, now)
 	if err != nil {
 		return err
@@ -1222,25 +1223,26 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 
 // decryptMCPAuditLogs restores the payload fields of logs to what was captured. It handles the
 // rows together so that a shared body referenced by several of them is loaded once.
+//
+// It stops at the first row whose legacy fields cannot be decrypted. A wrong key fails every row
+// of a page or export batch, and the error of one row says as much as all of them.
 func (c *Client) decryptMCPAuditLogs(ctx context.Context, logs []*types.MCPAuditLog) error {
 	var (
 		transformer = c.mcpAuditLogTransformer()
 		references  []pendingAuditBodyReference
 		unavailable unavailableAuditBodies
-		errs        []error
 	)
 	defer unavailable.report()
 	for _, log := range logs {
 		dataCtx := mcpAuditLogDataCtx(log)
 		logReferences, err := decodeMCPAuditLogBodies(ctx, transformer, dataCtx, log, &unavailable)
-		references = append(references, logReferences...)
-		errs = append(errs, err)
-		if log.Encrypted && transformer != nil {
-			errs = append(errs, decryptMCPAuditLogFields(ctx, transformer, dataCtx, log))
+		if err == nil && log.Encrypted && transformer != nil {
+			err = decryptMCPAuditLogFields(ctx, transformer, dataCtx, log)
 		}
-	}
-	if err := errors.Join(errs...); err != nil {
-		return err
+		if err != nil {
+			return fmt.Errorf("audit log %d: %w", log.ID, err)
+		}
+		references = append(references, logReferences...)
 	}
 	return c.resolveAuditBodyReferences(ctx, transformer, references, &unavailable)
 }

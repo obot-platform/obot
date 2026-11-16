@@ -72,7 +72,7 @@ Application encryption defaults to `OBOT_SERVER_ENCRYPTION_PROVIDER=none`. Confi
 
 ## How Encryption Works {#overview-how-encryption-works}
 
-Obot uses the Kubernetes `EncryptionConfiguration` format. Each configured resource has a transformer that encrypts selected fields before storage and decrypts them on retrieval. Cloud KMS providers use a local provider process over a Unix socket; a custom AES-GCM configuration uses the supplied key. Encrypted field values are base64-encoded for storage.
+Obot uses the Kubernetes `EncryptionConfiguration` format. Each configured resource has a transformer that encrypts selected fields before storage and decrypts them on retrieval. Cloud KMS providers use a local provider process over a Unix socket; a custom AES-GCM configuration uses the supplied key. Encrypted field values are base64-encoded for storage, except MCP and local-agent audit bodies, which are compressed and stored as binary.
 
 The built-in cloud configurations include the resources below. A custom configuration must include the corresponding resource names to protect those fields.
 
@@ -105,3 +105,21 @@ Local-auth passwords are stored as salted Argon2id hashes regardless of whether 
 ## Enabling Encryption on an Existing Installation {#overview-enabling-encryption-on-an-existing-installation}
 
 Enabling encryption does not automatically encrypt all existing data. Existing installations may require a separate migration to protect previously stored data.
+
+## Rotating the Encryption Key {#overview-rotating-the-encryption-key}
+
+The first provider listed for a resource in the `EncryptionConfiguration` encrypts new data. Every listed provider can decrypt. Rotate a key in this order:
+
+1. Add the new key to every replica's configuration after the current key, so that every replica can read data encrypted with it. Finish this rollout before the next step.
+2. Move the new key to the first position on every replica. New data is now encrypted with it.
+3. Keep the old key configured until no stored data needs it.
+
+For MCP and local-agent audit logs, keep the old key for at least the MCP audit log retention period (`OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS`) plus three days after the last replica moves the new key first. Large `tools/list`, `prompts/list`, `resources/list`, and `resources/templates/list` results are stored once and shared by every audit log that contains them. A shared result moves to the new key only when it is next referenced after a daily refresh, so it can stay under the old key for a day longer than the audit logs themselves. If retention is disabled, audit logs and shared results written under the old key are never deleted and continue to need it.
+
+Other encrypted data, such as credentials and user details, is not re-encrypted when the key changes. It keeps needing the old key until it is rewritten.
+
+If the old key is removed too early, audit log payloads encrypted with it can no longer be read. Audit log metadata remains available.
+
+### Recovering from a Lost Audit Hash Key {#overview-recovering-from-a-lost-audit-hash-key}
+
+Obot identifies shared audit results with a hash key stored, encrypted, in the `properties` table under the name `mcp-audit-log-body-hash-key`. If the key that encrypts it is lost, Obot stores those results inline in each audit log instead of sharing them. To resume sharing, delete that row. Replicas create a new hash key within about a minute.
