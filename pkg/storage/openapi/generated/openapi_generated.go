@@ -6952,6 +6952,12 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Format: "",
 						},
 					},
+					"codexSubscription": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"reasoningEffort": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
