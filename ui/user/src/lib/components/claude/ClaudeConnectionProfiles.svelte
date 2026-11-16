@@ -70,7 +70,9 @@
 	});
 
 	function subjectLabel(profile: EnvironmentProfile) {
-		const rows = convertSubjectsToTableData(profile.subjects, directoryUsers, resolvedGroups);
+		const rows = convertSubjectsToTableData(profile.subjects, directoryUsers, resolvedGroups, {
+			offerAgents: false
+		});
 		return rows.map((row) => row.displayName).join(', ');
 	}
 

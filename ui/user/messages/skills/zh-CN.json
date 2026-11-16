@@ -4,6 +4,7 @@
 	"skills_access_policies_all_skills": "所有技能",
 	"skills_access_policies_no_skills_added": "尚未添加技能。",
 	"skills_access_policies_remove_skill": "移除技能",
+	"skills_access_policies_subjects_description": "此规则适用的用户、用户组和代理。所有人包括代理。",
 	"skills_access_policies_tab": "访问策略",
 	"skills_access_policy_fallback_title": "技能访问策略",
 	"skills_add": "添加",

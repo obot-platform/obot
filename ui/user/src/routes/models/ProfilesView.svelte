@@ -99,7 +99,8 @@
 		return convertSubjectsToTableData(
 			p.subjects ?? [],
 			usersAndGroups.users,
-			usersAndGroups.groups
+			usersAndGroups.groups,
+			{ offerAgents: false }
 		).map((row) => row.displayName);
 	}
 

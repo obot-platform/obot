@@ -9,6 +9,7 @@ describe('SubjectName', () => {
 
 		await expect.element(page.getByText('Alice')).toBeVisible();
 		await expect.element(page.getByText('Disabled')).not.toBeInTheDocument();
+		await expect.element(page.getByText('Agent', { exact: true })).not.toBeInTheDocument();
 	});
 
 	it('marks a disabled user', async () => {
@@ -16,5 +17,12 @@ describe('SubjectName', () => {
 
 		await expect.element(page.getByText('Dan')).toBeVisible();
 		await expect.element(page.getByText('Disabled', { exact: true })).toBeVisible();
+	});
+
+	it('marks an agent with a badge', async () => {
+		render(SubjectName, { name: 'Build bot', agent: true });
+
+		await expect.element(page.getByText('Build bot')).toBeVisible();
+		await expect.element(page.getByText('Agent', { exact: true })).toBeVisible();
 	});
 });

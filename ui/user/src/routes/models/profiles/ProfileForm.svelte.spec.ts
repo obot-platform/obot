@@ -374,3 +374,102 @@ describe('Profile form', () => {
 			.toBeVisible();
 	});
 });
+
+describe('Profile form: agent subjects', () => {
+	const agents = [
+		{ id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 },
+		{ id: '9', displayName: 'Retired bot', status: 'deleted', activeAPIKeyCount: 0 }
+	];
+
+	function mockAgents() {
+		worker.use(http.get('/api/agents', () => HttpResponse.json({ items: agents })));
+	}
+
+	async function openPicker() {
+		await page.getByRole('button', { name: 'Add User/Group' }).click();
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeVisible();
+	}
+
+	it('saves a selected agent as an agent subject', async () => {
+		const { calls } = mockGateway();
+		mockAgents();
+		render(ProfileForm, {});
+
+		await page.getByLabelText('Name', { exact: true }).fill('Bots');
+		await openPicker();
+		await page.getByRole('button', { name: /Build bot/ }).click();
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		expect(calls.mock.calls[0][2]).toMatchObject({
+			displayName: 'Bots',
+			subjects: [{ type: 'agent', id: '5' }]
+		});
+	});
+
+	it('saves all agents as the agent wildcard', async () => {
+		const { calls } = mockGateway();
+		mockAgents();
+		render(ProfileForm, {});
+
+		await page.getByLabelText('Name', { exact: true }).fill('All bots');
+		await openPicker();
+		await page.getByRole('button', { name: /All Agents/ }).click();
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await expect.element(page.getByText('All Agents', { exact: true })).toBeVisible();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		expect(calls.mock.calls[0][2]).toMatchObject({
+			subjects: [{ type: 'agent', id: '*' }]
+		});
+	});
+
+	it('saves all users as the user wildcard', async () => {
+		const { calls } = mockGateway();
+		mockAgents();
+		render(ProfileForm, {});
+
+		await page.getByLabelText('Name', { exact: true }).fill('Users');
+		await openPicker();
+		await page.getByRole('button', { name: /All Users/ }).click();
+		await page.getByRole('button', { name: 'Confirm' }).click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/models/profiles/p-new', { replaceState: true })
+		);
+		expect(calls.mock.calls[0][2]).toMatchObject({ subjects: [{ type: 'user', id: '*' }] });
+	});
+
+	it('does not offer other subjects next to a wildcard', async () => {
+		mockGateway();
+		mockAgents();
+		render(ProfileForm, {});
+
+		await openPicker();
+		await page.getByRole('button', { name: /Everyone \(All Obot Users and Agents\)/ }).click();
+
+		await expect.element(page.getByRole('button', { name: /All Users/ })).toBeDisabled();
+		await expect.element(page.getByRole('button', { name: /All Agents/ })).toBeDisabled();
+		// A model access policy needs its wildcard to be the only subject.
+		await expect.element(page.getByRole('button', { name: /Build bot/ })).toBeDisabled();
+	});
+
+	it('shows a deleted agent as such', async () => {
+		mockGateway();
+		mockAgents();
+		render(ProfileForm, {
+			modelAccessPolicy: { ...existing, subjects: [{ type: 'agent', id: '9' }] }
+		});
+
+		await expect.element(page.getByText('Retired bot (Deleted)')).toBeVisible();
+		// The badge and the type column both say Agent.
+		await expect.element(page.getByText('Agent', { exact: true }).first()).toBeVisible();
+	});
+});

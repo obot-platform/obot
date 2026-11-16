@@ -1034,7 +1034,7 @@ export interface MCPFilterManifest {
 export type MCPGuardrailFilterAction = 'block' | 'redact';
 export type MCPGuardrailFilterDirection = 'request' | 'response' | 'both';
 export interface MCPGuardrailFilterSubject {
-	type: 'user' | 'group' | 'everyone';
+	type: 'user' | 'agent' | 'group' | 'everyone';
 	id?: string;
 }
 export interface MCPGuardrailFilterConfig {

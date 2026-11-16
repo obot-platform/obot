@@ -114,6 +114,7 @@ export const handlers = [
 		() => new HttpResponse(null, { status: 404 })
 	),
 	http.get('/api/groups', () => HttpResponse.json({ items: [] })),
+	http.get('/api/agents', () => HttpResponse.json({ items: [] })),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>
 		HttpResponse.json({ items: data.listAllUserWorkspaceCatalogEntriesResponse })

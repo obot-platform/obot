@@ -12,6 +12,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		UserService,
@@ -28,6 +29,7 @@
 		type OrgGroup,
 		type OrgUser
 	} from '$lib/services';
+	import { type AgentIdentity } from '$lib/services/agent-identities';
 	import {
 		createBudget,
 		deleteBudget,
@@ -61,9 +63,10 @@
 	} from '$lib/stores';
 	import {
 		convertSubjectsToTableData,
-		resolveSubjectFromGroup,
+		hasNamedAgent,
 		resolveSubjectPickerById,
-		resolveSubjects
+		resolveSubjects,
+		subjectsFromPicker
 	} from '$lib/subjectResolver';
 	import { goto } from '$lib/url';
 	import { Plus, Trash2, TriangleAlert, UsersRound, X } from '@lucide/svelte';
@@ -110,6 +113,9 @@
 	let aliases = $state<DefaultModelAlias[]>(defaultModelAliasesStore.current);
 	let guardrails = $state<Guardrail[]>([]);
 	let usersAndGroups = $state<{ users: OrgUser[]; groups: OrgGroup[] }>();
+	// Agent subjects are named from the admin-only agent list, which also holds deleted agents, and from
+	// the agents just picked. Anyone else sees the IDs.
+	const agentLookup = createAgentLookup(() => hasNamedAgent(draft.subjects));
 	let loadingUsersAndGroups = $state(false);
 
 	let saving = $state(false);
@@ -184,7 +190,8 @@
 		convertSubjectsToTableData(
 			draft.subjects ?? [],
 			usersAndGroups?.users ?? [],
-			usersAndGroups?.groups ?? []
+			usersAndGroups?.groups ?? [],
+			{ agents: agentLookup.current, offerAgents: true }
 		)
 	);
 
@@ -501,8 +508,8 @@
 
 	<section>
 		{@render header(
-			m.core_users_and_groups(),
-			m.models_profile_users_description(),
+			m.core_users_groups_and_agents(),
+			m.models_profile_users_agents_description(),
 			m.core_add_user_group(),
 			() => addUserGroupDialog?.open(),
 			loadingUsersAndGroups
@@ -512,7 +519,7 @@
 			<div class="my-2 flex items-center justify-center"><Loading class="size-6" /></div>
 		{:else if subjectRows.length === 0}
 			<p class="text-muted-content pt-1 pb-3 text-center text-xs font-light italic">
-				{m.core_no_users_or_groups_added()}
+				{m.core_no_subjects_added()}
 			</p>
 		{:else}
 			<ul class="flex flex-col">
@@ -529,6 +536,7 @@
 									class="truncate text-sm font-light"
 									name={row.displayName}
 									disabled={row.disabled}
+									agent={row.agent}
 								/>
 								<span class="text-muted-content text-xs">{row.type}</span>
 							</div>
@@ -897,16 +905,20 @@
 
 <SearchUsers
 	bind:this={addUserGroupDialog}
+	offerAgents
+	wildcardMustBeAlone
 	filterIds={draft.subjects?.map(resolveSubjectPickerById) ?? []}
-	onAdd={async (users: OrgUser[], groups: OrgGroup[]) => {
-		const existing = new Set(draft.subjects?.map(resolveSubjectPickerById) ?? []);
-		const added = [
-			...users
-				.filter((user) => !existing.has(user.id))
-				.map((user) => ({ type: 'user' as const, id: user.id })),
-			...groups.filter((group) => !existing.has(group.id)).map((g) => resolveSubjectFromGroup(g))
+	onAdd={async (users: OrgUser[], groups: OrgGroup[], agents: AgentIdentity[]) => {
+		agentLookup.add(agents);
+		draft.subjects = [
+			...(draft.subjects ?? []),
+			...subjectsFromPicker(
+				draft.subjects?.map(resolveSubjectPickerById) ?? [],
+				users,
+				groups,
+				agents
+			)
 		];
-		draft.subjects = [...(draft.subjects ?? []), ...added];
 	}}
 />
 
