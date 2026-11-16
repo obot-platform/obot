@@ -36,7 +36,7 @@
 	let required = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string[]> = {
-		[ModelAlias.Llm]: ['gpt-6.1-sol', 'claude-sonnet-5-5'],
+		[ModelAlias.Llm]: ['gpt-6.1-sol', 'claude-opus-5-5'],
 		[ModelAlias.LlmMini]: ['gpt-6-luna', 'claude-haiku-5-5']
 	};
 
