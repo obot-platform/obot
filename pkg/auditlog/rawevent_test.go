@@ -123,6 +123,19 @@ func TestRestoreRawEvent(t *testing.T) {
 			want:    `[` + requestMarker + `]`,
 		},
 		{
+			name:     "each body is restored only at its first marker",
+			raw:      `{"tool_response":` + responseMarker + `,"copy":` + responseMarker + `,"again":` + responseJSONStringMark + `}`,
+			response: `{"big":"output"}`,
+			want:     `{"tool_response":{"big":"output"},"copy":` + responseMarker + `,"again":` + responseJSONStringMark + `}`,
+		},
+		{
+			name:     "a request marker after the response marker is still restored",
+			raw:      `{"tool_response":` + responseMarker + `,"tool_input":` + requestMarker + `,"extra":` + requestMarker + `}`,
+			request:  `{"command":"x"}`,
+			response: `"y"`,
+			want:     `{"tool_response":"y","tool_input":{"command":"x"},"extra":` + requestMarker + `}`,
+		},
+		{
 			name:     "a raw event with no marker is unchanged",
 			raw:      `{"tool_input":{"command":"x"},"tool_response":"y"}`,
 			request:  `{"command":"x"}`,

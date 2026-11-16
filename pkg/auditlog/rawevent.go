@@ -42,6 +42,12 @@ var (
 // as stored. A marker whose body is empty (not recorded, or blanked because the caller may not see
 // payloads) or is not valid JSON is left in place. A raw event that is not a JSON object is
 // returned unchanged.
+//
+// Each body is restored at most once: the first marker naming it is replaced and any later one is
+// left in place. Obot Sentry writes one marker per body, and the raw event comes from the client,
+// so without this a small event repeating a marker would expand to a copy of the body per marker
+// when it is viewed or exported. With it the result is no larger than the raw event and the two
+// bodies together.
 func restoreRawEvent(raw, request, response json.RawMessage) json.RawMessage {
 	type replacement struct {
 		start, end int
@@ -58,6 +64,7 @@ func restoreRawEvent(raw, request, response json.RawMessage) json.RawMessage {
 	}
 
 	var replacements []replacement
+	restoredFields := map[string]bool{}
 	for dec.More() {
 		if _, err := dec.Token(); err != nil {
 			return raw
@@ -70,7 +77,7 @@ func restoreRawEvent(raw, request, response json.RawMessage) json.RawMessage {
 		start := end - len(value)
 
 		field, jsonString, ok := parseOmittedMarker(value)
-		if !ok {
+		if !ok || restoredFields[field] {
 			continue
 		}
 		body := request
@@ -81,6 +88,7 @@ func restoreRawEvent(raw, request, response json.RawMessage) json.RawMessage {
 		if !ok {
 			continue
 		}
+		restoredFields[field] = true
 		replacements = append(replacements, replacement{start: start, end: end, value: restored})
 	}
 	if len(replacements) == 0 {
