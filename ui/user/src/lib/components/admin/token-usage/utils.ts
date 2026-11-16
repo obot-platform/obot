@@ -1,4 +1,13 @@
+import { auditLogAgentID } from '$lib/auditlogs';
+import { m } from '$lib/i18n';
 import type { OrgUser, TokenUsage } from '$lib/services';
+import {
+	agentActorValue,
+	agentDisplayName,
+	agentKeyMask,
+	parseAgentActor,
+	type AgentLookup
+} from '$lib/services/agent-identities/helpers';
 import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 import {
 	differenceInCalendarDays,
@@ -193,11 +202,36 @@ export function aggregateTimelineDataByBucket(
 	return result;
 }
 
+// tokenUsageActorKey is the key a row's usage is grouped and filtered by: the user's ID, or
+// "agent:<id>" for an agent, whose rows have no user ID. It is undefined when the row has neither.
+export function tokenUsageActorKey(row: TokenUsage): string | undefined {
+	if (row.userID) return row.userID;
+	const agentId = auditLogAgentID(row);
+	return agentId ? agentActorValue(agentId) : undefined;
+}
+
+// actorLabel names an actor key. An "agent:<id>" key is an agent, which is never looked up as a user.
+export function actorLabel(
+	users: Map<string, OrgUser>,
+	key: string,
+	agents?: Map<string, AgentLookup>
+): string {
+	const agentId = parseAgentActor(key);
+	if (agentId) return m.audit_usage_agent_actor({ name: agentDisplayName(agents, agentId) });
+	return withDisabledMarker(getUserDisplayName(users, key), users.get(key));
+}
+
 export function getUserLabels(
 	users: Map<string, OrgUser>,
-	userKeys: string[]
+	userKeys: string[],
+	agents?: Map<string, AgentLookup>
 ): Map<string, string> {
-	const simpleLabels = new Map(userKeys.map((k) => [k, getUserDisplayName(users, k)]));
+	const simpleLabels = new Map(
+		userKeys.map((k) => [
+			k,
+			parseAgentActor(k) ? actorLabel(users, k, agents) : getUserDisplayName(users, k)
+		])
+	);
 	const displayCounts = new Map<string, number>();
 	for (const label of simpleLabels.values()) {
 		displayCounts.set(label, (displayCounts.get(label) ?? 0) + 1);
@@ -205,6 +239,7 @@ export function getUserLabels(
 	return new Map(
 		userKeys.map((k) => {
 			const simple = simpleLabels.get(k)!;
+			if (parseAgentActor(k)) return [k, simple];
 			const label =
 				(displayCounts.get(simple) ?? 0) > 1 ? getUserDisplayName(users, k, () => true) : simple;
 			return [k, withDisabledMarker(label, users.get(k))];
@@ -214,7 +249,8 @@ export function getUserLabels(
 
 export function getAPIKeyFilterOptions(
 	rows: TokenUsage[],
-	users: Map<string, OrgUser>
+	users: Map<string, OrgUser>,
+	agents?: Map<string, AgentLookup>
 ): { id: string; label: string }[] {
 	const options = new Map<string, string>();
 	for (const row of rows) {
@@ -222,14 +258,19 @@ export function getAPIKeyFilterOptions(
 		const id = row.apiKeyID.toString();
 		if (options.has(id)) continue;
 
+		const agentId = auditLogAgentID(row);
 		const maskedIdentifier = row.userID
 			? `ok1-${row.userID}-${row.apiKeyID}-*****`
-			: `API key #${row.apiKeyID}`;
+			: agentId
+				? agentKeyMask({ agentId, id: row.apiKeyID })
+				: `API key #${row.apiKeyID}`;
 		const key =
 			row.apiKeyName && row.apiKeyName !== maskedIdentifier
 				? `${row.apiKeyName} (${maskedIdentifier})`
 				: maskedIdentifier;
-		const owner = getUserDisplayName(users, row.userID ?? '');
+		const owner = agentId
+			? agentDisplayName(agents, agentId)
+			: getUserDisplayName(users, row.userID ?? '');
 		const label = `${key} • ${owner}`;
 		options.set(id, label);
 	}

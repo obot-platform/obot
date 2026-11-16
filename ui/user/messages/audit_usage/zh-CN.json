@@ -1,5 +1,10 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"audit_usage_actor_kind": "操作者类型",
+	"audit_usage_actor_kind_user": "用户",
+	"audit_usage_agent": "智能体",
+	"audit_usage_agent_actor": "{name}（智能体）",
+	"audit_usage_agent_fallback_name": "智能体 {id}",
 	"audit_usage_audit_logs_action": "动作",
 	"audit_usage_audit_logs_action_kind": "动作类型",
 	"audit_usage_audit_logs_active_filters": "已应用的过滤器：",
@@ -224,6 +229,7 @@
 	"audit_usage_exports_access_key_id": "访问密钥 ID",
 	"audit_usage_exports_action_pause": "暂停",
 	"audit_usage_exports_action_resume": "恢复",
+	"audit_usage_exports_admin_actor_system": "系统",
 	"audit_usage_exports_advanced_options": "高级选项",
 	"audit_usage_exports_already_configured": "已配置存储提供商",
 	"audit_usage_exports_already_configured_prefix": "已配置存储提供商（",

@@ -91,13 +91,13 @@
 	const views = $derived([
 		{
 			value: 'mcp' as const,
-			label: m.identity_access_agents_api_key_mcp_server_logs()
+			label: m.identity_access_api_keys_api_key_mcp_server_logs()
 		},
 		...(canViewLlmLogs
 			? [
 					{
 						value: 'llm' as const,
-						label: m.identity_access_agents_api_key_llm_gateway_logs()
+						label: m.identity_access_api_keys_api_key_llm_gateway_logs()
 					}
 				]
 			: [])
@@ -194,7 +194,7 @@
 </script>
 
 <Layout
-	title={`${apiKey?.name || m.identity_access_agents_agent_identity()} | ${apiKeyId}`}
+	title={`${apiKey?.name || m.identity_access_api_keys_agent_identity()} | ${apiKeyId}`}
 	showBackButton
 	classes={{ childrenContainer: 'max-w-none', container: 'pb-0' }}
 	main={{
@@ -268,10 +268,10 @@
 						>
 							<Captions class="text-muted-content size-20 opacity-50" />
 							<h4 class="text-muted-content text-lg font-semibold">
-								{m.identity_access_agents_api_key_no_mcp_logs()}
+								{m.identity_access_api_keys_api_key_no_mcp_logs()}
 							</h4>
 							<p class="text-muted-content max-w-md text-sm font-light">
-								{m.identity_access_agents_api_key_no_mcp_logs_description()}
+								{m.identity_access_api_keys_api_key_no_mcp_logs_description()}
 							</p>
 						</div>
 					{/snippet}
@@ -318,7 +318,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | {apiKey?.name || m.identity_access_agents_agent_identity()} | {apiKeyId}</title>
+	<title>Obot | {apiKey?.name || m.identity_access_api_keys_agent_identity()} | {apiKeyId}</title>
 </svelte:head>
 
 <style lang="postcss">

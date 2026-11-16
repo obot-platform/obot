@@ -1,26 +1,42 @@
 import { AUTH_PROVIDERS_VIEW_PATH, isSCIMView, SCIM_VIEW_PATH } from '$lib/constants';
 import { handleRouteError } from '$lib/errors';
-import { AdminService, ApiKeysService, UserService } from '$lib/services';
+import { AdminService, AgentIdentitiesService, ApiKeysService, UserService } from '$lib/services';
 import type { AuthProvider, GroupRoleAssignment, OrgGroup, OrgUser } from '$lib/services';
 import type { SCIMConnectionReview, SCIMEnablePreview } from '$lib/services/admin/types';
+import type { AgentIdentity } from '$lib/services/agent-identities/types';
 import type { APIKey } from '$lib/services/api-keys/types';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-const views = new Set(['users', 'agents', 'groups', 'roles', 'auth-providers']);
+// 'agents' was the tab of a user's API keys. It is 'api-keys' now, and 'agent-identities' is the
+// admin tab of agent identities.
+const views = new Set([
+	'users',
+	'api-keys',
+	'agent-identities',
+	'groups',
+	'roles',
+	'auth-providers'
+]);
 
 // The page size of each list on the SCIM sub-tab.
 const scimPageSize = 50;
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();
+	if (url.searchParams.get('view') === 'agents') {
+		const redirected = new URL(url);
+		redirected.searchParams.set('view', 'api-keys');
+		throw redirect(301, `${redirected.pathname}${redirected.search}`);
+	}
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
 	const requestedView = url.searchParams.get('view');
 	const view =
-		requestedView && views.has(requestedView) && (hasAdminAccess || requestedView === 'agents')
+		requestedView && views.has(requestedView) && (hasAdminAccess || requestedView === 'api-keys')
 			? requestedView
 			: hasAdminAccess
 				? 'users'
-				: 'agents';
+				: 'api-keys';
 
 	let users: OrgUser[] = [];
 	let groups: OrgGroup[] = [];
@@ -29,10 +45,11 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let authProviders: AuthProvider[] = [];
 	let authEnabled = false;
 	let apiKeys: APIKey[] = [];
+	let agents: AgentIdentity[] = [];
 	let scimReview: SCIMConnectionReview | undefined;
 	let scimEnablePreview: SCIMEnablePreview | undefined;
 
-	if (view === 'agents') {
+	if (view === 'api-keys') {
 		try {
 			if (hasAdminAccess) {
 				[apiKeys, users] = await Promise.all([
@@ -43,10 +60,20 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 				apiKeys = await ApiKeysService.listApiKeys({ fetch });
 			}
 		} catch (err) {
-			handleRouteError(err, '/identity-access?view=agents', profile);
+			handleRouteError(err, '/identity-access?view=api-keys', profile);
 		}
 	} else if (hasAdminAccess) {
 		switch (view) {
+			case 'agent-identities':
+				try {
+					[agents, users] = await Promise.all([
+						AgentIdentitiesService.listAgents({ fetch }),
+						UserService.listUsers({ fetch })
+					]);
+				} catch (err) {
+					handleRouteError(err, '/identity-access?view=agent-identities', profile);
+				}
+				break;
 			case 'users':
 				try {
 					users = await UserService.listUsers({ fetch });
@@ -117,6 +144,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		authProviders,
 		authEnabled,
 		apiKeys,
+		agents,
 		scimReview,
 		scimEnablePreview,
 		scimPageSize

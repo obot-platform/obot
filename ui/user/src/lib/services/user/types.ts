@@ -110,7 +110,7 @@ export interface AppPreferences {
 
 export type AuditLogEventType = 'mcp_call' | 'local_agent_tool_call';
 export type AuditLogTimestampSource = 'server' | 'client_reported';
-export type AuditLogActorType = 'user' | 'device' | 'credential' | 'unknown';
+export type AuditLogActorType = 'user' | 'agent' | 'device' | 'credential' | 'unknown';
 export type AuditLogTargetType =
 	| 'mcp_server'
 	| 'mcp_tool'
@@ -120,6 +120,10 @@ export type AuditLogTargetType =
 export type AuditLogOutcomeStatus = 'success' | 'failure' | 'denied' | 'timeout' | 'unknown';
 
 export type AuditLogAPIKeyFilterOption = {
+	// agentID and agentDisplayName are set instead of userID for the key of an agent, and are those of
+	// the agent's record even after it is deleted.
+	agentID?: string;
+	agentDisplayName?: string;
 	maskedKey: string;
 	name: string;
 	revoked: boolean;
@@ -212,7 +216,9 @@ export interface AuditLogEvent {
 	actor: {
 		actorType: AuditLogActorType;
 		id?: string;
-		/** Redacted authentication credential identifier when the actor is a known user. */
+		/** The agent's name when the actor is an agent, also after the agent is deleted. */
+		displayName?: string;
+		/** Redacted authentication credential identifier when the actor is a known user or agent. */
 		credentialID?: string;
 		/** Current lifecycle state of the API key represented by credentialID, or by id for credential actors. */
 		apiKeyRevoked?: boolean;
@@ -275,7 +281,8 @@ export type AuditLogURLFilters = {
 
 	// Unified, source-agnostic filters used by the audit log UI. These map to the correct
 	// underlying column per source in the backend and can be combined across sources.
-	actor?: string | null; // matches an Obot user id or an enrolled device id
+	actor?: string | null; // matches an Obot user id, "agent:<id>" for an agent, or an enrolled device id
+	actor_kind?: string | null; // "user" or "agent"
 	operation?: string | null; // MCP call type; local-agent tool calls are implicitly tools/call
 	mcp_server?: string | null; // MCP server (id/display name) or a local-agent row's MCP parent
 	tool?: string | null; // MCP call identifier or local-agent action name
@@ -716,8 +723,21 @@ export interface VMCPManifest {
 	toolSearch?: boolean;
 }
 
+// The condition that is true when more than one profile names every agent, so an agent cannot be
+// given one wildcard profile's configuration and OAuth grants (apiclient/types.VMCPConditionAgentSelectionAmbiguous).
+export const VMCP_CONDITION_AGENT_SELECTION_AMBIGUOUS = 'AgentSelectionAmbiguous';
+
+export interface VMCPCondition {
+	type: string;
+	status: 'True' | 'False' | 'Unknown' | string;
+	reason?: string;
+	message?: string;
+	lastTransitionTime?: string;
+}
+
 export interface VMCPStatus {
 	components?: VMCPComponentStatus[];
+	conditions?: VMCPCondition[];
 	ready?: boolean;
 }
 

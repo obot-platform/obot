@@ -4,13 +4,14 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { ApiKeysService } from '$lib/services';
+	import { apiKeyMask } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
 	const { apiKey, isAdmin } = $derived(data);
-	let title = $derived(apiKey?.name || m.identity_access_agents_agent_identity());
+	let title = $derived(apiKey?.name || m.identity_access_api_keys_agent_identity());
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
@@ -19,14 +20,14 @@
 		{#if apiKey}
 			<AgentAuthScopeDetails
 				{isAdmin}
-				agentAuthScope={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
+				agentAuthScope={{ ...apiKey, prefix: apiKeyMask(apiKey) }}
 				onDelete={async () => {
 					await (
 						profile.current.isAdmin?.()
 							? ApiKeysService.deleteAnyApiKey
 							: ApiKeysService.deleteApiKey
 					)(apiKey.id.toString());
-					goto('/identity-access?view=agents', { replaceState: true });
+					goto('/identity-access?view=api-keys', { replaceState: true });
 				}}
 			/>
 		{/if}

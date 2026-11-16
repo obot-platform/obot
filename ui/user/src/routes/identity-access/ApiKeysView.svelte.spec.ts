@@ -2,7 +2,7 @@ import { Group } from '$lib/services';
 import type { APIKey } from '$lib/services/api-keys/types';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { listUsersResponse } from '../../tests/mocks/data';
-import AgentsView from './AgentsView.svelte';
+import ApiKeysView from './ApiKeysView.svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -21,7 +21,7 @@ const apiKey: APIKey = {
 
 const apiKeyPrefix = `ok1-${apiKey.userId}-${apiKey.id}-*****`;
 
-async function renderAgentsView({
+async function renderApiKeysView({
 	isAdmin,
 	readonly = false,
 	profileId,
@@ -36,7 +36,7 @@ async function renderAgentsView({
 	if (profileId) profile.id = profileId;
 	await preparePageData({ profile });
 
-	return render(AgentsView, {
+	return render(ApiKeysView, {
 		apiKeys: [apiKey],
 		users: isAdmin ? listUsersResponse : [],
 		isAdmin
@@ -52,22 +52,22 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('AgentsView', () => {
+describe('ApiKeysView', () => {
 	it('shows user table without admin-only creator column', async () => {
-		await renderAgentsView({ isAdmin: false });
+		await renderApiKeysView({ isAdmin: false });
 
 		await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Created By', { exact: true })).not.toBeInTheDocument();
 	});
 
 	it('shows admin creator column', async () => {
-		await renderAgentsView({ isAdmin: true });
+		await renderApiKeysView({ isAdmin: true });
 
 		await expect.element(page.getByText('Created By', { exact: true }).first()).toBeVisible();
 	});
 
 	it('hides mutations for readonly admin', async () => {
-		await renderAgentsView({ isAdmin: true, readonly: true, profileId: 'auditor-1' });
+		await renderApiKeysView({ isAdmin: true, readonly: true, profileId: 'auditor-1' });
 
 		await openRowActions();
 		await expect.element(page.getByText('View Related Logs', { exact: true })).toBeVisible();
@@ -75,7 +75,7 @@ describe('AgentsView', () => {
 			.element(page.getByRole('link', { name: apiKeyPrefix, exact: true }))
 			.toHaveAttribute(
 				'href',
-				`/identity-access/agents/${apiKey.id}/${encodeURIComponent(apiKeyPrefix)}`
+				`/identity-access/api-keys/${apiKey.id}/${encodeURIComponent(apiKeyPrefix)}`
 			);
 		await expect
 			.element(page.getByRole('button', { name: 'Delete', exact: true }))
@@ -83,7 +83,7 @@ describe('AgentsView', () => {
 	});
 
 	it('shows related log link and delete in the row menu for admins', async () => {
-		await renderAgentsView({ isAdmin: true });
+		await renderApiKeysView({ isAdmin: true });
 
 		await openRowActions();
 		await expect.element(page.getByText('View Related Logs', { exact: true })).toBeVisible();
@@ -91,13 +91,13 @@ describe('AgentsView', () => {
 			.element(page.getByRole('link', { name: apiKeyPrefix, exact: true }))
 			.toHaveAttribute(
 				'href',
-				`/identity-access/agents/${apiKey.id}/${encodeURIComponent(apiKeyPrefix)}`
+				`/identity-access/api-keys/${apiKey.id}/${encodeURIComponent(apiKeyPrefix)}`
 			);
 		await expect.element(page.getByRole('button', { name: 'Delete', exact: true })).toBeVisible();
 	});
 
 	it('shows delete but not related logs in the row menu for non-admin owners', async () => {
-		await renderAgentsView({ isAdmin: false, groups: [Group.USER] });
+		await renderApiKeysView({ isAdmin: false, groups: [Group.USER] });
 
 		await openRowActions();
 		await expect

@@ -1,4 +1,5 @@
 import { m } from '$lib/i18n';
+import type { PrincipalRef } from '../agent-identities/types';
 import {
 	type MCPServerTool,
 	type MCPSecretBinding,
@@ -766,7 +767,10 @@ export interface LLMAuditLog {
 	// subscription is true when the user's subscription paid for the request, which
 	// was then served with no provider key.
 	subscription?: boolean;
+	// userID is empty for a request made by an agent, which is named by principal and agentDisplayName.
 	userID: string;
+	principal?: PrincipalRef;
+	agentDisplayName?: string;
 }
 
 export type LLMAuditLogURLFilters = {
@@ -788,6 +792,7 @@ export type LLMAuditLogURLFilters = {
 	target_model?: string | null;
 	user_agent?: string | null;
 	user_id?: string | null;
+	actor_kind?: string | null; // "user" or "agent"
 };
 
 // MCP capacity
@@ -1412,7 +1417,9 @@ export interface SystemMCPServer {
 
 export interface TokenUsage {
 	date: string;
+	// userID is empty for usage by an agent, which is named by principal.
 	userID?: string;
+	principal?: PrincipalRef;
 	model?: string;
 	apiKeyID?: number;
 	apiKeyName?: string;

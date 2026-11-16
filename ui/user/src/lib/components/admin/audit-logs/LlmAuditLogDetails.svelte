@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { formatAuditLogAPIKeyName, getAuditLogAPIKeyMaskedKey } from '$lib/auditlogs';
+	import {
+		auditLogAgentID,
+		formatAuditLogAPIKeyName,
+		getAuditLogAPIKeyMaskedKey
+	} from '$lib/auditlogs';
 	import { isAbortError } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { AdminService, type LLMAuditLog } from '$lib/services';
@@ -134,7 +138,7 @@
 		{@const requestURL = [data.requestMethod, data.requestPath].filter(Boolean).join(' ')}
 		{@const apiKey = formatAuditLogAPIKeyName(
 			data.apiKeyName ?? '',
-			getAuditLogAPIKeyMaskedKey(data.userID, data.apiKeyID)
+			getAuditLogAPIKeyMaskedKey(data.userID, data.apiKeyID, auditLogAgentID(data))
 		)}
 		{#if requestURL}
 			<p class="grid grid-cols-2 gap-2 wrap-break-word">

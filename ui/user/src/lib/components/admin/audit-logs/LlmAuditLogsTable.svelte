@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import {
 		formatAuditLogAPIKeyName,
+		auditLogAgentID,
 		formatAuditLogCredentialLabel,
 		getAuditLogAPIKeyMaskedKey
 	} from '$lib/auditlogs';
@@ -23,9 +24,10 @@
 	interface Props {
 		onSelectRow?: (auditLog: LLMAuditLog) => void;
 		getUserDisplayName: (userID: string) => string;
+		getAgentDisplayName: (agentID: string, name?: string) => string;
 	}
 
-	let { onSelectRow, getUserDisplayName }: Props = $props();
+	let { onSelectRow, getUserDisplayName, getAgentDisplayName }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -150,13 +152,24 @@
 	</td>
 {/snippet}
 
-{#snippet twoLine(primary: string | number | undefined, secondary?: string | number)}
+{#snippet twoLine(
+	primary: string | number | undefined,
+	secondary?: string | number,
+	agent?: boolean
+)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
 			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
 				<div class="truncate">{primary ?? '—'}</div>
 				{#if secondary !== undefined && secondary !== ''}
-					<div class="text-muted-content mt-1 truncate text-xs">{secondary}</div>
+					<div class="text-muted-content mt-1 flex items-center gap-1 text-xs">
+						<span class="truncate">{secondary}</span>
+						{#if agent}
+							<span class="badge badge-ghost badge-xs whitespace-nowrap"
+								>{m.audit_usage_agent()}</span
+							>
+						{/if}
+					</div>
 				{/if}
 			</div>
 			{@render tdResizeHandler()}
@@ -280,10 +293,13 @@
 			{#snippet children({ items }: { items: { index: number; data: LLMAuditLog }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
-					{@const actor = getUserDisplayName(d.userID)}
+					{@const agentId = auditLogAgentID(d)}
+					{@const actor = agentId
+						? getAgentDisplayName(agentId, d.agentDisplayName)
+						: getUserDisplayName(d.userID)}
 					{@const apiKey = formatAuditLogAPIKeyName(
 						d.apiKeyName ?? '',
-						getAuditLogAPIKeyMaskedKey(d.userID, d.apiKeyID)
+						getAuditLogAPIKeyMaskedKey(d.userID, d.apiKeyID, agentId)
 					)}
 					{@const apiKeyLabel = formatAuditLogCredentialLabel(
 						apiKey,
@@ -297,7 +313,13 @@
 						onclick={() => onSelectRow?.(d)}
 					>
 						{@render timestampCell(formatAuditLogTableTimestamp(d.createdAt), d)}
-						{@render twoLine(apiKeyLabel || actor, apiKey ? actor : undefined)}
+						{#if apiKey}
+							{@render twoLine(apiKeyLabel, actor, Boolean(agentId))}
+						{:else if agentId}
+							{@render twoLine(actor, m.audit_usage_agent())}
+						{:else}
+							{@render twoLine(actor)}
+						{/if}
 						{@render td(d.servedProvider || d.modelProvider)}
 						{@render modelCell(d)}
 						{@render td(d.responseStatus || '')}

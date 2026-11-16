@@ -7,6 +7,7 @@ import {
 	type OrgUser,
 	type Profile
 } from '$lib/services';
+import { type AgentIdentity, type AgentLookup } from '$lib/services/agent-identities';
 import { getUserDisplayName, isDisabledUser } from '$lib/utils';
 
 const EVERYONE_SUBJECT_ID = '*';
@@ -181,4 +182,12 @@ export function hasAccessWithinSubjects(
 		}
 	}
 	return false;
+}
+
+// agentLookupWith adds agents, such as those just picked, to a lookup of agent names.
+export function agentLookupWith(
+	lookup: Map<string, AgentLookup> | undefined,
+	agents: AgentIdentity[]
+): Map<string, AgentLookup> {
+	return new Map([...(lookup ?? []), ...agents.map((a): [string, AgentLookup] => [a.id, a])]);
 }

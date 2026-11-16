@@ -46,6 +46,7 @@
 	"core_delete_policy": "ポリシーを削除",
 	"core_delete_this_policy": "このポリシーを削除しますか？",
 	"core_delete_user_group": "ユーザー/グループを削除",
+	"core_deleted_agent": "削除されたエージェント ({id})",
 	"core_description": "説明",
 	"core_description_editor_mode": "説明エディターのモード",
 	"core_details": "詳細",

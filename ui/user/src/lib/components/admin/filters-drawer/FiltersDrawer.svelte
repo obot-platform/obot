@@ -36,6 +36,7 @@
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
 		getFilterDisplayLabel?: (key: string) => string;
 		getFilterOptionLabel?: (key: string, value: string) => string;
+		getAgentDisplayName?: (agentId: string, name?: string) => string;
 		getDefaultValue?: <K extends FilterKey>(filter: K) => T[K] | undefined;
 		// Derives which filter fields to show from the current (live) filter selections. Lets the set
 		// of visible filters react to a controlling filter (e.g. event_type) without reopening the
@@ -60,6 +61,7 @@
 		getUserDisplayName,
 		getFilterDisplayLabel,
 		getFilterOptionLabel,
+		getAgentDisplayName,
 		getDefaultValue,
 		getVisibleFilterKeys,
 		resetOnChangeKeys,
@@ -101,19 +103,22 @@
 
 	function formatFilterOptions(filterId: FilterKey, options: AuditLogFilterOption[]) {
 		if (['user_id', 'user_ids'].includes(filterId)) {
-			return options
-				.filter((d): d is string => typeof d === 'string')
-				.filter((d) => filterOptions?.(d, filterId) ?? true)
-				.map((d) => ({
-					id: d,
-					label: getUserDisplayName(d, () => options.some((id) => id === d))
-				}));
+			return (
+				options
+					// Agents have no user ID, so their rows would offer an empty one.
+					.filter((d): d is string => typeof d === 'string' && d !== '')
+					.filter((d) => filterOptions?.(d, filterId) ?? true)
+					.map((d) => ({
+						id: d,
+						label: getUserDisplayName(d, () => options.some((id) => id === d))
+					}))
+			);
 		}
 
 		return options
 			.filter((d) => isAuditLogAPIKeyFilterOption(d) || (filterOptions?.(d, filterId) ?? true))
 			.map((d) => {
-				const option = toAuditLogFilterSelectOption(d, getUserDisplayName);
+				const option = toAuditLogFilterSelectOption(d, getUserDisplayName, getAgentDisplayName);
 				return isAuditLogAPIKeyFilterOption(d)
 					? option
 					: { ...option, label: getFilterOptionLabel?.(filterId, d) ?? option.label };

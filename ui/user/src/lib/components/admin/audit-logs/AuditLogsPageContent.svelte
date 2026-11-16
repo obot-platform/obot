@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import {
+		auditLogActorKindLabel,
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
 		getAuditLogAPIKeyFilterOptionLabel,
@@ -17,6 +18,7 @@
 	import { getLocale, m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { parseMultiValue } from '$lib/multiValue';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
@@ -26,6 +28,7 @@
 		type AuditLogEvent,
 		UserService
 	} from '$lib/services';
+	import { agentDisplayName, parseAgentActor } from '$lib/services/agent-identities/helpers';
 	import type { PaginatedResponse } from '$lib/services/http';
 	import { responsive } from '$lib/stores';
 	import profile from '$lib/stores/profile.svelte';
@@ -130,6 +133,8 @@
 
 	const users = new SvelteMap<string, OrgUser>();
 	const apiKeyFilterOptions = new SvelteMap<string, AuditLogAPIKeyFilterOption>();
+	// Agents are named by an admin-only API, and the rows carry their names for everyone else.
+	const agents = createAgentLookup(() => Boolean(profile.current.hasAdminAccess?.()));
 
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
@@ -154,6 +159,7 @@
 	const unifiedFilters: SupportedFilter[] = [
 		'event_type',
 		'actor',
+		'actor_kind',
 		'operation',
 		'mcp_server',
 		'tool',
@@ -188,6 +194,8 @@
 		const filters: SupportedFilter[] = [source, 'api_key_id', ...remainingFilters];
 		return filters.filter(
 			(key) =>
+				// Basic users see only their own activity, so there is no kind of actor to choose.
+				!(key === 'actor_kind' && isBasicUser(profile.current.groups)) &&
 				!(isServerScoped && (key === 'mcp_server' || key === 'event_type')) &&
 				!(isApiKeyScoped && key === 'api_key_id')
 		);
@@ -226,9 +234,16 @@
 		return params;
 	}
 
+	function agentName(agentId: string, rowName?: string): string {
+		return agentDisplayName(agents.current, agentId, rowName);
+	}
+
 	// Resolve an actor id to a display name when it is a known Obot user; device ids (and other
 	// non-user actors) are shown verbatim rather than as "Unknown User".
 	function actorDisplay(actorId: string): string {
+		// An "agent:<id>" actor names an agent, and is never looked up as a user.
+		const agentId = parseAgentActor(actorId);
+		if (agentId) return agentName(agentId);
 		return users.has(actorId) ? getUserDisplayName(users, actorId) : actorId;
 	}
 
@@ -236,9 +251,14 @@
 		if (key === 'api_key_id') {
 			const option = apiKeyFilterOptions.get(value);
 			return option
-				? getAuditLogAPIKeyFilterOptionLabel(option, (id) => getUserDisplayName(users, id))
+				? getAuditLogAPIKeyFilterOptionLabel(
+						option,
+						(id) => getUserDisplayName(users, id),
+						agentName
+					)
 				: value;
 		}
+		if (key === 'actor_kind') return auditLogActorKindLabel(value);
 		if (key === 'actor') return withDisabledMarker(actorDisplay(value), users.get(value));
 		if (key === 'duration') return durationBucketLabel(value);
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
@@ -463,6 +483,7 @@
 		if (_key === 'event_type') return m.core_col_source();
 		if (_key === 'api_key_id') return m.audit_usage_audit_logs_filter_api_key();
 		if (_key === 'actor') return m.audit_usage_audit_logs_actor();
+		if (_key === 'actor_kind') return m.audit_usage_actor_kind();
 		if (_key === 'operation') return m.audit_usage_audit_logs_operation();
 		if (_key === 'mcp_server') return m.audit_usage_audit_logs_filter_identifier_mcp_server();
 		if (_key === 'mcp_id') return m.audit_usage_audit_logs_filter_server_id();
@@ -729,7 +750,11 @@
 				showFilters = false;
 				rightSidebar?.showPopover();
 				const user =
-					d.actor.actorType === 'user' && d.actor.id ? getUserDisplayName(users, d.actor.id) : '';
+					d.actor.actorType === 'user' && d.actor.id
+						? getUserDisplayName(users, d.actor.id)
+						: d.actor.actorType === 'agent' && d.actor.id
+							? m.audit_usage_agent_actor({ name: agentName(d.actor.id, d.actor.displayName) })
+							: '';
 				// Fetch full audit log details with request/response bodies
 				try {
 					const fullDetails = await UserService.getAuditLog(d.id);
@@ -742,6 +767,7 @@
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
+			getAgentDisplayName={agentName}
 			{emptyContent}
 		/>
 	{:else if remoteAuditLogs.length > 0}
@@ -797,6 +823,7 @@
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			getUserDisplayName={(id, hasConflict) =>
 				withDisabledMarker(getUserDisplayName(users, id, hasConflict), users.get(id))}
+			getAgentDisplayName={agentName}
 			{getFilterDisplayLabel}
 			getFilterOptionLabel={(key, value) => formatSingleFilterValue(key, value)}
 			endpoint={async (filterId: string, opts = {}) => {

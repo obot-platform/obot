@@ -46,6 +46,7 @@
 	"core_delete_policy": "Delete Policy",
 	"core_delete_this_policy": "Delete this policy?",
 	"core_delete_user_group": "Delete User/Group",
+	"core_deleted_agent": "Deleted agent ({id})",
 	"core_description": "Description",
 	"core_description_editor_mode": "Description editor mode",
 	"core_details": "Details",

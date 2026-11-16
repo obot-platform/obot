@@ -46,6 +46,7 @@
 	"core_delete_policy": "删除策略",
 	"core_delete_this_policy": "删除此策略？",
 	"core_delete_user_group": "删除用户/用户组",
+	"core_deleted_agent": "已删除的代理 ({id})",
 	"core_description": "描述",
 	"core_description_editor_mode": "描述编辑器模式",
 	"core_details": "详情",

@@ -1,5 +1,10 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"audit_usage_actor_kind": "행위자 유형",
+	"audit_usage_actor_kind_user": "사용자",
+	"audit_usage_agent": "에이전트",
+	"audit_usage_agent_actor": "{name}(에이전트)",
+	"audit_usage_agent_fallback_name": "에이전트 {id}",
 	"audit_usage_audit_logs_action": "작업",
 	"audit_usage_audit_logs_action_kind": "작업 종류",
 	"audit_usage_audit_logs_active_filters": "활성 필터:",
@@ -224,6 +229,7 @@
 	"audit_usage_exports_access_key_id": "액세스 키 ID",
 	"audit_usage_exports_action_pause": "일시 중지",
 	"audit_usage_exports_action_resume": "재개",
+	"audit_usage_exports_admin_actor_system": "시스템",
 	"audit_usage_exports_advanced_options": "고급 옵션",
 	"audit_usage_exports_already_configured": "스토리지 제공자가 이미 구성되어 있습니다",
 	"audit_usage_exports_already_configured_prefix": "스토리지 제공자(",

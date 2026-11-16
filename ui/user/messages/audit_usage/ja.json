@@ -1,5 +1,10 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"audit_usage_actor_kind": "アクターの種類",
+	"audit_usage_actor_kind_user": "ユーザー",
+	"audit_usage_agent": "エージェント",
+	"audit_usage_agent_actor": "{name}（エージェント）",
+	"audit_usage_agent_fallback_name": "エージェント {id}",
 	"audit_usage_audit_logs_action": "アクション",
 	"audit_usage_audit_logs_action_kind": "アクションの種類",
 	"audit_usage_audit_logs_active_filters": "有効なフィルター：",
@@ -224,6 +229,7 @@
 	"audit_usage_exports_access_key_id": "アクセスキー ID",
 	"audit_usage_exports_action_pause": "一時停止",
 	"audit_usage_exports_action_resume": "再開",
+	"audit_usage_exports_admin_actor_system": "システム",
 	"audit_usage_exports_advanced_options": "詳細オプション",
 	"audit_usage_exports_already_configured": "ストレージプロバイダーは設定済みです",
 	"audit_usage_exports_already_configured_prefix": "ストレージプロバイダー（",

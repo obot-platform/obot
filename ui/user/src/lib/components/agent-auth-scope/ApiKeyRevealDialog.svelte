@@ -29,7 +29,7 @@
 	<ResponsiveDialog
 		bind:this={dialog}
 		onClose={handleClose}
-		title={m.identity_access_agents_api_key_created()}
+		title={m.identity_access_api_keys_api_key_created()}
 		class="w-full max-w-lg"
 		disableClickOutside
 	>
@@ -37,22 +37,22 @@
 			<ApiKeyRevealNotice keyValue={keyValue ?? ''} id="agent-auth-scope-key" />
 
 			<p class="text-muted text-sm">
-				{m.identity_access_agents_learn_api_key_docs_prefix()}
+				{m.identity_access_api_keys_learn_api_key_docs_prefix()}
 				<a
 					href="https://docs.obot.ai/functionality/api-keys/#using-an-api-key"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="text-link inline-flex items-center gap-1"
 				>
-					{m.identity_access_agents_learn_api_key_docs_link()}
+					{m.identity_access_api_keys_learn_api_key_docs_link()}
 					<ExternalLink class="size-3" />
-				</a>{m.identity_access_agents_learn_api_key_docs_suffix()}
+				</a>{m.identity_access_api_keys_learn_api_key_docs_suffix()}
 			</p>
 		</div>
 
 		<div class="mt-6 flex justify-end">
 			<button class="btn btn-primary" onclick={handleClose}>
-				{m.identity_access_agents_ive_saved_my_key()}
+				{m.identity_access_api_keys_ive_saved_my_key()}
 			</button>
 		</div>
 	</ResponsiveDialog>

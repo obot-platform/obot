@@ -46,6 +46,7 @@
 	"core_delete_policy": "정책 삭제",
 	"core_delete_this_policy": "이 정책을 삭제하시겠습니까?",
 	"core_delete_user_group": "사용자/그룹 삭제",
+	"core_deleted_agent": "삭제된 에이전트 ({id})",
 	"core_description": "설명",
 	"core_description_editor_mode": "설명 편집기 모드",
 	"core_details": "세부 정보",

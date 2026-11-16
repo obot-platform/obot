@@ -11,7 +11,8 @@
 	import { profile } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { resolve } from '$lib/url';
-	import AgentsView from './AgentsView.svelte';
+	import AgentIdentitiesView from './AgentIdentitiesView.svelte';
+	import ApiKeysView from './ApiKeysView.svelte';
 	import AuthProvidersView from './AuthProvidersView.svelte';
 	import GroupsView from './GroupsView.svelte';
 	import RolesView from './RolesView.svelte';
@@ -22,11 +23,12 @@
 
 	let { data } = $props();
 	let groupsView = $state<ReturnType<typeof GroupsView>>();
-	let agentsView = $state<ReturnType<typeof AgentsView>>();
+	let apiKeysView = $state<ReturnType<typeof ApiKeysView>>();
+	let agentIdentitiesView = $state<ReturnType<typeof AgentIdentitiesView>>();
 	let usersView = $state<ReturnType<typeof UsersView>>();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
-	let showCreateAgent = $derived(page.url.searchParams.has('new'));
+	let showCreateApiKey = $derived(page.url.searchParams.has('new'));
 	// The Auth Providers tab shows the auth providers, or SCIM.
 	let showSCIM = $derived(isSCIMView(page.url.searchParams));
 	let localAuthProviderAvailable = $derived(
@@ -38,23 +40,28 @@
 
 <svelte:head>
 	<title
-		>Obot | {showCreateAgent
-			? m.identity_access_create_agent_identity()
+		>Obot | {showCreateApiKey
+			? m.identity_access_create_api_key()
 			: m.identity_access_title()}</title
 	>
 </svelte:head>
 
 <TabLayout
-	title={showCreateAgent ? m.identity_access_create_agent_identity() : m.identity_access_title()}
-	defaultView={hasAdminAccess ? 'users' : 'agents'}
-	showBackButton={showCreateAgent}
-	onBackButtonClick={() => agentsView?.hideCreateForm()}
+	title={showCreateApiKey ? m.identity_access_create_api_key() : m.identity_access_title()}
+	defaultView={hasAdminAccess ? 'users' : 'api-keys'}
+	showBackButton={showCreateApiKey}
+	onBackButtonClick={() => apiKeysView?.hideCreateForm()}
 	rightNavActions={navActions}
 	classes={{ childrenContainer: 'max-w-none' }}
 	views={hasAdminAccess
 		? [
 				{ label: m.identity_access_users_tab(), value: 'users', content: users },
-				{ label: m.identity_access_agents_tab(), value: 'agents', content: agents },
+				{ label: m.identity_access_api_keys_tab(), value: 'api-keys', content: apiKeys },
+				{
+					label: m.identity_access_agents_tab(),
+					value: 'agent-identities',
+					content: agentIdentities
+				},
 				{ label: m.identity_access_groups_tab(), value: 'groups', content: groups },
 				{ label: m.identity_access_roles_tab(), value: 'roles', content: roles },
 				{
@@ -63,7 +70,7 @@
 					content: authProviders
 				}
 			]
-		: [{ label: m.identity_access_agents_tab(), value: 'agents', content: agents }]}
+		: [{ label: m.identity_access_api_keys_tab(), value: 'api-keys', content: apiKeys }]}
 />
 
 {#snippet navActions(view: string)}
@@ -75,10 +82,18 @@
 			<Plus class="size-4" />
 			{m.identity_access_add_assignment()}
 		</button>
-	{:else if view === 'agents' && !showCreateAgent}
+	{:else if view === 'api-keys' && !showCreateApiKey}
 		<button
 			class="btn btn-primary flex items-center gap-2 text-sm"
-			onclick={() => agentsView?.showCreateForm()}
+			onclick={() => apiKeysView?.showCreateForm()}
+		>
+			<Plus class="size-4" />
+			{m.identity_access_create_api_key()}
+		</button>
+	{:else if view === 'agent-identities' && !isAdminReadonly}
+		<button
+			class="btn btn-primary flex items-center gap-2 text-sm"
+			onclick={() => agentIdentitiesView?.openCreate()}
 		>
 			<Plus class="size-4" />
 			{m.identity_access_create_agent_identity()}
@@ -153,9 +168,13 @@
 	</a>
 {/snippet}
 
-{#snippet agents()}
-	<AgentsView
-		bind:this={agentsView}
+{#snippet agentIdentities()}
+	<AgentIdentitiesView bind:this={agentIdentitiesView} agents={data.agents} users={data.users} />
+{/snippet}
+
+{#snippet apiKeys()}
+	<ApiKeysView
+		bind:this={apiKeysView}
 		apiKeys={data.apiKeys}
 		users={data.users}
 		isAdmin={Boolean(hasAdminAccess)}

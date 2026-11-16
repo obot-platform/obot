@@ -9,7 +9,7 @@
 	import { m } from '$lib/i18n';
 	import { ApiKeysService, type OrgUser } from '$lib/services';
 	import { AUTH_SCOPE_DESCRIPTION } from '$lib/services/api-keys/constants.js';
-	import { getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
+	import { apiKeyMask, getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { resolve } from '$lib/url';
@@ -42,7 +42,7 @@
 		apiKeys
 			.map((key) => ({
 				...key,
-				prefix: `ok1-${key.userId}-${key.id}-*****`,
+				prefix: apiKeyMask(key),
 				userDisplay: getUserDisplayName(usersMap, String(key.userId)),
 				capabilitiesDisplay: getAPIKeyCapabilityLabels(key),
 				createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
@@ -80,7 +80,7 @@
 
 	export function showCreateForm() {
 		const url = new URL(page.url.toString());
-		url.searchParams.set('view', 'agents');
+		url.searchParams.set('view', 'api-keys');
 		url.searchParams.set('new', 'true');
 		goto(url);
 	}
@@ -113,14 +113,14 @@
 			<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
 				<KeyRound class="text-base-content/80 size-24 opacity-50" />
 				<h4 class="text-muted-content text-lg font-semibold">
-					{m.identity_access_agents_no_identities()}
+					{m.identity_access_api_keys_no_identities()}
 				</h4>
 				<p class="text-muted-content text-sm font-light">
 					{isAdmin
-						? m.identity_access_agents_none_in_system()
-						: m.identity_access_agents_none_for_you()}
+						? m.identity_access_api_keys_none_in_system()
+						: m.identity_access_api_keys_none_for_you()}
 					<br />
-					{m.identity_access_agents_click_create()}
+					{m.identity_access_api_keys_click_create()}
 				</p>
 
 				{#if !isAdmin}
@@ -128,12 +128,12 @@
 						<div class="flex flex-col gap-2">
 							<div class="flex items-center gap-2">
 								<Info class="size-4 shrink-0" />
-								<p class="text-sm font-semibold">{m.identity_access_agents_what_are_these()}</p>
+								<p class="text-sm font-semibold">{m.identity_access_api_keys_what_are_these()}</p>
 							</div>
 							<p class="whitespace-pre-line text-left text-sm font-light">
 								{AUTH_SCOPE_DESCRIPTION}
 								<button class="text-link inline" onclick={showCreateForm}
-									>{m.identity_access_agents_create_first()}</button
+									>{m.identity_access_api_keys_create_first()}</button
 								>
 							</p>
 						</div>
@@ -149,9 +149,9 @@
 				headers={[
 					...(isAdmin ? [{ title: m.core_col_created_by(), property: 'userDisplay' }] : []),
 					{ title: m.core_name(), property: 'name' },
-					{ title: m.identity_access_agents_col_capabilities(), property: 'capabilitiesDisplay' },
-					{ title: m.identity_access_agents_col_last_used(), property: 'lastUsedAt' },
-					{ title: m.identity_access_agents_col_expires(), property: 'expiresAt' }
+					{ title: m.identity_access_api_keys_col_capabilities(), property: 'capabilitiesDisplay' },
+					{ title: m.identity_access_api_keys_col_last_used(), property: 'lastUsedAt' },
+					{ title: m.identity_access_api_keys_col_expires(), property: 'expiresAt' }
 				]}
 				filterable={isAdmin ? ['userDisplay', 'name'] : undefined}
 				sortable={isAdmin
@@ -160,7 +160,7 @@
 				{initSort}
 				onSort={setSortUrlParams}
 				onClickRow={(d, isCtrlClick) => {
-					openUrl(`/identity-access/agents/${d.id}`, isCtrlClick);
+					openUrl(`/identity-access/api-keys/${d.id}`, isCtrlClick);
 				}}
 				columnMaxWidths={isAdmin
 					? { userDisplay: 200, capabilitiesDisplay: 200, description: 200 }
@@ -177,7 +177,7 @@
 								{/each}
 								{#if d.mcpServerIds.length}
 									<span class="badge badge-ghost badge-xs whitespace-nowrap"
-										>{m.identity_access_agents_servers_badge()}</span
+										>{m.identity_access_api_keys_servers_badge()}</span
 									>
 								{/if}
 							</div>
@@ -204,14 +204,14 @@
 
 {#snippet authScopeActions(d: APIKey)}
 	{@const isOwner = d.userId.toString() === profile.current.id.toString()}
-	{@const prefix = `ok1-${d.userId}-${d.id}-*****`}
-	{@const url: `/${string}` = `/identity-access/agents/${d.id}/${encodeURIComponent(prefix)}`}
+	{@const prefix = apiKeyMask(d)}
+	{@const url: `/${string}` = `/identity-access/api-keys/${d.id}/${encodeURIComponent(prefix)}`}
 	<DotDotDot classes={{ menu: 'min-w-48 p-0' }}>
 		{#if profile.current.hasAdminAccess?.()}
 			<div
 				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
 			>
-				{m.identity_access_agents_view_related_logs()}
+				{m.identity_access_api_keys_view_related_logs()}
 			</div>
 			<div class="flex flex-col gap-1 p-2 bg-base-200">
 				<a class="menu-button" href={resolve(url)}>

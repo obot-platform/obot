@@ -36,6 +36,8 @@ async function auditLogParams(requests: { auditLogs: string | undefined }) {
 
 afterEach(() => {
 	(appPage.url as URL).searchParams.delete('hide_models_requests');
+	(appPage.url as URL).searchParams.delete('user_id');
+	(appPage.url as URL).searchParams.delete('agent_id');
 	vi.restoreAllMocks();
 });
 
@@ -58,5 +60,28 @@ describe('LlmAuditLogsContent default filters', () => {
 		await expect
 			.element(page.getByCSS('.filter-primary').filter({ hasText: 'Model discovery requests' }))
 			.not.toBeInTheDocument();
+	});
+});
+
+// An agent is filtered for as the owner it is, "agent:<id>" in user_id. There is no agent_id filter.
+describe('LlmAuditLogsContent agent filter', () => {
+	it('filters for an agent by user_id and names it, and sends no agent_id', async () => {
+		worker.use(
+			http.get('/api/agents', () =>
+				HttpResponse.json({
+					items: [{ id: '7', displayName: 'Build Bot', status: 'active', activeAPIKeyCount: 1 }]
+				})
+			)
+		);
+		(appPage.url as URL).searchParams.set('user_id', 'agent:7');
+		(appPage.url as URL).searchParams.set('agent_id', '7');
+
+		const params = await auditLogParams(await renderLlmAuditLogs());
+
+		expect(params.get('user_id')).toBe('agent:7');
+		expect(params.get('agent_id')).toBeNull();
+		const pill = page.getByCSS('.filter-primary').filter({ hasText: /Build Bot|Agent 7/ });
+		await expect.element(pill).toBeVisible();
+		await expect.element(pill.getByText('agent:7')).not.toBeInTheDocument();
 	});
 });

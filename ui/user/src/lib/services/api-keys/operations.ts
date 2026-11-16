@@ -30,7 +30,8 @@ export async function deleteApiKey(id: string): Promise<void> {
 // Admin endpoints
 
 export async function listAllApiKeys(opts?: { fetch?: Fetcher }): Promise<APIKey[]> {
-	const response = (await doGet('/admin-api-keys', opts)) as ItemsResponse<APIKey>;
+	// Agents' keys are listed with each agent, so this tab asks for users' keys only.
+	const response = (await doGet('/admin-api-keys?kind=user', opts)) as ItemsResponse<APIKey>;
 	return response.items ?? [];
 }
 

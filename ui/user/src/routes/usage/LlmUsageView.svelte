@@ -41,12 +41,18 @@
 		TIMELINE_AGGREGATE_THRESHOLD,
 		type TokenUsageTimelineItem
 	} from '$lib/components/admin/token-usage/tokenUsageTimeline';
-	import { getAPIKeyFilterOptions, getUserLabels } from '$lib/components/admin/token-usage/utils';
+	import {
+		actorLabel,
+		getAPIKeyFilterOptions,
+		getUserLabels,
+		tokenUsageActorKey
+	} from '$lib/components/admin/token-usage/utils';
 	import GraphTitle from '$lib/components/graph/GraphTitle.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		AdminService,
 		type Model,
@@ -55,6 +61,7 @@
 		type TotalTokenUsage,
 		UserService
 	} from '$lib/services';
+	import { agentActorValue, type AgentLookup } from '$lib/services/agent-identities/helpers';
 	import { notifications, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
@@ -113,7 +120,10 @@
 		const userIdsToFilter = selectedUserIds.filter((id) => id !== ALL_USERS);
 		if (userIdsToFilter.length > 0) {
 			const userSet = new Set(userIdsToFilter);
-			result = result.filter((row) => row.userID != null && userSet.has(row.userID));
+			result = result.filter((row) => {
+				const actorKey = tokenUsageActorKey(row);
+				return actorKey !== undefined && userSet.has(actorKey);
+			});
 		}
 		if (selectedTargetModels) {
 			result = result.filter((row) => row.model != null && selectedTargetModels.has(row.model));
@@ -149,6 +159,9 @@
 	}
 
 	const usersMap = $derived(new Map(usersData.map((u) => [u.id, u])));
+	// Agents are listed with the users, as "agent:<id>", and are named from their own records.
+	const agentLookup = createAgentLookup(() => true);
+	const agents = $derived(agentLookup.current ?? new Map<string, AgentLookup>());
 	const modelsToDisplayName = $derived(new Map(modelsData.map((model) => [model.id, model])));
 
 	onMount(async () => {
@@ -249,6 +262,7 @@
 	$effect(() => {
 		const filtered = filteredData;
 		const users = usersMap;
+		const agentsLookup = agents;
 		const modelToName = targetModelToDisplayName;
 		const threshold = TIMELINE_AGGREGATE_THRESHOLD;
 
@@ -281,7 +295,7 @@
 			// eslint-disable-next-line svelte/prefer-svelte-reactivity
 			const byUser = new Map<string, TokenUsage[]>();
 			for (const r of filtered) {
-				const userKey = r.userID ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
+				const userKey = tokenUsageActorKey(r) ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
 				let rows = byUser.get(userKey);
 				if (!rows) {
 					rows = [];
@@ -290,7 +304,7 @@
 				rows.push(r);
 			}
 			const userKeys = [...byUser.keys()].sort();
-			const userKeyToLabel = getUserLabels(users, userKeys);
+			const userKeyToLabel = getUserLabels(users, userKeys, agentsLookup);
 			return userKeys.map((userKey) => {
 				const userRows = byUser.get(userKey)!;
 				const userLabel = userKeyToLabel.get(userKey) ?? userKey;
@@ -317,7 +331,10 @@
 				rows.push(row);
 			}
 			const labels = new Map(
-				getAPIKeyFilterOptions(filtered, users).map((option) => [option.id, option.label])
+				getAPIKeyFilterOptions(filtered, users, agentsLookup).map((option) => [
+					option.id,
+					option.label
+				])
 			);
 			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
 				const apiKeyLabel =
@@ -672,6 +689,10 @@
 		...usersData.map((user) => ({
 			label: withDisabledMarker(getUserDisplayName(usersMap, user.id), user),
 			id: user.id
+		})),
+		...[...agents.keys()].map((agentId) => ({
+			label: actorLabel(usersMap, agentActorValue(agentId), agents),
+			id: agentActorValue(agentId)
 		}))
 	]);
 
@@ -682,7 +703,7 @@
 
 	const apiKeyOptions = $derived([
 		{ label: m.audit_usage_usage_all_api_keys(), id: ALL_API_KEYS },
-		...getAPIKeyFilterOptions(data, usersMap)
+		...getAPIKeyFilterOptions(data, usersMap, agents)
 	]);
 	const apiKeyOptionsMap = $derived(
 		new Map(apiKeyOptions.map((option) => [option.id, option.label]))
@@ -804,10 +825,7 @@
 					{#if selectedUserIdsForSelect !== ALL_USERS}
 						{@const userPills = selectedUserIds.map((selectedUser) => ({
 							id: selectedUser,
-							label: withDisabledMarker(
-								getUserDisplayName(usersMap, selectedUser),
-								usersMap.get(selectedUser)
-							)
+							label: actorLabel(usersMap, selectedUser, agents)
 						}))}
 						{#each userPills as userPill (userPill.id)}
 							<div class="filter-primary">
@@ -860,6 +878,7 @@
 				data={filteredData}
 				loading={loadingTableData}
 				users={usersData}
+				{agents}
 				models={modelsData}
 				{selectedTokenType}
 				{groupBy}

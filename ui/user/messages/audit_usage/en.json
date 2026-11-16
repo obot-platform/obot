@@ -1,5 +1,10 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"audit_usage_actor_kind": "Actor Kind",
+	"audit_usage_actor_kind_user": "User",
+	"audit_usage_agent": "Agent",
+	"audit_usage_agent_actor": "{name} (Agent)",
+	"audit_usage_agent_fallback_name": "Agent {id}",
 	"audit_usage_audit_logs_action": "Action",
 	"audit_usage_audit_logs_action_kind": "Action Kind",
 	"audit_usage_audit_logs_active_filters": "Active Filters:",
@@ -224,6 +229,7 @@
 	"audit_usage_exports_access_key_id": "Access Key ID",
 	"audit_usage_exports_action_pause": "Pause",
 	"audit_usage_exports_action_resume": "Resume",
+	"audit_usage_exports_admin_actor_system": "System",
 	"audit_usage_exports_advanced_options": "Advanced Options",
 	"audit_usage_exports_already_configured": "Storage provider already configured",
 	"audit_usage_exports_already_configured_prefix": "A storage provider (",
