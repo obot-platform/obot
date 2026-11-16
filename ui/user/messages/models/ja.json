@@ -512,12 +512,12 @@
 	"models_providers_azure_subscription_id": "サブスクリプション ID",
 	"models_providers_azure_resource_group": "リソース グループ",
 	"models_providers_azure_account_name": "アカウント名",
-	"models_providers_codex_subscriptions_heading": "Codex サブスクリプション",
+	"models_providers_codex_subscriptions_heading": "ChatGPT サブスクリプション",
 	"models_providers_codex_subscriptions_description_prefix": "ChatGPT にサインインした Codex CLI ユーザーが、このプロバイダーのキーの代わりにサブスクリプションをゲートウェイ経由で使用できるようにします。Obot API キーは引き続き次のヘッダーに必要です：",
-	"models_providers_allow_codex_subscriptions": "Codex サブスクリプションを許可",
-	"models_providers_codex_subscriptions_allowed": "Codex サブスクリプションを許可しました。",
-	"models_providers_codex_subscriptions_turned_off": "Codex サブスクリプションを無効にしました。",
+	"models_providers_allow_codex_subscriptions": "ChatGPT サブスクリプションを許可",
+	"models_providers_codex_subscriptions_allowed": "ChatGPT サブスクリプションを許可しました。",
+	"models_providers_codex_subscriptions_turned_off": "ChatGPT サブスクリプションを無効にしました。",
 	"models_connect_codex_default": "Codex のデフォルト",
-	"models_providers_codex_subscriptions_only": "Codex サブスクリプションのみ",
+	"models_providers_codex_subscriptions_only": "ChatGPT サブスクリプションのみ",
 	"models_connect_codex_model_note": "ChatGPT サブスクリプションは OpenAI モデルでのみ使用できます。Codex のデフォルトはクライアントのデフォルトモデルを使用します。"
 }

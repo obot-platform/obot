@@ -542,7 +542,7 @@ describe('ConfigureProviderDialog', () => {
 		await expect.element(toggle).toBeChecked();
 	});
 
-	it('controls Codex subscriptions independently on the OpenAI provider', async () => {
+	it('controls ChatGPT subscriptions independently on the OpenAI provider', async () => {
 		mockProvider();
 		const saved = vi.fn();
 		worker.use(
@@ -553,7 +553,7 @@ describe('ConfigureProviderDialog', () => {
 			})
 		);
 		await renderProviderPage([Group.ADMIN], 'openai');
-		const toggle = page.getByRole('switch', { name: 'Allow Codex subscriptions' });
+		const toggle = page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' });
 		await expect.element(toggle).not.toBeChecked();
 		await expect
 			.element(page.getByRole('switch', { name: 'Allow Claude subscriptions' }))
@@ -566,7 +566,7 @@ describe('ConfigureProviderDialog', () => {
 		await expect.element(toggle).toBeChecked();
 	});
 
-	it('does not offer Codex subscriptions for a custom OpenAI provider', async () => {
+	it('does not offer ChatGPT subscriptions for a custom OpenAI provider', async () => {
 		mockProvider({
 			provider: {
 				...openai,
@@ -577,14 +577,14 @@ describe('ConfigureProviderDialog', () => {
 		await renderProviderPage([Group.ADMIN], 'custom');
 		await expect.element(page.getByText('openai-key-1')).toBeInTheDocument();
 		await expect
-			.element(page.getByRole('switch', { name: 'Allow Codex subscriptions' }))
+			.element(page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' }))
 			.not.toBeInTheDocument();
 	});
 
-	it('shows the Codex setting read-only to auditors', async () => {
+	it('shows the ChatGPT subscription setting read-only to auditors', async () => {
 		mockProvider({ provider: { ...openai, subscription_passthrough: true } });
 		await renderProviderPage([Group.USER, Group.AUDITOR], 'openai');
-		const toggle = page.getByRole('switch', { name: 'Allow Codex subscriptions' });
+		const toggle = page.getByRole('switch', { name: 'Allow ChatGPT subscriptions' });
 		await expect.element(toggle).toBeChecked();
 		await expect.element(toggle).toBeDisabled();
 	});

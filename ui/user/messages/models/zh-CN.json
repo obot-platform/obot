@@ -512,12 +512,12 @@
 	"models_providers_azure_subscription_id": "订阅 ID",
 	"models_providers_azure_resource_group": "资源组",
 	"models_providers_azure_account_name": "账户名称",
-	"models_providers_codex_subscriptions_heading": "Codex 订阅",
+	"models_providers_codex_subscriptions_heading": "ChatGPT 订阅",
 	"models_providers_codex_subscriptions_description_prefix": "允许已登录 ChatGPT 的 Codex CLI 用户通过网关使用其订阅，而非此提供商的密钥。Obot 仍要求在以下标头中提供 Obot API 密钥：",
-	"models_providers_allow_codex_subscriptions": "允许 Codex 订阅",
-	"models_providers_codex_subscriptions_allowed": "已允许 Codex 订阅。",
-	"models_providers_codex_subscriptions_turned_off": "已关闭 Codex 订阅。",
+	"models_providers_allow_codex_subscriptions": "允许 ChatGPT 订阅",
+	"models_providers_codex_subscriptions_allowed": "已允许 ChatGPT 订阅。",
+	"models_providers_codex_subscriptions_turned_off": "已关闭 ChatGPT 订阅。",
 	"models_connect_codex_default": "Codex 默认值",
-	"models_providers_codex_subscriptions_only": "仅 Codex 订阅",
+	"models_providers_codex_subscriptions_only": "仅 ChatGPT 订阅",
 	"models_connect_codex_model_note": "只有 OpenAI 模型使用您的 ChatGPT 订阅。Codex 默认值保留客户端的默认模型。"
 }

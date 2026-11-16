@@ -278,7 +278,7 @@ describe('Models providers tab', () => {
 		});
 		await renderProvidersPage();
 
-		await expect.element(page.getByText('Codex subscriptions only')).toBeInTheDocument();
+		await expect.element(page.getByText('ChatGPT subscriptions only')).toBeInTheDocument();
 		await expect.element(page.getByText('Claude subscriptions only')).not.toBeInTheDocument();
 		await expect.element(page.getByText('No keys: add one to use it')).toBeInTheDocument();
 	});
