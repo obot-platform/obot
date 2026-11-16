@@ -279,7 +279,7 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 		},
 		Request:         &api.AuditLogPayloadDetails{Body: local.RequestBody},
 		Response:        &api.AuditLogPayloadDetails{Body: local.ResponseBody},
-		RawEvent:        local.RawEvent,
+		RawEvent:        restoreRawEvent(local.RawEvent, local.RequestBody, local.ResponseBody),
 		StartedAt:       startedAt,
 		PayloadRedacted: opts.PayloadRedacted,
 	}

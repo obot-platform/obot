@@ -139,6 +139,7 @@ type LocalAgentToolCallAuditLogFields struct {
 	// may replace values already carried in RequestBody and ResponseBody with a
 	// marker (Obot Sentry uses {"obot_sentry_omitted": "details.request.body"} and
 	// {"obot_sentry_omitted": "details.response.body"}) so they are stored once.
+	// auditlog.Present puts those values back, so readers and exports see the full payload.
 	RawEvent json.RawMessage `json:"rawEvent,omitempty" gorm:"column:local_agent_raw_event"`
 }
 
