@@ -1,12 +1,9 @@
 package types
 
 const (
-	DefaultModelAliasTypeTextEmbedding   DefaultModelAliasType = "text-embedding"
-	DefaultModelAliasTypeLLM             DefaultModelAliasType = "llm"
-	DefaultModelAliasTypeLLMMini         DefaultModelAliasType = "llm-mini"
-	DefaultModelAliasTypeImageGeneration DefaultModelAliasType = "image-generation"
-	DefaultModelAliasTypeVision          DefaultModelAliasType = "vision"
-	DefaultModelAliasTypeUnknown         DefaultModelAliasType = "unknown"
+	DefaultModelAliasTypeLLM     DefaultModelAliasType = "llm"
+	DefaultModelAliasTypeLLMMini DefaultModelAliasType = "llm-mini"
+	DefaultModelAliasTypeUnknown DefaultModelAliasType = "unknown"
 )
 
 type DefaultModelAliasType string
@@ -25,15 +22,22 @@ type DefaultModelAliasList List[DefaultModelAlias]
 func DefaultModelAliasTypeFromString(str string) DefaultModelAliasType {
 	t := DefaultModelAliasType(str)
 	switch t {
-	case DefaultModelAliasTypeTextEmbedding,
-		DefaultModelAliasTypeLLM,
+	case DefaultModelAliasTypeLLM,
 		DefaultModelAliasTypeLLMMini,
-		DefaultModelAliasTypeImageGeneration,
-		DefaultModelAliasTypeVision,
 		DefaultModelAliasTypeUnknown:
 	default:
 		t = DefaultModelAliasTypeUnknown
 	}
 
 	return t
+}
+
+// IsRemovedDefaultModelAlias identifies retired built-ins without restricting custom aliases.
+func IsRemovedDefaultModelAlias(alias string) bool {
+	switch alias {
+	case "vision", "image-generation", "text-embedding":
+		return true
+	default:
+		return false
+	}
 }

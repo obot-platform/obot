@@ -44,7 +44,7 @@ func TestDataCreatesDefaultModelAccessPolicyWithLLMAliases(t *testing.T) {
 
 	var aliases v1.DefaultModelAliasList
 	require.NoError(t, client.List(ctx, &aliases))
-	assert.Len(t, aliases.Items, 5)
+	assert.Len(t, aliases.Items, 2)
 }
 
 func TestCreateDefaultSkillRepository(t *testing.T) {
@@ -125,4 +125,27 @@ func TestCreateDefaultSkillRepository(t *testing.T) {
 		}, &repo))
 		assert.Equal(t, "main", repo.Spec.Ref)
 	})
+}
+
+func TestDataRemovesRetiredAliases(t *testing.T) {
+	c := newFakeClient(t)
+	for _, name := range []string{"vision", "image-generation", "text-embedding", "custom"} {
+		require.NoError(t, c.Create(t.Context(), &v1.DefaultModelAlias{
+			Name:      "generated-" + name,
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: name, Model: "m1-preserved"}},
+		}))
+	}
+	model := &v1.Model{Name: "m1-preserved", Namespace: system.DefaultNamespace}
+	require.NoError(t, c.Create(t.Context(), model))
+	for range 2 {
+		require.NoError(t, Data(t.Context(), c, Defaults{}))
+		var aliases v1.DefaultModelAliasList
+		require.NoError(t, c.List(t.Context(), &aliases))
+		require.Len(t, aliases.Items, 3)
+		for _, a := range aliases.Items {
+			assert.False(t, types.IsRemovedDefaultModelAlias(a.Spec.Manifest.Alias))
+		}
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(model), model))
+	}
 }

@@ -15,11 +15,8 @@ var (
 	// defaultModelAliasTargets are the gateway models default model aliases are set to when
 	// unset, in order of preference.
 	defaultModelAliasTargets = map[types.DefaultModelAliasType][]string{
-		types.DefaultModelAliasTypeLLM:             {"openai/gpt-5.4", "anthropic/claude-sonnet-4-6"},
-		types.DefaultModelAliasTypeLLMMini:         {"openai/gpt-5-mini", "anthropic/claude-haiku-4-5"},
-		types.DefaultModelAliasTypeVision:          {"openai/gpt-5.4", "anthropic/claude-sonnet-4-6"},
-		types.DefaultModelAliasTypeImageGeneration: {"openai/dall-e-3"},
-		types.DefaultModelAliasTypeTextEmbedding:   {"openai/text-embedding-3-large"},
+		types.DefaultModelAliasTypeLLM:     {"openai/gpt-6.1-sol", "anthropic/claude-opus-5-5"},
+		types.DefaultModelAliasTypeLLMMini: {"openai/gpt-6-luna", "anthropic/claude-haiku-5-5"},
 	}
 )
 

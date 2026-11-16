@@ -278,3 +278,24 @@ func TestGatewayModelMatchStaysWithinProviderAndPrefersExactThenLatestDate(t *te
 	_, ok = gatewayModelFor(byTarget, "anthropic", "claude-sonnet-4")
 	require.False(t, ok)
 }
+
+func TestRetiredAliasesDoNotBlockMigration(t *testing.T) {
+	provider := ModelProviderResource()
+	source := migrationModel("m1-legacy", system.OpenAIModelProvider, "missing")
+	objects := []kclient.Object{provider, source}
+	for _, name := range []string{"vision", "image-generation", "text-embedding"} {
+		objects = append(objects, &v1.DefaultModelAlias{
+			Namespace: system.DefaultNamespace,
+			Name:      name,
+			Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: name, Model: source.Name}},
+		})
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+	require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+	require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation])
+	for _, name := range []string{"vision", "image-generation", "text-embedding"} {
+		var a v1.DefaultModelAlias
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: name}, &a))
+		require.Equal(t, source.Name, a.Spec.Manifest.Model)
+	}
+}

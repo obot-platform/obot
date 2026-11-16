@@ -36,11 +36,8 @@
 	let required = $state(false);
 
 	const SUGGESTED_MODEL_SELECTIONS: Record<ModelAlias, string[]> = {
-		[ModelAlias.Llm]: ['gpt-5.4', 'claude-sonnet-4-6'],
-		[ModelAlias.LlmMini]: ['gpt-5-mini', 'claude-haiku-4-5'],
-		[ModelAlias.TextEmbedding]: ['text-embedding-3-large'],
-		[ModelAlias.ImageGeneration]: ['dall-e-3'],
-		[ModelAlias.Vision]: ['gpt-5.4', 'claude-sonnet-4-6']
+		[ModelAlias.Llm]: ['gpt-6.1-sol', 'claude-opus-5-5'],
+		[ModelAlias.LlmMini]: ['gpt-6-luna', 'claude-haiku-5-5']
 	};
 
 	export function open(updateRequired = false) {

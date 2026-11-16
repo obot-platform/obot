@@ -38,7 +38,9 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, provider *v1.Mod
 	}
 	referenced := map[string]bool{}
 	for _, a := range aliases.Items {
-		referenced[a.Spec.Manifest.Model] = true
+		if !types.IsRemovedDefaultModelAlias(a.Spec.Manifest.Alias) {
+			referenced[a.Spec.Manifest.Model] = true
+		}
 	}
 	for _, p := range policies.Items {
 		for _, resource := range p.Spec.Manifest.Models {
@@ -81,6 +83,9 @@ func MigrateLegacyModels(ctx context.Context, c kclient.Client, provider *v1.Mod
 	}
 	for i := range aliases.Items {
 		a := &aliases.Items[i]
+		if types.IsRemovedDefaultModelAlias(a.Spec.Manifest.Alias) {
+			continue
+		}
 		if target, ok := migrated[a.Spec.Manifest.Model]; ok {
 			a.Spec.Manifest.Model = target
 			if err := c.Update(ctx, a); err != nil {

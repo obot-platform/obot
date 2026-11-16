@@ -58,18 +58,13 @@ Obot features such as LLM judge guardrails use default model aliases instead of 
 | --- | --- |
 | **Language Model (Chat)** (`llm`) | The primary conversational model |
 | **Language Model (Chat - Fast)** (`llm-mini`) | Quick responses and screening passes |
-| **Vision** (`vision`) | Image understanding |
-| **Image Generation** (`image-generation`) | Image generation tools |
-| **Text Embedding** (`text-embedding`) | Embeddings |
 
-Set `llm` and `llm-mini` with **Set Default Models** on the **Providers** tab. Obot fills `vision`, `image-generation` and `text-embedding` itself, and they can't be changed in the UI.
+Set `llm` and `llm-mini` with **Set Default Models** on the **Providers** tab.
 
 Obot fills an unset alias with a preferred model as soon as a provider serves one:
 
-- `llm` and `vision`: `openai/gpt-5.4`, then `anthropic/claude-sonnet-4-6`
-- `llm-mini`: `openai/gpt-5-mini`, then `anthropic/claude-haiku-4-5`
-- `image-generation`: `openai/dall-e-3`
-- `text-embedding`: `openai/text-embedding-3-large`
+- `llm`: `openai/gpt-6.1-sol`, then `anthropic/claude-opus-5-5`
+- `llm-mini`: `openai/gpt-6-luna`, then `anthropic/claude-haiku-5-5`
 
 Setting a default model does not grant anyone access to it. A [Model Access Policy](../functionality/model-access-policies.md#default-model-aliases) that grants the alias gives access to whichever model the alias points to.
 

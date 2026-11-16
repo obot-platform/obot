@@ -1016,10 +1016,7 @@ export interface Model {
 }
 export const ModelAlias = {
 	Llm: 'llm',
-	LlmMini: 'llm-mini',
-	TextEmbedding: 'text-embedding',
-	ImageGeneration: 'image-generation',
-	Vision: 'vision'
+	LlmMini: 'llm-mini'
 } as const;
 export type ModelAlias = (typeof ModelAlias)[keyof typeof ModelAlias];
 export interface DefaultModelAlias {

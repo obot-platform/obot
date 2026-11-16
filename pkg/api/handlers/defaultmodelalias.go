@@ -5,6 +5,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type DefaultModelAliasHandler struct{}
@@ -17,6 +18,10 @@ func (*DefaultModelAliasHandler) Create(req api.Context) error {
 	var manifest types.DefaultModelAliasManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
+	}
+
+	if types.IsRemovedDefaultModelAlias(manifest.Alias) {
+		return apierrors.NewBadRequest("this default model alias has been removed; use a concrete gateway model name")
 	}
 
 	dma := v1.DefaultModelAlias{
@@ -64,6 +69,10 @@ func (*DefaultModelAliasHandler) Update(req api.Context) error {
 	var manifest types.DefaultModelAliasManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
+	}
+
+	if types.IsRemovedDefaultModelAlias(manifest.Alias) {
+		return apierrors.NewBadRequest("this default model alias has been removed; use a concrete gateway model name")
 	}
 
 	dma.Spec.Manifest = manifest
