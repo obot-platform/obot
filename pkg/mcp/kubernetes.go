@@ -722,12 +722,16 @@ func withToolPreviewLabel(labels map[string]string) map[string]string {
 
 func (k *kubernetesBackend) listToolPreviewServers(ctx context.Context) ([]toolPreviewServer, error) {
 	var deployments appsv1.DeploymentList
-	if err := k.client.List(ctx, &deployments, kclient.InNamespace(k.mcpNamespace), kclient.HasLabels{ToolPreviewLabel}); err != nil {
+	// Unlabelled previews from earlier releases are only recognisable by name, so list every deployment.
+	if err := k.client.List(ctx, &deployments, kclient.InNamespace(k.mcpNamespace)); err != nil {
 		return nil, fmt.Errorf("failed to list tool preview deployments: %w", err)
 	}
 
-	servers := make([]toolPreviewServer, 0, len(deployments.Items))
+	var servers []toolPreviewServer
 	for _, deployment := range deployments.Items {
+		if !isToolPreviewServer(deployment.Name, deployment.Labels) {
+			continue
+		}
 		servers = append(servers, toolPreviewServer{
 			Name:    deployment.Name,
 			Created: deployment.CreationTimestamp.Time,

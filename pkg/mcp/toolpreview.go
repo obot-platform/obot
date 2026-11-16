@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -28,10 +29,26 @@ const (
 	toolPreviewSweepTimeout  = 30 * time.Second
 )
 
+var (
+	// legacyToolPreviewName matches the names of tool preview servers launched before previews were
+	// labelled with ToolPreviewLabel: tool-preview-<16 hex> and vmcp-tool-preview-<16 hex> (a catalog
+	// entry or vMCP component digest with no per-launch suffix), and the older temp-preview-<32 hex>.
+	// Those builds leaked every preview whose launch failed, and nothing else deploys a server under
+	// these names: current previews add a suffix (see toolPreviewServerName), and remote previews, which
+	// keep their name, deploy nothing. So the sweep takes servers with these names for tool previews too.
+	legacyToolPreviewName = regexp.MustCompile(`^((vmcp-)?tool-preview-[0-9a-f]{16}|temp-preview-[0-9a-f]{32})$`)
+)
+
 // toolPreviewServer is a deployed tool preview server, as reported by a backend.
 type toolPreviewServer struct {
 	Name    string
 	Created time.Time
+}
+
+// isToolPreviewServer reports whether a deployed server, given its name and labels, is a tool preview.
+func isToolPreviewServer(name string, labels map[string]string) bool {
+	_, labelled := labels[ToolPreviewLabel]
+	return labelled || legacyToolPreviewName.MatchString(name)
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
@@ -104,7 +121,8 @@ func toolPreviewServerName(name string) (string, error) {
 
 // runToolPreviewSweeper removes expired tool preview servers at startup and then every
 // toolPreviewSweepInterval until ctx is done. It is the safety net for a preview whose own cleanup did
-// not run or did not finish, such as when Obot restarts mid-preview.
+// not run or did not finish, such as when Obot restarts mid-preview, and it removes the previews that
+// earlier releases leaked (see legacyToolPreviewName).
 func (sm *SessionManager) runToolPreviewSweeper(ctx context.Context) {
 	ticker := time.NewTicker(toolPreviewSweepInterval)
 	defer ticker.Stop()

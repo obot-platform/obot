@@ -726,22 +726,25 @@ func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *contai
 }
 
 func (d *dockerBackend) listToolPreviewServers(ctx context.Context) ([]toolPreviewServer, error) {
+	// Unlabelled previews from earlier releases are only recognisable by name, so list every MCP server container.
 	containers, err := d.client.ContainerList(ctx, container.ListOptions{
 		All:     true,
-		Filters: filters.NewArgs(filters.Arg("label", ToolPreviewLabel)),
+		Filters: filters.NewArgs(filters.Arg("label", "mcp.server.id")),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list tool preview containers: %w", err)
 	}
 
-	servers := make([]toolPreviewServer, 0, len(containers))
+	var servers []toolPreviewServer
 	for _, c := range containers {
-		if name := c.Labels["mcp.server.id"]; name != "" {
-			servers = append(servers, toolPreviewServer{
-				Name:    name,
-				Created: time.Unix(c.Created, 0),
-			})
+		name := c.Labels["mcp.server.id"]
+		if name == "" || !isToolPreviewServer(name, c.Labels) {
+			continue
 		}
+		servers = append(servers, toolPreviewServer{
+			Name:    name,
+			Created: time.Unix(c.Created, 0),
+		})
 	}
 	return servers, nil
 }

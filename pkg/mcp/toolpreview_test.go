@@ -201,6 +201,58 @@ func TestToolPreviewTTLOutlastsPreviews(t *testing.T) {
 	}
 }
 
+func TestIsToolPreviewServer(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   bool
+	}{
+		{
+			name:   "tool-preview-0123456789abcdef-1a2b3c4d",
+			labels: map[string]string{ToolPreviewLabel: "true"},
+			want:   true,
+		},
+		{
+			name: "tool-preview-0123456789abcdef",
+			want: true,
+		},
+		{
+			name: "vmcp-tool-preview-0123456789abcdef",
+			want: true,
+		},
+		{
+			name: "temp-preview-0123456789abcdef0123456789abcdef",
+			want: true,
+		},
+		{
+			name: "tool-preview-0123456789abcdef-1a2b3c4d",
+			want: false,
+		},
+		{
+			name: "tool-preview-0123456789abcde",
+			want: false,
+		},
+		{
+			name: "temp-preview-0123456789abcdef",
+			want: false,
+		},
+		{
+			name: "my-tool-preview-0123456789abcdef",
+			want: false,
+		},
+		{
+			name: "ms1server",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		if got := isToolPreviewServer(tt.name, tt.labels); got != tt.want {
+			t.Errorf("isToolPreviewServer(%q, %v) = %t, want %t", tt.name, tt.labels, got, tt.want)
+		}
+	}
+}
+
 func TestK8sObjectsLabelToolPreviews(t *testing.T) {
 	for _, toolPreview := range []bool{false, true} {
 		k := newTestKubernetesBackend(t)
@@ -241,11 +293,13 @@ func TestKubernetesListToolPreviewServers(t *testing.T) {
 		}
 	}
 	previewLabels := map[string]string{ToolPreviewLabel: "true"}
+	legacyName := "tool-preview-0123456789abcdef"
 
 	k := &kubernetesBackend{
 		mcpNamespace: "obot-mcp",
 		client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 			deployment("tool-preview-a", "obot-mcp", previewLabels),
+			deployment(legacyName, "obot-mcp", map[string]string{"app": legacyName}),
 			deployment("ms1server", "obot-mcp", map[string]string{"app": "ms1server"}),
 			deployment("tool-preview-elsewhere", "other", previewLabels),
 		).Build(),
@@ -255,8 +309,16 @@ func TestKubernetesListToolPreviewServers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listToolPreviewServers() error = %v", err)
 	}
-	if len(servers) != 1 || servers[0].Name != "tool-preview-a" || !servers[0].Created.Equal(created.Time) {
-		t.Fatalf("listToolPreviewServers() = %+v, want only tool-preview-a created at %s", servers, created.Time)
+	var names []string
+	for _, server := range servers {
+		if !server.Created.Equal(created.Time) {
+			t.Errorf("server %s created %s, want %s", server.Name, server.Created, created.Time)
+		}
+		names = append(names, server.Name)
+	}
+	slices.Sort(names)
+	if want := []string{legacyName, "tool-preview-a"}; !slices.Equal(names, want) {
+		t.Fatalf("listToolPreviewServers() = %q, want %q", names, want)
 	}
 }
 
@@ -269,8 +331,8 @@ func TestDockerListToolPreviewServers(t *testing.T) {
 		if r.URL.Query().Get("all") != "1" {
 			t.Errorf("container list all = %q, want stopped containers included", r.URL.Query().Get("all"))
 		}
-		if filters := r.URL.Query().Get("filters"); !strings.Contains(filters, `"label":{"`+ToolPreviewLabel+`":true}`) {
-			t.Errorf("container list filters = %s, want the tool preview label", filters)
+		if filters := r.URL.Query().Get("filters"); !strings.Contains(filters, `"label":{"mcp.server.id":true}`) {
+			t.Errorf("container list filters = %s, want MCP server containers", filters)
 		}
 		_ = json.NewEncoder(w).Encode([]container.Summary{
 			{
@@ -285,6 +347,16 @@ func TestDockerListToolPreviewServers(t *testing.T) {
 				ID:     "2",
 				Labels: map[string]string{ToolPreviewLabel: "true"},
 			},
+			{
+				ID:      "3",
+				Created: 1_794_571_200,
+				Labels:  map[string]string{"mcp.server.id": "temp-preview-0123456789abcdef0123456789abcdef"},
+			},
+			{
+				ID:      "4",
+				Created: 1_794_571_200,
+				Labels:  map[string]string{"mcp.server.id": "ms1server"},
+			},
 		})
 	}))
 	t.Cleanup(api.Close)
@@ -298,7 +370,17 @@ func TestDockerListToolPreviewServers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listToolPreviewServers() error = %v", err)
 	}
-	if len(servers) != 1 || servers[0].Name != "tool-preview-a" || !servers[0].Created.Equal(time.Unix(1_794_571_200, 0)) {
-		t.Fatalf("listToolPreviewServers() = %+v, want only tool-preview-a", servers)
+	want := []toolPreviewServer{
+		{
+			Name:    "tool-preview-a",
+			Created: time.Unix(1_794_571_200, 0),
+		},
+		{
+			Name:    "temp-preview-0123456789abcdef0123456789abcdef",
+			Created: time.Unix(1_794_571_200, 0),
+		},
+	}
+	if !slices.Equal(servers, want) {
+		t.Fatalf("listToolPreviewServers() = %+v, want %+v", servers, want)
 	}
 }
