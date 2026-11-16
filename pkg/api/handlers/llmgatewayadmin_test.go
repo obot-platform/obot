@@ -550,7 +550,7 @@ func TestGatewaySettingsWhileEngineUnavailable(t *testing.T) {
 				h.engine.Fail(errors.New("startup failed"))
 			}
 			mux := newAdminTestServer(t, h, storage, newHandlerTestGateway(t))
-			mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSettings)
+			mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSubscriptionPassthroughSettings)
 			response := httptest.NewRecorder()
 			mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/llm-gateway/settings", nil))
 			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
@@ -569,7 +569,7 @@ func TestGatewaySettingsDerivedFromProviders(t *testing.T) {
 	_, err := gateway.SetProperty(t.Context(), "llm-gateway-settings", `{"subscriptionPassthrough":true}`)
 	require.NoError(t, err)
 	mux := newAdminTestServer(t, h, storage, gateway)
-	mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSettings)
+	mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSubscriptionPassthroughSettings)
 	read := func(want string) {
 		t.Helper()
 		response := httptest.NewRecorder()

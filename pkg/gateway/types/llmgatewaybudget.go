@@ -71,8 +71,8 @@ type LLMGatewayBudgetUsage struct {
 	Spend        float64
 }
 
-// LLMGatewaySettings is the safe, read-only summary derived from provider aggregates.
-type LLMGatewaySettings struct {
+// SubscriptionPassthroughSettings is the safe, read-only summary derived from provider aggregates.
+type SubscriptionPassthroughSettings struct {
 	// ClaudeSubscriptionPassthrough lets Claude Code users signed in with a Claude subscription use
 	// it through the gateway: their Anthropic OAuth token is forwarded to Anthropic for Claude
 	// models instead of a configured provider key.

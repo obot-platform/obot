@@ -10,7 +10,7 @@ import (
 )
 
 // Every signed-in user can read the safe setup summary; provider writes remain admin-only.
-func TestLLMGatewaySettingsAuthorization(t *testing.T) {
+func TestSubscriptionPassthroughSettingsAuthorization(t *testing.T) {
 	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 	tests := []struct {
 		name  string

@@ -8,7 +8,7 @@ import (
 )
 
 func TestClaudeSubscriptionSettingJSONCompatibility(t *testing.T) {
-	var settings LLMGatewaySettings
+	var settings SubscriptionPassthroughSettings
 	require.NoError(t, json.Unmarshal([]byte(`{"subscriptionPassthrough":true}`), &settings))
 	require.True(t, settings.ClaudeSubscriptionPassthrough)
 	require.False(t, settings.ChatGPTSubscriptionPassthrough)

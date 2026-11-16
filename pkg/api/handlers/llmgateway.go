@@ -328,11 +328,11 @@ func (h *LLMGatewayHandler) SyncModels(req api.Context) error {
 	return nil
 }
 
-// GetSettings exposes only the provider-derived subscription summary to signed-in users.
-func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
+// GetSubscriptionPassthroughSettings exposes only the provider-derived subscription summary to signed-in users.
+func (h *LLMGatewayHandler) GetSubscriptionPassthroughSettings(req api.Context) error {
 	// Connection setup remains usable while inference is unavailable.
 	if !h.engine.Ready() {
-		return req.Write(gatewaytypes.LLMGatewaySettings{})
+		return req.Write(gatewaytypes.SubscriptionPassthroughSettings{})
 	}
 	claude, err := h.engine.SubscriptionPassthrough(req.Context(), "anthropic")
 	if err != nil {
@@ -342,7 +342,7 @@ func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	return req.Write(gatewaytypes.LLMGatewaySettings{ClaudeSubscriptionPassthrough: claude, ChatGPTSubscriptionPassthrough: chatgpt})
+	return req.Write(gatewaytypes.SubscriptionPassthroughSettings{ClaudeSubscriptionPassthrough: claude, ChatGPTSubscriptionPassthrough: chatgpt})
 }
 
 func (h *LLMGatewayHandler) ListBudgets(req api.Context) error {

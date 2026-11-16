@@ -11,7 +11,7 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { ApiKeysService, type APIKey } from '$lib/services';
-	import { doGet } from '$lib/services/http';
+	import { getSubscriptionPassthroughSettings } from '$lib/services/llm-gateway/gateway';
 	import { profile } from '$lib/stores';
 	import accessibleModels from '$lib/stores/accessibleModels.svelte';
 	import { goto, resolve } from '$lib/url';
@@ -34,12 +34,7 @@
 	onMount(() => {
 		obotURL = window.location.origin;
 		// If settings are unavailable, setup instructions leave out subscription options.
-		(
-			doGet('/llm-gateway/settings', { dontLogErrors: true }) as Promise<{
-				subscriptionPassthrough: boolean;
-				chatgptSubscriptionPassthrough?: boolean;
-			}>
-		)
+		getSubscriptionPassthroughSettings({ dontLogErrors: true })
 			.then((s) => {
 				subscriptionPassthrough = s.subscriptionPassthrough;
 				chatgptSubscriptionPassthrough = !!s.chatgptSubscriptionPassthrough;

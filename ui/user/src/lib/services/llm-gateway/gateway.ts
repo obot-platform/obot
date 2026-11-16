@@ -24,13 +24,15 @@ export async function getStatus(opts?: Opts): Promise<GatewayStatus> {
 }
 
 // Read-only subscription availability for connection setup.
-export type LLMGatewaySettings = {
+export type SubscriptionPassthroughSettings = {
 	subscriptionPassthrough: boolean;
 	chatgptSubscriptionPassthrough?: boolean;
 };
 
-export async function getSettings(opts?: Opts): Promise<LLMGatewaySettings> {
-	return (await doGet('/llm-gateway/settings', opts)) as LLMGatewaySettings;
+export async function getSubscriptionPassthroughSettings(
+	opts?: Opts
+): Promise<SubscriptionPassthroughSettings> {
+	return (await doGet('/llm-gateway/settings', opts)) as SubscriptionPassthroughSettings;
 }
 
 export async function syncModels(opts?: Opts): Promise<void> {
