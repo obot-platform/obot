@@ -76,6 +76,10 @@ type ServerConfig struct {
 	StartupTimeout time.Duration                `json:"startupTimeout,omitempty"`
 	Resources      *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Webhooks       []Webhook                    `json:"webhooks,omitempty"`
+
+	// ToolPreview marks a temporary server launched only to list tools. Backends label its
+	// resources so that a missed cleanup can be found and swept.
+	ToolPreview bool `json:"toolPreview,omitempty"`
 }
 
 type File struct {
