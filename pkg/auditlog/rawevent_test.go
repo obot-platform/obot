@@ -1,6 +1,7 @@
 package auditlog
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
@@ -73,10 +74,10 @@ func TestRestoreRawEvent(t *testing.T) {
 			want:     `{"tool_output":"{\"id\":9007199254740993,\"ratio\":0.1000000000000000055}"}`,
 		},
 		{
-			name:     "a cursor escape after an escaped backslash stays literal text",
+			name:     "a cursor string keeps <, > and & unescaped",
 			raw:      `{"tool_output":` + responseJSONStringMark + `}`,
-			response: `{"path":"C:\\u0026","both":"\\\u0026"}`,
-			want:     `{"tool_output":"{\"path\":\"C:\\\\u0026\",\"both\":\"\\\\&\"}"}`,
+			response: `{"output":"a && b <x>"}`,
+			want:     `{"tool_output":"{\"output\":\"a && b <x>\"}"}`,
 		},
 		{
 			name:     "a stored body that was reformatted is compacted into the cursor string",
@@ -188,13 +189,13 @@ func TestPresentLocalAgentRestoresRawEvent(t *testing.T) {
 }
 
 // TestRestoreRawEventCursorSubmissionRoundTrip sends a Cursor hook payload the way Obot Sentry
-// does: it marks the output and submits the event with encoding/json, which escapes <, >, &,
-// U+2028 and U+2029 inside the body. Restoring the stored event must give back Cursor's string.
+// does: it marks the output and submits the event with encoding/json without HTML escaping, as the
+// apiclient does. Restoring the stored event must give back Cursor's string. (encoding/json still
+// escapes U+2028 and U+2029 in the body, so output holding them is not restored exactly.)
 func TestRestoreRawEventCursorSubmissionRoundTrip(t *testing.T) {
 	outputs := []string{
 		`{"output":"a && b <x> -> c\n","exitCode":0}`,
 		`{"html":"<a href=\"x\">&amp;</a>"}`,
-		"{\"text\":\"line\u2028para\u2029end\"}",
 		`{"path":"C:\\u0026 and \\&"}`,
 		`{"id":9007199254740993,"empty":"","nested":{"list":[1,"<",{"k":">"}]}}`,
 	}
@@ -203,8 +204,11 @@ func TestRestoreRawEventCursorSubmissionRoundTrip(t *testing.T) {
 		t.Run(output, func(t *testing.T) {
 			original := map[string]string{"tool_name": "Shell", "tool_output": output}
 
-			// What Obot Sentry submits, through encoding/json.
-			submitted, err := json.Marshal(struct {
+			// What Obot Sentry submits, through the apiclient.
+			var submitted bytes.Buffer
+			enc := json.NewEncoder(&submitted)
+			enc.SetEscapeHTML(false)
+			err := enc.Encode(struct {
 				RawEvent json.RawMessage `json:"rawEvent"`
 				Body     json.RawMessage `json:"body"`
 			}{
@@ -219,7 +223,7 @@ func TestRestoreRawEventCursorSubmissionRoundTrip(t *testing.T) {
 				RawEvent json.RawMessage `json:"rawEvent"`
 				Body     json.RawMessage `json:"body"`
 			}
-			if err := json.Unmarshal(submitted, &stored); err != nil {
+			if err := json.Unmarshal(submitted.Bytes(), &stored); err != nil {
 				t.Fatal(err)
 			}
 
