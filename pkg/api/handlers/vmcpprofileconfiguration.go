@@ -24,22 +24,19 @@ const (
 )
 
 // VMCPProfileConfigurationHandler serves the routes that set the configuration a vMCP profile gives agents, in place of
-// the values a user enters on their own connection. They exist only for agents, so they answer 501 while
-// authentication is disabled, as the agent admin API does.
+// the values a user enters on their own connection.
 //
 // The routes are admin-only, which the authorizer enforces: they are under the administrators' /api/vmcps/ rule, no
 // other role or group is granted them, and they are not on the agents' allowlist. They report key names and whether
 // each is set, never a value. The status of a profile is read through the readiness API.
 type VMCPProfileConfigurationHandler struct {
-	authEnabled bool
-	store       *vmcpconfig.ProfileConfigurationStore
+	store *vmcpconfig.ProfileConfigurationStore
 	// collectionTimeout bounds how long a reset waits for its revisions to be collected.
 	collectionTimeout time.Duration
 }
 
-func NewVMCPProfileConfigurationHandler(authEnabled bool, store *vmcpconfig.ProfileConfigurationStore) *VMCPProfileConfigurationHandler {
+func NewVMCPProfileConfigurationHandler(store *vmcpconfig.ProfileConfigurationStore) *VMCPProfileConfigurationHandler {
 	return &VMCPProfileConfigurationHandler{
-		authEnabled:       authEnabled,
 		store:             store,
 		collectionTimeout: profileConfigurationCollectionTimeout,
 	}
@@ -54,9 +51,6 @@ func (h *VMCPProfileConfigurationHandler) RegisterRoutes(handle func(pattern str
 // Update changes a profile's configuration (types.VMCPProfileConfigurationUpdate). Saving configuration that still
 // lacks required values is allowed: agents that need them are refused until they are set.
 func (h *VMCPProfileConfigurationHandler) Update(req api.Context) error {
-	if err := agentIdentitiesAvailable(h.authEnabled); err != nil {
-		return err
-	}
 	var update types.VMCPProfileConfigurationUpdate
 	if err := req.Read(&update); err != nil {
 		return types.NewErrBadRequest("failed to read profile configuration: %v", err)
@@ -100,9 +94,6 @@ func (h *VMCPProfileConfigurationHandler) Update(req api.Context) error {
 // bounded time, until the controller has collected it. If that takes longer, the reset still succeeds, and the status
 // it returns reports the revisions still to be collected (PendingCollection).
 func (h *VMCPProfileConfigurationHandler) Reset(req api.Context) error {
-	if err := agentIdentitiesAvailable(h.authEnabled); err != nil {
-		return err
-	}
 	profileID := req.PathValue("profile_id")
 	previous := currentProfileConfigurationRevision(req, req.PathValue("vmcp_id"), profileID)
 	vmcp, cleared, err := h.store.Reset(req.Context(), req.Storage, kclient.ObjectKey{Namespace: req.Namespace(), Name: req.PathValue("vmcp_id")}, profileID)

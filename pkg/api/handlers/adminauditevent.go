@@ -20,9 +20,7 @@ const (
 // and profiles that name agents, and profile configuration and OAuth grants. It is read-only, and only administrators,
 // owners and auditors are granted it (pkg/api/authz); agents never reach it.
 //
-// Unlike the agent admin API it is not gated by authentication being enabled. It reports history that exists in the
-// database, which an administrator who turns authentication off again still needs to be able to read, and it creates
-// nothing.
+// It is served whether or not authentication is enabled, as the agent admin API is.
 type AdminAuditEventHandler struct{}
 
 func NewAdminAuditEventHandler() *AdminAuditEventHandler {

@@ -31,7 +31,7 @@ type AgentReadinessSource interface {
 // can hold an OAuth grant cost one query of the gateway database (plus the credential read that resolves a URL the
 // profiles configure, for a component whose URL is configured). A vMCP no profile names the agent for is not listed.
 func (h *AgentIdentityHandler) ListVMCPReadiness(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (h *AgentIdentityHandler) ListVMCPReadiness(req api.Context) error {
 // grants. A vMCP that does not exist, is personal, is being deleted, or that no profile names the agent for is 404, as
 // it is not among the vMCPs the agent can access.
 func (h *AgentIdentityHandler) GetVMCPReadiness(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}

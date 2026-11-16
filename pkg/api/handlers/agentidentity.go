@@ -31,18 +31,14 @@ import (
 // The API names an agent AgentIdentity, because "agent" already means a hosted agent and an agent on a device. Agent
 // IDs and user IDs are decimal strings in the API, as users' IDs are elsewhere.
 type AgentIdentityHandler struct {
-	// authEnabled is whether the server authenticates callers. Agents authenticate only with authentication, so
-	// without it the routes refuse, rather than create agents that could never connect.
-	authEnabled bool
 	// readiness decides whether an agent can connect to a vMCP, which the readiness routes report as the connect path
 	// decides it, with the grants it selected.
 	readiness AgentReadinessSource
 }
 
-func NewAgentIdentityHandler(authEnabled bool, readiness AgentReadinessSource) *AgentIdentityHandler {
+func NewAgentIdentityHandler(readiness AgentReadinessSource) *AgentIdentityHandler {
 	return &AgentIdentityHandler{
-		authEnabled: authEnabled,
-		readiness:   readiness,
+		readiness: readiness,
 	}
 }
 
@@ -65,26 +61,8 @@ func (h *AgentIdentityHandler) RegisterRoutes(handle func(pattern string, f api.
 	handle("DELETE /api/agents/{agent_id}/api-keys/{key_id}", h.RevokeAPIKey)
 }
 
-// check answers whether agent identities are available. It must come first in every route.
-func (h *AgentIdentityHandler) check() error {
-	return agentIdentitiesAvailable(h.authEnabled)
-}
-
-// agentIdentitiesAvailable answers whether the routes that exist only for agents are available: 501 while
-// authentication is disabled, because agents authenticate only with authentication enabled.
-func agentIdentitiesAvailable(authEnabled bool) error {
-	if !authEnabled {
-		return types.NewErrHTTP(http.StatusNotImplemented, "agent identities require authentication to be enabled: agents authenticate with API keys, which are only checked when authentication is enabled")
-	}
-	return nil
-}
-
 // List lists agents in the order they were created. Deleted agents are left out unless includeDeleted=true.
 func (h *AgentIdentityHandler) List(req api.Context) error {
-	if err := h.check(); err != nil {
-		return err
-	}
-
 	var includeDeleted bool
 	if q := req.URL.Query(); q.Has("includeDeleted") {
 		var err error
@@ -119,10 +97,6 @@ func (h *AgentIdentityHandler) List(req api.Context) error {
 
 // Create creates an active agent. The caller is its creator.
 func (h *AgentIdentityHandler) Create(req api.Context) error {
-	if err := h.check(); err != nil {
-		return err
-	}
-
 	var manifest types.AgentIdentityManifest
 	if err := readAgentIdentityRequest(req, &manifest, false); err != nil {
 		return err
@@ -143,7 +117,7 @@ func (h *AgentIdentityHandler) Create(req api.Context) error {
 
 // Get returns an agent, with the number of its active API keys.
 func (h *AgentIdentityHandler) Get(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -154,7 +128,7 @@ func (h *AgentIdentityHandler) Get(req api.Context) error {
 // how each matches, as the policy matchers evaluate the agent (pkg/subjects). An agent matches only its own ID, the
 // agent wildcard and the wildcard for everyone, never a user or group subject, so no groups are evaluated.
 func (h *AgentIdentityHandler) Access(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -275,7 +249,7 @@ func agentSubjectMatch(match subjects.Match) (types.SubjectMatch, bool) {
 // Update replaces the metadata of an agent. It changes nothing else: an agent is disabled and deleted by their own
 // routes, and its creator is never changed.
 func (h *AgentIdentityHandler) Update(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -300,7 +274,7 @@ func (h *AgentIdentityHandler) Update(req api.Context) error {
 // Disable denies an agent access, and records why. Disabling a disabled agent only updates the reason. Its keys are
 // kept, and work once it is enabled again.
 func (h *AgentIdentityHandler) Disable(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -320,7 +294,7 @@ func (h *AgentIdentityHandler) Disable(req api.Context) error {
 
 // Enable restores the access of a disabled agent. Enabling an agent that is not disabled changes nothing.
 func (h *AgentIdentityHandler) Enable(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -335,7 +309,7 @@ func (h *AgentIdentityHandler) Enable(req api.Context) error {
 // Delete deletes an agent and revokes its keys. The agent is kept for audit history, and listed with includeDeleted,
 // but every other route answers 404 for it, so deleting a deleted agent is 404 too.
 func (h *AgentIdentityHandler) Delete(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -351,7 +325,7 @@ func (h *AgentIdentityHandler) Delete(req api.Context) error {
 func (h *AgentIdentityHandler) ListAPIKeys(req api.Context) error {
 	// The agent is looked up first, because the client lists no keys, rather than failing, for an agent that is
 	// missing.
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -377,7 +351,7 @@ func (h *AgentIdentityHandler) ListAPIKeys(req api.Context) error {
 // CreateAPIKey creates a key for an agent, and returns it with its secret, which is only ever shown here. A disabled
 // agent gets a key, which works once the agent is enabled.
 func (h *AgentIdentityHandler) CreateAPIKey(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -408,7 +382,7 @@ func (h *AgentIdentityHandler) CreateAPIKey(req api.Context) error {
 
 // GetAPIKey returns a key of an agent. A key of another owner is 404, not found as though it were the agent's.
 func (h *AgentIdentityHandler) GetAPIKey(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -421,7 +395,7 @@ func (h *AgentIdentityHandler) GetAPIKey(req api.Context) error {
 
 // RevokeAPIKey revokes a key of an agent. Revoking a revoked key succeeds and keeps its first revocation time.
 func (h *AgentIdentityHandler) RevokeAPIKey(req api.Context) error {
-	agent, err := h.agent(req)
+	agent, err := pathAgent(req)
 	if err != nil {
 		return err
 	}
@@ -437,12 +411,8 @@ func (h *AgentIdentityHandler) RevokeAPIKey(req api.Context) error {
 	return nil
 }
 
-// agent returns the agent the request's path names, once agent identities are known to be available. A deleted or
-// unknown agent, and an ID that is not one, are 404.
-func (h *AgentIdentityHandler) agent(req api.Context) (*gtypes.Agent, error) {
-	if err := h.check(); err != nil {
-		return nil, err
-	}
+// pathAgent returns the agent the request's path names. A deleted or unknown agent, and an ID that is not one, are 404.
+func pathAgent(req api.Context) (*gtypes.Agent, error) {
 	id, err := strconv.ParseUint(req.PathValue("agent_id"), 10, 64)
 	if err != nil {
 		return nil, types.NewErrNotFound("agent not found")

@@ -17,21 +17,13 @@ import (
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apiserver/pkg/authentication/request/union"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 var (
 	agentLoopbackGroups = []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated}
 )
-
-// newAgentTestTokenService returns a token service of a server that authenticates callers, which agents need.
-func newAgentTestTokenService(t *testing.T) (*TokenService, *client.Client) {
-	t.Helper()
-
-	tokenService, gatewayClient := newLifecycleTestTokenService(t)
-	tokenService.authEnabled = true
-	return tokenService, gatewayClient
-}
 
 func createTestAgent(t *testing.T, gatewayClient *client.Client) *gatewaytypes.Agent {
 	t.Helper()
@@ -78,7 +70,7 @@ func bearerRequest(token string) *http.Request {
 }
 
 func TestNewTokenRecordsThePrincipalKind(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "ada", types.RoleBasic)
 	agent := createAgentWithUsersID(t, gatewayClient, user)
 
@@ -116,7 +108,7 @@ func TestNewTokenRecordsThePrincipalKind(t *testing.T) {
 }
 
 func TestNewTokenRefusesAKindThatDisagreesWithTheSubject(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "bea", types.RoleBasic)
 	agent := createAgentWithUsersID(t, gatewayClient, user)
 
@@ -152,7 +144,7 @@ func TestNewTokenRefusesAKindThatDisagreesWithTheSubject(t *testing.T) {
 // principal it records, and that a token from before the kind was recorded authenticates only a user, even when an
 // agent has the same numeric ID.
 func TestAuthenticateRequestNeverReadsATokenAsAnotherKind(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "cy", types.RoleBasic)
 	agent := createAgentWithUsersID(t, gatewayClient, user)
 
@@ -195,6 +187,22 @@ func TestAuthenticateRequestNeverReadsATokenAsAnotherKind(t *testing.T) {
 			},
 		},
 		{
+			name: "unknown kind",
+			claims: jwt.MapClaims{
+				"sub":                 fmt.Sprint(user.ID),
+				"obot_principal_kind": "robot",
+				"UserGroups":          "mcp,authenticated",
+			},
+		},
+		{
+			name: "subject that is not a principal",
+			claims: jwt.MapClaims{
+				"sub":                 "system",
+				"obot_principal_kind": "user",
+				"UserGroups":          "mcp,authenticated",
+			},
+		},
+		{
 			name: "agent token",
 			claims: jwt.MapClaims{
 				"sub":                 principal.Agent(agent.ID).String(),
@@ -224,7 +232,7 @@ func TestAuthenticateRequestNeverReadsATokenAsAnotherKind(t *testing.T) {
 // API key authenticator builds an agent's: the agent's encoded ID as UID and name, its kind, status and display
 // name, the token's groups and MCP scope, the originating key, and nothing that only users have.
 func TestAgentTokenRoundTrip(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	agent := createTestAgent(t, gatewayClient)
 	subject := principal.Agent(agent.ID).String()
 
@@ -272,7 +280,7 @@ func TestAgentTokenRoundTrip(t *testing.T) {
 // TestAgentTokensAreDeniedOnceTheAgentIsInactive checks that a token issued before an agent was disabled or deleted
 // is denied from its next use on.
 func TestAgentTokensAreDeniedOnceTheAgentIsInactive(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	agent := createTestAgent(t, gatewayClient)
 	req, _ := authenticateToken(t, tokenService, TokenContext{
 		UserID:     principal.Agent(agent.ID).String(),
@@ -304,7 +312,7 @@ func TestAgentTokensAreDeniedOnceTheAgentIsInactive(t *testing.T) {
 }
 
 func TestAgentTokenAuthenticationFailsWhenItCannotReadTheAgent(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	agent := createTestAgent(t, gatewayClient)
 	req, _ := authenticateToken(t, tokenService, TokenContext{
 		UserID:     principal.Agent(agent.ID).String(),
@@ -322,7 +330,7 @@ func TestAgentTokenAuthenticationFailsWhenItCannotReadTheAgent(t *testing.T) {
 }
 
 func TestNewTokenRefusesInactiveAgents(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	disabled := createTestAgent(t, gatewayClient)
 	_, err := gatewayClient.DisableAgent(t.Context(), disabled.ID, "compromised")
 	require.NoError(t, err)
@@ -367,7 +375,7 @@ func TestNewTokenRefusesInactiveAgents(t *testing.T) {
 // TestAgentTokensCarryOnlyMCPGroups checks that no token issued to an agent grants it a group other than those of
 // Obot's internal MCP connections, and that a signed token that does authenticates no one.
 func TestAgentTokensCarryOnlyMCPGroups(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	agent := createTestAgent(t, gatewayClient)
 	subject := principal.Agent(agent.ID).String()
 
@@ -392,36 +400,155 @@ func TestAgentTokensCarryOnlyMCPGroups(t *testing.T) {
 	}
 }
 
-// TestAgentTokensNeedAuthentication checks that while authentication is disabled, no token is issued to an agent, and
-// a token issued to one while it was enabled authenticates no one.
-func TestAgentTokensNeedAuthentication(t *testing.T) {
-	enabled, gatewayClient := newAgentTestTokenService(t)
-	agent := createTestAgent(t, gatewayClient)
-	disabled, err := NewTokenService(testServerURL, gatewayClient, false)
-	require.NoError(t, err)
-	require.NoError(t, disabled.replaceKey(t.Context(), enabled.privateKey))
-
-	tokenContext := TokenContext{
-		Audience:   testServerURL + "/mcp-connect/server-id",
-		ExpiresAt:  NewTime(time.Now().Add(time.Hour)),
-		UserID:     principal.Agent(agent.ID).String(),
-		UserGroups: agentLoopbackGroups,
+// TestAgentTokensFailClosed checks the authenticator that a chain ending in a catch-all, such as the one of a server
+// that does not authenticate callers, runs after the token service and ahead of the catch-all (AgentTokens): a token
+// that claims to be an agent's, in either header the token service reads, authenticates as that agent or fails,
+// whatever is wrong with it, and every other request is authenticated or declined as before, so that it reaches the
+// rest of the chain.
+func TestAgentTokensFailClosed(t *testing.T) {
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
+	user := createLifecycleTestUser(t, gatewayClient, "dee", types.RoleBasic)
+	active := createTestAgent(t, gatewayClient)
+	disabled := createTestAgent(t, gatewayClient)
+	deleted := createTestAgent(t, gatewayClient)
+	agentToken := func(agent *gatewaytypes.Agent) string {
+		t.Helper()
+		_, token, err := tokenService.NewToken(t.Context(), TokenContext{
+			Audience:   testServerURL + "/mcp-connect/server-id",
+			ExpiresAt:  NewTime(time.Now().Add(time.Hour)),
+			UserID:     principal.Agent(agent.ID).String(),
+			UserGroups: agentLoopbackGroups,
+		})
+		require.NoError(t, err)
+		return token
 	}
-	_, _, err = disabled.NewToken(t.Context(), tokenContext)
-	require.Error(t, err)
+	activeToken := agentToken(active)
+	disabledToken := agentToken(disabled)
+	deletedToken := agentToken(deleted)
+	_, err := gatewayClient.DisableAgent(t.Context(), disabled.ID, "compromised")
+	require.NoError(t, err)
+	require.NoError(t, gatewayClient.DeleteAgent(t.Context(), deleted.ID))
+	_, userToken, err := tokenService.NewToken(t.Context(), TokenContext{
+		Audience:   testServerURL,
+		ExpiresAt:  NewTime(time.Now().Add(time.Hour)),
+		UserID:     principal.User(user.ID).String(),
+		UserGroups: []string{types.GroupAuthenticated},
+	})
+	require.NoError(t, err)
 
-	_, token, err := enabled.NewToken(t.Context(), tokenContext)
+	// Another server, with its own key, and an active agent with the same ID.
+	otherService, otherGateway := newLifecycleTestTokenService(t)
+	require.Equal(t, active.ID, createTestAgent(t, otherGateway).ID)
+	_, otherKeyToken, err := otherService.NewToken(t.Context(), TokenContext{
+		Audience:   testServerURL,
+		ExpiresAt:  NewTime(time.Now().Add(time.Hour)),
+		UserID:     principal.Agent(active.ID).String(),
+		UserGroups: agentLoopbackGroups,
+	})
 	require.NoError(t, err)
-	response, ok, err := disabled.AuthenticateRequest(bearerRequest(token))
-	require.NoError(t, err)
-	assert.False(t, ok)
-	assert.Nil(t, response)
+
+	for _, tt := range []struct {
+		name  string
+		token string
+		// declined is set for a request that is not an agent's, which is left to the rest of the chain.
+		declined bool
+		// authenticatedAs is set for a token that the token service authenticates.
+		authenticatedAs principal.Principal
+	}{
+		{
+			name:     "no token",
+			declined: true,
+		},
+		{
+			name:     "not a token",
+			token:    "ok1-1-2-secret",
+			declined: true,
+		},
+		{
+			name:            "a user's token",
+			token:           userToken,
+			authenticatedAs: principal.User(user.ID),
+		},
+		{
+			name:            "an active agent's token",
+			token:           activeToken,
+			authenticatedAs: principal.Agent(active.ID),
+		},
+		{
+			name:  "a disabled agent's token",
+			token: disabledToken,
+		},
+		{
+			name:  "a deleted agent's token",
+			token: deletedToken,
+		},
+		{
+			name: "an expired agent token",
+			token: signedToken(t, tokenService, jwt.MapClaims{
+				"sub":                 principal.Agent(active.ID).String(),
+				"obot_principal_kind": "agent",
+				"UserGroups":          strings.Join(agentLoopbackGroups, ","),
+				"exp":                 time.Now().Add(-time.Minute).Unix(),
+			}),
+		},
+		{
+			name: "an agent token with a group agents are not issued",
+			token: signedToken(t, tokenService, jwt.MapClaims{
+				"sub":                 principal.Agent(active.ID).String(),
+				"obot_principal_kind": "agent",
+				"UserGroups":          "mcp,authenticated," + types.GroupAdmin,
+			}),
+		},
+		{
+			name:  "an agent token signed with another key",
+			token: otherKeyToken,
+		},
+		{
+			name: "a malformed agent subject",
+			token: signedToken(t, tokenService, jwt.MapClaims{
+				"sub":        "agent:not-a-number",
+				"UserGroups": strings.Join(agentLoopbackGroups, ","),
+			}),
+		},
+	} {
+		for _, header := range []string{"Authorization", "X-API-Key"} {
+			t.Run(tt.name+" in "+header, func(t *testing.T) {
+				req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, testServerURL, nil)
+				switch {
+				case tt.token == "":
+				case header == "Authorization":
+					req.Header.Set(header, "Bearer "+tt.token)
+				default:
+					req.Header.Set(header, tt.token)
+				}
+				// The chain of a server that does not authenticate callers (server.WithNoAuth), without its catch-all.
+				chain := union.New(tokenService, union.NewFailOnError(tokenService.AgentTokens()))
+				response, ok, err := chain.AuthenticateRequest(req)
+				switch {
+				case tt.declined:
+					require.NoError(t, err)
+					require.False(t, ok)
+					require.Nil(t, response)
+				case tt.authenticatedAs != principal.Principal{}:
+					require.NoError(t, err)
+					require.True(t, ok)
+					got, isPrincipal := principal.FromUserInfo(response.User)
+					require.True(t, isPrincipal)
+					require.Equal(t, tt.authenticatedAs, got)
+				default:
+					require.Error(t, err, "the token was not refused")
+					require.False(t, ok)
+					require.Nil(t, response)
+				}
+			})
+		}
+	}
 }
 
 // TestNewTokenTrustsTheAdmittedAgent checks that a token minted while handling an agent's admitted request is not
 // checked again for that agent, and that this never extends to the user with the agent's numeric ID, or the reverse.
 func TestNewTokenTrustsTheAdmittedAgent(t *testing.T) {
-	tokenService, gatewayClient := newAgentTestTokenService(t)
+	tokenService, gatewayClient := newLifecycleTestTokenService(t)
 	user := createLifecycleTestUser(t, gatewayClient, "dee", types.RoleBasic)
 	agent := createAgentWithUsersID(t, gatewayClient, user)
 

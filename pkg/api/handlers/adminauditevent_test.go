@@ -56,7 +56,7 @@ func callAdminAuditEvents(t *testing.T, gateway *gclient.Client, query string) (
 // TestAgentAdminAPIWritesAdminAuditEvents checks that each route of the agent admin API that changes something writes
 // one event with the calling administrator, and that the routes that change nothing write none.
 func TestAgentAdminAPIWritesAdminAuditEvents(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	admin := strconv.Itoa(agentIdentityTestAdminID)
 
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "builder"})
@@ -217,7 +217,7 @@ func TestProfileConfigurationAuditNeverRecordsValues(t *testing.T) {
 	vmcp := profileConfigurationTestVMCP()
 	storage := newProfileConfigurationTestStorage(vmcp)
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPProfileConfigurationHandler(true, vmcpconfig.NewProfileConfigurationStore(gatewayClient))
+	handler := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
 	handler.collectionTimeout = 50 * time.Millisecond
 	const (
 		secretRegion  = "sk-live-REGION-0123456789abcdef"

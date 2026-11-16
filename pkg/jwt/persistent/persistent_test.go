@@ -45,7 +45,7 @@ func newTestTokenService(t *testing.T) *TokenService {
 	_, privateKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	tokenService, err := NewTokenService(testServerURL, nil, false)
+	tokenService, err := NewTokenService(testServerURL, nil)
 	require.NoError(t, err)
 	require.NoError(t, tokenService.replaceKey(t.Context(), privateKey))
 

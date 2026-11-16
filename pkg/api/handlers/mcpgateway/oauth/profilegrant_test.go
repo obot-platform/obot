@@ -14,6 +14,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authn"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -348,6 +349,46 @@ func TestProfileOAuthGrantAuthorization(t *testing.T) {
 	_, err = f.callback(administrator("1"), state)
 	requireErrHTTP(t, err, http.StatusBadRequest)
 	require.EqualValues(t, 1, f.provider.exchanges.Load())
+}
+
+// TestProfileOAuthGrantAuthorizationByTheNoAuthOwner checks that without authentication, the "nobody" owner that every
+// request is (authn.NoAuth) can authorize a profile's grant: the attempt is bound to that owner's ID, and its callback,
+// which is that owner's request too, completes it and stores the grant as authorized by that owner.
+func TestProfileOAuthGrantAuthorizationByTheNoAuthOwner(t *testing.T) {
+	f := newProfileGrantFixture(t)
+	// The no auth authenticator reads the default role setting, which the fixture's gateway client has no storage for,
+	// so the owner is created through another client of the same database.
+	sqlDB, err := f.db.DB()
+	require.NoError(t, err)
+	database, err := gatewaydb.New(f.db, sqlDB, true)
+	require.NoError(t, err)
+	roleStorage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&v1.UserDefaultRoleSetting{
+		Namespace: system.DefaultNamespace,
+		Name:      system.DefaultRoleSettingName,
+		Spec: v1.UserDefaultRoleSettingSpec{
+			Role: types.RoleBasic,
+		},
+	}).Build()
+	noAuthGateway := gatewayclient.New(t.Context(), database, roleStorage, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { _ = noAuthGateway.Close() })
+	response, ok, err := authn.NewNoAuth(noAuthGateway).AuthenticateRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
+	require.NoError(t, err)
+	require.True(t, ok)
+	nobody := response.User
+
+	state, err := f.start(t, nobody, profileGrantAgents, profileGrantRemote)
+	require.NoError(t, err)
+	pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+	require.NoError(t, err)
+	require.Equal(t, nobody.GetUID(), pending.GrantInitiatorUserID)
+
+	recorder, err := f.callback(nobody, state)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusFound, recorder.Code)
+	access, authorizedBy, _, stored := f.storedGrant(t, profileGrantAgents)
+	require.True(t, stored)
+	require.Equal(t, profileGrantAccess, access)
+	require.Equal(t, nobody.GetUID(), authorizedBy)
 }
 
 // TestProfileOAuthGrantCallbackRevalidates checks that a callback stores nothing when what it was started for changed

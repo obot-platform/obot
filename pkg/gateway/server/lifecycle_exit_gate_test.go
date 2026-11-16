@@ -107,7 +107,7 @@ func TestLifecycleExitGate(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("failed to store JWK: %v", err)
 	}
-	tokenService, err := persistent.NewTokenService("https://obot.example.com", client, false)
+	tokenService, err := persistent.NewTokenService("https://obot.example.com", client)
 	if err != nil {
 		t.Fatal(err)
 	}

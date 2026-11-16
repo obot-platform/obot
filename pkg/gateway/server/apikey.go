@@ -266,9 +266,8 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 
 // authenticateAPIKey answers the API key authentication webhook, which the nanobot shim and the CLI call with a key
 // to validate. Its subject is the key owner's storage encoding: a user's decimal ID, or "agent:<id>" for an agent's
-// key, which is answered for only while authentication is enabled, because agents are not supported without it. An
-// agent has no username or email, so neither is reported for one, and its display name is only a name: display names
-// need not be unique.
+// key, whether or not the server authenticates callers. An agent has no username or email, so neither is reported
+// for one, and its display name is only a name: display names need not be unique.
 func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// Extract API key from header
 	authHeader := apiContext.Request.Header.Get("Authorization")
@@ -284,15 +283,8 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	// owner only, so the key it returns is one of that kind of owner: a key is never answered for as an owner of
 	// another kind, such as the user with its agent's numeric ID.
 	bearer, ok := strings.CutPrefix(authHeader, "Bearer ")
-	var ownerKind principal.Kind
-	switch {
-	case !ok:
-	case strings.HasPrefix(bearer, system.APIKeyPrefix+"-"):
-		ownerKind = principal.KindUser
-	case strings.HasPrefix(bearer, system.AgentAPIKeyPrefix+"-") && s.authEnabled:
-		ownerKind = principal.KindAgent
-	}
-	if ownerKind == "" {
+	ownerKind, _, _, _, err := client.ParseAPIKey(bearer)
+	if !ok || err != nil {
 		slog.Info("Denied API key auth request", "reason", "invalid_api_key_format")
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,

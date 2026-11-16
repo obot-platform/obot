@@ -13,6 +13,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
@@ -46,6 +47,9 @@ type agentIdentityFixture struct {
 	db      *gorm.DB
 	// routes are the patterns of the routes the handler registers.
 	routes []string
+	// caller is the user that makes the requests; it is the administrator agentIdentityTestAdminID unless a test
+	// replaces it.
+	caller user.Info
 }
 
 type agentRoute struct {
@@ -57,7 +61,7 @@ type agentRoute struct {
 // newAgentIdentityFixture serves the admin API of agent identities, as pkg/api/router registers it, from a real
 // gateway database. Authorization is not part of it: authorization is checked against the same routes in
 // TestAgentIdentityRoutesAreAdminOnly.
-func newAgentIdentityFixture(t *testing.T, authEnabled bool) *agentIdentityFixture {
+func newAgentIdentityFixture(t *testing.T) *agentIdentityFixture {
 	t.Helper()
 
 	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
@@ -66,10 +70,20 @@ func newAgentIdentityFixture(t *testing.T, authEnabled bool) *agentIdentityFixtu
 	require.NoError(t, err)
 	require.NoError(t, database.AutoMigrate())
 
-	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.VMCP{
-		Name:      agentIdentityTestVMCP,
-		Namespace: system.DefaultNamespace,
-	}).Build()
+	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
+		&v1.VMCP{
+			Name:      agentIdentityTestVMCP,
+			Namespace: system.DefaultNamespace,
+		},
+		// The no auth authenticator reads it when it creates the "nobody" owner.
+		&v1.UserDefaultRoleSetting{
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultRoleSettingName,
+			Spec: v1.UserDefaultRoleSettingSpec{
+				Role: types.RoleBasic,
+			},
+		},
+	).Build()
 	gateway := gclient.New(t.Context(), database, storage, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() { _ = gateway.Close() })
 
@@ -91,9 +105,14 @@ func newAgentIdentityFixture(t *testing.T, authEnabled bool) *agentIdentityFixtu
 		gateway: gateway,
 		storage: storage,
 		db:      services.DB.DB,
+		caller: &user.DefaultInfo{
+			Name:   strconv.Itoa(agentIdentityTestAdminID),
+			UID:    strconv.Itoa(agentIdentityTestAdminID),
+			Groups: types.RoleAdmin.Groups(),
+		},
 	}
 	mux := http.NewServeMux()
-	NewAgentIdentityHandler(authEnabled, &mcp.SessionManager{}).RegisterRoutes(func(pattern string, handle api.HandlerFunc) {
+	NewAgentIdentityHandler(&mcp.SessionManager{}).RegisterRoutes(func(pattern string, handle api.HandlerFunc) {
 		f.routes = append(f.routes, pattern)
 		mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			err := handle(api.Context{
@@ -101,11 +120,7 @@ func newAgentIdentityFixture(t *testing.T, authEnabled bool) *agentIdentityFixtu
 				Request:        r,
 				GatewayClient:  gateway,
 				Storage:        storage,
-				User: &user.DefaultInfo{
-					Name:   strconv.Itoa(agentIdentityTestAdminID),
-					UID:    strconv.Itoa(agentIdentityTestAdminID),
-					Groups: types.RoleAdmin.Groups(),
-				},
+				User:           f.caller,
 			})
 			// The server writes the error of a handler like this.
 			if httpErr, ok := errors.AsType[*types.ErrHTTP](err); ok {
@@ -166,7 +181,7 @@ func (f *agentIdentityFixture) createKey(agentID string, req types.AgentAPIKeyCr
 }
 
 func TestAgentIdentityLifecycleOverHTTP(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 
 	created := f.createAgent(types.AgentIdentityManifest{
 		DisplayName: "  nightly build  ",
@@ -291,7 +306,7 @@ func uintOf(t *testing.T, s string) uint {
 }
 
 func TestAgentIdentityValidation(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 
 	for _, tt := range []struct {
@@ -350,7 +365,7 @@ func TestAgentIdentityValidation(t *testing.T) {
 }
 
 func TestAgentIdentityUnknownAgentIsNotFound(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	key := f.createKey(agent.ID, types.AgentAPIKeyCreateRequest{CanAccessLLMProxy: true})
 
@@ -367,7 +382,7 @@ func TestAgentIdentityUnknownAgentIsNotFound(t *testing.T) {
 }
 
 func TestAgentAPIKeyScopesRoundTripOverHTTP(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	keysPath := "/api/agents/" + agent.ID + "/api-keys"
 
@@ -467,7 +482,7 @@ func TestAgentAPIKeyScopesRoundTripOverHTTP(t *testing.T) {
 }
 
 func TestAgentAPIKeyRequestsAreRefused(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	keysPath := "/api/agents/" + agent.ID + "/api-keys"
 
@@ -522,7 +537,7 @@ func TestAgentAPIKeyRequestsAreRefused(t *testing.T) {
 }
 
 func TestAgentAPIKeysBelongToTheirAgent(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	other := f.createAgent(types.AgentIdentityManifest{DisplayName: "other"})
 	otherKey := f.createKey(other.ID, types.AgentAPIKeyCreateRequest{CanAccessLLMProxy: true})
@@ -566,7 +581,7 @@ func TestAgentAPIKeysBelongToTheirAgent(t *testing.T) {
 }
 
 func TestDisabledAgentGetsKeysThatWaitForEnable(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	agent := f.createAgent(types.AgentIdentityManifest{DisplayName: "agent"})
 	f.call(http.StatusOK, http.MethodPost, "/api/agents/"+agent.ID+"/disable", types.AgentIdentityDisableRequest{Reason: "rotating"}, nil)
 
@@ -582,30 +597,62 @@ func TestDisabledAgentGetsKeysThatWaitForEnable(t *testing.T) {
 	require.Equal(t, types.UserStatusActive, validated.OwnerStatus)
 }
 
-// TestAgentIdentityRoutesRequireAuthentication checks that while authentication is disabled, every route of the admin
-// API is still registered but refuses with 501 and an explanation, and that no request creates an agent.
-func TestAgentIdentityRoutesRequireAuthentication(t *testing.T) {
-	f := newAgentIdentityFixture(t, false)
-	require.Len(t, f.routes, 14)
+// TestAgentRoutesServeTheNoAuthOwner checks that without authentication, where every request is the "nobody" owner's
+// (authn.NoAuth), every route of agents is authorized for that owner, as it is for any owner: the admin API, the
+// readiness routes, and the profile status, configuration and OAuth routes. The handlers do not depend on whether
+// authentication is enabled, and the admin API serves the owner as the creator of the agents it creates.
+func TestAgentRoutesServeTheNoAuthOwner(t *testing.T) {
+	f := newAgentIdentityFixture(t)
+	response, ok, err := authn.NewNoAuth(f.gateway).AuthenticateRequest(httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/agents", nil))
+	require.NoError(t, err)
+	require.True(t, ok)
+	nobody := response.User
+	require.Equal(t, "nobody", nobody.GetName())
+	f.caller = nobody
 
-	for _, pattern := range f.routes {
+	var routes []string
+	collect := func(pattern string, _ api.HandlerFunc) {
+		routes = append(routes, pattern)
+	}
+	NewAgentIdentityHandler(&mcp.SessionManager{}).RegisterRoutes(collect)
+	NewVMCPProfileOAuthHandler(nil, nil).RegisterRoutes(collect)
+	NewVMCPProfileConfigurationHandler(nil).RegisterRoutes(collect)
+	require.Len(t, routes, 19)
+	authorizer := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
+	for _, pattern := range routes {
 		method, path, _ := strings.Cut(pattern, " ")
-		path = strings.NewReplacer("{agent_id}", "1", "{key_id}", "1", "{vmcp_id}", agentIdentityTestVMCP).Replace(path)
-		rec := f.do(method, path, `{"displayName":"x","canAccessLLMProxy":true}`)
-		require.Equal(t, http.StatusNotImplemented, rec.Code, "%s: %s", pattern, rec.Body.String())
+		path = strings.NewReplacer(
+			"{agent_id}", "7",
+			"{key_id}", "3",
+			"{vmcp_id}", agentIdentityTestVMCP,
+			"{profile_id}", "vp1agents",
+			"{component_id}", "remote",
+		).Replace(path)
+		require.True(t, authorizer.Authorize(httptest.NewRequest(method, path, nil), nobody), "%s %s", method, path)
 	}
 
-	require.Contains(t, f.do(http.MethodGet, "/api/agents", nil).Body.String(), "require authentication")
-	var agents int64
-	require.NoError(t, f.db.Model(&gt.Agent{}).Count(&agents).Error)
-	require.Zero(t, agents, "no request created an agent")
+	created := f.createAgent(types.AgentIdentityManifest{
+		DisplayName: "nightly build",
+	})
+	require.Equal(t, nobody.GetUID(), created.CreatorUserID, "the creator is the no-auth owner")
+	path := "/api/agents/" + created.ID
+	key := f.createKey(created.ID, types.AgentAPIKeyCreateRequest{Name: "ci", CanAccessLLMProxy: true})
+	require.NotEmpty(t, key.Key)
+	var got types.AgentIdentity
+	f.call(http.StatusOK, http.MethodGet, path, nil, &got)
+	require.Equal(t, 1, got.ActiveAPIKeyCount)
+	f.call(http.StatusOK, http.MethodPost, path+"/disable", nil, nil)
+	f.call(http.StatusOK, http.MethodPost, path+"/enable", nil, nil)
+	f.call(http.StatusNoContent, http.MethodDelete, path+"/api-keys/"+strconv.Itoa(int(key.ID)), nil, nil)
+	f.call(http.StatusOK, http.MethodGet, path, nil, &got)
+	require.Zero(t, got.ActiveAPIKeyCount)
 }
 
 // TestAgentIdentityRoutesAreAdminOnly checks every registered route against the authorizer of the server: admins and
 // owners reach all of them, auditors only the reads, and no other user, not even an agent's creator, and no agent
 // does.
 func TestAgentIdentityRoutesAreAdminOnly(t *testing.T) {
-	f := newAgentIdentityFixture(t, true)
+	f := newAgentIdentityFixture(t)
 	require.Len(t, f.routes, 14)
 	authorizer := authz.NewAuthorizer(nil, nil, nil, false, nil, nil, nil)
 

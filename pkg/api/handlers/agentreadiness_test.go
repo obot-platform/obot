@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -111,12 +110,12 @@ func newReadinessFixture(t *testing.T) *readinessFixture {
 		gateway:       gatewayClient,
 		storage:       storage,
 		grants:        grants,
-		config:        NewVMCPProfileConfigurationHandler(true, vmcpconfig.NewProfileConfigurationStore(gatewayClient)),
+		config:        NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient)),
 		manager:       manager,
 		agent:         agent,
 		wildcardAgent: wildcardAgent,
 	}
-	f.serve(NewAgentIdentityHandler(true, manager), NewVMCPProfileOAuthHandler(true, &recordingAuthorizer{}, grants))
+	f.serve(NewAgentIdentityHandler(manager), NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, grants))
 	return f
 }
 
@@ -334,11 +333,11 @@ func TestAgentReadinessUsesTheConnectPathChecks(t *testing.T) {
 	f.storeGrant("vp1agent", readinessRemoteURL, "grant-agent")
 	require.True(t, f.readiness(f.agent).Ready)
 
-	f.serve(NewAgentIdentityHandler(true, &mcp.SessionManager{}), NewVMCPProfileOAuthHandler(true, &recordingAuthorizer{}, f.grants))
+	f.serve(NewAgentIdentityHandler(&mcp.SessionManager{}), NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, f.grants))
 	f.get(http.StatusInternalServerError, "/api/agents/"+strconv.FormatUint(uint64(f.agent.ID), 10)+"/vmcps/"+readinessVMCP+"/readiness", nil)
 
 	// The report is exactly the readiness the session manager computes for a connect.
-	f.serve(NewAgentIdentityHandler(true, f.manager), NewVMCPProfileOAuthHandler(true, &recordingAuthorizer{}, f.grants))
+	f.serve(NewAgentIdentityHandler(f.manager), NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, f.grants))
 	var vmcp v1.VMCP
 	require.NoError(t, f.storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: readinessVMCP}, &vmcp))
 	want, err := f.manager.AgentReadiness(t.Context(), vmcp, nil, gateway.AgentUserInfo(f.agent, nil, nil))
@@ -488,22 +487,6 @@ func TestVMCPProfileStatusAPI(t *testing.T) {
 
 	f.get(http.StatusNotFound, "/api/vmcps/"+readinessVMCP+"/profiles/vp1missing/status", nil)
 	f.get(http.StatusNotFound, "/api/vmcps/vmcp1missing/profiles/vp1agents/status", nil)
-}
-
-// TestAgentReadinessRoutesRequireAuthentication checks the readiness and profile status routes answer 501 without
-// authentication, as the other routes of agents do.
-func TestAgentReadinessRoutesRequireAuthentication(t *testing.T) {
-	f := newReadinessFixture(t)
-	f.serve(NewAgentIdentityHandler(false, f.manager), NewVMCPProfileOAuthHandler(false, &recordingAuthorizer{}, f.grants))
-	for _, path := range []string{
-		agentPath(f.agent, "/vmcps"),
-		agentPath(f.agent, "/vmcps/"+readinessVMCP+"/readiness"),
-		"/api/vmcps/" + readinessVMCP + "/profiles/vp1agents/status",
-	} {
-		rec := httptest.NewRecorder()
-		f.handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, bytes.NewReader(nil)))
-		require.Equal(t, http.StatusNotImplemented, rec.Code, path)
-	}
 }
 
 // TestAgentAccessProblems checks that the access summary reports a key scope that no policy grants anything for.
@@ -681,7 +664,7 @@ func TestProfileOAuthStatusNeverReturnsConfiguredURLs(t *testing.T) {
 	require.Equal(t, "acme-secret-tenant.example.org", oauth["template"].TargetHostname)
 
 	// The response of a reset reports the grants of the profile's other components.
-	body, err := callProfileOAuth(t, NewVMCPProfileOAuthHandler(true, &recordingAuthorizer{}, f.grants), f.storage, f.gateway, http.MethodDelete, readinessVMCP, "vp1agents", "fixed")
+	body, err := callProfileOAuth(t, NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, f.grants), f.storage, f.gateway, http.MethodDelete, readinessVMCP, "vp1agents", "fixed")
 	require.NoError(t, err)
 	check("reset", body)
 	status = types.VMCPProfileStatus{}

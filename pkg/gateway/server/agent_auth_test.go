@@ -350,10 +350,10 @@ func callAPIKeyWebhook(t *testing.T, s *Server, client *gatewayclient.Client, ke
 
 // TestAPIKeyWebhookAnswersForAgents checks the webhook's answer for an agent's key: the agent's encoded ID as the
 // subject, its display name, and no username or email. A user with the same numeric ID is answered for as the user.
-// A disabled agent's key, and an MCP server outside the key's scope, are refused.
+// A disabled agent's key, and an MCP server outside the key's scope, are refused. The webhook answers the same whether
+// or not the server authenticates callers: it has no setting for it.
 func TestAPIKeyWebhookAnswersForAgents(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
-	s.authEnabled = true
 	ctx := t.Context()
 	user := createAPIKeyLifecycleTestUser(t, client, "pia")
 	agent := createAgentWithUsersID(t, client, user)
@@ -412,7 +412,6 @@ func TestAPIKeyWebhookAnswersForAgents(t *testing.T) {
 // authenticator honors, without API or device scan access, even should its stored scopes claim them.
 func TestAPIKeyWebhookNeverReportsAgentsAPIAccess(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
-	s.authEnabled = true
 	ctx := t.Context()
 	agent, err := client.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "nightly build"})
 	if err != nil {
@@ -441,7 +440,6 @@ func TestAPIKeyWebhookNeverReportsAgentsAPIAccess(t *testing.T) {
 // server error, not as an agent that does not exist.
 func TestAPIKeyWebhookFailsWhenItCannotReadTheAgent(t *testing.T) {
 	s, client := newTokenRequestTestServer(t)
-	s.authEnabled = true
 	ctx := t.Context()
 	agent, err := client.CreateAgent(ctx, gatewaytypes.Agent{DisplayName: "nightly build"})
 	if err != nil {
@@ -472,6 +470,20 @@ func TestAPIKeyWebhookFailsWhenItCannotReadTheAgent(t *testing.T) {
 func agentChain(t *testing.T, client *gatewayclient.Client) (*authn.AdmissionCheck, *persistent.TokenService) {
 	t.Helper()
 
+	tokenService := newChainTokenService(t, client)
+	return authn.NewAdmissionCheck(union.NewFailOnError(
+		union.New(
+			NewAPIKeyAuthenticator(client),
+			tokenService,
+		),
+		authn.Anonymous{},
+	), nil), tokenService
+}
+
+// newChainTokenService returns a token service with a stored key, as the server's.
+func newChainTokenService(t *testing.T, client *gatewayclient.Client) *persistent.TokenService {
+	t.Helper()
+
 	_, jwk, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -485,17 +497,11 @@ func agentChain(t *testing.T, client *gatewayclient.Client) (*authn.AdmissionChe
 	}); err != nil {
 		t.Fatalf("failed to store JWK: %v", err)
 	}
-	tokenService, err := persistent.NewTokenService("https://obot.example.com", client, true)
+	tokenService, err := persistent.NewTokenService("https://obot.example.com", client)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return authn.NewAdmissionCheck(union.NewFailOnError(
-		union.New(
-			NewAPIKeyAuthenticator(client),
-			tokenService,
-		),
-		authn.Anonymous{},
-	), nil), tokenService
+	return tokenService
 }
 
 // TestAgentLifecycleAcrossTheAuthenticatorChain checks, across the authenticator chain as the server composes it,

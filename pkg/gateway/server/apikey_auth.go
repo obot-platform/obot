@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -24,14 +25,33 @@ const (
 	llmProxyPathPrefix = "/api/llm-proxy/"
 )
 
+var (
+	// errInvalidAgentAPIKey refuses a request that presents an agent API key that authenticates no agent.
+	errInvalidAgentAPIKey = errors.New("invalid agent API key")
+)
+
 // APIKeyAuthenticator authenticates requests using the API keys of users (ok1-) and of agents (oak1-). A key's
 // principal has only the groups its scopes grant, not every group of its owner.
 //
-// The server adds it to the authenticator chain only when authentication is enabled. Agents authenticate only with
-// their keys, so without authentication they are not supported: an agent key is then tried by the rest of the chain
-// as any other bearer value is, and authenticates no one.
+// The server adds it to the authenticator chain only when authentication is enabled. Without authentication, agent
+// keys are authenticated by AgentAPIKeyAuthenticator instead, and users' keys are not checked.
 type APIKeyAuthenticator struct {
 	client *client.Client
+}
+
+// AgentAPIKeyAuthenticator authenticates agents' API keys (oak1-) for a server that does not authenticate callers,
+// where every other request is the "nobody" administrator's. It fails rather than declines: a request that presents an
+// agent key either authenticates as that agent, with exactly the principal APIKeyAuthenticator builds for it, or ends
+// the chain with an error, so that an unknown, revoked, expired or malformed key, or the key of a disabled or deleted
+// agent, is never given the administrator's rights. Run it ahead of the catch-all, in a part of the chain that stops at
+// its first error (union.NewFailOnError).
+//
+// A request presents an agent key if any header APIKeyAuthenticator reads (apiKeyHeaders) holds one, not only the
+// header it reads the credential from. A request whose credential is something else, but that also carries an agent
+// key, is refused too: APIKeyAuthenticator would not authenticate it as the agent, and it must not reach the catch-all.
+// A request with no agent key is declined, so users' keys and other credentials are left to the rest of the chain.
+type AgentAPIKeyAuthenticator struct {
+	keys *APIKeyAuthenticator
 }
 
 // NewAPIKeyAuthenticator creates a new API key authenticator.
@@ -39,26 +59,39 @@ func NewAPIKeyAuthenticator(client *client.Client) *APIKeyAuthenticator {
 	return &APIKeyAuthenticator{client: client}
 }
 
-// AuthenticateRequest implements authenticator.Request.
-func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+// apiKeyHeaders returns the values of the headers a request can present an API key in, in the order they are read:
+// X-Obot-Api-Key, on the LLM proxy only, then the Authorization header's bearer value, then X-API-Key. An empty value
+// is a header that is not set.
+func apiKeyHeaders(req *http.Request) []string {
 	// X-Obot-Api-Key lets a client whose Authorization header carries another credential,
 	// such as Claude Code signed in with a Claude subscription, send its Obot API key too. It
 	// is only for the LLM proxy, which strips it before forwarding; elsewhere, such as on MCP
 	// connections, it would travel on to an upstream server.
-	var authHeader string
+	var obotAPIKey string
 	if strings.HasPrefix(req.URL.Path, llmProxyPathPrefix) {
-		authHeader = req.Header.Get(HeaderObotAPIKey)
+		obotAPIKey = req.Header.Get(HeaderObotAPIKey)
 	}
-	if authHeader == "" {
-		authHeader = strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer ")
+	return []string{
+		obotAPIKey,
+		strings.TrimPrefix(req.Header.Get("Authorization"), "Bearer "),
+		req.Header.Get("X-API-Key"),
 	}
-	if authHeader == "" {
-		authHeader = req.Header.Get("X-API-Key")
-		if authHeader == "" {
-			return nil, false, nil
+}
+
+// requestAPIKey returns the credential the API key authenticator reads from a request: the first of apiKeyHeaders
+// that is set. It need not be an API key.
+func requestAPIKey(req *http.Request) string {
+	for _, value := range apiKeyHeaders(req) {
+		if value != "" {
+			return value
 		}
 	}
+	return ""
+}
 
+// AuthenticateRequest implements authenticator.Request.
+func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	authHeader := requestAPIKey(req)
 	// The prefix names the kind of the key's owner, and ValidateAPIKey looks the key up as a key of that kind of
 	// owner only, so the key it returns is one of that kind of owner: a key is never authenticated as an owner of
 	// another kind, such as the user with its agent's numeric ID.
@@ -192,4 +225,32 @@ func agentKeyScopes(scopes gatewaytypes.APIKeyScopes) gatewaytypes.APIKeyScopes 
 	scopes.CanAccessAPI = false
 	scopes.CanAccessDeviceScans = false
 	return scopes
+}
+
+// NewAgentAPIKeyAuthenticator creates an authenticator of agents' API keys for a server that does not authenticate
+// callers.
+func NewAgentAPIKeyAuthenticator(client *client.Client) *AgentAPIKeyAuthenticator {
+	return &AgentAPIKeyAuthenticator{
+		keys: NewAPIKeyAuthenticator(client),
+	}
+}
+
+// AuthenticateRequest implements authenticator.Request.
+func (a *AgentAPIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
+	if !slices.ContainsFunc(apiKeyHeaders(req), client.IsAgentAPIKey) {
+		return nil, false, nil
+	}
+	if !client.IsAgentAPIKey(requestAPIKey(req)) {
+		return nil, false, errInvalidAgentAPIKey
+	}
+	response, ok, err := a.keys.AuthenticateRequest(req)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, errInvalidAgentAPIKey
+	}
+	// The key's prefix names an agent, and APIKeyAuthenticator authenticates a key only as an owner of the kind its
+	// prefix names.
+	return response, true, nil
 }

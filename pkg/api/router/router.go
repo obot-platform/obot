@@ -53,7 +53,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
 	oauthChecker.SetProfileOAuthGrants(services.VMCPProfileOAuthGrants)
-	vmcpProfileOAuth := handlers.NewVMCPProfileOAuthHandler(services.AuthEnabled, oauthChecker, services.VMCPProfileOAuthGrants)
+	vmcpProfileOAuth := handlers.NewVMCPProfileOAuthHandler(oauthChecker, services.VMCPProfileOAuthGrants)
 
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
@@ -87,9 +87,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	availableModels := handlers.NewAvailableModelsHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.EntitlementProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
-	agentIdentities := handlers.NewAgentIdentityHandler(services.AuthEnabled, services.MCPSessionManager)
+	agentIdentities := handlers.NewAgentIdentityHandler(services.MCPSessionManager)
 	vmcps := handlers.NewVMCPHandler(services.AccessControlRuleHelper, services.MCPRuntimeBackend, services.MCPSecretBindingAllowedLabel, services.VMCPProfileData)
-	vmcpProfileConfiguration := handlers.NewVMCPProfileConfigurationHandler(services.AuthEnabled, services.VMCPProfileConfiguration)
+	vmcpProfileConfiguration := handlers.NewVMCPProfileConfigurationHandler(services.VMCPProfileConfiguration)
 	vmcpInstances := handlers.NewVMCPInstanceHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()

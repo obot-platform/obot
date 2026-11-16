@@ -91,7 +91,7 @@ func newOAuthTokenTestServices(t *testing.T, objects ...kclient.Object) (storage
 			"JWK_KEY": base64.StdEncoding.EncodeToString(privateKey),
 		},
 	}))
-	tokenService, err := persistent.NewTokenService("https://obot.example.com", gatewayClient, false)
+	tokenService, err := persistent.NewTokenService("https://obot.example.com", gatewayClient)
 	require.NoError(t, err)
 
 	return storage, gatewayClient, tokenService

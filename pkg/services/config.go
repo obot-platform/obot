@@ -692,10 +692,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		postgresDSN = config.DSN
 	}
 
-	// Agents authenticate only with their API keys, whose authenticator runs only with authentication enabled. In the
-	// no-auth mode, every caller is an administrator, and agents are not supported: no agent key or token
-	// authenticates.
-	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient, config.EnableAuthentication)
+	// The token service issues and authenticates tokens for agents as for users.
+	persistentTokenServer, err := persistent.NewTokenService(config.Hostname, gatewayClient)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup persistent token service: %w", err)
 	}
@@ -990,9 +988,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
-	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayOpts.AuthEnabled = config.EnableAuthentication
-	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gatewayOpts)
+	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, gserver.Options(config.GatewayConfig))
 	if err != nil {
 		return nil, err
 	}
@@ -1078,9 +1074,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			}
 		}
 	} else {
-		// "Authentication Disabled" flow. There is no API key authenticator here, so agents, which authenticate only
-		// with their API keys, are not supported, and the token service issues and authenticates no token for one
-		// (it is given EnableAuthentication, which is false).
+		// "Authentication Disabled" flow. Every request that no credential below authenticates is the "nobody" owner's.
+		// Agents are supported as when authentication is enabled: an agent authenticates with its API key, or with a
+		// token the token service issued it, as its agent and with the agent's restrictions. Users' API keys are not
+		// checked here; a request with one is the "nobody" owner's, as any other request is.
 
 		// Add gateway user info if token auth worked
 		authenticators = client.NewUserDecorator(authenticators, gatewayClient, entitlementProvider)
@@ -1096,8 +1093,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
 		authenticators = union.New(authenticators, gserver.NewDeviceAuthenticator(gatewayClient))
 
-		// Add no auth authenticator
-		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
+		// Add no auth authenticator. Agents' credentials fail closed ahead of it: a refused agent API key or token is
+		// never the "nobody" owner's (see WithNoAuth).
+		authenticators = gserver.WithNoAuth(authenticators, gatewayClient, persistentTokenServer)
 	}
 
 	// Bridge requests use a non-user principal and can also carry the remote

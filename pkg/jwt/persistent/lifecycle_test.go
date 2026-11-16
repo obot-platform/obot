@@ -54,7 +54,7 @@ func newLifecycleTestTokenService(t *testing.T) (*TokenService, *client.Client) 
 
 	_, privateKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
-	tokenService, err := NewTokenService(testServerURL, gatewayClient, false)
+	tokenService, err := NewTokenService(testServerURL, gatewayClient)
 	require.NoError(t, err)
 	require.NoError(t, tokenService.replaceKey(t.Context(), privateKey))
 

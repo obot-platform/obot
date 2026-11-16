@@ -136,7 +136,7 @@ func TestVMCPProfileConfigurationAPI(t *testing.T) {
 	vmcp := profileConfigurationTestVMCP()
 	storage := newProfileConfigurationTestStorage(vmcp)
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPProfileConfigurationHandler(true, vmcpconfig.NewProfileConfigurationStore(gatewayClient))
+	handler := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
 	// No controller collects the reset's revisions here; TestVMCPProfileConfigurationResetWaitsForCollection has one.
 	handler.collectionTimeout = 50 * time.Millisecond
 
@@ -203,7 +203,7 @@ func TestVMCPProfileConfigurationAPI(t *testing.T) {
 func resetTestProfile(t *testing.T, storage *vmcpTestStorage, gatewayClient *gateway.Client, vmcpID, profileID string) (*VMCPProfileConfigurationHandler, *vmcpconfig.ProfileConfigurationStore) {
 	t.Helper()
 	store := vmcpconfig.NewProfileConfigurationStore(gatewayClient)
-	handler := NewVMCPProfileConfigurationHandler(true, store)
+	handler := NewVMCPProfileConfigurationHandler(store)
 	_, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcpID, profileID, map[string]any{
 		"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
 	})
@@ -321,24 +321,6 @@ func TestVMCPProfileConfigurationResetWithNothingToClear(t *testing.T) {
 	require.True(t, resetStatus(t, body).PendingCollection)
 }
 
-// TestVMCPProfileConfigurationRequiresAuthentication checks that the routes refuse without authentication, which
-// agents need, as the agent admin API does, and store nothing.
-func TestVMCPProfileConfigurationRequiresAuthentication(t *testing.T) {
-	vmcp := profileConfigurationTestVMCP()
-	storage := newProfileConfigurationTestStorage(vmcp.DeepCopy())
-	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPProfileConfigurationHandler(false, vmcpconfig.NewProfileConfigurationStore(gatewayClient))
-	for _, method := range []string{http.MethodPut, http.MethodPost} {
-		_, err := callProfileConfiguration(t, handler, storage, gatewayClient, method, vmcp.Name, "vp1seven", map[string]any{
-			"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
-		})
-		requireHTTPStatus(t, err, http.StatusNotImplemented)
-	}
-	var stored v1.VMCP
-	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &stored))
-	require.Empty(t, stored.Status.ProfileConfigurationRevisions)
-}
-
 // TestVMCPUpdateGuardsProfileConfiguration checks the two vMCP update rules that depend on profile data with the real
 // store: an update may not replace a profile that has configuration with a new profile of its name, and a vMCP stored
 // before the wildcard rule loses its exception from it once a profile has configuration.
@@ -347,7 +329,7 @@ func TestVMCPUpdateGuardsProfileConfiguration(t *testing.T) {
 	entry.Spec.Manifest.Config = []types.MCPConfig{{Key: "REGION", Required: true}}
 	gatewayClient := newHandlerTestGateway(t)
 	store := vmcpconfig.NewProfileConfigurationStore(gatewayClient)
-	configuration := NewVMCPProfileConfigurationHandler(true, store)
+	configuration := NewVMCPProfileConfigurationHandler(store)
 	handler := NewVMCPHandler(nil, "", "", vmcpconfig.ProfileDataStores{store})
 
 	t.Run("replacing a profile", func(t *testing.T) {
@@ -480,7 +462,7 @@ func TestVMCPProfileConfigurationOnCatalogVMCPs(t *testing.T) {
 	vmcp.Spec.SourceURL = "https://catalog.example.com/vmcps.yaml"
 	storage := newProfileConfigurationTestStorage(vmcp)
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPProfileConfigurationHandler(true, vmcpconfig.NewProfileConfigurationStore(gatewayClient))
+	handler := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
 	_, err := callProfileConfiguration(t, handler, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1agents", map[string]any{
 		"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
 	})

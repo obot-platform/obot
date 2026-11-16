@@ -89,7 +89,7 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 		transport.ServeHTTP(w, r)
 	}))
 	defer endpoint.Close()
-	tokens, err = persistent.NewTokenService(endpoint.URL, gateway, false)
+	tokens, err = persistent.NewTokenService(endpoint.URL, gateway)
 	require.NoError(t, err)
 	require.NoError(t, tokens.EnsureJWK(t.Context()))
 	sm := &SessionManager{
