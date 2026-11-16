@@ -226,8 +226,8 @@ func TestDirectPublicInferenceStreaming(t *testing.T) {
 					}
 					if failure != "flush" {
 						select {
-						case <-done:
-							t.Fatal("handler completed before producer released")
+						case err := <-done:
+							t.Fatalf("handler completed before producer released, %v", err)
 						default:
 						}
 					}
