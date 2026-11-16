@@ -44,7 +44,7 @@ func TestReadAndValidateModelAccessPolicyManifest(t *testing.T) {
 		{
 			name:     "rejects non-llm alias",
 			modelIDs: []string{"obot://vision"},
-			wantErr:  `model "obot://vision" must reference default model alias "llm" or "llm-mini"`,
+			wantErr:  `unknown model alias type reference: vision`,
 		},
 		{
 			name:     "allows selectors",

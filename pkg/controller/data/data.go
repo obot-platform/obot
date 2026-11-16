@@ -37,6 +37,20 @@ type Defaults struct {
 }
 
 func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
+	// Scan by manifest alias because API-created records can have generated resource names.
+	var storedAliases v1.DefaultModelAliasList
+	if err := c.List(ctx, &storedAliases, kclient.InNamespace(system.DefaultNamespace)); err != nil {
+		return err
+	}
+	for i := range storedAliases.Items {
+		a := &storedAliases.Items[i]
+		if types.IsRemovedDefaultModelAlias(a.Spec.Manifest.Alias) {
+			if err := kclient.IgnoreNotFound(c.Delete(ctx, a)); err != nil {
+				return fmt.Errorf("remove retired default model alias %s: %w", a.Name, err)
+			}
+		}
+	}
+
 	var defaultModelAliases v1.DefaultModelAliasList
 	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
 		return fmt.Errorf("failed to unmarshal default model aliases: %w", err)

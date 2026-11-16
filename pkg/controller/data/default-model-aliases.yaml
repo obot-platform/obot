@@ -15,27 +15,3 @@ items:
     spec:
       manifest:
         alias: llm-mini
-  - apiVersion: obot.obot.ai/v1
-    kind: DefaultModelAlias
-    metadata:
-      name: text-embedding
-      namespace: default
-    spec:
-      manifest:
-        alias: text-embedding
-  - apiVersion: obot.obot.ai/v1
-    kind: DefaultModelAlias
-    metadata:
-      name: image-generation
-      namespace: default
-    spec:
-      manifest:
-        alias: image-generation
-  - apiVersion: obot.obot.ai/v1
-    kind: DefaultModelAlias
-    metadata:
-      name: vision
-      namespace: default
-    spec:
-      manifest:
-        alias: vision

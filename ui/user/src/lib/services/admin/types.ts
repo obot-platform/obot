@@ -1214,17 +1214,11 @@ export const ConfigurableModelAlias = {
 } as const;
 export const ModelAliasLabels = {
 	[ModelAlias.Llm]: m.core_model_usage_llm(),
-	[ModelAlias.LlmMini]: m.core_model_usage_llm_fast(),
-	[ModelAlias.TextEmbedding]: m.core_model_usage_text_embedding(),
-	[ModelAlias.ImageGeneration]: m.core_model_usage_image_generation(),
-	[ModelAlias.Vision]: m.core_model_usage_vision()
+	[ModelAlias.LlmMini]: m.core_model_usage_llm_fast()
 } as const;
 export const ModelAliasToUsageMap = {
 	[ModelAlias.Llm]: ModelUsage.LLM,
-	[ModelAlias.LlmMini]: ModelUsage.LLM,
-	[ModelAlias.TextEmbedding]: ModelUsage.TextEmbedding,
-	[ModelAlias.ImageGeneration]: ModelUsage.ImageGeneration,
-	[ModelAlias.Vision]: ModelUsage.Vision
+	[ModelAlias.LlmMini]: ModelUsage.LLM
 } as const;
 
 // Product analytics

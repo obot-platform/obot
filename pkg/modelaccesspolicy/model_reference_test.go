@@ -86,3 +86,27 @@ func TestResolveModelReference(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveRemovedDefaultAliases(t *testing.T) {
+	for _, name := range []string{"vision", "image-generation", "text-embedding"} {
+		t.Run(name, func(t *testing.T) {
+			model := newModel("concrete", "provider", "openai/concrete", true)
+			dma := &v1.DefaultModelAlias{
+				Name: "generated-alias",
+				Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: name, Model: model.Name}},
+			}
+			lookup := &v1.Alias{
+				Name: alias.KeyFromScopeID("Model", name),
+				Spec: v1.AliasSpec{TargetKind: "DefaultModelAlias", TargetName: dma.Name},
+			}
+			c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(model, dma, lookup).Build()
+			h := newModelHelper(t, []*v1.Model{model})
+			_, err := h.ResolveModelReference(t.Context(), c, "default", "provider", name)
+			require.True(t, apierrors.IsBadRequest(err))
+			require.Contains(t, err.Error(), "use a concrete gateway model name")
+			got, err := h.ResolveModelReference(t.Context(), c, "default", "provider", model.Name)
+			require.NoError(t, err)
+			require.Equal(t, model.Name, got.Name)
+		})
+	}
+}

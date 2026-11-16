@@ -340,6 +340,9 @@ func (h *Helper) ResolveModelReference(ctx context.Context, client kclient.Clien
 	var model *v1.Model
 	switch resolved := resolved.(type) {
 	case *v1.DefaultModelAlias:
+		if types.IsRemovedDefaultModelAlias(resolved.Spec.Manifest.Alias) {
+			return nil, apierrors.NewBadRequest(fmt.Sprintf("default model alias %q has been removed; use a concrete gateway model name", reference))
+		}
 		if resolved.Spec.Manifest.Model == "" {
 			return nil, fmt.Errorf("default model alias %q is not configured", reference)
 		}
