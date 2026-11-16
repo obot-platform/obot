@@ -46,6 +46,7 @@
   "setup_no_user_id": "コンテキストにユーザー ID がありません",
   "setup_local_not_configured": "ローカル認証は設定済みのプロバイダーではありません",
   "setup_no_local_account": "セットアップ用のローカルアカウントがありません",
+  "setup_owner_exists": "オーナーはすでに作成されています。続行するにはサインインしてください",
   "setup_sign_in_initial": "最初のローカルアカウントでサインインして設定を続けてください",
   "setup_change_password": "設定を完了する前にパスワードを変更してください",
   "setup_login_not_started": "このブラウザーでは設定用のログインが開始されていません。Obot の管理ページから設定をやり直してください",

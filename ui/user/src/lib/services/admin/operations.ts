@@ -1783,6 +1783,16 @@ export async function confirmTempUserAsOwner(email: string) {
 	return response;
 }
 
+export async function createLocalOwner(email: string, password: string) {
+	return (await doPost(
+		'/setup/local-owner',
+		{ email, password },
+		{
+			dontLogErrors: true
+		}
+	)) as { email: string; redirect: string };
+}
+
 export async function cancelTempLogin() {
 	await doPost(
 		'/setup/cancel-temp-login',

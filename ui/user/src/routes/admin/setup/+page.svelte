@@ -4,9 +4,10 @@
 	import LocalAuthInitialUserForm from '$lib/components/admin/LocalAuthInitialUserForm.svelte';
 	import OwnerSetupPrompt from '$lib/components/admin/OwnerSetupPrompt.svelte';
 	import SetupSplashContent from '$lib/components/admin/SetupSplashContent.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { navigateTo } from '$lib/navigation';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { errors, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -108,22 +109,16 @@
 		}
 	}
 
-	async function handleOwnerCreated(userCount: number, email?: string) {
-		if (userCount <= 0) return;
-		if (email) {
-			localUsers = [
-				{
-					id: 'created',
-					email,
-					created: new Date().toISOString(),
-					requirePasswordChange: false
-				}
-			];
-		} else {
-			localUsers = await AdminService.listLocalAuthUsers();
+	async function handleSubmitOwner(email: string, password: string): Promise<string | undefined> {
+		try {
+			const { redirect } = await AdminService.createLocalOwner(email, password);
+			localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
+			navigateTo(redirect || '/admin');
+			return undefined;
+		} catch (err) {
+			const { message } = parseErrorContent(err);
+			return message || m.identity_access_auth_providers_local_auth_initial_user_create_failed();
 		}
-		step = 'signin';
-		await prepareSignIn();
 	}
 </script>
 
@@ -155,7 +150,7 @@
 						<LocalAuthInitialUserForm
 							provider={localProvider}
 							onConfigure={handleLocalAuthConfigure}
-							onCreated={handleOwnerCreated}
+							onSubmitOwner={handleSubmitOwner}
 						/>
 					</div>
 				{:else}

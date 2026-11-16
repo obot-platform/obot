@@ -1,4 +1,8 @@
-import { CommonAuthProviderIds, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
+import {
+	AUTH_PROVIDERS_VIEW_PATH,
+	CommonAuthProviderIds,
+	SEEN_SPLASH_DIALOG_KEY
+} from '$lib/constants';
 import { handleRouteError } from '$lib/errors';
 import { hasSeenTimestamp } from '$lib/localstate';
 import { AdminService, UserService, type AuthProvider, type LocalAuthUser } from '$lib/services';
@@ -29,7 +33,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		(provider) => provider.configured && provider.id !== CommonAuthProviderIds.LOCAL
 	);
 	if (otherConfigured && !localProvider?.configured) {
-		throw redirect(307, '/identity-access?view=auth-providers');
+		throw redirect(307, AUTH_PROVIDERS_VIEW_PATH);
 	}
 
 	// getting local users in case of subsequent revisit to setup
