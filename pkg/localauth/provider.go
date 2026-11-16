@@ -222,11 +222,10 @@ func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) 
 		return "", time.Time{}, gorm.ErrRecordNotFound
 	}
 
-	token, err := generateToken()
+	token, expiresAt, err := newSessionToken()
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	expiresAt := time.Now().Add(sessionDuration)
 	if _, err := p.gatewayClient.ActivateLocalAuthUser(ctx, hash.String(setupToken), hash.String(token), expiresAt); err != nil {
 		return "", time.Time{}, err
 	}
@@ -236,12 +235,10 @@ func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) 
 // StartSession creates a session for the local user and returns the token to hand to the browser
 // as its session cookie. Only the token's hash is stored.
 func (p *Provider) StartSession(ctx context.Context, userID uint) (string, time.Time, error) {
-	token, err := generateToken()
+	token, expiresAt, err := newSessionToken()
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to generate session token: %w", err)
+		return "", time.Time{}, err
 	}
-
-	expiresAt := time.Now().Add(sessionDuration)
 	if err := p.gatewayClient.CreateLocalAuthSession(ctx, hash.String(token), userID, expiresAt); err != nil {
 		return "", time.Time{}, fmt.Errorf("failed to create local auth session: %w", err)
 	}
@@ -421,6 +418,15 @@ func cookieValue(header map[string][]string, name string) string {
 		return ""
 	}
 	return cookie.Value
+}
+
+// newSessionToken returns a new session token and the time the session it starts expires.
+func newSessionToken() (string, time.Time, error) {
+	token, err := generateToken()
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("failed to generate session token: %w", err)
+	}
+	return token, time.Now().Add(sessionDuration), nil
 }
 
 func generateToken() (string, error) {

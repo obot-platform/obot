@@ -186,6 +186,30 @@ describe('Setup page', () => {
 		expect(navigation.navigateTo).not.toHaveBeenCalled();
 	});
 
+	it('moves to owner sign-in when a local account already exists on submit', async () => {
+		const owner = createdUser('owner@example.com');
+		const { initiateTempLogin } = mockSetupApis({ users: [owner] });
+		worker.use(
+			http.post('/api/setup/local-owner', () =>
+				HttpResponse.text('a local account already exists; sign in to continue', { status: 409 })
+			)
+		);
+		vi.mocked(navigation.navigateTo).mockImplementation(() => {});
+		await renderSetupPage({ splashSeen: true, eulaAccepted: true, localProvider: localConfigured });
+
+		await completeOwnerForm();
+
+		await expect.element(page.getByText('Next Step: Owner Setup', { exact: true })).toBeVisible();
+		await vi.waitFor(() => {
+			expect(initiateTempLogin).toHaveBeenCalledOnce();
+		});
+		await expect
+			.element(page.getByRole('link', { name: /Sign in as owner@example.com/ }))
+			.toBeVisible();
+		await expect.element(page.getByLabelText('Email', { exact: true })).not.toBeInTheDocument();
+		expect(navigation.navigateTo).not.toHaveBeenCalled();
+	});
+
 	it('opens user management without configuration when changing the owner account', async () => {
 		const owner = createdUser('owner@example.com');
 		mockSetupApis({ users: [owner] });

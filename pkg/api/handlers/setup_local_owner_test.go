@@ -110,7 +110,7 @@ func TestCreateLocalOwnerGuards(t *testing.T) {
 			existingLocal: true,
 			body:          `{"email":"owner@example.com","password":"` + localSetupPassword + `"}`,
 			wantCode:      http.StatusConflict,
-			wantMessage:   "owner has already been created",
+			wantMessage:   "local account already exists",
 		},
 		{
 			name:        "password too short",
