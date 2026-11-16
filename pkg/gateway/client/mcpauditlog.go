@@ -1224,8 +1224,10 @@ func (c *Client) decryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog)
 // decryptMCPAuditLogs restores the payload fields of logs to what was captured. It handles the
 // rows together so that a shared body referenced by several of them is loaded once.
 //
-// It stops at the first row whose legacy fields cannot be decrypted. A wrong key fails every row
-// of a page or export batch, and the error of one row says as much as all of them.
+// It stops at the first row with a field that cannot be decrypted: a legacy body, or a field such
+// as the headers that every encrypted row keeps under per-row encryption. That fails the whole
+// page or export batch either way, and an export batch has thousands of rows, so one row's error
+// is reported rather than every one.
 func (c *Client) decryptMCPAuditLogs(ctx context.Context, logs []*types.MCPAuditLog) error {
 	var (
 		transformer = c.mcpAuditLogTransformer()

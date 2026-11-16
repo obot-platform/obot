@@ -108,6 +108,8 @@ Enabling encryption does not automatically encrypt all existing data. Existing i
 
 ## Rotating the Encryption Key {#overview-rotating-the-encryption-key}
 
+These steps apply to a [Custom](../configuration/encryption-providers/custom-provider.md) encryption configuration, which can list more than one key. The AWS KMS, Google Cloud KMS, and Azure Key Vault providers use a built-in configuration with a single key, so their keys are rotated in the cloud provider instead. There, keep every key version that encrypted stored data enabled for at least as long as the retention guidance below.
+
 The first provider listed for a resource in the `EncryptionConfiguration` encrypts new data. Every listed provider can decrypt. Rotate a key in this order:
 
 1. Add the new key to every replica's configuration after the current key, so that every replica can read data encrypted with it. Finish this rollout before the next step.
@@ -118,7 +120,7 @@ For MCP and local-agent audit logs, keep the old key for at least the MCP audit 
 
 Other encrypted data, such as credentials and user details, is not re-encrypted when the key changes. It keeps needing the old key until it is rewritten.
 
-If the old key is removed too early, audit log payloads encrypted with it can no longer be read. Audit log metadata remains available.
+If the old key is removed too early, audit logs encrypted with it can no longer be read. Their detail views fail, and so does any audit log list page or export that includes payloads and contains one of them, even if the other audit logs on it use the new key. Audit log list pages without payloads remain available.
 
 ### Recovering from a Lost Audit Hash Key {#overview-recovering-from-a-lost-audit-hash-key}
 
