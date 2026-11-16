@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secretbinding"
+	"github.com/obot-platform/obot/pkg/controller/handlers/subscription"
 	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/localauth"
@@ -206,6 +207,14 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 			slog.Warn("failed to trigger model discovery after legacy provider import", "error", err)
 		}
 	}()
+	// A billed environment's Subscription and EntitlementUsage have to exist for the leader to keep them current.
+	if c.services.BillingProvider != nil {
+		if err := subscription.EnsureResources(ctx, client); err != nil {
+			panic(err)
+		}
+	}
+	// Delete expired and retained data from the leader only, so replicas don't repeat the same deletes.
+	c.services.GatewayClient.StartCleanups(ctx, c.services.EntitlementProvider, c.services.EgressAuditLogRetentionDays)
 	if c.services.Substrate != nil {
 		handler := &agentinstance.Handler{Substrate: c.services.Substrate, Gateway: c.services.GatewayClient}
 		go handler.RunMaintenance(ctx, client)
@@ -693,7 +702,7 @@ func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) e
 		}
 
 		for _, authProvider := range authProviders.Items {
-			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.LicenseProvider, &authProvider); err != nil {
+			if err := provider.SetAuthProviderConfiguredStatus(ctx, c.services.GatewayClient, c.services.EntitlementProvider, &authProvider); err != nil {
 				return fmt.Errorf("failed to set auth provider configured status: %w", err)
 			}
 

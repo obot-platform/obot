@@ -597,10 +597,8 @@ export interface K8sServerLog {
 // Licensing
 export interface LicenseEntitlementViolation {
 	type: string;
-	namespace: string;
-	name: string;
-	requiredEntitlements: string[];
-	missingEntitlements: string[];
+	namespace?: string;
+	name?: string;
 	message?: string;
 }
 
@@ -986,7 +984,7 @@ export interface ModelProvider {
 		sensitive?: boolean;
 		hidden?: boolean;
 	}[];
-	missingEntitlements?: string[];
+	entitlementsMissing?: boolean;
 	missingConfigurationParameters?: string[];
 	created: string;
 	optionalConfigurationParameters?: {
@@ -1103,6 +1101,7 @@ export interface Profile {
 	unauthorized?: boolean;
 	/** The server refused the session because the account is not active. */
 	accountInactive?: boolean;
+	environmentRestricted?: boolean;
 	username: string;
 	currentAuthProvider?: string;
 	expired?: boolean;
@@ -1173,13 +1172,13 @@ export interface Version {
 	authEnabled?: boolean;
 	enterprise?: boolean;
 	community?: boolean;
-	licenseEntitlements?: string[];
+	cloud?: boolean;
 	userCount?: number;
 	userLimit?: number;
 	deviceCount?: number;
 	deviceLimit?: number;
 	licenseEntitlementViolations?: LicenseEntitlementViolation[];
-	missingLicenseEntitlements?: string[];
+	billingEnabled?: boolean;
 	upgradeAvailable?: boolean;
 	engine?: 'docker' | 'kubernetes' | 'local';
 	mcpNetworkPolicyEnabled?: boolean;

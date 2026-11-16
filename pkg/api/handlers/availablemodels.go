@@ -4,26 +4,26 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 
 	openai "github.com/obot-platform/chat-completion-client"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/i18n"
-	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type AvailableModelsHandler struct {
-	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.Provider
+	dispatcher          *dispatcher.Dispatcher
+	entitlementProvider gclient.EntitlementProvider
 }
 
-func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider) *AvailableModelsHandler {
+func NewAvailableModelsHandler(dispatcher *dispatcher.Dispatcher, entitlementProvider gclient.EntitlementProvider) *AvailableModelsHandler {
 	return &AvailableModelsHandler{
-		dispatcher:      dispatcher,
-		licenseProvider: licenseProvider,
+		dispatcher:          dispatcher,
+		entitlementProvider: entitlementProvider,
 	}
 }
 
@@ -41,7 +41,7 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 			// A legacy model provider the LLM gateway hasn't migrated yet; it serves nothing.
 			continue
 		}
-		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, a.licenseProvider)
+		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, a.entitlementProvider)
 		if err != nil {
 			return err
 		}

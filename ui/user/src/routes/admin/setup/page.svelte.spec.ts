@@ -21,7 +21,7 @@ const localProvider: AuthProvider = {
 	port: 0,
 	configured: false,
 	missingConfigurationParameters: [],
-	missingEntitlements: [],
+	entitlementsMissing: false,
 	namespace: 'default'
 };
 

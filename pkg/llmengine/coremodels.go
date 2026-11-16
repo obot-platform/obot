@@ -99,6 +99,9 @@ func (e *Engine) serveModels(w http.ResponseWriter, r *http.Request) {
 	if anthropic {
 		provider = schemas.Anthropic
 	}
+	if scope := LegacyProvider(r.Context()); scope != "" {
+		provider = schemas.ModelProvider(scope)
+	}
 	models, err := e.gatewayModels(r.Context(), provider)
 	if err != nil {
 		adminError(w, &apierrors.StatusError{ErrStatus: metav1.Status{Code: http.StatusBadGateway, Message: err.Error()}})

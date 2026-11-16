@@ -72,6 +72,20 @@ func (h *Harness) CreatePersonalVMCP(t *testing.T, manifest types.VMCPManifest) 
 	return created
 }
 
+// CreateSharedVMCP creates a vMCP that isn't owned by one user, as an admin does, and registers cleanup. Its
+// profiles say who can connect to it.
+func (h *Harness) CreateSharedVMCP(t *testing.T, manifest types.VMCPManifest) types.VMCP {
+	t.Helper()
+	var created types.VMCP
+	h.Post(t, "/api/vmcps", manifest, &created)
+	h.AddCleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, _ = h.status(ctx, http.MethodDelete, "/api/vmcps/"+created.ID)
+	})
+	return created
+}
+
 // CreateVMCPInstance creates the test principal's connection to vmcpID.
 func (h *Harness) CreateVMCPInstance(t *testing.T, vmcpID string) types.VMCPInstance {
 	t.Helper()

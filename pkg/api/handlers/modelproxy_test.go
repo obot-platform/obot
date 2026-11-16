@@ -105,6 +105,11 @@ func requireModelProxyHTTPError(t *testing.T, err error, status int) {
 func TestModelProxyUsageAPI(t *testing.T) {
 	var keys []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Only the handler's usage requests belong in the credential-rotation assertions.
+		if r.Method == http.MethodHead && r.URL.Path == "/" {
+			http.NotFound(w, r)
+			return
+		}
 		keys = append(keys, r.Header.Get("Authorization"))
 		if r.Header.Get("X-Forwarded-For") != "192.0.2.10, 2001:db8::1" || r.Header.Get("X-Real-IP") != "192.0.2.10" {
 			t.Error("IP headers were not forwarded")
@@ -212,12 +217,8 @@ func TestModelProxyUsageAPI(t *testing.T) {
 }
 
 func TestModelProxyUsageAPIWithModelProvider(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		t.Error("model proxy usage was requested while a model provider is configured")
-	}))
-	defer upstream.Close()
-
-	endpoint, err := mcptester.ParseModelProxyURL(upstream.URL, true)
+	const configuredURL = "https://proxy.example"
+	endpoint, err := mcptester.ParseModelProxyURL(configuredURL, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +244,12 @@ func TestModelProxyUsageAPIWithModelProvider(t *testing.T) {
 				settings = newHandlerTestGateway(t)
 			}
 
-			h := NewModelProxyHandler(settings, upstream.URL, endpoint, &fakeTesterProviders{configured: true}, unreadModelProxyLicense{t: t})
+			h := NewModelProxyHandler(settings, configuredURL, endpoint, &fakeTesterProviders{configured: true}, unreadModelProxyLicense{t: t})
+			// Observe only requests issued by this handler, independent of listener discovery probes.
+			h.client = &http.Client{Transport: mcpTesterRoundTripFunc(func(*http.Request) (*http.Response, error) {
+				t.Error("model proxy usage was requested while a model provider is configured")
+				return nil, errors.New("unexpected usage request")
+			})}
 
 			err := h.Usage(api.Context{Request: httptest.NewRequest(http.MethodGet, "/api/model-proxy/usage", nil), ResponseWriter: httptest.NewRecorder()})
 			requireModelProxyHTTPError(t, err, http.StatusConflict)

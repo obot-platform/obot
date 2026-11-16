@@ -95,7 +95,7 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 		]
 	},
 	{
-		id: 'bedrock',
+		id: 'bedrock_mantle',
 		label: 'AWS Bedrock',
 		icon: '/admin/assets/amazon-bedrock.png',
 		description: m.models_providers_desc_bedrock(),
@@ -111,10 +111,10 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 				label: m.models_providers_auth_aws(),
 				description: m.models_providers_auth_aws_help(),
 				paths: [
-					'bedrock_key_config.access_key',
-					'bedrock_key_config.secret_key',
-					'bedrock_key_config.session_token',
-					'bedrock_key_config.role_arn'
+					'bedrock_mantle_key_config.access_key',
+					'bedrock_mantle_key_config.secret_key',
+					'bedrock_mantle_key_config.session_token',
+					'bedrock_mantle_key_config.role_arn'
 				]
 			}
 		],
@@ -126,29 +126,29 @@ export const PROVIDER_CATALOG: ProviderCatalogEntry[] = [
 				required: true
 			},
 			{
-				path: 'bedrock_key_config.access_key',
+				path: 'bedrock_mantle_key_config.access_key',
 				label: m.models_providers_field_access_key_id(),
 				required: true
 			},
 			{
-				path: 'bedrock_key_config.secret_key',
+				path: 'bedrock_mantle_key_config.secret_key',
 				required: true,
 				label: m.models_providers_field_secret_access_key(),
 				sensitive: true
 			},
 			{
-				path: 'bedrock_key_config.session_token',
+				path: 'bedrock_mantle_key_config.session_token',
 				label: m.models_providers_field_session_token(),
 				sensitive: true
 			},
 			{
-				path: 'bedrock_key_config.region',
+				path: 'bedrock_mantle_key_config.region',
 				label: m.models_providers_field_region(),
 				placeholder: 'us-east-1',
 				required: true
 			},
 			{
-				path: 'bedrock_key_config.role_arn',
+				path: 'bedrock_mantle_key_config.role_arn',
 				label: m.models_providers_field_role_arn(),
 				description: m.models_providers_field_role_arn_help()
 			}

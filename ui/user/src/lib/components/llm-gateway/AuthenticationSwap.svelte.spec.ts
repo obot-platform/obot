@@ -6,9 +6,9 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 describe('authentication configuration replacement', () => {
-	for (const provider of ['azure', 'bedrock']) {
-		const aws = provider === 'bedrock';
-		const configName = aws ? 'bedrock_key_config' : 'azure_key_config';
+	for (const provider of ['azure', 'bedrock_mantle']) {
+		const aws = provider === 'bedrock_mantle';
+		const configName = aws ? 'bedrock_mantle_key_config' : 'azure_key_config';
 		const emptyConfig = aws
 			? { access_key: '', secret_key: '', session_token: '', role_arn: '' }
 			: { client_id: '', client_secret: '', tenant_id: '' };

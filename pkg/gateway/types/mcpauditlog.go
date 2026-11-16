@@ -21,8 +21,10 @@ const (
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
-	ID         uint                      `json:"id" gorm:"primaryKey"`
-	CreatedAt  time.Time                 `json:"createdAt" gorm:"index;index:idx_mcp_audit_api_key_created,priority:2;index:idx_mcp_audit_tool_calls_daily,priority:3"`
+	ID        uint      `json:"id" gorm:"primaryKey"`
+	CreatedAt time.Time `json:"createdAt" gorm:"index;index:idx_mcp_audit_api_key_created,priority:2;index:idx_mcp_audit_tool_calls_daily,priority:3"`
+	// UpdatedAt tracks server writes for incremental exports; CreatedAt remains the event timestamp.
+	UpdatedAt  time.Time                 `json:"-" gorm:"index"`
 	SourceType types2.AuditLogSourceType `json:"sourceType" gorm:"index;default:mcp;index:idx_mcp_audit_tool_calls_daily,priority:1"`
 	UserID     string                    `json:"userID" gorm:"index"`
 	APIKeyID   *uint                     `json:"apiKeyID,omitempty" gorm:"index:idx_mcp_audit_api_key_created,priority:1"`
@@ -168,7 +170,12 @@ type LocalAgentToolCallAuditLogFields struct {
 
 	RequestBody  json.RawMessage `json:"requestBody,omitempty" gorm:"column:local_agent_request_body"`
 	ResponseBody json.RawMessage `json:"responseBody,omitempty" gorm:"column:local_agent_response_body"`
-	// RawEvent preserves the original hook payload for debugging and future parsers.
+	// RawEvent is the hook payload as the client submitted it, kept for debugging
+	// and future parsers. It is not always the complete original payload: a client
+	// may replace values already carried in RequestBody and ResponseBody with a
+	// marker (Obot Sentry uses {"obot_sentry_omitted": "details.request.body"} and
+	// {"obot_sentry_omitted": "details.response.body"}) so they are stored once.
+	// auditlog.Present puts those values back, so readers and exports see the full payload.
 	RawEvent json.RawMessage `json:"rawEvent,omitempty" gorm:"column:local_agent_raw_event"`
 }
 

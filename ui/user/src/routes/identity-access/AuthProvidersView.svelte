@@ -210,7 +210,7 @@
 		if (localAuthConfigureOpen) return;
 
 		const configuredAuthProvider = authProviders.find(
-			(provider) => provider.configured && (provider.missingEntitlements || []).length === 0
+			(provider) => provider.configured && !provider.entitlementsMissing
 		);
 		if (!configuredAuthProvider) return;
 
@@ -293,7 +293,8 @@
 			[CommonAuthProviderIds.AUTH0]: 'auth0',
 			[CommonAuthProviderIds.JUMPCLOUD]: 'jumpcloud',
 			[CommonAuthProviderIds.ONELOGIN]: 'onelogin',
-			[CommonAuthProviderIds.KEYCLOAK]: 'keycloak'
+			[CommonAuthProviderIds.KEYCLOAK]: 'keycloak',
+			[CommonAuthProviderIds.PINGFEDERATE]: 'pingfederate'
 		};
 		return idRef[authProviderId as keyof typeof idRef]
 			? `https://docs.obot.ai/configuration/auth-providers/#${idRef[authProviderId as keyof typeof idRef]}`
@@ -642,7 +643,7 @@
 	}
 
 	async function handleClickConfigure(authProvider: AuthProvider) {
-		if (authProvider.missingEntitlements && authProvider.missingEntitlements.length > 0) {
+		if (authProvider.entitlementsMissing) {
 			licenseRequiredProvider = authProvider;
 			return;
 		}

@@ -251,8 +251,9 @@ func (c *Client) UsersIncludeDeleted(ctx context.Context, query types.UserQuery)
 }
 
 // DeleteUser deletes a user as an administrator does: the user is soft-deleted and renamed, their group memberships
-// are removed, and an outbox event removes what they own once the deletion commits. A user that SCIM has provisioned
-// can be deleted only once the identity provider has deprovisioned them.
+// are removed, and an outbox event removes what they own once the deletion commits. Usage is then counted again
+// (requestUsageRecount), so a restriction for being over the user limit can lift. A user that SCIM has provisioned can
+// be deleted only once the identity provider has deprovisioned them.
 func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := refuseClaudeTagUserMutation(tx, userID); err != nil {
@@ -279,6 +280,7 @@ func (c *Client) DeleteUser(ctx context.Context, userID string) error {
 	}
 
 	c.kickUserLifecycleDelivery()
+	c.requestUsageRecount(ctx)
 	return nil
 }
 
@@ -538,7 +540,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 				}
 			}
 		}
-	case "entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider":
+	case "entra-auth-provider", "auth0-auth-provider", "keycloak-auth-provider", "pingfederate-auth-provider":
 		if displayName, ok := profile["name"].(string); ok && displayName != "" {
 			user.DisplayName = displayName
 		}

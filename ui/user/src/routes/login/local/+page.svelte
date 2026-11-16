@@ -4,7 +4,12 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 	import { getLocale, m } from '$lib/i18n';
+	import type { PageProps } from './$types';
 	import { CircleAlert } from '@lucide/svelte';
+
+	let { data }: PageProps = $props();
+	// The server signed this visitor out because the environment is restricted, see the root layout.
+	let environmentRestricted = $derived(data?.profile?.environmentRestricted ?? false);
 
 	// The form posts to the auth provider, which sets the session cookie and redirects to `rd`.
 	// On failure it redirects back here with an `error` message to show.
@@ -44,6 +49,12 @@
 			<div class="notification-error flex items-center gap-2">
 				<CircleAlert class="text-error size-5 shrink-0" />
 				<p class="text-sm font-light">{error}</p>
+			</div>
+		{/if}
+		{#if environmentRestricted}
+			<div class="notification-error flex items-center gap-2" role="alert">
+				<CircleAlert class="text-error size-5 shrink-0" />
+				<p class="text-sm font-light">{m.login_environment_restricted()}</p>
 			</div>
 		{/if}
 

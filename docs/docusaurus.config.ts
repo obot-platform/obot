@@ -186,6 +186,9 @@ const config: Config = {
           customCss: "./src/css/custom.css",
         },
         blog: false,
+        gtag: {
+          trackingID: "G-PEVETR00V7",
+        },
         sitemap: {
           // Exclude older versioned and unreleased (/next/) docs from sitemap
           // Only the latest version should be indexed

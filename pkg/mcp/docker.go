@@ -725,6 +725,30 @@ func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *contai
 	return nil
 }
 
+func (d *dockerBackend) listToolPreviewServers(ctx context.Context) ([]toolPreviewServer, error) {
+	// Unlabelled previews from earlier releases are only recognisable by name, so list every MCP server container.
+	containers, err := d.client.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filters.NewArgs(filters.Arg("label", "mcp.server.id")),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tool preview containers: %w", err)
+	}
+
+	var servers []toolPreviewServer
+	for _, c := range containers {
+		name := c.Labels["mcp.server.id"]
+		if name == "" || !isToolPreviewServer(name, c.Labels) {
+			continue
+		}
+		servers = append(servers, toolPreviewServer{
+			Name:    name,
+			Created: time.Unix(c.Created, 0),
+		})
+	}
+	return servers, nil
+}
+
 // Helper methods
 
 func (d *dockerBackend) getContainer(ctx context.Context, name string) (*container.Summary, error) {
@@ -1089,6 +1113,9 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			"mcp.config.hash":        configHash,
 			"mcp.file.env.keys.hash": fileEnvKeysHash,
 		},
+	}
+	if server.ToolPreview {
+		config.Labels[ToolPreviewLabel] = "true"
 	}
 
 	// Host config with port bindings and volume mounts

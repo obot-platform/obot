@@ -54,6 +54,8 @@ type backend interface {
 	shutdownServer(ctx context.Context, id string, hardShutdown bool) error
 	transformObotHostname(url string) string
 	remoteConfig(globalConfig RemoteMCPURLValidationConfig) (RemoteMCPURLValidationConfig, []string)
+	// listToolPreviewServers returns every deployed tool preview server, whichever Obot replica launched it.
+	listToolPreviewServers(ctx context.Context) ([]toolPreviewServer, error)
 }
 
 type ErrNotSupportedByBackend struct {

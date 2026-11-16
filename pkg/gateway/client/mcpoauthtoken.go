@@ -201,21 +201,21 @@ func (c *Client) CopyMCPOAuthTokens(ctx context.Context, userID, sourceID, targe
 }
 
 func (c *Client) DeleteMCPOAuthTokenForURL(ctx context.Context, userID, mcpID, mcpURL string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ? AND (url = ? OR url = ?)", userID, mcpID, mcpURL, "").Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ? AND (url = ? OR url = ?)", userID, mcpID, mcpURL, "").Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
 }
 
 func (c *Client) DeleteMCPOAuthTokens(ctx context.Context, userID, mcpID string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ?", userID, mcpID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "user_id = ? AND mcp_id = ?", userID, mcpID).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
 }
 
 func (c *Client) DeleteMCPOAuthTokenForAllUsers(ctx context.Context, mcpID string) error {
-	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "mcp_id = ?", mcpID).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err := c.db.WithContext(ctx).Delete(&types.MCPOAuthToken{}, "mcp_id = ?", mcpID).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
 	}
 	return c.triggerMCPOAuthTokenChange(ctx, mcpID)

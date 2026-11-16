@@ -93,6 +93,16 @@ func tokenExchangeClient(sessionManager *mcp.SessionManager) tokenClientFunc {
 
 // CheckForMCPAuth is called after the consent or vMCP handler validates request ownership.
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
+	return f.checkForMCPAuth(req, mcpServer, mcpServerConfig, userID, mcpID, oauthAppAuthRequestID, false)
+}
+
+// CheckForMCPToolAuth also checks tools/list because some servers allow
+// initialization anonymously and challenge only when tools are requested.
+func (f *MCPOAuthHandlerFactory) CheckForMCPToolAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, authRequestID string) (string, error) {
+	return f.checkForMCPAuth(req, server, config, userID, mcpID, authRequestID, true)
+}
+
+func (f *MCPOAuthHandlerFactory) checkForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string, listTools bool) (string, error) {
 	if oauthAppAuthRequestID != "" && mcpServer.Spec.Manifest.Runtime == types.RuntimeVMCP {
 		var request v1.OAuthAuthRequest
 		if err := req.Get(&request, oauthAppAuthRequestID); err != nil {
@@ -244,13 +254,24 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	go func() {
 		defer close(errChan)
 
-		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, opt)
-		if err != nil {
-			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
-		} else {
-			f.mcpSessionManager.CloseClient(mcpServerConfig, "Obot OAuth Check")
-			errChan <- nil
-		}
+		errChan <- func() error {
+			client, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, opt)
+			if err != nil {
+				return fmt.Errorf("failed to get client for server %s: %w", mcpServer.Name, err)
+			}
+			defer f.mcpSessionManager.CloseClientInstance(mcpServerConfig, "Obot OAuth Check", client)
+
+			if listTools {
+				// Use the same OAuth handler as initialization so late challenges
+				// publish their authorization URL through URLChan as well.
+				for _, err := range client.Tools(req.Context(), nil) {
+					if err != nil {
+						return fmt.Errorf("failed to list tools for server %s: %w", mcpServer.Name, err)
+					}
+				}
+			}
+			return nil
+		}()
 	}()
 
 	select {

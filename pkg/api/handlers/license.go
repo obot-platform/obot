@@ -35,7 +35,7 @@ type LicenseProvider interface {
 	RemoveLicenseKey(context.Context) error
 	Validate(context.Context) error
 	HasValidLicense(context.Context) (bool, error)
-	Entitlements(context.Context) ([]string, error)
+	Entitlements(context.Context) (apitypes.Entitlements, error)
 }
 
 type LicenseHandler struct {
@@ -48,12 +48,12 @@ type LicenseHandler struct {
 }
 
 type LicenseStatus struct {
-	LicenseKey             string     `json:"licenseKey"`
-	Source                 string     `json:"source"`
-	Locked                 bool       `json:"locked"`
-	Enterprise             bool       `json:"enterprise"`
-	Entitlements           []string   `json:"entitlements"`
-	ManualCheckAvailableAt *time.Time `json:"manualCheckAvailableAt,omitempty"`
+	LicenseKey             string                `json:"licenseKey"`
+	Source                 string                `json:"source"`
+	Locked                 bool                  `json:"locked"`
+	Enterprise             bool                  `json:"enterprise"`
+	Entitlements           apitypes.Entitlements `json:"entitlements"`
+	ManualCheckAvailableAt *time.Time            `json:"manualCheckAvailableAt,omitempty"`
 }
 
 type LicenseUpdate struct {

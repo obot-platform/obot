@@ -131,6 +131,20 @@ func TokenHasScopes(ctx context.Context, baseURL, token string, scopes []string)
 	return nil
 }
 
+// marshalJSON is json.Marshal without HTML escaping. json.Marshal rewrites <, > and & as \u003c,
+// \u003e and \u0026, inside a json.RawMessage too, so a raw value would not reach the server as the
+// caller had it. Request bodies are not HTML, so the escaping buys nothing, and audit payloads are
+// meant to be kept as the agent sent them. (encoding/json still escapes U+2028 and U+2029.)
+func marshalJSON(obj any) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(obj); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
+}
+
 func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Response, error) {
 	var body io.Reader
 
@@ -140,7 +154,7 @@ func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ..
 			body = strings.NewReader(v)
 		}
 	default:
-		data, err := json.Marshal(obj)
+		data, err := marshalJSON(obj)
 		if err != nil {
 			return nil, err
 		}
@@ -154,7 +168,7 @@ func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ..
 // bodies big enough to be worth compressing on every call. The server must
 // decode Content-Encoding; there is no uncompressed fallback.
 func (c *Client) postCompressedJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Response, error) {
-	data, err := json.Marshal(obj)
+	data, err := marshalJSON(obj)
 	if err != nil {
 		return nil, err
 	}

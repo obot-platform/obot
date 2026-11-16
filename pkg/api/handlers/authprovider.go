@@ -35,16 +35,16 @@ const (
 )
 
 type AuthProviderHandler struct {
-	dispatcher  *dispatcher.Dispatcher
-	postgresDSN string
-	license     *license.Provider
+	dispatcher          *dispatcher.Dispatcher
+	postgresDSN         string
+	entitlementProvider gateway.EntitlementProvider
 }
 
-func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string, licenseProvider *license.Provider) *AuthProviderHandler {
+func NewAuthProviderHandler(dispatcher *dispatcher.Dispatcher, postgresDSN string, entitlementProvider gateway.EntitlementProvider) *AuthProviderHandler {
 	return &AuthProviderHandler{
-		dispatcher:  dispatcher,
-		postgresDSN: postgresDSN,
-		license:     licenseProvider,
+		dispatcher:          dispatcher,
+		postgresDSN:         postgresDSN,
+		entitlementProvider: entitlementProvider,
 	}
 }
 
@@ -70,7 +70,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		}
 	}
 
-	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, conn, ap.license)
+	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, conn, ap.entitlementProvider)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			conn = &conns[i]
 		}
 
-		authProviderStatus, err := providers.AuthProviderStatus(req.Context(), a, nil, conn, ap.license)
+		authProviderStatus, err := providers.AuthProviderStatus(req.Context(), a, nil, conn, ap.entitlementProvider)
 		if err != nil {
 			return err
 		}
@@ -246,10 +246,6 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	var authProvider v1.AuthProvider
 	if err := req.Get(&authProvider, req.PathValue("id")); err != nil {
-		return err
-	}
-
-	if err := ap.license.RequireEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements); err != nil {
 		return err
 	}
 
@@ -335,13 +331,13 @@ func (ap *AuthProviderHandler) validateAuthProviderConfiguration(req api.Context
 		}
 	}
 
-	missingEntitlements, err := ap.license.MissingEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements)
+	entitlementsMissing, err := license.EntitlementsMissing(req.Context(), ap.entitlementProvider, authProvider.Spec.RequiredEntitlements)
 	if err != nil {
 		return err
 	}
-	if len(missingEntitlements) > 0 {
+	if entitlementsMissing {
 		return types.NewErrHTTP(http.StatusPaymentRequired,
-			apiMessage(req, "provider_missing_entitlements", "entitlements", fmt.Sprint(missingEntitlements)))
+			apiMessage(req, "provider_missing_entitlements", "entitlements", fmt.Sprint(authProvider.Spec.RequiredEntitlements)))
 	}
 
 	var missing []string

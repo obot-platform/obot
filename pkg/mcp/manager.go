@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -9,7 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -199,7 +197,7 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
 
-	return &SessionManager{
+	sm := &SessionManager{
 		devMode:                   devMode,
 		webhookHelper:             webhookHelper,
 		tokenService:              tokenService,
@@ -216,7 +214,11 @@ func NewSessionManager(ctx context.Context, authEnabled, devMode bool, globalTok
 		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
 		tunnelManager:             tunnelManager,
 		remoteURLValidationConfig: validationOptions.RemoteMCPURLValidationConfig,
-	}, nil
+	}
+
+	go sm.runToolPreviewSweeper(ctx)
+
+	return sm, nil
 }
 
 func (sm *SessionManager) MCPRuntimeBackend() string {
@@ -356,6 +358,18 @@ func (sm *SessionManager) CloseClient(server ServerConfig, clientScope string) {
 		s.Close()
 		_ = s.Wait()
 	}
+}
+
+// CloseClientInstance closes the acquired client without evicting a replacement
+// installed by an overlapping request for the same server and scope.
+func (sm *SessionManager) CloseClientInstance(server ServerConfig, clientScope string, client *Client) {
+	if sessions, ok := sm.sessions.Load(server.MCPServerName); ok {
+		if clientSessions, ok := sessions.(*sync.Map); ok {
+			clientSessions.CompareAndDelete(clientID(server, clientScope), client)
+		}
+	}
+	_ = client.Close()
+	_ = client.Wait()
 }
 
 // LaunchServer will ensure that the server is deployed
@@ -519,43 +533,6 @@ func serverID(server ServerConfig) string {
 
 func clientID(server ServerConfig, clientScope string) string {
 	return serverID(server) + utils.Digest(server.PassthroughHeaderValues) + utils.Digest(server.UserID) + clientScope
-}
-
-// GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,
-// then shuts it down and returns the tool preview data.
-func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServer v1.MCPServer, serverConfig ServerConfig) ([]types.MCPServerTool, error) {
-	// Ensure cleanup happens regardless of success or failure
-	defer func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer cancel()
-		if cleanupErr := sm.ShutdownServer(ctx, serverConfig.MCPServerName); cleanupErr != nil {
-			slog.Error("failed to clean up temporary instance", "name", tempMCPServer.Name, "error", cleanupErr)
-		}
-	}()
-
-	serverConfig, err := sm.LaunchServer(ctx, serverConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Use "system" for the user ID to identify non-user MCP servers.
-	serverConfig.UserID = "system"
-
-	// Create MCP client and list tools
-	client, err := sm.clientForServerWithOptions(ctx, "default", serverConfig, ClientOption{
-		ClientName:   "Obot Tool Preview",
-		TokenStorage: sm.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	tools, err := collectAll(client.Tools(ctx, nil))
-	if err != nil {
-		return nil, fmt.Errorf("failed to list tools: %w", err)
-	}
-
-	return ConvertTools(tools, nil)
 }
 
 // GetCapacityInfo returns capacity information for the MCP namespace.

@@ -83,7 +83,7 @@ Local is now the active provider. To use Local accounts, you're done; see [Local
 To use a different provider, switch to it:
 
 1. Go to **Identity & Access > Auth Providers**.
-2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 require free Obot Community registration or an Enterprise license.
+2. Click **Configure** on the provider. Local, GitHub, and Google are available without registration; Entra, Okta, OneLogin, JumpCloud, Keycloak, PingFederate, and Auth0 require free Obot Community registration or an Enterprise license.
 3. Configure the provider, sign in with it to verify your account, and complete the switch. See [Switching Between Auth Providers](#switching-between-auth-providers) for each step.
 
 :::important
@@ -173,7 +173,7 @@ You can:
 | Providers | Availability |
 |-----------|--------------|
 | Local, GitHub, Google | Available in every edition, without registration |
-| Entra, Okta, OneLogin, JumpCloud, Keycloak, Auth0 | Require free Obot Community registration or an Enterprise license |
+| Entra, Okta, OneLogin, JumpCloud, Keycloak, PingFederate, Auth0 | Require free Obot Community registration or an Enterprise license |
 
 To register or add an Enterprise license key, use the **License** page in the admin UI. If the license later becomes invalid, these providers stay configured but Obot limits functionality until it's resolved. See [License compliance](../enterprise/overview.md#license-compliance).
 
@@ -431,6 +431,72 @@ For optional avatars, map a `picture` user attribute to the OIDC `picture` claim
 Set **Token Refresh Duration** shorter than the realm's **Access Token Lifespan**, under **Realm settings > Tokens**. Keycloak's default lifespan is 5 minutes, so a value such as `4m` works. If tokens expire before Obot refreshes them, updates to users' display names and avatars fail until the next refresh.
 
 Keep **Revoke Refresh Token** off in the realm, so that parallel refreshes from the same browser succeed.
+
+### PingFederate {#pingfederate}
+
+PingFederate has no API for listing groups, so Obot records the groups each user has when they sign in, in Obot's database. PingFederate therefore requires Obot to use PostgreSQL. The Obot container uses PostgreSQL by default; a standalone Obot binary uses SQLite unless [`OBOT_SERVER_DSN`](./server-configuration.md) names a PostgreSQL database, and without one the PingFederate provider does not start.
+
+#### Setup {#pingfederate-setup}
+
+**Define the scopes**
+
+Obot requests the `openid`, `profile`, and `email` scopes. PingFederate defines only `openid` by default, and rejects a sign-in that requests a scope it doesn't know. Under **System > OAuth Settings > Scope Management**, add `profile` and `email` as common scopes if they aren't already defined.
+
+**Create the OAuth client**
+
+1. In PingFederate, go to **Applications > OAuth > Clients** and add a client for Obot.
+2. Set **Client Authentication** to **Client Secret**, and generate a secret.
+3. Set **Redirect URIs** to the callback URL shown in Obot.
+4. Under **Allowed Grant Types**, select **Authorization Code** and **Refresh Token**.
+5. You can enable **Require Proof Key for Code Exchange (PKCE)**. Obot always uses PKCE.
+6. Enable **Bypass Authorization Approval**, so that PingFederate doesn't ask users to approve Obot's access when they sign in.
+7. Select the OpenID Connect policy described below.
+
+**Set up the OpenID Connect policy**
+
+Under **Applications > OAuth > OpenID Connect Policy Management**, use a policy whose attribute contract releases:
+
+| Attribute | Value |
+| --- | --- |
+| `sub` | A stable, unique user ID. Obot uses it as the user's identity. |
+| `email` | The user's email address. Required to sign in. |
+| `name` | The user's display name. Without it, Obot uses `given_name` and `family_name`, then `preferred_username`. |
+| `groups` | The user's groups, such as an LDAP `memberOf` attribute. Optional. Mark it **Multi-Valued**. |
+
+Release `sub` and the name attributes in the userinfo response, as PingFederate does by default (**Include in UserInfo**): Obot reads users' display names from userinfo only. `email` and `groups` may be released in the ID token, the userinfo response, or both.
+
+Map `email` and `groups` from the same directory lookup, the same attribute source in the policy. When PingFederate can't reach that directory, it still answers, without the attributes it would have read there. Obot recognizes a refreshed session without an email as such a failure: it keeps the user's groups and ends the session, and the user signs in again once the directory is back. If `groups` came from a different source than `email`, that source failing would go unnoticed, and users would lose their groups until their next refresh after it recovers.
+
+Enable **Return ID Token on Refresh Grant** in the policy. It is required: Obot reads a session's groups from its ID token, so it ends a session that PingFederate refreshes without a new one, and the user must sign in again.
+
+Obot refreshes a session once it is older than **Token Refresh Duration** (default 1 hour). Keep that shorter than the **Token Lifetime** of the client's access token manager, which defaults to 120 minutes. If access tokens expire before Obot refreshes them, updates to users' display names fail until the next refresh. PingFederate's refresh token rolling needs no change: parallel requests from one browser refresh the session once.
+
+:::important
+Obot trusts the `email` attribute as PingFederate releases it. It rejects an address only when the policy releases `email_verified` as `false`, and PingFederate omits `email_verified` unless a policy releases it. **Allowed E-Mail Domains** is therefore only as strong as the source of `email`: map it from an attribute that users can't change themselves.
+:::
+
+In **Identity & Access > Auth Providers**, configure **PingFederate**:
+
+| Obot field | PingFederate value |
+| --- | --- |
+| Issuer URL | PingFederate's base URL, exactly as the `issuer` in `<base URL>/.well-known/openid-configuration`, such as `https://sso.example.com:9031` |
+| Client ID / Client Secret | OAuth client credentials |
+| Allowed E-Mail Domains | Allowed domains, or `*` for all domains |
+| CA Certificate (optional) | The PEM certificate of the certificate authority that issued PingFederate's TLS certificate, if it is not a public certificate authority |
+
+Changes to the Issuer URL or CA Certificate of the active provider take effect immediately. If PingFederate can't be reached or its certificate isn't trusted, nobody can sign in. See [Locked Out After Changing Provider Settings](#locked-out-after-changing-provider-settings).
+
+#### Groups {#pingfederate-groups}
+
+A group is shown by its value in the `groups` attribute, such as the LDAP DN `cn=engineering,ou=groups,dc=example,dc=com`. Its ID, which filter and guardrail conditions and policies refer to, is `pingfederate/` followed by the value with `%` written as `%25` and `,` as `%2C`: `pingfederate/cn=engineering%2Cou=groups%2Cdc=example%2Cdc=com`.
+
+A group appears in Obot once one of its members has signed in, and stops appearing once no member remains. To assign a role to a group, have one of its members sign in first.
+
+A user's groups are recorded when they sign in and each time Obot refreshes their tokens. **Token Refresh Duration** controls how often that happens; the default is 1 hour. Obot then applies them within about 10 minutes.
+
+:::important
+Removing a user from a group in PingFederate takes effect in Obot only after their next token refresh or sign-in, and a user who doesn't sign in again keeps the groups recorded at their last sign-in. There is no way to apply a group change sooner; a shorter **Token Refresh Duration** shortens the delay. To withdraw what a group grants before then, remove the group's role assignment in Obot, which affects every member of the group.
+:::
 
 ### Auth0
 

@@ -34,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -702,7 +703,63 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		},
 	})
 
+	if server.ToolPreview {
+		for _, obj := range objs {
+			obj.SetLabels(withToolPreviewLabel(obj.GetLabels()))
+		}
+		dep.Spec.Template.Labels = withToolPreviewLabel(dep.Spec.Template.Labels)
+	}
+
 	return objs, nil
+}
+
+func withToolPreviewLabel(labels map[string]string) map[string]string {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[ToolPreviewLabel] = "true"
+	return labels
+}
+
+// listToolPreviewServers finds tool preview servers by every kind of object a server is made of, not
+// only Deployments: an Obot restart while a server's objects are being applied or pruned can leave its
+// Secrets or Service behind without a Deployment. Objects are grouped by the server they belong to,
+// which apply records in the owner sub-context annotation, and a server is as old as its oldest object.
+func (k *kubernetesBackend) listToolPreviewServers(ctx context.Context) ([]toolPreviewServer, error) {
+	created := map[string]time.Time{}
+	for _, gvk := range []schema.GroupVersionKind{
+		appsv1.SchemeGroupVersion.WithKind("DeploymentList"),
+		corev1.SchemeGroupVersion.WithKind("ServiceList"),
+		corev1.SchemeGroupVersion.WithKind("SecretList"),
+	} {
+		// Metadata is all the sweep needs, and it keeps Secret data out of the response. Unlabelled
+		// previews from earlier releases are only recognisable by name, so the list is not filtered.
+		var objs metav1.PartialObjectMetadataList
+		objs.SetGroupVersionKind(gvk)
+		if err := k.client.List(ctx, &objs, kclient.InNamespace(k.mcpNamespace)); err != nil {
+			return nil, fmt.Errorf("failed to list %s to find tool preview servers: %w", gvk.Kind, err)
+		}
+
+		for _, obj := range objs.Items {
+			name := obj.Annotations[apply.LabelSubContext]
+			if name == "" || !isToolPreviewServer(name, obj.Labels) {
+				continue
+			}
+			if oldest, ok := created[name]; !ok || obj.CreationTimestamp.Time.Before(oldest) {
+				created[name] = obj.CreationTimestamp.Time
+			}
+		}
+	}
+
+	servers := make([]toolPreviewServer, 0, len(created))
+	for name, t := range created {
+		servers = append(servers, toolPreviewServer{
+			Name:    name,
+			Created: t,
+		})
+	}
+	slices.SortFunc(servers, func(a, b toolPreviewServer) int { return strings.Compare(a.Name, b.Name) })
+	return servers, nil
 }
 
 // getNewestPod returns the most recently created non-terminating pod.

@@ -93,6 +93,30 @@ func TestMigrationRewritesOnlyDefaultAliasesAndProfileReferences(t *testing.T) {
 	require.Equal(t, ModelProviderResource().Spec, provider.Spec)
 }
 
+func TestLegacyBedrockReferencesUseMantle(t *testing.T) {
+	for _, sourceProvider := range []string{system.AmazonBedrockModelProvider, system.AmazonBedrockAPIKeyModelProvider} {
+		t.Run(sourceProvider, func(t *testing.T) {
+			source := migrationModel("m1-source", sourceProvider, "anthropic.claude-sonnet-4-5")
+			target := migrationModel("m1-mantle", system.LLMGatewayModelProvider, "bedrock_mantle/anthropic.claude-sonnet-4-5")
+			converse := migrationModel("m1-converse", system.LLMGatewayModelProvider, "bedrock/anthropic.claude-sonnet-4-5")
+			policy := migrationPolicy(source.Name)
+			dma := &v1.DefaultModelAlias{
+				Namespace: system.DefaultNamespace,
+				Name:      "llm",
+				Spec:      v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: source.Name}},
+			}
+			provider := ModelProviderResource()
+			c := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(provider, source, target, converse, policy, dma).WithInterceptorFuncs(interceptor.Funcs{List: migrationList(t)}).Build()
+			require.NoError(t, MigrateLegacyModels(t.Context(), c, provider))
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(policy), policy))
+			require.Equal(t, target.Name, policy.Spec.Manifest.Models[0].ID)
+			require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(dma), dma))
+			require.Equal(t, target.Name, dma.Spec.Manifest.Model)
+			require.Equal(t, "true", provider.Annotations[legacyModelMigrationCompleteAnnotation])
+		})
+	}
+}
+
 func TestUnsupportedLegacyReferencesDoNotBlockCompletion(t *testing.T) {
 	for _, gatewayExists := range []bool{false, true} {
 		t.Run(fmt.Sprintf("gatewayExists=%t", gatewayExists), func(t *testing.T) {

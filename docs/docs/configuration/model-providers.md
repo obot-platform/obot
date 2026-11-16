@@ -81,4 +81,4 @@ Through the API, the gateway's global proxy (`/api/llm-gateway/admin/proxy-confi
 
 - [LLM Gateway overview](../llm-gateway/how-it-works.md) — the LLM Gateway page, default models, routing rules and fallbacks
 - [Profiles](../functionality/model-access-policies.md) — grant users access to specific models
-- [Upgrading from model providers](../llm-gateway/upgrade.md) — migration availability and guidance for existing installations
+- [Upgrading from v0.27](../llm-gateway/upgrade.md) — migration availability and guidance for existing installations

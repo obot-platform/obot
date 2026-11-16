@@ -16,7 +16,6 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/scim/setup"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -36,10 +35,10 @@ const (
 )
 
 type Handler struct {
-	gatewayClient   *gateway.Client
-	dispatcher      *dispatcher.Dispatcher
-	licenseProvider *license.Provider
-	postgresDSN     string
+	gatewayClient       *gateway.Client
+	dispatcher          *dispatcher.Dispatcher
+	entitlementProvider gateway.EntitlementProvider
+	postgresDSN         string
 	// storage reads without a cache. Setting up SCIM must see every auth provider cleanup and group reference that
 	// exists, not the ones a cache has caught up with.
 	storage kclient.Reader
@@ -79,13 +78,13 @@ func terminalConflictf(format string, args ...any) error {
 }
 
 // New returns the Handler. storage must read without a cache.
-func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, postgresDSN string, storage kclient.Reader) *Handler {
+func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, entitlementProvider gateway.EntitlementProvider, postgresDSN string, storage kclient.Reader) *Handler {
 	return &Handler{
-		gatewayClient:   gatewayClient,
-		dispatcher:      dispatcher,
-		licenseProvider: licenseProvider,
-		postgresDSN:     postgresDSN,
-		storage:         storage,
+		gatewayClient:       gatewayClient,
+		dispatcher:          dispatcher,
+		entitlementProvider: entitlementProvider,
+		postgresDSN:         postgresDSN,
+		storage:             storage,
 	}
 }
 
@@ -343,7 +342,7 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		if err := h.deconfigureAuthProvider(ctx, client, outgoingProvider); err != nil {
 			return err
 		}
-		if err := provider.SetAuthProviderConfiguredStatus(ctx, h.gatewayClient, h.licenseProvider, &outgoingProvider); err != nil {
+		if err := provider.SetAuthProviderConfiguredStatus(ctx, h.gatewayClient, h.entitlementProvider, &outgoingProvider); err != nil {
 			return fmt.Errorf("recompute auth provider %q status: %w", outgoingProvider.Name, err)
 		}
 		if err := client.Status().Update(ctx, &outgoingProvider); err != nil {
@@ -402,6 +401,27 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		if deletedConn != nil {
 			slog.Info("Deleted the SCIM connection of an unstaged auth provider", "authProvider", authProvider.Name, "connection", deletedConn.ConnectionID)
 		}
+		// The verification sign-in ran through the staged provider, which may have created its tables and recorded the
+		// signed-in user's groups. They are dropped before the staged credential, so that a retry after a failure
+		// still finds the staging and drops them again. A switch interrupted after promoting the staged credential
+		// leaves the provider with an active credential of its own as well as the staged one; its tables then hold the
+		// live sessions and groups, and stay. The provider's own credential decides, not which provider the dispatcher
+		// reports as configured, which may still be the outgoing one, and an error keeps the tables.
+		active, err := h.hasActiveCredential(ctx, authProvider)
+		if err != nil {
+			return err
+		}
+		if !active {
+			staged, err := h.gatewayClient.HasCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+			if err != nil {
+				return fmt.Errorf("check for the staged configuration of auth provider %q: %w", authProvider.Name, err)
+			}
+			if staged {
+				if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
+					return err
+				}
+			}
+		}
 		deleted, err := h.gatewayClient.DeleteCredential(ctx, system.ReplacementAuthProviderCredentialContext, authProvider.Name)
 		if err != nil {
 			return fmt.Errorf("discard staged configuration for auth provider %q: %w", authProvider.Name, err)
@@ -430,7 +450,7 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		}
 	}
 
-	if err := provider.SetAuthProviderConfiguredStatus(ctx, h.gatewayClient, h.licenseProvider, &authProvider); err != nil {
+	if err := provider.SetAuthProviderConfiguredStatus(ctx, h.gatewayClient, h.entitlementProvider, &authProvider); err != nil {
 		return fmt.Errorf("recompute auth provider %q status: %w", authProvider.Name, err)
 	}
 	if err := client.Status().Update(ctx, &authProvider); err != nil {
@@ -568,7 +588,7 @@ func (h *Handler) deconfigureAuthProvider(ctx context.Context, client kclient.Cl
 			return fmt.Errorf("delete local auth sessions: %w", err)
 		}
 	}
-	if err := dropAuthProviderSessionTables(authProvider, h.postgresDSN); err != nil {
+	if err := dropAuthProviderTables(authProvider, h.postgresDSN); err != nil {
 		return err
 	}
 
@@ -642,7 +662,7 @@ func markAuthProviderCleanupReady(ctx context.Context, client kclient.Client, cl
 	return nil
 }
 
-func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN string) error {
+func dropAuthProviderTables(authProvider v1.AuthProvider, postgresDSN string) error {
 	if postgresDSN == "" || authProvider.Spec.PostgresTablePrefix == "" {
 		return nil
 	}
@@ -662,6 +682,13 @@ func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN str
 	}
 	if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
 		return fmt.Errorf("drop auth provider session locks table: %w", err)
+	}
+	// Providers whose identity provider has no directory API, such as PingFederate, record the groups they see at
+	// sign-in in these tables. Memberships reference users, so they are dropped first.
+	for _, table := range []string{"directory_memberships", "directory_users"} {
+		if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + table + ";").Error; err != nil {
+			return fmt.Errorf("drop auth provider %s table: %w", table, err)
+		}
 	}
 	return nil
 }

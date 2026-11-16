@@ -32,7 +32,7 @@ const (
 // Vertex builds its host from the region, which rejectUnsafeConfig limits to region names.
 // providerType is the base type of the provider the request is for, or "" if unknown.
 func rejectAmbientCredentialRedirects(body []byte, providerType string) error {
-	ambientProvider := slices.Contains([]string{"azure", "vertex", "bedrock"}, providerType)
+	ambientProvider := slices.Contains([]string{"azure", "vertex", "bedrock", "bedrock_mantle"}, providerType)
 	return walkObjects(body, func(fields map[string]json.RawMessage) error {
 		if ambientProvider {
 			for name, settings := range fields {

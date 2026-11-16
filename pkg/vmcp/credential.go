@@ -152,7 +152,17 @@ func ExtractStaticConfiguration(manifest *types.VMCPManifest, existingConfig map
 // user-allowed by the VMCP and returns the credential-store representation.
 func ValidateAndEncodeUserConfiguration(manifest types.VMCPManifest, configuration types.VMCPConfiguration) (map[string]string, error) {
 	components := make(map[string]map[string]types.VMCPConfigurationPolicyType, len(manifest.Components))
+	// Catalog-static and Secret-bound values belong to the catalog entry or the vMCP, never to a user, even when a
+	// policy marks the key userAllowed. Catalog sync does not remove such policies, so they are refused here.
+	serverOwned := make(map[string]map[string]struct{}, len(manifest.Components))
 	for _, component := range manifest.Components {
+		owned := map[string]struct{}{}
+		for _, config := range ComponentConfig(component) {
+			if config.Static || config.SecretBinding != nil {
+				owned[config.Key] = struct{}{}
+			}
+		}
+		serverOwned[component.ID] = owned
 		if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.FixedURL == "" && remote.Hostname != "" {
 			if userURL := strings.TrimSpace(configuration.Components[component.ID]["__url"]); userURL != "" {
 				if err := types.ValidateURLHostname(userURL, remote.Hostname); err != nil {
@@ -174,7 +184,7 @@ func ValidateAndEncodeUserConfiguration(manifest types.VMCPManifest, configurati
 			return nil, fmt.Errorf("unknown component ID %q", componentID)
 		}
 		for key, value := range values {
-			if policies[key] != types.VMCPConfigurationPolicyUserAllowed {
+			if _, owned := serverOwned[componentID][key]; owned || policies[key] != types.VMCPConfigurationPolicyUserAllowed {
 				return nil, fmt.Errorf("configuration %q for component %q is not user-allowed", key, componentID)
 			}
 			if value = strings.TrimSpace(value); value != "" {

@@ -1,39 +1,84 @@
 ---
-title: "Upgrading from model providers"
+title: "Upgrading from v0.27"
 ---
 
-:::warning Migration is not supported yet
-Existing LLM gateway users should hold off on updating to v0.28.0. Migration from v0.27 model providers is not supported at this time, and existing provider credentials, models and access settings are not automatically migrated to the new gateway.
-
-Migration support is planned for a future patch release. Wait for that release and its migration instructions before upgrading an existing installation. If you test v0.28.0, use a separate copy of your database and keep a backup for rollback.
+:::warning Upgrade directly to v0.28.1 or later
+Existing installations using model providers or the LLM gateway should upgrade directly to **v0.28.1 or later**. v0.28.0 has no migration from v0.27 model providers; the migration below requires **v0.28.1**.
 :::
 
-Earlier versions of Obot reached models through per-provider model providers (OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Azure and others), each with its own proxy route. In v0.28.0, the [LLM gateway](./how-it-works.md) is the only way Obot reaches models, and it can't be turned off.
-
-:::note Development installations
-Development installations that used the earlier embedded gateway must re-enter that gateway's provider configuration, keys, routing rules and settings. This does not provide migration from v0.27 model providers.
+:::warning Back up first
+Back up Obot's database before upgrading. The upgrade changes stored configuration and model references. Restore the backup to roll back to an earlier version.
 :::
+
+The [LLM gateway](./how-it-works.md) replaces the legacy model-provider backends. All model requests now use the gateway, which can't be turned off.
+
+## Postmigration checklist {#postmigration-checklist}
+
+:::warning Review access before returning to service
+Automatic migration does not replace an administrator's review of provider configuration and model access.
+:::
+
+1. **Providers:** Under **LLM Gateway → Providers**, resolve import outcomes and confirm expected models are discovered and available. Existing gateway configuration wins conflicts.
+2. **Profiles:** Review users, groups, explicit model grants, default aliases and wildcard patterns under **LLM Gateway → Profiles**. Review wildcard patterns against the gateway model names; migration leaves wildcard patterns unchanged. See [Profiles](../functionality/model-access-policies.md).
+3. **Pooling:** Review each Azure and Bedrock key's allowed models, accounts, endpoints and regions. Unified-endpoint requests can select any eligible key in the pool. Legacy routes prefer their own imported key when it is enabled and supports the requested model. Bedrock initially allows every model, while Azure retains deployment names.
+4. **Access:** Test both allowed and denied requests as ordinary users from representative groups. An administrator's successful request does not verify ordinary users' access.
 
 ## What happens on upgrade {#what-happens-on-upgrade}
 
-Existing provider credentials, default model aliases and model access policies are not automatically migrated to the gateway.
+On first startup, Obot imports legacy configuration into the gateway.
 
-Fresh installations can configure providers and access through the gateway.
+### Providers
+
+- An existing gateway provider is left unchanged; its legacy credentials are not merged into it. Review existing configuration before relying on a legacy route.
+- The generic provider's base URL loses its trailing `/v1`; the gateway adds it.
+- Azure and Bedrock authentication variants become separate keys in the same provider pool, preserving credentials, Azure endpoints and Bedrock regions.
+- Unified-endpoint requests can select any eligible key for the same model. Legacy routes prefer their own imported key when it is enabled and supports the requested model. Review allowed models and account/region requirements.
+- Bedrock keys initially allow every model. Azure keeps legacy deployment names; if none exist, configure deployment names or Azure account discovery under **LLM Gateway → Providers**.
+
+### Model references
+
+- Default aliases and explicit model IDs in profiles move to the discovered gateway model for the same upstream model (`provider/model`). Profile subjects and associations stay unchanged.
+- Undated Anthropic names map to the latest dated version the gateway lists.
+- Migration does not copy model settings. Review active state, aliases, display names, usage and cost overrides on the gateway models.
+- Wildcard patterns remain unchanged. Review their matches against the gateway model names and adjust them as needed.
+
+### Retained configuration and retries
+
+- Legacy models, providers and stored credentials remain intact. Reference migration does not delete them or change source or destination models.
+- Unmatched explicit references remain unchanged for manual review and are retried until matching gateway models are available.
+- Failed provider imports retry; a completed import is not repeated after its gateway provider is deleted.
 
 ## Client routes {#client-routes}
+
+:::warning Deprecated provider endpoints
+Legacy provider endpoints still support compatible operations, but are deprecated and will be removed in a future release. Migrate existing clients to `/api/llm-proxy/v1` with provider-qualified model names, such as `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. See [Connecting clients](./connect-clients.md).
+:::
+
+**v0.28.1** restores supported legacy operations through the gateway:
 
 | Route | Status |
 | --- | --- |
 | `/api/llm-proxy/v1` | Serves every model in the OpenAI Chat Completions, OpenAI Responses and Anthropic Messages formats. Use this for new setups. |
-| `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic` | Remain available through the gateway, but require configured gateway providers, models and access. Route compatibility does not migrate an existing setup. |
-| `/api/llm-proxy/generic-responses`, `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key`, `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Removed. They return HTTP 410. Point these clients at `/api/llm-proxy/v1` and use gateway model names, such as `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`. |
+| `/api/llm-proxy/openai`, `/api/llm-proxy/anthropic`, `/api/llm-proxy/generic-responses` | Supported inference and model-listing requests retain their URLs. Bare model names resolve within the original provider. |
+| `/api/llm-proxy/aws-bedrock`, `/api/llm-proxy/aws-bedrock-api-key` | Supported paths, including `anthropic/v1/messages` and `openai/v1/responses`, use the current `bedrock` provider. |
+| `/api/llm-proxy/azure`, `/api/llm-proxy/azure-entra` | Supported Messages, Responses and model-listing paths are adapted to the current `azure` provider pool. |
 
-Claude Code's Bedrock Mantle and Foundry modes pointed at the removed routes. Switch to the standard setup in [Using with Claude Code](./connect-clients.md#using-with-claude-code).
+- Retained routes prefer their matching imported key. If it is absent, disabled, or does not support the requested model, they use the provider's normal key pool. Model access policies, budgets, guardrails and audit logging still apply; routing rules and fallbacks can change the serving provider or model.
+- Both AWS legacy routes initially select `bedrock`. For Bedrock Mantle, use the unified endpoint with a `bedrock_mantle/` model name.
+- Unsupported legacy operations remain unavailable. Use `/api/llm-proxy/v1` with a configured provider and an accessible model for new setups.
+- See [Deprecated provider endpoints](./compatibility.md#deprecated-provider-endpoints) for operation and model-name details.
 
 ## Other changes {#other-changes}
 
-- **Model access policies are profiles.** Each policy becomes a profile on the **Profiles** tab, with the same users, groups and models. Budgets and guardrail policies belong to profiles.
-- **Daily token limits are replaced by budgets.** `--daily-user-input-token-limit` and `--daily-user-output-token-limit` only seed the *Daily token limit* budget when the gateway first starts. They default to 10,000,000 input and 100,000 output tokens per user per day, and a flag set below 0 leaves that limit out. A budget covers only its own profile's models, so every profile that exists at the upgrade gets its own copy of the budget, with administrators exempt and users' personal daily token limits still in its place. Every model a user could reach stays limited, but a user in several profiles gets an allowance from each of them. Edit or delete each copy on its profile's page; deleted copies don't come back, and profiles you create later don't get one. With no profiles at all, Obot creates the *Default Policy*, as on a first start, and gives it the budget. The `/api/users/{id}/remaining-token-usage` endpoint is removed.
-- **The model provider configuration API is removed.** The configure, deconfigure, reveal and validate endpoints under `/api/model-providers` no longer exist. Listing and getting model providers still work, and return the gateway and any retained legacy providers.
-- **The models.dev price sync is removed.** `--model-info-source-url` / `OBOT_SERVER_MODEL_INFO_SOURCE_URL` no longer exists. Model prices now come from [`OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL`](./audit.md#model-pricing).
-- **Message policies are LLM judge guardrails.** They're converted into LLM Judge guardrails used by disabled guardrail policies for you to review and enable. A message policy that didn't apply to all users gets its own profile, named after the policy with *(message policy)* added, with the policy's users and groups and no models. `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` is removed. Past message policy violations stay in the database but aren't shown in the UI or returned by the API, and the LLM audit log no longer marks or filters requests a message policy changed. See [AI Judge Policies](../functionality/ai-judge-policies.md).
+- **Model access policies become profiles**, preserving users, groups and models. Budgets and guardrail policies belong to profiles; see [Profiles](../functionality/model-access-policies.md).
+- **Daily token limits become per-profile budgets:**
+  - `--daily-user-input-token-limit` and `--daily-user-output-token-limit` seed the *Daily token limit* budget only on initial gateway startup. Defaults remain 10,000,000 input and 100,000 output tokens per user daily; flag values below 0 omit that limit.
+  - Each existing profile gets a budget covering its own models. Administrators are exempt; personal daily limits override the budget's limits. Users in several profiles receive each profile's allowance.
+  - Edit or delete budgets on each profile. Deleted budgets aren't recreated; later profiles don't receive one automatically. With no profiles, Obot creates *Default Policy* with the budget.
+  - `/api/users/{id}/remaining-token-usage` is removed.
+- **Model-provider configuration APIs are removed:** configure, deconfigure, reveal and validate under `/api/model-providers`. Listing and getting providers still return the gateway and remaining legacy providers.
+- **models.dev price sync is removed.** `--model-info-source-url` / `OBOT_SERVER_MODEL_INFO_SOURCE_URL` is replaced by [`OBOT_SERVER_LLM_GATEWAY_MODEL_DATA_URL`](./audit.md#model-pricing).
+- **Message policies become LLM Judge guardrails:**
+  - Converted guardrail policies start disabled; review and enable them. Policies scoped to specific users/groups get a profile named `<policy name> (message policy)` with those subjects and no models.
+  - `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` is removed. Past violations remain stored but disappear from the UI/API; audit logs no longer mark or filter requests changed by message policies.
+  - See [AI Judge Policies](../functionality/ai-judge-policies.md) and [Audit usage and costs](./audit.md).

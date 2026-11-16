@@ -24,6 +24,8 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -536,6 +538,152 @@ func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
 					t.Fatal("static configuration hash does not reflect preserved values")
 				}
 			}
+		})
+	}
+}
+
+func TestVMCPHandlerUpdateUndoesStaticConfigurationWhenTheWriteFails(t *testing.T) {
+	refused := &apierrors.StatusError{
+		ErrStatus: metav1.Status{
+			Code:    http.StatusPaymentRequired,
+			Message: "There isn't room on the plan for this.",
+		},
+	}
+	conflict := &apierrors.StatusError{
+		ErrStatus: metav1.Status{
+			Reason: metav1.StatusReasonConflict,
+			Code:   http.StatusConflict,
+		},
+	}
+
+	for _, tt := range []struct {
+		name         string
+		versioned    bool
+		noCredential bool
+		published    bool
+		canceled     bool
+		updateErr    error
+		wantToken    string
+	}{
+		{
+			name:      "a refused update puts the stored configuration back",
+			updateErr: refused,
+			wantToken: "old-token",
+		},
+		{
+			name:         "a refused update deletes the configuration when none was stored",
+			noCredential: true,
+			updateErr:    refused,
+		},
+		{
+			name:      "a conflict with a write that published no configuration puts it back",
+			updateErr: conflict,
+			wantToken: "old-token",
+		},
+		{
+			name:      "a conflict leaves the configuration another update published",
+			published: true,
+			updateErr: conflict,
+			wantToken: "other-token",
+		},
+		{
+			name:      "a canceled request still puts the stored configuration back",
+			canceled:  true,
+			updateErr: context.Canceled,
+			wantToken: "old-token",
+		},
+		{
+			name:      "a refused update of a versioned vMCP leaves its revision alone",
+			versioned: true,
+			updateErr: refused,
+			wantToken: "old-token",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+			gatewayClient := newHandlerTestGateway(t)
+			handler := NewVMCPHandler(nil, "", "")
+			admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
+			manifest := testVMCPManifest()
+			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
+				{
+					Key:    "TOKEN",
+					Policy: types.VMCPConfigurationPolicyFixed,
+					Value:  "old-token",
+				},
+			}
+			created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, admin)
+			key := kclient.ObjectKey{Name: created.ID, Namespace: system.DefaultNamespace}
+			credentialContext := vmcpconfig.StaticConfigurationCredentialContext(created.ID)
+
+			var stored v1.VMCP
+			require.NoError(t, storage.Get(t.Context(), key, &stored))
+			if tt.versioned {
+				credential, err := gatewayClient.RevealCredential(t.Context(), []string{credentialContext}, vmcpconfig.ConfigurationCredentialName())
+				require.NoError(t, err)
+				vmcpconfig.VersionStaticConfiguration(&stored, credential.Secrets)
+				require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+					Context: credentialContext,
+					Name:    vmcpconfig.StaticConfigurationCredentialName(&stored),
+					Secrets: credential.Secrets,
+				}))
+				require.NoError(t, storage.Update(t.Context(), &stored))
+			}
+			if tt.noCredential {
+				_, err := gatewayClient.DeleteCredential(t.Context(), credentialContext, vmcpconfig.ConfigurationCredentialName())
+				require.NoError(t, err)
+			}
+
+			update := stored.Spec.Manifest
+			update.Components[0].Configuration[0].Value = "new-token"
+			body, err := json.Marshal(update)
+			require.NoError(t, err)
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body)).WithContext(ctx)
+			request.SetPathValue("vmcp_id", created.ID)
+			storage.updateErr = tt.updateErr
+			if tt.canceled {
+				// The caller goes away as the vMCP is written.
+				storage.onUpdate = func(kclient.Object) { cancel() }
+			}
+			if tt.published {
+				// Another update stores its configuration and publishes it before this one's write lands.
+				storage.onUpdate = func(kclient.Object) {
+					secrets := map[string]string{
+						vmcpconfig.ConfigurationKey(update.Components[0].ID, "TOKEN"): "other-token",
+					}
+					require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+						Context: credentialContext,
+						Name:    vmcpconfig.ConfigurationCredentialName(),
+						Secrets: secrets,
+					}))
+					var other v1.VMCP
+					require.NoError(t, storage.Get(t.Context(), key, &other))
+					vmcpconfig.SetStaticConfigurationHashes(&other, secrets)
+					require.NoError(t, storage.WithWatch.Update(t.Context(), &other))
+				}
+			}
+			err = handler.Update(api.Context{
+				Request:        request,
+				ResponseWriter: httptest.NewRecorder(),
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+				User:           admin,
+			})
+			require.ErrorIs(t, err, tt.updateErr)
+
+			// The vMCP wasn't written, so it still names the credential its servers read.
+			require.NoError(t, storage.Get(t.Context(), key, &stored))
+			credential, err := gatewayClient.RevealCredential(t.Context(), []string{credentialContext}, vmcpconfig.StaticConfigurationCredentialName(&stored))
+			if tt.wantToken == "" {
+				require.ErrorAs(t, err, &gateway.CredentialNotFoundError{})
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, map[string]string{
+				vmcpconfig.ConfigurationKey(update.Components[0].ID, "TOKEN"): tt.wantToken,
+			}, credential.Secrets)
 		})
 	}
 }
@@ -2301,5 +2449,74 @@ func TestMinimizeVMCPDoesNotMutateSource(t *testing.T) {
 	}
 	if !reflect.DeepEqual(source.Spec, original.Spec) || !reflect.DeepEqual(source.Status, original.Status) {
 		t.Fatal("minimizeVMCP modified the source vMCP")
+	}
+}
+
+func TestReleaseOutdatedLegacyComponentsKeepsGoingPastARefusal(t *testing.T) {
+	component := types.VMCPComponent{
+		ID:   "component",
+		Name: "component",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:    "current",
+				Runtime: types.RuntimeNPX,
+			},
+		},
+	}
+	legacy := component
+	legacy.SourceDigest = utils.Digest([]any{component, ""})
+	legacy.CatalogEntry.Manifest.Name = "outdated"
+	vmcp := v1.VMCP{
+		Name:      "vmcp1",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{component},
+			},
+		},
+	}
+	instance := func(name string) *v1.VMCPInstance {
+		return &v1.VMCPInstance{
+			Name:      name,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPInstanceSpec{
+				Manifest: types.VMCPInstanceManifest{
+					VMCPID: vmcp.Name,
+				},
+				LegacyComponents: []types.VMCPComponent{legacy},
+			},
+		}
+	}
+	storage := newVMCPTestStorage(&vmcp, instance("refused"), instance("released"))
+	// Storage refuses releasing the first connection for going past the plan.
+	storage.onUpdate = func(obj kclient.Object) {
+		storage.updateErr = nil
+		if obj.GetName() == "refused" {
+			storage.updateErr = &apierrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code:    http.StatusPaymentRequired,
+					Message: "There isn't room on the plan for this.",
+				},
+			}
+		}
+	}
+
+	err := releaseOutdatedLegacyComponents(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps/vmcp1/trigger-update", nil),
+		Storage:        storage,
+	}, vmcp)
+	if httpErr, ok := errors.AsType[*types.ErrHTTP](err); !ok || httpErr.Code != http.StatusPaymentRequired ||
+		!strings.Contains(httpErr.Message, "There isn't room on the plan for this.") {
+		t.Fatalf("releaseOutdatedLegacyComponents() error = %v, want the plan's refusal", err)
+	}
+	for name, wantLegacy := range map[string]bool{"refused": true, "released": false} {
+		var stored v1.VMCPInstance
+		if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: name}, &stored); err != nil {
+			t.Fatal(err)
+		}
+		if kept := len(stored.Spec.LegacyComponents) > 0; kept != wantLegacy {
+			t.Errorf("%s kept its outdated snapshot = %v, want %v", name, kept, wantLegacy)
+		}
 	}
 }

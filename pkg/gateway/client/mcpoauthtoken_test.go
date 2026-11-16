@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"crypto/aes"
 	"strings"
 	"testing"
@@ -233,4 +234,63 @@ func TestMCPOAuthGrantIdentitySurvivesRefreshButChangesOnLogin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, before, after)
 	require.ErrorContains(t, client.RefreshMCPOAuthToken(t.Context(), "user", "mcp", "https://mcp.test", first.GrantID, conf, token), "grant changed")
+}
+
+// TestDeleteMCPOAuthTokensTriggersServer checks that every way of deleting tokens triggers the MCP server, so that
+// its OAuth status is synced as it is after a token is stored.
+func TestDeleteMCPOAuthTokensTriggersServer(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		delete    func(*Client) error
+		remaining []string
+	}{
+		{
+			name: "for a URL",
+			delete: func(c *Client) error {
+				return c.DeleteMCPOAuthTokenForURL(t.Context(), "user1", "mcp1", "https://upstream.example/mcp")
+			},
+			remaining: []string{"user2"},
+		},
+		{
+			name: "for a user",
+			delete: func(c *Client) error {
+				return c.DeleteMCPOAuthTokens(t.Context(), "user1", "mcp1")
+			},
+			remaining: []string{"user2"},
+		},
+		{
+			name: "for all users",
+			delete: func(c *Client) error {
+				return c.DeleteMCPOAuthTokenForAllUsers(t.Context(), "mcp1")
+			},
+			remaining: []string{},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := newTestClient(t)
+			var triggered []string
+			client.mcpOAuthTokenTrigger = func(_ context.Context, mcpID string) error {
+				triggered = append(triggered, mcpID)
+				return nil
+			}
+			for _, userID := range []string{"user1", "user2"} {
+				require.NoError(t, client.db.WithContext(t.Context()).Create(&types.MCPOAuthToken{
+					UserID: userID,
+					MCPID:  "mcp1",
+					URL:    "https://upstream.example/mcp",
+				}).Error)
+			}
+
+			require.NoError(t, test.delete(client))
+			require.Equal(t, []string{"mcp1"}, triggered)
+
+			var remaining []string
+			require.NoError(t, client.db.WithContext(t.Context()).Model(&types.MCPOAuthToken{}).Where("mcp_id = ?", "mcp1").Order("user_id").Pluck("user_id", &remaining).Error)
+			require.Equal(t, test.remaining, remaining)
+
+			// Deleting again finds nothing, and still triggers the server.
+			require.NoError(t, test.delete(client))
+			require.Equal(t, []string{"mcp1", "mcp1"}, triggered)
+		})
+	}
 }

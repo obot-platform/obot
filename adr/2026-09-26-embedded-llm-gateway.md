@@ -3,7 +3,7 @@
 - **Status:** Superseded
 - **Date:** 2026-09-26
 - **Supersedes:** None
-- **Superseded by:** [Core LLM gateway](2026-11-02-core-llm-gateway.md)
+- **Superseded by:** [Core LLM gateway](2026-11-02-core-llm-gateway.md); [Legacy LLM gateway routes](2026-11-12-legacy-llm-gateway-routes.md) (legacy client-route policy only)
 
 ## Related issues
 

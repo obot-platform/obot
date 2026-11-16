@@ -185,6 +185,67 @@ func TestGetOAuthMetadataPathAndRootFallbackUsesMetadataScope(t *testing.T) {
 	require.Equal(t, []string{"authorization_code"}, registration.GrantTypes)
 }
 
+func TestGetOAuthMetadataAddsOfflineAccessWhenRefreshSupported(t *testing.T) {
+	tests := []struct {
+		name          string
+		asScopes      string
+		asGrantTypes  string
+		expectedScope string
+	}{
+		{
+			name:          "offline_access and refresh_token supported",
+			asScopes:      `["openid","offline_access"]`,
+			asGrantTypes:  `["authorization_code","refresh_token"]`,
+			expectedScope: "openid offline_access",
+		},
+		{
+			name:          "refresh_token not supported",
+			asScopes:      `["openid","offline_access"]`,
+			asGrantTypes:  `["authorization_code"]`,
+			expectedScope: "openid",
+		},
+		{
+			name:          "offline_access not supported",
+			asScopes:      `["openid"]`,
+			asGrantTypes:  `["authorization_code","refresh_token"]`,
+			expectedScope: "openid",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var serverURL string
+			server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				switch req.URL.Path {
+				case "/mcp":
+					rw.Header().Set("WWW-Authenticate", fmt.Sprintf("Bearer resource_metadata=%q", serverURL+"/.well-known/oauth-protected-resource"))
+					http.Error(rw, "unauthorized", http.StatusUnauthorized)
+				case "/.well-known/oauth-protected-resource":
+					_ = json.NewEncoder(rw).Encode(map[string]any{
+						"resource":              serverURL,
+						"authorization_servers": []string{serverURL + "/issuer"},
+						"scopes_supported":      []string{"openid"},
+					})
+				case "/.well-known/oauth-authorization-server/issuer":
+					rw.Header().Set("Content-Type", "application/json")
+					_, _ = rw.Write(fmt.Appendf(nil, `{"issuer":%q,"authorization_endpoint":%q,"token_endpoint":%q,"registration_endpoint":%q,"response_types_supported":["code"],"scopes_supported":%s,"grant_types_supported":%s}`, serverURL+"/issuer", serverURL+"/authorize", serverURL+"/token", serverURL+"/register", tt.asScopes, tt.asGrantTypes))
+				default:
+					http.NotFound(rw, req)
+				}
+			}))
+			defer server.Close()
+			serverURL = server.URL
+
+			metadata, err := GetOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, "Test Client", "http://localhost/callback")
+			require.NoError(t, err)
+
+			var registration ClientRegistrationMetadata
+			require.NoError(t, json.Unmarshal(metadata.ClientRegistration, &registration))
+			require.Equal(t, tt.expectedScope, registration.Scope)
+		})
+	}
+}
+
 func TestGetOAuthMetadataInitializeSuccessDeletesSessionWithSessionHeader(t *testing.T) {
 	var deleted atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {

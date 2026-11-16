@@ -202,7 +202,7 @@ export interface ProviderKey {
 	description?: string;
 	azure_key_config?: Record<string, unknown>;
 	vertex_key_config?: Record<string, unknown>;
-	bedrock_key_config?: Record<string, unknown>;
+	bedrock_mantle_key_config?: Record<string, unknown>;
 	vllm_key_config?: Record<string, unknown>;
 	ollama_key_config?: Record<string, unknown>;
 	sgl_key_config?: Record<string, unknown>;

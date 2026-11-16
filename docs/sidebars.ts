@@ -169,7 +169,7 @@ const sidebars = {
 				{
 					"type": "doc",
 					"id": "llm-gateway/upgrade",
-					"label": "Upgrading from model providers"
+					"label": "Upgrading from v0.27"
 				},
 				{
 					"type": "doc",

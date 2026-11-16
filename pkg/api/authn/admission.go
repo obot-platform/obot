@@ -1,6 +1,7 @@
 package authn
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,6 +17,9 @@ import (
 )
 
 var (
+	// ErrRestricted refuses a principal while the environment is restricted.
+	ErrRestricted = types2.NewErrHTTP(http.StatusPaymentRequired, "Only admins can use this environment right now, because it's over its plan or its subscription couldn't be confirmed. An admin can bring usage back within the plan, or an owner can check the subscription.")
+
 	// nonUserGroups mark principals that act for Obot itself or for a device, never for a user, so they have no
 	// lifecycle status. Only their own authenticators assign these groups.
 	nonUserGroups = []string{
@@ -29,16 +33,25 @@ var (
 	}
 )
 
-// AdmissionCheck denies requests made by or for users who may not access Obot: disabled, deleted, or missing
-// users. It wraps the complete authenticator chain, so it runs once per request, after authentication and before
-// authorization, whichever credential authenticated the request.
-type AdmissionCheck struct {
-	next authenticator.Request
+// Restriction reports whether the environment is restricted.
+type Restriction interface {
+	Restricted(context.Context) (bool, error)
 }
 
-func NewAdmissionCheck(next authenticator.Request) *AdmissionCheck {
+// AdmissionCheck denies requests made by or for users who may not access Obot: disabled, deleted, or missing
+// users, and while the environment is restricted, users who aren't admins or owners. It wraps the complete
+// authenticator chain, so it runs once per request, after authentication and before authorization, whichever
+// credential authenticated the request.
+type AdmissionCheck struct {
+	next        authenticator.Request
+	restriction Restriction
+}
+
+// NewAdmissionCheck returns the check. A nil restriction never restricts.
+func NewAdmissionCheck(next authenticator.Request, restriction Restriction) *AdmissionCheck {
 	return &AdmissionCheck{
-		next: next,
+		next:        next,
+		restriction: restriction,
 	}
 }
 
@@ -51,24 +64,40 @@ func (a *AdmissionCheck) AuthenticateRequest(req *http.Request) (*authenticator.
 		return nil, false, errors.New("authenticator returned no principal")
 	}
 
-	if status, recorded := principal.UserStatus(resp.User); recorded {
-		if status != types2.UserStatusActive {
-			return nil, false, &gclient.UserAccessDeniedError{
-				UserID: admissionUserID(resp.User),
-				Status: status,
-			}
+	status, recorded := principal.UserStatus(resp.User)
+	if !recorded {
+		// Principals that act for Obot itself or for a device have no status, and the restriction doesn't apply to them.
+		if isNonUserPrincipal(resp.User) {
+			return resp, true, nil
 		}
-		return resp, true, nil
+		return nil, false, &gclient.UserAccessLookupError{
+			UserID: admissionUserID(resp.User),
+			Err:    fmt.Errorf("the authenticator of principal %q did not report a user status", resp.User.GetName()),
+		}
+	}
+	if status != types2.UserStatusActive {
+		return nil, false, &gclient.UserAccessDeniedError{
+			UserID: admissionUserID(resp.User),
+			Status: status,
+		}
 	}
 
-	if isNonUserPrincipal(resp.User) {
+	// Check the restriction. Admins and owners keep access so they can bring usage back within the limits.
+	if a.restriction == nil || principal.IsAdminOrOwner(resp.User) {
 		return resp, true, nil
 	}
-
-	return nil, false, &gclient.UserAccessLookupError{
-		UserID: admissionUserID(resp.User),
-		Err:    fmt.Errorf("the authenticator of principal %q did not report a user status", resp.User.GetName()),
+	restricted, err := a.restriction.Restricted(req.Context())
+	if err != nil {
+		// Like a user status that can't be read: refused as unavailable, without the details.
+		return nil, false, &gclient.UserAccessLookupError{
+			UserID: admissionUserID(resp.User),
+			Err:    fmt.Errorf("failed to check whether the environment is restricted: %w", err),
+		}
 	}
+	if restricted {
+		return nil, false, ErrRestricted
+	}
+	return resp, true, nil
 }
 
 // isNonUserPrincipal reports whether a principal acts for Obot itself or for a device rather than for a user.

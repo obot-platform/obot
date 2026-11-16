@@ -34,6 +34,7 @@ var (
 // MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
 type MCPOAuthChecker interface {
 	CheckForMCPAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error)
+	CheckForMCPToolAuth(req api.Context, server v1.MCPServer, config mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error)
 }
 
 type MCPHandler struct {

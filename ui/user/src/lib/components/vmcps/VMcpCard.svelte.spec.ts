@@ -1,5 +1,5 @@
 import { Group, type VMCPInstance, type VMCPManifest } from '$lib/services';
-import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
+import { errors, mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse, getVersionResponse } from '../../../tests/mocks/data';
@@ -313,6 +313,28 @@ describe('VMcpCard.svelte', () => {
 		await vi.waitFor(() => {
 			expect(triggered).toHaveBeenCalledOnce();
 			expect(onUpdate).toHaveBeenCalledWith(refreshed);
+		});
+	});
+
+	it('says once why an update was refused', async () => {
+		const reason =
+			"The vMCP was updated, but some of its connections keep their current versions. There isn't room on the plan's hosted MCP server memory for this. Free some up, or ask an owner to change the plan.";
+		worker.use(
+			http.post('/api/vmcps/vmcp-1/trigger-update', () => new HttpResponse(reason, { status: 402 }))
+		);
+		errors.items = [];
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			vmcp: createNeedsUpdateVmcp()
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Update vMCP', exact: true }).click();
+		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
+		await vi.waitFor(() => {
+			expect(errors.items.map((err) => err.message)).toEqual([reason]);
 		});
 	});
 

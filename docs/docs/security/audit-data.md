@@ -153,7 +153,13 @@ One-time exports allow you to export MCP or LLM audit logs for a specific time r
 
 ### Scheduled Exports {#audit-log-export-scheduled-exports}
 
-Scheduled exports run automatically at specified intervals.
+Scheduled exports run automatically at specified intervals. The first export uses the configured **Initial Backfill** to select retained history, or all retained logs if you choose **All Logs**. Existing schedules start this way on their first run after upgrading; previous run times are not treated as proof that data was exported.
+
+After a successful export, each window starts five seconds before the end of the last successful window and ends at the scheduled cutoff. Empty successful exports advance progress too. Failed exports retry the same window; progress advances only after upload and completion status are saved. Each schedule has at most one unfinished export. Disabling a schedule prevents new windows, and re-enabling it resumes from its saved progress. A pending export keeps its captured settings; edits apply to future windows. Changing Initial Backfill after progress has been saved does not replay history.
+
+Scheduled selection uses server update time, falling back to server creation time for older rows without an update timestamp. Event timestamps in exported records stay unchanged. This includes delayed local-agent submissions and later MCP responses to older requests. Consumers can receive duplicates from the five-second overlap or retries, and later versions of an event retain the same event ID. Consumers should account for both duplicates and updated versions.
+
+The overlap covers brief write and commit delays. This is best-effort delivery: a write that remains invisible to export queries for more than five seconds can be missed. After an extended outage or a long disabled period, exports can recover only logs still retained by Obot; expired data cannot be recovered.
 
 1. **Create Schedule**:
 
@@ -165,8 +171,9 @@ Scheduled exports run automatically at specified intervals.
    - **Frequency**: Hourly, Daily, Weekly, or Monthly
    - **Time**: Specific time to run (for daily/weekly/monthly)
    - **Day**: Day of week (weekly) or month (monthly)
+   - **Initial Backfill**: Retained history to include before incremental exports begin
    - **Bucket**: Storage bucket name where exports will be saved
-   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the current date.
+   - **Key Prefix**: Path prefix within the bucket. If empty, defaults to `mcp-audit-logs/YYYY/MM/DD/` for MCP exports and `llm-audit-logs/YYYY/MM/DD/` for LLM exports, based on the scheduled cutoff date.
 
 3. **Manage Schedules**:
    - View and manage schedules in the "Export Schedules" tab

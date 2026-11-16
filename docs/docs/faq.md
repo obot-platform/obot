@@ -20,7 +20,7 @@ Users must log in at least once before their own role can be changed. To give us
 
 ### What are the differences between the open source and enterprise versions of Obot?
 
-There isn't an open source version separate from an enterprise version. Obot is fully open source under the MIT License, and every self-hosted edition, including Obot Enterprise, runs the same code from the same container image. The license key decides what applies. Obot Community is free, supports up to 100 users and 100 devices, and includes all LLM gateway providers plus Local, GitHub, and Google authentication. Registering Obot Community is free and adds Entra, Okta, OneLogin, JumpCloud, Keycloak, and Auth0 authentication. Obot Enterprise removes the user and device limits and adds enterprise support. See [Editions and licensing](./enterprise/overview.md).
+There isn't an open source version separate from an enterprise version. Obot is fully open source under the MIT License, and every self-hosted edition, including Obot Enterprise, runs the same code from the same container image. The license key decides what applies. Obot Community is free, supports up to 100 users and 100 devices, and includes all LLM gateway providers plus Local, GitHub, and Google authentication. Registering Obot Community is free and adds Entra, Okta, OneLogin, JumpCloud, Keycloak, PingFederate, and Auth0 authentication. Obot Enterprise removes the user and device limits and adds enterprise support. See [Editions and licensing](./enterprise/overview.md).
 
 ### What happens if Obot can't validate its license?
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,14 +40,23 @@ func NewHandler(gatewayClient *client.Client) *Handler {
 }
 
 // ExportAuditLogs reconciles one AuditLogExport resource. It marks pending exports as running,
-// streams their selected events, and records either the completed result or terminal failure.
-func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
+// streams their selected events, and records the completed result or failure.
+// Scheduled failures retry their fixed window.
+func (h *Handler) ExportAuditLogs(req router.Request, resp router.Response) error {
 	export := req.Object.(*v1.AuditLogExport)
 
-	if export.Status.State == types.AuditLogExportStateCompleted || export.Status.State == types.AuditLogExportStateFailed {
+	if export.Status.State == types.AuditLogExportStateCompleted || (export.Status.State == types.AuditLogExportStateFailed && export.Spec.ScheduleUID == "") {
 		return nil
 	}
 
+	if export.Status.RetryAt != nil {
+		if until := time.Until(export.Status.RetryAt.Time); until > 0 {
+			resp.RetryAfter(until)
+			return nil
+		}
+	}
+	export.Status.Error = ""
+	export.Status.RetryAt = nil
 	export.Status.State = types.AuditLogExportStateRunning
 	export.Status.StartedAt = &metav1.Time{Time: time.Now()}
 
@@ -61,38 +71,68 @@ func (h *Handler) ExportAuditLogs(req router.Request, _ router.Response) error {
 			IncludeDetails:  true,
 			PayloadRedacted: !export.Spec.WithRequestAndResponse,
 		}
-		err = performExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.fetchMCPAuditLogs, func(log gatewaytypes.MCPAuditLog) types.AuditLogEvent {
+		err = performExport(req.Ctx, h.credProvider, export, "mcp-audit-logs", h.mcpAuditLogFetcher(), func(log gatewaytypes.MCPAuditLog) types.AuditLogEvent {
 			return auditlog.Present(log, presentOptions)
 		})
 	case types.AuditLogTypeLLM:
-		err = performExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.fetchLLMAuditLogs, gatewaytypes.ConvertLLMAuditLog)
+		err = performExport(req.Ctx, h.credProvider, export, "llm-audit-logs", h.llmAuditLogFetcher(), gatewaytypes.ConvertLLMAuditLog)
 	default:
 		err = fmt.Errorf("unsupported audit log export type %q", export.Spec.Type)
 	}
 	if err != nil {
 		export.Status.State = types.AuditLogExportStateFailed
 		export.Status.Error = err.Error()
+		if export.Spec.ScheduleUID != "" {
+			// Persist the delay so status events and controller restarts cannot hot-loop
+			// on invalid credentials. Retries keep this job's fixed window and object key.
+			retryAt := metav1.NewTime(time.Now().Add(time.Minute))
+			export.Status.RetryAt = &retryAt
+		}
 
 		if statusErr := req.Client.Status().Update(req.Ctx, export); statusErr != nil {
 			return fmt.Errorf("failed to update failed export status: %w", statusErr)
 		}
 
+		if export.Status.RetryAt != nil {
+			resp.RetryAfter(time.Until(export.Status.RetryAt.Time))
+			return nil
+		}
 		return fmt.Errorf("audit log export failed: %w", err)
 	}
 
 	return req.Client.Status().Update(req.Ctx, export)
 }
 
-func (h *Handler) fetchMCPAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
-	opts := mcpAuditLogOptionsFromExport(export, limit, offset)
-	logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
-	return logs, err
+// Each attempt owns its pagination cursor. A retry starts the fixed window from
+// the beginning and rewrites the same object, rather than appending partial data.
+func (h *Handler) mcpAuditLogFetcher() func(context.Context, *v1.AuditLogExport, int, int) ([]gatewaytypes.MCPAuditLog, error) {
+	var cursor client.AuditLogExportQuery
+	return func(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.MCPAuditLog, error) {
+		opts := mcpAuditLogOptionsFromExport(export, limit, offset)
+		if export.Spec.ScheduleUID != "" {
+			opts.ScheduledExport, opts.Offset = &cursor, 0
+		}
+		logs, _, err := h.gatewayClient.GetMCPAuditLogs(ctx, opts)
+		if len(logs) > 0 {
+			cursor.AfterID = strconv.FormatUint(uint64(logs[len(logs)-1].ID), 10)
+		}
+		return logs, err
+	}
 }
 
-func (h *Handler) fetchLLMAuditLogs(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.LLMAuditLog, error) {
-	opts := llmAuditLogOptionsFromExport(export, limit, offset)
-	logs, _, err := h.gatewayClient.GetLLMAuditLogs(ctx, opts)
-	return logs, err
+func (h *Handler) llmAuditLogFetcher() func(context.Context, *v1.AuditLogExport, int, int) ([]gatewaytypes.LLMAuditLog, error) {
+	var cursor client.AuditLogExportQuery
+	return func(ctx context.Context, export *v1.AuditLogExport, limit, offset int) ([]gatewaytypes.LLMAuditLog, error) {
+		opts := llmAuditLogOptionsFromExport(export, limit, offset)
+		if export.Spec.ScheduleUID != "" {
+			opts.ScheduledExport, opts.Offset = &cursor, 0
+		}
+		logs, _, err := h.gatewayClient.GetLLMAuditLogs(ctx, opts)
+		if len(logs) > 0 {
+			cursor.AfterID = logs[len(logs)-1].ID
+		}
+		return logs, err
+	}
 }
 
 func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) client.MCPAuditLogOptions {
@@ -201,7 +241,12 @@ func performExport[T any, U any](
 
 	export.Status.StorageProvider = provider
 
-	exportPath := generateExportPath(export.Spec.Name, export.Spec.KeyPrefix, defaultPrefix)
+	exportPath := exportPathAt(export.Spec.Name, export.Spec.KeyPrefix, defaultPrefix, time.Now())
+	if export.Spec.ScheduleUID != "" {
+		// Retrying an upload overwrites the same object, including after a successful
+		// upload whose completion status could not be persisted.
+		exportPath = exportPathAt(export.Name, export.Spec.KeyPrefix, defaultPrefix, export.Spec.EndTime.Time)
+	}
 	exportSize, err := streamingExport(ctx, *storageConfig, storageProvider, export, export.Spec.Bucket, exportPath, fetch, convert)
 	if err != nil {
 		return fmt.Errorf("failed to perform streaming export: %w", err)
@@ -295,8 +340,7 @@ func streamingExport[T any, U any](
 	return totalSize, nil
 }
 
-func generateExportPath(name, keyPrefix, defaultPrefix string) string {
-	now := time.Now()
+func exportPathAt(name, keyPrefix, defaultPrefix string, now time.Time) string {
 	filename := fmt.Sprintf("%s-%s.jsonl", name, now.Format(time.RFC3339))
 
 	if keyPrefix == "" {

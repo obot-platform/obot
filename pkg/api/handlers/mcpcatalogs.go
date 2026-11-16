@@ -56,7 +56,7 @@ type capacityInfoProvider interface {
 	GetCapacityInfoForServers(context.Context, []string) (types.MCPCapacityInfo, error)
 }
 
-func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *MCPCatalogHandler {
+func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string, capacity *mcp.ComputeCapacity) *MCPCatalogHandler {
 	var validationOptions mcp.ValidationOptions
 	if sessionManager != nil {
 		validationOptions = sessionManager.ValidationOptions()
@@ -66,7 +66,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBacken
 		serverURL:                 serverURL,
 		mcpBackend:                mcpBackend,
 		sessionManager:            sessionManager,
-		capacityInfoProvider:      sessionManager,
+		capacityInfoProvider:      capacity,
 		oauthChecker:              oauthChecker,
 		gatewayClient:             gatewayClient,
 		acrHelper:                 acrHelper,
@@ -953,7 +953,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	}
 
 	if serverConfig.Runtime == types.RuntimeRemote {
-		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+		oauthURL, err := h.oauthChecker.CheckForMCPToolAuth(req, server, serverConfig, "system", server.Name, "")
 		if err != nil {
 			return fmt.Errorf("failed to check for MCP auth: %w", err)
 		}
@@ -1062,7 +1062,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
 
-	oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+	oauthURL, err := h.oauthChecker.CheckForMCPToolAuth(req, server, serverConfig, "system", server.Name, "")
 	if err != nil {
 		return types.NewErrBadRequest("failed to check for MCP auth: %v", err)
 	}
@@ -1081,7 +1081,7 @@ func (h *MCPCatalogHandler) GenerateVMCPComponentToolPreviews(req api.Context) e
 	}
 
 	if serverConfig.Runtime == types.RuntimeRemote {
-		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+		oauthURL, err := h.oauthChecker.CheckForMCPToolAuth(req, server, serverConfig, "system", server.Name, "")
 		if err != nil {
 			return fmt.Errorf("failed to check for MCP auth: %w", err)
 		}
@@ -1114,7 +1114,7 @@ func (h *MCPCatalogHandler) GenerateVMCPComponentToolPreviewsOAuthURL(req api.Co
 		return req.Write(map[string]string{"oauthURL": ""})
 	}
 
-	oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+	oauthURL, err := h.oauthChecker.CheckForMCPToolAuth(req, server, serverConfig, "system", server.Name, "")
 	if err != nil {
 		return types.NewErrBadRequest("failed to check for MCP auth: %v", err)
 	}

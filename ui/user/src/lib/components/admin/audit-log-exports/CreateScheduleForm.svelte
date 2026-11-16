@@ -1018,7 +1018,7 @@
 		</div>
 
 		<div class="space-y-4">
-			<h3 class="text-lg font-semibold">{m.audit_usage_exports_time_range()}</h3>
+			<h3 class="text-lg font-semibold">{m.audit_usage_export_schedules_initial_backfill()}</h3>
 			<p class="text-sm text-gray-600">
 				{m.audit_usage_export_schedules_time_range_help()}
 			</p>

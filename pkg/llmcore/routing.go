@@ -106,6 +106,9 @@ func (p *routingPlugin) Cleanup() error { return nil }
 func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+	if key, _ := ctx.Value(initialKeyContextKey{}).(string); key != "" {
+		ctx.SetValue(schemas.BifrostContextKeyRoutingPinnedAPIKeyID, key)
+	}
 	if !p.rules.HasRules(ctx) {
 		return nil
 	}
@@ -131,6 +134,10 @@ func (p *routingPlugin) PreRequestHook(ctx *schemas.BifrostContext, req *schemas
 
 	if decision == nil {
 		return nil
+	}
+	if (decision.Provider != "" && schemas.ModelProvider(decision.Provider) != provider) || (decision.Model != "" && decision.Model != model) {
+		// The initial preference belongs to the original target; the rule can set its own key below.
+		ctx.SetValue(schemas.BifrostContextKeyRoutingPinnedAPIKeyID, "")
 	}
 	if decision.Provider != "" {
 		req.SetProvider(schemas.ModelProvider(decision.Provider))

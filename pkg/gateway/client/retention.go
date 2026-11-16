@@ -12,6 +12,11 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
+const (
+	// maxAuditLogRetentionDays keeps the cleanup cutoff within the dates the database can store.
+	maxAuditLogRetentionDays = 100 * 365
+)
+
 func apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) int {
 	if mcpAuditLogRetentionDays <= 0 || llmAuditLogRetentionDays <= 0 {
 		return 0
@@ -19,9 +24,12 @@ func apiKeyRetentionDays(mcpAuditLogRetentionDays, llmAuditLogRetentionDays int)
 	return max(mcpAuditLogRetentionDays, llmAuditLogRetentionDays)
 }
 
-func (c *Client) runRetentionCleanup(ctx context.Context, mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) {
+// runRetentionCleanup deletes audit logs, revoked API keys and other data past retention, now and every
+// auditLogCleanupInterval until ctx is done. Each pass reads the audit log retention again.
+func (c *Client) runRetentionCleanup(ctx context.Context, entitlements EntitlementProvider) {
 	run := func(now time.Time) {
-		if err := c.cleanupRetainedData(ctx, now.UTC(), mcpAuditLogRetentionDays, llmAuditLogRetentionDays); err != nil && !errors.Is(err, context.Canceled) {
+		mcpDays, llmDays := c.auditLogRetention(ctx, entitlements)
+		if err := c.cleanupRetainedData(ctx, now.UTC(), mcpDays, llmDays); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("Failed to clean up retained gateway data", "error", err)
 		}
 	}
@@ -37,6 +45,21 @@ func (c *Client) runRetentionCleanup(ctx context.Context, mcpAuditLogRetentionDa
 			run(now)
 		}
 	}
+}
+
+// auditLogRetention returns how many days of MCP and LLM audit logs to keep. 0 keeps them all. An audit log retention
+// in the entitlements replaces the configured days. If the entitlements can't be read, every audit log is kept.
+func (c *Client) auditLogRetention(ctx context.Context, entitlements EntitlementProvider) (mcpDays, llmDays int) {
+	granted, err := entitlements.Entitlements(ctx)
+	if err != nil {
+		slog.Error("Failed to read audit log retention, keeping audit logs", "error", err)
+		return 0, 0
+	}
+	if days := granted.AuditLogRetentionDays; days != nil && *days > 0 {
+		days := int(min(*days, maxAuditLogRetentionDays))
+		return days, days
+	}
+	return c.auditLogRetentionDays, c.llmAuditLogRetentionDays
 }
 
 func (c *Client) cleanupRetainedData(ctx context.Context, now time.Time, mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) error {

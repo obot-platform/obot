@@ -15,7 +15,7 @@ type CommonProviderMetadata struct {
 
 type CommonProviderStatus struct {
 	Configured                     bool     `json:"configured"`
-	MissingEntitlements            []string `json:"missingEntitlements,omitempty"`
+	EntitlementsMissing            bool     `json:"entitlementsMissing,omitempty"`
 	MissingConfigurationParameters []string `json:"missingConfigurationParameters,omitempty"`
 }
 
