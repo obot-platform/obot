@@ -121,11 +121,6 @@
 		}
 	}
 
-	async function handleOwnerCreated(userCount: number) {
-		if (userCount <= 0) return;
-		await showSignIn(await AdminService.listLocalAuthUsers());
-	}
-
 	async function showSignIn(users: LocalAuthUser[]) {
 		localUsers = users;
 		step = 'signin';
@@ -161,7 +156,6 @@
 						<LocalAuthInitialUserForm
 							provider={localProvider}
 							onConfigure={handleLocalAuthConfigure}
-							onCreated={handleOwnerCreated}
 							createUser={createOwnerAndSignIn}
 						/>
 					</div>

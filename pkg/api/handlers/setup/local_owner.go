@@ -8,13 +8,8 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/system"
 )
-
-// oauthCompletePath is the API-relative path that finishes owner setup once the browser holds a
-// Local session.
-const oauthCompletePath = "/setup/oauth-complete"
 
 type CreateLocalOwnerRequest struct {
 	Email    string `json:"email"`
@@ -64,7 +59,7 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 
 	user, err := h.localAuth.CreateUser(req.Context(), body.Email, body.Password, false, true)
 	if err != nil {
-		return localauth.CreateUserHTTPError(err, req.Locale())
+		return api.LocalAuthCreateUserError(req, err)
 	}
 
 	token, expiresAt, err := h.localAuth.StartSession(req.Context(), user.ID)

@@ -15,7 +15,6 @@ const provider: AuthProvider = {
 	port: 0,
 	configured: true,
 	missingConfigurationParameters: [],
-	missingEntitlements: [],
 	namespace: 'default'
 };
 

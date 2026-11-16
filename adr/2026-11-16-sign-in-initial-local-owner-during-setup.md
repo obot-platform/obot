@@ -1,13 +1,13 @@
-# 2026-11-10: Sign in the initial Local owner when bootstrap setup creates it
+# 2026-11-16: Sign in the initial Local owner when bootstrap setup creates it
 
 - **Status:** Accepted
-- **Date:** 2026-11-10
+- **Date:** 2026-11-16
 - **Supersedes:** None
 - **Superseded by:** None
 
 ## Related issues
 
-<!-- TODO: link the GitHub issue for this change. -->
+https://github.com/obot-platform/obot/issues/8493
 
 ## Related ODPs
 

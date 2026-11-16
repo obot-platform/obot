@@ -66,7 +66,7 @@ func (r *Context) Locale() string {
 	if r.Request == nil {
 		return "en"
 	}
-	return i18n.FromContext(r.Request.Context())
+	return i18n.FromContext(r.Context())
 }
 
 func (r *Context) IsStreamRequested() bool {

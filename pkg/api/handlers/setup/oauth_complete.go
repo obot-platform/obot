@@ -13,6 +13,10 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+const (
+	oauthCompletePath = "/setup/oauth-complete"
+)
+
 // OAuthComplete handles the OAuth callback for setup flow.
 // This endpoint is called after oauth2-proxy completes authentication.
 // The sole local account becomes Owner automatically. Other identities are cached

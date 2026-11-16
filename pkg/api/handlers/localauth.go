@@ -96,7 +96,7 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 	bootstrap := req.User.GetName() == system.BootstrapName
 	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange), bootstrap)
 	if err != nil {
-		return localauth.CreateUserHTTPError(err, req.Locale())
+		return api.LocalAuthCreateUserError(req, err)
 	}
 
 	return req.Write(LocalAuthUser{

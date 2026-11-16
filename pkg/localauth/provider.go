@@ -56,6 +56,11 @@ type Provider struct {
 	tokens        *tokenSigner
 }
 
+type sessionStepError struct {
+	msg string
+	err error
+}
+
 func New(gatewayClient *client.Client, serverURL string) (*Provider, error) {
 	tokens, err := newTokenSigner()
 	if err != nil {
@@ -196,7 +201,11 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	token, expiresAt, err := p.StartSession(r.Context(), user.ID)
 	if err != nil {
-		slog.Error("failed to create local auth session", "error", err)
+		if step, ok := errors.AsType[sessionStepError](err); ok {
+			slog.Error(step.msg, "error", step.err)
+		} else {
+			slog.Error("failed to start local auth session", "error", err)
+		}
 		http.Error(w, i18n.Text(locale, "internal_server_error"), http.StatusInternalServerError)
 		return
 	}
@@ -219,7 +228,7 @@ func (p *Provider) StartSession(ctx context.Context, userID uint) (string, time.
 	}
 
 	if err := p.gatewayClient.CreateLocalAuthSession(ctx, hash.String(token), userID, expiresAt); err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to create local auth session: %w", err)
+		return "", time.Time{}, sessionStepError{msg: "failed to create local auth session", err: err}
 	}
 	return token, expiresAt, nil
 }
@@ -242,11 +251,15 @@ func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) 
 	return token, expiresAt, nil
 }
 
+func (e sessionStepError) Error() string { return e.msg + ": " + e.err.Error() }
+
+func (e sessionStepError) Unwrap() error { return e.err }
+
 // newSessionToken returns a fresh session token and the time a session started now expires.
 func newSessionToken() (string, time.Time, error) {
 	token, err := generateToken()
 	if err != nil {
-		return "", time.Time{}, fmt.Errorf("failed to generate session token: %w", err)
+		return "", time.Time{}, sessionStepError{msg: "failed to generate session token", err: err}
 	}
 	return token, time.Now().Add(sessionDuration), nil
 }
