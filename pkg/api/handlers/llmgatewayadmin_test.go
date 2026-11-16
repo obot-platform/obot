@@ -541,6 +541,26 @@ func TestGatewayAdminAzureRefreshReturnsPending(t *testing.T) {
 	require.Equal(t, before.Config, after.Config, "the caller queues work without fetching or publishing discovery")
 }
 
+func TestGatewaySettingsWhileEngineUnavailable(t *testing.T) {
+	for _, failed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failed=%t", failed), func(t *testing.T) {
+			storage := newFakeStorage(t)
+			h := &LLMGatewayHandler{engine: llmengine.New()}
+			if failed {
+				h.engine.Fail(errors.New("startup failed"))
+			}
+			mux := newAdminTestServer(t, h, storage, newHandlerTestGateway(t))
+			mux.HandleFunc("GET /api/llm-gateway/settings", h.GetSettings)
+			response := httptest.NewRecorder()
+			mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/llm-gateway/settings", nil))
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.JSONEq(t, `{"subscriptionPassthrough":false,"chatgptSubscriptionPassthrough":false}`, response.Body.String())
+			_, err := h.engine.SubscriptionPassthrough(t.Context(), "anthropic")
+			require.True(t, apierrors.IsServiceUnavailable(err), "inference admission must remain unavailable")
+		})
+	}
+}
+
 func TestGatewaySettingsDerivedFromProviders(t *testing.T) {
 	storage := newFakeStorage(t)
 	h, store := newAdminTestHandler(t, storage)

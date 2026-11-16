@@ -330,6 +330,10 @@ func (h *LLMGatewayHandler) SyncModels(req api.Context) error {
 
 // GetSettings exposes only the provider-derived subscription summary to signed-in users.
 func (h *LLMGatewayHandler) GetSettings(req api.Context) error {
+	// Connection setup remains usable while inference is unavailable.
+	if !h.engine.Ready() {
+		return req.Write(gatewaytypes.LLMGatewaySettings{})
+	}
 	claude, err := h.engine.SubscriptionPassthrough(req.Context(), "anthropic")
 	if err != nil {
 		return err
