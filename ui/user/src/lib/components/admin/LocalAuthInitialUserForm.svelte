@@ -104,36 +104,32 @@
 				return;
 			}
 
-			if (onSubmitOwner) {
-				initialUserError = await onSubmitOwner(email, initialPassword);
-				if (initialUserError) saving = false;
-				return;
-			}
-
-			await AdminService.createLocalAuthUser(email, initialPassword, false);
+			initialUserError = await (onSubmitOwner ?? createUser)(email, initialPassword);
 		} catch (err) {
-			saving = false;
 			initialUserError = errorMessage(
 				err,
 				m.identity_access_auth_providers_local_auth_initial_user_create_failed()
 			);
 		}
 
-		if (!initialUserError) {
-			try {
-				const users = await AdminService.listLocalAuthUsers();
-				userCount = users.length;
-			} catch (err) {
-				initialUserError = errorMessage(
-					err,
-					m.identity_access_auth_providers_local_auth_initial_user_list_failed()
-				);
-				userCount = 1;
-			} finally {
-				onCreated?.(userCount, email);
-				saving = false;
-			}
+		if (initialUserError || !onSubmitOwner) saving = false;
+	}
+
+	async function createUser(email: string, password: string): Promise<string | undefined> {
+		await AdminService.createLocalAuthUser(email, password, false);
+
+		let error: string | undefined;
+		try {
+			userCount = (await AdminService.listLocalAuthUsers()).length;
+		} catch (err) {
+			error = errorMessage(
+				err,
+				m.identity_access_auth_providers_local_auth_initial_user_list_failed()
+			);
+			userCount = 1;
 		}
+		onCreated?.(userCount, email);
+		return error;
 	}
 </script>
 

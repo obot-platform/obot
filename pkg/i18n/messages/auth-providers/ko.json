@@ -46,7 +46,7 @@
   "setup_no_user_id": "컨텍스트에 사용자 ID가 없습니다",
   "setup_local_not_configured": "로컬 인증이 구성된 공급자가 아닙니다",
   "setup_no_local_account": "설정에 사용할 로컬 계정이 없습니다",
-  "setup_owner_exists": "소유자가 이미 생성되었습니다. 계속하려면 로그인하세요",
+  "setup_local_account_exists": "로컬 계정이 이미 존재합니다. 계속하려면 로그인하세요",
   "setup_sign_in_initial": "초기 로컬 계정으로 로그인하여 설정을 계속하세요",
   "setup_change_password": "설정을 완료하기 전에 비밀번호를 변경하세요",
   "setup_login_not_started": "이 브라우저에서 시작된 설정 로그인이 없습니다. Obot 관리 페이지에서 설정을 다시 시작하세요",

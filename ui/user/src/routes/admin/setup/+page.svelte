@@ -7,6 +7,7 @@
 	import { PAGE_TRANSITION_DURATION, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
+	import { clearSeenTimestamp } from '$lib/localstate';
 	import { navigateTo } from '$lib/navigation';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 	import { errors, version } from '$lib/stores';
@@ -112,11 +113,22 @@
 	async function handleSubmitOwner(email: string, password: string): Promise<string | undefined> {
 		try {
 			const { redirect } = await AdminService.createLocalOwner(email, password);
-			localStorage.removeItem(SEEN_SPLASH_DIALOG_KEY);
+			clearSeenTimestamp(SEEN_SPLASH_DIALOG_KEY);
 			navigateTo(redirect || '/admin');
 			return undefined;
 		} catch (err) {
-			const { message } = parseErrorContent(err);
+			const { status, message } = parseErrorContent(err);
+			// fallback is user created but conflict received, show sign in step
+			if (status === 409) {
+				try {
+					localUsers = await AdminService.listLocalAuthUsers();
+				} catch (listErr) {
+					errors.append(listErr);
+				}
+				step = 'signin';
+				await prepareSignIn();
+				return undefined;
+			}
 			return message || m.identity_access_auth_providers_local_auth_initial_user_create_failed();
 		}
 	}

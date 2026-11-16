@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/i18n"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -62,13 +61,9 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 	localUser, err := h.localAuth.CreateUser(req.Context(), body.Email, body.Password, false, true)
 	if errors.Is(err, gateway.ErrBootstrapLocalAuthUserLimit) || errors.Is(err, gateway.ErrLocalAuthUserExists) {
 		slog.Info("Rejected local owner creation because a local account already exists")
-		return types.NewErrHTTP(http.StatusConflict, localized(req, "setup_owner_exists"))
+		return types.NewErrHTTP(http.StatusConflict, localized(req, "setup_local_account_exists"))
 	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
-		locale := "en"
-		if req.Request != nil {
-			locale = i18n.FromContext(req.Context())
-		}
-		return types.NewErrBadRequest("%s", invalid.Localized(locale))
+		return types.NewErrBadRequest("%s", invalid.Localized(requestLocale(req)))
 	} else if err != nil {
 		return fmt.Errorf("failed to create local owner account: %w", err)
 	}
@@ -102,10 +97,12 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 // that work fails after an Owner was recorded, the Owner is kept: deleting the account behind it would
 // close setup with nobody able to sign in.
 func (h *Handler) ensureLocalOwner(req api.Context, email string) (*gatewaytypes.User, error) {
+	// EnsureIdentityWithRole raises an existing user's role to Owner and creates a new user as Owner, so the
+	// returned user already has the Owner role.
 	user, err := req.GatewayClient.EnsureIdentityWithRole(
 		req.Context(),
 		localauth.Identity(email),
-		req.Request.Header.Get("X-Obot-User-Timezone"),
+		req.UserTimezone(),
 		types.RoleOwner,
 		// The first Owner must always be creatable, as the bootstrap user is.
 		gateway.UserLimit{Unlimited: true},
@@ -117,10 +114,6 @@ func (h *Handler) ensureLocalOwner(req api.Context, email string) (*gatewaytypes
 		}
 		slog.Warn("Local owner was created, but finishing their sign-in failed", "userID", existing.ID, "error", err)
 		return existing, nil
-	}
-
-	if err := PromoteToOwner(req, user); err != nil {
-		return nil, err
 	}
 	return user, nil
 }
