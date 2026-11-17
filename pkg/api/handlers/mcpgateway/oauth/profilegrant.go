@@ -141,7 +141,21 @@ func (f *MCPOAuthHandlerFactory) profileGrantTargetURL(ctx context.Context, vmcp
 	case target.AmbiguousFallback:
 		return "", types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("the upstream URL of component %q needs a value that profile %q falls back for, and more than one profile of vMCP %q names every agent; leave at most one such profile first", component.ID, profile.ID, vmcp.Name))
 	case target.URL == "":
-		return "", types.NewErrBadRequest("the upstream URL of component %q needs %s, which profile %q does not configure; configure the profile first", component.ID, strings.Join(target.Missing, ", "), profile.ID)
+		// The keys are named, never values, so an administrator is pointed at the exact fields to set.
+		reasons := make([]types.AgentReadinessReason, 0, len(target.Missing))
+		for _, key := range target.Missing {
+			reasons = append(reasons, types.AgentReadinessReason{
+				ComponentID: component.ID,
+				Code:        types.AgentReadinessConfigurationRequired,
+				Field:       key,
+				ProfileID:   profile.ID,
+			})
+		}
+		return "", api.NewErrHTTPWithReasons(
+			http.StatusBadRequest,
+			fmt.Sprintf("the upstream URL of component %q needs %s, which profile %q does not configure; configure the profile first", component.ID, strings.Join(target.Missing, ", "), profile.ID),
+			reasons,
+		)
 	}
 	return target.URL, nil
 }

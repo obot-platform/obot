@@ -514,7 +514,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				scim.WriteError(w, code, message)
 			}
 		}
-		if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+		if withReasons := (*api.ErrHTTPWithReasons)(nil); errors.As(err, &withReasons) && !isSCIM && !llm.IsProxyPath(req.URL.Path) {
+			api.WriteErrorWithReasons(rw, withReasons)
+			shouldLogError = withReasons.Code == http.StatusInternalServerError
+		} else if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 			writeError(rw, errHTTP.Message, errHTTP.Code)
 			shouldLogError = errHTTP.Code == http.StatusInternalServerError
 		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {

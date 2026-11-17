@@ -485,6 +485,15 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 	requireErrHTTP(t, err, http.StatusBadRequest)
 	require.True(t, strings.Contains(err.Error(), "configure the profile first"), err.Error())
 	require.True(t, strings.Contains(err.Error(), "__url"), err.Error())
+	// The keys to set come back as structured reasons, with no value, for the administrator to be pointed at.
+	var withReasons *api.ErrHTTPWithReasons
+	require.ErrorAs(t, err, &withReasons)
+	require.Equal(t, []types.AgentReadinessReason{{
+		ComponentID: profileGrantRemote,
+		Code:        types.AgentReadinessConfigurationRequired,
+		Field:       "__url",
+		ProfileID:   profileGrantAgents,
+	}}, withReasons.Reasons)
 }
 
 // setRemote replaces how the fixture's remote component reaches its upstream.
