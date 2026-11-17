@@ -1,0 +1,82 @@
+name: Post New Security Advisories to Slack
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 14 * * *"
+
+permissions:
+  # Needed to look up this workflow's previous successful run.
+  actions: read
+
+jobs:
+  notify-slack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find time of last successful run
+        id: last-run
+        uses: actions/github-script@v8
+        with:
+          script: |
+            // Only successful runs count: if a run failed (for example, Slack was down),
+            // the next run re-checks its window instead of silently dropping advisories.
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'security-advisories-to-slack.yml',
+              status: 'success',
+              per_page: 1,
+            });
+            // The run's creation time precedes its advisory query, so the overlap can
+            // repeat an advisory created in those few seconds but never miss one.
+            // With no prior successful run (first run), look back one day.
+            const since = data.workflow_runs[0]?.created_at
+              ?? new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            console.log(`Checking for advisories created since ${since}`);
+            core.setOutput('since', since);
+
+      - name: Find advisories opened since last run
+        id: advisories
+        uses: actions/github-script@v8
+        env:
+          SINCE: ${{ steps.last-run.outputs.since }}
+        with:
+          # GITHUB_TOKEN cannot read repository security advisories, and draft or privately
+          # reported advisories are only visible to admins and security managers, so this
+          # needs a token with "Repository security advisories: read" on this repository.
+          github-token: ${{ secrets.SECURITY_ADVISORIES_GITHUB_TOKEN }}
+          script: |
+            const since = new Date(process.env.SINCE);
+            // shortcut: reads only the 100 newest advisories, page if more could open in one day.
+            const { data } = await github.request('GET /repos/{owner}/{repo}/security-advisories', {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sort: 'created',
+              direction: 'desc',
+              per_page: 100,
+            });
+            const opened = data.filter(a => new Date(a.created_at) >= since);
+            console.log(`Found ${opened.length} new advisories`);
+            core.setOutput('count', opened.length);
+            if (opened.length === 0) return;
+
+            // Advisory summaries are user-supplied, so escape Slack's mrkdwn control characters.
+            const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const lines = opened.map(a =>
+              `• <${a.html_url}|${a.ghsa_id}: ${esc(a.summary)}> (severity: ${a.severity ?? 'unknown'}, state: ${a.state})`);
+            // Emitted as JSON (valid YAML) so titles cannot break the Slack step's payload parsing.
+            core.setOutput('payload', JSON.stringify({
+              text: 'New security advisory opened',
+              blocks: [{
+                type: 'section',
+                text: { type: 'mrkdwn', text: `*New Security Advisories Opened*\n${lines.join('\n')}` },
+              }],
+            }));
+
+      - name: Post to Slack
+        if: steps.advisories.outputs.count != '0'
+        uses: slackapi/slack-github-action@v2
+        with:
+          webhook: ${{ secrets.SECURITY_ADVISORY_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: ${{ steps.advisories.outputs.payload }}
