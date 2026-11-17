@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	gcontext "github.com/obot-platform/obot/pkg/gateway/context"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -23,14 +24,17 @@ func (c *Client) MigrateLLMGatewaySubscriptions(ctx context.Context, store *llmc
 		}
 		if err == nil {
 			if err := json.Unmarshal([]byte(property.Value), &legacy); err != nil || legacy == nil {
-				return fmt.Errorf("invalid legacy LLM gateway settings object: %v", err)
+				gcontext.GetLogger(ctx).Warn("Invalid legacy LLM gateway settings object; migrating subscription passthrough as disabled")
+				legacy = nil
 			}
 		}
 
+		// Malformed legacy settings must neither enable subscriptions nor block startup.
 		allowed := false
 		if raw, ok := legacy["subscriptionPassthrough"]; ok {
 			if string(raw) == "null" || json.Unmarshal(raw, &allowed) != nil {
-				return errors.New("invalid legacy LLM gateway setting subscriptionPassthrough: expected boolean")
+				gcontext.GetLogger(ctx).Warn("Invalid legacy subscriptionPassthrough setting; migrating subscription passthrough as disabled")
+				allowed = false
 			}
 		}
 

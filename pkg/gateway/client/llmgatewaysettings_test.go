@@ -133,23 +133,34 @@ func TestSubscriptionMigrationExplicitAndMissingProviders(t *testing.T) {
 	require.Equal(t, new(false), p.SubscriptionPassthrough, "recreation must not inherit the old property")
 }
 
-func TestSubscriptionMigrationFailures(t *testing.T) {
-	for _, body := range []string{"broken", "null", "[]", `{"subscriptionPassthrough":"true"}`, `{"subscriptionPassthrough":null}`} {
+func TestSubscriptionMigrationMalformedSettings(t *testing.T) {
+	for _, body := range []string{"broken", "null", "[]", `{"subscriptionPassthrough":"true"}`, `{"subscriptionPassthrough":null}`, `{"subscriptionPassthrough":true} trailing`} {
 		t.Run(body, func(t *testing.T) {
 			c := newTestClient(t)
 			store, err := llmcoreclient.New(fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(), c)
 			require.NoError(t, err)
+			legacySubscriptionProvider(t, store, "anthropic")
 			_, err = c.SetProperty(t.Context(), "llm-gateway-settings", body)
 			require.NoError(t, err)
-			require.Error(t, c.MigrateLLMGatewaySubscriptions(t.Context(), store))
+			require.NoError(t, c.MigrateLLMGatewaySubscriptions(t.Context(), store))
+			provider, err := store.GetProvider(t.Context(), "anthropic")
+			require.NoError(t, err)
+			require.Equal(t, new(false), provider.SubscriptionPassthrough)
+
 			var count int64
 			require.NoError(t, c.db.WithContext(t.Context()).Model(&types.Migration{}).Where("name = ?", "provider-owned-subscription-passthrough").Count(&count).Error)
-			require.Zero(t, count)
-			_, err = c.SetProperty(t.Context(), "llm-gateway-settings", `{}`)
+			require.EqualValues(t, 1, count)
+			_, err = c.SetProperty(t.Context(), "llm-gateway-settings", `{"subscriptionPassthrough":true}`)
 			require.NoError(t, err)
-			require.NoError(t, c.MigrateLLMGatewaySubscriptions(t.Context(), store), "failed migration can retry")
+			require.NoError(t, c.MigrateLLMGatewaySubscriptions(t.Context(), store))
+			provider, err = store.GetProvider(t.Context(), "anthropic")
+			require.NoError(t, err)
+			require.Equal(t, new(false), provider.SubscriptionPassthrough, "completed migration must not reread the legacy setting")
 		})
 	}
+}
+
+func TestSubscriptionMigrationFailures(t *testing.T) {
 	t.Run("decryption", func(t *testing.T) {
 		c := newTestClient(t)
 		c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{Transformers: map[schema.GroupResource]value.Transformer{propertyGroupResource: testTransformer{}}}
