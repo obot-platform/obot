@@ -2,7 +2,6 @@ package system
 
 import (
 	"os"
-	"slices"
 )
 
 var (
@@ -17,11 +16,9 @@ var (
 
 // NetworkEnv returns the proxy and CA bundle variables set in Obot's own environment, as
 // NAME=value entries, so that child processes reach the network the same way Obot does.
-// extra names further variables a child needs, such as NODE_EXTRA_CA_CERTS for Node.js,
-// which ignores SSL_CERT_FILE.
-func NetworkEnv(extra ...string) []string {
+func NetworkEnv() []string {
 	var env []string
-	for _, name := range slices.Concat(networkEnvVars, extra) {
+	for _, name := range networkEnvVars {
 		if value, ok := os.LookupEnv(name); ok {
 			env = append(env, name+"="+value)
 		}
