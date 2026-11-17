@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 // Reserve ports until their child exits, including the gap before the CLI binds.
@@ -60,10 +61,10 @@ func StartOrchestrator(ctx context.Context, key, token, environment, obotURL str
 	env := []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "OBOT_URL=" + obotURL,
 		"OBOT_PROVISIONING_TOKEN_FILE=" + tokenFile, "OBOT_CLAUDE_ENVIRONMENT=" + environment, "CLAUDE_CONFIG_DIR=" + home,
 		"PYTHONDONTWRITEBYTECODE=1"}
-	for _, name := range []string{"HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy", "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_EXTRA_CA_CERTS"} {
-		if value, ok := os.LookupEnv(name); ok {
-			env = append(env, name+"="+value)
-		}
+	env = append(env, system.NetworkEnv()...)
+	// The claude CLI is a Node.js program, which reads its extra CAs from NODE_EXTRA_CA_CERTS.
+	if value, ok := os.LookupEnv("NODE_EXTRA_CA_CERTS"); ok {
+		env = append(env, "NODE_EXTRA_CA_CERTS="+value)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
