@@ -40,7 +40,8 @@ type LLMAuditLog struct {
 	Fallback       bool   `gorm:"not null;default:false"`
 	// Subscription records whether the caller's subscription paid without a gateway key,
 	// independently of the provider's current passthrough setting.
-	Subscription              bool   `gorm:"not null;default:false"`
+	// Keep the legacy column name so old replicas can write during rolling upgrades.
+	Subscription              bool   `gorm:"column:claude_subscription;not null;default:false"`
 	ReasoningEffort           string `gorm:"type:text"`
 	RequestPath               string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
 	RequestMethod             string `gorm:"type:text"`

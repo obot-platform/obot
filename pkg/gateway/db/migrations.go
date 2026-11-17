@@ -60,14 +60,6 @@ func retireHostedAgentAPIKeys(tx *gorm.DB) error {
 	return tx.Migrator().DropColumn(&types.APIKey{}, "hosted_agent_instance_id")
 }
 
-func migrateLLMAuditSubscription(tx *gorm.DB) error {
-	migrator := tx.Migrator()
-	if migrator.HasTable(&types.LLMAuditLog{}) && migrator.HasColumn(&types.LLMAuditLog{}, "claude_subscription") {
-		return migrator.RenameColumn(&types.LLMAuditLog{}, "claude_subscription", "subscription")
-	}
-	return nil
-}
-
 // migrateRunTokenActivityInputOutput renames legacy token usage columns.
 func migrateRunTokenActivityInputOutput(tx *gorm.DB) error {
 	migrator := tx.Migrator()

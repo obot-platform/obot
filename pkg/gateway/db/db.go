@@ -151,11 +151,6 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate system MCP server configuration: %w", err)
 	}
 
-	// Rename before AutoMigrate can add an empty subscription column alongside the old one.
-	if err = migrateLLMAuditSubscription(tx); err != nil {
-		return fmt.Errorf("failed to rename LLM audit subscription column: %w", err)
-	}
-
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
