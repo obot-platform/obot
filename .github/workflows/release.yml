@@ -55,23 +55,9 @@ jobs:
           quill version
 
       - name: Install Syft
-        env:
-          SYFT_VERSION: 1.42.3
-        run: |
-          syft_dir="$(mktemp -d)"
-          trap 'rm -rf "${syft_dir}"' EXIT
-
-          syft_tarball="syft_${SYFT_VERSION}_linux_amd64.tar.gz"
-          syft_release_url="https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}"
-          curl -sSfL -o "${syft_dir}/${syft_tarball}" "${syft_release_url}/${syft_tarball}"
-          curl -sSfL -o "${syft_dir}/syft_checksums.txt" "${syft_release_url}/syft_${SYFT_VERSION}_checksums.txt"
-          (
-            cd "${syft_dir}"
-            grep "${syft_tarball}$" syft_checksums.txt | sha256sum --check -
-            tar -xzf "${syft_tarball}" syft
-          )
-          sudo install -m 0755 "${syft_dir}/syft" /usr/local/bin/syft
-          syft version
+        uses: anchore/sbom-action/download-syft@v0.24.0
+        with:
+          syft-version: v1.42.3
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
