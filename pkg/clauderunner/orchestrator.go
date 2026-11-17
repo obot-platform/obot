@@ -61,7 +61,8 @@ func StartOrchestrator(ctx context.Context, key, token, environment, obotURL str
 	env := []string{"HOME=" + home, "PATH=" + os.Getenv("PATH"), "OBOT_URL=" + obotURL,
 		"OBOT_PROVISIONING_TOKEN_FILE=" + tokenFile, "OBOT_CLAUDE_ENVIRONMENT=" + environment, "CLAUDE_CONFIG_DIR=" + home,
 		"PYTHONDONTWRITEBYTECODE=1"}
-	env = append(env, system.NetworkEnv()...)
+	// The claude CLI is a Node.js program, which reads its extra CAs from NODE_EXTRA_CA_CERTS.
+	env = append(env, system.NetworkEnv("NODE_EXTRA_CA_CERTS")...)
 
 	ctx, cancel := context.WithCancel(ctx)
 	done := make(chan struct{})

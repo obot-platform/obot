@@ -167,7 +167,8 @@ The UI works without them, with fallback fonts and missing icons.
 The Obot server honors the standard `HTTPS_PROXY`, `HTTP_PROXY`, and `NO_PROXY` environment variables for its own
 requests, including license validation, update checks, catalog and skill syncs, model pricing, the LLM gateway's
 calls to every provider, and remote MCP servers. Auth providers, the encryption providers, and Claude Environments
-also receive them, along with the `SSL_CERT_FILE`, `SSL_CERT_DIR`, and `NODE_EXTRA_CA_CERTS` CA bundle variables.
+also receive them, along with the `SSL_CERT_FILE` and `SSL_CERT_DIR` CA bundle variables. Claude Environments also
+receive `NODE_EXTRA_CA_CERTS`.
 Obot sets the proxy on every LLM gateway provider, unless `NO_PROXY` excludes the provider's endpoint or the provider
 has its own proxy.
 
