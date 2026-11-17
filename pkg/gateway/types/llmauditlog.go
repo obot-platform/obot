@@ -34,14 +34,13 @@ type LLMAuditLog struct {
 	// ServedProvider and ServedModel are the provider and model that served the request, which
 	// routing rules and fallbacks can make differ from TargetModel. ProviderKey names the
 	// gateway key it was served with, and Fallback is true when a fallback served it.
-	// Subscription records the actual payer without a gateway key,
-	// independently of the provider's current passthrough setting.
 	ServedProvider string `gorm:"type:text;index:idx_llm_audit_served_provider_created,priority:1"`
 	ServedModel    string `gorm:"type:text"`
 	ProviderKey    string `gorm:"type:text"`
 	Fallback       bool   `gorm:"not null;default:false"`
-	// Keep the column name so historical records and older replicas share the same flag.
-	Subscription              bool   `gorm:"column:claude_subscription;not null;default:false"`
+	// Subscription records whether the caller's subscription paid without a gateway key,
+	// independently of the provider's current passthrough setting.
+	Subscription              bool   `gorm:"not null;default:false"`
 	ReasoningEffort           string `gorm:"type:text"`
 	RequestPath               string `gorm:"type:text;index:idx_llm_audit_request_path_created,priority:1"`
 	RequestMethod             string `gorm:"type:text"`

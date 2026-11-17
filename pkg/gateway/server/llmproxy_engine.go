@@ -571,6 +571,8 @@ func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPass
 	}
 	subscription := subscriptionPassthrough && matches
 	for _, h := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", "ChatGPT-Account-ID", "OpenAI-Organization", "OpenAI-Project", guardrails.HeaderRequestToken, HeaderObotAPIKey} {
+		// Keep the admitted subscription's bearer token and ChatGPT account selector;
+		// other credentials or account overrides must not affect the upstream request.
 		if subscription && (h == "Authorization" || chatgpt && h == "ChatGPT-Account-ID") {
 			continue
 		}

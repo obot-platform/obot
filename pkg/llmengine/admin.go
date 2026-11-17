@@ -36,6 +36,12 @@ type Key struct {
 	llmcoreclient.AzureAccount
 }
 
+// providerConfig adds Obot-owned settings to Bifrost's admin input schema.
+type providerConfig struct {
+	schemas.ProviderConfig
+	SubscriptionPassthrough *bool `json:"subscription_passthrough"`
+}
+
 type ProviderResponse struct {
 	SubscriptionPassthrough bool  `json:"subscription_passthrough"`
 	Keys                    []Key `json:"keys"`
@@ -650,27 +656,28 @@ func createProvider(_ context.Context, cfg *llmcoreclient.Config, body []byte) (
 		return ProviderResponse{}, fmt.Errorf("provider already exists")
 	}
 
-	var pc schemas.ProviderConfig
+	pc := providerConfig{SubscriptionPassthrough: new(false)}
 	defaults := object(json.RawMessage(body))
 	ApplyProviderDefaults(defaults)
 	raw, _ := json.Marshal(defaults)
 	if err := json.Unmarshal(raw, &pc); err != nil {
-		return ProviderResponse{}, err
+		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
-	if err := validateProvider(name, pc); err != nil {
+	if err := validateProvider(name, pc, body); err != nil {
 		return ProviderResponse{}, err
 	}
 
 	pc.CheckAndSetDefaults()
-	if err := validateProvider(name, pc); err != nil {
+	if err := validateProvider(name, pc, body); err != nil {
 		return ProviderResponse{}, err
 	}
 
-	cfg.Providers[name] = pc
-	if err := applySubscriptionSetting(cfg, name, body); err != nil {
-		return ProviderResponse{}, err
+	cfg.Providers[name] = pc.ProviderConfig
+	if cfg.SubscriptionPassthrough == nil {
+		cfg.SubscriptionPassthrough = map[schemas.ModelProvider]bool{}
 	}
-	view := providerView(name, pc, nil)
+	cfg.SubscriptionPassthrough[name] = *pc.SubscriptionPassthrough
+	view := providerView(name, pc.ProviderConfig, nil)
 	view.SubscriptionPassthrough = cfg.SubscriptionPassthrough[name]
 	return view, nil
 }
@@ -692,66 +699,26 @@ func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc sc
 	if err != nil {
 		return ProviderResponse{}, err
 	}
-	var next schemas.ProviderConfig
+	// Seed the flag before decoding so omission retains it and explicit null remains invalid.
+	next := providerConfig{SubscriptionPassthrough: new(cfg.SubscriptionPassthrough[name])}
 	if err := json.Unmarshal(raw, &next); err != nil {
-		return ProviderResponse{}, err
+		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
-	if err := validateProvider(name, next); err != nil {
+	if err := validateProvider(name, next, body); err != nil {
 		return ProviderResponse{}, err
 	}
 	next.CheckAndSetDefaults()
-	if err := validateProvider(name, next); err != nil {
+	if err := validateProvider(name, next, body); err != nil {
 		return ProviderResponse{}, err
 	}
 
-	cfg.Providers[name] = next
-	if err := applySubscriptionSetting(cfg, name, body); err != nil {
-		return ProviderResponse{}, err
+	cfg.Providers[name] = next.ProviderConfig
+	if cfg.SubscriptionPassthrough == nil {
+		cfg.SubscriptionPassthrough = map[schemas.ModelProvider]bool{}
 	}
+	cfg.SubscriptionPassthrough[name] = *next.SubscriptionPassthrough
 
-	return providerViewWithIDs(name, next, cfg.Keys[name], cfg.AzureAccounts[name], cfg.SubscriptionPassthrough[name]), nil
-}
-
-// Validate the merged provider inside its CAS snapshot, including flag-only edits.
-func applySubscriptionSetting(cfg *llmcoreclient.Config, name schemas.ModelProvider, body []byte) error {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(body, &fields); err != nil {
-		return apierrors.NewBadRequest(err.Error())
-	}
-	seen := false
-	for field, raw := range fields {
-		if !strings.EqualFold(field, "subscription_passthrough") {
-			continue
-		}
-		var allowed bool
-		if seen || isNull(raw) || json.Unmarshal(raw, &allowed) != nil {
-			return apierrors.NewBadRequest("subscription_passthrough must be a single boolean")
-		}
-		seen = true
-		if cfg.SubscriptionPassthrough == nil {
-			cfg.SubscriptionPassthrough = map[schemas.ModelProvider]bool{}
-		}
-		cfg.SubscriptionPassthrough[name] = allowed
-	}
-	if !cfg.SubscriptionPassthrough[name] {
-		return nil
-	}
-	// Bifrost's provider schema ignores skip_tls_verify in JSON. Preserve the
-	// public API's rejection before decoding can silently discard that spelling.
-	if field := fieldNamed(fields, "proxy_config"); field != "" {
-		var proxy map[string]json.RawMessage
-		_ = json.Unmarshal(fields[field], &proxy)
-		for field, raw := range proxy {
-			var skip bool
-			if (strings.EqualFold(field, "skip_tls_verify") || strings.EqualFold(field, "insecure_skip_verify")) && json.Unmarshal(raw, &skip) == nil && skip {
-				return apierrors.NewBadRequest("subscription_passthrough requires verified proxy TLS")
-			}
-		}
-	}
-	if name != schemas.Anthropic && name != schemas.OpenAI || !llmcore.SubscriptionDestination(cfg, name) {
-		return apierrors.NewBadRequest("subscription_passthrough requires built-in Anthropic or OpenAI over verified TLS without destination or credential overrides")
-	}
-	return nil
+	return providerViewWithIDs(name, next.ProviderConfig, cfg.Keys[name], cfg.AzureAccounts[name], cfg.SubscriptionPassthrough[name]), nil
 }
 
 func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas.ProviderConfig, id, method string, body []byte) (schemas.Key, error) {
@@ -1028,7 +995,7 @@ func updatePricingOverride(cfg *llmcoreclient.Config, id, method string, body []
 	return in, nil
 }
 
-func validateProvider(name schemas.ModelProvider, pc schemas.ProviderConfig) error {
+func validateProvider(name schemas.ModelProvider, pc providerConfig, body []byte) error {
 	base := name
 	if pc.CustomProviderConfig != nil {
 		base = pc.CustomProviderConfig.BaseProviderType
@@ -1044,6 +1011,32 @@ func validateProvider(name schemas.ModelProvider, pc schemas.ProviderConfig) err
 	}
 	if pc.NetworkConfig.MaxRetries < 0 || pc.NetworkConfig.DefaultRequestTimeoutInSeconds < 0 {
 		return fmt.Errorf("invalid network configuration")
+	}
+	if pc.SubscriptionPassthrough == nil {
+		return apierrors.NewBadRequest("subscription_passthrough must be a single boolean")
+	}
+	if !*pc.SubscriptionPassthrough {
+		return nil
+	}
+	// Bifrost's provider schema ignores skip_tls_verify in JSON. Preserve the
+	// public API's rejection before decoding can silently discard that spelling.
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(body, &fields); err != nil {
+		return apierrors.NewBadRequest(err.Error())
+	}
+	if field := fieldNamed(fields, "proxy_config"); field != "" {
+		var proxy map[string]json.RawMessage
+		_ = json.Unmarshal(fields[field], &proxy)
+		for field, raw := range proxy {
+			var skip bool
+			if (strings.EqualFold(field, "skip_tls_verify") || strings.EqualFold(field, "insecure_skip_verify")) && json.Unmarshal(raw, &skip) == nil && skip {
+				return apierrors.NewBadRequest("subscription_passthrough requires verified proxy TLS")
+			}
+		}
+	}
+	provider := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{name: pc.ProviderConfig}}
+	if name != schemas.Anthropic && name != schemas.OpenAI || !llmcore.SubscriptionDestination(provider, name) {
+		return apierrors.NewBadRequest("subscription_passthrough requires built-in Anthropic or OpenAI over verified TLS without destination or credential overrides")
 	}
 	return nil
 }
