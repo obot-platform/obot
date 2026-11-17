@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AgentIdentitiesService } from '$lib/services';
+	import { AgentIdentitiesService, UserService, type VMCP } from '$lib/services';
 	import type {
 		AgentIdentityAccess,
 		AgentReadinessReason,
+		AgentReadinessSource,
 		AgentSubjectMatch,
 		AgentVMCPReadiness
 	} from '$lib/services/agent-identities/types';
+	import { vmcpComponentName } from '$lib/services/vmcps/utils';
+	import { resolve } from '$lib/url';
+	import { vmcpProfileHref } from '$lib/vmcpProfileLinks';
 	import { CircleCheck, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -23,6 +27,37 @@
 	let readiness = $state<AgentVMCPReadiness[]>([]);
 	let loading = $state(true);
 	let failed = $state(false);
+	// The sources of each vMCP's values, read on request: they cost a query per OAuth component.
+	let sources = $state<Record<string, { items?: AgentReadinessSource[]; failed?: boolean }>>({});
+	let showSources = $state<Record<string, boolean>>({});
+	// The vMCPs whose components the reasons and sources name, so that the components are named as the
+	// vMCP's agent setup names them. Until one loads, or if it cannot, its components show their IDs.
+	let vmcps = $state<Record<string, VMCP>>({});
+
+	function loadVMCP(vmcpID: string) {
+		if (vmcps[vmcpID]) return;
+		UserService.getVMCP(vmcpID, { dontLogErrors: true })
+			.then((vmcp) => {
+				vmcps[vmcpID] = vmcp;
+			})
+			.catch(() => {});
+	}
+
+	function componentName(vmcpID: string, componentID: string | undefined) {
+		return componentID ? vmcpComponentName(vmcps[vmcpID], componentID) : '';
+	}
+
+	async function toggleSources(vmcpID: string) {
+		showSources[vmcpID] = !showSources[vmcpID];
+		if (!showSources[vmcpID] || sources[vmcpID]?.items) return;
+		try {
+			const detail = await AgentIdentitiesService.getAgentVMCPReadiness(agentId, vmcpID);
+			sources[vmcpID] = { items: detail.sources ?? [] };
+			if (detail.sources?.length) loadVMCP(vmcpID);
+		} catch {
+			sources[vmcpID] = { failed: true };
+		}
+	}
 
 	async function load() {
 		try {
@@ -30,7 +65,13 @@
 				AgentIdentitiesService.getAgentAccess(agentId),
 				AgentIdentitiesService.listAgentVMCPReadiness(agentId)
 			]);
+			// Whatever was shown about the sources may have changed.
+			sources = {};
+			showSources = {};
 			failed = false;
+			for (const item of readiness) {
+				if (item.reasons.some((reason) => reason.componentID)) loadVMCP(item.vmcpID);
+			}
 		} catch {
 			failed = true;
 		} finally {
@@ -49,8 +90,66 @@
 		wildcard: m.identity_access_agents_match_wildcard()
 	};
 
-	function reasonLabel(reason: AgentReadinessReason): string {
-		const component = reason.componentID ?? '';
+	// The name of a profile of a vMCP, from the profiles that name the agent. The fallback wildcard profile is
+	// not among them when the agent has its own, so the ID stands in for a name that is not known.
+	function profileName(vmcpID: string, profileID: string | undefined) {
+		if (!profileID) return '';
+		const match = access?.vmcpProfiles.find(
+			(profile) => profile.vmcpID === vmcpID && profile.profileID === profileID
+		);
+		return match?.profileName ?? '';
+	}
+
+	// Where an administrator fixes a reason: the profile it names, at the field or button that does it.
+	function reasonLinks(item: AgentVMCPReadiness, reason: AgentReadinessReason) {
+		const links: { href: string; text: string }[] = [];
+		const componentID = reason.componentID;
+		if (reason.profileID) {
+			const name = profileName(item.vmcpID, reason.profileID);
+			links.push({
+				href: vmcpProfileHref(
+					item.vmcpID,
+					reason.profileID,
+					componentID
+						? {
+								componentID,
+								field: reason.code === 'configuration_required' ? reason.field : undefined
+							}
+						: undefined
+				),
+				text: name
+					? m.identity_access_agents_reason_open_profile({ profile: name })
+					: m.identity_access_agents_reason_open_profile_unnamed()
+			});
+		}
+		if (reason.urlProfileID && reason.urlProfileID !== reason.profileID) {
+			const name = profileName(item.vmcpID, reason.urlProfileID);
+			links.push({
+				href: vmcpProfileHref(item.vmcpID, reason.urlProfileID),
+				text: name
+					? m.identity_access_agents_reason_open_url_profile({ profile: name })
+					: m.identity_access_agents_reason_open_url_profile_unnamed()
+			});
+		}
+		return links;
+	}
+
+	function sourceLabel(vmcpID: string, source: AgentReadinessSource) {
+		const component = componentName(vmcpID, source.componentID);
+		return source.kind === 'oauth'
+			? m.identity_access_agents_source_oauth({ component })
+			: m.identity_access_agents_source_configuration({ component, field: source.field ?? '' });
+	}
+
+	function sourceFrom(vmcpID: string, source: AgentReadinessSource) {
+		const profile = profileName(vmcpID, source.profileID) || source.profileID;
+		return source.fallback
+			? m.identity_access_agents_source_from_fallback({ profile })
+			: m.identity_access_agents_source_from({ profile });
+	}
+
+	function reasonLabel(vmcpID: string, reason: AgentReadinessReason): string {
+		const component = componentName(vmcpID, reason.componentID);
 		switch (reason.code) {
 			case 'configuration_required':
 				return m.identity_access_agents_reason_configuration_required({
@@ -173,9 +272,63 @@
 							{#if item.reasons.length > 0}
 								<ul class="text-xs">
 									{#each item.reasons as reason, index (index)}
-										<li class="text-warning">{reasonLabel(reason)}</li>
+										<li class="flex flex-col">
+											<span class="text-warning">{reasonLabel(item.vmcpID, reason)}</span>
+											{#each reasonLinks(item, reason) as link (link.href)}
+												<a class="link w-fit" href={resolve(link.href)}>{link.text}</a>
+											{/each}
+											{#if reason.code === 'selection_ambiguous' && !reason.profileID}
+												<span class="text-muted-content">
+													{m.identity_access_agents_reason_ambiguous_fix()}
+												</span>
+											{/if}
+										</li>
 									{/each}
 								</ul>
+							{/if}
+							<button
+								type="button"
+								class="link w-fit text-xs"
+								aria-expanded={Boolean(showSources[item.vmcpID])}
+								onclick={() => toggleSources(item.vmcpID)}
+							>
+								{showSources[item.vmcpID]
+									? m.identity_access_agents_sources_hide()
+									: m.identity_access_agents_sources_show()}
+							</button>
+							{#if showSources[item.vmcpID]}
+								{@const loaded = sources[item.vmcpID]}
+								{#if loaded?.failed}
+									<p class="text-error text-xs" role="alert">
+										{m.identity_access_agents_sources_failed()}
+									</p>
+								{:else if !loaded?.items}
+									<Loading class="size-4" />
+								{:else if loaded.items.length === 0}
+									<p class="text-muted-content text-xs">
+										{m.identity_access_agents_sources_none()}
+									</p>
+								{:else}
+									<ul class="text-xs">
+										{#each loaded.items as source, index (index)}
+											<li>
+												{sourceLabel(item.vmcpID, source)},
+												<a
+													class="link"
+													href={resolve(
+														vmcpProfileHref(
+															item.vmcpID,
+															source.profileID,
+															source.kind === 'oauth'
+																? { componentID: source.componentID }
+																: { componentID: source.componentID, field: source.field }
+														)
+													)}>{sourceFrom(item.vmcpID, source)}</a
+												>
+											</li>
+										{/each}
+									</ul>
+								{/if}
 							{/if}
 						</li>
 					{/each}

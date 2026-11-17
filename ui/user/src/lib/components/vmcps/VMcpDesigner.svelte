@@ -714,6 +714,7 @@
 					selectedVMcp = updated;
 				}}
 				readonly={!canEdit || isCatalogSyncedVMcp(selectedVMcp)}
+				agentSetup={Boolean(profile.current.isAdmin?.())}
 			/>
 		{:else if viewType === 'inspector'}
 			{#if selectedVMcp}

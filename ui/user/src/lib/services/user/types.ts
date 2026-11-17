@@ -741,6 +741,55 @@ export interface VMCPStatus {
 	ready?: boolean;
 }
 
+// Agent setup of a vMCP profile (apiclient/types/vmcp.go). Nothing here carries a configuration value or
+// a token: configuration is reported by key name only.
+export interface VMCPProfileConfigurationStatus {
+	set: string[];
+	missingRequired: string[];
+	optionalUnset: string[];
+}
+
+export type VMCPProfileOAuthState = 'authorized' | 'missing' | 'invalid';
+
+export interface VMCPProfileOAuthStatus {
+	required: boolean;
+	state: VMCPProfileOAuthState;
+	/** The user ID of the administrator who authorized the grant. */
+	authorizedBy?: string;
+	authorizedAt?: string;
+	/** The upstream URL, only when the catalog fixes it. Empty when the URL comes from configuration. */
+	target?: string;
+	/** Only the hostname of a URL that comes from configuration. It is not a URL. */
+	targetHostname?: string;
+	scopes?: string[];
+	invalidReason?: string;
+}
+
+export interface VMCPProfileComponentStatus {
+	componentID: string;
+	configuration: VMCPProfileConfigurationStatus;
+	oauth?: VMCPProfileOAuthStatus;
+}
+
+export interface VMCPProfileStatus {
+	profileID: string;
+	agentCapable: boolean;
+	components: VMCPProfileComponentStatus[];
+	/** Cleared configuration is still being collected: agents no longer get it, but the profile counts as having data. */
+	pendingCollection?: boolean;
+}
+
+// A string sets the key, null (or blank) clears it, and a key left out is unchanged.
+export interface VMCPProfileConfigurationUpdate {
+	components: Record<string, Record<string, string | null>>;
+}
+
+export interface VMCPProfileOAuthAuthorization {
+	authURL: string;
+	/** authURL is Obot's local login URL, to run with `obot mcp login` on the administrator's own machine. */
+	localhostCallback?: boolean;
+}
+
 export interface VMCPComponentStatus {
 	/** An outdated snapshot that migrated connections retain while the component itself is current. */
 	connectionSnapshot?: VMCPComponentCatalogEntrySnapshot;

@@ -110,6 +110,27 @@ describe('MCP Catalog entry instance details page (admin)', () => {
 	});
 });
 
+it('names an agent that owns the server, without looking it up as a user', async () => {
+	const lookedUp = vi.fn();
+	const server = { ...fixtures.serverRemote, userID: 'agent:7' };
+	worker.use(
+		http.get('/api/agents', () =>
+			HttpResponse.json({
+				items: [{ id: '7', displayName: 'Build Bot', status: 'active', activeAPIKeyCount: 1 }]
+			})
+		),
+		http.get('/api/users/:id', ({ params }) => {
+			lookedUp(params.id);
+			return HttpResponse.json(fixtures.associatedUser);
+		})
+	);
+	await renderInstanceDetailsPage(fixtures.entryRemote, server);
+
+	await expect.element(page.getByText('Build Bot', { exact: true })).toBeVisible();
+	await expect.element(page.getByText('Agent', { exact: true })).toBeVisible();
+	expect(lookedUp).not.toHaveBeenCalled();
+});
+
 it('loads workspace K8s status for a dedicated vMCP component', async () => {
 	const entry = { ...fixtures.entrySingle, powerUserWorkspaceID: 'workspace-1' };
 	const server = {

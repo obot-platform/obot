@@ -89,6 +89,16 @@ export interface AgentReadinessReason {
 	urlProfileID?: string;
 }
 
+// The profile that supplies something an agent uses on a vMCP. It names the key, never the value.
+export interface AgentReadinessSource {
+	kind: 'configuration' | 'oauth';
+	componentID: string;
+	field?: string;
+	profileID: string;
+	// It comes from the profile that names every agent, not the one that names the agent.
+	fallback?: boolean;
+}
+
 export interface AgentVMCPReadiness {
 	vmcpID: string;
 	vmcpDisplayName?: string;
@@ -97,6 +107,8 @@ export interface AgentVMCPReadiness {
 	explicitProfileID?: string;
 	wildcardProfileID?: string;
 	reasons: AgentReadinessReason[];
+	// Only on the readiness of a single vMCP.
+	sources?: AgentReadinessSource[];
 	pendingSync?: boolean;
 }
 

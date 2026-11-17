@@ -572,5 +572,18 @@
 	"identity_access_users_user_count_tooltip": "创建本地用户账户在登录之前不计入用户上限。",
 	"identity_access_users_user_limits": "用户上限：",
 	"identity_access_view_access_policies": "查看访问策略",
-	"identity_access_users_workspace_downgrade_warning": "如果更改后的有效角色不具有高级用户权限，此更改将删除该用户的高级用户工作区及其已发布的资源。个人连接仍受其访问策略约束。"
+	"identity_access_users_workspace_downgrade_warning": "如果更改后的有效角色不具有高级用户权限，此更改将删除该用户的高级用户工作区及其已发布的资源。个人连接仍受其访问策略约束。",
+	"identity_access_agents_reason_open_profile": "在配置文件 {profile} 中修复",
+	"identity_access_agents_reason_open_profile_unnamed": "在配置文件中修复",
+	"identity_access_agents_reason_open_url_profile": "其授权所针对的 URL 在配置文件 {profile} 中设置",
+	"identity_access_agents_reason_open_url_profile_unnamed": "打开设置其 URL 的配置文件",
+	"identity_access_agents_reason_ambiguous_fix": "管理员必须只保留一个指定所有智能体的配置文件。",
+	"identity_access_agents_sources_show": "显示值的来源",
+	"identity_access_agents_sources_hide": "隐藏来源",
+	"identity_access_agents_sources_failed": "无法加载来源。",
+	"identity_access_agents_sources_none": "没有来自配置文件的配置或授权。",
+	"identity_access_agents_source_configuration": "{component}：{field}",
+	"identity_access_agents_source_oauth": "{component}：OAuth 授权",
+	"identity_access_agents_source_from": "来自配置文件 {profile}",
+	"identity_access_agents_source_from_fallback": "来自配置文件 {profile}（所有智能体的回退配置文件）"
 }

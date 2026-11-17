@@ -572,5 +572,18 @@
 	"identity_access_users_user_count_tooltip": "Creating local user accounts do not count towards the user limit until they have logged in.",
 	"identity_access_users_user_limits": "User Limits:",
 	"identity_access_view_access_policies": "View Access Policies",
-	"identity_access_users_workspace_downgrade_warning": "If the resulting effective role has no power-user access, this change deletes the user’s power-user workspace and its published resources. Personal connections remain subject to their access policies."
+	"identity_access_users_workspace_downgrade_warning": "If the resulting effective role has no power-user access, this change deletes the user’s power-user workspace and its published resources. Personal connections remain subject to their access policies.",
+	"identity_access_agents_reason_open_profile": "Fix in profile {profile}",
+	"identity_access_agents_reason_open_profile_unnamed": "Fix in the profile",
+	"identity_access_agents_reason_open_url_profile": "The URL it was authorized for is set in profile {profile}",
+	"identity_access_agents_reason_open_url_profile_unnamed": "Open the profile that sets its URL",
+	"identity_access_agents_reason_ambiguous_fix": "An administrator must leave one profile that names all agents.",
+	"identity_access_agents_sources_show": "Show where its values come from",
+	"identity_access_agents_sources_hide": "Hide sources",
+	"identity_access_agents_sources_failed": "Failed to load the sources.",
+	"identity_access_agents_sources_none": "No configuration or authorization comes from a profile.",
+	"identity_access_agents_source_configuration": "{component}: {field}",
+	"identity_access_agents_source_oauth": "{component}: OAuth authorization",
+	"identity_access_agents_source_from": "from profile {profile}",
+	"identity_access_agents_source_from_fallback": "from profile {profile} (the fallback for all agents)"
 }

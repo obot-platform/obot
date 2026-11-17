@@ -134,6 +134,17 @@ describe('Models profiles tab', () => {
 			.toHaveAttribute('title', 'Alice\nBob\nEngineers\nObot Admin');
 	});
 
+	// A model access policy accepts agents, so its everyone includes them, as its editor says.
+	it('says that everyone includes agents, as the editor does', async () => {
+		mockProfiles();
+		await renderModelsTab('profiles');
+
+		const everyone = page.getByRole('row').filter({ hasText: 'Everyone' });
+		await expect
+			.element(everyone.getByTitle('Everyone (All Obot Users and Agents)'))
+			.toBeInTheDocument();
+	});
+
 	it('deletes a profile after saying its budgets and applied guardrails go with it', async () => {
 		const { deleted } = mockProfiles();
 		await renderModelsTab('profiles');

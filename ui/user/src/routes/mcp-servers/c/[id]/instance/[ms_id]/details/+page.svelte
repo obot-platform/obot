@@ -3,6 +3,7 @@
 	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
+	import { parseAgentActor } from '$lib/services/agent-identities';
 	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { profile } from '$lib/stores/index.js';
@@ -21,6 +22,9 @@
 
 	async function fetchUserInfo() {
 		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
+		// The owner is a user, or an agent ("agent:<id>"). Only a user is looked up in the user service: an
+		// agent is named from the agents, by McpServerDetails.
+		if (parseAgentActor(mcpServer.userID)) return;
 		const isSameUser =
 			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
 
@@ -37,6 +41,14 @@
 	});
 
 	let title = $derived(`${getMCPDisplayName(mcpServer, catalogEntryName)} | ${mcpServerId}`);
+	// The server's one owner, once it can be named.
+	let instances = $derived(
+		mcpServer?.userID &&
+			(parseAgentActor(mcpServer.userID) ||
+				connectedUsers.some((user) => user.id === mcpServer?.userID))
+			? [{ userID: mcpServer.userID }]
+			: []
+	);
 </script>
 
 <Layout {title} showBackButton>
@@ -45,7 +57,8 @@
 			{#if mcpServer && mcpServerId}
 				<McpServerDetails
 					serverId={mcpServerId}
-					{connectedUsers}
+					{instances}
+					users={new Map(connectedUsers.map((user) => [user.id, user]))}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
 					server={mcpServer}

@@ -572,5 +572,18 @@
 	"identity_access_users_user_count_tooltip": "로컬 사용자 계정을 생성해도 로그인하기 전까지는 사용자 한도에 포함되지 않습니다.",
 	"identity_access_users_user_limits": "사용자 한도:",
 	"identity_access_view_access_policies": "액세스 정책 보기",
-	"identity_access_users_workspace_downgrade_warning": "변경 후 유효 역할에 파워 유저 권한이 없으면 이 변경으로 사용자의 파워 유저 워크스페이스와 게시된 리소스가 삭제됩니다. 개인 연결에는 계속 액세스 정책이 적용됩니다."
+	"identity_access_users_workspace_downgrade_warning": "변경 후 유효 역할에 파워 유저 권한이 없으면 이 변경으로 사용자의 파워 유저 워크스페이스와 게시된 리소스가 삭제됩니다. 개인 연결에는 계속 액세스 정책이 적용됩니다.",
+	"identity_access_agents_reason_open_profile": "프로필 {profile}에서 수정",
+	"identity_access_agents_reason_open_profile_unnamed": "프로필에서 수정",
+	"identity_access_agents_reason_open_url_profile": "인증 대상 URL은 프로필 {profile}에서 설정됩니다",
+	"identity_access_agents_reason_open_url_profile_unnamed": "URL을 설정하는 프로필 열기",
+	"identity_access_agents_reason_ambiguous_fix": "관리자가 모든 에이전트를 지정하는 프로필을 하나만 남겨야 합니다.",
+	"identity_access_agents_sources_show": "값의 출처 표시",
+	"identity_access_agents_sources_hide": "출처 숨기기",
+	"identity_access_agents_sources_failed": "출처를 불러오지 못했습니다.",
+	"identity_access_agents_sources_none": "프로필에서 제공되는 구성이나 인증이 없습니다.",
+	"identity_access_agents_source_configuration": "{component}: {field}",
+	"identity_access_agents_source_oauth": "{component}: OAuth 인증",
+	"identity_access_agents_source_from": "프로필 {profile}에서",
+	"identity_access_agents_source_from_fallback": "프로필 {profile}에서 (모든 에이전트의 대체 프로필)"
 }

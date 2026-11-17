@@ -1254,4 +1254,133 @@ describe('VMcpProfiles.svelte', () => {
 			});
 		});
 	});
+
+	describe('agent setup', () => {
+		const STATUS = '/api/vmcps/vmcp-setup/profiles/vp1stable/status';
+
+		function setupVMcp(overrides: Partial<VMCP> = {}) {
+			const vmcp = createVMcp('vmcp-setup');
+			vmcp.profiles = [
+				{
+					id: 'vp1stable',
+					name: 'Bots',
+					subjects: [{ type: 'agent', id: '*' }],
+					vmcpPermissions: { allowAllComponents: true }
+				}
+			];
+			return Object.assign(vmcp, overrides);
+		}
+
+		function mockCapableStatus() {
+			worker.use(
+				http.get('/api/agents', () => HttpResponse.json({ items: [] })),
+				http.get(STATUS, () =>
+					HttpResponse.json({
+						profileID: 'vp1stable',
+						agentCapable: true,
+						components: [
+							{
+								componentID: 'github',
+								configuration: { set: [], missingRequired: ['TOKEN'], optionalUnset: [] }
+							}
+						]
+					})
+				)
+			);
+		}
+
+		it('shows the agent setup of a saved profile in its editor', async () => {
+			mockCapableStatus();
+			render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub(), agentSetup: true });
+
+			await page.getByRole('button', { name: 'Edit Bots' }).click();
+			await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
+			await expect.element(page.getByRole('region', { name: 'GitHub' })).toBeVisible();
+		});
+
+		it('opens the profile named by its ID in the URL, as the agent page links to it', async () => {
+			mockCapableStatus();
+			(appPage.url as URL).searchParams.set('profileID', 'vp1stable');
+			try {
+				render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub(), agentSetup: true });
+
+				await expect.element(page.getByLabelText('Name')).toHaveValue('Bots');
+				await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
+			} finally {
+				(appPage.url as URL).searchParams.delete('profileID');
+			}
+		});
+
+		it('keeps agent setup off until a new profile is saved', async () => {
+			render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub(), agentSetup: true });
+
+			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+			await expect.element(page.getByText(/Save the profile first/)).toBeVisible();
+		});
+
+		it('notes identities that are not saved yet, since the setup is of the saved profile', async () => {
+			mockCapableStatus();
+			render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub(), agentSetup: true });
+
+			await page.getByRole('button', { name: 'Edit Bots' }).click();
+			await expect
+				.element(page.getByText(/unsaved changes to this profile's identities/))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Remove All Agents' }).click();
+			await expect
+				.element(page.getByText(/unsaved changes to this profile's identities/))
+				.toBeVisible();
+		});
+
+		it('leaves the setup editable but the manifest read-only for a catalog vMCP', async () => {
+			mockCapableStatus();
+			render(VMcpProfiles, {
+				vmcp: setupVMcp(),
+				toolFlow: toolFlowStub(),
+				readonly: true,
+				agentSetup: true
+			});
+
+			await page.getByRole('button', { name: 'View Bots' }).click();
+			await expect.element(page.getByLabelText('Name')).toBeDisabled();
+			await expect
+				.element(page.getByRole('button', { name: 'Save changes' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByLabelText(/TOKEN/)).toBeEnabled();
+			await page.getByLabelText(/TOKEN/).fill('value');
+			await expect.element(page.getByRole('button', { name: 'Save configuration' })).toBeEnabled();
+		});
+
+		it('hides agent setup for someone who cannot change it', async () => {
+			render(VMcpProfiles, {
+				vmcp: setupVMcp(),
+				toolFlow: toolFlowStub(),
+				readonly: true,
+				agentSetup: false
+			});
+
+			await page.getByRole('button', { name: 'View Bots' }).click();
+			await expect
+				.element(page.getByRole('heading', { name: 'Agent setup' }))
+				.not.toBeInTheDocument();
+		});
+
+		it('explains an ambiguous agent selection above the profiles', async () => {
+			const vmcp = setupVMcp({
+				status: {
+					ready: true,
+					conditions: [
+						{
+							type: 'AgentSelectionAmbiguous',
+							status: 'True',
+							lastTransitionTime: '2026-01-01T00:00:00Z'
+						}
+					]
+				}
+			});
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub(), agentSetup: true });
+
+			await expect.element(page.getByText('More than one profile names every agent')).toBeVisible();
+		});
+	});
 });

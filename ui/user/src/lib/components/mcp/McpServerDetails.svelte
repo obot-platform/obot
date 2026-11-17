@@ -5,11 +5,17 @@
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { m } from '$lib/i18n';
-	import type { MCPCatalogEntry, MCPCatalogServer, OrgUser } from '$lib/services';
+	import { hasAgentOwner, instanceOwner } from '$lib/instanceOwners';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
+	import type {
+		MCPCatalogEntry,
+		MCPCatalogServer,
+		MCPServerInstance,
+		OrgUser
+	} from '$lib/services';
 	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
 	import { mcpTunnelConnections, profile } from '$lib/stores';
-	import { isDisabledUser } from '$lib/utils';
 	import Table from '../table/Table.svelte';
 	import { Info } from '@lucide/svelte';
 
@@ -19,7 +25,11 @@
 		entityId?: string;
 		server?: MCPCatalogServer;
 		serverId?: string;
-		connectedUsers?: (OrgUser & { mcpInstanceId?: string; mcpInstanceConfigured?: boolean })[];
+		// The instances of the server. Each is owned by a user, or by an agent ("agent:<id>"), which is named
+		// from the agents and never looked up as a user.
+		instances?: (Pick<MCPServerInstance, 'userID'> & Partial<MCPServerInstance>)[];
+		// The users who own instances, by ID.
+		users?: Map<string, OrgUser>;
 		k8sOverrides?: {
 			title?: string;
 			classes?: {
@@ -35,7 +45,8 @@
 		entityId: overrideEntityId,
 		server,
 		serverId,
-		connectedUsers,
+		instances = [],
+		users = new Map(),
 		k8sOverrides,
 		readonly
 	}: Props = $props();
@@ -57,6 +68,15 @@
 			DEFAULT_MCP_CATALOG_ID
 	);
 	let mcpServerId = $derived(serverId ?? server?.id);
+	const agentLookup = createAgentLookup(() =>
+		hasAgentOwner(instances.map((instance) => instance.userID))
+	);
+	let connections = $derived(
+		instances.map((instance) => ({
+			...instanceOwner(instance.userID, users, agentLookup.current),
+			mcpInstanceConfigured: instance.configured
+		}))
+	);
 	let tunnelDisconnected = $derived(
 		isMcpTunnelDisconnected(server ?? catalogEntry, mcpTunnelConnections.current.connections)
 	);
@@ -80,7 +100,7 @@
 				{...k8sOverrides}
 			/>
 		{/if}
-		{#if hasAdminAccess && entity !== 'webhook-validation' && connectedUsers && connectedUsers.length > 0}
+		{#if hasAdminAccess && entity !== 'webhook-validation' && connections.length > 0}
 			<div>
 				<h2 class="mb-2 text-lg font-semibold">
 					{server?.serverUserType === 'multiUser'
@@ -88,7 +108,7 @@
 						: m.mcps_servers_details_associated_user()}
 				</h2>
 				<Table
-					data={connectedUsers ?? []}
+					data={connections}
 					fields={['name', 'updateStatus']}
 					headers={[
 						{ title: m.core_name(), property: 'name' },
@@ -97,10 +117,7 @@
 				>
 					{#snippet onRenderColumn(property, d)}
 						{#if property === 'name'}
-							<SubjectName
-								name={d.email || d.username || m.core_unknown()}
-								disabled={isDisabledUser(d)}
-							/>
+							<SubjectName name={d.name} disabled={d.disabled} agent={d.agent} />
 						{:else if property === 'updateStatus'}
 							{d.mcpInstanceConfigured === false
 								? m.core_mcp_value_not_configured()

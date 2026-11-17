@@ -572,5 +572,18 @@
 	"identity_access_users_user_count_tooltip": "ローカルユーザーアカウントの作成は、ログインするまでユーザー上限にカウントされません。",
 	"identity_access_users_user_limits": "ユーザー数の上限：",
 	"identity_access_view_access_policies": "アクセスポリシーを表示",
-	"identity_access_users_workspace_downgrade_warning": "変更後の実効ロールにパワーユーザー権限がない場合、この変更によりユーザーのパワーユーザーワークスペースと公開済みリソースが削除されます。個人の接続には引き続きアクセスポリシーが適用されます。"
+	"identity_access_users_workspace_downgrade_warning": "変更後の実効ロールにパワーユーザー権限がない場合、この変更によりユーザーのパワーユーザーワークスペースと公開済みリソースが削除されます。個人の接続には引き続きアクセスポリシーが適用されます。",
+	"identity_access_agents_reason_open_profile": "プロファイル {profile} で修正",
+	"identity_access_agents_reason_open_profile_unnamed": "プロファイルで修正",
+	"identity_access_agents_reason_open_url_profile": "認可の対象となった URL はプロファイル {profile} で設定されています",
+	"identity_access_agents_reason_open_url_profile_unnamed": "URL を設定しているプロファイルを開く",
+	"identity_access_agents_reason_ambiguous_fix": "管理者は、すべてのエージェントを指定するプロファイルを 1 つだけ残す必要があります。",
+	"identity_access_agents_sources_show": "値の取得元を表示",
+	"identity_access_agents_sources_hide": "取得元を非表示",
+	"identity_access_agents_sources_failed": "取得元を読み込めませんでした。",
+	"identity_access_agents_sources_none": "プロファイルから提供される設定や認可はありません。",
+	"identity_access_agents_source_configuration": "{component}: {field}",
+	"identity_access_agents_source_oauth": "{component}: OAuth 認可",
+	"identity_access_agents_source_from": "プロファイル {profile} から",
+	"identity_access_agents_source_from_fallback": "プロファイル {profile} から (すべてのエージェント向けのフォールバック)"
 }

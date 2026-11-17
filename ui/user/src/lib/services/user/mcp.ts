@@ -1208,3 +1208,16 @@ export function isMcpLoginURL(value: string): boolean {
 		return false;
 	}
 }
+
+// The command that completes a localhost-callback login on the user's own machine. Only the attempt
+// endpoint belongs in it: query parameters (including the display name) and fragments are browser-only
+// hints. Double quotes work in Command Prompt, PowerShell, and POSIX shells, so the characters those
+// shells could expand inside double quotes are percent-encoded.
+export function mcpLoginCommand(loginURL: string): string {
+	const endpoint = new URL(loginURL, window.location.origin);
+	const argument = `${endpoint.origin}${endpoint.pathname}`.replace(
+		/[\x21\x24\x60]/g,
+		(char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`
+	);
+	return `obot mcp login "${argument}"`;
+}

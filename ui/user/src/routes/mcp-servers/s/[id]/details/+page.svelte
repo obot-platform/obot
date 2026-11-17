@@ -43,14 +43,8 @@
 						entityId={serverScopeID}
 						entity={serverScopeEntity}
 						serverId={mcpServer.id}
-						connectedUsers={(instances ?? []).map((instance) => {
-							const user = usersMap.get(instance.userID)!;
-							return {
-								...user,
-								mcpInstanceId: instance.id,
-								mcpInstanceConfigured: instance.configured
-							};
-						})}
+						{instances}
+						users={usersMap}
 						readonly={profile.current.isAdminReadonly?.()}
 						server={mcpServer}
 						k8sOverrides={{

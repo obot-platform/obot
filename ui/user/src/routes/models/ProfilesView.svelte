@@ -7,6 +7,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import { AdminService } from '$lib/services';
 	import type { ModelAccessPolicy } from '$lib/services/admin/types';
 	import { listBudgets, type Budget } from '$lib/services/llm-gateway/gateway';
@@ -17,6 +18,7 @@
 	import { accessibleModels, profile } from '$lib/stores';
 	import {
 		convertSubjectsToTableData,
+		hasNamedAgent,
 		resolveSubjects,
 		type ResolvedSubjects
 	} from '$lib/subjectResolver';
@@ -38,6 +40,10 @@
 	let policies = $state<GuardrailPolicy[]>([]);
 	let loading = $state(true);
 	let usersAndGroups = $state<ResolvedSubjects>();
+	// The agents the profiles name, by ID. Without them (they are listed for admins and auditors) an agent is named by its ID.
+	const agentLookup = createAgentLookup(() =>
+		hasNamedAgent(profiles.flatMap((p) => p.subjects ?? []))
+	);
 	let toDelete = $state<ModelAccessPolicy>();
 
 	let query = $derived(page.url.searchParams.get('query') || '');
@@ -84,7 +90,8 @@
 		} finally {
 			loading = false;
 		}
-		resolveSubjects(profiles.flatMap((p) => p.subjects ?? []))
+		const subjects = profiles.flatMap((p) => p.subjects ?? []);
+		resolveSubjects(subjects)
 			.then((resolved) => (usersAndGroups = resolved))
 			.catch((err) => console.error('Failed to load users and groups:', err));
 	}
@@ -100,7 +107,8 @@
 			p.subjects ?? [],
 			usersAndGroups.users,
 			usersAndGroups.groups,
-			{ offerAgents: false }
+			// Model access policies accept agents, so everyone includes them.
+			{ agents: agentLookup.current, offerAgents: true }
 		).map((row) => row.displayName);
 	}
 

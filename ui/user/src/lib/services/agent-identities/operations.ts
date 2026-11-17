@@ -63,6 +63,15 @@ export async function listAgentVMCPReadiness(id: string): Promise<AgentVMCPReadi
 	return response.items ?? [];
 }
 
+// The readiness of one vMCP, which also lists the profiles that supply the agent's values and grants.
+export async function getAgentVMCPReadiness(
+	id: string,
+	vmcpID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<AgentVMCPReadiness> {
+	return (await doGet(`/agents/${id}/vmcps/${vmcpID}/readiness`, opts)) as AgentVMCPReadiness;
+}
+
 export async function listAgentAPIKeys(
 	id: string,
 	opts?: { fetch?: Fetcher; showRevoked?: boolean }

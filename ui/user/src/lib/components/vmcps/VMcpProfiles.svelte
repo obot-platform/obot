@@ -37,13 +37,16 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import VMcpProfileAgentSetup, {
+		ambiguousAlert
+	} from '$lib/components/vmcps/VMcpProfileAgentSetup.svelte';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
 	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
 	import AgentIdentitiesService, { type AgentIdentity } from '$lib/services/agent-identities';
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
-	import { vmcpManifest } from '$lib/services/vmcps/utils';
+	import { vmcpAgentSelectionAmbiguous, vmcpManifest } from '$lib/services/vmcps/utils';
 	import { notifications } from '$lib/stores';
 	import {
 		agentLookupWith,
@@ -51,13 +54,13 @@
 		convertSubjectsToTableData,
 		hasNamedAgent,
 		resolveSubjects,
-		resolveSubjectFromGroup,
 		resolveSubjectPickerById,
 		subjectPickerOptions,
 		wildcardConflicts
 	} from '$lib/subjectResolver';
-	import { setUrlParamAndUpdateUrl } from '$lib/url';
-	import { getUserRoleLabel, isDisabledUser } from '$lib/utils';
+	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
+	import { getUserRoleLabel } from '$lib/utils';
+	import { PROFILE_ID_PARAM } from '$lib/vmcpProfileLinks';
 	import { profileSubjectConflict } from '$lib/vmcpProfileSubjects';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
@@ -80,23 +83,30 @@
 		vmcp?: VMCP;
 		toolFlow: VMcpToolFlow;
 		onUpdated?: (vmcp: VMCP) => void;
+		// The profiles' manifest (name, identities, permissions) cannot be changed, as for a catalog-synced vMCP.
 		readonly?: boolean;
+		// Whether to offer agent setup, which only administrators can change. It is kept outside the manifest, so
+		// it stays editable when the manifest is read-only.
+		agentSetup?: boolean;
 	}
 
-	let { vmcp, toolFlow, onUpdated, readonly = false }: Props = $props();
+	let { vmcp, toolFlow, onUpdated, readonly = false, agentSetup = false }: Props = $props();
 	let profiles = $state<Profile[]>([]);
 	let draft = $state<ProfileManifest>();
 	let editingId = $derived.by(() => {
 		const profileParam = page.url.searchParams.get('profile');
-		if (!profileParam) {
-			return undefined;
+		if (profileParam) {
+			return profiles.find((profile) => profile.id === profileParam)?.id;
 		}
-		const profileById = profiles.find((profile) => profile.id === profileParam);
-		if (profileById) {
-			return profileById.id;
+		// A link from the agent page names the profile by its ID, which is what the readiness API reports.
+		const profileIDParam = page.url.searchParams.get(PROFILE_ID_PARAM);
+		if (profileIDParam) {
+			return profiles.find((profile) => profile.profileID === profileIDParam)?.id;
 		}
 		return undefined;
 	});
+	// The saved profile being edited. A profile that has not been saved has no ID to set up agents by.
+	const editingProfile = $derived(profiles.find((profile) => profile.id === editingId));
 	let loadedProfileId = $state<string>();
 	let saving = $state(false);
 	let error = $state('');
@@ -129,6 +139,16 @@
 	const nameError = $derived(error === NAME_REQUIRED_ERROR || error === NAME_EXISTS_ERROR);
 	const subjectsError = $derived(error === SUBJECTS_REQUIRED_ERROR);
 	const componentServers = $derived(vmcp?.components ?? []);
+	const selectionAmbiguous = $derived(vmcpAgentSelectionAmbiguous(vmcp));
+	// Identities changed in the editor but not saved: agent setup describes the saved profile.
+	const identitiesChanged = $derived.by(() => {
+		if (!draft || !editingProfile) return false;
+		const key = (subject: AccessControlRuleSubject) => `${subject.type}:${subject.id}`;
+		const saved = new Set(editingProfile.users.map(key));
+		return (
+			draft.users.length !== saved.size || draft.users.some((subject) => !saved.has(key(subject)))
+		);
+	});
 	const assignedSubjectIds = $derived(new Set(draft?.users.map(resolveSubjectPickerById) ?? []));
 	const groupsById = $derived(
 		new Map([...resolvedGroups, ...directoryGroups].map((group) => [group.id, group]))
@@ -515,7 +535,10 @@
 	});
 
 	function cancelEditing() {
-		setUrlParamAndUpdateUrl(page.url, 'profile', null);
+		const url = new URL(page.url.href);
+		url.searchParams.delete('profile');
+		url.searchParams.delete(PROFILE_ID_PARAM);
+		goto(url, { reset: false, replace: true });
 		closeEditor();
 	}
 
@@ -650,8 +673,14 @@
 			agent: Boolean(row.agent),
 			iconURL: user?.iconURL,
 			role: user?.effectiveRole,
-			disabled: isDisabledUser(user)
+			disabled: Boolean(row.disabled)
 		};
+	}
+
+	// The administrator who authorized a profile's OAuth grant, by the name the directory has for them.
+	function agentSetupUserName(id: string) {
+		const user = directoryUsers.find((candidate) => candidate.id === id);
+		return user ? directoryName(user) : undefined;
 	}
 
 	function userInitials(source: string) {
@@ -949,6 +978,14 @@
 	{#if draft}
 		<div class="mx-auto w-full max-w-4xl">
 			{@render editCreate()}
+			{#if agentSetup && vmcp}
+				<VMcpProfileAgentSetup
+					{vmcp}
+					profileID={editingProfile?.profileID}
+					unsaved={identitiesChanged}
+					userName={agentSetupUserName}
+				/>
+			{/if}
 		</div>
 	{:else}
 		<p class="text-muted-content text-sm font-light mt-2 mb-4">
@@ -956,6 +993,9 @@
 		</p>
 		{#if vmcp}
 			{@render actions()}
+			{#if selectionAmbiguous && agentSetup}
+				<div class="mb-4">{@render ambiguousAlert()}</div>
+			{/if}
 			{@render list()}
 		{:else}
 			<div class="flex flex-col items-center justify-center text-center">

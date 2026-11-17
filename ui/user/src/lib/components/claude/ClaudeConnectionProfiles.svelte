@@ -2,6 +2,7 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { m } from '$lib/i18n';
+	import { createAgentLookup } from '$lib/runes/agentLookup.svelte';
 	import {
 		UserService,
 		type OrgGroup,
@@ -10,7 +11,7 @@
 		type EnvironmentProfile
 	} from '$lib/services';
 	import { notifications } from '$lib/stores';
-	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
+	import { convertSubjectsToTableData, hasNamedAgent, resolveSubjects } from '$lib/subjectResolver';
 	import { Plus, Trash2, UsersRound } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -33,6 +34,10 @@
 	let error = $state('');
 	let directoryUsers = $state<OrgUser[]>([]);
 	let resolvedGroups = $state<OrgGroup[]>([]);
+	// The agents a profile names, by ID, so that they are not shown by their IDs.
+	const agentLookup = createAgentLookup(() =>
+		hasNamedAgent(profiles.flatMap((profile) => profile.subjects))
+	);
 	let confirmDelete = $state<string>();
 	let loadedId = $state<string | undefined>(undefined);
 
@@ -71,6 +76,7 @@
 
 	function subjectLabel(profile: EnvironmentProfile) {
 		const rows = convertSubjectsToTableData(profile.subjects, directoryUsers, resolvedGroups, {
+			agents: agentLookup.current,
 			offerAgents: false
 		});
 		return rows.map((row) => row.displayName).join(', ');
