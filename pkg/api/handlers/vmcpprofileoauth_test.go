@@ -130,3 +130,57 @@ func TestVMCPProfileOAuthAPI(t *testing.T) {
 	require.Equal(t, map[string]any{"componentID": "remote"}, adminAuditEventDetails(t, events[0]))
 	require.NotContains(t, string(events[0].Details), "secret-")
 }
+
+// TestVMCPProfileStatusCoversOnlyGrantedComponents checks the profile status route and the write routes of a profile
+// that grants some of the vMCP's components: the status lists only the components the profile grants, with the OAuth
+// requirement the vMCP controller's probe found, and configuration of a component it does not grant is refused with a
+// 400 that names the component.
+func TestVMCPProfileStatusCoversOnlyGrantedComponents(t *testing.T) {
+	vmcp := profileOAuthTestVMCP()
+	vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, profileConfigurationTestVMCP().Spec.Manifest.Components[0])
+	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"remote": {}}}
+	vmcp.Status.ComponentOAuth = map[string]v1.VMCPComponentOAuth{"remote": {
+		DefinitionHash: vmcpconfig.ProfileOAuthGrantDefinitionHash(vmcp.Spec.Manifest.Components[0]),
+		Probes: []v1.VMCPComponentOAuthProbe{{
+			URLDigest: vmcpconfig.ComponentOAuthURLDigest(vmcp.Name, "remote", "https://remote.example.com/mcp"),
+			Required:  v1.VMCPComponentOAuthRequired,
+		}},
+	}}
+	storage := newProfileConfigurationTestStorage(vmcp)
+	gatewayClient := newHandlerTestGateway(t)
+	handler := NewVMCPProfileOAuthHandler(&recordingAuthorizer{}, vmcpconfig.NewProfileOAuthGrantStore(gatewayClient))
+	status := func(profileID string) types.VMCPProfileStatus {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, "/api/vmcps/"+vmcp.Name+"/profiles/"+profileID+"/status", nil)
+		request.SetPathValue("vmcp_id", vmcp.Name)
+		request.SetPathValue("profile_id", profileID)
+		recorder := httptest.NewRecorder()
+		require.NoError(t, handler.Status(api.Context{ResponseWriter: recorder, Request: request, Storage: storage, GatewayClient: gatewayClient, User: vmcpAdminForTest()}))
+		var result types.VMCPProfileStatus
+		require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &result))
+		return result
+	}
+	componentIDs := func(status types.VMCPProfileStatus) []string {
+		var ids []string
+		for _, component := range status.Components {
+			ids = append(ids, component.ComponentID)
+		}
+		return ids
+	}
+
+	seven := status("vp1seven")
+	require.Equal(t, []string{"remote"}, componentIDs(seven))
+	require.Equal(t, &types.VMCPProfileOAuthStatus{Required: true, State: types.VMCPProfileOAuthMissing}, seven.Components[0].OAuth)
+	require.Equal(t, []string{"remote", "api"}, componentIDs(status("vp1agents")))
+
+	configuration := NewVMCPProfileConfigurationHandler(vmcpconfig.NewProfileConfigurationStore(gatewayClient))
+	_, err := callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1seven", map[string]any{
+		"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
+	})
+	requireHTTPStatus(t, err, http.StatusBadRequest)
+	require.ErrorContains(t, err, `does not grant component "api"`)
+	_, err = callProfileConfiguration(t, configuration, storage, gatewayClient, http.MethodPut, vmcp.Name, "vp1agents", map[string]any{
+		"components": map[string]any{"api": map[string]any{"REGION": "us-east"}},
+	})
+	require.NoError(t, err)
+}

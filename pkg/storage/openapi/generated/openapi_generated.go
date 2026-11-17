@@ -615,6 +615,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.UserRoleChangeList{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
 		v1.UserRoleChangeSpec{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
 		v1.VMCP{}.OpenAPIModelName():                                                              schema_storage_apis_obotobotai_v1_VMCP(ref),
+		v1.VMCPComponentOAuth{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref),
+		v1.VMCPComponentOAuthProbe{}.OpenAPIModelName():                                           schema_storage_apis_obotobotai_v1_VMCPComponentOAuthProbe(ref),
 		v1.VMCPComponentStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref),
 		v1.VMCPInstance{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_VMCPInstance(ref),
 		v1.VMCPInstanceList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceList(ref),
@@ -20621,7 +20623,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref common
 				Properties: map[string]spec.Schema{
 					"required": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth, or one that any profile of the vMCP holds a grant for, working or not. Another remote component can still ask for OAuth when an agent calls it, which nothing reveals until a profile authorizes it.",
+							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth, one that any profile of the vMCP holds a grant for, working or not, or one that Obot's background probe, which connects without credentials, found asks for OAuth at the URL the profile's agents reach. A probe that failed, or has not run yet, counts as not required.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -20749,7 +20751,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileStatus(ref common.Refe
 					},
 					"components": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Components cover every component of the vMCP, including those the profile does not grant: an agent may be granted a component by another profile and still take its configuration from this one.",
+							Description: "Components cover the components the profile grants (allowAllComponents, or an entry in allowedComponents). Only those take their configuration and OAuth grant from the profile: an agent granted a component by another profile takes its setup from its wildcard profile.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -30320,6 +30322,88 @@ func schema_storage_apis_obotobotai_v1_VMCP(ref common.ReferenceCallback) common
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_VMCPComponentOAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPComponentOAuth records the probes of one component, for its current definition.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"definitionHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DefinitionHash is the component's definition (vmcp.ProfileOAuthGrantDefinitionHash) that the probes were made for. A change to it discards them, and the component is probed again.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"probes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Probes are the results for each URL that agents' connections to the component reach: the URL its definition fixes, or each distinct URL that the configuration of its profiles resolves to.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPComponentOAuthProbe{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"definitionHash"},
+			},
+		},
+		Dependencies: []string{
+			v1.VMCPComponentOAuthProbe{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPComponentOAuthProbe(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPComponentOAuthProbe is the result of probing one URL of a component.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"urlDigest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "URLDigest is the digest of the URL probed (vmcp.ComponentOAuthURLDigest), never the URL, which may come from configuration.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Required is what the last probe found, or, when it failed, what the last one that succeeded found, if any.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"checkedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CheckedAt is when the URL was last probed, whether the probe succeeded or not.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"failures": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Failures counts the probes in a row that failed. The next probe waits longer after each.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"urlDigest", "required", "checkedAt"},
+			},
+		},
+		Dependencies: []string{
+			metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30933,6 +31017,20 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 							},
 						},
 					},
+					"componentOAuth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentOAuth records, by component ID, whether the remote components that agents reach ask for OAuth, as the vMCP controller last found by probing them without any credential. Agent readiness and profile status read it, and never probe. It never holds a URL: each result is keyed by a digest of the URL it is for.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPComponentOAuth{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.",
@@ -30950,7 +31048,7 @@ func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) 
 			},
 		},
 		Dependencies: []string{
-			v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName(), v1.VMCPProfileOAuthGrant{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
+			v1.VMCPComponentOAuth{}.OpenAPIModelName(), v1.VMCPComponentStatus{}.OpenAPIModelName(), v1.VMCPProfileConfigurationRevision{}.OpenAPIModelName(), v1.VMCPProfileOAuthGrant{}.OpenAPIModelName(), metav1.Condition{}.OpenAPIModelName()},
 	}
 }
 

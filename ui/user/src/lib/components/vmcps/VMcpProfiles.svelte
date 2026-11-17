@@ -61,7 +61,7 @@
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { getUserRoleLabel } from '$lib/utils';
 	import { PROFILE_ID_PARAM } from '$lib/vmcpProfileLinks';
-	import { profileSubjectConflict } from '$lib/vmcpProfileSubjects';
+	import { profileIsAgentCapable, profileSubjectConflict } from '$lib/vmcpProfileSubjects';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import {
@@ -140,6 +140,15 @@
 	const subjectsError = $derived(error === SUBJECTS_REQUIRED_ERROR);
 	const componentServers = $derived(vmcp?.components ?? []);
 	const selectionAmbiguous = $derived(vmcpAgentSelectionAmbiguous(vmcp));
+	// Agent setup is for a saved profile that agents can use, as its saved identities say. A profile
+	// whose identities in the editor include agents, and that is not saved as one yet, is asked to be
+	// saved first. A profile no agent can use has none.
+	const savedAgentCapable = $derived(
+		Boolean(editingProfile?.profileID) && profileIsAgentCapable(editingProfile?.users ?? [])
+	);
+	const showAgentSetup = $derived(
+		savedAgentCapable || (draft !== undefined && profileIsAgentCapable(draft.users))
+	);
 	// Identities changed in the editor but not saved: agent setup describes the saved profile.
 	const identitiesChanged = $derived.by(() => {
 		if (!draft || !editingProfile) return false;
@@ -978,10 +987,10 @@
 	{#if draft}
 		<div class="mx-auto w-full max-w-4xl">
 			{@render editCreate()}
-			{#if agentSetup && vmcp}
+			{#if agentSetup && vmcp && showAgentSetup}
 				<VMcpProfileAgentSetup
 					{vmcp}
-					profileID={editingProfile?.profileID}
+					profileID={savedAgentCapable ? editingProfile?.profileID : undefined}
 					unsaved={identitiesChanged}
 					userName={agentSetupUserName}
 				/>

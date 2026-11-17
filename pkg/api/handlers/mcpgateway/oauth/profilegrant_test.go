@@ -518,6 +518,13 @@ func TestProfileOAuthGrantCallbackRevalidates(t *testing.T) {
 			code:   http.StatusNotFound,
 		},
 		{
+			name: "component no longer granted",
+			change: func(vmcp *v1.VMCP) {
+				vmcp.Spec.Manifest.Profiles[1].Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{profileGrantLocal: {}}}
+			},
+			code: http.StatusBadRequest,
+		},
+		{
 			name: "upstream URL changed",
 			change: func(vmcp *v1.VMCP) {
 				vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.FixedURL += "/moved"
@@ -579,10 +586,20 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 		})
 	}
 
-	// A component whose URL comes from configuration that no profile of an agent using the grant sets.
+	// A component the profile does not grant: the profile's grant would never be used, so it is refused, naming it.
 	f := newProfileGrantFixture(t)
+	var vmcp v1.VMCP
+	require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+	vmcp.Spec.Manifest.Profiles[0].Permissions = types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{profileGrantLocal: {}}}
+	require.NoError(t, f.storage.Update(t.Context(), &vmcp))
+	_, err := f.start(t, administrator("1"), profileGrantSeven, profileGrantRemote)
+	requireErrHTTP(t, err, http.StatusBadRequest)
+	require.Contains(t, err.Error(), `does not grant component "`+profileGrantRemote+`"`)
+
+	// A component whose URL comes from configuration that no profile of an agent using the grant sets.
+	f = newProfileGrantFixture(t)
 	f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
-	_, err := f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
+	_, err = f.start(t, administrator("1"), profileGrantAgents, profileGrantRemote)
 	requireErrHTTP(t, err, http.StatusBadRequest)
 	require.True(t, strings.Contains(err.Error(), "configure the profile first"), err.Error())
 	require.True(t, strings.Contains(err.Error(), "__url"), err.Error())

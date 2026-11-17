@@ -96,8 +96,9 @@ type AgentOAuthGrant struct {
 	// AmbiguousFallback reports that the agent would fall back for the component, but the profile it would fall back
 	// to is ambiguous (AgentSelection.Ambiguous), so it has no grant.
 	AmbiguousFallback bool
-	// Required reports that the component is known to need OAuth (ComponentRequiresOAuth): it requires static OAuth,
-	// or some profile of the vMCP, the agent's or another, holds a grant for it, working or not.
+	// Required reports that the component is known to need OAuth (requiresOAuth): it requires static OAuth, some
+	// profile of the vMCP, the agent's or another, holds a grant for it, working or not, or the vMCP controller's probe
+	// of the URL the agent reaches found that it asks for OAuth.
 	Required bool
 	// State is types.VMCPProfileOAuthAuthorized or types.VMCPProfileOAuthInvalid when the agent has a grant.
 	State string
@@ -156,16 +157,22 @@ func ComponentUsesOAuth(component types.VMCPComponent) bool {
 	return component.CatalogEntry.Manifest.Runtime == types.RuntimeRemote
 }
 
-// ComponentRequiresOAuth reports whether a component is known to need OAuth before it is called: a remote server that
-// requires administrator static OAuth, or one that some profile of its vMCP holds a grant for (granted), working or not.
-// A grant can only be authorized for a server that asked for OAuth, so its existence proves that the server uses it,
-// including a server that only asks once tools are listed or called, which nothing else reveals without calling it.
-func ComponentRequiresOAuth(component types.VMCPComponent, granted bool) bool {
-	return ComponentOAuthCredentialReference(component) != "" || granted && ComponentUsesOAuth(component)
+// requiresOAuth reports whether component, which can hold a grant (ComponentUsesOAuth), is known to need OAuth before
+// it is called, for an agent whose profiles apply to it as selection, where stored are grants that the profiles of
+// vmcp hold: when it requires administrator static OAuth; when some profile of vmcp holds a grant for it among stored,
+// working or not, since a grant can only be authorized for a server that asked for OAuth; or else when the vMCP
+// controller's probe of the URL the agent reaches found that it asks for OAuth (probedRequired). A probe that failed
+// counts as not finding it.
+func (s *ProfileOAuthGrantStore) requiresOAuth(ctx context.Context, vmcp v1.VMCP, selection AgentSelection, component types.VMCPComponent, stored []gatewaytypes.MCPOAuthGrantMetadata) (bool, error) {
+	mcpID := ProfileOAuthGrantMCPID(vmcp.Name, component.ID)
+	if ComponentOAuthCredentialReference(component) != "" || slices.ContainsFunc(stored, func(grant gatewaytypes.MCPOAuthGrantMetadata) bool { return grant.MCPID == mcpID }) {
+		return true, nil
+	}
+	return s.probedRequired(ctx, vmcp, selection, component)
 }
 
 // grantOwners returns the owners of the grants that the profiles of vmcp hold, once each. A component that any of them
-// holds a grant for requires OAuth (ComponentRequiresOAuth).
+// holds a grant for requires OAuth (requiresOAuth).
 func grantOwners(vmcp v1.VMCP) []string {
 	var owners []string
 	for _, id := range ProfileIDs(vmcp.Spec.Manifest) {
@@ -174,11 +181,6 @@ func grantOwners(vmcp v1.VMCP) []string {
 		}
 	}
 	return owners
-}
-
-// granted reports whether any of stored is a grant for the component whose grants have mcpID.
-func granted(stored []gatewaytypes.MCPOAuthGrantMetadata, mcpID string) bool {
-	return slices.ContainsFunc(stored, func(grant gatewaytypes.MCPOAuthGrantMetadata) bool { return grant.MCPID == mcpID })
 }
 
 // StaticComponentTargetURL returns the upstream URL that every connection to a component reaches, when the
@@ -263,9 +265,13 @@ func (s *ProfileOAuthGrantStore) DeleteProfileData(ctx context.Context, vmcpID s
 //   - Only if the explicit profile holds none, or the agent has no explicit profile, is the wildcard profile's grant
 //     used, unless the wildcard is ambiguous (AmbiguousFallback).
 //
+// Only the agent's profiles that grant a component count for it (AgentSelection.ForComponent): an agent whose explicit
+// profile does not grant the component uses the wildcard profile's grant, as an agent without an explicit profile does.
+//
 // A component that cannot hold a grant (ComponentUsesOAuth) has none. The same query reads the grants of the vMCP's
 // other profiles, which only decide whether a component is known to need OAuth (AgentOAuthGrant.Required), never which
-// grant the agent uses. No token or client credential is read.
+// grant the agent uses. So does the vMCP controller's probe of the component (probedRequired), for an agent that holds
+// no grant for it. No token or client credential is read.
 func (s *ProfileOAuthGrantStore) SelectAgentGrants(ctx context.Context, vmcp v1.VMCP, selection AgentSelection, components []types.VMCPComponent) ([]AgentOAuthGrant, error) {
 	owners := grantOwners(vmcp)
 	var mcpIDs []string
@@ -296,21 +302,27 @@ func (s *ProfileOAuthGrantStore) SelectAgentGrants(ctx context.Context, vmcp v1.
 
 	result := make([]AgentOAuthGrant, 0, len(components))
 	for _, component := range components {
-		grant := AgentOAuthGrant{ComponentID: component.ID, Required: ComponentRequiresOAuth(component, false)}
+		grant := AgentOAuthGrant{ComponentID: component.ID, Required: ComponentOAuthCredentialReference(component) != ""}
 		if ComponentUsesOAuth(component) {
 			mcpID := ProfileOAuthGrantMCPID(vmcp.Name, component.ID)
-			grant.Required = ComponentRequiresOAuth(component, granted(stored, mcpID))
+			applies := selection.ForComponent(component.ID)
+			// Only an agent without a grant is kept from the component for needing one, and a grant found among stored
+			// makes it required without a probe.
+			var err error
+			if grant.Required, err = s.requiresOAuth(ctx, vmcp, applies, component, stored); err != nil {
+				return nil, err
+			}
 			var (
 				profile *types.VMCPProfile
 				found   *gatewaytypes.MCPOAuthGrantMetadata
 			)
 			switch {
-			case find(selection.Explicit, mcpID) != nil:
-				profile, found = selection.Explicit, find(selection.Explicit, mcpID)
-			case selection.Ambiguous:
+			case find(applies.Explicit, mcpID) != nil:
+				profile, found = applies.Explicit, find(applies.Explicit, mcpID)
+			case applies.Ambiguous:
 				grant.AmbiguousFallback = true
-			case find(selection.Wildcard, mcpID) != nil:
-				profile, found = selection.Wildcard, find(selection.Wildcard, mcpID)
+			case find(applies.Wildcard, mcpID) != nil:
+				profile, found = applies.Wildcard, find(applies.Wildcard, mcpID)
 				grant.Fallback = true
 			}
 			if found != nil {
@@ -431,15 +443,16 @@ func (g AgentOAuthGrant) Usable() bool {
 //     one authorized for another upstream URL than the one the agent's connection reaches, with the profile that
 //     configures the agent's URL. The agent never falls back from a broken grant, so a broken explicit grant blocks the
 //     component even when the wildcard profile holds a working one.
-//   - types.AgentReadinessOAuthRequired, fixed in the agent's explicit profile if it has one and otherwise in the
-//     wildcard, for a component that is known to need OAuth (ComponentRequiresOAuth) when no profile of the agent holds
-//     a grant: one that requires static OAuth, or one that another profile of the vMCP holds a grant for.
+//   - types.AgentReadinessOAuthRequired, fixed in the agent's explicit profile if it grants the component and otherwise
+//     in the wildcard, for a component that is known to need OAuth (requiresOAuth) when no profile of the agent holds
+//     a grant: one that requires static OAuth, one that another profile of the vMCP holds a grant for, or one that the
+//     vMCP controller's probe found asks for OAuth at the URL the agent reaches.
 //   - AmbiguousFallbackReason for such a component when the agent's explicit profile holds none and the fallback is
 //     ambiguous.
 //
-// A remote component that only asks for OAuth once it is called, and that no profile holds a grant for, cannot be seen
-// without calling it, which readiness never does. It is caught when the agent calls it: the gateway answers the agent
-// with a 409 that names it. Once any profile authorizes it, it is known to need OAuth.
+// Readiness never contacts a component: it reads what the vMCP controller recorded. A component whose probe failed,
+// or that is not probed yet, is not known to need OAuth, so an agent is never kept from it for that. If it asks for
+// OAuth when the agent calls it, the gateway answers the agent with a 409 that names it.
 func (g AgentOAuthGrant) ReadinessReasons(component types.VMCPComponent, selection AgentSelection) []ReadinessReason {
 	switch {
 	case g.ProfileID != "" && g.State != types.VMCPProfileOAuthAuthorized:
@@ -464,11 +477,19 @@ func FallbackGrantProfileIDs(grants []AgentOAuthGrant) []string {
 	return ids
 }
 
-// ProfileOAuthStatus reports the grant a profile of vmcp holds for each component that can hold one, by component ID,
-// with one query. It describes the profile alone, with no fallback, and never reads a token. Only whether a component
-// is known to need OAuth (Required) looks at the vMCP's other profiles: a grant any of them holds says it does.
+// ProfileOAuthStatus reports the grant a profile of vmcp holds for each component that it grants and that can hold one,
+// by component ID, with one query. It describes the profile alone, with no fallback, and never reads a token. Only
+// whether a component is known to need OAuth (Required) looks further: at the grants the vMCP's other profiles hold,
+// and at what the vMCP controller's probe found at the URL that an agent using the profile's grants reaches
+// (ProfileGrantSelection). A grant the profile kept for a component it no longer grants is not reported.
 func (s *ProfileOAuthGrantStore) ProfileOAuthStatus(ctx context.Context, vmcp v1.VMCP, profileID string) (map[string]types.VMCPProfileOAuthStatus, error) {
-	components := ComponentsForInstance(vmcp, v1.VMCPInstance{})
+	profile, ok := vmcp.Spec.Manifest.Profile(profileID)
+	if !ok {
+		return map[string]types.VMCPProfileOAuthStatus{}, nil
+	}
+	components := slices.DeleteFunc(ComponentsForInstance(vmcp, v1.VMCPInstance{}), func(component types.VMCPComponent) bool {
+		return !ProfileGrantsComponent(profile, component.ID)
+	})
 	var mcpIDs []string
 	for _, component := range components {
 		if ComponentUsesOAuth(component) {
@@ -486,14 +507,17 @@ func (s *ProfileOAuthGrantStore) ProfileOAuthStatus(ctx context.Context, vmcp v1
 			continue
 		}
 		mcpID := ProfileOAuthGrantMCPID(vmcp.Name, component.ID)
-		status := types.VMCPProfileOAuthStatus{Required: ComponentRequiresOAuth(component, granted(stored, mcpID)), State: types.VMCPProfileOAuthMissing}
+		status := types.VMCPProfileOAuthStatus{State: types.VMCPProfileOAuthMissing}
+		if status.Required, err = s.requiresOAuth(ctx, vmcp, ProfileGrantSelection(vmcp.Spec.Manifest, profile), component, stored); err != nil {
+			return nil, err
+		}
 		for _, grant := range stored {
 			if grant.MCPID != mcpID || grant.UserID != owner {
 				continue
 			}
 			status.State, status.InvalidReason = grantState(grant, component)
 			if status.State == types.VMCPProfileOAuthAuthorized {
-				if status.State, status.InvalidReason, err = s.profileTargetState(ctx, vmcp, profileID, component, grant); err != nil {
+				if status.State, status.InvalidReason, err = s.profileTargetState(ctx, vmcp, profile, component, grant); err != nil {
 					return nil, err
 				}
 			}
@@ -511,31 +535,26 @@ func (s *ProfileOAuthGrantStore) ProfileOAuthStatus(ctx context.Context, vmcp v1
 	return result, nil
 }
 
-// profileTargetState is whether a profile's grant for a component whose definition does not fix its URL is still for
-// the URL that an agent using the profile's grants reaches (ProfileGrantSelection): a change to the URL configuration
-// since the grant was authorized, the profile's own or the one it falls back to, makes it invalid. Without a resolver,
-// the grant is reported as authorized.
-func (s *ProfileOAuthGrantStore) profileTargetState(ctx context.Context, vmcp v1.VMCP, profileID string, component types.VMCPComponent, grant gatewaytypes.MCPOAuthGrantMetadata) (string, string, error) {
-	if _, static := StaticComponentTargetURL(component); static || s.targets == nil {
+// profileTargetState is whether profile's grant for a component is still for the URL that an agent using the profile's
+// grants reaches (ProfileGrantTarget): a change to the URL configuration since the grant was authorized, the profile's
+// own or the one it falls back to, makes it invalid. It is called only for a grant that grantState found authorized,
+// so a URL the component's definition fixes is the grant's. Without a resolver, the grant is reported as authorized.
+func (s *ProfileOAuthGrantStore) profileTargetState(ctx context.Context, vmcp v1.VMCP, profile types.VMCPProfile, component types.VMCPComponent, grant gatewaytypes.MCPOAuthGrantMetadata) (string, string, error) {
+	if s.targets == nil {
 		return types.VMCPProfileOAuthAuthorized, "", nil
 	}
-	index := slices.IndexFunc(vmcp.Spec.Manifest.Profiles, func(profile types.VMCPProfile) bool { return profile.ID == profileID })
-	if index < 0 {
-		return types.VMCPProfileOAuthAuthorized, "", nil
-	}
-	target, err := s.targets.ComponentTarget(ctx, vmcp, ProfileGrantSelection(vmcp.Spec.Manifest, vmcp.Spec.Manifest.Profiles[index]), component)
-	if _, refused := errors.AsType[*types.ErrHTTP](err); refused {
-		return types.VMCPProfileOAuthInvalid, err.Error(), nil
-	} else if err != nil {
+	target, refused, err := ProfileGrantTarget(ctx, s.targets, vmcp, profile, component)
+	switch {
+	case err != nil:
 		return "", "", fmt.Errorf("resolve the upstream URL of component %q: %w", component.ID, err)
-	}
-	switch target.URL {
-	case grant.URL:
+	case refused != nil:
+		return types.VMCPProfileOAuthInvalid, refused.Error(), nil
+	case target.URL == grant.URL:
 		return types.VMCPProfileOAuthAuthorized, "", nil
-	case "":
-		return types.VMCPProfileOAuthInvalid, fmt.Sprintf("the upstream URL the grant of profile %q was authorized for is no longer configured", profileID), nil
+	case target.URL == "":
+		return types.VMCPProfileOAuthInvalid, fmt.Sprintf("the upstream URL the grant of profile %q was authorized for is no longer configured", profile.ID), nil
 	default:
-		_, reason := GrantTargetMismatch(target, profileID)
+		_, reason := GrantTargetMismatch(target, profile.ID)
 		return types.VMCPProfileOAuthInvalid, reason, nil
 	}
 }
@@ -593,8 +612,9 @@ func AddOAuthStatus(status *types.VMCPProfileStatus, oauth map[string]types.VMCP
 
 // ProfileOAuthGrantTarget returns the profile and component of vmcp that an administrator authorizes a grant for, or
 // the error that refuses it. The profile must be agent-capable, agent selection on the vMCP must not be ambiguous,
-// since writing a grant puts the vMCP under the wildcard rule for every later edit, and the component must be a remote
-// one, the only kind that authorizes with OAuth.
+// since writing a grant puts the vMCP under the wildcard rule for every later edit, the profile must grant the
+// component, since a profile's grant is only used for the components it grants (AgentSelection.ForComponent), and the
+// component must be a remote one, the only kind that authorizes with OAuth.
 func ProfileOAuthGrantTarget(vmcp *v1.VMCP, profileID, componentID string) (types.VMCPProfile, types.VMCPComponent, error) {
 	profile, err := writableProfile(vmcp, profileID)
 	if err != nil {
@@ -609,6 +629,9 @@ func ProfileOAuthGrantTarget(vmcp *v1.VMCP, profileID, componentID string) (type
 		return types.VMCPProfile{}, types.VMCPComponent{}, types.NewErrNotFound("vMCP %q has no component %q", vmcp.Name, componentID)
 	}
 	component := components[componentIndex]
+	if err := checkProfileGrants(profile, component.ID, "OAuth grants"); err != nil {
+		return types.VMCPProfile{}, types.VMCPComponent{}, err
+	}
 	if !ComponentUsesOAuth(component) {
 		return types.VMCPProfile{}, types.VMCPComponent{}, types.NewErrBadRequest("component %q is not a remote server, so it does not use OAuth", component.ID)
 	}

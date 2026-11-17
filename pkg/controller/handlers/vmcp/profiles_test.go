@@ -112,9 +112,10 @@ func TestReconcileProfilesRemovesProfileConfiguration(t *testing.T) {
 			Configuration: []types.VMCPConfigurationPolicy{{Key: "REGION", Policy: types.VMCPConfigurationPolicyUserAllowed}},
 			CatalogEntry:  types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{Config: []types.MCPConfig{{Key: "REGION", Required: true}}}},
 		}},
+		// Profile setup covers only the components a profile grants.
 		Profiles: []types.VMCPProfile{
-			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}},
-			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{agents}},
+			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{agents}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 		},
 	}}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(vmcp).WithObjects(vmcp).Build()
@@ -271,9 +272,10 @@ func TestProfileOAuthGrantsAreDeletedWithTheirProfileAndComponent(t *testing.T) 
 	}
 	vmcp := &v1.VMCP{Name: "vmcp1grants", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{remote("static"), remote("dynamic")},
+		// A profile holds grants only for the components it grants.
 		Profiles: []types.VMCPProfile{
-			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}},
-			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}},
+			{ID: "vp1kept", Name: "kept", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
+			{ID: "vp1removed", Name: "removed", Subjects: []types.Subject{{Type: types.SubjectTypeAgent, ID: types.SubjectWildcardID}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}},
 		},
 	}}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(vmcp).WithObjects(vmcp).Build()

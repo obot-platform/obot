@@ -15,7 +15,7 @@ Add agents to a profile in the vMCP's **Profiles**, with **Add User/Group/Agent*
 
 **All Users** matches users only. Permissions add up across every profile that matches an agent, as they do for users. If a wildcard profile grants component A and the agent's own profile grants component B, the agent can use both.
 
-A profile that names an agent, **All Agents**, or **Everyone** is *agent-capable*. Only agent-capable profiles have **Agent setup**.
+A profile that names an agent, **All Agents**, or **Everyone** is *agent-capable*. Only agent-capable profiles have **Agent setup**, and it appears in the profile once the profile is saved that way. A new profile, or a saved profile you just added an agent to, asks you to save it first. A profile that no agent can use has no **Agent setup**.
 
 ## Subject rules {#subject-rules}
 
@@ -30,6 +30,8 @@ The UI and the API refuse changes that break these rules. A vMCP saved before th
 
 For each vMCP, an agent has at most one *explicit* profile, the one that names it, and at most one *wildcard* profile, the one that names **All Agents** or **Everyone**.
 
+A profile supplies setup only for the components it grants: all of them with **Allow All Access**, otherwise the ones you enable on it. The rules below apply to each component separately, between the agent's profiles that grant it. If the agent's explicit profile doesn't grant a component that its wildcard profile grants, the agent takes all of that component's setup from the wildcard profile, optional values and its OAuth grant included, as an agent without an explicit profile does.
+
 - **Required values** come from the explicit profile. A required value the explicit profile doesn't set comes from the wildcard profile.
 - **Optional values** come from the explicit profile if the agent has one, and from the wildcard profile otherwise. They never mix: an optional value the explicit profile leaves unset stays unset.
 - **OAuth grants** come from the explicit profile if it has authorized the component, and from the wildcard profile otherwise. If the explicit profile's grant stops working, the agent fails rather than falling back to a different upstream account.
@@ -42,7 +44,7 @@ Every component the agent can use must be fully set up. If any is missing a requ
 ## Configure values {#configuration}
 
 1. Open the vMCP, then **Profiles**, and open an agent-capable profile. Save a new profile first: setup is kept by the profile's ID, which it gets when saved.
-2. Under **Agent setup**, enter values for each component. The list includes every component of the vMCP, including ones this profile doesn't grant, because another profile can grant a component while this one configures it.
+2. Under **Agent setup**, enter values for each component. The list includes only the components this profile grants. To set up another component on this profile, grant it on the profile first.
 3. Click **Save configuration**.
 
 Only values a user could enter on their own connection can be set. Values fixed by the vMCP or the catalog entry are listed under **Applies to everyone**, read-only and without their values.
@@ -54,6 +56,8 @@ For a remote component whose URL is configurable, set **Server URL**. It must ma
 Saved values reach agents' connections automatically. An agent's next connection waits until its connection has them.
 
 **Reset** clears every value on the profile. If the old values take longer than 15 seconds to remove, the reset still succeeds and the profile shows that cleanup is still finishing. Agents stop getting the values at once.
+
+If you stop granting a component on a profile, the values and OAuth grant the profile holds for it are kept, but they aren't shown or used. They apply again if you grant the component again. Deleting the profile deletes them. Removing the component from the vMCP deletes its grants, and its values go with the profile's next save. **Reset** clears kept values too.
 
 ## Authorize OAuth {#oauth}
 
@@ -106,7 +110,19 @@ To see whether a specific agent can connect, open the agent under **Identity & A
 
 When an agent connects to a vMCP that isn't ready, it gets `409 Conflict` with the reasons. It never gets an OAuth challenge or a sign-in link. See [Errors](../reference/agent-identities.md#errors).
 
-Readiness doesn't contact components. It knows that a component needs OAuth when its catalog entry requires static OAuth, or when any profile of the vMCP holds a grant for it, even an invalid one. A component that asks for OAuth only when its tools are listed or called is invisible to readiness until some profile authorizes it. Until then, its agents show as ready, and an agent fails when it reaches the component, without an OAuth challenge. After the first authorization, every profile shows the component's OAuth as required, and an agent whose profiles hold no grant for it isn't ready.
+### How Obot knows a component needs OAuth {#oauth-detection}
+
+A component needs OAuth, and an agent whose profiles hold no grant for it isn't ready, when any of these is true:
+
+- Its catalog entry requires static OAuth.
+- Any profile of the vMCP holds a grant for it, even an invalid one.
+- Obot's background check found that it asks for OAuth.
+
+Obot checks each remote component that an agent-capable profile grants in the background, the same way **Authorize** does: it sends requests without the component's configured headers or any stored token, ends the session it opened, and looks for an OAuth challenge when it connects or lists tools, or for the protected resource metadata the server publishes. It checks each URL agents reach: the URL the catalog entry fixes, or each URL that the profiles' **Server URL** configuration sets. Obot keeps only a digest of a configured URL, never the URL. It checks again when the component or a profile's URL changes, and once a day to notice a server that starts or stops using OAuth.
+
+Readiness and connections never contact a component themselves. They use the result of the last check that succeeded. If no check of a URL has succeeded yet, for example because the server didn't answer in time, the component doesn't count as needing OAuth there, so a server that can't be reached never blocks agents. Obot retries a failed check after a minute, then waits twice as long after each further failure, up to an hour.
+
+Obot doesn't check a component that takes configured headers, such as an API key, because a server that challenges a request without them may accept one with them. Such a component counts as needing OAuth once a profile authorizes it. An agent that reaches a component that asks for OAuth when nothing showed it gets `409 Conflict` with `agent_oauth_required`, never an OAuth challenge.
 
 ## Catalog-synced vMCPs {#catalog-vmcps}
 

@@ -165,15 +165,24 @@ func (s *ProfileConfigurationStore) AgentConfigurationValues(ctx context.Context
 
 // Update changes the configuration of a vMCP's profile by component ID and key: a value sets the key, nil (or a blank
 // value) clears it, and keys left out keep their values. The profile must be agent-capable, and agent selection on the
-// vMCP must not be ambiguous: an agent would not know which wildcard profile's configuration is its. Only the values a
-// user would enter on their own connection can be set (ValidateProfileConfiguration). It returns the vMCP with the new
-// configuration published.
+// vMCP must not be ambiguous: an agent would not know which wildcard profile's configuration is its. Every component
+// changed must be one the profile grants, since a profile's configuration is only used for the components it grants
+// (AgentSelection.ForComponent). Only the values a user would enter on their own connection can be set
+// (ValidateProfileConfiguration). Values the profile kept for components it no longer grants are carried on as they
+// are. It returns the vMCP with the new configuration published.
 func (s *ProfileConfigurationStore) Update(ctx context.Context, client kclient.Client, key kclient.ObjectKey, profileID string, update map[string]map[string]*string) (*v1.VMCP, error) {
 	return s.write(ctx, client, key, profileID, func(vmcp *v1.VMCP, profile types.VMCPProfile, current v1.VMCPProfileConfigurationRevision, values func() (map[string]string, error)) (map[string]string, bool, error) {
 		if err := checkProfileSetup(vmcp, profile, "configuration"); err != nil {
 			return nil, false, err
 		}
 		components := ComponentsForInstance(*vmcp, v1.VMCPInstance{})
+		for _, componentID := range slices.Sorted(maps.Keys(update)) {
+			if slices.ContainsFunc(components, func(component types.VMCPComponent) bool { return component.ID == componentID }) {
+				if err := checkProfileGrants(profile, componentID, "configuration"); err != nil {
+					return nil, false, err
+				}
+			}
+		}
 		set, cleared, err := ValidateProfileConfiguration(components, update)
 		if err != nil {
 			return nil, false, err
@@ -377,6 +386,16 @@ func checkProfileSetup(vmcp *v1.VMCP, profile types.VMCPProfile, what string) er
 	return nil
 }
 
+// checkProfileGrants refuses to set up what, a kind of profile data, on profile for the component with componentID
+// unless the profile grants it, since a profile's data is only used for the components it grants
+// (AgentSelection.ForComponent).
+func checkProfileGrants(profile types.VMCPProfile, componentID, what string) error {
+	if !ProfileGrantsComponent(profile, componentID) {
+		return types.NewErrBadRequest("profile %q does not grant component %q; a profile holds %s only for the components it grants", profile.ID, componentID, what)
+	}
+	return nil
+}
+
 // setProfileConfigurationRevision records a profile's configuration in a vMCP's status, leaving out a profile that has
 // neither configuration nor superseded revisions.
 func setProfileConfigurationRevision(vmcp *v1.VMCP, profileID string, revision v1.VMCPProfileConfigurationRevision) {
@@ -514,9 +533,10 @@ func configurableValues(components []types.VMCPComponent, values map[string]stri
 	return result
 }
 
-// ProfileStatus reports which configuration keys a profile of vmcp sets, for every component, from the keys its current
-// revision publishes, and whether superseded revisions are still to be collected. It describes the profile alone, with
-// no fallback, and never reads or returns a value.
+// ProfileStatus reports which configuration keys a profile of vmcp sets, for every component the profile grants
+// (ProfileGrantsComponent), from the keys its current revision publishes, and whether superseded revisions are still to
+// be collected. It describes the profile alone, with no fallback, and never reads or returns a value. Values the profile
+// kept for a component it no longer grants are not reported: they are not used.
 func ProfileStatus(vmcp v1.VMCP, profile types.VMCPProfile) types.VMCPProfileStatus {
 	revision := vmcp.Status.ProfileConfigurationRevisions[profile.ID]
 	set := revision.Keys
@@ -527,6 +547,9 @@ func ProfileStatus(vmcp v1.VMCP, profile types.VMCPProfile) types.VMCPProfileSta
 		PendingCollection: len(revision.Superseded) > 0,
 	}
 	for _, component := range ComponentsForInstance(vmcp, v1.VMCPInstance{}) {
+		if !ProfileGrantsComponent(profile, component.ID) {
+			continue
+		}
 		configuration := types.VMCPProfileConfigurationStatus{Set: []string{}, MissingRequired: []string{}, OptionalUnset: []string{}}
 		for _, field := range ProfileConfigurableFields(component) {
 			switch {

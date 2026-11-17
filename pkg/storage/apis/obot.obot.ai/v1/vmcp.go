@@ -13,6 +13,10 @@ const (
 	VMCPSnapshotDigestAnnotation = "obot.ai/vmcp-snapshot-digest"
 	// OAuthCredentialRevisionAnnotation persists after reconciliation so every consumer observes writes.
 	OAuthCredentialRevisionAnnotation = "obot.ai/oauth-credential-revision"
+
+	VMCPComponentOAuthRequired    VMCPComponentOAuthRequirement = "True"
+	VMCPComponentOAuthNotRequired VMCPComponentOAuthRequirement = "False"
+	VMCPComponentOAuthUnknown     VMCPComponentOAuthRequirement = "Unknown"
 )
 
 var (
@@ -72,8 +76,41 @@ type VMCPStatus struct {
 	// Each grant is recorded before it is stored, so the vMCP controller deletes every one it may have stored when its
 	// component leaves the manifest, and the store deletes exactly the recorded ones when an administrator resets it.
 	ProfileOAuthGrants []VMCPProfileOAuthGrant `json:"profileOAuthGrants,omitempty"`
+	// ComponentOAuth records, by component ID, whether the remote components that agents reach ask for OAuth, as the
+	// vMCP controller last found by probing them without any credential. Agent readiness and profile status read it,
+	// and never probe. It never holds a URL: each result is keyed by a digest of the URL it is for.
+	ComponentOAuth map[string]VMCPComponentOAuth `json:"componentOAuth,omitempty"`
 	// Conditions report states of the vMCP as a whole, such as types.VMCPConditionAgentSelectionAmbiguous.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+// VMCPComponentOAuthRequirement is what a probe of a component found: that it asks for OAuth
+// (VMCPComponentOAuthRequired), that it does not (VMCPComponentOAuthNotRequired), or, when the probe failed, that it is
+// unknown (VMCPComponentOAuthUnknown). Unknown counts as not required, so a server that cannot be reached never keeps
+// an agent from connecting.
+type VMCPComponentOAuthRequirement string
+
+// VMCPComponentOAuth records the probes of one component, for its current definition.
+type VMCPComponentOAuth struct {
+	// DefinitionHash is the component's definition (vmcp.ProfileOAuthGrantDefinitionHash) that the probes were made
+	// for. A change to it discards them, and the component is probed again.
+	DefinitionHash string `json:"definitionHash"`
+	// Probes are the results for each URL that agents' connections to the component reach: the URL its definition
+	// fixes, or each distinct URL that the configuration of its profiles resolves to.
+	Probes []VMCPComponentOAuthProbe `json:"probes,omitempty"`
+}
+
+// VMCPComponentOAuthProbe is the result of probing one URL of a component.
+type VMCPComponentOAuthProbe struct {
+	// URLDigest is the digest of the URL probed (vmcp.ComponentOAuthURLDigest), never the URL, which may come from
+	// configuration.
+	URLDigest string `json:"urlDigest"`
+	// Required is what the last probe found, or, when it failed, what the last one that succeeded found, if any.
+	Required VMCPComponentOAuthRequirement `json:"required"`
+	// CheckedAt is when the URL was last probed, whether the probe succeeded or not.
+	CheckedAt metav1.Time `json:"checkedAt"`
+	// Failures counts the probes in a row that failed. The next probe waits longer after each.
+	Failures int `json:"failures,omitempty"`
 }
 
 // VMCPProfileConfigurationRevision records the configuration of one vMCP profile. Each change to it is stored as a new

@@ -106,15 +106,67 @@ describe('VMcpProfileAgentSetup', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('tells the admin to add an agent or wildcard subject when the profile is not agent-capable', async () => {
+	it('offers nothing to set up, and no note about subjects, for a profile no agent can use', async () => {
 		mockStatus(profileStatus({ agentCapable: false, components: [] }));
 		renderSetup();
+		await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
 		await expect
-			.element(page.getByText('Add an agent or wildcard subject to configure agent access.'))
-			.toBeVisible();
+			.element(page.getByText(/Add an agent or wildcard subject/))
+			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('button', { name: 'Save configuration' }))
 			.not.toBeInTheDocument();
+	});
+
+	it('lists only the components the profile grants, without a note about the others', async () => {
+		const jira = createMCPCatalogEntry({ id: 'jira', name: 'Jira', runtime: 'remote' });
+		const vmcp = createSetupVMcp();
+		vmcp.components = [...(vmcp.components ?? []), createVMCPComponent(jira, { id: 'jira' })];
+		// The profile grants GitHub only, so its status lists GitHub only.
+		mockStatus();
+		renderSetup(vmcp);
+
+		await expect.element(page.getByRole('region', { name: 'GitHub' })).toBeVisible();
+		await expect.element(page.getByRole('region', { name: 'Jira' })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByText(/Every component of the vMCP is listed/))
+			.not.toBeInTheDocument();
+	});
+
+	describe('OAuth requirement', () => {
+		const configured = {
+			componentID: 'github',
+			configuration: { set: ['API_TOKEN'], missingRequired: [], optionalUnset: ['REGION'] }
+		};
+
+		it('shows a component that needs OAuth and has no grant as not ready', async () => {
+			// Obot's probe found that the server asks for OAuth, and the profile holds no grant yet.
+			mockStatus(
+				profileStatus({
+					components: [{ ...configured, oauth: { required: true, state: 'missing' } }]
+				})
+			);
+			renderSetup();
+			await expect.element(page.getByText(/Not ready/)).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Authorize GitHub with OAuth' }))
+				.toBeVisible();
+			await expect.element(page.getByText(/Ready: agents can use/)).not.toBeInTheDocument();
+		});
+
+		it('shows a component not known to need OAuth as ready, and still offers to authorize it', async () => {
+			// Nothing shows that it asks for OAuth, as when its probe failed: agents are not kept from it.
+			mockStatus(
+				profileStatus({
+					components: [{ ...configured, oauth: { required: false, state: 'missing' } }]
+				})
+			);
+			renderSetup();
+			await expect.element(page.getByText(/Ready: agents can use/)).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Authorize', exact: true }))
+				.toBeVisible();
+		});
 	});
 
 	it('lists every component with required keys marked, optional keys apart, and fixed values read-only', async () => {

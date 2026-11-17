@@ -294,8 +294,9 @@ type VMCPProfileStatus struct {
 	// AgentCapable reports whether the profile can apply to agents (VMCPProfile.IsAgentCapable). Only such a profile
 	// can be given configuration.
 	AgentCapable bool `json:"agentCapable"`
-	// Components cover every component of the vMCP, including those the profile does not grant: an agent may be
-	// granted a component by another profile and still take its configuration from this one.
+	// Components cover the components the profile grants (allowAllComponents, or an entry in allowedComponents). Only
+	// those take their configuration and OAuth grant from the profile: an agent granted a component by another profile
+	// takes its setup from its wildcard profile.
 	Components []VMCPProfileComponentStatus `json:"components"`
 	// PendingCollection reports that revisions of the profile's configuration that it no longer uses are still stored,
 	// until no agent's instance uses them and the vMCP controller deletes them. Agents are no longer given their values,
@@ -325,8 +326,9 @@ const (
 // to the profile uses. It describes the grant, never its tokens.
 type VMCPProfileOAuthStatus struct {
 	// Required reports that the component is known to need OAuth: a remote server that requires administrator static
-	// OAuth, or one that any profile of the vMCP holds a grant for, working or not. Another remote component can still
-	// ask for OAuth when an agent calls it, which nothing reveals until a profile authorizes it.
+	// OAuth, one that any profile of the vMCP holds a grant for, working or not, or one that Obot's background probe,
+	// which connects without credentials, found asks for OAuth at the URL the profile's agents reach. A probe that
+	// failed, or has not run yet, counts as not required.
 	Required bool `json:"required"`
 	// State is VMCPProfileOAuthAuthorized, VMCPProfileOAuthMissing or VMCPProfileOAuthInvalid.
 	State string `json:"state"`

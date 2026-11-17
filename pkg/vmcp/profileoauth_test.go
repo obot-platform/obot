@@ -586,7 +586,7 @@ func TestProfileOAuthGrantStoreIsAProfileDataStore(t *testing.T) {
 // TestProfileOAuthStatus checks the status of a profile's grants: every component that can hold one, with who
 // authorized it, when, for which target and scopes, and no fallback to another profile.
 func TestProfileOAuthStatus(t *testing.T) {
-	vmcp := grantTestVMCP()
+	vmcp := grantTestVMCP(explicitAgentProfile(grantExplicit, "7"), everyAgentProfile(grantWildcard, types.SubjectTypeAgent), everyAgentProfile("vp1users", types.SubjectTypeUser))
 	grants := newMemoryGrants()
 	grants.put(grantOwner(grantExplicit), grantMCPID("static"), "a", "https://static.example.com/mcp")
 	grants.put(grantOwner(grantExplicit), grantMCPID("dynamic"), "b", "https://dynamic.example.com/mcp")

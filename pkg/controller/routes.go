@@ -55,6 +55,7 @@ func (c *Controller) setupRoutes() {
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	vmcpinstance := vmcpinstance.New(c.services.GatewayClient)
 	vmcpHandler := vmcphandler.New(c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.VMCPProfileData, c.services.VMCPProfileConfiguration, c.services.VMCPProfileOAuthGrants)
+	vmcpHandler.SetComponentOAuthProber(c.services.MCPSessionManager)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GatewayClient, c.services.MCPHTTPWebhookBaseImage)
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
@@ -192,6 +193,8 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.SyncStatus)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.EnsureMCPServers)
 	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.DetectDrift)
+	// Last, so the probes, which reach remote servers, delay none of the vMCP's other handlers.
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcpHandler.ProbeComponentOAuth)
 	// The vMCP's one finalizer deletes the data stored for its profiles, then its static configuration.
 	root.Type(&v1.VMCP{}).FinalizeFunc(v1.VMCPFinalizer, func(req router.Request, resp router.Response) error {
 		if err := vmcpHandler.RemoveProfileData(req, resp); err != nil {

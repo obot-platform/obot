@@ -102,10 +102,14 @@ func (c AgentConfiguration) FallbackProfileIDs() []string {
 // wildcard profile's configuration is used as it is. Removing an agent's explicit profile makes it fall back for
 // every key; it does not revoke the wildcard's.
 //
+// Only the profiles that grant the component count (AgentSelection.ForComponent): an agent whose explicit profile does
+// not grant it resolves it as an agent without an explicit profile does, from the wildcard profile alone.
+//
 // When the wildcard profile is ambiguous (AgentSelection.Ambiguous), nothing falls back, and a component that would
 // need the fallback reports AmbiguousFallback. Fixed, catalog-static and Secret-bound values are never a profile's, so
 // they stay as the vMCP and its catalog entry set them.
 func ResolveComponentConfiguration(component types.VMCPComponent, selection AgentSelection, revisions map[string]v1.VMCPProfileConfigurationRevision) ComponentConfiguration {
+	selection = selection.ForComponent(component.ID)
 	result := ComponentConfiguration{ComponentID: component.ID}
 	supply := func(profile *types.VMCPProfile, field types.MCPConfig, fallback bool) bool {
 		if profile == nil {

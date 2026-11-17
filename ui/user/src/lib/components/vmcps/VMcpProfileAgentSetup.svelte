@@ -577,10 +577,7 @@
 			</button>
 		</div>
 	{:else if !status.agentCapable}
-		<p class="notification-info text-sm" role="status">{m.vmcps_agent_setup_not_capable()}</p>
-		{#if unsaved}
-			<p class="text-muted-content text-xs">{m.vmcps_agent_setup_unsaved()}</p>
-		{/if}
+		<!-- The profile was saved as one no agent can use since it was opened: there is nothing to set up. -->
 	{:else}
 		{#if ambiguous}
 			{@render ambiguousAlert()}
@@ -615,8 +612,6 @@
 				{m.vmcps_agent_setup_pending_collection()}
 			</p>
 		{/if}
-
-		<p class="text-muted-content text-xs font-light">{m.vmcps_agent_setup_components_note()}</p>
 
 		<div class="flex flex-col gap-4">
 			{#each status.components as component (component.componentID)}

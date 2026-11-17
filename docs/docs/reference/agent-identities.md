@@ -70,7 +70,7 @@ A value sets a key, and `null` or a blank value clears it. Keys you leave out ke
 
 | Status | Meaning |
 |---|---|
-| `400` | The profile isn't agent-capable, or a key is fixed, set by the catalog entry, bound to a Secret, prohibited, or unknown, or a URL fails the catalog's hostname constraint |
+| `400` | The profile isn't agent-capable or doesn't grant a component in the request, or a key is fixed, set by the catalog entry, bound to a Secret, prohibited, or unknown, or a URL fails the catalog's hostname constraint |
 | `404` | Unknown vMCP or profile |
 | `409` | Agent selection on the vMCP is ambiguous, or the vMCP is being deleted |
 
@@ -172,9 +172,9 @@ When a component's URL comes from profile configuration that isn't set, `POST â€
 }
 ```
 
-Other start errors are plain: `400` if the profile isn't agent-capable, the component isn't a remote server, or the URL fails the hostname constraint; `404` for an unknown vMCP, profile or component; and `409` if agent selection is ambiguous or the vMCP is being deleted.
+Other start errors are plain: `400` if the profile isn't agent-capable, the profile doesn't grant the component, the component isn't a remote server, or the URL fails the hostname constraint; `404` for an unknown vMCP, profile or component; and `409` if agent selection is ambiguous or the vMCP is being deleted.
 
-The start sends the server unauthenticated requests: `initialize`, then, if that succeeds, `notifications/initialized` and `tools/list` in the same session, which it then ends with `DELETE`. It starts from the first `401` challenge, and otherwise from the protected resource metadata at the server's well-known location (RFC 9728). It returns `400` with `does not require OAuth` when there is neither, and an error when `tools/list` fails or a request times out. See [How Obot finds the provider](../mcp-gateway/agent-setup.md#oauth-discovery). The callback returns `403` to a different administrator, `409` if the component or its URL changed, and `400` if the attempt expired or was already used. Errors never contain a URL that comes from configuration. They show `<configured URL>` or `<redacted>` instead.
+The start sends the server unauthenticated requests: `initialize`, then, if that succeeds, `notifications/initialized` and `tools/list` in the same session, which it then ends with `DELETE`. It starts from the first `401` challenge, and otherwise from the protected resource metadata at the server's well-known location (RFC 9728). It returns `400` with `does not require OAuth` when there is neither, and an error when `tools/list` fails or a request times out. See [How Obot finds the provider](../mcp-gateway/agent-setup.md#oauth-discovery). The callback returns `403` to a different administrator, `409` if the component or its URL changed, `400` if the profile no longer grants the component, and `400` if the attempt expired or was already used. Errors never contain a URL that comes from configuration. They show `<configured URL>` or `<redacted>` instead.
 
 The start response is `{"authURL": "..."}`. For a component with a localhost callback, it also has `"localhostCallback": true`, and `authURL` is the URL to pass to `obot mcp login`.
 
@@ -205,9 +205,11 @@ Readiness runs the same checks as a connection, when you call it. `sources` name
 - `no_model_access_policy`: a key has the LLM scope, but no model access policy matches the agent.
 - `no_skill_access_rule`: a key has the Skills scope, but no skill access rule matches the agent.
 
-`GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status` reports, for each component, the configuration keys that are `set`, `missingRequired` and `optionalUnset`, and for OAuth components the `state` (`authorized`, `missing` or `invalid`), `authorizedBy` (a user ID), `authorizedAt`, `scopes`, and either `target` (the full URL, only when the catalog fixes it) or `targetHostname` (when the URL comes from configuration).
+`GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status` reports, for each component the profile grants, the configuration keys that are `set`, `missingRequired` and `optionalUnset`, and for OAuth components the `state` (`authorized`, `missing` or `invalid`), `authorizedBy` (a user ID), `authorizedAt`, `scopes`, and either `target` (the full URL, only when the catalog fixes it) or `targetHostname` (when the URL comes from configuration).
 
-An OAuth component's `required` is `true` when its catalog entry requires static OAuth, or when any profile of the vMCP holds a grant for it, valid or not. Only then do readiness and connections report `oauth_required` for an agent whose profiles hold no grant. A component that challenges only when its tools are listed or called shows `required: false` until a profile authorizes it, and its agents show as ready until then.
+An OAuth component's `required` is `true` when its catalog entry requires static OAuth, when any profile of the vMCP holds a grant for it, valid or not, or when Obot's background check found that the server asks for OAuth at the URL that the profile's agents reach. Only then do readiness and connections report `oauth_required` for an agent whose profiles hold no grant. The background check sends the same unauthenticated requests as an authorization start. A check that fails, and a URL not checked yet, count as not required. Components that take configured headers aren't checked. See [How Obot knows a component needs OAuth](../mcp-gateway/agent-setup.md#oauth-detection).
+
+Values and grants a profile holds for a component it doesn't grant aren't reported and aren't used. Readiness and connections take each component's setup only from the agent's profiles that grant it.
 
 ## Audit {#audit}
 

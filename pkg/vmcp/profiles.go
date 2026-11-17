@@ -118,26 +118,29 @@ func InstanceGrant(u kuser.Info, vmcp v1.VMCP, instance v1.VMCPInstance) []types
 	return []types.VMCPToolReference{}
 }
 
+// ProfileGrantsComponent reports whether profile grants the component with componentID: it allows all components, or
+// has an entry for the component in AllowedComponents, even one that grants no tools. A profile's setup for agents
+// covers only the components it grants, and only those take their configuration and OAuth grant from it
+// (AgentSelection.ForComponent).
+func ProfileGrantsComponent(profile types.VMCPProfile, componentID string) bool {
+	if profile.Permissions.AllowAllComponents {
+		return true
+	}
+	_, ok := profile.Permissions.AllowedComponents[componentID]
+	return ok
+}
+
 // EnabledComponents removes the components that no matching profile enables.
-// A component is enabled by a profile that allows all components or that has an
-// entry for it in AllowedComponents. Disabled components need no connection,
-// configuration, or OAuth. Profiles do not apply to personal VMCPs.
+// A component is enabled by a profile that grants it (ProfileGrantsComponent).
+// Disabled components need no connection, configuration, or OAuth. Profiles do
+// not apply to personal VMCPs.
 func EnabledComponents(u kuser.Info, vmcp v1.VMCP, components []types.VMCPComponent) []types.VMCPComponent {
 	if vmcp.Spec.UserID != "" {
 		return components
 	}
-	enabled := make(map[string]struct{}, len(components))
-	for _, profile := range MatchingProfiles(u, vmcp.Spec.Manifest.Profiles) {
-		if profile.Permissions.AllowAllComponents {
-			return components
-		}
-		for componentID := range profile.Permissions.AllowedComponents {
-			enabled[componentID] = struct{}{}
-		}
-	}
+	matching := MatchingProfiles(u, vmcp.Spec.Manifest.Profiles)
 	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
-		_, ok := enabled[component.ID]
-		return !ok
+		return !slices.ContainsFunc(matching, func(profile types.VMCPProfile) bool { return ProfileGrantsComponent(profile, component.ID) })
 	})
 }
 

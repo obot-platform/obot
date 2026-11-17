@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -31,6 +32,10 @@ type Handler struct {
 	// profileOAuthGrants deletes the OAuth grants of components removed from a vMCP. Profile deletion goes through
 	// profileData, which includes it.
 	profileOAuthGrants profileOAuthGrantCollector
+	// componentOAuth probes remote components for whether they ask for OAuth (ProbeComponentOAuth).
+	componentOAuth ComponentOAuthProber
+	// now is the clock of the probes' schedule. Nil is time.Now.
+	now func() time.Time
 }
 
 type profileConfigurationCollector interface {

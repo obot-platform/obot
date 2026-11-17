@@ -109,6 +109,8 @@ type oauthProbe struct {
 	header     string
 	// initialized reports that the server accepted the unauthenticated initialize request.
 	initialized bool
+	// initializeStatus is the status the server answered initialize with when it neither accepted nor challenged it.
+	initializeStatus int
 	// listFailure is set when the server answered tools/list with neither a result nor a challenge, so whether it asks
 	// for OAuth is unknown.
 	listFailure error
@@ -960,7 +962,7 @@ func probeOAuthChallenge(ctx context.Context, client *http.Client, serverURL str
 	case http.StatusUnauthorized:
 		return oauthProbe{challenged: true, header: resp.Header.Get("WWW-Authenticate")}, nil
 	default:
-		return oauthProbe{}, nil
+		return oauthProbe{initializeStatus: resp.StatusCode}, nil
 	}
 
 	probe := oauthProbe{initialized: true}
@@ -1621,6 +1623,60 @@ func (m *SessionManager) StartOAuthAuthorization(ctx context.Context, server Ser
 	}
 	// Without resource_metadata, discovery looks at the well-known metadata locations.
 	return startOAuthFromChallenge(ctx, client, server, opt, resourceMetadata, scope)
+}
+
+// ProbeOAuthRequirement learns whether the remote MCP server at serverURL, reached through the tunnel tunnelName if it
+// is set, asks its callers for OAuth, for the vMCP controller, which records the answer for agent readiness and profile
+// status to read (pkg/controller/handlers/vmcp). It never runs on a request. It sends the same unauthenticated requests
+// as the start of a profile grant (probeOAuthChallenge), with the OAuth client, which carries none of the server's
+// configured headers and no token, and ends any session it opens. Every request is bounded by the client's timeout, and
+// all of them by ctx.
+//
+// The server asks for OAuth (true) when:
+//
+//   - It answered initialize, the initialized notification or tools/list with 401, and Obot's OAuth discovery would
+//     start an authorization from that challenge: it finds the protected resource metadata that the challenge, or
+//     else the well-known location for serverURL, names, and the authorization server's metadata. A 401 from which
+//     no authorization could start is not taken for OAuth, and is an error.
+//   - It challenged neither, and publishes protected resource metadata (RFC 9728) at the well-known location for
+//     serverURL, as a server that only challenges once a tool is called does.
+//
+// It does not (false) when it accepted initialize and listed its tools without a challenge, and publishes no protected
+// resource metadata. Anything else is an error, and whether it asks for OAuth is unknown: a request that failed or
+// timed out, initialize answered with neither success nor 401, tools/list answered with an error, or metadata that
+// could not be read. The error may hold serverURL.
+func (m *SessionManager) ProbeOAuthRequirement(ctx context.Context, serverURL, tunnelName string) (bool, error) {
+	client, err := m.OAuthClientForServer(ServerConfig{URL: serverURL, TunnelName: tunnelName})
+	if err != nil {
+		return false, err
+	}
+	probe, err := probeOAuthChallenge(ctx, client, serverURL)
+	if err != nil {
+		return false, err
+	}
+	if probe.challenged {
+		// Discovery reads the challenge as the start of an authorization would (startOAuthFromChallenge).
+		_, ok, err := discoverOAuthMetadata(ctx, client, serverURL, serverURL, probe.header, "", "")
+		switch {
+		case err != nil:
+			return false, fmt.Errorf("discover the OAuth metadata the server's challenge names: %w", err)
+		case !ok:
+			return false, errors.New("the server answered with 401, but publishes no OAuth authorization server metadata")
+		}
+		return true, nil
+	}
+	_, _, _, found, err := findProtectedResourceMetadata(ctx, client, serverURL, "")
+	switch {
+	case err != nil:
+		return false, err
+	case found:
+		return true, nil
+	case !probe.initialized:
+		return false, fmt.Errorf("initialize was answered with status %d", probe.initializeStatus)
+	case probe.listFailure != nil:
+		return false, probe.listFailure
+	}
+	return false, nil
 }
 
 // StartOAuthFromChallenge starts OAuth from an actual challenge without issuing any MCP operation.

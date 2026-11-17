@@ -142,6 +142,23 @@ func SelectAgentProfiles(agent kuser.Info, manifest types.VMCPManifest) AgentSel
 	return selection
 }
 
+// ForComponent returns how the agent's profiles apply to the component with componentID. A profile's configuration and
+// OAuth grants apply to a component only while the profile grants it (ProfileGrantsComponent), which is also the only
+// time an administrator can set them up there, so an explicit or wildcard profile that does not grant the component is
+// left out: an agent whose explicit profile does not grant it takes all of its setup, optional values included, from
+// the wildcard profile, as an agent without an explicit profile does. Values or grants that such a profile kept from
+// when it granted the component stay stored, and are used again only if it grants the component again. Ambiguous and
+// Profiles are unchanged. It is idempotent.
+func (s AgentSelection) ForComponent(componentID string) AgentSelection {
+	if s.Explicit != nil && !ProfileGrantsComponent(*s.Explicit, componentID) {
+		s.Explicit = nil
+	}
+	if s.Wildcard != nil && !ProfileGrantsComponent(*s.Wildcard, componentID) {
+		s.Wildcard = nil
+	}
+	return s
+}
+
 // fixProfileID is the profile where an administrator fixes a reason: the explicit profile if there is one, otherwise
 // the wildcard. It is empty when the agent has no explicit profile and the wildcard is ambiguous; readiness reports
 // AmbiguousFallbackReason, without a profile, for what it would need from such a fallback.
@@ -171,10 +188,11 @@ func AmbiguousFallbackReason(componentID string) ReadinessReason {
 // must refuse it.
 //
 // A component takes what it needs from the agent's explicit profile first, and only then from the wildcard profile the
-// agent falls back to. It is not ready while a required value that a user would enter on their own connection is
-// supplied by neither (configurationReasons), or while the grant the agent would use does not work, or none is held
-// for a component known to need OAuth (AgentOAuthGrant.ReadinessReasons). The grants are selected for every component
-// at once (SelectAgentGrants), and each usable one is compared with the URL the agent reaches (checkGrantTarget).
+// agent falls back to, counting only the profiles that grant it (AgentSelection.ForComponent). It is not ready while
+// a required value that a user would enter on their own connection is supplied by neither (configurationReasons), or
+// while the grant the agent would use does not work, or none is held for a component known to need OAuth
+// (AgentOAuthGrant.ReadinessReasons). The grants are selected for every component at once (SelectAgentGrants), and
+// each usable one is compared with the URL the agent reaches (checkGrantTarget).
 //
 // When more than one profile names every agent, an agent without an explicit profile would take all its setup from
 // the ambiguous fallback, so it is refused with one types.AgentReadinessSelectionAmbiguous reason for the whole vMCP,
@@ -220,12 +238,13 @@ func AgentReadiness(ctx context.Context, grants *ProfileOAuthGrantStore, vmcp v1
 		return AgentReadinessReport{}, err
 	}
 	for i, component := range components {
+		applies := selection.ForComponent(component.ID)
 		// The MCP gateway refuses a grant for another URL than the agent's connection reaches; readiness says so first.
-		if err := grants.checkGrantTarget(ctx, vmcp, selection, component, &report.Grants[i]); err != nil {
+		if err := grants.checkGrantTarget(ctx, vmcp, applies, component, &report.Grants[i]); err != nil {
 			return AgentReadinessReport{}, fmt.Errorf("check component %q for agent readiness: %w", component.ID, err)
 		}
 		// A component that needs both configuration and a grant from an ambiguous fallback is reported once.
-		for _, reason := range slices.Concat(configurationReasons(report.Configuration.Components[i], selection), report.Grants[i].ReadinessReasons(component, selection)) {
+		for _, reason := range slices.Concat(configurationReasons(report.Configuration.Components[i], applies), report.Grants[i].ReadinessReasons(component, applies)) {
 			if !slices.Contains(readiness.Reasons, reason) {
 				readiness.Reasons = append(readiness.Reasons, reason)
 			}

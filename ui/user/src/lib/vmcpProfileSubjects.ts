@@ -58,3 +58,13 @@ export function profileSubjectConflict(
 	}
 	return undefined;
 }
+
+// profileIsAgentCapable mirrors the server's VMCPProfile.IsAgentCapable: a profile applies to agents
+// when it names an agent, all agents, or everyone. Only such a profile has agent setup.
+export function profileIsAgentCapable(
+	subjects: Pick<AccessControlRuleSubject, 'type' | 'id'>[]
+): boolean {
+	return subjects.some(
+		(subject) => subject.type === 'agent' || (subject.type === 'selector' && subject.id === '*')
+	);
+}

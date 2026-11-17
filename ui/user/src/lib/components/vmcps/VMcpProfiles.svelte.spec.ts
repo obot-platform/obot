@@ -1311,12 +1311,77 @@ describe('VMcpProfiles.svelte', () => {
 			}
 		});
 
-		it('keeps agent setup off until a new profile is saved', async () => {
-			render(VMcpProfiles, { vmcp: setupVMcp(), toolFlow: toolFlowStub(), agentSetup: true });
+		async function pickIdentity(name: string | RegExp) {
+			await page.getByRole('combobox', { name: 'Add identities...' }).click();
+			await page.getByRole('button', { name, exact: typeof name === 'string' }).click();
+		}
+
+		it('keeps agent setup off until a new profile that names agents is saved', async () => {
+			worker.use(http.get('/api/agents', () => HttpResponse.json({ items: [] })));
+			render(VMcpProfiles, {
+				vmcp: setupVMcp({ profiles: [] }),
+				toolFlow: toolFlowStub(),
+				agentSetup: true
+			});
 
 			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+			await expect.element(page.getByLabelText('Name')).toBeVisible();
+			// No identity names an agent yet, so there is nothing to set up.
+			await expect
+				.element(page.getByRole('heading', { name: 'Agent setup' }))
+				.not.toBeInTheDocument();
+			await pickIdentity('All Agents');
 			await expect.element(page.getByText(/Save the profile first/)).toBeVisible();
 		});
+
+		it('shows no agent setup on a saved profile no agent can use', async () => {
+			const status = vi.fn();
+			worker.use(
+				http.get('/api/agents', () =>
+					HttpResponse.json({
+						items: [{ id: '5', displayName: 'Build bot', status: 'active', activeAPIKeyCount: 1 }]
+					})
+				),
+				http.get(STATUS, () => {
+					status();
+					return HttpResponse.json({});
+				})
+			);
+			const vmcp = setupVMcp();
+			vmcp.profiles![0].subjects = [{ type: 'user', id: '*' }];
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub(), agentSetup: true });
+
+			await page.getByRole('button', { name: 'Edit Bots' }).click();
+			await expect.element(page.getByLabelText('Name')).toHaveValue('Bots');
+			await expect
+				.element(page.getByRole('heading', { name: 'Agent setup' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByText(/Add an agent or wildcard subject/))
+				.not.toBeInTheDocument();
+			expect(status).not.toHaveBeenCalled();
+
+			// Identities that would let agents use it once saved ask for the save first.
+			await pickIdentity(/Build bot/);
+			await expect.element(page.getByText(/Save the profile first/)).toBeVisible();
+		});
+
+		for (const { name, subjects } of [
+			{ name: 'an explicit agent', subjects: [{ type: 'agent' as const, id: '5' }] },
+			{ name: 'all agents', subjects: [{ type: 'agent' as const, id: '*' }] },
+			{ name: 'Everyone', subjects: [{ type: 'selector' as const, id: '*' }] }
+		]) {
+			it(`shows the agent setup of a saved profile for ${name}`, async () => {
+				mockCapableStatus();
+				const vmcp = setupVMcp();
+				vmcp.profiles![0].subjects = subjects;
+				render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub(), agentSetup: true });
+
+				await page.getByRole('button', { name: 'Edit Bots' }).click();
+				await expect.element(page.getByRole('heading', { name: 'Agent setup' })).toBeVisible();
+				await expect.element(page.getByRole('region', { name: 'GitHub' })).toBeVisible();
+			});
+		}
 
 		it('notes identities that are not saved yet, since the setup is of the saved profile', async () => {
 			mockCapableStatus();
