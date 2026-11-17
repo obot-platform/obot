@@ -28,6 +28,10 @@ Each server in the registry includes:
 - **Tool Preview**: Description of available tools
 - **Icon and Metadata**: For display in the UI
 
+### Egress settings for hosted servers
+
+Catalog entries for Kubernetes-hosted servers can specify `egressDomains` and `denyAllEgress` in their runtime configuration. These settings require cluster-level egress enforcement; they do not apply to remote server endpoints. See [MCP server egress control](../configuration/mcp-server-egress-control.md) for cluster prerequisites and [per-entry YAML examples](../configuration/mcp-server-egress-control.md#yaml-configuration-examples).
+
 ### Access Control
 
 Administrators and Power Users+ control which servers are visible to which users by assigning servers to registries and granting users access to those registries.

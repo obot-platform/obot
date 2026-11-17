@@ -84,6 +84,36 @@ The removal command requires `jq` on the host. Review the generated changes, run
 
 The current documentation is available at `https://docs.obot.ai/next/`, the latest release at `https://docs.obot.ai/`, and older releases at paths such as `https://docs.obot.ai/v0.24.0/`.
 
+## Cloudflare Pages redirects
+
+`static/_redirects` is copied to `build/_redirects`. Cloudflare Pages reads it at
+deployment time and issues temporary HTTP 302 redirects for consolidated guides.
+Each source has rules with and without its trailing slash. Rules cover current
+docs, the latest release at the site root (currently v0.28.0), and v0.27.0. Older
+releases retain their original guides. The mixed legacy MCP Servers guide also
+remains available because it still contains substantive material.
+
+Old section fragments are intentionally not remapped. Browsers carry an incoming
+fragment to the replacement URL unless the rule supplies one, as the OAuth rule
+does with `#static-oauth`. A missing heading does not prevent the page loading.
+
+The consolidated Markdown stubs have been deleted. Internal links point directly
+to the retained guides. The Docusaurus client-redirect plugin reads the same
+`_redirects` rules and generates HTML browser fallbacks during production builds
+for static hosting without Cloudflare; these are not documentation source pages
+and have no Markdown exports. The local development server does not generate
+these fallbacks, so use the current guide URLs there.
+
+When cutting a release, copy the root redirect rules to the previous latest
+version's prefix, prefixing both source and destination, before it moves off the
+site root. Review the root rules against the new latest release, and remove
+version-specific rules when dropping that version. Avoid wildcard version rules:
+the replacement pages do not exist in pre-refactor releases.
+
+Use `npm run preview:pages` to exercise redirects locally; `npm run start` does
+not implement Cloudflare's rules. The navigation suite checks the HTTP status,
+Location header, replacement pages, and retained older guides.
+
 ## Browser tests
 
 After `npm run verify`, run `npm run test:docs` from this directory. The headed

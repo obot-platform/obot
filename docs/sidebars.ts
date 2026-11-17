@@ -326,6 +326,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "configuration/mcp-server-egress-control",
+					"label": "MCP server egress control"
+				},
+				{
+					"type": "doc",
 					"id": "configuration/auth-providers",
 					"label": "Configure authentication providers"
 				},

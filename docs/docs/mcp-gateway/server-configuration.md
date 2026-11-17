@@ -4,6 +4,27 @@ title: "MCP server configuration"
 
 Use this page for configuration shared by multiple MCP server runtimes. Start with [Add remote MCP servers](./register-remote.md) or [Add hosted MCP servers](../concepts/mcp-hosting.md) to create a catalog entry. Each setting below describes which runtimes support it.
 
+## Static OAuth
+
+Some remote MCP servers require a pre-registered OAuth application instead of dynamic client registration. Configure the application's client credentials on the remote server's catalog entry. Users connect through a vMCP and authenticate individually with the upstream provider.
+
+1. Register an OAuth application with the provider. Set its callback URL to `https://<your-obot-host>/oauth/mcp/callback` and record its client ID and, for a confidential client, its client secret.
+2. Create or edit the remote catalog entry under **MCP Servers**, enter the remote URL, enable **Static OAuth**, and save.
+3. Open **Configure OAuth Credentials**, enter the client ID and any required client secret, and save.
+4. Add the configured server to a vMCP and connect your AI client to that vMCP.
+
+### Credential status and rotation
+
+**Configure OAuth Credentials** shows whether credentials are configured and displays the client ID. The client secret is not returned after it is saved. Public OAuth clients do not require a client secret; confidential clients do.
+
+To rotate the client credentials:
+
+1. Open **Configure OAuth Credentials** on the catalog entry.
+2. Click **Clear Credentials** and confirm.
+3. Reopen the dialog, enter the replacement client ID and any required client secret, and save.
+
+Users cannot connect to the upstream server until replacement credentials are configured. Remote catalog entries requiring static OAuth are hidden from non-admin users until their credentials are configured. Afterward, the usual access policies still determine who can use them through a vMCP.
+
 ## Caller attribution headers
 
 Remote and containerized MCP servers can receive selected information about the caller authenticated by Obot. This is useful when a backend uses shared credentials but needs to record who performed an action.

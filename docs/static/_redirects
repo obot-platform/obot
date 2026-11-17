@@ -1,0 +1,111 @@
+# Temporary redirects for consolidated documentation pages.
+# Old section fragments are intentionally not remapped.
+# MCP Servers retains legacy guidance and is not redirected.
+# The latest release (currently v0.28.0) is served at the site root.
+# When cutting a release, copy its root rules to its version prefix as it becomes older.
+
+# Latest release: v0.28.0
+/configuration/user-roles /security/policy-coverage/ 302
+/configuration/user-roles/ /security/policy-coverage/ 302
+/functionality/audit-logs-and-usage /security/audit-data/ 302
+/functionality/audit-logs-and-usage/ /security/audit-data/ 302
+/functionality/device-management /device-management/how-sentry-works/ 302
+/functionality/device-management/ /device-management/how-sentry-works/ 302
+/functionality/llm-gateway /llm-gateway/how-it-works/ 302
+/functionality/llm-gateway/ /llm-gateway/how-it-works/ 302
+/functionality/mcp-access-policies /mcp-gateway/access/ 302
+/functionality/mcp-access-policies/ /mcp-gateway/access/ 302
+/functionality/overview /security/model/ 302
+/functionality/overview/ /security/model/ 302
+/functionality/server-scheduling /operations/capacity/ 302
+/functionality/server-scheduling/ /operations/capacity/ 302
+/functionality/skill-access-policies /registries/publish-skills/ 302
+/functionality/skill-access-policies/ /registries/publish-skills/ 302
+/functionality/skills /registries/publish-skills/ 302
+/functionality/skills/ /registries/publish-skills/ 302
+/functionality/user-management /security/authentication/ 302
+/functionality/user-management/ /security/authentication/ 302
+/functionality/virtual-mcps /mcp-gateway/server-types/ 302
+/functionality/virtual-mcps/ /mcp-gateway/server-types/ 302
+/installation/cli-setup /reference/cli-api/ 302
+/installation/cli-setup/ /reference/cli-api/ 302
+/installation/enabling-authentication /configuration/auth-providers/ 302
+/installation/enabling-authentication/ /configuration/auth-providers/ 302
+/reference/schemas /reference/catalog-schemas/ 302
+/reference/schemas/ /reference/catalog-schemas/ 302
+/configuration/encryption-providers/overview /security/credentials/ 302
+/configuration/encryption-providers/overview/ /security/credentials/ 302
+/mcp-gateway/filters-tunnels /functionality/filters/ 302
+/mcp-gateway/filters-tunnels/ /functionality/filters/ 302
+/configuration/mcp-server-oauth-configuration /mcp-gateway/server-configuration/#static-oauth 302
+/configuration/mcp-server-oauth-configuration/ /mcp-gateway/server-configuration/#static-oauth 302
+
+# Current, unreleased documentation
+/next/configuration/user-roles /next/security/policy-coverage/ 302
+/next/configuration/user-roles/ /next/security/policy-coverage/ 302
+/next/functionality/audit-logs-and-usage /next/security/audit-data/ 302
+/next/functionality/audit-logs-and-usage/ /next/security/audit-data/ 302
+/next/functionality/device-management /next/device-management/how-sentry-works/ 302
+/next/functionality/device-management/ /next/device-management/how-sentry-works/ 302
+/next/functionality/llm-gateway /next/llm-gateway/how-it-works/ 302
+/next/functionality/llm-gateway/ /next/llm-gateway/how-it-works/ 302
+/next/functionality/mcp-access-policies /next/mcp-gateway/access/ 302
+/next/functionality/mcp-access-policies/ /next/mcp-gateway/access/ 302
+/next/functionality/overview /next/security/model/ 302
+/next/functionality/overview/ /next/security/model/ 302
+/next/functionality/server-scheduling /next/operations/capacity/ 302
+/next/functionality/server-scheduling/ /next/operations/capacity/ 302
+/next/functionality/skill-access-policies /next/registries/publish-skills/ 302
+/next/functionality/skill-access-policies/ /next/registries/publish-skills/ 302
+/next/functionality/skills /next/registries/publish-skills/ 302
+/next/functionality/skills/ /next/registries/publish-skills/ 302
+/next/functionality/user-management /next/security/authentication/ 302
+/next/functionality/user-management/ /next/security/authentication/ 302
+/next/functionality/virtual-mcps /next/mcp-gateway/server-types/ 302
+/next/functionality/virtual-mcps/ /next/mcp-gateway/server-types/ 302
+/next/installation/cli-setup /next/reference/cli-api/ 302
+/next/installation/cli-setup/ /next/reference/cli-api/ 302
+/next/installation/enabling-authentication /next/configuration/auth-providers/ 302
+/next/installation/enabling-authentication/ /next/configuration/auth-providers/ 302
+/next/reference/schemas /next/reference/catalog-schemas/ 302
+/next/reference/schemas/ /next/reference/catalog-schemas/ 302
+/next/configuration/encryption-providers/overview /next/security/credentials/ 302
+/next/configuration/encryption-providers/overview/ /next/security/credentials/ 302
+/next/mcp-gateway/filters-tunnels /next/functionality/filters/ 302
+/next/mcp-gateway/filters-tunnels/ /next/functionality/filters/ 302
+/next/configuration/mcp-server-oauth-configuration /next/mcp-gateway/server-configuration/#static-oauth 302
+/next/configuration/mcp-server-oauth-configuration/ /next/mcp-gateway/server-configuration/#static-oauth 302
+
+# Previous release with the refactored documentation
+/v0.27.0/configuration/user-roles /v0.27.0/security/policy-coverage/ 302
+/v0.27.0/configuration/user-roles/ /v0.27.0/security/policy-coverage/ 302
+/v0.27.0/functionality/audit-logs-and-usage /v0.27.0/security/audit-data/ 302
+/v0.27.0/functionality/audit-logs-and-usage/ /v0.27.0/security/audit-data/ 302
+/v0.27.0/functionality/device-management /v0.27.0/device-management/how-sentry-works/ 302
+/v0.27.0/functionality/device-management/ /v0.27.0/device-management/how-sentry-works/ 302
+/v0.27.0/functionality/llm-gateway /v0.27.0/llm-gateway/how-it-works/ 302
+/v0.27.0/functionality/llm-gateway/ /v0.27.0/llm-gateway/how-it-works/ 302
+/v0.27.0/functionality/mcp-access-policies /v0.27.0/mcp-gateway/access/ 302
+/v0.27.0/functionality/mcp-access-policies/ /v0.27.0/mcp-gateway/access/ 302
+/v0.27.0/functionality/overview /v0.27.0/security/model/ 302
+/v0.27.0/functionality/overview/ /v0.27.0/security/model/ 302
+/v0.27.0/functionality/server-scheduling /v0.27.0/operations/capacity/ 302
+/v0.27.0/functionality/server-scheduling/ /v0.27.0/operations/capacity/ 302
+/v0.27.0/functionality/skill-access-policies /v0.27.0/registries/publish-skills/ 302
+/v0.27.0/functionality/skill-access-policies/ /v0.27.0/registries/publish-skills/ 302
+/v0.27.0/functionality/skills /v0.27.0/registries/publish-skills/ 302
+/v0.27.0/functionality/skills/ /v0.27.0/registries/publish-skills/ 302
+/v0.27.0/functionality/user-management /v0.27.0/security/authentication/ 302
+/v0.27.0/functionality/user-management/ /v0.27.0/security/authentication/ 302
+/v0.27.0/functionality/virtual-mcps /v0.27.0/mcp-gateway/server-types/ 302
+/v0.27.0/functionality/virtual-mcps/ /v0.27.0/mcp-gateway/server-types/ 302
+/v0.27.0/installation/cli-setup /v0.27.0/reference/cli-api/ 302
+/v0.27.0/installation/cli-setup/ /v0.27.0/reference/cli-api/ 302
+/v0.27.0/installation/enabling-authentication /v0.27.0/configuration/auth-providers/ 302
+/v0.27.0/installation/enabling-authentication/ /v0.27.0/configuration/auth-providers/ 302
+/v0.27.0/reference/schemas /v0.27.0/reference/catalog-schemas/ 302
+/v0.27.0/reference/schemas/ /v0.27.0/reference/catalog-schemas/ 302
+/v0.27.0/configuration/encryption-providers/overview /v0.27.0/security/credentials/ 302
+/v0.27.0/configuration/encryption-providers/overview/ /v0.27.0/security/credentials/ 302
+/v0.27.0/mcp-gateway/filters-tunnels /v0.27.0/functionality/filters/ 302
+/v0.27.0/mcp-gateway/filters-tunnels/ /v0.27.0/functionality/filters/ 302

@@ -1,7 +1,6 @@
 {
   "*": {
     "faq": "Frequently asked questions about deploying, configuring, and using Obot.",
-    "reference/schemas": "Find the catalog-definition and MCP filter schema references.",
     "mcp-gateway/troubleshooting": "Diagnose vMCP connection, authentication, tool discovery, and request failures.",
     "llm-gateway/connect-clients": "Configure AI clients, obtain an Obot API key, and use the documented LLM Gateway request examples."
   },
