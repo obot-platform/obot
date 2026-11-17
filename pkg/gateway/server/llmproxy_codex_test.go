@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,7 +20,10 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/guardrails"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
 	"github.com/obot-platform/obot/pkg/llmengine"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
@@ -60,6 +64,10 @@ func TestPublicCodexRecording(t *testing.T) {
 		received <- r.Clone(context.Background())
 		w.Header().Set("Content-Type", "application/json")
 		if strings.HasSuffix(r.URL.Path, "/models") {
+			if r.URL.Query().Get("client_version") == "unexpected" {
+				_, _ = io.WriteString(w, `{"catalog":[{"slug":"forbidden"}]}`)
+				return
+			}
 			_, _ = io.WriteString(w, catalog)
 		} else {
 			_, _ = io.WriteString(w, `{"id":"resp_fixture","object":"response","model":"test","status":"completed","output":[],"usage":{"input_tokens":2,"output_tokens":3,"total_tokens":5}}`)
@@ -75,7 +83,12 @@ func TestPublicCodexRecording(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, engine.Shutdown(context.Background())) })
 	recordCodexTransport(t, engine, upstream)
 	setPublicChatGPTSubscriptions(t, req, true)
-	proxy.backend = &bifrostProviderBackend{engine: engine}
+	_, tokenClient := newTokenRequestTestServer(t)
+	tokens, err := persistent.NewTokenService("https://obot.example.com", tokenClient)
+	require.NoError(t, err)
+	require.NoError(t, tokens.EnsureJWK(t.Context()))
+	gateway := &Server{llmGateway: engine, tokenService: tokens}
+	proxy.backend = gateway.newBifrostLLMProviderProxy().backend
 	for _, tc := range []struct {
 		name   string
 		method string
@@ -130,6 +143,51 @@ func TestPublicCodexRecording(t *testing.T) {
 			}
 		})
 	}
+	t.Run("unexpected catalog is not forwarded", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models?client_version=unexpected", nil)
+		r.SetPathValue("path", "v1/models")
+		r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
+		r.Header.Set("Authorization", bearer)
+		w := httptest.NewRecorder()
+		call := req
+		call.Request, call.ResponseWriter = r, w
+		require.NoError(t, proxy.proxy(call))
+		require.Equal(t, http.StatusBadGateway, w.Code, w.Body.String())
+		require.NotContains(t, w.Body.String(), "forbidden")
+		require.Len(t, received, 1)
+		<-received
+	})
+
+	owner, err := tokenClient.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{
+		ProviderUsername: "fixture",
+		ProviderUserID:   "fixture",
+		Email:            "fixture@example.com",
+	}, "", types.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	require.NoError(t, err)
+	for _, expires := range []time.Time{time.Now().Add(time.Hour), time.Now().Add(-time.Hour)} {
+		_, localToken, err := tokens.NewToken(t.Context(), persistent.TokenContext{
+			Audience:   "https://obot.example.com/mcp-connect/fixture",
+			UserID:     strconv.FormatUint(uint64(owner.ID), 10),
+			UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
+			ExpiresAt:  persistent.NewTime(expires),
+		})
+		require.NoError(t, err)
+		for _, path := range []string{"v1/models", "v1/responses"} {
+			r := httptest.NewRequest(http.MethodPost, "/api/llm-proxy/"+path, strings.NewReader(`{"model":"test","input":"hi"}`))
+			if path == "v1/models" {
+				r = httptest.NewRequest(http.MethodGet, "/api/llm-proxy/"+path, nil)
+			}
+			r.SetPathValue("path", path)
+			r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
+			r.Header.Set("Authorization", "Bearer "+localToken)
+			r.Header.Set(HeaderObotAPIKey, "gateway-fixture")
+			call := req
+			call.Request, call.ResponseWriter = r, httptest.NewRecorder()
+			require.ErrorContains(t, proxy.proxy(call), "Obot tokens cannot be used as ChatGPT subscription credentials")
+			require.Empty(t, received, "locally issued tokens must never reach the recording server")
+		}
+	}
+
 	// Revocation takes effect on the same backend, without cache expiry or reconfiguration.
 	setPublicChatGPTSubscriptions(t, req, false)
 	r := httptest.NewRequest(http.MethodGet, "/api/llm-proxy/v1/models", nil)
@@ -172,6 +230,40 @@ func TestCodexAttemptsStayOnOpenAI(t *testing.T) {
 		require.Equal(t, http.StatusForbidden, refused.Status)
 	}
 	require.False(t, attempts.paidBySubscription())
+}
+
+func TestCodexCatalogRejectsUnfilterableResponse(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{
+			name: "unexpected envelope",
+			body: `{"data":[{"id":"forbidden"}]}`,
+		},
+		{
+			name: "models is not an array",
+			body: `{"models":{"slug":"forbidden"}}`,
+		},
+		{
+			name: "invalid JSON with a parseable array",
+			body: `{"models":[{"slug":"forbidden"}]`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+			r.Header.Set("User-Agent", "codex_cli_rs/0.162.1")
+			r.Header.Set("Authorization", "Bearer eyJfixture.payload.signature")
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Request:    r,
+				Body:       io.NopCloser(strings.NewReader(tc.body)),
+			}
+			require.Error(t, filterModelListResponse(resp, map[string]bool{}, false))
+			require.NoError(t, resp.Body.Close())
+		})
+	}
 }
 
 func TestCodexCatalogRequiresOpenAIGrant(t *testing.T) {

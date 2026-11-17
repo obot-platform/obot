@@ -290,16 +290,14 @@ func servedModelChange(header http.Header, requested string, resolve func(string
 // {"data": [{"id": ...}, ...]} envelope, so the same filtering applies to both
 // passthroughs. Surviving entries are kept as their exact upstream bytes — no
 // map[string]any round-trip that would reorder object keys or reformat numbers.
-// The body is copied up front and restored, so any failure (or an unrecognized
-// payload) just forwards the original response untouched.
+// Ordinary API lists retain unrecognized payloads. Restricted Codex catalogs
+// must be filterable so an unexpected upstream shape cannot expose ungranted models.
 func filterModelListResponse(resp *http.Response, allowedTargetModels map[string]bool, allowAllModels bool) error {
 	if resp.StatusCode != http.StatusOK || allowAllModels {
 		return nil
 	}
 
-	// copyBody restores resp.Body, so every early return below forwards the
-	// original response unchanged; we only swap in the filtered body once it's
-	// fully built.
+	// Keep the original body intact until filtering succeeds.
 	body, err := copyBody(&resp.Body)
 	if err != nil {
 		return err
@@ -307,11 +305,15 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 
 	// Codex catalog entries use models/slug; ordinary API lists use data/id.
 	list, id, prefix := "data", "id", ""
-	if resp.Request != nil && llmtypes.IsChatGPTSubscription(resp.Request.Header) {
+	codex := resp.Request != nil && llmtypes.IsChatGPTSubscription(resp.Request.Header)
+	if codex {
 		// Native slugs belong only to OpenAI; a same-named foreign grant is insufficient.
 		list, id, prefix = "models", "slug", "openai/"
 	}
 	data := gjson.GetBytes(body, list)
+	if codex && (!gjson.ValidBytes(body) || !data.IsArray()) {
+		return errors.New("invalid Codex model catalog: expected a models array")
+	}
 	if !data.IsArray() {
 		return nil
 	}
@@ -327,10 +329,16 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 
 	out, err := sjson.SetRawBytes(body, list, []byte("["+strings.Join(kept, ",")+"]"))
 	if err != nil {
+		if codex {
+			return err
+		}
 		return nil
 	}
 	out, err = rewriteAnthropicListCursors(out)
 	if err != nil {
+		if codex {
+			return err
+		}
 		return nil
 	}
 

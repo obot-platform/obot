@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/guardrails"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/llmcore"
 	"github.com/obot-platform/obot/pkg/llmengine"
@@ -51,7 +52,8 @@ var (
 // and records audit logs and usage; Bifrost then routes to the upstream provider
 // with load balancing, fallbacks and routing rules.
 type bifrostProviderBackend struct {
-	engine *llmengine.Engine
+	engine       *llmengine.Engine
+	tokenService *persistent.TokenService
 }
 
 // bifrostRoute maps a client path under /api/llm-proxy/v1 to a Bifrost route.
@@ -118,7 +120,7 @@ func (s *Server) LLMGateway() *llmengine.Engine {
 
 func (s *Server) newBifrostLLMProviderProxy() *llmProviderProxy {
 	return &llmProviderProxy{
-		backend:   &bifrostProviderBackend{engine: s.llmGateway},
+		backend:   &bifrostProviderBackend{engine: s.llmGateway, tokenService: s.tokenService},
 		mapHelper: s.mapHelper,
 	}
 }
@@ -592,6 +594,9 @@ func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPass
 func (b *bifrostProviderBackend) decorateRequest(l *llmProviderProxy, apiReq api.Context, model *v1.Model) (gatewayRequest, error) {
 	ctx, req, user := apiReq.Context(), apiReq.Request, apiReq.User
 	chatgpt := llmtypes.IsChatGPTSubscription(req.Header)
+	if chatgpt && b.tokenService != nil && b.tokenService.HasLocalIssuer(req.Header.Get("Authorization")) {
+		return nil, types2.NewErrBadRequest("Obot tokens cannot be used as ChatGPT subscription credentials")
+	}
 	provider := "anthropic"
 	if chatgpt {
 		provider = "openai"

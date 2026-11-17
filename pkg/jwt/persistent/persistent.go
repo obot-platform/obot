@@ -271,6 +271,18 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}, true, nil
 }
 
+// HasLocalIssuer reads the unverified issuer only to prevent forwarding Obot
+// credentials to an external provider. It must not be used to authenticate a token.
+func (t *TokenService) HasLocalIssuer(token string) bool {
+	if len(token) >= len("Bearer ") && strings.EqualFold(token[:len("Bearer ")], "Bearer ") {
+		token = token[len("Bearer "):]
+	}
+
+	var claims jwt.RegisteredClaims
+	_, _, err := jwt.NewParser().ParseUnverified(token, &claims)
+	return err == nil && claims.Issuer != "" && claims.Issuer == t.serverURL
+}
+
 func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenContext, error) {
 	t.lock.RLock()
 	privateKey := t.privateKey

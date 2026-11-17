@@ -52,6 +52,49 @@ func newTestTokenService(t *testing.T) *TokenService {
 	return tokenService
 }
 
+func TestHasLocalIssuer(t *testing.T) {
+	service := newTestTokenService(t)
+	for _, tc := range []struct {
+		name    string
+		issuer  string
+		expires time.Time
+		local   bool
+	}{
+		{
+			name:    "local token",
+			issuer:  testServerURL,
+			expires: time.Now().Add(time.Hour),
+			local:   true,
+		},
+		{
+			name:    "expired local token",
+			issuer:  testServerURL,
+			expires: time.Now().Add(-time.Hour),
+			local:   true,
+		},
+		{
+			name:    "foreign issuer",
+			issuer:  "https://auth.openai.com",
+			expires: time.Now().Add(time.Hour),
+		},
+		{
+			name: "missing issuer",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			token, err := jwt.NewWithClaims(jwt.SigningMethodEdDSA, jwt.RegisteredClaims{
+				Issuer:    tc.issuer,
+				ExpiresAt: jwt.NewNumericDate(tc.expires),
+			}).SignedString(service.privateKey)
+			require.NoError(t, err)
+			for _, prefix := range []string{"", "Bearer ", "bearer ", "bEaReR "} {
+				require.Equal(t, tc.local, service.HasLocalIssuer(prefix+token), "prefix %q", prefix)
+			}
+		})
+	}
+	require.False(t, service.HasLocalIssuer("not-a-jwt"))
+}
+
 func TestDecodeTokenUsesUserGroupsForAPIAudience(t *testing.T) {
 	tokenService := newTestTokenService(t)
 
