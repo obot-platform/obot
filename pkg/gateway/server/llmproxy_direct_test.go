@@ -505,7 +505,7 @@ func TestDirectMountedFlushFailure(t *testing.T) {
 				return &authenticator.Response{User: principal}, true, nil
 			}))
 			server := apiServer.NewServer(req.Storage, c, nil, system.DefaultNamespace, authentication,
-				authz.NewAuthorizer(c, req.Storage, req.Storage, false, nil, nil, nil), nil, logger, limiter, "http://obot.test", nil, &license.Provider{})
+				authz.NewAuthorizer(c, req.Storage, req.Storage, false, nil, nil, nil), nil, logger, limiter, "http://obot.test", "http://obot.test", nil, &license.Provider{})
 			server.HandleFunc("POST /api/llm-proxy/v1/{path...}", func(req api.Context) error {
 				req.SetPathValue("path", "v1/"+req.PathValue("path"))
 				return proxy.proxy(req)

@@ -9,6 +9,9 @@ import (
 const (
 	ObotAccessTokenCookie = "obot_access_token"
 
+	// ObotBootstrapCookie carries the bootstrap token of a browser that logged in with it.
+	ObotBootstrapCookie = "obot-bootstrap"
+
 	// AuthProviderVerifyCookie carries the ID of an in-flight staged-provider verification across
 	// the OAuth round trip, so only the browser that started it can log in through the staged
 	// provider.

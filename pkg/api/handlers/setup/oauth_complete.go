@@ -124,6 +124,7 @@ func (h *Handler) completeOwnerLogin(req api.Context) error {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(h.serverURL, "https://"),
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	http.Redirect(req.ResponseWriter, req.Request, "/admin", http.StatusFound)

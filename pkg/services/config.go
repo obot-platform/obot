@@ -1218,6 +1218,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			auditLogger,
 			rateLimiter,
 			config.Hostname,
+			config.UIHostname,
 			oauthServerConfig.ScopesSupported,
 			entitlementProvider,
 		),

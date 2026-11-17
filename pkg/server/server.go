@@ -56,6 +56,9 @@ func Run(ctx context.Context, c services.Config) error {
 
 	address := fmt.Sprintf("0.0.0.0:%d", c.HTTPListenPort)
 	slog.Info("Starting server", "address", address)
+	// Credentials must never be allowed. The API server accepts cross-origin requests with a header credential, such
+	// as a bearer token, because a browser cannot send one along with Obot's cookies under this policy (see
+	// rejectCrossOrigin in pkg/api/server).
 	allowEverything := cors.New(cors.Options{
 		AllowedOrigins: []string{c.AllowedOrigin},
 		AllowedMethods: []string{
