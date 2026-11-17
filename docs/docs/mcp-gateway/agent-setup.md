@@ -67,6 +67,16 @@ The administrator who starts an authorization must complete it, in the same Obot
 
 If the component's URL comes from the profile's configuration, set **Server URL** first. Until it is set, **Authorize** is refused, and the error names the missing key.
 
+### How Obot finds the provider {#oauth-discovery}
+
+Some servers ask for OAuth when Obot connects. Others accept the connection and ask only when Obot lists or calls their tools. **Authorize** works for all of them. Obot sends the server requests without the component's configured headers or any stored token, ends the session it opened, and starts the authorization from the first of:
+
+1. The server's OAuth challenge when Obot connects.
+2. Its challenge when Obot lists its tools. The authorization asks for the scopes in that challenge.
+3. The OAuth protected resource metadata that the server publishes at its well-known location ([RFC 9728](https://datatracker.ietf.org/doc/html/rfc9728)). This covers servers that challenge only when a tool is called.
+
+If the server shows none of these, **Authorize** fails with "does not require OAuth". If the server doesn't answer in time, **Authorize** fails, and you can try again.
+
 ### Components with a localhost callback {#localhost-callback}
 
 Some providers redirect only to a localhost callback. For these, **Authorize** shows a command instead of opening a window:
@@ -95,6 +105,8 @@ Each agent-capable profile shows whether it is ready, and lists what is missing,
 To see whether a specific agent can connect, open the agent under **Identity & Access > Agents**. **vMCP readiness** lists every vMCP the agent is granted, what is missing, and which profile to fix it in. It also shows where each value comes from, including fallbacks. It runs the same checks as a connection.
 
 When an agent connects to a vMCP that isn't ready, it gets `409 Conflict` with the reasons. It never gets an OAuth challenge or a sign-in link. See [Errors](../reference/agent-identities.md#errors).
+
+Readiness doesn't contact components. It knows that a component needs OAuth when its catalog entry requires static OAuth, or when any profile of the vMCP holds a grant for it, even an invalid one. A component that asks for OAuth only when its tools are listed or called is invisible to readiness until some profile authorizes it. Until then, its agents show as ready, and an agent fails when it reaches the component, without an OAuth challenge. After the first authorization, every profile shows the component's OAuth as required, and an agent whose profiles hold no grant for it isn't ready.
 
 ## Catalog-synced vMCPs {#catalog-vmcps}
 

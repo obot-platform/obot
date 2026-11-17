@@ -172,7 +172,9 @@ When a component's URL comes from profile configuration that isn't set, `POST â€
 }
 ```
 
-Other start errors are plain: `400` if the profile isn't agent-capable, the component doesn't use OAuth, or the URL fails the hostname constraint; `404` for an unknown vMCP, profile or component; and `409` if agent selection is ambiguous or the vMCP is being deleted. The callback returns `403` to a different administrator, `409` if the component or its URL changed, and `400` if the attempt expired or was already used. Errors never contain a URL that comes from configuration. They show `<configured URL>` or `<redacted>` instead.
+Other start errors are plain: `400` if the profile isn't agent-capable, the component isn't a remote server, or the URL fails the hostname constraint; `404` for an unknown vMCP, profile or component; and `409` if agent selection is ambiguous or the vMCP is being deleted.
+
+The start sends the server unauthenticated requests: `initialize`, then, if that succeeds, `notifications/initialized` and `tools/list` in the same session, which it then ends with `DELETE`. It starts from the first `401` challenge, and otherwise from the protected resource metadata at the server's well-known location (RFC 9728). It returns `400` with `does not require OAuth` when there is neither, and an error when `tools/list` fails or a request times out. See [How Obot finds the provider](../mcp-gateway/agent-setup.md#oauth-discovery). The callback returns `403` to a different administrator, `409` if the component or its URL changed, and `400` if the attempt expired or was already used. Errors never contain a URL that comes from configuration. They show `<configured URL>` or `<redacted>` instead.
 
 The start response is `{"authURL": "..."}`. For a component with a localhost callback, it also has `"localhostCallback": true`, and `authURL` is the URL to pass to `obot mcp login`.
 
@@ -204,6 +206,8 @@ Readiness runs the same checks as a connection, when you call it. `sources` name
 - `no_skill_access_rule`: a key has the Skills scope, but no skill access rule matches the agent.
 
 `GET /api/vmcps/{vmcp_id}/profiles/{profile_id}/status` reports, for each component, the configuration keys that are `set`, `missingRequired` and `optionalUnset`, and for OAuth components the `state` (`authorized`, `missing` or `invalid`), `authorizedBy` (a user ID), `authorizedAt`, `scopes`, and either `target` (the full URL, only when the catalog fixes it) or `targetHostname` (when the URL comes from configuration).
+
+An OAuth component's `required` is `true` when its catalog entry requires static OAuth, or when any profile of the vMCP holds a grant for it, valid or not. Only then do readiness and connections report `oauth_required` for an agent whose profiles hold no grant. A component that challenges only when its tools are listed or called shows `required: false` until a profile authorizes it, and its agents show as ready until then.
 
 ## Audit {#audit}
 

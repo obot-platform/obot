@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"mime"
 	"net/http"
 	"net/url"
 	"slices"
@@ -26,8 +28,9 @@ import (
 )
 
 var (
-	// ErrOAuthNotRequired reports that an MCP server accepted an unauthenticated connection, so there is no OAuth to
-	// authorize for it.
+	// ErrOAuthNotRequired reports that an MCP server accepted an unauthenticated connection and listed its tools without
+	// asking for authorization, and publishes no OAuth protected resource metadata, so there is no OAuth to authorize for
+	// it (SessionManager.StartOAuthAuthorization).
 	ErrOAuthNotRequired = errors.New("the MCP server does not require OAuth")
 
 	// strictEgressClient is the fallback for OAuth token requests when the caller passes no
@@ -96,6 +99,19 @@ type oauthAuthorization struct {
 	conf            *oauth2.Config
 	discovery       oauthMetadataDiscovery
 	hasClientSecret bool
+}
+
+// oauthProbe is how an MCP server answered the unauthenticated requests that probeOAuthChallenge sends it.
+type oauthProbe struct {
+	// challenged reports that the server answered a request with 401, and header is the WWW-Authenticate header of that
+	// answer, which may be empty.
+	challenged bool
+	header     string
+	// initialized reports that the server accepted the unauthenticated initialize request.
+	initialized bool
+	// listFailure is set when the server answered tools/list with neither a result nor a challenge, so whether it asks
+	// for OAuth is unknown.
+	listFailure error
 }
 
 type oauthMetadataDiscovery struct {
@@ -513,36 +529,19 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 // resource metadata must name a resource that belongs to resourceCheckURL, the server's own URL,
 // which differs from baseURL when the server is reached through a tunnel.
 func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, resourceCheckURL, authenticateHeader, clientName, redirectURL string) (oauthMetadataDiscovery, bool, error) {
-	resourceMetadataURLs, scope, err := oauthResourceMetadataURLs(baseURL, authenticateHeader)
+	finalResourceMetadataURL, protectedResourceMetadataJSON, scope, ok, err := findProtectedResourceMetadata(ctx, client, baseURL, authenticateHeader)
 	if err != nil {
 		return oauthMetadataDiscovery{}, false, err
 	}
 
-	var (
-		finalResourceMetadataURL      *url.URL
-		protectedResourceMetadata     protectedResourceMetadata
-		protectedResourceMetadataJSON json.RawMessage
-		ok                            bool
-	)
-	for _, resourceMetadataURL := range resourceMetadataURLs {
-		finalResourceMetadataURL = resourceMetadataURL
-		slog.Info("fetching protected resource metadata", "url", resourceMetadataURL)
-
-		protectedResourceMetadataJSON, ok, err = getOAuthMetadataJSON(ctx, client, resourceMetadataURL.String())
+	var protectedResourceMetadata protectedResourceMetadata
+	if ok {
+		protectedResourceMetadata, err = parseProtectedResourceMetadata(bytes.NewReader(protectedResourceMetadataJSON))
 		if err != nil {
-			return oauthMetadataDiscovery{}, false, fmt.Errorf("failed to get protected resource metadata: %w", err)
+			return oauthMetadataDiscovery{}, false, fmt.Errorf("failed to parse protected resource metadata: %w", err)
 		}
-
-		if ok {
-			protectedResourceMetadata, err = parseProtectedResourceMetadata(bytes.NewReader(protectedResourceMetadataJSON))
-			if err != nil {
-				return oauthMetadataDiscovery{}, false, fmt.Errorf("failed to parse protected resource metadata: %w", err)
-			}
-			if err := validateProtectedResource(string(protectedResourceMetadata.Resource), resourceCheckURL); err != nil {
-				return oauthMetadataDiscovery{}, false, err
-			}
-
-			break
+		if err := validateProtectedResource(string(protectedResourceMetadata.Resource), resourceCheckURL); err != nil {
+			return oauthMetadataDiscovery{}, false, err
 		}
 	}
 
@@ -596,6 +595,29 @@ func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, re
 		DynamicClientRegistration:         rawAuthorizationServerMetadata.RegistrationEndpoint != "",
 		ClientIDMetadataDocumentSupported: authorizationServerMetadata.ClientIDMetadataDocumentSupported,
 	}, true, nil
+}
+
+// findProtectedResourceMetadata looks for the OAuth protected resource metadata (RFC 9728) of the MCP server at baseURL:
+// at the URL that authenticateHeader's Bearer challenge names, or, when it names none, at the well-known locations for
+// baseURL, in order (oauthResourceMetadataURLs). It returns the URL it looked at last, which is where it found the
+// metadata when found is true, the metadata as served, unparsed, and the scope the challenge asked for. Metadata that is
+// not found, at a location that answers 4xx, is not an error; a location that answers 5xx is.
+func findProtectedResourceMetadata(ctx context.Context, client *http.Client, baseURL, authenticateHeader string) (metadataURL *url.URL, metadata json.RawMessage, scope string, found bool, err error) {
+	metadataURLs, scope, err := oauthResourceMetadataURLs(baseURL, authenticateHeader)
+	if err != nil {
+		return nil, nil, "", false, err
+	}
+	for _, metadataURL = range metadataURLs {
+		slog.Info("fetching protected resource metadata", "url", metadataURL)
+		metadata, found, err = getOAuthMetadataJSON(ctx, client, metadataURL.String())
+		if err != nil {
+			return nil, nil, "", false, fmt.Errorf("failed to get protected resource metadata: %w", err)
+		}
+		if found {
+			break
+		}
+	}
+	return metadataURL, metadata, scope, found, nil
 }
 
 func oauthResourceMetadataURLs(baseURL, authenticateHeader string) ([]*url.URL, string, error) {
@@ -844,7 +866,9 @@ func ExchangeOAuthToken(ctx context.Context, conf *oauth2.Config, code, verifier
 	return tok, nil
 }
 
-func wwwAuthenticateFromInitialize(ctx context.Context, httpClient *http.Client, server ServerConfig) (string, bool, error) {
+// oauthProbeInitializeRequest is the body of the unauthenticated initialize request that Obot sends an MCP server to
+// learn whether it asks for OAuth.
+func oauthProbeInitializeRequest() ([]byte, error) {
 	body, err := json.Marshal(map[string]any{
 		"jsonrpc": "2.0",
 		"id":      time.Now().Unix(),
@@ -859,7 +883,15 @@ func wwwAuthenticateFromInitialize(ctx context.Context, httpClient *http.Client,
 		},
 	})
 	if err != nil {
-		return "", false, fmt.Errorf("failed to marshal initialize request: %w", err)
+		return nil, fmt.Errorf("failed to marshal initialize request: %w", err)
+	}
+	return body, nil
+}
+
+func wwwAuthenticateFromInitialize(ctx context.Context, httpClient *http.Client, server ServerConfig) (string, bool, error) {
+	body, err := oauthProbeInitializeRequest()
+	if err != nil {
+		return "", false, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, bytes.NewReader(body))
@@ -897,6 +929,141 @@ func wwwAuthenticateFromInitialize(ctx context.Context, httpClient *http.Client,
 	}
 
 	return resp.Header.Get("WWW-Authenticate"), false, nil
+}
+
+// probeOAuthChallenge learns whether the MCP server at serverURL asks for OAuth, from unauthenticated requests sent with
+// client, which must carry none of the server's configured headers and no token (SessionManager.OAuthClientForServer):
+//
+//  1. An initialize request. A server that answers it with 401 is challenged there; one that answers with anything but
+//     200 or 401 is neither initialized nor challenged.
+//  2. If it was accepted, the initialized notification and then a tools/list request, in the session it started, if
+//     any, with the protocol version it agreed on. Some servers let anyone initialize, and only challenge once tools are
+//     requested. A 401 to either is the challenge. tools/list answered with anything else but success sets listFailure.
+//
+// The session is always ended with a DELETE, once the requests in it are done or have failed, even if ctx is done by
+// then. Every request, the DELETE included, is bounded by client's timeout, so a server that never answers fails the
+// probe once that runs out. A request that fails before it is answered fails the probe.
+func probeOAuthChallenge(ctx context.Context, client *http.Client, serverURL string) (oauthProbe, error) {
+	initialize, err := oauthProbeInitializeRequest()
+	if err != nil {
+		return oauthProbe{}, err
+	}
+	resp, err := sendOAuthProbeMessage(ctx, client, serverURL, "", "", initialize)
+	if err != nil {
+		return oauthProbe{}, fmt.Errorf("initialize: %w", err)
+	}
+	sessionID := resp.Header.Get("Mcp-Session-Id")
+	protocolVersion := negotiatedProtocolVersion(resp)
+	_ = resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusUnauthorized:
+		return oauthProbe{challenged: true, header: resp.Header.Get("WWW-Authenticate")}, nil
+	default:
+		return oauthProbe{}, nil
+	}
+
+	probe := oauthProbe{initialized: true}
+	if sessionID != "" {
+		// Not bound to ctx, so that a request that ran out of time still ends its session.
+		defer endOAuthProbeSession(context.WithoutCancel(ctx), client, serverURL, sessionID, protocolVersion)
+	}
+	for _, message := range []struct {
+		method string
+		body   string
+	}{
+		{method: "notifications/initialized", body: `{"jsonrpc":"2.0","method":"notifications/initialized"}`},
+		{method: "tools/list", body: `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`},
+	} {
+		resp, err := sendOAuthProbeMessage(ctx, client, serverURL, sessionID, protocolVersion, []byte(message.body))
+		if err != nil {
+			return oauthProbe{}, fmt.Errorf("%s: %w", message.method, err)
+		}
+		// Only the status and the challenge are needed, so the body, which may be a stream, is never waited for.
+		_ = resp.Body.Close()
+		switch {
+		case resp.StatusCode == http.StatusUnauthorized:
+			probe.challenged, probe.header = true, resp.Header.Get("WWW-Authenticate")
+			return probe, nil
+		case message.method == "tools/list" && (resp.StatusCode < 200 || resp.StatusCode > 299):
+			probe.listFailure = fmt.Errorf("tools/list was answered with status %d", resp.StatusCode)
+		}
+	}
+	return probe, nil
+}
+
+// sendOAuthProbeMessage posts one JSON-RPC message of probeOAuthChallenge to the MCP server at serverURL, in session
+// sessionID if it is set, with the protocol version header if one was agreed on, and no other header than the
+// transport's own.
+func sendOAuthProbeMessage(ctx context.Context, client *http.Client, serverURL, sessionID, protocolVersion string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, serverURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	if sessionID != "" {
+		req.Header.Set("Mcp-Session-Id", sessionID)
+	}
+	if protocolVersion != "" {
+		req.Header.Set("Mcp-Protocol-Version", protocolVersion)
+	}
+	return client.Do(req)
+}
+
+// endOAuthProbeSession ends the MCP session sessionID that probeOAuthChallenge started. A failure is only logged: the
+// probe already has its answer, and the server expires the session on its own.
+func endOAuthProbeSession(ctx context.Context, client *http.Client, serverURL, sessionID, protocolVersion string) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, serverURL, http.NoBody)
+	if err != nil {
+		slog.Warn("Failed to end the MCP session of an OAuth probe", "error", err)
+		return
+	}
+	req.Header.Set("Mcp-Session-Id", sessionID)
+	if protocolVersion != "" {
+		req.Header.Set("Mcp-Protocol-Version", protocolVersion)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		slog.Warn("Failed to end the MCP session of an OAuth probe", "error", err)
+		return
+	}
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	_ = resp.Body.Close()
+}
+
+// negotiatedProtocolVersion returns the protocol version that resp, a server's answer to initialize, agreed on, from
+// its JSON or event-stream body, or "" if it names none that can be sent back in a header. It reads only as much of the
+// body as it needs, and at most 1 MiB.
+func negotiatedProtocolVersion(resp *http.Response) string {
+	var message struct {
+		Result struct {
+			ProtocolVersion string `json:"protocolVersion"`
+		} `json:"result"`
+	}
+	valid := func(version string) bool {
+		return version != "" && len(version) <= 64 && !strings.ContainsFunc(version, func(r rune) bool {
+			return (r < '0' || r > '9') && (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && r != '-' && r != '.' && r != '_'
+		})
+	}
+	body := io.LimitReader(resp.Body, 1<<20)
+	if mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type")); mediaType == "text/event-stream" {
+		scanner := bufio.NewScanner(body)
+		for scanner.Scan() {
+			data, ok := strings.CutPrefix(scanner.Text(), "data:")
+			if ok && json.Unmarshal([]byte(data), &message) == nil && message.Result.ProtocolVersion != "" {
+				if valid(message.Result.ProtocolVersion) {
+					return message.Result.ProtocolVersion
+				}
+				return ""
+			}
+		}
+		return ""
+	}
+	if json.NewDecoder(body).Decode(&message) != nil || !valid(message.Result.ProtocolVersion) {
+		return ""
+	}
+	return message.Result.ProtocolVersion
 }
 
 func getAuthServerMetadata(ctx context.Context, client *http.Client, authURL string) (AuthorizationServerMetadata, string, json.RawMessage, bool, error) {
@@ -1406,34 +1573,54 @@ func (o *oauth) startAuthorization(ctx context.Context, connectURL, authenticate
 // not a token is stored for it, so that an administrator can replace a grant that still works. The authorization ends
 // at opt.CallbackHandler's callback, which stores the token. Client credentials are resolved as for any other
 // authorization: static credentials from opt.ClientLookup first, then a client ID metadata document, then dynamic
-// registration.
+// registration. Its only caller is the start of a vMCP profile's OAuth grant, which an administrator asks for.
 //
-// It learns the server's challenge from an unauthenticated initialize request, sent with the OAuth client, which
-// carries none of the server's configured headers. A server that accepts that request does not use OAuth, and is
-// refused with ErrOAuthNotRequired, unless staticOAuth says that it requires administrator static OAuth, which some
-// servers only ask for when a tool is called.
+// It learns how the server asks for OAuth from unauthenticated requests sent with the OAuth client, which carries none
+// of the server's configured headers and no token (probeOAuthChallenge), and starts from, in order:
+//
+//  1. The challenge to the initialize request, as it always has.
+//  2. The challenge to the initialized notification or to tools/list, in the session that initialize started, for a
+//     server that lets anyone initialize and only challenges once tools are requested. The authorization asks for the
+//     scope that challenge names.
+//  3. For a server that challenged neither, the protected resource metadata (RFC 9728) it publishes at the well-known
+//     location for its URL, which covers a server that only challenges when a tool is called. An administrator asked
+//     to authorize the server, and its metadata says that it is protected, so authorizing it is safe.
+//
+// A server that accepted initialize, challenged neither request, and publishes no protected resource metadata does not
+// use OAuth, and is refused with ErrOAuthNotRequired, unless staticOAuth says that it requires administrator static
+// OAuth, which then starts from the well-known metadata locations as before. So is a server that answered tools/list
+// with an error, except that the error is returned instead, since whether it uses OAuth is unknown. A server that
+// answered initialize with neither success nor a challenge starts from the well-known metadata locations, as before.
 func (m *SessionManager) StartOAuthAuthorization(ctx context.Context, server ServerConfig, opt ClientOption, staticOAuth bool) (string, error) {
 	client, err := m.OAuthClientForServer(server)
 	if err != nil {
 		return "", err
 	}
-	header, initialized, err := wwwAuthenticateFromInitialize(ctx, client, server)
+	probe, err := probeOAuthChallenge(ctx, client, server.URL)
 	if err != nil {
 		return "", fmt.Errorf("failed to reach the MCP server to authorize: %w", err)
 	}
-	if initialized && !staticOAuth {
-		return "", ErrOAuthNotRequired
+
+	var resourceMetadata, scope string
+	switch {
+	case probe.challenged:
+		resourceMetadata, scope = parseResourceMetadata(probe.header), parseScopeFromAuthenticateHeader(probe.header)
+	case probe.initialized && !staticOAuth:
+		metadataURL, _, _, found, err := findProtectedResourceMetadata(ctx, client, server.URL, "")
+		if err != nil {
+			return "", err
+		}
+		if !found {
+			if probe.listFailure != nil {
+				return "", fmt.Errorf("failed to reach the MCP server to authorize: %w", probe.listFailure)
+			}
+			return "", ErrOAuthNotRequired
+		}
+		// Discovery reads the metadata again from where it was found, and checks that it is for this server.
+		resourceMetadata = metadataURL.String()
 	}
-	if header == "" {
-		// Discovery falls back to the well-known metadata locations.
-		header = "Bearer"
-	}
-	o := newOAuth(client, opt.CallbackHandler, opt.ClientLookup, opt.TokenStorage, server.MCPServerName, server.URL, opt.OAuthClientName, opt.OAuthRedirectURL, opt.OAuthClientIDMetadataDocument)
-	start, err := o.startAuthorization(ctx, server.URL, header)
-	if err != nil {
-		return "", err
-	}
-	return start.authURL, nil
+	// Without resource_metadata, discovery looks at the well-known metadata locations.
+	return startOAuthFromChallenge(ctx, client, server, opt, resourceMetadata, scope)
 }
 
 // StartOAuthFromChallenge starts OAuth from an actual challenge without issuing any MCP operation.

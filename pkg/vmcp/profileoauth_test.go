@@ -226,11 +226,43 @@ func TestSelectAgentGrants(t *testing.T) {
 			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
 		},
 		{
-			name:     "explicit grant on an ambiguous vMCP",
-			profiles: []types.VMCPProfile{explicitAgentProfile(grantExplicit, "7"), legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)},
-			agent:    7,
-			stored:   map[string]map[string]string{grantExplicit: {"static": staticURL}, grantWildcard: {"dynamic": dynamicURL}},
-			want:     map[string]string{"static": grantExplicit},
+			// The wildcard's grant shows that the dynamic component uses OAuth, and the agent's grant for it would come
+			// from the ambiguous fallback.
+			name:        "explicit grant on an ambiguous vMCP",
+			profiles:    []types.VMCPProfile{explicitAgentProfile(grantExplicit, "7"), legacyWildcardProfile(grantWildcard), legacyWildcardProfile(grantOther)},
+			agent:       7,
+			stored:      map[string]map[string]string{grantExplicit: {"static": staticURL}, grantWildcard: {"dynamic": dynamicURL}},
+			want:        map[string]string{"static": grantExplicit},
+			wantReasons: []ReadinessReason{AmbiguousFallbackReason("dynamic")},
+		},
+		{
+			// A component that asks for OAuth only once it is called is known to need it once any profile holds a
+			// grant for it, so an agent whose profiles hold none is not ready.
+			name:   "late challenge another profile authorized",
+			agent:  9,
+			stored: map[string]map[string]string{grantExplicit: {"dynamic": dynamicURL}},
+			wantReasons: []ReadinessReason{
+				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+			},
+		},
+		{
+			name:    "late challenge another profile holds a broken grant for",
+			agent:   9,
+			stored:  map[string]map[string]string{grantExplicit: {"dynamic": dynamicURL}},
+			invalid: map[string][]string{grantExplicit: {"dynamic"}},
+			wantReasons: []ReadinessReason{
+				{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+				{ComponentID: "dynamic", Code: types.AgentReadinessOAuthRequired, ProfileID: grantWildcard},
+			},
+		},
+		{
+			// Only the grants of the vMCP's own profiles count: one of a profile that is gone, which the controller has
+			// yet to delete, says nothing about the component.
+			name:        "late challenge a removed profile authorized",
+			agent:       7,
+			stored:      map[string]map[string]string{"vp1removed": {"dynamic": dynamicURL}},
+			wantReasons: []ReadinessReason{{ComponentID: "static", Code: types.AgentReadinessOAuthRequired, ProfileID: grantExplicit}},
 		},
 		{
 			name:        "explicit grant missing on an ambiguous vMCP",
@@ -577,13 +609,27 @@ func TestProfileOAuthStatus(t *testing.T) {
 	}, static)
 	require.Equal(t, types.VMCPProfileOAuthInvalid, explicit["dynamic"].State)
 	require.Equal(t, "refused", explicit["dynamic"].InvalidReason)
-	require.False(t, explicit["dynamic"].Required)
+	// A component without static OAuth is known to need OAuth once a profile holds a grant for it, even a broken one.
+	require.True(t, explicit["dynamic"].Required)
 
-	// The profile alone: the wildcard's grant is not the users profile's.
+	// The profile alone: the wildcard's grant is not the users profile's. Whether a component requires OAuth does look
+	// at every profile.
 	users, err := store.ProfileOAuthStatus(t.Context(), vmcp, "vp1users")
 	require.NoError(t, err)
 	require.Equal(t, types.VMCPProfileOAuthMissing, users["static"].State)
 	require.Equal(t, types.VMCPProfileOAuthMissing, users["dynamic"].State)
+	require.True(t, users["static"].Required)
+	require.True(t, users["dynamic"].Required)
+
+	// Once no profile holds a grant for it, nothing shows that it needs OAuth.
+	require.NoError(t, grants.DeleteMCPOAuthGrants(t.Context(), grantOwner(grantExplicit), grantMCPID("dynamic"), []string{"b"}))
+	for _, profileID := range []string{grantExplicit, grantWildcard, "vp1users"} {
+		status, err := store.ProfileOAuthStatus(t.Context(), vmcp, profileID)
+		require.NoError(t, err)
+		require.False(t, status["dynamic"].Required, profileID)
+		require.Equal(t, types.VMCPProfileOAuthMissing, status["dynamic"].State, profileID)
+		require.True(t, status["static"].Required, profileID)
+	}
 
 	status := ProfileStatus(vmcp, vmcp.Spec.Manifest.Profiles[0])
 	AddOAuthStatus(&status, explicit)

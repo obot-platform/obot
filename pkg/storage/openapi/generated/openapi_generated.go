@@ -20621,7 +20621,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfileOAuthStatus(ref common
 				Properties: map[string]spec.Schema{
 					"required": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth. Another remote component can still ask for OAuth when an agent calls it.",
+							Description: "Required reports that the component is known to need OAuth: a remote server that requires administrator static OAuth, or one that any profile of the vMCP holds a grant for, working or not. Another remote component can still ask for OAuth when an agent calls it, which nothing reveals until a profile authorizes it.",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",

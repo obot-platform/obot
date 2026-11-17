@@ -325,7 +325,8 @@ const (
 // to the profile uses. It describes the grant, never its tokens.
 type VMCPProfileOAuthStatus struct {
 	// Required reports that the component is known to need OAuth: a remote server that requires administrator static
-	// OAuth. Another remote component can still ask for OAuth when an agent calls it.
+	// OAuth, or one that any profile of the vMCP holds a grant for, working or not. Another remote component can still
+	// ask for OAuth when an agent calls it, which nothing reveals until a profile authorizes it.
 	Required bool `json:"required"`
 	// State is VMCPProfileOAuthAuthorized, VMCPProfileOAuthMissing or VMCPProfileOAuthInvalid.
 	State string `json:"state"`

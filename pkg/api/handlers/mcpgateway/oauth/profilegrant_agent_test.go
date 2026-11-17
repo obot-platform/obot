@@ -67,6 +67,14 @@ type agentFlowProvider struct {
 	issued  int
 	// requests records, by JSON-RPC ID, the bearer each MCP request carried.
 	requests map[string]string
+	// scopes are the scopes each authorization request asked for, in order.
+	scopes []string
+	// probes are the requests that were not an agent's (whose JSON-RPC IDs are strings), while late is set.
+	probes []lateProbe
+
+	// late makes the server let anyone initialize, and only challenge, with scope "tools:read", once tools are
+	// listed. It then answers the session requests of a probe without a token.
+	late atomic.Bool
 
 	exchanges       atomic.Int32
 	refreshes       atomic.Int32
@@ -156,13 +164,15 @@ func (p *agentFlowProvider) mcpURL() string {
 // serveMCP answers an MCP request: with a challenge when it has no valid access token, and otherwise with an empty
 // result for its JSON-RPC ID, after recording the bearer it carried.
 func (p *agentFlowProvider) serveMCP(w http.ResponseWriter, r *http.Request, base string) {
-	if r.Method != http.MethodPost {
+	late := p.late.Load()
+	if r.Method != http.MethodPost && (!late || r.Method != http.MethodDelete) {
 		// Something on the test host may probe listening ports.
 		return
 	}
 	body, _ := io.ReadAll(r.Body)
 	var message struct {
-		ID any `json:"id"`
+		ID     any    `json:"id"`
+		Method string `json:"method"`
 	}
 	_ = json.Unmarshal(body, &message)
 	bearer, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -172,14 +182,59 @@ func (p *agentFlowProvider) serveMCP(w http.ResponseWriter, r *http.Request, bas
 	if bearer != "" {
 		p.requests[fmt.Sprint(message.ID)] = bearer
 	}
+	if _, agents := message.ID.(string); late && !agents {
+		method := message.Method
+		if method == "" {
+			method = r.Method
+		}
+		p.probes = append(p.probes, lateProbe{method: method, header: r.Header.Clone()})
+	}
 	p.lock.Unlock()
 
-	if !valid {
+	switch {
+	case late && r.Method == http.MethodDelete:
+		w.WriteHeader(http.StatusNoContent)
+		return
+	case late && message.Method == "initialize":
+		w.Header().Set("Mcp-Session-Id", "late-session")
+		writeAgentFlowJSON(w, map[string]any{"jsonrpc": "2.0", "id": message.ID, "result": map[string]any{
+			"protocolVersion": "2025-06-18",
+			"capabilities":    map[string]any{"tools": map[string]any{}},
+			"serverInfo":      map[string]any{"name": "late", "version": "test"},
+		}})
+		return
+	case late && message.Method == "notifications/initialized":
+		w.WriteHeader(http.StatusAccepted)
+		return
+	case !valid && late:
+		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+base+`/metadata", scope="tools:read"`)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	case !valid:
 		w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+base+`/metadata"`)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	writeAgentFlowJSON(w, map[string]any{"jsonrpc": "2.0", "id": message.ID, "result": map[string]any{"tools": []any{}}})
+}
+
+// takeProbes returns the probes the server received while late was set, and forgets them.
+func (p *agentFlowProvider) takeProbes() []lateProbe {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	probes := p.probes
+	p.probes = nil
+	return probes
+}
+
+// lastScope returns the scope the last authorization request asked for.
+func (p *agentFlowProvider) lastScope() string {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	if len(p.scopes) == 0 {
+		return ""
+	}
+	return p.scopes[len(p.scopes)-1]
 }
 
 // authorize is the provider's authorization endpoint. The administrator has consented: it redirects to the client's
@@ -196,6 +251,7 @@ func (p *agentFlowProvider) authorize(w http.ResponseWriter, r *http.Request) {
 	p.issued++
 	code := fmt.Sprintf("code-%d", p.issued)
 	p.codes[code] = agentFlowCode{challenge: query.Get("code_challenge"), redirectURI: redirectURI}
+	p.scopes = append(p.scopes, query.Get("scope"))
 	p.lock.Unlock()
 
 	target, err := url.Parse(redirectURI)
@@ -688,5 +744,69 @@ func TestAgentUsesTheProfileGrantAnAdministratorAuthorized(t *testing.T) {
 	recorder = f.callComponent(t, 7, "e-7-0")
 	require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
 	requireUpstream(t, f.provider, "e-7-", "")
+	f.requireNoChallenges(t)
+}
+
+// TestAgentUsesAProfileGrantForALateChallenge runs the life of the grants for a component whose server lets anyone
+// initialize, and only challenges once tools are listed, against a real OAuth provider:
+//
+//   - while no profile holds a grant, nothing shows that the component needs OAuth, so agents read as ready, and an
+//     agent learns otherwise only from the component, as a bare 401 that the composite reports as needing OAuth;
+//   - an administrator authorizes agent 7's explicit profile: the start learns the challenge from tools/list, with
+//     unauthenticated probes that end their session, and asks for its scope; the callback stores the grant, and agent 7
+//     sends its token to the upstream through the component hop;
+//   - the grant shows that the component needs OAuth, so agent 8, whose wildcard profile holds none, is not ready, and
+//     its connect is refused with oauth_required naming the wildcard profile, as readiness says, until the wildcard
+//     profile is authorized too.
+func TestAgentUsesAProfileGrantForALateChallenge(t *testing.T) {
+	f := newAgentFlowFixture(t)
+	f.provider.late.Store(true)
+	requireRequired := func(want bool) {
+		t.Helper()
+		var vmcp v1.VMCP
+		require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+		for _, profileID := range []string{agentFlowSeven, agentFlowAgents} {
+			status, err := f.grants.ProfileOAuthStatus(t.Context(), vmcp, profileID)
+			require.NoError(t, err)
+			require.Equal(t, want, status[agentFlowComponent].Required, profileID)
+		}
+	}
+
+	for _, id := range []uint{7, 8} {
+		require.True(t, f.ready(t, id).Ready(), "agent %d", id)
+	}
+	requireRequired(false)
+	recorder := f.callComponent(t, 8, "late-none-8")
+	require.Equal(t, http.StatusUnauthorized, recorder.Code, recorder.Body.String())
+	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
+	requireUpstream(t, f.provider, "late-none-", "")
+	f.requireNoChallenges(t)
+
+	sevenAccess, _ := f.authorize(t, agentFlowSeven)
+	require.Equal(t, "tools:read", f.provider.lastScope())
+	requireUnauthenticatedProbes(t, f.provider.takeProbes())
+	recorder = f.callComponent(t, 7, "late-7-0")
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	requireUpstream(t, f.provider, "late-7-", sevenAccess, "late-7-0")
+	require.True(t, f.ready(t, 7).Ready())
+
+	requireRequired(true)
+	want := []vmcpconfig.ReadinessReason{{ComponentID: agentFlowComponent, Code: types.AgentReadinessOAuthRequired, ProfileID: agentFlowAgents}}
+	require.Equal(t, want, f.ready(t, 8).Reasons)
+	recorder = f.connectVMCP(t, 8)
+	require.Equal(t, http.StatusConflict, recorder.Code, recorder.Body.String())
+	require.Empty(t, recorder.Header().Values("WWW-Authenticate"))
+	var failure vmcpconfig.AgentReadinessFailure
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &failure))
+	require.Equal(t, vmcpconfig.AgentReadinessFailure{Error: vmcpconfig.AgentOAuthRequiredError, Reasons: want}, failure)
+
+	// Authorizing the wildcard profile again probes without a token, though a grant is now stored.
+	wildcardAccess, _ := f.authorize(t, agentFlowAgents)
+	require.Equal(t, "tools:read", f.provider.lastScope())
+	requireUnauthenticatedProbes(t, f.provider.takeProbes())
+	require.True(t, f.ready(t, 8).Ready())
+	recorder = f.callComponent(t, 8, "late-8-0")
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	requireUpstream(t, f.provider, "late-8-", wildcardAccess, "late-8-0")
 	f.requireNoChallenges(t)
 }

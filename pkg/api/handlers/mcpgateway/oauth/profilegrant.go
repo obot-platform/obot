@@ -50,6 +50,12 @@ func (f *MCPOAuthHandlerFactory) SetProfileOAuthGrants(grants *vmcpconfig.Profil
 // metadata document, then dynamic registration. The grant holds only the authorization; the static credentials stay
 // the catalog's.
 //
+// How the component asks for OAuth is learned with unauthenticated requests to that URL, which carry none of its
+// configured headers and no grant's token (mcp.SessionManager.StartOAuthAuthorization): a challenge to initialize, a
+// challenge to tools/list for a server that only challenges once tools are requested, or else the protected resource
+// metadata the server publishes, for one that only challenges when a tool is called. A component that shows none of
+// them is refused as not requiring OAuth.
+//
 // A component whose provider only redirects to a localhost callback is authorized through the same relay as a user's
 // own connection: the callback URL is a random loopback port (upstreamRedirectURL), the pending state is a local login
 // state, and the administrator gets Obot's local login URL (localLoginURL), which `obot mcp login` opens and relays the
@@ -111,7 +117,7 @@ func (f *MCPOAuthHandlerFactory) StartProfileOAuthGrant(req api.Context, vmcpID,
 
 	authURL, err := f.mcpSessionManager.StartOAuthAuthorization(req.Context(), cfg, opt, server.Spec.Manifest.RemoteConfig.StaticOAuthRequired)
 	if errors.Is(err, mcp.ErrOAuthNotRequired) {
-		return none, types.NewErrBadRequest("component %q does not require OAuth", component.ID)
+		return none, types.NewErrBadRequest("component %q does not require OAuth: it answered without asking for authorization, and publishes no OAuth protected resource metadata", component.ID)
 	} else if err != nil {
 		return none, redact(fmt.Errorf("start OAuth authorization of component %q: %w", component.ID, err))
 	}

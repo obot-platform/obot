@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -46,6 +47,15 @@ const (
 	profileGrantRefresh   = "provider-refresh-token"
 	profileGrantCodeSent  = "authorization-code"
 	profileGrantRefreshed = "provider-refreshed-token"
+
+	// lateChallengeToolsCall is a server that lets anyone initialize and list its tools, asks for OAuth only when a tool
+	// is called, and publishes its protected resource metadata at the well-known location for its URL.
+	lateChallengeToolsCall = "tools/call"
+	// lateChallengeNone is a server that asks for OAuth nowhere and publishes no protected resource metadata.
+	lateChallengeNone = "none"
+	// lateChallengeHang is a server that lets anyone initialize, never answers tools/list, and publishes its protected
+	// resource metadata.
+	lateChallengeHang = "hang"
 )
 
 // profileGrantProvider is a remote MCP server that requires OAuth, with its own authorization server that registers
@@ -57,6 +67,21 @@ type profileGrantProvider struct {
 	refreshes  atomic.Int32
 	// redirectURI is the redirect_uri of the last code exchange.
 	redirectURI atomic.Value
+	// late, when set, is where the server asks for OAuth instead of at initialize (lateChallengeToolsCall,
+	// lateChallengeNone, lateChallengeHang), and the server then answers the probes of an authorization's start
+	// (serveLate).
+	late atomic.Value
+
+	lock sync.Mutex
+	// probes are the requests a late-challenge server received at its MCP endpoint.
+	probes []lateProbe
+}
+
+// lateProbe is one request a late-challenge server received.
+type lateProbe struct {
+	// method is the JSON-RPC method, or the HTTP method of a request without one.
+	method string
+	header http.Header
 }
 
 // profileGrantFixture is a shared vMCP with a remote component that requires OAuth and a local one, with a profile for
@@ -73,6 +98,67 @@ type profileGrantFixture struct {
 	key     kclient.ObjectKey
 }
 
+// serveLate answers a request to the MCP endpoint of a server that asks for OAuth late, as mode says, after recording
+// it. It hands out session "late-session".
+func (p *profileGrantProvider) serveLate(w http.ResponseWriter, r *http.Request, mode string) {
+	var body struct {
+		Method string `json:"method"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	method := body.Method
+	if method == "" {
+		method = r.Method
+	}
+	p.lock.Lock()
+	p.probes = append(p.probes, lateProbe{method: method, header: r.Header.Clone()})
+	p.lock.Unlock()
+	switch method {
+	case "initialize":
+		w.Header().Set("Mcp-Session-Id", "late-session")
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": 1, "result": map[string]any{
+			"protocolVersion": "2025-06-18",
+			"capabilities":    map[string]any{"tools": map[string]any{}},
+			"serverInfo":      map[string]any{"name": "late", "version": "test"},
+		}})
+	case "tools/list":
+		if mode == lateChallengeHang {
+			<-r.Context().Done()
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": 2, "result": map[string]any{"tools": []any{}}})
+	default:
+		// The initialized notification, and the DELETE that ends the session.
+		w.WriteHeader(http.StatusAccepted)
+	}
+}
+
+// lateProbes returns the requests a late-challenge server received.
+func (p *profileGrantProvider) lateProbes() []lateProbe {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	return append([]lateProbe(nil), p.probes...)
+}
+
+// requireUnauthenticatedProbes requires that every probe of an authorization's start carried no header but those of
+// the transport and the MCP session, so neither a configured header nor any token, and that the session it started was
+// ended.
+func requireUnauthenticatedProbes(t *testing.T, probes []lateProbe) {
+	t.Helper()
+	allowed := []string{"Accept", "Accept-Encoding", "Content-Length", "Content-Type", "Mcp-Protocol-Version", "Mcp-Session-Id", "User-Agent"}
+	var methods []string
+	for _, probe := range probes {
+		methods = append(methods, probe.method)
+		for name := range probe.header {
+			require.Contains(t, allowed, name, "%s carried header %s", probe.method, name)
+		}
+		if probe.method != "initialize" {
+			require.Equal(t, "late-session", probe.header.Get("Mcp-Session-Id"), probe.method)
+			require.Equal(t, "2025-06-18", probe.header.Get("Mcp-Protocol-Version"), probe.method)
+		}
+	}
+	require.ElementsMatch(t, []string{"initialize", "notifications/initialized", "tools/list", http.MethodDelete}, methods)
+}
+
 func newProfileGrantProvider(t *testing.T) *profileGrantProvider {
 	t.Helper()
 	p := &profileGrantProvider{}
@@ -81,6 +167,10 @@ func newProfileGrantProvider(t *testing.T) *profileGrantProvider {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
 		case "/mcp":
+			if mode, _ := p.late.Load().(string); mode != "" {
+				p.serveLate(w, r, mode)
+				return
+			}
 			// Only the unauthenticated initialize probe reaches the server; no MCP operation is ever run for an
 			// authorization.
 			var body struct {
@@ -96,6 +186,17 @@ func newProfileGrantProvider(t *testing.T) *profileGrantProvider {
 				"resource":              base + "/mcp",
 				"authorization_servers": []string{base},
 				"scopes_supported":      []string{"read"},
+			}))
+		case "/.well-known/oauth-protected-resource/mcp":
+			// Only a late-challenge server that has protected resource metadata publishes it here.
+			if mode, _ := p.late.Load().(string); mode != lateChallengeToolsCall && mode != lateChallengeHang {
+				http.Error(w, "not found", http.StatusNotFound)
+				return
+			}
+			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+				"resource":              base + "/mcp",
+				"authorization_servers": []string{base},
+				"scopes_supported":      []string{"published"},
 			}))
 		case "/.well-known/oauth-authorization-server":
 			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
@@ -494,6 +595,124 @@ func TestProfileOAuthGrantStartRefusals(t *testing.T) {
 		Field:       "__url",
 		ProfileID:   profileGrantAgents,
 	}}, withReasons.Reasons)
+}
+
+// TestProfileOAuthGrantStartWithoutAnInitializeChallenge starts the grant of a component whose server lets anyone
+// initialize and list its tools, at a URL the catalog fixes and at one the profile configures:
+//
+//   - one that only challenges when a tool is called starts from the protected resource metadata it publishes, bound
+//     to the profile, its URL and its administrator as any grant is, and the component is known to need OAuth once the
+//     grant is stored;
+//   - one that publishes none is refused as not requiring OAuth, as before;
+//   - one that never answers tools/list fails the start once the request's time runs out, without falling back to the
+//     metadata it publishes.
+//
+// Every start's probes are unauthenticated and end their session, a refused start leaves no pending authorization, and
+// no error carries a URL that comes from configuration.
+func TestProfileOAuthGrantStartWithoutAnInitializeChallenge(t *testing.T) {
+	for _, configured := range []bool{false, true} {
+		for _, tt := range []struct {
+			name string
+			mode string
+			// wantScope is the scope the authorization asks for, when it starts.
+			wantScope string
+			// wantCode is the status of the error that refuses the start, if it is an HTTP error, and wantErr is part of
+			// its message.
+			wantCode int
+			wantErr  string
+		}{
+			{
+				name:      "tools/call challenge with published metadata",
+				mode:      lateChallengeToolsCall,
+				wantScope: "published",
+			},
+			{
+				name:     "no challenge and no metadata",
+				mode:     lateChallengeNone,
+				wantCode: http.StatusBadRequest,
+				wantErr:  `component "remote" does not require OAuth`,
+			},
+			{
+				name:    "hangs on tools/list",
+				mode:    lateChallengeHang,
+				wantErr: "context deadline exceeded",
+			},
+		} {
+			name := tt.name
+			if configured {
+				name += " at a configured URL"
+			}
+			t.Run(name, func(t *testing.T) {
+				f := newProfileGrantFixture(t)
+				if configured {
+					f.setRemote(t, &types.RemoteCatalogConfig{Hostname: "127.0.0.1"})
+					f.configure(t, profileGrantAgents, map[string]*string{"__url": new(f.provider.mcpURL())})
+				}
+				f.provider.late.Store(tt.mode)
+				requireRequired := func(want bool) {
+					t.Helper()
+					var vmcp v1.VMCP
+					require.NoError(t, f.storage.Get(t.Context(), f.key, &vmcp))
+					for _, profileID := range []string{profileGrantSeven, profileGrantAgents} {
+						status, err := f.grants.ProfileOAuthStatus(t.Context(), vmcp, profileID)
+						require.NoError(t, err)
+						require.Equal(t, want, status[profileGrantRemote].Required, profileID)
+					}
+				}
+				requireRequired(false)
+
+				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+				defer cancel()
+				req, _ := f.request(administrator("1"), http.MethodPost, "/api/vmcps/"+f.key.Name+"/profiles/"+profileGrantAgents+"/components/"+profileGrantRemote+"/oauth")
+				req.Request = req.WithContext(ctx)
+				started := time.Now()
+				authorization, err := f.factory.StartProfileOAuthGrant(req, f.key.Name, profileGrantAgents, profileGrantRemote)
+				require.Less(t, time.Since(started), 10*time.Second)
+				requireUnauthenticatedProbes(t, f.provider.lateProbes())
+
+				if tt.wantErr != "" {
+					require.ErrorContains(t, err, tt.wantErr)
+					if tt.wantCode != 0 {
+						requireErrHTTP(t, err, tt.wantCode)
+					}
+					if configured {
+						require.NotContains(t, err.Error(), f.provider.mcpURL())
+					}
+					var pending int64
+					require.NoError(t, f.db.Model(&gatewaytypes.MCPOAuthPendingState{}).Count(&pending).Error)
+					require.Zero(t, pending, "a refused start left a pending authorization")
+					requireRequired(false)
+					return
+				}
+
+				require.NoError(t, err)
+				parsed, err := url.Parse(authorization.AuthURL)
+				require.NoError(t, err)
+				require.Equal(t, f.provider.server.URL+"/authorize", parsed.Scheme+"://"+parsed.Host+parsed.Path)
+				require.Equal(t, tt.wantScope, parsed.Query().Get("scope"))
+				state := parsed.Query().Get("state")
+				pending, err := f.gateway.GetMCPOAuthPendingState(t.Context(), state)
+				require.NoError(t, err)
+				require.Equal(t, principal.ProfileGrant(f.key.Name, profileGrantAgents), pending.UserID)
+				require.Equal(t, f.provider.mcpURL(), pending.URL)
+				require.Equal(t, "1", pending.GrantInitiatorUserID)
+
+				// Only its administrator completes it, once.
+				_, err = f.callback(administrator("2"), state)
+				requireErrHTTP(t, err, http.StatusForbidden)
+				_, err = f.callback(administrator("1"), state)
+				require.NoError(t, err)
+				_, _, target, ok := f.storedGrant(t, profileGrantAgents)
+				require.True(t, ok)
+				require.Equal(t, f.provider.mcpURL(), target)
+				_, err = f.callback(administrator("1"), state)
+				requireErrHTTP(t, err, http.StatusBadRequest)
+
+				// The grant shows that the component needs OAuth, to every profile, including the one that holds none.
+				requireRequired(true)
+			})
+		}
+	}
 }
 
 // setRemote replaces how the fixture's remote component reaches its upstream.
