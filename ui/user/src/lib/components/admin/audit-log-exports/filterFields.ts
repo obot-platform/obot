@@ -2,8 +2,20 @@
 // Both forms offer the same log-source selection and render the same MCP/local-agent filter fields,
 // so that logic lives here to avoid drifting between the two.
 import { m } from '$lib/i18n';
+import type { AuditLogType } from '$lib/services';
 
 export const ALL_SOURCE_TYPES = ['mcp', 'local_agent_tool_call'] as const;
+
+// The prefixes the export controller uses when the key prefix is left empty.
+const DEFAULT_KEY_PREFIXES: Record<AuditLogType, string> = {
+	mcp: 'mcp-audit-logs',
+	llm: 'llm-audit-logs',
+	admin: 'admin-audit-events'
+};
+
+export function defaultExportKeyPrefix(logType: AuditLogType): string {
+	return DEFAULT_KEY_PREFIXES[logType];
+}
 
 export const sourceTypeLabels: Record<string, string> = {
 	mcp: 'MCP',

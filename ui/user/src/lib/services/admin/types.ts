@@ -102,7 +102,9 @@ export interface AppPreferencesManifest {
 
 // Audit log exports
 
-export type AuditLogType = 'mcp' | 'llm';
+// admin is the admin change audit: changes to agents, their API keys, and the policies and profiles
+// that name agents.
+export type AuditLogType = 'mcp' | 'llm' | 'admin';
 
 export interface AuditLogExportInput {
 	name: string;
@@ -113,6 +115,7 @@ export interface AuditLogExportInput {
 	endTime: string;
 	filters?: AuditLogExportFilters;
 	llmFilters?: LLMAuditLogExportFilters;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 export interface AuditLogExport {
 	id: string;
@@ -131,6 +134,7 @@ export interface AuditLogExport {
 	completedAt?: string;
 	filters?: AuditLogExportFilterResponse;
 	llmFilters?: LLMAuditLogExportFilters;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 export interface AuditLogExportFilterResponse {
 	apiKeyIDs?: number[];
@@ -200,6 +204,7 @@ export interface ScheduledAuditLogExportInput {
 	retentionPeriodInDays: number;
 	filters?: AuditLogExportFilters;
 	llmFilters?: LLMAuditLogExportFilters;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 export interface ScheduledAuditLogExport {
 	id: string;
@@ -218,6 +223,7 @@ export interface ScheduledAuditLogExport {
 	filters?: AuditLogExportFilterResponse;
 	llmFilters?: LLMAuditLogExportFilters;
 	lastExportedThrough?: string;
+	adminFilters?: AdminAuditEventExportFilters;
 }
 
 export type LLMAuditLogExportFilters = {
@@ -231,6 +237,17 @@ export type LLMAuditLogExportFilters = {
 	userAgents?: string[];
 	clientSessionIDs?: string[];
 	query?: string;
+};
+
+// Filters of an admin change audit export. Each lists values that match any; the filters combine
+// with and.
+export type AdminAuditEventExportFilters = {
+	// agent, apiKey, vmcpProfile, modelAccessPolicy or skillAccessRule.
+	resourceKinds?: string[];
+	resourceIDs?: string[];
+	// User IDs, or system.
+	actors?: string[];
+	actions?: string[];
 };
 
 // Auth and file scanner providers

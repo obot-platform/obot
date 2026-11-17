@@ -3,9 +3,11 @@ import { Group } from '$lib/services';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import AuditLogsPage from './+page.svelte';
+import AdminExportsPage from './admin/exports/+page.svelte';
 import LLMExportsPage from './llm/exports/+page.svelte';
 import MCPExportsPage from './mcp/exports/+page.svelte';
 import { http, HttpResponse } from 'msw';
+import type { Component } from 'svelte';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -75,9 +77,10 @@ describe('Audit logs page Claude Environments', () => {
 });
 
 describe('Read-Only Admin export pages', () => {
-	it.each([
+	it.each<{ type: string; ExportsPage: Component }>([
 		{ type: 'mcp', ExportsPage: MCPExportsPage },
-		{ type: 'llm', ExportsPage: LLMExportsPage }
+		{ type: 'llm', ExportsPage: LLMExportsPage },
+		{ type: 'admin', ExportsPage: AdminExportsPage }
 	])('shows $type jobs and schedules without write controls', async ({ type, ExportsPage }) => {
 		const params = (appPage.url as URL).searchParams;
 		onTestFinished(() => {
@@ -125,5 +128,19 @@ describe('Read-Only Admin export pages', () => {
 		await render(ExportsPage);
 		await expect.element(page.getByText('Daily export', { exact: true })).toBeVisible();
 		await expect.element(page.getByRole('checkbox')).not.toBeInTheDocument();
+	});
+});
+
+describe('Audit logs page admin change exports', () => {
+	it.each([
+		{ name: 'admins', groups: [Group.ADMIN], visible: true },
+		{ name: 'read-only admins', groups: [Group.USER, Group.ADMIN_READONLY], visible: true },
+		{ name: 'users without admin access', groups: [Group.USER], visible: false }
+	])('links $name to the admin change exports: $visible', async ({ groups, visible }) => {
+		await renderAuditLogsPage(groups, 'mcp');
+
+		const link = page.getByRole('button', { name: 'Admin Change Exports', exact: true });
+		if (visible) await expect.element(link).toBeVisible();
+		else await expect.element(link).not.toBeInTheDocument();
 	});
 });

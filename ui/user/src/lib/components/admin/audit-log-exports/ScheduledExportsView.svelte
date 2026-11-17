@@ -6,6 +6,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
+		type AuditLogType,
 		type ScheduledAuditLogExportInput,
 		type ScheduledAuditLogExport
 	} from '$lib/services';
@@ -18,7 +19,7 @@
 	interface Props {
 		query?: string;
 		readonly?: boolean;
-		logType?: 'mcp' | 'llm';
+		logType?: AuditLogType;
 	}
 
 	let { query, readonly, logType = 'mcp' }: Props = $props();
@@ -181,11 +182,7 @@
 	}
 
 	function handleRowClick(scheduledExport: ScheduledAuditLogExport) {
-		goto(
-			logType === 'llm'
-				? `/audit-logs/llm/exports/scheduled/${scheduledExport.id}/edit`
-				: `/audit-logs/mcp/exports/scheduled/${scheduledExport.id}/edit`
-		);
+		goto(`/audit-logs/${logType}/exports/scheduled/${scheduledExport.id}/edit`);
 	}
 </script>
 

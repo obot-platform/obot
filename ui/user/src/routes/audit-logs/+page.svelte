@@ -9,7 +9,7 @@
 	import { Group } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { Plus, Settings } from '@lucide/svelte';
+	import { History, Plus, Settings } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 
 	let mcpLogs = $state<ReturnType<typeof AuditLogsPageContent>>();
@@ -17,6 +17,7 @@
 	let canCreateExports = $derived(
 		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)
 	);
+	let canExportAdminChanges = $derived(profile.current.hasAdminAccess?.() ?? false);
 
 	function openExportForm(view: string, form: 'export' | 'scheduled') {
 		if (view === 'mcp') {
@@ -59,6 +60,14 @@
 />
 
 {#snippet navActions(view: string)}
+	<!-- The admin change history (agents, their keys, and the policies and profiles that name them)
+	has no log view here, only exports. -->
+	{#if canExportAdminChanges && view !== 'egress'}
+		<button class="btn btn-secondary rounded-4xl" onclick={() => goto('/audit-logs/admin/exports')}>
+			<History class="size-4" />
+			{m.audit_usage_audit_logs_admin_exports_title()}
+		</button>
+	{/if}
 	{#if (view === 'mcp' || view === 'llm') && (canCreateExports || profile.current.hasAdminAccess?.())}
 		<button
 			class="btn btn-secondary rounded-4xl"
