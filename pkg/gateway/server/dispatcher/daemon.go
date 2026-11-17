@@ -215,7 +215,7 @@ func (d *Dispatcher) newCommand(ctx context.Context, envMap map[string]string, c
 	}
 	envMap["OBOT_SERVER_PUBLIC_URL"] = d.serverURL
 	envMap["OBOT_SERVER_URL"] = d.sessionManager.TransformObotHostname(d.internalServerURL)
-	cmd.Env = envAsSlice(envMap)
+	cmd.Env = daemonEnv(envMap)
 
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -236,6 +236,14 @@ func (d *Dispatcher) newCommand(ctx context.Context, envMap map[string]string, c
 	}
 
 	return cmd, stop, nil
+}
+
+// daemonEnv returns a provider daemon's environment. It inherits Obot's proxy and CA bundle
+// settings so the provider can reach its upstreams (OIDC discovery, token endpoints) behind
+// an egress proxy. They come first because exec keeps the last of duplicate variables, so
+// the provider's own configuration takes precedence.
+func daemonEnv(envMap map[string]string) []string {
+	return append(system.NetworkEnv(), envAsSlice(envMap)...)
 }
 
 func envAsSlice(env map[string]string) []string {

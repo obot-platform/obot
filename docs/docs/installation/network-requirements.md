@@ -166,26 +166,23 @@ The UI works without them, with fallback fonts and missing icons.
 
 The Obot server honors the standard `HTTPS_PROXY`, `HTTP_PROXY`, and `NO_PROXY` environment variables for its own
 requests, including license validation, update checks, catalog and skill syncs, model pricing, the LLM gateway's
-calls to every provider, and remote MCP servers. The encryption providers and Claude Environments also receive them.
+calls to every provider, and remote MCP servers. Auth providers, the encryption providers, and Claude Environments
+also receive them, along with the `SSL_CERT_FILE`, `SSL_CERT_DIR`, and `NODE_EXTRA_CA_CERTS` CA bundle variables.
 Obot sets the proxy on every LLM gateway provider, unless `NO_PROXY` excludes the provider's endpoint or the provider
 has its own proxy.
 
 Some connections don't go through the proxy:
 
-- **Auth providers** run as separate processes that don't inherit the proxy variables.
 - **MCP servers** don't receive the proxy variables. Set them in each MCP server's environment if they need them.
 - **Image pulls** use your container runtime's proxy configuration, not Obot's.
-
-Proxy support for auth providers and MCP servers is coming soon.
 
 Remote MCP servers, MCP OAuth, OpenAPI imports, and catalogs fetched from a plain URL go through Obot's
 protection against requests to local and private networks. For those connections:
 
 - Obot resolves the destination hostname with its own DNS before sending the request through the proxy, so it needs
   DNS resolution for external hosts.
-- A proxy on a private IP address is blocked unless `OBOT_SERVER_DISALLOW_PRIVATE_IPMCP` is `false`, and a proxy on
-  localhost is blocked unless `OBOT_SERVER_DISALLOW_LOCALHOST_MCP` is `false`. Either setting also allows remote MCP
-  servers on those addresses.
+- The proxy itself may be on localhost or a private IP address. Obot checks the destination of each request, not the
+  address of the proxy it goes through.
 
 License validation, update checks, model pricing, and Git clones don't have these restrictions.
 
