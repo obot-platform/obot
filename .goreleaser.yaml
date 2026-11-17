@@ -58,6 +58,8 @@ release:
   github:
     owner: "obot-platform"
     name: "obot"
+  extra_files:
+    - glob: .release-sboms/*.spdx.json
   make_latest: false
   prerelease: auto
 

@@ -10,7 +10,18 @@ permissions:
   contents: write
 
 jobs:
+  docker-build:
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      packages: write
+      security-events: write
+    uses: ./.github/workflows/docker-build-and-push.yml
+    secrets: inherit
+
   release-tag:
+    needs: docker-build
     runs-on: depot-ubuntu-22.04
 
     steps:
@@ -42,6 +53,30 @@ jobs:
           )
           sudo install -m 0755 "${quill_dir}/quill" /usr/local/bin/quill
           quill version
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@v0.24.0
+        with:
+          syft-version: v1.42.3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Generate image SBOMs
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ needs.docker-build.outputs.image-digest }}
+        run: |
+          mkdir -p .release-sboms
+          for arch in amd64 arm64; do
+            syft scan \
+              --platform "linux/${arch}" \
+              "${IMAGE}" \
+              --output "spdx-json=.release-sboms/obot_${GITHUB_REF_NAME}_linux_${arch}.spdx.json"
+          done
 
       - name: Trigger providers repo tag workflow
         uses: peter-evans/repository-dispatch@v3
