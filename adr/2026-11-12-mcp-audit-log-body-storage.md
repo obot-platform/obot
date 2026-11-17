@@ -95,12 +95,6 @@ Alternatives are discussed in the ODP.
   replica, which are marked failed. Views without payloads are unaffected and
   no data is lost.
 - **Existing rows** are not rewritten. Storage falls as they age out.
-- **Key rotation is not supported.** Shared bodies and the HMAC key stay
-  under the encryption key they were written with, like other encrypted data
-  in Obot. A shared body that keeps being referenced is never re-encrypted, so
-  removing an old key makes the rows that reference such a body show it as
-  unavailable, and later rows store that result inline until the old copy ages
-  out.
 - **Lost HMAC key.** If the encryption key the HMAC key is stored under is
   lost, list responses are stored inline until the
   `mcp-audit-log-body-hash-key` row is deleted from `properties`. Replicas
