@@ -157,19 +157,38 @@ func TestMultiReplicaConfigReload(t *testing.T) {
 		key3 := "e2e-upstream-" + tag + "-k3"
 		env.mock.SetModels(key3, model)
 		addKey(t, adminA, provider, key3Name, key3)
-		harness.Eventually(t, reloadTimeout, "B sees the key added on A", func() error {
-			if findKeyID(t, adminB, provider, key3Name) == "" {
-				return fmt.Errorf("not listed on B")
-			}
-			return nil
-		})
 		for _, r := range []*harness.Replica{env.A, env.B} {
 			if err := gone(r); err != nil {
 				t.Fatal(err)
 			}
 		}
 
-		// Requests through either replica never use the deleted key.
+		// The admin API reads shared storage, so the checks above pass the moment a write
+		// commits. Each replica's engine applies the change later, when its watch fires; a
+		// write from another replica can wait out a debounce of up to a second. Until then
+		// the engine still holds the deleted key. A replica that serves a request with the
+		// new key has loaded storage after the deletion: keys are stored with their provider
+		// and each reload reads all of it. Key choice is weighted random between key1 and
+		// key3, so a few requests suffice.
+		for _, r := range []*harness.Replica{env.A, env.B} {
+			harness.Eventually(t, reloadTimeout, r.Config.Name+" serves with the key added on A", func() error {
+				n := nonce("applied")
+				res := callLLM(t, user.Gateway(r), apiChat, provider+"/"+model, "hi "+n, false, nil)
+				if res.Status != http.StatusOK {
+					return fmt.Errorf("HTTP %d: %s", res.Status, truncate(res.Body))
+				}
+				reqs := env.mock.InferenceRequests(n)
+				if len(reqs) != 1 {
+					return fmt.Errorf("want 1 upstream request, got %d", len(reqs))
+				}
+				if reqs[0].Key != key3 {
+					return fmt.Errorf("served with key %q", reqs[0].Key)
+				}
+				return nil
+			})
+		}
+
+		// From now on, requests through either replica never use the deleted key.
 		since := len(env.mock.Requests(""))
 		for i := range 10 {
 			r := []*harness.Replica{env.A, env.B}[i%2]
