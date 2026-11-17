@@ -32,8 +32,9 @@ const (
 	MetadataContextLength   = "bifrostContextLength"
 	MetadataMaxOutputTokens = "bifrostMaxOutputTokens"
 
-	// anthropicProvider is the built-in provider that forwards Claude subscriptions.
+	// Built-in providers that forward caller subscriptions.
 	anthropicProvider = "anthropic"
+	openaiProvider    = "openai"
 )
 
 type listedModel struct {
@@ -131,7 +132,7 @@ func (e *Engine) ListModels(ctx context.Context) (*openai.ModelsList, error) {
 
 	// Added after the last known models are recorded: they aren't a listing of the provider,
 	// so they mustn't stand in for one once subscriptions are turned off.
-	for _, provider := range []string{anthropicProvider, "openai"} {
+	for _, provider := range []string{anthropicProvider, openaiProvider} {
 		resp.Data = append(resp.Data, e.subscriptionModels(ctx, provider)...)
 	}
 	// A failed or empty listing may reuse cached entries. Recheck lifecycle
@@ -294,7 +295,7 @@ func (e *Engine) subscriptionModels(ctx context.Context, provider string) []list
 		slog.Warn("failed to check subscription provider keys", "provider", provider, "error", err)
 		return nil
 	}
-	if !builtin || provider != "openai" && enabled != 0 {
+	if !builtin || provider != openaiProvider && enabled != 0 {
 		return nil
 	}
 	catalog := e.catalog()
@@ -399,7 +400,7 @@ func (e *Engine) ConfiguredProviders(ctx context.Context) ([]string, error) {
 		names = append(names, string(p.Name))
 	}
 	// Subscription-only providers stop advertising models when their setting is disabled.
-	for _, provider := range []string{anthropicProvider, "openai"} {
+	for _, provider := range []string{anthropicProvider, openaiProvider} {
 		if slices.Contains(names, provider) {
 			if allowed, err := e.SubscriptionPassthrough(ctx, provider); err == nil && !allowed {
 				if builtin, keys, _, err := e.subscriptionProviderKeys(ctx, provider); err == nil && builtin && keys == 0 {
@@ -447,7 +448,7 @@ func (e *Engine) hasUpstreamProviders(ctx context.Context) (bool, error) {
 		}
 	}
 	// A built-in subscription provider can be used without configured keys.
-	for _, provider := range []string{anthropicProvider, "openai"} {
+	for _, provider := range []string{anthropicProvider, openaiProvider} {
 		if only, err := e.subscriptionsOnly(ctx, provider); err != nil || only {
 			return only, err
 		}

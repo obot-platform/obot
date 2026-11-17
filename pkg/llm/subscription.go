@@ -35,3 +35,19 @@ func IsChatGPTSubscription(headers http.Header) bool {
 	return schemas.CodexCLI.Matches(strings.ReplaceAll(headers.Get("User-Agent"), "_", "-")) &&
 		strings.HasPrefix(strings.ToLower(headers.Get("Authorization")), "bearer eyj")
 }
+
+// StripProviderCredentials retains only an enabled subscription's credentials for
+// its matching provider. Gateway authentication and engine overrides are stripped by the caller.
+func StripProviderCredentials(headers http.Header, provider string, subscriptionPassthrough bool) bool {
+	chatgpt := IsChatGPTSubscription(headers)
+	subscription := subscriptionPassthrough && (provider == string(schemas.Anthropic) && IsClaudeSubscription(headers) || provider == string(schemas.OpenAI) && chatgpt)
+	for _, name := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", "ChatGPT-Account-ID", "OpenAI-Organization", "OpenAI-Project"} {
+		// Keep the subscription bearer and ChatGPT account selector; other
+		// credentials or account overrides must not affect the upstream request.
+		if subscription && (name == "Authorization" || chatgpt && name == "ChatGPT-Account-ID") {
+			continue
+		}
+		headers.Del(name)
+	}
+	return subscription
+}

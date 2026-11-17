@@ -275,12 +275,14 @@ func TestCodexCatalogRequiresOpenAIGrant(t *testing.T) {
 			StatusCode: http.StatusOK,
 			Header:     make(http.Header),
 			Request:    r,
-			Body:       io.NopCloser(strings.NewReader(`{"models":[{"slug":"test","future":42}]}`)),
+			Body:       io.NopCloser(strings.NewReader(`{"models":[{"slug":"test","future":42}],"first_id":"catalog-first","last_id":"catalog-last"}`)),
 		}
 		require.NoError(t, filterModelListResponse(resp, map[string]bool{"anthropic/test": true, "test": true, "openai/test": granted}, false))
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 		require.Equal(t, granted, gjson.GetBytes(body, "models.0").Exists())
+		require.Equal(t, "catalog-first", gjson.GetBytes(body, "first_id").String())
+		require.Equal(t, "catalog-last", gjson.GetBytes(body, "last_id").String())
 	}
 }
 

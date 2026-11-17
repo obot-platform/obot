@@ -458,7 +458,7 @@ func (a *gatewayAttempts) budgetExceeded() *client.LLMGatewayBudgetExceeded {
 // check admits one attempt: the caller must be allowed to use the attempted model, and every
 // budget that applies to it must have room. A caller may only be served by models they may
 // use, whatever routed them there, and spends the budgets of the model that serves them,
-// unless their own Claude subscription pays for it.
+// unless their own subscription pays for it.
 func (a *gatewayAttempts) check(b *bifrostProviderBackend, l *llmProviderProxy, apiReq api.Context, requested *v1.Model) guardrails.AttemptCheck {
 	checkAttempt := a.checkAttempt(b, l, apiReq, requested)
 	return func(ctx context.Context, attempt guardrails.Attempt) error {
@@ -481,10 +481,9 @@ func (a *gatewayAttempts) lastRefused() bool {
 func (a *gatewayAttempts) checkAttempt(b *bifrostProviderBackend, l *llmProviderProxy, apiReq api.Context, requested *v1.Model) guardrails.AttemptCheck {
 	return func(_ context.Context, attempt guardrails.Attempt) error {
 		reference := attempt.Model
-		provider := a.subscriptionProvider
-		if a.subscriptionProvider != "" && !strings.HasPrefix(reference, provider+"/") {
+		if a.subscriptionProvider != "" && !strings.HasPrefix(reference, a.subscriptionProvider+"/") {
 			// Reject foreign attempts before budget admission; subscriptions never spend configured keys.
-			return &guardrails.AttemptError{Status: http.StatusForbidden, Type: "permission_denied", Message: fmt.Sprintf("subscription requests can only be served by %s models, not %q", provider, reference)}
+			return &guardrails.AttemptError{Status: http.StatusForbidden, Type: "permission_denied", Message: fmt.Sprintf("subscription requests can only be served by %s models, not %q", a.subscriptionProvider, reference)}
 		}
 		model := requested
 		if requested == nil || reference != requested.Spec.Manifest.TargetModel {
@@ -565,21 +564,17 @@ func (b *bifrostProviderBackend) authorizeExtraModels(l *llmProviderProxy, req a
 // stripCallerCredentials keeps only an enabled subscription's upstream credential,
 // for its matching provider. The Obot API key and caller engine overrides are always removed.
 func stripCallerCredentials(req *http.Request, model *v1.Model, subscriptionPassthrough bool) bool {
-	chatgpt := llmtypes.IsChatGPTSubscription(req.Header)
-	matches := model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "anthropic/") &&
-		llmtypes.IsClaudeSubscription(req.Header)
-	if chatgpt {
-		matches = model == nil && isModelsListRequest(req) || model != nil && strings.HasPrefix(model.Spec.Manifest.TargetModel, "openai/")
-	}
-	subscription := subscriptionPassthrough && matches
-	for _, h := range []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", "ChatGPT-Account-ID", "OpenAI-Organization", "OpenAI-Project", guardrails.HeaderRequestToken, HeaderObotAPIKey} {
-		// Keep the admitted subscription's bearer token and ChatGPT account selector;
-		// other credentials or account overrides must not affect the upstream request.
-		if subscription && (h == "Authorization" || chatgpt && h == "ChatGPT-Account-ID") {
-			continue
+	provider := ""
+	if model != nil {
+		if name, _, qualified := strings.Cut(model.Spec.Manifest.TargetModel, "/"); qualified {
+			provider = name
 		}
-		req.Header.Del(h)
+	} else if isModelsListRequest(req) {
+		provider = "openai"
 	}
+	subscription := llmtypes.StripProviderCredentials(req.Header, provider, subscriptionPassthrough)
+	req.Header.Del(guardrails.HeaderRequestToken)
+	req.Header.Del(HeaderObotAPIKey)
 	// Never let callers pick a virtual key or set other engine options of their own.
 	for name := range req.Header {
 		if strings.HasPrefix(strings.ToLower(name), "x-bf-") {

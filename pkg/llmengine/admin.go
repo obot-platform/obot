@@ -126,18 +126,22 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 				cfg.AzureAccounts[schemas.ModelProvider(name)] = nil
 			}
 			out, err = apply(ctx, &cfg, guarded.Body)
+
+			// Key mutations pass no provider body and cannot change the destination or proxy.
 			if err == nil && body != nil {
+				var subscriptionProvider schemas.ModelProvider
 				for provider, pc := range cfg.Providers {
-					if pc.SubscriptionPassthrough == nil || !*pc.SubscriptionPassthrough {
-						continue
-					}
-					// Provider validation must include the inherited proxy, too.
-					cfg.Settings, err = e.store.GetSettings(ctx)
-					if err == nil && !llmcore.SubscriptionDestination(&cfg, provider) {
-						err = apierrors.NewBadRequest("subscription_passthrough requires verified TLS without proxy certificate overrides")
-					}
-					if err != nil {
+					if pc.SubscriptionPassthrough != nil && *pc.SubscriptionPassthrough {
+						subscriptionProvider = provider
 						break
+					}
+				}
+
+				if subscriptionProvider != "" {
+					// The scoped map contains one provider; include its inherited proxy in validation.
+					cfg.Settings, err = e.store.GetSettings(ctx)
+					if err == nil && !llmcore.SubscriptionDestination(&cfg, subscriptionProvider) {
+						err = apierrors.NewBadRequest("subscription_passthrough requires verified TLS without proxy certificate overrides")
 					}
 				}
 			}

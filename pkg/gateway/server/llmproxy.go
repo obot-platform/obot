@@ -329,17 +329,17 @@ func filterModelListResponse(resp *http.Response, allowedTargetModels map[string
 
 	out, err := sjson.SetRawBytes(body, list, []byte("["+strings.Join(kept, ",")+"]"))
 	if err != nil {
+		// Restricted Codex catalogs must never fall back to an unfiltered body.
 		if codex {
 			return err
 		}
 		return nil
 	}
-	out, err = rewriteAnthropicListCursors(out)
-	if err != nil {
-		if codex {
-			return err
+	if !codex {
+		out, err = rewriteAnthropicListCursors(out)
+		if err != nil {
+			return nil
 		}
-		return nil
 	}
 
 	resp.Body = io.NopCloser(bytes.NewReader(out))

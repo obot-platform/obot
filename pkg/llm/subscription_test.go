@@ -47,3 +47,73 @@ func TestSubscriptionCredentialModes(t *testing.T) {
 		})
 	}
 }
+
+func TestStripProviderCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		provider string
+		auth     string
+		enabled  bool
+		keepAuth bool
+		keepID   bool
+	}{
+		{
+			name:     "Claude subscription",
+			provider: "anthropic",
+			auth:     "Bearer sk-ant-oat-fixture",
+			enabled:  true,
+			keepAuth: true,
+		},
+		{
+			name:     "Claude credential on OpenAI",
+			provider: "openai",
+			auth:     "Bearer sk-ant-oat-fixture",
+			enabled:  true,
+		},
+		{
+			name:     "ChatGPT subscription",
+			provider: "openai",
+			auth:     "Bearer eyJfixture.payload.signature",
+			enabled:  true,
+			keepAuth: true,
+			keepID:   true,
+		},
+		{
+			name:     "ChatGPT credential on Anthropic",
+			provider: "anthropic",
+			auth:     "Bearer eyJfixture.payload.signature",
+			enabled:  true,
+		},
+		{
+			name:     "disabled passthrough",
+			provider: "openai",
+			auth:     "Bearer eyJfixture.payload.signature",
+		},
+		{
+			name:     "configured credential",
+			provider: "openai",
+			auth:     "Bearer sk-fixture",
+			enabled:  true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			headers := http.Header{
+				"Authorization":       {tc.auth},
+				"User-Agent":          {"codex_cli_rs/0.167.0"},
+				"Chatgpt-Account-Id":  {"fixture-account"},
+				"X-Api-Key":           {"fixture-key"},
+				"Api-Key":             {"fixture-key"},
+				"X-Goog-Api-Key":      {"fixture-key"},
+				"Cookie":              {"fixture-cookie"},
+				"Openai-Organization": {"fixture-organization"},
+				"Openai-Project":      {"fixture-project"},
+			}
+			require.Equal(t, tc.keepAuth, StripProviderCredentials(headers, tc.provider, tc.enabled))
+			require.Equal(t, tc.keepAuth, headers.Get("Authorization") != "")
+			require.Equal(t, tc.keepID, headers.Get("ChatGPT-Account-ID") != "")
+			for _, name := range []string{"X-Api-Key", "Api-Key", "X-Goog-Api-Key", "Cookie", "OpenAI-Organization", "OpenAI-Project"} {
+				require.Empty(t, headers.Get(name), name)
+			}
+		})
+	}
+}

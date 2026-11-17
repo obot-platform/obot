@@ -35,7 +35,8 @@ type AzureDiscoverySnapshot struct {
 
 // Provider is one atomic configuration aggregate: provider settings and its keys.
 type Provider struct {
-	// Nil identifies aggregates predating the legacy subscription migration.
+	// Nil identifies unmigrated aggregates; false also records an explicit revocation
+	// that a delayed migration on another replica must preserve.
 	SubscriptionPassthrough *bool                             `json:"subscription_passthrough,omitempty"`
 	AzureAccounts           map[string]AzureAccount           `json:",omitempty"`
 	AzureDiscoveries        map[string]AzureDiscoverySnapshot `json:",omitempty"`
