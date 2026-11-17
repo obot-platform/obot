@@ -201,7 +201,8 @@ components:
     name: Search
     mcpServerCatalogEntryKey: search
 profiles:
-  - name: everyone
+  - id: everyone
+    name: everyone
     subjects:
       - type: selector
         id: "*"
@@ -210,6 +211,8 @@ profiles:
         search-component:
           allowedTools: null # Allow all enabled tools for this component.
 ```
+
+Give each profile an explicit `id` (1–63 lowercase letters, digits and hyphens, starting and ending with a letter or digit). Without one, sync derives the ID from the vMCP and profile names, so renaming the profile makes it a new profile, and any [agent setup](../mcp-gateway/agent-setup.md#catalog-vmcps) on the old one is deleted. Profiles can name every agent (`type: agent`, `id: "*"`), every user (`type: user`, `id: "*"`) or everyone (`type: selector`, `id: "*"`), but not a specific agent, because agent IDs belong to one Obot deployment. A vMCP can have one profile that names everyone, or one that names every user and one that names every agent, but not both forms.
 
 A component's `configuration` sets a policy for each of its entry's configuration fields: `fixed`, `userAllowed`, or `prohibited`. A `fixed` field can use `secretBinding` instead of a clear-text `value` so Obot reads the value from a Kubernetes Secret when the component server starts:
 

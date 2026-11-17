@@ -6,7 +6,9 @@ Obot credentials serve different connections. Manage them according to their own
 
 | Credential | Configure and revoke |
 |---|---|
-| Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md); deleting a scope invalidates its keys |
+| Client API key | [Agent authorization scopes](../functionality/agent-auth-scopes.md), under **Identity & Access > API Keys**; deleting a scope invalidates its keys |
+| Agent API key | [Agent identities](./agent-identities.md#create-a-key); revoking a key, or disabling or deleting its agent, invalidates it |
+| Agent upstream configuration and OAuth grants | [Agent setup on vMCP profiles](../mcp-gateway/agent-setup.md) |
 | Upstream MCP OAuth application | [Static OAuth](../mcp-gateway/server-configuration.md#static-oauth); changing application credentials can interrupt use |
 | Shared or user-supplied MCP configuration | [vMCP configuration policies](../mcp-gateway/server-types.md#virtual-mcps-configuration-policies) |
 | Externally managed Kubernetes Secret | [Secret bindings](../concepts/mcp-hosting.md#mcp-servers-kubernetes-secret-bindings), including the required discovery/resolution label |
@@ -17,10 +19,12 @@ Application-level encryption is disabled by default. Read the [encryption covera
 
 Preserve key access when restoring encrypted data; losing the key or KMS permissions can make a database backup unusable.
 
-## Create an agent identity and authorization scope {#agent-auth-scopes-creating-an-agent-authorization-scope}
+## Create an API key {#agent-auth-scopes-creating-an-agent-authorization-scope}
 
-1. Open **Identity & Access > Agents**.
-2. Click **Create Agent Identity**.
+An API key lets your own scripts and tools call Obot as you. For automation that should have its own identity, independent of any user, use an [agent identity](./agent-identities.md) instead.
+
+1. Open **Identity & Access > API Keys**.
+2. Click **Create API Key**.
 3. Fill in the required information:
    - **Name** (required): A descriptive name that identifies the authorization scope's purpose
    - **Description** (optional): Additional context about how the authorization scope is used
@@ -35,15 +39,15 @@ Preserve key access when restoring encrypted data; losing the key or KMS permiss
      - **Device scan access**: Submit and read device scans
 4. Click **Save**.
 
-The UI calls these credentials **agent identities**; each identity has an authorization scope and one or more API keys. For CLI creation and client examples, see the [authorization scope reference](../functionality/agent-auth-scopes.md).
+This tab was called **Agents**, and these keys *agent identities*, before [agent identities](./agent-identities.md) became their own feature. Old links to the tab redirect to **API Keys**. For CLI creation and client examples, see the [API key reference](../functionality/agent-auth-scopes.md).
 
 After creation, you'll see a dialog displaying an initial new API key to use. **Copy and save this key immediately**—it will only be shown once and cannot be retrieved later.
 
-## Managing Agent Authorization Scopes {#agent-auth-scopes-managing-agent-authorization-scopes}
+## Managing API keys {#agent-auth-scopes-managing-agent-authorization-scopes}
 
-### Viewing Your Agent Authorization Scopes {#agent-auth-scopes-viewing-your-agent-authorization-scopes}
+### Viewing your API keys {#agent-auth-scopes-viewing-your-agent-authorization-scopes}
 
-Open **Identity & Access > Agents** to see all your agent authorization scopes. The table displays:
+Open **Identity & Access > API Keys** to see all your API keys. The table displays:
 
 | Column | Description |
 |--------|-------------|
@@ -52,14 +56,14 @@ Open **Identity & Access > Agents** to see all your agent authorization scopes. 
 | Last Used | When an API key generated for the scope was last used |
 | Expires | When the scope will expire (or "Never" if it has no expiration date) |
 
-### Deleting an Agent Authorization Scope {#agent-auth-scopes-deleting-an-agent-authorization-scope}
+### Deleting an API key {#agent-auth-scopes-deleting-an-agent-authorization-scope}
 
-1. Open **Identity & Access > Agents**
-2. Click the three-dot menu on the authorization scope you want to delete
+1. Open **Identity & Access > API Keys**
+2. Click the three-dot menu on the key you want to delete
 3. Select **Delete**
 4. Confirm the deletion
 
-Deleting an agent authorization scope immediately invalidates its API keys. This action cannot be undone.
+Deleting an API key immediately invalidates it. This action cannot be undone.
 
 ## Supported Encryption Providers {#overview-supported-encryption-providers}
 

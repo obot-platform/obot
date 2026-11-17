@@ -64,7 +64,7 @@ Guardrails are applied to LLM gateway traffic in [profiles](./model-access-polic
   - **Log** records the finding in the request's LLM audit log entry and lets the request through unchanged.
 - **Profile**: the profile it's applied in. It applies to that profile's users and groups. The applied guardrails of every profile a user is in apply to them.
 - **Condition** (optional): a [CEL](https://github.com/google/cel-spec) expression that must be true for the policy to apply.
-  - It can use `model` (for example `"openai/gpt-4.1"`), `provider`, `params` (currently only `params.max_tokens`, when the request sets it; test with `"max_tokens" in params`), `headers`, `user.id` and `user.groups`.
+  - It can use `model` (for example `"openai/gpt-4.1"`), `provider`, `params` (currently only `params.max_tokens`, when the request sets it; test with `"max_tokens" in params`), `headers`, `user.id`, `user.groups`, `principal.kind` and `principal.id`. For an [agent identity](../security/agent-identities.md), `user.id` is `agent:<id>`, `user.groups` is empty, and `principal.kind` is `"agent"`. See [CEL variables](../reference/agent-identities.md#cel).
   - `user.groups` holds the IDs of the user's auth provider groups, the same IDs that group subjects use. It doesn't hold group names or Obot roles.
   - For example: `model.startsWith("openai/") && !("<contractors group ID>" in user.groups)`.
   - Reading a header that isn't there is an error, so test for it first: `"x-team" in headers && headers["x-team"] == "sales"`. A condition that fails to evaluate is logged by the Obot server (at most once a minute per policy); the policy is then skipped, or blocks the request if it fails closed.

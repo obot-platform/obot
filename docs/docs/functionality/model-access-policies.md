@@ -34,9 +34,16 @@ A profile can grant access to:
 
 - **Individual users** — Select specific people by name
 - **Groups** — Select authentication provider groups (such as "engineering" or "marketing")
-- **Everyone** — Use the "All Obot Users" option to grant access to all authenticated users
+- **Individual agents** — Select specific [agent identities](../security/agent-identities.md) by name
+- **All Users** — Every user, and no agents
+- **All Agents** — Every agent identity
+- **Everyone** — Use the "Everyone (All Obot Users and Agents)" option to grant access to all authenticated users and every agent
 
-Using "All Obot Users" is convenient for making certain models universally available while using separate profiles to grant additional models to specific teams.
+**Everyone** includes agents, so a profile that granted everyone before agent identities existed now grants agents too. Use **All Users** for a grant meant only for people. A wildcard must be a profile's only subject. Agents never match groups.
+
+Using **Everyone** is convenient for making certain models universally available while using separate profiles to grant additional models to specific teams.
+
+Agents get the models, budgets and applied guardrails of every profile that matches them, as users do. Budgets that exempt administrators never exempt an agent, and users' personal daily token limits don't apply to agents. See [Budgets](../reference/agent-identities.md#budgets).
 
 ### Models
 

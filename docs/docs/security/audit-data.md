@@ -68,10 +68,12 @@ Click on any log entry to see additional details:
 
 Filter logs by:
 - Date range
-- User
+- User or [agent](./agent-identities.md#audit), and actor kind
 - MCP Server
 - Operation type
 - Status
+
+An agent's calls are attributed to the agent and its key, with an **Agent** badge, and name the vMCP, the component, and the profiles whose configuration or OAuth grants the call used. See [Audit fields](../reference/agent-identities.md#activity-audit).
 
 ### Retention {#audit-logs-and-usage-retention}
 
@@ -187,3 +189,10 @@ The overlap covers brief write and commit delays. This is best-effort delivery: 
    - View and manage schedules in the "Export Schedules" tab
    - Enable/disable schedules as needed
    - Edit schedule configuration
+
+### Admin Change Exports {#audit-log-export-admin-change-exports}
+
+The [admin change history](../reference/agent-identities.md#admin-audit) records changes to agents, their API keys, and the policies and profiles that name agents. To export it, go to Operations → Audit Logs and click "Admin Change Exports", then click "Add Export" → "Create One-time Export" or "Create Export Schedule". The forms are the same as above, with these differences:
+
+- **Key Prefix**: If empty, defaults to `admin-audit-events/YYYY/MM/DD/`.
+- **Filters**: Resource kinds, actions, actors (users, or System for changes Obot makes itself), and resource IDs. The history has no free-text search.

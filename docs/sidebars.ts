@@ -78,6 +78,11 @@ const sidebars = {
 				},
 				{
 					"type": "doc",
+					"id": "mcp-gateway/agent-setup",
+					"label": "Set up vMCPs for agents"
+				},
+				{
+					"type": "doc",
 					"id": "mcp-gateway/register-remote",
 					"label": "Add remote MCP servers"
 				},
@@ -268,6 +273,11 @@ const sidebars = {
 					"type": "doc",
 					"id": "security/authentication",
 					"label": "User sign-in and identity"
+				},
+				{
+					"type": "doc",
+					"id": "security/agent-identities",
+					"label": "Agent identities"
 				},
 				{
 					"type": "doc",
@@ -473,6 +483,11 @@ const sidebars = {
 					"type": "doc",
 					"id": "reference/cli-api",
 					"label": "CLI and APIs"
+				},
+				{
+					"type": "doc",
+					"id": "reference/agent-identities",
+					"label": "Agent identities"
 				},
 				{
 					"type": "doc",

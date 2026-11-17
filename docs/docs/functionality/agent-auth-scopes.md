@@ -5,6 +5,10 @@ title: Agent Authorization Scopes
 
 For the current task-based instructions, see [Credentials and encryption](../security/credentials.md). This page preserves existing bookmarks and specialized reference material.
 
+:::note
+These are API keys that act as their user, now under **Identity & Access > API Keys**. That tab used to be called **Agents**. For automation with its own identity, keys and audit trail, independent of any user, see [Agent identities](../security/agent-identities.md).
+:::
+
 Agent authorization scopes provide programmatic access to Obot from scripts, automation tools, external MCP clients, and compatible LLM clients. Instead of using interactive browser-based OAuth authentication, you can create scopes that generate API keys with only the capabilities each integration needs.
 
 ## Overview {#overview}
@@ -219,8 +223,8 @@ Administrators can manage agent authorization scopes across all users.
 ### Viewing All Agent Authorization Scopes {#viewing-all-agent-authorization-scopes}
 
 
-1. Navigate to **Identity & Access > Agents** in the admin sidebar.
-2. View all agent authorization scopes in the system with their associated users.
+1. Navigate to **Identity & Access > API Keys** in the admin sidebar.
+2. View all users' API keys in the system with their associated users. Keys of [agent identities](../security/agent-identities.md) aren't listed here: manage them on each agent's page under **Identity & Access > Agents**.
 
 The admin view includes the same information as the user view, plus a **Created By** column showing which user owns each scope.
 
@@ -229,7 +233,7 @@ The admin view includes the same information as the user view, plus a **Created 
 
 Administrators can delete any user's agent authorization scope:
 
-1. Navigate to **Identity & Access > Agents**.
+1. Navigate to **Identity & Access > API Keys**.
 2. Click the three-dot menu for the authorization scope.
 3. Select **Delete**.
 4. Confirm the deletion.

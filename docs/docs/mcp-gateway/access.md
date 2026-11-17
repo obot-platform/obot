@@ -12,6 +12,8 @@ Choose **Managed** tool setup when you need to discover, capture, and select spe
 4. The user's instance can narrow tool selection further.
 5. An [authorization scope](../functionality/agent-auth-scopes.md) restricts programmatic credentials within their owner's permissions.
 
+[Agent identities](../security/agent-identities.md) skip the first layer: MCP access policies never apply to agents and can't name them. An agent reaches MCP servers only through vMCP profiles that name it, **All Agents**, or **Everyone**. See [Set up vMCPs for agents](./agent-setup.md).
+
 Test both an allowed and an ungranted tool using the intended user's account. Also inspect broad profiles, including default administrator grants, when a tool remains accessible unexpectedly.
 
 Catalog `unsupportedTools` metadata is a usability hint, not an access restriction. Use vMCP tool selection and profiles to control what clients can discover and call.
