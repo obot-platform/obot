@@ -426,12 +426,12 @@ func TestGatewayAdminNamedHandlerSafeguards(t *testing.T) {
 		{
 			method: http.MethodPut,
 			path:   "providers/anthropic",
-			body:   `{"proxy_config":{"skip_tls_verify":true}}`,
+			body:   `{"network_config":{"insecure_skip_verify":true}}`,
 		},
 		{
 			method: http.MethodPut,
 			path:   "providers/openai",
-			body:   `{"proxy_config":{"skip_tls_verify":true}}`,
+			body:   `{"network_config":{"insecure_skip_verify":true}}`,
 		},
 		{
 			method: http.MethodPut,

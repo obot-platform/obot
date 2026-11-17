@@ -658,12 +658,12 @@ func createProvider(_ context.Context, cfg *llmcoreclient.Config, body []byte) (
 	if err := json.Unmarshal(raw, &pc); err != nil {
 		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
-	if err := validateProvider(name, pc, body); err != nil {
+	if err := validateProvider(name, pc); err != nil {
 		return ProviderResponse{}, err
 	}
 
 	pc.CheckAndSetDefaults()
-	if err := validateProvider(name, pc, body); err != nil {
+	if err := validateProvider(name, pc); err != nil {
 		return ProviderResponse{}, err
 	}
 
@@ -693,11 +693,11 @@ func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc ll
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
-	if err := validateProvider(name, next, body); err != nil {
+	if err := validateProvider(name, next); err != nil {
 		return ProviderResponse{}, err
 	}
 	next.CheckAndSetDefaults()
-	if err := validateProvider(name, next, body); err != nil {
+	if err := validateProvider(name, next); err != nil {
 		return ProviderResponse{}, err
 	}
 
@@ -980,7 +980,7 @@ func updatePricingOverride(cfg *llmcoreclient.Config, id, method string, body []
 	return in, nil
 }
 
-func validateProvider(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, body []byte) error {
+func validateProvider(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig) error {
 	base := name
 	if pc.CustomProviderConfig != nil {
 		base = pc.CustomProviderConfig.BaseProviderType
@@ -1002,22 +1002,6 @@ func validateProvider(name schemas.ModelProvider, pc llmcoreclient.ProviderConfi
 	}
 	if !*pc.SubscriptionPassthrough {
 		return nil
-	}
-	// Bifrost's provider schema ignores skip_tls_verify in JSON. Preserve the
-	// public API's rejection before decoding can silently discard that spelling.
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(body, &fields); err != nil {
-		return apierrors.NewBadRequest(err.Error())
-	}
-	if field := fieldNamed(fields, "proxy_config"); field != "" {
-		var proxy map[string]json.RawMessage
-		_ = json.Unmarshal(fields[field], &proxy)
-		for field, raw := range proxy {
-			var skip bool
-			if (strings.EqualFold(field, "skip_tls_verify") || strings.EqualFold(field, "insecure_skip_verify")) && json.Unmarshal(raw, &skip) == nil && skip {
-				return apierrors.NewBadRequest("subscription_passthrough requires verified proxy TLS")
-			}
-		}
 	}
 	provider := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{name: pc}}
 	if name != schemas.Anthropic && name != schemas.OpenAI || !llmcore.SubscriptionDestination(provider, name) {

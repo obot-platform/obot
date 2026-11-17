@@ -103,11 +103,6 @@ func TestProviderSubscriptionValidation(t *testing.T) {
 			patch:   `{"subscription_passthrough":true}`,
 		},
 		{
-			name:    "proxy TLS skip while enabled",
-			initial: `{"provider":"openai","subscription_passthrough":true}`,
-			patch:   `{"proxy_config":{"skip_tls_verify":true}}`,
-		},
-		{
 			name:    "credential override while enabled",
 			initial: `{"provider":"openai","subscription_passthrough":true}`,
 			patch:   `{"network_config":{"extra_headers":{"Authorization":"fixture"}}}`,
