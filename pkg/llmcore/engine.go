@@ -151,7 +151,7 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 		return nil, fmt.Errorf("provider %s is not configured", provider)
 	}
 
-	if err := validateProviderQueue(provider, pc); err != nil {
+	if err := validateProviderQueue(provider, pc.ProviderConfig); err != nil {
 		return nil, err
 	}
 
@@ -164,8 +164,8 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 	}
 	pc.CheckAndSetDefaults()
 
-	pc.ProxyConfig = ProviderProxy(pc, cfg.Settings["proxy"])
-	return &pc, nil
+	pc.ProxyConfig = ProviderProxy(pc.ProviderConfig, cfg.Settings["proxy"])
+	return &pc.ProviderConfig, nil
 }
 
 // Bifrost defaults only zero values; negative sizes can panic or start no workers.
@@ -291,7 +291,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 	for name := range cfg.Providers {
 		// GetProviderByKey can lazily start standard providers with defaults on
 		// account errors. Do not let that probe hide a rejected queue config.
-		queueErr := validateProviderQueue(name, cfg.Providers[name])
+		queueErr := validateProviderQueue(name, cfg.Providers[name].ProviderConfig)
 		if queueErr != nil || e.client.GetProviderByKey(name) == nil {
 			delete(e.applied.Providers, name)
 			e.account.transitioning.Store(name, false)
@@ -308,7 +308,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 			}
 			continue
 		}
-		e.appliedProxy[name] = ProviderProxy(cfg.Providers[name], cfg.Settings["proxy"])
+		e.appliedProxy[name] = ProviderProxy(cfg.Providers[name].ProviderConfig, cfg.Settings["proxy"])
 	}
 	e.syncErr = errors.Join(startupErrors...)
 	return e, nil
@@ -393,11 +393,14 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
 	retiring := make(map[schemas.ModelProvider]struct{})
 	for name, pc := range cfg.Providers {
-		proxy := ProviderProxy(pc, cfg.Settings["proxy"])
+		proxy := ProviderProxy(pc.ProviderConfig, cfg.Settings["proxy"])
 		_, pending := e.account.transitioning.Load(name)
-		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev, pc) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
+		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev.ProviderConfig, pc.ProviderConfig) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			updates[name] = proxy
 			retiring[name] = struct{}{}
+		} else {
+			// Metadata-only edits advance the snapshot without rebuilding the Bifrost provider.
+			old.Providers[name] = pc
 		}
 	}
 	for name := range previous.Providers {

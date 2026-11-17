@@ -493,7 +493,7 @@ func TestChatGPTSubscriptionRecordingFallbackRetryAndErrors(t *testing.T) {
 
 func TestChatGPTSubscriptionAttemptIsolationAndFinalGate(t *testing.T) {
 	a := &account{}
-	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
+	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{
 		schemas.OpenAI:    {},
 		schemas.Anthropic: {},
 	}})
@@ -552,7 +552,7 @@ func TestChatGPTSubscriptionAttemptIsolationAndFinalGate(t *testing.T) {
 
 func TestChatGPTSubscriptionContextPrivacyAndParsing(t *testing.T) {
 	e := &Engine{account: &account{}}
-	e.account.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"foreign": {}}})
+	e.account.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{"foreign": {}}})
 	r := codexHTTPRequest(t.Context(), "/v1/responses", "", true)
 	credential, valid := subscriptionCredential(r.Header)
 	require.True(t, valid)

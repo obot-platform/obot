@@ -206,13 +206,13 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &llmcoreclient.Config{
-				Providers: map[schemas.ModelProvider]schemas.ProviderConfig{},
+				Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{},
 				Settings:  map[string]json.RawMessage{"proxy": json.RawMessage(tc.proxy)},
 			}
 			if !tc.absent {
 				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "anthropic", string(provider))
 				tc.config.NetworkConfig.BaseURL = strings.ReplaceAll(tc.config.NetworkConfig.BaseURL, "ANTHROPIC", strings.ToUpper(string(provider)))
-				cfg.Providers[provider] = tc.config
+				cfg.Providers[provider] = llmcoreclient.ProviderConfig{ProviderConfig: tc.config}
 			}
 			require.Equal(t, tc.safe, SubscriptionDestination(cfg, provider))
 
@@ -266,8 +266,8 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 		blockedHeaders = append(blockedHeaders, "Cookie", "OpenAI-Organization", "OpenAI-Project")
 	}
 	for _, name := range blockedHeaders {
-		cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
-			provider: {NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{name: ""}}},
+		cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{
+			provider: {ProviderConfig: schemas.ProviderConfig{NetworkConfig: schemas.NetworkConfig{ExtraHeaders: map[string]string{name: ""}}}},
 		}}
 		require.False(t, SubscriptionDestination(cfg, provider), name)
 		e.account.config.Store(cfg)
@@ -284,7 +284,7 @@ func testSubscriptionDestination(t *testing.T, provider schemas.ModelProvider) {
 
 func TestSubscriptionAttemptIsolation(t *testing.T) {
 	a := &account{}
-	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Anthropic: {}}})
+	a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{schemas.Anthropic: {}}})
 	ctx := schemas.NewBifrostContext(t.Context(), schemas.NoDeadline)
 	ctx.SetValue(subscriptionTokenKey{}, subscriptionCredentialValue{provider: schemas.Anthropic, token: "Bearer sk-ant-oat-fixture"})
 	ctx.SetValue(schemas.BifrostContextKeyExtraHeaders, map[string][]string{"x-stainless-lang": {"go", "typescript"}})

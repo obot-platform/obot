@@ -14,7 +14,7 @@ import (
 func TestAzureDeploymentModels(t *testing.T) {
 	engine := New()
 	cfg := llmcoreclient.Config{
-		Providers: map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Azure: {}, "custom": {CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}},
+		Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{schemas.Azure: {}, "custom": {ProviderConfig: schemas.ProviderConfig{CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}}},
 		Keys:      map[schemas.ModelProvider][]schemas.Key{},
 	}
 
@@ -166,7 +166,7 @@ func TestAzureAutomaticDeploymentPolicies(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := llmcoreclient.Config{
-				Providers: map[schemas.ModelProvider]schemas.ProviderConfig{tc.provider: {CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}},
+				Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{tc.provider: {ProviderConfig: schemas.ProviderConfig{CustomProviderConfig: &schemas.CustomProviderConfig{BaseProviderType: schemas.Azure}}}},
 				Keys:      map[schemas.ModelProvider][]schemas.Key{tc.provider: tc.keys},
 			}
 
@@ -207,7 +207,7 @@ func BenchmarkAzureUnavailableModels(b *testing.B) {
 			}
 
 			cfg := llmcoreclient.Config{
-				Providers:        map[schemas.ModelProvider]schemas.ProviderConfig{schemas.Azure: {}},
+				Providers:        map[schemas.ModelProvider]llmcoreclient.ProviderConfig{schemas.Azure: {}},
 				Keys:             map[schemas.ModelProvider][]schemas.Key{schemas.Azure: {key}},
 				AzureAccounts:    map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{schemas.Azure: {key.ID: account}},
 				AzureDiscoveries: map[schemas.ModelProvider]map[string]llmcoreclient.AzureDiscoverySnapshot{schemas.Azure: {key.ID: {Fingerprint: llmcoreclient.AzureDiscoveryFingerprint(key, account), Names: names}}},

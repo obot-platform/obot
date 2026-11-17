@@ -30,8 +30,8 @@ func TestAccountRejectsNegativeQueues(t *testing.T) {
 	} {
 		t.Run(tt.field, func(t *testing.T) {
 			a := &account{}
-			a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{
-				"invalid": {ConcurrencyAndBufferSize: tt.queue},
+			a.config.Store(&llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{
+				"invalid": {ProviderConfig: schemas.ProviderConfig{ConcurrencyAndBufferSize: tt.queue}},
 				"default": {},
 			}})
 
@@ -251,7 +251,7 @@ func TestConfigurationGateHTTPClassificationIsNarrow(t *testing.T) {
 }
 
 func TestConfiguredModelParsingPreservesEmptyAndNamespacedInputs(t *testing.T) {
-	cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{"pending": {}}}
+	cfg := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{"pending": {}}}
 	for _, tt := range []struct {
 		raw      string
 		provider schemas.ModelProvider

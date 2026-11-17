@@ -126,7 +126,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 		return err
 	}
 	// Recheck the provider type from the same version used for publication.
-	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{provider: current.Config}}, provider) {
+	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{provider: {ProviderConfig: current.Config, SubscriptionPassthrough: current.SubscriptionPassthrough}}}, provider) {
 		return nil
 	}
 
@@ -340,9 +340,8 @@ func keyViews(keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount
 	return out
 }
 
-func providerViewWithIDs(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount, subscriptions bool) ProviderResponse {
+func providerViewWithIDs(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, keys []schemas.Key, accounts map[string]llmcoreclient.AzureAccount) ProviderResponse {
 	view := providerView(name, pc, keys)
-	view.SubscriptionPassthrough = subscriptions
 	view.Keys = keyViews(view.ProviderConfig.Keys, accounts)
 
 	return view

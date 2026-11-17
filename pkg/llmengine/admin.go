@@ -36,12 +36,6 @@ type Key struct {
 	llmcoreclient.AzureAccount
 }
 
-// providerConfig adds Obot-owned settings to Bifrost's admin input schema.
-type providerConfig struct {
-	schemas.ProviderConfig
-	SubscriptionPassthrough *bool `json:"subscription_passthrough"`
-}
-
 type ProviderResponse struct {
 	SubscriptionPassthrough bool  `json:"subscription_passthrough"`
 	Keys                    []Key `json:"keys"`
@@ -114,7 +108,7 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 	var out T
 	var rejected error
 	err := e.mutation(ctx, func(ctx context.Context) error {
-		cfg := llmcoreclient.Config{SubscriptionPassthrough: map[schemas.ModelProvider]bool{}, AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{}, Providers: map[schemas.ModelProvider]schemas.ProviderConfig{}, Keys: map[schemas.ModelProvider][]schemas.Key{}}
+		cfg := llmcoreclient.Config{AzureAccounts: map[schemas.ModelProvider]map[string]llmcoreclient.AzureAccount{}, Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{}, Keys: map[schemas.ModelProvider][]schemas.Key{}}
 		change := func() error {
 			rejected = nil
 			scoped := context.WithValue(ctx, configContextKey{}, &cfg)
@@ -133,8 +127,8 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 			}
 			out, err = apply(ctx, &cfg, guarded.Body)
 			if err == nil && body != nil {
-				for provider, allowed := range cfg.SubscriptionPassthrough {
-					if !allowed {
+				for provider, pc := range cfg.Providers {
+					if pc.SubscriptionPassthrough == nil || !*pc.SubscriptionPassthrough {
 						continue
 					}
 					// Provider validation must include the inherited proxy, too.
@@ -155,23 +149,23 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 				return err
 			}
 			for provider, pc := range cfg.Providers {
-				return e.store.CreateProvider(ctx, string(provider), llmcoreclient.Provider{Config: pc, Keys: cfg.Keys[provider], SubscriptionPassthrough: new(cfg.SubscriptionPassthrough[provider])})
+				return e.store.CreateProvider(ctx, string(provider), llmcoreclient.Provider{Config: pc.ProviderConfig, Keys: cfg.Keys[provider], SubscriptionPassthrough: pc.SubscriptionPassthrough})
 			}
 			return fmt.Errorf("provider name required")
 		}
 		provider := schemas.ModelProvider(name)
 		return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
-			cfg.Providers[provider], cfg.Keys[provider] = current.Config, current.Keys
+			cfg.Providers[provider] = llmcoreclient.ProviderConfig{ProviderConfig: current.Config, SubscriptionPassthrough: current.SubscriptionPassthrough}
+			cfg.Keys[provider] = current.Keys
 			cfg.AzureAccounts[provider] = current.AzureAccounts
-			cfg.SubscriptionPassthrough[provider] = current.SubscriptionPassthrough != nil && *current.SubscriptionPassthrough
 			if err := change(); err != nil {
 				return err
 			}
-			current.Config, current.Keys = cfg.Providers[provider], cfg.Keys[provider]
+			current.Config, current.Keys = cfg.Providers[provider].ProviderConfig, cfg.Keys[provider]
 			current.AzureAccounts = cfg.AzureAccounts[provider]
 			// Omitted metadata stays absent until migration; explicit edits always win.
 			if current.SubscriptionPassthrough != nil || hasField(body, "subscription_passthrough") {
-				current.SubscriptionPassthrough = new(cfg.SubscriptionPassthrough[provider])
+				current.SubscriptionPassthrough = cfg.Providers[provider].SubscriptionPassthrough
 			}
 
 			return nil
@@ -262,7 +256,7 @@ func (e *Engine) changeRule(ctx context.Context, id string, body []byte) (tables
 	return out, storageError(err)
 }
 
-func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []schemas.Key) ProviderResponse {
+func providerView(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, keys []schemas.Key) ProviderResponse {
 	pc.CheckAndSetDefaults()
 	provider := configstore.ProviderConfig{
 		Keys:                     keys,
@@ -279,11 +273,12 @@ func providerView(name schemas.ModelProvider, pc schemas.ProviderConfig, keys []
 		InjectedTools:            pc.InjectedTools,
 	}
 	return ProviderResponse{
-		ProviderConfig: provider.Redacted(),
-		Keys:           keyViews(provider.Redacted().Keys, nil),
-		Name:           name,
-		Provider:       name,
-		ProviderStatus: "active",
+		ProviderConfig:          provider.Redacted(),
+		SubscriptionPassthrough: pc.SubscriptionPassthrough != nil && *pc.SubscriptionPassthrough,
+		Keys:                    keyViews(provider.Redacted().Keys, nil),
+		Name:                    name,
+		Provider:                name,
+		ProviderStatus:          "active",
 	}
 }
 
@@ -304,7 +299,7 @@ func (e *Engine) ListProviders(ctx context.Context) ([]ProviderResponse, error) 
 	}
 	out := []ProviderResponse{}
 	for _, name := range slices.Sorted(maps.Keys(cfg.Providers)) {
-		out = append(out, providerViewWithIDs(name, cfg.Providers[name], cfg.Keys[name], cfg.AzureAccounts[name], cfg.SubscriptionPassthrough[name]))
+		out = append(out, providerViewWithIDs(name, cfg.Providers[name], cfg.Keys[name], cfg.AzureAccounts[name]))
 	}
 	return out, nil
 }
@@ -320,7 +315,7 @@ func (e *Engine) GetProvider(ctx context.Context, provider string) (ProviderResp
 		return ProviderResponse{}, missing("provider")
 	}
 
-	return providerViewWithIDs(name, pc, cfg.Keys[name], cfg.AzureAccounts[name], cfg.SubscriptionPassthrough[name]), nil
+	return providerViewWithIDs(name, pc, cfg.Keys[name], cfg.AzureAccounts[name]), nil
 }
 
 func (e *Engine) ListKeys(ctx context.Context) ([]Key, error) {
@@ -656,7 +651,7 @@ func createProvider(_ context.Context, cfg *llmcoreclient.Config, body []byte) (
 		return ProviderResponse{}, fmt.Errorf("provider already exists")
 	}
 
-	pc := providerConfig{SubscriptionPassthrough: new(false)}
+	pc := llmcoreclient.ProviderConfig{SubscriptionPassthrough: new(false)}
 	defaults := object(json.RawMessage(body))
 	ApplyProviderDefaults(defaults)
 	raw, _ := json.Marshal(defaults)
@@ -672,19 +667,13 @@ func createProvider(_ context.Context, cfg *llmcoreclient.Config, body []byte) (
 		return ProviderResponse{}, err
 	}
 
-	cfg.Providers[name] = pc.ProviderConfig
-	if cfg.SubscriptionPassthrough == nil {
-		cfg.SubscriptionPassthrough = map[schemas.ModelProvider]bool{}
-	}
-	cfg.SubscriptionPassthrough[name] = *pc.SubscriptionPassthrough
-	view := providerView(name, pc.ProviderConfig, nil)
-	view.SubscriptionPassthrough = cfg.SubscriptionPassthrough[name]
-	return view, nil
+	cfg.Providers[name] = pc
+	return providerView(name, pc, nil), nil
 }
 
-func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas.ProviderConfig, body []byte) (ProviderResponse, error) {
+func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, body []byte) (ProviderResponse, error) {
 	// Nested provider settings use replacement semantics when explicitly supplied.
-	current := object(pc)
+	current := object(pc.ProviderConfig)
 	var patch map[string]any
 	if err := json.Unmarshal(body, &patch); err != nil {
 		return ProviderResponse{}, err
@@ -694,13 +683,13 @@ func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc sc
 			current[field] = value
 		}
 	}
-	restoreMasked(current, object(pc))
+	restoreMasked(current, object(pc.ProviderConfig))
 	raw, err := mergeJSON(current, body)
 	if err != nil {
 		return ProviderResponse{}, err
 	}
 	// Seed the flag before decoding so omission retains it and explicit null remains invalid.
-	next := providerConfig{SubscriptionPassthrough: new(cfg.SubscriptionPassthrough[name])}
+	next := llmcoreclient.ProviderConfig{SubscriptionPassthrough: new(pc.SubscriptionPassthrough != nil && *pc.SubscriptionPassthrough)}
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
@@ -712,16 +701,12 @@ func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc sc
 		return ProviderResponse{}, err
 	}
 
-	cfg.Providers[name] = next.ProviderConfig
-	if cfg.SubscriptionPassthrough == nil {
-		cfg.SubscriptionPassthrough = map[schemas.ModelProvider]bool{}
-	}
-	cfg.SubscriptionPassthrough[name] = *next.SubscriptionPassthrough
+	cfg.Providers[name] = next
 
-	return providerViewWithIDs(name, next.ProviderConfig, cfg.Keys[name], cfg.AzureAccounts[name], cfg.SubscriptionPassthrough[name]), nil
+	return providerViewWithIDs(name, next, cfg.Keys[name], cfg.AzureAccounts[name]), nil
 }
 
-func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc schemas.ProviderConfig, id, method string, body []byte) (schemas.Key, error) {
+func updateKey(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, id, method string, body []byte) (schemas.Key, error) {
 	keys := cfg.Keys[name]
 	index := -1
 	if id != "" {
@@ -995,7 +980,7 @@ func updatePricingOverride(cfg *llmcoreclient.Config, id, method string, body []
 	return in, nil
 }
 
-func validateProvider(name schemas.ModelProvider, pc providerConfig, body []byte) error {
+func validateProvider(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, body []byte) error {
 	base := name
 	if pc.CustomProviderConfig != nil {
 		base = pc.CustomProviderConfig.BaseProviderType
@@ -1034,7 +1019,7 @@ func validateProvider(name schemas.ModelProvider, pc providerConfig, body []byte
 			}
 		}
 	}
-	provider := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]schemas.ProviderConfig{name: pc.ProviderConfig}}
+	provider := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{name: pc}}
 	if name != schemas.Anthropic && name != schemas.OpenAI || !llmcore.SubscriptionDestination(provider, name) {
 		return apierrors.NewBadRequest("subscription_passthrough requires built-in Anthropic or OpenAI over verified TLS without destination or credential overrides")
 	}
