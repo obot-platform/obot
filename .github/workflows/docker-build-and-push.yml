@@ -8,12 +8,15 @@ permissions:
   security-events: write
 
 on:
+  workflow_call:
+    outputs:
+      image-digest:
+        description: Digest of the published multi-platform image
+        value: ${{ jobs.build.outputs.image-digest }}
   workflow_dispatch:
   push:
     branches:
       - main
-    tags:
-      - "v*"
     paths-ignore:
       - docs/**
       - chart/**
