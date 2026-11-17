@@ -1,14 +1,18 @@
 package guardrails
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -229,6 +233,45 @@ func TestEvaluateMessageResolutionFailures(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+func TestJudgeResolutionFailureLogsDiagnostic(t *testing.T) {
+	for _, stage := range []types.DefaultModelAliasType{types.DefaultModelAliasTypeLLMMini, types.DefaultModelAliasTypeLLM} {
+		t.Run(string(stage), func(t *testing.T) {
+			var logs bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+
+			h := evaluationHelper(t, completionFunc(func(context.Context, string, []schemas.ChatMessage) (*schemas.BifrostChatResponse, error) {
+				return textResponse("no"), nil
+			}))
+			var model v1.Model
+			require.NoError(t, h.client.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "m-" + string(stage)}, &model))
+			model.Spec.Manifest.Name = "private-inactive-model"
+			model.Spec.Manifest.Active = false
+			require.NoError(t, h.client.Update(t.Context(), &model))
+
+			checker := &judgeChecker{definition: "No cooking", judge: h}
+			result, err := checker.Check(t.Context(), CheckInput{
+				Target:   gatewaytypes.GuardrailTargetLLM,
+				Stage:    StageInput,
+				Segments: []Segment{{Role: RoleUser, Text: "message"}},
+			})
+			require.EqualError(t, err, "the policy could not be evaluated: the judge model is unavailable or failed")
+			require.Empty(t, result.Findings)
+
+			var entry map[string]any
+			require.NoError(t, json.Unmarshal(bytes.TrimSpace(logs.Bytes()), &entry))
+			require.Equal(t, string(stage), entry["alias"])
+			require.Equal(t, `model "private-inactive-model" is not active`, entry["error"])
+			level := "ERROR"
+			if stage == types.DefaultModelAliasTypeLLM {
+				level = "WARN"
+			}
+			require.Equal(t, level, entry["level"])
 		})
 	}
 }

@@ -61,6 +61,7 @@ func NewJudge(client kclient.Client, llmGateway completionEngine) *Judge {
 func (h *Judge) evaluateMessage(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) (judgeResult, error) {
 	model, err := h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLMMini)
 	if err != nil {
+		slog.Error("Failed to resolve screening model for policy evaluation", "alias", types.DefaultModelAliasTypeLLMMini, "error", err)
 		return judgeResult{}, err
 	}
 
@@ -199,6 +200,7 @@ func (h *Judge) reviewCompliance(ctx context.Context, policy types.MessagePolicy
 
 	model, err := h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLM)
 	if err != nil {
+		slog.Warn("Failed to resolve review model for policy evaluation", "alias", types.DefaultModelAliasTypeLLM, "error", err)
 		return judgeResult{}, err
 	}
 
