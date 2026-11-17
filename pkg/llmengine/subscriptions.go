@@ -23,5 +23,6 @@ func (e *Engine) SubscriptionPassthrough(ctx context.Context, name string) (bool
 	if err != nil {
 		return false, err
 	}
-	return provider.Config.CustomProviderConfig == nil && provider.SubscriptionPassthrough != nil && *provider.SubscriptionPassthrough, nil
+	config := provider.RuntimeConfig()
+	return config.CustomProviderConfig == nil && config.SubscriptionPassthrough, nil
 }

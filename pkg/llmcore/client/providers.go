@@ -44,6 +44,24 @@ type Provider struct {
 	Keys                    []schemas.Key
 }
 
+// RuntimeConfig returns the effective provider settings used by the engine.
+func (p Provider) RuntimeConfig() ProviderConfig {
+	return ProviderConfig{
+		ProviderConfig:          p.Config,
+		SubscriptionPassthrough: p.SubscriptionPassthrough != nil && *p.SubscriptionPassthrough,
+	}
+}
+
+// SetConfig preserves unmigrated metadata on unrelated edits; an explicit
+// subscription edit records its value so a delayed migration cannot overwrite it.
+// New aggregates pass subscriptionChanged=true to record their initial value.
+func (p *Provider) SetConfig(config ProviderConfig, subscriptionChanged bool) {
+	p.Config = config.ProviderConfig
+	if p.SubscriptionPassthrough != nil || subscriptionChanged {
+		p.SubscriptionPassthrough = new(config.SubscriptionPassthrough)
+	}
+}
+
 func (a AzureAccount) ResourceID() string {
 	if a == (AzureAccount{}) {
 		return ""

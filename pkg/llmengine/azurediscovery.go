@@ -126,7 +126,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 		return err
 	}
 	// Recheck the provider type from the same version used for publication.
-	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{provider: {ProviderConfig: current.Config, SubscriptionPassthrough: current.SubscriptionPassthrough}}}, provider) {
+	if !isAzureProvider(llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{provider: current.RuntimeConfig()}}, provider) {
 		return nil
 	}
 

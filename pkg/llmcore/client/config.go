@@ -11,7 +11,7 @@ import (
 // ProviderConfig keeps Obot's provider settings together with Bifrost's configuration.
 type ProviderConfig struct {
 	schemas.ProviderConfig
-	SubscriptionPassthrough *bool `json:"subscription_passthrough"`
+	SubscriptionPassthrough bool `json:"subscription_passthrough"`
 }
 
 // Config is a decoded desired configuration assembled from independent resources.

@@ -65,7 +65,7 @@ func (s *Client) Load(ctx context.Context) (LoadResult, error) {
 		}
 
 		cfg.AzureDiscoveries[name] = data.AzureDiscoveries
-		cfg.Providers[name] = ProviderConfig{ProviderConfig: data.Config, SubscriptionPassthrough: data.SubscriptionPassthrough}
+		cfg.Providers[name] = data.RuntimeConfig()
 		cfg.Keys[name] = data.Keys
 	}
 

@@ -61,6 +61,42 @@ func TestProviderSubscriptionUpdates(t *testing.T) {
 	require.False(t, view.SubscriptionPassthrough)
 }
 
+func TestProviderSubscriptionUnmigratedEdits(t *testing.T) {
+	e, ctx := startTestEngine(t)
+	_, err := e.CreateProvider(ctx, json.RawMessage(`{"provider":"anthropic"}`))
+	require.NoError(t, err)
+	require.NoError(t, e.store.MutateProvider(ctx, "anthropic", func(provider *llmcoreclient.Provider) error {
+		provider.SubscriptionPassthrough = nil
+		return nil
+	}))
+
+	_, err = e.CreateKey(ctx, "anthropic", json.RawMessage(`{"name":"fixture","value":"fixture-secret"}`))
+	require.NoError(t, err)
+	provider, err := e.store.GetProvider(ctx, "anthropic")
+	require.NoError(t, err)
+	require.Nil(t, provider.SubscriptionPassthrough, "key edits must not suppress migration")
+
+	view, err := e.UpdateProvider(ctx, "anthropic", json.RawMessage(`{"network_config":{"max_retries":4}}`), false)
+	require.NoError(t, err)
+	require.False(t, view.SubscriptionPassthrough)
+	provider, err = e.store.GetProvider(ctx, "anthropic")
+	require.NoError(t, err)
+	require.Nil(t, provider.SubscriptionPassthrough, "unrelated provider edits must not suppress migration")
+	require.Equal(t, 4, provider.Config.NetworkConfig.MaxRetries)
+
+	_, err = e.UpdateProvider(ctx, "anthropic", json.RawMessage(`{"subscription_passthrough":null}`), false)
+	require.NoError(t, err)
+	provider, err = e.store.GetProvider(ctx, "anthropic")
+	require.NoError(t, err)
+	require.Nil(t, provider.SubscriptionPassthrough, "null must not suppress migration")
+
+	_, err = e.UpdateProvider(ctx, "anthropic", json.RawMessage(`{"subscription_passthrough":false}`), false)
+	require.NoError(t, err)
+	provider, err = e.store.GetProvider(ctx, "anthropic")
+	require.NoError(t, err)
+	require.Equal(t, new(false), provider.SubscriptionPassthrough, "an explicit disable must survive a delayed migration")
+}
+
 func TestProviderSubscriptionValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -76,11 +112,6 @@ func TestProviderSubscriptionValidation(t *testing.T) {
 			name:    "custom",
 			initial: `{"provider":"custom","custom_provider_config":{"base_provider_type":"openai"},"network_config":{"base_url":"https://8.8.8.8/v1"}}`,
 			patch:   `{"subscription_passthrough":true}`,
-		},
-		{
-			name:    "null",
-			initial: `{"provider":"openai"}`,
-			patch:   `{"subscription_passthrough":null}`,
 		},
 		{
 			name:    "string",
@@ -131,6 +162,33 @@ func TestProviderSubscriptionValidation(t *testing.T) {
 	require.NoError(t, err)
 	_, err = e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai","subscription_passthrough":true,"network_config":{"insecure_skip_verify":true}}`))
 	require.True(t, apierrors.IsBadRequest(err))
+	_, err = e.CreateProvider(ctx, json.RawMessage(`{"provider":"openai","subscription_passthrough":null}`))
+	require.NoError(t, err)
+	view, err := e.GetProvider(ctx, "openai")
+	require.NoError(t, err)
+	require.False(t, view.SubscriptionPassthrough)
+}
+
+func TestProviderSubscriptionNullRetainsValue(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			e, ctx := startTestEngine(t)
+			_, err := e.CreateProvider(ctx, mustJSON(t, map[string]any{
+				"provider":                 "openai",
+				"subscription_passthrough": enabled,
+			}))
+			require.NoError(t, err)
+			before, err := e.store.GetProvider(ctx, "openai")
+			require.NoError(t, err)
+
+			view, err := e.UpdateProvider(ctx, "openai", json.RawMessage(`{"subscription_passthrough":null}`), false)
+			require.NoError(t, err)
+			require.Equal(t, enabled, view.SubscriptionPassthrough)
+			after, err := e.store.GetProvider(ctx, "openai")
+			require.NoError(t, err)
+			require.Equal(t, before, after)
+		})
+	}
 }
 
 func TestSubscriptionProviderReadFailure(t *testing.T) {

@@ -272,7 +272,8 @@ func (e *Engine) legacyAggregate(ctx context.Context, family string, sources map
 		}
 	}
 	name := schemas.ModelProvider(family)
-	provider := llmcoreclient.Provider{Config: cfg.Providers[name].ProviderConfig, SubscriptionPassthrough: cfg.Providers[name].SubscriptionPassthrough, Keys: cfg.Keys[name], AzureAccounts: cfg.AzureAccounts[name]}
+	provider := llmcoreclient.Provider{Keys: cfg.Keys[name], AzureAccounts: cfg.AzureAccounts[name]}
+	provider.SetConfig(cfg.Providers[name], true)
 	return provider, nil
 }
 

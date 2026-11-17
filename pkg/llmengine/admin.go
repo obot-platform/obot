@@ -131,7 +131,7 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 			if err == nil && body != nil {
 				var subscriptionProvider schemas.ModelProvider
 				for provider, pc := range cfg.Providers {
-					if pc.SubscriptionPassthrough != nil && *pc.SubscriptionPassthrough {
+					if pc.SubscriptionPassthrough {
 						subscriptionProvider = provider
 						break
 					}
@@ -153,24 +153,27 @@ func changeProvider[T any](ctx context.Context, e *Engine, name string, method s
 				return err
 			}
 			for provider, pc := range cfg.Providers {
-				return e.store.CreateProvider(ctx, string(provider), llmcoreclient.Provider{Config: pc.ProviderConfig, Keys: cfg.Keys[provider], SubscriptionPassthrough: pc.SubscriptionPassthrough})
+				stored := llmcoreclient.Provider{Keys: cfg.Keys[provider]}
+				stored.SetConfig(pc, true)
+				return e.store.CreateProvider(ctx, string(provider), stored)
 			}
 			return fmt.Errorf("provider name required")
 		}
 		provider := schemas.ModelProvider(name)
 		return e.store.MutateProvider(ctx, name, func(current *llmcoreclient.Provider) error {
-			cfg.Providers[provider] = llmcoreclient.ProviderConfig{ProviderConfig: current.Config, SubscriptionPassthrough: current.SubscriptionPassthrough}
+			cfg.Providers[provider] = current.RuntimeConfig()
 			cfg.Keys[provider] = current.Keys
 			cfg.AzureAccounts[provider] = current.AzureAccounts
 			if err := change(); err != nil {
 				return err
 			}
-			current.Config, current.Keys = cfg.Providers[provider].ProviderConfig, cfg.Keys[provider]
+			// Null, like omission, must leave unmigrated storage metadata untouched.
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(body, &fields)
+			field := fieldNamed(fields, "subscription_passthrough")
+			current.SetConfig(cfg.Providers[provider], field != "" && !isNull(fields[field]))
+			current.Keys = cfg.Keys[provider]
 			current.AzureAccounts = cfg.AzureAccounts[provider]
-			// Omitted metadata stays absent until migration; explicit edits always win.
-			if current.SubscriptionPassthrough != nil || hasField(body, "subscription_passthrough") {
-				current.SubscriptionPassthrough = cfg.Providers[provider].SubscriptionPassthrough
-			}
 
 			return nil
 		})
@@ -278,7 +281,7 @@ func providerView(name schemas.ModelProvider, pc llmcoreclient.ProviderConfig, k
 	}
 	return ProviderResponse{
 		ProviderConfig:          provider.Redacted(),
-		SubscriptionPassthrough: pc.SubscriptionPassthrough != nil && *pc.SubscriptionPassthrough,
+		SubscriptionPassthrough: pc.SubscriptionPassthrough,
 		Keys:                    keyViews(provider.Redacted().Keys, nil),
 		Name:                    name,
 		Provider:                name,
@@ -655,10 +658,10 @@ func createProvider(_ context.Context, cfg *llmcoreclient.Config, body []byte) (
 		return ProviderResponse{}, fmt.Errorf("provider already exists")
 	}
 
-	pc := llmcoreclient.ProviderConfig{SubscriptionPassthrough: new(false)}
 	defaults := object(json.RawMessage(body))
 	ApplyProviderDefaults(defaults)
 	raw, _ := json.Marshal(defaults)
+	var pc llmcoreclient.ProviderConfig
 	if err := json.Unmarshal(raw, &pc); err != nil {
 		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
@@ -692,8 +695,8 @@ func updateProvider(cfg *llmcoreclient.Config, name schemas.ModelProvider, pc ll
 	if err != nil {
 		return ProviderResponse{}, err
 	}
-	// Seed the flag before decoding so omission retains it and explicit null remains invalid.
-	next := llmcoreclient.ProviderConfig{SubscriptionPassthrough: new(pc.SubscriptionPassthrough != nil && *pc.SubscriptionPassthrough)}
+	// Omitted and null booleans retain the provider's current setting.
+	next := llmcoreclient.ProviderConfig{SubscriptionPassthrough: pc.SubscriptionPassthrough}
 	if err := json.Unmarshal(raw, &next); err != nil {
 		return ProviderResponse{}, apierrors.NewBadRequest(err.Error())
 	}
@@ -1001,10 +1004,7 @@ func validateProvider(name schemas.ModelProvider, pc llmcoreclient.ProviderConfi
 	if pc.NetworkConfig.MaxRetries < 0 || pc.NetworkConfig.DefaultRequestTimeoutInSeconds < 0 {
 		return fmt.Errorf("invalid network configuration")
 	}
-	if pc.SubscriptionPassthrough == nil {
-		return apierrors.NewBadRequest("subscription_passthrough must be a single boolean")
-	}
-	if !*pc.SubscriptionPassthrough {
+	if !pc.SubscriptionPassthrough {
 		return nil
 	}
 	provider := &llmcoreclient.Config{Providers: map[schemas.ModelProvider]llmcoreclient.ProviderConfig{name: pc}}
