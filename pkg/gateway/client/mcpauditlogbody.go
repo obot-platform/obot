@@ -188,14 +188,6 @@ type auditBodyKnown struct {
 // auditBodyStored is what a writer found when it looked for a shared body it is about to reference.
 type auditBodyStored int
 
-// auditBodyWrite is a shared body to store alongside the rows that reference it.
-type auditBodyWrite struct {
-	body types.MCPAuditLogBody
-	// replaceIfStored, when set, is the stored copy the writer inspected and decided to replace.
-	// The stored body is overwritten only if it is still exactly this.
-	replaceIfStored []byte
-}
-
 func init() {
 	// Each pooled coder keeps its history allocated, so their number and window size bound the
 	// memory held for as long as the process runs. JSON gains little from back-references longer
@@ -264,47 +256,39 @@ func auditBodyHeaderCtx(dataCtx value.Context, flags byte) value.Context {
 // decodeAuditBody reverses encodeAuditBody and returns the field's flags so the caller can tell a
 // reference from an inline body.
 func decodeAuditBody(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field []byte) ([]byte, byte, error) {
-	plain, flags, _, err := decodeAuditBodyWithStale(ctx, transformer, dataCtx, field)
-	return plain, flags, err
-}
-
-// decodeAuditBodyWithStale is decodeAuditBody that also reports whether the transformer considers
-// the ciphertext stale, meaning it was not written under the current key.
-func decodeAuditBodyWithStale(ctx context.Context, transformer value.Transformer, dataCtx value.Context, field []byte) ([]byte, byte, bool, error) {
 	if len(field) < auditBodyHeaderLen || field[0] != auditBodyMarker {
-		return nil, 0, false, errors.New("audit body has no format header")
+		return nil, 0, errors.New("audit body has no format header")
 	}
 	if field[1] != auditBodyVersion {
-		return nil, 0, false, fmt.Errorf("unsupported audit body format version %d", field[1])
+		return nil, 0, fmt.Errorf("unsupported audit body format version %d", field[1])
 	}
 	flags := field[2]
 	if flags&^auditBodyKnownFlags != 0 {
-		return nil, 0, false, fmt.Errorf("unsupported audit body flags %#x", flags)
+		return nil, 0, fmt.Errorf("unsupported audit body flags %#x", flags)
 	}
 
-	var stale bool
 	payload := field[auditBodyHeaderLen:]
 	if flags&auditBodyFlagEncrypted != 0 {
 		if transformer == nil {
-			return nil, 0, false, errors.New("audit body is encrypted but encryption is not configured")
+			return nil, 0, errors.New("audit body is encrypted but encryption is not configured")
 		}
-		decrypted, isStale, err := transformer.TransformFromStorage(ctx, payload, auditBodyHeaderCtx(dataCtx, flags))
+		decrypted, _, err := transformer.TransformFromStorage(ctx, payload, auditBodyHeaderCtx(dataCtx, flags))
 		if err != nil {
-			return nil, 0, false, fmt.Errorf("failed to decrypt audit body: %w", err)
+			return nil, 0, fmt.Errorf("failed to decrypt audit body: %w", err)
 		}
-		payload, stale = decrypted, isStale
+		payload = decrypted
 	}
 	if flags&auditBodyFlagCompressed != 0 {
 		decompressed, err := auditBodyDecoder.DecodeAll(payload, nil)
 		if err != nil {
-			return nil, 0, false, fmt.Errorf("failed to decompress audit body: %w", err)
+			return nil, 0, fmt.Errorf("failed to decompress audit body: %w", err)
 		}
 		if len(decompressed) > auditBodyCompressMaxBytes {
-			return nil, 0, false, errors.New("decompressed audit body exceeds the size limit")
+			return nil, 0, errors.New("decompressed audit body exceeds the size limit")
 		}
 		payload = decompressed
 	}
-	return payload, flags, stale, nil
+	return payload, flags, nil
 }
 
 // splitJSONRPCResult locates the bytes of the top-level "result" value of a JSON-RPC success
@@ -445,29 +429,26 @@ func (c *Client) loadAuditBodyHashKey(ctx context.Context) ([]byte, error) {
 		return nil, err
 	}
 
-	key, stale, err := c.openAuditBodyHashKey(ctx, stored)
+	key, err := c.openAuditBodyHashKey(ctx, stored)
 	if err != nil {
 		// Not a reason to replace the key. The failure may be passing, or this replica may hold
 		// the wrong encryption key, and other replicas are using the stored one.
 		return nil, err
 	}
-	if c.propertyTransformer() == nil || (stored.Encrypted && !stale) {
+	if c.propertyTransformer() == nil || stored.Encrypted {
 		// Either nothing this replica could store would be better protected than what is there,
-		// or it is already stored as this replica would store it.
+		// or it is already encrypted. This goes by the stored flag: with a configuration that
+		// also accepts unencrypted data, a value flagged encrypted is taken to be.
 		return key, nil
 	}
 
-	// Store the key again under the current encryption key. The update only applies while the
+	// A key stored unencrypted was readable in the database and may have been copied, so it is
+	// replaced with a new, encrypted one rather than reused. The update only applies while the
 	// stored value is the one read above, so replicas doing this at once all end up reading the
 	// one that won.
-	if !stored.Encrypted {
-		// A key stored unencrypted was readable in the database and may have been copied, so it
-		// is replaced rather than reused. This goes by the stored flag: with a configuration
-		// that also accepts unencrypted data, a value flagged encrypted is taken to be.
-		key = make([]byte, auditBodyHashLen)
-		if _, err := rand.Read(key); err != nil {
-			return nil, err
-		}
+	key = make([]byte, auditBodyHashLen)
+	if _, err := rand.Read(key); err != nil {
+		return nil, err
 	}
 	replacement := types.Property{Key: auditBodyHashKeyProperty, Value: base64.StdEncoding.EncodeToString(key)}
 	if err := c.encryptProperty(ctx, &replacement); err != nil {
@@ -481,8 +462,7 @@ func (c *Client) loadAuditBodyHashKey(ctx context.Context) ([]byte, error) {
 	if err := c.db.WithContext(ctx).Where("key = ?", auditBodyHashKeyProperty).First(&stored).Error; err != nil {
 		return nil, err
 	}
-	key, _, err = c.openAuditBodyHashKey(ctx, stored)
-	return key, err
+	return c.openAuditBodyHashKey(ctx, stored)
 }
 
 // createAuditBodyHashKey stores a new hash key, or returns the one another replica stored first.
@@ -510,27 +490,24 @@ func (c *Client) createAuditBodyHashKey(ctx context.Context) ([]byte, error) {
 	return decodeAuditBodyHashKey(property.Value)
 }
 
-// openAuditBodyHashKey returns the hash key held in a stored property, and whether it is
-// encrypted under a key that is no longer the current one.
-func (c *Client) openAuditBodyHashKey(ctx context.Context, stored types.Property) ([]byte, bool, error) {
+// openAuditBodyHashKey returns the hash key held in a stored property.
+func (c *Client) openAuditBodyHashKey(ctx context.Context, stored types.Property) ([]byte, error) {
 	if !stored.Encrypted {
-		key, err := decodeAuditBodyHashKey(stored.Value)
-		return key, false, err
+		return decodeAuditBodyHashKey(stored.Value)
 	}
 	transformer := c.propertyTransformer()
 	if transformer == nil {
-		return nil, false, errors.New("stored key is encrypted and this server has no encryption configured")
+		return nil, errors.New("stored key is encrypted and this server has no encryption configured")
 	}
 	ciphertext, err := base64.StdEncoding.DecodeString(stored.Value)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	plain, stale, err := transformer.TransformFromStorage(ctx, ciphertext, propertyDataCtx(&stored))
+	plain, _, err := transformer.TransformFromStorage(ctx, ciphertext, propertyDataCtx(&stored))
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
-	key, err := decodeAuditBodyHashKey(string(plain))
-	return key, stale, err
+	return decodeAuditBodyHashKey(string(plain))
 }
 
 func decodeAuditBodyHashKey(encoded string) ([]byte, error) {
@@ -942,7 +919,7 @@ func (c *Client) resolveAuditBodyReferences(ctx context.Context, transformer val
 // prepareAuditBodiesForStore returns the shared bodies that must be written with logs: those not
 // stored yet and those whose LastReferencedAt needs refreshing. It runs before the transaction so
 // that any encoding still required, and the check of stored copies, happen outside it.
-func (c *Client) prepareAuditBodiesForStore(ctx context.Context, logs []types.MCPAuditLog, now time.Time) (toStore []auditBodyWrite, err error) {
+func (c *Client) prepareAuditBodiesForStore(ctx context.Context, logs []types.MCPAuditLog, now time.Time) (toStore []types.MCPAuditLogBody, err error) {
 	pendingByHash := make(map[string]types.PendingMCPAuditLogBody)
 	for _, log := range logs {
 		for _, pending := range log.PendingBodies {
@@ -985,10 +962,6 @@ func (c *Client) prepareAuditBodiesForStore(ctx context.Context, logs []types.MC
 	}
 
 	transformer := c.mcpAuditLogTransformer()
-	outdated, err := c.outdatedAuditBodies(ctx, transformer, due)
-	if err != nil {
-		return nil, err
-	}
 	for _, hash := range due {
 		pending := pendingByHash[string(hash)]
 		if pending.Encoded == nil {
@@ -996,76 +969,28 @@ func (c *Client) prepareAuditBodiesForStore(ctx context.Context, logs []types.MC
 				return nil, fmt.Errorf("failed to encode shared audit log body: %w", err)
 			}
 		}
-		toStore = append(toStore, auditBodyWrite{
-			body: types.MCPAuditLogBody{
-				Hash:             hash,
-				Body:             pending.Encoded,
-				CreatedAt:        now,
-				LastReferencedAt: now,
-			},
-			replaceIfStored: outdated[string(hash)],
+		toStore = append(toStore, types.MCPAuditLogBody{
+			Hash:             hash,
+			Body:             pending.Encoded,
+			CreatedAt:        now,
+			LastReferencedAt: now,
 		})
 	}
 	return toStore, nil
-}
-
-// outdatedAuditBodies returns, as currently stored, the bodies named by hashes that should be
-// replaced with a freshly encoded copy: those this writer can decrypt and that its transformer
-// reports as stale, meaning encrypted under a key that is no longer the current one. Checking
-// this when a body's refresh is due moves a long-lived body off a rotated-out key while that
-// key can still be read.
-//
-// Any other stored copy is left as it is. One this writer cannot read may be what another
-// replica's rows depend on, and a replica holding the wrong key must not be able to overwrite
-// what the others can read. Such a copy is remembered as unusable, so that auditBodyStoredState
-// keeps later rows from referencing it.
-func (c *Client) outdatedAuditBodies(ctx context.Context, transformer value.Transformer, hashes [][]byte) (map[string][]byte, error) {
-	outdated := make(map[string][]byte)
-	if transformer == nil {
-		return outdated, nil
-	}
-	for batch := range slices.Chunk(hashes, auditBodyLookupBatchSize) {
-		var stored []types.MCPAuditLogBody
-		if err := c.db.WithContext(ctx).Select("hash", "body").Where("hash IN ?", batch).Find(&stored).Error; err != nil {
-			return nil, fmt.Errorf("failed to load shared audit log bodies: %w", err)
-		}
-		for _, body := range stored {
-			_, _, stale, err := decodeAuditBodyWithStale(ctx, transformer, auditBodyDataCtx(body.Hash), body.Body)
-			switch {
-			case err == nil && stale:
-				outdated[string(body.Hash)] = body.Body
-			case err != nil && ctx.Err() == nil:
-				// The entries being written already reference it, but later ones should not.
-				c.rememberAuditBody(body.Hash, auditBodyKnown{at: time.Now(), unusable: true})
-			}
-		}
-	}
-	return outdated, nil
 }
 
 // storeAuditBodies inserts shared bodies, or refreshes LastReferencedAt on those that already
 // exist. It must run in the transaction that writes the rows referencing them: taking the row lock
 // here is what stops retention cleanup from deleting a body a new row is about to reference.
 //
-// A stored copy is replaced only where the write names the copy it inspected, and only if that is
-// still what is stored. The inspection happened before the transaction, and another replica may
-// have replaced the body since with one this writer has not judged.
-//
-// The writes must be in hash order, which keeps concurrent transactions from deadlocking.
-func storeAuditBodies(tx *gorm.DB, writes []auditBodyWrite) error {
-	for _, write := range writes {
+// A stored copy is never replaced: one this writer cannot read may be what another replica's rows
+// depend on. The writes must be in hash order, which keeps concurrent transactions from deadlocking.
+func storeAuditBodies(tx *gorm.DB, bodies []types.MCPAuditLogBody) error {
+	for _, body := range bodies {
 		if err := tx.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "hash"}},
 			DoUpdates: clause.AssignmentColumns([]string{"last_referenced_at"}),
-		}).Create(&write.body).Error; err != nil {
-			return err
-		}
-		if write.replaceIfStored == nil {
-			continue
-		}
-		if err := tx.Model(&types.MCPAuditLogBody{}).
-			Where("hash = ? AND body = ?", write.body.Hash, write.replaceIfStored).
-			Update("body", write.body.Body).Error; err != nil {
+		}).Create(&body).Error; err != nil {
 			return err
 		}
 	}

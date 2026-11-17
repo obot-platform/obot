@@ -148,7 +148,7 @@ func TestPostgresCleanupSkipsBodyRefreshedByUncommittedWriter(t *testing.T) {
 		t.Fatal(tx.Error)
 	}
 	defer tx.Rollback()
-	if err := storeAuditBodies(tx, []auditBodyWrite{{body: types.MCPAuditLogBody{Hash: body.Hash, Body: body.Body, CreatedAt: now, LastReferencedAt: now}}}); err != nil {
+	if err := storeAuditBodies(tx, []types.MCPAuditLogBody{{Hash: body.Hash, Body: body.Body, CreatedAt: now, LastReferencedAt: now}}); err != nil {
 		t.Fatalf("refresh shared body: %v", err)
 	}
 

@@ -27,9 +27,8 @@ import (
 )
 
 const (
-	// rotatingNonceLen is the size of the nonce rotatingTransformer puts in front of what it
-	// encrypts.
-	rotatingNonceLen = 8
+	// keyedNonceLen is the size of the nonce keyedTransformer puts in front of what it encrypts.
+	keyedNonceLen = 8
 )
 
 var (
@@ -74,28 +73,28 @@ type lockedWriter struct {
 // failingOnceTransformer fails its first decryption, as an encryption provider that is briefly
 // unreachable would, and works from then on.
 type failingOnceTransformer struct {
-	rotatingTransformer
+	keyedTransformer
 	failures *int
 }
 
 // hookedTransformer runs a function the first time it encrypts, which lets a test act between a
 // replica reading a stored value and writing its replacement.
 type hookedTransformer struct {
-	rotatingTransformer
+	keyedTransformer
 	beforeFirstEncrypt *func()
 }
 
 // cancellingTransformer cancels a context and fails, as a call to an encryption provider does
 // when the time allowed for capturing an entry runs out during it.
 type cancellingTransformer struct {
-	rotatingTransformer
+	keyedTransformer
 	cancel context.CancelFunc
 }
 
-// rotatingTransformer stands in for an encryption configuration with several keys: it writes
-// under the first and can read any of them, reporting data under another key as stale.
-type rotatingTransformer struct {
-	keys []string
+// keyedTransformer stands in for an encryption configuration with one key: it can read only
+// what was written under that key.
+type keyedTransformer struct {
+	key string
 }
 
 func (l lockedWriter) Write(p []byte) (int, error) {
@@ -1207,49 +1206,47 @@ func TestRetentionDisabledKeepsSharedBodies(t *testing.T) {
 	}
 }
 
-func (r rotatingTransformer) TransformToStorage(_ context.Context, data []byte, _ value.Context) ([]byte, error) {
+func (r keyedTransformer) TransformToStorage(_ context.Context, data []byte, _ value.Context) ([]byte, error) {
 	// A random nonce makes every encryption different, as a real cipher's would, so a test can
 	// tell a stored copy that was written again from one that was left alone.
-	nonce := make([]byte, rotatingNonceLen)
+	nonce := make([]byte, keyedNonceLen)
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	return append(append(rotatingKeyPrefix(r.keys[0]), nonce...), data...), nil
+	return append(append(keyPrefix(r.key), nonce...), data...), nil
 }
 
-func (r rotatingTransformer) TransformFromStorage(_ context.Context, data []byte, _ value.Context) ([]byte, bool, error) {
-	for i, key := range r.keys {
-		if rest, ok := bytes.CutPrefix(data, rotatingKeyPrefix(key)); ok && len(rest) >= rotatingNonceLen {
-			return rest[rotatingNonceLen:], i != 0, nil
-		}
+func (r keyedTransformer) TransformFromStorage(_ context.Context, data []byte, _ value.Context) ([]byte, bool, error) {
+	if rest, ok := bytes.CutPrefix(data, keyPrefix(r.key)); ok && len(rest) >= keyedNonceLen {
+		return rest[keyedNonceLen:], false, nil
 	}
-	return nil, false, errors.New("no configured key can decrypt this data")
+	return nil, false, errors.New("the configured key cannot decrypt this data")
 }
 
-func rotatingKeyPrefix(key string) []byte {
+func keyPrefix(key string) []byte {
 	return []byte("key[" + key + "]:")
 }
 
-// useRotatingKeys encrypts audit logs and properties with keys, as the shipped encryption
+// useKey encrypts audit logs and properties with key, as the shipped encryption
 // configurations do. Without property encryption, list responses are not shared.
-func useRotatingKeys(c *Client, keys ...string) {
+func useKey(c *Client, key string) {
 	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
 		Transformers: map[schema.GroupResource]value.Transformer{
-			mcpAuditLogGroupResource: rotatingTransformer{keys: keys},
-			propertyGroupResource:    rotatingTransformer{keys: keys},
+			mcpAuditLogGroupResource: keyedTransformer{key: key},
+			propertyGroupResource:    keyedTransformer{key: key},
 		},
 	}
 }
 
-// rotatingKeysClient returns another replica on c's database that encrypts both audit logs and
+// keyedClient returns another replica on c's database that encrypts both audit logs and
 // properties, as the shipped encryption configurations do.
-func rotatingKeysClient(c *Client, keys ...string) *Client {
+func keyedClient(c *Client, key string) *Client {
 	return &Client{
 		db: c.db,
 		encryptionConfig: &encryptionconfig.EncryptionConfiguration{
 			Transformers: map[schema.GroupResource]value.Transformer{
-				mcpAuditLogGroupResource: rotatingTransformer{keys: keys},
-				propertyGroupResource:    rotatingTransformer{keys: keys},
+				mcpAuditLogGroupResource: keyedTransformer{key: key},
+				propertyGroupResource:    keyedTransformer{key: key},
 			},
 		},
 	}
@@ -1484,12 +1481,12 @@ func TestUnreadableBodiesAreLoggedOncePerRead(t *testing.T) {
 	// the shared body is loaded.
 	t.Run("the key cannot decrypt anything", func(t *testing.T) {
 		c := newTestClient(t)
-		useRotatingKeys(c, "written")
+		useKey(c, "written")
 		for id := 1; id <= 2; id++ {
 			storeMCPAuditEntries(t, c, listCallEntries(id, "tools/list", testListResponse(id, result))...)
 		}
 
-		useRotatingKeys(c, "different")
+		useKey(c, "different")
 		entries := captureUnavailableBodyLogs(t)
 		logs := readMCPAuditLogs(t, c)
 		for _, log := range logs {
@@ -1617,70 +1614,12 @@ func TestBackdatedRowDoesNotOutliveItsBody(t *testing.T) {
 	}
 }
 
-// When a body's refresh is due and it is under a key that has been rotated out of first place,
-// the writer stores it again under the current key. Without that, a body in constant use would
-// stay under the old key. Once that key was retired, the rows referencing the body would be
-// unreadable and new rows could no longer share it.
-//
-// A body is only checked when its refresh is due, so rows written in the first day after a
-// rotation can still reference the copy under the old key. The old key has to stay readable until
-// retention has removed those rows, a day later than for rows written before the rotation.
-func TestSharedBodyMovesToRotatedKeyOnRefresh(t *testing.T) {
-	c := newTestClient(t)
-	useRotatingKeys(c, "old")
-	result := testListResult("rotate", 4096)
-	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, result))...)
-
-	storedUnder := func(key string) bool {
-		return bytes.HasPrefix(loadAuditBody(t, c).Body[auditBodyHeaderLen:], rotatingKeyPrefix(key))
-	}
-	if !storedUnder("old") {
-		t.Fatal("shared body was not written under the only key")
-	}
-
-	// A refresh under the key the body is already stored with leaves the stored copy as it is.
-	untouched := loadAuditBody(t, c).Body
-	setAuditBodyLastReferenced(t, c, time.Now().UTC().Add(-2*auditBodyReferenceRefresh))
-	storeMCPAuditEntries(t, c, listCallEntries(2, "tools/list", testListResponse(2, result))...)
-	if refreshed := loadAuditBody(t, c); !bytes.Equal(refreshed.Body, untouched) || time.Since(refreshed.LastReferencedAt) > time.Minute {
-		t.Fatal("a refresh under the same key should only update when the body was last referenced")
-	}
-
-	// A restarted replica has the new key first and no memory of which bodies are stored.
-	rotated := &Client{db: c.db}
-	useRotatingKeys(rotated, "new", "old")
-	third := testListResponse(3, result)
-	storeMCPAuditEntries(t, rotated, listCallEntries(3, "tools/list", third)...)
-	if !storedUnder("old") {
-		t.Fatal("a recently referenced body was rewritten before its refresh was due")
-	}
-
-	setAuditBodyLastReferenced(t, c, time.Now().UTC().Add(-2*auditBodyReferenceRefresh))
-	fourth := testListResponse(4, result)
-	storeMCPAuditEntries(t, rotated, listCallEntries(4, "tools/list", fourth)...)
-	if !storedUnder("new") {
-		t.Fatal("shared body was not rewritten under the current key when its refresh was due")
-	}
-
-	// Retire the old key. Rows written since the rotation still read their shared body.
-	useRotatingKeys(rotated, "new")
-	logs := readMCPAuditLogs(t, rotated)
-	if len(logs) != 4 {
-		t.Fatalf("read %d rows, want 4", len(logs))
-	}
-	for i, want := range map[int]json.RawMessage{2: third, 3: fourth} {
-		if len(logs[i].UnavailablePayloads) != 0 || !bytes.Equal(logs[i].MCP().ResponseBody, want) {
-			t.Fatalf("row %d written after the rotation cannot be read once the old key is retired: unavailable=%v", i, logs[i].UnavailablePayloads)
-		}
-	}
-}
-
 // A replica whose key the others cannot read must not replace a shared body they depend on, and
 // must not reference it either: it could not read its own row back. It stores its copy of the
 // response inline instead.
 func TestReplicaThatCannotReadASharedBodyLeavesItAlone(t *testing.T) {
 	c := newTestClient(t)
-	useRotatingKeys(c, "shared")
+	useKey(c, "shared")
 	result := testListResult("foreign", 4096)
 	first := testListResponse(1, result)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", first)...)
@@ -1690,7 +1629,7 @@ func TestReplicaThatCannotReadASharedBodyLeavesItAlone(t *testing.T) {
 	before := loadAuditBody(t, c)
 
 	misconfigured := &Client{db: c.db}
-	useRotatingKeys(misconfigured, "foreign")
+	useKey(misconfigured, "foreign")
 	second := testListResponse(2, result)
 	storeMCPAuditEntries(t, misconfigured, listCallEntries(2, "tools/list", second)...)
 
@@ -1724,10 +1663,10 @@ func TestReplicaThatCannotReadASharedBodyLeavesItAlone(t *testing.T) {
 func TestUnreadableSharedBodyIsNotReferencedAndAgesOut(t *testing.T) {
 	const retentionDays = 30
 	c := newTestClient(t)
-	useRotatingKeys(c, "lost")
+	useKey(c, "lost")
 	// Only the audit key is lost. The hash key stays readable, so the writers below can share,
 	// and what they cannot read is the stored body.
-	c.encryptionConfig.Transformers[propertyGroupResource] = rotatingTransformer{keys: []string{"current"}}
+	c.encryptionConfig.Transformers[propertyGroupResource] = keyedTransformer{key: "current"}
 	result := testListResult("orphan", 4096)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, result))...)
 	if err := c.db.WithContext(t.Context()).Where("1 = 1").Delete(&types.MCPAuditLog{}).Error; err != nil {
@@ -1740,7 +1679,7 @@ func TestUnreadableSharedBodyIsNotReferencedAndAgesOut(t *testing.T) {
 	// Correctly configured replicas only have the current key.
 	for id := 2; id <= 4; id++ {
 		writer := &Client{db: c.db}
-		useRotatingKeys(writer, "current")
+		useKey(writer, "current")
 		response := testListResponse(id, result)
 		storeMCPAuditEntries(t, writer, listCallEntries(id, "tools/list", response)...)
 
@@ -1758,7 +1697,7 @@ func TestUnreadableSharedBodyIsNotReferencedAndAgesOut(t *testing.T) {
 
 	// Retention removes the copy once it is old enough, and the next write shares again.
 	writer := &Client{db: c.db, auditLogDeleteBatchSize: 10}
-	useRotatingKeys(writer, "current")
+	useKey(writer, "current")
 	if err := writer.cleanupRetainedData(t.Context(), now.AddDate(0, 0, 4), retentionDays, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -1944,45 +1883,7 @@ func storedHashKeyUnder(t *testing.T, c *Client, key string) bool {
 		t.Fatal(err)
 	}
 	ciphertext, err := base64.StdEncoding.DecodeString(stored.Value)
-	return err == nil && stored.Encrypted && bytes.HasPrefix(ciphertext, rotatingKeyPrefix(key))
-}
-
-// The hash key is stored encrypted like any other property, so it has to follow an encryption key
-// rotation. Otherwise retiring the old encryption key would leave no replica able to read it, and
-// list responses would quietly stop being shared.
-func TestHashKeyFollowsEncryptionKeyRotation(t *testing.T) {
-	c := newTestClient(t)
-	result := testListResult("keyrotation", 4096)
-
-	before := rotatingKeysClient(c, "old")
-	storeMCPAuditEntries(t, before, listCallEntries(1, "tools/list", testListResponse(1, result))...)
-	original, err := before.auditBodyHashKey(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !storedHashKeyUnder(t, c, "old") {
-		t.Fatal("hash key was not stored under the only encryption key")
-	}
-
-	// A replica restarted with the new key first stores the same hash key again under it.
-	rotated := rotatingKeysClient(c, "new", "old")
-	storeMCPAuditEntries(t, rotated, listCallEntries(2, "tools/list", testListResponse(2, result))...)
-	if !storedHashKeyUnder(t, c, "new") {
-		t.Fatal("hash key was not stored again under the current encryption key")
-	}
-	if got := countAuditBodies(t, c); got != 1 {
-		t.Fatalf("stored %d shared bodies, want the rotation to keep the hash key and so the one body", got)
-	}
-
-	// With the old encryption key retired, the hash key still loads and is still the same.
-	retired := rotatingKeysClient(c, "new")
-	key, err := retired.auditBodyHashKey(t.Context())
-	if err != nil {
-		t.Fatalf("hash key cannot be loaded once the old encryption key is retired: %v", err)
-	}
-	if !bytes.Equal(key, original) {
-		t.Fatal("hash key changed across the rotation")
-	}
+	return err == nil && stored.Encrypted && bytes.HasPrefix(ciphertext, keyPrefix(key))
 }
 
 func (f failingOnceTransformer) TransformFromStorage(ctx context.Context, data []byte, dataCtx value.Context) ([]byte, bool, error) {
@@ -1990,7 +1891,7 @@ func (f failingOnceTransformer) TransformFromStorage(ctx context.Context, data [
 		*f.failures--
 		return nil, false, errors.New("encryption provider is unavailable")
 	}
-	return f.rotatingTransformer.TransformFromStorage(ctx, data, dataCtx)
+	return f.keyedTransformer.TransformFromStorage(ctx, data, dataCtx)
 }
 
 // A hash key that cannot be decrypted is left as it is. The failure may be passing, or the
@@ -2001,9 +1902,9 @@ func TestHashKeyThatCannotBeDecryptedIsNotReplaced(t *testing.T) {
 
 	t.Run("replica with another encryption key", func(t *testing.T) {
 		c := newTestClient(t)
-		storeMCPAuditEntries(t, rotatingKeysClient(c, "shared"), listCallEntries(1, "tools/list", testListResponse(1, result))...)
+		storeMCPAuditEntries(t, keyedClient(c, "shared"), listCallEntries(1, "tools/list", testListResponse(1, result))...)
 
-		other := rotatingKeysClient(c, "other")
+		other := keyedClient(c, "other")
 		second := testListResponse(2, result)
 		storeMCPAuditEntries(t, other, listCallEntries(2, "tools/list", second)...)
 		if !storedHashKeyUnder(t, c, "shared") {
@@ -2023,7 +1924,7 @@ func TestHashKeyThatCannotBeDecryptedIsNotReplaced(t *testing.T) {
 
 	t.Run("passing failure of the encryption provider", func(t *testing.T) {
 		c := newTestClient(t)
-		original := rotatingKeysClient(c, "shared")
+		original := keyedClient(c, "shared")
 		storeMCPAuditEntries(t, original, listCallEntries(1, "tools/list", testListResponse(1, result))...)
 		want, err := original.auditBodyHashKey(t.Context())
 		if err != nil {
@@ -2031,9 +1932,9 @@ func TestHashKeyThatCannotBeDecryptedIsNotReplaced(t *testing.T) {
 		}
 
 		failures := 1
-		restarted := rotatingKeysClient(c, "shared")
+		restarted := keyedClient(c, "shared")
 		restarted.encryptionConfig.Transformers[propertyGroupResource] = failingOnceTransformer{
-			keys:     []string{"shared"},
+			key:      "shared",
 			failures: &failures,
 		}
 		if _, err := restarted.auditBodyHashKey(t.Context()); err == nil {
@@ -2060,7 +1961,7 @@ func TestHashKeyThatCannotBeDecryptedIsNotReplaced(t *testing.T) {
 func TestMissingHashKeyIsLoggedOncePerAttempt(t *testing.T) {
 	c := newTestClient(t)
 	result := testListResult("quiet", 4096)
-	storeMCPAuditEntries(t, rotatingKeysClient(c, "only"), listCallEntries(1, "tools/list", testListResponse(1, result))...)
+	storeMCPAuditEntries(t, keyedClient(c, "only"), listCallEntries(1, "tools/list", testListResponse(1, result))...)
 
 	// This replica has no encryption configured, so it cannot read the encrypted hash key.
 	plain := &Client{db: c.db}
@@ -2081,53 +1982,12 @@ func TestMissingHashKeyIsLoggedOncePerAttempt(t *testing.T) {
 	}
 }
 
-// A writer decides to replace a stored body before its transaction starts. If another replica
-// has replaced the body in the meantime, the stored copy is no longer the one the writer judged,
-// and it must be left alone.
-func TestSharedBodyIsReplacedOnlyIfUnchangedSinceInspected(t *testing.T) {
-	c := newTestClient(t)
-	hash := bytes.Repeat([]byte{9}, auditBodyHashLen)
-	inspected := []byte("copy the writer inspected")
-	now := time.Now().UTC()
-	if err := c.db.WithContext(t.Context()).Create(&types.MCPAuditLogBody{Hash: hash, Body: inspected, CreatedAt: now, LastReferencedAt: now.AddDate(0, 0, -3)}).Error; err != nil {
-		t.Fatal(err)
-	}
-	write := auditBodyWrite{
-		body:            types.MCPAuditLogBody{Hash: hash, Body: []byte("writer's replacement"), CreatedAt: now, LastReferencedAt: now},
-		replaceIfStored: inspected,
-	}
-
-	// Another replica got there first.
-	if err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLogBody{}).Where("1 = 1").Update("body", []byte("another replica's copy")).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := storeAuditBodies(c.db.WithContext(t.Context()), []auditBodyWrite{write}); err != nil {
-		t.Fatal(err)
-	}
-	stored := loadAuditBody(t, c)
-	if string(stored.Body) != "another replica's copy" {
-		t.Fatalf("stored body is %q, want the other replica's copy left in place", stored.Body)
-	}
-	if now.Sub(stored.LastReferencedAt) > time.Minute {
-		t.Fatal("the reference was not recorded")
-	}
-
-	// With the stored copy as inspected, the replacement goes in.
-	write.replaceIfStored = []byte("another replica's copy")
-	if err := storeAuditBodies(c.db.WithContext(t.Context()), []auditBodyWrite{write}); err != nil {
-		t.Fatal(err)
-	}
-	if got := loadAuditBody(t, c).Body; string(got) != "writer's replacement" {
-		t.Fatalf("stored body is %q, want the writer's replacement", got)
-	}
-}
-
 // A replica trusts a stored copy only after reading it itself. Writing a row that references a
 // body proves nothing about the copy that is stored: another writer may have stored it between
 // this replica capturing the response and writing the row.
 func TestCopyStoredBetweenCaptureAndWriteIsReadBeforeItIsTrusted(t *testing.T) {
 	c := newTestClient(t)
-	useRotatingKeys(c, "mine")
+	useKey(c, "mine")
 	result := testListResult("between", 4096)
 
 	// Captured while nothing is stored, so the entry carries the body to insert.
@@ -2144,7 +2004,7 @@ func TestCopyStoredBetweenCaptureAndWriteIsReadBeforeItIsTrusted(t *testing.T) {
 	}
 
 	// Before the row is written, a replica with another key stores its own copy.
-	other := rotatingTransformer{keys: []string{"theirs"}}
+	other := keyedTransformer{key: "theirs"}
 	foreign, err := encodeAuditBody(t.Context(), other, auditBodyDataCtx(pending[0].Hash), []byte(result), 0)
 	if err != nil {
 		t.Fatal(err)
@@ -2179,7 +2039,7 @@ func TestCopyStoredBetweenCaptureAndWriteIsReadBeforeItIsTrusted(t *testing.T) {
 // referenced.
 func TestStoredCopyIsReadAgainAfterItWasLastChecked(t *testing.T) {
 	c := newTestClient(t)
-	useRotatingKeys(c, "key")
+	useKey(c, "key")
 	result := testListResult("recheck", 4096)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, result))...)
 	storeMCPAuditEntries(t, c, listCallEntries(2, "tools/list", testListResponse(2, result))...)
@@ -2247,13 +2107,13 @@ func (c cancellingTransformer) TransformFromStorage(ctx context.Context, _ []byt
 // it as a verdict and looks again next time.
 func TestCheckCutShortIsNotRememberedAsAVerdict(t *testing.T) {
 	c := newTestClient(t)
-	useRotatingKeys(c, "key")
+	useKey(c, "key")
 	result := testListResult("cutshort", 4096)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, result))...)
 	hash := loadAuditBody(t, c).Hash
 
 	ctx, cancel := context.WithCancel(t.Context())
-	interrupted := cancellingTransformer{keys: []string{"key"}, cancel: cancel}
+	interrupted := cancellingTransformer{key: "key", cancel: cancel}
 	if got := c.auditBodyStoredState(ctx, interrupted, hash, time.Now()); got != auditBodyStoredUnusable {
 		t.Fatalf("state of a check that was cut short = %d, want unusable for this entry", got)
 	}
@@ -2265,67 +2125,15 @@ func TestCheckCutShortIsNotRememberedAsAVerdict(t *testing.T) {
 	}
 }
 
-// When a write finds that a copy due for refresh cannot be decoded, the rows being written
-// already reference it, but the replica remembers the copy as unusable so that later rows do
-// not. A decode cut short by its context is not taken as a verdict.
-func TestUndecodableCopyFoundAtRefreshIsRememberedAsUnusable(t *testing.T) {
-	c := newTestClient(t)
-	useRotatingKeys(c, "key")
-	result := testListResult("dueandbad", 4096)
-	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, result))...)
-	storeMCPAuditEntries(t, c, listCallEntries(2, "tools/list", testListResponse(2, result))...)
-	hash := [auditBodyHashLen]byte(loadAuditBody(t, c).Hash)
-	if known, ok := c.auditBodies.known[hash]; !ok || known.unusable {
-		t.Fatal("expected the stored copy to be remembered as usable")
-	}
-
-	makeDue := func() {
-		setAuditBodyLastReferenced(t, c, time.Now().UTC().Add(-2*auditBodyReferenceRefresh))
-	}
-
-	// A decode cut short by its context changes nothing that is remembered.
-	makeDue()
-	ctx, cancel := context.WithCancel(t.Context())
-	interrupted := cancellingTransformer{keys: []string{"key"}, cancel: cancel}
-	outdated, err := c.outdatedAuditBodies(ctx, interrupted, [][]byte{hash[:]})
-	if err != nil || len(outdated) != 0 || ctx.Err() == nil {
-		t.Fatalf("expected the decode to be cut short and nothing to be replaced: outdated=%d err=%v", len(outdated), err)
-	}
-	if c.auditBodies.known[hash].unusable {
-		t.Fatal("a decode cut short by its context was remembered as an unusable copy")
-	}
-
-	// The copy goes bad, and its refresh is due when the next row is written.
-	if err := c.db.WithContext(t.Context()).Model(&types.MCPAuditLogBody{}).Where("1 = 1").Update("body", []byte{auditBodyMarker, auditBodyVersion, auditBodyFlagEncrypted, 'b', 'a', 'd'}).Error; err != nil {
-		t.Fatal(err)
-	}
-	makeDue()
-	storeMCPAuditEntries(t, c, listCallEntries(3, "tools/list", testListResponse(3, result))...)
-	if !c.auditBodies.known[hash].unusable {
-		t.Fatal("a copy that could not be decoded at its refresh was not remembered as unusable")
-	}
-
-	// So the row after that is stored inline and can be read.
-	fourth := testListResponse(4, result)
-	storeMCPAuditEntries(t, c, listCallEntries(4, "tools/list", fourth)...)
-	row, err := c.GetMCPAuditLog(t.Context(), 4, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(row.UnavailablePayloads) != 0 || !bytes.Equal(row.MCP().ResponseBody, fourth) {
-		t.Fatalf("row written after the failed refresh references the bad copy: unavailable=%v", row.UnavailablePayloads)
-	}
-}
-
 // If the encryption key the hash key is stored under is truly lost, deleting the property is the
 // way out: a replica makes a new hash key at its next attempt, without a restart, and shares
 // list responses again.
 func TestDeletingAnUnreadableHashKeyRestoresSharing(t *testing.T) {
 	c := newTestClient(t)
 	result := testListResult("remedy", 4096)
-	storeMCPAuditEntries(t, rotatingKeysClient(c, "lost"), listCallEntries(1, "tools/list", testListResponse(1, result))...)
+	storeMCPAuditEntries(t, keyedClient(c, "lost"), listCallEntries(1, "tools/list", testListResponse(1, result))...)
 
-	current := rotatingKeysClient(c, "current")
+	current := keyedClient(c, "current")
 	storeMCPAuditEntries(t, current, listCallEntries(2, "tools/list", testListResponse(2, result))...)
 	if stored := storedResponseBodyOf(t, c, 2); stored[2]&auditBodyFlagReference != 0 {
 		t.Fatal("expected the list response to be stored inline while the hash key cannot be read")
@@ -2393,7 +2201,7 @@ func (h hookedTransformer) TransformToStorage(ctx context.Context, data []byte, 
 		*h.beforeFirstEncrypt = nil
 		hook()
 	}
-	return h.rotatingTransformer.TransformToStorage(ctx, data, dataCtx)
+	return h.keyedTransformer.TransformToStorage(ctx, data, dataCtx)
 }
 
 // Two replicas that both find the hash key stored unencrypted each generate a replacement. Only
@@ -2403,7 +2211,7 @@ func TestReplicasReplacingTheHashKeyAtOnceAgreeOnOne(t *testing.T) {
 	c := newTestClient(t)
 	storeMCPAuditEntries(t, c, listCallEntries(1, "tools/list", testListResponse(1, testListResult("race", 4096)))...)
 
-	first, second := rotatingKeysClient(c, "key"), rotatingKeysClient(c, "key")
+	first, second := keyedClient(c, "key"), keyedClient(c, "key")
 	var secondKey []byte
 	// The second replica replaces the key after the first has read it and before the first
 	// writes its own replacement.
@@ -2414,7 +2222,7 @@ func TestReplicasReplacingTheHashKeyAtOnceAgreeOnOne(t *testing.T) {
 		}
 	}
 	first.encryptionConfig.Transformers[propertyGroupResource] = hookedTransformer{
-		keys:               []string{"key"},
+		key:                "key",
 		beforeFirstEncrypt: &hook,
 	}
 
@@ -2428,7 +2236,7 @@ func TestReplicasReplacingTheHashKeyAtOnceAgreeOnOne(t *testing.T) {
 	if !bytes.Equal(firstKey, secondKey) {
 		t.Fatal("the replicas ended up with different hash keys")
 	}
-	stored, err := rotatingKeysClient(c, "key").auditBodyHashKey(t.Context())
+	stored, err := keyedClient(c, "key").auditBodyHashKey(t.Context())
 	if err != nil || !bytes.Equal(stored, secondKey) {
 		t.Fatalf("the stored hash key is not the one the replicas agreed on: %v", err)
 	}
@@ -2494,7 +2302,7 @@ func TestRememberedStoredCopiesAreBounded(t *testing.T) {
 // the replica remembers that it is about to store it, and the flush stores it once.
 func TestUnstoredResultIsLookedUpOnceBeforeFlush(t *testing.T) {
 	c := newTestClient(t)
-	useRotatingKeys(c, "key")
+	useKey(c, "key")
 
 	var lookups int
 	if err := c.db.WithContext(t.Context()).Callback().Query().After("gorm:query").Register("count_audit_body_lookups", func(db *gorm.DB) {
@@ -2588,7 +2396,7 @@ func TestBodyCompressedWithDefaultWindowStillDecodes(t *testing.T) {
 // thousands of rows, and its error is stored on the export, so it must not name every one.
 func TestLegacyDecryptFailureStopsAtTheFirstRow(t *testing.T) {
 	c := newTestClient(t)
-	useRotatingKeys(c, "old")
+	useKey(c, "old")
 	for range 3 {
 		row := types.MCPAuditLog{
 			CreatedAt: time.Now().UTC(),
@@ -2606,7 +2414,7 @@ func TestLegacyDecryptFailureStopsAtTheFirstRow(t *testing.T) {
 		}
 	}
 
-	useRotatingKeys(c, "new")
+	useKey(c, "new")
 	_, _, err := c.GetMCPAuditLogs(t.Context(), MCPAuditLogOptions{
 		WithRequestAndResponse: true,
 		SourceTypes:            []types2.AuditLogSourceType{types2.AuditLogSourceTypeMCP},
@@ -2614,7 +2422,7 @@ func TestLegacyDecryptFailureStopsAtTheFirstRow(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected reading legacy rows under the wrong key to fail")
 	}
-	if got := strings.Count(err.Error(), "no configured key can decrypt"); got != 1 {
+	if got := strings.Count(err.Error(), "the configured key cannot decrypt"); got != 1 {
 		t.Fatalf("error reports %d failures, want 1: %v", got, err)
 	}
 }
@@ -2626,7 +2434,7 @@ func TestEncryptedAuditLogsWithoutPropertyEncryptionDoNotShare(t *testing.T) {
 	c := newTestClient(t)
 	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
 		Transformers: map[schema.GroupResource]value.Transformer{
-			mcpAuditLogGroupResource: rotatingTransformer{keys: []string{"key"}},
+			mcpAuditLogGroupResource: keyedTransformer{key: "key"},
 		},
 	}
 	response := testListResponse(1, testListResult("unprotected", 4096))

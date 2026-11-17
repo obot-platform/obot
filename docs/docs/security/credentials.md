@@ -106,24 +106,6 @@ Local-auth passwords are stored as salted Argon2id hashes regardless of whether 
 
 Enabling encryption does not automatically encrypt all existing data. Existing installations may require a separate migration to protect previously stored data.
 
-## Rotating the Encryption Key {#overview-rotating-the-encryption-key}
-
-These steps apply to a [Custom](../configuration/encryption-providers/custom-provider.md) encryption configuration, which can list more than one key. The AWS KMS, Google Cloud KMS, and Azure Key Vault providers use a built-in configuration with a single key, so their keys are rotated in the cloud provider instead. There, keep every key version that encrypted stored data enabled for at least as long as the retention guidance below.
-
-The first provider listed for a resource in the `EncryptionConfiguration` encrypts new data. Every listed provider can decrypt. Rotate a key in this order:
-
-1. Add the new key to every replica's configuration after the current key, so that every replica can read data encrypted with it. Finish this rollout before the next step.
-2. Move the new key to the first position on every replica. New data is now encrypted with it.
-3. Keep the old key configured until no stored data needs it.
-
-For MCP and local-agent audit logs, keep the old key for at least the MCP audit log retention period in effect plus three days after the last replica moves the new key first. The period in effect is `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS`, unless an Obot Cloud plan sets an audit log retention, which replaces it. If Obot cannot read the plan's retention, it keeps every audit log and logs `Failed to read audit log retention, keeping audit logs`; the old key is then needed until cleanup resumes.
-
-Before removing the old key, confirm that cleanup is running: no MCP audit log older than the retention period in effect should remain. Large `tools/list`, `prompts/list`, `resources/list`, and `resources/templates/list` results are stored once and shared by every audit log that contains them. A shared result moves to the new key only when it is next referenced after a daily refresh, so it can stay under the old key for a day longer than the audit logs themselves. If retention is disabled, audit logs and shared results written under the old key are never deleted and continue to need it.
-
-Other encrypted data, such as credentials and user details, is not re-encrypted when the key changes. It keeps needing the old key until it is rewritten.
-
-If the old key is removed too early, audit logs encrypted with it can no longer be read. Their detail views fail, and so does any audit log list page or export that includes payloads and contains one of them, even if the other audit logs on it use the new key. Audit log list pages without payloads remain available.
-
-### Recovering from a Lost Audit Hash Key {#overview-recovering-from-a-lost-audit-hash-key}
+## Recovering from a Lost Audit Hash Key {#overview-recovering-from-a-lost-audit-hash-key}
 
 Obot identifies shared audit results with a hash key stored, encrypted, in the `properties` table under the name `mcp-audit-log-body-hash-key`. If the key that encrypts it is lost, Obot stores those results inline in each audit log instead of sharing them. To resume sharing, delete that row. Replicas create a new hash key within about a minute.

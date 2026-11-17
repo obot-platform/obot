@@ -48,13 +48,11 @@ without looking it up or encoding it again.
 
 **Refresh and retention.** A write refreshes a shared body's last-referenced
 time when it is more than a day old, in the transaction that writes the
-referencing row. At that point a writer that can decrypt the copy replaces it
-if it is under a key other than the current one. Retention deletes shared
+referencing row. A stored copy is never rewritten. Retention deletes shared
 bodies last referenced more than two days before the audit row cutoff.
 
 **HMAC key.** Generated on first use and kept in the `properties` table. A
-replica that encrypts properties stores it again when it is under a
-rotated-out encryption key and replaces it when it is stored unencrypted. A
+replica that encrypts properties replaces it when it is stored unencrypted. A
 key that cannot be read is left alone. When audit logs are encrypted but
 properties are not, the key would be stored in the clear and would let a
 database reader confirm a guessed result against the stored hashes, so list
@@ -97,12 +95,12 @@ Alternatives are discussed in the ODP.
   replica, which are marked failed. Views without payloads are unaffected and
   no data is lost.
 - **Existing rows** are not rewritten. Storage falls as they age out.
-- **Key rotation.** A new key must be readable by every replica before any
-  replica writes with it. The old key must stay readable for the retention
-  period in effect, which an entitlement can override, plus about three days after the last replica switches, a day longer
-  than inline rows need, because a shared body only moves to the new key when
-  its refresh comes due. The procedure is documented under "Rotating the
-  Encryption Key" in `docs/docs/security/credentials.md`.
+- **Key rotation is not supported.** Shared bodies and the HMAC key stay
+  under the encryption key they were written with, like other encrypted data
+  in Obot. A shared body that keeps being referenced is never re-encrypted, so
+  removing an old key makes the rows that reference such a body show it as
+  unavailable, and later rows store that result inline until the old copy ages
+  out.
 - **Lost HMAC key.** If the encryption key the HMAC key is stored under is
   lost, list responses are stored inline until the
   `mcp-audit-log-body-hash-key` row is deleted from `properties`. Replicas
