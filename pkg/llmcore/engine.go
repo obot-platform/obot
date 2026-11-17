@@ -29,6 +29,7 @@ import (
 	"github.com/maximhq/bifrost/framework/tracing"
 	"github.com/maximhq/bifrost/plugins/routing/rules"
 	llmcoreclient "github.com/obot-platform/obot/pkg/llmcore/client"
+	"golang.org/x/net/http/httpproxy"
 )
 
 // Options configure an Engine.
@@ -164,7 +165,7 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 	}
 	pc.CheckAndSetDefaults()
 
-	pc.ProxyConfig = ProviderProxy(pc.ProviderConfig, cfg.Settings["proxy"])
+	pc.ProxyConfig = runtimeProviderProxy(provider, pc.ProviderConfig, cfg.Settings["proxy"])
 	return &pc.ProviderConfig, nil
 }
 
@@ -209,6 +210,30 @@ func ProviderProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.Prox
 		NoProxy:       proxy.NoProxy,
 		SkipTLSVerify: proxy.SkipTLSVerify,
 	}
+}
+
+func runtimeProviderProxy(provider schemas.ModelProvider, pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
+	proxy := ProviderProxy(pc, raw)
+	if provider != schemas.OpenAI || pc.CustomProviderConfig != nil {
+		return proxy
+	}
+	env := httpproxy.FromEnvironment()
+	if env.HTTPSProxy == "" && env.HTTPProxy == "" {
+		return proxy
+	}
+	if proxy != nil && proxy.Type != "" && proxy.Type != schemas.NoProxy {
+		// Imports persist the environment proxy as a bare type/URL pair. Preserve
+		// inherited global proxies and provider proxies with explicit options.
+		if proxy != pc.ProxyConfig || (proxy.Type != schemas.HTTPProxy && proxy.Type != schemas.Socks5Proxy) ||
+			!reflect.DeepEqual(proxy, &schemas.ProxyConfig{Type: proxy.Type, URL: proxy.URL}) ||
+			proxy.URL.GetValue() == "" ||
+			(proxy.URL.GetValue() != env.HTTPSProxy && proxy.URL.GetValue() != env.HTTPProxy) {
+			return proxy
+		}
+	}
+	// API-key and subscription requests share this transport but have different
+	// hosts; evaluate NO_PROXY when dialing the actual destination.
+	return &schemas.ProxyConfig{Type: schemas.EnvProxy}
 }
 
 // New starts an engine with the configuration in the store. Individual provider
@@ -308,7 +333,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 			}
 			continue
 		}
-		e.appliedProxy[name] = ProviderProxy(cfg.Providers[name].ProviderConfig, cfg.Settings["proxy"])
+		e.appliedProxy[name] = runtimeProviderProxy(name, cfg.Providers[name].ProviderConfig, cfg.Settings["proxy"])
 	}
 	e.syncErr = errors.Join(startupErrors...)
 	return e, nil
@@ -393,7 +418,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
 	retiring := make(map[schemas.ModelProvider]struct{})
 	for name, pc := range cfg.Providers {
-		proxy := ProviderProxy(pc.ProviderConfig, cfg.Settings["proxy"])
+		proxy := runtimeProviderProxy(name, pc.ProviderConfig, cfg.Settings["proxy"])
 		_, pending := e.account.transitioning.Load(name)
 		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev.ProviderConfig, pc.ProviderConfig) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			updates[name] = proxy
