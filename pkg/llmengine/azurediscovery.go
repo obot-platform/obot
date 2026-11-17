@@ -130,7 +130,7 @@ func (d *azureDiscovery) refresh(ctx context.Context, cfg llmcoreclient.Config, 
 		return nil
 	}
 
-	proxy := llmcore.ProviderProxy(current.Config, cfg.Settings["proxy"])
+	proxy := llmcore.ProviderProxy(provider, current.Config, cfg.Settings["proxy"])
 	snapshots := map[string]llmcoreclient.AzureDiscoverySnapshot{}
 	keep := map[string]struct{}{}
 	var failures []error

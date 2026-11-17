@@ -23,7 +23,7 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func TestRuntimeProviderProxy(t *testing.T) {
+func TestProviderProxy(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://environment.invalid:8080")
 	t.Setenv("HTTP_PROXY", "")
 	t.Setenv("NO_PROXY", "api.openai.com")
@@ -78,15 +78,18 @@ func TestRuntimeProviderProxy(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			proxy := runtimeProviderProxy(tc.provider, tc.config, json.RawMessage(tc.global))
+			proxy := ProviderProxy(tc.provider, tc.config, json.RawMessage(tc.global))
 			if tc.wantType == "" {
 				require.True(t, proxy == nil || proxy.Type == schemas.NoProxy)
 				return
 			}
 			require.Equal(t, tc.wantType, proxy.Type)
 			require.Equal(t, tc.wantURL, proxy.URL.GetValue())
-			if tc.wantType != schemas.EnvProxy {
-				require.Equal(t, ProviderProxy(tc.config, json.RawMessage(tc.global)), proxy)
+			if tc.wantType != schemas.EnvProxy && tc.config.ProxyConfig != nil {
+				require.Equal(t, tc.config.ProxyConfig, proxy)
+			}
+			if tc.global != "" {
+				require.Equal(t, "chatgpt.com", proxy.NoProxy)
 			}
 		})
 	}

@@ -165,7 +165,7 @@ func (a *account) GetConfigForProvider(provider schemas.ModelProvider) (*schemas
 	}
 	pc.CheckAndSetDefaults()
 
-	pc.ProxyConfig = runtimeProviderProxy(provider, pc.ProviderConfig, cfg.Settings["proxy"])
+	pc.ProxyConfig = ProviderProxy(provider, pc.ProviderConfig, cfg.Settings["proxy"])
 	return &pc.ProviderConfig, nil
 }
 
@@ -182,57 +182,59 @@ func validateProviderQueue(provider schemas.ModelProvider, pc schemas.ProviderCo
 	return nil
 }
 
-// ProviderProxy returns the effective inference proxy, including provider overrides.
+// ProviderProxy resolves provider overrides, global settings, and destination-aware
+// environment proxy selection for standard OpenAI providers.
 // Compare this value during reconciliation so unrelated or cosmetic global edits
 // do not restart providers whose network behavior has not changed.
-func ProviderProxy(pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
+func ProviderProxy(provider schemas.ModelProvider, pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
 	pc.CheckAndSetDefaults()
+	proxy := pc.ProxyConfig
 	// An empty proxy object, like NoProxy, is unconfigured and must inherit
 	// an enabled global inference proxy.
-	if pc.ProxyConfig != nil && pc.ProxyConfig.Type != "" && pc.ProxyConfig.Type != schemas.NoProxy {
-		return pc.ProxyConfig
+	if proxy == nil || proxy.Type == "" || proxy.Type == schemas.NoProxy {
+		var global tables.GlobalProxyConfig
+		_ = json.Unmarshal(raw, &global)
+		if global.Type == "" {
+			global.Type = "http"
+		}
+		globalProxyEnabled := global.Enabled && global.EnableForInference && strings.TrimSpace(global.URL) != ""
+		supportedProxyType := global.Type == "http" || global.Type == "socks5"
+		if globalProxyEnabled && supportedProxyType {
+			return &schemas.ProxyConfig{
+				Type:          schemas.ProxyType(global.Type),
+				URL:           &schemas.SecretVar{Val: global.URL},
+				Username:      &schemas.SecretVar{Val: global.Username},
+				Password:      &schemas.SecretVar{Val: global.Password},
+				NoProxy:       global.NoProxy,
+				SkipTLSVerify: global.SkipTLSVerify,
+			}
+		}
 	}
-	var proxy tables.GlobalProxyConfig
-	_ = json.Unmarshal(raw, &proxy)
-	if proxy.Type == "" {
-		proxy.Type = "http"
-	}
-	globalProxyEnabled := proxy.Enabled && proxy.EnableForInference && strings.TrimSpace(proxy.URL) != ""
-	supportedProxyType := proxy.Type == "http" || proxy.Type == "socks5"
-	if !globalProxyEnabled || !supportedProxyType {
-		return pc.ProxyConfig
-	}
-	return &schemas.ProxyConfig{
-		Type:          schemas.ProxyType(proxy.Type),
-		URL:           &schemas.SecretVar{Val: proxy.URL},
-		Username:      &schemas.SecretVar{Val: proxy.Username},
-		Password:      &schemas.SecretVar{Val: proxy.Password},
-		NoProxy:       proxy.NoProxy,
-		SkipTLSVerify: proxy.SkipTLSVerify,
-	}
-}
 
-func runtimeProviderProxy(provider schemas.ModelProvider, pc schemas.ProviderConfig, raw json.RawMessage) *schemas.ProxyConfig {
-	proxy := ProviderProxy(pc, raw)
 	if provider != schemas.OpenAI || pc.CustomProviderConfig != nil {
 		return proxy
 	}
+	return openAIEnvironmentProxy(proxy)
+}
+
+// OpenAI API keys use api.openai.com, while ChatGPT subscriptions use chatgpt.com,
+// so their shared transport must evaluate NO_PROXY per destination. Claude's two
+// credential modes both use api.anthropic.com and need no such adjustment.
+func openAIEnvironmentProxy(proxy *schemas.ProxyConfig) *schemas.ProxyConfig {
 	env := httpproxy.FromEnvironment()
 	if env.HTTPSProxy == "" && env.HTTPProxy == "" {
 		return proxy
 	}
 	if proxy != nil && proxy.Type != "" && proxy.Type != schemas.NoProxy {
 		// Imports persist the environment proxy as a bare type/URL pair. Preserve
-		// inherited global proxies and provider proxies with explicit options.
-		if proxy != pc.ProxyConfig || (proxy.Type != schemas.HTTPProxy && proxy.Type != schemas.Socks5Proxy) ||
+		// distinct provider proxies and those with explicit options.
+		if (proxy.Type != schemas.HTTPProxy && proxy.Type != schemas.Socks5Proxy) ||
 			!reflect.DeepEqual(proxy, &schemas.ProxyConfig{Type: proxy.Type, URL: proxy.URL}) ||
 			proxy.URL.GetValue() == "" ||
 			(proxy.URL.GetValue() != env.HTTPSProxy && proxy.URL.GetValue() != env.HTTPProxy) {
 			return proxy
 		}
 	}
-	// API-key and subscription requests share this transport but have different
-	// hosts; evaluate NO_PROXY when dialing the actual destination.
 	return &schemas.ProxyConfig{Type: schemas.EnvProxy}
 }
 
@@ -333,7 +335,7 @@ func New(ctx context.Context, store *llmcoreclient.Client, opts Options) (*Engin
 			}
 			continue
 		}
-		e.appliedProxy[name] = runtimeProviderProxy(name, cfg.Providers[name].ProviderConfig, cfg.Settings["proxy"])
+		e.appliedProxy[name] = ProviderProxy(name, cfg.Providers[name].ProviderConfig, cfg.Settings["proxy"])
 	}
 	e.syncErr = errors.Join(startupErrors...)
 	return e, nil
@@ -418,7 +420,7 @@ func (e *Engine) apply(ctx context.Context, cfg llmcoreclient.Config) (bool, err
 	updates := make(map[schemas.ModelProvider]*schemas.ProxyConfig)
 	retiring := make(map[schemas.ModelProvider]struct{})
 	for name, pc := range cfg.Providers {
-		proxy := runtimeProviderProxy(name, pc.ProviderConfig, cfg.Settings["proxy"])
+		proxy := ProviderProxy(name, pc.ProviderConfig, cfg.Settings["proxy"])
 		_, pending := e.account.transitioning.Load(name)
 		if prev, ok := old.Providers[name]; !ok || pending || !reflect.DeepEqual(prev.ProviderConfig, pc.ProviderConfig) || !reflect.DeepEqual(e.appliedProxy[name], proxy) {
 			updates[name] = proxy
