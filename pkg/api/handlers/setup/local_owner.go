@@ -14,6 +14,10 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+var (
+	localOwnerCrossOriginProtection = http.NewCrossOriginProtection()
+)
+
 type CreateLocalOwnerRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -29,6 +33,11 @@ type CreateLocalOwnerResponse struct {
 // Owner's identity is recorded as signed in, setup closes as soon as this succeeds.
 // Endpoint: POST /api/setup/local-owner
 func (h *Handler) CreateLocalOwner(req api.Context) error {
+	if err := localOwnerCrossOriginProtection.Check(req.Request); err != nil {
+		slog.Info("Rejected cross-origin local owner creation", "error", err)
+		return types.NewErrHTTP(http.StatusForbidden, localized(req, "setup_cross_origin"))
+	}
+
 	if err := h.requireBootstrapEnabled(req); err != nil {
 		return err
 	}
