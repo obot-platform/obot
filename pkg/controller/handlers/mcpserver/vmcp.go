@@ -46,7 +46,8 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		return fmt.Errorf("get VMCP %q: %w", vmcpID, err)
 	}
 	effective := vmcp.Spec.Manifest
-	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	// A server kept for a component the user left out still follows its configuration.
+	effective.Components = vmcpconfig.AvailableComponentsForInstance(vmcp, instance)
 	component, ok := vmcpComponent(effective, server.Spec.VMCPComponentID)
 	if !ok {
 		return fmt.Errorf("VMCP %q does not contain component %q", vmcp.Name, server.Spec.VMCPComponentID)

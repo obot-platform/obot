@@ -710,6 +710,8 @@ export interface VMCPManifest {
 	icon?: string;
 	profiles?: VMCPProfile[];
 	toolSearch?: boolean;
+	/** Each user chooses which components their connection uses. */
+	userSelectableComponents?: boolean;
 }
 
 export interface VMCPStatus {

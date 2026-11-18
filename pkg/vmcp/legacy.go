@@ -8,9 +8,27 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 )
 
-// ComponentsForInstance retains a migrated connection's snapshots until the
-// administrator explicitly upgrades the corresponding vMCP component.
+// ComponentsForInstance returns the components a connection uses: its available
+// components (see AvailableComponentsForInstance) without, when the vMCP lets
+// users choose, the components the user left out of their selection.
 func ComponentsForInstance(vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPComponent {
+	components := AvailableComponentsForInstance(vmcp, instance)
+	selected := SelectedComponentIDs(vmcp, instance)
+	if selected == nil {
+		return components
+	}
+	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
+		_, ok := selected[component.ID]
+		return !ok
+	})
+}
+
+// AvailableComponentsForInstance retains a migrated connection's snapshots until
+// the administrator explicitly upgrades the corresponding vMCP component, and
+// omits the components a migrated connection disabled. A component the user left
+// out of their selection is still available: its server, configuration and OAuth
+// are kept so that choosing it again needs no new setup.
+func AvailableComponentsForInstance(vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPComponent {
 	components := vmcp.DeepCopy().Spec.Manifest.Components
 	for i, component := range components {
 		if legacy, ok := LegacyComponent(vmcp, instance, component); ok {
@@ -40,6 +58,20 @@ func ComponentsForInstance(vmcp v1.VMCP, instance v1.VMCPInstance) []types.VMCPC
 	return slices.DeleteFunc(components, func(component types.VMCPComponent) bool {
 		return slices.Contains(instance.Spec.LegacyDisabledComponents, component.ID)
 	})
+}
+
+// SelectedComponentIDs returns the components a user chose for their connection.
+// It is nil, meaning every component, when the vMCP does not let users choose or
+// the user has not chosen.
+func SelectedComponentIDs(vmcp v1.VMCP, instance v1.VMCPInstance) map[string]struct{} {
+	if !vmcp.Spec.Manifest.UserSelectableComponents || instance.Spec.Manifest.ComponentSet == nil {
+		return nil
+	}
+	selected := make(map[string]struct{}, len(instance.Spec.Manifest.ComponentSet))
+	for componentID := range instance.Spec.Manifest.ComponentSet {
+		selected[componentID] = struct{}{}
+	}
+	return selected
 }
 
 // LegacyComponent returns the snapshot a migrated connection retains for a vMCP component. A

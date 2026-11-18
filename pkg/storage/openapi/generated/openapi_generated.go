@@ -18441,6 +18441,13 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"userSelectableComponents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserSelectableComponents lets each user choose which components their connection uses. A component the user leaves out needs no configuration, OAuth, or server, and serves no tools. Off, a connection uses every component its profiles enable.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"components": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
@@ -19051,6 +19058,13 @@ func schema_obot_platform_obot_apiclient_types_VMCPManifest(ref common.Reference
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"userSelectableComponents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserSelectableComponents lets each user choose which components their connection uses. A component the user leaves out needs no configuration, OAuth, or server, and serves no tools. Off, a connection uses every component its profiles enable.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"components": {

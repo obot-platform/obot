@@ -407,5 +407,11 @@
 	"vmcps_what_would_you_like_to_do": "What would you like to do?",
 	"vmcps_zoom_in": "Zoom in",
 	"vmcps_zoom_out": "Zoom out",
-	"vmcps_configuration_required_to_authenticate": "Finish configuring this vMCP before authenticating its servers."
+	"vmcps_configuration_required_to_authenticate": "Finish configuring this vMCP before authenticating its servers.",
+	"vmcps_user_selectable_components": "Let users choose servers",
+	"vmcps_user_selectable_components_description": "Each user picks which servers to connect. Servers they leave out need no setup or sign-in.",
+	"vmcps_choose_components": "Servers to connect",
+	"vmcps_choose_components_description": "Only the servers you choose need setup. You can change this later.",
+	"vmcps_choose_at_least_one_component": "Choose at least one server.",
+	"vmcps_change_components": "Change servers"
 }

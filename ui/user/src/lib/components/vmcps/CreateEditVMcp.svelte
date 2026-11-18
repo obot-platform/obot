@@ -121,6 +121,7 @@
 			displayName: form.displayName.trim(),
 			description: form.description.trim(),
 			toolSearch: form.toolSearch,
+			userSelectableComponents: form.userSelectableComponents,
 			components: creatingComponents
 		};
 	}
@@ -165,6 +166,7 @@
 				displayName: draft.displayName,
 				description: draft.description,
 				toolSearch: draft.toolSearch,
+				userSelectableComponents: draft.userSelectableComponents,
 				components: draft.components
 			},
 			{ dontLogErrors: true }
@@ -203,7 +205,8 @@
 					...vmcpManifest(vmcp),
 					displayName: form.displayName.trim(),
 					description: form.description.trim(),
-					toolSearch: form.toolSearch
+					toolSearch: form.toolSearch,
+					userSelectableComponents: form.userSelectableComponents
 				},
 				{ dontLogErrors: true }
 			);
@@ -245,7 +248,8 @@
 		form = {
 			displayName: vmcp.displayName ?? '',
 			description: vmcp.description ?? '',
-			toolSearch: vmcp.toolSearch ?? false
+			toolSearch: vmcp.toolSearch ?? false,
+			userSelectableComponents: vmcp.userSelectableComponents ?? false
 		};
 		showRequired = {};
 		openDialog();
@@ -398,6 +402,26 @@
 					bind:checked={form.toolSearch}
 					disabled={readonly}
 					aria-label={m.vmcps_tool_search()}
+				/>
+			</label>
+
+			<label
+				for="vmcp-user-selectable-components"
+				class="border-base-300 dark:border-base-400 mt-4 flex items-center justify-between gap-4 rounded-lg border p-4"
+			>
+				<span>
+					<span class="text-sm font-medium">{m.vmcps_user_selectable_components()}</span>
+					<span class="block text-xs opacity-70">
+						{m.vmcps_user_selectable_components_description()}
+					</span>
+				</span>
+				<input
+					id="vmcp-user-selectable-components"
+					type="checkbox"
+					class="toggle shrink-0"
+					bind:checked={form.userSelectableComponents}
+					disabled={readonly}
+					aria-label={m.vmcps_user_selectable_components()}
 				/>
 			</label>
 

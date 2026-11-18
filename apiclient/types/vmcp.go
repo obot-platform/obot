@@ -30,12 +30,17 @@ type VMCP struct {
 
 // VMCPManifest contains the user-managed portion of a VMCP.
 type VMCPManifest struct {
-	DisplayName string          `json:"displayName"`
-	Description string          `json:"description,omitempty"`
-	Icon        string          `json:"icon,omitempty"`
-	ToolSearch  bool            `json:"toolSearch,omitempty"`
-	Components  []VMCPComponent `json:"components"`
-	Profiles    []VMCPProfile   `json:"profiles,omitempty"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description,omitempty"`
+	Icon        string `json:"icon,omitempty"`
+	ToolSearch  bool   `json:"toolSearch,omitempty"`
+	// UserSelectableComponents lets each user choose which components their
+	// connection uses. A component the user leaves out needs no configuration,
+	// OAuth, or server, and serves no tools. Off, a connection uses every
+	// component its profiles enable.
+	UserSelectableComponents bool            `json:"userSelectableComponents,omitempty"`
+	Components               []VMCPComponent `json:"components"`
+	Profiles                 []VMCPProfile   `json:"profiles,omitempty"`
 }
 
 // VMCPComponent is a snapshot of one catalog entry and the policy applied to it.

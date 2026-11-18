@@ -15,6 +15,7 @@
 		hasSecretBinding,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
+	import { vmcpComponentId } from '$lib/services/vmcps/utils';
 	import { resolve } from '$lib/url';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
 	import { onMount, tick, untrack } from 'svelte';
@@ -35,6 +36,12 @@
 	let savingConfig = $state(false);
 
 	const consent = $derived(currentConsent);
+	// A vMCP that lets users choose components shows them here, so a client such as Claude can
+	// connect only some of them. A component left out keeps its configuration and OAuth.
+	const componentChoices = $derived(consent.vmcpChoosableComponents ?? []);
+	const chosenComponents = $derived((consent.vmcpComponents ?? []).map(vmcpComponentId));
+	let savingChoice = $state(false);
+	let choiceError = $state('');
 	const requiresMCPConfiguration = $derived(consent.mcpConfigRequired);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
@@ -342,6 +349,47 @@
 		}
 	}
 
+	async function toggleComponent(id: string, box: HTMLInputElement) {
+		const ids = box.checked
+			? [...chosenComponents, id]
+			: chosenComponents.filter((chosen) => chosen !== id);
+		choiceError = '';
+		if (ids.length === 0) {
+			box.checked = true;
+			choiceError = m.vmcps_choose_at_least_one_component();
+			return;
+		}
+		if (!consent.vmcpInstanceID) return;
+		savingChoice = true;
+		try {
+			const instance = await UserService.getVMCPInstance(consent.vmcpInstanceID, {
+				dontLogErrors: true
+			});
+			await UserService.updateVMCPInstance(
+				instance.id,
+				{
+					vmcpID: instance.vmcpID,
+					componentSet: Object.fromEntries(ids.map((id) => [id, instance.componentSet?.[id] ?? {}]))
+				},
+				{ dontLogErrors: true }
+			);
+			const nextConsent = await UserService.getOAuthConsent(consent.authRequestID);
+			currentConsent = nextConsent;
+			configureForm = undefined;
+			if (
+				nextConsent.mcpConfigRequired ||
+				nextConsent.vmcpComponents?.some(hasEditableVMCPConfiguration)
+			) {
+				await loadMCPConfiguration(nextConsent);
+			}
+		} catch (err) {
+			box.checked = chosenComponents.includes(id);
+			choiceError = err instanceof Error ? err.message : m.auth_consent_save_config_failed();
+		} finally {
+			savingChoice = false;
+		}
+	}
+
 	function clientCredentialSourceLabelFor(source: OAuthConsent['clientCredentialSource']) {
 		switch (source) {
 			case 'client_id_metadata_document':
@@ -355,6 +403,37 @@
 		}
 	}
 </script>
+
+{#snippet componentChoice()}
+	{#if componentChoices.length > 0}
+		<fieldset class="flex flex-col gap-2" id="vmcp-component-choice" disabled={savingChoice}>
+			<legend class="mb-1 text-sm font-medium">{m.vmcps_choose_components()}</legend>
+			<p class="text-muted-content text-xs">{m.vmcps_choose_components_description()}</p>
+			{#each componentChoices as component (vmcpComponentId(component))}
+				{@const id = vmcpComponentId(component)}
+				<label class="flex items-center gap-2 text-sm">
+					<input
+						type="checkbox"
+						class="checkbox checkbox-sm"
+						checked={chosenComponents.includes(id)}
+						onchange={(event) => toggleComponent(id, event.currentTarget)}
+					/>
+					{#if component.catalogEntry?.manifest?.icon}<img
+							src={component.catalogEntry.manifest.icon}
+							alt=""
+							class="size-4"
+						/>{/if}
+					<span class="truncate"
+						>{component.name || component.catalogEntry?.manifest?.name || id}</span
+					>
+				</label>
+			{/each}
+			{#if choiceError}
+				<p class="text-error text-xs" role="alert">{choiceError}</p>
+			{/if}
+		</fieldset>
+	{/if}
+{/snippet}
 
 <svelte:head>
 	<title>{m.auth_consent_page_title()}</title>
@@ -375,6 +454,8 @@
 			<section class="flex flex-col gap-5 p-4 py-0">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 
+				{@render componentChoice()}
+
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
@@ -391,6 +472,8 @@
 		{:else}
 			<section class="flex flex-col gap-5 p-4 pt-0">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
+
+				{@render componentChoice()}
 
 				{#if showMCPAuthNotice}
 					<div class="notification-info flex items-center gap-3 p-3">
@@ -499,7 +582,7 @@
 					class="btn btn-primary flex w-full items-center gap-2"
 					type="button"
 					onclick={openMCPConfiguration}
-					disabled={loadingConfig || savingConfig}
+					disabled={loadingConfig || savingConfig || savingChoice}
 				>
 					<SettingsIcon class="size-4" />
 					{loadingConfig ? m.auth_loading() : m.auth_configure()}
@@ -509,7 +592,7 @@
 					<button
 						class="btn btn-primary w-full"
 						type="submit"
-						disabled={loadingConfig || savingConfig}
+						disabled={loadingConfig || savingConfig || savingChoice}
 					>
 						{m.core_continue()}
 					</button>

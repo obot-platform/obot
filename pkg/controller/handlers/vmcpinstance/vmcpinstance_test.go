@@ -1315,3 +1315,81 @@ func TestEnsureMCPServersValidationAndOwnership(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncUserConfigurationHashSkipsComponentsTheUserLeftOut(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	mail := types.VMCPComponent{
+		ID:   "mail",
+		Name: "mail",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			Config: []types.MCPConfig{{Key: "IMAP_HOST", Name: "IMAP Host", Required: true}},
+		}},
+		Configuration: []types.VMCPConfigurationPolicy{{Key: "IMAP_HOST", Policy: types.VMCPConfigurationPolicyUserAllowed}},
+	}
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1test",
+		Namespace: "default",
+		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+			UserSelectableComponents: true,
+			Components:               []types.VMCPComponent{{ID: "outlook", Name: "outlook"}, mail},
+			Profiles: []types.VMCPProfile{{
+				Name:        "everyone",
+				Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+				Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
+			}},
+		}},
+	}
+	instance := &v1.VMCPInstance{
+		Name:      "vmcpi1test",
+		Namespace: "default",
+		Spec: v1.VMCPInstanceSpec{
+			Manifest: types.VMCPInstanceManifest{
+				VMCPID:       vmcp.Name,
+				ComponentSet: map[string]types.VMCPComponentSet{"outlook": {}},
+			},
+			UserID: "1",
+		},
+	}
+	client := withUserChangeWatches(t, fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.VMCPInstance{}).
+		WithObjects(vmcp, instance), instance.Spec.UserID).
+		Build()
+	handler := &Handler{
+		userInfo: staticUserInfo(&kuser.DefaultInfo{UID: "1"}),
+		revealCredential: func(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
+			return gatewaytypes.Credential{}, gateway.CredentialNotFoundError{Contexts: contexts, Name: name}
+		},
+	}
+	sync := func() v1.VMCPInstance {
+		t.Helper()
+		var current v1.VMCPInstance
+		if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), &current); err != nil {
+			t.Fatal(err)
+		}
+		if err := handler.SyncUserConfigurationHash(router.Request{Ctx: t.Context(), Client: client, Object: &current}, nil); err != nil {
+			t.Fatal(err)
+		}
+		return current
+	}
+
+	if got := sync(); !got.Status.Configured || len(got.Status.MissingRequiredConfiguration) != 0 {
+		t.Fatalf("left-out mail component still requires configuration: %+v", got.Status)
+	}
+
+	// Choosing mail later asks for its configuration.
+	var current v1.VMCPInstance
+	if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), &current); err != nil {
+		t.Fatal(err)
+	}
+	current.Spec.Manifest.ComponentSet["mail"] = types.VMCPComponentSet{}
+	if err := client.Update(t.Context(), &current); err != nil {
+		t.Fatal(err)
+	}
+	if got := sync(); got.Status.Configured || len(got.Status.MissingRequiredConfiguration) == 0 {
+		t.Fatalf("chosen mail component does not require configuration: %+v", got.Status)
+	}
+}

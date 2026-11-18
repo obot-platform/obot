@@ -67,6 +67,7 @@ import {
 	type VMCP,
 	type VMCPComponent,
 	type VMCPInstance,
+	type VMCPInstanceManifest,
 	type VMCPManifest,
 	type VMCPConfiguration,
 	type Skill
@@ -219,9 +220,21 @@ export async function getVMCPInstance(
 
 export async function createVMCPInstance(
 	vmcpID: string,
+	opts?: { dontLogErrors?: boolean; componentSet?: VMCPInstanceManifest['componentSet'] }
+): Promise<VMCPInstance> {
+	const manifest: VMCPInstanceManifest = { vmcpID };
+	if (opts?.componentSet) manifest.componentSet = opts.componentSet;
+	return (await doPost('/vmcp-instances', manifest, {
+		dontLogErrors: opts?.dontLogErrors
+	})) as VMCPInstance;
+}
+
+export async function updateVMCPInstance(
+	id: string,
+	manifest: VMCPInstanceManifest,
 	opts?: { dontLogErrors?: boolean }
 ): Promise<VMCPInstance> {
-	return (await doPost('/vmcp-instances', { vmcpID }, opts)) as VMCPInstance;
+	return (await doPut(`/vmcp-instances/${id}`, manifest, opts)) as VMCPInstance;
 }
 
 export async function configureVMCPInstance(
@@ -1247,6 +1260,7 @@ export type OAuthConsent = {
 	mcpServerInstance?: MCPServerInstance;
 	vmcpInstanceID?: string;
 	vmcpComponents?: VMCPComponent[];
+	vmcpChoosableComponents?: VMCPComponent[];
 	mcpAuthRequired: boolean;
 	userHasSecondLevelOAuthed: boolean;
 	mcpServerName?: string;

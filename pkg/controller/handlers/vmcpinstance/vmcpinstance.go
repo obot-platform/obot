@@ -237,8 +237,12 @@ func (h *Handler) EnsureMCPServers(req router.Request, _ router.Response) error 
 
 	// Exclude profile-disabled components so revoked dedicated servers are deleted
 	// and not recreated while access remains revoked. Restored access allows recreation.
-	components := vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.ComponentsForInstance(vmcp, *instance))
+	// A component the user left out keeps an existing server, with its configuration and
+	// OAuth, but gets no new one.
+	chosen := vmcpconfig.SelectedComponentIDs(vmcp, *instance)
+	components := vmcpconfig.EnabledComponents(u, vmcp, vmcpconfig.AvailableComponentsForInstance(vmcp, *instance))
 	servers := make([]v1.MCPServer, 0, len(components))
+	desired := make(map[string]struct{}, len(components))
 	for _, component := range components {
 		if vmcpconfig.IsMultiUser(component) {
 			continue
@@ -247,11 +251,14 @@ func (h *Handler) EnsureMCPServers(req router.Request, _ router.Response) error 
 		if err != nil {
 			return fmt.Errorf("build MCPServer for VMCP component %q: %w", component.Name, err)
 		}
-		servers = append(servers, server)
-	}
-	desired := make(map[string]struct{}, len(servers))
-	for _, server := range servers {
-		desired[server.Spec.VMCPComponentID] = struct{}{}
+		desired[component.ID] = struct{}{}
+		if _, ok := chosen[component.ID]; chosen == nil || ok {
+			servers = append(servers, server)
+		} else if err := req.Get(&v1.MCPServer{}, server.Namespace, server.Name); err == nil {
+			servers = append(servers, server)
+		} else if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("get MCPServer %q: %w", server.Name, err)
+		}
 	}
 	var existingServers v1.MCPServerList
 	if err := req.List(&existingServers, &kclient.ListOptions{Namespace: instance.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.vmcpInstanceID", instance.Name)}); err != nil {

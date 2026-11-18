@@ -24,7 +24,8 @@ func ServerInstanceComponent(ctx context.Context, client kclient.Client, connect
 	if err := client.Get(ctx, kclient.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.Manifest.VMCPID}, &vmcp); err != nil {
 		return types.VMCPComponent{}, err
 	}
-	for _, component := range ComponentsForInstance(vmcp, instance) {
+	// A connection kept for a component the user left out is still valid.
+	for _, component := range AvailableComponentsForInstance(vmcp, instance) {
 		if component.ID == connection.Spec.VMCPComponentID && IsMultiUser(component) {
 			return component, nil
 		}

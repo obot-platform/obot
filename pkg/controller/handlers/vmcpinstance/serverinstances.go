@@ -19,12 +19,18 @@ func (*Handler) EnsureMCPServerInstances(req router.Request, _ router.Response) 
 	if err := req.Get(&vmcp, instance.Namespace, instance.Spec.Manifest.VMCPID); err != nil {
 		return kclient.IgnoreNotFound(err)
 	}
+	// A component the user left out keeps an existing connection, with its OAuth, but gets
+	// no new one.
 	desired := map[string]struct{}{}
-	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
+	chosen := vmcpconfig.SelectedComponentIDs(vmcp, *instance)
+	for _, component := range vmcpconfig.AvailableComponentsForInstance(vmcp, *instance) {
 		if !vmcpconfig.IsMultiUser(component) {
 			continue
 		}
 		desired[component.ID] = struct{}{}
+		if _, ok := chosen[component.ID]; chosen != nil && !ok {
+			continue
+		}
 		serverName := name.SafeConcatName(system.MCPServerPrefix+vmcp.Name, component.ID)
 		var server v1.MCPServer
 		if err := req.Get(&server, instance.Namespace, serverName); apierrors.IsNotFound(err) {

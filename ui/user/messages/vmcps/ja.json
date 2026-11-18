@@ -407,5 +407,11 @@
 	"vmcps_what_would_you_like_to_do": "何をしますか？",
 	"vmcps_zoom_in": "拡大",
 	"vmcps_zoom_out": "縮小",
-	"vmcps_configuration_required_to_authenticate": "サーバーを認証する前に、この vMCP の設定を完了してください。"
+	"vmcps_configuration_required_to_authenticate": "サーバーを認証する前に、この vMCP の設定を完了してください。",
+	"vmcps_user_selectable_components": "ユーザーにサーバーを選択させる",
+	"vmcps_user_selectable_components_description": "各ユーザーが接続するサーバーを選びます。選ばなかったサーバーはセットアップもサインインも不要です。",
+	"vmcps_choose_components": "接続するサーバー",
+	"vmcps_choose_components_description": "選んだサーバーだけセットアップが必要です。後で変更できます。",
+	"vmcps_choose_at_least_one_component": "サーバーを1つ以上選んでください。",
+	"vmcps_change_components": "サーバーを変更"
 }

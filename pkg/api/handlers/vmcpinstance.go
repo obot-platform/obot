@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -145,8 +146,16 @@ func (*VMCPInstanceHandler) Update(req api.Context) error {
 	if err := authz.ValidateVMCPToolSelection(selectionUser, &vmcp, manifest.ComponentSet); err != nil {
 		return err
 	}
-	instance.Spec.Manifest = manifest
-	if err := req.Update(&instance); err != nil {
+	// The VMCPInstance controller writes a new instance's finalizer and status right
+	// after it is created, so an update that follows creation can conflict. Retry it
+	// against the latest version; only the manifest is replaced.
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(&instance, instance.Name); err != nil {
+			return err
+		}
+		instance.Spec.Manifest = manifest
+		return req.Update(&instance)
+	}); err != nil {
 		return fmt.Errorf("failed to update VMCP instance: %w", err)
 	}
 	return req.Write(convertVMCPInstance(instance))
@@ -176,11 +185,33 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 		return types.NewErrBadRequest("failed to read VMCP instance configuration: %v", err)
 	}
 
+	// Configuration for a component the user left out is accepted and kept, so choosing
+	// it again needs no new setup.
 	effective := vmcp.Spec.Manifest
-	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	effective.Components = vmcpconfig.AvailableComponentsForInstance(vmcp, instance)
 	secrets, err := vmcpconfig.ValidateAndEncodeUserConfiguration(effective, configuration)
 	if err != nil {
 		return types.NewErrBadRequest("invalid VMCP instance configuration: %v", err)
+	}
+	if chosen := vmcpconfig.SelectedComponentIDs(vmcp, instance); chosen != nil {
+		stored, err := req.GatewayClient.RevealCredential(req.Context(),
+			[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
+			vmcpconfig.ConfigurationCredentialName(),
+		)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return fmt.Errorf("failed to reveal VMCP instance configuration: %w", err)
+		}
+		for key, value := range stored.Secrets {
+			componentID, _, ok := vmcpconfig.ParseConfigurationKey(key)
+			if _, isChosen := chosen[componentID]; !ok || isChosen || !slices.ContainsFunc(effective.Components, func(component types.VMCPComponent) bool {
+				return component.ID == componentID
+			}) {
+				continue
+			}
+			if _, sent := configuration.Components[componentID]; !sent {
+				secrets[key] = value
+			}
+		}
 	}
 
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
@@ -276,7 +307,7 @@ func (*VMCPInstanceHandler) Reveal(req api.Context) error {
 		}
 	}
 
-	return req.Write(vmcpConfiguration(vmcpconfig.ComponentsForInstance(vmcp, instance), credential.Secrets, types.VMCPConfigurationPolicyUserAllowed))
+	return req.Write(vmcpConfiguration(vmcpconfig.AvailableComponentsForInstance(vmcp, instance), credential.Secrets, types.VMCPConfigurationPolicyUserAllowed))
 }
 
 func (*VMCPInstanceHandler) Deconfigure(req api.Context) error {
