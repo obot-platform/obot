@@ -47,7 +47,6 @@
   "setup_local_not_configured": "本地身份验证不是已配置的提供商",
   "setup_no_local_account": "没有可用于设置的本地账户",
   "setup_local_account_exists": "本地账户已存在；请登录以继续",
-  "setup_cross_origin": "不允许跨源的设置请求",
   "setup_sign_in_initial": "请使用初始本地账户登录以继续设置",
   "setup_change_password": "请在完成设置前更改密码",
   "setup_login_not_started": "此浏览器未开始设置登录，请从 Obot 管理页面重新开始设置",

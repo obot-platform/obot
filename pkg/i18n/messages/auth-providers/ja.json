@@ -47,7 +47,6 @@
   "setup_local_not_configured": "ローカル認証は設定済みのプロバイダーではありません",
   "setup_no_local_account": "セットアップ用のローカルアカウントがありません",
   "setup_local_account_exists": "ローカルアカウントはすでに存在します。続行するにはサインインしてください",
-  "setup_cross_origin": "異なるオリジンからの初期設定リクエストは許可されていません",
   "setup_sign_in_initial": "最初のローカルアカウントでサインインして設定を続けてください",
   "setup_change_password": "設定を完了する前にパスワードを変更してください",
   "setup_login_not_started": "このブラウザーでは設定用のログインが開始されていません。Obot の管理ページから設定をやり直してください",
