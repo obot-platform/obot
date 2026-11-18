@@ -39,6 +39,38 @@ type MCPAuditLog struct {
 	MCPFields                *MCPAuditLogFields                `json:"mcpFields,omitempty" gorm:"embedded"`
 	LocalAgentToolCallFields *LocalAgentToolCallAuditLogFields `json:"localAgentToolCallFields,omitempty" gorm:"embedded"`
 	Encrypted                bool                              `json:"encrypted"`
+
+	// UnavailablePayloads names the payload bodies that are stored but could not be read back, such
+	// as "response.body" or "rawEvent". It is populated when audit logs are read and never persisted.
+	UnavailablePayloads []string `json:"unavailablePayloads,omitempty" gorm:"-"`
+	// PendingBodies are the shared list-response bodies this entry's fields reference. They are
+	// carried from encoding to persistence so both are written in one transaction.
+	PendingBodies []PendingMCPAuditLogBody `json:"-" gorm:"-"`
+}
+
+// MCPAuditLogBody stores one distinct list-method result that audit rows reference by Hash instead
+// of each holding their own copy.
+type MCPAuditLogBody struct {
+	// Hash is the keyed hash of the plaintext result bytes and of whether the writer encrypts.
+	Hash []byte `json:"-" gorm:"primaryKey"`
+	// Body is the result in the audit body field format: compressed when that makes it smaller,
+	// then encrypted when encryption is configured.
+	Body      []byte    `json:"-"`
+	CreatedAt time.Time `json:"createdAt"`
+	// LastReferencedAt is refreshed, at most daily, whenever an audit row referencing this body is
+	// written. Retention deletes bodies that no surviving row can still reference.
+	LastReferencedAt time.Time `json:"lastReferencedAt" gorm:"index"`
+}
+
+// PendingMCPAuditLogBody is a shared body that must exist by the time the audit row referencing it
+// is committed.
+type PendingMCPAuditLogBody struct {
+	Hash []byte
+	// Plain is the plaintext result. It is kept only when Encoded was skipped because the body is
+	// believed to be stored already, so it can still be encoded if that turns out to be wrong.
+	Plain []byte
+	// Encoded is the result in the audit body field format, ready to store.
+	Encoded []byte
 }
 
 type MCPAuditLogFields struct {
@@ -66,6 +98,10 @@ type MCPAuditLogFields struct {
 	// ProxyExchangeID is an internal identifier shared by the request and response
 	// audit entries emitted for one proxied HTTP exchange. It is not MCP protocol data.
 	ProxyExchangeID string `json:"-" gorm:"column:proxy_exchange_id;index"`
+	// ResponseMethod is the MCP method of the request a response-only entry answers, when the
+	// capture path knows it. Such entries carry the call type "response", so this is the only way
+	// persistence can tell a list response apart. It is not persisted.
+	ResponseMethod string `json:"-" gorm:"-"`
 
 	// Additional metadata
 	RequestID       string          `json:"requestID,omitempty" gorm:"index"`

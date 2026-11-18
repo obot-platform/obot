@@ -123,6 +123,7 @@
 	"audit_usage_audit_logs_pages": "페이지",
 	"audit_usage_audit_logs_parent_target": "상위 대상",
 	"audit_usage_audit_logs_payload_hidden_for_access_level": "현재 액세스 수준에서는 페이로드 및 민감한 환경 세부 정보가 숨겨집니다.",
+	"audit_usage_audit_logs_payload_unavailable": "이 이벤트의 일부 페이로드를 불러올 수 없습니다: {payloads}",
 	"audit_usage_audit_logs_permission_mode": "권한 모드",
 	"audit_usage_audit_logs_preparing_results": "결과 준비 중…",
 	"audit_usage_audit_logs_preparing_timeline": "타임라인 준비 중…",

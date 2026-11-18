@@ -698,17 +698,18 @@ func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 }
 
 func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog) {
-	h.collectMCPProxyAuditEntry(ctx, entry, false, "")
+	h.collectMCPProxyAuditEntry(ctx, entry, false, "", "")
 }
 
 // CollectMCPProxyAuditEntry records proxy-only persistence metadata. The
 // nanobot audit type predates ResponseReceived and has no internal exchange ID,
-// so the proxy passes both values separately.
-func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
-	h.collectMCPProxyAuditEntry(context.Background(), entry, responseReceived, proxyExchangeID)
+// so the proxy passes both values separately. responseMethod is the MCP method a
+// response-only entry answers, when the proxy knows it.
+func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
+	h.collectMCPProxyAuditEntry(context.Background(), entry, responseReceived, proxyExchangeID, responseMethod)
 }
 
-func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
+func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
 	if !h.gatewayClient.MCPAuditLogEnabled() {
 		return
 	}
@@ -731,6 +732,7 @@ func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry a
 	}
 	auditLog.MCP().ResponseReceived = responseReceived
 	auditLog.MCP().ProxyExchangeID = proxyExchangeID
+	auditLog.MCP().ResponseMethod = responseMethod
 	h.gatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
 }
 

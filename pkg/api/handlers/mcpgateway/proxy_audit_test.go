@@ -21,6 +21,7 @@ type recordingProxyAuditCollector struct {
 	entries          []auditlogs.MCPAuditLog
 	received         []bool
 	proxyExchangeIDs []string
+	responseMethods  []string
 }
 
 type chunkReadCloser struct {
@@ -28,15 +29,16 @@ type chunkReadCloser struct {
 }
 
 func (c *recordingProxyAuditCollector) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
-	c.CollectMCPProxyAuditEntry(entry, false, "")
+	c.CollectMCPProxyAuditEntry(entry, false, "", "")
 }
 
-func (c *recordingProxyAuditCollector) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
+func (c *recordingProxyAuditCollector) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID, responseMethod string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.entries = append(c.entries, entry)
 	c.received = append(c.received, responseReceived)
 	c.proxyExchangeIDs = append(c.proxyExchangeIDs, proxyExchangeID)
+	c.responseMethods = append(c.responseMethods, responseMethod)
 }
 
 func (*recordingProxyAuditCollector) Close() {}
@@ -111,6 +113,11 @@ func TestMCPProxyAuditCollectsRequestAndResponseSeparately(t *testing.T) {
 	}
 	if string(responseEntry.ResponseBody) != `{"jsonrpc":"2.0","id":7,"result":{"content":[]}}` {
 		t.Fatalf("unexpected response body: %s", responseEntry.ResponseBody)
+	}
+	// The response entry only says "response", so the method of the request it answers travels
+	// alongside it. The request entry needs no hint.
+	if collector.responseMethods[0] != "" || collector.responseMethods[1] != "tools/call" {
+		t.Fatalf("unexpected response methods: %#v", collector.responseMethods)
 	}
 }
 
@@ -380,6 +387,11 @@ func TestMCPProxyAuditCorrelatesLegacySSEThroughPersistenceFields(t *testing.T) 
 	}
 	if len(responseEntry.RequestBody) != 0 || string(responseEntry.ResponseBody) != `{"jsonrpc":"2.0","id":"request-1","result":{"contents":[]}}` {
 		t.Fatalf("response was not response-only: request=%s response=%s", responseEntry.RequestBody, responseEntry.ResponseBody)
+	}
+	// The response arrived on a different HTTP request than the one that carried the request, so
+	// its method is not known here.
+	if collector.responseMethods[1] != "" {
+		t.Fatalf("cross-request response must not claim a method, got %q", collector.responseMethods[1])
 	}
 	notificationEntry := collector.entries[2]
 	if notificationEntry.CallType != "notifications/resources/updated" || !collector.received[2] || notificationEntry.ResponseStatus != http.StatusOK {

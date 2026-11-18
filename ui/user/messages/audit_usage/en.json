@@ -123,6 +123,7 @@
 	"audit_usage_audit_logs_pages": "pages",
 	"audit_usage_audit_logs_parent_target": "Parent Target",
 	"audit_usage_audit_logs_payload_hidden_for_access_level": "Payload and sensitive environment details are hidden for your access level.",
+	"audit_usage_audit_logs_payload_unavailable": "Some payloads for this event could not be loaded: {payloads}.",
 	"audit_usage_audit_logs_permission_mode": "Permission Mode",
 	"audit_usage_audit_logs_preparing_results": "Preparing results…",
 	"audit_usage_audit_logs_preparing_timeline": "Preparing timeline…",

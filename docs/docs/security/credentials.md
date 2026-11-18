@@ -72,7 +72,7 @@ Application encryption defaults to `OBOT_SERVER_ENCRYPTION_PROVIDER=none`. Confi
 
 ## How Encryption Works {#overview-how-encryption-works}
 
-Obot uses the Kubernetes `EncryptionConfiguration` format. Each configured resource has a transformer that encrypts selected fields before storage and decrypts them on retrieval. Cloud KMS providers use a local provider process over a Unix socket; a custom AES-GCM configuration uses the supplied key. Encrypted field values are base64-encoded for storage.
+Obot uses the Kubernetes `EncryptionConfiguration` format. Each configured resource has a transformer that encrypts selected fields before storage and decrypts them on retrieval. Cloud KMS providers use a local provider process over a Unix socket; a custom AES-GCM configuration uses the supplied key. Encrypted field values are base64-encoded for storage, except MCP and local-agent audit bodies, which are compressed and stored as binary.
 
 The built-in cloud configurations include the resources below. A custom configuration must include the corresponding resource names to protect those fields.
 
@@ -105,3 +105,7 @@ Local-auth passwords are stored as salted Argon2id hashes regardless of whether 
 ## Enabling Encryption on an Existing Installation {#overview-enabling-encryption-on-an-existing-installation}
 
 Enabling encryption does not automatically encrypt all existing data. Existing installations may require a separate migration to protect previously stored data.
+
+## Recovering from a Lost Audit Hash Key {#overview-recovering-from-a-lost-audit-hash-key}
+
+Obot identifies shared audit results with a hash key stored, encrypted, in the `properties` table under the name `mcp-audit-log-body-hash-key`. If the key that encrypts it is lost, Obot stores those results inline in each audit log instead of sharing them. To resume sharing, delete that row. Replicas create a new hash key within about a minute.
