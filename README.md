@@ -159,3 +159,5 @@ An ODP captures the proposed design and the discussion that shaped it. An ADR re
 ## License
 
 Obot is licensed under the [MIT License](LICENSE). Every edition, including Obot Community and Obot Enterprise, runs the same open source code from the same container image, and editions differ only in their license key. See [Editions and licensing](https://docs.obot.ai/enterprise/overview) for user and device limits and what each edition includes.
+
+<!-- test PR: trivial README change -->
