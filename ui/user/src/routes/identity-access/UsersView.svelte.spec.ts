@@ -257,6 +257,19 @@ describe('UsersView', () => {
 		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeEnabled();
 	});
 
+	it('does not offer an admin to delete an auditor user', async () => {
+		const auditorUser = orgUser({
+			id: '8',
+			email: 'auditor@example.com',
+			role: Role.BASIC | Role.AUDITOR,
+			effectiveRole: Role.BASIC | Role.AUDITOR
+		});
+		await renderUsersView([auditorUser, activeUser], [Group.ADMIN]);
+
+		await openRowActions(auditorUser.email);
+		await expect.element(page.getByRole('button', { name: 'Delete User' })).toBeDisabled();
+	});
+
 	it('enables a disabled user after confirmation', async () => {
 		const enable = vi.fn();
 		worker.use(
