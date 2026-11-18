@@ -96,7 +96,7 @@
 {#if text}
 	<button
 		{id}
-		use:tooltip={disabled ? undefined : message}
+		use:tooltip={disabled || (copied && buttonTextToShow === message) ? undefined : message}
 		onclick={() => copy()}
 		{disabled}
 		aria-label={visibleText ? undefined : tooltipText}

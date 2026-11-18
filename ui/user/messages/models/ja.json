@@ -152,6 +152,7 @@
 	"models_providers_optional": "省略可",
 	"models_providers_key_weight": "負荷分散の重み",
 	"models_providers_key_weight_help": "トラフィックは重みに応じてプロバイダーのキー間で分配されます。",
+	"models_providers_key_enable": "キーを有効にする",
 	"models_providers_desc_openai": "GPT、o シリーズ、埋め込み、画像、音声のモデル。",
 	"models_providers_desc_anthropic": "Claude モデル。",
 	"models_providers_desc_gemini": "Google AI Studio API 経由の Gemini モデル。",
