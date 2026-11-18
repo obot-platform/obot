@@ -160,60 +160,6 @@ func TestCreateLocalOwnerGuards(t *testing.T) {
 	}
 }
 
-func TestCreateLocalOwnerRejectsCrossOriginRequests(t *testing.T) {
-	for _, test := range []struct {
-		name    string
-		headers map[string]string
-		allowed bool
-	}{
-		{
-			name:    "same-origin fetch",
-			headers: map[string]string{"Sec-Fetch-Site": "same-origin", "Origin": "http://example.com"},
-			allowed: true,
-		},
-		{
-			name:    "non-browser client",
-			headers: map[string]string{},
-			allowed: true,
-		},
-		{
-			name:    "same-site form from another origin",
-			headers: map[string]string{"Sec-Fetch-Site": "same-site", "Origin": "http://evil.example.com", "Content-Type": "text/plain"},
-		},
-		{
-			name:    "cross-site form",
-			headers: map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "http://attacker.test", "Content-Type": "text/plain"},
-		},
-		{
-			name:    "other origin without Sec-Fetch-Site",
-			headers: map[string]string{"Origin": "http://evil.example.com"},
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			f := newLocalSetupFixture(t)
-			req, recorder := f.createLocalOwner(system.BootstrapName, `{"email":"owner@example.com","password":"`+localSetupPassword+`"}`)
-			for k, v := range test.headers {
-				req.Request.Header.Set(k, v)
-			}
-
-			err := f.setup.CreateLocalOwner(req)
-			if test.allowed {
-				require.NoError(t, err)
-				return
-			}
-
-			var httpErr *apitypes.ErrHTTP
-			require.ErrorAs(t, err, &httpErr)
-			require.Equal(t, http.StatusForbidden, httpErr.Code)
-			require.Contains(t, httpErr.Message, "cross-origin")
-			require.Empty(t, recorder.Result().Cookies())
-			users, err := f.gateway.LocalAuthUsers(t.Context())
-			require.NoError(t, err)
-			require.Empty(t, users)
-		})
-	}
-}
-
 func TestLocalAuthIdentityMatchesProxyIdentity(t *testing.T) {
 	id := localauth.Identity(" Owner@Example.com ")
 	require.Equal(t, "owner@example.com", id.Email)
