@@ -41,7 +41,7 @@ The Kiro CLI runs these hooks only on its v3 agent engine (`kiro-cli chat --v3`,
 :::
 
 :::important
-Obot Sentry installs Claude Code's hooks in Claude Code's [managed settings](https://code.claude.com/docs/en/settings) file: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS and `%ProgramFiles%\ClaudeCode\managed-settings.json` on Windows. Claude Code reads this file from the same path whatever `CLAUDE_CONFIG_DIR` is set to, and the hooks keep running when you set `allowManagedHooksOnly`.
+Obot Sentry installs Claude Code's hooks in Claude Code's [managed settings](https://code.claude.com/docs/en/settings) file: `/Library/Application Support/ClaudeCode/managed-settings.json` on macOS and `%ProgramFiles%\ClaudeCode\managed-settings.json` on Windows.
 
 By default, Claude Code uses only one managed settings source. If a device also receives server-managed settings or an MDM policy for Claude Code (the `com.anthropic.claudecode` preference domain on macOS, or `HKLM\SOFTWARE\Policies\ClaudeCode` on Windows), Claude Code ignores the managed settings file, including Obot Sentry's hooks. Claude Code calls on that device are then neither checked nor audited. Obot Sentry doesn't detect this and still reports the hooks as installed. If your organization uses either source, set `managedSourcesBehavior` to `merge` in the highest-ranked source you deploy so that Claude Code also applies the managed settings file.
 
