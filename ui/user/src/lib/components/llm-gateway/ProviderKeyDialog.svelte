@@ -191,7 +191,7 @@
 	onClose={onClosed}
 >
 	<form
-		class="flex flex-col gap-4 pt-4"
+		class="flex flex-col gap-4"
 		onsubmit={(e) => {
 			e.preventDefault();
 			save();
@@ -300,15 +300,18 @@
 				/>
 				<span class="text-muted-content text-xs">{m.models_providers_key_weight_help()}</span>
 			</div>
-			<div class="flex items-center pt-6">
-				<Toggle
-					label={m.core_status_enabled()}
-					labelInline
-					checked={enabled}
-					onChange={(v) => (enabled = v)}
-				/>
-			</div>
 		</div>
+
+		<Toggle
+			label={m.models_providers_key_enable()}
+			labelInline
+			checked={enabled}
+			onChange={(v) => (enabled = v)}
+			classes={{
+				label:
+					'rounded-md border border-base-400 flex justify-between p-3 text-base-content text-sm'
+			}}
+		/>
 
 		{#if error}
 			<div class="notification-error rounded-md p-2 text-sm">{error}</div>

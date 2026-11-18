@@ -64,7 +64,7 @@
 	let requestId = 0;
 	// Stops the background model reload once the dialog is closed.
 	let left = false;
-	// Add Key borrows the screen, so this close should not dismiss the provider.
+	// The key dialog borrows the screen, so this close should not dismiss the provider.
 	let pausedForKey = false;
 	// Saving a new base URL removes the provider's keys, so they aren't sent to the new
 	// address; the admin confirms first.
@@ -132,10 +132,10 @@
 		dialog?.close();
 	}
 
-	function addKey() {
+	function openKey(key?: ProviderKey) {
 		pausedForKey = true;
 		dialog?.close();
-		keyDialog?.open();
+		keyDialog?.open(key);
 	}
 
 	function resumeAfterKey() {
@@ -396,7 +396,10 @@
 							</p>
 						</div>
 						{#if !readonly && !provider.custom_provider_config?.is_key_less}
-							<button class="btn btn-primary flex items-center gap-1 btn-sm" onclick={addKey}>
+							<button
+								class="btn btn-primary flex items-center gap-1 btn-sm"
+								onclick={() => openKey()}
+							>
 								<Plus class="size-4" />
 								{m.models_providers_add_key()}
 							</button>
@@ -440,19 +443,21 @@
 						{/snippet}
 						{#snippet actions(row)}
 							{#if !readonly}
-								<IconButton
-									tooltip={{ text: m.models_providers_edit_key() }}
-									onclick={() => keyDialog?.open(row)}
-								>
-									<Pencil class="size-4" />
-								</IconButton>
-								<IconButton
-									variant="danger"
-									tooltip={{ text: m.models_providers_delete_key() }}
-									onclick={() => (keyToDelete = row)}
-								>
-									<Trash2 class="size-4" />
-								</IconButton>
+								<div class="flex gap-1">
+									<IconButton
+										tooltip={{ text: m.models_providers_edit_key(), disablePortal: true }}
+										onclick={() => openKey(row)}
+									>
+										<Pencil class="size-4" />
+									</IconButton>
+									<IconButton
+										variant="danger"
+										tooltip={{ text: m.models_providers_delete_key(), disablePortal: true }}
+										onclick={() => (keyToDelete = row)}
+									>
+										<Trash2 class="size-4" />
+									</IconButton>
+								</div>
 							{/if}
 						{/snippet}
 					</Table>

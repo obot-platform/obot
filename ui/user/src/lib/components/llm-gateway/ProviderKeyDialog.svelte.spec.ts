@@ -60,7 +60,7 @@ describe('ProviderKeyDialog', () => {
 
 		await dialog.getByLabelText(/^Project ID/).fill('my-project');
 		await dialog.getByLabelText(/^Region/).fill('us-east5');
-		await dialog.getByRole('switch', { name: 'Enabled' }).click();
+		await dialog.getByRole('switch', { name: 'Enable key' }).click();
 		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
 
 		await vi.waitFor(() => expect(onSaved).toHaveBeenCalledOnce());

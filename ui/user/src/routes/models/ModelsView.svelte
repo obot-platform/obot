@@ -206,15 +206,15 @@
 
 {#snippet generateApiKeyButton()}
 	{#if hasValidIdentityApiKeys || generatedApiKey}
-		<div class="flex">
+		<div class="flex @lg:w-fit w-full">
 			<a
-				class="btn btn-secondary btn-soft btn-sm text-base-content border-base-400 shrink-0 text-no-wrap @lg:w-fit w-full rounded-r-none!"
+				class="btn btn-secondary btn-soft btn-sm text-base-content border-base-400 shrink-0 text-no-wrap @lg:w-fit grow rounded-r-none!"
 				href={resolve('/identity-access?view=agents')}
 			>
 				{m.models_gateway_manage_api_keys()}
 			</a>
 			<DotDotDot
-				class="btn-block btn-secondary btn-sm text-base-content btn-soft pl-2! pr-2.5! border-base-400 @lg:w-fit w-full rounded-l-none! border-l-0!"
+				class="btn-block btn-secondary btn-sm text-base-content btn-soft pl-2! pr-2.5! border-base-400 w-fit rounded-l-none! border-l-0!"
 				placement="bottom-end"
 				classes={{
 					popover: 'w-44.5'

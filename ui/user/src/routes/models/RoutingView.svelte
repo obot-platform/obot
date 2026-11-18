@@ -63,10 +63,6 @@
 
 	onMount(load);
 
-	function listUrl() {
-		return '/models?view=routing';
-	}
-
 	function targetLabel(r: RoutingRule) {
 		return r.targets
 			.map((t) => {
@@ -135,8 +131,14 @@
 </script>
 
 {#if showCreate && status?.ready}
-	<div in:fly|global={{ x: 100, duration }} out:fly|global={{ x: -100, duration }}>
-		<RoutingForm onCreate={() => goto(listUrl(), { replaceState: true })} />
+	<div in:fly|global={{ x: 100, duration }}>
+		<RoutingForm
+			onCreate={(routingRule) => {
+				if (routingRule?.id) {
+					goto(`/models/routing/${encodeURIComponent(routingRule.id)}`, { replaceState: true });
+				}
+			}}
+		/>
 	</div>
 {:else}
 	<div class="flex flex-col gap-4">
