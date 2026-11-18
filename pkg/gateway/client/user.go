@@ -387,21 +387,8 @@ func (c *Client) UpdateUser(ctx context.Context, actingUserCanChangeRole bool, u
 			return fmt.Errorf("failed to decrypt user: %w", err)
 		}
 
-		// If the username is being changed, then ensure that a user with that name doesn't already exist.
-		if len(updatedUser.Username) != 0 && updatedUser.Username != existingUser.Username {
-			if err := refuseSCIMProvisionedUserTx(tx, existingUser.ID, "this user's profile is managed by the identity provider through SCIM"); err != nil {
-				return err
-			}
-
-			if err := tx.Model(updatedUser).Where("username = ? AND deleted_at IS NULL", updatedUser.Username).First(new(types.User)).Error; err == nil {
-				return &AlreadyExistsError{name: fmt.Sprintf("user with username %q", updatedUser.Username)}
-			} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-				return err
-			}
-
-			existingUser.Username = updatedUser.Username
-		}
-
+		// updatedUser.Username is deliberately ignored: usernames come only from the auth provider or SCIM, so neither
+		// a user (PATCH /api/me) nor an admin (PATCH /api/users/{user_id}) can change one through this update.
 		if updatedUser.Timezone != "" {
 			existingUser.Timezone = updatedUser.Timezone
 		}
