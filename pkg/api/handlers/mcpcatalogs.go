@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -443,7 +444,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	}
 
 	if !entry.Spec.Editable {
-		return types.NewErrBadRequest("entry is not editable")
+		return h.updateSyncedEntryTunnel(req, entry)
 	}
 
 	var manifest types.MCPServerCatalogEntryManifest
@@ -496,6 +497,45 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return fmt.Errorf("failed to update entry: %w", err)
 	}
 
+	return req.Write(ConvertMCPServerCatalogEntry(entry))
+}
+
+// updateSyncedEntryTunnel permits operational tunnel assignment without allowing edits
+// to the manifest managed by Git. The request uses the same full manifest as UpdateEntry.
+func (h *MCPCatalogHandler) updateSyncedEntryTunnel(req api.Context, entry v1.MCPServerCatalogEntry) error {
+	if !entry.IsGitManaged() || entry.Spec.Manifest.Runtime != types.RuntimeRemote || entry.Spec.Manifest.RemoteConfig == nil {
+		return types.NewErrBadRequest("entry is not editable")
+	}
+	var manifest types.MCPServerCatalogEntryManifest
+	if err := req.Read(&manifest); err != nil {
+		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
+	}
+	if manifest.RemoteConfig == nil {
+		return types.NewErrBadRequest("entry is not editable")
+	}
+	// Compare the public representation, including automatically detected configuration,
+	// so a manifest returned by GetEntry can be submitted unchanged except for the tunnel.
+	public := ConvertMCPServerCatalogEntry(*entry.DeepCopy())
+	expected := public.Manifest.DeepCopy()
+	expected.RemoteConfig.TunnelName = manifest.RemoteConfig.TunnelName
+	if !reflect.DeepEqual(*expected, manifest) {
+		return types.NewErrBadRequest("entry is not editable: only remoteConfig.tunnelName can be changed")
+	}
+	options, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
+	}
+	validator := mcp.RemoteValidator{RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig}
+	if err := validator.ValidateCatalogConfig(req.Context(), manifest); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
+		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
+	}
+	entry.Spec.Manifest.RemoteConfig.TunnelName = manifest.RemoteConfig.TunnelName
+	if err := req.Update(&entry); err != nil {
+		return fmt.Errorf("failed to update entry: %w", err)
+	}
 	return req.Write(ConvertMCPServerCatalogEntry(entry))
 }
 
