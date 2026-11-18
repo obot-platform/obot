@@ -67,7 +67,12 @@ describe('AgentIdentityDetails', () => {
 		});
 
 		await expect.element(page.getByText('oak1-7-11-*****')).toBeVisible();
-		await expect.element(page.getByText(/no model access policy names this agent/)).toBeVisible();
+		// Keys from the UI can use everything the agent can, so the table lists no capabilities.
+		await expect
+			.element(page.getByRole('columnheader', { name: 'Capabilities' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText(/no LLM gateway policy names this agent/)).toBeVisible();
+		await expect.element(page.getByText('LLM gateway policies')).toBeVisible();
 		await expect.element(page.getByText('Mail vMCP')).toBeVisible();
 		await expect.element(page.getByText('gmail needs OAuth authorization')).toBeVisible();
 		await expect.element(page.getByText('Agent created')).toBeVisible();

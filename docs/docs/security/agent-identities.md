@@ -108,8 +108,8 @@ MCP access policies (catalog access control rules) and message policies don't ap
 
 The agent's page shows:
 
-- **Access**: every vMCP profile, model access policy and skill access rule that matches the agent, and whether it names the agent or matches through a wildcard.
-- **Problems**: a key with LLM access but no model access policy that names the agent, so every LLM request is refused; or a key with skill access but no skill access rule, so the agent sees no skills.
+- **Access**: every vMCP profile, LLM gateway policy and skill access rule that matches the agent, and whether it names the agent or matches through a wildcard.
+- **Problems**: a key with LLM access but no LLM gateway policy that names the agent, so every LLM request is refused; or a key with skill access but no skill access rule, so the agent sees no skills.
 - **vMCP readiness**: for each vMCP the agent is granted, whether it can connect now, and if not, what is missing and which profile to fix it in. Readiness runs the same checks as a connection, at the moment you look.
 
 The same information is in the API (`GET /api/agents/{agent_id}/access`, `GET /api/agents/{agent_id}/vmcps`, and `GET /api/agents/{agent_id}/vmcps/{vmcp_id}/readiness`). See the [reference](../reference/agent-identities.md#api).

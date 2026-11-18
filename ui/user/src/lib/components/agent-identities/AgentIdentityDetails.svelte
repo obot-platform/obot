@@ -76,15 +76,6 @@
 			.map((key) => ({
 				...key,
 				mask: agentKeyMask(key),
-				scopes: [
-					...(key.canAccessLLMProxy ? ['LLM'] : []),
-					...(key.canAccessSkills ? [m.identity_access_api_keys_capability_skills_short()] : []),
-					...(key.mcpServerIds.includes('*')
-						? [m.identity_access_agents_key_all_vmcps()]
-						: key.mcpServerIds.length
-							? [m.identity_access_agents_key_vmcp_count({ count: key.mcpServerIds.length })]
-							: [])
-				],
 				lastUsedDisplay: key.lastUsedAt
 					? formatTimeAgo(key.lastUsedAt).relativeTime
 					: m.core_never_used(),
@@ -283,26 +274,17 @@
 		{:else}
 			<Table
 				data={tableData}
-				fields={['name', 'mask', 'scopes', 'lastUsedAt', 'expiresAt', 'state']}
+				fields={['name', 'mask', 'lastUsedAt', 'expiresAt', 'state']}
 				headers={[
 					{ title: m.core_name(), property: 'name' },
 					{ title: m.identity_access_agents_col_key(), property: 'mask' },
-					{ title: m.identity_access_api_keys_col_capabilities(), property: 'scopes' },
 					{ title: m.identity_access_api_keys_col_last_used(), property: 'lastUsedAt' },
 					{ title: m.identity_access_api_keys_col_expires(), property: 'expiresAt' },
 					{ title: m.core_status(), property: 'state' }
 				]}
 			>
 				{#snippet onRenderColumn(property, d)}
-					{#if property === 'scopes'}
-						<div class="flex max-w-56 flex-wrap gap-1 py-1">
-							{#each d.scopes as scope (scope)}
-								<span class="badge badge-ghost badge-xs whitespace-nowrap">{scope}</span>
-							{:else}
-								<span class="text-muted">-</span>
-							{/each}
-						</div>
-					{:else if property === 'mask'}
+					{#if property === 'mask'}
 						<span class="whitespace-nowrap">{d.mask}</span>
 					{:else if property === 'lastUsedAt'}
 						{d.lastUsedDisplay}
