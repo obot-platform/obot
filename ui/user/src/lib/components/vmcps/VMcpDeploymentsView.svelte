@@ -20,8 +20,7 @@
 		vmcpInstancePath,
 		vmcpHasUserAllowedConfiguration
 	} from '$lib/services/vmcps/utils';
-	import { errors, profile, vmcpInstances } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { notifications, profile, vmcpInstances } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import {
 		clearUrlParams,
@@ -130,10 +129,13 @@
 		try {
 			await UserService.deleteVMCPInstance(row.id);
 			vmcpInstances.remove(row.id);
-			success.add(m.vmcps_deployments_deployment_deleted({ name: row.displayName }));
+			notifications.add(
+				m.vmcps_deployments_deployment_deleted({ name: row.displayName }),
+				'success'
+			);
 			allVMCPInstances = allVMCPInstances.filter((instance) => instance.id !== row.id);
 		} catch {
-			errors.append(m.vmcps_deployments_failed_to_delete_deployment());
+			notifications.add(m.vmcps_deployments_failed_to_delete_deployment());
 		} finally {
 			deleting = false;
 			showDeleteConfirm = undefined;

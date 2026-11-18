@@ -7,7 +7,7 @@ import {
 	type MCPServerInstance
 } from '$lib/services';
 import { profile } from '.';
-import errors from './errors.svelte';
+import notifications from './notifications.svelte';
 
 interface McpServerAndEntries {
 	entries: MCPCatalogEntry[];
@@ -189,7 +189,7 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 		if (generation !== fetchGeneration) {
 			return;
 		}
-		errors.append(error);
+		notifications.add(error);
 		store.current.loading = false;
 	}
 }
@@ -228,7 +228,7 @@ async function refreshEntries() {
 			};
 		}
 	} catch (error) {
-		errors.append(error);
+		notifications.add(error);
 	}
 }
 

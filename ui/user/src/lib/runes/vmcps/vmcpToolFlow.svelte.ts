@@ -17,8 +17,7 @@ import {
 	vmcpComponentId,
 	vmcpManifest
 } from '$lib/services/vmcps/utils';
-import { errors, profile } from '$lib/stores';
-import { success } from '$lib/stores/success';
+import { notifications, profile } from '$lib/stores';
 import { SvelteSet } from 'svelte/reactivity';
 
 export type VMcpToolDialog =
@@ -212,7 +211,7 @@ export function createVMcpToolFlow() {
 		const id = vmcpComponentId(component);
 		const entry = catalogEntryForComponent(component);
 		if (!id || !entry) {
-			errors.append(m.vmcps_could_not_load_server_tools());
+			notifications.add(m.vmcps_could_not_load_server_tools());
 			return false;
 		}
 		refreshToolsRequested = refresh;
@@ -385,11 +384,12 @@ export function createVMcpToolFlow() {
 				components: nextComponents
 			});
 			modifyingVMcp = updated;
-			success.add(
+			notifications.add(
 				m.vmcps_configuration_updated_for({
 					server: component.catalogEntry?.manifest?.name ?? component.name ?? m.vmcps_this_server(),
 					vmcp: updated.displayName
-				})
+				}),
+				'success'
 			);
 			onVMcpChanged?.(updated);
 			if (postCreateConfiguration) {
@@ -405,7 +405,7 @@ export function createVMcpToolFlow() {
 			}
 			close();
 		} catch {
-			errors.append(m.vmcps_failed_to_update_vmcp_configuration());
+			notifications.add(m.vmcps_failed_to_update_vmcp_configuration());
 			throw new Error(m.vmcps_failed_to_update_vmcp_configuration());
 		}
 	}
@@ -445,16 +445,17 @@ export function createVMcpToolFlow() {
 				components: latest.components
 			});
 			modifyingVMcp = updated;
-			success.add(
+			notifications.add(
 				m.vmcps_details_updated_for({
 					server: trimmedName || component.name,
 					vmcp: updated.displayName
-				})
+				}),
+				'success'
 			);
 			onVMcpChanged?.(updated);
 			close();
 		} catch {
-			errors.append(m.vmcps_failed_to_update_details());
+			notifications.add(m.vmcps_failed_to_update_details());
 			throw new Error(m.vmcps_failed_to_update_details());
 		}
 	}
@@ -580,20 +581,21 @@ export function createVMcpToolFlow() {
 				components: nextComponents
 			});
 			modifyingVMcp = updated;
-			success.add(
+			notifications.add(
 				m.vmcps_tools_updated_for({
 					server:
 						componentConfig.catalogEntry?.manifest?.name ??
 						componentConfig.name ??
 						m.vmcps_this_server(),
 					vmcp: updated.displayName
-				})
+				}),
+				'success'
 			);
 			onVMcpChanged?.(updated);
 			offerToolSearchRecommendation(updated);
 			return true;
 		} catch {
-			errors.append(m.vmcps_failed_to_update_tools());
+			notifications.add(m.vmcps_failed_to_update_tools());
 			return false;
 		} finally {
 			close();
@@ -626,7 +628,7 @@ export function createVMcpToolFlow() {
 		const { component, vmcp } = pendingRemoval;
 		const lastComponentWarning = m.vmcps_cannot_remove_last_component();
 		if ((vmcp.components ?? []).length <= 1) {
-			errors.append(lastComponentWarning);
+			notifications.add(lastComponentWarning);
 			pendingRemoval = undefined;
 			return;
 		}
@@ -635,7 +637,7 @@ export function createVMcpToolFlow() {
 		try {
 			const latest = await UserService.getVMCP(vmcp.id);
 			if ((latest.components ?? []).length <= 1) {
-				errors.append(lastComponentWarning);
+				notifications.add(lastComponentWarning);
 				return;
 			}
 			const updated = await UserService.updateVMCP(latest.id, {
@@ -646,12 +648,13 @@ export function createVMcpToolFlow() {
 						candidate.mcpServerCatalogEntryID !== component.id
 				)
 			});
-			success.add(
-				m.vmcps_server_removed_from({ server: component.name ?? '', vmcp: updated.displayName })
+			notifications.add(
+				m.vmcps_server_removed_from({ server: component.name ?? '', vmcp: updated.displayName }),
+				'success'
 			);
 			onVMcpChanged?.(updated);
 		} catch {
-			errors.append(m.vmcps_failed_to_remove_server());
+			notifications.add(m.vmcps_failed_to_remove_server());
 		} finally {
 			removing = false;
 			pendingRemoval = undefined;

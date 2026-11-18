@@ -17,7 +17,7 @@
 		vmcpManifest,
 		vmcpUpdateConfigurationTargets
 	} from '$lib/services/vmcps/utils';
-	import { errors, mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
+	import { notifications, mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
 	import ConnectVMcp from './ConnectVMcp.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
@@ -86,7 +86,7 @@
 			return full;
 		} catch (err) {
 			if (controller.signal.aborted || isAbortError(err)) return undefined;
-			errors.append(m.vmcps_failed_to_load_vmcp());
+			notifications.add(m.vmcps_failed_to_load_vmcp());
 			return undefined;
 		} finally {
 			if (fullVmcpController === controller) fullVmcpController = undefined;
@@ -161,7 +161,7 @@
 		const target = fetchVMcpOnAction ? vmcp.id : vmcp;
 		connectVMcpDialog?.openEditConfiguration(target, instance, options).catch((err) => {
 			if (!fetchVMcpOnAction) throw err;
-			errors.append(m.vmcps_failed_to_load_vmcp());
+			notifications.add(m.vmcps_failed_to_load_vmcp());
 		});
 	}
 

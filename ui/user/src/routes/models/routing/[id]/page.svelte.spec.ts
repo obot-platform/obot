@@ -1,6 +1,6 @@
 import { Group } from '$lib/services';
 import type { RoutingRule } from '$lib/services/llm-gateway/gateway';
-import { success } from '$lib/stores/success';
+import { notifications } from '$lib/stores';
 import { goto } from '$lib/url';
 import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
 import { worker } from '../../../../tests/mocks/worker';
@@ -56,7 +56,7 @@ function form() {
 let notified: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-	notified = vi.spyOn(success, 'add');
+	notified = vi.spyOn(notifications, 'add');
 });
 
 afterEach(() => {
@@ -83,7 +83,7 @@ describe('Routing rule page', () => {
 		await form().getByRole('button', { name: 'Disable Rule' }).click();
 		await form().getByRole('button', { name: 'Save', exact: true }).click();
 
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.', 'success'));
 		expect(goto).not.toHaveBeenCalled();
 		await expect.element(form().getByLabelText('Priority')).toHaveValue(7);
 		expect(updated).toHaveBeenCalledOnce();
@@ -130,7 +130,7 @@ describe('Routing rule page', () => {
 
 		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
 		expect(goto).not.toHaveBeenCalled();
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.', 'success'));
 		expect(updated.mock.calls[0][1].targets).toEqual([
 			{ provider: 'openai', model: 'gpt-4o-mini', weight: 1, key_id: 'k1', ttft_timeout_ms: 1500 }
 		]);
@@ -158,7 +158,7 @@ describe('Routing rule page', () => {
 
 		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
 		expect(goto).not.toHaveBeenCalled();
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.'));
+		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Routing rule saved.', 'success'));
 		expect(updated.mock.calls[0][1].targets).toEqual([
 			{ provider: null, model: 'gpt-4o-mini', weight: 1 }
 		]);

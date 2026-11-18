@@ -20,7 +20,7 @@
 		isDeprecatedMCPServer,
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
-	import { errors, version } from '$lib/stores';
+	import { notifications, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
 	import { CircleAlert } from '@lucide/svelte';
@@ -143,7 +143,7 @@
 					dontLogErrors: true
 				});
 			} catch (err) {
-				errors.append(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
+				notifications.add(m.mcps_deployments_secret_targets_load_failed({ error: String(err) }));
 				secretBindingTargets = [];
 			}
 		} else {

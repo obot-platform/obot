@@ -9,7 +9,7 @@
 		type ClaudeEnvironment,
 		type EnvironmentProfile
 	} from '$lib/services';
-	import { success } from '$lib/stores/success';
+	import { notifications } from '$lib/stores';
 	import { convertSubjectsToTableData, resolveSubjects } from '$lib/subjectResolver';
 	import { Plus, Trash2, UsersRound } from '@lucide/svelte';
 	import { untrack } from 'svelte';
@@ -118,7 +118,7 @@
 		if (saving) return;
 		const next = profiles.filter((profile) => profile.name !== name);
 		if (!(await persist(next))) return;
-		success.add(m.hosted_agents_profile_deleted({ name }));
+		notifications.add(m.hosted_agents_profile_deleted({ name }), 'success');
 		confirmDelete = undefined;
 	}
 </script>

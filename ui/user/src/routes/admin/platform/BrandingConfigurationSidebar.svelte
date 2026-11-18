@@ -12,12 +12,11 @@
 	import { m } from '$lib/i18n';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type AppPreferences } from '$lib/services';
-	import { darkMode, profile, responsive } from '$lib/stores';
+	import { darkMode, profile, responsive, notifications } from '$lib/stores';
 	import appPreferences, {
 		compileAppPreferences,
 		FONT_FAMILY_PRESETS
 	} from '$lib/stores/appPreferences.svelte';
-	import { success } from '$lib/stores/success';
 	import TintedSurfaceHueTintShadeControls from './TintedSurfaceHueTintShadeControls.svelte';
 	import {
 		themeLightSurfaceFields,
@@ -272,7 +271,7 @@
 			await invalidateAll();
 			prevAppPreferences = saveForm;
 			customSurfaces = surfacesSnapshotFromTheme(saveForm.theme);
-			success.add(m.core_changes_saved());
+			notifications.add(m.core_changes_saved(), 'success');
 		} catch (err) {
 			console.error(err);
 			// default behavior will show snackbar error

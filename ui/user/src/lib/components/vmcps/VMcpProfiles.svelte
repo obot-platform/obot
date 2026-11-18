@@ -39,7 +39,7 @@
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
 	import { vmcpManifest } from '$lib/services/vmcps/utils';
-	import { success } from '$lib/stores/success';
+	import { notifications } from '$lib/stores';
 	import {
 		OBOT_ADMIN_PICKER_ID,
 		resolveSubjects,
@@ -590,7 +590,7 @@
 				profiles: next.map(profileToManifest)
 			});
 			profiles = next;
-			success.add(message);
+			notifications.add(message, 'success');
 			onUpdated?.(updated);
 			return true;
 		} catch {

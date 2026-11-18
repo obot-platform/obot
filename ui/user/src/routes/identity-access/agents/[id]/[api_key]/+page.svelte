@@ -21,7 +21,7 @@
 		type TokenUsage,
 		type TotalTokenUsage
 	} from '$lib/services';
-	import { errors, profile } from '$lib/stores';
+	import { notifications, profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { Captions } from '@lucide/svelte';
 	import { isValid, subDays } from 'date-fns';
@@ -112,7 +112,7 @@
 			usersData = users;
 			modelsData = models;
 		} catch (error) {
-			errors.append(error);
+			notifications.add(error);
 		}
 	});
 
@@ -156,7 +156,7 @@
 			})
 			.catch((error) => {
 				if (isAbortError(error)) return;
-				errors.append(error);
+				notifications.add(error);
 			});
 	}
 

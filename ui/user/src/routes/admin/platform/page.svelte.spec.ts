@@ -14,7 +14,7 @@ import type {
 	License
 } from '$lib/services/admin/types';
 import type { Version } from '$lib/services/user/types';
-import { errors } from '$lib/stores';
+import { notifications } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getLicenseResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
@@ -666,7 +666,7 @@ describe('Platform Page', () => {
 					HttpResponse.json({ error: 'This environment is closed.' }, { status: 409 })
 				)
 			);
-			errors.items = [];
+			notifications.items = [];
 
 			await renderPlatformPage({
 				license: billingLicense,
@@ -678,8 +678,8 @@ describe('Platform Page', () => {
 			// Playwright's actionability checks don't settle on this button, so it's clicked natively.
 			(manageButton.element() as HTMLElement).click();
 
-			await vi.waitFor(() => expect(errors.items).toHaveLength(1));
-			expect(errors.items[0].message).toBe(
+			await vi.waitFor(() => expect(notifications.items).toHaveLength(1));
+			expect(notifications.items[0].message).toBe(
 				'Failed to open the billing pages: This environment is closed.'
 			);
 		});

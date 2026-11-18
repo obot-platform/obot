@@ -1,6 +1,5 @@
 import { Group, UserService, type ClaudeEnvironment, type VMCP } from '$lib/services';
-import { profile } from '$lib/stores';
-import { success } from '$lib/stores/success';
+import { profile, notifications } from '$lib/stores';
 import { createMockProfile } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import ClaudeConnectionForm from './ClaudeConnectionForm.svelte';
@@ -352,7 +351,7 @@ it('keeps a new profile on an unsaved environment until the connection form is s
 	});
 	const saved = vi.fn();
 	const updated = vi.fn();
-	const notified = vi.spyOn(success, 'add');
+	const notified = vi.spyOn(notifications, 'add');
 	worker.use(
 		http.get('*/api/claude-environments', () =>
 			HttpResponse.json({

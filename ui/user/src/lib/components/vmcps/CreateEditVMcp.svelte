@@ -14,8 +14,7 @@
 		vmcpManifest,
 		type VMcpFormData
 	} from '$lib/services/vmcps/utils';
-	import { errors, profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { notifications, profile } from '$lib/stores';
 	import VMcpCatalogSyncedIndicator from './VMcpCatalogSyncedIndicator.svelte';
 	import { CircleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -170,7 +169,7 @@
 			{ dontLogErrors: true }
 		);
 
-		success.add(m.vmcps_vmcp_added({ name: created.displayName }));
+		notifications.add(m.vmcps_vmcp_added({ name: created.displayName }), 'success');
 		await onCreated?.(created);
 		closeDialog();
 	}
@@ -207,7 +206,7 @@
 				},
 				{ dontLogErrors: true }
 			);
-			success.add(m.vmcps_vmcp_updated({ name: updatedVMcp.displayName }));
+			notifications.add(m.vmcps_vmcp_updated({ name: updatedVMcp.displayName }), 'success');
 			closeDialog();
 			await onUpdated?.(updatedVMcp);
 		} catch (err) {
@@ -261,10 +260,10 @@
 			if (selectedVMcp?.id === deleted.id) {
 				closeDialog();
 			}
-			success.add(m.vmcps_vmcp_deleted({ name: deleted.displayName }));
+			notifications.add(m.vmcps_vmcp_deleted({ name: deleted.displayName }), 'success');
 			await onDeleted?.(deleted);
 		} catch {
-			errors.append(m.vmcps_failed_to_delete());
+			notifications.add(m.vmcps_failed_to_delete());
 		} finally {
 			deletingVMcp = false;
 			confirmDeleteVMcp = undefined;

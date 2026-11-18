@@ -3,7 +3,6 @@
 	import { page } from '$app/state';
 	import Notifications from '$lib/components/Notifications.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
-	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import { applyDocumentLocale } from '$lib/i18n';
 	import {
 		darkMode,
@@ -177,5 +176,4 @@
 </svelte:head>
 
 <Notifications />
-<SuccessNotifications />
 <ReLoginDialog />

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { m } from '$lib/i18n';
 	import { CircleCheckBig, X } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 
@@ -18,7 +19,7 @@
 		{message}
 	</div>
 	{#if onClose}
-		<button type="button" onclick={onClose}>
+		<button type="button" aria-label={m.common_close()} onclick={onClose}>
 			<X class="size-4" />
 		</button>
 	{/if}

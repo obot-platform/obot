@@ -25,7 +25,7 @@
 		ProviderParameter,
 		ResidualGroupData
 	} from '$lib/services/admin/types.js';
-	import { errors, license, profile, version } from '$lib/stores';
+	import { notifications, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { clearUrlParams, resolve } from '$lib/url';
 	import { TriangleAlert, Info, CircleAlert, ArrowLeft, Trash2 } from '@lucide/svelte';
@@ -312,7 +312,7 @@
 			if (err instanceof HttpError && err.statusCode === 404) {
 				// ignore, no current temp login to cancel
 			} else {
-				errors.append(err);
+				notifications.add(err);
 			}
 		}
 
@@ -325,7 +325,7 @@
 			).redirectUrl;
 			setupSignInDialog?.open();
 		} catch (err) {
-			errors.append(err);
+			notifications.add(err);
 		} finally {
 			setupLoading = false;
 		}
@@ -612,7 +612,7 @@
 				}
 			}
 		} catch (err) {
-			errors.append(err);
+			notifications.add(err);
 		} finally {
 			deconfigureAuthProviderDialog?.close();
 			confirmDeconfigureAuthProvider = undefined;
@@ -636,7 +636,7 @@
 		if (updatedMatch) {
 			handleClickConfigure(updatedMatch);
 		} else {
-			errors.append(m.identity_access_auth_providers_fetch_config_failed());
+			notifications.add(m.identity_access_auth_providers_fetch_config_failed());
 		}
 
 		licenseRequiredProvider = undefined;
@@ -665,7 +665,7 @@
 			// unknown, so the form is not opened: it would show another provider's values, and, for a
 			// provider whose choice of SCIM the configuration does not hold, offer the wrong choice.
 			if (!(err instanceof HttpError) || err.statusCode !== 404) {
-				errors.append(err);
+				notifications.add(err);
 				configuringAuthProvider = undefined;
 				return;
 			}

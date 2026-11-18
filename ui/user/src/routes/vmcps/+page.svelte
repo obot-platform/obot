@@ -25,7 +25,13 @@
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
-	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
+	import {
+		notifications,
+		mcpServersAndEntries,
+		profile,
+		responsive,
+		vmcpInstances
+	} from '$lib/stores';
 	import { goto, setFilterUrlParams, setSortUrlParams } from '$lib/url';
 	import { Layers, Pencil, Plus } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -163,7 +169,7 @@
 			.catch(() => {
 				if (!active) return;
 				listedVMcps = [];
-				errors.append(m.vmcps_failed_to_load_vmcps());
+				notifications.add(m.vmcps_failed_to_load_vmcps());
 			})
 			.finally(() => {
 				if (active) isLoading = false;

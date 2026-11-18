@@ -15,7 +15,7 @@
 		getMcpValueLabel
 	} from '$lib/services/user/mcp';
 	import { mcpServerNeedsStaticOAuthConfiguration } from '$lib/services/vmcps/utils';
-	import { errors, mcpServersAndEntries, profile, responsive } from '$lib/stores';
+	import { notifications, mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import { Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -182,7 +182,7 @@
 			await mcpServersAndEntries.refreshAll();
 			await onCreated?.(createdEntry);
 		} catch {
-			errors.append(m.vmcps_entry_created_not_opened());
+			notifications.add(m.vmcps_entry_created_not_opened());
 			close();
 		}
 	}

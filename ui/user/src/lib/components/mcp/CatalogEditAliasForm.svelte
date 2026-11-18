@@ -3,7 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type MCPCatalogServer } from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
-	import { errors } from '$lib/stores';
+	import { notifications } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Server } from '@lucide/svelte';
 
@@ -40,7 +40,7 @@
 			dialog?.close();
 			onUpdateConfigure?.();
 		} catch (err) {
-			errors.append(m.mcps_alias_update_failed({ error: String(err) }));
+			notifications.add(m.mcps_alias_update_failed({ error: String(err) }));
 		} finally {
 			saving = false;
 		}

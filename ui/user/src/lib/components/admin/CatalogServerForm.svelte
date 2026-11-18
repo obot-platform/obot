@@ -38,7 +38,7 @@
 		sanitizeResourceRuntimeConfig,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
-	import { errors, profile, version } from '$lib/stores';
+	import { notifications, profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
 	import CatalogConfigurationForm from '../mcp/CatalogConfigurationForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
@@ -491,7 +491,7 @@
 			})
 			.catch((err) => {
 				secretBindingTargets = [];
-				errors.append(m.mcps_catalog_form_load_secrets_failed({ error: String(err) }));
+				notifications.add(m.mcps_catalog_form_load_secrets_failed({ error: String(err) }));
 			});
 	}
 
@@ -761,7 +761,7 @@
 				try {
 					validation = await validateOpenAPIDestination(previewConfig, controller.signal);
 				} catch (error) {
-					if (!disposed && !controller.signal.aborted) errors.append(error);
+					if (!disposed && !controller.signal.aborted) notifications.add(error);
 					loading = false;
 					return;
 				} finally {

@@ -57,8 +57,13 @@
 		vmcpComponentId,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
-	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import {
+		notifications,
+		mcpServersAndEntries,
+		profile,
+		responsive,
+		vmcpInstances
+	} from '$lib/stores';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
@@ -395,8 +400,9 @@
 		});
 
 		selectedVMcp = updated;
-		success.add(
-			m.vmcps_server_added_to({ server: entry.manifest.name ?? '', vmcp: updated.displayName })
+		notifications.add(
+			m.vmcps_server_added_to({ server: entry.manifest.name ?? '', vmcp: updated.displayName }),
+			'success'
 		);
 		toolFlow.offerToolSelection(component, updated);
 		return updated;
@@ -513,7 +519,7 @@
 			await continueAddComponent(pending.target, pending.entry, component);
 		} catch {
 			componentDropPending = false;
-			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
+			notifications.add(m.vmcps_failed_to_add_server_to_vmcp());
 		}
 	}
 
@@ -539,7 +545,7 @@
 			await continueAddComponent(latest, entry, component);
 		} catch {
 			componentDropPending = false;
-			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
+			notifications.add(m.vmcps_failed_to_add_server_to_vmcp());
 		}
 	}
 
@@ -584,7 +590,7 @@
 			if (!toolFlow.dialog) componentDropPending = false;
 		} catch {
 			componentDropPending = false;
-			errors.append(m.vmcps_failed_to_add_server_to_vmcp());
+			notifications.add(m.vmcps_failed_to_add_server_to_vmcp());
 			throw new Error(m.vmcps_failed_to_add_server_to_vmcp());
 		}
 	}
@@ -616,7 +622,7 @@
 			const [updated] = await Promise.all([UserService.getVMCP(vmcpID), vmcpInstances.refresh()]);
 			if (selectedVMcp?.id === vmcpID) selectedVMcp = updated;
 		} catch {
-			errors.append(m.vmcps_failed_to_refresh_status());
+			notifications.add(m.vmcps_failed_to_refresh_status());
 		} finally {
 			refreshingTester = false;
 		}
