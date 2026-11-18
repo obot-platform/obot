@@ -1,10 +1,12 @@
 package setup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -12,6 +14,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/system"
+	"gorm.io/gorm"
 )
 
 type CreateLocalOwnerRequest struct {
@@ -70,17 +73,26 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 
 	user, err := h.ensureLocalOwner(req, localUser.Email)
 	if err != nil {
-		// Without an Owner, the account would only block another attempt at the bootstrap limit.
-		if deleteErr := h.localAuth.DeleteUser(req.Context(), localUser.ID); deleteErr != nil {
-			slog.Error("Failed to remove local owner account after a failed setup", "id", localUser.ID, "error", deleteErr)
+		ctx := context.WithoutCancel(req.Context())
+		hasOwner, checkErr := req.GatewayClient.HasSignedInOwner(ctx, system.LocalAuthProvider)
+		switch {
+		case checkErr != nil:
+			slog.Error("Kept local owner account after a failed setup because the Owner check failed", "id", localUser.ID, "error", checkErr)
+		case hasOwner:
+			slog.Warn("Local owner was recorded, but setup did not finish; sending them to sign in", "id", localUser.ID, "error", err)
+			return h.writeLocalOwnerSignIn(req, localUser.Email)
+		default:
+			if deleteErr := h.localAuth.DeleteUser(ctx, localUser.ID); deleteErr != nil {
+				slog.Error("Failed to remove local owner account after a failed setup", "id", localUser.ID, "error", deleteErr)
+			}
 		}
 		return err
 	}
 
 	token, expiresAt, err := h.localAuth.StartSession(req.Context(), localUser.ID)
 	if err != nil {
-		// The Owner exists and setup is closed, so the account must stay. The owner can sign in normally.
-		return err
+		slog.Warn("Failed to start a session for the new local owner; sending them to sign in", "userID", user.ID, "error", err)
+		return h.writeLocalOwnerSignIn(req, localUser.Email)
 	}
 	h.localAuth.SetSessionCookie(req.ResponseWriter, token, expiresAt)
 	h.clearBootstrapCookie(req.ResponseWriter)
@@ -97,6 +109,13 @@ func (h *Handler) CreateLocalOwner(req api.Context) error {
 // that work fails after an Owner was recorded, the Owner is kept: deleting the account behind it would
 // close setup with nobody able to sign in.
 func (h *Handler) ensureLocalOwner(req api.Context, email string) (*gatewaytypes.User, error) {
+	existing, err := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, email)
+	if err == nil && existing.DisabledAt != nil {
+		return nil, disabledLocalOwnerError(req, existing.ID)
+	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("failed to look up local owner: %w", err)
+	}
+
 	// EnsureIdentityWithRole raises an existing user's role to Owner and creates a new user as Owner, so the
 	// returned user already has the Owner role.
 	user, err := req.GatewayClient.EnsureIdentityWithRole(
@@ -108,12 +127,34 @@ func (h *Handler) ensureLocalOwner(req api.Context, email string) (*gatewaytypes
 		gateway.UserLimit{Unlimited: true},
 	)
 	if err != nil {
-		existing, lookupErr := req.GatewayClient.UserFromProviderUserID(req.Context(), system.DefaultNamespace, system.LocalAuthProvider, email)
+		var lookupErr error
+		existing, lookupErr = req.GatewayClient.UserFromProviderUserID(context.WithoutCancel(req.Context()), system.DefaultNamespace, system.LocalAuthProvider, email)
 		if lookupErr != nil || !existing.Role.HasRole(types.RoleOwner) {
 			return nil, fmt.Errorf("failed to create local owner: %w", err)
 		}
 		slog.Warn("Local owner was created, but finishing their sign-in failed", "userID", existing.ID, "error", err)
-		return existing, nil
+		requestOwnerRoleChange(context.WithoutCancel(req.Context()), req, existing.ID)
+		user = existing
+	}
+	if user.DisabledAt != nil {
+		// The user was disabled after the check above.
+		return nil, disabledLocalOwnerError(req, user.ID)
 	}
 	return user, nil
+}
+
+// disabledLocalOwnerError rejects an Owner whose email belongs to a disabled user.
+func disabledLocalOwnerError(req api.Context, userID uint) error {
+	slog.Warn("Rejected local owner creation because the user is disabled", "userID", userID)
+	return types.NewErrBadRequest("%s", localized(req, "setup_local_owner_disabled"))
+}
+
+// writeLocalOwnerSignIn answers a setup request whose Owner was recorded but whose browser was not signed in. Setup
+// is closed by then, so the response sends the owner to the local sign-in page.
+func (h *Handler) writeLocalOwnerSignIn(req api.Context, email string) error {
+	h.clearBootstrapCookie(req.ResponseWriter)
+	return req.Write(CreateLocalOwnerResponse{
+		Email:    email,
+		Redirect: localauth.LoginPath + "?rd=" + url.QueryEscape("/admin"),
+	})
 }
