@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 
@@ -25,17 +26,20 @@ func PromoteToOwner(req api.Context, user *gatewaytypes.User) error {
 	}
 	slog.Info("Promoted user to owner", "userID", user.ID)
 
-	// The role change propagates the new role to the rest of the system. A failure here still
-	// leaves a correct role in the database, so it is logged rather than failing the promotion.
-	if err := req.Create(&v1.UserRoleChange{
+	requestOwnerRoleChange(req.Context(), req, user.ID)
+	return nil
+}
+
+// requestOwnerRoleChange creates the UserRoleChange that propagates a new Owner's role to the rest of the
+// system. A failure here still leaves a correct role in the database, so it is logged rather than returned.
+func requestOwnerRoleChange(ctx context.Context, req api.Context, userID uint) {
+	if err := req.Storage.Create(ctx, &v1.UserRoleChange{
 		GenerateName: system.UserRoleChangePrefix,
 		Namespace:    system.DefaultNamespace,
 		Spec: v1.UserRoleChangeSpec{
-			UserID: user.ID,
+			UserID: userID,
 		},
 	}); err != nil {
-		slog.Warn("failed to create user role change for new owner", "userID", user.ID, "error", err)
+		slog.Warn("failed to create user role change for new owner", "userID", userID, "error", err)
 	}
-
-	return nil
 }
