@@ -63,14 +63,14 @@ release:
   make_latest: false
   prerelease: auto
 
-brews:
+homebrew_casks:
   - name: obot
     description: "Obot CLI"
-    install: |
-      bin.install "obot"
+    binaries:
+      - obot
     homepage: "https://github.com/obot-platform/obot"
     skip_upload: auto
-    directory: "Formula"
+    directory: "Casks"
     repository:
       owner: obot-platform
       name: homebrew-tap
