@@ -42,7 +42,7 @@
 	];
 
 	const marks = COMMON_AI_CLIENTS;
-	const installCommand = 'brew install obot-platform/tap/obot';
+	const installCommand = 'brew install --cask obot-platform/tap/obot';
 	const setupCommand = $derived(`obot setup --url ${page.url.origin}`);
 </script>
 
