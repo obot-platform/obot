@@ -12,7 +12,7 @@
 		type APIKeyCreatableCapabilityKey
 	} from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
-	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { notifications, mcpServersAndEntries } from '$lib/stores';
 	import { Check, Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -42,7 +42,7 @@
 	onMount(() => {
 		UserService.listVMCPs({ minimal: true })
 			.then((items) => (vmcps = items))
-			.catch(() => errors.append(m.identity_access_agents_failed_to_load_vmcps()));
+			.catch(() => notifications.add(m.identity_access_agents_failed_to_load_vmcps()));
 	});
 
 	let mcpServers = $derived([

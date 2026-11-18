@@ -5,8 +5,8 @@ import * as navigation from '$lib/navigation';
 import { AdminService, Group, Role } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
+import { notifications } from '$lib/stores';
 import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-import errors from '$lib/stores/errors.svelte';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import {
 	getProfileResponse,
@@ -1220,7 +1220,7 @@ describe('Identity & Access Page', () => {
 					configured: true,
 					entitlementsMissing: false
 				};
-				errors.items = [];
+				notifications.items = [];
 				worker.use(
 					http.post(`/api/auth-providers/${oktaProvider.id}/reveal`, () =>
 						HttpResponse.json(null, { status: 404 })
@@ -1258,7 +1258,7 @@ describe('Identity & Access Page', () => {
 					const box = error.element();
 					expect(box.clientHeight).toBeGreaterThanOrEqual(box.scrollHeight);
 					// The dialog shows the refusal, so it is not also raised behind the dialog.
-					expect(errors.items).toHaveLength(0);
+					expect(notifications.items).toHaveLength(0);
 					await expect
 						.element(dialog.getByLabelText('API Services Client ID', { exact: true }))
 						.toHaveValue('service-client');
@@ -1494,7 +1494,7 @@ describe('Identity & Access Page', () => {
 			// Without the stored configuration, the form would offer SCIM to a provider that chose
 			// Microsoft Graph, and the server would take a confirmation as choosing SCIM.
 			it('does not open the form when its stored configuration cannot be read', async () => {
-				errors.items = [];
+				notifications.items = [];
 				worker.use(
 					http.post(`/api/auth-providers/${entraSCIMProvider.id}/reveal`, () =>
 						HttpResponse.json({ error: 'unavailable' }, { status: 500 })
@@ -1508,13 +1508,13 @@ describe('Identity & Access Page', () => {
 					.getByRole('button', { name: 'Configure', exact: true })
 					.click();
 
-				await vi.waitFor(() => expect(errors.items).toHaveLength(1));
+				await vi.waitFor(() => expect(notifications.items).toHaveLength(1));
 				await expect
 					.element(page.getByLabelText('Tenant ID', { exact: true }))
 					.not.toBeInTheDocument();
 				await expect.element(choiceButton('SCIM')).not.toBeInTheDocument();
 				// The error is not for any other test.
-				errors.items = [];
+				notifications.items = [];
 			});
 
 			it('shows Microsoft Graph as made once Microsoft Entra is configured', async () => {

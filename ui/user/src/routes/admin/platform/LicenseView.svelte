@@ -13,7 +13,7 @@
 	import { getLocale, m } from '$lib/i18n';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService, type License, type SubscriptionStatus } from '$lib/services';
-	import { errors, license as licenseStore, profile, version } from '$lib/stores';
+	import { notifications, license as licenseStore, profile, version } from '$lib/stores';
 	import { emptyLicense } from '$lib/stores/license.svelte';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { validateVersionUserLimit } from '$lib/utils';
@@ -261,11 +261,11 @@
 			// The banners read violations from the version.
 			version.initialize(await UserService.getVersion());
 			if (updated.syncError) {
-				errors.append(m.platform_billing_check_failed({ error: updated.syncError }));
+				notifications.add(m.platform_billing_check_failed({ error: updated.syncError }));
 			}
 		} catch (err) {
 			const error = parseErrorContent(err).message;
-			errors.append(
+			notifications.add(
 				billing
 					? m.platform_billing_check_failed({ error })
 					: m.platform_license_recheck_failed({ error })
@@ -294,7 +294,9 @@
 			// Don't leave a blank tab behind.
 			tab?.close();
 			// Billing's conflict messages are meant to be shown as is.
-			errors.append(m.platform_billing_manage_failed({ error: parseErrorContent(err).message }));
+			notifications.add(
+				m.platform_billing_manage_failed({ error: parseErrorContent(err).message })
+			);
 		}
 		opening = false;
 	}
@@ -326,7 +328,7 @@
 			await AdminService.deleteLicense();
 			reloadPage();
 		} catch (err) {
-			errors.append(m.platform_license_delete_failed({ error: `${err}` }));
+			notifications.add(m.platform_license_delete_failed({ error: `${err}` }));
 		} finally {
 			deleting = false;
 		}

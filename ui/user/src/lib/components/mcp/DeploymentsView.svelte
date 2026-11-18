@@ -35,7 +35,7 @@
 	} from '$lib/services/user/mcpTunnel';
 	import { vmcpInstancePath } from '$lib/services/vmcps/utils';
 	import {
-		errors,
+		notifications,
 		profile,
 		mcpServersAndEntries,
 		mcpTunnelConnections,
@@ -285,7 +285,7 @@
 			})
 			.catch(() => {
 				vmcps = [];
-				errors.append(m.vmcps_failed_to_load_vmcps());
+				notifications.add(m.vmcps_failed_to_load_vmcps());
 			})
 			.finally(() => {
 				loadingVMcps = false;
@@ -725,7 +725,7 @@
 												});
 												await goto(resolve(`/vmcps/${instance.vmcpID}`));
 											} catch {
-												errors.append(m.mcps_deployments_open_vmcp_failed());
+												notifications.add(m.mcps_deployments_open_vmcp_failed());
 											}
 										}}
 									>
@@ -745,7 +745,7 @@
 													resolve(vmcpInstancePath(instance.vmcpID, instance.id) as `/${string}`)
 												);
 											} catch {
-												errors.append(m.mcps_deployments_open_vmcp_deployment_failed());
+												notifications.add(m.mcps_deployments_open_vmcp_deployment_failed());
 											}
 										}}
 									>

@@ -1,7 +1,6 @@
 import { Group } from '$lib/services';
 import { CHAT_COMPLETIONS_ONLY_REQUESTS } from '$lib/services/llm-gateway/providers';
-import { errors } from '$lib/stores';
-import { success } from '$lib/stores/success';
+import { notifications } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
 import ConfigureProviderDialog from './ConfigureProviderDialog.svelte';
@@ -76,7 +75,7 @@ async function renderProviderPage(groups: string[] = [Group.ADMIN], name = 'open
 describe('ConfigureProviderDialog', () => {
 	it('reports a queued Azure refresh without issuing another sync request', async () => {
 		const { synced } = mockProvider({ provider: { ...openai, name: 'azure' }, keys: [] });
-		const notified = vi.spyOn(success, 'add');
+		const notified = vi.spyOn(notifications, 'add');
 		worker.use(
 			http.post('/api/llm-gateway/admin/providers/azure/refresh-models', () =>
 				HttpResponse.json({ status: 'pending' }, { status: 202 })
@@ -84,7 +83,9 @@ describe('ConfigureProviderDialog', () => {
 		);
 		await renderProviderPage([Group.ADMIN], 'azure');
 		await page.getByRole('button', { name: 'Refresh models', exact: true }).click();
-		await vi.waitFor(() => expect(notified).toHaveBeenCalledWith('Model refresh requested.'));
+		await vi.waitFor(() =>
+			expect(notified).toHaveBeenCalledWith('Model refresh requested.', 'success')
+		);
 		expect(synced).not.toHaveBeenCalled();
 		notified.mockRestore();
 	});
@@ -413,12 +414,12 @@ describe('ConfigureProviderDialog', () => {
 				)
 			)
 		);
-		errors.items = [];
+		notifications.items = [];
 		await renderProviderPage();
 
 		await page.getByRole('button', { name: 'Save', exact: true }).click();
-		await vi.waitFor(() => expect(errors.items).toHaveLength(1));
-		expect(errors.items[0].message).toBe('Queue size must be at least the concurrency.');
+		await vi.waitFor(() => expect(notifications.items).toHaveLength(1));
+		expect(notifications.items[0].message).toBe('Queue size must be at least the concurrency.');
 		await expect.element(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
 	});
 

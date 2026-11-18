@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/i18n';
 	import { AdminService, type ProductTelemetryConsent } from '$lib/services';
-	import { productTelemetryConsent } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { productTelemetryConsent, notifications } from '$lib/stores';
 	import { untrack } from 'svelte';
 
 	let {
@@ -39,7 +38,7 @@
 			persistedConsent = savedConsent;
 			selectedConsent = savedConsent;
 			productTelemetryConsent.setConsent(savedConsent);
-			success.add(m.platform_settings_product_analytics_updated());
+			notifications.add(m.platform_settings_product_analytics_updated(), 'success');
 			return true;
 		} catch (_err) {
 			// Keep both the persisted status and unsaved selection so the administrator can retry.

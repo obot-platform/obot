@@ -2,7 +2,7 @@ import { page as appPage } from '$app/state';
 import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
-import { errors, vmcpInstances } from '$lib/stores';
+import { notifications, vmcpInstances } from '$lib/stores';
 import { goto, replaceState } from '$lib/url';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -247,7 +247,7 @@ describe('ConnectVMcp.svelte', () => {
 		const reason =
 			"There isn't room on the plan's hosted MCP server memory for this. Free some up, or ask an owner to change the plan.";
 		worker.use(http.post('/api/vmcp-instances', () => HttpResponse.text(reason, { status: 402 })));
-		errors.items = [];
+		notifications.items = [];
 
 		await renderDialog(vmcp);
 		await page.getByRole('button', { name: 'Test vMCP' }).click();
@@ -255,7 +255,7 @@ describe('ConnectVMcp.svelte', () => {
 
 		await expect.element(page.getByText(reason, { exact: true })).toBeVisible();
 		expect(launch).not.toHaveBeenCalled();
-		expect(errors.items).toHaveLength(0);
+		expect(notifications.items).toHaveLength(0);
 	});
 
 	it('opens the connect dialog and starts setup from Preconfigure when there is no instance', async () => {

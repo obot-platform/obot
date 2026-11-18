@@ -8,7 +8,7 @@
 	import { parseErrorContent } from '$lib/errors';
 	import { m } from '$lib/i18n';
 	import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
-	import { errors, version } from '$lib/stores';
+	import { notifications, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { goto } from '$lib/url';
 	import type { PageData } from './$types';
@@ -78,7 +78,7 @@
 		try {
 			setupTempLoginUrl = await startOwnerTempLogin(localProvider);
 		} catch (err) {
-			errors.append(err);
+			notifications.add(err);
 		}
 	}
 

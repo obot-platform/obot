@@ -1,5 +1,5 @@
 import { Group, type VMCPInstance, type VMCPManifest } from '$lib/services';
-import { errors, mcpServersAndEntries, vmcpInstances } from '$lib/stores';
+import { notifications, mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse, getVersionResponse } from '../../../tests/mocks/data';
@@ -322,7 +322,7 @@ describe('VMcpCard.svelte', () => {
 		worker.use(
 			http.post('/api/vmcps/vmcp-1/trigger-update', () => new HttpResponse(reason, { status: 402 }))
 		);
-		errors.items = [];
+		notifications.items = [];
 
 		await renderCard({
 			groups: [Group.USER],
@@ -334,7 +334,7 @@ describe('VMcpCard.svelte', () => {
 		await page.getByRole('button', { name: 'Update vMCP', exact: true }).click();
 		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
 		await vi.waitFor(() => {
-			expect(errors.items.map((err) => err.message)).toEqual([reason]);
+			expect(notifications.items.map((err) => err.message)).toEqual([reason]);
 		});
 	});
 

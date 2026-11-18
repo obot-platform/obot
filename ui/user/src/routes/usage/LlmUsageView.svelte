@@ -55,7 +55,7 @@
 		type TotalTokenUsage,
 		UserService
 	} from '$lib/services';
-	import { errors, responsive } from '$lib/stores';
+	import { notifications, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName, withDisabledMarker } from '$lib/utils';
 	import { X } from '@lucide/svelte';
@@ -175,7 +175,7 @@
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
-				errors.append(error);
+				notifications.add(error);
 			})
 			.finally(() => {
 				if (!signal.aborted) loadingTotalTokensData = false;
@@ -202,7 +202,7 @@
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
-				errors.append(error);
+				notifications.add(error);
 			});
 	}
 

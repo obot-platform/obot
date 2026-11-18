@@ -1,6 +1,6 @@
 import { page as appPage } from '$app/state';
 import { Group, type MCPCatalogEntry, type VMCP, type VMCPInstance } from '$lib/services';
-import { errors, mcpServersAndEntries, vmcpInstances } from '$lib/stores';
+import { notifications, mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import { getProfileResponse } from '../../tests/mocks/data';
@@ -83,7 +83,7 @@ afterEach(() => {
 		(appPage.url as URL).searchParams.delete(key);
 	}
 	vmcpInstances.current = { items: [], loading: false };
-	errors.items = [];
+	notifications.items = [];
 });
 
 describe('vMCPs Page', () => {
@@ -335,7 +335,7 @@ describe('vMCPs Page', () => {
 			});
 
 			await expect
-				.poll(() => errors.items.map((e) => e.message))
+				.poll(() => notifications.items.map((e) => e.message))
 				.toEqual(['Failed to load vMCPs.']);
 		});
 

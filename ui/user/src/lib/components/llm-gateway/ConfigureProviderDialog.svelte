@@ -28,8 +28,7 @@
 		providerIconClass,
 		providerLabel
 	} from '$lib/services/llm-gateway/providers';
-	import { errors, profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
+	import { notifications, profile } from '$lib/stores';
 	import { resolve } from '$lib/url';
 	import { Pencil, Plus, RefreshCw, Trash2 } from '@lucide/svelte';
 	import { onDestroy, tick } from 'svelte';
@@ -179,14 +178,15 @@
 		try {
 			await updateProvider(name, { subscription_passthrough: allowed });
 			subscriptionPassthrough = allowed;
-			success.add(
+			notifications.add(
 				allowed
 					? isOpenAI
 						? m.models_providers_chatgpt_subscriptions_allowed()
 						: m.models_providers_subscriptions_allowed()
 					: isOpenAI
 						? m.models_providers_chatgpt_subscriptions_turned_off()
-						: m.models_providers_subscriptions_turned_off()
+						: m.models_providers_subscriptions_turned_off(),
+				'success'
 			);
 		} finally {
 			savingSubscriptions = false;
@@ -289,13 +289,13 @@
 				{ removeKeys, dontLogErrors: true }
 			);
 			responsesAPI = servesResponses(provider);
-			success.add(m.models_providers_settings_saved());
+			notifications.add(m.models_providers_settings_saved(), 'success');
 			if (removeKeys) await loadKeys();
 			saved = true;
 		} catch (e) {
 			// The gateway calls the queue size the buffer size; use the field's name instead.
 			const { message } = parseErrorContent(e);
-			errors.append(
+			notifications.add(
 				/concurrency must be less than or equal to buffer size/i.test(message)
 					? new Error(m.models_providers_queue_size_too_small())
 					: e
@@ -311,10 +311,11 @@
 		try {
 			const result = await refreshProviderModels(name);
 			if (result?.status !== 'pending') await syncModels();
-			success.add(
+			notifications.add(
 				result?.status === 'pending'
 					? m.models_providers_models_refresh_requested()
-					: m.models_providers_models_refreshed()
+					: m.models_providers_models_refreshed(),
+				'success'
 			);
 			void loadModelsAfterSync();
 		} finally {
@@ -746,7 +747,7 @@
 	baseProvider={base}
 	existingKeyNames={allKeyNames}
 	onSaved={async () => {
-		success.add(m.models_providers_key_saved());
+		notifications.add(m.models_providers_key_saved(), 'success');
 		await loadKeys();
 		await syncModels().catch(() => {});
 		void loadModelsAfterSync();
@@ -788,7 +789,7 @@
 			return;
 		}
 		deleting = false;
-		success.add(m.models_providers_removed({ name: label }));
+		notifications.add(m.models_providers_removed({ name: label }), 'success');
 		dialog?.close();
 	}}
 	oncancel={() => (deleting = false)}

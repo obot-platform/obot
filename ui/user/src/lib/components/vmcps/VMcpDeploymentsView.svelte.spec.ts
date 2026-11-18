@@ -1,5 +1,5 @@
 import { Group, type VMCPInstance } from '$lib/services';
-import { errors } from '$lib/stores';
+import { notifications } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
@@ -30,7 +30,7 @@ function configurableVMcp() {
 
 describe('VMcpDeploymentsView.svelte', () => {
 	afterEach(() => {
-		errors.items = [];
+		notifications.items = [];
 	});
 
 	it('lets the instance owner edit configuration when required fields are missing', async () => {
@@ -103,7 +103,7 @@ describe('VMcpDeploymentsView.svelte', () => {
 		await page.getByRole('button', { name: 'Actions for Everything vMCP' }).first().click();
 		await page.getByRole('button', { name: 'Edit Configuration', exact: true }).click();
 		await vi.waitFor(() =>
-			expect(errors.items.map((item) => item.message)).toContain('Failed to load vMCP.')
+			expect(notifications.items.map((item) => item.message)).toContain('Failed to load vMCP.')
 		);
 		await expect.element(page.getByCSS('input[name="API token"]')).not.toBeInTheDocument();
 		await expect.element(page.getByCSS('input[name="API_TOKEN"]')).not.toBeInTheDocument();

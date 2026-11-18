@@ -6,9 +6,8 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { m } from '$lib/i18n';
 	import { AdminService, type AppNotification, type BannerType } from '$lib/services';
-	import { profile, appNotification as appNotificationStore } from '$lib/stores';
+	import { profile, appNotification as appNotificationStore, notifications } from '$lib/stores';
 	import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
-	import { success } from '$lib/stores/success';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -132,7 +131,7 @@
 			persisted = next;
 			appNotification = withBanner(response);
 			appNotificationStore.initialize(response);
-			success.add(m.platform_settings_notifications_updated());
+			notifications.add(m.platform_settings_notifications_updated(), 'success');
 			return true;
 		} catch (_err) {
 			// errors are surfaced via the global HTTP error handling (errors store)

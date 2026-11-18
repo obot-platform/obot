@@ -42,7 +42,7 @@
 		topToolCallsFromStats
 	} from '$lib/services/dashboard/utils';
 	import { getMCPDisplayName } from '$lib/services/user/mcp';
-	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { notifications, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { resolve } from '$lib/url';
 	import {
 		Activity,
@@ -139,7 +139,7 @@
 			})
 			.catch((error) => {
 				if (error?.name === 'AbortError') return;
-				errors.append(error);
+				notifications.add(error);
 			})
 			.finally(() => {
 				loadingToolUsage = false;
@@ -152,7 +152,7 @@
 				})
 				.catch((error) => {
 					if (error?.name === 'AbortError') return;
-					errors.append(error);
+					notifications.add(error);
 				})
 				.finally(() => {
 					loadingDeviceScanStats = false;
