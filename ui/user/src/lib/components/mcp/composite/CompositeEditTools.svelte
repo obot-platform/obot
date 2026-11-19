@@ -89,20 +89,25 @@
 	let initialConfigState = $state<string>('');
 
 	let actionableTools = $derived(tools.filter((tool) => !tool.removed));
-	let allToolsEnabled = $derived(
-		actionableTools.length > 0 && actionableTools.every((tool) => tool.enabled)
-	);
 	let configuringEntryDeprecated = $derived(isDeprecatedMCPServer(configuringEntry));
 
-	let visibleTools = $derived.by(() => {
+	const containsSearchQuery = (tool: CompositeServerToolRow) => {
 		const query = search.toLowerCase();
-		const matched = tools.filter(
-			(tool) =>
-				tool.name?.toLowerCase().includes(query) ||
-				tool.overrideName?.toLowerCase().includes(query) ||
-				tool.description?.toLowerCase().includes(query) ||
-				tool.overrideDescription?.toLowerCase().includes(query)
+		return (
+			tool.name?.toLowerCase().includes(query) ||
+			tool.overrideName?.toLowerCase().includes(query) ||
+			tool.description?.toLowerCase().includes(query) ||
+			tool.overrideDescription?.toLowerCase().includes(query)
 		);
+	};
+	let toggleScopeTools = $derived(
+		search ? actionableTools.filter(containsSearchQuery) : actionableTools
+	);
+	let allScopeToolsEnabled = $derived(
+		toggleScopeTools.length > 0 && toggleScopeTools.every((tool) => tool.enabled)
+	);
+	let visibleTools = $derived.by(() => {
+		const matched = tools.filter(containsSearchQuery);
 		const available: CompositeServerToolRow[] = [];
 		const removed: CompositeServerToolRow[] = [];
 		for (const tool of matched) {
@@ -214,7 +219,7 @@
 		: m.mcps_composite_configure_tools_title({
 				name: name ?? configuringEntry?.manifest?.name ?? m.mcps_server_fallback_name()
 			})}
-	class="bg-base-200 md:max-w-(--breakpoint-xl)"
+	class="bg-base-200 md:max-w-(--breakpoint-xl) md:h-[90dvh] md:max-h-[90dvh] md:overflow-y-hidden"
 	classes={{ content: 'p-0', header: 'p-4 pb-0' }}
 	onClickOutside={handleClose}
 >
@@ -231,7 +236,7 @@
 			{m.mcps_composite_tools_description()}
 		{/if}
 	</p>
-	<div class="relative flex flex-col gap-2 overflow-x-hidden p-4">
+	<div class="relative flex flex-col grow gap-2 overflow-x-hidden p-4">
 		<div class="flex w-full justify-end items-center pr-2.5 gap-1">
 			{#if additionalActions && !readonly}
 				<div>
@@ -241,11 +246,11 @@
 			{/if}
 			<div id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsToggleAll}>
 				<Toggle
-					checked={allToolsEnabled}
-					disabled={readonly || actionableTools.length === 0}
+					checked={allScopeToolsEnabled}
+					disabled={readonly || toggleScopeTools.length === 0}
 					onChange={(checked) => {
 						if (readonly) return;
-						for (const tool of actionableTools) tool.enabled = checked;
+						for (const tool of toggleScopeTools) tool.enabled = checked;
 					}}
 					label={m.mcps_composite_enable_all_tools()}
 					labelInline
@@ -383,7 +388,7 @@
 			</div>
 		{/each}
 	</div>
-	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
+	<div class="bg-base-200 sticky bottom-0 left-0 flex w-full justify-end gap-2 p-4">
 		<div class="flex gap-2 items-center">
 			<button class="btn btn-secondary" onclick={handleCancel}
 				>{readonly ? m.core_close() : m.common_cancel()}</button
